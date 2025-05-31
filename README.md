@@ -1,490 +1,300 @@
-# 🧠 Zephyr-Mind AI Toolkit
+# 🧠 Zephyr-Mind
 
-A powerful, production-ready AI toolkit extracted from the lighthouse project, providing unified multi-provider AI integration with automatic fallback, streaming support, and extensible tool system.
+[![npm version](https://badge.fury.io/js/zephyr-mind.svg)](https://badge.fury.io/js/zephyr-mind)
+[![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## 🎯 What is Zephyr-Mind?
+> Production-ready AI toolkit with multi-provider support, automatic fallback, and full TypeScript integration.
 
-Zephyr-Mind is a standalone SvelteKit library that packages the proven AI functionality from lighthouse into a reusable toolkit. It provides a clean, unified interface for working with multiple AI providers while handling complexities like automatic fallback, streaming responses, and provider-specific configurations.
+**Zephyr-Mind** provides a unified interface for AI providers (OpenAI, Amazon Bedrock, Google Vertex AI) with intelligent fallback, streaming support, and type-safe APIs. Extracted from production use at Juspay.
 
-### **Core Philosophy**
-- **Provider Agnostic**: Works with Bedrock, OpenAI, Google Vertex AI
-- **Fault Tolerant**: Automatic fallback when providers fail
-- **Production Ready**: Extracted from working production code
-- **Developer Friendly**: Clean APIs with full TypeScript support
+## Quick Start
 
-## 🚀 Key Features
-
-### **🔄 Multi-Provider Support**
-- **Amazon Bedrock**: Claude 3.5 Sonnet, Claude 3.7 Sonnet
-- **OpenAI**: GPT-4o, GPT-4o Mini
-- **Google Vertex AI**: Claude 4.0 Sonnet, Gemini 2.5 Flash
-- **Automatic Fallback**: If one provider fails, automatically try the next
-
-### **📡 Streaming & Non-Streaming**
-- **Real-time Streaming**: Server-Sent Events for live responses
-- **Standard Generation**: Traditional request-response for simple use cases
-- **Unified API**: Same interface for both modes
-
-### **🛠️ Tool Integration**
-- **Extensible Registry**: Register custom tools and functions
-- **Type-Safe**: Full TypeScript support for tool definitions
-- **Simple Integration**: Easy to add new capabilities
-
-### **⚡ Developer Experience**
-- **SvelteKit Library**: Modern build tooling with Vite
-- **TypeScript First**: Complete type safety and IntelliSense
-- **Environment Ready**: Pre-configured for common deployment scenarios
-- **Test Endpoint**: Built-in API route for testing functionality
-
-## 🎮 Use Cases
-
-### **1. Chat Applications**
-```typescript
-import { generateStreamingResponse } from 'zephyr-mind';
-
-const response = await generateStreamingResponse("Hello, how are you?");
-// Handle streaming response for real-time chat
+```bash
+npm install zephyr-mind ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
 ```
 
-### **2. Content Generation**
 ```typescript
-import { generateTextResponse } from 'zephyr-mind';
+import { createBestAIProvider } from 'zephyr-mind';
 
-const result = await generateTextResponse("Write a product description for a coffee mug");
-console.log(result.text); // Generated content
-```
-
-### **3. Multi-Project Integration**
-```typescript
-// Same AI functionality across different projects
-import { generateStreamingResponse, AIProviderName } from 'zephyr-mind';
-
-// Use in web app
-const webResponse = await generateStreamingResponse(prompt);
-
-// Use in API service
-const apiResponse = await generateStreamingResponse(prompt, {
-  providers: [{ provider: AIProviderName.BEDROCK, models: ['claude-3-7-sonnet'] }]
+// Auto-selects best available provider
+const provider = createBestAIProvider();
+const result = await provider.generateText({
+  prompt: "Hello, AI!"
 });
+
+console.log(result.text);
 ```
 
-### **4. Fallback-Critical Applications**
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Basic Usage](#basic-usage)
+- [Framework Integration](#framework-integration)
+  - [SvelteKit](#sveltekit)
+  - [Next.js](#nextjs)
+  - [Express.js](#expressjs)
+  - [React Hook](#react-hook)
+- [API Reference](#api-reference)
+- [Provider Configuration](#provider-configuration)
+- [Advanced Patterns](#advanced-patterns)
+- [Error Handling](#error-handling)
+- [Performance](#performance)
+- [Contributing](#contributing)
+
+## Features
+
+🔄 **Multi-Provider Support** - OpenAI, Amazon Bedrock, Google Vertex AI
+⚡ **Automatic Fallback** - Seamless provider switching on failures
+📡 **Streaming & Non-Streaming** - Real-time responses and standard generation
+🎯 **TypeScript First** - Full type safety and IntelliSense support
+🛡️ **Production Ready** - Extracted from proven production systems
+🔧 **Zero Config** - Works out of the box with environment variables
+
+## Installation
+
+### Package Installation
+```bash
+# npm
+npm install zephyr-mind ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
+
+# yarn
+yarn add zephyr-mind ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
+
+# pnpm (recommended)
+pnpm add zephyr-mind ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
+```
+
+### Environment Setup
+```bash
+# Choose one or more providers
+export OPENAI_API_KEY="sk-your-openai-key"
+export AWS_ACCESS_KEY_ID="your-aws-key"
+export AWS_SECRET_ACCESS_KEY="your-aws-secret"
+export GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account.json"
+```
+
+## Basic Usage
+
+### Simple Text Generation
 ```typescript
-// Automatic provider fallback for high-availability systems
-const response = await generateStreamingResponse("Critical business query", {
-  providers: [
-    { provider: 'bedrock', models: ['claude-3-7-sonnet'] },    // Primary
-    { provider: 'openai', models: ['gpt-4o'] },                // Fallback 1
-    { provider: 'vertex', models: ['gemini-2.5-flash'] }       // Fallback 2
-  ]
+import { createBestAIProvider } from 'zephyr-mind';
+
+const provider = createBestAIProvider();
+
+// Basic generation
+const result = await provider.generateText({
+  prompt: "Explain TypeScript generics",
+  temperature: 0.7,
+  maxTokens: 500
 });
+
+console.log(result.text);
+console.log(`Used: ${result.provider}`);
 ```
 
-## 📦 Installation
-
-```bash
-# Using npm
-npm install zephyr-mind
-
-# Using pnpm (recommended)
-pnpm add zephyr-mind
-
-# Using yarn
-yarn add zephyr-mind
-```
-
-### **Peer Dependencies**
-Zephyr-Mind requires these peer dependencies:
-
-```bash
-pnpm add ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
-```
-
-## ⚙️ Configuration
-
-### **1. Environment Setup**
-Copy the environment template and configure your API keys:
-
-```bash
-cp node_modules/zephyr-mind/.env.example .env
-```
-
-### **2. Required Environment Variables**
-
-```bash
-# Provider Selection
-AI_DEFAULT_PROVIDER="bedrock"
-AI_FALLBACK_PROVIDER="vertex"
-
-# OpenAI Configuration
-OPENAI_API_KEY="your_openai_api_key"
-
-# Google Vertex AI
-GOOGLE_VERTEX_PROJECT="your-gcp-project"
-GOOGLE_VERTEX_LOCATION="us-east5"
-
-# Amazon Bedrock
-AWS_ACCESS_KEY_ID="your_aws_key"
-AWS_SECRET_ACCESS_KEY="your_aws_secret"
-AWS_REGION="us-east-2"
-```
-
-### **3. Provider Authentication**
-
-#### **Bedrock Setup**
-```bash
-# AWS credentials via environment
-export AWS_ACCESS_KEY_ID="your_key"
-export AWS_SECRET_ACCESS_KEY="your_secret"
-export AWS_REGION="us-east-2"
-```
-
-#### **OpenAI Setup**
-```bash
-# OpenAI API key
-export OPENAI_API_KEY="sk-your_key_here"
-```
-
-#### **Vertex AI Setup**
-```bash
-# Google Cloud credentials
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
-export GOOGLE_VERTEX_PROJECT="your-project-id"
-```
-
-## 📖 API Reference
-
-### **generateStreamingResponse(prompt, options)**
-Generates a streaming AI response with automatic provider fallback.
-
+### Streaming Responses
 ```typescript
-import { generateStreamingResponse } from 'zephyr-mind';
+import { createBestAIProvider } from 'zephyr-mind';
 
-const response = await generateStreamingResponse(
-  "Explain quantum computing",
-  {
-    providers: [
-      { provider: 'bedrock', models: ['claude-3-7-sonnet'] },
-      { provider: 'openai', models: ['gpt-4o'] }
-    ],
-    temperature: 0.7,
-    maxTokens: 2048
-  }
-);
+const provider = createBestAIProvider();
 
-// Handle streaming response
-const reader = response.body?.getReader();
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
+const result = await provider.streamText({
+  prompt: "Write a story about AI",
+  temperature: 0.8,
+  maxTokens: 1000
+});
 
-  const chunk = new TextDecoder().decode(value);
-  console.log(chunk); // Stream chunks
+// Handle streaming chunks
+for await (const chunk of result.textStream) {
+  process.stdout.write(chunk);
 }
 ```
 
-### **generateTextResponse(prompt, options)**
-Generates a standard (non-streaming) AI response.
-
+### Provider Selection
 ```typescript
-import { generateTextResponse } from 'zephyr-mind';
+import { AIProviderFactory } from 'zephyr-mind';
 
-const result = await generateTextResponse(
-  "Summarize this article: ...",
-  {
-    providers: [{ provider: 'vertex', models: ['claude-4.0-sonnet'] }],
-    temperature: 0.3
-  }
+// Use specific provider
+const openai = AIProviderFactory.createProvider('openai', 'gpt-4o');
+const bedrock = AIProviderFactory.createProvider('bedrock', 'claude-3-7-sonnet');
+
+// With fallback
+const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
+  'bedrock', 'openai'
 );
-
-if (result.success) {
-  console.log(result.text);
-  console.log(`Used: ${result.provider}:${result.model}`);
-} else {
-  console.error(result.error);
-}
 ```
 
-### **AIProviderFactory**
-Advanced provider management for custom configurations.
+## Framework Integration
 
+### SvelteKit
+
+#### API Route (`src/routes/api/chat/+server.ts`)
 ```typescript
-import { AIProviderFactory, AIProviderName } from 'zephyr-mind';
-
-const provider = AIProviderFactory.createProviderWithModel(
-  AIProviderName.BEDROCK,
-  'claude-3-7-sonnet'
-);
-
-const result = await provider.streamText("Custom provider usage");
-```
-
-### **Tool Registration**
-Extend functionality with custom tools.
-
-```typescript
-import { initializeTools } from 'zephyr-mind';
-
-const customTools = [
-  {
-    name: 'weather',
-    description: 'Get weather information',
-    handler: async (location: string) => {
-      // Custom tool implementation
-      return `Weather in ${location}: Sunny, 72°F`;
-    }
-  }
-];
-
-initializeTools(customTools);
-```
-
-## 🧪 Testing Your Setup
-
-### **1. Using the Built-in Test Endpoint**
-If using as a SvelteKit library in your project:
-
-```bash
-# Start development server
-pnpm dev
-
-# Test the API endpoint
-curl -X POST http://localhost:5173/api/test \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Hello, Zephyr-Mind!"}'
-```
-
-### **2. Programmatic Testing**
-
-```typescript
-import { generateTextResponse } from 'zephyr-mind';
-
-async function testZephyrMind() {
-  try {
-    const result = await generateTextResponse("Test prompt");
-    console.log("✅ Zephyr-Mind is working:", result.text);
-  } catch (error) {
-    console.error("❌ Setup issue:", error);
-  }
-}
-
-testZephyrMind();
-```
-
-## 🏗️ Integration Examples
-
-### **SvelteKit Integration**
-```typescript
-// src/routes/api/chat/+server.ts
-import { generateStreamingResponse } from 'zephyr-mind';
+import { createBestAIProvider } from 'zephyr-mind';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
-  const { message } = await request.json();
-  return await generateStreamingResponse(message);
+  try {
+    const { message } = await request.json();
+
+    const provider = createBestAIProvider();
+    const result = await provider.streamText({
+      prompt: message,
+      temperature: 0.7,
+      maxTokens: 1000
+    });
+
+    return new Response(result.toReadableStream(), {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache'
+      }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
 };
 ```
 
-### **Express.js Integration**
-```typescript
-import express from 'express';
-import { generateTextResponse } from 'zephyr-mind';
+#### Svelte Component (`src/routes/chat/+page.svelte`)
+```svelte
+<script lang="ts">
+  let message = '';
+  let response = '';
+  let isLoading = false;
 
-const app = express();
+  async function sendMessage() {
+    if (!message.trim()) return;
 
-app.post('/ai/generate', async (req, res) => {
-  const { prompt } = req.body;
-  const result = await generateTextResponse(prompt);
-  res.json(result);
-});
+    isLoading = true;
+    response = '';
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+
+      if (!res.body) throw new Error('No response');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        response += decoder.decode(value, { stream: true });
+      }
+    } catch (error) {
+      response = `Error: ${error.message}`;
+    } finally {
+      isLoading = false;
+    }
+  }
+</script>
+
+<div class="chat">
+  <input bind:value={message} placeholder="Ask something..." />
+  <button on:click={sendMessage} disabled={isLoading}>
+    {isLoading ? 'Sending...' : 'Send'}
+  </button>
+
+  {#if response}
+    <div class="response">{response}</div>
+  {/if}
+</div>
 ```
 
-### **Next.js API Route**
-```typescript
-// pages/api/ai.ts
-import { generateStreamingResponse } from 'zephyr-mind';
+### Next.js
 
-export default async function handler(req, res) {
-  if (req.method === 'POST') {
-    const { prompt } = req.body;
-    const response = await generateStreamingResponse(prompt);
-    return response;
+#### App Router API (`app/api/ai/route.ts`)
+```typescript
+import { createBestAIProvider } from 'zephyr-mind';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    const { prompt, ...options } = await request.json();
+
+    const provider = createBestAIProvider();
+    const result = await provider.generateText({
+      prompt,
+      temperature: 0.7,
+      maxTokens: 1000,
+      ...options
+    });
+
+    return NextResponse.json({
+      text: result.text,
+      provider: result.provider,
+      usage: result.usage
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
   }
 }
 ```
 
-## 🔧 Advanced Configuration
-
-### **Custom Provider Configurations**
+#### React Component (`components/AIChat.tsx`)
 ```typescript
-import { generateStreamingResponse, AIProviderName } from 'zephyr-mind';
-
-const customConfig = {
-  providers: [
-    {
-      provider: AIProviderName.BEDROCK,
-      models: ['claude-3-7-sonnet', 'claude-3-5-sonnet']
-    },
-    {
-      provider: AIProviderName.OPENAI,
-      models: ['gpt-4o']
-    }
-  ],
-  temperature: 0.8,
-  maxTokens: 4096,
-  systemPrompt: "You are a helpful AI assistant."
-};
-
-const response = await generateStreamingResponse("Your prompt", customConfig);
-```
-
-### **Environment-Based Provider Selection**
-```typescript
-// Automatically choose providers based on environment
-const isDevelopment = process.env.NODE_ENV === 'development';
-
-const providers = isDevelopment
-  ? [{ provider: 'openai', models: ['gpt-4o-mini'] }]  // Cheaper for dev
-  : [{ provider: 'bedrock', models: ['claude-3-7-sonnet'] }]; // Production
-
-const response = await generateStreamingResponse(prompt, { providers });
-```
-
-## 🚨 Troubleshooting
-
-### **Common Issues**
-
-#### **"Provider authentication failed"**
-- Verify API keys are set correctly
-- Check AWS credentials for Bedrock
-- Ensure Google Cloud authentication for Vertex
-
-#### **"No providers available"**
-- At least one provider must be configured
-- Check environment variables
-- Verify API keys have proper permissions
-
-#### **"Streaming response failed"**
-- Ensure proper CORS headers if using from browser
-- Check network connectivity
-- Verify model names are correct
-
-### **Debug Mode**
-Enable verbose logging:
-
-```typescript
-// Set environment variable
-process.env.ZEPHYR_MIND_DEBUG = 'true';
-
-// Or in code
-import { generateStreamingResponse } from 'zephyr-mind';
-
-const response = await generateStreamingResponse(prompt, {
-  debug: true  // Enables detailed logging
-});
-```
-
-## 📊 Performance & Limits
-
-### **Provider Limits**
-- **Bedrock**: Varies by model and region
-- **OpenAI**: Rate limits based on tier
-- **Vertex AI**: Quota-based limits
-
-### **Optimization Tips**
-1. **Use appropriate models**: Claude 3.5 Sonnet for quality, GPT-4o Mini for speed
-2. **Configure fallbacks**: Always have backup providers
-3. **Set reasonable maxTokens**: Avoid unnecessary costs
-4. **Cache responses**: For repeated queries
-
-## 🤝 Contributing
-
-This package extracts functionality from lighthouse. To contribute:
-
-1. **Test thoroughly**: Ensure compatibility with lighthouse
-2. **Maintain API consistency**: Don't break existing interfaces
-3. **Document changes**: Update README and tracker
-4. **Follow conventions**: Match existing code style
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
-## 🔗 Related Projects
-
-- **Lighthouse**: Original source of AI functionality
-- **Vercel AI SDK**: Underlying provider implementations
-- **SvelteKit**: Framework and build tooling
-
----
-
-**Built with ❤️ by Juspay Technologies**
+'use client';
 import { useState } from 'react';
-
-interface ChatResponse {
-  text: string;
-  provider: string;
-  model: string;
-}
 
 export default function AIChat() {
   const [prompt, setPrompt] = useState('');
-  const [response, setResponse] = useState<ChatResponse | null>(null);
+  const [result, setResult] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  const sendMessage = async () => {
+  const generate = async () => {
     if (!prompt.trim()) return;
 
     setLoading(true);
     try {
-      const res = await fetch('/api/ai', {
+      const response = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          temperature: 0.8,
-          maxTokens: 500
-        })
+        body: JSON.stringify({ prompt })
       });
 
-      const data = await res.json();
-      if (res.ok) {
-        setResponse(data);
-      } else {
-        throw new Error(data.error);
-      }
+      const data = await response.json();
+      setResult(data.text);
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      setResult(`Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto p-4">
-      <div className="flex gap-2 mb-4">
+    <div className="space-y-4">
+      <div className="flex gap-2">
         <input
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Enter your prompt..."
           className="flex-1 p-2 border rounded"
-          disabled={loading}
         />
         <button
-          onClick={sendMessage}
-          disabled={loading || !prompt.trim()}
+          onClick={generate}
+          disabled={loading}
           className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
         >
-          {loading ? 'Sending...' : 'Send'}
+          {loading ? 'Generating...' : 'Generate'}
         </button>
       </div>
 
-      {response && (
-        <div className="border rounded p-4">
-          <div className="text-sm text-gray-500 mb-2">
-            Provider: {response.provider} | Model: {response.model}
-          </div>
-          <div className="whitespace-pre-wrap">{response.text}</div>
+      {result && (
+        <div className="p-4 bg-gray-100 rounded">
+          {result}
         </div>
       )}
     </div>
@@ -492,76 +302,21 @@ export default function AIChat() {
 }
 ```
 
-### **Express.js Integration**
+### Express.js
 
-#### **Complete Server Setup**
 ```typescript
 import express from 'express';
-import cors from 'cors';
 import { createBestAIProvider, AIProviderFactory } from 'zephyr-mind';
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
-// Simple text generation
+// Simple generation endpoint
 app.post('/api/generate', async (req, res) => {
   try {
     const { prompt, options = {} } = req.body;
 
     const provider = createBestAIProvider();
-    const result = await provider.generateText({
-      prompt,
-      temperature: options.temperature ?? 0.7,
-      maxTokens: options.maxTokens ?? 1000
-    });
-
-    res.json({
-      success: true,
-      text: result.text,
-      provider: result.provider,
-      usage: result.usage
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Streaming response
-app.post('/api/stream', async (req, res) => {
-  try {
-    const { prompt, options = {} } = req.body;
-
-    const provider = createBestAIProvider();
-    const result = await provider.streamText({
-      prompt,
-      temperature: options.temperature ?? 0.7,
-      maxTokens: options.maxTokens ?? 1000
-    });
-
-    res.setHeader('Content-Type', 'text/plain');
-    res.setHeader('Cache-Control', 'no-cache');
-
-    for await (const chunk of result.textStream) {
-      res.write(chunk);
-    }
-
-    res.end();
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Provider selection endpoint
-app.post('/api/generate/:provider', async (req, res) => {
-  try {
-    const { provider: providerName } = req.params;
-    const { prompt, model, options = {} } = req.body;
-
-    const provider = AIProviderFactory.createProvider(providerName, model);
     const result = await provider.generateText({
       prompt,
       ...options
@@ -570,8 +325,7 @@ app.post('/api/generate/:provider', async (req, res) => {
     res.json({
       success: true,
       text: result.text,
-      provider: providerName,
-      model: model || 'default'
+      provider: result.provider
     });
   } catch (error) {
     res.status(500).json({
@@ -581,27 +335,40 @@ app.post('/api/generate/:provider', async (req, res) => {
   }
 });
 
+// Streaming endpoint
+app.post('/api/stream', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+
+    const provider = createBestAIProvider();
+    const result = await provider.streamText({ prompt });
+
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Cache-Control', 'no-cache');
+
+    for await (const chunk of result.textStream) {
+      res.write(chunk);
+    }
+    res.end();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(3000, () => {
-  console.log('AI Server running on http://localhost:3000');
+  console.log('Server running on http://localhost:3000');
 });
 ```
 
-### **React Hook for Easy Integration**
+### React Hook
+
 ```typescript
-// hooks/useAI.ts
 import { useState, useCallback } from 'react';
 
 interface AIOptions {
   temperature?: number;
   maxTokens?: number;
   provider?: string;
-  model?: string;
-}
-
-interface AIResponse {
-  text: string;
-  provider: string;
-  model: string;
 }
 
 export function useAI() {
@@ -611,7 +378,7 @@ export function useAI() {
   const generate = useCallback(async (
     prompt: string,
     options: AIOptions = {}
-  ): Promise<AIResponse | null> => {
+  ) => {
     setLoading(true);
     setError(null);
 
@@ -622,16 +389,15 @@ export function useAI() {
         body: JSON.stringify({ prompt, ...options })
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'AI request failed');
+        throw new Error(`Request failed: ${response.statusText}`);
       }
 
-      return data;
+      const data = await response.json();
+      return data.text;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(message);
       return null;
     } finally {
       setLoading(false);
@@ -641,114 +407,376 @@ export function useAI() {
   return { generate, loading, error };
 }
 
-// Usage in React component:
-// const { generate, loading, error } = useAI();
-// const result = await generate("What is AI?", { temperature: 0.8 });
+// Usage
+function MyComponent() {
+  const { generate, loading, error } = useAI();
+
+  const handleClick = async () => {
+    const result = await generate("Explain React hooks", {
+      temperature: 0.7,
+      maxTokens: 500
+    });
+    console.log(result);
+  };
+
+  return (
+    <button onClick={handleClick} disabled={loading}>
+      {loading ? 'Generating...' : 'Generate'}
+    </button>
+  );
+}
 ```
 
-## 🔧 Advanced Configuration
+## API Reference
 
-### **Custom Provider Configurations**
+### Core Functions
+
+#### `createBestAIProvider(requestedProvider?, modelName?)`
+Creates the best available AI provider based on environment configuration.
+
 ```typescript
-import { generateStreamingResponse, AIProviderName } from 'zephyr-mind';
+const provider = createBestAIProvider();
+const provider = createBestAIProvider('openai'); // Prefer OpenAI
+const provider = createBestAIProvider('bedrock', 'claude-3-7-sonnet');
+```
 
-const customConfig = {
-  providers: [
-    {
-      provider: AIProviderName.BEDROCK,
-      models: ['claude-3-7-sonnet', 'claude-3-5-sonnet']
-    },
-    {
-      provider: AIProviderName.OPENAI,
-      models: ['gpt-4o']
-    }
-  ],
-  temperature: 0.8,
-  maxTokens: 4096,
-  systemPrompt: "You are a helpful AI assistant."
+#### `createAIProviderWithFallback(primary, fallback, modelName?)`
+Creates a provider with automatic fallback.
+
+```typescript
+const { primary, fallback } = createAIProviderWithFallback('bedrock', 'openai');
+
+try {
+  const result = await primary.generateText({ prompt });
+} catch {
+  const result = await fallback.generateText({ prompt });
+}
+```
+
+### AIProviderFactory
+
+#### `createProvider(providerName, modelName?)`
+Creates a specific provider instance.
+
+```typescript
+const openai = AIProviderFactory.createProvider('openai', 'gpt-4o');
+const bedrock = AIProviderFactory.createProvider('bedrock', 'claude-3-7-sonnet');
+const vertex = AIProviderFactory.createProvider('vertex', 'gemini-2.5-flash');
+```
+
+### Provider Interface
+
+All providers implement the same interface:
+
+```typescript
+interface AIProvider {
+  generateText(options: GenerateTextOptions): Promise<GenerateTextResult>;
+  streamText(options: StreamTextOptions): Promise<StreamTextResult>;
+}
+
+interface GenerateTextOptions {
+  prompt: string;
+  temperature?: number;
+  maxTokens?: number;
+  systemPrompt?: string;
+}
+
+interface GenerateTextResult {
+  text: string;
+  provider: string;
+  model: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+```
+
+### Supported Models
+
+#### OpenAI
+- `gpt-4o` (default)
+- `gpt-4o-mini`
+- `gpt-4-turbo`
+
+#### Amazon Bedrock
+- `claude-3-7-sonnet` (default)
+- `claude-3-5-sonnet`
+- `claude-3-haiku`
+
+#### Google Vertex AI
+- `gemini-2.5-flash` (default)
+- `claude-4.0-sonnet`
+
+## Provider Configuration
+
+### OpenAI Setup
+```bash
+export OPENAI_API_KEY="sk-your-key-here"
+```
+
+### Amazon Bedrock Setup
+```bash
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+export AWS_REGION="us-east-1"
+```
+
+### Google Vertex AI Setup
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
+export GOOGLE_VERTEX_PROJECT="your-project-id"
+export GOOGLE_VERTEX_LOCATION="us-central1"
+```
+
+### Environment Variables Reference
+```bash
+# Provider selection (optional)
+AI_DEFAULT_PROVIDER="bedrock"
+AI_FALLBACK_PROVIDER="openai"
+
+# Debug mode
+ZEPHYR_MIND_DEBUG="true"
+```
+
+## Advanced Patterns
+
+### Custom Configuration
+```typescript
+import { AIProviderFactory } from 'zephyr-mind';
+
+// Environment-based provider selection
+const isDev = process.env.NODE_ENV === 'development';
+const provider = isDev
+  ? AIProviderFactory.createProvider('openai', 'gpt-4o-mini') // Cheaper for dev
+  : AIProviderFactory.createProvider('bedrock', 'claude-3-7-sonnet'); // Production
+
+// Multiple providers for different use cases
+const providers = {
+  creative: AIProviderFactory.createProvider('openai', 'gpt-4o'),
+  analytical: AIProviderFactory.createProvider('bedrock', 'claude-3-7-sonnet'),
+  fast: AIProviderFactory.createProvider('vertex', 'gemini-2.5-flash')
 };
 
-const response = await generateStreamingResponse("Your prompt", customConfig);
+async function generateCreativeContent(prompt: string) {
+  return await providers.creative.generateText({
+    prompt,
+    temperature: 0.9,
+    maxTokens: 2000
+  });
+}
 ```
 
-### **Environment-Based Provider Selection**
+### Response Caching
 ```typescript
-// Automatically choose providers based on environment
-const isDevelopment = process.env.NODE_ENV === 'development';
+const cache = new Map<string, { text: string; timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-const providers = isDevelopment
-  ? [{ provider: 'openai', models: ['gpt-4o-mini'] }]  // Cheaper for dev
-  : [{ provider: 'bedrock', models: ['claude-3-7-sonnet'] }]; // Production
+async function cachedGenerate(prompt: string) {
+  const key = prompt.toLowerCase().trim();
+  const cached = cache.get(key);
 
-const response = await generateStreamingResponse(prompt, { providers });
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return { ...cached, fromCache: true };
+  }
+
+  const provider = createBestAIProvider();
+  const result = await provider.generateText({ prompt });
+
+  cache.set(key, { text: result.text, timestamp: Date.now() });
+  return { text: result.text, fromCache: false };
+}
 ```
 
-## 🚨 Troubleshooting
-
-### **Common Issues**
-
-#### **"Provider authentication failed"**
-- Verify API keys are set correctly
-- Check AWS credentials for Bedrock
-- Ensure Google Cloud authentication for Vertex
-
-#### **"No providers available"**
-- At least one provider must be configured
-- Check environment variables
-- Verify API keys have proper permissions
-
-#### **"Streaming response failed"**
-- Ensure proper CORS headers if using from browser
-- Check network connectivity
-- Verify model names are correct
-
-### **Debug Mode**
-Enable verbose logging:
-
+### Batch Processing
 ```typescript
-// Set environment variable
-process.env.ZEPHYR_MIND_DEBUG = 'true';
+async function processBatch(prompts: string[]) {
+  const provider = createBestAIProvider();
+  const chunkSize = 5;
+  const results = [];
 
-// Or in code
-import { generateStreamingResponse } from 'zephyr-mind';
+  for (let i = 0; i < prompts.length; i += chunkSize) {
+    const chunk = prompts.slice(i, i + chunkSize);
 
-const response = await generateStreamingResponse(prompt, {
-  debug: true  // Enables detailed logging
-});
+    const chunkResults = await Promise.allSettled(
+      chunk.map(prompt => provider.generateText({ prompt, maxTokens: 500 }))
+    );
+
+    results.push(...chunkResults);
+
+    // Rate limiting
+    if (i + chunkSize < prompts.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+
+  return results.map((result, index) => ({
+    prompt: prompts[index],
+    success: result.status === 'fulfilled',
+    result: result.status === 'fulfilled' ? result.value : result.reason
+  }));
+}
 ```
 
-## 📊 Performance & Limits
+## Error Handling
 
-### **Provider Limits**
-- **Bedrock**: Varies by model and region
-- **OpenAI**: Rate limits based on tier
-- **Vertex AI**: Quota-based limits
+### Comprehensive Error Handling
+```typescript
+import { createBestAIProvider } from 'zephyr-mind';
 
-### **Optimization Tips**
-1. **Use appropriate models**: Claude 3.5 Sonnet for quality, GPT-4o Mini for speed
-2. **Configure fallbacks**: Always have backup providers
-3. **Set reasonable maxTokens**: Avoid unnecessary costs
-4. **Cache responses**: For repeated queries
+async function robustGenerate(prompt: string, maxRetries = 3) {
+  let attempt = 0;
 
-## 🤝 Contributing
+  while (attempt < maxRetries) {
+    try {
+      const provider = createBestAIProvider();
+      return await provider.generateText({ prompt });
+    } catch (error) {
+      attempt++;
+      console.error(`Attempt ${attempt} failed:`, error.message);
 
-This package extracts functionality from lighthouse. To contribute:
+      if (attempt >= maxRetries) {
+        throw new Error(`Failed after ${maxRetries} attempts: ${error.message}`);
+      }
 
-1. **Test thoroughly**: Ensure compatibility with lighthouse
-2. **Maintain API consistency**: Don't break existing interfaces
-3. **Document changes**: Update README and tracker
-4. **Follow conventions**: Match existing code style
+      // Exponential backoff
+      await new Promise(resolve =>
+        setTimeout(resolve, Math.pow(2, attempt) * 1000)
+      );
+    }
+  }
+}
+```
 
-## 📄 License
+### Provider Fallback
+```typescript
+async function generateWithFallback(prompt: string) {
+  const providers = ['bedrock', 'openai', 'vertex'];
 
-MIT License - see LICENSE file for details.
+  for (const providerName of providers) {
+    try {
+      const provider = AIProviderFactory.createProvider(providerName);
+      return await provider.generateText({ prompt });
+    } catch (error) {
+      console.warn(`${providerName} failed:`, error.message);
 
-## 🔗 Related Projects
+      if (error.message.includes('API key') || error.message.includes('credentials')) {
+        console.log(`${providerName} not configured, trying next...`);
+        continue;
+      }
+    }
+  }
 
-- **Lighthouse**: Original source of AI functionality
-- **Vercel AI SDK**: Underlying provider implementations
-- **SvelteKit**: Framework and build tooling
+  throw new Error('All providers failed or are not configured');
+}
+```
+
+### Common Error Types
+```typescript
+// Provider not configured
+if (error.message.includes('API key')) {
+  console.error('Provider API key not set');
+}
+
+// Rate limiting
+if (error.message.includes('rate limit')) {
+  console.error('Rate limit exceeded, implement backoff');
+}
+
+// Model not available
+if (error.message.includes('model')) {
+  console.error('Requested model not available');
+}
+
+// Network issues
+if (error.message.includes('network') || error.message.includes('timeout')) {
+  console.error('Network connectivity issue');
+}
+```
+
+## Performance
+
+### Optimization Tips
+
+1. **Choose Right Models for Use Case**
+   ```typescript
+   // Fast responses for simple tasks
+   const fast = AIProviderFactory.createProvider('vertex', 'gemini-2.5-flash');
+
+   // High quality for complex tasks
+   const quality = AIProviderFactory.createProvider('bedrock', 'claude-3-7-sonnet');
+
+   // Cost-effective for development
+   const dev = AIProviderFactory.createProvider('openai', 'gpt-4o-mini');
+   ```
+
+2. **Streaming for Long Responses**
+   ```typescript
+   // Use streaming for better UX on long content
+   const result = await provider.streamText({
+     prompt: "Write a detailed article...",
+     maxTokens: 2000
+   });
+   ```
+
+3. **Appropriate Token Limits**
+   ```typescript
+   // Set reasonable limits to control costs
+   const result = await provider.generateText({
+     prompt: "Summarize this text",
+     maxTokens: 150 // Just enough for a summary
+   });
+   ```
+
+### Provider Limits
+- **OpenAI**: Rate limits based on tier (TPM/RPM)
+- **Bedrock**: Regional quotas and model availability
+- **Vertex AI**: Project-based quotas and rate limits
+
+## Contributing
+
+We welcome contributions! Here's how to get started:
+
+### Development Setup
+```bash
+git clone https://github.com/juspay/zephyr-mind
+cd zephyr-mind
+pnpm install
+```
+
+### Running Tests
+```bash
+pnpm test        # Run all tests
+pnpm test:watch  # Watch mode
+pnpm test:coverage # Coverage report
+```
+
+### Building
+```bash
+pnpm build       # Build the library
+pnpm check       # Type checking
+pnpm lint        # Lint code
+```
+
+### Guidelines
+- Follow existing TypeScript patterns
+- Add tests for new features
+- Update documentation
+- Ensure all providers work consistently
+
+## License
+
+MIT © [Juspay Technologies](https://juspay.in)
+
+## Related Projects
+
+- [Vercel AI SDK](https://github.com/vercel/ai) - Underlying provider implementations
+- [SvelteKit](https://kit.svelte.dev) - Web framework
+- [Lighthouse](https://github.com/juspay/lighthouse) - Original source project
 
 ---
 
-**Built with ❤️ by Juspay Technologies**
+<p align="center">
+  <strong>Built with ❤️ by <a href="https://juspay.in">Juspay Technologies</a></strong>
+</p>
