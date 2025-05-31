@@ -1,0 +1,81 @@
+{
+	"name": "zephyr-mind",
+	"version": "1.0.0",
+	"description": "AI toolkit extracted from lighthouse with multi-provider support",
+	"author": "Juspay Technologies",
+	"license": "MIT",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build && npm run prepack",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"prepack": "svelte-kit sync && svelte-package && publint",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"test": "vitest",
+		"test:run": "vitest run",
+		"lint": "prettier --check . && eslint .",
+		"format": "prettier --write ."
+	},
+	"files": [
+		"dist",
+		"!dist/**/*.test.*",
+		"!dist/**/*.spec.*"
+	],
+	"sideEffects": [
+		"**/*.css"
+	],
+	"svelte": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"type": "module",
+	"main": "./dist/index.js",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"svelte": "./dist/index.js",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"peerDependencies": {
+		"ai": "^4.0.0",
+		"@ai-sdk/amazon-bedrock": "^1.0.0",
+		"@ai-sdk/openai": "^1.0.0",
+		"@ai-sdk/google-vertex": "^1.0.0",
+		"zod": "^3.22.0"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-auto": "^6.0.0",
+		"@sveltejs/kit": "^2.16.0",
+		"@sveltejs/package": "^2.0.0",
+		"@sveltejs/vite-plugin-svelte": "^5.0.0",
+		"@types/node": "^20.0.0",
+		"eslint": "^9.0.0",
+		"prettier": "^3.0.0",
+		"publint": "^0.3.2",
+		"svelte": "^5.0.0",
+		"svelte-check": "^4.0.0",
+		"tslib": "^2.4.1",
+		"typescript": "^5.0.0",
+		"vite": "^6.2.6",
+		"vitest": "^2.0.0"
+	},
+	"keywords": [
+		"ai",
+		"llm",
+		"openai",
+		"anthropic",
+		"google",
+		"bedrock",
+		"vertex",
+		"streaming",
+		"tools",
+		"juspay",
+		"svelte"
+	],
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild"
+		]
+	}
+}
