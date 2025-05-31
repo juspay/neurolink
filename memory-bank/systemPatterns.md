@@ -1,6 +1,10 @@
 # SYSTEM PATTERNS: Zephyr-Mind AI Toolkit
 
 ## Architecture Overview
+
+**Source Origin**: Extracted from `/Users/sachinsharma/Developer/Official/lighthouse/src/lib/services/server/ai/`
+**Extraction Date**: May 31, 2025
+**Original Components**: Orchestrator, Factory, Provider implementations, Utilities, Tools
 ```mermaid
 graph TD
     A[AIProviderFactory] --> B[Provider Selection Logic]
