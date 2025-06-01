@@ -1,199 +1,146 @@
-# SYSTEM PATTERNS: Zephyr-Mind AI Toolkit
+# Zephyr-Mind System Patterns
 
-## Architecture Overview
+## Architectural Overview
 
-**Source Origin**: Extracted from `/Users/sachinsharma/Developer/Official/lighthouse/src/lib/services/server/ai/`
-**Extraction Date**: May 31, 2025
-**Original Components**: Orchestrator, Factory, Provider implementations, Utilities, Tools
-```mermaid
-graph TD
-    A[AIProviderFactory] --> B[Provider Selection Logic]
-    B --> C[OpenAI Provider]
-    B --> D[Amazon Bedrock Provider]
-    B --> E[Google Vertex AI Provider]
+The Zephyr-Mind toolkit follows a structured architecture based on the following principles:
 
-    F[providerUtils] --> B
-    G[Environment Validation] --> B
+1. **Interface-Driven Design**: All providers implement a common interface
+2. **Factory Pattern**: Providers are created through factory methods
+3. **Strategy Pattern**: Different providers can be selected at runtime
+4. **Adapter Pattern**: Each provider adapts its specific API to our common interface
+5. **Singleton Pattern**: Provider instances are reused when possible
 
-    C --> H[AI SDK Integration]
-    D --> H
-    E --> H
+## Core Components
 
-    H --> I[Streaming Response]
-    H --> J[Error Handling]
-    H --> K[Type Safety]
+### 1. AIProvider Interface
 
-    L[Main Export] --> A
-    L --> F
-    L --> M[Type Definitions]
-```
-
-## Core Design Patterns
-
-### 1. Factory Pattern
-**Implementation**: `AIProviderFactory` class
-**Purpose**: Centralized provider creation with intelligent selection
-**Key Benefits**:
-- Single entry point for all provider creation
-- Environment-based automatic selection
-- Consistent initialization across providers
+The central interface that all providers implement:
 
 ```typescript
-// Pattern Usage
-const provider = AIProviderFactory.createBestProvider();
-const { primary, fallback } = AIProviderFactory.createProviderWithFallback('bedrock', 'openai');
+interface AIProvider {
+  generateText(options: GenerateTextOptions): Promise<GenerateTextResult>;
+  streamText(options: StreamTextOptions): Promise<StreamTextResult>;
+}
 ```
 
-### 2. Provider Abstraction Pattern
-**Implementation**: Common `AIProvider` interface
-**Purpose**: Unified API across different AI services
-**Key Components**:
-- Consistent method signatures
-- Standardized error handling
-- Uniform streaming support
+### 2. Provider Implementations
 
-### 3. Environment-Driven Configuration
-**Pattern**: Configuration via environment variables
-**Files**: `.env.example` template
-**Validation**: Runtime checks in provider utils
-**Fallback**: Graceful degradation when providers unavailable
+Each provider implements the AIProvider interface:
 
-### 4. Error Boundary Pattern
-**Implementation**: Comprehensive error handling in factory
-**Features**:
-- Provider availability checking
-- Clear error messages with suggestions
-- Graceful fallback between providers
-
-## Component Relationships
-
-### Core Components
-1. **Factory Layer**: `src/lib/core/factory.ts`
-   - Provider creation and selection
-   - Environment validation
-   - Error handling and fallback
-
-2. **Type Layer**: `src/lib/core/types.ts`
-   - TypeScript interfaces and types
-   - Model definitions and enums
-   - Configuration schemas
-
-3. **Provider Layer**: `src/lib/providers/`
-   - Individual provider implementations
-   - AI SDK integrations
-   - Provider-specific error handling
-
-4. **Utility Layer**: `src/lib/utils/`
-   - Provider selection logic
-   - Environment validation
-   - Helper functions
-
-### Data Flow
-```mermaid
-sequenceDiagram
-    participant User
-    participant Factory
-    participant Utils
-    participant Provider
-    participant AISDK
-
-    User->>Factory: createBestProvider()
-    Factory->>Utils: getAvailableProviders()
-    Utils->>Factory: ['bedrock', 'openai']
-    Factory->>Provider: new BedrockProvider()
-    Provider->>AISDK: initialize with config
-    AISDK->>Provider: provider instance
-    Provider->>Factory: configured provider
-    Factory->>User: AIProvider instance
+```
+- OpenAI
+- AmazonBedrock
+- GoogleVertexAI
 ```
 
-## Critical Implementation Paths
+### 3. Factory
 
-### 1. Provider Selection Algorithm
-**Location**: `src/lib/utils/providerUtils.ts`
-**Logic**:
-1. Check environment variables for each provider
-2. Validate credentials are present
-3. Return prioritized list of available providers
-4. Default order: Bedrock → OpenAI → Vertex AI
+The AIProviderFactory creates and manages provider instances:
 
-### 2. Streaming Implementation
-**Pattern**: Consistent streaming across all providers
-**Key Files**:
-- Each provider implements streaming via AI SDK
-- Unified streaming interface in types
-- Error handling for stream failures
-
-### 3. Type Safety Strategy
-**Approach**: Full TypeScript coverage
-**Components**:
-- Strict interfaces for all providers
-- Model name enums for type safety
-- Configuration type validation
-
-## Build and Distribution Patterns
-
-### Package Structure
-```
-zephyr-mind/
-├── src/lib/               # Source code
-│   ├── core/             # Core abstractions
-│   ├── providers/        # Provider implementations
-│   ├── utils/           # Utility functions
-│   └── index.ts         # Main exports
-├── dist/                # Compiled JavaScript
-├── tests/               # Test suite
-└── memory-bank/         # Documentation (Jarvis)
+```typescript
+class AIProviderFactory {
+  static createProvider(providerName: string, modelName?: string): AIProvider;
+  static createBestProvider(requestedProvider?: string, modelName?: string): AIProvider;
+  static createProviderWithFallback(primary: string, fallback: string, modelName?: string): {
+    primary: AIProvider;
+    fallback: AIProvider;
+  };
+}
 ```
 
-### Export Strategy
-**Main Export**: Clean, minimal API surface
-**Pattern**: Named exports with type exports
-**Convenience Functions**: Quick-start helpers
+### 4. Utility Functions
 
-### Dependency Management
-**Peer Dependencies**: AI SDKs (user provides)
-**Dev Dependencies**: Build tools, testing, linting
-**Runtime**: Zero runtime dependencies beyond peer deps
+Public utility functions for easier usage:
 
-## Performance Considerations
+```typescript
+export function createBestAIProvider(requestedProvider?: string, modelName?: string): AIProvider;
+export function createAIProviderWithFallback(primary: string, fallback: string, modelName?: string): {
+  primary: AIProvider;
+  fallback: AIProvider;
+};
+```
 
-### Lazy Loading
-- Providers only initialized when needed
-- Environment checks cached
-- Minimal startup overhead
+## Data Flow
 
-### Memory Management
-- No persistent state in providers
-- Clean error boundaries
-- Proper resource cleanup
+### Text Generation Flow
 
-### Error Resilience
-- Network failure handling
-- Provider fallback mechanisms
-- Clear error messages with recovery guidance
+```
+User → AIProviderFactory → Provider → AI Service → Response → User
+```
 
-## Security Patterns
+1. User requests text generation
+2. AIProviderFactory creates or reuses provider instance
+3. Provider transforms request to provider-specific format
+4. Provider sends request to AI service
+5. Provider transforms response to common format
+6. Response is returned to user
 
-### Credential Management
-- Environment-based configuration
-- No hardcoded secrets
-- User-provided API keys
+### Fallback Flow
 
-### Validation
-- Input sanitization
-- Environment variable validation
-- Provider availability checks
+```
+User → Primary Provider → [Error] → Fallback Provider → Response → User
+```
 
-## Testing Strategy
+1. User requests text generation with fallback
+2. Primary provider attempts request
+3. If error occurs, fallback provider is used
+4. Fallback provider processes request
+5. Response is returned to user
 
-### Test Structure
-**Location**: `src/test/providers.test.ts`
-**Coverage**: 10 comprehensive tests
-**Approach**: Unit tests for core functionality
+## Provider Selection Logic
 
-### Test Patterns
-- Provider creation testing
-- Error condition simulation
-- Environment validation testing
-- Factory method verification
+The best provider is selected based on the following priorities:
+
+1. Explicitly requested provider (if specified)
+2. Environment variable `AI_DEFAULT_PROVIDER` (if set)
+3. Available providers in this order:
+   - Amazon Bedrock (if AWS credentials available)
+   - OpenAI (if API key available)
+   - Google Vertex AI (if credentials available)
+4. If no providers are available, an error is thrown
+
+## Error Handling Patterns
+
+1. **Provider-Level Error Handling**:
+   - Each provider handles provider-specific errors
+   - Errors are translated to common error formats
+   - Detailed error information is preserved
+
+2. **Factory-Level Error Handling**:
+   - Factory detects missing credentials and configuration
+   - Factory handles provider creation failures
+   - Factory implements fallback mechanisms
+
+3. **User-Level Error Handling**:
+   - Clear error messages for common issues
+   - Error types for programmatic handling
+   - Examples for proper error handling in documentation
+
+## Configuration Patterns
+
+1. **Environment Variables**:
+   - Provider API keys and credentials
+   - Default provider selection
+   - Debug mode
+
+2. **Runtime Configuration**:
+   - Model selection
+   - Generation parameters (temperature, max tokens, etc.)
+   - Provider-specific options
+
+## Testing Patterns
+
+1. **Unit Testing**:
+   - Each provider is tested in isolation
+   - Mock responses for AI services
+   - Error scenarios are tested
+
+2. **Integration Testing**:
+   - Factory methods are tested with mock providers
+   - Provider selection logic is tested
+   - Fallback mechanisms are tested
+
+3. **End-to-End Testing**:
+   - Real API calls with test credentials
+   - Success and failure scenarios
+   - Performance testing

@@ -1,92 +1,117 @@
-# PRODUCT CONTEXT: Zephyr-Mind AI Toolkit
+# Zephyr-Mind Product Context
+
+## Purpose
+Zephyr-Mind addresses the challenge of integrating AI capabilities into applications by providing a unified, reliable interface across multiple AI providers. It eliminates the complexity of managing different provider APIs, handling errors, and implementing fallback mechanisms.
 
 ## Problem Statement
-**Core Problem**: Developers building AI applications face complexity when integrating multiple AI providers, lack fallback mechanisms, and struggle with provider-specific implementations.
+Developers face several challenges when integrating AI into their applications:
 
-**Pain Points Solved:**
-1. **Provider Lock-in**: Applications tied to single AI provider (OpenAI, Bedrock, etc.)
-2. **Reliability Issues**: No fallback when primary provider fails or has outages
-3. **Implementation Complexity**: Each provider has different APIs and patterns
-4. **Type Safety**: Lack of TypeScript support across providers
-5. **Environment Management**: Complex credential and configuration setup
-6. **Consistency**: Inconsistent error handling and response formats
+1. **Provider Lock-in**: Relying on a single AI provider creates dependency risks
+2. **API Inconsistency**: Each provider has different API patterns and requirements
+3. **Error Handling**: AI services can fail in various ways (rate limits, downtime, etc.)
+4. **Framework Integration**: Integrating AI with web frameworks requires boilerplate code
+5. **TypeScript Support**: Many AI libraries lack proper TypeScript definitions
+6. **Streaming Support**: Implementing streaming responses is complex and provider-specific
 
-## User Experience Design
-**Target Developer Experience:**
+## Solution
+Zephyr-Mind solves these problems through:
+
+1. **Provider Abstraction**: Common interface across OpenAI, Bedrock, and Vertex AI
+2. **Automatic Fallback**: Seamlessly switch between providers on failures
+3. **Consistent API**: Same patterns regardless of the underlying provider
+4. **TypeScript First**: Full type safety with IntelliSense support
+5. **Production Ready**: Extracted from proven production systems at Juspay
+6. **Framework Integration**: Examples for popular frameworks (SvelteKit, Next.js, etc.)
+
+## User Experience Goals
+1. **Simple Integration**: Minimal code required to start using AI capabilities
+2. **Reliable Operation**: No single point of failure with provider fallbacks
+3. **Consistent Patterns**: Same code patterns across different providers
+4. **Clear Documentation**: Easy-to-follow examples for common use cases
+5. **Type Safety**: Catch errors at compile time with TypeScript
+
+## Target Audience
+1. **Web/App Developers**: Building applications with AI features
+2. **Enterprise Developers**: Needing reliable AI services with fallbacks
+3. **Startups**: Experimenting with AI capabilities in their products
+4. **Open Source Contributors**: Building on top of the toolkit
+
+## User Scenarios
+
+### Scenario 1: Simple Text Generation
+A developer wants to add a simple Q&A feature to their application:
 ```typescript
-// Simple - Single provider
-const provider = createAIProvider('bedrock');
+import { createBestAIProvider } from 'zephyr-mind';
 
-// Advanced - With fallback
-const { primary, fallback } = createAIProviderWithFallback('bedrock', 'openai');
-
-// Automatic - Best available
 const provider = createBestAIProvider();
+const result = await provider.generateText({
+  prompt: "What is TypeScript?",
+  temperature: 0.7
+});
 
-// Use consistently across all providers
-const response = await provider.generateText({ prompt: "Hello", maxTokens: 100 });
+console.log(result.text);
 ```
 
-**Key UX Principles:**
-- **Simplicity**: One-line provider creation
-- **Reliability**: Automatic fallback without code changes
-- **Consistency**: Same API across all providers
-- **Type Safety**: Full TypeScript support with IntelliSense
-- **Transparency**: Clear error messages and provider selection
+### Scenario 2: Streaming Responses
+A developer wants to show AI responses as they're generated:
+```typescript
+import { createBestAIProvider } from 'zephyr-mind';
 
-## Value Proposition
-**For Individual Developers:**
-- Reduce AI integration time from days to hours
-- Built-in reliability with automatic fallback
-- Type-safe development experience
-- Proven patterns from production use
+const provider = createBestAIProvider();
+const result = await provider.streamText({
+  prompt: "Write a story about AI"
+});
 
-**For Development Teams:**
-- Standardized AI integration patterns
-- Reduced vendor lock-in risk
-- Consistent error handling and logging
-- Easier testing and development
+for await (const chunk of result.textStream) {
+  // Update UI with each chunk
+  appendToResponse(chunk);
+}
+```
 
-**For Applications:**
-- Improved uptime through provider redundancy
-- Cost optimization through provider switching
-- Future-proof architecture
-- Simplified maintenance
+### Scenario 3: Multiple Providers
+A developer wants to use different providers for different purposes:
+```typescript
+import { AIProviderFactory } from 'zephyr-mind';
 
-## Use Cases
-**Primary Use Cases:**
-1. **Multi-Provider Applications**: Apps using multiple AI services
-2. **High Availability Systems**: Applications requiring AI service redundancy
-3. **AI Development Tools**: Tools that need consistent AI interface
-4. **Production AI Apps**: Applications requiring reliable AI functionality
+// Creative writing with OpenAI
+const creative = AIProviderFactory.createProvider('openai');
 
-**Implementation Patterns:**
-- **Chat Applications**: Consistent chat interface across providers
-- **Content Generation**: Fallback for content creation services
-- **AI-Powered APIs**: Backend services with AI capabilities
-- **Development Tools**: IDEs and tools with AI features
+// Analytical tasks with Anthropic
+const analytical = AIProviderFactory.createProvider('bedrock');
 
-## Business Context
-**Origin**: Extracted from Juspay's lighthouse project (proven in production)
-**License**: MIT (open source)
-**Distribution**: NPM package for easy installation
-**Maintenance**: Community-driven with Juspay backing
+// Cost-effective with Vertex AI
+const affordable = AIProviderFactory.createProvider('vertex');
+```
 
-**Success Metrics:**
-- NPM download count
-- GitHub stars and community engagement
-- Production usage reports
-- Developer satisfaction feedback
+### Scenario 4: Fallback Mechanism
+A developer wants reliability through provider fallbacks:
+```typescript
+import { AIProviderFactory } from 'zephyr-mind';
+
+const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
+  'bedrock', 'openai'
+);
+
+try {
+  const result = await primary.generateText({ prompt });
+  // Use result
+} catch (error) {
+  console.log("Primary provider failed, using fallback");
+  const fallbackResult = await fallback.generateText({ prompt });
+  // Use fallbackResult
+}
+```
 
 ## Competitive Landscape
-**Advantages over Direct Provider SDKs:**
-- Multi-provider abstraction
-- Built-in fallback mechanisms
-- Consistent TypeScript experience
-- Production-proven patterns
+- **Vercel AI SDK**: Low-level SDK for AI providers
+- **Langchain.js**: More complex with chains and agents
+- **LlamaIndex.js**: Focused on vector search and retrieval
+- **OpenAI SDK**: Provider-specific without fallback
+- **Anthropic SDK**: Provider-specific without fallback
 
-**Advantages over Custom Solutions:**
-- Ready-to-use implementation
-- Comprehensive error handling
-- Type safety out of the box
-- Maintained and tested codebase
+## Unique Selling Points
+1. **Multi-Provider First**: Built from the ground up for multiple providers
+2. **Production Ready**: Battle-tested in real applications
+3. **Zero Overhead**: Minimal abstractions for maximum performance
+4. **TypeScript First**: Type safety throughout
+5. **Framework Agnostic**: Works with any JavaScript framework

@@ -621,6 +621,39 @@ async function processBatch(prompts: string[]) {
 
 ## Error Handling
 
+### Troubleshooting Common Issues
+
+#### AWS Credentials and Authorization
+```
+ValidationException: Your account is not authorized to invoke this API operation.
+```
+- **Cause**: The AWS account doesn't have access to Bedrock or the specific model
+- **Solution**:
+  - Verify your AWS account has Bedrock enabled
+  - Check model availability in your AWS region
+  - Ensure your IAM role has `bedrock:InvokeModel` permissions
+
+#### Missing or Invalid Credentials
+```
+Error: Cannot find API key for OpenAI provider
+```
+- **Cause**: The environment variable for API credentials is missing
+- **Solution**: Set the appropriate environment variable (OPENAI_API_KEY, etc.)
+
+#### Google Vertex Import Issues
+```
+Cannot find package '@google-cloud/vertexai' imported from...
+```
+- **Cause**: Missing Google Vertex AI peer dependency
+- **Solution**: Install the package with `npm install @google-cloud/vertexai`
+
+#### Session Token Expired
+```
+The security token included in the request is expired
+```
+- **Cause**: AWS session token has expired
+- **Solution**: Generate new AWS credentials with a fresh session token
+
 ### Comprehensive Error Handling
 ```typescript
 import { createBestAIProvider } from 'zephyr-mind';

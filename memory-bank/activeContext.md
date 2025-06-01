@@ -1,111 +1,73 @@
-# ACTIVE CONTEXT: Zephyr-Mind AI Toolkit
+# Zephyr-Mind Active Context
 
-## Current Focus
-**PRIMARY OBJECTIVE**: Publish Zephyr-Mind to npm and fix test environment issues
-**SESSION DATE**: June 1, 2025, 9:57 AM IST
-**MODE**: Test environment setup and npm publication preparation
+## Current Development Focus
+As of June 1, 2025, we are focused on the following areas:
 
-## Immediate Status
-**CURRENT TASK**: Phase 2 (Publication & Validation) in progress
-**PROGRESS**:
-- ✅ Git repository setup complete
-- ✅ Memory bank system fully established
-- ✅ Comprehensive roadmap created
-- ✅ .clinerules created
-- ✅ Test environment fixed with proper mocks
-- ✅ All tests passing (10/10)
-- ✅ Pre-publication verification complete
-- ✅ GitHub community files added
-- ✅ Repository enhancement script created
+1. **Documentation Improvements**: Enhancing error handling documentation and troubleshooting guides
+2. **Bug Fixes**: Addressing issues with Google Vertex AI provider and its imports
+3. **Version Management**: Released version 1.0.1 with documentation updates
+4. **Testing**: Validating the published npm package functionality
 
-**NEXT STEP**: Complete npm publication process
+## Recent Changes
 
-## Recent Changes Made
-1. ✅ **Roadmap Created**: Comprehensive `roadmap.md` with 6 phases
-   - All completed work documented
-   - Clear next steps for publication
-   - Success metrics and KPIs defined
+### Version 1.0.1 (2025-06-01)
+- ✅ Added troubleshooting section to README with common error patterns
+- ✅ Added detailed AWS credential and authorization error documentation
+- ✅ Added section on missing or invalid credentials
+- ✅ Added section on session token expiration
+- ✅ Added section on Google Vertex import issues
+- ✅ Improved error handling documentation
 
-2. ✅ **.clinerules Created**: Project rules and patterns documented
-   - Provider patterns
-   - Test environment setup requirements
-   - TypeScript conventions
-   - Error handling standards
-   - Logging patterns
+### Project Setup
+- ✅ Initialized memory bank with comprehensive documentation
+- ✅ Created detailed project documentation structure
+- ✅ Set up basic project architecture
+- ✅ Configured package for npm publication
+- ✅ Published initial 1.0.0 version to npm
 
-3. ✅ **Tests Fixed**: All provider tests now passing
-   - Fixed mocking of AmazonBedrock provider by ensuring `createAmazonBedrock` returns a function
-   - Properly mocked environment variables for all providers
-   - Ensured OpenAI, Bedrock, and Vertex AI tests are passing
-   - All factory tests now working properly
-   - 10/10 tests passing successfully
+## Known Issues
 
-4. ✅ **GitHub Repository Enhancement**:
-   - Added issue templates for bug reports and feature requests
-   - Created PR template with checklist and guidelines
-   - Added CONTRIBUTING.md with development workflow
-   - Added CODE_OF_CONDUCT.md based on Contributor Covenant
-   - Created script for updating GitHub repository settings
+1. **Google Vertex AI Anthropic Import**:
+   - The `@ai-sdk/google-vertex/anthropic` module is imported but not exported by the package
+   - This causes runtime errors when importing the package
+   - Current workaround: Install `@google-cloud/vertexai` and patch the code
+   - Long-term solution: Update the provider to gracefully handle missing imports
 
-## Active Decisions
-**TEST MOCKING STRATEGY**: ✅ Implemented provider mocks to avoid requiring real API keys
-**ENVIRONMENT VARIABLE HANDLING**: ✅ Mock environment variables set in test files
-**GIT BRANCH STRATEGY**: Using 'release' as the default branch (no 'main')
-**PUBLICATION APPROACH**: Prepare package for npm publication (ready to proceed)
-**COMMUNITY STANDARDS**: Added standard GitHub community files based on best practices
+2. **AWS Bedrock Authorization**:
+   - Users may encounter "Your account is not authorized to invoke this API operation" errors
+   - Need to clarify documentation on AWS account setup and permissions
 
-## Immediate Next Steps
-1. ✅ **Fix Provider Tests**:
-   - ✅ Implemented mocks for OpenAI provider
-   - ✅ Implemented mocks for Bedrock provider with proper function returning
-   - ✅ Implemented mocks for Vertex AI provider
-   - ✅ Updated test environment setup
+## Next Steps
 
-2. ✅ **Prepare for NPM Publication**:
-   - ✅ Verified build process works correctly
-   - ✅ Ensured TypeScript definitions are generated
-   - ✅ Checked package.json configuration
-   - ⏳ Set up npm credentials
+1. **Fix Google Vertex AI Provider**:
+   - Update the provider to handle missing imports gracefully
+   - Add try/catch blocks around problematic imports
+   - Create a fallback mechanism for unsupported features
 
-3. ✅ **GitHub Repository Finalization**:
-   - ✅ Added issue/PR templates
-   - ✅ Added CONTRIBUTING.md and CODE_OF_CONDUCT.md
-   - ✅ Created repository settings update script
-   - ⏳ Execute repository settings update script with token
+2. **Enhance Error Documentation**:
+   - Add more examples of error handling patterns
+   - Create a detailed troubleshooting guide
+   - Document all common error scenarios
 
-4. ⏳ **NPM Publication**:
-   - Login to npm
-   - Publish package
-   - Verify installation
+3. **Testing Improvements**:
+   - Add tests for error scenarios
+   - Improve mocking of provider errors
+   - Add integration tests for fallback mechanisms
 
-## Context for Future Sessions
-**PROJECT STATE**: The library is production-ready with documentation complete
-**ROADMAP STATUS**: Phase 1 (Foundation) is 100% complete, Phase 2 (Publication & Validation) is 50% complete
-**TEST STATUS**: All tests are now passing with mocked providers
-**PUBLICATION STATUS**: Ready for npm publication (tests passing, documentation complete)
-**COMMUNITY READINESS**: Community files in place (issue templates, contributing guide, code of conduct)
+4. **Documentation Enhancements**:
+   - Create interactive examples in documentation
+   - Add more framework integration examples
+   - Improve API reference documentation
 
-## Current Working State
-**PROJECT LOCATION**: `/Users/sachinsharma/Developer/Official/zephyr-mind/`
-**GIT STATUS**: Repository initialized, tests fixed, community files added, all committed and pushed to GitHub
-**MEMORY BANK STATUS**: All core files created and updated with latest status
-**BUILD STATUS**: Package builds successfully and all tests pass
-**COMMUNITY STATUS**: All standard GitHub community files added
+## Current Priorities
+1. ⭐ Fix Google Vertex AI provider import issues
+2. ⭐ Enhance error handling mechanisms
+3. ⭐ Improve test coverage for error scenarios
+4. ⭐ Update documentation with more examples
 
-## Key Files Recently Modified
-- `src/test/providers.test.ts` - Fixed provider mocks to pass all tests
-- `memory-bank/roadmap.md` - Updated with Phase 2 progress (25% complete)
-- `.github/ISSUE_TEMPLATE/` - Added bug report and feature request templates
-- `.github/PULL_REQUEST_TEMPLATE.md` - Added PR template with checklist
-- `CONTRIBUTING.md` - Added contributing guidelines and development workflow
-- `CODE_OF_CONDUCT.md` - Added code of conduct for the community
-- `scripts/update-github-repo.sh` - Created script for GitHub repository settings
-- `memory-bank/activeContext.md` - This file, updated with current context
-
-## Environment Context
-**DEVELOPMENT ENVIRONMENT**: macOS with pnpm package manager
-**IDE**: VSCode with README.md, memory-bank files, and community files open
-**GIT STATE**: Repository on 'release' branch, community files added and pushed to GitHub
-**PROJECT STATE**: Production-ready codebase with comprehensive documentation and community standards
-**TEST STATE**: 10/10 tests passing with proper mocks
-**PHASE 2 PROGRESS**: 50% complete (test fixes done, build verified, GitHub files added)
+## Recent Decisions
+- Decided to maintain backward compatibility in API changes
+- Chosen to use peer dependencies for provider SDKs
+- Selected SvelteKit as the development framework
+- Adopted TypeScript for type safety
+- Implemented factory pattern for provider creation

@@ -1,228 +1,163 @@
-# TECH CONTEXT: Zephyr-Mind AI Toolkit
+# Zephyr-Mind Technical Context
 
 ## Technology Stack
 
-### Core Framework
-**SvelteKit Library**: Latest version with TypeScript support
-- **Framework**: SvelteKit 2.16.0+
-- **Language**: TypeScript 5.0+
-- **Build Tool**: Vite 6.2.6+
-- **Package Manager**: pnpm (preferred)
+### Core Technologies
+- **TypeScript**: Strongly typed language for development
+- **ESM/CommonJS**: Support for both module systems
+- **Node.js**: Runtime environment (Node.js 16+)
+- **SvelteKit**: Development framework (for package structure)
+- **Vite**: Build system
+- **Vitest**: Testing framework
 
-### AI Provider Integrations
-**AI SDK Dependencies** (peer dependencies - user provides):
-- `ai`: ^4.0.0 (Vercel AI SDK)
-- `@ai-sdk/amazon-bedrock`: ^1.0.0
-- `@ai-sdk/openai`: ^1.0.0
-- `@ai-sdk/google-vertex`: ^1.0.0
-- `zod`: ^3.22.0 (schema validation)
+### Dependencies
+- **AI Provider SDKs** (as peer dependencies):
+  - `ai`: Core AI utilities from Vercel
+  - `@ai-sdk/openai`: OpenAI integration
+  - `@ai-sdk/amazon-bedrock`: Amazon Bedrock integration
+  - `@ai-sdk/google-vertex`: Google Vertex AI integration
+  - `zod`: Schema validation
 
-### Development Tools
-**Build System**:
-- `@sveltejs/package`: Library packaging
-- `publint`: Package validation
-- `svelte-check`: TypeScript checking
-- `vitest`: Testing framework
+## Development Environment
 
-**Code Quality**:
-- `eslint`: Linting
-- `prettier`: Code formatting
-- TypeScript strict mode enabled
-
-## Environment Configuration
-
-### Required Environment Variables
+### Setup
 ```bash
-# Amazon Bedrock
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_REGION=us-east-1
+# Clone repository
+git clone https://github.com/juspay/zephyr-mind
+cd zephyr-mind
 
-# OpenAI
-OPENAI_API_KEY=your_openai_key
+# Install dependencies
+pnpm install
 
-# Google Vertex AI
-GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
-GOOGLE_VERTEX_PROJECT_ID=your_project_id
-GOOGLE_VERTEX_LOCATION=us-central1
+# Build package
+pnpm build
+
+# Run tests
+pnpm test
 ```
 
-### Environment Validation
-**Runtime Checks**: Provider availability determined by env vars
-**Fallback Strategy**: Graceful degradation when providers unavailable
-**Error Messages**: Clear guidance for missing configuration
-
-## Build Configuration
-
-### Package.json Configuration
-```json
-{
-  "name": "zephyr-mind",
-  "version": "1.0.0",
-  "type": "module",
-  "svelte": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "svelte": "./dist/index.js",
-      "import": "./dist/index.js"
-    }
-  }
-}
+### Directory Structure
+```
+/
+├── src/
+│   ├── lib/
+│   │   ├── core/          # Core interfaces and factory
+│   │   ├── providers/     # Provider implementations
+│   │   ├── utils/         # Utility functions
+│   │   └── index.ts       # Public API
+│   ├── test/              # Tests
+│   └── app.d.ts           # TypeScript declarations
+├── dist/                  # Built package
+├── tsconfig.json          # TypeScript configuration
+├── vite.config.ts         # Vite configuration
+├── svelte.config.js       # SvelteKit configuration
+└── package.json           # Package configuration
 ```
 
-### Build Scripts
-- `build`: Full production build
-- `prepack`: Prepare for distribution
-- `check`: TypeScript validation
-- `test`: Run test suite
-- `dev`: Development server
+### Key Files
+- `src/lib/core/types.ts`: Core interfaces
+- `src/lib/core/factory.ts`: Provider factory
+- `src/lib/providers/`: Provider implementations
+- `src/lib/index.ts`: Public exports
+- `src/test/providers.test.ts`: Provider tests
 
-### TypeScript Configuration
-**Strict Mode**: Enabled for type safety
-**Target**: ES2022+ for modern features
-**Module**: ESNext for tree shaking
-**SvelteKit Integration**: Full type support
+## Technical Decisions
 
-## Testing Infrastructure
+### Why TypeScript?
+- Strong typing for better developer experience
+- Catch errors at compile time
+- Better tooling and IntelliSense support
 
-### Test Framework: Vitest
-**Location**: `src/test/providers.test.ts`
-**Coverage**: 10 comprehensive tests
-**Testing Strategy**:
-- Unit tests for provider creation
-- Environment validation testing
-- Error condition simulation
-- Factory method verification
+### Why Factory Pattern?
+- Dynamic provider selection at runtime
+- Encapsulate provider creation logic
+- Easy to extend with new providers
 
-### Test Execution
-```bash
-npm test          # Run tests once
-npm run test:run  # CI mode
-```
+### Why SvelteKit?
+- Modern build system with Vite
+- Great TypeScript support
+- Simple package structure
+- Easy testing setup
 
-## Dependency Management
+### Why Peer Dependencies?
+- Avoid bundling large dependencies
+- Allow users to install only what they need
+- Compatible with various package managers
 
-### Peer Dependencies Strategy
-**Philosophy**: Users provide AI SDK dependencies
-**Benefits**:
-- Avoid version conflicts
-- Users control SDK versions
-- Smaller package size
-- Better compatibility
+## Technical Constraints
 
-### Development Dependencies Only
-**Build Tools**: SvelteKit, Vite, TypeScript
-**Testing**: Vitest framework
-**Code Quality**: ESLint, Prettier
-**Package Tools**: Publint, svelte-package
+### Browser Compatibility
+- ES2020+ JavaScript features
+- No direct DOM manipulation
+- Works in all modern browsers
 
-## Deployment and Distribution
+### Node.js Compatibility
+- Node.js 16.0.0 or higher
+- ESM and CommonJS support
+- No Node.js-specific features in browser code
 
-### NPM Package Structure
-```
-dist/
-├── index.js          # Main entry point
-├── index.d.ts        # TypeScript definitions
-├── core/             # Core modules
-├── providers/        # Provider implementations
-└── utils/           # Utility functions
-```
+### Package Size
+- Minimal bundle size
+- No unnecessary dependencies
+- Tree-shakable exports
 
-### Publishing Configuration
-**Registry**: NPM public registry
-**License**: MIT
-**Files**: Only `dist/` directory included
-**Side Effects**: CSS files marked as side effects
+### API Limitations
+- Limited to text generation capabilities
+- No support for embeddings, image generation, etc.
+- No direct file handling
 
-## Performance Considerations
+## Integration Points
 
-### Bundle Size Optimization
-- Tree-shaking friendly exports
-- Minimal runtime dependencies
-- Lazy provider initialization
-- Clean import/export structure
+### Provider APIs
+- **OpenAI API**: REST API for OpenAI models
+- **Amazon Bedrock API**: AWS SDK for Bedrock models
+- **Google Vertex AI API**: Google Cloud SDK for Vertex models
 
-### Runtime Performance
-- Provider creation caching
-- Environment check optimization
-- Minimal memory footprint
-- Fast startup time
+### Application Integration
+- **Node.js Applications**: Direct import and use
+- **Frontend Frameworks**: Use in API routes or client-side
+- **Server Environments**: Compatible with all Node.js servers
 
 ## Security Considerations
 
-### Credential Management
-**User Responsibility**: API keys provided by users
-**No Storage**: No credentials stored in package
-**Environment Only**: Configuration via env vars
-**Validation**: Runtime checks for required credentials
+### API Keys
+- All API keys stored in environment variables
+- No hardcoded credentials
+- Clear documentation on securing keys
 
-### Code Security
-**No Network Calls**: Package doesn't make direct API calls
-**Type Safety**: Full TypeScript coverage prevents many errors
-**Input Validation**: Zod schema validation where needed
-
-## Constraints and Limitations
-
-### Platform Support
-**Node.js**: 18+ required (for AI SDK compatibility)
-**Browsers**: Modern browsers with ESM support
-**Environments**: Server-side primary, client-side possible
-
-### AI Provider Limitations
-**API Keys Required**: Users must provide their own credentials
-**Rate Limits**: Subject to individual provider limits
-**Model Availability**: Depends on provider account access
-**Costs**: Users responsible for AI service costs
-
-### Package Limitations
-**No UI Components**: Library package only, no Svelte components
-**No Rate Limiting**: Left to user implementation
-**No Caching**: Users implement caching if needed
-**No Auth Management**: Basic credential passing only
-
-## Development Workflow
-
-### Local Development
-1. Clone repository
-2. Install dependencies: `pnpm install`
-3. Set environment variables
-4. Run tests: `pnpm test`
-5. Build package: `pnpm build`
-
-### Continuous Integration
-**Testing**: All tests must pass
-**Type Checking**: Strict TypeScript validation
-**Build Verification**: Package must build successfully
-**Linting**: Code quality checks
-
-### Release Process
-1. Update version in package.json
-2. Run full test suite
-3. Build and validate package
-4. Publish to NPM registry
-5. Tag release in Git
-
-## Integration Guidelines
-
-### Import Patterns
-```typescript
-// Main factory
-import { AIProviderFactory } from 'zephyr-mind';
-
-// Specific providers
-import { OpenAI, AmazonBedrock } from 'zephyr-mind';
-
-// Utility functions
-import { getBestProvider } from 'zephyr-mind';
-
-// Types
-import type { AIProvider, ProviderConfig } from 'zephyr-mind';
-```
+### Rate Limiting
+- Providers have their own rate limits
+- No built-in rate limiting
+- Documentation on handling rate limits
 
 ### Error Handling
-**Strategy**: Comprehensive error boundaries
-**Messages**: Clear, actionable error descriptions
-**Fallback**: Graceful degradation patterns
-**Logging**: Console-based for development
+- Secure error messages (no leaking of credentials)
+- Clear error types for common issues
+- Fallback mechanisms for reliability
+
+## Performance Considerations
+
+### Caching
+- No built-in caching
+- Examples for implementing caching
+- Recommendations for production use
+
+### Concurrent Requests
+- Support for concurrent requests
+- No request queuing or batching
+- Each request is independent
+
+### Memory Usage
+- Minimal memory footprint
+- No large data structures
+- Efficient streaming implementation
+
+## Known Technical Debt
+
+1. **Google Vertex AI Anthropic Import**: The Google Vertex AI provider imports `@ai-sdk/google-vertex/anthropic` which is not exported by the Google Vertex package. This needs to be fixed in a future release.
+
+2. **Error Handling Consistency**: Error handling could be more consistent across providers, especially for network errors and rate limiting.
+
+3. **Documentation Coverage**: Not all error scenarios are fully documented with examples.
+
+4. **Test Coverage**: More comprehensive test coverage for edge cases needed.

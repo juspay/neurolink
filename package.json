@@ -1,6 +1,6 @@
 {
 	"name": "@juspay/zephyr-mind",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "AI toolkit extracted from lighthouse with multi-provider support",
 	"author": "Juspay Technologies",
 	"license": "MIT",

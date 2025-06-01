@@ -58,6 +58,7 @@
 - AI provider SDKs should be peer dependencies
 - Use SvelteKit for package structure and build
 - Support both ESM and CommonJS module formats
+- When publishing, use `npm publish --access public` to ensure proper access settings
 
 ### Environment Setup
 - All provider API keys should be configurable via environment variables
