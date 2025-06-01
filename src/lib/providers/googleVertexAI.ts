@@ -1,5 +1,29 @@
 import { createVertex, type GoogleVertexProviderSettings } from '@ai-sdk/google-vertex';
-import { createVertexAnthropic } from '@ai-sdk/google-vertex/anthropic';
+
+// Cache for anthropic module to avoid repeated imports
+let _createVertexAnthropic: any = null;
+let _anthropicImportAttempted = false;
+
+// Function to dynamically import anthropic support
+async function getCreateVertexAnthropic() {
+  if (_anthropicImportAttempted) {
+    return _createVertexAnthropic;
+  }
+
+  _anthropicImportAttempted = true;
+
+  try {
+    // Try to import the anthropic module - available in @ai-sdk/google-vertex ^2.2.0+
+    const anthropicModule = await import('@ai-sdk/google-vertex/anthropic');
+    _createVertexAnthropic = anthropicModule.createVertexAnthropic;
+    console.log('[GoogleVertexAI] Anthropic module successfully loaded');
+    return _createVertexAnthropic;
+  } catch (error) {
+    // Anthropic module not available
+    console.warn('[GoogleVertexAI] Anthropic module not available. Install @ai-sdk/google-vertex ^2.2.0 for Anthropic model support.');
+    return null;
+  }
+}
 import type { ZodType, ZodTypeDef } from 'zod';
 import {
   streamText,
@@ -155,6 +179,15 @@ export class GoogleVertexAI implements AIProvider {
       console.log('GoogleVertexAI.getModel - Anthropic model selected', {
         modelName: this.modelName
       });
+
+      const createVertexAnthropic = await getCreateVertexAnthropic();
+      if (!createVertexAnthropic) {
+        throw new Error(
+          `Anthropic model "${this.modelName}" requested but @ai-sdk/google-vertex/anthropic is not available. ` +
+          'Please install @ai-sdk/google-vertex ^2.2.0 or use a Google model instead.'
+        );
+      }
+
       const vertexAnthropic = createVertexAnthropic(createVertexSettings());
       return vertexAnthropic(this.modelName);
     }

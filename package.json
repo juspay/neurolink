@@ -1,6 +1,6 @@
 {
 	"name": "@juspay/zephyr-mind",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "AI toolkit extracted from lighthouse with multi-provider support",
 	"author": "Juspay Technologies",
 	"license": "MIT",
@@ -41,7 +41,7 @@
 		"ai": "^4.0.0",
 		"@ai-sdk/amazon-bedrock": "^1.0.0",
 		"@ai-sdk/openai": "^1.0.0",
-		"@ai-sdk/google-vertex": "^1.0.0",
+		"@ai-sdk/google-vertex": "^2.2.0",
 		"zod": "^3.22.0"
 	},
 	"devDependencies": {
