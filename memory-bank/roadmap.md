@@ -70,9 +70,12 @@ Create a production-ready AI toolkit that provides unified access to multiple AI
 - [ ] **Pre-publication verification**
   ```bash
   pnpm build       # Verify clean build
-  pnpm test        # Run all tests
+  pnpm test        # Fix test environment issues first
   pnpm check       # TypeScript validation
   ```
+- [ ] **Test environment setup** - Configure test mocks or environment variables
+  - Current issue: Tests require API keys (OPENAI_API_KEY, AWS_ACCESS_KEY_ID)
+  - Solution options: Mock providers for CI/CD or use test credentials
 - [ ] **NPM account setup** - Ensure proper publishing credentials
 - [ ] **Package publication**
   ```bash
