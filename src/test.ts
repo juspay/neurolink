@@ -1,5 +1,5 @@
 /**
- * Test file to verify the Zephyr-Mind AI toolkit is working correctly
+ * Test file to verify the NeuroLink AI toolkit is working correctly
  */
 
 import {
@@ -10,8 +10,8 @@ import {
   VERSION
 } from './lib/index.js';
 
-async function testZephyrMind() {
-  console.log(`🚀 Testing Zephyr-Mind AI Toolkit v${VERSION}`);
+async function testNeuroLink() {
+  console.log(`🚀 Testing NeuroLink AI Toolkit v${VERSION}`);
 
   try {
     // Test 1: Create OpenAI provider (if configured)
@@ -34,7 +34,7 @@ async function testZephyrMind() {
     const factoryProvider = AIProviderFactory.createProvider('vertex');
     console.log('✅ Factory provider created successfully');
 
-    console.log('\n🎉 All tests passed! Zephyr-Mind is ready to use.');
+    console.log('\n🎉 All tests passed! NeuroLink is ready to use.');
 
   } catch (error) {
     console.error('\n❌ Test failed:', error);
@@ -46,7 +46,7 @@ async function testZephyrMind() {
 
 // Run tests if this file is executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  testZephyrMind();
+  testNeuroLink();
 }
 
-export { testZephyrMind };
+export { testNeuroLink };

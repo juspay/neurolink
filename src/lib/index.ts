@@ -1,5 +1,5 @@
 /**
- * Zephyr-Mind AI Toolkit
+ * NeuroLink AI Toolkit
  *
  * A unified AI provider interface with support for multiple providers,
  * automatic fallback, streaming, and tool integration.
@@ -47,7 +47,7 @@ export const VERSION = '1.0.0';
  *
  * @example
  * ```typescript
- * import { createAIProvider } from 'zephyr-mind';
+ * import { createAIProvider } from 'neurolink';
  *
  * const provider = createAIProvider('bedrock');
  * const result = await provider.streamText('Hello, AI!');
@@ -62,7 +62,7 @@ export function createAIProvider(providerName?: string, modelName?: string) {
  *
  * @example
  * ```typescript
- * import { createAIProviderWithFallback } from 'zephyr-mind';
+ * import { createAIProviderWithFallback } from 'neurolink';
  *
  * const { primary, fallback } = createAIProviderWithFallback('bedrock', 'vertex');
  * ```
@@ -84,7 +84,7 @@ export function createAIProviderWithFallback(
  *
  * @example
  * ```typescript
- * import { createBestAIProvider } from 'zephyr-mind';
+ * import { createBestAIProvider } from 'neurolink';
  *
  * const provider = createBestAIProvider();
  * ```

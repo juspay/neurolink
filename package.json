@@ -1,7 +1,7 @@
 {
-	"name": "@juspay/zephyr-mind",
-	"version": "1.0.2",
-	"description": "AI toolkit extracted from lighthouse with multi-provider support",
+	"name": "@juspay/neurolink",
+	"version": "2.0.0",
+	"description": "AI toolkit with multi-provider support for OpenAI, Amazon Bedrock, and Google Vertex AI",
 	"author": "Juspay Technologies",
 	"license": "MIT",
 	"scripts": {
@@ -70,6 +70,7 @@
 		"vertex",
 		"streaming",
 		"tools",
+		"neurolink",
 		"juspay",
 		"svelte"
 	],

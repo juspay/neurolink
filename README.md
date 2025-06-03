@@ -1,12 +1,12 @@
-# 🧠 Zephyr-Mind
+# 🧠 NeuroLink
 
-[![npm version](https://badge.fury.io/js/zephyr-mind.svg)](https://badge.fury.io/js/zephyr-mind)
+[![npm version](https://badge.fury.io/js/neurolink.svg)](https://badge.fury.io/js/neurolink)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > Production-ready AI toolkit with multi-provider support, automatic fallback, and full TypeScript integration.
 
-**Zephyr-Mind** provides a unified interface for AI providers (OpenAI, Amazon Bedrock, Google Vertex AI) with intelligent fallback, streaming support, and type-safe APIs. Extracted from production use at Juspay.
+**NeuroLink** provides a unified interface for AI providers (OpenAI, Amazon Bedrock, Google Vertex AI) with intelligent fallback, streaming support, and type-safe APIs. Extracted from production use at Juspay.
 
 ## Quick Start
 
