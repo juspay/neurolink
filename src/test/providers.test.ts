@@ -63,7 +63,7 @@ vi.mock('ai', () => ({
   Output: { object: vi.fn() },
 }));
 
-describe('Zephyr-Mind AI Providers', () => {
+describe('NeuroLink AI Providers', () => {
   describe('OpenAI Provider', () => {
     it('should create OpenAI provider successfully', () => {
       const provider = new OpenAI('gpt-4');

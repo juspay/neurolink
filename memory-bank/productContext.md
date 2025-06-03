@@ -1,7 +1,7 @@
-# Zephyr-Mind Product Context
+# NeuroLink Product Context
 
 ## Purpose
-Zephyr-Mind addresses the challenge of integrating AI capabilities into applications by providing a unified, reliable interface across multiple AI providers. It eliminates the complexity of managing different provider APIs, handling errors, and implementing fallback mechanisms.
+NeuroLink addresses the challenge of integrating AI capabilities into applications by providing a unified, reliable interface across multiple AI providers. It eliminates the complexity of managing different provider APIs, handling errors, and implementing fallback mechanisms.
 
 ## Problem Statement
 Developers face several challenges when integrating AI into their applications:
@@ -14,7 +14,7 @@ Developers face several challenges when integrating AI into their applications:
 6. **Streaming Support**: Implementing streaming responses is complex and provider-specific
 
 ## Solution
-Zephyr-Mind solves these problems through:
+NeuroLink solves these problems through:
 
 1. **Provider Abstraction**: Common interface across OpenAI, Bedrock, and Vertex AI
 2. **Automatic Fallback**: Seamlessly switch between providers on failures
@@ -41,7 +41,7 @@ Zephyr-Mind solves these problems through:
 ### Scenario 1: Simple Text Generation
 A developer wants to add a simple Q&A feature to their application:
 ```typescript
-import { createBestAIProvider } from 'zephyr-mind';
+import { createBestAIProvider } from 'neurolink';
 
 const provider = createBestAIProvider();
 const result = await provider.generateText({
@@ -55,7 +55,7 @@ console.log(result.text);
 ### Scenario 2: Streaming Responses
 A developer wants to show AI responses as they're generated:
 ```typescript
-import { createBestAIProvider } from 'zephyr-mind';
+import { createBestAIProvider } from 'neurolink';
 
 const provider = createBestAIProvider();
 const result = await provider.streamText({
@@ -71,7 +71,7 @@ for await (const chunk of result.textStream) {
 ### Scenario 3: Multiple Providers
 A developer wants to use different providers for different purposes:
 ```typescript
-import { AIProviderFactory } from 'zephyr-mind';
+import { AIProviderFactory } from 'neurolink';
 
 // Creative writing with OpenAI
 const creative = AIProviderFactory.createProvider('openai');
@@ -86,7 +86,7 @@ const affordable = AIProviderFactory.createProvider('vertex');
 ### Scenario 4: Fallback Mechanism
 A developer wants reliability through provider fallbacks:
 ```typescript
-import { AIProviderFactory } from 'zephyr-mind';
+import { AIProviderFactory } from 'neurolink';
 
 const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
   'bedrock', 'openai'

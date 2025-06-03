@@ -70,7 +70,7 @@ function setAnthropicImportShouldFail(shouldFail: boolean) {
   shouldAnthropicImportFail = shouldFail;
 }
 
-describe('Zephyr-Mind AI Providers (Fixed)', () => {
+describe('NeuroLink AI Providers (Fixed)', () => {
   // Access mocked functions via dynamic import
   let mockGenerateText: any;
   let mockStreamText: any;

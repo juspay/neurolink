@@ -11,11 +11,11 @@
 ## Quick Start
 
 ```bash
-npm install zephyr-mind ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
+npm install neurolink ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
 ```
 
 ```typescript
-import { createBestAIProvider } from 'zephyr-mind';
+import { createBestAIProvider } from 'neurolink';
 
 // Auto-selects best available provider
 const provider = createBestAIProvider();
@@ -57,13 +57,13 @@ console.log(result.text);
 ### Package Installation
 ```bash
 # npm
-npm install zephyr-mind ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
+npm install neurolink ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
 
 # yarn
-yarn add zephyr-mind ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
+yarn add neurolink ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
 
 # pnpm (recommended)
-pnpm add zephyr-mind ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
+pnpm add neurolink ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
 ```
 
 ### Environment Setup
@@ -79,7 +79,7 @@ export GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account.json"
 
 ### Simple Text Generation
 ```typescript
-import { createBestAIProvider } from 'zephyr-mind';
+import { createBestAIProvider } from 'neurolink';
 
 const provider = createBestAIProvider();
 
@@ -96,7 +96,7 @@ console.log(`Used: ${result.provider}`);
 
 ### Streaming Responses
 ```typescript
-import { createBestAIProvider } from 'zephyr-mind';
+import { createBestAIProvider } from 'neurolink';
 
 const provider = createBestAIProvider();
 
@@ -114,7 +114,7 @@ for await (const chunk of result.textStream) {
 
 ### Provider Selection
 ```typescript
-import { AIProviderFactory } from 'zephyr-mind';
+import { AIProviderFactory } from 'neurolink';
 
 // Use specific provider
 const openai = AIProviderFactory.createProvider('openai', 'gpt-4o');
@@ -132,7 +132,7 @@ const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
 
 #### API Route (`src/routes/api/chat/+server.ts`)
 ```typescript
-import { createBestAIProvider } from 'zephyr-mind';
+import { createBestAIProvider } from 'neurolink';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -215,7 +215,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 #### App Router API (`app/api/ai/route.ts`)
 ```typescript
-import { createBestAIProvider } from 'zephyr-mind';
+import { createBestAIProvider } from 'neurolink';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -306,7 +306,7 @@ export default function AIChat() {
 
 ```typescript
 import express from 'express';
-import { createBestAIProvider, AIProviderFactory } from 'zephyr-mind';
+import { createBestAIProvider, AIProviderFactory } from 'neurolink';
 
 const app = express();
 app.use(express.json());
@@ -537,14 +537,14 @@ AI_DEFAULT_PROVIDER="bedrock"
 AI_FALLBACK_PROVIDER="openai"
 
 # Debug mode
-ZEPHYR_MIND_DEBUG="true"
+NEUROLINK_DEBUG="true"
 ```
 
 ## Advanced Patterns
 
 ### Custom Configuration
 ```typescript
-import { AIProviderFactory } from 'zephyr-mind';
+import { AIProviderFactory } from 'neurolink';
 
 // Environment-based provider selection
 const isDev = process.env.NODE_ENV === 'development';
@@ -656,7 +656,7 @@ The security token included in the request is expired
 
 ### Comprehensive Error Handling
 ```typescript
-import { createBestAIProvider } from 'zephyr-mind';
+import { createBestAIProvider } from 'neurolink';
 
 async function robustGenerate(prompt: string, maxRetries = 3) {
   let attempt = 0;
@@ -773,8 +773,8 @@ We welcome contributions! Here's how to get started:
 
 ### Development Setup
 ```bash
-git clone https://github.com/juspay/zephyr-mind
-cd zephyr-mind
+git clone https://github.com/juspay/neurolink
+cd neurolink
 pnpm install
 ```
 

@@ -1,7 +1,7 @@
-# Zephyr-Mind Project Brief
+# NeuroLink Project Brief
 
 ## Overview
-Zephyr-Mind is a production-ready AI toolkit that provides a unified interface for multiple AI providers (OpenAI, Amazon Bedrock, Google Vertex AI) with intelligent fallback, streaming support, and full TypeScript integration. It aims to simplify the integration of AI capabilities into applications while providing robust error handling and fallback mechanisms.
+NeuroLink is a production-ready AI toolkit that provides a unified interface for multiple AI providers (OpenAI, Amazon Bedrock, Google Vertex AI) with intelligent fallback, streaming support, and full TypeScript integration. It aims to simplify the integration of AI capabilities into applications while providing robust error handling and fallback mechanisms.
 
 ## Core Requirements
 
