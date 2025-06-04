@@ -1,0 +1,52 @@
+
+> @juspay/neurolink@1.0.0 build
+> vite build && npm run prepack
+
+vite v6.3.5 building SSR bundle for production...
+transforming...
+✓ 174 modules transformed.
+rendering chunks...
+vite v6.3.5 building for production...
+transforming...
+✓ 136 modules transformed.
+rendering chunks...
+computing gzip size...
+.svelte-kit/output/client/_app/version.json                        0.03 kB │ gzip:  0.05 kB
+.svelte-kit/output/client/.vite/manifest.json                      2.90 kB │ gzip:  0.58 kB
+.svelte-kit/output/client/_app/immutable/chunks/BVdk2loA.js        0.03 kB │ gzip:  0.05 kB
+.svelte-kit/output/client/_app/immutable/entry/start.BNq5KCx9.js   0.08 kB │ gzip:  0.09 kB
+.svelte-kit/output/client/_app/immutable/chunks/7SMaP4Ct.js        0.32 kB │ gzip:  0.25 kB
+.svelte-kit/output/client/_app/immutable/nodes/0.fnNqoDu_.js       0.33 kB │ gzip:  0.24 kB
+.svelte-kit/output/client/_app/immutable/nodes/2.l1CuHd3y.js       0.43 kB │ gzip:  0.30 kB
+.svelte-kit/output/client/_app/immutable/chunks/318kuD8h.js        1.02 kB │ gzip:  0.58 kB
+.svelte-kit/output/client/_app/immutable/nodes/1.BPr4yowy.js       1.05 kB │ gzip:  0.61 kB
+.svelte-kit/output/client/_app/immutable/chunks/Din7cTCV.js        2.47 kB │ gzip:  1.36 kB
+.svelte-kit/output/client/_app/immutable/entry/app.Qxh1zpaD.js     7.67 kB │ gzip:  3.64 kB
+.svelte-kit/output/client/_app/immutable/chunks/D5H_g16y.js       14.89 kB │ gzip:  5.96 kB
+.svelte-kit/output/client/_app/immutable/chunks/BZC-VUQJ.js       32.32 kB │ gzip: 12.59 kB
+✓ built in 193ms
+.svelte-kit/output/server/.vite/manifest.json                   2.24 kB
+.svelte-kit/output/server/entries/fallbacks/layout.svelte.js    0.16 kB
+.svelte-kit/output/server/internal.js                           0.31 kB
+.svelte-kit/output/server/entries/pages/_page.svelte.js         0.32 kB
+.svelte-kit/output/server/entries/fallbacks/error.svelte.js     1.86 kB
+.svelte-kit/output/server/chunks/index.js                       4.07 kB
+.svelte-kit/output/server/chunks/exports.js                     6.87 kB
+.svelte-kit/output/server/chunks/internal.js                   50.04 kB
+.svelte-kit/output/server/index.js                            132.24 kB
+✓ built in 1.36s
+
+Run npm run preview to preview your production build locally.
+
+> Using @sveltejs/adapter-auto
+  Could not detect a supported production environment. See https://svelte.dev/docs/kit/adapters to learn how to configure your app to run on the platform of your choosing
+  ✔ done
+
+> @juspay/neurolink@1.0.0 prepack
+> svelte-kit sync && svelte-package && publint
+
+src/lib -> dist
+Running publint v0.3.12 for @juspay/neurolink...
+Packing files with `pnpm pack`...
+Linting...
+All good!

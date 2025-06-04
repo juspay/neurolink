@@ -1,0 +1,930 @@
+
+> @juspay/neurolink@1.0.0 test:run
+> vitest run
+
+
+ RUN  v2.1.9 /Users/sachinsharma/Developer/Official/neurolink
+
+stdout | src/test/providers.test.ts > NeuroLink AI Providers > OpenAI Provider > should create OpenAI provider successfully
+[OpenAI.constructor] Function called { modelName: 'gpt-4' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4', success: true }
+
+stdout | src/test/providers.test.ts > NeuroLink AI Providers > OpenAI Provider > should be an AI provider
+[OpenAI.constructor] Function called { modelName: 'gpt-4' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4', success: true }
+
+stdout | src/test/providers.test.ts > NeuroLink AI Providers > Amazon Bedrock Provider > should create Bedrock provider successfully
+[AmazonBedrock.constructor] Function called { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Bedrock provider initialized { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance created { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Function result {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+
+stderr | src/test/providers.test.ts > NeuroLink AI Providers > Amazon Bedrock Provider > should create Bedrock provider successfully
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers.test.ts > NeuroLink AI Providers > Amazon Bedrock Provider > should be an AI provider
+[AmazonBedrock.constructor] Function called { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Bedrock provider initialized { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance created { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Function result {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+
+stderr | src/test/providers.test.ts > NeuroLink AI Providers > Amazon Bedrock Provider > should be an AI provider
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers.test.ts > NeuroLink AI Providers > Google Vertex AI Provider > should create Vertex AI provider successfully
+[GoogleVertexAI.constructor] Initialization started { modelName: 'gemini-pro', isAnthropic: false }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'gemini-pro',
+  isAnthropic: false,
+  authMethod: 'principal_account',
+  success: true
+}
+
+stdout | src/test/providers.test.ts > NeuroLink AI Providers > Google Vertex AI Provider > should be an AI provider
+[GoogleVertexAI.constructor] Initialization started { modelName: 'gemini-pro', isAnthropic: false }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'gemini-pro',
+  isAnthropic: false,
+  authMethod: 'principal_account',
+  success: true
+}
+
+stdout | src/test/providers.test.ts > NeuroLink AI Providers > AI Provider Factory > should create providers by name
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'openai', modelName: 'default' }
+[OpenAI.constructor] Function called { modelName: 'gpt-4o' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4o', success: true }
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'openai',
+  modelName: 'default',
+  providerType: 'OpenAI'
+}
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'bedrock', modelName: 'default' }
+[AmazonBedrock.constructor] Function called {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Bedrock provider initialized {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance created {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Function result {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'bedrock',
+  modelName: 'default',
+  providerType: 'AmazonBedrock'
+}
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'vertex', modelName: 'default' }
+[GoogleVertexAI.constructor] Initialization started { modelName: 'claude-sonnet-4@20250514', isAnthropic: true }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'claude-sonnet-4@20250514',
+  isAnthropic: true,
+  authMethod: 'principal_account',
+  success: true
+}
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'vertex',
+  modelName: 'default',
+  providerType: 'GoogleVertexAI'
+}
+
+stderr | src/test/providers.test.ts > NeuroLink AI Providers > AI Provider Factory > should create providers by name
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers.test.ts > NeuroLink AI Providers > AI Provider Factory > should create best available provider
+[getBestProvider] Selected provider: bedrock
+[AIProviderFactory.createBestProvider] Best provider selected {
+  requestedProvider: 'auto',
+  selectedProvider: 'bedrock',
+  modelName: 'default'
+}
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'bedrock', modelName: 'default' }
+[AmazonBedrock.constructor] Function called {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Bedrock provider initialized {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance created {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Function result {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'bedrock',
+  modelName: 'default',
+  providerType: 'AmazonBedrock'
+}
+
+stderr | src/test/providers.test.ts > NeuroLink AI Providers > AI Provider Factory > should create best available provider
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers.test.ts > NeuroLink AI Providers > AI Provider Factory > should create provider with fallback
+[AIProviderFactory.createProviderWithFallback] Fallback provider setup started {
+  primaryProvider: 'openai',
+  fallbackProvider: 'bedrock',
+  modelName: 'default'
+}
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'openai', modelName: 'default' }
+[OpenAI.constructor] Function called { modelName: 'gpt-4o' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4o', success: true }
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'openai',
+  modelName: 'default',
+  providerType: 'OpenAI'
+}
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'bedrock', modelName: 'default' }
+[AmazonBedrock.constructor] Function called {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Bedrock provider initialized {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance created {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Function result {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'bedrock',
+  modelName: 'default',
+  providerType: 'AmazonBedrock'
+}
+[AIProviderFactory.createProviderWithFallback] Fallback provider setup succeeded {
+  primaryProvider: 'openai',
+  fallbackProvider: 'bedrock',
+  modelName: 'default'
+}
+
+stderr | src/test/providers.test.ts > NeuroLink AI Providers > AI Provider Factory > should create provider with fallback
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers.test.ts > NeuroLink AI Providers > AI Provider Factory > should throw error for unknown provider
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'unknown', modelName: 'default' }
+
+stderr | src/test/providers.test.ts > NeuroLink AI Providers > AI Provider Factory > should throw error for unknown provider
+[AIProviderFactory.createProvider] Provider creation failed {
+  providerName: 'unknown',
+  modelName: 'default',
+  error: 'Unknown provider: unknown. Supported providers: vertex, bedrock, openai'
+}
+
+ ✓ src/test/providers.test.ts (10 tests) 6ms
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > OpenAI Provider > should create OpenAI provider successfully
+[OpenAI.constructor] Function called { modelName: 'gpt-4' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4', success: true }
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > OpenAI Provider > should be an AI provider
+[OpenAI.constructor] Function called { modelName: 'gpt-4' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4', success: true }
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > OpenAI Provider > should handle generateText successfully
+[OpenAI.constructor] Function called { modelName: 'gpt-4' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4', success: true }
+[OpenAI.generateText] Generate text started { provider: 'openai', modelName: 'gpt-4', promptLength: 11 }
+[OpenAI.generateText] Generate text completed {
+  provider: 'openai',
+  modelName: 'gpt-4',
+  usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+  finishReason: 'stop'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > OpenAI Provider > should handle streamText successfully
+[OpenAI.constructor] Function called { modelName: 'gpt-4' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4', success: true }
+[OpenAI.streamText] Stream text started { provider: 'openai', modelName: 'gpt-4', promptLength: 11 }
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Amazon Bedrock Provider > should create Bedrock provider successfully
+[AmazonBedrock.constructor] Function called { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Bedrock provider initialized { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance created { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Function result {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Amazon Bedrock Provider > should create Bedrock provider successfully
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Amazon Bedrock Provider > should be an AI provider
+[AmazonBedrock.constructor] Function called { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Bedrock provider initialized { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance created { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Function result {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Amazon Bedrock Provider > should be an AI provider
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Amazon Bedrock Provider > should handle generateText successfully
+[AmazonBedrock.constructor] Function called { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Bedrock provider initialized { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance created { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Function result {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+[AmazonBedrock.generateText] Generate text started {
+  provider: 'bedrock',
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  promptLength: 11
+}
+[AmazonBedrock.generateText] Generate text completed {
+  provider: 'bedrock',
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+  finishReason: 'stop'
+}
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Amazon Bedrock Provider > should handle generateText successfully
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Google Vertex AI Provider > should create Vertex AI provider successfully
+[GoogleVertexAI.constructor] Initialization started { modelName: 'gemini-pro', isAnthropic: false }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'gemini-pro',
+  isAnthropic: false,
+  authMethod: 'principal_account',
+  success: true
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Google Vertex AI Provider > should be an AI provider
+[GoogleVertexAI.constructor] Initialization started { modelName: 'gemini-pro', isAnthropic: false }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'gemini-pro',
+  isAnthropic: false,
+  authMethod: 'principal_account',
+  success: true
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Google Vertex AI Provider > should handle Google models without anthropic import
+[GoogleVertexAI.constructor] Initialization started { modelName: 'gemini-pro', isAnthropic: false }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'gemini-pro',
+  isAnthropic: false,
+  authMethod: 'principal_account',
+  success: true
+}
+[GoogleVertexAI.generateText] Generate request started {
+  provider: 'vertex',
+  modelName: 'gemini-pro',
+  isAnthropic: false,
+  promptLength: 11
+}
+[createVertexSettings] Principal account auth { credentialsPath: '[PROVIDED]', authMethod: 'principal_account' }
+[GoogleVertexAI.generateText] Generate text started {
+  provider: 'vertex',
+  modelName: 'gemini-pro',
+  isAnthropic: false,
+  promptLength: 11
+}
+[GoogleVertexAI.generateText] Generate text completed {
+  provider: 'vertex',
+  modelName: 'gemini-pro',
+  usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+  finishReason: 'stop'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > AI Provider Factory > should create providers by name
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'openai', modelName: 'default' }
+[OpenAI.constructor] Function called { modelName: 'gpt-4o' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4o', success: true }
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'openai',
+  modelName: 'default',
+  providerType: 'OpenAI'
+}
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'bedrock', modelName: 'default' }
+[AmazonBedrock.constructor] Function called {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Bedrock provider initialized {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance created {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Function result {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'bedrock',
+  modelName: 'default',
+  providerType: 'AmazonBedrock'
+}
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'vertex', modelName: 'default' }
+[GoogleVertexAI.constructor] Initialization started { modelName: 'claude-sonnet-4@20250514', isAnthropic: true }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'claude-sonnet-4@20250514',
+  isAnthropic: true,
+  authMethod: 'principal_account',
+  success: true
+}
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'vertex',
+  modelName: 'default',
+  providerType: 'GoogleVertexAI'
+}
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > AI Provider Factory > should create providers by name
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > AI Provider Factory > should create best available provider
+[getBestProvider] Selected provider: bedrock
+[AIProviderFactory.createBestProvider] Best provider selected {
+  requestedProvider: 'auto',
+  selectedProvider: 'bedrock',
+  modelName: 'default'
+}
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'bedrock', modelName: 'default' }
+[AmazonBedrock.constructor] Function called {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Bedrock provider initialized {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance created {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Function result {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'bedrock',
+  modelName: 'default',
+  providerType: 'AmazonBedrock'
+}
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > AI Provider Factory > should create best available provider
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > AI Provider Factory > should create provider with fallback
+[AIProviderFactory.createProviderWithFallback] Fallback provider setup started {
+  primaryProvider: 'openai',
+  fallbackProvider: 'bedrock',
+  modelName: 'default'
+}
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'openai', modelName: 'default' }
+[OpenAI.constructor] Function called { modelName: 'gpt-4o' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4o', success: true }
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'openai',
+  modelName: 'default',
+  providerType: 'OpenAI'
+}
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'bedrock', modelName: 'default' }
+[AmazonBedrock.constructor] Function called {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Bedrock provider initialized {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance created {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Function result {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'bedrock',
+  modelName: 'default',
+  providerType: 'AmazonBedrock'
+}
+[AIProviderFactory.createProviderWithFallback] Fallback provider setup succeeded {
+  primaryProvider: 'openai',
+  fallbackProvider: 'bedrock',
+  modelName: 'default'
+}
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > AI Provider Factory > should create provider with fallback
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > AI Provider Factory > should throw error for unknown provider
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'unknown', modelName: 'default' }
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > AI Provider Factory > should throw error for unknown provider
+[AIProviderFactory.createProvider] Provider creation failed {
+  providerName: 'unknown',
+  modelName: 'default',
+  error: 'Unknown provider: unknown. Supported providers: vertex, bedrock, openai'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Missing Environment Variables > should handle missing OpenAI API key gracefully
+[OpenAI.constructor] Function called { modelName: 'gpt-4' }
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Missing Environment Variables > should handle missing OpenAI API key gracefully
+[OpenAI.constructor] Exception {
+  message: 'Error in initializing OpenAI',
+  modelName: 'gpt-4',
+  err: 'Error: OPENAI_API_KEY environment variable is not set'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Missing Environment Variables > should handle missing AWS credentials gracefully
+[AmazonBedrock.constructor] Function called { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Missing Environment Variables > should handle missing AWS credentials gracefully
+[AmazonBedrock.constructor] Initialization failed {
+  message: 'Error in initializing Amazon Bedrock',
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  error: 'AWS_ACCESS_KEY_ID environment variable is not set',
+  stack: 'Error: AWS_ACCESS_KEY_ID environment variable is not set\n' +
+    '    at getAWSAccessKeyId (/Users/sachinsharma/Developer/Official/neurolink/src/lib/providers/amazonBedrock.ts:28:11)\n' +
+    '    at new AmazonBedrock (/Users/sachinsharma/Developer/Official/neurolink/src/lib/providers/amazonBedrock.ts:73:22)\n' +
+    '    at /Users/sachinsharma/Developer/Official/neurolink/src/test/providers-fixed.test.ts:259:13\n' +
+    '    at Proxy.assertThrows (file:///Users/sachinsharma/Developer/Official/neurolink/node_modules/.pnpm/chai@5.2.0/node_modules/chai/chai.js:2723:5)\n' +
+    '    at Proxy.methodWrapper (file:///Users/sachinsharma/Developer/Official/neurolink/node_modules/.pnpm/chai@5.2.0/node_modules/chai/chai.js:1618:25)\n' +
+    '    at Proxy.<anonymous> (file:///Users/sachinsharma/Developer/Official/neurolink/node_modules/.pnpm/@vitest+expect@2.1.9/node_modules/@vitest/expect/dist/index.js:1029:16)\n' +
+    '    at Proxy.overwritingMethodWrapper (file:///Users/sachinsharma/Developer/Official/neurolink/node_modules/.pnpm/chai@5.2.0/node_modules/chai/chai.js:1670:33)\n' +
+    '    at Proxy.<anonymous> (file:///Users/sachinsharma/Developer/Official/neurolink/node_modules/.pnpm/@vitest+expect@2.1.9/node_modules/@vitest/expect/dist/index.js:1509:21)\n' +
+    '    at Proxy.<anonymous> (file:///Users/sachinsharma/Developer/Official/neurolink/node_modules/.pnpm/@vitest+expect@2.1.9/node_modules/@vitest/expect/dist/index.js:972:17)\n' +
+    '    at Proxy.methodWrapper (file:///Users/sachinsharma/Developer/Official/neurolink/node_modules/.pnpm/chai@5.2.0/node_modules/chai/chai.js:1618:25)'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > API Error Simulation (FIXED) > should handle generateText API errors gracefully
+[OpenAI.constructor] Function called { modelName: 'gpt-4' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4', success: true }
+[OpenAI.generateText] Generate text started { provider: 'openai', modelName: 'gpt-4', promptLength: 11 }
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > API Error Simulation (FIXED) > should handle generateText API errors gracefully
+[OpenAI.generateText] Exception {
+  provider: 'openai',
+  modelName: 'gpt-4',
+  message: 'Error in generating text',
+  err: 'Error: API rate limit exceeded'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > API Error Simulation (FIXED) > should handle streamText API errors gracefully (FIXED)
+[OpenAI.constructor] Function called { modelName: 'gpt-4' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4', success: true }
+[OpenAI.streamText] Stream text started { provider: 'openai', modelName: 'gpt-4', promptLength: 11 }
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > API Error Simulation (FIXED) > should handle streamText API errors gracefully (FIXED)
+[OpenAI.streamText] Exception {
+  provider: 'openai',
+  modelName: 'gpt-4',
+  message: 'Error in streaming text',
+  err: 'Error: Network connection failed'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > API Error Simulation (FIXED) > should handle Bedrock authorization errors (FIXED)
+[AmazonBedrock.constructor] Function called { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Bedrock provider initialized { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance creating { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Model instance created { modelName: 'anthropic.claude-3-sonnet-20240229-v1:0' }
+[AmazonBedrock.constructor] Function result {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > API Error Simulation (FIXED) > should handle Bedrock authorization errors (FIXED)
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+[AmazonBedrock.generateText] Exception {
+  provider: 'bedrock',
+  modelName: 'anthropic.claude-3-sonnet-20240229-v1:0',
+  message: 'Error in generating text',
+  err: 'Your account is not authorized to invoke this API operation'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Google Vertex AI Anthropic Import Tests (FIXED) > should handle missing anthropic module gracefully
+[GoogleVertexAI.constructor] Initialization started { modelName: 'claude-3-sonnet@20240229', isAnthropic: true }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'claude-3-sonnet@20240229',
+  isAnthropic: true,
+  authMethod: 'principal_account',
+  success: true
+}
+[GoogleVertexAI.generateText] Generate request started {
+  provider: 'vertex',
+  modelName: 'claude-3-sonnet@20240229',
+  isAnthropic: true,
+  promptLength: 11
+}
+GoogleVertexAI.getModel - Anthropic model selected { modelName: 'claude-3-sonnet@20240229' }
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Google Vertex AI Anthropic Import Tests (FIXED) > should handle missing anthropic module gracefully
+[GoogleVertexAI] Anthropic module not available. Install @ai-sdk/google-vertex ^2.2.0 for Anthropic model support.
+[GoogleVertexAI.generateText] Exception {
+  provider: 'vertex',
+  modelName: 'claude-3-sonnet@20240229',
+  message: 'Error in generating text',
+  err: 'Error: Anthropic model "claude-3-sonnet@20240229" requested but @ai-sdk/google-vertex/anthropic is not available. Please install @ai-sdk/google-vertex ^2.2.0 or use a Google model instead.'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Google Vertex AI Anthropic Import Tests (FIXED) > should work with anthropic models when module is available
+[GoogleVertexAI.constructor] Initialization started { modelName: 'claude-3-sonnet@20240229', isAnthropic: true }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'claude-3-sonnet@20240229',
+  isAnthropic: true,
+  authMethod: 'principal_account',
+  success: true
+}
+[GoogleVertexAI.generateText] Generate request started {
+  provider: 'vertex',
+  modelName: 'claude-3-sonnet@20240229',
+  isAnthropic: true,
+  promptLength: 11
+}
+GoogleVertexAI.getModel - Anthropic model selected { modelName: 'claude-3-sonnet@20240229' }
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Google Vertex AI Anthropic Import Tests (FIXED) > should work with anthropic models when module is available
+[GoogleVertexAI.generateText] Exception {
+  provider: 'vertex',
+  modelName: 'claude-3-sonnet@20240229',
+  message: 'Error in generating text',
+  err: 'Error: Anthropic model "claude-3-sonnet@20240229" requested but @ai-sdk/google-vertex/anthropic is not available. Please install @ai-sdk/google-vertex ^2.2.0 or use a Google model instead.'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Google Vertex AI Anthropic Import Tests (FIXED) > should work with Google models without anthropic module
+[GoogleVertexAI.constructor] Initialization started { modelName: 'gemini-pro', isAnthropic: false }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'gemini-pro',
+  isAnthropic: false,
+  authMethod: 'principal_account',
+  success: true
+}
+[GoogleVertexAI.generateText] Generate request started {
+  provider: 'vertex',
+  modelName: 'gemini-pro',
+  isAnthropic: false,
+  promptLength: 11
+}
+[GoogleVertexAI.generateText] Generate text started {
+  provider: 'vertex',
+  modelName: 'gemini-pro',
+  isAnthropic: false,
+  promptLength: 11
+}
+[GoogleVertexAI.generateText] Generate text completed {
+  provider: 'vertex',
+  modelName: 'gemini-pro',
+  usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+  finishReason: 'stop'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Google Vertex AI Anthropic Import Tests (FIXED) > should detect anthropic models correctly
+[GoogleVertexAI.constructor] Initialization started { modelName: 'claude-3-sonnet@20240229', isAnthropic: true }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'claude-3-sonnet@20240229',
+  isAnthropic: true,
+  authMethod: 'principal_account',
+  success: true
+}
+[GoogleVertexAI.constructor] Initialization started { modelName: 'gemini-pro', isAnthropic: false }
+[GoogleVertexAI.constructor] Authentication validation {
+  hasPrincipalAccountAuth: true,
+  projectId: 'test-vertex-project',
+  location: 'us-central1'
+}
+[GoogleVertexAI.constructor] Auth method selected {
+  authMethod: 'principal_account',
+  hasGoogleApplicationCredentials: true
+}
+[GoogleVertexAI.constructor] Initialization completed {
+  modelName: 'gemini-pro',
+  isAnthropic: false,
+  authMethod: 'principal_account',
+  success: true
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Factory Error Handling (FIXED) > should create best available provider when some providers fail
+[getBestProvider] Selected provider: bedrock
+[AIProviderFactory.createBestProvider] Best provider selected {
+  requestedProvider: 'auto',
+  selectedProvider: 'bedrock',
+  modelName: 'default'
+}
+[AIProviderFactory.createProvider] Provider creation started { providerName: 'bedrock', modelName: 'default' }
+[AmazonBedrock.constructor] Function called {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] AWS config validation { hasAccessKeyId: true, hasSecretAccessKey: true, region: 'us-east-1' }
+[AmazonBedrock.constructor] AWS config created { region: 'us-east-1', hasSessionToken: false }
+[AmazonBedrock.constructor] Bedrock provider creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Bedrock provider initialized {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance creating {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Model instance created {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+}
+[AmazonBedrock.constructor] Function result {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false,
+  success: true
+}
+[AmazonBedrock.constructor] Initialization completed {
+  modelName: 'arn:aws:bedrock:us-east-2:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  region: 'us-east-1',
+  hasSessionToken: false
+}
+[AIProviderFactory.createProvider] Provider creation succeeded {
+  providerName: 'bedrock',
+  modelName: 'default',
+  providerType: 'AmazonBedrock'
+}
+
+stderr | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Factory Error Handling (FIXED) > should create best available provider when some providers fail
+[AmazonBedrock.constructor] Session token missing { environment: 'dev' }
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Schema Validation Tests > should handle generateText with schema validation
+[OpenAI.constructor] Function called { modelName: 'gpt-4' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4', success: true }
+[OpenAI.generateText] Generate text started { provider: 'openai', modelName: 'gpt-4', promptLength: 11 }
+[OpenAI.generateText] Generate text completed {
+  provider: 'openai',
+  modelName: 'gpt-4',
+  usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+  finishReason: 'stop'
+}
+
+stdout | src/test/providers-fixed.test.ts > NeuroLink AI Providers (Fixed) > Error Handling Scenarios (Fixed) > Schema Validation Tests > should handle streamText with schema validation
+[OpenAI.constructor] Function called { modelName: 'gpt-4' }
+[OpenAI.constructor] Function result { modelName: 'gpt-4', success: true }
+[OpenAI.streamText] Stream text started { provider: 'openai', modelName: 'gpt-4', promptLength: 11 }
+
+ ✓ src/test/providers-fixed.test.ts (29 tests | 3 skipped) 14ms
+
+ Test Files  2 passed (2)
+      Tests  36 passed | 3 skipped (39)
+   Start at  10:07:49
+   Duration  412ms (transform 94ms, setup 0ms, collect 145ms, tests 19ms, environment 0ms, prepare 86ms)
+
