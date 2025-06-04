@@ -16,7 +16,7 @@ async function getCreateVertexAnthropic() {
     // Try to import the anthropic module - available in @ai-sdk/google-vertex ^2.2.0+
     const anthropicModule = await import('@ai-sdk/google-vertex/anthropic');
     _createVertexAnthropic = anthropicModule.createVertexAnthropic;
-    console.log('[GoogleVertexAI] Anthropic module successfully loaded');
+    log.info('GoogleVertexAI.getCreateVertexAnthropic', 'Anthropic module successfully loaded');
     return _createVertexAnthropic;
   } catch (error) {
     // Anthropic module not available

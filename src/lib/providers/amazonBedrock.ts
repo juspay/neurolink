@@ -119,34 +119,34 @@ export class AmazonBedrock implements AIProvider {
       // Create custom Bedrock provider instance with environment-based configuration
       this.bedrock = createAmazonBedrock(awsConfig);
 
-      console.log(`[${functionTag}] Bedrock provider initialized`, {
+      log.info(functionTag, 'Bedrock provider initialized', {
         modelName: this.modelName
       });
 
-      console.log(`[${functionTag}] Model instance creating`, {
+      log.info(functionTag, 'Model instance creating', {
         modelName: this.modelName
       });
 
       this.model = this.bedrock(this.modelName);
 
-      console.log(`[${functionTag}] Model instance created`, {
+      log.info(functionTag, 'Model instance created', {
         modelName: this.modelName
       });
 
-      console.log(`[${functionTag}] Function result`, {
+      log.info(functionTag, 'Function result', {
         modelName: this.modelName,
         region: awsConfig.region,
         hasSessionToken: !!awsConfig.sessionToken,
         success: true
       });
 
-      console.log(`[${functionTag}] Initialization completed`, {
+      log.info(functionTag, 'Initialization completed', {
         modelName: this.modelName,
         region: awsConfig.region,
         hasSessionToken: !!awsConfig.sessionToken
       });
     } catch (err) {
-      console.error(`[${functionTag}] Initialization failed`, {
+      log.error(functionTag, 'Initialization failed', {
         message: 'Error in initializing Amazon Bedrock',
         modelName: this.modelName,
         region: getAWSRegion(),
@@ -175,7 +175,7 @@ export class AmazonBedrock implements AIProvider {
       // Use schema from options or fallback parameter
       const finalSchema = optionsSchema || analysisSchema;
 
-      console.log(`[${functionTag}] Stream request started`, {
+      log.info(functionTag, 'Stream request started', {
         provider,
         modelName: this.modelName,
         promptLength: prompt.length,
@@ -195,7 +195,7 @@ export class AmazonBedrock implements AIProvider {
           const errorMessage = error instanceof Error ? error.message : String(error);
           const errorStack = error instanceof Error ? error.stack : undefined;
 
-          console.error(`[${functionTag}] Stream text error`, {
+          log.error(functionTag, 'Stream text error', {
             provider,
             modelName: this.modelName,
             region: getAWSRegion(),
@@ -211,7 +211,7 @@ export class AmazonBedrock implements AIProvider {
           usage: Record<string, unknown>;
           text?: string;
         }) => {
-          console.log(`[${functionTag}] Stream text finished`, {
+          log.info(functionTag, 'Stream text finished', {
             provider,
             modelName: this.modelName,
             region: getAWSRegion(),
@@ -225,7 +225,7 @@ export class AmazonBedrock implements AIProvider {
 
         onChunk: (event: { chunk: { type: string; text?: string } }) => {
           chunkCount++;
-          console.debug(`[${functionTag}] Stream text chunk`, {
+          log.debug(functionTag, 'Stream text chunk', {
             provider,
             modelName: this.modelName,
             chunkNumber: chunkCount,
@@ -242,7 +242,7 @@ export class AmazonBedrock implements AIProvider {
       // Direct streamText call - let the real error bubble up
       const result = streamText(streamOptions);
 
-      console.log(`[${functionTag}] Stream text call successful`, {
+      log.info(functionTag, 'Stream text call successful', {
         provider,
         modelName: this.modelName,
         promptLength: prompt.length
@@ -250,7 +250,7 @@ export class AmazonBedrock implements AIProvider {
 
       return result;
     } catch (err) {
-      console.error(`[${functionTag}] Exception`, {
+      log.error(functionTag, 'Exception', {
         provider,
         modelName: this.modelName,
         region: getAWSRegion(),
@@ -278,7 +278,7 @@ export class AmazonBedrock implements AIProvider {
       // Use schema from options or fallback parameter
       const finalSchema = optionsSchema || analysisSchema;
 
-      console.log(`[${functionTag}] Generate text started`, {
+      log.info(functionTag, 'Generate text started', {
         provider,
         modelName: this.modelName,
         region: getAWSRegion(),
@@ -301,7 +301,7 @@ export class AmazonBedrock implements AIProvider {
 
       const result = await generateText(generateOptions);
 
-      console.log(`[${functionTag}] Generate text completed`, {
+      log.info(functionTag, 'Generate text completed', {
         provider,
         modelName: this.modelName,
         usage: result.usage,
@@ -311,7 +311,7 @@ export class AmazonBedrock implements AIProvider {
 
       return result;
     } catch (err) {
-      console.error(`[${functionTag}] Exception`, {
+      log.error(functionTag, 'Exception', {
         provider,
         modelName: this.modelName,
         message: 'Error in generating text',
