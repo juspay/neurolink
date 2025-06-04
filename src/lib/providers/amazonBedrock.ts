@@ -11,6 +11,8 @@ import {
   type LanguageModelV1
 } from 'ai';
 import type { AIProvider, TextGenerationOptions, StreamTextOptions } from '../core/types.js';
+import { log } from '../utils/logger.js';
+import { parseStreamOptions, parseGenerateOptions } from '../utils/parameterUtils.js';
 
 // Default system context
 const DEFAULT_SYSTEM_CONTEXT = {
@@ -67,7 +69,7 @@ export class AmazonBedrock implements AIProvider {
         modelName: this.modelName,
         envBedrockModel: process.env.BEDROCK_MODEL,
         envBedrockModelId: process.env.BEDROCK_MODEL_ID,
-        fallbackModel: 'arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
+        fallbackModel: getBedrockModelId()
       });
 
       // Configure AWS credentials for custom Bedrock instance
@@ -164,21 +166,14 @@ export class AmazonBedrock implements AIProvider {
     let chunkCount = 0;
 
     try {
-      // Parse parameters - support both string and options object
-      const options = typeof optionsOrPrompt === 'string'
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-      const {
-        prompt,
-        temperature = 0.7,
-        maxTokens = 500,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema
-      } = options;
+      // Parse parameters using shared helper
+      const { prompt, temperature, maxTokens, systemPrompt, schema: optionsSchema } = parseStreamOptions(
+        optionsOrPrompt,
+        DEFAULT_SYSTEM_CONTEXT.systemPrompt
+      );
 
       // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
+      const finalSchema = optionsSchema || analysisSchema;
 
       console.log(`[${functionTag}] Stream request started`, {
         provider,
@@ -274,21 +269,14 @@ export class AmazonBedrock implements AIProvider {
     const provider = 'bedrock';
 
     try {
-      // Parse parameters - support both string and options object
-      const options = typeof optionsOrPrompt === 'string'
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-      const {
-        prompt,
-        temperature = 0.7,
-        maxTokens = 500,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema
-      } = options;
+      // Parse parameters using shared helper
+      const { prompt, temperature, maxTokens, systemPrompt, schema: optionsSchema } = parseGenerateOptions(
+        optionsOrPrompt,
+        DEFAULT_SYSTEM_CONTEXT.systemPrompt
+      );
 
       // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
+      const finalSchema = optionsSchema || analysisSchema;
 
       console.log(`[${functionTag}] Generate text started`, {
         provider,

@@ -11,6 +11,8 @@ import {
   type LanguageModelV1
 } from 'ai';
 import type { AIProvider, TextGenerationOptions, StreamTextOptions } from '../core/types.js';
+import { log } from '../utils/logger.js';
+import { parseStreamOptions, parseGenerateOptions } from '../utils/parameterUtils.js';
 
 // Default system context
 const DEFAULT_SYSTEM_CONTEXT = {
@@ -70,21 +72,14 @@ export class OpenAI implements AIProvider {
     let chunkCount = 0;
 
     try {
-      // Parse parameters - support both string and options object
-      const options = typeof optionsOrPrompt === 'string'
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-      const {
-        prompt,
-        temperature = 0.7,
-        maxTokens = 500,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema
-      } = options;
+      // Parse parameters using shared helper
+      const { prompt, temperature, maxTokens, systemPrompt, schema: optionsSchema } = parseStreamOptions(
+        optionsOrPrompt,
+        DEFAULT_SYSTEM_CONTEXT.systemPrompt
+      );
 
       // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
+      const finalSchema = optionsSchema || analysisSchema;
 
       console.log(`[${functionTag}] Stream text started`, {
         provider,
@@ -169,21 +164,14 @@ export class OpenAI implements AIProvider {
     const provider = 'openai';
 
     try {
-      // Parse parameters - support both string and options object
-      const options = typeof optionsOrPrompt === 'string'
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-      const {
-        prompt,
-        temperature = 0.7,
-        maxTokens = 500,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema
-      } = options;
+      // Parse parameters using shared helper
+      const { prompt, temperature, maxTokens, systemPrompt, schema: optionsSchema } = parseGenerateOptions(
+        optionsOrPrompt,
+        DEFAULT_SYSTEM_CONTEXT.systemPrompt
+      );
 
       // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
+      const finalSchema = optionsSchema || analysisSchema;
 
       console.log(`[${functionTag}] Generate text started`, {
         provider,

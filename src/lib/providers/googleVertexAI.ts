@@ -36,6 +36,8 @@ import {
   type LanguageModelV1
 } from 'ai';
 import type { AIProvider, TextGenerationOptions, StreamTextOptions } from '../core/types.js';
+import { log } from '../utils/logger.js';
+import { parseStreamOptions, parseGenerateOptions } from '../utils/parameterUtils.js';
 
 // Default system context
 const DEFAULT_SYSTEM_CONTEXT = {
@@ -125,7 +127,8 @@ const setupGoogleAuth = async (): Promise<void> => {
       console.error(`[${functionTag}] Failed to parse service account key`, {
         error: error instanceof Error ? error.message : String(error)
       });
-      throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_KEY format. Must be valid JSON.');
+      const sanitizedKey = serviceAccountKey?.substring(0, 10) + '...';
+      throw new Error(`Invalid GOOGLE_SERVICE_ACCOUNT_KEY format. Must be valid JSON. Key starts with: ${sanitizedKey}`);
     }
   }
 
@@ -340,21 +343,14 @@ export class GoogleVertexAI implements AIProvider {
     let chunkCount = 0;
 
     try {
-      // Parse parameters - support both string and options object
-      const options = typeof optionsOrPrompt === 'string'
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-      const {
-        prompt,
-        temperature = 0.7,
-        maxTokens = 500,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema
-      } = options;
+      // Parse parameters using shared helper
+      const { prompt, temperature, maxTokens, systemPrompt, schema: optionsSchema } = parseStreamOptions(
+        optionsOrPrompt,
+        DEFAULT_SYSTEM_CONTEXT.systemPrompt
+      );
 
       // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
+      const finalSchema = optionsSchema || analysisSchema;
 
       console.log(`[${functionTag}] Stream request started`, {
         provider,
@@ -450,21 +446,14 @@ export class GoogleVertexAI implements AIProvider {
     const provider = 'vertex';
 
     try {
-      // Parse parameters - support both string and options object
-      const options = typeof optionsOrPrompt === 'string'
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-      const {
-        prompt,
-        temperature = 0.7,
-        maxTokens = 500,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema
-      } = options;
+      // Parse parameters using shared helper
+      const { prompt, temperature, maxTokens, systemPrompt, schema: optionsSchema } = parseGenerateOptions(
+        optionsOrPrompt,
+        DEFAULT_SYSTEM_CONTEXT.systemPrompt
+      );
 
       // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
+      const finalSchema = optionsSchema || analysisSchema;
 
       console.log(`[${functionTag}] Generate request started`, {
         provider,
