@@ -1,8 +1,8 @@
-# Zephyr-Mind System Patterns
+# NeuroLink System Patterns
 
-## Architectural Overview
+## Architecture Overview
 
-The Zephyr-Mind toolkit follows a structured architecture based on the following principles:
+The NeuroLink toolkit follows a structured architecture based on the following principles:
 
 1. **Interface-Driven Design**: All providers implement a common interface
 2. **Factory Pattern**: Providers are created through factory methods

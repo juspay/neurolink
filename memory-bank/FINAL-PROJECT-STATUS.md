@@ -33,7 +33,7 @@
 
 ### **Package Structure**:
 ```
-/Users/sachinsharma/Developer/Official/zephyr-mind/
+/Users/sachinsharma/Developer/Official/neurolink/
 ├── src/lib/
 │   ├── core/
 │   │   ├── factory.ts      ✅ Provider factory implementation

@@ -15,7 +15,7 @@ A clear and concise description of what you want to happen.
 ## Describe alternatives you've considered
 A clear and concise description of any alternative solutions or features you've considered.
 
-## How would this feature benefit the Zephyr-Mind ecosystem?
+## How would this feature benefit the NeuroLink ecosystem?
 Explain how this feature would improve the library for users.
 
 ## Implementation details (optional)
@@ -24,7 +24,7 @@ If you have ideas about how to implement this feature or have already started wo
 ## Example use case (optional)
 ```typescript
 // If applicable, add a code example that demonstrates how your feature would be used
-import { AIProviderFactory } from 'zephyr-mind';
+import { AIProviderFactory } from '@juspay/neurolink';
 
 // ... example code showing your proposed feature
 ```

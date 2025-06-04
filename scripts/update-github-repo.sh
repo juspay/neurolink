@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# This script updates GitHub repository settings for Zephyr-Mind
+# This script updates GitHub repository settings for NeuroLink
 # Part of Phase 2.3: GitHub Repository Finalization
 
 # Repository details
-REPO="juspay/zephyr-mind"
+REPO="juspay/NeuroLink"
 DESCRIPTION="A TypeScript AI toolkit with multi-provider support for OpenAI, Amazon Bedrock, and Google Vertex AI with automatic fallback"
-HOMEPAGE="https://www.npmjs.com/package/zephyr-mind"
+HOMEPAGE="https://www.npmjs.com/package/@juspay/neurolink"
 TOPICS="ai,openai,bedrock,google-vertex-ai,anthropic,claude,typescript,svelte,streaming,fallback,ai-toolkit"
 
 # Update repository settings (description, homepage)
