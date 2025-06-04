@@ -1,0 +1,37 @@
+0000000000000000000000000000000000000000 fb931348fd9b856a592e236c0327142660252963 sachin.sharma <sachin.sharma@juspay.in> 1748700205 +0530	commit (initial): INITIAL: Complete Zephyr-Mind AI Toolkit with Jarvis Memory Bank
+fb931348fd9b856a592e236c0327142660252963 cae04ee884341faeeb2d2db78f879cacf7519ca6 sachin.sharma <sachin.sharma@juspay.in> 1748701747 +0530	commit: CLEANUP: Remove redundant markdown files and preserve valuable information
+cae04ee884341faeeb2d2db78f879cacf7519ca6 bb28345e6ffe0386ea3e990a70500713f2d1dbda sachin.sharma <sachin.sharma@juspay.in> 1748702726 +0530	commit: STRUCTURE: Create clean library documentation structure
+bb28345e6ffe0386ea3e990a70500713f2d1dbda be2842cc58e3d9e3af62684969de6f003c2a7f5e sachin.sharma <sachin.sharma@juspay.in> 1748703786 +0530	commit: DOCS: Create world-class README.md following top GitHub repository patterns
+be2842cc58e3d9e3af62684969de6f003c2a7f5e 0000000000000000000000000000000000000000 sachin.sharma <sachin.sharma@juspay.in> 1748704132 +0530	Branch: renamed refs/heads/release to refs/heads/main
+0000000000000000000000000000000000000000 be2842cc58e3d9e3af62684969de6f003c2a7f5e sachin.sharma <sachin.sharma@juspay.in> 1748704132 +0530	Branch: renamed refs/heads/release to refs/heads/main
+be2842cc58e3d9e3af62684969de6f003c2a7f5e be2842cc58e3d9e3af62684969de6f003c2a7f5e sachin.sharma <sachin.sharma@juspay.in> 1748704616 +0530	checkout: moving from main to release
+be2842cc58e3d9e3af62684969de6f003c2a7f5e cccdf5649bcd1cb026b62d137f11846746757020 sachin.sharma <sachin.sharma@juspay.in> 1748749687 +0530	commit: ROADMAP: Create comprehensive project roadmap with completed and future phases
+cccdf5649bcd1cb026b62d137f11846746757020 a1a061053e739fdd73f23bbbe822d991cfdaafb7 sachin.sharma <sachin.sharma@juspay.in> 1748750789 +0530	commit: ROADMAP: Update Phase 2.1 with test environment findings
+a1a061053e739fdd73f23bbbe822d991cfdaafb7 21901c6982340a71c890474b970b260451683b4c sachin.sharma <sachin.sharma@juspay.in> 1748753328 +0530	commit: ✅ FIX: Properly mock AmazonBedrock in tests
+21901c6982340a71c890474b970b260451683b4c f2c4468b532277f87ef3f61d2742bab78e9b61b1 sachin.sharma <sachin.sharma@juspay.in> 1748753423 +0530	commit: 📝 DOC: Update activeContext.md with test fix status
+f2c4468b532277f87ef3f61d2742bab78e9b61b1 c379d3a9998b99db0b54d8e5000d21f21e2db065 sachin.sharma <sachin.sharma@juspay.in> 1748753502 +0530	commit (amend): 📝 DOC: Update activeContext.md with test fix status
+c379d3a9998b99db0b54d8e5000d21f21e2db065 aabb39ea6bca4685bbb7ef0867c2e8cdcec03014 sachin.sharma <sachin.sharma@juspay.in> 1748753720 +0530	commit: �� DOC: Update roadmap.md with Phase 2 progress
+aabb39ea6bca4685bbb7ef0867c2e8cdcec03014 f4da8a12351308544526f0324b80647a142123d1 sachin.sharma <sachin.sharma@juspay.in> 1748754022 +0530	commit: 📝 DOCS: Add GitHub community files and repo update script
+f4da8a12351308544526f0324b80647a142123d1 cd188d0cf279b47fa2ac1d311ae47bc085027200 sachin.sharma <sachin.sharma@juspay.in> 1748754800 +0530	commit: 📝 DOC: Update activeContext.md with Phase 2 progress
+cd188d0cf279b47fa2ac1d311ae47bc085027200 59ecdc3ba814b7f10d9997173a0e584c86d5880d sachin.sharma <sachin.sharma@juspay.in> 1748758632 +0530	commit (amend): 📝 DOC: Update activeContext.md with Phase 2 progress
+59ecdc3ba814b7f10d9997173a0e584c86d5880d b068b970e0b01f5a851cc240a79969458203ff54 sachin.sharma <sachin.sharma@juspay.in> 1748763973 +0530	commit: 📝 docs: update documentation and bump version to 1.0.1
+b068b970e0b01f5a851cc240a79969458203ff54 4e19032c7f1e895d6c21fbf6407fc8902f9fb570 sachin.sharma <sachin.sharma@juspay.in> 1748765830 +0530	commit: 🔧 fix: resolve Google Vertex AI anthropic import issue
+4e19032c7f1e895d6c21fbf6407fc8902f9fb570 4aa7f309f5680954b3cfc4339ceacd556a519330 sachin.sharma <sachin.sharma@juspay.in> 1748980261 +0530	feat: enhance test suite with comprehensive provider testing
+4aa7f309f5680954b3cfc4339ceacd556a519330 4e19032c7f1e895d6c21fbf6407fc8902f9fb570 sachin.sharma <sachin.sharma@juspay.in> 1748980421 +0530	reset: moving to 4e19032c7f1e895d6c21fbf6407fc8902f9fb570
+4e19032c7f1e895d6c21fbf6407fc8902f9fb570 0a622c8d961bf274fe6b038e95cdeaa610f936b8 sachin.sharma <sachin.sharma@juspay.in> 1748981895 +0530	commit: feat: Add comprehensive test suite with 100% pass rate
+0a622c8d961bf274fe6b038e95cdeaa610f936b8 e764317f5ad3070c36a21e876433bd6a006f1aa4 sachin.sharma <sachin.sharma@juspay.in> 1748982921 +0530	commit (amend): feat: Add comprehensive test suite with 100% pass rate
+e764317f5ad3070c36a21e876433bd6a006f1aa4 e764317f5ad3070c36a21e876433bd6a006f1aa4 Sachin Sharma <sachinsharma@Sachin-Sharma-HCW39CV9MH.local> 1748983131 +0530	checkout: moving from release to rebrand-to-neurolink
+e764317f5ad3070c36a21e876433bd6a006f1aa4 0f047604a77a859f94d7af74cef7d4e4a8bfd527 sachin.sharma <sachin.sharma@juspay.in> 1748983345 +0530	🚀 REBRAND: Phase 1 - Core rebranding from Zephyr-Mind to NeuroLink
+0f047604a77a859f94d7af74cef7d4e4a8bfd527 99fee61ff9484f01334f067b4f77236d19517dbb sachin.sharma <sachin.sharma@juspay.in> 1748983775 +0530	🚀 COMPLETE REBRANDING: Zephyr-Mind → NeuroLink v1.0.0
+99fee61ff9484f01334f067b4f77236d19517dbb f157f095a95295212b77209c62948941711dde90 sachin.sharma <sachin.sharma@juspay.in> 1748983988 +0530	📋 CREATE: Comprehensive Rebranding Master Plan
+f157f095a95295212b77209c62948941711dde90 b1cfcc08f819b8f2bcb292278f5579af38d05f4c sachin.sharma <sachin.sharma@juspay.in> 1748985912 +0530	✅ COMPLETE PHASE 2: All Documentation & Files Rebranded
+b1cfcc08f819b8f2bcb292278f5579af38d05f4c 456cd05d85d5f5b1e7bb347bf99d959bb20ab057 sachin.sharma <sachin.sharma@juspay.in> 1748985984 +0530	📊 UPDATE: Master Plan Phase 2 Complete - 85% Progress
+456cd05d85d5f5b1e7bb347bf99d959bb20ab057 1c26a0206b3a3c82c8b60de86e673d2864934704 sachin.sharma <sachin.sharma@juspay.in> 1748987802 +0530	🎉 PHASE 3.1 COMPLETE: GitHub Repository Successfully Renamed
+1c26a0206b3a3c82c8b60de86e673d2864934704 4f65ba5fa9a7a4979eafc2bf80001eb633ff8eec sachin.sharma <sachin.sharma@juspay.in> 1748988957 +0530	🎉 PHASE 3.2 COMPLETE: Working Directory Renamed & Git Fixed
+4f65ba5fa9a7a4979eafc2bf80001eb633ff8eec 4fb7db6dc7e986dc377189ae3bb54cf2ecaff32e sachin.sharma <sachin.sharma@juspay.in> 1749011973 +0530	🎉 BREAKTHROUGH: 100% Test Success + Build Ready
+4fb7db6dc7e986dc377189ae3bb54cf2ecaff32e cc3cfab5951292c9979cbe56f3bbde543eae231b sachin.sharma <sachin.sharma@juspay.in> 1749012553 +0530	📋 ADD: Comprehensive Pull Request Template for Rebranding Merge
+cc3cfab5951292c9979cbe56f3bbde543eae231b ae63e45fbc11198725fc987fcd75c8c950e21797 sachin.sharma <sachin.sharma@juspay.in> 1749013344 +0530	🧹 FIX: Address PR Comment - Exclude Raw Log Files from Version Control
+ae63e45fbc11198725fc987fcd75c8c950e21797 4a69c36a9d5eeffb2674946130a1d3821c8b741c sachin.sharma <sachin.sharma@juspay.in> 1749013662 +0530	🧹 CLEANUP: Final Zephyr References Removal - Complete Rebranding
+4a69c36a9d5eeffb2674946130a1d3821c8b741c e04ae7f057bdf5e411cff7a8b6828e9e24c71bfd sachin.sharma <sachin.sharma@juspay.in> 1749013738 +0530	🔧 FIX: Remove Absolute Local Paths from Documentation
+e04ae7f057bdf5e411cff7a8b6828e9e24c71bfd e764317f5ad3070c36a21e876433bd6a006f1aa4 sachin.sharma <sachin.sharma@juspay.in> 1749014257 +0530	checkout: moving from rebrand-to-neurolink to release
+e764317f5ad3070c36a21e876433bd6a006f1aa4 fd1b5b30be476542a6b8f11a76d901b659d7f23a sachin.sharma <sachin.sharma@juspay.in> 1749014270 +0530	pull: Fast-forward

@@ -1,0 +1,29 @@
+node_modules
+
+# Output
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
+/dist
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Test Reports - Raw logs (keep only summaries)
+test-reports/*-output.txt
+test-reports/test-output.txt
+test-reports/build-output.txt

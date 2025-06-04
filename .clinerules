@@ -1,0 +1,283 @@
+# NeuroLink Project Rules
+
+## Project Structure Patterns
+
+### Provider Pattern
+- Each AI provider (OpenAI, Bedrock, Vertex) has its own implementation file
+- All providers implement the common `AIProvider` interface
+- Provider creation is handled by `AIProviderFactory` using the factory pattern
+- Environment variables are used for configuration and API keys
+
+### 🚨 Critical Interface Design (Learned 2025-06-04)
+- **LESSON**: Always support flexible parameter formats in public APIs
+- **PATTERN**: Use `optionsOrPrompt: TextGenerationOptions | string` pattern
+- **IMPLEMENTATION**: Parse parameters with type checking and default extraction
+- **BACKWARD COMPATIBILITY**: Maintain support for simple string inputs
+- **EXAMPLE**: `generateText("prompt")` AND `generateText({ prompt, temperature: 0.7 })`
+
+### 🌟 Google Vertex AI Authentication Patterns (Learned 2025-06-04)
+- **LESSON**: Support multiple authentication methods for different deployment environments
+- **PATTERN**: Environment-based authentication detection with automatic fallback
+- **IMPLEMENTATION**: Detect available auth method and create temporary files as needed
+- **PRODUCTION**: Service account file path (`GOOGLE_APPLICATION_CREDENTIALS`)
+- **CONTAINERS**: JSON string with temp file creation (`GOOGLE_SERVICE_ACCOUNT_KEY`)
+- **CI/CD**: Individual env vars with temp file assembly (`GOOGLE_AUTH_CLIENT_EMAIL` + `GOOGLE_AUTH_PRIVATE_KEY`)
+
+### Authentication Detection Pattern (CRITICAL)
+```typescript
+// Always implement hierarchical authentication detection
+const hasPrincipalAccountAuth = () => !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
+const hasServiceAccountKeyAuth = () => !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+const hasServiceAccountEnvAuth = () => !!(process.env.GOOGLE_AUTH_CLIENT_EMAIL && process.env.GOOGLE_AUTH_PRIVATE_KEY);
+
+// Check in order of preference: file > JSON string > env vars
+if (hasPrincipalAccountAuth()) {
+  // Use existing file path
+} else if (hasServiceAccountKeyAuth()) {
+  // Create temp file from JSON string
+} else if (hasServiceAccountEnvAuth()) {
+  // Create temp file from individual env vars
+}
+```
+
+### Parameter Parsing Pattern (CRITICAL)
+```typescript
+// Always implement this pattern in provider methods
+const options = typeof optionsOrPrompt === 'string'
+  ? { prompt: optionsOrPrompt }
+  : optionsOrPrompt;
+
+const {
+  prompt,
+  temperature = 0.7,
+  maxTokens = 500,
+  systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
+  schema
+} = options;
+```
+
+### Test Environment Setup
+- Tests should use mocked providers to avoid requiring actual API keys
+- Environment variables should be mocked for testing
+- Provider functionality tests should be isolated from actual API calls
+
+### TypeScript Conventions
+- Use strict type checking throughout the codebase
+- Export explicit interfaces for all public APIs
+- Use proper TypeScript module syntax (`.js` extension in imports)
+- Document public functions with JSDoc comments
+
+### Error Handling
+- Log errors with detailed context information
+- Providers should gracefully handle API errors
+- Error boundaries should exist at the provider level
+- Factory should propagate and enhance error information
+
+### Logging Patterns
+- Use consistent log format: `[functionTag] Message {context}`
+- Log initialization, operation start/end, and errors
+- Include provider type, model name, and operation details in logs
+- Use appropriate log levels (error, warn, info, debug)
+
+## Development Workflow
+
+### Git Workflow
+- Repository uses 'release' as the default branch (not 'main')
+- Commits should have descriptive messages with emoji prefixes
+- New features should be tested before committing
+- Memory bank updates should be committed separately
+
+### Testing Guidelines
+- Tests should not require actual API credentials
+- Test for both success and failure cases
+- Ensure providers implement the required interface methods
+- Factory creation patterns should be validated thoroughly
+
+### Documentation Requirements
+- Update memory bank when making significant changes
+- Keep the README.md documentation comprehensive and up-to-date
+- Document environment variables in .env.example
+- Maintain clear API documentation in TypeScript interfaces
+
+## Build and Publication
+
+### Package Configuration
+- Use pnpm as the package manager
+- AI provider SDKs should be peer dependencies
+- Use SvelteKit for package structure and build
+- Support both ESM and CommonJS module formats
+- When publishing, use `npm publish --access public` to ensure proper access settings
+
+### Environment Setup
+- All provider API keys should be configurable via environment variables
+- Document required environment variables in README
+- Support fallback configuration for multiple providers
+- Enable configuration via environment file (.env)
+
+## Memory Bank Management
+
+### Memory Bank Organization
+- Keep `activeContext.md` updated with current development focus
+- Track completed work in `progress.md`
+- Document system architecture in `systemPatterns.md`
+- Record technical decisions in `techContext.md`
+- Track project roadmap in `roadmap.md`
+
+### Feature Status Tracking
+- Mark completed features with ✅ in documentation
+- Track pending tasks with ⏳ in roadmap.md
+- Use checkbox format for task tracking: `- [x] Completed task`
+- Include version numbers for completed features
+
+## 🚨 Auto Provider Selection Critical Lessons (Learned 2025-06-04)
+
+### Provider Priority Order Pattern (CRITICAL)
+- **LESSON**: Provider priority order DIRECTLY impacts auto-selection reliability
+- **ISSUE**: Putting unreliable providers first causes all auto-selection calls to fail
+- **SOLUTION**: Always prioritize most reliable providers first in priority arrays
+- **IMPLEMENTATION**: In `src/lib/utils/providerUtils.ts`, use: `['openai', 'vertex', 'bedrock']`
+- **IMPACT**: Changed from 100% auto-selection failure to 100% auto-selection success
+
+### Authorization vs Credentials Pattern (CRITICAL)
+- **LESSON**: Valid credentials ≠ API access permissions
+- **PATTERN**: Distinguish between authentication errors and authorization errors
+- **AWS BEDROCK**: Valid credentials can still fail with "not authorized to invoke this API"
+- **SOLUTION**: Account-level permissions setup required, not credential fixes
+- **FALLBACK**: Use provider priority to route around permission-limited providers
+
+### Demo Project Integration Pattern (ESSENTIAL)
+- **LESSON**: Real API integration testing reveals issues unit tests cannot catch
+- **PATTERN**: Create standalone demo projects for comprehensive validation
+- **STRUCTURE**: Express server + `.env` + real credentials + working endpoints
+- **VERIFICATION**: Use curl commands to test actual AI content generation
+- **DOCUMENTATION**: Working demo serves as integration example for users
+
+### Provider Selection Debug Pattern
+```typescript
+// Always implement detailed logging for provider selection
+console.log(`[getBestProvider] Selected provider: ${selectedProvider}`);
+console.log(`[Generate] Using provider: ${provider}, prompt length: ${prompt.length}`);
+
+// Log provider initialization success/failure
+console.log(`[AIProviderFactory.createProvider] Provider creation ${success ? 'succeeded' : 'failed'}`);
+```
+
+### Test Project Validation Checklist
+- ✅ Auto provider selection working with real APIs
+- ✅ Error handling graceful for failed providers
+- ✅ All endpoints functional and tested
+- ✅ Environment configuration complete
+- ✅ Real AI content generation verified
+- ✅ Performance metrics and usage tracking working
+
+### Authorization Troubleshooting Priority Order
+1. **Provider Priority**: Check if auto-selection is hitting failing providers first
+2. **Credential Validation**: Verify credentials are correctly configured
+3. **Account Permissions**: Confirm account has access to specific models/services
+4. **API Limits**: Check if account has hit rate limits or quotas
+5. **Network Access**: Verify network connectivity and firewall rules
+
+## 🚨 AWS Bedrock Inference Profile Critical Patterns (Learned 2025-06-04)
+
+### Anthropic Model ARN Format (CRITICAL)
+- **LESSON**: Anthropic models in AWS Bedrock require full inference profile ARN, NOT simple model names
+- **WRONG**: `anthropic.claude-3-sonnet-20240229-v1:0`
+- **CORRECT**: `arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0`
+- **PATTERN**: `arn:aws:bedrock:{region}:{account}:inference-profile/{provider}.{model-name}`
+- **IMPACT**: Using simple model names causes "not authorized to invoke this API" errors
+
+### Inference Profile Benefits (ESSENTIAL)
+- **CROSS-REGION ACCESS**: Enables faster access across regions
+- **PERFORMANCE**: Optimized routing for better response times
+- **PERMISSIONS**: Different permission requirements than base models
+- **AVAILABILITY**: Better model availability and reliability
+
+### Bedrock Model Configuration Pattern (CRITICAL)
+```typescript
+// Always use full inference profile ARN for Anthropic models
+const getBedrockModelId = (): string => {
+  return process.env.BEDROCK_MODEL ||
+         process.env.BEDROCK_MODEL_ID ||
+         'arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0';
+};
+```
+
+### Environment Variable Hierarchy (CRITICAL)
+- **BEDROCK_MODEL**: Primary env var for full ARN (recommended)
+- **BEDROCK_MODEL_ID**: Fallback for backward compatibility
+- **DEFAULT**: Use working inference profile ARN as fallback
+- **NEVER**: Use simple model names as defaults for Anthropic models
+
+### AWS Session Token Support (ESSENTIAL)
+- **PATTERN**: Support temporary credentials with session tokens
+- **IMPLEMENTATION**: Check `AWS_SESSION_TOKEN` environment variable
+- **DEV ENVIRONMENT**: Automatically include session token when present
+- **LOGGING**: Log session token presence for debugging
+
+### Bedrock ARN Validation Pattern
+```typescript
+// Always validate Bedrock ARN format
+const isValidBedrockARN = (modelId: string): boolean => {
+  return modelId.startsWith('arn:aws:bedrock:') ||
+         !modelId.includes('claude'); // Allow simple names for non-Anthropic
+};
+```
+
+### Error Handling for Bedrock (CRITICAL)
+- **"not authorized to invoke this API"**: Usually ARN format issue
+- **Check ARN format first**: Before checking account permissions
+- **Log ARN details**: Include full ARN in error logs for debugging
+- **Fallback strategy**: Consider different model ARNs if available
+
+## 🎬 Visual Content Creation Patterns (Learned 2025-06-04)
+
+### Automated Video Recording Strategy (REVOLUTIONARY)
+- **LESSON**: Create comprehensive visual documentation using automated browser recording
+- **PATTERN**: Playwright + Real API calls = Professional demo videos
+- **IMPLEMENTATION**: Script-driven video creation with actual AI generation
+- **QUALITY**: 1920x1080 professional recording with real content
+- **COVERAGE**: All feature categories demonstrated with live API calls
+
+### Video Creation Technical Implementation
+```javascript
+// Automated Video Recording Pattern
+const createVideo = async (name, actions) => {
+  const browser = await chromium.launch({ headless: false, slowMo: 1000 });
+  const context = await browser.newContext({
+    viewport: { width: 1920, height: 1080 },
+    recordVideo: { dir: path.join(VIDEOS_DIR, name) }
+  });
+  // Execute real actions with actual AI API calls
+  for (const action of actions) {
+    await action.execute(page);
+    await page.waitForTimeout(DELAY_BETWEEN_ACTIONS);
+  }
+};
+```
+
+### Visual Content Ecosystem Benefits (CRITICAL)
+- **USER EXPERIENCE**: "No installation required" - immediate capability demonstration
+- **PRODUCTION VALIDATION**: Videos show real AI generation, not simulated content
+- **COMPLETE COVERAGE**: Screenshots + videos + documentation = comprehensive ecosystem
+- **PROFESSIONAL QUALITY**: Suitable for documentation, marketing, tutorials
+
+### Video Content Verification Metrics
+- **Basic Examples**: 529 tokens (robot painting story)
+- **Business Use Cases**: 1,677 tokens (email + analysis + summaries)
+- **Creative Tools**: 1,174 tokens (stories + translation + ideas)
+- **Developer Tools**: 2,301 tokens (React code + API docs + debugging)
+- **Monitoring**: Live provider status and analytics
+- **TOTAL**: 5,681+ tokens of real AI content generated during recording
+
+### Visual Documentation Best Practices
+- **REAL API INTEGRATION**: Never use simulated content - always record actual AI generation
+- **ORGANIZED STRUCTURE**: Screenshots and videos in categorized folders
+- **TECHNICAL QUALITY**: Full HD resolution (1920x1080) for professional appearance
+- **COMPREHENSIVE COVERAGE**: Document all major feature categories
+- **PERFORMANCE METRICS**: Include response times and token usage in demonstrations
+
+### Screenshot + Video Strategy (ESSENTIAL)
+- **SCREENSHOTS**: Static reference images for quick feature overview
+- **VIDEOS**: Dynamic demonstrations showing actual functionality
+- **DOCUMENTATION**: Written guides explaining setup and usage
+- **INTEGRATION**: Combined approach provides complete user experience
