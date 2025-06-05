@@ -1,5 +1,41 @@
 # NeuroLink Technical Context
 
+## Core Architecture
+- **SDK Architecture**: `./systemPatterns.md`
+- **Provider Patterns**: Critical authentication flows documented in `.clinerules`
+
+## Development Resources
+- **CLI Development**: `./cli/cli-strategic-roadmap.md`
+- **Testing Strategy**: `./development/testing-strategy.md`
+- **Build & Publishing**: `./development/npm-publishing-guide.md`
+
+## Implementation Files
+- **Core SDK**: `src/lib/` directory structure
+- **CLI Implementation**: `src/cli/index.ts`
+- **Provider Implementations**: `src/lib/providers/`
+- **Utility Functions**: `src/lib/utils/`
+
+## Visual Documentation
+- **CLI Screenshots**: `cli-screenshots/` (Professional terminal demos)
+- **CLI Videos**: `cli-videos/` (Feature demonstrations)
+- **Demo Screenshots**: `neurolink-demo/screenshots/`
+- **Demo Videos**: `neurolink-demo/videos/`
+
+## Configuration & Environment
+- **Environment Setup**: `.env.example`
+- **Package Configuration**: `package.json` with CLI bin setup
+- **TypeScript Config**: `tsconfig.json`
+- **Build Config**: `vite.config.ts`, `svelte.config.js`
+
+## Testing Infrastructure
+- **Test Strategy**: `./development/testing-strategy.md`
+- **Test Files**: `src/test/` directory
+- **Test Reports**: `./reports/build-summary.md`, `./reports/test-summary.md`
+
+## Research & Documentation
+- **Research Archive**: `./research/ai-analysis-archive.md`
+- **Demo Documentation**: `./demo-documentation/`
+
 ## Technology Stack
 
 ### Core Technologies

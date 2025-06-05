@@ -1,0 +1,3 @@
+-e Write a haiku
+Explain TypeScript
+Generate a product name

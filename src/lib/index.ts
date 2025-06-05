@@ -39,6 +39,14 @@ export {
   isValidProvider
 } from './utils/providerUtils.js';
 
+// Main NeuroLink wrapper class export
+export { NeuroLink } from './neurolink.js';
+export type {
+  TextGenerationOptions,
+  StreamTextOptions,
+  TextGenerationResult
+} from './neurolink.js';
+
 // Version
 export const VERSION = '1.0.0';
 

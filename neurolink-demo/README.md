@@ -103,6 +103,45 @@ Visit **http://localhost:3000** in your browser
 ### Analytics
 - `GET /api/analytics` - Usage statistics and performance metrics
 
+## 🖥️ CLI Integration Examples
+
+### Using the NeuroLink CLI with Demo Server
+```bash
+# Start the demo server in one terminal
+npm start
+
+# In another terminal, use the CLI to interact with the same providers:
+
+# Basic text generation using CLI
+npx @juspay/neurolink generate-text "Write a haiku about programming"
+
+# Compare with server API
+curl -X POST http://localhost:3000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Write a haiku about programming", "provider": "auto"}'
+
+# Check provider status with CLI
+npx @juspay/neurolink status --verbose
+
+# Batch process multiple prompts with CLI
+echo -e "Explain AI\nWrite a poem\nGenerate code" > prompts.txt
+npx @juspay/neurolink batch prompts.txt --output cli-results.json
+
+# Stream real-time generation
+npx @juspay/neurolink stream "Tell me a story about robots"
+```
+
+### CLI vs API Comparison
+```bash
+# CLI approach (simple, scriptable)
+npx @juspay/neurolink generate-text "Hello world" --format json
+
+# API approach (programmatic integration)
+curl -X POST http://localhost:3000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello world", "provider": "auto"}'
+```
+
 ## 🧪 Testing with curl
 
 ### Basic Text Generation
@@ -138,44 +177,59 @@ curl -X POST http://localhost:3000/api/benchmark \
 curl http://localhost:3000/api/status
 ```
 
-## 🎬 Visual Documentation
+## 🎬 Complete Visual Documentation Ecosystem
 
-✅ **COMPLETE VISUAL CONTENT ECOSYSTEM CREATED!**
+### 🌐 **Web Demo Visual Content** ✅
 
-### 📹 **5 Demo Videos Created** ✅
-- **Real AI Generation**: 5,681+ tokens of actual AI content recorded
-- **Professional Quality**: 1920x1080 WebM format videos
-- **Complete Coverage**: All feature categories demonstrated
-- **Automated Creation**: Playwright-based recording system
-- **Files**: Located in `videos/` directory with organized folders
+#### **📸 Interactive Web Interface Screenshots**
+| Feature | Screenshot | Description |
+|---------|------------|-------------|
+| **Main Interface** | ![Main Interface](./screenshots/01-overview/01-main-interface-overview-2025-06-04T13-56-43-628Z.png) | Complete web interface dashboard |
+| **AI Generation Results** | ![AI Generation](./screenshots/02-basic-examples/02-ai-generation-results-2025-06-04T13-57-13-156Z.png) | Real AI content generation in action |
+| **Business Use Cases** | ![Business Cases](./screenshots/03-business-use-cases/03-business-use-cases-2025-06-04T13-59-07-846Z.png) | Professional business applications |
+| **Creative Tools** | ![Creative Tools](./screenshots/04-creative-tools/04-creative-tools-2025-06-04T13-59-24-346Z.png) | Creative content generation |
+| **Developer Tools** | ![Developer Tools](./screenshots/05-developer-tools/05-developer-tools-2025-06-04T13-59-43-322Z.png) | Code generation and API docs |
+| **Analytics & Monitoring** | ![Monitoring](./screenshots/06-monitoring/06-monitoring-analytics-2025-06-04T14-00-08-919Z.png) | Real-time provider analytics |
 
-**Video Content**:
-1. **Basic Examples**: AI generation + schema validation (529 tokens)
-2. **Business Use Cases**: Email + analysis + summaries (1,677 tokens)
-3. **Creative Tools**: Stories + translation + ideas (1,174 tokens)
-4. **Developer Tools**: Code + documentation + debugging (2,301 tokens)
-5. **Monitoring**: Live analytics and provider status
+#### **🎥 Demo Videos** *(5,681+ tokens of real AI generation)*
+- **[Basic Examples](./videos/basic-examples/)** - Text generation, haiku creation, storytelling (529 tokens)
+- **[Business Use Cases](./videos/business-use-cases/)** - Email generation, analysis, summaries (1,677 tokens)
+- **[Creative Tools](./videos/creative-tools/)** - Stories, translation, creative ideas (1,174 tokens)
+- **[Developer Tools](./videos/developer-tools/)** - React code, API docs, debugging help (2,301 tokens)
+- **[Monitoring & Analytics](./videos/monitoring/)** - Live provider status and performance
 
-### 📸 **6 Professional Screenshots** ✅
-- **High Resolution**: 1920x1080 professional captures
-- **Real AI Content**: Actual generation results displayed
-- **Organized Structure**: Categorized in `screenshots/` directory
-- **Production Quality**: Suitable for documentation and marketing
+### 🖥️ **CLI Integration Visual Content** ✅
 
-**Screenshot Categories**:
-1. **Main Interface Overview** - Dashboard and metrics
-2. **Basic Examples** - AI text generation in action
-3. **Business Use Cases** - Email generation, data analysis, summarization
-4. **Creative Tools** - Story writing, translation, content ideas
-5. **Developer Tools** - Code generation, API docs, debugging
-6. **Monitoring** - Analytics and provider status
+#### **📸 Professional CLI Screenshots**
+| Command | Screenshot | Description |
+|---------|------------|-------------|
+| **CLI Help Overview** | ![CLI Help](../cli-screenshots/01-cli-help-2025-06-04T19-38-12.png) | Complete command reference |
+| **Provider Status** | ![Provider Status](../cli-screenshots/02-provider-status-2025-06-04T19-38-25.png) | All provider connectivity verified |
+| **Text Generation** | ![Text Generation](../cli-screenshots/03-text-generation-2025-06-04T19-38-30.png) | Real AI haiku generation with JSON |
+| **Auto Provider Selection** | ![Best Provider](../cli-screenshots/04-best-provider-2025-06-04T19-38-33.png) | Automatic provider selection working |
+| **Batch Processing** | ![Batch Results](../cli-screenshots/05-batch-results-2025-06-04T19-38-37.png) | Multi-prompt processing with results |
 
-### 🎯 **"No Installation Required" Achievement**
-Users can now experience NeuroLink through:
-- **📸 View Screenshots**: Immediate visual reference
-- **🎬 Watch Videos**: Complete feature demonstrations
-- **💻 Run Live Demo**: Hands-on interactive experience
-- **📚 Read Documentation**: Setup and integration guides
+#### **🎥 CLI Demonstration Videos** *(Real command execution)*
+- **[CLI Overview](../cli-videos/cli-overview/)** - Help, status, provider selection commands
+- **[Basic Generation](../cli-videos/cli-basic-generation/)** - Text generation with different providers
+- **[Batch Processing](../cli-videos/cli-batch-processing/)** - File-based multi-prompt processing
+- **[Real-time Streaming](../cli-videos/cli-streaming/)** - Live AI content streaming
+- **[Advanced Features](../cli-videos/cli-advanced-features/)** - Verbose diagnostics and provider options
+
+### 🎯 **Complete Visual Ecosystem Benefits**
+- ✅ **No Installation Required** - See everything in action before installing
+- ✅ **Real AI Content** - All screenshots and videos show actual AI generation
+- ✅ **Professional Quality** - 1920x1080 resolution suitable for documentation
+- ✅ **Complete Coverage** - Every major feature visually documented
+- ✅ **CLI + Web Integration** - Both interfaces comprehensively documented
+- ✅ **Production Validation** - Demonstrates real-world usage patterns
+
+### 📊 **Visual Content Metrics**
+- **📸 Total Screenshots**: 11 professional captures (Web: 6, CLI: 5)
+- **🎥 Total Videos**: 10 demonstration videos (Web: 5, CLI: 5)
+- **🤖 AI Content Generated**: 5,681+ tokens during video creation
+- **📁 Organization**: Structured folders with descriptive names
+- **🎨 Quality**: Professional 1920x1080 resolution throughout
 
 
 ## 🧪 Testing Guide

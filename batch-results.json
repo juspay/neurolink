@@ -1,0 +1,14 @@
+[
+  {
+    "prompt": "Write a haiku about programming",
+    "response": "Lines of code unfold,  \nLogic dances through the keys—  \nDigital dawn breaks."
+  },
+  {
+    "prompt": "Explain what TypeScript is in one sentence",
+    "response": "TypeScript is a statically typed superset of JavaScript that compiles to plain JavaScript, designed to improve developer productivity and code quality."
+  },
+  {
+    "prompt": "Generate a creative product name for an AI tool",
+    "response": "Sure! How about \"CognifyAI\"? This name suggests enhanced understanding and intelligence, emphasizing the AI's capability to process and analyze information effectively."
+  }
+]

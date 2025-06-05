@@ -229,6 +229,36 @@ const isValidBedrockARN = (modelId: string): boolean => {
 - **Log ARN details**: Include full ARN in error logs for debugging
 - **Fallback strategy**: Consider different model ARNs if available
 
+## 🖥️ CLI Implementation Patterns (Learned 2025-06-05)
+
+### Professional CLI Tool Design (ESSENTIAL)
+- **LESSON**: CLI tools need professional UX with spinners, colors, and clear feedback
+- **PATTERN**: yargs (arguments) + ora (spinners) + chalk (colors) = Professional CLI
+- **IMPLEMENTATION**: Animated feedback during AI generation with colorized success/error states
+- **USER EXPERIENCE**: Visual progress indicators essential for AI generation (slow operations)
+- **OUTPUT FORMATS**: Support both human-readable text and JSON for programmatic use
+
+### CLI vs SDK Integration Strategy (CRITICAL)
+- **LESSON**: CLI and SDK should complement each other, not compete
+- **PATTERN**: CLI for quick tasks and scripting, SDK for programmatic integration
+- **DOCUMENTATION**: Side-by-side examples showing both approaches for same task
+- **USER CHOICE**: Let users pick the right tool for their workflow
+- **INTEGRATION**: CLI can work alongside web APIs for comprehensive tooling
+
+### ES Module CLI Conversion (TECHNICAL)
+- **LESSON**: Converting CommonJS CLI tools to ES modules requires specific patterns
+- **PATTERN**: Use `import.meta.url === \`file://\${process.argv[1]}\`` for direct execution detection
+- **SHEBANG**: Keep `#!/usr/bin/env node` for executable scripts
+- **EXPORTS**: Use `export { functions }` instead of `module.exports`
+- **IMPORTS**: Use `import` statements and import utilities like `fileURLToPath`
+
+### Playwright Screenshot Automation (PROFESSIONAL)
+- **LESSON**: Automated screenshots provide consistent, professional documentation
+- **PATTERN**: Headless browser + Terminal simulation = High-quality CLI screenshots
+- **IMPLEMENTATION**: Dark terminal theme with syntax highlighting and proper spacing
+- **ARGUMENT HANDLING**: Use object parameters `({ param1, param2 })` for Playwright evaluate calls
+- **OUTPUT CLEANUP**: Remove ANSI codes and spinner characters for clean screenshots
+
 ## 🎬 Visual Content Creation Patterns (Learned 2025-06-04)
 
 ### Automated Video Recording Strategy (REVOLUTIONARY)
@@ -281,3 +311,125 @@ const createVideo = async (name, actions) => {
 - **VIDEOS**: Dynamic demonstrations showing actual functionality
 - **DOCUMENTATION**: Written guides explaining setup and usage
 - **INTEGRATION**: Combined approach provides complete user experience
+
+## 📸 Visual Content Integration Patterns (Learned 2025-06-05)
+
+### CLI Visual Ecosystem Strategy (REVOLUTIONARY)
+- **LESSON**: Create comprehensive CLI visual documentation using automated capture systems
+- **PATTERN**: Screenshots + Videos + Automated Generation = Complete CLI documentation
+- **IMPLEMENTATION**: Playwright-based terminal simulation with real command execution
+- **COVERAGE**: All CLI commands documented with professional visual content
+
+### Visual Content Embedding Best Practices (ESSENTIAL)
+- **LESSON**: Embed visual content exhaustively across all documentation touchpoints
+- **PATTERN**: README files, demo projects, documentation - embed everywhere possible
+- **STRUCTURE**: Organized visual content in dedicated folders with descriptive names
+- **ACCESSIBILITY**: Professional quality (1920x1080) suitable for all documentation uses
+
+### CLI Screenshot System Architecture (TECHNICAL)
+- **TERMINAL SIMULATION**: Dark GitHub-style terminal interface with syntax highlighting
+- **REAL COMMAND EXECUTION**: Actual CLI commands with live AI generation results
+- **PROFESSIONAL STYLING**: Monaco font, proper colors, clean ANSI code removal
+- **ORGANIZED OUTPUT**: Descriptive filenames with timestamps for version tracking
+
+### CLI Video Recording Infrastructure (TECHNICAL)
+- **AUTOMATED RECORDING**: Playwright browser automation with video capture
+- **REAL CONTENT**: Live AI generation during recording for authentic demonstrations
+- **PROFESSIONAL QUALITY**: 1920x1080 WebM format for web compatibility
+- **COMPREHENSIVE SCENARIOS**: Overview, generation, batch processing, streaming, advanced features
+
+### Visual Content Organization Pattern (CRITICAL)
+```
+project/
+├── cli-screenshots/           # Static CLI demonstrations
+│   ├── 01-cli-help-*.png     # Help command overview
+│   ├── 02-provider-status-*.png # Provider connectivity
+│   ├── 03-text-generation-*.png # AI generation examples
+│   ├── 04-best-provider-*.png   # Auto-selection demo
+│   └── 05-batch-results-*.png   # Batch processing results
+├── cli-videos/               # Dynamic CLI demonstrations
+│   ├── cli-overview/         # Help, status, provider selection
+│   ├── cli-basic-generation/ # Text generation examples
+│   ├── cli-batch-processing/ # File-based processing
+│   ├── cli-streaming/        # Real-time streaming
+│   └── cli-advanced-features/ # Advanced command usage
+└── neurolink-demo/
+    ├── screenshots/          # Web demo screenshots
+    └── videos/              # Web demo videos
+```
+
+### Documentation Integration Strategy (ESSENTIAL)
+- **MAIN README**: Embed CLI screenshots and videos in CLI section
+- **DEMO PROJECT README**: Show CLI integration alongside web examples
+- **COMPARISON SECTIONS**: Visual comparisons between CLI and SDK usage
+- **QUICK START GUIDES**: Screenshots for immediate visual understanding
+- **COMPREHENSIVE COVERAGE**: Every major feature has visual documentation
+
+## 📁 Strategic Memory Bank Reorganization Patterns (Learned 2025-06-05)
+
+### Memory Bank Strategic Organization (REVOLUTIONARY)
+- **LESSON**: Consolidate scattered research and documentation into strategic, organized structure
+- **PATTERN**: Hierarchical organization with clear cross-references and navigation
+- **IMPLEMENTATION**: memory-bank/ with specialized subdirectories for different content types
+- **BENEFITS**: Reduces cognitive load, improves session continuity, enables strategic planning
+
+### Strategic CLI Development Consolidation (CRITICAL)
+- **LESSON**: Consolidate 7+ research sources into single comprehensive strategic roadmap
+- **PATTERN**: Research → Strategic Analysis → Phase-based Implementation Plan
+- **STRUCTURE**: `memory-bank/cli/cli-strategic-roadmap.md` with 5-phase development strategy
+- **CONTENT**: Current state assessment + 4 future phases with detailed implementation strategies
+- **VALUE**: Forward-thinking development guidance vs scattered research notes
+
+### Documentation Consolidation Strategy (ESSENTIAL)
+```
+memory-bank/
+├── [CORE FILES] - Enhanced with cross-references
+├── cli/ - Strategic CLI development roadmap
+├── development/ - Technical resources (testing, publishing)
+├── research/ - Consolidated AI research archives
+├── demo-documentation/ - Visual content reports
+└── reports/ - Build and test summaries
+```
+
+### File Organization and Cleanup Pattern (CRITICAL)
+- **LESSON**: Consolidation without cleanup creates confusion and duplicate information
+- **PATTERN**: Consolidate content → Update cross-references → Remove scattered originals
+- **IMPLEMENTATION**: Copy to organized structure, then systematically remove scattered files
+- **CLEANUP CHECKLIST**: Research/, docs/, test-reports/, demo documentation files
+- **VERIFICATION**: Confirm all content preserved in new organized structure before deletion
+
+### Cross-Reference Navigation Strategy (ESSENTIAL)
+- **LESSON**: Organized files are useless without clear navigation between them
+- **PATTERN**: Each core file contains clear paths to related specialized documentation
+- **IMPLEMENTATION**: activeContext.md points to cli-strategic-roadmap.md, techContext.md references development/ and reports/
+- **BENEFIT**: LLM can quickly navigate to relevant information across sessions
+
+### Strategic vs Tactical Documentation (CRITICAL)
+- **STRATEGIC**: `memory-bank/cli/cli-strategic-roadmap.md` - Future development phases
+- **TACTICAL**: `memory-bank/development/testing-strategy.md` - Immediate technical execution
+- **ARCHIVAL**: `memory-bank/research/ai-analysis-archive.md` - Historical research decisions
+- **OPERATIONAL**: `memory-bank/activeContext.md` - Current session focus and status
+
+### Session Continuity Enhancement (REVOLUTIONARY)
+- **LESSON**: Strategic organization dramatically improves session-to-session continuity
+- **PATTERN**: Clear status tracking + strategic roadmaps + organized technical resources
+- **IMPLEMENTATION**: activeContext.md shows current phase, strategic roadmap shows next steps
+- **MEMORY RESET RESILIENCE**: All context preserved in organized, cross-referenced structure
+
+### Research Archive Consolidation (ESSENTIAL)
+- **LESSON**: Multiple AI research sources should be consolidated with decision rationale
+- **PATTERN**: Preserve original research insights while documenting final decisions
+- **STRUCTURE**: Framework comparison matrices + implementation decision rationale
+- **VALUE**: Future sessions understand why decisions were made, not just what was decided
+
+### Git Workflow Integration Preparation (STRATEGIC)
+- **LESSON**: Organized memory bank enables clean, descriptive git commits and PRs
+- **PATTERN**: Logical feature groups → Strategic commits → Descriptive PR creation
+- **IMPLEMENTATION**: memory-bank updates as separate commits from code changes
+- **BENEFIT**: Git history reflects strategic development progression
+
+### Memory Bank Size Management (TECHNICAL)
+- **LESSON**: Monitor file sizes and split when approaching 300-line limits
+- **CURRENT STATUS**: All files within optimal size ranges after reorganization
+- **SPLIT STRATEGY**: Create subdirectories with index files for large topic areas
+- **MAINTENANCE**: Regular review of file sizes during major updates
