@@ -4,6 +4,15 @@
  */
 
 export const AUTOMATION_CONFIG = {
+  // Context Constants for delay settings
+  contexts: {
+    DEFAULT: 'default',
+    VIDEO: 'video',
+    SCREENSHOT: 'screenshot',
+    TYPING: 'typing',
+    FINAL: 'final'
+  },
+
   // Timing Configuration
   delays: {
     betweenActions: 2000,      // Default delay between major actions
@@ -92,13 +101,14 @@ export const AUTOMATION_CONFIG = {
 };
 
 // Helper functions for common operations
-export const getDelayForContext = (context = 'default') => {
+export const getDelayForContext = (context = AUTOMATION_CONFIG.contexts.DEFAULT) => {
   const delays = AUTOMATION_CONFIG.delays;
+  const contexts = AUTOMATION_CONFIG.contexts;
   switch (context) {
-    case 'video': return delays.betweenActions;
-    case 'screenshot': return delays.screenshotActions;
-    case 'typing': return delays.typing;
-    case 'final': return delays.finalWait;
+    case contexts.VIDEO: return delays.betweenActions;
+    case contexts.SCREENSHOT: return delays.screenshotActions;
+    case contexts.TYPING: return delays.typing;
+    case contexts.FINAL: return delays.finalWait;
     default: return delays.betweenActions;
   }
 };

@@ -22,8 +22,8 @@ const __dirname = path.dirname(__filename);
 
 // Configuration from shared module
 const VIDEOS_DIR = path.join(__dirname, AUTOMATION_CONFIG.directories.videos);
-const DELAY_BETWEEN_ACTIONS = getDelayForContext('video');
-const TYPING_DELAY = getDelayForContext('typing');
+const DELAY_BETWEEN_ACTIONS = getDelayForContext(AUTOMATION_CONFIG.contexts.VIDEO);
+const TYPING_DELAY = getDelayForContext(AUTOMATION_CONFIG.contexts.TYPING);
 
 // Ensure videos directory exists
 if (!fs.existsSync(VIDEOS_DIR)) {

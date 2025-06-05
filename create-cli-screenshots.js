@@ -23,7 +23,7 @@ const __dirname = path.dirname(__filename);
 
 // Configuration from shared module
 const SCREENSHOTS_DIR = path.join(__dirname, AUTOMATION_CONFIG.directories.screenshots);
-const DELAY_BETWEEN_ACTIONS = getDelayForContext('screenshot');
+const DELAY_BETWEEN_ACTIONS = getDelayForContext(AUTOMATION_CONFIG.contexts.SCREENSHOT);
 
 // Ensure screenshots directory exists
 if (!fs.existsSync(SCREENSHOTS_DIR)) {
