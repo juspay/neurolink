@@ -10,10 +10,9 @@
 
 ## 🚀 Quick Start
 
-### 📦 Installation
-
+### CLI Usage (No Installation Required!)
 ```bash
-# CLI Usage (No Installation Required)
+# Use directly with npx
 npx @juspay/neurolink generate-text "Hello, AI!"
 npx @juspay/neurolink status
 
