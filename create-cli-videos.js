@@ -8,22 +8,16 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
+import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import { AUTOMATION_CONFIG, getDelayForContext } from './cli-automation-config.js';
-import {
-  createTerminalSession,
-  executeCommand,
-  processCommandOutput,
-  typeCommand
-} from './cli-automation-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Configuration from shared module
-const VIDEOS_DIR = path.join(__dirname, AUTOMATION_CONFIG.directories.videos);
-const DELAY_BETWEEN_ACTIONS = getDelayForContext(AUTOMATION_CONFIG.contexts.VIDEO);
-const TYPING_DELAY = getDelayForContext(AUTOMATION_CONFIG.contexts.TYPING);
+// Configuration
+const VIDEOS_DIR = path.join(__dirname, 'cli-videos');
+const DELAY_BETWEEN_ACTIONS = 2000;
+const TYPING_DELAY = 100;
 
 // Ensure videos directory exists
 if (!fs.existsSync(VIDEOS_DIR)) {
@@ -78,6 +72,168 @@ const CLI_SCENARIOS = [
   }
 ];
 
+async function createTerminalSession(page, width = 1920, height = 1080) {
+  await page.setViewportSize({ width, height });
+
+  // Set up a dark terminal-like interface
+  await page.setContent(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>NeuroLink CLI Demo</title>
+      <style>
+        body {
+          margin: 0;
+          padding: 20px;
+          background: #0d1117;
+          color: #c9d1d9;
+          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+          font-size: 16px;
+          line-height: 1.5;
+        }
+        .terminal {
+          background: #161b22;
+          border: 1px solid #30363d;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        .header {
+          color: #58a6ff;
+          font-size: 24px;
+          font-weight: bold;
+          margin-bottom: 20px;
+          text-align: center;
+        }
+        .command-line {
+          margin: 10px 0;
+        }
+        .prompt {
+          color: #7c3aed;
+          font-weight: bold;
+        }
+        .command {
+          color: #79c0ff;
+        }
+        .output {
+          color: #e6edf3;
+          margin-left: 20px;
+          white-space: pre-wrap;
+        }
+        .success {
+          color: #3fb950;
+        }
+        .error {
+          color: #f85149;
+        }
+        .info {
+          color: #58a6ff;
+        }
+        .spinner {
+          color: #f0883e;
+        }
+        .description {
+          color: #8b949e;
+          font-style: italic;
+          margin-bottom: 10px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="terminal">
+        <div class="header">🧠 NeuroLink CLI Demonstration</div>
+        <div id="content"></div>
+      </div>
+      <script>
+        window.addCommand = function(description, command, output) {
+          const content = document.getElementById('content');
+
+          if (description) {
+            content.innerHTML += '<div class="description"># ' + description + '</div>';
+          }
+
+          content.innerHTML += '<div class="command-line"><span class="prompt">$ </span><span class="command">' + command + '</span></div>';
+
+          if (output) {
+            content.innerHTML += '<div class="output">' + output + '</div>';
+          }
+
+          content.scrollTop = content.scrollHeight;
+        };
+
+        window.clearTerminal = function() {
+          document.getElementById('content').innerHTML = '';
+        };
+      </script>
+    </body>
+    </html>
+  `);
+}
+
+async function typeCommand(page, command, description = null) {
+  if (description) {
+    await page.evaluate((desc) => {
+      window.addCommand(desc, '', '');
+    }, description);
+    await page.waitForTimeout(1000);
+  }
+
+  // Type command character by character
+  for (let char of command) {
+    await page.evaluate((c) => {
+      const commandSpan = document.querySelector('.command-line:last-child .command');
+      if (commandSpan) {
+        commandSpan.textContent += c;
+      }
+    }, char);
+    await page.waitForTimeout(TYPING_DELAY);
+  }
+
+  await page.waitForTimeout(500);
+}
+
+async function executeCommand(command) {
+  return new Promise((resolve) => {
+    const parts = command.split(' ');
+    const cmd = parts[0];
+    const args = parts.slice(1);
+
+    let output = '';
+    let errorOutput = '';
+
+    const child = spawn(cmd, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: true
+    });
+
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    child.on('close', (code) => {
+      resolve({
+        success: code === 0,
+        output: output || errorOutput,
+        code
+      });
+    });
+
+    // Timeout after 30 seconds
+    setTimeout(() => {
+      child.kill();
+      resolve({
+        success: false,
+        output: 'Command timed out',
+        code: -1
+      });
+    }, 30000);
+  });
+}
 
 async function recordScenario(scenario) {
   console.log(`🎬 Recording: ${scenario.title}`);

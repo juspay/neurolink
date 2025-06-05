@@ -10,13 +10,9 @@
 
 ## 🚀 Quick Start
 
-### 📦 Installation
-
+### CLI Usage (No Installation Required!)
 ```bash
-# Install globally for CLI usage
-npm install -g @juspay/neurolink
-
-# Or use directly with npx (no installation required)
+# Use directly with npx
 npx @juspay/neurolink generate-text "Hello, AI!"
 
 # Or install globally
