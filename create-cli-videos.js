@@ -8,7 +8,7 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -195,43 +195,21 @@ async function typeCommand(page, command, description = null) {
 
 async function executeCommand(command) {
   return new Promise((resolve) => {
-    const parts = command.split(' ');
-    const cmd = parts[0];
-    const args = parts.slice(1);
-
-    let output = '';
-    let errorOutput = '';
-
-    const child = spawn(cmd, args, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true
+    exec(command, { shell: true }, (error, stdout, stderr) => {
+      if (error) {
+        resolve({
+          success: false,
+          output: stderr || error.message,
+          code: error.code || -1
+        });
+      } else {
+        resolve({
+          success: true,
+          output: stdout,
+          code: 0
+        });
+      }
     });
-
-    child.stdout.on('data', (data) => {
-      output += data.toString();
-    });
-
-    child.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-    });
-
-    child.on('close', (code) => {
-      resolve({
-        success: code === 0,
-        output: output || errorOutput,
-        code
-      });
-    });
-
-    // Timeout after 30 seconds
-    setTimeout(() => {
-      child.kill();
-      resolve({
-        success: false,
-        output: 'Command timed out',
-        code: -1
-      });
-    }, 30000);
   });
 }
 
