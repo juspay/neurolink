@@ -45,7 +45,40 @@ export const AUTOMATION_CONFIG = {
       error: '#f85149',        // Error messages
       description: '#8b949e',  // Comments and descriptions
       timestamp: '#6e7681',    // Timestamps
-      highlight: '#ffa657'     // JSON and highlights
+      highlight: '#ffa657',    // JSON and highlights
+      outputBorder: '#21262d'  // Output section borders
+    },
+
+    // Layout and typography
+    layout: {
+      borderRadius: '8px',
+      terminalPadding: '25px',
+      terminalMinHeight: '600px',
+      boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6)',
+      headerFontSize: '28px',
+      subheaderFontSize: '16px',
+      bodyFontSize: '16px',
+      outputFontSize: '14px',
+      timestampFontSize: '12px',
+      lineHeight: '1.5'
+    },
+
+    // Spacing
+    spacing: {
+      bodyPadding: '20px',
+      terminalMargin: '20px 0',
+      headerMarginBottom: '25px',
+      headerPaddingBottom: '15px',
+      subheaderMarginBottom: '30px',
+      commandSectionMargin: '25px 0',
+      commandLineMargin: '12px 0',
+      promptMarginRight: '8px',
+      outputMarginLeft: '24px',
+      outputMarginTop: '10px',
+      outputPadding: '15px',
+      outputBorderRadius: '6px',
+      descriptionMarginBottom: '10px',
+      timestampMarginTop: '20px'
     }
   },
 
