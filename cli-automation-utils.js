@@ -253,7 +253,7 @@ export async function typeCommand(page, command, description = null, typingDelay
   let typedCommand = '';
   for (let i = 0; i < command.length; i++) {
     typedCommand += command[i];
-    if ((i + 1) % 10 === 0 || i === command.length - 1) { // Batch updates every 10 characters to optimize DOM performance while maintaining realistic typing effect
+    if ((i + 1) % 10 === 0 || i === command.length - 1) { // Batch updates every 10 characters or at the end
       await page.evaluate((cmd) => {
         const commandSpan = document.querySelector('.command-line:last-child .command');
         if (commandSpan) {
