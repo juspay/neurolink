@@ -1,6 +1,6 @@
 {
 	"name": "@juspay/neurolink",
-	"version": "1.2.3",
+	"version": "1.2.4",
 	"description": "AI toolkit with multi-provider support for OpenAI, Amazon Bedrock, and Google Vertex AI",
 	"author": "Juspay Technologies",
 	"license": "MIT",
