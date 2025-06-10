@@ -1,0 +1,2 @@
+{"version": 2, "width": 195, "height": 42, "timestamp": 1749525802, "env": {"SHELL": "/bin/zsh", "TERM": "xterm-256color"}}
+[0.59104, "o", "\u001b[34m📋 Configured MCP servers (2):\u001b[39m\r\n\u001b[34m\u001b[39m\r\n\u001b[1m🔧 filesystem\u001b[22m\r\n   Command: npx -y @modelcontextprotocol/server-filesystem /\r\n   Transport: stdio\r\n\r\n\u001b[1m🔧 github\u001b[22m\r\n   Command: npx @modelcontextprotocol/server-github \r\n   Transport: stdio\r\n\r\n"]

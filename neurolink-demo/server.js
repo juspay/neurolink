@@ -1,7 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { createAIProvider, getBestProvider, createBestAIProvider } from 'neurolink';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createAIProvider, getBestProvider } from '@juspay/neurolink';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config();
@@ -11,213 +16,52 @@ const PORT = process.env.PORT || 9876;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
 
-// Helper function to log requests
+// In-memory storage for demo purposes
+const usageStats = {
+  requests: 0,
+  providers: {},
+  errors: 0,
+  totalTokens: 0
+};
+
+// Helper function to log requests and update stats
 const logRequest = (req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  usageStats.requests++;
   next();
 };
 
 app.use(logRequest);
 
-// Root endpoint - serve demo page
-app.get('/', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>NeuroLink AI Demo</title>
-      <style>
-        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .section { border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
-        .btn { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
-        .btn:hover { background: #0056b3; }
-        .output { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 4px; margin-top: 10px; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
-        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
-        .success { background: #d4edda; border: 1px solid #c3e6cb; }
-        .error { background: #f8d7da; border: 1px solid #f5c6cb; }
-        .loading { background: #fff3cd; border: 1px solid #ffeaa7; }
-        textarea { width: 100%; height: 80px; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
-        select { width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; }
-      </style>
-    </head>
-    <body>
-      <h1>🧠 NeuroLink AI Toolkit Demo</h1>
-      <p>This demo showcases the NeuroLink AI toolkit with real API integrations for OpenAI, Amazon Bedrock, and Google Vertex AI.</p>
+// Helper functions
+function getModelForProvider(provider) {
+  switch (provider) {
+    case 'openai':
+      return process.env.OPENAI_MODEL || 'gpt-4';
+    case 'bedrock':
+      return process.env.BEDROCK_MODEL || 'arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0';
+    case 'vertex':
+      return process.env.VERTEX_MODEL || 'gemini-1.5-pro';
+    default:
+      return 'gpt-4';
+  }
+}
 
-      <div class="container">
-        <div class="section">
-          <h3>🚀 Provider Testing</h3>
-          <p>Test individual AI providers with custom prompts:</p>
-
-          <select id="provider">
-            <option value="openai">OpenAI (GPT-4)</option>
-            <option value="bedrock">Amazon Bedrock (Claude 3)</option>
-            <option value="vertex">Google Vertex AI (Gemini)</option>
-            <option value="auto">Auto (Best Available)</option>
-          </select>
-
-          <textarea id="prompt" placeholder="Enter your prompt here...">Write a creative short story about an AI helping humans solve climate change.</textarea>
-
-          <div>
-            <button class="btn" onclick="testProvider(false)">Generate Text</button>
-            <button class="btn" onclick="testProvider(true)">Stream Response</button>
-            <button class="btn" onclick="testFallback()">Test Fallback</button>
-          </div>
-
-          <div id="status"></div>
-          <div id="output" class="output"></div>
-        </div>
-
-        <div class="section">
-          <h3>🔧 Provider Status</h3>
-          <p>Check which providers are currently available:</p>
-          <button class="btn" onclick="checkProviders()">Check All Providers</button>
-          <div id="provider-status" class="output"></div>
-        </div>
-      </div>
-
-      <div class="container">
-        <div class="section">
-          <h3>📊 Performance Comparison</h3>
-          <p>Compare response times across providers:</p>
-          <button class="btn" onclick="runBenchmark()">Run Benchmark</button>
-          <div id="benchmark-results" class="output"></div>
-        </div>
-
-        <div class="section">
-          <h3>🎯 Schema Validation</h3>
-          <p>Test structured output generation:</p>
-          <button class="btn" onclick="testSchema()">Generate Structured Data</button>
-          <div id="schema-output" class="output"></div>
-        </div>
-      </div>
-
-      <script>
-        function setStatus(message, type = 'info') {
-          const status = document.getElementById('status');
-          status.className = 'status ' + type;
-          status.textContent = message;
-        }
-
-        function setOutput(content) {
-          document.getElementById('output').textContent = content;
-        }
-
-        async function testProvider(streaming = false) {
-          const provider = document.getElementById('provider').value;
-          const prompt = document.getElementById('prompt').value;
-
-          if (!prompt.trim()) {
-            setStatus('Please enter a prompt', 'error');
-            return;
-          }
-
-          setStatus('Generating response...', 'loading');
-          setOutput('');
-
-          try {
-            const endpoint = streaming ? '/api/stream' : '/api/generate';
-            const response = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ provider, prompt })
-            });
-
-            if (streaming) {
-              const reader = response.body.getReader();
-              const decoder = new TextDecoder();
-              let content = '';
-
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value);
-                content += chunk;
-                setOutput(content);
-              }
-              setStatus('Streaming completed successfully', 'success');
-            } else {
-              const data = await response.json();
-              if (data.success) {
-                setOutput(data.content);
-                setStatus('Generated successfully using ' + data.provider, 'success');
-              } else {
-                setStatus('Error: ' + data.error, 'error');
-                setOutput('');
-              }
-            }
-          } catch (error) {
-            setStatus('Request failed: ' + error.message, 'error');
-            setOutput('');
-          }
-        }
-
-        async function testFallback() {
-          setStatus('Testing fallback mechanism...', 'loading');
-
-          try {
-            const response = await fetch('/api/test-fallback', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ prompt: document.getElementById('prompt').value })
-            });
-
-            const data = await response.json();
-            setOutput(JSON.stringify(data, null, 2));
-            setStatus('Fallback test completed', 'success');
-          } catch (error) {
-            setStatus('Fallback test failed: ' + error.message, 'error');
-          }
-        }
-
-        async function checkProviders() {
-          try {
-            const response = await fetch('/api/status');
-            const data = await response.json();
-            document.getElementById('provider-status').textContent = JSON.stringify(data, null, 2);
-          } catch (error) {
-            document.getElementById('provider-status').textContent = 'Error: ' + error.message;
-          }
-        }
-
-        async function runBenchmark() {
-          document.getElementById('benchmark-results').textContent = 'Running benchmark...';
-
-          try {
-            const response = await fetch('/api/benchmark', { method: 'POST' });
-            const data = await response.json();
-            document.getElementById('benchmark-results').textContent = JSON.stringify(data, null, 2);
-          } catch (error) {
-            document.getElementById('benchmark-results').textContent = 'Error: ' + error.message;
-          }
-        }
-
-        async function testSchema() {
-          document.getElementById('schema-output').textContent = 'Generating structured data...';
-
-          try {
-            const response = await fetch('/api/schema', { method: 'POST' });
-            const data = await response.json();
-            document.getElementById('schema-output').textContent = JSON.stringify(data, null, 2);
-          } catch (error) {
-            document.getElementById('schema-output').textContent = 'Error: ' + error.message;
-          }
-        }
-
-        // Load initial provider status
-        checkProviders();
-      </script>
-    </body>
-    </html>
-  `);
-});
+function isProviderConfigured(provider) {
+  switch (provider) {
+    case 'openai':
+      return !!process.env.OPENAI_API_KEY;
+    case 'bedrock':
+      return !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+    case 'vertex':
+      return !!(process.env.GOOGLE_VERTEX_PROJECT || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_AUTH_CLIENT_EMAIL);
+    default:
+      return false;
+  }
+}
 
 // API endpoint to check provider status
 app.get('/api/status', async (req, res) => {
@@ -292,9 +136,13 @@ app.post('/api/generate', async (req, res) => {
     const endTime = Date.now();
     const responseTime = endTime - startTime;
 
-    // Handle null response from provider
     if (!result || !result.text) {
       throw new Error('Provider returned null or invalid response');
+    }
+
+    // Update usage stats
+    if (result.usage) {
+      usageStats.totalTokens += (result.usage.totalTokens || 0);
     }
 
     console.log(`[Generate] Success in ${responseTime}ms`);
@@ -310,6 +158,7 @@ app.post('/api/generate', async (req, res) => {
 
   } catch (error) {
     console.error(`[Generate] Error:`, error.message);
+    usageStats.errors++;
     res.status(500).json({
       success: false,
       error: error.message,
@@ -318,110 +167,91 @@ app.post('/api/generate', async (req, res) => {
   }
 });
 
-// API endpoint for streaming text generation
-app.post('/api/stream', async (req, res) => {
-  const { provider = 'auto', prompt } = req.body;
-
-  if (!prompt) {
-    return res.status(400).json({ success: false, error: 'Prompt is required' });
-  }
-
+// API endpoint for schema validation testing
+app.post('/api/schema', async (req, res) => {
   try {
-    console.log(`[Stream] Using provider: ${provider}, prompt length: ${prompt.length}`);
+    const { type } = req.body;
+    const bestProviderName = await getBestProvider();
+    console.log(`[Schema] Selected provider: ${bestProviderName}`);
+    const provider = await createAIProvider(bestProviderName);
 
-    let aiProvider;
-    if (provider === 'auto') {
-      const bestProviderName = await getBestProvider();
-      console.log(`[Stream] Selected provider: ${bestProviderName}`);
-      aiProvider = await createAIProvider(bestProviderName);
-    } else {
-      aiProvider = await createAIProvider(provider);
-    }
+    const schemas = {
+      'user-profile': {
+        prompt: "Generate a user profile for a fictional character including name, age, occupation, and hobbies.",
+        schema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            age: { type: 'number' },
+            occupation: { type: 'string' },
+            hobbies: { type: 'array', items: { type: 'string' } }
+          },
+          required: ['name', 'age', 'occupation', 'hobbies']
+        }
+      },
+      'product-review': {
+        prompt: "Generate a product review for a smartphone including rating, pros, cons, and recommendation.",
+        schema: {
+          type: 'object',
+          properties: {
+            product: { type: 'string' },
+            rating: { type: 'number', minimum: 1, maximum: 5 },
+            pros: { type: 'array', items: { type: 'string' } },
+            cons: { type: 'array', items: { type: 'string' } },
+            recommendation: { type: 'string' }
+          },
+          required: ['product', 'rating', 'pros', 'cons', 'recommendation']
+        }
+      },
+      'meeting-notes': {
+        prompt: "Generate meeting notes for a project planning session including attendees, decisions, and action items.",
+        schema: {
+          type: 'object',
+          properties: {
+            title: { type: 'string' },
+            date: { type: 'string' },
+            attendees: { type: 'array', items: { type: 'string' } },
+            decisions: { type: 'array', items: { type: 'string' } },
+            actionItems: { type: 'array', items: {
+              type: 'object',
+              properties: {
+                task: { type: 'string' },
+                assignee: { type: 'string' },
+                dueDate: { type: 'string' }
+              }
+            }}
+          },
+          required: ['title', 'date', 'attendees', 'decisions', 'actionItems']
+        }
+      }
+    };
 
-    res.writeHead(200, {
-      'Content-Type': 'text/plain',
-      'Transfer-Encoding': 'chunked',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive'
+    const selectedSchema = schemas[type] || schemas['user-profile'];
+
+    const result = await provider.generateText({
+      prompt: selectedSchema.prompt,
+      model: getModelForProvider(bestProviderName),
+      maxTokens: 400,
+      temperature: 0.7,
+      schema: selectedSchema.schema
     });
 
-    const result = await aiProvider.streamText({
-      prompt,
-      model: getModelForProvider(provider),
-      maxTokens: 500,
-      temperature: 0.7
+    res.json({
+      success: true,
+      structuredData: result.object || JSON.parse(result.text),
+      rawText: result.text,
+      provider: bestProviderName,
+      usage: result.usage,
+      schema: selectedSchema.schema
     });
-
-    for await (const chunk of result.textStream) {
-      res.write(chunk);
-    }
-
-    res.end();
-    console.log(`[Stream] Completed successfully`);
 
   } catch (error) {
-    console.error(`[Stream] Error:`, error.message);
-    res.write(`Error: ${error.message}`);
-    res.end();
+    console.error('[Schema] Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
-});
-
-// API endpoint to test fallback mechanism
-app.post('/api/test-fallback', async (req, res) => {
-  const { prompt } = req.body;
-  const results = {
-    timestamp: new Date().toISOString(),
-    prompt: prompt.substring(0, 100) + '...',
-    attempts: [],
-    success: false,
-    finalResult: null
-  };
-
-  const providers = ['openai', 'bedrock', 'vertex'];
-
-  for (const providerName of providers) {
-    try {
-      console.log(`[Fallback] Trying provider: ${providerName}`);
-      const startTime = Date.now();
-
-      const provider = await createAIProvider(providerName);
-      const result = await provider.generateText({
-        prompt,
-        model: getModelForProvider(providerName),
-        maxTokens: 100,
-        temperature: 0.7
-      });
-
-      const endTime = Date.now();
-
-      results.attempts.push({
-        provider: providerName,
-        status: 'success',
-        responseTime: endTime - startTime,
-        model: result.model || getModelForProvider(providerName)
-      });
-
-      results.success = true;
-      results.finalResult = {
-        provider: providerName,
-        content: result.text,
-        usage: result.usage
-      };
-
-      console.log(`[Fallback] Success with ${providerName}`);
-      break;
-
-    } catch (error) {
-      console.log(`[Fallback] Failed with ${providerName}: ${error.message}`);
-      results.attempts.push({
-        provider: providerName,
-        status: 'failed',
-        error: error.message
-      });
-    }
-  }
-
-  res.json(results);
 });
 
 // API endpoint for performance benchmark
@@ -454,7 +284,8 @@ app.post('/api/benchmark', async (req, res) => {
         responseTime: endTime - startTime,
         model: result.model || getModelForProvider(providerName),
         usage: result.usage,
-        contentLength: result.text.length
+        contentLength: result.text.length,
+        content: result.text
       };
 
     } catch (error) {
@@ -468,73 +299,561 @@ app.post('/api/benchmark', async (req, res) => {
   res.json(results);
 });
 
-// API endpoint for schema validation testing
-app.post('/api/schema', async (req, res) => {
+// Business Use Cases - Email Generator
+app.post('/api/business/email', async (req, res) => {
   try {
-    const bestProviderName = await getBestProvider();
-    console.log(`[Schema] Selected provider: ${bestProviderName}`);
-    const provider = await createAIProvider(bestProviderName);
+    const { type, context } = req.body;
+    const provider = await createAIProvider(await getBestProvider());
+
+    const prompts = {
+      marketing: `Write a professional marketing email about: ${context}. Include a compelling subject line, engaging body text, and clear call-to-action.`,
+      support: `Write a helpful customer support email response for: ${context}. Be empathetic, solution-focused, and professional.`,
+      'follow-up': `Write a polite follow-up email regarding: ${context}. Be courteous, specific about next steps, and include timeline.`
+    };
 
     const result = await provider.generateText({
-      prompt: "Generate a user profile for a fictional character including name, age, occupation, and hobbies.",
-      model: getModelForProvider(bestProviderName),
-      maxTokens: 200,
-      temperature: 0.7,
-      schema: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          age: { type: 'number' },
-          occupation: { type: 'string' },
-          hobbies: { type: 'array', items: { type: 'string' } }
-        },
-        required: ['name', 'age', 'occupation', 'hobbies']
-      }
+      prompt: prompts[type] || prompts.marketing,
+      maxTokens: 400,
+      temperature: 0.7
     });
 
     res.json({
       success: true,
-      structuredData: result.object || JSON.parse(result.text),
-      rawText: result.text,
-      provider: bestProviderName,
+      content: result.text,
       usage: result.usage
     });
-
   } catch (error) {
-    console.error('[Schema] Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Business Use Cases - Data Analysis
+app.post('/api/business/analyze-data', async (req, res) => {
+  try {
+    const { data } = req.body;
+    const provider = await createAIProvider(await getBestProvider());
+
+    const result = await provider.generateText({
+      prompt: `Analyze this CSV data and provide insights, trends, and recommendations:
+
+${data}
+
+Please provide:
+1. Key insights and patterns
+2. Statistical observations
+3. Business recommendations
+4. Potential areas for improvement`,
+      maxTokens: 600,
+      temperature: 0.3
+    });
+
+    res.json({
+      success: true,
+      content: result.text,
+      usage: result.usage
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Business Use Cases - Document Summarizer
+app.post('/api/business/summarize', async (req, res) => {
+  try {
+    const { text, length } = req.body;
+    const provider = await createAIProvider(await getBestProvider());
+
+    const prompts = {
+      brief: `Summarize this text in 1-2 concise sentences: ${text}`,
+      medium: `Provide a comprehensive paragraph summary of this text: ${text}`,
+      detailed: `Create a detailed summary with key points, main ideas, and important details: ${text}`
+    };
+
+    const result = await provider.generateText({
+      prompt: prompts[length] || prompts.medium,
+      maxTokens: length === 'brief' ? 100 : length === 'detailed' ? 400 : 200,
+      temperature: 0.4
+    });
+
+    res.json({
+      success: true,
+      content: result.text,
+      usage: result.usage
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Creative Tools - Creative Writing
+app.post('/api/creative/writing', async (req, res) => {
+  try {
+    const { type, prompt } = req.body;
+    const provider = await createAIProvider(await getBestProvider());
+
+    const systemPrompts = {
+      story: `You are a creative writer. Write an engaging short story based on: ${prompt}. Include vivid descriptions, character development, and a compelling narrative arc.`,
+      poem: `You are a poet. Create a beautiful, evocative poem inspired by: ${prompt}. Use imagery, rhythm, and emotional depth.`,
+      dialogue: `You are a screenwriter. Write realistic, engaging dialogue between characters in this scenario: ${prompt}. Make it natural and character-driven.`
+    };
+
+    const result = await provider.generateText({
+      prompt: systemPrompts[type] || systemPrompts.story,
+      maxTokens: 500,
+      temperature: 0.8
+    });
+
+    res.json({
+      success: true,
+      content: result.text,
+      usage: result.usage
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Creative Tools - Language Translation
+app.post('/api/creative/translate', async (req, res) => {
+  try {
+    const { text, language } = req.body;
+    const provider = await createAIProvider(await getBestProvider());
+
+    const result = await provider.generateText({
+      prompt: `Translate the following text to ${language}, maintaining tone and context:
+
+"${text}"
+
+Provide only the translation:`,
+      maxTokens: 300,
+      temperature: 0.3
+    });
+
+    res.json({
+      success: true,
+      content: result.text.trim(),
+      usage: result.usage
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Creative Tools - Content Ideas Generator
+app.post('/api/creative/ideas', async (req, res) => {
+  try {
+    const { type, topic } = req.body;
+    const provider = await createAIProvider(await getBestProvider());
+
+    const prompts = {
+      blog: `Generate 10 compelling blog post ideas about ${topic}. Include catchy titles and brief descriptions for each.`,
+      social: `Create 10 engaging social media post ideas about ${topic}. Include platform-specific suggestions and hashtag recommendations.`,
+      video: `Generate 10 video content ideas about ${topic}. Include concept, target audience, and key talking points for each.`
+    };
+
+    const result = await provider.generateText({
+      prompt: prompts[type] || prompts.blog,
+      maxTokens: 500,
+      temperature: 0.7
+    });
+
+    res.json({
+      success: true,
+      content: result.text,
+      usage: result.usage
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Developer Tools - Code Generator
+app.post('/api/developer/code', async (req, res) => {
+  try {
+    const { language, description } = req.body;
+    const provider = await createAIProvider(await getBestProvider());
+
+    const result = await provider.generateText({
+      prompt: `Generate clean, well-commented ${language} code for: ${description}
+
+Requirements:
+- Follow best practices for ${language}
+- Include proper error handling
+- Add clear comments explaining the logic
+- Make it production-ready
+
+Code:`,
+      maxTokens: 600,
+      temperature: 0.4
+    });
+
+    res.json({
+      success: true,
+      content: result.text,
+      usage: result.usage
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Developer Tools - API Documentation Generator
+app.post('/api/developer/api-doc', async (req, res) => {
+  try {
+    const { description } = req.body;
+    const provider = await createAIProvider(await getBestProvider());
+
+    const result = await provider.generateText({
+      prompt: `Create comprehensive API documentation for: ${description}
+
+Include:
+- Endpoint descriptions
+- Request/response examples
+- Parameter definitions
+- Error codes and messages
+- Authentication requirements
+- Usage examples in multiple languages
+
+Documentation:`,
+      maxTokens: 800,
+      temperature: 0.3
+    });
+
+    res.json({
+      success: true,
+      content: result.text,
+      usage: result.usage
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Developer Tools - Debug Helper
+app.post('/api/developer/debug', async (req, res) => {
+  try {
+    const { error } = req.body;
+    const provider = await createAIProvider(await getBestProvider());
+
+    const result = await provider.generateText({
+      prompt: `Analyze this error and provide debugging help:
+
+${error}
+
+Please provide:
+1. Explanation of what the error means
+2. Most likely causes
+3. Step-by-step debugging approach
+4. Code examples of potential fixes
+5. Best practices to prevent similar issues
+
+Analysis:`,
+      maxTokens: 600,
+      temperature: 0.4
+    });
+
+    res.json({
+      success: true,
+      content: result.text,
+      usage: result.usage
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Usage Analytics
+app.get('/api/analytics', (req, res) => {
+  const analytics = {
+    totalRequests: usageStats.requests,
+    totalTokens: usageStats.totalTokens,
+    totalErrors: usageStats.errors,
+    providerUsage: usageStats.providers,
+    timestamp: new Date().toISOString(),
+    averageTokensPerRequest: usageStats.requests > 0 ? Math.round(usageStats.totalTokens / usageStats.requests) : 0,
+    errorRate: usageStats.requests > 0 ? Math.round((usageStats.errors / usageStats.requests) * 100) : 0
+  };
+
+  res.json(analytics);
+});
+
+// ===== COMPREHENSIVE MCP INTEGRATION ENDPOINTS =====
+
+// Import MCP helper functions
+import {
+  loadMCPConfig,
+  saveMCPConfig,
+  executeMCPCommand,
+  checkServerStatus,
+  listMCPServersWithStatus,
+  installMCPServer,
+  removeMCPServer,
+  testMCPServer,
+  getMCPServerTools,
+  executeMCPTool,
+  addCustomMCPServer,
+  getMCPSystemStatus
+} from './mcp-helpers.js';
+
+// GET /api/mcp/servers - List all configured MCP servers with status
+app.get('/api/mcp/servers', async (req, res) => {
+  try {
+    console.log('[MCP] Listing all configured servers');
+    const result = await listMCPServersWithStatus();
+    res.json(result);
+  } catch (error) {
+    console.error('[MCP] Error listing servers:', error.message);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });
 
-// Helper functions
-function getModelForProvider(provider) {
-  switch (provider) {
-    case 'openai':
-      return process.env.OPENAI_MODEL || 'gpt-4';
-    case 'bedrock':
-      return process.env.BEDROCK_MODEL || 'anthropic.claude-3-sonnet-20240229-v1:0';
-    case 'vertex':
-      return process.env.VERTEX_MODEL || 'gemini-1.5-pro';
-    default:
-      return 'gpt-4';
-  }
-}
+// POST /api/mcp/install - Install popular MCP servers
+app.post('/api/mcp/install', async (req, res) => {
+  try {
+    const { serverName } = req.body;
 
-function isProviderConfigured(provider) {
-  switch (provider) {
-    case 'openai':
-      return !!process.env.OPENAI_API_KEY;
-    case 'bedrock':
-      return !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
-    case 'vertex':
-      return !!(process.env.GOOGLE_VERTEX_PROJECT || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_AUTH_CLIENT_EMAIL);
-    default:
-      return false;
+    if (!serverName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Server name is required'
+      });
+    }
+
+    console.log(`[MCP] Installing server: ${serverName}`);
+    const result = installMCPServer(serverName);
+
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('[MCP] Error installing server:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
-}
+});
+
+// DELETE /api/mcp/servers/:name - Remove MCP servers
+app.delete('/api/mcp/servers/:name', async (req, res) => {
+  try {
+    const { name } = req.params;
+
+    console.log(`[MCP] Removing server: ${name}`);
+    const result = removeMCPServer(name);
+
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(404).json(result);
+    }
+  } catch (error) {
+    console.error('[MCP] Error removing server:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// POST /api/mcp/test/:name - Test server connectivity
+app.post('/api/mcp/test/:name', async (req, res) => {
+  try {
+    const { name } = req.params;
+
+    console.log(`[MCP] Testing server connectivity: ${name}`);
+    const result = testMCPServer(name);
+
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('[MCP] Error testing server:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// GET /api/mcp/tools/:name - Get server tools
+app.get('/api/mcp/tools/:name', async (req, res) => {
+  try {
+    const { name } = req.params;
+
+    console.log(`[MCP] Getting tools for server: ${name}`);
+    const result = await getMCPServerTools(name);
+
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('[MCP] Error getting server tools:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// POST /api/mcp/execute - Execute MCP tools
+app.post('/api/mcp/execute', async (req, res) => {
+  try {
+    const { serverName, toolName, params = {} } = req.body;
+
+    if (!serverName || !toolName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Server name and tool name are required'
+      });
+    }
+
+    console.log(`[MCP] Executing tool: ${serverName}.${toolName}`);
+    const result = executeMCPTool(serverName, toolName, params);
+
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('[MCP] Error executing tool:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// POST /api/mcp/servers/custom - Add custom servers
+app.post('/api/mcp/servers/custom', async (req, res) => {
+  try {
+    const { name, command, options = {} } = req.body;
+
+    if (!name || !command) {
+      return res.status(400).json({
+        success: false,
+        error: 'Server name and command are required'
+      });
+    }
+
+    console.log(`[MCP] Adding custom server: ${name}`);
+    const result = addCustomMCPServer(name, command, options);
+
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('[MCP] Error adding custom server:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// GET /api/mcp/status - MCP system status
+app.get('/api/mcp/status', async (req, res) => {
+  try {
+    console.log('[MCP] Getting system status');
+    const result = await getMCPSystemStatus();
+    res.json(result);
+  } catch (error) {
+    console.error('[MCP] Error getting system status:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// POST /api/mcp/workflow - Enhanced workflow execution with real integration
+app.post('/api/mcp/workflow', async (req, res) => {
+  try {
+    const { workflowType, description, servers = [] } = req.body;
+
+    console.log(`[MCP] Running enhanced workflow: ${workflowType}`);
+
+    // Get system status for real server data
+    const systemStatus = await getMCPSystemStatus();
+
+    const workflows = {
+      'server-management': {
+        steps: [
+          'Check MCP system status',
+          'List configured servers',
+          'Test server connectivity',
+          'Display results'
+        ],
+        result: `Workflow completed. Found ${systemStatus.summary.totalServers} servers, ${systemStatus.summary.availableServers} available.`,
+        data: systemStatus
+      },
+      'tool-discovery': {
+        steps: [
+          'Scan available MCP servers',
+          'Discover available tools',
+          'Generate tool documentation',
+          'Create usage examples'
+        ],
+        result: 'Tool discovery workflow completed with real server data',
+        data: systemStatus
+      },
+      'integration-test': {
+        steps: [
+          'Test CLI availability',
+          'Verify server configurations',
+          'Execute sample tools',
+          'Generate test report'
+        ],
+        result: `Integration test completed. CLI available: ${systemStatus.summary.cliAvailable}`,
+        data: systemStatus
+      }
+    };
+
+    const workflow = workflows[workflowType] || workflows['server-management'];
+
+    res.json({
+      success: true,
+      workflowType,
+      description,
+      steps: workflow.steps,
+      result: workflow.result,
+      data: workflow.data,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[MCP] Error running workflow:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Enhanced demo page with complete interactive interface
+app.get('/', (req, res) => {
+  res.sendFile('demo-page.html', { root: __dirname });
+});
 
 // Error handling middleware
 app.use((error, req, res, next) => {
@@ -562,10 +881,12 @@ app.listen(PORT, () => {
   console.log('  GET  /           - Demo web interface');
   console.log('  GET  /api/status - Provider status check');
   console.log('  POST /api/generate - Text generation');
-  console.log('  POST /api/stream - Streaming text generation');
-  console.log('  POST /api/test-fallback - Test fallback mechanism');
-  console.log('  POST /api/benchmark - Performance benchmark');
   console.log('  POST /api/schema - Schema validation test');
+  console.log('  POST /api/benchmark - Performance benchmark');
+  console.log('  POST /api/business/* - Business use cases');
+  console.log('  POST /api/creative/* - Creative tools');
+  console.log('  POST /api/developer/* - Developer tools');
+  console.log('  GET  /api/analytics - Usage analytics');
   console.log('');
   console.log('🔧 Configuration check:');
   console.log(`  OpenAI: ${isProviderConfigured('openai') ? '✅ Configured' : '❌ Missing API key'}`);

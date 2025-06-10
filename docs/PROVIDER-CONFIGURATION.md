@@ -7,6 +7,8 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 - **OpenAI** - GPT-4o, GPT-4o-mini, GPT-4-turbo
 - **Amazon Bedrock** - Claude 3.7 Sonnet, Claude 3.5 Sonnet, Claude 3 Haiku
 - **Google Vertex AI** - Gemini 2.5 Flash, Claude 4.0 Sonnet
+- **Anthropic** - Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+- **Azure OpenAI** - GPT-4, GPT-3.5-Turbo
 
 ## OpenAI Configuration
 
@@ -288,6 +290,14 @@ GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/service-account.json
 GOOGLE_VERTEX_PROJECT=your-gcp-project-id
 GOOGLE_VERTEX_LOCATION=us-east5
 VERTEX_MODEL_ID=claude-sonnet-4@20250514
+
+# Anthropic
+ANTHROPIC_API_KEY=sk-ant-api03-your-key
+
+# Azure OpenAI
+AZURE_OPENAI_API_KEY=your-azure-key
+AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
+AZURE_OPENAI_DEPLOYMENT_ID=your-deployment-name
 
 # Application Settings
 DEFAULT_PROVIDER=auto

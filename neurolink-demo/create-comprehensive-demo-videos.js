@@ -74,37 +74,22 @@ const basicExamplesActions = [
   {
     description: "Show main interface and provider selection",
     execute: async (page) => {
-      await page.waitForSelector('#provider', { timeout: 5000 });
+      await page.waitForSelector('#basic-provider', { timeout: 5000 });
       await page.hover('h1');
       await page.waitForTimeout(1000);
 
       // Show provider options
-      await page.click('#provider');
+      await page.click('#basic-provider');
       await page.waitForTimeout(1000);
-      await page.selectOption('#provider', 'auto');
+      await page.selectOption('#basic-provider', 'auto');
     }
   },
   {
     description: "Demo simple text generation",
     execute: async (page) => {
-      await page.fill('#prompt', 'Write a creative short story about an AI helping humans solve climate change.');
+      await page.fill('#basic-prompt', 'Write a creative short story about an AI helping humans solve climate change.');
       await page.click('button:text("Generate Text")');
-      await page.waitForSelector('#output:not(:empty)', { timeout: 15000 });
-    }
-  },
-  {
-    description: "Demo streaming response",
-    execute: async (page) => {
-      await page.fill('#prompt', 'Write a haiku about artificial intelligence and humanity working together.');
-      await page.click('button:text("Stream Response")');
-      await page.waitForTimeout(8000); // Watch streaming happen
-    }
-  },
-  {
-    description: "Check provider status",
-    execute: async (page) => {
-      await page.click('button:text("Check All Providers")');
-      await page.waitForSelector('#provider-status:not(:empty)', { timeout: 10000 });
+      await page.waitForSelector('#basic-output:not(:empty)', { timeout: 15000 });
     }
   }
 ];
@@ -114,48 +99,33 @@ const businessUseCasesActions = [
   {
     description: "Generate marketing email",
     execute: async (page) => {
-      await page.fill('#prompt', `Write a professional marketing email for launching our new AI-powered project management tool "TaskGenius". The email should be engaging, highlight key benefits like automated task prioritization and team collaboration features, and include a clear call-to-action. Target audience: busy project managers and team leads.`);
-      await page.selectOption('#provider', 'openai');
-      await page.click('button:text("Generate Text")');
-      await page.waitForSelector('#output:not(:empty)', { timeout: 15000 });
+      await page.click('.tab:text("Business Use Cases")');
+      await page.fill('#email-context', `New product launch announcement for our AI-powered analytics tool.`);
+      await page.selectOption('#email-type', 'marketing');
+      await page.click('button:text("Generate Email")');
+      await page.waitForSelector('#email-output:not(:empty)', { timeout: 15000 });
     }
   },
   {
     description: "Analyze business data",
     execute: async (page) => {
-      await page.fill('#prompt', `Analyze this quarterly sales data and provide insights:
-Q1 Revenue: $245,000 (15% increase from Q4)
-Q2 Revenue: $289,000 (18% increase from Q1)
-Q3 Revenue: $312,000 (8% increase from Q2)
-Customer Acquisition: Q1: 450, Q2: 523, Q3: 578
-Churn Rate: Q1: 5.2%, Q2: 4.1%, Q3: 3.8%
-
-Please provide actionable insights and recommendations for Q4 strategy.`);
-      await page.click('button:text("Generate Text")');
-      await page.waitForSelector('#output:not(:empty)', { timeout: 15000 });
+      await page.click('.tab:text("Business Use Cases")');
+      await page.fill('#data-input', `Product,Sales,Month
+Widget A,1500,January
+Widget B,2300,January
+Widget C,1200,January`);
+      await page.click('button:text("Analyze Data")');
+      await page.waitForSelector('#data-output:not(:empty)', { timeout: 15000 });
     }
   },
   {
     description: "Create executive summary",
     execute: async (page) => {
-      await page.fill('#prompt', `Create an executive summary for this project proposal:
-
-Project: AI-Driven Customer Support Enhancement
-Timeline: 6 months
-Budget: $180,000
-Team: 5 engineers, 2 data scientists, 1 product manager
-
-Objectives:
-- Reduce average response time from 4 hours to 30 minutes
-- Increase customer satisfaction scores by 25%
-- Automate 70% of routine inquiries
-- Integrate with existing CRM and ticketing systems
-
-Expected ROI: 300% within first year through reduced support costs and improved customer retention.
-
-Make it concise, compelling, and suitable for C-level executives.`);
-      await page.click('button:text("Generate Text")');
-      await page.waitForSelector('#output:not(:empty)', { timeout: 15000 });
+      await page.click('.tab:text("Business Use Cases")');
+      await page.fill('#doc-text', `Artificial Intelligence (AI) has revolutionized numerous industries by automating complex tasks and providing insights that were previously impossible to obtain. Machine learning algorithms can analyze vast datasets to identify patterns, make predictions, and drive decision-making processes. From healthcare diagnostics to financial fraud detection, AI applications continue to expand rapidly across sectors.`);
+      await page.selectOption('#summary-length', 'brief');
+      await page.click('button:text("Summarize")');
+      await page.waitForSelector('#doc-output:not(:empty)', { timeout: 15000 });
     }
   }
 ];
@@ -165,34 +135,31 @@ const creativeToolsActions = [
   {
     description: "Generate creative story",
     execute: async (page) => {
-      await page.fill('#prompt', `Write an engaging short story (500 words) about a time traveler who discovers they can only visit moments when someone is making a life-changing decision. The story should be emotionally resonant and have an unexpected twist ending. Include vivid descriptions and dialogue.`);
-      await page.selectOption('#provider', 'auto');
-      await page.click('button:text("Generate Text")');
-      await page.waitForSelector('#output:not(:empty)', { timeout: 15000 });
+      await page.click('.tab:text("Creative Tools")');
+      await page.fill('#writing-prompt', `A time traveler discovers they can only travel to moments of great historical significance.`);
+      await page.selectOption('#writing-type', 'story');
+      await page.click('button:text("Create Content")');
+      await page.waitForSelector('#writing-output:not(:empty)', { timeout: 30000 });
     }
   },
   {
     description: "Translate content",
     execute: async (page) => {
-      await page.fill('#prompt', `Translate this business text to Spanish, maintaining professional tone:
-
-"Welcome to the future of artificial intelligence! Our innovative platform makes advanced AI capabilities accessible to businesses of all sizes. From automated customer service to predictive analytics, we're democratizing AI technology. Join thousands of companies already transforming their operations with our cutting-edge solutions."`);
-      await page.click('button:text("Generate Text")');
-      await page.waitForSelector('#output:not(:empty)', { timeout: 15000 });
+      await page.click('.tab:text("Creative Tools")');
+      await page.fill('#translate-text', `Hello, how are you today? I hope you're having a wonderful day!`);
+      await page.selectOption('#target-language', 'spanish');
+      await page.click('button:text("Translate")');
+      await page.waitForSelector('#translate-output:not(:empty)', { timeout: 30000 });
     }
   },
   {
     description: "Generate content ideas",
     execute: async (page) => {
-      await page.fill('#prompt', `Generate 10 creative blog post ideas for a sustainable technology company. Each idea should include:
-- Catchy title
-- Brief description (2-3 sentences)
-- Target audience
-- Potential keywords
-
-Focus on topics like renewable energy, green tech innovations, sustainable manufacturing, and environmental impact of technology.`);
-      await page.click('button:text("Generate Text")');
-      await page.waitForSelector('#output:not(:empty)', { timeout: 15000 });
+      await page.click('.tab:text("Creative Tools")');
+      await page.fill('#content-topic', `artificial intelligence`);
+      await page.selectOption('#content-type', 'blog');
+      await page.click('button:text("Generate Ideas")');
+      await page.waitForSelector('#content-output:not(:empty)', { timeout: 30000 });
     }
   }
 ];
@@ -202,71 +169,30 @@ const developerToolsActions = [
   {
     description: "Generate React component code",
     execute: async (page) => {
-      await page.fill('#prompt', `Create a React component called "UserProfileCard" with the following requirements:
-- Display user avatar, name, email, role, and status indicator
-- Include hover effects and responsive design
-- Use TypeScript with proper interfaces
-- Include loading state and error handling
-- Style with CSS modules or styled-components
-- Add accessibility features (ARIA labels, keyboard navigation)
-
-Include the complete component code with TypeScript interfaces and styling.`);
-      await page.selectOption('#provider', 'openai');
-      await page.click('button:text("Generate Text")');
-      await page.waitForSelector('#output:not(:empty)', { timeout: 15000 });
+      await page.click('.tab:text("Developer Tools")');
+      await page.fill('#code-description', `Create a function that validates email addresses using regex and returns true/false.`);
+      await page.selectOption('#code-language', 'javascript');
+      await page.click('button:text("Generate Code")');
+      await page.waitForSelector('#code-output:not(:empty)', { timeout: 30000 });
     }
   },
   {
     description: "Generate API documentation",
     execute: async (page) => {
-      await page.fill('#prompt', `Create comprehensive API documentation for a blog management system with these endpoints:
-
-POST /api/posts - Create new blog post
-GET /api/posts - List all posts (with pagination)
-GET /api/posts/:id - Get specific post
-PUT /api/posts/:id - Update post
-DELETE /api/posts/:id - Delete post
-GET /api/posts/search - Search posts
-
-Include:
-- Request/response schemas
-- Authentication requirements
-- Error codes and messages
-- Example requests using curl
-- Rate limiting information
-- OpenAPI/Swagger format`);
-      await page.click('button:text("Generate Text")');
-      await page.waitForSelector('#output:not(:empty)', { timeout: 15000 });
+      await page.click('.tab:text("Developer Tools")');
+      await page.fill('#api-description', `A REST API for managing user accounts with endpoints for creating, reading, updating, and deleting users.`);
+      await page.click('button:text("Generate Documentation")');
+      await page.waitForSelector('#api-output:not(:empty)', { timeout: 30000 });
     }
   },
   {
     description: "Debug error analysis",
     execute: async (page) => {
-      await page.fill('#prompt', `Analyze this JavaScript error and provide debugging solution:
-
-Error: TypeError: Cannot read properties of undefined (reading 'map')
-    at UserList.render (UserList.jsx:25:12)
-    at processChild (react-dom/cjs/react-dom-server.node.development.js:3353:14)
-    at resolve (react-dom/cjs/react-dom-server.node.development.js:3270:5)
-
-Code context:
-const UserList = ({ users }) => {
-  return (
-    <div className="user-list">
-      {users.map(user => (
-        <UserCard key={user.id} user={user} />
-      ))}
-    </div>
-  );
-};
-
-Provide:
-1. Root cause analysis
-2. Multiple solution approaches
-3. Prevention strategies
-4. Code examples with fixes`);
-      await page.click('button:text("Generate Text")');
-      await page.waitForSelector('#output:not(:empty)', { timeout: 15000 });
+      await page.click('.tab:text("Developer Tools")');
+      await page.fill('#debug-input', `TypeError: Cannot read property 'map' of undefined
+  at UserList.render (UserList.js:15:23)`);
+      await page.click('button:text("Analyze Error")');
+      await page.waitForSelector('#debug-output:not(:empty)', { timeout: 30000 });
     }
   }
 ];
@@ -276,30 +202,17 @@ const monitoringActions = [
   {
     description: "Run performance benchmark",
     execute: async (page) => {
+      await page.click('.tab:text("Basic Examples")');
       await page.click('button:text("Run Benchmark")');
-      await page.waitForSelector('#benchmark-results:not(:empty)', { timeout: 15000 });
-    }
-  },
-  {
-    description: "Test provider fallback mechanism",
-    execute: async (page) => {
-      await page.fill('#prompt', 'Test the multi-provider fallback system with a sample query.');
-      await page.click('button:text("Test Fallback")');
-      await page.waitForTimeout(8000);
-    }
-  },
-  {
-    description: "Generate structured data",
-    execute: async (page) => {
-      await page.click('button:text("Generate Structured Data")');
-      await page.waitForSelector('#schema-output:not(:empty)', { timeout: 15000 });
+      await page.waitForSelector('#benchmark-output:not(:empty)', { timeout: 30000 });
     }
   },
   {
     description: "Check provider status and configuration",
     execute: async (page) => {
+      await page.click('.tab:text("Monitoring")');
       await page.click('button:text("Check All Providers")');
-      await page.waitForSelector('#provider-status:not(:empty)', { timeout: 10000 });
+      await page.waitForSelector('#provider-status:not(:empty)', { timeout: 30000 });
     }
   }
 ];

@@ -14,7 +14,7 @@ export function getBestProvider(requestedProvider?: string): string {
   }
 
   // Default fallback order based on environment variables - OpenAI first since it's most reliable
-  const providers = ['openai', 'vertex', 'bedrock'];
+  const providers = ['openai', 'vertex', 'bedrock', 'anthropic', 'azure'];
 
   // Check which providers have their required environment variables
   for (const provider of providers) {
@@ -50,6 +50,14 @@ function isProviderConfigured(provider: string): boolean {
     case 'gpt':
       return !!process.env.OPENAI_API_KEY;
 
+    case 'anthropic':
+    case 'claude':
+        return !!process.env.ANTHROPIC_API_KEY;
+
+    case 'azure':
+    case 'azure-openai':
+        return !!process.env.AZURE_OPENAI_API_KEY;
+
     default:
       return false;
   }
@@ -60,7 +68,7 @@ function isProviderConfigured(provider: string): boolean {
  * @returns Array of available provider names
  */
 export function getAvailableProviders(): string[] {
-  return ['bedrock', 'vertex', 'openai'];
+  return ['bedrock', 'vertex', 'openai', 'anthropic', 'azure'];
 }
 
 /**

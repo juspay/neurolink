@@ -5,28 +5,38 @@ This directory contains all organized documentation, visual content, and develop
 ## 📁 Directory Structure
 
 ### 🎬 Visual Content (`visual-content/`)
-- **`screenshots/`** - CLI screenshots and interface captures
-- **`videos/`** - CLI demonstration videos and recordings
-- **`demo-latest/`** - Latest demo content and updated materials
+- **`screenshots/cli-screenshots/`** - General CLI screenshots (June 4 & 8, 2025 versions)
+- **`screenshots/mcp-cli/`** - MCP CLI screenshots (June 9 & 10, 2025 versions)
+- **`cli-videos/`** - This directory contains subdirectories for different categories of CLI videos, but no videos are present at the top level.
 
 ### 🎥 CLI Recordings (`cli-recordings/`)
-- **`latest/`** - Current CLI asciinema recordings (.cast files)
-- **`test/`** - Test recordings and experimental captures
+- **`latest/`** - Current CLI asciinema recordings (3 .cast files)
+- **`mcp/`** - MCP-specific asciinema recordings (2 .cast files)
+- **`test/`** - Test recordings (1 .cast file)
 
 ### 📋 Test Reports (`test-reports/`)
-- **CLI-SUCCESS-DEMONSTRATION.md** - CLI functionality proof
-- **COMPREHENSIVE-CLI-PROOF-REPORT.md** - Complete testing report
-- **COMPREHENSIVE-TESTING-PROOF-REPORT.md** - Validation documentation
-- **FINAL-COMPREHENSIVE-VISUAL-PROOF.md** - Visual testing proof
-- **test-analysis-summary.md** - Test analysis and insights
+- Test analysis and validation reports
+- Historical testing documentation
 
-### 📖 Development Documentation (`development/`)
-- Development guides and technical documentation
-- Build and deployment instructions
-- Contributing guidelines
+### 📊 Visual Content Inventory
+- **`COMPREHENSIVE-VISUAL-CONTENT-INVENTORY.md`** - **Complete inventory of ALL visual assets** (41 files total)
 
 ### 📄 Project Documentation
-- **project-cleanup-plan.md** - This cleanup organization plan
+- **API-REFERENCE.md** - Complete API documentation and reference
+- **CLI-GUIDE.md** - Comprehensive CLI commands and usage guide
+- **ENVIRONMENT-VARIABLES.md** - Environment configuration guide
+- **FRAMEWORK-INTEGRATION.md** - Framework integration examples
+- **MCP-INTEGRATION.md** - MCP (Model Context Protocol) setup and usage guide
+- **MCP-TESTING-GUIDE.md** - MCP testing strategies and examples
+- **PROVIDER-CONFIGURATION.md** - AI provider setup and configuration
+- **VISUAL-DEMOS.md** - Visual demonstration guide
+- **MCP-DOCUMENTATION-MASTER-PLAN.md** - Comprehensive MCP documentation roadmap
+
+### 🔧 MCP Documentation
+- **MCP-INTEGRATION.md** - Complete MCP server setup and configuration guide
+- **MCP-TESTING-GUIDE.md** - MCP testing strategies and validation
+- **CLI-GUIDE.md** - MCP CLI commands and server management
+- **MCP-DOCUMENTATION-MASTER-PLAN.md** - Comprehensive MCP documentation roadmap
 
 ## 🎯 Usage Guidelines
 

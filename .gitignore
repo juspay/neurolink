@@ -30,13 +30,16 @@ test-reports/test-output.txt
 test-reports/build-output.txt
 
 # Development artifacts (prevent root clutter)
-*-2025-*
+*-2025-*-*-*
 debug-output.txt
 test-output.txt
 demo-results.json
 batch-results.json
 demo-prompts.txt
 test-prompts.txt
+
+# Allow strategic documents
+!*ROADMAP-2025-2026.md
 
 # Archive working files
 archive/working/

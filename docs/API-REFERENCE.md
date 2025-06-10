@@ -16,7 +16,7 @@ function createBestAIProvider(
 ```
 
 **Parameters:**
-- `requestedProvider` (optional): Preferred provider name (`'openai'`, `'bedrock'`, `'vertex'`, or `'auto'`)
+- `requestedProvider` (optional): Preferred provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, or `'auto'`)
 - `modelName` (optional): Specific model to use
 
 **Returns:** `AIProvider` instance
@@ -84,7 +84,7 @@ static createProvider(
 ```
 
 **Parameters:**
-- `providerName`: Provider name (`'openai'`, `'bedrock'`, `'vertex'`)
+- `providerName`: Provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`)
 - `modelName` (optional): Specific model to use
 
 **Returns:** `AIProvider` instance
@@ -309,7 +309,7 @@ LOG_LEVEL?: 'error' | 'warn' | 'info' | 'debug'
 ### Core Types
 
 ```typescript
-type ProviderName = 'openai' | 'bedrock' | 'vertex';
+type ProviderName = 'openai' | 'bedrock' | 'vertex' | 'anthropic' | 'azure';
 
 interface AIProvider {
   generateText(options: GenerateTextOptions | string): Promise<GenerateTextResult>;
@@ -592,6 +592,359 @@ interface CustomResult extends GenerateTextResult {
 
 const typedProvider: TypedAIProvider<CustomOptions, CustomResult> =
   createBestAIProvider() as any;
+```
+
+## MCP (Model Context Protocol) APIs
+
+NeuroLink supports external MCP servers for extended functionality through both CLI and programmatic interfaces.
+
+### MCP CLI Commands
+
+All MCP functionality is available through the NeuroLink CLI:
+
+```bash
+# Server management
+neurolink mcp install <server>    # Install popular MCP servers
+neurolink mcp add <name> <command> # Add custom MCP server
+neurolink mcp remove <server>     # Remove MCP server
+neurolink mcp list [--status]     # List configured servers with optional status
+
+# Server testing and interaction
+neurolink mcp test <server>       # Test server connectivity
+neurolink mcp tools <server>      # List available tools for server
+neurolink mcp execute <server> <tool> [args] # Execute specific tool
+
+# Configuration management
+neurolink mcp config             # Show MCP configuration
+neurolink mcp config --reset     # Reset MCP configuration
+```
+
+### MCP Server Types
+
+#### **Built-in Server Support**
+NeuroLink includes built-in support for popular MCP servers:
+
+```typescript
+type PopularMCPServer =
+  | 'filesystem'     // File operations
+  | 'github'         // GitHub integration
+  | 'postgres'       // PostgreSQL database
+  | 'puppeteer'      // Web browsing
+  | 'brave-search'   // Web search
+  | 'git'            // Git operations
+  | 'fetch'          // Web fetching
+  | 'google-drive'   // Google Drive
+  | 'atlassian'      // Jira/Confluence
+  | 'slack'          // Slack integration
+```
+
+#### **Custom Server Support**
+Add any MCP-compatible server:
+
+```bash
+# Python server
+neurolink mcp add myserver "python /path/to/server.py"
+
+# Node.js server
+neurolink mcp add nodeserver "node /path/to/server.js"
+
+# Docker container
+neurolink mcp add dockerserver "docker run my-mcp-server"
+
+# SSE (Server-Sent Events) endpoint
+neurolink mcp add sseserver "sse://https://api.example.com/mcp"
+```
+
+### MCP Configuration
+
+#### **Configuration File**
+MCP servers are configured in `.mcp-config.json`:
+
+```typescript
+interface MCPConfig {
+  mcpServers: {
+    [serverName: string]: {
+      command: string;        // Command to start server
+      args?: string[];        // Optional command arguments
+      env?: Record<string, string>; // Environment variables
+      cwd?: string;          // Working directory
+      timeout?: number;      // Connection timeout (ms)
+      retry?: number;        // Retry attempts
+      enabled?: boolean;     // Server enabled status
+    }
+  };
+  global?: {
+    timeout?: number;        // Global timeout
+    maxConnections?: number; // Max concurrent connections
+    logLevel?: 'debug' | 'info' | 'warn' | 'error';
+  };
+}
+```
+
+#### **Example Configuration**
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/"],
+      "timeout": 5000,
+      "enabled": true
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      },
+      "timeout": 10000,
+      "enabled": true
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "${POSTGRES_CONNECTION_STRING}"],
+      "timeout": 8000,
+      "enabled": false
+    }
+  },
+  "global": {
+    "timeout": 10000,
+    "maxConnections": 5,
+    "logLevel": "info"
+  }
+}
+```
+
+### MCP Environment Variables
+
+Configure MCP server authentication through environment variables:
+
+```bash
+# GitHub integration
+GITHUB_PERSONAL_ACCESS_TOKEN=ghp_...
+
+# Database connections
+POSTGRES_CONNECTION_STRING=postgresql://user:pass@localhost/db
+MYSQL_CONNECTION_STRING=mysql://user:pass@localhost/db
+
+# Web services
+BRAVE_API_KEY=BSA...
+GOOGLE_API_KEY=AIza...
+
+# Custom server configuration
+MCP_CUSTOM_SERVER_URL=https://api.example.com
+MCP_CUSTOM_API_KEY=key_...
+```
+
+### MCP Tool Execution
+
+#### **Available Tool Categories**
+
+```typescript
+interface MCPToolCategory {
+  filesystem: {
+    'read_file': { path: string };
+    'write_file': { path: string; content: string };
+    'list_directory': { path: string };
+    'search_files': { query: string; path?: string };
+  };
+
+  github: {
+    'get_repository': { owner: string; repo: string };
+    'create_issue': { owner: string; repo: string; title: string; body?: string };
+    'list_issues': { owner: string; repo: string; state?: 'open' | 'closed' };
+    'create_pull_request': { owner: string; repo: string; title: string; head: string; base: string };
+  };
+
+  database: {
+    'execute_query': { query: string; params?: any[] };
+    'list_tables': {};
+    'describe_table': { table: string };
+  };
+
+  web: {
+    'navigate': { url: string };
+    'click': { selector: string };
+    'type': { selector: string; text: string };
+    'screenshot': { name?: string };
+  };
+}
+```
+
+#### **Tool Execution Examples**
+
+```bash
+# File operations
+neurolink mcp execute filesystem read_file --path="/path/to/file.txt"
+neurolink mcp execute filesystem list_directory --path="/home/user"
+
+# GitHub operations
+neurolink mcp execute github get_repository --owner="juspay" --repo="neurolink"
+neurolink mcp execute github create_issue --owner="juspay" --repo="neurolink" --title="New feature request"
+
+# Database operations
+neurolink mcp execute postgres execute_query --query="SELECT * FROM users LIMIT 10"
+neurolink mcp execute postgres list_tables
+
+# Web operations
+neurolink mcp execute puppeteer navigate --url="https://example.com"
+neurolink mcp execute puppeteer screenshot --name="homepage"
+```
+
+### MCP Demo Server Integration
+
+NeuroLink's demo server includes MCP API endpoints for testing:
+
+```typescript
+// Demo server MCP endpoints
+interface MCPDemoEndpoints {
+  'GET /api/mcp/servers': {
+    response: {
+      servers: Array<{
+        name: string;
+        status: 'connected' | 'disconnected' | 'error';
+        tools: string[];
+        lastConnected?: string;
+      }>;
+    };
+  };
+
+  'POST /api/mcp/test/:server': {
+    params: { server: string };
+    response: {
+      success: boolean;
+      status: 'connected' | 'disconnected' | 'error';
+      responseTime?: number;
+      error?: string;
+    };
+  };
+
+  'GET /api/mcp/tools/:server': {
+    params: { server: string };
+    response: {
+      success: boolean;
+      tools: Array<{
+        name: string;
+        description: string;
+        parameters: Record<string, any>;
+      }>;
+    };
+  };
+
+  'POST /api/mcp/execute': {
+    body: {
+      server: string;
+      tool: string;
+      parameters: Record<string, any>;
+    };
+    response: {
+      success: boolean;
+      result?: any;
+      error?: string;
+      executionTime?: number;
+    };
+  };
+
+  'POST /api/mcp/install/:server': {
+    params: { server: string };
+    response: {
+      success: boolean;
+      message: string;
+      configuration?: Record<string, any>;
+    };
+  };
+}
+```
+
+### MCP Error Handling
+
+```typescript
+class MCPError extends Error {
+  server: string;
+  tool?: string;
+  originalError?: Error;
+}
+
+class MCPConnectionError extends MCPError {
+  // Thrown when server connection fails
+}
+
+class MCPToolError extends MCPError {
+  // Thrown when tool execution fails
+}
+
+class MCPConfigurationError extends MCPError {
+  // Thrown when server configuration is invalid
+}
+
+// Error handling example
+try {
+  const result = await executeCommand('neurolink mcp execute filesystem read_file --path="/nonexistent"');
+} catch (error) {
+  if (error instanceof MCPConnectionError) {
+    console.error(`Failed to connect to server ${error.server}`);
+  } else if (error instanceof MCPToolError) {
+    console.error(`Tool ${error.tool} failed on server ${error.server}: ${error.message}`);
+  }
+}
+```
+
+### MCP Integration Best Practices
+
+#### **Server Management**
+```bash
+# Test connectivity before using
+neurolink mcp test filesystem
+
+# Install servers explicitly
+neurolink mcp install github
+neurolink mcp install postgres
+
+# Monitor server status
+neurolink mcp list --status
+```
+
+#### **Environment Setup**
+```bash
+# Use environment variables for sensitive data
+export GITHUB_PERSONAL_ACCESS_TOKEN="ghp_..."
+export POSTGRES_CONNECTION_STRING="postgresql://..."
+
+# Test configuration
+neurolink mcp test github
+neurolink mcp test postgres
+```
+
+#### **Error Recovery**
+```bash
+# Reset configuration if needed
+neurolink mcp config --reset
+
+# Reinstall problematic servers
+neurolink mcp remove filesystem
+neurolink mcp install filesystem
+neurolink mcp test filesystem
+```
+
+#### **Performance Optimization**
+```bash
+# Limit concurrent connections in config
+{
+  "global": {
+    "maxConnections": 3,
+    "timeout": 5000
+  }
+}
+
+# Disable unused servers
+{
+  "mcpServers": {
+    "heavyServer": {
+      "command": "...",
+      "enabled": false
+    }
+  }
+}
 ```
 
 ---

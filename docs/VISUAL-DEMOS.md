@@ -19,31 +19,31 @@ Experience NeuroLink's capabilities through comprehensive visual documentation. 
 
 **5,681+ tokens of real AI generation captured!**
 
-#### **Basic Examples** - [View Video](../neurolink-demo/videos/basic-examples/)
+#### **Basic Examples** - [📹 WebM](../neurolink-demo/videos/basic-examples.webm) | [🎬 MP4](../neurolink-demo/videos/basic-examples.mp4)
 - Text generation fundamentals
 - Haiku creation with Claude 3.7 Sonnet
 - Creative storytelling with OpenAI GPT-4o
 - **Content Generated**: 529 tokens (robot painting story)
 
-#### **Business Use Cases** - [View Video](../neurolink-demo/videos/business-use-cases/)
+#### **Business Use Cases** - [📹 WebM](../neurolink-demo/videos/business-use-cases.webm) | [🎬 MP4](../neurolink-demo/videos/business-use-cases.mp4)
 - Professional email generation
 - Business analysis and reporting
 - Executive summaries and insights
 - **Content Generated**: 1,677 tokens (email + analysis + summaries)
 
-#### **Creative Tools** - [View Video](../neurolink-demo/videos/creative-tools/)
+#### **Creative Tools** - [📹 WebM](../neurolink-demo/videos/creative-tools.webm) | [🎬 MP4](../neurolink-demo/videos/creative-tools.mp4)
 - Story writing and narrative creation
 - Language translation capabilities
 - Creative brainstorming and ideation
 - **Content Generated**: 1,174 tokens (stories + translation + ideas)
 
-#### **Developer Tools** - [View Video](../neurolink-demo/videos/developer-tools/)
+#### **Developer Tools** - [📹 WebM](../neurolink-demo/videos/developer-tools.webm) | [🎬 MP4](../neurolink-demo/videos/developer-tools.mp4)
 - React component generation
 - API documentation creation
 - Code debugging and optimization
 - **Content Generated**: 2,301 tokens (React code + API docs + debugging)
 
-#### **Monitoring & Analytics** - [View Video](../neurolink-demo/videos/monitoring/)
+#### **Monitoring & Analytics** - [📹 WebM](../neurolink-demo/videos/monitoring-analytics.webm) | [🎬 MP4](../neurolink-demo/videos/monitoring-analytics.mp4)
 - Live provider status monitoring
 - Performance metrics tracking
 - Usage analytics and insights
@@ -69,49 +69,55 @@ npm start
 
 ## 🖥️ CLI Demonstrations
 
-### Professional CLI Screenshots
+### Professional CLI Screenshots *(Latest: June 8, 2025)*
 
 | Command | Screenshot | Description |
 |---------|------------|-------------|
-| **CLI Help Overview** | ![CLI Help](../docs/visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-04T19-38-12.png) | Complete command reference and usage examples |
-| **Provider Status Check** | ![Provider Status](../docs/visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-04T19-38-25.png) | All provider connectivity verification with response times |
-| **Text Generation** | ![Text Generation](../docs/visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-04T19-38-30.png) | Real AI haiku generation with JSON output and usage metrics |
-| **Auto Provider Selection** | ![Best Provider](../docs/visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-04T19-38-33.png) | Automatic provider selection algorithm demonstration |
-| **Batch Processing** | ![Batch Results](../docs/visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-04T19-38-37.png) | Multi-prompt processing with progress tracking and results |
+| **CLI Help Overview** | ![CLI Help](./visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-08T06-33-12.png) | Complete command reference and usage examples |
+| **Provider Status Check** | ![Provider Status](./visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-08T06-33-16.png) | All provider connectivity verification with response times |
+| **Text Generation** | ![Text Generation](./visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-08T06-33-19.png) | Real AI haiku generation with JSON output and usage metrics |
+| **Auto Provider Selection** | ![Best Provider](./visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-08T06-33-22.png) | Automatic provider selection algorithm demonstration |
+| **Batch Processing** | ![Batch Results](./visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-08T06-33-26.png) | Multi-prompt processing with progress tracking and results |
 
 ### CLI Demonstration Videos
 
 **Real command execution with live AI generation**
 
-#### **CLI Overview** - [View Video](../docs/visual-content/videos/cli-videos/cli-overview/)
+#### **CLI Help Overview** - [🎬 MP4](./visual-content/cli-videos/cli-help.mp4)
 - Complete help system demonstration
 - Provider status checking with real connectivity tests
 - Auto provider selection algorithm in action
-- **Size**: 1MB video with comprehensive command overview
+- **Size**: Professional MP4 with comprehensive command overview
 
-#### **Basic Generation** - [View Video](../docs/visual-content/videos/cli-videos/cli-basic-generation/)
+#### **Provider Status** - [🎬 MP4](./visual-content/cli-videos/cli-provider-status.mp4)
+- All provider connectivity verification
+- Response time measurements
+- Authentication status checking
+- **Size**: Professional MP4 showing provider connectivity
+
+#### **Text Generation** - [🎬 MP4](./visual-content/cli-videos/cli-text-generation.mp4)
 - Text generation with different providers
 - Temperature and token control demonstrations
 - JSON vs text output formats
-- **Size**: 2MB video with real AI haiku and explanations
+- **Size**: Professional MP4 with real AI generation
 
-#### **Batch Processing** - [View Video](../docs/visual-content/videos/cli-videos/cli-batch-processing/)
-- File-based multi-prompt processing
-- Progress tracking and error handling
-- JSON output with comprehensive results
-- **Size**: 1.4MB video showing complete batch workflow
+#### **Auto Provider Selection** - [🎬 MP4](./visual-content/cli-videos/mcp-help.mp4)
+- Automatic provider selection algorithm
+- Fallback mechanism demonstration
+- Performance-based selection
+- **Size**: Professional MP4 showing selection logic
 
-#### **Real-time Streaming** - [View Video](../docs/visual-content/videos/cli-videos/cli-streaming/)
+#### **Streaming Generation** - [🎬 MP4](./visual-content/cli-videos/mcp-list.mp4)
 - Live AI content streaming demonstration
 - Real-time text generation as it happens
 - Provider performance comparison
-- **Size**: 753KB video with live streaming AI content
+- **Size**: Professional MP4 with live streaming
 
-#### **Advanced Features** - [View Video](../docs/visual-content/videos/cli-videos/cli-advanced-features/)
+#### **Advanced Features** - [🎬 MP4](./visual-content/cli-videos/cli-06-advanced-features.mp4)
 - Verbose diagnostics and debugging
 - Provider-specific command options
 - Advanced configuration and customization
-- **Size**: 3MB video with comprehensive advanced features
+- **Size**: Professional MP4 with comprehensive advanced features
 
 ### CLI Recording Infrastructure
 
@@ -132,6 +138,66 @@ asciinema play docs/cli-recordings/latest/06-advanced-features.cast
 - **GIF Convertible**: Use `agg` tool for animated GIF creation
 - **Professional Quality**: Suitable for documentation, tutorials, marketing
 - **Real Command Execution**: Actual CLI commands with live AI generation
+
+## 🔧 MCP (Model Context Protocol) Demonstrations
+
+### MCP CLI Screenshots
+
+**Generated January 10, 2025** - Showcasing external server integration capabilities
+
+| Command | Screenshot | Description |
+|---------|------------|-------------|
+| **MCP Help Overview** | ![MCP Help](./visual-content/screenshots/mcp-cli/01-mcp-help-2025-06-10.png) | Complete MCP command reference and server management |
+| **Server Installation** | ![Install Server](./visual-content/screenshots/mcp-cli/02-mcp-install-2025-06-10.png) | Installing external MCP servers (filesystem, github, etc.) |
+| **Server Status Check** | ![Server Status](./visual-content/screenshots/mcp-cli/03-mcp-list-status-2025-06-10.png) | MCP server connectivity and status verification |
+| **Server Testing** | ![Test Server](./visual-content/screenshots/mcp-cli/04-mcp-test-server-2025-06-10.png) | Testing MCP server connectivity and tool discovery |
+| **Custom Server Setup** | ![Custom Server](./visual-content/screenshots/mcp-cli/05-mcp-custom-server-2025-06-10.png) | Adding custom MCP server configurations |
+| **Workflow Integration** | ![Workflow Demo](./visual-content/screenshots/mcp-cli/06-mcp-workflow-demo-2025-06-10.png) | Complete MCP workflow demonstrations |
+
+### MCP Demo Videos
+
+**Real external server integration demonstrations**
+
+#### **Server Management** - [📹 WebM](../neurolink-demo/videos/mcp-demos/mcp-server-management-demo.webm) | [🎬 MP4](../neurolink-demo/videos/mcp-demos/mcp-server-management-demo.mp4)
+- Installing and configuring MCP servers
+- Server lifecycle management
+- Status monitoring and health checks
+- **Duration**: ~45 seconds of real server management
+
+#### **Tool Execution** - [📹 WebM](../neurolink-demo/videos/mcp-demos/mcp-tool-execution-demo.webm) | [🎬 MP4](../neurolink-demo/videos/mcp-demos/mcp-tool-execution-demo.mp4)
+- Executing tools from external MCP servers
+- Tool discovery and parameter handling
+- Real-time tool invocation examples
+- **Duration**: ~60 seconds of live tool execution
+
+#### **Workflow Integration** - [📹 WebM](../neurolink-demo/videos/mcp-demos/mcp-workflow-integration-demo.webm) | [🎬 MP4](../neurolink-demo/videos/mcp-demos/mcp-workflow-integration-demo.mp4)
+- Complete workflow using multiple MCP servers
+- Tool chaining and orchestration
+- Advanced integration patterns
+- **Duration**: ~90 seconds of comprehensive workflow demonstrations
+
+### MCP CLI Commands Demonstrated
+
+```bash
+# Server Management
+neurolink mcp install filesystem
+neurolink mcp list --status
+neurolink mcp test filesystem
+neurolink mcp add custom-python "python /path/to/server.py"
+neurolink mcp remove server-name
+
+# Tool Execution (framework ready)
+neurolink mcp exec filesystem read-file --path "/path/to/file"
+neurolink generate-text "Read README and summarize" --tools filesystem
+```
+
+### MCP Integration Benefits
+
+- ✅ **External Server Connectivity**: Connect to filesystem, github, database, and custom servers
+- ✅ **Tool Discovery**: Automatic discovery of available tools from MCP servers
+- ✅ **Workflow Integration**: Combine AI generation with external tool execution
+- ✅ **Extensible Architecture**: Add new capabilities through external servers
+- ✅ **Standard Protocol**: Compatible with existing MCP server ecosystem
 
 ## 🎯 Visual Content Benefits
 

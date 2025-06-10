@@ -1,13 +1,34 @@
 {
 	"name": "@juspay/neurolink",
-	"version": "1.2.4",
-	"description": "AI toolkit with multi-provider support for OpenAI, Amazon Bedrock, and Google Vertex AI",
-	"author": "Juspay Technologies",
+	"version": "1.3.0",
+	"description": "Universal AI Development Platform with external MCP server integration, multi-provider support, and professional CLI. Connect to 65+ MCP servers for filesystem, GitHub, database operations, and more. Build, test, and deploy AI applications with OpenAI, Anthropic, Google Vertex AI, and AWS Bedrock.",
+	"author": {
+		"name": "Juspay Technologies",
+		"email": "support@juspay.in",
+		"url": "https://juspay.io"
+	},
 	"license": "MIT",
+	"homepage": "https://github.com/juspay/neurolink#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/juspay/neurolink.git"
+	},
+	"bugs": {
+		"url": "https://github.com/juspay/neurolink/issues"
+	},
+	"funding": {
+		"type": "individual",
+		"url": "https://github.com/sponsors/juspay"
+	},
+	"engines": {
+		"node": ">=18.0.0",
+		"npm": ">=8.0.0",
+		"pnpm": ">=8.0.0"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && pnpm run prepack",
-		"build:cli": "echo 'Building CLI...' && tsc src/cli/index.ts --outDir dist/cli --target es2022 --module esnext --moduleResolution bundler --allowImportingTsExtensions false --resolveJsonModule --esModuleInterop --allowSyntheticDefaultImports --strict --rootDir src/cli",
+		"build:cli": "echo 'Building CLI...' && tsc --project tsconfig.cli.json",
 		"cli": "node dist/cli/index.js",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
@@ -24,7 +45,11 @@
 	"files": [
 		"dist",
 		"!dist/**/*.test.*",
-		"!dist/**/*.spec.*"
+		"!dist/**/*.spec.*",
+		"!dist/**/*.map",
+		"README.md",
+		"CHANGELOG.md",
+		"LICENSE"
 	],
 	"sideEffects": [
 		"**/*.css"
@@ -42,6 +67,12 @@
 			"svelte": "./dist/index.js",
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
+		},
+		"./package.json": "./package.json",
+		"./cli": {
+			"types": "./dist/cli/index.d.ts",
+			"import": "./dist/cli/index.js",
+			"default": "./dist/cli/index.js"
 		}
 	},
 	"peerDependencies": {
@@ -50,6 +81,17 @@
 		"@ai-sdk/openai": "^1.0.0",
 		"ai": "^4.0.0",
 		"zod": "^3.22.0"
+	},
+	"peerDependenciesMeta": {
+		"@ai-sdk/amazon-bedrock": {
+			"optional": true
+		},
+		"@ai-sdk/google-vertex": {
+			"optional": true
+		},
+		"@ai-sdk/openai": {
+			"optional": true
+		}
 	},
 	"dependencies": {
 		"chalk": "^5.3.0",
@@ -82,6 +124,11 @@
 	"keywords": [
 		"ai",
 		"llm",
+		"mcp",
+		"model-context-protocol",
+		"lighthouse",
+		"tool-orchestration",
+		"ai-platform",
 		"openai",
 		"anthropic",
 		"google",
@@ -91,11 +138,34 @@
 		"tools",
 		"neurolink",
 		"juspay",
-		"svelte"
+		"svelte",
+		"chatgpt",
+		"gpt-4",
+		"claude",
+		"gemini",
+		"ai-sdk",
+		"typescript",
+		"cli-tool",
+		"developer-tools",
+		"automation",
+		"machine-learning",
+		"artificial-intelligence",
+		"multi-provider",
+		"ai-agents",
+		"prompt-engineering",
+		"ai-workflow",
+		"universal-ai",
+		"ai-development",
+		"llm-integration"
 	],
 	"pnpm": {
 		"onlyBuiltDependencies": [
 			"esbuild"
 		]
-	}
+	},
+	"os": [
+		"darwin",
+		"linux",
+		"win32"
+	]
 }

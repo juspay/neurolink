@@ -101,6 +101,7 @@
       <div class="tab" onclick="showTab('business')">💼 Business Use Cases</div>
       <div class="tab" onclick="showTab('creative')">🎨 Creative Tools</div>
       <div class="tab" onclick="showTab('developer')">👨‍💻 Developer Tools</div>
+      <div class="tab" onclick="showTab('mcp')">🔧 MCP Integration</div>
       <div class="tab" onclick="showTab('monitoring')">📊 Monitoring</div>
     </div>
 
@@ -317,6 +318,121 @@ Widget C,1200,January</textarea>
           <button class="btn" onclick="debugError()">Analyze Error</button>
           <div id="debug-status"></div>
           <div id="debug-output" class="output"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MCP Integration Tab -->
+    <div id="mcp" class="tab-content">
+      <div class="grid">
+        <div class="card">
+          <h3>🏗️ MCP Server Management</h3>
+          <div class="form-group">
+            <label>Server Type:</label>
+            <select id="mcp-server-type">
+              <option value="filesystem">📁 Filesystem Operations</option>
+              <option value="github">🐙 GitHub Integration</option>
+              <option value="postgres">🗄️ PostgreSQL Database</option>
+              <option value="custom">🔧 Custom Server</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Action:</label>
+            <select id="mcp-action">
+              <option value="install">📦 Install Server</option>
+              <option value="test">🔍 Test Connection</option>
+              <option value="list">📋 List Servers</option>
+              <option value="status">📊 Check Status</option>
+            </select>
+          </div>
+          <button class="btn" onclick="manageMCPServer()">Execute MCP Command</button>
+          <div id="mcp-server-status"></div>
+          <div id="mcp-server-output" class="output"></div>
+        </div>
+
+        <div class="card">
+          <h3>🛠️ Tool Execution</h3>
+          <div class="form-group">
+            <label>MCP Server:</label>
+            <select id="tool-server">
+              <option value="filesystem">📁 Filesystem</option>
+              <option value="github">🐙 GitHub</option>
+              <option value="postgres">🗄️ PostgreSQL</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tool:</label>
+            <select id="tool-name">
+              <option value="read_file">📄 Read File</option>
+              <option value="list_directory">📂 List Directory</option>
+              <option value="search_files">🔍 Search Files</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Parameters (JSON):</label>
+            <textarea id="tool-params" rows="3">{"path": "/Users/user/Documents"}</textarea>
+          </div>
+          <button class="btn" onclick="executeMCPTool()">Execute Tool</button>
+          <div id="tool-status"></div>
+          <div id="tool-output" class="output"></div>
+        </div>
+
+        <div class="card">
+          <h3>🔄 Workflow Integration</h3>
+          <div class="form-group">
+            <label>Workflow Type:</label>
+            <select id="workflow-type">
+              <option value="code-analysis">💻 Code Analysis</option>
+              <option value="file-processing">📁 File Processing</option>
+              <option value="github-automation">🐙 GitHub Automation</option>
+              <option value="data-pipeline">📊 Data Pipeline</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Workflow Description:</label>
+            <textarea id="workflow-description" rows="3">Analyze project structure, generate documentation, and create GitHub issue</textarea>
+          </div>
+          <button class="btn" onclick="runMCPWorkflow()">Run Workflow</button>
+          <div id="workflow-status"></div>
+          <div id="workflow-output" class="output"></div>
+        </div>
+
+        <div class="card">
+          <h3>🎥 MCP Video Demonstrations</h3>
+          <p>Watch these videos to see MCP functionality in action:</p>
+          <div style="margin: 15px 0;">
+            <h4>📦 Server Management Demo</h4>
+            <video width="100%" height="200" controls style="border-radius: 8px; margin-bottom: 10px;">
+              <source src="./videos/mcp-demos/mcp-server-management-demo.webm" type="video/webm">
+              Your browser does not support the video tag.
+            </video>
+          </div>
+          <div style="margin: 15px 0;">
+            <h4>🛠️ Tool Execution Demo</h4>
+            <video width="100%" height="200" controls style="border-radius: 8px; margin-bottom: 10px;">
+              <source src="./videos/mcp-demos/mcp-tool-execution-demo.webm" type="video/webm">
+              Your browser does not support the video tag.
+            </video>
+          </div>
+          <div style="margin: 15px 0;">
+            <h4>🔄 Workflow Integration Demo</h4>
+            <video width="100%" height="200" controls style="border-radius: 8px; margin-bottom: 10px;">
+              <source src="./videos/mcp-demos/mcp-workflow-integration-demo.webm" type="video/webm">
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>📋 MCP Server List</h3>
+          <button class="btn" onclick="loadMCPServers()">Refresh Server List</button>
+          <div id="mcp-servers-output" class="output"></div>
+        </div>
+
+        <div class="card">
+          <h3>📊 MCP Analytics</h3>
+          <button class="btn" onclick="loadMCPAnalytics()">Load MCP Analytics</button>
+          <div id="mcp-analytics-output" class="output"></div>
         </div>
       </div>
     </div>
@@ -638,6 +754,346 @@ Widget C,1200,January</textarea>
       } catch (error) {
         setOutput('provider-status', 'Error checking providers: ' + error.message);
       }
+    }
+
+    // MCP Integration functions - Enhanced with real API integration
+    async function manageMCPServer() {
+      const serverType = document.getElementById('mcp-server-type').value;
+      const action = document.getElementById('mcp-action').value;
+      setStatus('mcp-server-status', `${action}ing ${serverType} server...`, 'loading');
+
+      try {
+        let result;
+
+        switch(action) {
+          case 'install':
+            result = await apiCall('/api/mcp/install', { serverName: serverType });
+            break;
+          case 'test':
+            result = await fetch(`/api/mcp/test/${serverType}`, { method: 'POST' });
+            result = await result.json();
+            break;
+          case 'list':
+            result = await fetch('/api/mcp/servers');
+            result = await result.json();
+            break;
+          case 'status':
+            result = await fetch('/api/mcp/status');
+            result = await result.json();
+            break;
+          default:
+            throw new Error('Unknown action');
+        }
+
+        if (result.success) {
+          setOutput('mcp-server-output', JSON.stringify(result, null, 2));
+          setStatus('mcp-server-status', `${action} completed successfully`, 'success');
+        } else {
+          setOutput('mcp-server-output', JSON.stringify(result, null, 2));
+          setStatus('mcp-server-status', `${action} completed with warnings`, 'warning');
+        }
+      } catch (error) {
+        setStatus('mcp-server-status', 'Error: ' + error.message, 'error');
+        setOutput('mcp-server-output', `Error: ${error.message}\n\nThis might indicate that the MCP CLI is not available or the server connection failed.`);
+      }
+    }
+
+    async function executeMCPTool() {
+      const serverName = document.getElementById('tool-server').value;
+      const toolName = document.getElementById('tool-name').value;
+      const paramsText = document.getElementById('tool-params').value;
+      setStatus('tool-status', 'Executing MCP tool...', 'loading');
+
+      try {
+        let params = {};
+        if (paramsText.trim()) {
+          params = JSON.parse(paramsText);
+        }
+
+        const result = await apiCall('/api/mcp/execute', { serverName, toolName, params });
+
+        if (result.success) {
+          setOutput('tool-output', JSON.stringify(result, null, 2));
+          setStatus('tool-status', 'Tool executed successfully', 'success');
+        } else {
+          setOutput('tool-output', JSON.stringify(result, null, 2));
+          setStatus('tool-status', 'Tool execution failed: ' + result.error, 'error');
+        }
+      } catch (error) {
+        setStatus('tool-status', 'Error: ' + error.message, 'error');
+        setOutput('tool-output', `Error: ${error.message}\n\nPlease check that:\n1. Server name is correct\n2. Tool name exists on the server\n3. Parameters are valid JSON`);
+      }
+    }
+
+    async function runMCPWorkflow() {
+      const workflowType = document.getElementById('workflow-type').value;
+      const description = document.getElementById('workflow-description').value;
+      setStatus('workflow-status', 'Running MCP workflow...', 'loading');
+
+      try {
+        const result = await apiCall('/api/mcp/workflow', { workflowType, description });
+
+        if (result.success) {
+          setOutput('workflow-output', JSON.stringify(result, null, 2));
+          setStatus('workflow-status', 'Workflow completed successfully', 'success');
+        } else {
+          setOutput('workflow-output', JSON.stringify(result, null, 2));
+          setStatus('workflow-status', 'Workflow failed: ' + result.error, 'error');
+        }
+      } catch (error) {
+        setStatus('workflow-status', 'Error: ' + error.message, 'error');
+        setOutput('workflow-output', `Error: ${error.message}\n\nWorkflow execution failed. This may indicate missing MCP servers or configuration issues.`);
+      }
+    }
+
+    async function loadMCPServers() {
+      setStatus('mcp-servers-status', 'Loading MCP servers...', 'loading');
+
+      try {
+        const response = await fetch('/api/mcp/servers');
+        const servers = await response.json();
+
+        if (servers.success) {
+          setOutput('mcp-servers-output', JSON.stringify(servers, null, 2));
+          setStatus('mcp-servers-status', `Loaded ${servers.totalServers} servers (${servers.availableServers} available)`, 'success');
+        } else {
+          setOutput('mcp-servers-output', JSON.stringify(servers, null, 2));
+          setStatus('mcp-servers-status', 'Failed to load servers', 'error');
+        }
+      } catch (error) {
+        setStatus('mcp-servers-status', 'Error: ' + error.message, 'error');
+        setOutput('mcp-servers-output', `Error loading MCP servers: ${error.message}\n\nThis may indicate that MCP configuration is missing or the CLI is not available.`);
+      }
+    }
+
+    async function loadMCPAnalytics() {
+      setStatus('mcp-analytics-status', 'Loading MCP analytics...', 'loading');
+
+      try {
+        const response = await fetch('/api/mcp/status');
+        const analytics = await response.json();
+
+        if (analytics.success) {
+          setOutput('mcp-analytics-output', JSON.stringify(analytics, null, 2));
+          setStatus('mcp-analytics-status', 'MCP analytics loaded successfully', 'success');
+        } else {
+          setOutput('mcp-analytics-output', JSON.stringify(analytics, null, 2));
+          setStatus('mcp-analytics-status', 'Analytics loaded with warnings', 'warning');
+        }
+      } catch (error) {
+        setStatus('mcp-analytics-status', 'Error: ' + error.message, 'error');
+        setOutput('mcp-analytics-output', `Error loading MCP analytics: ${error.message}\n\nThis may indicate MCP system is not properly configured.`);
+      }
+    }
+
+    // New MCP helper functions
+    async function installMCPServer(serverName) {
+      try {
+        const result = await apiCall('/api/mcp/install', { serverName });
+        return result;
+      } catch (error) {
+        throw error;
+      }
+    }
+
+    async function removeMCPServer(serverName) {
+      try {
+        const response = await fetch(`/api/mcp/servers/${serverName}`, { method: 'DELETE' });
+        return await response.json();
+      } catch (error) {
+        throw error;
+      }
+    }
+
+    async function getMCPServerTools(serverName) {
+      try {
+        const response = await fetch(`/api/mcp/tools/${serverName}`);
+        return await response.json();
+      } catch (error) {
+        throw error;
+      }
+    }
+
+    // Quick MCP server management buttons
+    async function quickInstallFilesystem() {
+      setStatus('mcp-server-status', 'Installing filesystem server...', 'loading');
+      try {
+        const result = await installMCPServer('filesystem');
+        setOutput('mcp-server-output', JSON.stringify(result, null, 2));
+        setStatus('mcp-server-status', 'Filesystem server installed successfully', 'success');
+        loadMCPServers(); // Refresh server list
+      } catch (error) {
+        setStatus('mcp-server-status', 'Installation failed: ' + error.message, 'error');
+      }
+    }
+
+    async function quickInstallGithub() {
+      setStatus('mcp-server-status', 'Installing GitHub server...', 'loading');
+      try {
+        const result = await installMCPServer('github');
+        setOutput('mcp-server-output', JSON.stringify(result, null, 2));
+        setStatus('mcp-server-status', 'GitHub server installed successfully', 'success');
+        loadMCPServers(); // Refresh server list
+      } catch (error) {
+        setStatus('mcp-server-status', 'Installation failed: ' + error.message, 'error');
+      }
+    }
+
+    async function quickInstallPostgres() {
+      setStatus('mcp-server-status', 'Installing PostgreSQL server...', 'loading');
+      try {
+        const result = await installMCPServer('postgres');
+        setOutput('mcp-server-output', JSON.stringify(result, null, 2));
+        setStatus('mcp-server-status', 'PostgreSQL server installed successfully', 'success');
+        loadMCPServers(); // Refresh server list
+      } catch (error) {
+        setStatus('mcp-server-status', 'Installation failed: ' + error.message, 'error');
+      }
+    }
+
+    // Helper functions for MCP simulation
+    function generateMCPServerOutput(serverType, action) {
+      const outputs = {
+        'install': {
+          'filesystem': `📦 Installing MCP Server: filesystem
+
+✅ Added filesystem server configuration
+   Command: npx -y @modelcontextprotocol/server-filesystem /
+   Transport: stdio
+
+📄 Configuration saved to .mcp-config.json
+
+🔍 Testing server connectivity...
+✅ Connection successful!
+
+📋 Server Capabilities:
+   Protocol Version: 2024-11-05
+   Tools: ✅ Supported (9 tools available)
+   Resources: ✅ Supported
+
+🛠️ Available Tools:
+   • read_file - Read file contents from filesystem
+   • write_file - Create or overwrite files
+   • list_directory - List directory contents
+   • create_directory - Create directories
+   • search_files - Search for files by pattern
+
+✅ Filesystem server is ready for use!`,
+          'github': `📦 Installing MCP Server: github
+
+✅ Added GitHub server configuration
+   Command: npx -y @modelcontextprotocol/server-github
+   Transport: stdio
+   Environment: GITHUB_TOKEN=***
+
+📄 Configuration saved to .mcp-config.json
+
+🔍 Testing server connectivity...
+✅ Connection successful!
+
+📋 Server Capabilities:
+   Protocol Version: 2024-11-05
+   Tools: ✅ Supported (12 tools available)
+   Resources: ✅ Supported
+
+🛠️ Available Tools:
+   • list_issues - List repository issues
+   • create_issue - Create new issues
+   • get_file_contents - Get file contents
+   • create_pull_request - Create pull requests
+
+✅ GitHub server is ready for use!`
+        },
+        'test': {
+          'filesystem': `🔍 Testing MCP server: filesystem
+
+✅ Connection successful!
+
+📋 Server Capabilities:
+   Protocol Version: 2024-11-05
+   Tools: ✅ Supported
+   Resources: ✅ Supported
+
+🛠️ Available Tools:
+   • read_file: Read file contents from filesystem
+   • write_file: Create or overwrite files
+   • list_directory: List directory contents
+   • search_files: Search for files by pattern
+
+📊 Performance: Connected in 45ms
+✅ filesystem server is ready for use!`
+        },
+        'list': {
+          'filesystem': `📋 Configured MCP servers (3):
+
+🔧 filesystem
+   Command: npx -y @modelcontextprotocol/server-filesystem /
+   Transport: stdio
+✅ Status: ✅ Available
+
+🔧 github
+   Command: npx -y @modelcontextprotocol/server-github
+   Transport: stdio
+✅ Status: ✅ Available
+
+🔧 postgres
+   Command: npx -y @modelcontextprotocol/server-postgres postgresql://...
+   Transport: stdio
+⚠️ Status: ❌ Not available (connection failed)`
+        }
+      };
+
+      return outputs[action]?.[serverType] || `${action} ${serverType} server completed.`;
+    }
+
+    function generateMCPToolOutput(server, toolName, params) {
+      return `🔧 Executing: ${server}.${toolName}
+
+📋 Parameters: ${params}
+
+✅ Tool execution completed successfully
+⚡ Response time: 67ms
+🔗 Used MCP server: ${server}
+
+📄 Results:
+${server === 'filesystem' && toolName === 'read_file' ?
+  'File content retrieved successfully (1,234 characters)\nContent preview: "# NeuroLink Universal AI Platform..."' :
+  server === 'github' && toolName === 'list_issues' ?
+  'Found 5 open issues in repository\n• Issue #23: "Add MCP documentation"\n• Issue #22: "Improve CLI error handling"' :
+  'Operation completed successfully with expected results'
+}`;
+    }
+
+    function generateMCPWorkflowOutput(workflowType, description) {
+      return `🔄 Executing MCP Workflow: ${workflowType}
+
+📝 Description: ${description}
+
+Step 1: Initializing workflow...
+✅ Workflow initialized successfully
+
+Step 2: Connecting to MCP servers...
+✅ Connected to filesystem server
+✅ Connected to github server
+⚠️ PostgreSQL server offline (skipping)
+
+Step 3: Executing workflow steps...
+🔧 Reading project files (filesystem.read_file)
+✅ Found 47 files across 12 directories
+
+🤖 Analyzing project structure with AI...
+✅ Generated analysis (1,234 tokens)
+
+🐙 Creating GitHub documentation (github.create_issue)
+✅ Created issue #24: "Automated workflow results"
+
+📊 Workflow Summary:
+   Duration: 12.4 seconds
+   MCP Servers Used: 2 (filesystem, github)
+   AI Tokens: 1,234 generated
+   Operations: 4 successful, 0 failed
+
+🎉 Workflow completed successfully!`;
     }
 
     // Initialize page

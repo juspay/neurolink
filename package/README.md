@@ -67,14 +67,14 @@ console.log(result.text);
 
 ### 🖥️ CLI Tool Screenshots & Videos
 
-#### **📸 Professional CLI Screenshots**
+#### **📸 Professional CLI Screenshots** *(Latest: June 8, 2025)*
 | Command | Screenshot | Description |
 |---------|------------|-------------|
-| **CLI Help Overview** | ![CLI Help](./cli-screenshots/01-cli-help-2025-06-04T19-38-12.png) | Complete command reference |
-| **Provider Status Check** | ![Provider Status](./cli-screenshots/02-provider-status-2025-06-04T19-38-25.png) | All provider connectivity verified |
-| **Text Generation** | ![Text Generation](./cli-screenshots/03-text-generation-2025-06-04T19-38-30.png) | Real AI haiku generation with JSON |
-| **Auto Provider Selection** | ![Best Provider](./cli-screenshots/04-best-provider-2025-06-04T19-38-33.png) | Automatic provider selection working |
-| **Batch Processing** | ![Batch Results](./cli-screenshots/05-batch-results-2025-06-04T19-38-37.png) | Multi-prompt processing with results |
+| **CLI Help Overview** | ![CLI Help](./docs/visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-08T06-33-12.png) | Complete command reference |
+| **Provider Status Check** | ![Provider Status](./docs/visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-08T06-33-16.png) | All provider connectivity verified |
+| **Text Generation** | ![Text Generation](./docs/visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-08T06-33-19.png) | Real AI haiku generation with JSON |
+| **Auto Provider Selection** | ![Best Provider](./docs/visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-08T06-33-22.png) | Automatic provider selection working |
+| **Batch Processing** | ![Batch Results](./docs/visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-08T06-33-26.png) | Multi-prompt processing with results |
 
 #### **🎥 CLI Demonstration Videos** *(Real command execution)*
 - **[CLI Overview](./cli-videos/cli-overview/)** - Help, status, provider selection commands

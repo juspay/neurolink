@@ -18,6 +18,7 @@ import chalk from 'chalk';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { addMCPCommands } from './commands/mcp.js';
 
 // Load environment variables from .env file
 try {
@@ -114,6 +115,8 @@ function handleError(error: Error, context: string): void {
     console.error(chalk.yellow('💡 Set API key: export OPENAI_API_KEY=sk-...'));
     console.error(chalk.yellow('💡 Or set AWS credentials & region: export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_REGION=us-east-1'));
     console.error(chalk.yellow('💡 Or set Google credentials: export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json'));
+    console.error(chalk.yellow('💡 Or set Anthropic API key: export ANTHROPIC_API_KEY=sk-ant-...'));
+    console.error(chalk.yellow('💡 Or set Azure OpenAI credentials: export AZURE_OPENAI_API_KEY=... AZURE_OPENAI_ENDPOINT=...'));
   }
 
   if (error.message.toLowerCase().includes('rate limit')) {
@@ -617,6 +620,9 @@ const cli = yargs(args)
   )
 
   .completion('completion', 'Generate shell completion script');
+
+// Add MCP commands
+addMCPCommands(cli);
 
 // Use an async IIFE to allow top-level await for parseAsync
 (async () => {

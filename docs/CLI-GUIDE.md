@@ -144,6 +144,227 @@ neurolink get-best-provider
 ✅ Best provider: bedrock
 ```
 
+### `mcp` - Model Context Protocol Integration
+
+Manage external MCP servers for extended functionality. Connect to filesystem operations, GitHub integration, database access, and more through the growing MCP ecosystem.
+
+#### `mcp list` - List Configured Servers
+```bash
+# List all configured MCP servers
+neurolink mcp list
+
+# List with live connectivity status
+neurolink mcp list --status
+```
+
+**Output Example:**
+```
+📋 Configured MCP servers (2):
+
+🔧 filesystem
+   Command: npx -y @modelcontextprotocol/server-filesystem /
+   Transport: stdio
+✔ filesystem: ✅ Available
+
+🔧 github
+   Command: npx @modelcontextprotocol/server-github
+   Transport: stdio
+✖ github: ❌ Not available
+```
+
+#### `mcp install` - Install Popular Servers
+```bash
+# Install filesystem server for file operations
+neurolink mcp install filesystem
+
+# Install GitHub server for repository management
+neurolink mcp install github
+
+# Install PostgreSQL server for database operations
+neurolink mcp install postgres
+
+# Install browser automation server
+neurolink mcp install puppeteer
+
+# Install web search server
+neurolink mcp install brave-search
+```
+
+**Output Example:**
+```
+📦 Installing MCP server: filesystem
+✅ Installed MCP server: filesystem
+💡 Test it with: neurolink mcp test filesystem
+```
+
+#### `mcp add` - Add Custom Servers
+```bash
+# Add custom server with basic command
+neurolink mcp add myserver "python /path/to/server.py"
+
+# Add server with arguments
+neurolink mcp add myserver "npx my-mcp-server" --args "arg1,arg2"
+
+# Add SSE-based server
+neurolink mcp add webserver "http://localhost:8080" --transport sse
+
+# Add server with environment variables
+neurolink mcp add dbserver "npx db-server" --env '{"DB_URL": "postgresql://..."}'
+
+# Add server with custom working directory
+neurolink mcp add localserver "python server.py" --cwd "/project/directory"
+```
+
+#### `mcp test` - Test Server Connectivity
+```bash
+# Test specific server connectivity and discover tools
+neurolink mcp test filesystem
+
+# Test all servers
+neurolink mcp list --status
+```
+
+**Output Example:**
+```
+🔍 Testing MCP server: filesystem
+
+⠋ Connecting...⠙ Getting capabilities...⠹ Listing tools...
+✔ ✅ Connection successful!
+
+📋 Server Capabilities:
+   Protocol Version: 2024-11-05
+   Tools: ✅ Supported
+
+🛠️  Available Tools:
+   • read_file: Read file contents from filesystem
+   • write_file: Create/overwrite files
+   • edit_file: Make line-based edits
+   • create_directory: Create directories
+   • list_directory: List directory contents
+   • directory_tree: Get recursive tree view
+   • move_file: Move/rename files and directories
+   • search_files: Search for files by pattern
+   • get_file_info: Get file metadata
+   • list_allowed_directories: Show allowed paths
+   + 1 more tool...
+```
+
+#### `mcp remove` - Remove Servers
+```bash
+# Remove configured server
+neurolink mcp remove old-server
+
+# Remove multiple servers
+neurolink mcp remove server1 server2 server3
+```
+
+#### `mcp exec` - Execute Tools (Coming Soon)
+```bash
+# Execute tool from MCP server
+neurolink mcp exec filesystem read_file --params '{"path": "README.md"}'
+
+# Execute GitHub tool
+neurolink mcp exec github create_issue --params '{"title": "Bug report", "body": "Description"}'
+
+# Execute database query
+neurolink mcp exec postgres query --params '{"sql": "SELECT * FROM users LIMIT 10"}'
+```
+
+### MCP Command Options
+
+#### Global MCP Options
+- `--help, -h` - Show MCP command help
+- `--status` - Include live connectivity status (for `list` command)
+
+#### Server Management Options
+- `--args <args>` - Comma-separated command arguments
+- `--transport <type>` - Transport type: `stdio` (default) or `sse`
+- `--url <url>` - Server URL (for SSE transport)
+- `--env <json>` - Environment variables as JSON string
+- `--cwd <path>` - Working directory for server process
+
+#### Tool Execution Options
+- `--params <json>` - Tool parameters as JSON string
+- `--timeout <ms>` - Execution timeout in milliseconds
+
+### MCP Integration Examples
+
+#### File Operations Workflow
+```bash
+# Install and test filesystem server
+neurolink mcp install filesystem
+neurolink mcp test filesystem
+
+# (Future) Execute file operations
+neurolink mcp exec filesystem read_file --params '{"path": "package.json"}'
+neurolink mcp exec filesystem list_directory --params '{"path": "src"}'
+neurolink mcp exec filesystem search_files --params '{"path": ".", "pattern": "*.ts"}'
+```
+
+#### GitHub Integration Workflow
+```bash
+# Install GitHub server (requires GITHUB_PERSONAL_ACCESS_TOKEN)
+export GITHUB_PERSONAL_ACCESS_TOKEN="ghp_your_token"
+neurolink mcp install github
+neurolink mcp test github
+
+# (Future) GitHub operations
+neurolink mcp exec github search_repositories --params '{"query": "neurolink"}'
+neurolink mcp exec github create_issue --params '{"title": "Feature request", "body": "Add new feature"}'
+```
+
+#### Database Operations Workflow
+```bash
+# Install PostgreSQL server (requires POSTGRES_CONNECTION_STRING)
+export POSTGRES_CONNECTION_STRING="postgresql://user:pass@host:port/db"
+neurolink mcp install postgres
+neurolink mcp test postgres
+
+# (Future) Database operations
+neurolink mcp exec postgres query --params '{"sql": "SELECT version()"}'
+neurolink mcp exec postgres list-tables --params '{}'
+```
+
+#### Custom Server Development
+```bash
+# Add your custom MCP server
+neurolink mcp add myapp "python /path/to/my-mcp-server.py" \
+  --env '{"API_KEY": "secret", "DEBUG": "true"}' \
+  --cwd "/my/project"
+
+# Test your server
+neurolink mcp test myapp
+
+# Use your custom tools
+neurolink mcp exec myapp my_custom_tool --params '{"input": "data"}'
+```
+
+### MCP Configuration Management
+
+MCP servers are automatically configured in `.mcp-config.json`:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "name": "filesystem",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/"],
+      "transport": "stdio"
+    },
+    "github": {
+      "name": "github",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "transport": "stdio",
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
+      }
+    }
+  }
+}
+```
+
 ## Command Options
 
 ### Global Options
@@ -151,7 +372,7 @@ neurolink get-best-provider
 - `--version, -v` - Show version number
 
 ### Generation Options
-- `--provider <name>` - Choose provider: `auto` (default), `openai`, `bedrock`, `vertex`
+- `--provider <name>` - Choose provider: `auto` (default), `openai`, `bedrock`, `vertex`, `anthropic`, `azure`
 - `--temperature <number>` - Creativity level: `0.0` (focused) to `1.0` (creative), default: `0.7`
 - `--max-tokens <number>` - Maximum tokens to generate, default: `500`
 - `--format <type>` - Output format: `text` (default) or `json`
@@ -301,9 +522,30 @@ neurolink status
 - 🎨 **UI Integration**: React components, Svelte stores
 - 📈 **Production Applications**: Full-featured applications
 
-## Visual Documentation
+## 🎬 CLI Video Demonstrations
 
-For CLI screenshots and demonstration videos, see the [Visual Demos Guide](./VISUAL-DEMOS.md#cli-demonstrations).
+**See the CLI in action with professional demonstrations:**
+
+### **Command Tutorials**
+- **[Help & Overview](../docs/visual-content/cli-videos/cli-01-cli-help.mp4)** - Complete command reference and usage examples
+- **[Provider Status](../docs/visual-content/cli-videos/cli-02-provider-status.mp4)** - Connectivity testing and response time measurement
+- **[Text Generation](../docs/visual-content/cli-videos/cli-03-text-generation.mp4)** - Real AI content generation with different providers
+- **[Auto Selection](../docs/visual-content/cli-videos/cli-04-auto-selection.mp4)** - Automatic provider selection algorithm
+- **[Streaming](../docs/visual-content/cli-videos/cli-05-streaming.mp4)** - Real-time text generation streaming
+- **[Advanced Features](../docs/visual-content/cli-videos/cli-06-advanced-features.mp4)** - Verbose diagnostics and advanced options
+
+### **MCP Integration Demos**
+- **[MCP Foundation](../docs/visual-content/cli-videos/mcp-foundation-demo.mp4)** - MCP server installation and management
+- **[MCP Testing](../docs/visual-content/cli-videos/mcp-tests-proof.mp4)** - Server connectivity testing and tool discovery
+- **[MCP Demo](../docs/visual-content/cli-videos/mcp-demo.mp4)** - Real-world MCP integration examples
+
+**All videos feature:**
+- ✅ Real command execution with live AI generation
+- ✅ Professional MP4 format for universal compatibility
+- ✅ Comprehensive coverage of all CLI features
+- ✅ Suitable for documentation, tutorials, and presentations
+
+For complete visual documentation including web interface demos, see the [Visual Demos Guide](./VISUAL-DEMOS.md).
 
 ---
 
