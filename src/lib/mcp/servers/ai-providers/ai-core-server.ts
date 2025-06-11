@@ -9,23 +9,39 @@ import { createMCPServer } from '../../factory.js';
 import type { NeuroLinkExecutionContext, ToolResult } from '../../factory.js';
 import { AIProviderFactory } from '../../../core/factory.js';
 import { getBestProvider, getAvailableProviders } from '../../../utils/providerUtils.js';
+import {
+  analyzeAIUsageTool,
+  benchmarkProviderPerformanceTool,
+  optimizePromptParametersTool
+} from './ai-analysis-tools.js';
+import {
+  generateTestCasesTool,
+  refactorCodeTool,
+  generateDocumentationTool,
+  debugAIOutputTool
+} from './ai-workflow-tools.js';
 
 /**
  * AI Core Server - Central hub for AI provider tools
- * Provides text generation, provider selection, and AI capabilities
+ * Provides text generation, provider selection, AI analysis, and development workflow tools
  */
 export const aiCoreServer = createMCPServer({
   id: 'neurolink-ai-core',
   title: 'NeuroLink AI Core',
-  description: 'Core AI provider tools with automatic fallback and orchestration',
+  description: 'Core AI provider tools with automatic fallback, analysis capabilities, and development workflow enhancement',
   category: 'ai-providers',
-  version: '1.0.0',
+  version: '1.2.0',
   capabilities: [
     'text-generation',
     'provider-selection',
     'automatic-fallback',
     'usage-tracking',
-    'multi-provider-support'
+    'multi-provider-support',
+    'ai-analysis',
+    'test-generation',
+    'code-refactoring',
+    'documentation-generation',
+    'ai-debugging'
   ]
 });
 
@@ -312,5 +328,22 @@ aiCoreServer.registerTool({
   }
 });
 
+/**
+ * Register AI Analysis Tools
+ * Usage analysis, performance benchmarking, and parameter optimization
+ */
+aiCoreServer.registerTool(analyzeAIUsageTool);
+aiCoreServer.registerTool(benchmarkProviderPerformanceTool);
+aiCoreServer.registerTool(optimizePromptParametersTool);
+
+/**
+ * Register AI Development Workflow Tools
+ * Test generation, code refactoring, documentation generation, and AI debugging
+ */
+aiCoreServer.registerTool(generateTestCasesTool);
+aiCoreServer.registerTool(refactorCodeTool);
+aiCoreServer.registerTool(generateDocumentationTool);
+aiCoreServer.registerTool(debugAIOutputTool);
+
 // Log successful server creation
-console.log('[AI-Core] NeuroLink AI Core Server created with tools:', Object.keys(aiCoreServer.tools));
+console.log('[AI-Core] NeuroLink AI Core Server v1.2.0 created with 10 tools:', Object.keys(aiCoreServer.tools));

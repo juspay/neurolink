@@ -157,7 +157,7 @@ export class OpenAI implements AIProvider {
         message: 'Error in streaming text',
         err: String(err)
       });
-      return null;
+      throw err; // Re-throw error to trigger fallback
     }
   }
 
@@ -223,7 +223,7 @@ export class OpenAI implements AIProvider {
         message: 'Error in generating text',
         err: String(err)
       });
-      return null;
+      throw err; // Re-throw error to trigger fallback
     }
   }
 }

@@ -40,84 +40,158 @@ export interface TextGenerationResult {
 
 export class NeuroLink {
   /**
-   * Generate text using the best available AI provider
+   * Generate text using the best available AI provider with automatic fallback
    */
   async generateText(options: TextGenerationOptions): Promise<TextGenerationResult> {
     const startTime = Date.now();
+    const functionTag = 'NeuroLink.generateText';
 
-    try {
-      let provider: AIProvider;
-      let providerName: string;
+    // Define fallback provider priority order
+    const providerPriority = ['openai', 'vertex', 'bedrock'];
+    const requestedProvider = options.provider === 'auto' ? undefined : options.provider;
 
-      if (options.provider && options.provider !== 'auto') {
-        provider = AIProviderFactory.createProvider(options.provider);
-        providerName = options.provider;
-      } else {
-        provider = createBestAIProvider();
-        providerName = await getBestProvider();
+    // If specific provider requested, try that first, then fallback to priority order
+    const tryProviders = requestedProvider
+      ? [requestedProvider, ...providerPriority.filter(p => p !== requestedProvider)]
+      : providerPriority;
+
+    console.log(`[${functionTag}] Starting text generation with fallback`, {
+      requestedProvider: requestedProvider || 'auto',
+      tryProviders,
+      promptLength: options.prompt.length
+    });
+
+    let lastError: Error | null = null;
+
+    for (const providerName of tryProviders) {
+      try {
+        console.log(`[${functionTag}] Attempting provider`, { provider: providerName });
+
+        const provider = AIProviderFactory.createProvider(providerName);
+
+        const result = await provider.generateText({
+          prompt: options.prompt,
+          temperature: options.temperature,
+          maxTokens: options.maxTokens,
+          systemPrompt: options.systemPrompt
+        }, options.schema);
+
+        if (!result) {
+          throw new Error('No response received from AI provider');
+        }
+
+        const responseTime = Date.now() - startTime;
+
+        console.log(`[${functionTag}] Provider succeeded`, {
+          provider: providerName,
+          responseTime,
+          usage: result.usage
+        });
+
+        return {
+          content: result.text || '',
+          provider: providerName,
+          usage: result.usage,
+          responseTime
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        lastError = error instanceof Error ? error : new Error(errorMessage);
+
+        console.warn(`[${functionTag}] Provider failed, trying next`, {
+          provider: providerName,
+          error: errorMessage,
+          remainingProviders: tryProviders.slice(tryProviders.indexOf(providerName) + 1)
+        });
+
+        // Continue to next provider
+        continue;
       }
-
-      const result = await provider.generateText({
-        prompt: options.prompt,
-        temperature: options.temperature,
-        maxTokens: options.maxTokens,
-        systemPrompt: options.systemPrompt
-      }, options.schema);
-
-      if (!result) {
-        throw new Error('No response received from AI provider');
-      }
-
-      const responseTime = Date.now() - startTime;
-
-      return {
-        content: result.content || result.text || '',
-        provider: providerName,
-        usage: result.usage,
-        responseTime
-      };
-    } catch (error) {
-      throw new Error(`Failed to generate text: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+
+    // All providers failed
+    console.error(`[${functionTag}] All providers failed`, {
+      triedProviders: tryProviders,
+      lastError: lastError?.message
+    });
+
+    throw new Error(`Failed to generate text with all providers. Last error: ${lastError?.message || 'Unknown error'}`);
   }
 
   /**
-   * Generate streaming text using the best available AI provider
+   * Generate streaming text using the best available AI provider with automatic fallback
    */
   async generateTextStream(options: StreamTextOptions): Promise<AsyncIterable<{ content: string }>> {
-    try {
-      let provider: AIProvider;
+    const functionTag = 'NeuroLink.generateTextStream';
 
-      if (options.provider && options.provider !== 'auto') {
-        provider = AIProviderFactory.createProvider(options.provider);
-      } else {
-        provider = createBestAIProvider();
-      }
+    // Define fallback provider priority order
+    const providerPriority = ['openai', 'vertex', 'bedrock'];
+    const requestedProvider = options.provider === 'auto' ? undefined : options.provider;
 
-      const result = await provider.streamText({
-        prompt: options.prompt,
-        temperature: options.temperature,
-        maxTokens: options.maxTokens,
-        systemPrompt: options.systemPrompt
-      });
+    // If specific provider requested, try that first, then fallback to priority order
+    const tryProviders = requestedProvider
+      ? [requestedProvider, ...providerPriority.filter(p => p !== requestedProvider)]
+      : providerPriority;
 
-      if (!result) {
-        throw new Error('No stream response received from AI provider');
-      }
+    console.log(`[${functionTag}] Starting stream generation with fallback`, {
+      requestedProvider: requestedProvider || 'auto',
+      tryProviders,
+      promptLength: options.prompt.length
+    });
 
-      // Convert the AI SDK stream to our expected format
-      async function* convertStream() {
-        if (result && result.textStream) {
-          for await (const chunk of result.textStream) {
-            yield { content: chunk };
+    let lastError: Error | null = null;
+
+    for (const providerName of tryProviders) {
+      try {
+        console.log(`[${functionTag}] Attempting provider`, { provider: providerName });
+
+        const provider = AIProviderFactory.createProvider(providerName);
+
+        const result = await provider.streamText({
+          prompt: options.prompt,
+          temperature: options.temperature,
+          maxTokens: options.maxTokens,
+          systemPrompt: options.systemPrompt
+        });
+
+        if (!result) {
+          throw new Error('No stream response received from AI provider');
+        }
+
+        console.log(`[${functionTag}] Provider succeeded`, { provider: providerName });
+
+        // Convert the AI SDK stream to our expected format
+        async function* convertStream() {
+          if (result && result.textStream) {
+            for await (const chunk of result.textStream) {
+              yield { content: chunk };
+            }
           }
         }
-      }
 
-      return convertStream();
-    } catch (error) {
-      throw new Error(`Failed to stream text: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        return convertStream();
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        lastError = error instanceof Error ? error : new Error(errorMessage);
+
+        console.warn(`[${functionTag}] Provider failed, trying next`, {
+          provider: providerName,
+          error: errorMessage,
+          remainingProviders: tryProviders.slice(tryProviders.indexOf(providerName) + 1)
+        });
+
+        // Continue to next provider
+        continue;
+      }
     }
+
+    // All providers failed
+    console.error(`[${functionTag}] All providers failed`, {
+      triedProviders: tryProviders,
+      lastError: lastError?.message
+    });
+
+    throw new Error(`Failed to stream text with all providers. Last error: ${lastError?.message || 'Unknown error'}`);
   }
 
   /**

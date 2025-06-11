@@ -527,17 +527,19 @@ neurolink status
 **See the CLI in action with professional demonstrations:**
 
 ### **Command Tutorials**
-- **[Help & Overview](../docs/visual-content/cli-videos/cli-01-cli-help.mp4)** - Complete command reference and usage examples
-- **[Provider Status](../docs/visual-content/cli-videos/cli-02-provider-status.mp4)** - Connectivity testing and response time measurement
-- **[Text Generation](../docs/visual-content/cli-videos/cli-03-text-generation.mp4)** - Real AI content generation with different providers
-- **[Auto Selection](../docs/visual-content/cli-videos/cli-04-auto-selection.mp4)** - Automatic provider selection algorithm
-- **[Streaming](../docs/visual-content/cli-videos/cli-05-streaming.mp4)** - Real-time text generation streaming
-- **[Advanced Features](../docs/visual-content/cli-videos/cli-06-advanced-features.mp4)** - Verbose diagnostics and advanced options
+- **[Help & Overview](./visual-content/cli-videos/cli-01-cli-help.mp4)** - Complete command reference and usage examples
+- **[Provider Status](./visual-content/cli-videos/cli-02-provider-status.mp4)** - Connectivity testing and response time measurement
+- **[Text Generation](./visual-content/cli-videos/cli-03-text-generation.mp4)** - Real AI content generation with different providers
+- **[Auto Selection](./visual-content/cli-videos/cli-04-auto-selection.mp4)** - Automatic provider selection algorithm
+- **[Streaming](./visual-content/cli-videos/cli-05-streaming.mp4)** - Real-time text generation streaming
+- **[Advanced Features](./visual-content/cli-videos/cli-06-advanced-features.mp4)** - Verbose diagnostics and advanced options
 
 ### **MCP Integration Demos**
-- **[MCP Foundation](../docs/visual-content/cli-videos/mcp-foundation-demo.mp4)** - MCP server installation and management
-- **[MCP Testing](../docs/visual-content/cli-videos/mcp-tests-proof.mp4)** - Server connectivity testing and tool discovery
-- **[MCP Demo](../docs/visual-content/cli-videos/mcp-demo.mp4)** - Real-world MCP integration examples
+- **[MCP Help](./visual-content/cli-videos/cli-advanced-features/mcp-help.mp4)** - MCP command reference and usage
+- **[MCP List](./visual-content/cli-videos/cli-advanced-features/mcp-list.mp4)** - MCP server listing and status
+
+### **AI Workflow Tools Demo**
+- **[AI Workflow Tools](./visual-content/cli-videos/ai-workflow-tools-demo/ai-workflow-tools-cli-demo.mp4)** - Complete demonstration of AI workflow tools via CLI
 
 **All videos feature:**
 - ✅ Real command execution with live AI generation
