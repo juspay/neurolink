@@ -432,7 +432,7 @@ export class GoogleVertexAI implements AIProvider {
         err: String(err),
         promptLength: prompt.length
       });
-      return null;
+      throw err; // Re-throw error to trigger fallback
     }
   }
 
@@ -507,7 +507,7 @@ export class GoogleVertexAI implements AIProvider {
         message: 'Error in generating text',
         err: String(err)
       });
-      return null;
+      throw err; // Re-throw error to trigger fallback
     }
   }
 }

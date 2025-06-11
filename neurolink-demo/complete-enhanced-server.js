@@ -2,6 +2,14 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createAIProvider, getBestProvider } from '@juspay/neurolink';
+import {
+  businessEndpoints,
+  creativeEndpoints,
+  developerEndpoints,
+  advancedEndpoints,
+  analyticsEndpoints,
+  aiWorkflowEndpoints
+} from './enhanced-endpoints.js';
 
 // Load environment variables
 dotenv.config();
@@ -682,3 +690,271 @@ The quality is good but delivery was slow.</textarea>
         }
 
         // Developer Tools functions
+        async function generateCode() {
+          const language = document.getElementById('code-language').value;
+          const description = document.getElementById('code-description').value;
+          setStatus('code-status', 'Generating code...', 'loading');
+
+          try {
+            const result = await apiCall('/api/developer/code', { language, description });
+            setOutput('code-output', result.content);
+            setStatus('code-status', 'Code generated successfully', 'success');
+            updateMetrics(result);
+          } catch (error) {
+            setStatus('code-status', 'Error: ' + error.message, 'error');
+          }
+        }
+
+        async function generateAPIDoc() {
+          const description = document.getElementById('api-description').value;
+          setStatus('api-status', 'Generating documentation...', 'loading');
+
+          try {
+            const result = await apiCall('/api/developer/api-doc', { description });
+            setOutput('api-output', result.content);
+            setStatus('api-status', 'Documentation generated successfully', 'success');
+            updateMetrics(result);
+          } catch (error) {
+            setStatus('api-status', 'Error: ' + error.message, 'error');
+          }
+        }
+
+        async function debugError() {
+          const error = document.getElementById('debug-input').value;
+          setStatus('debug-status', 'Analyzing error...', 'loading');
+
+          try {
+            const result = await apiCall('/api/developer/debug', { error });
+            setOutput('debug-output', result.content);
+            setStatus('debug-status', 'Analysis completed', 'success');
+            updateMetrics(result);
+          } catch (error) {
+            setStatus('debug-status', 'Error: ' + error.message, 'error');
+          }
+        }
+
+        // Advanced Features functions
+        function selectTemplate(templateId) {
+          selectedTemplate = templateId;
+          document.querySelectorAll('.template-item').forEach(item => item.classList.remove('selected'));
+          event.target.classList.add('selected');
+
+          // Load template variables
+          const templates = {
+            'blog-outline': ['topic', 'audience'],
+            'product-description': ['product_name', 'price', 'target_market', 'features'],
+            'meeting-agenda': ['meeting_type', 'duration', 'topics', 'attendees']
+          };
+
+          const variables = templates[templateId] || [];
+          const variablesDiv = document.getElementById('template-variables');
+          variablesDiv.innerHTML = variables.map(variable =>
+            '<div class="form-group"><label>' + variable + ':</label><input type="text" id="var-' + variable + '" /></div>'
+          ).join('');
+        }
+
+        async function executeTemplate() {
+          if (!selectedTemplate) {
+            setStatus('template-status', 'Please select a template first', 'error');
+            return;
+          }
+
+          const variables = {};
+          document.querySelectorAll('[id^="var-"]').forEach(input => {
+            const varName = input.id.replace('var-', '');
+            variables[varName] = input.value;
+          });
+
+          setStatus('template-status', 'Executing template...', 'loading');
+
+          try {
+            const result = await apiCall('/api/templates/execute', { templateId: selectedTemplate, variables });
+            setOutput('template-output', result.content);
+            setStatus('template-status', 'Template executed successfully', 'success');
+            updateMetrics(result);
+          } catch (error) {
+            setStatus('template-status', 'Error: ' + error.message, 'error');
+          }
+        }
+
+        async function processBatch() {
+          const operation = document.getElementById('batch-operation').value;
+          const input = document.getElementById('batch-input').value;
+          const items = input.split('\\n').filter(item => item.trim());
+
+          setStatus('batch-status', 'Processing batch...', 'loading');
+
+          try {
+            const result = await apiCall('/api/batch/process', { operation, items });
+            setOutput('batch-output', JSON.stringify(result, null, 2));
+            setStatus('batch-status', 'Batch processing completed', 'success');
+          } catch (error) {
+            setStatus('batch-status', 'Error: ' + error.message, 'error');
+          }
+        }
+
+        // Monitoring functions
+        async function loadAnalytics() {
+          try {
+            const response = await fetch('/api/analytics');
+            const analytics = await response.json();
+            setOutput('analytics-output', JSON.stringify(analytics, null, 2));
+          } catch (error) {
+            setOutput('analytics-output', 'Error loading analytics: ' + error.message);
+          }
+        }
+
+        async function checkProviders() {
+          try {
+            const response = await fetch('/api/performance');
+            const performance = await response.json();
+            setOutput('provider-status', JSON.stringify(performance, null, 2));
+          } catch (error) {
+            setOutput('provider-status', 'Error checking providers: ' + error.message);
+          }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+          checkProviders();
+          loadAnalytics();
+        });
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// Register all endpoint modules
+businessEndpoints(app);
+creativeEndpoints(app);
+developerEndpoints(app);
+advancedEndpoints(app, templateCache);
+analyticsEndpoints(app, usageStats);
+aiWorkflowEndpoints(app); // Phase 1.2 AI Workflow Tools
+
+// Core API endpoints
+app.post('/api/generate', async (req, res) => {
+  try {
+    const { provider, prompt } = req.body;
+    const selectedProvider = provider === 'auto' ? await getBestProvider() : provider;
+    const aiProvider = await createAIProvider(selectedProvider);
+
+    const result = await aiProvider.generateText({
+      prompt,
+      maxTokens: 500,
+      temperature: 0.7
+    });
+
+    usageStats.totalTokens += result.usage?.totalTokens || 0;
+    usageStats.providers[selectedProvider] = (usageStats.providers[selectedProvider] || 0) + 1;
+
+    res.json({
+      success: true,
+      content: result.text,
+      provider: selectedProvider,
+      usage: result.usage
+    });
+  } catch (error) {
+    usageStats.errors++;
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/schema', async (req, res) => {
+  try {
+    const { type } = req.body;
+    const provider = await createAIProvider(await getBestProvider());
+
+    const schemas = {
+      'user-profile': 'Generate a realistic user profile with name, age, email, occupation, and interests.',
+      'product-review': 'Generate a product review with rating, title, pros, cons, and detailed feedback.',
+      'meeting-notes': 'Generate meeting notes with agenda, attendees, key decisions, and action items.'
+    };
+
+    const result = await provider.generateText({
+      prompt: schemas[type] + ' Return as valid JSON.',
+      maxTokens: 300,
+      temperature: 0.5
+    });
+
+    usageStats.totalTokens += result.usage?.totalTokens || 0;
+
+    res.json({
+      success: true,
+      data: JSON.parse(result.text),
+      usage: result.usage
+    });
+  } catch (error) {
+    usageStats.errors++;
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/benchmark', async (req, res) => {
+  try {
+    const providers = ['openai', 'bedrock', 'vertex'];
+    const testPrompt = "Explain AI in one sentence.";
+    const results = {};
+
+    for (const providerName of providers) {
+      if (isProviderConfigured(providerName)) {
+        try {
+          const startTime = Date.now();
+          const provider = await createAIProvider(providerName);
+          await provider.generateText({
+            prompt: testPrompt,
+            maxTokens: 50,
+            temperature: 0.5
+          });
+          const endTime = Date.now();
+
+          results[providerName] = {
+            responseTime: endTime - startTime,
+            status: 'available',
+            model: getModelForProvider(providerName)
+          };
+        } catch (error) {
+          results[providerName] = {
+            status: 'error',
+            error: error.message
+          };
+        }
+      } else {
+        results[providerName] = {
+          status: 'not_configured',
+          message: 'Provider credentials not found'
+        };
+      }
+    }
+
+    res.json({
+      success: true,
+      results,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log('🚀 NeuroLink Demo Server started successfully!');
+  console.log(`📍 Server running at: http://localhost:${PORT}`);
+  console.log('🎯 Features available:');
+  console.log('   • Basic AI text generation');
+  console.log('   • Business use cases (email, analysis, summarization)');
+  console.log('   • Creative tools (writing, translation, ideas)');
+  console.log('   • Developer tools (code generation, API docs, debugging)');
+  console.log('   • Advanced features (templates, batch processing)');
+  console.log('   • AI workflow tools (test cases, refactoring, documentation, AI debugging)');
+  console.log('   • Monitoring and analytics');
+  console.log('');
+  console.log('🔧 Provider status:');
+  console.log('   • OpenAI:', isProviderConfigured('openai') ? '✅ Configured' : '❌ Not configured');
+  console.log('   • Bedrock:', isProviderConfigured('bedrock') ? '✅ Configured' : '❌ Not configured');
+  console.log('   • Vertex:', isProviderConfigured('vertex') ? '✅ Configured' : '❌ Not configured');
+  console.log('');
+  console.log('🌟 Open http://localhost:' + PORT + ' to start exploring!');
+});

@@ -69,45 +69,45 @@ npm start
 
 ## 🖥️ CLI Demonstrations
 
-### Professional CLI Screenshots *(Latest: June 8, 2025)*
+### Professional CLI Screenshots *(Latest: June 10, 2025)*
 
 | Command | Screenshot | Description |
 |---------|------------|-------------|
-| **CLI Help Overview** | ![CLI Help](./visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-08T06-33-12.png) | Complete command reference and usage examples |
-| **Provider Status Check** | ![Provider Status](./visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-08T06-33-16.png) | All provider connectivity verification with response times |
-| **Text Generation** | ![Text Generation](./visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-08T06-33-19.png) | Real AI haiku generation with JSON output and usage metrics |
-| **Auto Provider Selection** | ![Best Provider](./visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-08T06-33-22.png) | Automatic provider selection algorithm demonstration |
-| **Batch Processing** | ![Batch Results](./visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-08T06-33-26.png) | Multi-prompt processing with progress tracking and results |
+| **CLI Help Overview** | ![CLI Help](./visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-10T12-00-00.png) | Complete command reference and usage examples |
+| **Provider Status Check** | ![Provider Status](./visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-10T12-00-00.png) | All provider connectivity verification with response times |
+| **Text Generation** | ![Text Generation](./visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-10T12-00-00.png) | Real AI haiku generation with JSON output and usage metrics |
+| **Auto Provider Selection** | ![Best Provider](./visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-10T12-00-00.png) | Automatic provider selection algorithm demonstration |
+| **Batch Processing** | ![Batch Results](./visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-10T12-00-00.png) | Multi-prompt processing with progress tracking and results |
 
 ### CLI Demonstration Videos
 
 **Real command execution with live AI generation**
 
-#### **CLI Help Overview** - [🎬 MP4](./visual-content/cli-videos/cli-help.mp4)
+#### **CLI Help Overview** - [🎬 MP4](./visual-content/cli-videos/cli-01-cli-help.mp4)
 - Complete help system demonstration
-- Provider status checking with real connectivity tests
-- Auto provider selection algorithm in action
-- **Size**: Professional MP4 with comprehensive command overview
+- Command reference and usage examples
+- Provider configuration overview
+- **Size**: 44KB - Professional MP4 with comprehensive command overview
 
-#### **Provider Status** - [🎬 MP4](./visual-content/cli-videos/cli-provider-status.mp4)
+#### **Provider Status** - [🎬 MP4](./visual-content/cli-videos/cli-02-provider-status.mp4)
 - All provider connectivity verification
 - Response time measurements
 - Authentication status checking
-- **Size**: Professional MP4 showing provider connectivity
+- **Size**: 496KB - Professional MP4 showing provider connectivity
 
-#### **Text Generation** - [🎬 MP4](./visual-content/cli-videos/cli-text-generation.mp4)
+#### **Text Generation** - [🎬 MP4](./visual-content/cli-videos/cli-03-text-generation.mp4)
 - Text generation with different providers
 - Temperature and token control demonstrations
 - JSON vs text output formats
-- **Size**: Professional MP4 with real AI generation
+- **Size**: 100KB - Professional MP4 with real AI generation
 
-#### **Auto Provider Selection** - [🎬 MP4](./visual-content/cli-videos/mcp-help.mp4)
+#### **Auto Provider Selection** - [🎬 MP4](./visual-content/cli-videos/cli-04-auto-selection.mp4)
 - Automatic provider selection algorithm
 - Fallback mechanism demonstration
 - Performance-based selection
 - **Size**: Professional MP4 showing selection logic
 
-#### **Streaming Generation** - [🎬 MP4](./visual-content/cli-videos/mcp-list.mp4)
+#### **Streaming Generation** - [🎬 MP4](./visual-content/cli-videos/cli-05-streaming.mp4)
 - Live AI content streaming demonstration
 - Real-time text generation as it happens
 - Provider performance comparison
@@ -158,23 +158,13 @@ asciinema play docs/cli-recordings/latest/06-advanced-features.cast
 
 **Real external server integration demonstrations**
 
-#### **Server Management** - [📹 WebM](../neurolink-demo/videos/mcp-demos/mcp-server-management-demo.webm) | [🎬 MP4](../neurolink-demo/videos/mcp-demos/mcp-server-management-demo.mp4)
+#### **Server Management** - [🎬 MP4](../neurolink-demo/videos/mcp-demos/mcp-server-management-demo.mp4)
 - Installing and configuring MCP servers
 - Server lifecycle management
 - Status monitoring and health checks
 - **Duration**: ~45 seconds of real server management
 
-#### **Tool Execution** - [📹 WebM](../neurolink-demo/videos/mcp-demos/mcp-tool-execution-demo.webm) | [🎬 MP4](../neurolink-demo/videos/mcp-demos/mcp-tool-execution-demo.mp4)
-- Executing tools from external MCP servers
-- Tool discovery and parameter handling
-- Real-time tool invocation examples
-- **Duration**: ~60 seconds of live tool execution
-
-#### **Workflow Integration** - [📹 WebM](../neurolink-demo/videos/mcp-demos/mcp-workflow-integration-demo.webm) | [🎬 MP4](../neurolink-demo/videos/mcp-demos/mcp-workflow-integration-demo.mp4)
-- Complete workflow using multiple MCP servers
-- Tool chaining and orchestration
-- Advanced integration patterns
-- **Duration**: ~90 seconds of comprehensive workflow demonstrations
+**Note**: Additional MCP demo videos are in development. The server management demo showcases the core MCP integration capabilities.
 
 ### MCP CLI Commands Demonstrated
 
@@ -241,20 +231,23 @@ neurolink/
 │   │   ├── 04-creative-tools/        # Creative content generation
 │   │   ├── 05-developer-tools/       # Code generation and docs
 │   │   └── 06-monitoring/            # Analytics and monitoring
-│   └── videos/                       # 5 complete demo videos
-│       ├── basic-examples/           # Text generation fundamentals
-│       ├── business-use-cases/       # Professional applications
-│       ├── creative-tools/           # Creative content creation
-│       ├── developer-tools/          # Code generation and APIs
-│       └── monitoring/               # Real-time analytics
+│   └── videos/                       # Complete demo videos (WebM + MP4)
+│       ├── basic-examples.webm/.mp4  # Text generation fundamentals
+│       ├── business-use-cases.*      # Professional applications
+│       ├── creative-tools.*          # Creative content creation
+│       ├── developer-tools.*         # Code generation and APIs
+│       ├── monitoring-analytics.*    # Real-time analytics
+│       └── mcp-demos/               # MCP server integration demos
 ├── docs/visual-content/              # CLI demonstrations
-│   ├── screenshots/cli-screenshots/  # 5 professional CLI screenshots
-│   └── videos/cli-videos/           # 5 CLI demonstration videos
-│       ├── cli-overview/            # Help, status, provider selection
-│       ├── cli-basic-generation/    # Text generation examples
-│       ├── cli-batch-processing/    # File-based processing
-│       ├── cli-streaming/           # Real-time streaming
-│       └── cli-advanced-features/   # Advanced CLI capabilities
+│   ├── screenshots/cli-screenshots/  # Professional CLI screenshots
+│   └── cli-videos/                  # CLI demonstration videos
+│       ├── cli-01-cli-help.mp4      # Help command overview
+│       ├── cli-02-provider-status.mp4 # Provider connectivity
+│       ├── cli-03-text-generation.mp4 # AI generation demos
+│       ├── cli-04-auto-selection.mp4  # Auto provider selection
+│       ├── cli-05-streaming.mp4      # Real-time streaming
+│       ├── cli-06-advanced-features.mp4 # Advanced features
+│       └── cli-advanced-features/    # MCP command demos
 └── docs/cli-recordings/             # Professional asciinema recordings
     └── latest/                      # 6 .cast files for web embedding
 ```

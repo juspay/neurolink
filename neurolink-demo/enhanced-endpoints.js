@@ -359,6 +359,238 @@ export const advancedEndpoints = (app, templateCache) => {
   });
 };
 
+// AI Development Workflow Tools (Phase 1.2)
+export const aiWorkflowEndpoints = (app) => {
+
+  // Generate Test Cases
+  app.post('/api/ai/generate-test-cases', async (req, res) => {
+    try {
+      const { codeSnippet, language = 'javascript', testFramework = 'jest', coverage = 'comprehensive', maxTestCases = 5 } = req.body;
+
+      if (!codeSnippet) {
+        return res.status(400).json({ success: false, error: 'Code snippet is required' });
+      }
+
+      const provider = await createAIProvider(await getBestProvider());
+
+      const result = await provider.generateText({
+        prompt: `Generate ${maxTestCases} ${coverage} test cases for this ${language} code using ${testFramework}:
+
+${codeSnippet}
+
+Requirements:
+- Include setup and teardown if needed
+- Cover happy path, edge cases, and error scenarios
+- Use proper ${testFramework} syntax
+- Include assertions and mocks where appropriate
+- Make tests readable and maintainable
+
+Return the test cases with clear descriptions:`,
+        maxTokens: 800,
+        temperature: 0.4
+      });
+
+      res.json({
+        success: true,
+        data: {
+          testSuite: {
+            language,
+            framework: testFramework,
+            coverage,
+            totalTestCases: maxTestCases,
+            testCases: [
+              {
+                id: 'test_1',
+                name: 'Generated Test Suite',
+                description: `${coverage} test cases for ${language} code`,
+                testCode: result.text,
+                framework: testFramework
+              }
+            ]
+          },
+          generatedAt: new Date().toISOString()
+        },
+        usage: result.usage
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Refactor Code
+  app.post('/api/ai/refactor-code', async (req, res) => {
+    try {
+      const { codeSnippet, language = 'javascript', refactorGoals = ['readability', 'maintainability'], complexityLevel = 'moderate' } = req.body;
+
+      if (!codeSnippet) {
+        return res.status(400).json({ success: false, error: 'Code snippet is required' });
+      }
+
+      const provider = await createAIProvider(await getBestProvider());
+
+      const result = await provider.generateText({
+        prompt: `Refactor this ${language} code with goals: ${refactorGoals.join(', ')}
+Complexity level: ${complexityLevel}
+
+Original code:
+${codeSnippet}
+
+Please provide:
+1. Refactored code with improvements
+2. Explanation of changes made
+3. Benefits of the refactoring
+4. Best practices applied
+
+Refactoring:`,
+        maxTokens: 800,
+        temperature: 0.4
+      });
+
+      res.json({
+        success: true,
+        data: {
+          analysis: {
+            original: { complexity: complexityLevel },
+            language,
+            refactorGoals
+          },
+          suggestions: [
+            {
+              type: refactorGoals[0] || 'readability',
+              description: 'Code refactoring suggestions',
+              impact: 'Improved code quality and maintainability'
+            }
+          ],
+          refactoredCode: result.text,
+          refactoredAt: new Date().toISOString()
+        },
+        usage: result.usage
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Generate Documentation
+  app.post('/api/ai/generate-documentation', async (req, res) => {
+    try {
+      const { codeSnippet, language = 'javascript', docType = 'comprehensive', format = 'markdown' } = req.body;
+
+      if (!codeSnippet) {
+        return res.status(400).json({ success: false, error: 'Code snippet is required' });
+      }
+
+      const provider = await createAIProvider(await getBestProvider());
+
+      const result = await provider.generateText({
+        prompt: `Generate ${docType} ${format} documentation for this ${language} code:
+
+${codeSnippet}
+
+Include:
+- Function/class descriptions
+- Parameter documentation
+- Return value descriptions
+- Usage examples
+- Error handling notes
+
+Documentation:`,
+        maxTokens: 800,
+        temperature: 0.3
+      });
+
+      res.json({
+        success: true,
+        data: {
+          documentation: {
+            type: docType,
+            format: format,
+            language,
+            sections: [
+              {
+                title: 'Generated Documentation',
+                content: result.text,
+                format: format
+              }
+            ]
+          },
+          metrics: {
+            totalSections: 1,
+            totalWords: result.text.split(' ').length
+          },
+          generatedAt: new Date().toISOString()
+        },
+        usage: result.usage
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Debug AI Output
+  app.post('/api/ai/debug-ai-output', async (req, res) => {
+    try {
+      const { aiOutput, originalPrompt, analysisDepth = 'detailed', issueType } = req.body;
+
+      if (!aiOutput || !originalPrompt) {
+        return res.status(400).json({ success: false, error: 'AI output and original prompt are required' });
+      }
+
+      const provider = await createAIProvider(await getBestProvider());
+
+      const result = await provider.generateText({
+        prompt: `Analyze this AI output for quality and suggest improvements:
+
+Original Prompt: "${originalPrompt}"
+
+AI Output: "${aiOutput}"
+
+Analysis depth: ${analysisDepth}
+${issueType ? `Focus on: ${issueType} issues` : ''}
+
+Provide:
+1. Quality assessment (relevance, completeness, accuracy)
+2. Identified issues and problems
+3. Suggestions for prompt improvement
+4. Troubleshooting steps
+
+Analysis:`,
+        maxTokens: 600,
+        temperature: 0.3
+      });
+
+      res.json({
+        success: true,
+        data: {
+          analysis: {
+            output: {
+              length: aiOutput.length,
+              wordCount: aiOutput.split(' ').length
+            },
+            prompt: {
+              length: originalPrompt.length,
+              clarity: originalPrompt.includes('?') ? 'explicit' : 'implicit'
+            },
+            analysisDepth
+          },
+          issues: [
+            {
+              type: issueType || 'general',
+              description: 'AI output analysis completed',
+              suggestion: 'Review the detailed analysis below'
+            }
+          ],
+          recommendations: result.text.split('\n').slice(0, 3),
+          debuggedAt: new Date().toISOString()
+        },
+        usage: result.usage
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+};
+
 // Analytics and Monitoring
 export const analyticsEndpoints = (app, usageStats) => {
 

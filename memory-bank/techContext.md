@@ -29,6 +29,7 @@
 
 ## Testing Infrastructure
 - **Test Strategy**: `./development/testing-strategy.md`
+- **AI Workflow Tools Testing**: `./development/ai-workflow-tools-testing-guide.md`
 - **Test Files**: `src/test/` directory
 - **Test Reports**: `./reports/build-summary.md`, `./reports/test-summary.md`
 

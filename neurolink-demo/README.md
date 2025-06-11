@@ -200,21 +200,22 @@ curl http://localhost:9876/api/status
 
 ### 🖥️ **CLI Integration Visual Content** ✅
 
-#### **📸 Professional CLI Screenshots** *(Latest: June 8, 2025)*
+#### **📸 Professional CLI Screenshots** *(Latest: June 10, 2025)*
 | Command | Screenshot | Description |
 |---------|------------|-------------|
-| **CLI Help Overview** | ![CLI Help](../docs/visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-08T06-33-12.png) | Complete command reference |
-| **Provider Status** | ![Provider Status](../docs/visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-08T06-33-16.png) | All provider connectivity verified |
-| **Text Generation** | ![Text Generation](../docs/visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-08T06-33-19.png) | Real AI haiku generation with JSON |
-| **Auto Provider Selection** | ![Best Provider](../docs/visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-08T06-33-22.png) | Automatic provider selection working |
-| **Batch Processing** | ![Batch Results](../docs/visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-08T06-33-26.png) | Multi-prompt processing with results |
+| **CLI Help Overview** | ![CLI Help](../docs/visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-10T12-00-00.png) | Complete command reference |
+| **Provider Status** | ![Provider Status](../docs/visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-10T12-00-00.png) | All provider connectivity verified |
+| **Text Generation** | ![Text Generation](../docs/visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-10T12-00-00.png) | Real AI haiku generation with JSON |
+| **Auto Provider Selection** | ![Best Provider](../docs/visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-10T12-00-00.png) | Automatic provider selection working |
+| **Batch Processing** | ![Batch Results](../docs/visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-10T12-00-00.png) | Multi-prompt processing with results |
 
 #### **🎥 CLI Demonstration Videos** *(Real command execution)*
-- **[CLI Overview](../docs/visual-content/cli-videos/cli-help.mp4)** - Help, status, provider selection commands
-- **[Basic Generation](../docs/visual-content/cli-videos/cli-text-generation.mp4)** - Text generation with different providers
-- **[Batch Processing](../docs/visual-content/cli-videos/cli-batch-processing.mp4)** - File-based multi-prompt processing
-- **[Real-time Streaming](../docs/visual-content/cli-videos/cli-streaming.mp4)** - Live AI content streaming
-- **[Advanced Features](../docs/visual-content/cli-videos/cli-advanced-features.mp4)** - Verbose diagnostics and provider options
+- **[CLI Overview](../docs/visual-content/cli-videos/cli-01-cli-help.mp4)** - Help, status, provider selection commands
+- **[Provider Status](../docs/visual-content/cli-videos/cli-02-provider-status.mp4)** - Provider connectivity testing
+- **[Text Generation](../docs/visual-content/cli-videos/cli-03-text-generation.mp4)** - Text generation with different providers
+- **[Auto Selection](../docs/visual-content/cli-videos/cli-04-auto-selection.mp4)** - Automatic provider selection
+- **[Streaming](../docs/visual-content/cli-videos/cli-05-streaming.mp4)** - Real-time streaming
+- **[Advanced Features](../docs/visual-content/cli-videos/cli-06-advanced-features.mp4)** - Verbose diagnostics and provider options
 
 ### 🔧 **MCP (Model Context Protocol) Integration** ✅
 
@@ -229,9 +230,9 @@ curl http://localhost:9876/api/status
 | **Workflow Integration** | ![Workflow Demo](../docs/visual-content/screenshots/mcp-cli/06-mcp-workflow-demo-2025-06-10.png) | Complete MCP workflow demonstrations |
 
 #### **🎥 MCP Demo Videos** *(Real MCP server integration)*
-- **[Server Management WebM](./videos/mcp-demos/mcp-server-management-demo.webm) | [MP4](./videos/mcp-demos/mcp-server-management-demo.mp4)** - Installing, configuring, and testing MCP servers (~45s)
-- **[Tool Execution WebM](./videos/mcp-demos/mcp-tool-execution-demo.webm) | [MP4](./videos/mcp-demos/mcp-tool-execution-demo.mp4)** - Executing tools from external MCP servers (~60s)
-- **[Workflow Integration WebM](./videos/mcp-demos/mcp-workflow-integration-demo.webm) | [MP4](./videos/mcp-demos/mcp-workflow-integration-demo.mp4)** - Complete workflow using multiple MCP servers (~90s)
+- **[Server Management Demo](./videos/mcp-demos/mcp-server-management-demo.mp4)** - Installing, configuring, and testing MCP servers (~45s)
+
+**Note**: Additional MCP demo videos are in development. The server management demo showcases the core MCP integration capabilities.
 
 **MCP Features**: Demonstrates external server connectivity, tool discovery, and workflow integration capabilities for extending NeuroLink functionality.
 
