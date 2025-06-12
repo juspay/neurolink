@@ -62,6 +62,7 @@ function handleError(error: Error, context: string): void {
 
   if (
     originalErrorMessageLowerCase.includes('api_key') ||
+    originalErrorMessageLowerCase.includes('google_ai_api_key') ||
     originalErrorMessageLowerCase.includes('aws_access_key_id') ||
     originalErrorMessageLowerCase.includes('aws_secret_access_key') ||
     originalErrorMessageLowerCase.includes('aws_session_token') ||
@@ -74,6 +75,7 @@ function handleError(error: Error, context: string): void {
     isAuthError = true;
   } else if ( // Fallback to checking the full stringified error if direct message didn't match
     errorStringLowerCase.includes('api_key') ||
+    errorStringLowerCase.includes('google_ai_api_key') ||
     errorStringLowerCase.includes('aws_access_key_id') ||
     errorStringLowerCase.includes('aws_secret_access_key') ||
     errorStringLowerCase.includes('aws_session_token') ||
@@ -112,9 +114,10 @@ function handleError(error: Error, context: string): void {
 
   // Smart hints for common errors (just string matching!)
   if (genericMessage.toLowerCase().includes('api key') || genericMessage.toLowerCase().includes('credential')) {
-    console.error(chalk.yellow('💡 Set API key: export OPENAI_API_KEY=sk-...'));
-    console.error(chalk.yellow('💡 Or set AWS credentials & region: export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_REGION=us-east-1'));
-    console.error(chalk.yellow('💡 Or set Google credentials: export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json'));
+    console.error(chalk.yellow('💡 Set Google AI Studio API key (RECOMMENDED): export GOOGLE_AI_API_KEY=AIza-...'));
+    console.error(chalk.yellow('💡 Or set OpenAI API key: export OPENAI_API_KEY=sk-...'));
+    console.error(chalk.yellow('💡 Or set AWS Bedrock credentials: export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_REGION=us-east-1'));
+    console.error(chalk.yellow('💡 Or set Google Vertex AI credentials: export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json'));
     console.error(chalk.yellow('💡 Or set Anthropic API key: export ANTHROPIC_API_KEY=sk-ant-...'));
     console.error(chalk.yellow('💡 Or set Azure OpenAI credentials: export AZURE_OPENAI_API_KEY=... AZURE_OPENAI_ENDPOINT=...'));
   }
@@ -133,15 +136,17 @@ function handleError(error: Error, context: string): void {
 }
 
 function validateConfig(): void {
+  const hasGoogleAI = !!process.env.GOOGLE_AI_API_KEY;
   const hasOpenAI = !!process.env.OPENAI_API_KEY;
   const hasAWS = !!(process.env.AWS_REGION || process.env.AWS_ACCESS_KEY_ID);
   const hasGoogle = !!(process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_SERVICE_ACCOUNT_KEY || process.env.GOOGLE_AUTH_CLIENT_EMAIL);
   const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
   const hasAzure = !!(process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT);
 
-  if (!hasOpenAI && !hasAWS && !hasGoogle && !hasAnthropic && !hasAzure) {
+  if (!hasGoogleAI && !hasOpenAI && !hasAWS && !hasGoogle && !hasAnthropic && !hasAzure) {
     console.error(chalk.red('⚠️  No AI provider credentials found'));
     console.error(chalk.yellow('💡 Set one of:'));
+    console.error(chalk.yellow('   • GOOGLE_AI_API_KEY=AIza-...'));
     console.error(chalk.yellow('   • OPENAI_API_KEY=sk-...'));
     console.error(chalk.yellow('   • AWS_REGION=us-east-1 (+ AWS credentials)'));
     console.error(chalk.yellow('   • GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json'));
@@ -172,11 +177,17 @@ const cli = yargs(args)
   .epilogue('For more info: https://github.com/juspay/neurolink')
   .showHelpOnFail(true, 'Specify --help for available options')
   .middleware((argv) => {
-    // Middleware for NEUROLINK_QUIET is fine
+    // Control SDK logging based on debug flag
+    if (argv.debug) {
+      process.env.NEUROLINK_DEBUG = 'true';
+    } else if (typeof argv.debug !== 'undefined') {
+      // Only set to false if debug flag was explicitly provided
+      process.env.NEUROLINK_DEBUG = 'false';
+    }
+    // Keep existing quiet middleware
     if (process.env.NEUROLINK_QUIET === 'true' && typeof argv.quiet === 'undefined') {
       argv.quiet = true;
     }
-    // NEUROLINK_DEBUG will be handled by option defaults
   })
   .fail((msg, err, yargsInstance) => {
     const exitProcess = () => {
@@ -290,10 +301,14 @@ const cli = yargs(args)
             responseTime: result.responseTime || 0
           };
           process.stdout.write(JSON.stringify(jsonOutput, null, 2) + '\n');
-        } else {
+        } else if (argv.debug) {
+          // Debug mode: Show AI response + full metadata
           if (result.content) console.log('\n' + result.content + '\n');
           console.log(JSON.stringify({ provider: result.provider, usage: result.usage, responseTime: result.responseTime }, null, 2));
           if (result.usage) console.log(chalk.blue(`ℹ️  ${result.usage.totalTokens} tokens used`));
+        } else {
+          // Default mode: Clean AI response only
+          if (result.content) console.log(result.content);
         }
 
         // Explicitly exit to prevent hanging, especially with Google AI Studio
@@ -320,17 +335,31 @@ const cli = yargs(args)
       .positional('prompt', { type: 'string', description: 'Text prompt for streaming', demandOption: true })
       .option('provider', { choices: ['auto', 'openai', 'bedrock', 'vertex', 'anthropic', 'azure', 'google-ai'] as const, default: 'auto', description: 'AI provider to use' })
       .option('temperature', { type: 'number', default: 0.7, description: 'Creativity level' })
+      .option('debug', { type: 'boolean', default: false, description: 'Enable debug mode with interleaved logging' })
       .example('$0 stream "Tell me a story"', 'Stream a story in real-time'),
     async (argv) => {
-      if (!argv.quiet) console.log(chalk.blue(`🔄 Streaming from ${argv.provider} provider...\n`));
+      // Default mode: Simple streaming message
+      // Debug mode: More detailed information
+      if (!argv.quiet && !argv.debug) {
+        console.log(chalk.blue('🔄 Streaming...'));
+      } else if (!argv.quiet && argv.debug) {
+        console.log(chalk.blue(`🔄 Streaming from ${argv.provider} provider with debug logging...\n`));
+      }
+
       try {
         const stream = await sdk.generateTextStream({
           prompt: argv.prompt as string,
           provider: argv.provider === 'auto' ? undefined : argv.provider as AIProviderName,
           temperature: argv.temperature
         });
-        for await (const chunk of stream) { process.stdout.write(chunk.content); }
-        if (!argv.quiet) process.stdout.write('\n'); // Ensure newline after stream if not quiet
+
+        for await (const chunk of stream) {
+          process.stdout.write(chunk.content);
+          // In debug mode, interleaved logging would appear here
+          // (SDK logs are controlled by NEUROLINK_DEBUG set in middleware)
+        }
+
+        if (!argv.quiet) process.stdout.write('\n'); // Ensure newline after stream
       } catch (error) {
         handleError(error as Error, 'Text streaming');
       }
@@ -351,6 +380,7 @@ const cli = yargs(args)
       .option('temperature', { type: 'number', description: 'Global temperature for batch jobs' })
       .option('max-tokens', { type: 'number', description: 'Global max tokens for batch jobs' })
       .option('system', { type: 'string', description: 'Global system prompt for batch jobs' })
+      .option('debug', { type: 'boolean', default: false, description: 'Enable debug mode with detailed per-item logging' })
       .example('$0 batch prompts.txt --output results.json', 'Process and save to file'),
     async (argv) => {
       const spinner = argv.quiet ? null : ora().start();
@@ -606,17 +636,34 @@ const cli = yargs(args)
   )
   // Get Best Provider Command
   .command('get-best-provider', 'Show the best available AI provider',
-    (yargsInstance) => yargsInstance.usage('Usage: $0 get-best-provider'),
-    async () => {
-      const spinner = ora('🎯 Finding best provider...').start();
+    (yargsInstance) => yargsInstance
+      .usage('Usage: $0 get-best-provider [options]')
+      .option('debug', { type: 'boolean', default: false, description: 'Enable debug mode with selection reasoning' })
+      .example('$0 get-best-provider', 'Get best provider')
+      .example('$0 get-best-provider --debug', 'Show selection logic'),
+    async (argv) => {
+      const spinner = argv.quiet ? null : ora('🎯 Finding best provider...').start();
       try {
         const provider = await sdk.getBestProvider();
-        spinner.succeed(chalk.green(`✅ Best provider: ${provider}`));
-        // Ensure spinner is stopped if it hasn't been by succeed/fail before final log
-        if (spinner.isSpinning) spinner.stop();
-        console.log(provider); // Ensure output for test capture
+
+        if (spinner) {
+          if (argv.debug) {
+            spinner.succeed(chalk.green(`✅ Best provider selected: ${provider}`));
+          } else {
+            spinner.succeed(chalk.green('✅ Provider found'));
+          }
+        }
+
+        if (argv.debug) {
+          // Debug mode: Show selection reasoning and metadata
+          console.log(`\nBest available provider: ${provider}`);
+          console.log(`Selection based on: availability, performance, and configuration`);
+        } else {
+          // Default mode: Clean provider name only
+          console.log(provider);
+        }
       } catch (error) {
-        if (spinner.isSpinning) spinner.fail();
+        if (spinner && spinner.isSpinning) spinner.fail();
         handleError(error as Error, 'Provider selection');
       }
     }

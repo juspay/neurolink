@@ -17,7 +17,7 @@
 export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
 
 # CLI - No installation required
-npx @juspay/neurolink generate-text "Hello, AI!"
+npx @juspay/neurolink generate-text "Hello, AI"
 npx @juspay/neurolink status
 ```
 

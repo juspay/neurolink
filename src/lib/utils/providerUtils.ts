@@ -1,6 +1,7 @@
 /**
  * Utility functions for AI provider management
  */
+import { logger } from './logger.js';
 
 /**
  * Get the best available provider based on preferences and availability
@@ -19,13 +20,13 @@ export function getBestProvider(requestedProvider?: string): string {
   // Check which providers have their required environment variables
   for (const provider of providers) {
     if (isProviderConfigured(provider)) {
-      console.log(`[getBestProvider] Selected provider: ${provider}`);
+      logger.debug(`[getBestProvider] Selected provider: ${provider}`);
       return provider;
     }
   }
 
   // Default to bedrock if nothing is configured
-  console.warn('[getBestProvider] No providers configured, defaulting to bedrock');
+  logger.warn('[getBestProvider] No providers configured, defaulting to bedrock');
   return 'bedrock';
 }
 

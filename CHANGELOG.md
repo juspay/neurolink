@@ -1,5 +1,54 @@
 # @juspay/neurolink
 
+## 1.5.2
+
+### Patch Changes
+
+- **🔧 Production-Ready CLI Logging System**: Fixed critical logging system for clean production output
+  - **Issue**: CLI showed excessive debug output during normal operation, breaking demo presentations
+  - **Root Cause**: Mixed console.log statements bypassed conditional logger system
+  - **Solution**: Systematic replacement of all console.log with logger.debug across codebase
+  - **Impact**: **Clean CLI output by default** with conditional debug available via `NEUROLINK_DEBUG=true`
+
+- **🔄 Enhanced Provider Fallback Logic**: Fixed incomplete provider fallback coverage
+  - **Issue**: Provider fallback only attempted 4 of 6 providers (missing Anthropic & Azure)
+  - **Root Cause**: Incomplete provider array in NeuroLink class fallback logic
+  - **Solution**: Updated to include all 6 providers: `['openai', 'vertex', 'bedrock', 'anthropic', 'azure', 'google-ai']`
+  - **Impact**: **100% provider coverage** with comprehensive fallback for maximum reliability
+
+- **🧹 Console Statement Cleanup**: Systematic cleanup of debug output across entire codebase
+  - **Files Updated**: `src/lib/neurolink.ts`, `src/lib/core/factory.ts`, `src/lib/providers/openAI.ts`, `src/lib/mcp/servers/ai-providers/ai-core-server.ts`
+  - **Pattern**: Replaced 200+ `console.log()` statements with `logger.debug()` calls
+  - **Result**: Professional CLI behavior suitable for production deployment and demos
+
+### Technical Changes
+
+- **Production CLI Output**: Clean spinner → success → content (zero debug noise)
+- **Debug Mode Available**: Full debug logging with `NEUROLINK_DEBUG=true` environment variable
+- **Complete Provider Support**: All 6 AI providers now included in automatic fallback
+- **Error Handling**: Provider-level error logs preserved for troubleshooting
+- **Conditional Logging**: Debug messages only appear when explicitly enabled
+- **Demo Ready**: CLI output suitable for presentations and production use
+
+### CLI Behavior
+
+```bash
+# Production/Demo Mode (Clean Output)
+node dist/cli/cli/index.js generate-text "test" --max-tokens 5
+# Output: ⠋ 🤖 Generating text... ✔ ✅ Text generated successfully! [content]
+
+# Debug Mode (Full Logging)
+NEUROLINK_DEBUG=true node dist/cli/cli/index.js generate-text "test" --max-tokens 5
+# Output: [debug logs] + spinner + success + content
+```
+
+### Backward Compatibility
+
+- **100% API Compatible**: No breaking changes to public interfaces
+- **Environment Variables**: `NEUROLINK_DEBUG=true` works as documented
+- **Provider Selection**: All existing provider configurations continue working
+- **CLI Commands**: All commands maintain same functionality with cleaner output
+
 ## 1.5.1
 
 ### Patch Changes

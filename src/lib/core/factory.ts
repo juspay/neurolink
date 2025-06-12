@@ -1,5 +1,6 @@
 import { GoogleVertexAI, AmazonBedrock, OpenAI, AnthropicProvider, AzureOpenAIProvider, GoogleAIStudio } from '../providers/index.js';
 import { getBestProvider } from '../utils/providerUtils.js';
+import { logger } from '../utils/logger.js';
 import type { AIProvider, AIProviderName, SupportedModelName } from './types.js';
 
 const componentIdentifier = 'aiProviderFactory';
@@ -17,7 +18,7 @@ export class AIProviderFactory {
   static createProvider(providerName: string, modelName?: string | null): AIProvider {
     const functionTag = 'AIProviderFactory.createProvider';
 
-    console.log(`[${functionTag}] Provider creation started`, {
+    logger.debug(`[${functionTag}] Provider creation started`, {
       providerName,
       modelName: modelName || 'default'
     });
@@ -58,7 +59,7 @@ export class AIProviderFactory {
           );
       }
 
-      console.log(`[${functionTag}] Provider creation succeeded`, {
+      logger.debug(`[${functionTag}] Provider creation succeeded`, {
         providerName,
         modelName: modelName || 'default',
         providerType: provider.constructor.name
@@ -68,7 +69,7 @@ export class AIProviderFactory {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      console.error(`[${functionTag}] Provider creation failed`, {
+      logger.debug(`[${functionTag}] Provider creation failed`, {
         providerName,
         modelName: modelName || 'default',
         error: errorMessage
@@ -87,7 +88,7 @@ export class AIProviderFactory {
   static createProviderWithModel(provider: AIProviderName, model: SupportedModelName): AIProvider {
     const functionTag = 'AIProviderFactory.createProviderWithModel';
 
-    console.log(`[${functionTag}] Provider model creation started`, {
+    logger.debug(`[${functionTag}] Provider model creation started`, {
       provider,
       model
     });
@@ -95,7 +96,7 @@ export class AIProviderFactory {
     try {
       const providerInstance = this.createProvider(provider, model);
 
-      console.log(`[${functionTag}] Provider model creation succeeded`, {
+      logger.debug(`[${functionTag}] Provider model creation succeeded`, {
         provider,
         model,
         providerType: providerInstance.constructor.name
@@ -105,7 +106,7 @@ export class AIProviderFactory {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      console.error(`[${functionTag}] Provider model creation failed`, {
+      logger.debug(`[${functionTag}] Provider model creation failed`, {
         provider,
         model,
         error: errorMessage
@@ -127,7 +128,7 @@ export class AIProviderFactory {
     try {
       const bestProvider = getBestProvider(requestedProvider);
 
-      console.log(`[${functionTag}] Best provider selected`, {
+      logger.debug(`[${functionTag}] Best provider selected`, {
         requestedProvider: requestedProvider || 'auto',
         selectedProvider: bestProvider,
         modelName: modelName || 'default'
@@ -137,7 +138,7 @@ export class AIProviderFactory {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      console.error(`[${functionTag}] Best provider selection failed`, {
+      logger.debug(`[${functionTag}] Best provider selection failed`, {
         requestedProvider: requestedProvider || 'auto',
         error: errorMessage
       });
@@ -160,7 +161,7 @@ export class AIProviderFactory {
   ): { primary: AIProvider; fallback: AIProvider } {
     const functionTag = 'AIProviderFactory.createProviderWithFallback';
 
-    console.log(`[${functionTag}] Fallback provider setup started`, {
+    logger.debug(`[${functionTag}] Fallback provider setup started`, {
       primaryProvider,
       fallbackProvider,
       modelName: modelName || 'default'
@@ -170,7 +171,7 @@ export class AIProviderFactory {
       const primary = this.createProvider(primaryProvider, modelName);
       const fallback = this.createProvider(fallbackProvider, modelName);
 
-      console.log(`[${functionTag}] Fallback provider setup succeeded`, {
+      logger.debug(`[${functionTag}] Fallback provider setup succeeded`, {
         primaryProvider,
         fallbackProvider,
         modelName: modelName || 'default'
@@ -180,7 +181,7 @@ export class AIProviderFactory {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      console.error(`[${functionTag}] Fallback provider setup failed`, {
+      logger.debug(`[${functionTag}] Fallback provider setup failed`, {
         primaryProvider,
         fallbackProvider,
         error: errorMessage

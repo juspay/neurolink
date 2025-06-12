@@ -11,6 +11,7 @@ import {
   type LanguageModelV1
 } from 'ai';
 import type { AIProvider, TextGenerationOptions, StreamTextOptions } from '../core/types.js';
+import { logger } from '../utils/logger.js';
 
 // Default system context
 const DEFAULT_SYSTEM_CONTEXT = {
@@ -62,17 +63,17 @@ export class GoogleAIStudio implements AIProvider {
     this.modelName = modelName || getGoogleAIModelId();
 
     try {
-      console.log(`[${functionTag}] Initialization started`, {
+      logger.debug(`[${functionTag}] Initialization started`, {
         modelName: this.modelName,
         hasApiKey: hasValidAuth()
       });
 
-      console.log(`[${functionTag}] Initialization completed`, {
+      logger.debug(`[${functionTag}] Initialization completed`, {
         modelName: this.modelName,
         success: true
       });
     } catch (err) {
-      console.error(`[${functionTag}] Initialization failed`, {
+      logger.error(`[${functionTag}] Initialization failed`, {
         message: 'Error in initializing Google AI Studio',
         modelName: this.modelName,
         error: err instanceof Error ? err.message : String(err),
@@ -86,7 +87,7 @@ export class GoogleAIStudio implements AIProvider {
    * @private
    */
   private getModel(): LanguageModelV1 {
-    console.log('GoogleAIStudio.getModel - Google AI model selected', {
+    logger.debug('GoogleAIStudio.getModel - Google AI model selected', {
       modelName: this.modelName
     });
 
@@ -125,7 +126,7 @@ export class GoogleAIStudio implements AIProvider {
       // Use schema from options or fallback parameter
       const finalSchema = schema || analysisSchema;
 
-      console.log(`[${functionTag}] Stream request started`, {
+      logger.debug(`[${functionTag}] Stream request started`, {
         provider,
         modelName: this.modelName,
         promptLength: prompt.length,
@@ -148,7 +149,7 @@ export class GoogleAIStudio implements AIProvider {
           const errorMessage = error instanceof Error ? error.message : String(error);
           const errorStack = error instanceof Error ? error.stack : undefined;
 
-          console.error(`[${functionTag}] Stream text error`, {
+          logger.error(`[${functionTag}] Stream text error`, {
             provider,
             modelName: this.modelName,
             error: errorMessage,
@@ -163,7 +164,7 @@ export class GoogleAIStudio implements AIProvider {
           usage: Record<string, unknown>;
           text?: string;
         }) => {
-          console.log(`[${functionTag}] Stream text finished`, {
+          logger.debug(`[${functionTag}] Stream text finished`, {
             provider,
             modelName: this.modelName,
             finishReason: event.finishReason,
@@ -176,7 +177,7 @@ export class GoogleAIStudio implements AIProvider {
 
         onChunk: (event: { chunk: { type: string; text?: string } }) => {
           chunkCount++;
-          console.debug(`[${functionTag}] Stream text chunk`, {
+          logger.debug(`[${functionTag}] Stream text chunk`, {
             provider,
             modelName: this.modelName,
             chunkNumber: chunkCount,
@@ -193,7 +194,7 @@ export class GoogleAIStudio implements AIProvider {
       const result = streamText(streamOptions);
       return result;
     } catch (err) {
-      console.error(`[${functionTag}] Exception`, {
+      logger.error(`[${functionTag}] Exception`, {
         provider,
         modelName: this.modelName,
         message: 'Error in streaming text',
@@ -234,7 +235,7 @@ export class GoogleAIStudio implements AIProvider {
       // Use schema from options or fallback parameter
       const finalSchema = schema || analysisSchema;
 
-      console.log(`[${functionTag}] Generate request started`, {
+      logger.debug(`[${functionTag}] Generate request started`, {
         provider,
         modelName: this.modelName,
         promptLength: prompt.length,
@@ -258,7 +259,7 @@ export class GoogleAIStudio implements AIProvider {
 
       const result = await generateText(generateOptions);
 
-      console.log(`[${functionTag}] Generate text completed`, {
+      logger.debug(`[${functionTag}] Generate text completed`, {
         provider,
         modelName: this.modelName,
         usage: result.usage,
@@ -268,7 +269,7 @@ export class GoogleAIStudio implements AIProvider {
 
       return result;
     } catch (err) {
-      console.error(`[${functionTag}] Exception`, {
+      logger.error(`[${functionTag}] Exception`, {
         provider,
         modelName: this.modelName,
         message: 'Error in generating text',

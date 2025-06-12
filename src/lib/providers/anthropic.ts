@@ -7,6 +7,7 @@
 
 import type { AIProvider, TextGenerationOptions, StreamTextOptions } from '../core/types.js';
 import { AIProviderName } from '../core/types.js';
+import { logger } from '../utils/logger.js';
 
 // Anthropic-specific types
 interface AnthropicMessage {
@@ -68,7 +69,7 @@ export class AnthropicProvider implements AIProvider {
     this.baseURL = process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
     this.defaultModel = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
 
-    console.log(`[AnthropicProvider] Initialized with model: ${this.defaultModel}`);
+    logger.debug(`[AnthropicProvider] Initialized with model: ${this.defaultModel}`);
   }
 
   private getApiKey(): string {
@@ -93,8 +94,8 @@ export class AnthropicProvider implements AIProvider {
       'anthropic-dangerous-direct-browser-access': 'true' // Required for browser usage
     };
 
-    console.log(`[AnthropicProvider.makeRequest] ${stream ? 'Streaming' : 'Non-streaming'} request to ${url}`);
-    console.log(`[AnthropicProvider.makeRequest] Model: ${body.model}, Max tokens: ${body.max_tokens}`);
+    logger.debug(`[AnthropicProvider.makeRequest] ${stream ? 'Streaming' : 'Non-streaming'} request to ${url}`);
+    logger.debug(`[AnthropicProvider.makeRequest] Model: ${body.model}, Max tokens: ${body.max_tokens}`);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -104,7 +105,7 @@ export class AnthropicProvider implements AIProvider {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[AnthropicProvider.makeRequest] API error ${response.status}: ${errorText}`);
+      logger.error(`[AnthropicProvider.makeRequest] API error ${response.status}: ${errorText}`);
       throw new Error(`Anthropic API error ${response.status}: ${errorText}`);
     }
 
@@ -112,7 +113,7 @@ export class AnthropicProvider implements AIProvider {
   }
 
   async generateText(optionsOrPrompt: TextGenerationOptions | string, schema?: any): Promise<any> {
-    console.log('[AnthropicProvider.generateText] Starting text generation');
+    logger.debug('[AnthropicProvider.generateText] Starting text generation');
 
     // Parse parameters with backward compatibility
     const options = typeof optionsOrPrompt === 'string'
@@ -126,7 +127,7 @@ export class AnthropicProvider implements AIProvider {
       systemPrompt = 'You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.'
     } = options;
 
-    console.log(`[AnthropicProvider.generateText] Prompt: "${prompt.substring(0, 100)}...", Temperature: ${temperature}, Max tokens: ${maxTokens}`);
+    logger.debug(`[AnthropicProvider.generateText] Prompt: "${prompt.substring(0, 100)}...", Temperature: ${temperature}, Max tokens: ${maxTokens}`);
 
     const requestBody: AnthropicRequestBody = {
       model: this.getModel(),
@@ -145,7 +146,7 @@ export class AnthropicProvider implements AIProvider {
       const response = await this.makeRequest('messages', requestBody);
       const data: AnthropicResponse = await response.json();
 
-      console.log(`[AnthropicProvider.generateText] Success. Generated ${data.usage.output_tokens} tokens`);
+      logger.debug(`[AnthropicProvider.generateText] Success. Generated ${data.usage.output_tokens} tokens`);
 
       const content = data.content.map(block => block.text).join('');
 
@@ -161,13 +162,13 @@ export class AnthropicProvider implements AIProvider {
         finishReason: data.stop_reason
       };
     } catch (error) {
-      console.error('[AnthropicProvider.generateText] Error:', error);
+      logger.error('[AnthropicProvider.generateText] Error:', error);
       throw error;
     }
   }
 
   async streamText(optionsOrPrompt: StreamTextOptions | string, schema?: any): Promise<any> {
-    console.log('[AnthropicProvider.streamText] Starting text streaming');
+    logger.debug('[AnthropicProvider.streamText] Starting text streaming');
 
     // Parse parameters with backward compatibility
     const options = typeof optionsOrPrompt === 'string'
@@ -181,7 +182,7 @@ export class AnthropicProvider implements AIProvider {
       systemPrompt = 'You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.'
     } = options;
 
-    console.log(`[AnthropicProvider.streamText] Streaming prompt: "${prompt.substring(0, 100)}..."`);
+    logger.debug(`[AnthropicProvider.streamText] Streaming prompt: "${prompt.substring(0, 100)}..."`);
 
     const requestBody: AnthropicRequestBody = {
       model: this.getModel(),
@@ -212,7 +213,7 @@ export class AnthropicProvider implements AIProvider {
         finishReason: 'end_turn'
       };
     } catch (error) {
-      console.error('[AnthropicProvider.streamText] Error:', error);
+      logger.error('[AnthropicProvider.streamText] Error:', error);
       throw error;
     }
   }
@@ -245,7 +246,7 @@ export class AnthropicProvider implements AIProvider {
                 yield chunk.delta.text;
               }
             } catch (parseError) {
-              console.warn('[AnthropicProvider.createAsyncIterable] Failed to parse chunk:', parseError);
+              logger.warn('[AnthropicProvider.createAsyncIterable] Failed to parse chunk:', parseError);
               continue;
             }
           }
@@ -257,7 +258,7 @@ export class AnthropicProvider implements AIProvider {
   }
 
   async *generateTextStream(optionsOrPrompt: StreamTextOptions | string): AsyncGenerator<any, void, unknown> {
-    console.log('[AnthropicProvider.generateTextStream] Starting text streaming');
+    logger.debug('[AnthropicProvider.generateTextStream] Starting text streaming');
 
     // Parse parameters with backward compatibility
     const options = typeof optionsOrPrompt === 'string'
@@ -271,7 +272,7 @@ export class AnthropicProvider implements AIProvider {
       systemPrompt = 'You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.'
     } = options;
 
-    console.log(`[AnthropicProvider.generateTextStream] Streaming prompt: "${prompt.substring(0, 100)}..."`);
+    logger.debug(`[AnthropicProvider.generateTextStream] Streaming prompt: "${prompt.substring(0, 100)}..."`);
 
     const requestBody: AnthropicRequestBody = {
       model: this.getModel(),
@@ -325,7 +326,7 @@ export class AnthropicProvider implements AIProvider {
                   };
                 }
               } catch (parseError) {
-                console.warn('[AnthropicProvider.generateTextStream] Failed to parse chunk:', parseError);
+                logger.warn('[AnthropicProvider.generateTextStream] Failed to parse chunk:', parseError);
                 continue;
               }
             }
@@ -335,15 +336,15 @@ export class AnthropicProvider implements AIProvider {
         reader.releaseLock();
       }
 
-      console.log('[AnthropicProvider.generateTextStream] Streaming completed');
+      logger.debug('[AnthropicProvider.generateTextStream] Streaming completed');
     } catch (error) {
-      console.error('[AnthropicProvider.generateTextStream] Error:', error);
+      logger.error('[AnthropicProvider.generateTextStream] Error:', error);
       throw error;
     }
   }
 
   async testConnection(): Promise<{ success: boolean; error?: string; responseTime?: number }> {
-    console.log('[AnthropicProvider.testConnection] Testing connection to Anthropic API');
+    logger.debug('[AnthropicProvider.testConnection] Testing connection to Anthropic API');
 
     const startTime = Date.now();
 
@@ -354,7 +355,7 @@ export class AnthropicProvider implements AIProvider {
       });
 
       const responseTime = Date.now() - startTime;
-      console.log(`[AnthropicProvider.testConnection] Connection test successful (${responseTime}ms)`);
+      logger.debug(`[AnthropicProvider.testConnection] Connection test successful (${responseTime}ms)`);
 
       return {
         success: true,
@@ -362,7 +363,7 @@ export class AnthropicProvider implements AIProvider {
       };
     } catch (error) {
       const responseTime = Date.now() - startTime;
-      console.error(`[AnthropicProvider.testConnection] Connection test failed (${responseTime}ms):`, error);
+      logger.error(`[AnthropicProvider.testConnection] Connection test failed (${responseTime}ms):`, error);
 
       return {
         success: false,

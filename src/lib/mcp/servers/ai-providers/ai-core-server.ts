@@ -9,6 +9,7 @@ import { createMCPServer } from '../../factory.js';
 import type { NeuroLinkExecutionContext, ToolResult } from '../../factory.js';
 import { AIProviderFactory } from '../../../core/factory.js';
 import { getBestProvider, getAvailableProviders } from '../../../utils/providerUtils.js';
+import { logger } from '../../../utils/logger.js';
 import {
   analyzeAIUsageTool,
   benchmarkProviderPerformanceTool,
@@ -84,7 +85,7 @@ aiCoreServer.registerTool({
     const startTime = Date.now();
 
     try {
-      console.log(`[AI-Core] Starting text generation: "${params.prompt.substring(0, 50)}..."`);
+      logger.debug(`[AI-Core] Starting text generation: "${params.prompt.substring(0, 50)}..."`);
 
       // Use existing AIProviderFactory with best provider selection
       const selectedProvider = params.provider || getBestProvider(params.provider);
@@ -105,7 +106,7 @@ aiCoreServer.registerTool({
 
       const executionTime = Date.now() - startTime;
 
-      console.log(`[AI-Core] Text generation successful in ${executionTime}ms using ${selectedProvider}`);
+      logger.debug(`[AI-Core] Text generation successful in ${executionTime}ms using ${selectedProvider}`);
 
       return {
         success: true,
@@ -134,7 +135,7 @@ aiCoreServer.registerTool({
       const executionTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      console.error(`[AI-Core] Text generation failed: ${errorMessage}`);
+      logger.debug(`[AI-Core] Text generation failed: ${errorMessage}`);
 
       return {
         success: false,
@@ -165,7 +166,7 @@ aiCoreServer.registerTool({
     const startTime = Date.now();
 
     try {
-      console.log(`[AI-Core] Selecting provider with requirements:`, params.requirements);
+      logger.debug(`[AI-Core] Selecting provider with requirements:`, params.requirements);
 
       // Use existing provider selection logic
       const availableProviders = getAvailableProviders();
@@ -183,7 +184,7 @@ aiCoreServer.registerTool({
 
       const executionTime = Date.now() - startTime;
 
-      console.log(`[AI-Core] Selected provider: ${selectedProvider} in ${executionTime}ms`);
+      logger.debug(`[AI-Core] Selected provider: ${selectedProvider} in ${executionTime}ms`);
 
       return {
         success: true,
@@ -212,7 +213,7 @@ aiCoreServer.registerTool({
       const executionTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      console.error(`[AI-Core] Provider selection failed: ${errorMessage}`);
+      logger.debug(`[AI-Core] Provider selection failed: ${errorMessage}`);
 
       return {
         success: false,
@@ -246,7 +247,7 @@ aiCoreServer.registerTool({
     const startTime = Date.now();
 
     try {
-      console.log(`[AI-Core] Checking provider status for: ${params.provider || 'all providers'}`);
+      logger.debug(`[AI-Core] Checking provider status for: ${params.provider || 'all providers'}`);
 
       const availableProviders = getAvailableProviders();
       const providerStatuses = [];
@@ -281,7 +282,7 @@ aiCoreServer.registerTool({
 
       const executionTime = Date.now() - startTime;
 
-      console.log(`[AI-Core] Provider status check completed in ${executionTime}ms`);
+      logger.debug(`[AI-Core] Provider status check completed in ${executionTime}ms`);
 
       return {
         success: true,
@@ -311,7 +312,7 @@ aiCoreServer.registerTool({
       const executionTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      console.error(`[AI-Core] Provider status check failed: ${errorMessage}`);
+      logger.debug(`[AI-Core] Provider status check failed: ${errorMessage}`);
 
       return {
         success: false,
@@ -346,4 +347,4 @@ aiCoreServer.registerTool(generateDocumentationTool);
 aiCoreServer.registerTool(debugAIOutputTool);
 
 // Log successful server creation
-console.log('[AI-Core] NeuroLink AI Core Server v1.2.0 created with 10 tools:', Object.keys(aiCoreServer.tools));
+logger.debug('[AI-Core] NeuroLink AI Core Server v1.2.0 created with 10 tools:', Object.keys(aiCoreServer.tools));

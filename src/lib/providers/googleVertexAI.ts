@@ -16,11 +16,11 @@ async function getCreateVertexAnthropic() {
     // Try to import the anthropic module - available in @ai-sdk/google-vertex ^2.2.0+
     const anthropicModule = await import('@ai-sdk/google-vertex/anthropic');
     _createVertexAnthropic = anthropicModule.createVertexAnthropic;
-    console.log('[GoogleVertexAI] Anthropic module successfully loaded');
+    logger.debug('[GoogleVertexAI] Anthropic module successfully loaded');
     return _createVertexAnthropic;
   } catch (error) {
     // Anthropic module not available
-    console.warn('[GoogleVertexAI] Anthropic module not available. Install @ai-sdk/google-vertex ^2.2.0 for Anthropic model support.');
+    logger.warn('[GoogleVertexAI] Anthropic module not available. Install @ai-sdk/google-vertex ^2.2.0 for Anthropic model support.');
     return null;
   }
 }
@@ -36,6 +36,7 @@ import {
   type LanguageModelV1
 } from 'ai';
 import type { AIProvider, TextGenerationOptions, StreamTextOptions } from '../core/types.js';
+import { logger } from '../utils/logger.js';
 
 // Default system context
 const DEFAULT_SYSTEM_CONTEXT = {
@@ -99,7 +100,7 @@ const setupGoogleAuth = async (): Promise<void> => {
   if (hasServiceAccountKeyAuth() && !hasPrincipalAccountAuth()) {
     const serviceAccountKey = getGoogleServiceAccountKey();
 
-    console.log(`[${functionTag}] Service account key auth (JSON string)`, {
+    logger.debug(`[${functionTag}] Service account key auth (JSON string)`, {
       hasServiceAccountKey: !!serviceAccountKey,
       authMethod: 'service_account_key'
     });
@@ -117,12 +118,12 @@ const setupGoogleAuth = async (): Promise<void> => {
       writeFileSync(tempFile, serviceAccountKey!);
       process.env.GOOGLE_APPLICATION_CREDENTIALS = tempFile;
 
-      console.log(`[${functionTag}] Created temporary credentials file`, {
+      logger.debug(`[${functionTag}] Created temporary credentials file`, {
         tempFile: '[CREATED]',
         authMethod: 'service_account_key_temp_file'
       });
     } catch (error) {
-      console.error(`[${functionTag}] Failed to parse service account key`, {
+      logger.error(`[${functionTag}] Failed to parse service account key`, {
         error: error instanceof Error ? error.message : String(error)
       });
       throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_KEY format. Must be valid JSON.');
@@ -134,7 +135,7 @@ const setupGoogleAuth = async (): Promise<void> => {
     const clientEmail = getGoogleClientEmail();
     const privateKey = getGooglePrivateKey();
 
-    console.log(`[${functionTag}] Service account env auth (separate variables)`, {
+    logger.debug(`[${functionTag}] Service account env auth (separate variables)`, {
       hasClientEmail: !!clientEmail,
       hasPrivateKey: !!privateKey,
       authMethod: 'service_account_env'
@@ -160,12 +161,12 @@ const setupGoogleAuth = async (): Promise<void> => {
       writeFileSync(tempFile, JSON.stringify(serviceAccount, null, 2));
       process.env.GOOGLE_APPLICATION_CREDENTIALS = tempFile;
 
-      console.log(`[${functionTag}] Created temporary credentials file from env vars`, {
+      logger.debug(`[${functionTag}] Created temporary credentials file from env vars`, {
         tempFile: '[CREATED]',
         authMethod: 'service_account_env_temp_file'
       });
     } catch (error) {
-      console.error(`[${functionTag}] Failed to create service account file from env vars`, {
+      logger.error(`[${functionTag}] Failed to create service account file from env vars`, {
         error: error instanceof Error ? error.message : String(error)
       });
       throw new Error('Failed to create temporary service account file from environment variables.');
@@ -189,7 +190,7 @@ const createVertexSettings = async (): Promise<GoogleVertexProviderSettings> => 
   if (hasPrincipalAccountAuth()) {
     const credentialsPath = getGoogleApplicationCredentials();
 
-    console.log(`[${functionTag}] Principal account auth (file path)`, {
+    logger.debug(`[${functionTag}] Principal account auth (file path)`, {
       credentialsPath: credentialsPath ? '[PROVIDED]' : '[NOT_PROVIDED]',
       authMethod: 'principal_account_file'
     });
@@ -199,7 +200,7 @@ const createVertexSettings = async (): Promise<GoogleVertexProviderSettings> => 
 
   // Method 2 & 3: Other methods now set GOOGLE_APPLICATION_CREDENTIALS in setupGoogleAuth()
   if (hasServiceAccountKeyAuth() || hasServiceAccountEnvAuth()) {
-    console.log(`[${functionTag}] Alternative auth method configured`, {
+    logger.debug(`[${functionTag}] Alternative auth method configured`, {
       authMethod: hasServiceAccountKeyAuth() ? 'service_account_key' : 'service_account_env',
       credentialsSet: !!process.env.GOOGLE_APPLICATION_CREDENTIALS
     });
@@ -208,7 +209,7 @@ const createVertexSettings = async (): Promise<GoogleVertexProviderSettings> => 
   }
 
   // No valid authentication found
-  console.error(`[${functionTag}] No valid authentication method found`, {
+  logger.error(`[${functionTag}] No valid authentication method found`, {
     authMethod: 'none',
     hasPrincipalAccount: hasPrincipalAccountAuth(),
     hasServiceAccountKey: hasServiceAccountKeyAuth(),
@@ -257,39 +258,39 @@ export class GoogleVertexAI implements AIProvider {
     this.modelName = modelName || getVertexModelId();
 
     try {
-      console.log(`[${functionTag}] Initialization started`, {
+      logger.debug(`[${functionTag}] Initialization started`, {
         modelName: this.modelName,
         isAnthropic: isAnthropicModel(this.modelName)
       });
 
       const hasPrincipal = hasPrincipalAccountAuth();
 
-      console.log(`[${functionTag}] Authentication validation`, {
+      logger.debug(`[${functionTag}] Authentication validation`, {
         hasPrincipalAccountAuth: hasPrincipal,
         projectId: getGCPVertexBreezeProjectId() || 'MISSING',
         location: getGCPVertexBreezeLocation() || 'MISSING'
       });
 
       if (hasPrincipal) {
-        console.log(`[${functionTag}] Auth method selected`, {
+        logger.debug(`[${functionTag}] Auth method selected`, {
           authMethod: 'principal_account',
           hasGoogleApplicationCredentials: !!getGoogleApplicationCredentials()
         });
       } else {
-        console.warn(`[${functionTag}] Auth method missing`, {
+        logger.warn(`[${functionTag}] Auth method missing`, {
           authMethod: 'none',
           hasPrincipalAccountAuth: hasPrincipal
         });
       }
 
-      console.log(`[${functionTag}] Initialization completed`, {
+      logger.debug(`[${functionTag}] Initialization completed`, {
         modelName: this.modelName,
         isAnthropic: isAnthropicModel(this.modelName),
         authMethod: hasPrincipalAccountAuth() ? 'principal_account' : 'none',
         success: true
       });
     } catch (err) {
-      console.error(`[${functionTag}] Initialization failed`, {
+      logger.error(`[${functionTag}] Initialization failed`, {
         message: 'Error in initializing Google Vertex AI',
         modelName: this.modelName,
         isAnthropic: isAnthropicModel(this.modelName),
@@ -305,7 +306,7 @@ export class GoogleVertexAI implements AIProvider {
    */
   private async getModel(): Promise<LanguageModelV1> {
     if (isAnthropicModel(this.modelName)) {
-      console.log('GoogleVertexAI.getModel - Anthropic model selected', {
+      logger.debug('GoogleVertexAI.getModel - Anthropic model selected', {
         modelName: this.modelName
       });
 
@@ -356,7 +357,7 @@ export class GoogleVertexAI implements AIProvider {
       // Use schema from options or fallback parameter
       const finalSchema = schema || analysisSchema;
 
-      console.log(`[${functionTag}] Stream request started`, {
+      logger.debug(`[${functionTag}] Stream request started`, {
         provider,
         modelName: this.modelName,
         isAnthropic: isAnthropicModel(this.modelName),
@@ -380,7 +381,7 @@ export class GoogleVertexAI implements AIProvider {
           const errorMessage = error instanceof Error ? error.message : String(error);
           const errorStack = error instanceof Error ? error.stack : undefined;
 
-          console.error(`[${functionTag}] Stream text error`, {
+          logger.error(`[${functionTag}] Stream text error`, {
             provider,
             modelName: this.modelName,
             error: errorMessage,
@@ -395,7 +396,7 @@ export class GoogleVertexAI implements AIProvider {
           usage: Record<string, unknown>;
           text?: string;
         }) => {
-          console.log(`[${functionTag}] Stream text finished`, {
+          logger.debug(`[${functionTag}] Stream text finished`, {
             provider,
             modelName: this.modelName,
             finishReason: event.finishReason,
@@ -408,7 +409,7 @@ export class GoogleVertexAI implements AIProvider {
 
         onChunk: (event: { chunk: { type: string; text?: string } }) => {
           chunkCount++;
-          console.debug(`[${functionTag}] Stream text chunk`, {
+          logger.debug(`[${functionTag}] Stream text chunk`, {
             provider,
             modelName: this.modelName,
             chunkNumber: chunkCount,
@@ -425,7 +426,7 @@ export class GoogleVertexAI implements AIProvider {
       const result = streamText(streamOptions);
       return result;
     } catch (err) {
-      console.error(`[${functionTag}] Exception`, {
+      logger.error(`[${functionTag}] Exception`, {
         provider,
         modelName: this.modelName,
         message: 'Error in streaming text',
@@ -466,7 +467,7 @@ export class GoogleVertexAI implements AIProvider {
       // Use schema from options or fallback parameter
       const finalSchema = schema || analysisSchema;
 
-      console.log(`[${functionTag}] Generate request started`, {
+      logger.debug(`[${functionTag}] Generate request started`, {
         provider,
         modelName: this.modelName,
         isAnthropic: isAnthropicModel(this.modelName),
@@ -491,7 +492,7 @@ export class GoogleVertexAI implements AIProvider {
 
       const result = await generateText(generateOptions);
 
-      console.log(`[${functionTag}] Generate text completed`, {
+      logger.debug(`[${functionTag}] Generate text completed`, {
         provider,
         modelName: this.modelName,
         usage: result.usage,
@@ -501,7 +502,7 @@ export class GoogleVertexAI implements AIProvider {
 
       return result;
     } catch (err) {
-      console.error(`[${functionTag}] Exception`, {
+      logger.error(`[${functionTag}] Exception`, {
         provider,
         modelName: this.modelName,
         message: 'Error in generating text',

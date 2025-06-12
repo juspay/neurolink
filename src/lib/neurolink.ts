@@ -7,6 +7,7 @@
 
 import { AIProviderFactory, createBestAIProvider } from './index.js';
 import { getBestProvider } from './utils/providerUtils.js';
+import { logger } from './utils/logger.js';
 import type { AIProvider, AIProviderName } from './core/types.js';
 
 export interface TextGenerationOptions {
@@ -47,7 +48,7 @@ export class NeuroLink {
     const functionTag = 'NeuroLink.generateText';
 
     // Define fallback provider priority order
-    const providerPriority = ['openai', 'vertex', 'bedrock', 'google-ai'];
+    const providerPriority = ['openai', 'vertex', 'bedrock', 'anthropic', 'azure', 'google-ai'];
     const requestedProvider = options.provider === 'auto' ? undefined : options.provider;
 
     // If specific provider requested, try that first, then fallback to priority order
@@ -55,7 +56,7 @@ export class NeuroLink {
       ? [requestedProvider, ...providerPriority.filter(p => p !== requestedProvider)]
       : providerPriority;
 
-    console.log(`[${functionTag}] Starting text generation with fallback`, {
+    logger.debug(`[${functionTag}] Starting text generation with fallback`, {
       requestedProvider: requestedProvider || 'auto',
       tryProviders,
       promptLength: options.prompt.length
@@ -65,7 +66,7 @@ export class NeuroLink {
 
     for (const providerName of tryProviders) {
       try {
-        console.log(`[${functionTag}] Attempting provider`, { provider: providerName });
+        logger.debug(`[${functionTag}] Attempting provider`, { provider: providerName });
 
         const provider = AIProviderFactory.createProvider(providerName);
 
@@ -82,7 +83,7 @@ export class NeuroLink {
 
         const responseTime = Date.now() - startTime;
 
-        console.log(`[${functionTag}] Provider succeeded`, {
+        logger.debug(`[${functionTag}] Provider succeeded`, {
           provider: providerName,
           responseTime,
           usage: result.usage
@@ -98,7 +99,7 @@ export class NeuroLink {
         const errorMessage = error instanceof Error ? error.message : String(error);
         lastError = error instanceof Error ? error : new Error(errorMessage);
 
-        console.warn(`[${functionTag}] Provider failed, trying next`, {
+        logger.debug(`[${functionTag}] Provider failed, trying next`, {
           provider: providerName,
           error: errorMessage,
           remainingProviders: tryProviders.slice(tryProviders.indexOf(providerName) + 1)
@@ -110,7 +111,7 @@ export class NeuroLink {
     }
 
     // All providers failed
-    console.error(`[${functionTag}] All providers failed`, {
+    logger.debug(`[${functionTag}] All providers failed`, {
       triedProviders: tryProviders,
       lastError: lastError?.message
     });
@@ -125,7 +126,7 @@ export class NeuroLink {
     const functionTag = 'NeuroLink.generateTextStream';
 
     // Define fallback provider priority order
-    const providerPriority = ['openai', 'vertex', 'bedrock', 'google-ai'];
+    const providerPriority = ['openai', 'vertex', 'bedrock', 'anthropic', 'azure', 'google-ai'];
     const requestedProvider = options.provider === 'auto' ? undefined : options.provider;
 
     // If specific provider requested, try that first, then fallback to priority order
@@ -133,7 +134,7 @@ export class NeuroLink {
       ? [requestedProvider, ...providerPriority.filter(p => p !== requestedProvider)]
       : providerPriority;
 
-    console.log(`[${functionTag}] Starting stream generation with fallback`, {
+    logger.debug(`[${functionTag}] Starting stream generation with fallback`, {
       requestedProvider: requestedProvider || 'auto',
       tryProviders,
       promptLength: options.prompt.length
@@ -143,7 +144,7 @@ export class NeuroLink {
 
     for (const providerName of tryProviders) {
       try {
-        console.log(`[${functionTag}] Attempting provider`, { provider: providerName });
+        logger.debug(`[${functionTag}] Attempting provider`, { provider: providerName });
 
         const provider = AIProviderFactory.createProvider(providerName);
 
@@ -158,7 +159,7 @@ export class NeuroLink {
           throw new Error('No stream response received from AI provider');
         }
 
-        console.log(`[${functionTag}] Provider succeeded`, { provider: providerName });
+        logger.debug(`[${functionTag}] Provider succeeded`, { provider: providerName });
 
         // Convert the AI SDK stream to our expected format
         async function* convertStream() {
@@ -174,7 +175,7 @@ export class NeuroLink {
         const errorMessage = error instanceof Error ? error.message : String(error);
         lastError = error instanceof Error ? error : new Error(errorMessage);
 
-        console.warn(`[${functionTag}] Provider failed, trying next`, {
+        logger.debug(`[${functionTag}] Provider failed, trying next`, {
           provider: providerName,
           error: errorMessage,
           remainingProviders: tryProviders.slice(tryProviders.indexOf(providerName) + 1)
@@ -186,7 +187,7 @@ export class NeuroLink {
     }
 
     // All providers failed
-    console.error(`[${functionTag}] All providers failed`, {
+    logger.debug(`[${functionTag}] All providers failed`, {
       triedProviders: tryProviders,
       lastError: lastError?.message
     });

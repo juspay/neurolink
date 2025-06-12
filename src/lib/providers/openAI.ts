@@ -10,6 +10,7 @@ import {
   type GenerateTextResult,
   type LanguageModelV1
 } from 'ai';
+import { logger } from '../utils/logger.js';
 import type { AIProvider, TextGenerationOptions, StreamTextOptions } from '../core/types.js';
 
 // Default system context
@@ -40,19 +41,19 @@ export class OpenAI implements AIProvider {
     this.modelName = modelName || getOpenAIModel();
 
     try {
-      console.log(`[${functionTag}] Function called`, { modelName: this.modelName });
+      logger.debug(`[${functionTag}] Function called`, { modelName: this.modelName });
 
       // Set OpenAI API key as environment variable
       process.env.OPENAI_API_KEY = getOpenAIApiKey();
 
       this.model = openai(this.modelName);
 
-      console.log(`[${functionTag}] Function result`, {
+      logger.debug(`[${functionTag}] Function result`, {
         modelName: this.modelName,
         success: true
       });
     } catch (err) {
-      console.error(`[${functionTag}] Exception`, {
+      logger.debug(`[${functionTag}] Exception`, {
         message: 'Error in initializing OpenAI',
         modelName: this.modelName,
         err: String(err)
@@ -86,7 +87,7 @@ export class OpenAI implements AIProvider {
       // Use schema from options or fallback parameter
       const finalSchema = schema || analysisSchema;
 
-      console.log(`[${functionTag}] Stream text started`, {
+      logger.debug(`[${functionTag}] Stream text started`, {
         provider,
         modelName: this.modelName,
         promptLength: prompt.length,
@@ -106,7 +107,7 @@ export class OpenAI implements AIProvider {
           const errorMessage = error instanceof Error ? error.message : String(error);
           const errorStack = error instanceof Error ? error.stack : undefined;
 
-          console.error(`[${functionTag}] Stream text error`, {
+          logger.debug(`[${functionTag}] Stream text error`, {
             provider,
             modelName: this.modelName,
             error: errorMessage,
@@ -121,7 +122,7 @@ export class OpenAI implements AIProvider {
           usage: Record<string, unknown>;
           text?: string;
         }) => {
-          console.log(`[${functionTag}] Stream text finished`, {
+          logger.debug(`[${functionTag}] Stream text finished`, {
             provider,
             modelName: this.modelName,
             finishReason: event.finishReason,
@@ -134,7 +135,7 @@ export class OpenAI implements AIProvider {
 
         onChunk: (event: { chunk: { type: string; text?: string } }) => {
           chunkCount++;
-          console.debug(`[${functionTag}] Stream text chunk`, {
+          logger.debug(`[${functionTag}] Stream text chunk`, {
             provider,
             modelName: this.modelName,
             chunkNumber: chunkCount,
@@ -151,7 +152,7 @@ export class OpenAI implements AIProvider {
       const result = streamText(streamOptions);
       return result;
     } catch (err) {
-      console.error(`[${functionTag}] Exception`, {
+      logger.debug(`[${functionTag}] Exception`, {
         provider,
         modelName: this.modelName,
         message: 'Error in streaming text',
@@ -185,7 +186,7 @@ export class OpenAI implements AIProvider {
       // Use schema from options or fallback parameter
       const finalSchema = schema || analysisSchema;
 
-      console.log(`[${functionTag}] Generate text started`, {
+      logger.debug(`[${functionTag}] Generate text started`, {
         provider,
         modelName: this.modelName,
         promptLength: prompt.length,
@@ -207,7 +208,7 @@ export class OpenAI implements AIProvider {
 
       const result = await generateText(generateOptions);
 
-      console.log(`[${functionTag}] Generate text completed`, {
+      logger.debug(`[${functionTag}] Generate text completed`, {
         provider,
         modelName: this.modelName,
         usage: result.usage,
@@ -217,7 +218,7 @@ export class OpenAI implements AIProvider {
 
       return result;
     } catch (err) {
-      console.error(`[${functionTag}] Exception`, {
+      logger.debug(`[${functionTag}] Exception`, {
         provider,
         modelName: this.modelName,
         message: 'Error in generating text',
