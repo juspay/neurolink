@@ -4,7 +4,7 @@
  * Ensures rich context flows through tool chain with session tracking
  */
 
-import type { NeuroLinkExecutionContext } from './factory.js';
+import type { NeuroLinkExecutionContext } from "./factory.js";
 
 /**
  * Context creation request interface
@@ -23,14 +23,14 @@ export interface ContextRequest {
   // Business Context
   organizationId?: string;
   projectId?: string;
-  environmentType?: 'development' | 'staging' | 'production';
+  environmentType?: "development" | "staging" | "production";
 
   // Framework Context
-  frameworkType?: 'react' | 'vue' | 'svelte' | 'next' | 'nuxt' | 'sveltekit';
+  frameworkType?: "react" | "vue" | "svelte" | "next" | "nuxt" | "sveltekit";
 
   // Security & Permissions
   permissions?: string[];
-  securityLevel?: 'public' | 'private' | 'organization';
+  securityLevel?: "public" | "private" | "organization";
 
   // Custom context extensions
   [key: string]: any;
@@ -69,7 +69,7 @@ export class ContextManager {
       // Business Context (new for MCP)
       organizationId: request.organizationId,
       projectId: request.projectId,
-      environmentType: request.environmentType || 'development',
+      environmentType: request.environmentType || "development",
 
       // Framework Context (new for MCP)
       frameworkType: request.frameworkType,
@@ -80,10 +80,10 @@ export class ContextManager {
 
       // Security & Permissions
       permissions: request.permissions || [],
-      securityLevel: request.securityLevel || 'private',
+      securityLevel: request.securityLevel || "private",
 
       // Copy any additional custom fields
-      ...this.extractCustomFields(request)
+      ...this.extractCustomFields(request),
     };
 
     // Store context for session management
@@ -125,7 +125,10 @@ export class ContextManager {
    * @param context Execution context to modify
    * @param parentToolId ID of the parent tool
    */
-  setParentTool(context: NeuroLinkExecutionContext, parentToolId: string): void {
+  setParentTool(
+    context: NeuroLinkExecutionContext,
+    parentToolId: string,
+  ): void {
     context.parentToolId = parentToolId;
     this.activeContexts.set(context.sessionId, context);
   }
@@ -139,7 +142,7 @@ export class ContextManager {
    */
   createChildContext(
     parentContext: NeuroLinkExecutionContext,
-    childToolName: string
+    childToolName: string,
   ): NeuroLinkExecutionContext {
     const childContext: NeuroLinkExecutionContext = {
       // Inherit all parent context
@@ -149,10 +152,11 @@ export class ContextManager {
       sessionId: this.generateSessionId(),
 
       // Set parent tool reference
-      parentToolId: parentContext.toolChain?.[parentContext.toolChain.length - 1],
+      parentToolId:
+        parentContext.toolChain?.[parentContext.toolChain.length - 1],
 
       // Reset tool chain for child (will be populated as child executes tools)
-      toolChain: []
+      toolChain: [],
     };
 
     // Store child context
@@ -177,7 +181,10 @@ export class ContextManager {
    * @param sessionId Session identifier
    * @param updates Partial context updates
    */
-  updateContext(sessionId: string, updates: Partial<NeuroLinkExecutionContext>): void {
+  updateContext(
+    sessionId: string,
+    updates: Partial<NeuroLinkExecutionContext>,
+  ): void {
     const context = this.activeContexts.get(sessionId);
     if (context) {
       const updatedContext = { ...context, ...updates };
@@ -224,15 +231,14 @@ export class ContextManager {
     const contexts = Array.from(this.activeContexts.values());
     const totalToolChainLength = contexts.reduce(
       (sum, ctx) => sum + (ctx.toolChain?.length || 0),
-      0
+      0,
     );
 
     return {
       activeContexts: contexts.length,
       totalSessionsCreated: this.sessionCounter,
-      averageToolChainLength: contexts.length > 0
-        ? totalToolChainLength / contexts.length
-        : 0
+      averageToolChainLength:
+        contexts.length > 0 ? totalToolChainLength / contexts.length : 0,
     };
   }
 
@@ -256,9 +262,18 @@ export class ContextManager {
    */
   private extractCustomFields(request: ContextRequest): Record<string, any> {
     const knownFields = new Set([
-      'sessionId', 'userId', 'aiProvider', 'modelId', 'temperature', 'maxTokens',
-      'organizationId', 'projectId', 'environmentType', 'frameworkType',
-      'permissions', 'securityLevel'
+      "sessionId",
+      "userId",
+      "aiProvider",
+      "modelId",
+      "temperature",
+      "maxTokens",
+      "organizationId",
+      "projectId",
+      "environmentType",
+      "frameworkType",
+      "permissions",
+      "securityLevel",
     ]);
 
     const customFields: Record<string, any> = {};
@@ -285,7 +300,9 @@ export const defaultContextManager = new ContextManager();
  * @param request Optional context request
  * @returns Execution context with sensible defaults
  */
-export function createExecutionContext(request: ContextRequest = {}): NeuroLinkExecutionContext {
+export function createExecutionContext(
+  request: ContextRequest = {},
+): NeuroLinkExecutionContext {
   return defaultContextManager.createContext(request);
 }
 
@@ -295,7 +312,10 @@ export function createExecutionContext(request: ContextRequest = {}): NeuroLinkE
  * @param context Execution context
  * @param toolName Tool name to add
  */
-export function addToolToChain(context: NeuroLinkExecutionContext, toolName: string): void {
+export function addToolToChain(
+  context: NeuroLinkExecutionContext,
+  toolName: string,
+): void {
   defaultContextManager.addToToolChain(context, toolName);
 }
 
@@ -319,27 +339,29 @@ export class ContextValidator {
 
     // Required field validation
     if (!context.sessionId) {
-      errors.push('sessionId is required');
+      errors.push("sessionId is required");
     }
 
     // Optional field validation with warnings
     if (!context.environmentType) {
-      warnings.push('environmentType not specified, defaulting to development');
+      warnings.push("environmentType not specified, defaulting to development");
     }
 
     if (!context.securityLevel) {
-      warnings.push('securityLevel not specified, defaulting to private');
+      warnings.push("securityLevel not specified, defaulting to private");
     }
 
     // Tool chain validation
     if (context.toolChain && context.toolChain.length > 10) {
-      warnings.push('Tool chain is getting long (>10 tools), consider breaking into smaller workflows');
+      warnings.push(
+        "Tool chain is getting long (>10 tools), consider breaking into smaller workflows",
+      );
     }
 
     return {
       isValid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }
 
@@ -352,7 +374,7 @@ export class ContextValidator {
    */
   static hasPermissions(
     context: NeuroLinkExecutionContext,
-    requiredPermissions: string[]
+    requiredPermissions: string[],
   ): boolean {
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true;
@@ -361,9 +383,10 @@ export class ContextValidator {
     const contextPermissions = context.permissions || [];
 
     // Check if context has all required permissions
-    return requiredPermissions.every(permission =>
-      contextPermissions.includes(permission) ||
-      contextPermissions.includes('*') // Wildcard permission
+    return requiredPermissions.every(
+      (permission) =>
+        contextPermissions.includes(permission) ||
+        contextPermissions.includes("*"), // Wildcard permission
     );
   }
 }

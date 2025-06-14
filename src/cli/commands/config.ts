@@ -6,66 +6,114 @@
  * multi-profile support, and smart validation.
  */
 
-import inquirer from 'inquirer';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import chalk from 'chalk';
-import { z } from 'zod';
+import inquirer from "inquirer";
+import fs from "fs";
+import path from "path";
+import os from "os";
+import chalk from "chalk";
+import { z } from "zod";
 
 // Configuration schema for validation
 const ConfigSchema = z.object({
-  defaultProvider: z.enum(['auto', 'openai', 'bedrock', 'vertex', 'anthropic', 'azure', 'google-ai', 'huggingface']).default('auto'),
-  providers: z.object({
-    openai: z.object({
-      apiKey: z.string().optional(),
-      model: z.string().default('gpt-4'),
-      baseURL: z.string().optional()
-    }).optional(),
-    bedrock: z.object({
-      region: z.string().optional(),
-      accessKeyId: z.string().optional(),
-      secretAccessKey: z.string().optional(),
-      sessionToken: z.string().optional(),
-      model: z.string().default('arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0')
-    }).optional(),
-    vertex: z.object({
-      projectId: z.string().optional(),
-      location: z.string().default('us-east5'),
-      credentials: z.string().optional(),
-      serviceAccountKey: z.string().optional(),
-      clientEmail: z.string().optional(),
-      privateKey: z.string().optional(),
-      model: z.string().default('gemini-1.5-pro')
-    }).optional(),
-    anthropic: z.object({
-      apiKey: z.string().optional(),
-      model: z.string().default('claude-3-5-sonnet-20241022')
-    }).optional(),
-    azure: z.object({
-      apiKey: z.string().optional(),
-      endpoint: z.string().optional(),
-      deploymentId: z.string().optional(),
-      model: z.string().default('gpt-4')
-    }).optional(),
-    'google-ai': z.object({
-      apiKey: z.string().optional(),
-      model: z.string().default('gemini-1.5-pro-latest')
-    }).optional(),
-    huggingface: z.object({
-      apiKey: z.string().optional(),
-      model: z.string().default('microsoft/DialoGPT-large')
-    }).optional()
-  }).default({}),
+  defaultProvider: z
+    .enum([
+      "auto",
+      "openai",
+      "bedrock",
+      "vertex",
+      "anthropic",
+      "azure",
+      "google-ai",
+      "huggingface",
+      "ollama",
+      "mistral",
+    ])
+    .default("auto"),
+  providers: z
+    .object({
+      openai: z
+        .object({
+          apiKey: z.string().optional(),
+          model: z.string().default("gpt-4"),
+          baseURL: z.string().optional(),
+        })
+        .optional(),
+      bedrock: z
+        .object({
+          region: z.string().optional(),
+          accessKeyId: z.string().optional(),
+          secretAccessKey: z.string().optional(),
+          sessionToken: z.string().optional(),
+          model: z
+            .string()
+            .default(
+              "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+            ),
+        })
+        .optional(),
+      vertex: z
+        .object({
+          projectId: z.string().optional(),
+          location: z.string().default("us-east5"),
+          credentials: z.string().optional(),
+          serviceAccountKey: z.string().optional(),
+          clientEmail: z.string().optional(),
+          privateKey: z.string().optional(),
+          model: z.string().default("gemini-1.5-pro"),
+        })
+        .optional(),
+      anthropic: z
+        .object({
+          apiKey: z.string().optional(),
+          model: z.string().default("claude-3-5-sonnet-20241022"),
+        })
+        .optional(),
+      azure: z
+        .object({
+          apiKey: z.string().optional(),
+          endpoint: z.string().optional(),
+          deploymentId: z.string().optional(),
+          model: z.string().default("gpt-4"),
+        })
+        .optional(),
+      "google-ai": z
+        .object({
+          apiKey: z.string().optional(),
+          model: z.string().default("gemini-1.5-pro-latest"),
+        })
+        .optional(),
+      huggingface: z
+        .object({
+          apiKey: z.string().optional(),
+          model: z.string().default("microsoft/DialoGPT-large"),
+        })
+        .optional(),
+      ollama: z
+        .object({
+          baseUrl: z.string().default("http://localhost:11434"),
+          model: z.string().default("llama2"),
+          timeout: z.number().default(60000),
+        })
+        .optional(),
+      mistral: z
+        .object({
+          apiKey: z.string().optional(),
+          model: z.string().default("mistral-small"),
+        })
+        .optional(),
+    })
+    .default({}),
   profiles: z.record(z.string(), z.any()).default({}),
-  preferences: z.object({
-    outputFormat: z.enum(['text', 'json', 'yaml']).default('text'),
-    temperature: z.number().min(0).max(2).default(0.7),
-    maxTokens: z.number().min(1).max(4000).default(500),
-    enableLogging: z.boolean().default(false),
-    enableCaching: z.boolean().default(true),
-    cacheStrategy: z.enum(['memory', 'file', 'redis']).default('memory')
-  }).default({})
+  preferences: z
+    .object({
+      outputFormat: z.enum(["text", "json", "yaml"]).default("text"),
+      temperature: z.number().min(0).max(2).default(0.7),
+      maxTokens: z.number().min(1).max(4000).default(500),
+      enableLogging: z.boolean().default(false),
+      enableCaching: z.boolean().default(true),
+      cacheStrategy: z.enum(["memory", "file", "redis"]).default("memory"),
+    })
+    .default({}),
 });
 
 export type NeuroLinkConfig = z.infer<typeof ConfigSchema>;
@@ -76,8 +124,8 @@ export class ConfigManager {
   private config: NeuroLinkConfig;
 
   constructor() {
-    this.configDir = path.join(os.homedir(), '.neurolink');
-    this.configFile = path.join(this.configDir, 'config.json');
+    this.configDir = path.join(os.homedir(), ".neurolink");
+    this.configFile = path.join(this.configDir, "config.json");
     this.config = this.loadConfig();
   }
 
@@ -87,11 +135,15 @@ export class ConfigManager {
   private loadConfig(): NeuroLinkConfig {
     try {
       if (fs.existsSync(this.configFile)) {
-        const configData = JSON.parse(fs.readFileSync(this.configFile, 'utf8'));
+        const configData = JSON.parse(fs.readFileSync(this.configFile, "utf8"));
         return ConfigSchema.parse(configData);
       }
     } catch (error) {
-      console.warn(chalk.yellow(`⚠️  Invalid config file: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      console.warn(
+        chalk.yellow(
+          `⚠️  Invalid config file: ${error instanceof Error ? error.message : "Unknown error"}`,
+        ),
+      );
     }
 
     return ConfigSchema.parse({});
@@ -110,10 +162,17 @@ export class ConfigManager {
       // Validate before saving
       const validatedConfig = ConfigSchema.parse(this.config);
 
-      fs.writeFileSync(this.configFile, JSON.stringify(validatedConfig, null, 2));
+      fs.writeFileSync(
+        this.configFile,
+        JSON.stringify(validatedConfig, null, 2),
+      );
       console.log(chalk.green(`✅ Configuration saved to ${this.configFile}`));
     } catch (error) {
-      console.error(chalk.red(`❌ Failed to save config: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      console.error(
+        chalk.red(
+          `❌ Failed to save config: ${error instanceof Error ? error.message : "Unknown error"}`,
+        ),
+      );
       process.exit(1);
     }
   }
@@ -122,47 +181,57 @@ export class ConfigManager {
    * Interactive configuration setup
    */
   async initInteractive(): Promise<void> {
-    console.log(chalk.blue('🧠 NeuroLink Configuration Setup\n'));
+    console.log(chalk.blue("🧠 NeuroLink Configuration Setup\n"));
 
     try {
       // Basic preferences
       const preferences = await inquirer.prompt([
         {
-          type: 'list',
-          name: 'defaultProvider',
-          message: 'Select your default AI provider:',
+          type: "list",
+          name: "defaultProvider",
+          message: "Select your default AI provider:",
           choices: [
-            { name: 'Auto (recommended) - Automatically select best available', value: 'auto' },
-            { name: 'OpenAI - GPT models', value: 'openai' },
-            { name: 'Amazon Bedrock - Claude, Llama, Titan', value: 'bedrock' },
-            { name: 'Google Vertex AI - Gemini models', value: 'vertex' },
-            { name: 'Anthropic - Claude models (direct)', value: 'anthropic' },
-            { name: 'Azure OpenAI - Enterprise GPT', value: 'azure' },
-            { name: 'Google AI Studio - Gemini models (direct)', value: 'google-ai' },
-            { name: 'Hugging Face - Open source models', value: 'huggingface' }
+            {
+              name: "Auto (recommended) - Automatically select best available",
+              value: "auto",
+            },
+            { name: "OpenAI - GPT models", value: "openai" },
+            { name: "Amazon Bedrock - Claude, Llama, Titan", value: "bedrock" },
+            { name: "Google Vertex AI - Gemini models", value: "vertex" },
+            { name: "Anthropic - Claude models (direct)", value: "anthropic" },
+            { name: "Azure OpenAI - Enterprise GPT", value: "azure" },
+            {
+              name: "Google AI Studio - Gemini models (direct)",
+              value: "google-ai",
+            },
+            { name: "Hugging Face - Open source models", value: "huggingface" },
+            {
+              name: "Mistral AI - European AI with competitive pricing",
+              value: "mistral",
+            },
           ],
-          default: this.config.defaultProvider
+          default: this.config.defaultProvider,
         },
         {
-          type: 'list',
-          name: 'outputFormat',
-          message: 'Preferred output format:',
-          choices: ['text', 'json', 'yaml'],
-          default: this.config.preferences.outputFormat
+          type: "list",
+          name: "outputFormat",
+          message: "Preferred output format:",
+          choices: ["text", "json", "yaml"],
+          default: this.config.preferences.outputFormat,
         },
         {
-          type: 'number',
-          name: 'temperature',
-          message: 'Default creativity level (0.0 = focused, 1.0 = creative):',
+          type: "number",
+          name: "temperature",
+          message: "Default creativity level (0.0 = focused, 1.0 = creative):",
           default: this.config.preferences.temperature,
-          validate: (value: number) => value >= 0 && value <= 2
+          validate: (value: number) => value >= 0 && value <= 2,
         },
         {
-          type: 'confirm',
-          name: 'setupProviders',
-          message: 'Would you like to configure provider credentials now?',
-          default: true
-        }
+          type: "confirm",
+          name: "setupProviders",
+          message: "Would you like to configure provider credentials now?",
+          default: true,
+        },
       ]);
 
       // Update config with preferences
@@ -177,13 +246,19 @@ export class ConfigManager {
 
       this.saveConfig();
 
-      console.log(chalk.green('\n✅ Configuration setup complete!'));
-      console.log(chalk.blue('💡 You can modify settings anytime with: neurolink config edit'));
-      console.log(chalk.blue('💡 Test your setup with: neurolink status'));
-
+      console.log(chalk.green("\n✅ Configuration setup complete!"));
+      console.log(
+        chalk.blue(
+          "💡 You can modify settings anytime with: neurolink config edit",
+        ),
+      );
+      console.log(chalk.blue("💡 Test your setup with: neurolink status"));
     } catch (error) {
-      if (error instanceof Error && error.message === 'User force closed the prompt with 0 null') {
-        console.log(chalk.yellow('\n⚠️  Setup cancelled by user'));
+      if (
+        error instanceof Error &&
+        error.message === "User force closed the prompt with 0 null"
+      ) {
+        console.log(chalk.yellow("\n⚠️  Setup cancelled by user"));
         process.exit(0);
       }
       throw error;
@@ -196,19 +271,21 @@ export class ConfigManager {
   private async setupProviders(): Promise<void> {
     const { selectedProviders } = await inquirer.prompt([
       {
-        type: 'checkbox',
-        name: 'selectedProviders',
-        message: 'Select providers to configure:',
+        type: "checkbox",
+        name: "selectedProviders",
+        message: "Select providers to configure:",
         choices: [
-          { name: 'OpenAI (GPT-4, GPT-3.5)', value: 'openai' },
-          { name: 'Amazon Bedrock (Claude, Llama)', value: 'bedrock' },
-          { name: 'Google Vertex AI (Gemini)', value: 'vertex' },
-          { name: 'Anthropic Direct (Claude)', value: 'anthropic' },
-          { name: 'Azure OpenAI (Enterprise)', value: 'azure' },
-          { name: 'Google AI Studio (Gemini Direct)', value: 'google-ai' },
-          { name: 'Hugging Face (Open Source)', value: 'huggingface' }
-        ]
-      }
+          { name: "OpenAI (GPT-4, GPT-3.5)", value: "openai" },
+          { name: "Amazon Bedrock (Claude, Llama)", value: "bedrock" },
+          { name: "Google Vertex AI (Gemini)", value: "vertex" },
+          { name: "Anthropic Direct (Claude)", value: "anthropic" },
+          { name: "Azure OpenAI (Enterprise)", value: "azure" },
+          { name: "Google AI Studio (Gemini Direct)", value: "google-ai" },
+          { name: "Hugging Face (Open Source)", value: "huggingface" },
+          { name: "Ollama (Local AI Models)", value: "ollama" },
+          { name: "Mistral AI (European AI)", value: "mistral" },
+        ],
+      },
     ]);
 
     for (const provider of selectedProviders) {
@@ -223,26 +300,32 @@ export class ConfigManager {
     console.log(chalk.blue(`\n🔧 Configuring ${provider.toUpperCase()}`));
 
     switch (provider) {
-      case 'openai':
+      case "openai":
         await this.setupOpenAI();
         break;
-      case 'bedrock':
+      case "bedrock":
         await this.setupBedrock();
         break;
-      case 'vertex':
+      case "vertex":
         await this.setupVertex();
         break;
-      case 'anthropic':
+      case "anthropic":
         await this.setupAnthropic();
         break;
-      case 'azure':
+      case "azure":
         await this.setupAzure();
         break;
-      case 'google-ai':
+      case "google-ai":
         await this.setupGoogleAI();
         break;
-      case 'huggingface':
+      case "huggingface":
         await this.setupHuggingFace();
+        break;
+      case "ollama":
+        await this.setupOllama();
+        break;
+      case "mistral":
+        await this.setupMistral();
         break;
     }
   }
@@ -253,30 +336,31 @@ export class ConfigManager {
   private async setupOpenAI(): Promise<void> {
     const answers = await inquirer.prompt([
       {
-        type: 'password',
-        name: 'apiKey',
-        message: 'OpenAI API Key (sk-...):',
-        validate: (value: string) => value.startsWith('sk-') || 'API key should start with "sk-"'
+        type: "password",
+        name: "apiKey",
+        message: "OpenAI API Key (sk-...):",
+        validate: (value: string) =>
+          value.startsWith("sk-") || 'API key should start with "sk-"',
       },
       {
-        type: 'list',
-        name: 'model',
-        message: 'Default model:',
-        choices: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-        default: 'gpt-4'
+        type: "list",
+        name: "model",
+        message: "Default model:",
+        choices: ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
+        default: "gpt-4",
       },
       {
-        type: 'input',
-        name: 'baseURL',
-        message: 'Custom base URL (optional):',
-        default: ''
-      }
+        type: "input",
+        name: "baseURL",
+        message: "Custom base URL (optional):",
+        default: "",
+      },
     ]);
 
     this.config.providers.openai = {
       apiKey: answers.apiKey,
       model: answers.model,
-      ...(answers.baseURL && { baseURL: answers.baseURL })
+      ...(answers.baseURL && { baseURL: answers.baseURL }),
     };
   }
 
@@ -286,40 +370,43 @@ export class ConfigManager {
   private async setupBedrock(): Promise<void> {
     const answers = await inquirer.prompt([
       {
-        type: 'input',
-        name: 'region',
-        message: 'AWS Region:',
-        default: 'us-east-1'
+        type: "input",
+        name: "region",
+        message: "AWS Region:",
+        default: "us-east-1",
       },
       {
-        type: 'input',
-        name: 'accessKeyId',
-        message: 'AWS Access Key ID (optional if using IAM roles):'
+        type: "input",
+        name: "accessKeyId",
+        message: "AWS Access Key ID (optional if using IAM roles):",
       },
       {
-        type: 'password',
-        name: 'secretAccessKey',
-        message: 'AWS Secret Access Key (optional if using IAM roles):'
+        type: "password",
+        name: "secretAccessKey",
+        message: "AWS Secret Access Key (optional if using IAM roles):",
       },
       {
-        type: 'password',
-        name: 'sessionToken',
-        message: 'AWS Session Token (optional):'
+        type: "password",
+        name: "sessionToken",
+        message: "AWS Session Token (optional):",
       },
       {
-        type: 'input',
-        name: 'model',
-        message: 'Model ARN:',
-        default: 'arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0'
-      }
+        type: "input",
+        name: "model",
+        message: "Model ARN:",
+        default:
+          "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+      },
     ]);
 
     this.config.providers.bedrock = {
       region: answers.region,
       ...(answers.accessKeyId && { accessKeyId: answers.accessKeyId }),
-      ...(answers.secretAccessKey && { secretAccessKey: answers.secretAccessKey }),
+      ...(answers.secretAccessKey && {
+        secretAccessKey: answers.secretAccessKey,
+      }),
       ...(answers.sessionToken && { sessionToken: answers.sessionToken }),
-      model: answers.model
+      model: answers.model,
     };
   }
 
@@ -329,99 +416,105 @@ export class ConfigManager {
   private async setupVertex(): Promise<void> {
     const { authMethod } = await inquirer.prompt([
       {
-        type: 'list',
-        name: 'authMethod',
-        message: 'Authentication method:',
+        type: "list",
+        name: "authMethod",
+        message: "Authentication method:",
         choices: [
-          { name: 'Service Account File', value: 'file' },
-          { name: 'Service Account JSON String', value: 'json' },
-          { name: 'Individual Environment Variables', value: 'env' }
-        ]
-      }
+          { name: "Service Account File", value: "file" },
+          { name: "Service Account JSON String", value: "json" },
+          { name: "Individual Environment Variables", value: "env" },
+        ],
+      },
     ]);
 
     const commonAnswers = await inquirer.prompt([
       {
-        type: 'input',
-        name: 'projectId',
-        message: 'Google Cloud Project ID:',
-        validate: (value: string) => value.length > 0 || 'Project ID is required'
+        type: "input",
+        name: "projectId",
+        message: "Google Cloud Project ID:",
+        validate: (value: string) =>
+          value.length > 0 || "Project ID is required",
       },
       {
-        type: 'input',
-        name: 'location',
-        message: 'Vertex AI Location:',
-        default: 'us-east5'
+        type: "input",
+        name: "location",
+        message: "Vertex AI Location:",
+        default: "us-east5",
       },
       {
-        type: 'list',
-        name: 'model',
-        message: 'Default model:',
-        choices: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'],
-        default: 'gemini-1.5-pro'
-      }
+        type: "list",
+        name: "model",
+        message: "Default model:",
+        choices: ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"],
+        default: "gemini-1.5-pro",
+      },
     ]);
 
     let authConfig = {};
 
     switch (authMethod) {
-      case 'file':
+      case "file": {
         const fileAnswers = await inquirer.prompt([
           {
-            type: 'input',
-            name: 'credentials',
-            message: 'Path to service account JSON file:',
-            validate: (value: string) => fs.existsSync(value) || 'File does not exist'
-          }
+            type: "input",
+            name: "credentials",
+            message: "Path to service account JSON file:",
+            validate: (value: string) =>
+              fs.existsSync(value) || "File does not exist",
+          },
         ]);
         authConfig = { credentials: fileAnswers.credentials };
         break;
+      }
 
-      case 'json':
+      case "json": {
         const jsonAnswers = await inquirer.prompt([
           {
-            type: 'input',
-            name: 'serviceAccountKey',
-            message: 'Service account JSON string:',
+            type: "input",
+            name: "serviceAccountKey",
+            message: "Service account JSON string:",
             validate: (value: string) => {
               try {
                 JSON.parse(value);
                 return true;
               } catch {
-                return 'Invalid JSON';
+                return "Invalid JSON";
               }
-            }
-          }
+            },
+          },
         ]);
         authConfig = { serviceAccountKey: jsonAnswers.serviceAccountKey };
         break;
+      }
 
-      case 'env':
+      case "env": {
         const envAnswers = await inquirer.prompt([
           {
-            type: 'input',
-            name: 'clientEmail',
-            message: 'Service account email:',
-            validate: (value: string) => value.includes('@') || 'Invalid email format'
+            type: "input",
+            name: "clientEmail",
+            message: "Service account email:",
+            validate: (value: string) =>
+              value.includes("@") || "Invalid email format",
           },
           {
-            type: 'password',
-            name: 'privateKey',
-            message: 'Private key:'
-          }
+            type: "password",
+            name: "privateKey",
+            message: "Private key:",
+          },
         ]);
         authConfig = {
           clientEmail: envAnswers.clientEmail,
-          privateKey: envAnswers.privateKey
+          privateKey: envAnswers.privateKey,
         };
         break;
+      }
     }
 
     this.config.providers.vertex = {
       projectId: commonAnswers.projectId,
       location: commonAnswers.location,
       model: commonAnswers.model,
-      ...authConfig
+      ...authConfig,
     };
   }
 
@@ -431,22 +524,22 @@ export class ConfigManager {
   private async setupAnthropic(): Promise<void> {
     const answers = await inquirer.prompt([
       {
-        type: 'password',
-        name: 'apiKey',
-        message: 'Anthropic API Key:',
-        validate: (value: string) => value.length > 0 || 'API key is required'
+        type: "password",
+        name: "apiKey",
+        message: "Anthropic API Key:",
+        validate: (value: string) => value.length > 0 || "API key is required",
       },
       {
-        type: 'list',
-        name: 'model',
-        message: 'Default model:',
+        type: "list",
+        name: "model",
+        message: "Default model:",
         choices: [
-          'claude-3-5-sonnet-20241022',
-          'claude-3-5-haiku-20241022',
-          'claude-3-opus-20240229'
+          "claude-3-5-sonnet-20241022",
+          "claude-3-5-haiku-20241022",
+          "claude-3-opus-20240229",
         ],
-        default: 'claude-3-5-sonnet-20241022'
-      }
+        default: "claude-3-5-sonnet-20241022",
+      },
     ]);
 
     this.config.providers.anthropic = answers;
@@ -458,28 +551,29 @@ export class ConfigManager {
   private async setupAzure(): Promise<void> {
     const answers = await inquirer.prompt([
       {
-        type: 'password',
-        name: 'apiKey',
-        message: 'Azure OpenAI API Key:'
+        type: "password",
+        name: "apiKey",
+        message: "Azure OpenAI API Key:",
       },
       {
-        type: 'input',
-        name: 'endpoint',
-        message: 'Azure OpenAI Endpoint:',
-        validate: (value: string) => value.startsWith('https://') || 'Endpoint should start with https://'
+        type: "input",
+        name: "endpoint",
+        message: "Azure OpenAI Endpoint:",
+        validate: (value: string) =>
+          value.startsWith("https://") || "Endpoint should start with https://",
       },
       {
-        type: 'input',
-        name: 'deploymentId',
-        message: 'Deployment ID:'
+        type: "input",
+        name: "deploymentId",
+        message: "Deployment ID:",
       },
       {
-        type: 'list',
-        name: 'model',
-        message: 'Model:',
-        choices: ['gpt-4', 'gpt-4-turbo', 'gpt-35-turbo'],
-        default: 'gpt-4'
-      }
+        type: "list",
+        name: "model",
+        message: "Model:",
+        choices: ["gpt-4", "gpt-4-turbo", "gpt-35-turbo"],
+        default: "gpt-4",
+      },
     ]);
 
     this.config.providers.azure = answers;
@@ -491,26 +585,26 @@ export class ConfigManager {
   private async setupGoogleAI(): Promise<void> {
     const answers = await inquirer.prompt([
       {
-        type: 'password',
-        name: 'apiKey',
-        message: 'Google AI API Key:',
-        validate: (value: string) => value.length > 0 || 'API key is required'
+        type: "password",
+        name: "apiKey",
+        message: "Google AI API Key:",
+        validate: (value: string) => value.length > 0 || "API key is required",
       },
       {
-        type: 'list',
-        name: 'model',
-        message: 'Default model:',
+        type: "list",
+        name: "model",
+        message: "Default model:",
         choices: [
-          'gemini-1.5-pro-latest',
-          'gemini-2.0-flash-exp',
-          'gemini-1.5-flash-latest',
-          'gemini-1.0-pro'
+          "gemini-1.5-pro-latest",
+          "gemini-2.0-flash-exp",
+          "gemini-1.5-flash-latest",
+          "gemini-1.0-pro",
         ],
-        default: 'gemini-1.5-pro-latest'
-      }
+        default: "gemini-1.5-pro-latest",
+      },
     ]);
 
-    this.config.providers['google-ai'] = answers;
+    this.config.providers["google-ai"] = answers;
   }
 
   /**
@@ -519,19 +613,79 @@ export class ConfigManager {
   private async setupHuggingFace(): Promise<void> {
     const answers = await inquirer.prompt([
       {
-        type: 'password',
-        name: 'apiKey',
-        message: 'Hugging Face API Key:'
+        type: "password",
+        name: "apiKey",
+        message: "Hugging Face API Key:",
       },
       {
-        type: 'input',
-        name: 'model',
-        message: 'Model name:',
-        default: 'microsoft/DialoGPT-large'
-      }
+        type: "input",
+        name: "model",
+        message: "Model name:",
+        default: "microsoft/DialoGPT-large",
+      },
     ]);
 
     this.config.providers.huggingface = answers;
+  }
+
+  /**
+   * Ollama provider setup
+   */
+  private async setupOllama(): Promise<void> {
+    const answers = await inquirer.prompt([
+      {
+        type: "input",
+        name: "baseUrl",
+        message: "Ollama base URL:",
+        default: "http://localhost:11434",
+        validate: (value: string) =>
+          value.startsWith("http") ||
+          "URL should start with http:// or https://",
+      },
+      {
+        type: "input",
+        name: "model",
+        message: "Default model:",
+        default: "llama2",
+      },
+      {
+        type: "number",
+        name: "timeout",
+        message: "Request timeout (milliseconds):",
+        default: 60000,
+        validate: (value: number) => value > 0 || "Timeout must be positive",
+      },
+    ]);
+
+    this.config.providers.ollama = answers;
+  }
+
+  /**
+   * Mistral AI provider setup
+   */
+  private async setupMistral(): Promise<void> {
+    const answers = await inquirer.prompt([
+      {
+        type: "password",
+        name: "apiKey",
+        message: "Mistral AI API Key:",
+        validate: (value: string) => value.length > 0 || "API key is required",
+      },
+      {
+        type: "list",
+        name: "model",
+        message: "Default model:",
+        choices: [
+          "mistral-small",
+          "mistral-medium",
+          "mistral-large",
+          "mistral-tiny",
+        ],
+        default: "mistral-small",
+      },
+    ]);
+
+    this.config.providers.mistral = answers;
   }
 
   /**
@@ -553,26 +707,34 @@ export class ConfigManager {
    * Show current configuration
    */
   showConfig(): void {
-    console.log(chalk.blue('📋 Current NeuroLink Configuration\n'));
+    console.log(chalk.blue("📋 Current NeuroLink Configuration\n"));
 
-    console.log(chalk.cyan('General Settings:'));
-    console.log(`  Default Provider: ${chalk.white(this.config.defaultProvider)}`);
-    console.log(`  Output Format: ${chalk.white(this.config.preferences.outputFormat)}`);
-    console.log(`  Temperature: ${chalk.white(this.config.preferences.temperature)}`);
-    console.log(`  Max Tokens: ${chalk.white(this.config.preferences.maxTokens)}`);
+    console.log(chalk.cyan("General Settings:"));
+    console.log(
+      `  Default Provider: ${chalk.white(this.config.defaultProvider)}`,
+    );
+    console.log(
+      `  Output Format: ${chalk.white(this.config.preferences.outputFormat)}`,
+    );
+    console.log(
+      `  Temperature: ${chalk.white(this.config.preferences.temperature)}`,
+    );
+    console.log(
+      `  Max Tokens: ${chalk.white(this.config.preferences.maxTokens)}`,
+    );
 
-    console.log(chalk.cyan('\nConfigured Providers:'));
+    console.log(chalk.cyan("\nConfigured Providers:"));
 
     Object.entries(this.config.providers).forEach(([name, config]) => {
       if (config && Object.keys(config).length > 0) {
-        console.log(`  ${chalk.green('✅')} ${name.toUpperCase()}`);
-        if ('model' in config) {
+        console.log(`  ${chalk.green("✅")} ${name.toUpperCase()}`);
+        if ("model" in config) {
           console.log(`    Model: ${chalk.white(config.model)}`);
         }
       }
     });
 
-    console.log(chalk.cyan('\nConfiguration File:'));
+    console.log(chalk.cyan("\nConfiguration File:"));
     console.log(`  Location: ${chalk.white(this.configFile)}`);
   }
 
@@ -586,22 +748,26 @@ export class ConfigManager {
       ConfigSchema.parse(this.config);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        errors.push(...error.errors.map(e => `${e.path.join('.')}: ${e.message}`));
+        errors.push(
+          ...error.errors.map((e) => `${e.path.join(".")}: ${e.message}`),
+        );
       }
     }
 
     // Check for at least one configured provider
-    const hasProvider = Object.values(this.config.providers).some(provider =>
-      provider && Object.keys(provider).length > 0
+    const hasProvider = Object.values(this.config.providers).some(
+      (provider) => provider && Object.keys(provider).length > 0,
     );
 
     if (!hasProvider) {
-      errors.push('No providers configured. Run "neurolink config init" to set up providers.');
+      errors.push(
+        'No providers configured. Run "neurolink config init" to set up providers.',
+      );
     }
 
     return {
       valid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -611,7 +777,7 @@ export class ConfigManager {
   resetConfig(): void {
     this.config = ConfigSchema.parse({});
     this.saveConfig();
-    console.log(chalk.green('✅ Configuration reset to defaults'));
+    console.log(chalk.green("✅ Configuration reset to defaults"));
   }
 }
 

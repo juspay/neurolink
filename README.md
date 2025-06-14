@@ -1,12 +1,15 @@
 # 🧠 NeuroLink
 
-[![npm version](https://badge.fury.io/js/%40juspay%2Fneurolink.svg)](https://badge.fury.io/js/%40juspay%2Fneurolink)
-[![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![NPM Version](https://img.shields.io/npm/v/@juspay/neurolink)](https://www.npmjs.com/package/@juspay/neurolink)
+[![Downloads](https://img.shields.io/npm/dm/@juspay/neurolink)](https://www.npmjs.com/package/@juspay/neurolink)
+[![GitHub Stars](https://img.shields.io/github/stars/juspay/neurolink)](https://github.com/juspay/neurolink/stargazers)
+[![License](https://img.shields.io/npm/l/@juspay/neurolink)](https://github.com/juspay/neurolink/blob/main/LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](https://www.typescriptlang.org/)
+[![CI](https://github.com/juspay/neurolink/workflows/CI/badge.svg)](https://github.com/juspay/neurolink/actions)
 
-> Universal AI toolkit with 5+ provider support, automatic fallback, and both CLI + SDK interfaces. Production-ready with TypeScript support.
+> Universal AI toolkit with multiple provider support, automatic fallback, and both CLI + SDK interfaces. Production-ready with TypeScript support.
 
-**NeuroLink** unifies OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, and Azure OpenAI with intelligent fallback and streaming support. Available as both a **programmatic SDK** and **professional CLI tool**. Extracted from production use at Juspay.
+**NeuroLink** unifies OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure OpenAI, Hugging Face, Ollama, and Mistral AI with intelligent fallback and streaming support. Available as both a **programmatic SDK** and **professional CLI tool**. Extracted from production use at Juspay.
 
 ## 🚀 Quick Start
 
@@ -29,12 +32,12 @@ npm install @juspay/neurolink
 ### Basic Usage
 
 ```typescript
-import { createBestAIProvider } from '@juspay/neurolink';
+import { createBestAIProvider } from "@juspay/neurolink";
 
 // Auto-selects best available provider
 const provider = createBestAIProvider();
 const result = await provider.generateText({
-  prompt: "Write a haiku about programming"
+  prompt: "Write a haiku about programming",
 });
 
 console.log(result.text);
@@ -57,12 +60,15 @@ npx @juspay/neurolink status
 
 ## ✨ Key Features
 
-- 🔄 **5+ AI Providers** - OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure
+- 🔄 **9 AI Providers** - OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure, Hugging Face, Ollama, Mistral AI
 - ⚡ **Automatic Fallback** - Never fail when providers are down
 - 🖥️ **CLI + SDK** - Use from command line or integrate programmatically
 - 🛡️ **Production Ready** - TypeScript, error handling, extracted from production
 - 🔧 **MCP Integration** - Model Context Protocol support for extensibility
 - 🤖 **AI Analysis Tools** - Built-in optimization and workflow assistance
+- 🏠 **Local AI Support** - Run completely offline with Ollama
+- 🌍 **Open Source Models** - Access 100,000+ models via Hugging Face
+- 🇪🇺 **GDPR Compliance** - European data processing with Mistral AI
 
 ## 💻 Essential Examples
 
@@ -108,21 +114,25 @@ export async function POST(request: NextRequest) {
 **No installation required!** Experience NeuroLink through comprehensive visual documentation:
 
 ### 📱 Interactive Web Demo
+
 ```bash
 cd neurolink-demo && node server.js
 # Visit http://localhost:9876 for live demo
 ```
 
-- **Real AI Integration**: All 5 providers functional with live generation
+- **Real AI Integration**: All 9 providers functional with live generation
 - **Complete Use Cases**: Business, creative, and developer scenarios
 - **Performance Metrics**: Live provider analytics and response times
+- **Privacy Options**: Test local AI with Ollama
 
 ### 🖥️ CLI Demonstrations
+
 - **[CLI Help & Commands](./docs/visual-content/cli-videos/cli-01-cli-help.mp4)** - Complete command reference
 - **[Provider Status Check](./docs/visual-content/cli-videos/cli-02-provider-status.mp4)** - Connectivity verification
 - **[Text Generation](./docs/visual-content/cli-videos/cli-03-text-generation.mp4)** - Real AI content creation
 
 ### 🌐 Web Interface Videos
+
 - **[Business Use Cases](./neurolink-demo/videos/business-use-cases.mp4)** - Professional applications
 - **[Developer Tools](./neurolink-demo/videos/developer-tools.mp4)** - Code generation and APIs
 - **[Creative Tools](./neurolink-demo/videos/creative-tools.mp4)** - Content creation
@@ -132,43 +142,51 @@ cd neurolink-demo && node server.js
 ## 📚 Documentation
 
 ### Getting Started
+
 - **[🔧 Provider Setup](./docs/PROVIDER-CONFIGURATION.md)** - Complete environment configuration
 - **[🖥️ CLI Guide](./docs/CLI-GUIDE.md)** - All commands and options
 - **[🏗️ SDK Integration](./docs/FRAMEWORK-INTEGRATION.md)** - Next.js, SvelteKit, React
 - **[⚙️ Environment Variables](./docs/ENVIRONMENT-VARIABLES.md)** - Full configuration guide
 
 ### Advanced Features
+
 - **[🔄 MCP Foundation](./docs/MCP-FOUNDATION.md)** - Model Context Protocol architecture
 - **[🧠 AI Analysis Tools](./docs/AI-ANALYSIS-TOOLS.md)** - Usage optimization and benchmarking
 - **[🛠️ AI Workflow Tools](./docs/AI-WORKFLOW-TOOLS.md)** - Development lifecycle assistance
 - **[🎬 Visual Demos](./docs/VISUAL-DEMOS.md)** - Screenshots and videos
 
 ### Reference
+
 - **[📚 API Reference](./docs/API-REFERENCE.md)** - Complete TypeScript API
 - **[🔗 Framework Integration](./docs/FRAMEWORK-INTEGRATION.md)** - SvelteKit, Next.js, Express.js
 
 ## 🏗️ Supported Providers & Models
 
-| Provider | Models | Auth Method | Free Tier |
-|----------|--------|-------------|-----------|
-| **OpenAI** | GPT-4o, GPT-4o-mini | API Key | ❌ |
-| **Google AI Studio** | Gemini 1.5/2.0 Flash/Pro | API Key | ✅ |
-| **Amazon Bedrock** | Claude 3.5/3.7 Sonnet | AWS Credentials | ❌ |
-| **Google Vertex AI** | Gemini 2.5 Flash | Service Account | ❌ |
-| **Anthropic** | Claude 3.5 Sonnet | API Key | ❌ |
-| **Azure OpenAI** | GPT-4, GPT-3.5 | API Key + Endpoint | ❌ |
+| Provider             | Models                       | Auth Method        | Free Tier |
+| -------------------- | ---------------------------- | ------------------ | --------- |
+| **OpenAI**           | GPT-4o, GPT-4o-mini          | API Key            | ❌        |
+| **Google AI Studio** | Gemini 1.5/2.0 Flash/Pro     | API Key            | ✅        |
+| **Amazon Bedrock**   | Claude 3.5/3.7 Sonnet        | AWS Credentials    | ❌        |
+| **Google Vertex AI** | Gemini 2.5 Flash             | Service Account    | ❌        |
+| **Anthropic**        | Claude 3.5 Sonnet            | API Key            | ❌        |
+| **Azure OpenAI**     | GPT-4, GPT-3.5               | API Key + Endpoint | ❌        |
+| **Hugging Face** 🆕  | 100,000+ models              | API Key            | ✅        |
+| **Ollama** 🆕        | Llama 2, Code Llama, Mistral | None (Local)       | ✅        |
+| **Mistral AI** 🆕    | Tiny, Small, Medium, Large   | API Key            | ✅        |
 
 **✨ Auto-Selection**: NeuroLink automatically chooses the best available provider based on speed, reliability, and configuration.
 
 ## 🎯 Production Features
 
 ### Enterprise-Grade Reliability
+
 - **Automatic Failover**: Seamless provider switching on failures
 - **Error Recovery**: Comprehensive error handling and logging
 - **Performance Monitoring**: Built-in analytics and metrics
 - **Type Safety**: Full TypeScript support with IntelliSense
 
 ### AI Platform Capabilities
+
 - **MCP Foundation**: Universal AI development platform with 10+ specialized tools
 - **Analysis Tools**: Usage optimization, performance benchmarking, parameter tuning
 - **Workflow Tools**: Test generation, code refactoring, documentation, debugging
@@ -179,6 +197,7 @@ cd neurolink-demo && node server.js
 We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTING.md) for details.
 
 ### Development Setup
+
 ```bash
 git clone https://github.com/juspay/neurolink
 cd neurolink

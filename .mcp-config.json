@@ -3,17 +3,19 @@
     "filesystem": {
       "name": "filesystem",
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "/"
-      ],
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/"],
       "transport": "stdio"
     },
     "github": {
       "name": "github",
       "command": "npx @modelcontextprotocol/server-github",
       "args": [],
+      "transport": "stdio"
+    },
+    "postgres": {
+      "name": "postgres",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
       "transport": "stdio"
     }
   }

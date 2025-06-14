@@ -20,7 +20,11 @@
     "postgres": {
       "name": "postgres",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://user:pass@host:port/db"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://user:pass@host:port/db"
+      ],
       "transport": "stdio",
       "description": "PostgreSQL database operations"
     },

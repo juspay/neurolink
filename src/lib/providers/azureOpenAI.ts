@@ -5,28 +5,32 @@
  * Supports all OpenAI models with enhanced security and compliance.
  */
 
-import type { AIProvider, TextGenerationOptions, StreamTextOptions } from '../core/types.js';
-import { AIProviderName } from '../core/types.js';
-import { logger } from '../utils/logger.js';
+import type {
+  AIProvider,
+  TextGenerationOptions,
+  StreamTextOptions,
+} from "../core/types.js";
+import { AIProviderName } from "../core/types.js";
+import { logger } from "../utils/logger.js";
 
 // Azure OpenAI specific types
 interface AzureOpenAIMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
 interface AzureOpenAIResponse {
   id: string;
-  object: 'chat.completion';
+  object: "chat.completion";
   created: number;
   model: string;
   choices: Array<{
     index: number;
     message: {
-      role: 'assistant';
+      role: "assistant";
       content: string;
     };
-    finish_reason: 'stop' | 'length' | 'content_filter';
+    finish_reason: "stop" | "length" | "content_filter";
   }>;
   usage: {
     prompt_tokens: number;
@@ -37,16 +41,16 @@ interface AzureOpenAIResponse {
 
 interface AzureOpenAIStreamChunk {
   id: string;
-  object: 'chat.completion.chunk';
+  object: "chat.completion.chunk";
   created: number;
   model: string;
   choices: Array<{
     index: number;
     delta: {
-      role?: 'assistant';
+      role?: "assistant";
       content?: string;
     };
-    finish_reason?: 'stop' | 'length' | 'content_filter';
+    finish_reason?: "stop" | "length" | "content_filter";
   }>;
   usage?: {
     prompt_tokens: number;
@@ -74,15 +78,18 @@ export class AzureOpenAIProvider implements AIProvider {
     this.apiKey = this.getApiKey();
     this.endpoint = this.getEndpoint();
     this.deploymentId = this.getDeploymentId();
-    this.apiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-02-15-preview';
+    this.apiVersion =
+      process.env.AZURE_OPENAI_API_VERSION || "2024-02-15-preview";
 
-    logger.debug(`[AzureOpenAIProvider] Initialized with endpoint: ${this.endpoint}, deployment: ${this.deploymentId}`);
+    logger.debug(
+      `[AzureOpenAIProvider] Initialized with endpoint: ${this.endpoint}, deployment: ${this.deploymentId}`,
+    );
   }
 
   private getApiKey(): string {
     const apiKey = process.env.AZURE_OPENAI_API_KEY;
     if (!apiKey) {
-      throw new Error('AZURE_OPENAI_API_KEY environment variable is required');
+      throw new Error("AZURE_OPENAI_API_KEY environment variable is required");
     }
     return apiKey;
   }
@@ -90,15 +97,17 @@ export class AzureOpenAIProvider implements AIProvider {
   private getEndpoint(): string {
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
     if (!endpoint) {
-      throw new Error('AZURE_OPENAI_ENDPOINT environment variable is required');
+      throw new Error("AZURE_OPENAI_ENDPOINT environment variable is required");
     }
-    return endpoint.replace(/\/$/, ''); // Remove trailing slash
+    return endpoint.replace(/\/$/, ""); // Remove trailing slash
   }
 
   private getDeploymentId(): string {
     const deploymentId = process.env.AZURE_OPENAI_DEPLOYMENT_ID;
     if (!deploymentId) {
-      throw new Error('AZURE_OPENAI_DEPLOYMENT_ID environment variable is required');
+      throw new Error(
+        "AZURE_OPENAI_DEPLOYMENT_ID environment variable is required",
+      );
     }
     return deploymentId;
   }
@@ -107,76 +116,95 @@ export class AzureOpenAIProvider implements AIProvider {
     return `${this.endpoint}/openai/deployments/${this.deploymentId}/chat/completions?api-version=${this.apiVersion}`;
   }
 
-  private async makeRequest(body: AzureOpenAIRequestBody, stream: boolean = false): Promise<Response> {
+  private async makeRequest(
+    body: AzureOpenAIRequestBody,
+    stream: boolean = false,
+  ): Promise<Response> {
     const url = this.getApiUrl(stream);
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'api-key': this.apiKey
+      "Content-Type": "application/json",
+      "api-key": this.apiKey,
     };
 
-    logger.debug(`[AzureOpenAIProvider.makeRequest] ${stream ? 'Streaming' : 'Non-streaming'} request to deployment: ${this.deploymentId}`);
-    logger.debug(`[AzureOpenAIProvider.makeRequest] Max tokens: ${body.max_tokens || 'default'}, Temperature: ${body.temperature || 'default'}`);
+    logger.debug(
+      `[AzureOpenAIProvider.makeRequest] ${stream ? "Streaming" : "Non-streaming"} request to deployment: ${this.deploymentId}`,
+    );
+    logger.debug(
+      `[AzureOpenAIProvider.makeRequest] Max tokens: ${body.max_tokens || "default"}, Temperature: ${body.temperature || "default"}`,
+    );
 
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers,
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error(`[AzureOpenAIProvider.makeRequest] API error ${response.status}: ${errorText}`);
-      throw new Error(`Azure OpenAI API error ${response.status}: ${errorText}`);
+      logger.error(
+        `[AzureOpenAIProvider.makeRequest] API error ${response.status}: ${errorText}`,
+      );
+      throw new Error(
+        `Azure OpenAI API error ${response.status}: ${errorText}`,
+      );
     }
 
     return response;
   }
 
-  async generateText(optionsOrPrompt: TextGenerationOptions | string, schema?: any): Promise<any> {
-    logger.debug('[AzureOpenAIProvider.generateText] Starting text generation');
+  async generateText(
+    optionsOrPrompt: TextGenerationOptions | string,
+    schema?: any,
+  ): Promise<any> {
+    logger.debug("[AzureOpenAIProvider.generateText] Starting text generation");
 
     // Parse parameters with backward compatibility
-    const options = typeof optionsOrPrompt === 'string'
-      ? { prompt: optionsOrPrompt }
-      : optionsOrPrompt;
+    const options =
+      typeof optionsOrPrompt === "string"
+        ? { prompt: optionsOrPrompt }
+        : optionsOrPrompt;
 
     const {
       prompt,
       temperature = 0.7,
       maxTokens = 500,
-      systemPrompt = 'You are a helpful AI assistant.'
+      systemPrompt = "You are a helpful AI assistant.",
     } = options;
 
-    logger.debug(`[AzureOpenAIProvider.generateText] Prompt: "${prompt.substring(0, 100)}...", Temperature: ${temperature}, Max tokens: ${maxTokens}`);
+    logger.debug(
+      `[AzureOpenAIProvider.generateText] Prompt: "${prompt.substring(0, 100)}...", Temperature: ${temperature}, Max tokens: ${maxTokens}`,
+    );
 
     const messages: AzureOpenAIMessage[] = [];
 
     if (systemPrompt) {
       messages.push({
-        role: 'system',
-        content: systemPrompt
+        role: "system",
+        content: systemPrompt,
       });
     }
 
     messages.push({
-      role: 'user',
-      content: prompt
+      role: "user",
+      content: prompt,
     });
 
     const requestBody: AzureOpenAIRequestBody = {
       messages,
       temperature,
-      max_tokens: maxTokens
+      max_tokens: maxTokens,
     };
 
     try {
       const response = await this.makeRequest(requestBody);
       const data: AzureOpenAIResponse = await response.json();
 
-      logger.debug(`[AzureOpenAIProvider.generateText] Success. Generated ${data.usage.completion_tokens} tokens`);
+      logger.debug(
+        `[AzureOpenAIProvider.generateText] Success. Generated ${data.usage.completion_tokens} tokens`,
+      );
 
-      const content = data.choices[0]?.message?.content || '';
+      const content = data.choices[0]?.message?.content || "";
 
       return {
         content,
@@ -185,93 +213,107 @@ export class AzureOpenAIProvider implements AIProvider {
         usage: {
           promptTokens: data.usage.prompt_tokens,
           completionTokens: data.usage.completion_tokens,
-          totalTokens: data.usage.total_tokens
+          totalTokens: data.usage.total_tokens,
         },
-        finishReason: data.choices[0]?.finish_reason || 'stop'
+        finishReason: data.choices[0]?.finish_reason || "stop",
       };
     } catch (error) {
-      logger.error('[AzureOpenAIProvider.generateText] Error:', error);
+      logger.error("[AzureOpenAIProvider.generateText] Error:", error);
       throw error;
     }
   }
 
-  async streamText(optionsOrPrompt: StreamTextOptions | string, schema?: any): Promise<any> {
-    logger.debug('[AzureOpenAIProvider.streamText] Starting text streaming');
+  async streamText(
+    optionsOrPrompt: StreamTextOptions | string,
+    schema?: any,
+  ): Promise<any> {
+    logger.debug("[AzureOpenAIProvider.streamText] Starting text streaming");
 
     // Parse parameters with backward compatibility
-    const options = typeof optionsOrPrompt === 'string'
-      ? { prompt: optionsOrPrompt }
-      : optionsOrPrompt;
+    const options =
+      typeof optionsOrPrompt === "string"
+        ? { prompt: optionsOrPrompt }
+        : optionsOrPrompt;
 
     const {
       prompt,
       temperature = 0.7,
       maxTokens = 500,
-      systemPrompt = 'You are a helpful AI assistant.'
+      systemPrompt = "You are a helpful AI assistant.",
     } = options;
 
-    logger.debug(`[AzureOpenAIProvider.streamText] Streaming prompt: "${prompt.substring(0, 100)}..."`);
+    logger.debug(
+      `[AzureOpenAIProvider.streamText] Streaming prompt: "${prompt.substring(0, 100)}..."`,
+    );
 
     const messages: AzureOpenAIMessage[] = [];
 
     if (systemPrompt) {
       messages.push({
-        role: 'system',
-        content: systemPrompt
+        role: "system",
+        content: systemPrompt,
       });
     }
 
     messages.push({
-      role: 'user',
-      content: prompt
+      role: "user",
+      content: prompt,
     });
 
     const requestBody: AzureOpenAIRequestBody = {
       messages,
       temperature,
       max_tokens: maxTokens,
-      stream: true
+      stream: true,
     };
 
     try {
       const response = await this.makeRequest(requestBody, true);
 
       if (!response.body) {
-        throw new Error('No response body received');
+        throw new Error("No response body received");
       }
 
       // Return a StreamTextResult-like object
       return {
         textStream: this.createAsyncIterable(response.body),
-        text: '',
+        text: "",
         usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-        finishReason: 'stop'
+        finishReason: "stop",
       };
     } catch (error) {
-      logger.error('[AzureOpenAIProvider.streamText] Error:', error);
+      logger.error("[AzureOpenAIProvider.streamText] Error:", error);
       throw error;
     }
   }
 
-  private async *createAsyncIterable(body: ReadableStream<Uint8Array>): AsyncGenerator<string, void, unknown> {
+  private async *createAsyncIterable(
+    body: ReadableStream<Uint8Array>,
+  ): AsyncGenerator<string, void, unknown> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '';
+    let buffer = "";
 
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.trim() === '') continue;
-          if (line.startsWith('data: ')) {
+          if (line.trim() === "") {
+            continue;
+          }
+          if (line.startsWith("data: ")) {
             const data = line.slice(6);
-            if (data.trim() === '[DONE]') continue;
+            if (data.trim() === "[DONE]") {
+              continue;
+            }
 
             try {
               const chunk: AzureOpenAIStreamChunk = JSON.parse(data);
@@ -281,7 +323,10 @@ export class AzureOpenAIProvider implements AIProvider {
                 yield chunk.choices[0].delta.content;
               }
             } catch (parseError) {
-              logger.warn('[AzureOpenAIProvider.createAsyncIterable] Failed to parse chunk:', parseError);
+              logger.warn(
+                "[AzureOpenAIProvider.createAsyncIterable] Failed to parse chunk:",
+                parseError,
+              );
               continue;
             }
           }
@@ -292,69 +337,82 @@ export class AzureOpenAIProvider implements AIProvider {
     }
   }
 
-  async *generateTextStream(optionsOrPrompt: StreamTextOptions | string): AsyncGenerator<any, void, unknown> {
-    logger.debug('[AzureOpenAIProvider.generateTextStream] Starting text streaming');
+  async *generateTextStream(
+    optionsOrPrompt: StreamTextOptions | string,
+  ): AsyncGenerator<any, void, unknown> {
+    logger.debug(
+      "[AzureOpenAIProvider.generateTextStream] Starting text streaming",
+    );
 
     // Parse parameters with backward compatibility
-    const options = typeof optionsOrPrompt === 'string'
-      ? { prompt: optionsOrPrompt }
-      : optionsOrPrompt;
+    const options =
+      typeof optionsOrPrompt === "string"
+        ? { prompt: optionsOrPrompt }
+        : optionsOrPrompt;
 
     const {
       prompt,
       temperature = 0.7,
       maxTokens = 500,
-      systemPrompt = 'You are a helpful AI assistant.'
+      systemPrompt = "You are a helpful AI assistant.",
     } = options;
 
-    logger.debug(`[AzureOpenAIProvider.generateTextStream] Streaming prompt: "${prompt.substring(0, 100)}..."`);
+    logger.debug(
+      `[AzureOpenAIProvider.generateTextStream] Streaming prompt: "${prompt.substring(0, 100)}..."`,
+    );
 
     const messages: AzureOpenAIMessage[] = [];
 
     if (systemPrompt) {
       messages.push({
-        role: 'system',
-        content: systemPrompt
+        role: "system",
+        content: systemPrompt,
       });
     }
 
     messages.push({
-      role: 'user',
-      content: prompt
+      role: "user",
+      content: prompt,
     });
 
     const requestBody: AzureOpenAIRequestBody = {
       messages,
       temperature,
       max_tokens: maxTokens,
-      stream: true
+      stream: true,
     };
 
     try {
       const response = await this.makeRequest(requestBody, true);
 
       if (!response.body) {
-        throw new Error('No response body received');
+        throw new Error("No response body received");
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = '';
+      let buffer = "";
 
       try {
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            break;
+          }
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
 
           for (const line of lines) {
-            if (line.trim() === '') continue;
-            if (line.startsWith('data: ')) {
+            if (line.trim() === "") {
+              continue;
+            }
+            if (line.startsWith("data: ")) {
               const data = line.slice(6);
-              if (data.trim() === '[DONE]') continue;
+              if (data.trim() === "[DONE]") {
+                continue;
+              }
 
               try {
                 const chunk: AzureOpenAIStreamChunk = JSON.parse(data);
@@ -364,11 +422,14 @@ export class AzureOpenAIProvider implements AIProvider {
                   yield {
                     content: chunk.choices[0].delta.content,
                     provider: this.name,
-                    model: chunk.model || this.deploymentId
+                    model: chunk.model || this.deploymentId,
                   };
                 }
               } catch (parseError) {
-                logger.warn('[AzureOpenAIProvider.generateTextStream] Failed to parse chunk:', parseError);
+                logger.warn(
+                  "[AzureOpenAIProvider.generateTextStream] Failed to parse chunk:",
+                  parseError,
+                );
                 continue;
               }
             }
@@ -378,39 +439,52 @@ export class AzureOpenAIProvider implements AIProvider {
         reader.releaseLock();
       }
 
-      logger.debug('[AzureOpenAIProvider.generateTextStream] Streaming completed');
+      logger.debug(
+        "[AzureOpenAIProvider.generateTextStream] Streaming completed",
+      );
     } catch (error) {
-      logger.error('[AzureOpenAIProvider.generateTextStream] Error:', error);
+      logger.error("[AzureOpenAIProvider.generateTextStream] Error:", error);
       throw error;
     }
   }
 
-  async testConnection(): Promise<{ success: boolean; error?: string; responseTime?: number }> {
-    logger.debug('[AzureOpenAIProvider.testConnection] Testing connection to Azure OpenAI');
+  async testConnection(): Promise<{
+    success: boolean;
+    error?: string;
+    responseTime?: number;
+  }> {
+    logger.debug(
+      "[AzureOpenAIProvider.testConnection] Testing connection to Azure OpenAI",
+    );
 
     const startTime = Date.now();
 
     try {
       await this.generateText({
-        prompt: 'Hello',
-        maxTokens: 5
+        prompt: "Hello",
+        maxTokens: 5,
       });
 
       const responseTime = Date.now() - startTime;
-      logger.debug(`[AzureOpenAIProvider.testConnection] Connection test successful (${responseTime}ms)`);
+      logger.debug(
+        `[AzureOpenAIProvider.testConnection] Connection test successful (${responseTime}ms)`,
+      );
 
       return {
         success: true,
-        responseTime
+        responseTime,
       };
     } catch (error) {
       const responseTime = Date.now() - startTime;
-      logger.error(`[AzureOpenAIProvider.testConnection] Connection test failed (${responseTime}ms):`, error);
+      logger.error(
+        `[AzureOpenAIProvider.testConnection] Connection test failed (${responseTime}ms):`,
+        error,
+      );
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        responseTime
+        error: error instanceof Error ? error.message : "Unknown error",
+        responseTime,
       };
     }
   }
@@ -427,20 +501,24 @@ export class AzureOpenAIProvider implements AIProvider {
   }
 
   getRequiredConfig(): string[] {
-    return ['AZURE_OPENAI_API_KEY', 'AZURE_OPENAI_ENDPOINT', 'AZURE_OPENAI_DEPLOYMENT_ID'];
+    return [
+      "AZURE_OPENAI_API_KEY",
+      "AZURE_OPENAI_ENDPOINT",
+      "AZURE_OPENAI_DEPLOYMENT_ID",
+    ];
   }
 
   getOptionalConfig(): string[] {
-    return ['AZURE_OPENAI_API_VERSION'];
+    return ["AZURE_OPENAI_API_VERSION"];
   }
 
   getModels(): string[] {
     return [
-      'gpt-4',
-      'gpt-4-turbo',
-      'gpt-4-32k',
-      'gpt-35-turbo',
-      'gpt-35-turbo-16k'
+      "gpt-4",
+      "gpt-4-turbo",
+      "gpt-4-32k",
+      "gpt-35-turbo",
+      "gpt-35-turbo-16k",
     ];
   }
 
@@ -454,14 +532,14 @@ export class AzureOpenAIProvider implements AIProvider {
 
   getCapabilities(): string[] {
     return [
-      'text-generation',
-      'streaming',
-      'conversation',
-      'system-prompts',
-      'json-mode',
-      'function-calling',
-      'enterprise-security',
-      'content-filtering'
+      "text-generation",
+      "streaming",
+      "conversation",
+      "system-prompts",
+      "json-mode",
+      "function-calling",
+      "enterprise-security",
+      "content-filtering",
     ];
   }
 }

@@ -1,15 +1,15 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { createAIProvider, getBestProvider } from '@juspay/neurolink';
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import { createAIProvider, getBestProvider } from "@juspay/neurolink";
 import {
   businessEndpoints,
   creativeEndpoints,
   developerEndpoints,
   advancedEndpoints,
   analyticsEndpoints,
-  aiWorkflowEndpoints
-} from './enhanced-endpoints.js';
+  aiWorkflowEndpoints,
+} from "./enhanced-endpoints.js";
 
 // Load environment variables
 dotenv.config();
@@ -19,8 +19,8 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static('public'));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.static("public"));
 
 // In-memory storage for demo purposes
 const conversationHistory = new Map();
@@ -29,26 +29,29 @@ const usageStats = {
   requests: 0,
   providers: {},
   errors: 0,
-  totalTokens: 0
+  totalTokens: 0,
 };
 
 // Initialize predefined templates
-templateCache.set('blog-outline', {
-  name: 'Blog Post Outline',
-  template: 'Create a comprehensive blog post outline about {{topic}} targeting {{audience}}. Include introduction, main points, and conclusion.',
-  variables: ['topic', 'audience']
+templateCache.set("blog-outline", {
+  name: "Blog Post Outline",
+  template:
+    "Create a comprehensive blog post outline about {{topic}} targeting {{audience}}. Include introduction, main points, and conclusion.",
+  variables: ["topic", "audience"],
 });
 
-templateCache.set('product-description', {
-  name: 'Product Description',
-  template: 'Write a compelling product description for {{product_name}} that costs {{price}} and is designed for {{target_market}}. Highlight key features: {{features}}.',
-  variables: ['product_name', 'price', 'target_market', 'features']
+templateCache.set("product-description", {
+  name: "Product Description",
+  template:
+    "Write a compelling product description for {{product_name}} that costs {{price}} and is designed for {{target_market}}. Highlight key features: {{features}}.",
+  variables: ["product_name", "price", "target_market", "features"],
 });
 
-templateCache.set('meeting-agenda', {
-  name: 'Meeting Agenda',
-  template: 'Create a detailed meeting agenda for {{meeting_type}} scheduled for {{duration}} minutes. Topics to cover: {{topics}}. Expected attendees: {{attendees}}.',
-  variables: ['meeting_type', 'duration', 'topics', 'attendees']
+templateCache.set("meeting-agenda", {
+  name: "Meeting Agenda",
+  template:
+    "Create a detailed meeting agenda for {{meeting_type}} scheduled for {{duration}} minutes. Topics to cover: {{topics}}. Expected attendees: {{attendees}}.",
+  variables: ["meeting_type", "duration", "topics", "attendees"],
 });
 
 // Helper function to log requests and update stats
@@ -63,32 +66,41 @@ app.use(logRequest);
 // Helper functions
 function getModelForProvider(provider) {
   switch (provider) {
-    case 'openai':
-      return process.env.OPENAI_MODEL || 'gpt-4';
-    case 'bedrock':
-      return process.env.BEDROCK_MODEL || 'arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0';
-    case 'vertex':
-      return process.env.VERTEX_MODEL || 'gemini-1.5-pro';
+    case "openai":
+      return process.env.OPENAI_MODEL || "gpt-4";
+    case "bedrock":
+      return (
+        process.env.BEDROCK_MODEL ||
+        "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+      );
+    case "vertex":
+      return process.env.VERTEX_MODEL || "gemini-1.5-pro";
     default:
-      return 'gpt-4';
+      return "gpt-4";
   }
 }
 
 function isProviderConfigured(provider) {
   switch (provider) {
-    case 'openai':
+    case "openai":
       return !!process.env.OPENAI_API_KEY;
-    case 'bedrock':
-      return !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
-    case 'vertex':
-      return !!(process.env.GOOGLE_VERTEX_PROJECT || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_AUTH_CLIENT_EMAIL);
+    case "bedrock":
+      return !!(
+        process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
+      );
+    case "vertex":
+      return !!(
+        process.env.GOOGLE_VERTEX_PROJECT ||
+        process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+        process.env.GOOGLE_AUTH_CLIENT_EMAIL
+      );
     default:
       return false;
   }
 }
 
 // Enhanced demo page with complete frontend
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -834,26 +846,28 @@ analyticsEndpoints(app, usageStats);
 aiWorkflowEndpoints(app); // Phase 1.2 AI Workflow Tools
 
 // Core API endpoints
-app.post('/api/generate', async (req, res) => {
+app.post("/api/generate", async (req, res) => {
   try {
     const { provider, prompt } = req.body;
-    const selectedProvider = provider === 'auto' ? await getBestProvider() : provider;
+    const selectedProvider =
+      provider === "auto" ? await getBestProvider() : provider;
     const aiProvider = await createAIProvider(selectedProvider);
 
     const result = await aiProvider.generateText({
       prompt,
       maxTokens: 500,
-      temperature: 0.7
+      temperature: 0.7,
     });
 
     usageStats.totalTokens += result.usage?.totalTokens || 0;
-    usageStats.providers[selectedProvider] = (usageStats.providers[selectedProvider] || 0) + 1;
+    usageStats.providers[selectedProvider] =
+      (usageStats.providers[selectedProvider] || 0) + 1;
 
     res.json({
       success: true,
       content: result.text,
       provider: selectedProvider,
-      usage: result.usage
+      usage: result.usage,
     });
   } catch (error) {
     usageStats.errors++;
@@ -861,21 +875,24 @@ app.post('/api/generate', async (req, res) => {
   }
 });
 
-app.post('/api/schema', async (req, res) => {
+app.post("/api/schema", async (req, res) => {
   try {
     const { type } = req.body;
     const provider = await createAIProvider(await getBestProvider());
 
     const schemas = {
-      'user-profile': 'Generate a realistic user profile with name, age, email, occupation, and interests.',
-      'product-review': 'Generate a product review with rating, title, pros, cons, and detailed feedback.',
-      'meeting-notes': 'Generate meeting notes with agenda, attendees, key decisions, and action items.'
+      "user-profile":
+        "Generate a realistic user profile with name, age, email, occupation, and interests.",
+      "product-review":
+        "Generate a product review with rating, title, pros, cons, and detailed feedback.",
+      "meeting-notes":
+        "Generate meeting notes with agenda, attendees, key decisions, and action items.",
     };
 
     const result = await provider.generateText({
-      prompt: schemas[type] + ' Return as valid JSON.',
+      prompt: schemas[type] + " Return as valid JSON.",
       maxTokens: 300,
-      temperature: 0.5
+      temperature: 0.5,
     });
 
     usageStats.totalTokens += result.usage?.totalTokens || 0;
@@ -883,7 +900,7 @@ app.post('/api/schema', async (req, res) => {
     res.json({
       success: true,
       data: JSON.parse(result.text),
-      usage: result.usage
+      usage: result.usage,
     });
   } catch (error) {
     usageStats.errors++;
@@ -891,9 +908,9 @@ app.post('/api/schema', async (req, res) => {
   }
 });
 
-app.post('/api/benchmark', async (req, res) => {
+app.post("/api/benchmark", async (req, res) => {
   try {
-    const providers = ['openai', 'bedrock', 'vertex'];
+    const providers = ["openai", "bedrock", "vertex"];
     const testPrompt = "Explain AI in one sentence.";
     const results = {};
 
@@ -905,25 +922,25 @@ app.post('/api/benchmark', async (req, res) => {
           await provider.generateText({
             prompt: testPrompt,
             maxTokens: 50,
-            temperature: 0.5
+            temperature: 0.5,
           });
           const endTime = Date.now();
 
           results[providerName] = {
             responseTime: endTime - startTime,
-            status: 'available',
-            model: getModelForProvider(providerName)
+            status: "available",
+            model: getModelForProvider(providerName),
           };
         } catch (error) {
           results[providerName] = {
-            status: 'error',
-            error: error.message
+            status: "error",
+            error: error.message,
           };
         }
       } else {
         results[providerName] = {
-          status: 'not_configured',
-          message: 'Provider credentials not found'
+          status: "not_configured",
+          message: "Provider credentials not found",
         };
       }
     }
@@ -931,7 +948,7 @@ app.post('/api/benchmark', async (req, res) => {
     res.json({
       success: true,
       results,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -940,21 +957,32 @@ app.post('/api/benchmark', async (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log('🚀 NeuroLink Demo Server started successfully!');
+  console.log("🚀 NeuroLink Demo Server started successfully!");
   console.log(`📍 Server running at: http://localhost:${PORT}`);
-  console.log('🎯 Features available:');
-  console.log('   • Basic AI text generation');
-  console.log('   • Business use cases (email, analysis, summarization)');
-  console.log('   • Creative tools (writing, translation, ideas)');
-  console.log('   • Developer tools (code generation, API docs, debugging)');
-  console.log('   • Advanced features (templates, batch processing)');
-  console.log('   • AI workflow tools (test cases, refactoring, documentation, AI debugging)');
-  console.log('   • Monitoring and analytics');
-  console.log('');
-  console.log('🔧 Provider status:');
-  console.log('   • OpenAI:', isProviderConfigured('openai') ? '✅ Configured' : '❌ Not configured');
-  console.log('   • Bedrock:', isProviderConfigured('bedrock') ? '✅ Configured' : '❌ Not configured');
-  console.log('   • Vertex:', isProviderConfigured('vertex') ? '✅ Configured' : '❌ Not configured');
-  console.log('');
-  console.log('🌟 Open http://localhost:' + PORT + ' to start exploring!');
+  console.log("🎯 Features available:");
+  console.log("   • Basic AI text generation");
+  console.log("   • Business use cases (email, analysis, summarization)");
+  console.log("   • Creative tools (writing, translation, ideas)");
+  console.log("   • Developer tools (code generation, API docs, debugging)");
+  console.log("   • Advanced features (templates, batch processing)");
+  console.log(
+    "   • AI workflow tools (test cases, refactoring, documentation, AI debugging)",
+  );
+  console.log("   • Monitoring and analytics");
+  console.log("");
+  console.log("🔧 Provider status:");
+  console.log(
+    "   • OpenAI:",
+    isProviderConfigured("openai") ? "✅ Configured" : "❌ Not configured",
+  );
+  console.log(
+    "   • Bedrock:",
+    isProviderConfigured("bedrock") ? "✅ Configured" : "❌ Not configured",
+  );
+  console.log(
+    "   • Vertex:",
+    isProviderConfigured("vertex") ? "✅ Configured" : "❌ Not configured",
+  );
+  console.log("");
+  console.log("🌟 Open http://localhost:" + PORT + " to start exploring!");
 });

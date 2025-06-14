@@ -7,22 +7,24 @@
  * @returns The best provider name to use
  */
 export function getBestProvider(requestedProvider) {
-    // If a specific provider is requested, return it
-    if (requestedProvider) {
-        return requestedProvider;
+  // If a specific provider is requested, return it
+  if (requestedProvider) {
+    return requestedProvider;
+  }
+  // Default fallback order based on environment variables - OpenAI first since it's most reliable
+  const providers = ["openai", "vertex", "bedrock"];
+  // Check which providers have their required environment variables
+  for (const provider of providers) {
+    if (isProviderConfigured(provider)) {
+      console.log(`[getBestProvider] Selected provider: ${provider}`);
+      return provider;
     }
-    // Default fallback order based on environment variables - OpenAI first since it's most reliable
-    const providers = ['openai', 'vertex', 'bedrock'];
-    // Check which providers have their required environment variables
-    for (const provider of providers) {
-        if (isProviderConfigured(provider)) {
-            console.log(`[getBestProvider] Selected provider: ${provider}`);
-            return provider;
-        }
-    }
-    // Default to bedrock if nothing is configured
-    console.warn('[getBestProvider] No providers configured, defaulting to bedrock');
-    return 'bedrock';
+  }
+  // Default to bedrock if nothing is configured
+  console.warn(
+    "[getBestProvider] No providers configured, defaulting to bedrock",
+  );
+  return "bedrock";
 }
 /**
  * Check if a provider has the minimum required configuration
@@ -30,28 +32,33 @@ export function getBestProvider(requestedProvider) {
  * @returns True if the provider appears to be configured
  */
 function isProviderConfigured(provider) {
-    switch (provider.toLowerCase()) {
-        case 'bedrock':
-        case 'amazon':
-        case 'aws':
-            return !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
-        case 'vertex':
-        case 'google':
-        case 'gemini':
-            return !!(process.env.GOOGLE_VERTEX_PROJECT || process.env.GOOGLE_APPLICATION_CREDENTIALS);
-        case 'openai':
-        case 'gpt':
-            return !!process.env.OPENAI_API_KEY;
-        default:
-            return false;
-    }
+  switch (provider.toLowerCase()) {
+    case "bedrock":
+    case "amazon":
+    case "aws":
+      return !!(
+        process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
+      );
+    case "vertex":
+    case "google":
+    case "gemini":
+      return !!(
+        process.env.GOOGLE_VERTEX_PROJECT ||
+        process.env.GOOGLE_APPLICATION_CREDENTIALS
+      );
+    case "openai":
+    case "gpt":
+      return !!process.env.OPENAI_API_KEY;
+    default:
+      return false;
+  }
 }
 /**
  * Get available provider names
  * @returns Array of available provider names
  */
 export function getAvailableProviders() {
-    return ['bedrock', 'vertex', 'openai'];
+  return ["bedrock", "vertex", "openai"];
 }
 /**
  * Validate provider name
@@ -59,5 +66,5 @@ export function getAvailableProviders() {
  * @returns True if provider name is valid
  */
 export function isValidProvider(provider) {
-    return getAvailableProviders().includes(provider.toLowerCase());
+  return getAvailableProviders().includes(provider.toLowerCase());
 }

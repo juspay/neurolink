@@ -1,0 +1,169 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Release type (patch, minor, major)"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+  push:
+    branches:
+      - release
+    paths:
+      - "package.json"
+      - "CHANGELOG.md"
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "pnpm"
+          registry-url: https://registry.npmjs.org/
+
+      - name: Install dependencies
+        run: pnpm i
+
+      - name: Build package
+        run: pnpm run build
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          registry-url: "https://registry.npmjs.org"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm i
+
+      - name: Build package
+        run: pnpm run build
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Version bump (manual trigger)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          npm version ${{ github.event.inputs.release_type }} --no-git-tag-version
+          echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+
+      - name: Get version from package.json
+        if: github.event_name != 'workflow_dispatch'
+        run: echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+
+      - name: Create changelog entry
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "## [$NEW_VERSION] - $(date +'%Y-%m-%d')" > temp_changelog.md
+          echo "" >> temp_changelog.md
+          echo "### Added" >> temp_changelog.md
+          echo "- New features and improvements" >> temp_changelog.md
+          echo "" >> temp_changelog.md
+          echo "### Fixed" >> temp_changelog.md
+          echo "- Bug fixes and optimizations" >> temp_changelog.md
+          echo "" >> temp_changelog.md
+          cat CHANGELOG.md >> temp_changelog.md
+          mv temp_changelog.md CHANGELOG.md
+
+      - name: Commit version changes
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git add package.json CHANGELOG.md
+          git commit -m "chore: release v$NEW_VERSION"
+          git push origin release
+
+      - name: Create Git tag
+        run: |
+          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+
+      - name: Extract release notes
+        run: |
+          # Extract release notes between first two version headers
+          awk '/^## \[/{if(++count==2) exit} count==1' CHANGELOG.md > release_notes.md
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.NEW_VERSION }}
+          release_name: Release v${{ env.NEW_VERSION }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+
+      - name: Publish to NPM
+        run: pnpm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Setup PNPM for GitHub Package Registry
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js for GitHub Package Registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          registry-url: "https://npm.pkg.github.com"
+          cache: "pnpm"
+
+      - name: Publish to GitHub Package Registry
+        run: pnpm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    needs: release
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Success notification
+        run: |
+          echo "✅ Release v${{ env.NEW_VERSION }} published successfully!"
+          echo "📦 NPM: https://www.npmjs.com/package/@juspay/neurolink"
+          echo "🐙 GitHub: https://github.com/juspay/neurolink/releases/tag/v${{ env.NEW_VERSION }}"

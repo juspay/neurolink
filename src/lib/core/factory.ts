@@ -1,9 +1,23 @@
-import { GoogleVertexAI, AmazonBedrock, OpenAI, AnthropicProvider, AzureOpenAIProvider, GoogleAIStudio } from '../providers/index.js';
-import { getBestProvider } from '../utils/providerUtils.js';
-import { logger } from '../utils/logger.js';
-import type { AIProvider, AIProviderName, SupportedModelName } from './types.js';
+import {
+  GoogleVertexAI,
+  AmazonBedrock,
+  OpenAI,
+  AnthropicProvider,
+  AzureOpenAIProvider,
+  GoogleAIStudio,
+  HuggingFace,
+  Ollama,
+  MistralAI,
+} from "../providers/index.js";
+import { getBestProvider } from "../utils/providerUtils.js";
+import { logger } from "../utils/logger.js";
+import type {
+  AIProvider,
+  AIProviderName,
+  SupportedModelName,
+} from "./types.js";
 
-const componentIdentifier = 'aiProviderFactory';
+const componentIdentifier = "aiProviderFactory";
 
 /**
  * Factory for creating AI provider instances with centralized configuration
@@ -15,64 +29,83 @@ export class AIProviderFactory {
    * @param modelName - Optional model name override
    * @returns AIProvider instance
    */
-  static createProvider(providerName: string, modelName?: string | null): AIProvider {
-    const functionTag = 'AIProviderFactory.createProvider';
+  static createProvider(
+    providerName: string,
+    modelName?: string | null,
+  ): AIProvider {
+    const functionTag = "AIProviderFactory.createProvider";
 
     logger.debug(`[${functionTag}] Provider creation started`, {
       providerName,
-      modelName: modelName || 'default'
+      modelName: modelName || "default",
     });
 
     try {
       let provider: AIProvider;
 
       switch (providerName.toLowerCase()) {
-        case 'vertex':
-        case 'google':
-        case 'gemini':
+        case "vertex":
+        case "google":
+        case "gemini":
           provider = new GoogleVertexAI(modelName);
           break;
-        case 'bedrock':
-        case 'amazon':
-        case 'aws':
+        case "bedrock":
+        case "amazon":
+        case "aws":
           provider = new AmazonBedrock(modelName);
           break;
-        case 'openai':
-        case 'gpt':
+        case "openai":
+        case "gpt":
           provider = new OpenAI(modelName);
           break;
-        case 'anthropic':
-        case 'claude':
+        case "anthropic":
+        case "claude":
           provider = new AnthropicProvider();
           break;
-        case 'azure':
-        case 'azure-openai':
+        case "azure":
+        case "azure-openai":
           provider = new AzureOpenAIProvider();
           break;
-        case 'google-ai':
-        case 'google-studio':
+        case "google-ai":
+        case "google-studio":
           provider = new GoogleAIStudio(modelName);
+          break;
+        case "huggingface":
+        case "hugging-face":
+        case "hf":
+          provider = new HuggingFace(modelName);
+          break;
+        case "ollama":
+        case "local":
+        case "local-ollama":
+          provider = new Ollama(modelName || undefined);
+          break;
+        case "mistral":
+        case "mistral-ai":
+        case "mistralai":
+          provider = new MistralAI(modelName);
           break;
         default:
           throw new Error(
-            `Unknown provider: ${providerName}. Supported providers: vertex, bedrock, openai, anthropic, azure, google-ai`
+            `Unknown provider: ${providerName}. Supported providers: vertex, bedrock, openai, anthropic, azure, google-ai, huggingface, ollama, mistral`,
           );
       }
 
       logger.debug(`[${functionTag}] Provider creation succeeded`, {
         providerName,
-        modelName: modelName || 'default',
-        providerType: provider.constructor.name
+        modelName: modelName || "default",
+        providerType: provider.constructor.name,
       });
 
       return provider;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       logger.debug(`[${functionTag}] Provider creation failed`, {
         providerName,
-        modelName: modelName || 'default',
-        error: errorMessage
+        modelName: modelName || "default",
+        error: errorMessage,
       });
 
       throw error;
@@ -85,12 +118,15 @@ export class AIProviderFactory {
    * @param model - Specific model enum value
    * @returns AIProvider instance
    */
-  static createProviderWithModel(provider: AIProviderName, model: SupportedModelName): AIProvider {
-    const functionTag = 'AIProviderFactory.createProviderWithModel';
+  static createProviderWithModel(
+    provider: AIProviderName,
+    model: SupportedModelName,
+  ): AIProvider {
+    const functionTag = "AIProviderFactory.createProviderWithModel";
 
     logger.debug(`[${functionTag}] Provider model creation started`, {
       provider,
-      model
+      model,
     });
 
     try {
@@ -99,17 +135,18 @@ export class AIProviderFactory {
       logger.debug(`[${functionTag}] Provider model creation succeeded`, {
         provider,
         model,
-        providerType: providerInstance.constructor.name
+        providerType: providerInstance.constructor.name,
       });
 
       return providerInstance;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       logger.debug(`[${functionTag}] Provider model creation failed`, {
         provider,
         model,
-        error: errorMessage
+        error: errorMessage,
       });
 
       throw error;
@@ -122,25 +159,29 @@ export class AIProviderFactory {
    * @param modelName - Optional model name override
    * @returns AIProvider instance
    */
-  static createBestProvider(requestedProvider?: string, modelName?: string | null): AIProvider {
-    const functionTag = 'AIProviderFactory.createBestProvider';
+  static createBestProvider(
+    requestedProvider?: string,
+    modelName?: string | null,
+  ): AIProvider {
+    const functionTag = "AIProviderFactory.createBestProvider";
 
     try {
       const bestProvider = getBestProvider(requestedProvider);
 
       logger.debug(`[${functionTag}] Best provider selected`, {
-        requestedProvider: requestedProvider || 'auto',
+        requestedProvider: requestedProvider || "auto",
         selectedProvider: bestProvider,
-        modelName: modelName || 'default'
+        modelName: modelName || "default",
       });
 
       return this.createProvider(bestProvider, modelName);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       logger.debug(`[${functionTag}] Best provider selection failed`, {
-        requestedProvider: requestedProvider || 'auto',
-        error: errorMessage
+        requestedProvider: requestedProvider || "auto",
+        error: errorMessage,
       });
 
       throw error;
@@ -157,14 +198,14 @@ export class AIProviderFactory {
   static createProviderWithFallback(
     primaryProvider: string,
     fallbackProvider: string,
-    modelName?: string | null
+    modelName?: string | null,
   ): { primary: AIProvider; fallback: AIProvider } {
-    const functionTag = 'AIProviderFactory.createProviderWithFallback';
+    const functionTag = "AIProviderFactory.createProviderWithFallback";
 
     logger.debug(`[${functionTag}] Fallback provider setup started`, {
       primaryProvider,
       fallbackProvider,
-      modelName: modelName || 'default'
+      modelName: modelName || "default",
     });
 
     try {
@@ -174,17 +215,18 @@ export class AIProviderFactory {
       logger.debug(`[${functionTag}] Fallback provider setup succeeded`, {
         primaryProvider,
         fallbackProvider,
-        modelName: modelName || 'default'
+        modelName: modelName || "default",
       });
 
       return { primary, fallback };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       logger.debug(`[${functionTag}] Fallback provider setup failed`, {
         primaryProvider,
         fallbackProvider,
-        error: errorMessage
+        error: errorMessage,
       });
 
       throw error;

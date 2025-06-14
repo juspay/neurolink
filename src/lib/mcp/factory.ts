@@ -4,22 +4,22 @@
  * Compatible with Lighthouse MCP patterns for seamless migration
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
 /**
  * MCP Server Categories for organization and discovery
  */
 export type MCPServerCategory =
-  | 'ai-providers'
-  | 'frameworks'
-  | 'development'
-  | 'business'
-  | 'content'
-  | 'data'
-  | 'integrations'
-  | 'automation'
-  | 'analysis'
-  | 'custom';
+  | "ai-providers"
+  | "frameworks"
+  | "development"
+  | "business"
+  | "content"
+  | "data"
+  | "integrations"
+  | "automation"
+  | "analysis"
+  | "custom";
 
 /**
  * Tool execution context - Rich context passed to every tool execution
@@ -39,10 +39,10 @@ export interface NeuroLinkExecutionContext {
   // Business Context (new)
   organizationId?: string;
   projectId?: string;
-  environmentType?: 'development' | 'staging' | 'production';
+  environmentType?: "development" | "staging" | "production";
 
   // Framework Context (new)
-  frameworkType?: 'react' | 'vue' | 'svelte' | 'next' | 'nuxt' | 'sveltekit';
+  frameworkType?: "react" | "vue" | "svelte" | "next" | "nuxt" | "sveltekit";
 
   // Tool Execution Context
   toolChain?: string[];
@@ -50,7 +50,7 @@ export interface NeuroLinkExecutionContext {
 
   // Security & Permissions
   permissions?: string[];
-  securityLevel?: 'public' | 'private' | 'organization';
+  securityLevel?: "public" | "private" | "organization";
 
   // Extension points for custom context
   [key: string]: any;
@@ -86,7 +86,10 @@ export interface ToolResult {
 export interface NeuroLinkMCPTool {
   name: string;
   description: string;
-  execute: (params: unknown, context: NeuroLinkExecutionContext) => Promise<ToolResult>;
+  execute: (
+    params: unknown,
+    context: NeuroLinkExecutionContext,
+  ) => Promise<ToolResult>;
   inputSchema?: z.ZodSchema;
   outputSchema?: z.ZodSchema;
   isImplemented?: boolean;
@@ -110,7 +113,7 @@ export interface NeuroLinkMCPServer {
   description?: string;
   version?: string;
   category?: MCPServerCategory;
-  visibility?: 'public' | 'private' | 'organization';
+  visibility?: "public" | "private" | "organization";
 
   // Tool management
   tools: Record<string, NeuroLinkMCPTool>;
@@ -131,7 +134,7 @@ export interface MCPServerConfig {
   description?: string;
   version?: string;
   category?: MCPServerCategory;
-  visibility?: 'public' | 'private' | 'organization';
+  visibility?: "public" | "private" | "organization";
   metadata?: Record<string, any>;
   dependencies?: string[];
   capabilities?: string[];
@@ -141,26 +144,28 @@ export interface MCPServerConfig {
  * Input validation schemas
  */
 const ServerConfigSchema = z.object({
-  id: z.string().min(1, 'Server ID is required'),
-  title: z.string().min(1, 'Server title is required'),
+  id: z.string().min(1, "Server ID is required"),
+  title: z.string().min(1, "Server title is required"),
   description: z.string().optional(),
   version: z.string().optional(),
-  category: z.enum([
-    'ai-providers',
-    'frameworks',
-    'development',
-    'business',
-    'content',
-    'data',
-    'integrations',
-    'automation',
-    'analysis',
-    'custom'
-  ]).optional(),
-  visibility: z.enum(['public', 'private', 'organization']).optional(),
+  category: z
+    .enum([
+      "ai-providers",
+      "frameworks",
+      "development",
+      "business",
+      "content",
+      "data",
+      "integrations",
+      "automation",
+      "analysis",
+      "custom",
+    ])
+    .optional(),
+  visibility: z.enum(["public", "private", "organization"]).optional(),
   metadata: z.record(z.any()).optional(),
   dependencies: z.array(z.string()).optional(),
-  capabilities: z.array(z.string()).optional()
+  capabilities: z.array(z.string()).optional(),
 });
 
 /**
@@ -203,9 +208,9 @@ export function createMCPServer(config: MCPServerConfig): NeuroLinkMCPServer {
 
     // Optional fields with defaults
     description: validatedConfig.description,
-    version: validatedConfig.version || '1.0.0',
-    category: validatedConfig.category || 'custom',
-    visibility: validatedConfig.visibility || 'private',
+    version: validatedConfig.version || "1.0.0",
+    category: validatedConfig.category || "custom",
+    visibility: validatedConfig.visibility || "private",
 
     // Tool management
     tools: {},
@@ -214,12 +219,16 @@ export function createMCPServer(config: MCPServerConfig): NeuroLinkMCPServer {
     registerTool(tool: NeuroLinkMCPTool): NeuroLinkMCPServer {
       // Validate tool has required fields
       if (!tool.name || !tool.description || !tool.execute) {
-        throw new Error(`Invalid tool: name, description, and execute are required`);
+        throw new Error(
+          `Invalid tool: name, description, and execute are required`,
+        );
       }
 
       // Check for duplicate tool names
       if (this.tools[tool.name]) {
-        throw new Error(`Tool '${tool.name}' already exists in server '${this.id}'`);
+        throw new Error(
+          `Tool '${tool.name}' already exists in server '${this.id}'`,
+        );
       }
 
       // Register the tool
@@ -230,8 +239,8 @@ export function createMCPServer(config: MCPServerConfig): NeuroLinkMCPServer {
           ...tool.metadata,
           serverId: this.id,
           serverCategory: this.category,
-          registeredAt: Date.now()
-        }
+          registeredAt: Date.now(),
+        },
       };
 
       return this;
@@ -240,7 +249,7 @@ export function createMCPServer(config: MCPServerConfig): NeuroLinkMCPServer {
     // Extension points
     metadata: validatedConfig.metadata || {},
     dependencies: validatedConfig.dependencies || [],
-    capabilities: validatedConfig.capabilities || []
+    capabilities: validatedConfig.capabilities || [],
   };
 
   return server;
@@ -252,13 +261,23 @@ export function createMCPServer(config: MCPServerConfig): NeuroLinkMCPServer {
 export function validateTool(tool: NeuroLinkMCPTool): boolean {
   try {
     // Check required fields
-    if (!tool.name || typeof tool.name !== 'string') return false;
-    if (!tool.description || typeof tool.description !== 'string') return false;
-    if (!tool.execute || typeof tool.execute !== 'function') return false;
+    if (!tool.name || typeof tool.name !== "string") {
+      return false;
+    }
+    if (!tool.description || typeof tool.description !== "string") {
+      return false;
+    }
+    if (!tool.execute || typeof tool.execute !== "function") {
+      return false;
+    }
 
     // Validate optional schemas if present
-    if (tool.inputSchema && !(tool.inputSchema instanceof z.ZodSchema)) return false;
-    if (tool.outputSchema && !(tool.outputSchema instanceof z.ZodSchema)) return false;
+    if (tool.inputSchema && !(tool.inputSchema instanceof z.ZodSchema)) {
+      return false;
+    }
+    if (tool.outputSchema && !(tool.outputSchema instanceof z.ZodSchema)) {
+      return false;
+    }
 
     return true;
   } catch (error) {
@@ -283,7 +302,7 @@ export function getServerInfo(server: NeuroLinkMCPServer): {
     description: server.description,
     category: server.category,
     toolCount: Object.keys(server.tools).length,
-    capabilities: server.capabilities || []
+    capabilities: server.capabilities || [],
   };
 }
 

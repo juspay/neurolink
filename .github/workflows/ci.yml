@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main, release, dev]
+  pull_request:
+    branches: [main, release]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Auto-format code
+        run: pnpm run format
+
+      - name: Run linting
+        run: pnpm run lint
+
+      - name: Build package
+        run: pnpm run build
+
+      - name: Test CLI build
+        run: |
+          pnpm run build:cli
+          node dist/cli/index.js --help
+
+  build-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm i
+
+      - name: Check package build
+        run: pnpm run prepack
+
+      - name: Verify package contents
+        run: |
+          pnpm pack
+          ls -la dist/

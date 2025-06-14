@@ -9,6 +9,7 @@
 NeuroLink now supports the **Model Context Protocol (MCP)** for seamless integration with external servers and tools. This enables unlimited extensibility through the growing MCP ecosystem while maintaining NeuroLink's simple interface.
 
 ### **What is MCP?**
+
 The Model Context Protocol is a standardized way for AI applications to connect to external tools and data sources. It enables:
 
 - ✅ **External Tool Integration** - Connect to filesystem, databases, APIs, and more
@@ -22,6 +23,7 @@ The Model Context Protocol is a standardized way for AI applications to connect 
 ## 🚀 **Quick Start**
 
 ### **1. Install Popular MCP Servers**
+
 ```bash
 # Install filesystem server for file operations
 npx neurolink mcp install filesystem
@@ -34,6 +36,7 @@ npx neurolink mcp install postgres
 ```
 
 ### **2. Test Connectivity**
+
 ```bash
 # Test server connectivity and discover tools
 npx neurolink mcp test filesystem
@@ -43,6 +46,7 @@ npx neurolink mcp list --status
 ```
 
 ### **3. Execute Tools (Coming Soon)**
+
 ```bash
 # Execute tools from connected servers
 npx neurolink mcp exec filesystem read_file --params '{"path": "README.md"}'
@@ -56,11 +60,13 @@ npx neurolink mcp exec github create_issue --params '{"title": "New feature", "b
 ### **Server Management**
 
 #### **Install Popular Servers**
+
 ```bash
 neurolink mcp install <server>
 ```
 
 **Available servers:**
+
 - `filesystem` - File and directory operations
 - `github` - GitHub repository management
 - `postgres` - PostgreSQL database operations
@@ -68,6 +74,7 @@ neurolink mcp install <server>
 - `puppeteer` - Browser automation
 
 **Example:**
+
 ```bash
 neurolink mcp install filesystem
 # ✅ Installed MCP server: filesystem
@@ -75,11 +82,13 @@ neurolink mcp install filesystem
 ```
 
 #### **Add Custom Servers**
+
 ```bash
 neurolink mcp add <name> <command> [options]
 ```
 
 **Options:**
+
 - `--args` - Command arguments (array)
 - `--transport` - Transport type (stdio|sse)
 - `--url` - URL for SSE transport
@@ -87,6 +96,7 @@ neurolink mcp add <name> <command> [options]
 - `--cwd` - Working directory
 
 **Examples:**
+
 ```bash
 # Add custom server with arguments
 neurolink mcp add myserver "python /path/to/server.py" --args "arg1,arg2"
@@ -99,11 +109,13 @@ neurolink mcp add dbserver "npx db-mcp-server" --env '{"DB_URL": "postgresql://.
 ```
 
 #### **List Configured Servers**
+
 ```bash
 neurolink mcp list [--status]
 ```
 
 **Example output:**
+
 ```
 📋 Configured MCP servers (2):
 
@@ -119,11 +131,13 @@ neurolink mcp list [--status]
 ```
 
 #### **Test Server Connectivity**
+
 ```bash
 neurolink mcp test <server>
 ```
 
 **Example output:**
+
 ```
 🔍 Testing MCP server: filesystem
 
@@ -143,6 +157,7 @@ neurolink mcp test <server>
 ```
 
 #### **Remove Servers**
+
 ```bash
 neurolink mcp remove <server>
 ```
@@ -152,6 +167,7 @@ neurolink mcp remove <server>
 ## ⚙️ **Configuration**
 
 ### **Configuration File**
+
 MCP servers are configured in `.mcp-config.json`:
 
 ```json
@@ -184,6 +200,7 @@ MCP servers are configured in `.mcp-config.json`:
 ```
 
 ### **Environment Variables**
+
 Set these in your `.env` file for server authentication:
 
 ```bash
@@ -203,10 +220,12 @@ CUSTOM_ENDPOINT=https://api.example.com
 ## 🛠️ **Available MCP Servers**
 
 ### **Filesystem Server**
+
 **Purpose:** File and directory operations
 **Installation:** `neurolink mcp install filesystem`
 
 **Available Tools:**
+
 - `read_file` - Read file contents
 - `write_file` - Create or overwrite files
 - `edit_file` - Make line-based edits
@@ -218,11 +237,13 @@ CUSTOM_ENDPOINT=https://api.example.com
 - `get_file_info` - Get file metadata
 
 ### **GitHub Server**
+
 **Purpose:** GitHub repository management
 **Installation:** `neurolink mcp install github`
 **Requirements:** `GITHUB_PERSONAL_ACCESS_TOKEN`
 
 **Available Tools:**
+
 - `create_repository` - Create new repositories
 - `search_repositories` - Search public repositories
 - `get_file_contents` - Read repository files
@@ -232,11 +253,13 @@ CUSTOM_ENDPOINT=https://api.example.com
 - `fork_repository` - Fork repositories
 
 ### **PostgreSQL Server**
+
 **Purpose:** Database operations
 **Installation:** `neurolink mcp install postgres`
 **Requirements:** `POSTGRES_CONNECTION_STRING`
 
 **Available Tools:**
+
 - `read-query` - Execute SELECT queries
 - `write-query` - Execute INSERT/UPDATE/DELETE queries
 - `create-table` - Create database tables
@@ -244,18 +267,22 @@ CUSTOM_ENDPOINT=https://api.example.com
 - `describe-table` - Get table schema
 
 ### **Brave Search Server**
+
 **Purpose:** Web search capabilities
 **Installation:** `neurolink mcp install brave-search`
 
 **Available Tools:**
+
 - `brave_web_search` - Search the web
 - `brave_local_search` - Search for local businesses
 
 ### **Puppeteer Server**
+
 **Purpose:** Browser automation
 **Installation:** `neurolink mcp install puppeteer`
 
 **Available Tools:**
+
 - `puppeteer_navigate` - Navigate to URLs
 - `puppeteer_screenshot` - Take screenshots
 - `puppeteer_click` - Click elements
@@ -269,25 +296,33 @@ CUSTOM_ENDPOINT=https://api.example.com
 ### **Transport Types**
 
 #### **STDIO Transport (Default)**
+
 Best for local servers and CLI tools:
+
 ```bash
 neurolink mcp add local-server "python server.py" --transport stdio
 ```
 
 #### **SSE Transport**
+
 For web-based servers:
+
 ```bash
 neurolink mcp add web-server "http://localhost:8080" --transport sse --url "http://localhost:8080/sse"
 ```
 
 ### **Server Environment Configuration**
+
 Pass environment variables to servers:
+
 ```bash
 neurolink mcp add secure-server "npx secure-mcp" --env '{"API_KEY": "secret", "DEBUG": "true"}'
 ```
 
 ### **Working Directory**
+
 Set server working directory:
+
 ```bash
 neurolink mcp add project-server "python local-server.py" --cwd "/path/to/project"
 ```
@@ -299,11 +334,13 @@ neurolink mcp add project-server "python local-server.py" --cwd "/path/to/projec
 ### **Common Issues**
 
 #### **Server Not Available**
+
 ```
 ✖ server: ❌ Not available
 ```
 
 **Solutions:**
+
 1. Check server installation: `npm list -g @modelcontextprotocol/server-*`
 2. Verify command path: `which npx`
 3. Test command manually: `npx @modelcontextprotocol/server-filesystem /`
@@ -311,40 +348,48 @@ neurolink mcp add project-server "python local-server.py" --cwd "/path/to/projec
 5. Verify network connectivity (for SSE servers)
 
 #### **Connection Timeout**
+
 ```
 ❌ Connection failed: Timeout connecting to MCP server
 ```
 
 **Solutions:**
+
 1. Increase timeout (servers may need time to start)
 2. Check server logs for errors
 3. Verify server supports MCP protocol version 2024-11-05
 4. Test with simpler server first (filesystem)
 
 #### **Authentication Errors**
+
 ```
 ❌ Connection failed: Authentication required
 ```
 
 **Solutions:**
+
 1. Set required environment variables
 2. Check API key/token validity
 3. Verify permissions for required resources
 4. Review server documentation for auth requirements
 
 #### **Tool Execution Errors**
+
 ```
 ❌ Tool execution failed: Invalid parameters
 ```
 
 **Solutions:**
+
 1. Check tool parameter schema: `neurolink mcp test <server>`
 2. Validate JSON parameter format
 3. Review tool documentation
 4. Test with minimal parameters first
 
 ### **Debug Mode**
+
 Enable verbose logging for troubleshooting:
+
 ```bash
 export NEUROLINK_DEBUG=true
 neurolink mcp test filesystem
@@ -355,6 +400,7 @@ neurolink mcp test filesystem
 ## 🔗 **Integration with AI Providers**
 
 ### **Using MCP Tools with AI Generation**
+
 ```bash
 # Generate text that uses MCP tool results
 neurolink generate-text "Analyze the README.md file and suggest improvements" --tools filesystem
@@ -364,6 +410,7 @@ neurolink stream "Create a GitHub issue based on the project status" --tools git
 ```
 
 ### **Multi-Tool Workflows**
+
 ```bash
 # Combine multiple MCP servers in workflows
 neurolink workflow "
@@ -379,16 +426,19 @@ neurolink workflow "
 ## 📚 **Resources**
 
 ### **Official MCP Resources**
+
 - [MCP Specification](https://modelcontextprotocol.io/specification)
 - [MCP Server Index](https://github.com/modelcontextprotocol/servers)
 - [MCP Documentation](https://modelcontextprotocol.io/docs)
 
 ### **NeuroLink MCP Resources**
+
 - [MCP Testing Guide](./MCP-TESTING-GUIDE.md)
 - [CLI Command Reference](./CLI-GUIDE.md#mcp-commands)
 - [API Integration](./API-REFERENCE.md#mcp-integration)
 
 ### **Community Servers**
+
 - [Awesome MCP Servers](https://github.com/modelcontextprotocol/awesome-mcp-servers)
 - [Custom Server Development](https://modelcontextprotocol.io/docs/building-servers)
 
@@ -397,6 +447,7 @@ neurolink workflow "
 ## 🚀 **What's Next?**
 
 ### **Coming Soon**
+
 - ✅ **Tool Execution** - Direct tool invocation from CLI
 - ✅ **Workflow Orchestration** - Multi-step tool workflows
 - ✅ **AI Integration** - Tools accessible during AI generation
@@ -404,6 +455,7 @@ neurolink workflow "
 - ✅ **Advanced Security** - Fine-grained permissions
 
 ### **Get Involved**
+
 - Report issues on [GitHub](https://github.com/juspay/neurolink/issues)
 - Join the [MCP community](https://modelcontextprotocol.io/community)
 - Contribute server integrations

@@ -4,10 +4,19 @@
  * Coordinates factory, registry, context, and AI tools for seamless operation
  */
 
-import type { NeuroLinkExecutionContext, ToolResult } from './factory.js';
-import { MCPToolRegistry, defaultToolRegistry, type ToolExecutionOptions } from './registry.js';
-import { ContextManager, defaultContextManager, createExecutionContext, type ContextRequest } from './context-manager.js';
-import { aiCoreServer } from './servers/ai-providers/ai-core-server.js';
+import type { NeuroLinkExecutionContext, ToolResult } from "./factory.js";
+import {
+  MCPToolRegistry,
+  defaultToolRegistry,
+  type ToolExecutionOptions,
+} from "./registry.js";
+import {
+  ContextManager,
+  defaultContextManager,
+  createExecutionContext,
+  type ContextRequest,
+} from "./context-manager.js";
+import { aiCoreServer } from "./servers/ai-providers/ai-core-server.js";
 
 /**
  * Pipeline execution options
@@ -78,10 +87,7 @@ export class MCPOrchestrator {
   private contextManager: ContextManager;
   private pipelineCounter: number = 0;
 
-  constructor(
-    registry?: MCPToolRegistry,
-    contextManager?: ContextManager
-  ) {
+  constructor(registry?: MCPToolRegistry, contextManager?: ContextManager) {
     this.registry = registry || defaultToolRegistry;
     this.contextManager = contextManager || defaultContextManager;
 
@@ -95,9 +101,9 @@ export class MCPOrchestrator {
   private async initializeDefaultServers(): Promise<void> {
     try {
       await this.registry.registerServer(aiCoreServer);
-      console.log('[Orchestrator] Initialized with AI Core Server');
+      console.log("[Orchestrator] Initialized with AI Core Server");
     } catch (error) {
-      console.warn('[Orchestrator] Failed to register AI Core Server:', error);
+      console.warn("[Orchestrator] Failed to register AI Core Server:", error);
     }
   }
 
@@ -114,17 +120,26 @@ export class MCPOrchestrator {
     toolName: string,
     params: any,
     contextRequest: ContextRequest = {},
-    options: ToolExecutionOptions = {}
+    options: ToolExecutionOptions = {},
   ): Promise<ToolResult> {
     // Create execution context
     const context = this.contextManager.createContext(contextRequest);
 
-    console.log(`[Orchestrator] Executing tool '${toolName}' in session ${context.sessionId}`);
+    console.log(
+      `[Orchestrator] Executing tool '${toolName}' in session ${context.sessionId}`,
+    );
 
     // Execute tool through registry
-    const result = await this.registry.executeTool(toolName, params, context, options);
+    const result = await this.registry.executeTool(
+      toolName,
+      params,
+      context,
+      options,
+    );
 
-    console.log(`[Orchestrator] Tool '${toolName}' execution ${result.success ? 'completed' : 'failed'}`);
+    console.log(
+      `[Orchestrator] Tool '${toolName}' execution ${result.success ? "completed" : "failed"}`,
+    );
 
     return result;
   }
@@ -140,7 +155,7 @@ export class MCPOrchestrator {
   async executePipeline(
     steps: PipelineStep[],
     contextRequest: ContextRequest = {},
-    options: PipelineOptions = {}
+    options: PipelineOptions = {},
   ): Promise<PipelineResult> {
     const startTime = Date.now();
     const pipelineId = this.generatePipelineId();
@@ -150,13 +165,13 @@ export class MCPOrchestrator {
       parallel = false,
       timeout = 60000,
       trackMetrics = true,
-      validateInputs = true
+      validateInputs = true,
     } = options;
 
     // Create shared execution context
     const context = this.contextManager.createContext({
       ...contextRequest,
-      sessionId: contextRequest.sessionId || pipelineId
+      sessionId: contextRequest.sessionId || pipelineId,
     });
 
     const results = new Map<string, ToolResult>();
@@ -164,7 +179,9 @@ export class MCPOrchestrator {
     let stepsExecuted = 0;
     let stepsSkipped = 0;
 
-    console.log(`[Orchestrator] Starting pipeline ${pipelineId} with ${steps.length} steps`);
+    console.log(
+      `[Orchestrator] Starting pipeline ${pipelineId} with ${steps.length} steps`,
+    );
 
     try {
       if (parallel) {
@@ -173,7 +190,7 @@ export class MCPOrchestrator {
           timeout,
           trackMetrics,
           validateInputs,
-          stopOnError
+          stopOnError,
         });
       } else {
         // Execute steps sequentially
@@ -181,7 +198,9 @@ export class MCPOrchestrator {
           const stepId = step.stepId || `step-${stepsExecuted + 1}`;
 
           try {
-            console.log(`[Orchestrator] Executing step: ${stepId} (${step.toolName})`);
+            console.log(
+              `[Orchestrator] Executing step: ${stepId} (${step.toolName})`,
+            );
 
             const stepResult = await this.registry.executeTool(
               step.toolName,
@@ -191,28 +210,32 @@ export class MCPOrchestrator {
                 ...step.options,
                 validateInput: validateInputs,
                 trackMetrics,
-                timeoutMs: timeout / steps.length // Distribute timeout across steps
-              }
+                timeoutMs: timeout / steps.length, // Distribute timeout across steps
+              },
             );
 
             results.set(stepId, stepResult);
             stepsExecuted++;
 
             if (!stepResult.success) {
-              errors.set(stepId, stepResult.error || 'Unknown error');
+              errors.set(stepId, stepResult.error || "Unknown error");
 
               if (stopOnError) {
-                console.error(`[Orchestrator] Pipeline ${pipelineId} stopped due to error in step ${stepId}`);
+                console.error(
+                  `[Orchestrator] Pipeline ${pipelineId} stopped due to error in step ${stepId}`,
+                );
                 break;
               }
             }
-
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
             errors.set(stepId, errorMessage);
 
             if (stopOnError) {
-              console.error(`[Orchestrator] Pipeline ${pipelineId} stopped due to exception in step ${stepId}: ${errorMessage}`);
+              console.error(
+                `[Orchestrator] Pipeline ${pipelineId} stopped due to exception in step ${stepId}: ${errorMessage}`,
+              );
               break;
             }
 
@@ -224,7 +247,9 @@ export class MCPOrchestrator {
       const executionTime = Date.now() - startTime;
       const success = errors.size === 0 || !stopOnError;
 
-      console.log(`[Orchestrator] Pipeline ${pipelineId} completed in ${executionTime}ms - ${success ? 'SUCCESS' : 'FAILED'}`);
+      console.log(
+        `[Orchestrator] Pipeline ${pipelineId} completed in ${executionTime}ms - ${success ? "SUCCESS" : "FAILED"}`,
+      );
 
       return {
         success,
@@ -237,20 +262,22 @@ export class MCPOrchestrator {
           pipelineId,
           sessionId: context.sessionId,
           timestamp: Date.now(),
-          parallel
-        }
+          parallel,
+        },
       };
-
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
-      console.error(`[Orchestrator] Pipeline ${pipelineId} failed: ${errorMessage}`);
+      console.error(
+        `[Orchestrator] Pipeline ${pipelineId} failed: ${errorMessage}`,
+      );
 
       return {
         success: false,
         results,
-        errors: new Map([['pipeline', errorMessage]]),
+        errors: new Map([["pipeline", errorMessage]]),
         executionTime,
         stepsExecuted,
         stepsSkipped,
@@ -258,8 +285,8 @@ export class MCPOrchestrator {
           pipelineId,
           sessionId: context.sessionId,
           timestamp: Date.now(),
-          parallel
-        }
+          parallel,
+        },
       };
     }
   }
@@ -282,7 +309,7 @@ export class MCPOrchestrator {
       maxTokens?: number;
       systemPrompt?: string;
       customTools?: string[];
-    } = {}
+    } = {},
   ): Promise<TextPipelineResult> {
     const startTime = Date.now();
 
@@ -290,7 +317,9 @@ export class MCPOrchestrator {
     const context = this.contextManager.createContext(contextRequest);
 
     try {
-      console.log(`[Orchestrator] Starting text pipeline for prompt: "${prompt.substring(0, 50)}..."`);
+      console.log(
+        `[Orchestrator] Starting text pipeline for prompt: "${prompt.substring(0, 50)}..."`,
+      );
 
       // Build pipeline steps
       const steps: PipelineStep[] = [];
@@ -298,30 +327,30 @@ export class MCPOrchestrator {
       // Step 1: Provider selection (if not specified)
       if (!options.provider) {
         steps.push({
-          stepId: 'select-provider',
-          toolName: 'select-provider',
+          stepId: "select-provider",
+          toolName: "select-provider",
           params: {
             requirements: {
               maxTokens: options.maxTokens,
-              costEfficient: true
-            }
-          }
+              costEfficient: true,
+            },
+          },
         });
       }
 
       // Step 2: Text generation
       steps.push({
-        stepId: 'generate-text',
-        toolName: 'generate-text',
+        stepId: "generate-text",
+        toolName: "generate-text",
         params: {
           prompt,
           provider: options.provider,
           model: options.model,
           temperature: options.temperature,
           maxTokens: options.maxTokens,
-          systemPrompt: options.systemPrompt
+          systemPrompt: options.systemPrompt,
         },
-        dependsOn: options.provider ? [] : ['select-provider']
+        dependsOn: options.provider ? [] : ["select-provider"],
       });
 
       // Step 3: Custom tools (if specified)
@@ -330,8 +359,10 @@ export class MCPOrchestrator {
           steps.push({
             stepId: `custom-${toolName}`,
             toolName,
-            params: { /* tool-specific params */ },
-            dependsOn: ['generate-text']
+            params: {
+              /* tool-specific params */
+            },
+            dependsOn: ["generate-text"],
           });
         }
       }
@@ -340,22 +371,24 @@ export class MCPOrchestrator {
       const pipelineResult = await this.executePipeline(steps, contextRequest, {
         stopOnError: true,
         parallel: false,
-        trackMetrics: true
+        trackMetrics: true,
       });
 
       const executionTime = Date.now() - startTime;
 
       // Extract text generation result
-      const textResult = pipelineResult.results.get('generate-text');
-      const providerResult = pipelineResult.results.get('select-provider');
+      const textResult = pipelineResult.results.get("generate-text");
+      const providerResult = pipelineResult.results.get("select-provider");
 
       if (!textResult || !textResult.success) {
-        throw new Error('Text generation failed');
+        throw new Error("Text generation failed");
       }
 
       const toolsUsed = Array.from(pipelineResult.results.keys());
 
-      console.log(`[Orchestrator] Text pipeline completed in ${executionTime}ms`);
+      console.log(
+        `[Orchestrator] Text pipeline completed in ${executionTime}ms`,
+      );
 
       return {
         success: true,
@@ -367,13 +400,13 @@ export class MCPOrchestrator {
         metadata: {
           sessionId: context.sessionId,
           timestamp: Date.now(),
-          toolsUsed
-        }
+          toolsUsed,
+        },
       };
-
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       console.error(`[Orchestrator] Text pipeline failed: ${errorMessage}`);
 
@@ -383,8 +416,8 @@ export class MCPOrchestrator {
         metadata: {
           sessionId: context.sessionId,
           timestamp: Date.now(),
-          toolsUsed: []
-        }
+          toolsUsed: [],
+        },
       };
     }
   }
@@ -405,8 +438,8 @@ export class MCPOrchestrator {
       registry: this.registry.getStats(),
       context: this.contextManager.getStats(),
       orchestrator: {
-        pipelinesExecuted: this.pipelineCounter
-      }
+        pipelinesExecuted: this.pipelineCounter,
+      },
     };
   }
 
@@ -420,7 +453,12 @@ export class MCPOrchestrator {
     context: NeuroLinkExecutionContext,
     results: Map<string, ToolResult>,
     errors: Map<string, string>,
-    options: { timeout: number; trackMetrics: boolean; validateInputs: boolean; stopOnError: boolean }
+    options: {
+      timeout: number;
+      trackMetrics: boolean;
+      validateInputs: boolean;
+      stopOnError: boolean;
+    },
   ): Promise<void> {
     // Build dependency graph
     const stepMap = new Map<string, PipelineStep>();
@@ -437,14 +475,16 @@ export class MCPOrchestrator {
     const executing = new Set<string>();
 
     while (completed.size < steps.length) {
-      const readySteps = Array.from(stepMap.keys()).filter(stepId => {
-        if (completed.has(stepId) || executing.has(stepId)) return false;
+      const readySteps = Array.from(stepMap.keys()).filter((stepId) => {
+        if (completed.has(stepId) || executing.has(stepId)) {
+          return false;
+        }
         const dependencies = dependencyGraph.get(stepId) || [];
-        return dependencies.every(dep => completed.has(dep));
+        return dependencies.every((dep) => completed.has(dep));
       });
 
       if (readySteps.length === 0) {
-        throw new Error('Circular dependency detected in pipeline');
+        throw new Error("Circular dependency detected in pipeline");
       }
 
       // Execute ready steps in parallel
@@ -457,17 +497,17 @@ export class MCPOrchestrator {
             step.toolName,
             step.params,
             context,
-            { ...step.options, ...options }
+            { ...step.options, ...options },
           );
 
           results.set(stepId, result);
 
           if (!result.success) {
-            errors.set(stepId, result.error || 'Unknown error');
+            errors.set(stepId, result.error || "Unknown error");
           }
-
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           errors.set(stepId, errorMessage);
         } finally {
           executing.delete(stepId);
@@ -516,9 +556,14 @@ export async function executeTool(
   toolName: string,
   params: any,
   contextRequest?: ContextRequest,
-  options?: ToolExecutionOptions
+  options?: ToolExecutionOptions,
 ): Promise<ToolResult> {
-  return defaultOrchestrator.executeTool(toolName, params, contextRequest, options);
+  return defaultOrchestrator.executeTool(
+    toolName,
+    params,
+    contextRequest,
+    options,
+  );
 }
 
 /**
@@ -532,9 +577,13 @@ export async function executeTool(
 export async function executeTextPipeline(
   prompt: string,
   contextRequest?: ContextRequest,
-  options?: any
+  options?: any,
 ): Promise<TextPipelineResult> {
-  return defaultOrchestrator.executeTextPipeline(prompt, contextRequest, options);
+  return defaultOrchestrator.executeTextPipeline(
+    prompt,
+    contextRequest,
+    options,
+  );
 }
 
 /**
@@ -548,7 +597,7 @@ export async function executeTextPipeline(
 export async function executePipeline(
   steps: PipelineStep[],
   contextRequest?: ContextRequest,
-  options?: PipelineOptions
+  options?: PipelineOptions,
 ): Promise<PipelineResult> {
   return defaultOrchestrator.executePipeline(steps, contextRequest, options);
 }

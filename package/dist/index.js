@@ -7,18 +7,27 @@
  * Extracted from lighthouse project's proven AI functionality.
  */
 // Core exports
-import { AIProviderFactory } from './core/factory.js';
+import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
 // Model enums
-export { BedrockModels, OpenAIModels, VertexModels, DEFAULT_PROVIDER_CONFIGS } from './core/types.js';
+export {
+  BedrockModels,
+  OpenAIModels,
+  VertexModels,
+  DEFAULT_PROVIDER_CONFIGS,
+} from "./core/types.js";
 // Provider exports
-export { GoogleVertexAI, AmazonBedrock, OpenAI } from './providers/index.js';
-export { PROVIDERS, AVAILABLE_PROVIDERS } from './providers/index.js';
+export { GoogleVertexAI, AmazonBedrock, OpenAI } from "./providers/index.js";
+export { PROVIDERS, AVAILABLE_PROVIDERS } from "./providers/index.js";
 // Utility exports
-export { getBestProvider, getAvailableProviders, isValidProvider } from './utils/providerUtils.js';
+export {
+  getBestProvider,
+  getAvailableProviders,
+  isValidProvider,
+} from "./utils/providerUtils.js";
 // Main NeuroLink wrapper class export export { NeuroLink } from './neurolink.js';
 // Version
-export const VERSION = '1.0.0';
+export const VERSION = "1.0.0";
 /**
  * Quick start factory function
  *
@@ -31,7 +40,7 @@ export const VERSION = '1.0.0';
  * ```
  */
 export function createAIProvider(providerName, modelName) {
-    return AIProviderFactory.createProvider(providerName || 'bedrock', modelName);
+  return AIProviderFactory.createProvider(providerName || "bedrock", modelName);
 }
 /**
  * Create provider with automatic fallback
@@ -43,8 +52,16 @@ export function createAIProvider(providerName, modelName) {
  * const { primary, fallback } = createAIProviderWithFallback('bedrock', 'vertex');
  * ```
  */
-export function createAIProviderWithFallback(primaryProvider, fallbackProvider, modelName) {
-    return AIProviderFactory.createProviderWithFallback(primaryProvider || 'bedrock', fallbackProvider || 'vertex', modelName);
+export function createAIProviderWithFallback(
+  primaryProvider,
+  fallbackProvider,
+  modelName,
+) {
+  return AIProviderFactory.createProviderWithFallback(
+    primaryProvider || "bedrock",
+    fallbackProvider || "vertex",
+    modelName,
+  );
 }
 /**
  * Create the best available provider based on configuration
@@ -57,5 +74,5 @@ export function createAIProviderWithFallback(primaryProvider, fallbackProvider, 
  * ```
  */
 export function createBestAIProvider(requestedProvider, modelName) {
-    return AIProviderFactory.createBestProvider(requestedProvider, modelName);
+  return AIProviderFactory.createBestProvider(requestedProvider, modelName);
 }

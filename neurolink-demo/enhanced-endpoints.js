@@ -1,12 +1,11 @@
-import { createAIProvider, getBestProvider } from 'neurolink';
+import { createAIProvider, getBestProvider } from "neurolink";
 
 // Enhanced API endpoints for comprehensive interactive examples
 
 // Business Use Cases
 export const businessEndpoints = (app) => {
-
   // Email Generator
-  app.post('/api/business/email', async (req, res) => {
+  app.post("/api/business/email", async (req, res) => {
     try {
       const { type, context } = req.body;
       const provider = await createAIProvider(await getBestProvider());
@@ -14,19 +13,19 @@ export const businessEndpoints = (app) => {
       const prompts = {
         marketing: `Write a professional marketing email about: ${context}. Include a compelling subject line, engaging body text, and clear call-to-action.`,
         support: `Write a helpful customer support email response for: ${context}. Be empathetic, solution-focused, and professional.`,
-        'follow-up': `Write a polite follow-up email regarding: ${context}. Be courteous, specific about next steps, and include timeline.`
+        "follow-up": `Write a polite follow-up email regarding: ${context}. Be courteous, specific about next steps, and include timeline.`,
       };
 
       const result = await provider.generateText({
         prompt: prompts[type] || prompts.marketing,
         maxTokens: 400,
-        temperature: 0.7
+        temperature: 0.7,
       });
 
       res.json({
         success: true,
         content: result.text,
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -34,7 +33,7 @@ export const businessEndpoints = (app) => {
   });
 
   // Data Analysis
-  app.post('/api/business/analyze-data', async (req, res) => {
+  app.post("/api/business/analyze-data", async (req, res) => {
     try {
       const { data } = req.body;
       const provider = await createAIProvider(await getBestProvider());
@@ -50,13 +49,13 @@ Please provide:
 3. Business recommendations
 4. Potential areas for improvement`,
         maxTokens: 600,
-        temperature: 0.3
+        temperature: 0.3,
       });
 
       res.json({
         success: true,
         content: result.text,
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -64,7 +63,7 @@ Please provide:
   });
 
   // Document Summarizer
-  app.post('/api/business/summarize', async (req, res) => {
+  app.post("/api/business/summarize", async (req, res) => {
     try {
       const { text, length } = req.body;
       const provider = await createAIProvider(await getBestProvider());
@@ -72,19 +71,19 @@ Please provide:
       const prompts = {
         brief: `Summarize this text in 1-2 concise sentences: ${text}`,
         medium: `Provide a comprehensive paragraph summary of this text: ${text}`,
-        detailed: `Create a detailed summary with key points, main ideas, and important details: ${text}`
+        detailed: `Create a detailed summary with key points, main ideas, and important details: ${text}`,
       };
 
       const result = await provider.generateText({
         prompt: prompts[length] || prompts.medium,
-        maxTokens: length === 'brief' ? 100 : length === 'detailed' ? 400 : 200,
-        temperature: 0.4
+        maxTokens: length === "brief" ? 100 : length === "detailed" ? 400 : 200,
+        temperature: 0.4,
       });
 
       res.json({
         success: true,
         content: result.text,
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -94,9 +93,8 @@ Please provide:
 
 // Creative Tools
 export const creativeEndpoints = (app) => {
-
   // Creative Writing
-  app.post('/api/creative/writing', async (req, res) => {
+  app.post("/api/creative/writing", async (req, res) => {
     try {
       const { type, prompt } = req.body;
       const provider = await createAIProvider(await getBestProvider());
@@ -104,19 +102,19 @@ export const creativeEndpoints = (app) => {
       const systemPrompts = {
         story: `You are a creative writer. Write an engaging short story based on: ${prompt}. Include vivid descriptions, character development, and a compelling narrative arc.`,
         poem: `You are a poet. Create a beautiful, evocative poem inspired by: ${prompt}. Use imagery, rhythm, and emotional depth.`,
-        dialogue: `You are a screenwriter. Write realistic, engaging dialogue between characters in this scenario: ${prompt}. Make it natural and character-driven.`
+        dialogue: `You are a screenwriter. Write realistic, engaging dialogue between characters in this scenario: ${prompt}. Make it natural and character-driven.`,
       };
 
       const result = await provider.generateText({
         prompt: systemPrompts[type] || systemPrompts.story,
         maxTokens: 500,
-        temperature: 0.8
+        temperature: 0.8,
       });
 
       res.json({
         success: true,
         content: result.text,
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -124,7 +122,7 @@ export const creativeEndpoints = (app) => {
   });
 
   // Language Translation
-  app.post('/api/creative/translate', async (req, res) => {
+  app.post("/api/creative/translate", async (req, res) => {
     try {
       const { text, language } = req.body;
       const provider = await createAIProvider(await getBestProvider());
@@ -136,13 +134,13 @@ export const creativeEndpoints = (app) => {
 
 Provide only the translation:`,
         maxTokens: 300,
-        temperature: 0.3
+        temperature: 0.3,
       });
 
       res.json({
         success: true,
         content: result.text.trim(),
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -150,7 +148,7 @@ Provide only the translation:`,
   });
 
   // Content Ideas Generator
-  app.post('/api/creative/ideas', async (req, res) => {
+  app.post("/api/creative/ideas", async (req, res) => {
     try {
       const { type, topic } = req.body;
       const provider = await createAIProvider(await getBestProvider());
@@ -158,19 +156,19 @@ Provide only the translation:`,
       const prompts = {
         blog: `Generate 10 compelling blog post ideas about ${topic}. Include catchy titles and brief descriptions for each.`,
         social: `Create 10 engaging social media post ideas about ${topic}. Include platform-specific suggestions and hashtag recommendations.`,
-        video: `Generate 10 video content ideas about ${topic}. Include concept, target audience, and key talking points for each.`
+        video: `Generate 10 video content ideas about ${topic}. Include concept, target audience, and key talking points for each.`,
       };
 
       const result = await provider.generateText({
         prompt: prompts[type] || prompts.blog,
         maxTokens: 500,
-        temperature: 0.7
+        temperature: 0.7,
       });
 
       res.json({
         success: true,
         content: result.text,
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -180,9 +178,8 @@ Provide only the translation:`,
 
 // Developer Tools
 export const developerEndpoints = (app) => {
-
   // Code Generator
-  app.post('/api/developer/code', async (req, res) => {
+  app.post("/api/developer/code", async (req, res) => {
     try {
       const { language, description } = req.body;
       const provider = await createAIProvider(await getBestProvider());
@@ -198,13 +195,13 @@ Requirements:
 
 Code:`,
         maxTokens: 600,
-        temperature: 0.4
+        temperature: 0.4,
       });
 
       res.json({
         success: true,
         content: result.text,
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -212,7 +209,7 @@ Code:`,
   });
 
   // API Documentation Generator
-  app.post('/api/developer/api-doc', async (req, res) => {
+  app.post("/api/developer/api-doc", async (req, res) => {
     try {
       const { description } = req.body;
       const provider = await createAIProvider(await getBestProvider());
@@ -230,13 +227,13 @@ Include:
 
 Documentation:`,
         maxTokens: 800,
-        temperature: 0.3
+        temperature: 0.3,
       });
 
       res.json({
         success: true,
         content: result.text,
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -244,7 +241,7 @@ Documentation:`,
   });
 
   // Debug Helper
-  app.post('/api/developer/debug', async (req, res) => {
+  app.post("/api/developer/debug", async (req, res) => {
     try {
       const { error } = req.body;
       const provider = await createAIProvider(await getBestProvider());
@@ -263,13 +260,13 @@ Please provide:
 
 Analysis:`,
         maxTokens: 600,
-        temperature: 0.4
+        temperature: 0.4,
       });
 
       res.json({
         success: true,
         content: result.text,
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -279,34 +276,35 @@ Analysis:`,
 
 // Advanced Features
 export const advancedEndpoints = (app, templateCache) => {
-
   // Template System
-  app.post('/api/templates/execute', async (req, res) => {
+  app.post("/api/templates/execute", async (req, res) => {
     try {
       const { templateId, variables } = req.body;
       const template = templateCache.get(templateId);
 
       if (!template) {
-        return res.status(404).json({ success: false, error: 'Template not found' });
+        return res
+          .status(404)
+          .json({ success: false, error: "Template not found" });
       }
 
       let prompt = template.template;
       Object.entries(variables).forEach(([key, value]) => {
-        prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), value);
+        prompt = prompt.replace(new RegExp(`{{${key}}}`, "g"), value);
       });
 
       const provider = await createAIProvider(await getBestProvider());
       const result = await provider.generateText({
         prompt,
         maxTokens: 500,
-        temperature: 0.7
+        temperature: 0.7,
       });
 
       res.json({
         success: true,
         content: result.text,
         template: template.name,
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -314,7 +312,7 @@ export const advancedEndpoints = (app, templateCache) => {
   });
 
   // Batch Processing
-  app.post('/api/batch/process', async (req, res) => {
+  app.post("/api/batch/process", async (req, res) => {
     try {
       const { operation, items } = req.body;
       const provider = await createAIProvider(await getBestProvider());
@@ -322,7 +320,8 @@ export const advancedEndpoints = (app, templateCache) => {
       const operations = {
         translate: (item) => `Translate to Spanish: "${item}"`,
         summarize: (item) => `Summarize in one sentence: "${item}"`,
-        analyze: (item) => `Analyze sentiment (positive/negative/neutral): "${item}"`
+        analyze: (item) =>
+          `Analyze sentiment (positive/negative/neutral): "${item}"`,
       };
 
       const results = [];
@@ -331,18 +330,18 @@ export const advancedEndpoints = (app, templateCache) => {
           const result = await provider.generateText({
             prompt: operations[operation](item),
             maxTokens: 100,
-            temperature: 0.3
+            temperature: 0.3,
           });
           results.push({
             input: item,
             output: result.text.trim(),
-            success: true
+            success: true,
           });
         } catch (error) {
           results.push({
             input: item,
             error: error.message,
-            success: false
+            success: false,
           });
         }
       }
@@ -351,7 +350,7 @@ export const advancedEndpoints = (app, templateCache) => {
         success: true,
         operation,
         results,
-        totalProcessed: results.length
+        totalProcessed: results.length,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -361,14 +360,21 @@ export const advancedEndpoints = (app, templateCache) => {
 
 // AI Development Workflow Tools (Phase 1.2)
 export const aiWorkflowEndpoints = (app) => {
-
   // Generate Test Cases
-  app.post('/api/ai/generate-test-cases', async (req, res) => {
+  app.post("/api/ai/generate-test-cases", async (req, res) => {
     try {
-      const { codeSnippet, language = 'javascript', testFramework = 'jest', coverage = 'comprehensive', maxTestCases = 5 } = req.body;
+      const {
+        codeSnippet,
+        language = "javascript",
+        testFramework = "jest",
+        coverage = "comprehensive",
+        maxTestCases = 5,
+      } = req.body;
 
       if (!codeSnippet) {
-        return res.status(400).json({ success: false, error: 'Code snippet is required' });
+        return res
+          .status(400)
+          .json({ success: false, error: "Code snippet is required" });
       }
 
       const provider = await createAIProvider(await getBestProvider());
@@ -387,7 +393,7 @@ Requirements:
 
 Return the test cases with clear descriptions:`,
         maxTokens: 800,
-        temperature: 0.4
+        temperature: 0.4,
       });
 
       res.json({
@@ -400,17 +406,17 @@ Return the test cases with clear descriptions:`,
             totalTestCases: maxTestCases,
             testCases: [
               {
-                id: 'test_1',
-                name: 'Generated Test Suite',
+                id: "test_1",
+                name: "Generated Test Suite",
                 description: `${coverage} test cases for ${language} code`,
                 testCode: result.text,
-                framework: testFramework
-              }
-            ]
+                framework: testFramework,
+              },
+            ],
           },
-          generatedAt: new Date().toISOString()
+          generatedAt: new Date().toISOString(),
         },
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -418,18 +424,25 @@ Return the test cases with clear descriptions:`,
   });
 
   // Refactor Code
-  app.post('/api/ai/refactor-code', async (req, res) => {
+  app.post("/api/ai/refactor-code", async (req, res) => {
     try {
-      const { codeSnippet, language = 'javascript', refactorGoals = ['readability', 'maintainability'], complexityLevel = 'moderate' } = req.body;
+      const {
+        codeSnippet,
+        language = "javascript",
+        refactorGoals = ["readability", "maintainability"],
+        complexityLevel = "moderate",
+      } = req.body;
 
       if (!codeSnippet) {
-        return res.status(400).json({ success: false, error: 'Code snippet is required' });
+        return res
+          .status(400)
+          .json({ success: false, error: "Code snippet is required" });
       }
 
       const provider = await createAIProvider(await getBestProvider());
 
       const result = await provider.generateText({
-        prompt: `Refactor this ${language} code with goals: ${refactorGoals.join(', ')}
+        prompt: `Refactor this ${language} code with goals: ${refactorGoals.join(", ")}
 Complexity level: ${complexityLevel}
 
 Original code:
@@ -443,7 +456,7 @@ Please provide:
 
 Refactoring:`,
         maxTokens: 800,
-        temperature: 0.4
+        temperature: 0.4,
       });
 
       res.json({
@@ -452,19 +465,19 @@ Refactoring:`,
           analysis: {
             original: { complexity: complexityLevel },
             language,
-            refactorGoals
+            refactorGoals,
           },
           suggestions: [
             {
-              type: refactorGoals[0] || 'readability',
-              description: 'Code refactoring suggestions',
-              impact: 'Improved code quality and maintainability'
-            }
+              type: refactorGoals[0] || "readability",
+              description: "Code refactoring suggestions",
+              impact: "Improved code quality and maintainability",
+            },
           ],
           refactoredCode: result.text,
-          refactoredAt: new Date().toISOString()
+          refactoredAt: new Date().toISOString(),
         },
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -472,12 +485,19 @@ Refactoring:`,
   });
 
   // Generate Documentation
-  app.post('/api/ai/generate-documentation', async (req, res) => {
+  app.post("/api/ai/generate-documentation", async (req, res) => {
     try {
-      const { codeSnippet, language = 'javascript', docType = 'comprehensive', format = 'markdown' } = req.body;
+      const {
+        codeSnippet,
+        language = "javascript",
+        docType = "comprehensive",
+        format = "markdown",
+      } = req.body;
 
       if (!codeSnippet) {
-        return res.status(400).json({ success: false, error: 'Code snippet is required' });
+        return res
+          .status(400)
+          .json({ success: false, error: "Code snippet is required" });
       }
 
       const provider = await createAIProvider(await getBestProvider());
@@ -496,7 +516,7 @@ Include:
 
 Documentation:`,
         maxTokens: 800,
-        temperature: 0.3
+        temperature: 0.3,
       });
 
       res.json({
@@ -508,19 +528,19 @@ Documentation:`,
             language,
             sections: [
               {
-                title: 'Generated Documentation',
+                title: "Generated Documentation",
                 content: result.text,
-                format: format
-              }
-            ]
+                format: format,
+              },
+            ],
           },
           metrics: {
             totalSections: 1,
-            totalWords: result.text.split(' ').length
+            totalWords: result.text.split(" ").length,
           },
-          generatedAt: new Date().toISOString()
+          generatedAt: new Date().toISOString(),
         },
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -528,12 +548,20 @@ Documentation:`,
   });
 
   // Debug AI Output
-  app.post('/api/ai/debug-ai-output', async (req, res) => {
+  app.post("/api/ai/debug-ai-output", async (req, res) => {
     try {
-      const { aiOutput, originalPrompt, analysisDepth = 'detailed', issueType } = req.body;
+      const {
+        aiOutput,
+        originalPrompt,
+        analysisDepth = "detailed",
+        issueType,
+      } = req.body;
 
       if (!aiOutput || !originalPrompt) {
-        return res.status(400).json({ success: false, error: 'AI output and original prompt are required' });
+        return res.status(400).json({
+          success: false,
+          error: "AI output and original prompt are required",
+        });
       }
 
       const provider = await createAIProvider(await getBestProvider());
@@ -546,7 +574,7 @@ Original Prompt: "${originalPrompt}"
 AI Output: "${aiOutput}"
 
 Analysis depth: ${analysisDepth}
-${issueType ? `Focus on: ${issueType} issues` : ''}
+${issueType ? `Focus on: ${issueType} issues` : ""}
 
 Provide:
 1. Quality assessment (relevance, completeness, accuracy)
@@ -556,7 +584,7 @@ Provide:
 
 Analysis:`,
         maxTokens: 600,
-        temperature: 0.3
+        temperature: 0.3,
       });
 
       res.json({
@@ -565,25 +593,25 @@ Analysis:`,
           analysis: {
             output: {
               length: aiOutput.length,
-              wordCount: aiOutput.split(' ').length
+              wordCount: aiOutput.split(" ").length,
             },
             prompt: {
               length: originalPrompt.length,
-              clarity: originalPrompt.includes('?') ? 'explicit' : 'implicit'
+              clarity: originalPrompt.includes("?") ? "explicit" : "implicit",
             },
-            analysisDepth
+            analysisDepth,
           },
           issues: [
             {
-              type: issueType || 'general',
-              description: 'AI output analysis completed',
-              suggestion: 'Review the detailed analysis below'
-            }
+              type: issueType || "general",
+              description: "AI output analysis completed",
+              suggestion: "Review the detailed analysis below",
+            },
           ],
-          recommendations: result.text.split('\n').slice(0, 3),
-          debuggedAt: new Date().toISOString()
+          recommendations: result.text.split("\n").slice(0, 3),
+          debuggedAt: new Date().toISOString(),
         },
-        usage: result.usage
+        usage: result.usage,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -593,27 +621,42 @@ Analysis:`,
 
 // Analytics and Monitoring
 export const analyticsEndpoints = (app, usageStats) => {
-
   // Usage Analytics
-  app.get('/api/analytics', (req, res) => {
+  app.get("/api/analytics", (req, res) => {
     const analytics = {
       totalRequests: usageStats.requests,
       totalTokens: usageStats.totalTokens,
       totalErrors: usageStats.errors,
       providerUsage: usageStats.providers,
       timestamp: new Date().toISOString(),
-      averageTokensPerRequest: usageStats.requests > 0 ? Math.round(usageStats.totalTokens / usageStats.requests) : 0,
-      errorRate: usageStats.requests > 0 ? Math.round((usageStats.errors / usageStats.requests) * 100) : 0
+      averageTokensPerRequest:
+        usageStats.requests > 0
+          ? Math.round(usageStats.totalTokens / usageStats.requests)
+          : 0,
+      errorRate:
+        usageStats.requests > 0
+          ? Math.round((usageStats.errors / usageStats.requests) * 100)
+          : 0,
     };
 
     res.json(analytics);
   });
 
   // Performance Metrics
-  app.get('/api/performance', async (req, res) => {
+  app.get("/api/performance", async (req, res) => {
     try {
       const testPrompt = "Test response time";
-      const providers = ['openai', 'bedrock', 'vertex'];
+      const providers = [
+        "openai",
+        "bedrock",
+        "vertex",
+        "google-ai",
+        "anthropic",
+        "azure",
+        "huggingface",
+        "ollama",
+        "mistral",
+      ];
       const metrics = {};
 
       for (const providerName of providers) {
@@ -623,25 +666,25 @@ export const analyticsEndpoints = (app, usageStats) => {
           await provider.generateText({
             prompt: testPrompt,
             maxTokens: 10,
-            temperature: 0.1
+            temperature: 0.1,
           });
           const endTime = Date.now();
 
           metrics[providerName] = {
             responseTime: endTime - startTime,
-            status: 'available'
+            status: "available",
           };
         } catch (error) {
           metrics[providerName] = {
-            status: 'unavailable',
-            error: error.message
+            status: "unavailable",
+            error: error.message,
           };
         }
       }
 
       res.json({
         timestamp: new Date().toISOString(),
-        metrics
+        metrics,
       });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });

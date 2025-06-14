@@ -1,5 +1,6 @@
 # Phase 1.2 AI Development Workflow Tools - Testing Guide
-*Comprehensive Testing and Validation Procedures*
+
+_Comprehensive Testing and Validation Procedures_
 
 ## Overview
 
@@ -8,6 +9,7 @@ This guide provides complete testing procedures for Phase 1.2 AI Development Wor
 ## Quick Start Testing
 
 ### Prerequisites
+
 ```bash
 # Environment setup
 cp .env.example .env
@@ -19,6 +21,7 @@ pnpm run build
 ```
 
 ### Complete Test Suite
+
 ```bash
 # Phase 1.2 AI Workflow Tools tests (36 tests)
 pnpm test src/test/ai-workflow-tools.test.ts
@@ -36,6 +39,7 @@ pnpm test --run
 ## Individual Tool Testing
 
 ### 1. Generate Test Cases Tool
+
 ```bash
 node -e "
 import { generateTestCasesTool } from './dist/mcp/servers/ai-providers/ai-workflow-tools.js';
@@ -55,6 +59,7 @@ console.log('Test Cases:', result.data?.testSuite?.testCases?.length || 0);
 ```
 
 ### 2. Code Refactoring Tool
+
 ```bash
 node -e "
 import { refactorCodeTool } from './dist/mcp/servers/ai-providers/ai-workflow-tools.js';
@@ -74,6 +79,7 @@ console.log('Improvements:', Object.keys(result.data?.improvements || {}));
 ```
 
 ### 3. Documentation Generation Tool
+
 ```bash
 node -e "
 import { generateDocumentationTool } from './dist/mcp/servers/ai-providers/ai-workflow-tools.js';
@@ -93,6 +99,7 @@ console.log('Sections:', result.data?.documentation?.sections?.length || 0);
 ```
 
 ### 4. AI Output Debugging Tool
+
 ```bash
 node -e "
 import { debugAIOutputTool } from './dist/mcp/servers/ai-providers/ai-workflow-tools.js';
@@ -113,6 +120,7 @@ console.log('Issues Found:', result.data?.issues?.length || 0);
 ## Demo Server Testing
 
 ### Unified Server Testing
+
 ```bash
 cd neurolink-demo
 npm install
@@ -120,12 +128,14 @@ node server.js
 ```
 
 **Web Interface Testing** (http://localhost:3001):
+
 - `/ai/generate-test-cases` - Test case generation form
 - `/ai/refactor-code` - Code refactoring interface
 - `/ai/generate-documentation` - Documentation generation
 - `/ai/debug-ai-output` - AI output analysis
 
 ### API Endpoint Testing
+
 ```bash
 # Generate Test Cases
 curl -X POST http://localhost:3001/api/ai/generate-test-cases \
@@ -151,6 +161,7 @@ curl -X POST http://localhost:3001/api/ai/debug-ai-output \
 ## CLI Testing
 
 ### Core CLI Functionality
+
 ```bash
 # Basic text generation
 ./dist/cli/index.js generate "Write a simple function"
@@ -166,6 +177,7 @@ curl -X POST http://localhost:3001/api/ai/debug-ai-output \
 ## Visual Validation
 
 ### Screenshots Verification
+
 - `neurolink-demo/screenshots/08-phase-1-2-overview.png` - Overview page
 - `neurolink-demo/screenshots/09-phase-1-2-tools.png` - Tools section
 - `neurolink-demo/screenshots/10-test-cases-result.png` - Test generation results
@@ -174,12 +186,14 @@ curl -X POST http://localhost:3001/api/ai/debug-ai-output \
 - `neurolink-demo/screenshots/13-debug-output-result.png` - Debug analysis results
 
 ### Video Validation
+
 - `docs/visual-content/cli-videos/phase-1-2-cli-demo/phase-1-2-cli-demo.mp4` - CLI demonstration
 - `neurolink-demo/videos/phase-1-2-demo/` - Web demo videos
 
 ## Success Criteria
 
 ### Test Results Expected:
+
 - ✅ **36/36 Phase 1.2 tests passing** (100% success rate)
 - ✅ **4 AI workflow tools functioning**:
   - Generate Test Cases Tool (7/7 tests)
@@ -190,6 +204,7 @@ curl -X POST http://localhost:3001/api/ai/debug-ai-output \
 - ✅ **Performance standards** (all tools < 100ms)
 
 ### Functional Validation:
+
 - Demo server starts on port 3001 without errors
 - All 4 tools return `success: true` with realistic data
 - Web interface displays proper JSON responses
@@ -199,12 +214,14 @@ curl -X POST http://localhost:3001/api/ai/debug-ai-output \
 ## Troubleshooting
 
 ### Common Issues:
+
 1. **Test failures**: Check environment variables, rebuild project (`pnpm run build`)
 2. **Demo server issues**: Verify port 3001 availability, check dependencies
 3. **Import errors**: Tests import from `dist/` directory after build
 4. **Network timeouts**: Provider API connectivity issues
 
 ### Environment Requirements:
+
 ```bash
 # Minimum configuration (choose at least one provider)
 export OPENAI_API_KEY="your-key-here"

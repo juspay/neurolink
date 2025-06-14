@@ -10,33 +10,40 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 - **Google AI Studio** - Gemini 1.5 Pro, Gemini 2.0 Flash, Gemini 1.5 Flash
 - **Anthropic** - Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
 - **Azure OpenAI** - GPT-4, GPT-3.5-Turbo
+- **Hugging Face** - 100,000+ open source models including DialoGPT, GPT-2, GPT-Neo
+- **Ollama** - Local AI models including Llama 2, Code Llama, Mistral, Vicuna
+- **Mistral AI** - Mistral Tiny, Small, Medium, and Large models
 
 ## OpenAI Configuration
 
 ### Basic Setup
+
 ```bash
 export OPENAI_API_KEY="sk-your-openai-api-key"
 ```
 
 ### Optional Configuration
+
 ```bash
 export OPENAI_MODEL="gpt-4o"  # Default model to use
 ```
 
 ### Supported Models
+
 - `gpt-4o` (default) - Latest multimodal model
 - `gpt-4o-mini` - Cost-effective variant
 - `gpt-4-turbo` - High-performance model
 
 ### Usage Example
-```typescript
-import { AIProviderFactory } from '@juspay/neurolink';
 
-const openai = AIProviderFactory.createProvider('openai', 'gpt-4o');
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const openai = AIProviderFactory.createProvider("openai", "gpt-4o");
 const result = await openai.generateText({
   prompt: "Explain machine learning",
   temperature: 0.7,
-  maxTokens: 500
+  maxTokens: 500,
 });
 ```
 
@@ -57,6 +64,7 @@ export BEDROCK_MODEL="arn:aws:bedrock:us-east-2:<account_id>:inference-profile/u
 ```
 
 ### Basic AWS Credentials
+
 ```bash
 export AWS_ACCESS_KEY_ID="your-access-key"
 export AWS_SECRET_ACCESS_KEY="your-secret-key"
@@ -64,7 +72,9 @@ export AWS_REGION="us-east-2"
 ```
 
 ### Session Token Support (Development)
+
 For temporary credentials (common in development environments):
+
 ```bash
 export AWS_SESSION_TOKEN="your-session-token"  # Required for temporary credentials
 ```
@@ -85,12 +95,14 @@ BEDROCK_MODEL="arn:aws:bedrock:us-east-2:<account_id>:inference-profile/us.anthr
 ```
 
 ### Why Inference Profiles?
+
 - **Cross-Region Access**: Faster access across AWS regions
 - **Better Performance**: Optimized routing and response times
 - **Higher Availability**: Improved model availability and reliability
 - **Different Permissions**: Separate permission model from base models
 
 ### Complete Bedrock Configuration
+
 ```bash
 # Required AWS credentials
 export AWS_ACCESS_KEY_ID="your-access-key"
@@ -108,14 +120,15 @@ export BEDROCK_MODEL_ID="arn:aws:bedrock:us-east-2:<account_id>:inference-profil
 ```
 
 ### Usage Example
-```typescript
-import { AIProviderFactory } from '@juspay/neurolink';
 
-const bedrock = AIProviderFactory.createProvider('bedrock');
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const bedrock = AIProviderFactory.createProvider("bedrock");
 const result = await bedrock.generateText({
   prompt: "Write a haiku about AI",
   temperature: 0.8,
-  maxTokens: 100
+  maxTokens: 100,
 });
 ```
 
@@ -129,6 +142,7 @@ To use AWS Bedrock, ensure your AWS account has:
 4. **Inference Profile Access**: Access to the specific inference profiles
 
 ### IAM Policy Example
+
 ```json
 {
   "Version": "2012-10-17",
@@ -139,9 +153,7 @@ To use AWS Bedrock, ensure your AWS account has:
         "bedrock:InvokeModel",
         "bedrock:InvokeModelWithResponseStream"
       ],
-      "Resource": [
-        "arn:aws:bedrock:*:*:inference-profile/us.anthropic.*"
-      ]
+      "Resource": ["arn:aws:bedrock:*:*:inference-profile/us.anthropic.*"]
     }
   ]
 }
@@ -162,6 +174,7 @@ export GOOGLE_VERTEX_LOCATION="us-central1"
 ```
 
 **Setup Steps:**
+
 1. Create a service account in Google Cloud Console
 2. Download the service account JSON file
 3. Set the file path in `GOOGLE_APPLICATION_CREDENTIALS`
@@ -177,6 +190,7 @@ export GOOGLE_VERTEX_LOCATION="us-central1"
 ```
 
 **Setup Steps:**
+
 1. Copy the entire contents of your service account JSON file
 2. Set it as a single-line string in `GOOGLE_SERVICE_ACCOUNT_KEY`
 3. NeuroLink will automatically create a temporary file for authentication
@@ -193,6 +207,7 @@ export GOOGLE_VERTEX_LOCATION="us-central1"
 ```
 
 **Setup Steps:**
+
 1. Extract `client_email` and `private_key` from your service account JSON
 2. Set them as individual environment variables
 3. NeuroLink will automatically assemble them into a temporary service account file
@@ -206,6 +221,7 @@ NeuroLink automatically detects and uses the best available authentication metho
 3. **Individual Variables** (`GOOGLE_AUTH_CLIENT_EMAIL` + `GOOGLE_AUTH_PRIVATE_KEY`) - if both provided
 
 ### Complete Vertex AI Configuration
+
 ```bash
 # Required for all methods
 export GOOGLE_VERTEX_PROJECT="your-gcp-project-id"
@@ -228,18 +244,20 @@ export GOOGLE_AUTH_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhki
 ```
 
 ### Usage Example
-```typescript
-import { AIProviderFactory } from '@juspay/neurolink';
 
-const vertex = AIProviderFactory.createProvider('vertex', 'gemini-2.5-flash');
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const vertex = AIProviderFactory.createProvider("vertex", "gemini-2.5-flash");
 const result = await vertex.generateText({
   prompt: "Explain quantum computing",
   temperature: 0.6,
-  maxTokens: 800
+  maxTokens: 800,
 });
 ```
 
 ### Supported Models
+
 - `gemini-2.5-flash` (default) - Fast, efficient model
 - `claude-sonnet-4@20250514` - High-quality reasoning
 
@@ -255,6 +273,7 @@ To use Google Vertex AI, ensure your Google Cloud project has:
 ### Service Account Permissions
 
 Your service account needs these IAM roles:
+
 - `Vertex AI User` or `Vertex AI Admin`
 - `Service Account Token Creator` (if using impersonation)
 
@@ -263,30 +282,37 @@ Your service account needs these IAM roles:
 Google AI Studio provides direct access to Google's Gemini models with a simple API key authentication.
 
 ### Basic Setup
+
 ```bash
 export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
 ```
 
 ### Optional Configuration
+
 ```bash
 export GOOGLE_AI_MODEL="gemini-1.5-pro-latest"  # Default model to use
 ```
 
 ### Supported Models
+
 - `gemini-1.5-pro-latest` (default) - Latest Gemini Pro with enhanced capabilities
 - `gemini-2.0-flash-exp` - Experimental model with cutting-edge features
 - `gemini-1.5-flash-latest` - Fast, efficient responses for most tasks
 - `gemini-1.0-pro` - Stable legacy option
 
 ### Usage Example
-```typescript
-import { AIProviderFactory } from '@juspay/neurolink';
 
-const googleAI = AIProviderFactory.createProvider('google-ai', 'gemini-1.5-pro-latest');
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const googleAI = AIProviderFactory.createProvider(
+  "google-ai",
+  "gemini-1.5-pro-latest",
+);
 const result = await googleAI.generateText({
   prompt: "Explain the future of AI",
   temperature: 0.7,
-  maxTokens: 1000
+  maxTokens: 1000,
 });
 ```
 
@@ -302,16 +328,17 @@ const result = await googleAI.generateText({
 
 ### Google AI Studio vs Vertex AI
 
-| Feature | Google AI Studio | Google Vertex AI |
-|---------|------------------|------------------|
-| **Setup Complexity** | 🟢 Simple (API key only) | 🟡 Complex (Service account) |
-| **Authentication** | API key | Service account JSON |
-| **Free Tier** | ✅ Generous free limits | ❌ Pay-per-use only |
-| **Enterprise Features** | ❌ Limited | ✅ Full enterprise support |
-| **Model Selection** | 🎯 Latest Gemini models | 🔄 Broader model catalog |
-| **Best For** | Prototyping, small projects | Production, enterprise apps |
+| Feature                 | Google AI Studio            | Google Vertex AI             |
+| ----------------------- | --------------------------- | ---------------------------- |
+| **Setup Complexity**    | 🟢 Simple (API key only)    | 🟡 Complex (Service account) |
+| **Authentication**      | API key                     | Service account JSON         |
+| **Free Tier**           | ✅ Generous free limits     | ❌ Pay-per-use only          |
+| **Enterprise Features** | ❌ Limited                  | ✅ Full enterprise support   |
+| **Model Selection**     | 🎯 Latest Gemini models     | 🔄 Broader model catalog     |
+| **Best For**            | Prototyping, small projects | Production, enterprise apps  |
 
 ### Complete Google AI Studio Configuration
+
 ```bash
 # Required: API key from Google AI Studio
 export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
@@ -326,29 +353,33 @@ export GOOGLE_GENERATIVE_AI_API_KEY="AIza-your-google-ai-api-key"
 ### Rate Limits and Quotas
 
 Google AI Studio includes generous free tier limits:
+
 - **Free Tier**: 15 requests per minute, 1,500 requests per day
 - **Paid Usage**: Higher limits available with billing enabled
 - **Model-Specific**: Different models may have different rate limits
 
 ### Error Handling for Google AI Studio
+
 ```typescript
-import { AIProviderFactory } from '@juspay/neurolink';
+import { AIProviderFactory } from "@juspay/neurolink";
 
 try {
-  const provider = AIProviderFactory.createProvider('google-ai');
+  const provider = AIProviderFactory.createProvider("google-ai");
   const result = await provider.generateText({
     prompt: "Generate a creative story",
     temperature: 0.8,
-    maxTokens: 500
+    maxTokens: 500,
   });
   console.log(result.text);
 } catch (error) {
-  if (error.message.includes('API_KEY_INVALID')) {
-    console.error('Invalid Google AI API key. Check your GOOGLE_AI_API_KEY environment variable.');
-  } else if (error.message.includes('QUOTA_EXCEEDED')) {
-    console.error('Rate limit exceeded. Wait before making more requests.');
+  if (error.message.includes("API_KEY_INVALID")) {
+    console.error(
+      "Invalid Google AI API key. Check your GOOGLE_AI_API_KEY environment variable.",
+    );
+  } else if (error.message.includes("QUOTA_EXCEEDED")) {
+    console.error("Rate limit exceeded. Wait before making more requests.");
   } else {
-    console.error('Google AI Studio error:', error.message);
+    console.error("Google AI Studio error:", error.message);
   }
 }
 ```
@@ -359,6 +390,214 @@ try {
 - **Environment Variables**: Never commit API keys to version control
 - **Rate Limiting**: Implement client-side rate limiting for production apps
 - **Monitoring**: Monitor usage to avoid unexpected charges
+
+## Hugging Face Configuration
+
+### Basic Setup
+
+```bash
+export HUGGINGFACE_API_KEY="hf_your_token_here"
+```
+
+### Optional Configuration
+
+```bash
+export HUGGINGFACE_MODEL="microsoft/DialoGPT-medium"  # Default model
+```
+
+### Model Selection Strategy
+
+Hugging Face hosts 100,000+ models. Choose based on:
+
+- **Task**: text-generation, conversational, code
+- **Size**: Larger models = better quality but slower
+- **License**: Check model licenses for commercial use
+
+### Rate Limiting
+
+- Free tier: Limited requests
+- PRO tier: Higher limits
+- Handle 503 errors (model loading) with retry logic
+
+### Usage Example
+
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const huggingface = AIProviderFactory.createProvider("huggingface", "gpt2");
+const result = await huggingface.generateText({
+  prompt: "Explain machine learning",
+  temperature: 0.8,
+  maxTokens: 200,
+});
+```
+
+### Popular Models
+
+- `microsoft/DialoGPT-medium` (default) - Conversational AI
+- `gpt2` - Classic GPT-2
+- `distilgpt2` - Lightweight GPT-2
+- `EleutherAI/gpt-neo-2.7B` - Large open model
+- `bigscience/bloom-560m` - Multilingual model
+
+### Getting Started with Hugging Face
+
+1. **Create Account**: Visit [huggingface.co](https://huggingface.co)
+2. **Generate Token**: Go to Settings → Access Tokens
+3. **Create Token**: Click "New token" with "read" scope
+4. **Set Environment**: Export token as `HUGGINGFACE_API_KEY`
+
+## Ollama Configuration
+
+### Local Installation Required
+
+Ollama must be installed and running locally.
+
+### Installation Steps
+
+1. **macOS**:
+
+   ```bash
+   brew install ollama
+   # or
+   curl -fsSL https://ollama.ai/install.sh | sh
+   ```
+
+2. **Linux**:
+
+   ```bash
+   curl -fsSL https://ollama.ai/install.sh | sh
+   ```
+
+3. **Windows**:
+   Download from [ollama.ai](https://ollama.ai)
+
+### Model Management
+
+```bash
+# List models
+ollama list
+
+# Pull new model
+ollama pull llama2
+
+# Remove model
+ollama rm llama2
+```
+
+### Privacy Benefits
+
+- **100% Local**: No data leaves your machine
+- **No API Keys**: No authentication required
+- **Offline Capable**: Works without internet
+
+### Usage Example
+
+```typescript
+const ollama = AIProviderFactory.createProvider("ollama", "llama2");
+const result = await ollama.generateText({
+  prompt: "Write a poem about privacy",
+  temperature: 0.7,
+  maxTokens: 300,
+});
+```
+
+### Popular Models
+
+- `llama2` (default) - Meta's Llama 2
+- `codellama` - Code-specialized Llama
+- `mistral` - Mistral 7B
+- `vicuna` - Fine-tuned Llama
+- `phi` - Microsoft's small model
+
+### Environment Variables
+
+```bash
+# Optional: Custom Ollama server URL
+export OLLAMA_BASE_URL="http://localhost:11434"
+
+# Optional: Default model
+export OLLAMA_MODEL="llama2"
+```
+
+### Performance Optimization
+
+```bash
+# Set memory limit
+OLLAMA_MAX_MEMORY=8GB ollama serve
+
+# Use specific GPU
+OLLAMA_CUDA_DEVICE=0 ollama serve
+```
+
+## Mistral AI Configuration
+
+### Basic Setup
+
+```bash
+export MISTRAL_API_KEY="your_mistral_api_key"
+```
+
+### European Compliance
+
+- GDPR compliant
+- Data processed in Europe
+- No training on user data
+
+### Model Selection
+
+- **mistral-tiny**: Fast responses, basic tasks
+- **mistral-small**: Balanced choice (default)
+- **mistral-medium**: Complex reasoning
+- **mistral-large**: Maximum capability
+
+### Cost Optimization
+
+Mistral offers competitive pricing:
+
+- Tiny: $0.14 / 1M tokens
+- Small: $0.6 / 1M tokens
+- Medium: $2.5 / 1M tokens
+- Large: $8 / 1M tokens
+
+### Usage Example
+
+```typescript
+const mistral = AIProviderFactory.createProvider("mistral", "mistral-small");
+const result = await mistral.generateText({
+  prompt: "Translate to French: Hello world",
+  temperature: 0.3,
+  maxTokens: 100,
+});
+```
+
+### Getting Started with Mistral AI
+
+1. **Create Account**: Visit [mistral.ai](https://mistral.ai)
+2. **Get API Key**: Navigate to API Keys section
+3. **Generate Key**: Create new API key
+4. **Add Billing**: Set up payment method
+
+### Environment Variables
+
+```bash
+# Required: API key
+export MISTRAL_API_KEY="your_mistral_api_key"
+
+# Optional: Default model
+export MISTRAL_MODEL="mistral-small"
+
+# Optional: Custom endpoint
+export MISTRAL_ENDPOINT="https://api.mistral.ai"
+```
+
+### Multilingual Support
+
+Mistral models excel at multilingual tasks:
+
+- English, French, Spanish, German, Italian
+- Code generation in multiple programming languages
+- Translation between supported languages
 
 ## Environment File Template
 
@@ -406,6 +645,18 @@ AZURE_OPENAI_API_KEY=your-azure-key
 AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
 AZURE_OPENAI_DEPLOYMENT_ID=your-deployment-name
 
+# Hugging Face
+HUGGINGFACE_API_KEY=hf_your_token_here
+HUGGINGFACE_MODEL=microsoft/DialoGPT-medium  # Optional
+
+# Ollama (Local AI)
+OLLAMA_BASE_URL=http://localhost:11434  # Optional
+OLLAMA_MODEL=llama2  # Optional
+
+# Mistral AI
+MISTRAL_API_KEY=your_mistral_api_key
+MISTRAL_MODEL=mistral-small  # Optional
+
 # Application Settings
 DEFAULT_PROVIDER=auto
 ENABLE_STREAMING=true
@@ -420,7 +671,7 @@ NEUROLINK_DEBUG=false
 NeuroLink automatically selects the best available provider:
 
 ```typescript
-import { createBestAIProvider } from '@juspay/neurolink';
+import { createBestAIProvider } from "@juspay/neurolink";
 
 // Automatically selects best available provider
 const provider = createBestAIProvider();
@@ -429,39 +680,50 @@ const provider = createBestAIProvider();
 ### Provider Priority Order
 
 The default priority order (most reliable first):
+
 1. **OpenAI** - Most reliable, fastest setup
-2. **Google Vertex AI** - Good performance, multiple auth methods
-3. **Amazon Bedrock** - High quality, requires careful setup
+2. **Anthropic** - High quality, simple setup
+3. **Google AI Studio** - Free tier, easy setup
+4. **Azure OpenAI** - Enterprise reliable
+5. **Google Vertex AI** - Good performance, multiple auth methods
+6. **Mistral AI** - European compliance, competitive pricing
+7. **Hugging Face** - Open source variety
+8. **Amazon Bedrock** - High quality, requires careful setup
+9. **Ollama** - Local only, no fallback
 
 ### Custom Priority
+
 ```typescript
-import { AIProviderFactory } from '@juspay/neurolink';
+import { AIProviderFactory } from "@juspay/neurolink";
 
 // Custom provider with fallback
 const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
-  'bedrock',   // Prefer Bedrock
-  'openai'     // Fall back to OpenAI
+  "bedrock", // Prefer Bedrock
+  "openai", // Fall back to OpenAI
 );
 
 try {
   const result = await primary.generateText({ prompt: "Hello" });
 } catch (error) {
-  console.log('Primary failed, trying fallback...');
+  console.log("Primary failed, trying fallback...");
   const result = await fallback.generateText({ prompt: "Hello" });
 }
 ```
 
 ### Environment-Based Selection
+
 ```typescript
 // Different providers for different environments
-const provider = process.env.NODE_ENV === 'production'
-  ? AIProviderFactory.createProvider('bedrock')      // Production: Bedrock
-  : AIProviderFactory.createProvider('openai', 'gpt-4o-mini'); // Dev: Cheaper model
+const provider =
+  process.env.NODE_ENV === "production"
+    ? AIProviderFactory.createProvider("bedrock") // Production: Bedrock
+    : AIProviderFactory.createProvider("openai", "gpt-4o-mini"); // Dev: Cheaper model
 ```
 
 ## Testing Provider Configuration
 
 ### CLI Status Check
+
 ```bash
 # Test all providers
 npx @juspay/neurolink status --verbose
@@ -474,11 +736,22 @@ npx @juspay/neurolink status --verbose
 ```
 
 ### Programmatic Testing
+
 ```typescript
-import { AIProviderFactory } from '@juspay/neurolink';
+import { AIProviderFactory } from "@juspay/neurolink";
 
 async function testProviders() {
-  const providers = ['openai', 'bedrock', 'vertex'];
+  const providers = [
+    "openai",
+    "bedrock",
+    "vertex",
+    "anthropic",
+    "azure",
+    "google-ai",
+    "huggingface",
+    "ollama",
+    "mistral",
+  ];
 
   for (const providerName of providers) {
     try {
@@ -486,8 +759,8 @@ async function testProviders() {
       const start = Date.now();
 
       const result = await provider.generateText({
-        prompt: 'Test',
-        maxTokens: 10
+        prompt: "Test",
+        maxTokens: 10,
       });
 
       console.log(`✅ ${providerName}: Working (${Date.now() - start}ms)`);
@@ -503,31 +776,40 @@ testProviders();
 ## Common Configuration Issues
 
 ### OpenAI Issues
+
 ```
 Error: Cannot find API key for OpenAI provider
 ```
+
 **Solution**: Set `OPENAI_API_KEY` environment variable
 
 ### Bedrock Issues
+
 ```
 Your account is not authorized to invoke this API operation
 ```
+
 **Solutions**:
+
 1. Use full inference profile ARN (not simple model name)
 2. Check AWS account has Bedrock access
 3. Verify IAM permissions include `bedrock:InvokeModel`
 4. Ensure model access is enabled in your AWS region
 
 ### Vertex AI Issues
+
 ```
 Cannot find package '@google-cloud/vertexai'
 ```
+
 **Solution**: Install peer dependency: `npm install @google-cloud/vertexai`
 
 ```
 Authentication failed
 ```
+
 **Solutions**:
+
 1. Verify service account JSON is valid
 2. Check project ID is correct
 3. Ensure Vertex AI API is enabled
@@ -536,24 +818,28 @@ Authentication failed
 ## Security Best Practices
 
 ### Environment Variables
+
 - Never commit API keys to version control
 - Use different keys for development/staging/production
 - Rotate keys regularly
 - Use minimal permissions for service accounts
 
 ### AWS Security
+
 - Use IAM roles instead of access keys when possible
 - Enable CloudTrail for audit logging
 - Use VPC endpoints for additional security
 - Implement resource-based policies
 
 ### Google Cloud Security
+
 - Use service account keys with minimal permissions
 - Enable audit logging
 - Use VPC Service Controls for additional isolation
 - Rotate service account keys regularly
 
 ### General Security
+
 - Use environment-specific configurations
 - Implement rate limiting in your applications
 - Monitor usage and costs

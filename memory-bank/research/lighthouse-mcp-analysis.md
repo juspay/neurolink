@@ -7,6 +7,7 @@ The Lighthouse project has implemented a highly sophisticated MCP (Model Context
 ## Key Architectural Patterns Discovered
 
 ### 1. **MCP Factory Pattern** ⭐ CRITICAL PATTERN
+
 **Location**: `/src/lib/utils/createMCPServer.ts`
 
 ```typescript
@@ -24,7 +25,7 @@ export function createMCPServer(config: {
       this.tools[tool.name] = tool;
       // Comprehensive logging
       return this;
-    }
+    },
   };
   return server;
 }
@@ -33,9 +34,11 @@ export function createMCPServer(config: {
 **NeuroLink Application**: We can create a similar factory for AI-focused MCP servers
 
 ### 2. **Hierarchical Server Organization** ⭐ CRITICAL ARCHITECTURE
+
 **Location**: `/src/lib/mcp/servers/config.ts`
 
 **Structure**:
+
 ```
 /servers/
 ├── juspay/           # Payment provider specific
@@ -47,6 +50,7 @@ export function createMCPServer(config: {
 ```
 
 **NeuroLink Equivalent**:
+
 ```
 /mcp-servers/
 ├── ai-providers/     # OpenAI, Bedrock, Vertex specific tools
@@ -57,18 +61,20 @@ export function createMCPServer(config: {
 ```
 
 ### 3. **Tool Registration Pattern** ⭐ ESSENTIAL
+
 **Location**: `/src/lib/mcp/servers/breeze/general-servers/lighthouse-tools-server.ts`
 
 ```typescript
 // Lighthouse Pattern
 lighthouseToolsServer.registerTool({
-  name: 'get-analytics-data',
-  description: 'Retrieves analytics data for a specific shop within a date range.',
+  name: "get-analytics-data",
+  description:
+    "Retrieves analytics data for a specific shop within a date range.",
   inputSchema: getAnalyticsDataInputSchema, // Zod schema
   isImplemented: false, // Demo mode flag
   execute: async (params: unknown, context: ToolExecutionContext) => {
     // Standardized execution pattern
-    const toolName = 'get-analytics-data';
+    const toolName = "get-analytics-data";
     try {
       const input = getAnalyticsDataInputSchema.parse(params);
       // Tool logic here
@@ -76,11 +82,12 @@ lighthouseToolsServer.registerTool({
     } catch (error) {
       return { success: false, error: errorMessage };
     }
-  }
+  },
 });
 ```
 
 ### 4. **Context Management System** ⭐ REVOLUTIONARY
+
 **Location**: `/src/lib/mcp/context.ts`
 
 ```typescript
@@ -89,7 +96,13 @@ export type ToolExecutionContext = {
   juspayToken?: string | null;
   shopUrl?: string | null;
   shopId?: string | null;
-  shopType?: 'SHOPIFY' | 'WOOCOMMERCE' | 'MAGENTO' | 'INDEPENDENT' | string | null;
+  shopType?:
+    | "SHOPIFY"
+    | "WOOCOMMERCE"
+    | "MAGENTO"
+    | "INDEPENDENT"
+    | string
+    | null;
   merchantId?: string | null;
   userId?: string | null;
   // ... 15+ context fields
@@ -98,14 +111,15 @@ export type ToolExecutionContext = {
 ```
 
 **NeuroLink Context Equivalent**:
+
 ```typescript
 export type AIToolExecutionContext = {
   sessionId: string;
   providerId?: string; // 'openai' | 'bedrock' | 'vertex' | 'anthropic'
   modelId?: string;
   projectId?: string;
-  frameworkType?: 'react' | 'vue' | 'svelte' | 'next' | 'vite';
-  environmentType?: 'development' | 'staging' | 'production';
+  frameworkType?: "react" | "vue" | "svelte" | "next" | "vite";
+  environmentType?: "development" | "staging" | "production";
   userId?: string;
   apiKeyHash?: string; // For usage tracking
   enableDemoMode?: boolean;
@@ -113,6 +127,7 @@ export type AIToolExecutionContext = {
 ```
 
 ### 5. **AI Integration Layer** ⭐ GAME-CHANGING
+
 **Location**: `/src/lib/services/server/ai/mcp.ts`
 
 ```typescript
@@ -134,6 +149,7 @@ class BedrockMCPManager {
 **NeuroLink Equivalent**: Integrate our existing AI provider system with MCP tool orchestration
 
 ### 6. **Comprehensive Configuration Management**
+
 **Location**: `/src/lib/mcp/servers/config.ts`
 
 - **65+ MCP Servers** registered in a single configuration
@@ -144,21 +160,25 @@ class BedrockMCPManager {
 ## Technical Implementation Details
 
 ### **Tool Schema Validation**
+
 - **Zod Integration**: Every tool uses Zod schemas for input validation
 - **Type Safety**: Full TypeScript integration with inferred types
 - **Runtime Validation**: Prevents invalid tool execution
 
 ### **Logging & Telemetry**
+
 - **OpenTelemetry Integration**: Enterprise-level observability
 - **Structured Logging**: Consistent log format across all tools
 - **Performance Tracking**: Tool execution timing and success rates
 
 ### **Demo Mode Architecture**
+
 - **Built-in Mocking**: Every tool supports demo mode
 - **Testing Framework**: Enables testing without live services
 - **Development Support**: Mock data for rapid prototyping
 
 ### **Error Handling Patterns**
+
 - **Standardized Responses**: `{ success: boolean; data?: unknown; error?: string }`
 - **Context Preservation**: All errors include session and tool context
 - **Graceful Degradation**: Tools fail safely without breaking the system
@@ -166,12 +186,14 @@ class BedrockMCPManager {
 ## Scale and Scope Assessment
 
 ### **Lighthouse's MCP Ecosystem Scale**:
+
 - **65+ MCP Servers** across multiple domains
 - **200+ Individual Tools** for e-commerce operations
 - **6 Provider Integrations** (Juspay, Breeze, Shopify, WooCommerce, Magento, Nimble)
 - **Enterprise-Grade**: Production-ready with comprehensive logging
 
 ### **Tool Categories**:
+
 1. **Analytics Tools** (12 tools) - Data retrieval and processing
 2. **Payment Tools** (15 tools) - Transaction and wallet management
 3. **Customer Tools** (8 tools) - Customer data and segmentation
@@ -198,17 +220,20 @@ class BedrockMCPManager {
 ## Strategic Insights for NeuroLink
 
 ### **1. Architecture Alignment**
+
 - **NeuroLink's Provider Pattern** ↔ **Lighthouse's MCP Server Pattern**
 - **NeuroLink's Factory System** ↔ **Lighthouse's Tool Registration**
 - **NeuroLink's Multi-Provider** ↔ **Lighthouse's Multi-Service**
 
 ### **2. Extension Opportunities**
+
 - **AI-Focused Tools**: Code generation, optimization, testing
 - **Framework Integration**: React/Vue/Svelte specific tools
 - **Development Workflow**: CI/CD, deployment, monitoring tools
 - **Analytics & Insights**: Usage patterns, performance optimization
 
 ### **3. Competitive Advantages**
+
 - **Universal AI Integration**: Support all AI providers through MCP
 - **Developer-First**: Tools that enhance development workflow
 - **Zero Configuration**: Smart defaults with powerful customization
@@ -217,24 +242,28 @@ class BedrockMCPManager {
 ## Implementation Roadmap
 
 ### **Phase 1: Foundation (2-3 weeks)**
+
 1. Create NeuroLink MCP factory system
 2. Implement context management
 3. Build basic AI provider tools
 4. Set up logging and telemetry
 
 ### **Phase 2: Core Tools (4-6 weeks)**
+
 1. Code generation tools
 2. Framework integration tools
 3. Testing and validation tools
 4. Performance monitoring tools
 
 ### **Phase 3: Advanced Features (6-8 weeks)**
+
 1. Workflow automation tools
 2. Analytics and insights
 3. Advanced AI orchestration
 4. Custom provider extensions
 
 ### **Phase 4: Ecosystem (8-12 weeks)**
+
 1. Third-party integrations
 2. Plugin marketplace
 3. Community tools
@@ -243,6 +272,7 @@ class BedrockMCPManager {
 ## Technical Specifications
 
 ### **Dependencies Required**:
+
 ```json
 {
   "@modelcontextprotocol/core": "^latest",
@@ -253,6 +283,7 @@ class BedrockMCPManager {
 ```
 
 ### **File Structure**:
+
 ```
 src/lib/mcp/
 ├── context.ts              # Context type definitions

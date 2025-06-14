@@ -5,9 +5,10 @@ NeuroLink integrates seamlessly with popular web frameworks. Here are complete e
 ## SvelteKit Integration
 
 ### API Route (`src/routes/api/chat/+server.ts`)
+
 ```typescript
-import { createBestAIProvider } from '@juspay/neurolink';
-import type { RequestHandler } from './$types';
+import { createBestAIProvider } from "@juspay/neurolink";
+import type { RequestHandler } from "./$types";
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
@@ -17,25 +18,26 @@ export const POST: RequestHandler = async ({ request }) => {
     const result = await provider.streamText({
       prompt: message,
       temperature: 0.7,
-      maxTokens: 1000
+      maxTokens: 1000,
     });
 
     return new Response(result.toReadableStream(), {
       headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache'
-      }
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+      },
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   }
 };
 ```
 
 ### Svelte Component (`src/routes/chat/+page.svelte`)
+
 ```svelte
 <script lang="ts">
   let message = '';
@@ -125,6 +127,7 @@ export const POST: RequestHandler = async ({ request }) => {
 ```
 
 ### Environment Configuration
+
 ```bash
 # .env
 OPENAI_API_KEY="sk-your-key"
@@ -135,9 +138,10 @@ AWS_SECRET_ACCESS_KEY="your-aws-secret"
 ## Next.js Integration
 
 ### App Router API (`app/api/ai/route.ts`)
+
 ```typescript
-import { createBestAIProvider } from '@juspay/neurolink';
-import { NextRequest, NextResponse } from 'next/server';
+import { createBestAIProvider } from "@juspay/neurolink";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -148,19 +152,16 @@ export async function POST(request: NextRequest) {
       prompt,
       temperature: 0.7,
       maxTokens: 1000,
-      ...options
+      ...options,
     });
 
     return NextResponse.json({
       text: result.text,
       provider: result.provider,
-      usage: result.usage
+      usage: result.usage,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -174,20 +175,18 @@ export async function PUT(request: NextRequest) {
 
     return new Response(result.toReadableStream(), {
       headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache',
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 ```
 
 ### React Component (`components/AIChat.tsx`)
+
 ```typescript
 'use client';
 import { useState } from 'react';
@@ -292,6 +291,7 @@ export default function AIChat() {
 ```
 
 ### Streaming Component (`components/AIStreamChat.tsx`)
+
 ```typescript
 'use client';
 import { useState } from 'react';
@@ -368,48 +368,49 @@ export default function AIStreamChat() {
 ## Express.js Integration
 
 ### Basic Server Setup
+
 ```typescript
-import express from 'express';
-import { createBestAIProvider, AIProviderFactory } from '@juspay/neurolink';
+import express from "express";
+import { createBestAIProvider, AIProviderFactory } from "@juspay/neurolink";
 
 const app = express();
 app.use(express.json());
 
 // Simple generation endpoint
-app.post('/api/generate', async (req, res) => {
+app.post("/api/generate", async (req, res) => {
   try {
     const { prompt, options = {} } = req.body;
 
     const provider = createBestAIProvider();
     const result = await provider.generateText({
       prompt,
-      ...options
+      ...options,
     });
 
     res.json({
       success: true,
       text: result.text,
       provider: result.provider,
-      usage: result.usage
+      usage: result.usage,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
     });
   }
 });
 
 // Streaming endpoint
-app.post('/api/stream', async (req, res) => {
+app.post("/api/stream", async (req, res) => {
   try {
     const { prompt } = req.body;
 
     const provider = createBestAIProvider();
     const result = await provider.streamText({ prompt });
 
-    res.setHeader('Content-Type', 'text/plain');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader("Content-Type", "text/plain");
+    res.setHeader("Cache-Control", "no-cache");
 
     for await (const chunk of result.textStream) {
       res.write(chunk);
@@ -421,8 +422,8 @@ app.post('/api/stream', async (req, res) => {
 });
 
 // Provider status endpoint
-app.get('/api/status', async (req, res) => {
-  const providers = ['openai', 'bedrock', 'vertex'];
+app.get("/api/status", async (req, res) => {
+  const providers = ["openai", "bedrock", "vertex"];
   const status = {};
 
   for (const providerName of providers) {
@@ -431,18 +432,18 @@ app.get('/api/status', async (req, res) => {
       const start = Date.now();
 
       await provider.generateText({
-        prompt: 'test',
-        maxTokens: 1
+        prompt: "test",
+        maxTokens: 1,
       });
 
       status[providerName] = {
         available: true,
-        responseTime: Date.now() - start
+        responseTime: Date.now() - start,
       };
     } catch (error) {
       status[providerName] = {
         available: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -451,36 +452,37 @@ app.get('/api/status', async (req, res) => {
 });
 
 app.listen(9876, () => {
-  console.log('Server running on http://localhost:9876');
+  console.log("Server running on http://localhost:9876");
 });
 ```
 
 ### Advanced Express Integration with Middleware
+
 ```typescript
-import express from 'express';
-import { createBestAIProvider } from '@juspay/neurolink';
+import express from "express";
+import { createBestAIProvider } from "@juspay/neurolink";
 
 const app = express();
 app.use(express.json());
 
 // Middleware for AI provider
-app.use('/api/ai', (req, res, next) => {
+app.use("/api/ai", (req, res, next) => {
   req.aiProvider = createBestAIProvider();
   next();
 });
 
 // Rate limiting middleware
 const rateLimitMap = new Map();
-app.use('/api/ai', (req, res, next) => {
+app.use("/api/ai", (req, res, next) => {
   const ip = req.ip;
   const now = Date.now();
   const requests = rateLimitMap.get(ip) || [];
 
   // Allow 10 requests per minute
-  const recentRequests = requests.filter(time => now - time < 60000);
+  const recentRequests = requests.filter((time) => now - time < 60000);
 
   if (recentRequests.length >= 10) {
-    return res.status(429).json({ error: 'Rate limit exceeded' });
+    return res.status(429).json({ error: "Rate limit exceeded" });
   }
 
   recentRequests.push(now);
@@ -489,12 +491,12 @@ app.use('/api/ai', (req, res, next) => {
 });
 
 // Batch processing endpoint
-app.post('/api/ai/batch', async (req, res) => {
+app.post("/api/ai/batch", async (req, res) => {
   try {
     const { prompts, options = {} } = req.body;
 
     if (!Array.isArray(prompts) || prompts.length === 0) {
-      return res.status(400).json({ error: 'Prompts array required' });
+      return res.status(400).json({ error: "Prompts array required" });
     }
 
     const results = [];
@@ -502,7 +504,7 @@ app.post('/api/ai/batch', async (req, res) => {
       try {
         const result = await req.aiProvider.generateText({
           prompt,
-          ...options
+          ...options,
         });
         results.push({ success: true, ...result });
       } catch (error) {
@@ -511,7 +513,7 @@ app.post('/api/ai/batch', async (req, res) => {
 
       // Add delay to prevent rate limiting
       if (results.length < prompts.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
 
@@ -525,6 +527,7 @@ app.post('/api/ai/batch', async (req, res) => {
 ## React Hook (Universal)
 
 ### Custom Hook for AI Generation
+
 ```typescript
 import { useState, useCallback } from 'react';
 
@@ -641,51 +644,55 @@ function MyComponent() {
 ```
 
 ### Streaming Hook
-```typescript
-import { useState, useCallback } from 'react';
 
-export function useAIStream(apiEndpoint = '/api/ai/stream') {
+```typescript
+import { useState, useCallback } from "react";
+
+export function useAIStream(apiEndpoint = "/api/ai/stream") {
   const [streaming, setStreaming] = useState(false);
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const stream = useCallback(async (prompt: string) => {
-    if (!prompt.trim()) return;
+  const stream = useCallback(
+    async (prompt: string) => {
+      if (!prompt.trim()) return;
 
-    setStreaming(true);
-    setContent('');
-    setError(null);
+      setStreaming(true);
+      setContent("");
+      setError(null);
 
-    try {
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
-      });
+      try {
+        const response = await fetch(apiEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        });
 
-      if (!response.body) {
-        throw new Error('No response stream');
+        if (!response.body) {
+          throw new Error("No response stream");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          setContent((prev) => prev + chunk);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Stream error");
+      } finally {
+        setStreaming(false);
       }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        setContent(prev => prev + chunk);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Stream error');
-    } finally {
-      setStreaming(false);
-    }
-  }, [apiEndpoint]);
+    },
+    [apiEndpoint],
+  );
 
   const clear = useCallback(() => {
-    setContent('');
+    setContent("");
     setError(null);
   }, []);
 
@@ -694,7 +701,7 @@ export function useAIStream(apiEndpoint = '/api/ai/stream') {
     streaming,
     content,
     error,
-    clear
+    clear,
   };
 }
 ```
@@ -702,27 +709,28 @@ export function useAIStream(apiEndpoint = '/api/ai/stream') {
 ## Vue.js Integration
 
 ### Vue 3 Composition API
+
 ```typescript
 // composables/useAI.ts
-import { ref, computed } from 'vue';
+import { ref, computed } from "vue";
 
 export function useAI() {
   const loading = ref(false);
   const error = ref<string | null>(null);
-  const result = ref<string>('');
+  const result = ref<string>("");
 
   const generate = async (prompt: string, options = {}) => {
     if (!prompt.trim()) return;
 
     loading.value = true;
     error.value = null;
-    result.value = '';
+    result.value = "";
 
     try {
-      const response = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, ...options })
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, ...options }),
       });
 
       const data = await response.json();
@@ -733,14 +741,14 @@ export function useAI() {
 
       result.value = data.text;
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Unknown error';
+      error.value = err instanceof Error ? err.message : "Unknown error";
     } finally {
       loading.value = false;
     }
   };
 
   const clear = () => {
-    result.value = '';
+    result.value = "";
     error.value = null;
   };
 
@@ -749,12 +757,13 @@ export function useAI() {
     error: computed(() => error.value),
     result: computed(() => result.value),
     generate,
-    clear
+    clear,
   };
 }
 ```
 
 ### Vue Component
+
 ```vue
 <template>
   <div class="ai-chat">
@@ -768,13 +777,11 @@ export function useAI() {
         :disabled="loading"
       />
       <button @click="handleGenerate" :disabled="loading || !prompt.trim()">
-        {{ loading ? 'Generating...' : 'Generate' }}
+        {{ loading ? "Generating..." : "Generate" }}
       </button>
     </div>
 
-    <div v-if="error" class="error">
-      Error: {{ error }}
-    </div>
+    <div v-if="error" class="error">Error: {{ error }}</div>
 
     <div v-if="result" class="result">
       <h3>Response:</h3>
@@ -784,10 +791,10 @@ export function useAI() {
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useAI } from '@/composables/useAI';
+import { ref } from "vue";
+import { useAI } from "@/composables/useAI";
 
-const prompt = ref('');
+const prompt = ref("");
 const { loading, error, result, generate } = useAI();
 
 const handleGenerate = async () => {
@@ -795,10 +802,10 @@ const handleGenerate = async () => {
 
   await generate(prompt.value, {
     temperature: 0.7,
-    maxTokens: 500
+    maxTokens: 500,
   });
 
-  prompt.value = '';
+  prompt.value = "";
 };
 </script>
 
@@ -857,6 +864,7 @@ button:disabled {
 ## Environment Configuration for All Frameworks
 
 ### Environment Variables
+
 ```bash
 # .env (for all frameworks)
 OPENAI_API_KEY="sk-your-openai-key"
@@ -873,6 +881,7 @@ ENABLE_FALLBACK="true"
 ### Framework-Specific Configuration
 
 #### Next.js (`next.config.js`)
+
 ```javascript
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -881,30 +890,32 @@ const nextConfig = {
     // Don't expose AWS keys to client
   },
   experimental: {
-    serverComponentsExternalPackages: ['@juspay/neurolink']
-  }
+    serverComponentsExternalPackages: ["@juspay/neurolink"],
+  },
 };
 
 module.exports = nextConfig;
 ```
 
 #### SvelteKit (`vite.config.ts`)
+
 ```typescript
-import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { sveltekit } from "@sveltejs/kit/vite";
+import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [sveltekit()],
   define: {
     // Only expose public env vars to client
-    'process.env.PUBLIC_APP_NAME': JSON.stringify(process.env.PUBLIC_APP_NAME)
-  }
+    "process.env.PUBLIC_APP_NAME": JSON.stringify(process.env.PUBLIC_APP_NAME),
+  },
 });
 ```
 
 ## Deployment Considerations
 
 ### Vercel Deployment
+
 ```bash
 # Add environment variables in Vercel dashboard
 # or use vercel.json
@@ -918,6 +929,7 @@ export default defineConfig({
 ```
 
 ### Docker Deployment
+
 ```dockerfile
 FROM node:18-alpine
 

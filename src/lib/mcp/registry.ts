@@ -4,8 +4,13 @@
  * Supports tool discovery, registration, and orchestrated execution
  */
 
-import type { NeuroLinkMCPServer, NeuroLinkMCPTool, NeuroLinkExecutionContext, ToolResult } from './factory.js';
-import { ContextManager, ContextValidator } from './context-manager.js';
+import type {
+  NeuroLinkMCPServer,
+  NeuroLinkMCPTool,
+  NeuroLinkExecutionContext,
+  ToolResult,
+} from "./factory.js";
+import { ContextManager, ContextValidator } from "./context-manager.js";
 
 /**
  * Tool registration information
@@ -93,7 +98,9 @@ export class MCPToolRegistry {
       await this.registerToolFromServer(server, toolName, tool);
     }
 
-    console.log(`[MCPRegistry] Registered server '${server.id}' with ${Object.keys(server.tools).length} tools`);
+    console.log(
+      `[MCPRegistry] Registered server '${server.id}' with ${Object.keys(server.tools).length} tools`,
+    );
   }
 
   /**
@@ -106,7 +113,7 @@ export class MCPToolRegistry {
   private async registerToolFromServer(
     server: NeuroLinkMCPServer,
     toolName: string,
-    tool: NeuroLinkMCPTool
+    tool: NeuroLinkMCPTool,
   ): Promise<void> {
     const qualifiedName = `${server.id}.${toolName}`;
     const simpleName = toolName;
@@ -118,7 +125,7 @@ export class MCPToolRegistry {
       serverCategory: server.category,
       qualifiedName,
       simpleName,
-      registeredAt: Date.now()
+      registeredAt: Date.now(),
     };
 
     // Register with both qualified and simple names
@@ -128,7 +135,9 @@ export class MCPToolRegistry {
     if (!this.tools.has(simpleName)) {
       this.tools.set(simpleName, registration);
     } else {
-      console.warn(`[MCPRegistry] Tool name conflict: '${simpleName}' already exists, use qualified name '${qualifiedName}'`);
+      console.warn(
+        `[MCPRegistry] Tool name conflict: '${simpleName}' already exists, use qualified name '${qualifiedName}'`,
+      );
     }
   }
 
@@ -145,14 +154,14 @@ export class MCPToolRegistry {
     toolName: string,
     params: any,
     context: NeuroLinkExecutionContext,
-    options: ToolExecutionOptions = {}
+    options: ToolExecutionOptions = {},
   ): Promise<ToolResult> {
     const startTime = Date.now();
     const {
       validateInput = true,
       validatePermissions = true,
       trackMetrics = true,
-      timeoutMs = 30000
+      timeoutMs = 30000,
     } = options;
 
     try {
@@ -168,12 +177,19 @@ export class MCPToolRegistry {
       if (validatePermissions) {
         const contextValidation = ContextValidator.validateContext(context);
         if (!contextValidation.isValid) {
-          throw new Error(`Context validation failed: ${contextValidation.errors.join(', ')}`);
+          throw new Error(
+            `Context validation failed: ${contextValidation.errors.join(", ")}`,
+          );
         }
 
         // Check tool permissions
-        if (tool.permissions && !ContextValidator.hasPermissions(context, tool.permissions)) {
-          throw new Error(`Insufficient permissions for tool '${toolName}'. Required: ${tool.permissions.join(', ')}`);
+        if (
+          tool.permissions &&
+          !ContextValidator.hasPermissions(context, tool.permissions)
+        ) {
+          throw new Error(
+            `Insufficient permissions for tool '${toolName}'. Required: ${tool.permissions.join(", ")}`,
+          );
         }
       }
 
@@ -182,8 +198,11 @@ export class MCPToolRegistry {
         try {
           tool.inputSchema.parse(params);
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Input validation failed for tool '${toolName}': ${errorMessage}`);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `Input validation failed for tool '${toolName}': ${errorMessage}`,
+          );
         }
       }
 
@@ -194,7 +213,7 @@ export class MCPToolRegistry {
       const executeWithTimeout = this.createTimeoutPromise(
         tool.execute(params, context),
         timeoutMs,
-        `Tool '${toolName}' execution timeout`
+        `Tool '${toolName}' execution timeout`,
       );
 
       const result = await executeWithTimeout;
@@ -210,8 +229,8 @@ export class MCPToolRegistry {
           serverTitle,
           sessionId: context.sessionId,
           timestamp: Date.now(),
-          executionTime
-        }
+          executionTime,
+        },
       };
 
       // Track metrics
@@ -224,15 +243,19 @@ export class MCPToolRegistry {
         try {
           tool.outputSchema.parse(result.data);
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          console.warn(`[MCPRegistry] Output validation warning for tool '${toolName}': ${errorMessage}`);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          console.warn(
+            `[MCPRegistry] Output validation warning for tool '${toolName}': ${errorMessage}`,
+          );
         }
       }
 
-      console.log(`[MCPRegistry] Executed tool '${toolName}' in ${executionTime}ms - ${result.success ? 'SUCCESS' : 'FAILED'}`);
+      console.log(
+        `[MCPRegistry] Executed tool '${toolName}' in ${executionTime}ms - ${result.success ? "SUCCESS" : "FAILED"}`,
+      );
 
       return enhancedResult;
-
     } catch (error) {
       const executionTime = Date.now() - startTime;
 
@@ -241,7 +264,8 @@ export class MCPToolRegistry {
         this.updateExecutionMetrics(executionTime, false);
       }
 
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       const errorResult: ToolResult = {
         success: false,
         error: errorMessage,
@@ -249,11 +273,13 @@ export class MCPToolRegistry {
           toolName,
           sessionId: context.sessionId,
           timestamp: Date.now(),
-          executionTime
-        }
+          executionTime,
+        },
       };
 
-      console.error(`[MCPRegistry] Tool execution failed '${toolName}': ${errorMessage}`);
+      console.error(
+        `[MCPRegistry] Tool execution failed '${toolName}': ${errorMessage}`,
+      );
 
       return errorResult;
     }
@@ -282,7 +308,8 @@ export class MCPToolRegistry {
     const uniqueTools = new Map<string, ToolRegistration>();
 
     for (const [name, registration] of this.tools) {
-      if (name.includes('.')) { // Qualified name
+      if (name.includes(".")) {
+        // Qualified name
         uniqueTools.set(registration.qualifiedName, registration);
       } else if (!uniqueTools.has(registration.qualifiedName)) {
         uniqueTools.set(registration.qualifiedName, registration);
@@ -290,10 +317,20 @@ export class MCPToolRegistry {
     }
 
     for (const registration of uniqueTools.values()) {
-      const { tool, serverId, serverTitle, serverCategory, qualifiedName, simpleName } = registration;
+      const {
+        tool,
+        serverId,
+        serverTitle,
+        serverCategory,
+        qualifiedName,
+        simpleName,
+      } = registration;
 
       // Apply filters
-      if (criteria.name && !simpleName.toLowerCase().includes(criteria.name.toLowerCase())) {
+      if (
+        criteria.name &&
+        !simpleName.toLowerCase().includes(criteria.name.toLowerCase())
+      ) {
         continue;
       }
 
@@ -305,17 +342,25 @@ export class MCPToolRegistry {
         continue;
       }
 
-      if (criteria.serverCategory && serverCategory !== criteria.serverCategory) {
+      if (
+        criteria.serverCategory &&
+        serverCategory !== criteria.serverCategory
+      ) {
         continue;
       }
 
-      if (criteria.implemented !== undefined && tool.isImplemented !== criteria.implemented) {
+      if (
+        criteria.implemented !== undefined &&
+        tool.isImplemented !== criteria.implemented
+      ) {
         continue;
       }
 
       if (criteria.permissions && criteria.permissions.length > 0) {
         const toolPermissions = tool.permissions || [];
-        const hasAllPermissions = criteria.permissions.every(p => toolPermissions.includes(p));
+        const hasAllPermissions = criteria.permissions.every((p) =>
+          toolPermissions.includes(p),
+        );
         if (!hasAllPermissions) {
           continue;
         }
@@ -330,7 +375,7 @@ export class MCPToolRegistry {
         category: tool.category,
         serverCategory,
         permissions: tool.permissions,
-        isImplemented: tool.isImplemented
+        isImplemented: tool.isImplemented,
       });
     }
 
@@ -343,11 +388,13 @@ export class MCPToolRegistry {
    * @param toolName Tool name (simple or qualified)
    * @returns Detailed tool information or undefined if not found
    */
-  getToolInfo(toolName: string): {
-    tool: NeuroLinkMCPTool;
-    server: NeuroLinkMCPServer;
-    registration: ToolRegistration;
-  } | undefined {
+  getToolInfo(toolName: string):
+    | {
+        tool: NeuroLinkMCPTool;
+        server: NeuroLinkMCPServer;
+        registration: ToolRegistration;
+      }
+    | undefined {
     const registration = this.tools.get(toolName);
     if (!registration) {
       return undefined;
@@ -361,7 +408,7 @@ export class MCPToolRegistry {
     return {
       tool: registration.tool,
       server,
-      registration
+      registration,
     };
   }
 
@@ -376,24 +423,30 @@ export class MCPToolRegistry {
 
     // Count tools by category
     for (const registration of this.tools.values()) {
-      const category = registration.tool.category || 'uncategorized';
+      const category = registration.tool.category || "uncategorized";
       toolsByCategory[category] = (toolsByCategory[category] || 0) + 1;
     }
 
     // Count servers by category
     for (const server of this.servers.values()) {
-      const category = server.category || 'uncategorized';
+      const category = server.category || "uncategorized";
       serversByCategory[category] = (serversByCategory[category] || 0) + 1;
     }
 
     return {
       totalServers: this.servers.size,
-      totalTools: new Set(Array.from(this.tools.values()).map(r => r.qualifiedName)).size,
+      totalTools: new Set(
+        Array.from(this.tools.values()).map((r) => r.qualifiedName),
+      ).size,
       toolsByCategory,
       serversByCategory,
       executionCount: this.executionCount,
-      averageExecutionTime: this.executionCount > 0 ? this.totalExecutionTime / this.executionCount : 0,
-      errorRate: this.executionCount > 0 ? this.errorCount / this.executionCount : 0
+      averageExecutionTime:
+        this.executionCount > 0
+          ? this.totalExecutionTime / this.executionCount
+          : 0,
+      errorRate:
+        this.executionCount > 0 ? this.errorCount / this.executionCount : 0,
     };
   }
 
@@ -424,7 +477,9 @@ export class MCPToolRegistry {
     // Remove the server
     this.servers.delete(serverId);
 
-    console.log(`[MCPRegistry] Unregistered server '${serverId}' and ${toolsToRemove.length} tools`);
+    console.log(
+      `[MCPRegistry] Unregistered server '${serverId}' and ${toolsToRemove.length} tools`,
+    );
 
     return true;
   }
@@ -439,7 +494,7 @@ export class MCPToolRegistry {
     this.totalExecutionTime = 0;
     this.errorCount = 0;
 
-    console.log('[MCPRegistry] Cleared all servers and tools');
+    console.log("[MCPRegistry] Cleared all servers and tools");
   }
 
   /**
@@ -453,13 +508,13 @@ export class MCPToolRegistry {
   private createTimeoutPromise<T>(
     promise: Promise<T>,
     timeoutMs: number,
-    timeoutMessage: string
+    timeoutMessage: string,
   ): Promise<T> {
     return Promise.race([
       promise,
       new Promise<T>((_, reject) => {
         setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
-      })
+      }),
     ]);
   }
 
@@ -469,7 +524,10 @@ export class MCPToolRegistry {
    * @param executionTime Execution time in milliseconds
    * @param success Whether execution was successful
    */
-  private updateExecutionMetrics(executionTime: number, success: boolean): void {
+  private updateExecutionMetrics(
+    executionTime: number,
+    success: boolean,
+  ): void {
     this.executionCount++;
     this.totalExecutionTime += executionTime;
 
@@ -490,7 +548,9 @@ export const defaultToolRegistry = new MCPToolRegistry();
  *
  * @param server MCP server to register
  */
-export async function registerServer(server: NeuroLinkMCPServer): Promise<void> {
+export async function registerServer(
+  server: NeuroLinkMCPServer,
+): Promise<void> {
   return defaultToolRegistry.registerServer(server);
 }
 
@@ -507,7 +567,7 @@ export async function executeTool(
   toolName: string,
   params: any,
   context: NeuroLinkExecutionContext,
-  options?: ToolExecutionOptions
+  options?: ToolExecutionOptions,
 ): Promise<ToolResult> {
   return defaultToolRegistry.executeTool(toolName, params, context, options);
 }

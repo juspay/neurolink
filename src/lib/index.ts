@@ -8,7 +8,7 @@
  */
 
 // Core exports
-import { AIProviderFactory } from './core/factory.js';
+import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
 export type {
   AIProvider,
@@ -16,39 +16,45 @@ export type {
   ProviderConfig,
   StreamingOptions,
   ProviderAttempt,
-  SupportedModelName
-} from './core/types.js';
+  SupportedModelName,
+} from "./core/types.js";
 
 // Model enums
 export {
   BedrockModels,
   OpenAIModels,
   VertexModels,
-  DEFAULT_PROVIDER_CONFIGS
-} from './core/types.js';
+  DEFAULT_PROVIDER_CONFIGS,
+} from "./core/types.js";
 
 // Provider exports
-export { GoogleVertexAI, AmazonBedrock, OpenAI, AnthropicProvider, AzureOpenAIProvider } from './providers/index.js';
-export type { ProviderName } from './providers/index.js';
-export { PROVIDERS, AVAILABLE_PROVIDERS } from './providers/index.js';
+export {
+  GoogleVertexAI,
+  AmazonBedrock,
+  OpenAI,
+  AnthropicProvider,
+  AzureOpenAIProvider,
+} from "./providers/index.js";
+export type { ProviderName } from "./providers/index.js";
+export { PROVIDERS, AVAILABLE_PROVIDERS } from "./providers/index.js";
 
 // Utility exports
 export {
   getBestProvider,
   getAvailableProviders,
-  isValidProvider
-} from './utils/providerUtils.js';
+  isValidProvider,
+} from "./utils/providerUtils.js";
 
 // Main NeuroLink wrapper class
-export { NeuroLink } from './neurolink.js';
+export { NeuroLink } from "./neurolink.js";
 export type {
   TextGenerationOptions,
   StreamTextOptions,
-  TextGenerationResult
-} from './neurolink.js';
+  TextGenerationResult,
+} from "./neurolink.js";
 
 // Version
-export const VERSION = '1.0.0';
+export const VERSION = "1.0.0";
 
 /**
  * Quick start factory function
@@ -62,7 +68,7 @@ export const VERSION = '1.0.0';
  * ```
  */
 export function createAIProvider(providerName?: string, modelName?: string) {
-  return AIProviderFactory.createProvider(providerName || 'bedrock', modelName);
+  return AIProviderFactory.createProvider(providerName || "bedrock", modelName);
 }
 
 /**
@@ -78,12 +84,12 @@ export function createAIProvider(providerName?: string, modelName?: string) {
 export function createAIProviderWithFallback(
   primaryProvider?: string,
   fallbackProvider?: string,
-  modelName?: string
+  modelName?: string,
 ) {
   return AIProviderFactory.createProviderWithFallback(
-    primaryProvider || 'bedrock',
-    fallbackProvider || 'vertex',
-    modelName
+    primaryProvider || "bedrock",
+    fallbackProvider || "vertex",
+    modelName,
   );
 }
 
@@ -97,6 +103,9 @@ export function createAIProviderWithFallback(
  * const provider = createBestAIProvider();
  * ```
  */
-export function createBestAIProvider(requestedProvider?: string, modelName?: string) {
+export function createBestAIProvider(
+  requestedProvider?: string,
+  modelName?: string,
+) {
   return AIProviderFactory.createBestProvider(requestedProvider, modelName);
 }

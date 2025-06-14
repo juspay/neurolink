@@ -4,9 +4,9 @@
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> Production-ready AI toolkit with multi-provider support, automatic fallback, and full TypeScript integration. **Now with a professional CLI!**
+> Production-ready AI toolkit with 9 major AI providers, automatic fallback, and full TypeScript integration. **Now with a professional CLI!**
 
-**NeuroLink** provides a unified interface for AI providers (OpenAI, Amazon Bedrock, Google Vertex AI, Google AI Studio) with intelligent fallback, streaming support, and type-safe APIs. Available as both a **programmatic SDK** and a **professional CLI tool**. Extracted from production use at Juspay.
+**NeuroLink** provides a unified interface for AI providers (OpenAI, Amazon Bedrock, Google Vertex AI, Google AI Studio, Anthropic, Azure OpenAI, Hugging Face, Ollama, and Mistral AI) with intelligent fallback, streaming support, and type-safe APIs. Available as both a **programmatic SDK** and a **professional CLI tool**. Extracted from production use at Juspay.
 
 ## 🚀 Quick Start
 
@@ -26,17 +26,18 @@ neurolink status --verbose
 ```
 
 ### Programmatic Usage
+
 ```bash
 npm install @juspay/neurolink ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
 ```
 
 ```typescript
-import { createBestAIProvider } from '@juspay/neurolink';
+import { createBestAIProvider } from "@juspay/neurolink";
 
 // Auto-selects best available provider
 const provider = createBestAIProvider();
 const result = await provider.generateText({
-  prompt: "Hello, AI!"
+  prompt: "Hello, AI!",
 });
 
 console.log(result.text);
@@ -49,16 +50,18 @@ console.log(result.text);
 ### 🌐 Web Demo Screenshots & Videos
 
 #### **📸 Interactive Web Interface Screenshots**
-| Feature | Screenshot | Description |
-|---------|------------|-------------|
-| **Main Interface** | ![Main Interface](./neurolink-demo/screenshots/01-overview/01-main-interface-overview-2025-06-04T13-56-43-628Z.png) | Complete web interface showing all features |
-| **AI Generation Results** | ![AI Generation](./neurolink-demo/screenshots/02-basic-examples/02-ai-generation-results-2025-06-04T13-57-13-156Z.png) | Real AI content generation in action |
-| **Business Use Cases** | ![Business Cases](./neurolink-demo/screenshots/03-business-use-cases/03-business-use-cases-2025-06-04T13-59-07-846Z.png) | Professional business applications |
-| **Creative Tools** | ![Creative Tools](./neurolink-demo/screenshots/04-creative-tools/04-creative-tools-2025-06-04T13-59-24-346Z.png) | Creative content generation |
-| **Developer Tools** | ![Developer Tools](./neurolink-demo/screenshots/05-developer-tools/05-developer-tools-2025-06-04T13-59-43-322Z.png) | Code generation and API docs |
-| **Analytics & Monitoring** | ![Monitoring](./neurolink-demo/screenshots/06-monitoring/06-monitoring-analytics-2025-06-04T14-00-08-919Z.png) | Real-time provider analytics |
 
-#### **🎥 Complete Demo Videos** *(5,681+ tokens of real AI generation)*
+| Feature                    | Screenshot                                                                                                               | Description                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| **Main Interface**         | ![Main Interface](./neurolink-demo/screenshots/01-overview/01-main-interface-overview-2025-06-04T13-56-43-628Z.png)      | Complete web interface showing all features |
+| **AI Generation Results**  | ![AI Generation](./neurolink-demo/screenshots/02-basic-examples/02-ai-generation-results-2025-06-04T13-57-13-156Z.png)   | Real AI content generation in action        |
+| **Business Use Cases**     | ![Business Cases](./neurolink-demo/screenshots/03-business-use-cases/03-business-use-cases-2025-06-04T13-59-07-846Z.png) | Professional business applications          |
+| **Creative Tools**         | ![Creative Tools](./neurolink-demo/screenshots/04-creative-tools/04-creative-tools-2025-06-04T13-59-24-346Z.png)         | Creative content generation                 |
+| **Developer Tools**        | ![Developer Tools](./neurolink-demo/screenshots/05-developer-tools/05-developer-tools-2025-06-04T13-59-43-322Z.png)      | Code generation and API docs                |
+| **Analytics & Monitoring** | ![Monitoring](./neurolink-demo/screenshots/06-monitoring/06-monitoring-analytics-2025-06-04T14-00-08-919Z.png)           | Real-time provider analytics                |
+
+#### **🎥 Complete Demo Videos** _(5,681+ tokens of real AI generation)_
+
 - **[Basic Examples](./neurolink-demo/videos/basic-examples/)** - Text generation, haiku creation, storytelling
 - **[Business Use Cases](./neurolink-demo/videos/business-use-cases/)** - Email generation, analysis, summaries
 - **[Creative Tools](./neurolink-demo/videos/creative-tools/)** - Stories, translation, creative ideas
@@ -67,16 +70,18 @@ console.log(result.text);
 
 ### 🖥️ CLI Tool Screenshots & Videos
 
-#### **📸 Professional CLI Screenshots** *(Latest: June 8, 2025)*
-| Command | Screenshot | Description |
-|---------|------------|-------------|
-| **CLI Help Overview** | ![CLI Help](./docs/visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-08T06-33-12.png) | Complete command reference |
-| **Provider Status Check** | ![Provider Status](./docs/visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-08T06-33-16.png) | All provider connectivity verified |
-| **Text Generation** | ![Text Generation](./docs/visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-08T06-33-19.png) | Real AI haiku generation with JSON |
-| **Auto Provider Selection** | ![Best Provider](./docs/visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-08T06-33-22.png) | Automatic provider selection working |
-| **Batch Processing** | ![Batch Results](./docs/visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-08T06-33-26.png) | Multi-prompt processing with results |
+#### **📸 Professional CLI Screenshots** _(Latest: June 8, 2025)_
 
-#### **🎥 CLI Demonstration Videos** *(Real command execution)*
+| Command                     | Screenshot                                                                                                       | Description                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **CLI Help Overview**       | ![CLI Help](./docs/visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-08T06-33-12.png)               | Complete command reference           |
+| **Provider Status Check**   | ![Provider Status](./docs/visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-08T06-33-16.png) | All provider connectivity verified   |
+| **Text Generation**         | ![Text Generation](./docs/visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-08T06-33-19.png) | Real AI haiku generation with JSON   |
+| **Auto Provider Selection** | ![Best Provider](./docs/visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-08T06-33-22.png)     | Automatic provider selection working |
+| **Batch Processing**        | ![Batch Results](./docs/visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-08T06-33-26.png)     | Multi-prompt processing with results |
+
+#### **🎥 CLI Demonstration Videos** _(Real command execution)_
+
 - **[CLI Overview](./cli-videos/cli-overview/)** - Help, status, provider selection commands
 - **[Basic Generation](./cli-videos/cli-basic-generation/)** - Text generation with different providers
 - **[Batch Processing](./cli-videos/cli-batch-processing/)** - File-based multi-prompt processing
@@ -84,12 +89,14 @@ console.log(result.text);
 - **[Advanced Features](./cli-videos/cli-advanced-features/)** - Verbose diagnostics and provider options
 
 ### 💻 Live Interactive Demo
+
 - **Working Express.js server** with real API integration
-- **All 3 providers functional** (OpenAI, Bedrock, Vertex AI)
+- **All 9 providers functional** (OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure OpenAI, Hugging Face, Ollama, Mistral AI)
 - **15+ use cases** demonstrated across business, creative, and developer tools
 - **Real-time provider analytics** with performance metrics
 
 ### 🎯 Visual Content Benefits
+
 - ✅ **No Installation Required** - See everything in action before installing
 - ✅ **Real AI Content** - All screenshots and videos show actual AI generation
 - ✅ **Professional Quality** - 1920x1080 resolution suitable for documentation
@@ -117,16 +124,20 @@ console.log(result.text);
 
 ## Features
 
-🔄 **Multi-Provider Support** - OpenAI, Amazon Bedrock, Google Vertex AI, Google AI Studio
+🔄 **9 AI Providers** - OpenAI, Amazon Bedrock, Google Vertex AI, Google AI Studio, Anthropic, Azure OpenAI, Hugging Face, Ollama, Mistral AI
 ⚡ **Automatic Fallback** - Seamless provider switching on failures
 📡 **Streaming & Non-Streaming** - Real-time responses and standard generation
 🎯 **TypeScript First** - Full type safety and IntelliSense support
 🛡️ **Production Ready** - Extracted from proven production systems
 🔧 **Zero Config** - Works out of the box with environment variables
+🏠 **Local AI Support** - Run completely offline with Ollama
+🌍 **Open Source Models** - Access 100,000+ models via Hugging Face
+🇪🇺 **GDPR Compliance** - European data processing with Mistral AI
 
 ## Installation
 
 ### Package Installation
+
 ```bash
 # npm
 npm install @juspay/neurolink ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/google-vertex zod
@@ -139,6 +150,7 @@ pnpm add @juspay/neurolink ai @ai-sdk/amazon-bedrock @ai-sdk/openai @ai-sdk/goog
 ```
 
 ### Environment Setup
+
 ```bash
 # Choose one or more providers
 export OPENAI_API_KEY="sk-your-openai-key"
@@ -150,8 +162,9 @@ export GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account.json"
 ## Basic Usage
 
 ### Simple Text Generation
+
 ```typescript
-import { createBestAIProvider } from '@juspay/neurolink';
+import { createBestAIProvider } from "@juspay/neurolink";
 
 const provider = createBestAIProvider();
 
@@ -159,7 +172,7 @@ const provider = createBestAIProvider();
 const result = await provider.generateText({
   prompt: "Explain TypeScript generics",
   temperature: 0.7,
-  maxTokens: 500
+  maxTokens: 500,
 });
 
 console.log(result.text);
@@ -167,15 +180,16 @@ console.log(`Used: ${result.provider}`);
 ```
 
 ### Streaming Responses
+
 ```typescript
-import { createBestAIProvider } from '@juspay/neurolink';
+import { createBestAIProvider } from "@juspay/neurolink";
 
 const provider = createBestAIProvider();
 
 const result = await provider.streamText({
   prompt: "Write a story about AI",
   temperature: 0.8,
-  maxTokens: 1000
+  maxTokens: 1000,
 });
 
 // Handle streaming chunks
@@ -185,16 +199,21 @@ for await (const chunk of result.textStream) {
 ```
 
 ### Provider Selection
+
 ```typescript
-import { AIProviderFactory } from '@juspay/neurolink';
+import { AIProviderFactory } from "@juspay/neurolink";
 
 // Use specific provider
-const openai = AIProviderFactory.createProvider('openai', 'gpt-4o');
-const bedrock = AIProviderFactory.createProvider('bedrock', 'claude-3-7-sonnet');
+const openai = AIProviderFactory.createProvider("openai", "gpt-4o");
+const bedrock = AIProviderFactory.createProvider(
+  "bedrock",
+  "claude-3-7-sonnet",
+);
 
 // With fallback
 const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
-  'bedrock', 'openai'
+  "bedrock",
+  "openai",
 );
 ```
 
@@ -205,6 +224,7 @@ NeuroLink includes a professional CLI tool that provides all SDK functionality t
 ### Installation & Usage
 
 #### Option 1: NPX (No Installation Required)
+
 ```bash
 # Use directly without installation
 npx @juspay/neurolink --help
@@ -213,6 +233,7 @@ npx @juspay/neurolink status
 ```
 
 #### Option 2: Global Installation
+
 ```bash
 # Install globally for convenient access
 npm install -g @juspay/neurolink
@@ -224,6 +245,7 @@ neurolink status --verbose
 ```
 
 #### Option 3: Local Project Usage
+
 ```bash
 # Add to project and use via npm scripts
 npm install @juspay/neurolink
@@ -233,6 +255,7 @@ npx neurolink generate-text "Explain TypeScript"
 ### CLI Commands
 
 #### `generate-text <prompt>` - Core Text Generation
+
 ```bash
 # Basic text generation
 neurolink generate-text "Explain quantum computing"
@@ -248,6 +271,7 @@ neurolink generate-text "Summary of AI" --format json
 ```
 
 **Output Example:**
+
 ```
 🤖 Generating text...
 ✅ Text generated successfully!
@@ -256,6 +280,7 @@ Quantum computing represents a revolutionary approach to information processing.
 ```
 
 #### `stream <prompt>` - Real-time Streaming
+
 ```bash
 # Stream text generation in real-time
 neurolink stream "Tell me a story about robots"
@@ -265,6 +290,7 @@ neurolink stream "Explain machine learning" --provider vertex --temperature 0.8
 ```
 
 **Output Example:**
+
 ```
 🔄 Streaming from auto provider...
 
@@ -273,6 +299,7 @@ Once upon a time, in a world where technology had advanced beyond...
 ```
 
 #### `batch <file>` - Process Multiple Prompts
+
 ```bash
 # Create a file with prompts (one per line)
 echo -e "Write a haiku\nExplain gravity\nDescribe the ocean" > prompts.txt
@@ -288,6 +315,7 @@ neurolink batch prompts.txt --delay 2000
 ```
 
 **Output Example:**
+
 ```
 📦 Processing 3 prompts...
 
@@ -298,6 +326,7 @@ neurolink batch prompts.txt --delay 2000
 ```
 
 #### `status` - Provider Diagnostics
+
 ```bash
 # Check all provider connectivity
 neurolink status
@@ -307,6 +336,7 @@ neurolink status --verbose
 ```
 
 **Output Example:**
+
 ```
 🔍 Checking AI provider status...
 
@@ -318,12 +348,14 @@ neurolink status --verbose
 ```
 
 #### `get-best-provider` - Auto-selection Testing
+
 ```bash
 # Test which provider would be auto-selected
 neurolink get-best-provider
 ```
 
 **Output Example:**
+
 ```
 🎯 Finding best provider...
 ✅ Best provider: bedrock
@@ -332,37 +364,44 @@ neurolink get-best-provider
 ### CLI Options & Arguments
 
 #### Global Options
+
 - `--help, -h` - Show help information
 - `--version, -v` - Show version number
 
 #### Generation Options
-- `--provider <name>` - Choose provider: `auto` (default), `openai`, `bedrock`, `vertex`
+
+- `--provider <name>` - Choose provider: `auto` (default), `openai`, `bedrock`, `vertex`, `google-ai`, `anthropic`, `azure`, `huggingface`, `ollama`, `mistral`
 - `--temperature <number>` - Creativity level: `0.0` (focused) to `1.0` (creative), default: `0.7`
 - `--max-tokens <number>` - Maximum tokens to generate, default: `500`
 - `--format <type>` - Output format: `text` (default) or `json`
 
 #### Batch Processing Options
+
 - `--output <file>` - Save results to JSON file
 - `--delay <ms>` - Delay between requests in milliseconds, default: `1000`
 
 #### Status Options
+
 - `--verbose, -v` - Show detailed diagnostic information
 
 ### CLI Features
 
 #### ✨ Professional UX
+
 - **Animated Spinners**: Beautiful animations during AI generation
 - **Colorized Output**: Green ✅ for success, red ❌ for errors, blue ℹ️ for info
 - **Progress Tracking**: Real-time progress for batch operations
 - **Smart Error Messages**: Helpful hints for common issues
 
 #### 🛠️ Developer-Friendly
+
 - **Multiple Output Formats**: Text for humans, JSON for scripts
 - **Provider Selection**: Test specific providers or use auto-selection
 - **Batch Processing**: Handle multiple prompts efficiently
 - **Status Monitoring**: Check provider health and connectivity
 
 #### 🔧 Automation Ready
+
 - **Exit Codes**: Standard exit codes for scripting
 - **JSON Output**: Structured data for automated workflows
 - **Environment Variable**: All SDK environment variables work with CLI
@@ -371,6 +410,7 @@ neurolink get-best-provider
 ### CLI Usage Examples
 
 #### Creative Writing Workflow
+
 ```bash
 # Generate creative content with high temperature
 neurolink generate-text "Write a sci-fi story opening" \
@@ -384,6 +424,7 @@ cat story.json | jq '.content'
 ```
 
 #### Batch Content Processing
+
 ```bash
 # Create prompts file
 cat > content-prompts.txt << EOF
@@ -404,6 +445,7 @@ cat content-results.json | jq -r '.[].response'
 ```
 
 #### Provider Health Monitoring
+
 ```bash
 # Check provider status (useful for monitoring scripts)
 neurolink status --format json > status.json
@@ -414,6 +456,7 @@ echo "Working providers: $working_providers"
 ```
 
 #### Integration with Shell Scripts
+
 ```bash
 #!/bin/bash
 # AI-powered commit message generator
@@ -459,20 +502,21 @@ neurolink status
 
 ### CLI vs SDK Comparison
 
-| Feature | CLI | SDK |
-|---------|-----|-----|
-| **Text Generation** | ✅ `generate-text` | ✅ `generateText()` |
-| **Streaming** | ✅ `stream` | ✅ `streamText()` |
-| **Provider Selection** | ✅ `--provider` flag | ✅ `createProvider()` |
-| **Batch Processing** | ✅ `batch` command | ✅ Manual implementation |
-| **Status Monitoring** | ✅ `status` command | ✅ Manual testing |
-| **JSON Output** | ✅ `--format json` | ✅ Native objects |
-| **Automation** | ✅ Perfect for scripts | ✅ Perfect for apps |
-| **Learning Curve** | 🟢 Low | 🟡 Medium |
+| Feature                | CLI                    | SDK                      |
+| ---------------------- | ---------------------- | ------------------------ |
+| **Text Generation**    | ✅ `generate-text`     | ✅ `generateText()`      |
+| **Streaming**          | ✅ `stream`            | ✅ `streamText()`        |
+| **Provider Selection** | ✅ `--provider` flag   | ✅ `createProvider()`    |
+| **Batch Processing**   | ✅ `batch` command     | ✅ Manual implementation |
+| **Status Monitoring**  | ✅ `status` command    | ✅ Manual testing        |
+| **JSON Output**        | ✅ `--format json`     | ✅ Native objects        |
+| **Automation**         | ✅ Perfect for scripts | ✅ Perfect for apps      |
+| **Learning Curve**     | 🟢 Low                 | 🟡 Medium                |
 
 ### When to Use CLI vs SDK
 
 #### Use the CLI when:
+
 - 🔧 **Prototyping**: Quick testing of prompts and providers
 - 📜 **Scripting**: Shell scripts and automation workflows
 - 🔍 **Debugging**: Checking provider status and testing connectivity
@@ -480,6 +524,7 @@ neurolink status
 - 🎯 **One-off Tasks**: Generating content without writing code
 
 #### Use the SDK when:
+
 - 🏗️ **Application Development**: Building web apps, APIs, or services
 - 🔄 **Real-time Integration**: Chat interfaces, streaming responses
 - ⚙️ **Complex Logic**: Custom provider fallback, error handling
@@ -491,9 +536,10 @@ neurolink status
 ### SvelteKit
 
 #### API Route (`src/routes/api/chat/+server.ts`)
+
 ```typescript
-import { createBestAIProvider } from '@juspay/neurolink';
-import type { RequestHandler } from './$types';
+import { createBestAIProvider } from "@juspay/neurolink";
+import type { RequestHandler } from "./$types";
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
@@ -503,25 +549,26 @@ export const POST: RequestHandler = async ({ request }) => {
     const result = await provider.streamText({
       prompt: message,
       temperature: 0.7,
-      maxTokens: 1000
+      maxTokens: 1000,
     });
 
     return new Response(result.toReadableStream(), {
       headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache'
-      }
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+      },
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   }
 };
 ```
 
 #### Svelte Component (`src/routes/chat/+page.svelte`)
+
 ```svelte
 <script lang="ts">
   let message = '';
@@ -574,9 +621,10 @@ export const POST: RequestHandler = async ({ request }) => {
 ### Next.js
 
 #### App Router API (`app/api/ai/route.ts`)
+
 ```typescript
-import { createBestAIProvider } from '@juspay/neurolink';
-import { NextRequest, NextResponse } from 'next/server';
+import { createBestAIProvider } from "@juspay/neurolink";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -587,24 +635,22 @@ export async function POST(request: NextRequest) {
       prompt,
       temperature: 0.7,
       maxTokens: 1000,
-      ...options
+      ...options,
     });
 
     return NextResponse.json({
       text: result.text,
       provider: result.provider,
-      usage: result.usage
+      usage: result.usage,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 ```
 
 #### React Component (`components/AIChat.tsx`)
+
 ```typescript
 'use client';
 import { useState } from 'react';
@@ -665,46 +711,46 @@ export default function AIChat() {
 ### Express.js
 
 ```typescript
-import express from 'express';
-import { createBestAIProvider, AIProviderFactory } from '@juspay/neurolink';
+import express from "express";
+import { createBestAIProvider, AIProviderFactory } from "@juspay/neurolink";
 
 const app = express();
 app.use(express.json());
 
 // Simple generation endpoint
-app.post('/api/generate', async (req, res) => {
+app.post("/api/generate", async (req, res) => {
   try {
     const { prompt, options = {} } = req.body;
 
     const provider = createBestAIProvider();
     const result = await provider.generateText({
       prompt,
-      ...options
+      ...options,
     });
 
     res.json({
       success: true,
       text: result.text,
-      provider: result.provider
+      provider: result.provider,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
     });
   }
 });
 
 // Streaming endpoint
-app.post('/api/stream', async (req, res) => {
+app.post("/api/stream", async (req, res) => {
   try {
     const { prompt } = req.body;
 
     const provider = createBestAIProvider();
     const result = await provider.streamText({ prompt });
 
-    res.setHeader('Content-Type', 'text/plain');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader("Content-Type", "text/plain");
+    res.setHeader("Cache-Control", "no-cache");
 
     for await (const chunk of result.textStream) {
       res.write(chunk);
@@ -716,7 +762,7 @@ app.post('/api/stream', async (req, res) => {
 });
 
 app.listen(9876, () => {
-  console.log('Server running on http://localhost:9876');
+  console.log("Server running on http://localhost:9876");
 });
 ```
 
@@ -792,19 +838,21 @@ function MyComponent() {
 ### Core Functions
 
 #### `createBestAIProvider(requestedProvider?, modelName?)`
+
 Creates the best available AI provider based on environment configuration.
 
 ```typescript
 const provider = createBestAIProvider();
-const provider = createBestAIProvider('openai'); // Prefer OpenAI
-const provider = createBestAIProvider('bedrock', 'claude-3-7-sonnet');
+const provider = createBestAIProvider("openai"); // Prefer OpenAI
+const provider = createBestAIProvider("bedrock", "claude-3-7-sonnet");
 ```
 
 #### `createAIProviderWithFallback(primary, fallback, modelName?)`
+
 Creates a provider with automatic fallback.
 
 ```typescript
-const { primary, fallback } = createAIProviderWithFallback('bedrock', 'openai');
+const { primary, fallback } = createAIProviderWithFallback("bedrock", "openai");
 
 try {
   const result = await primary.generateText({ prompt });
@@ -816,12 +864,16 @@ try {
 ### AIProviderFactory
 
 #### `createProvider(providerName, modelName?)`
+
 Creates a specific provider instance.
 
 ```typescript
-const openai = AIProviderFactory.createProvider('openai', 'gpt-4o');
-const bedrock = AIProviderFactory.createProvider('bedrock', 'claude-3-7-sonnet');
-const vertex = AIProviderFactory.createProvider('vertex', 'gemini-2.5-flash');
+const openai = AIProviderFactory.createProvider("openai", "gpt-4o");
+const bedrock = AIProviderFactory.createProvider(
+  "bedrock",
+  "claude-3-7-sonnet",
+);
+const vertex = AIProviderFactory.createProvider("vertex", "gemini-2.5-flash");
 ```
 
 ### Provider Interface
@@ -856,22 +908,26 @@ interface GenerateTextResult {
 ### Supported Models
 
 #### OpenAI
+
 - `gpt-4o` (default)
 - `gpt-4o-mini`
 - `gpt-4-turbo`
 
 #### Amazon Bedrock
+
 - `claude-3-7-sonnet` (default)
 - `claude-3-5-sonnet`
 - `claude-3-haiku`
 
 #### Google Vertex AI
+
 - `gemini-2.5-flash` (default)
 - `claude-4.0-sonnet`
 
 ## Provider Configuration
 
 ### OpenAI Setup
+
 ```bash
 export OPENAI_API_KEY="sk-your-key-here"
 ```
@@ -895,12 +951,14 @@ export BEDROCK_MODEL="arn:aws:bedrock:us-east-2:<account_id>:inference-profile/u
 ```
 
 #### Why Inference Profiles?
+
 - **Cross-Region Access**: Faster access across AWS regions
 - **Better Performance**: Optimized routing and response times
 - **Higher Availability**: Improved model availability and reliability
 - **Different Permissions**: Separate permission model from base models
 
 #### Available Inference Profile ARNs
+
 ```bash
 # Claude 3.7 Sonnet (Latest - Recommended)
 BEDROCK_MODEL="arn:aws:bedrock:us-east-2:<account_id>:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0"
@@ -913,7 +971,9 @@ BEDROCK_MODEL="arn:aws:bedrock:us-east-2:<account_id>:inference-profile/us.anthr
 ```
 
 #### Session Token Support
+
 For temporary credentials (common in development):
+
 ```bash
 export AWS_SESSION_TOKEN="your-session-token"  # Required for temporary credentials
 ```
@@ -923,6 +983,7 @@ export AWS_SESSION_TOKEN="your-session-token"  # Required for temporary credenti
 NeuroLink supports **three authentication methods** for Google Vertex AI:
 
 #### Method 1: Service Account File (Recommended for Production)
+
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
 export GOOGLE_VERTEX_PROJECT="your-project-id"
@@ -930,6 +991,7 @@ export GOOGLE_VERTEX_LOCATION="us-central1"
 ```
 
 #### Method 2: Service Account JSON String (Good for Containers/Cloud)
+
 ```bash
 export GOOGLE_SERVICE_ACCOUNT_KEY='{"type":"service_account","project_id":"your-project",...}'
 export GOOGLE_VERTEX_PROJECT="your-project-id"
@@ -937,6 +999,7 @@ export GOOGLE_VERTEX_LOCATION="us-central1"
 ```
 
 #### Method 3: Individual Environment Variables (Good for CI/CD)
+
 ```bash
 export GOOGLE_AUTH_CLIENT_EMAIL="service-account@project.iam.gserviceaccount.com"
 export GOOGLE_AUTH_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE..."
@@ -947,6 +1010,7 @@ export GOOGLE_VERTEX_LOCATION="us-central1"
 ### Complete Environment Variables Reference
 
 #### OpenAI Configuration
+
 ```bash
 # Required
 OPENAI_API_KEY="sk-your-openai-api-key"
@@ -956,6 +1020,7 @@ OPENAI_MODEL="gpt-4o"                    # Default model to use
 ```
 
 #### Amazon Bedrock Configuration
+
 ```bash
 # Required
 AWS_ACCESS_KEY_ID="your-aws-access-key"
@@ -968,6 +1033,7 @@ BEDROCK_MODEL_ID="anthropic.claude-3-7-sonnet-20250219-v1:0"  # Default model
 ```
 
 #### Google Vertex AI Configuration
+
 ```bash
 # Required (choose one authentication method)
 # Method 1: Service Account File
@@ -989,6 +1055,7 @@ VERTEX_MODEL_ID="claude-sonnet-4@20250514"  # Default model
 ```
 
 #### General Configuration
+
 ```bash
 # Provider Selection (optional)
 DEFAULT_PROVIDER="bedrock"               # Primary provider preference
@@ -1005,6 +1072,7 @@ LOG_LEVEL="info"                         # error, warn, info, debug
 ```
 
 #### Environment File Example (.env)
+
 ```bash
 # Copy this to your .env file and fill in your credentials
 
@@ -1044,32 +1112,34 @@ NEUROLINK_DEBUG=false
 ## Advanced Patterns
 
 ### Custom Configuration
+
 ```typescript
-import { AIProviderFactory } from '@juspay/neurolink';
+import { AIProviderFactory } from "@juspay/neurolink";
 
 // Environment-based provider selection
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV === "development";
 const provider = isDev
-  ? AIProviderFactory.createProvider('openai', 'gpt-4o-mini') // Cheaper for dev
-  : AIProviderFactory.createProvider('bedrock', 'claude-3-7-sonnet'); // Production
+  ? AIProviderFactory.createProvider("openai", "gpt-4o-mini") // Cheaper for dev
+  : AIProviderFactory.createProvider("bedrock", "claude-3-7-sonnet"); // Production
 
 // Multiple providers for different use cases
 const providers = {
-  creative: AIProviderFactory.createProvider('openai', 'gpt-4o'),
-  analytical: AIProviderFactory.createProvider('bedrock', 'claude-3-7-sonnet'),
-  fast: AIProviderFactory.createProvider('vertex', 'gemini-2.5-flash')
+  creative: AIProviderFactory.createProvider("openai", "gpt-4o"),
+  analytical: AIProviderFactory.createProvider("bedrock", "claude-3-7-sonnet"),
+  fast: AIProviderFactory.createProvider("vertex", "gemini-2.5-flash"),
 };
 
 async function generateCreativeContent(prompt: string) {
   return await providers.creative.generateText({
     prompt,
     temperature: 0.9,
-    maxTokens: 2000
+    maxTokens: 2000,
   });
 }
 ```
 
 ### Response Caching
+
 ```typescript
 const cache = new Map<string, { text: string; timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -1091,6 +1161,7 @@ async function cachedGenerate(prompt: string) {
 ```
 
 ### Batch Processing
+
 ```typescript
 async function processBatch(prompts: string[]) {
   const provider = createBestAIProvider();
@@ -1101,21 +1172,21 @@ async function processBatch(prompts: string[]) {
     const chunk = prompts.slice(i, i + chunkSize);
 
     const chunkResults = await Promise.allSettled(
-      chunk.map(prompt => provider.generateText({ prompt, maxTokens: 500 }))
+      chunk.map((prompt) => provider.generateText({ prompt, maxTokens: 500 })),
     );
 
     results.push(...chunkResults);
 
     // Rate limiting
     if (i + chunkSize < prompts.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
 
   return results.map((result, index) => ({
     prompt: prompts[index],
-    success: result.status === 'fulfilled',
-    result: result.status === 'fulfilled' ? result.value : result.reason
+    success: result.status === "fulfilled",
+    result: result.status === "fulfilled" ? result.value : result.reason,
   }));
 }
 ```
@@ -1125,9 +1196,11 @@ async function processBatch(prompts: string[]) {
 ### Troubleshooting Common Issues
 
 #### AWS Credentials and Authorization
+
 ```
 ValidationException: Your account is not authorized to invoke this API operation.
 ```
+
 - **Cause**: The AWS account doesn't have access to Bedrock or the specific model
 - **Solution**:
   - Verify your AWS account has Bedrock enabled
@@ -1135,29 +1208,36 @@ ValidationException: Your account is not authorized to invoke this API operation
   - Ensure your IAM role has `bedrock:InvokeModel` permissions
 
 #### Missing or Invalid Credentials
+
 ```
 Error: Cannot find API key for OpenAI provider
 ```
+
 - **Cause**: The environment variable for API credentials is missing
 - **Solution**: Set the appropriate environment variable (OPENAI_API_KEY, etc.)
 
 #### Google Vertex Import Issues
+
 ```
 Cannot find package '@google-cloud/vertexai' imported from...
 ```
+
 - **Cause**: Missing Google Vertex AI peer dependency
 - **Solution**: Install the package with `npm install @google-cloud/vertexai`
 
 #### Session Token Expired
+
 ```
 The security token included in the request is expired
 ```
+
 - **Cause**: AWS session token has expired
 - **Solution**: Generate new AWS credentials with a fresh session token
 
 ### Comprehensive Error Handling
+
 ```typescript
-import { createBestAIProvider } from '@juspay/neurolink';
+import { createBestAIProvider } from "@juspay/neurolink";
 
 async function robustGenerate(prompt: string, maxRetries = 3) {
   let attempt = 0;
@@ -1171,12 +1251,14 @@ async function robustGenerate(prompt: string, maxRetries = 3) {
       console.error(`Attempt ${attempt} failed:`, error.message);
 
       if (attempt >= maxRetries) {
-        throw new Error(`Failed after ${maxRetries} attempts: ${error.message}`);
+        throw new Error(
+          `Failed after ${maxRetries} attempts: ${error.message}`,
+        );
       }
 
       // Exponential backoff
-      await new Promise(resolve =>
-        setTimeout(resolve, Math.pow(2, attempt) * 1000)
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.pow(2, attempt) * 1000),
       );
     }
   }
@@ -1184,9 +1266,10 @@ async function robustGenerate(prompt: string, maxRetries = 3) {
 ```
 
 ### Provider Fallback
+
 ```typescript
 async function generateWithFallback(prompt: string) {
-  const providers = ['bedrock', 'openai', 'vertex'];
+  const providers = ["bedrock", "openai", "vertex"];
 
   for (const providerName of providers) {
     try {
@@ -1195,37 +1278,41 @@ async function generateWithFallback(prompt: string) {
     } catch (error) {
       console.warn(`${providerName} failed:`, error.message);
 
-      if (error.message.includes('API key') || error.message.includes('credentials')) {
+      if (
+        error.message.includes("API key") ||
+        error.message.includes("credentials")
+      ) {
         console.log(`${providerName} not configured, trying next...`);
         continue;
       }
     }
   }
 
-  throw new Error('All providers failed or are not configured');
+  throw new Error("All providers failed or are not configured");
 }
 ```
 
 ### Common Error Types
+
 ```typescript
 // Provider not configured
-if (error.message.includes('API key')) {
-  console.error('Provider API key not set');
+if (error.message.includes("API key")) {
+  console.error("Provider API key not set");
 }
 
 // Rate limiting
-if (error.message.includes('rate limit')) {
-  console.error('Rate limit exceeded, implement backoff');
+if (error.message.includes("rate limit")) {
+  console.error("Rate limit exceeded, implement backoff");
 }
 
 // Model not available
-if (error.message.includes('model')) {
-  console.error('Requested model not available');
+if (error.message.includes("model")) {
+  console.error("Requested model not available");
 }
 
 // Network issues
-if (error.message.includes('network') || error.message.includes('timeout')) {
-  console.error('Network connectivity issue');
+if (error.message.includes("network") || error.message.includes("timeout")) {
+  console.error("Network connectivity issue");
 }
 ```
 
@@ -1234,23 +1321,28 @@ if (error.message.includes('network') || error.message.includes('timeout')) {
 ### Optimization Tips
 
 1. **Choose Right Models for Use Case**
+
    ```typescript
    // Fast responses for simple tasks
-   const fast = AIProviderFactory.createProvider('vertex', 'gemini-2.5-flash');
+   const fast = AIProviderFactory.createProvider("vertex", "gemini-2.5-flash");
 
    // High quality for complex tasks
-   const quality = AIProviderFactory.createProvider('bedrock', 'claude-3-7-sonnet');
+   const quality = AIProviderFactory.createProvider(
+     "bedrock",
+     "claude-3-7-sonnet",
+   );
 
    // Cost-effective for development
-   const dev = AIProviderFactory.createProvider('openai', 'gpt-4o-mini');
+   const dev = AIProviderFactory.createProvider("openai", "gpt-4o-mini");
    ```
 
 2. **Streaming for Long Responses**
+
    ```typescript
    // Use streaming for better UX on long content
    const result = await provider.streamText({
      prompt: "Write a detailed article...",
-     maxTokens: 2000
+     maxTokens: 2000,
    });
    ```
 
@@ -1259,11 +1351,12 @@ if (error.message.includes('network') || error.message.includes('timeout')) {
    // Set reasonable limits to control costs
    const result = await provider.generateText({
      prompt: "Summarize this text",
-     maxTokens: 150 // Just enough for a summary
+     maxTokens: 150, // Just enough for a summary
    });
    ```
 
 ### Provider Limits
+
 - **OpenAI**: Rate limits based on tier (TPM/RPM)
 - **Bedrock**: Regional quotas and model availability
 - **Vertex AI**: Project-based quotas and rate limits
@@ -1273,6 +1366,7 @@ if (error.message.includes('network') || error.message.includes('timeout')) {
 We welcome contributions! Here's how to get started:
 
 ### Development Setup
+
 ```bash
 git clone https://github.com/juspay/neurolink
 cd neurolink
@@ -1280,6 +1374,7 @@ pnpm install
 ```
 
 ### Running Tests
+
 ```bash
 pnpm test        # Run all tests
 pnpm test:watch  # Watch mode
@@ -1287,6 +1382,7 @@ pnpm test:coverage # Coverage report
 ```
 
 ### Building
+
 ```bash
 pnpm build       # Build the library
 pnpm check       # Type checking
@@ -1294,6 +1390,7 @@ pnpm lint        # Lint code
 ```
 
 ### Guidelines
+
 - Follow existing TypeScript patterns
 - Add tests for new features
 - Update documentation

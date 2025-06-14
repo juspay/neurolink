@@ -5,19 +5,19 @@ Thank you for your interest in contributing to NeuroLink! This document provides
 ## Table of Contents
 
 - [Contributing to NeuroLink](#contributing-to-neurolink)
-	- [Table of Contents](#table-of-contents)
-	- [Code of Conduct](#code-of-conduct)
-	- [Getting Started](#getting-started)
-	- [Development Setup](#development-setup)
-		- [Prerequisites](#prerequisites)
-		- [Installation](#installation)
-		- [Development Workflow](#development-workflow)
-	- [Submitting Changes](#submitting-changes)
-	- [Coding Style](#coding-style)
-	- [Testing](#testing)
-	- [Documentation](#documentation)
-	- [Release Process](#release-process)
-	- [Questions?](#questions)
+  - [Table of Contents](#table-of-contents)
+  - [Code of Conduct](#code-of-conduct)
+  - [Getting Started](#getting-started)
+  - [Development Setup](#development-setup)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+    - [Development Workflow](#development-workflow)
+  - [Submitting Changes](#submitting-changes)
+  - [Coding Style](#coding-style)
+  - [Testing](#testing)
+  - [Documentation](#documentation)
+  - [Release Process](#release-process)
+  - [Questions?](#questions)
 
 ## Code of Conduct
 
@@ -46,6 +46,7 @@ By participating in this project, you agree to abide by our Code of Conduct (to 
 ### Installation
 
 1. Install dependencies:
+
    ```bash
    pnpm install
    ```
@@ -59,6 +60,7 @@ By participating in this project, you agree to abide by our Code of Conduct (to 
 ### Development Workflow
 
 1. Run the development server:
+
    ```bash
    pnpm dev
    ```
@@ -66,6 +68,7 @@ By participating in this project, you agree to abide by our Code of Conduct (to 
 2. Make your changes
 
 3. Run tests:
+
    ```bash
    pnpm test
    ```
@@ -78,11 +81,13 @@ By participating in this project, you agree to abide by our Code of Conduct (to 
 ## Submitting Changes
 
 1. **Commit your changes** with a clear commit message:
+
    ```bash
    git commit -m "Feature: Add support for new provider"
    ```
 
    Prefix your commit message with one of the following:
+
    - `Feature:` - New functionality
    - `Fix:` - Bug fixes
    - `Docs:` - Documentation changes
@@ -92,6 +97,7 @@ By participating in this project, you agree to abide by our Code of Conduct (to 
    - `Chore:` - Maintenance tasks, dependency updates, etc.
 
 2. **Push to your fork**:
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -103,11 +109,13 @@ By participating in this project, you agree to abide by our Code of Conduct (to 
 ## Coding Style
 
 This project uses:
+
 - TypeScript for type safety
 - ESLint for code linting
 - Prettier for code formatting
 
 Before submitting a PR, ensure your code adheres to our style by running:
+
 ```bash
 pnpm lint
 pnpm format
@@ -118,6 +126,7 @@ pnpm format
 Please add tests for any new features or bug fixes. We aim for high test coverage to ensure reliability.
 
 Run tests with:
+
 ```bash
 pnpm test
 ```
@@ -127,6 +136,7 @@ For mocking AI providers, use the approach in the `src/test/providers.test.ts` f
 ## Documentation
 
 For any new features or changes, please update the relevant documentation:
+
 - README.md for general usage
 - JSDoc comments for public APIs
 - Code examples where appropriate

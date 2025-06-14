@@ -1,5 +1,68 @@
 # @juspay/neurolink
 
+## 1.7.0
+
+### Patch Changes
+
+- **🔧 Version Bump**: Updated version to 1.7.0 to publish the three-provider implementation
+  - All code changes were already included in 1.6.0 but not published
+  - This version publishes the complete implementation to npm
+
+## 1.6.0
+
+### Major Changes
+
+- **🎉 Universal AI Provider Support**: Expanded from 6 to 9 AI providers with support for open source models, local AI, and European compliance
+  - **🆕 Hugging Face Provider**: Access to 100,000+ open source models with community-driven AI ecosystem
+  - **🆕 Ollama Provider**: 100% local AI execution with complete data privacy and no internet required
+  - **🆕 Mistral AI Provider**: European GDPR-compliant AI with competitive pricing and multilingual models
+
+### Features
+
+- **🛠️ Enhanced CLI with Ollama Commands**: New Ollama-specific management commands
+
+  - `neurolink ollama list-models` - List installed local models
+  - `neurolink ollama pull <model>` - Download models locally
+  - `neurolink ollama remove <model>` - Remove installed models
+  - `neurolink ollama status` - Check Ollama service health
+  - `neurolink ollama start/stop` - Manage Ollama service
+  - `neurolink ollama setup` - Interactive setup wizard
+
+- **📚 Comprehensive Documentation**: Complete documentation for all new providers
+  - **OLLAMA-SETUP.md**: Platform-specific installation guides
+  - **PROVIDER-COMPARISON.md**: Detailed provider comparison matrix
+  - Updated all documentation to reflect 9 providers
+  - Enhanced provider configuration guides
+
+### Technical Implementation
+
+- **Provider Files**: `huggingFace.ts`, `ollama.ts`, `mistralAI.ts`
+- **Dependencies**: Added `@huggingface/inference`, `@ai-sdk/mistral`, `inquirer`
+- **MCP Integration**: All 10 MCP tools support new providers
+- **Demo Updates**: Enhanced demo to showcase all 9 providers
+- **CLI Enhancement**: Ollama command structure with 7 subcommands
+- **Provider Priority**: Updated auto-selection to include new providers
+
+### Provider Comparison
+
+| Provider     | Best For      | Setup Time | Privacy | Cost    |
+| ------------ | ------------- | ---------- | ------- | ------- |
+| OpenAI       | General use   | 2 min      | Cloud   | $$$     |
+| Ollama       | Privacy       | 5 min      | Local   | Free    |
+| Hugging Face | Open source   | 2 min      | Cloud   | Free/$$ |
+| Mistral      | EU compliance | 2 min      | Cloud   | $$      |
+
+### Bug Fixes
+
+- **🔧 Local Provider Fallback**: Implemented no-fallback policy for Ollama
+  - When explicitly requesting `--provider ollama`, no cloud fallback occurs
+  - Preserves user privacy intent when using local providers
+  - Auto-selection still maintains intelligent fallback
+
+### Breaking Changes
+
+- None - 100% backward compatibility maintained
+
 ## 1.5.3
 
 ### Patch Changes
@@ -38,12 +101,14 @@ neurolink generate-text "test" --debug
 ### Patch Changes
 
 - **🔧 Production-Ready CLI Logging System**: Fixed critical logging system for clean production output
+
   - **Issue**: CLI showed excessive debug output during normal operation, breaking demo presentations
   - **Root Cause**: Mixed console.log statements bypassed conditional logger system
   - **Solution**: Systematic replacement of all console.log with logger.debug across codebase
   - **Impact**: **Clean CLI output by default** with conditional debug available via `NEUROLINK_DEBUG=true`
 
 - **🔄 Enhanced Provider Fallback Logic**: Fixed incomplete provider fallback coverage
+
   - **Issue**: Provider fallback only attempted 4 of 6 providers (missing Anthropic & Azure)
   - **Root Cause**: Incomplete provider array in NeuroLink class fallback logic
   - **Solution**: Updated to include all 6 providers: `['openai', 'vertex', 'bedrock', 'anthropic', 'azure', 'google-ai']`
@@ -87,6 +152,7 @@ NEUROLINK_DEBUG=true node dist/cli/cli/index.js generate-text "test" --max-token
 ### Patch Changes
 
 - **🔧 Critical CLI Dependency Fix**: Removed peer dependencies to ensure zero-friction CLI usage
+
   - **Issue**: CLI commands failed when provider-specific SDK packages were peer dependencies
   - **Root Cause**: `npx` doesn't install peer dependencies, causing missing module errors
   - **Solution**: Moved ALL AI provider SDKs to regular dependencies
@@ -144,7 +210,7 @@ docs/
 
 ```typescript
 // New Google AI Studio usage
-import { createBestAIProvider } from '@juspay/neurolink';
+import { createBestAIProvider } from "@juspay/neurolink";
 
 const provider = createBestAIProvider(); // Auto-includes Google AI Studio
 const result = await provider.generateText("Hello, Gemini!");

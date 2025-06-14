@@ -11,28 +11,30 @@ Creates the best available AI provider based on environment configuration and pr
 ```typescript
 function createBestAIProvider(
   requestedProvider?: string,
-  modelName?: string
-): AIProvider
+  modelName?: string,
+): AIProvider;
 ```
 
 **Parameters:**
-- `requestedProvider` (optional): Preferred provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'google-ai'`, or `'auto'`)
+
+- `requestedProvider` (optional): Preferred provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'google-ai'`, `'huggingface'`, `'ollama'`, `'mistral'`, or `'auto'`)
 - `modelName` (optional): Specific model to use
 
 **Returns:** `AIProvider` instance
 
 **Examples:**
+
 ```typescript
-import { createBestAIProvider } from '@juspay/neurolink';
+import { createBestAIProvider } from "@juspay/neurolink";
 
 // Auto-select best available provider
 const provider = createBestAIProvider();
 
 // Prefer specific provider
-const openaiProvider = createBestAIProvider('openai');
+const openaiProvider = createBestAIProvider("openai");
 
 // Prefer specific provider and model
-const claudeProvider = createBestAIProvider('bedrock', 'claude-3-7-sonnet');
+const claudeProvider = createBestAIProvider("bedrock", "claude-3-7-sonnet");
 ```
 
 ### `createAIProviderWithFallback(primary, fallback, modelName?)`
@@ -43,11 +45,12 @@ Creates a provider with automatic fallback mechanism.
 function createAIProviderWithFallback(
   primary: string,
   fallback: string,
-  modelName?: string
-): { primary: AIProvider; fallback: AIProvider }
+  modelName?: string,
+): { primary: AIProvider; fallback: AIProvider };
 ```
 
 **Parameters:**
+
 - `primary`: Primary provider name
 - `fallback`: Fallback provider name
 - `modelName` (optional): Model name for both providers
@@ -55,15 +58,16 @@ function createAIProviderWithFallback(
 **Returns:** Object with `primary` and `fallback` provider instances
 
 **Example:**
-```typescript
-import { createAIProviderWithFallback } from '@juspay/neurolink';
 
-const { primary, fallback } = createAIProviderWithFallback('bedrock', 'openai');
+```typescript
+import { createAIProviderWithFallback } from "@juspay/neurolink";
+
+const { primary, fallback } = createAIProviderWithFallback("bedrock", "openai");
 
 try {
   const result = await primary.generateText({ prompt: "Hello AI!" });
 } catch (error) {
-  console.log('Primary failed, trying fallback...');
+  console.log("Primary failed, trying fallback...");
   const result = await fallback.generateText({ prompt: "Hello AI!" });
 }
 ```
@@ -84,22 +88,27 @@ static createProvider(
 ```
 
 **Parameters:**
-- `providerName`: Provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'google-ai'`)
+
+- `providerName`: Provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'google-ai'`, `'huggingface'`, `'ollama'`, `'mistral'`)
 - `modelName` (optional): Specific model to use
 
 **Returns:** `AIProvider` instance
 
 **Examples:**
+
 ```typescript
-import { AIProviderFactory } from '@juspay/neurolink';
+import { AIProviderFactory } from "@juspay/neurolink";
 
 // Create specific providers
-const openai = AIProviderFactory.createProvider('openai', 'gpt-4o');
-const bedrock = AIProviderFactory.createProvider('bedrock', 'claude-3-7-sonnet');
-const vertex = AIProviderFactory.createProvider('vertex', 'gemini-2.5-flash');
+const openai = AIProviderFactory.createProvider("openai", "gpt-4o");
+const bedrock = AIProviderFactory.createProvider(
+  "bedrock",
+  "claude-3-7-sonnet",
+);
+const vertex = AIProviderFactory.createProvider("vertex", "gemini-2.5-flash");
 
 // Use default models
-const defaultOpenAI = AIProviderFactory.createProvider('openai');
+const defaultOpenAI = AIProviderFactory.createProvider("openai");
 ```
 
 ### `createProviderWithFallback(primary, fallback, modelName?)`
@@ -134,6 +143,7 @@ async generateText(options: GenerateTextOptions): Promise<GenerateTextResult>
 ```
 
 **Parameters:**
+
 ```typescript
 interface GenerateTextOptions {
   prompt: string;
@@ -145,6 +155,7 @@ interface GenerateTextOptions {
 ```
 
 **Returns:**
+
 ```typescript
 interface GenerateTextResult {
   text: string;
@@ -160,12 +171,13 @@ interface GenerateTextResult {
 ```
 
 **Example:**
+
 ```typescript
 const result = await provider.generateText({
   prompt: "Explain quantum computing in simple terms",
   temperature: 0.7,
   maxTokens: 500,
-  systemPrompt: "You are a helpful science teacher"
+  systemPrompt: "You are a helpful science teacher",
 });
 
 console.log(result.text);
@@ -182,6 +194,7 @@ async streamText(options: StreamTextOptions): Promise<StreamTextResult>
 ```
 
 **Parameters:**
+
 ```typescript
 interface StreamTextOptions {
   prompt: string;
@@ -192,6 +205,7 @@ interface StreamTextOptions {
 ```
 
 **Returns:**
+
 ```typescript
 interface StreamTextResult {
   textStream: AsyncIterable<string>;
@@ -202,11 +216,12 @@ interface StreamTextResult {
 ```
 
 **Example:**
+
 ```typescript
 const result = await provider.streamText({
   prompt: "Write a story about AI and humanity",
   temperature: 0.8,
-  maxTokens: 1000
+  maxTokens: 1000,
 });
 
 // Stream to console
@@ -217,7 +232,7 @@ for await (const chunk of result.textStream) {
 // Or convert to ReadableStream for web APIs
 const stream = result.toReadableStream();
 return new Response(stream, {
-  headers: { 'Content-Type': 'text/plain' }
+  headers: { "Content-Type": "text/plain" },
 });
 ```
 
@@ -230,7 +245,7 @@ NeuroLink supports both object-based and string-based parameters for convenience
 const result1 = await provider.generateText({
   prompt: "Hello",
   temperature: 0.7,
-  maxTokens: 100
+  maxTokens: 100,
 });
 
 // String format (convenient for simple prompts)
@@ -240,28 +255,83 @@ const result2 = await provider.generateText("Hello");
 ## Supported Models
 
 ### OpenAI Models
+
 ```typescript
 type OpenAIModel =
-  | 'gpt-4o'          // Default - Latest multimodal model
-  | 'gpt-4o-mini'     // Cost-effective variant
-  | 'gpt-4-turbo'     // High-performance model
+  | "gpt-4o" // Default - Latest multimodal model
+  | "gpt-4o-mini" // Cost-effective variant
+  | "gpt-4-turbo"; // High-performance model
 ```
 
 ### Amazon Bedrock Models
+
 ```typescript
 type BedrockModel =
-  | 'claude-3-7-sonnet'    // Default - Latest Claude model
-  | 'claude-3-5-sonnet'    // Previous generation
-  | 'claude-3-haiku'       // Fast, lightweight model
+  | "claude-3-7-sonnet" // Default - Latest Claude model
+  | "claude-3-5-sonnet" // Previous generation
+  | "claude-3-haiku"; // Fast, lightweight model
 ```
 
 **Note:** Bedrock requires full inference profile ARNs in environment variables.
 
 ### Google Vertex AI Models
+
 ```typescript
 type VertexModel =
-  | 'gemini-2.5-flash'     // Default - Fast, efficient
-  | 'claude-sonnet-4@20250514'  // High-quality reasoning
+  | "gemini-2.5-flash" // Default - Fast, efficient
+  | "claude-sonnet-4@20250514"; // High-quality reasoning
+```
+
+### Google AI Studio Models
+
+```typescript
+type GoogleAIModel =
+  | "gemini-1.5-pro-latest" // Default - Latest Gemini Pro
+  | "gemini-2.0-flash-exp" // Experimental enhanced capabilities
+  | "gemini-1.5-flash-latest" // Fast, efficient responses
+  | "gemini-1.0-pro"; // Stable legacy option
+```
+
+### Azure OpenAI Models
+
+```typescript
+type AzureModel = string; // Deployment-specific models
+// Common deployments:
+// - 'gpt-4o' (default)
+// - 'gpt-4-turbo'
+// - 'gpt-35-turbo'
+```
+
+### Hugging Face Models
+
+```typescript
+type HuggingFaceModel = string; // Any model from Hugging Face Hub
+// Popular models:
+// - 'microsoft/DialoGPT-medium' (default)
+// - 'gpt2'
+// - 'distilgpt2'
+// - 'EleutherAI/gpt-neo-2.7B'
+```
+
+### Ollama Models
+
+```typescript
+type OllamaModel = string; // Any locally installed model
+// Popular models:
+// - 'llama2' (default)
+// - 'codellama'
+// - 'mistral'
+// - 'vicuna'
+```
+
+### Mistral AI Models
+
+```typescript
+type MistralModel =
+  | "mistral-tiny"
+  | "mistral-small" // Default
+  | "mistral-medium"
+  | "mistral-large";
 ```
 
 ## Environment Configuration
@@ -297,14 +367,26 @@ ANTHROPIC_API_KEY?: string                       // Direct Anthropic API
 AZURE_OPENAI_API_KEY?: string                    // Azure OpenAI API key
 AZURE_OPENAI_ENDPOINT?: string                   // Azure OpenAI endpoint
 AZURE_OPENAI_DEPLOYMENT_ID?: string              // Deployment ID
+
+// Hugging Face
+HUGGINGFACE_API_KEY: string                      // HF token from huggingface.co
+HUGGINGFACE_MODEL?: string                       // Default: 'microsoft/DialoGPT-medium'
+
+// Ollama (Local)
+OLLAMA_BASE_URL?: string                         // Default: 'http://localhost:11434'
+OLLAMA_MODEL?: string                            // Default: 'llama2'
+
+// Mistral AI
+MISTRAL_API_KEY: string                          // API key from mistral.ai
+MISTRAL_MODEL?: string                           // Default: 'mistral-small'
 ```
 
 ### Optional Configuration Variables
 
 ```typescript
 // Provider preferences
-DEFAULT_PROVIDER?: 'auto' | 'openai' | 'bedrock' | 'vertex'
-FALLBACK_PROVIDER?: 'openai' | 'bedrock' | 'vertex'
+DEFAULT_PROVIDER?: 'auto' | 'openai' | 'bedrock' | 'vertex' | 'anthropic' | 'azure' | 'google-ai' | 'huggingface' | 'ollama' | 'mistral'
+FALLBACK_PROVIDER?: 'openai' | 'bedrock' | 'vertex' | 'anthropic' | 'azure' | 'google-ai' | 'huggingface' | 'ollama' | 'mistral'
 
 // Feature toggles
 ENABLE_STREAMING?: 'true' | 'false'
@@ -320,19 +402,30 @@ LOG_LEVEL?: 'error' | 'warn' | 'info' | 'debug'
 ### Core Types
 
 ```typescript
-type ProviderName = 'openai' | 'bedrock' | 'vertex' | 'anthropic' | 'azure' | 'google-ai';
+type ProviderName =
+  | "openai"
+  | "bedrock"
+  | "vertex"
+  | "anthropic"
+  | "azure"
+  | "google-ai"
+  | "huggingface"
+  | "ollama"
+  | "mistral";
 
 interface AIProvider {
-  generateText(options: GenerateTextOptions | string): Promise<GenerateTextResult>;
+  generateText(
+    options: GenerateTextOptions | string,
+  ): Promise<GenerateTextResult>;
   streamText(options: StreamTextOptions | string): Promise<StreamTextResult>;
 }
 
 interface GenerateTextOptions {
   prompt: string;
-  temperature?: number;        // 0.0 to 1.0, default: 0.7
-  maxTokens?: number;          // Default: 500
-  systemPrompt?: string;       // System message
-  schema?: any;                // For structured output
+  temperature?: number; // 0.0 to 1.0, default: 0.7
+  maxTokens?: number; // Default: 500
+  systemPrompt?: string; // System message
+  schema?: any; // For structured output
 }
 
 interface StreamTextOptions {
@@ -347,7 +440,7 @@ interface GenerateTextResult {
   provider: string;
   model: string;
   usage?: TokenUsage;
-  responseTime?: number;       // Milliseconds
+  responseTime?: number; // Milliseconds
 }
 
 interface StreamTextResult {
@@ -369,19 +462,80 @@ interface TokenUsage {
 ```typescript
 // OpenAI specific
 interface OpenAIOptions extends GenerateTextOptions {
-  user?: string;               // User identifier
-  stop?: string | string[];    // Stop sequences
+  user?: string; // User identifier
+  stop?: string | string[]; // Stop sequences
+  topP?: number; // Nucleus sampling
+  frequencyPenalty?: number; // Reduce repetition
+  presencePenalty?: number; // Encourage diversity
 }
 
 // Bedrock specific
 interface BedrockOptions extends GenerateTextOptions {
-  region?: string;             // AWS region override
+  region?: string; // AWS region override
+  inferenceProfile?: string; // Inference profile ARN
 }
 
 // Vertex AI specific
 interface VertexOptions extends GenerateTextOptions {
-  project?: string;            // GCP project override
-  location?: string;           // GCP location override
+  project?: string; // GCP project override
+  location?: string; // GCP location override
+  safetySettings?: any[]; // Safety filter settings
+}
+
+// Google AI Studio specific
+interface GoogleAIOptions extends GenerateTextOptions {
+  safetySettings?: any[]; // Safety filter settings
+  generationConfig?: {
+    // Additional generation settings
+    stopSequences?: string[];
+    candidateCount?: number;
+    topK?: number;
+    topP?: number;
+  };
+}
+
+// Anthropic specific
+interface AnthropicOptions extends GenerateTextOptions {
+  stopSequences?: string[]; // Custom stop sequences
+  metadata?: {
+    // Usage tracking
+    userId?: string;
+  };
+}
+
+// Azure OpenAI specific
+interface AzureOptions extends GenerateTextOptions {
+  deploymentId?: string; // Override deployment
+  apiVersion?: string; // API version override
+  user?: string; // User tracking
+}
+
+// Hugging Face specific
+interface HuggingFaceOptions extends GenerateTextOptions {
+  waitForModel?: boolean; // Wait for model to load
+  useCache?: boolean; // Use cached responses
+  options?: {
+    // Model-specific options
+    useGpu?: boolean;
+    precision?: string;
+  };
+}
+
+// Ollama specific
+interface OllamaOptions extends GenerateTextOptions {
+  format?: string; // Response format (e.g., 'json')
+  context?: number[]; // Conversation context
+  stream?: boolean; // Enable streaming
+  raw?: boolean; // Raw mode (no templating)
+  keepAlive?: string; // Model keep-alive duration
+}
+
+// Mistral AI specific
+interface MistralOptions extends GenerateTextOptions {
+  topP?: number; // Nucleus sampling
+  randomSeed?: number; // Reproducible outputs
+  safeMode?: boolean; // Enable safe mode
+  safePrompt?: boolean; // Add safe prompt
 }
 ```
 
@@ -420,22 +574,22 @@ import {
   AIProviderError,
   ConfigurationError,
   AuthenticationError,
-  RateLimitError
-} from '@juspay/neurolink';
+  RateLimitError,
+} from "@juspay/neurolink";
 
 try {
   const result = await provider.generateText({ prompt: "Hello" });
 } catch (error) {
   if (error instanceof ConfigurationError) {
-    console.error('Provider not configured:', error.message);
+    console.error("Provider not configured:", error.message);
   } else if (error instanceof AuthenticationError) {
-    console.error('Authentication failed:', error.message);
+    console.error("Authentication failed:", error.message);
   } else if (error instanceof RateLimitError) {
     console.error(`Rate limit exceeded. Retry after ${error.retryAfter}s`);
   } else if (error instanceof AIProviderError) {
     console.error(`Provider ${error.provider} failed:`, error.message);
   } else {
-    console.error('Unexpected error:', error);
+    console.error("Unexpected error:", error);
   }
 }
 ```
@@ -452,8 +606,8 @@ interface ProviderSelector {
 class CustomSelector implements ProviderSelector {
   selectProvider(available: ProviderName[]): ProviderName {
     // Custom logic for provider selection
-    if (available.includes('bedrock')) return 'bedrock';
-    if (available.includes('openai')) return 'openai';
+    if (available.includes("bedrock")) return "bedrock";
+    if (available.includes("openai")) return "openai";
     return available[0];
   }
 }
@@ -473,12 +627,16 @@ interface AIMiddleware {
 
 class LoggingMiddleware implements AIMiddleware {
   beforeRequest(options: GenerateTextOptions): GenerateTextOptions {
-    console.log(`Generating text for prompt: ${options.prompt.slice(0, 50)}...`);
+    console.log(
+      `Generating text for prompt: ${options.prompt.slice(0, 50)}...`,
+    );
     return options;
   }
 
   afterResponse(result: GenerateTextResult): GenerateTextResult {
-    console.log(`Generated ${result.text.length} characters using ${result.provider}`);
+    console.log(
+      `Generated ${result.text.length} characters using ${result.provider}`,
+    );
     return result;
   }
 }
@@ -489,7 +647,10 @@ class LoggingMiddleware implements AIMiddleware {
 ### Batch Processing
 
 ```typescript
-async function processBatch(prompts: string[], options: GenerateTextOptions = {}) {
+async function processBatch(
+  prompts: string[],
+  options: GenerateTextOptions = {},
+) {
   const provider = createBestAIProvider();
   const results = [];
 
@@ -501,12 +662,12 @@ async function processBatch(prompts: string[], options: GenerateTextOptions = {}
       results.push({
         success: false,
         prompt,
-        error: error.message
+        error: error.message,
       });
     }
 
     // Rate limiting: wait 1 second between requests
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
   return results;
@@ -516,12 +677,12 @@ async function processBatch(prompts: string[], options: GenerateTextOptions = {}
 const prompts = [
   "Explain photosynthesis",
   "What is machine learning?",
-  "Describe the solar system"
+  "Describe the solar system",
 ];
 
 const results = await processBatch(prompts, {
   temperature: 0.7,
-  maxTokens: 200
+  maxTokens: 200,
 });
 ```
 
@@ -536,7 +697,9 @@ class CachedProvider implements AIProvider {
     this.provider = provider;
   }
 
-  async generateText(options: GenerateTextOptions): Promise<GenerateTextResult> {
+  async generateText(
+    options: GenerateTextOptions,
+  ): Promise<GenerateTextResult> {
     const key = JSON.stringify(options);
 
     if (this.cache.has(key)) {
@@ -574,21 +737,24 @@ interface NeuroLinkConfig {
 }
 
 const config: NeuroLinkConfig = {
-  defaultProvider: 'openai',
-  fallbackProvider: 'bedrock',
+  defaultProvider: "openai",
+  fallbackProvider: "bedrock",
   defaultOptions: {
     temperature: 0.7,
-    maxTokens: 500
+    maxTokens: 500,
   },
   enableFallback: true,
-  debug: false
+  debug: false,
 };
 ```
 
 ### Generic Provider Interface
 
 ```typescript
-interface TypedAIProvider<TOptions = GenerateTextOptions, TResult = GenerateTextResult> {
+interface TypedAIProvider<
+  TOptions = GenerateTextOptions,
+  TResult = GenerateTextResult,
+> {
   generateText(options: TOptions): Promise<TResult>;
 }
 
@@ -633,23 +799,32 @@ neurolink mcp config --reset     # Reset MCP configuration
 ### MCP Server Types
 
 #### **Built-in Server Support**
-NeuroLink includes built-in support for popular MCP servers:
+
+NeuroLink includes built-in installation support for popular MCP servers:
 
 ```typescript
 type PopularMCPServer =
-  | 'filesystem'     // File operations
-  | 'github'         // GitHub integration
-  | 'postgres'       // PostgreSQL database
-  | 'puppeteer'      // Web browsing
-  | 'brave-search'   // Web search
-  | 'git'            // Git operations
-  | 'fetch'          // Web fetching
-  | 'google-drive'   // Google Drive
-  | 'atlassian'      // Jira/Confluence
-  | 'slack'          // Slack integration
+  | "filesystem" // File operations
+  | "github" // GitHub integration
+  | "postgres" // PostgreSQL database
+  | "puppeteer" // Web browsing
+  | "brave-search"; // Web search
 ```
 
+**Additional MCP Servers**
+While not included in the auto-install feature, any MCP-compatible server can be manually added, including:
+
+- `git` - Git operations
+- `fetch` - Web fetching
+- `google-drive` - Google Drive integration
+- `atlassian` - Jira/Confluence integration
+- `slack` - Slack integration
+- Any custom MCP server
+
+Use `neurolink mcp add <name> <command>` to add these servers manually.
+
 #### **Custom Server Support**
+
 Add any MCP-compatible server:
 
 ```bash
@@ -669,30 +844,32 @@ neurolink mcp add sseserver "sse://https://api.example.com/mcp"
 ### MCP Configuration
 
 #### **Configuration File**
+
 MCP servers are configured in `.mcp-config.json`:
 
 ```typescript
 interface MCPConfig {
   mcpServers: {
     [serverName: string]: {
-      command: string;        // Command to start server
-      args?: string[];        // Optional command arguments
+      command: string; // Command to start server
+      args?: string[]; // Optional command arguments
       env?: Record<string, string>; // Environment variables
-      cwd?: string;          // Working directory
-      timeout?: number;      // Connection timeout (ms)
-      retry?: number;        // Retry attempts
-      enabled?: boolean;     // Server enabled status
-    }
+      cwd?: string; // Working directory
+      timeout?: number; // Connection timeout (ms)
+      retry?: number; // Retry attempts
+      enabled?: boolean; // Server enabled status
+    };
   };
   global?: {
-    timeout?: number;        // Global timeout
+    timeout?: number; // Global timeout
     maxConnections?: number; // Max concurrent connections
-    logLevel?: 'debug' | 'info' | 'warn' | 'error';
+    logLevel?: "debug" | "info" | "warn" | "error";
   };
 }
 ```
 
 #### **Example Configuration**
+
 ```json
 {
   "mcpServers": {
@@ -713,7 +890,11 @@ interface MCPConfig {
     },
     "postgres": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "${POSTGRES_CONNECTION_STRING}"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${POSTGRES_CONNECTION_STRING}"
+      ],
       "timeout": 8000,
       "enabled": false
     }
@@ -754,30 +935,36 @@ MCP_CUSTOM_API_KEY=key_...
 ```typescript
 interface MCPToolCategory {
   filesystem: {
-    'read_file': { path: string };
-    'write_file': { path: string; content: string };
-    'list_directory': { path: string };
-    'search_files': { query: string; path?: string };
+    read_file: { path: string };
+    write_file: { path: string; content: string };
+    list_directory: { path: string };
+    search_files: { query: string; path?: string };
   };
 
   github: {
-    'get_repository': { owner: string; repo: string };
-    'create_issue': { owner: string; repo: string; title: string; body?: string };
-    'list_issues': { owner: string; repo: string; state?: 'open' | 'closed' };
-    'create_pull_request': { owner: string; repo: string; title: string; head: string; base: string };
+    get_repository: { owner: string; repo: string };
+    create_issue: { owner: string; repo: string; title: string; body?: string };
+    list_issues: { owner: string; repo: string; state?: "open" | "closed" };
+    create_pull_request: {
+      owner: string;
+      repo: string;
+      title: string;
+      head: string;
+      base: string;
+    };
   };
 
   database: {
-    'execute_query': { query: string; params?: any[] };
-    'list_tables': {};
-    'describe_table': { table: string };
+    execute_query: { query: string; params?: any[] };
+    list_tables: {};
+    describe_table: { table: string };
   };
 
   web: {
-    'navigate': { url: string };
-    'click': { selector: string };
-    'type': { selector: string; text: string };
-    'screenshot': { name?: string };
+    navigate: { url: string };
+    click: { selector: string };
+    type: { selector: string; text: string };
+    screenshot: { name?: string };
   };
 }
 ```
@@ -786,52 +973,89 @@ interface MCPToolCategory {
 
 ```bash
 # File operations
-neurolink mcp execute filesystem read_file --path="/path/to/file.txt"
-neurolink mcp execute filesystem list_directory --path="/home/user"
+neurolink mcp exec filesystem read_file --params '{"path": "/path/to/file.txt"}'
+neurolink mcp exec filesystem list_directory --params '{"path": "/home/user"}'
 
 # GitHub operations
-neurolink mcp execute github get_repository --owner="juspay" --repo="neurolink"
-neurolink mcp execute github create_issue --owner="juspay" --repo="neurolink" --title="New feature request"
+neurolink mcp exec github get_repository --params '{"owner": "juspay", "repo": "neurolink"}'
+neurolink mcp exec github create_issue --params '{"owner": "juspay", "repo": "neurolink", "title": "New feature request"}'
 
 # Database operations
-neurolink mcp execute postgres execute_query --query="SELECT * FROM users LIMIT 10"
-neurolink mcp execute postgres list_tables
+neurolink mcp exec postgres execute_query --params '{"query": "SELECT * FROM users LIMIT 10"}'
+neurolink mcp exec postgres list_tables --params '{}'
 
 # Web operations
-neurolink mcp execute puppeteer navigate --url="https://example.com"
-neurolink mcp execute puppeteer screenshot --name="homepage"
+neurolink mcp exec puppeteer navigate --params '{"url": "https://example.com"}'
+neurolink mcp exec puppeteer screenshot --params '{"name": "homepage"}'
 ```
 
 ### MCP Demo Server Integration
 
-NeuroLink's demo server includes MCP API endpoints for testing:
+**FULLY FUNCTIONAL**: NeuroLink's demo server (`neurolink-demo/server.js`) includes working MCP API endpoints that you can use immediately:
+
+#### **How to Access These APIs**
+
+```bash
+# 1. Start the demo server
+cd neurolink-demo
+node server.js
+# Server runs at http://localhost:9876
+
+# 2. Use any HTTP client to call the APIs
+curl http://localhost:9876/api/mcp/servers
+curl -X POST http://localhost:9876/api/mcp/install -d '{"serverName": "filesystem"}'
+```
+
+#### **Available MCP API Endpoints**
 
 ```typescript
-// Demo server MCP endpoints
+// ALL ENDPOINTS WORKING IN DEMO SERVER
 interface MCPDemoEndpoints {
-  'GET /api/mcp/servers': {
+  "GET /api/mcp/servers": {
+    // List all configured MCP servers with live status
     response: {
       servers: Array<{
         name: string;
-        status: 'connected' | 'disconnected' | 'error';
+        status: "connected" | "disconnected" | "error";
         tools: string[];
         lastConnected?: string;
       }>;
     };
   };
 
-  'POST /api/mcp/test/:server': {
-    params: { server: string };
+  "POST /api/mcp/install": {
+    // Install popular MCP servers (filesystem, github, postgres, etc.)
+    body: { serverName: string };
     response: {
       success: boolean;
-      status: 'connected' | 'disconnected' | 'error';
+      message: string;
+      configuration?: Record<string, any>;
+    };
+  };
+
+  "DELETE /api/mcp/servers/:name": {
+    // Remove MCP servers
+    params: { name: string };
+    response: {
+      success: boolean;
+      message: string;
+    };
+  };
+
+  "POST /api/mcp/test/:name": {
+    // Test server connectivity and get diagnostics
+    params: { name: string };
+    response: {
+      success: boolean;
+      status: "connected" | "disconnected" | "error";
       responseTime?: number;
       error?: string;
     };
   };
 
-  'GET /api/mcp/tools/:server': {
-    params: { server: string };
+  "GET /api/mcp/tools/:name": {
+    // Get available tools for specific server
+    params: { name: string };
     response: {
       success: boolean;
       tools: Array<{
@@ -842,11 +1066,12 @@ interface MCPDemoEndpoints {
     };
   };
 
-  'POST /api/mcp/execute': {
+  "POST /api/mcp/execute": {
+    // Execute MCP tools via HTTP API
     body: {
-      server: string;
-      tool: string;
-      parameters: Record<string, any>;
+      serverName: string;
+      toolName: string;
+      params: Record<string, any>;
     };
     response: {
       success: boolean;
@@ -856,16 +1081,170 @@ interface MCPDemoEndpoints {
     };
   };
 
-  'POST /api/mcp/install/:server': {
-    params: { server: string };
+  "POST /api/mcp/servers/custom": {
+    // Add custom MCP servers
+    body: {
+      name: string;
+      command: string;
+      options?: Record<string, any>;
+    };
     response: {
       success: boolean;
       message: string;
-      configuration?: Record<string, any>;
+    };
+  };
+
+  "GET /api/mcp/status": {
+    // Get comprehensive MCP system status
+    response: {
+      summary: {
+        totalServers: number;
+        availableServers: number;
+        cliAvailable: boolean;
+      };
+      servers: Record<string, any>;
+    };
+  };
+
+  "POST /api/mcp/workflow": {
+    // Execute predefined MCP workflows
+    body: {
+      workflowType: string;
+      description?: string;
+      servers?: string[];
+    };
+    response: {
+      success: boolean;
+      workflowType: string;
+      steps: string[];
+      result: string;
+      data: any;
     };
   };
 }
 ```
+
+#### **Real-World Usage Examples**
+
+**1. File Operations via HTTP API**
+
+```bash
+# Install filesystem server
+curl -X POST http://localhost:9876/api/mcp/install \
+  -H "Content-Type: application/json" \
+  -d '{"serverName": "filesystem"}'
+
+# Read a file via HTTP
+curl -X POST http://localhost:9876/api/mcp/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "serverName": "filesystem",
+    "toolName": "read_file",
+    "params": {"path": "README.md"}
+  }'
+
+# List directory contents
+curl -X POST http://localhost:9876/api/mcp/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "serverName": "filesystem",
+    "toolName": "list_directory",
+    "params": {"path": "."}
+  }'
+```
+
+**2. GitHub Integration via HTTP API**
+
+```bash
+# Install GitHub server (requires GITHUB_PERSONAL_ACCESS_TOKEN)
+curl -X POST http://localhost:9876/api/mcp/install \
+  -H "Content-Type: application/json" \
+  -d '{"serverName": "github"}'
+
+# Get repository information
+curl -X POST http://localhost:9876/api/mcp/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "serverName": "github",
+    "toolName": "get_repository",
+    "params": {"owner": "juspay", "repo": "neurolink"}
+  }'
+```
+
+**3. Web Interface Integration**
+
+```javascript
+// JavaScript example for web applications
+async function callMCPTool(serverName, toolName, params) {
+  const response = await fetch("http://localhost:9876/api/mcp/execute", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ serverName, toolName, params }),
+  });
+
+  const result = await response.json();
+  return result;
+}
+
+// Use in your web app
+const fileContent = await callMCPTool("filesystem", "read_file", {
+  path: "/path/to/file.txt",
+});
+```
+
+#### **What You Can Use This For**
+
+**1. Web Application MCP Integration**
+
+- Build web dashboards that manage MCP servers
+- Create file management interfaces
+- Integrate GitHub operations into web apps
+- Build database administration tools
+
+**2. API-First MCP Development**
+
+- Test MCP tools without CLI setup
+- Prototype MCP integrations quickly
+- Build custom MCP management interfaces
+- Create automated workflows via HTTP
+
+**3. Cross-Platform MCP Access**
+
+- Access MCP tools from any programming language
+- Build mobile apps that use MCP functionality
+- Create browser extensions with MCP features
+- Integrate with existing web services
+
+**4. Educational and Testing**
+
+- Learn MCP concepts through web interface
+- Test MCP server configurations
+- Debug MCP tool interactions
+- Demonstrate MCP capabilities to others
+
+#### **Getting Started**
+
+```bash
+# 1. Clone and setup
+git clone https://github.com/juspay/neurolink
+cd neurolink/neurolink-demo
+
+# 2. Install dependencies
+npm install
+
+# 3. Configure environment (optional)
+cp .env.example .env
+# Add any needed API keys
+
+# 4. Start server
+node server.js
+
+# 5. Test APIs
+curl http://localhost:9876/api/mcp/status
+curl http://localhost:9876/api/mcp/servers
+```
+
+**The demo server provides a production-ready MCP HTTP API that you can integrate into any application or service.**
 
 ### MCP Error Handling
 
@@ -890,12 +1269,16 @@ class MCPConfigurationError extends MCPError {
 
 // Error handling example
 try {
-  const result = await executeCommand('neurolink mcp execute filesystem read_file --path="/nonexistent"');
+  const result = await executeCommand(
+    'neurolink mcp execute filesystem read_file --path="/nonexistent"',
+  );
 } catch (error) {
   if (error instanceof MCPConnectionError) {
     console.error(`Failed to connect to server ${error.server}`);
   } else if (error instanceof MCPToolError) {
-    console.error(`Tool ${error.tool} failed on server ${error.server}: ${error.message}`);
+    console.error(
+      `Tool ${error.tool} failed on server ${error.server}: ${error.message}`,
+    );
   }
 }
 ```
@@ -903,6 +1286,7 @@ try {
 ### MCP Integration Best Practices
 
 #### **Server Management**
+
 ```bash
 # Test connectivity before using
 neurolink mcp test filesystem
@@ -916,6 +1300,7 @@ neurolink mcp list --status
 ```
 
 #### **Environment Setup**
+
 ```bash
 # Use environment variables for sensitive data
 export GITHUB_PERSONAL_ACCESS_TOKEN="ghp_..."
@@ -927,6 +1312,7 @@ neurolink mcp test postgres
 ```
 
 #### **Error Recovery**
+
 ```bash
 # Reset configuration if needed
 neurolink mcp config --reset
@@ -938,6 +1324,7 @@ neurolink mcp test filesystem
 ```
 
 #### **Performance Optimization**
+
 ```bash
 # Limit concurrent connections in config
 {

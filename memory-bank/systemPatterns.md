@@ -40,8 +40,15 @@ The AIProviderFactory creates and manages provider instances:
 ```typescript
 class AIProviderFactory {
   static createProvider(providerName: string, modelName?: string): AIProvider;
-  static createBestProvider(requestedProvider?: string, modelName?: string): AIProvider;
-  static createProviderWithFallback(primary: string, fallback: string, modelName?: string): {
+  static createBestProvider(
+    requestedProvider?: string,
+    modelName?: string,
+  ): AIProvider;
+  static createProviderWithFallback(
+    primary: string,
+    fallback: string,
+    modelName?: string,
+  ): {
     primary: AIProvider;
     fallback: AIProvider;
   };
@@ -53,8 +60,15 @@ class AIProviderFactory {
 Public utility functions for easier usage:
 
 ```typescript
-export function createBestAIProvider(requestedProvider?: string, modelName?: string): AIProvider;
-export function createAIProviderWithFallback(primary: string, fallback: string, modelName?: string): {
+export function createBestAIProvider(
+  requestedProvider?: string,
+  modelName?: string,
+): AIProvider;
+export function createAIProviderWithFallback(
+  primary: string,
+  fallback: string,
+  modelName?: string,
+): {
   primary: AIProvider;
   fallback: AIProvider;
 };
@@ -102,11 +116,13 @@ The best provider is selected based on the following priorities:
 ## Error Handling Patterns
 
 1. **Provider-Level Error Handling**:
+
    - Each provider handles provider-specific errors
    - Errors are translated to common error formats
    - Detailed error information is preserved
 
 2. **Factory-Level Error Handling**:
+
    - Factory detects missing credentials and configuration
    - Factory handles provider creation failures
    - Factory implements fallback mechanisms
@@ -119,6 +135,7 @@ The best provider is selected based on the following priorities:
 ## Configuration Patterns
 
 1. **Environment Variables**:
+
    - Provider API keys and credentials
    - Default provider selection
    - Debug mode
@@ -131,11 +148,13 @@ The best provider is selected based on the following priorities:
 ## Testing Patterns
 
 1. **Unit Testing**:
+
    - Each provider is tested in isolation
    - Mock responses for AI services
    - Error scenarios are tested
 
 2. **Integration Testing**:
+
    - Factory methods are tested with mock providers
    - Provider selection logic is tested
    - Fallback mechanisms are tested

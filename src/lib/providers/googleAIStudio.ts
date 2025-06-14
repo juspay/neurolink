@@ -1,5 +1,5 @@
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import type { ZodType, ZodTypeDef } from 'zod';
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import type { ZodType, ZodTypeDef } from "zod";
 import {
   streamText,
   generateText,
@@ -8,31 +8,38 @@ import {
   type ToolSet,
   type Schema,
   type GenerateTextResult,
-  type LanguageModelV1
-} from 'ai';
-import type { AIProvider, TextGenerationOptions, StreamTextOptions } from '../core/types.js';
-import { logger } from '../utils/logger.js';
+  type LanguageModelV1,
+} from "ai";
+import type {
+  AIProvider,
+  TextGenerationOptions,
+  StreamTextOptions,
+} from "../core/types.js";
+import { logger } from "../utils/logger.js";
 
 // Default system context
 const DEFAULT_SYSTEM_CONTEXT = {
-  systemPrompt: 'You are a helpful AI assistant.'
+  systemPrompt: "You are a helpful AI assistant.",
 };
 
 // Configuration helpers
 const getGoogleAIApiKey = (): string => {
-  const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey =
+    process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
-    throw new Error('GOOGLE_AI_API_KEY environment variable is not set');
+    throw new Error("GOOGLE_AI_API_KEY environment variable is not set");
   }
   return apiKey;
 };
 
 const getGoogleAIModelId = (): string => {
-  return process.env.GOOGLE_AI_MODEL || 'gemini-1.5-pro-latest';
+  return process.env.GOOGLE_AI_MODEL || "gemini-1.5-pro-latest";
 };
 
 const hasValidAuth = (): boolean => {
-  return !!(process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+  return !!(
+    process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  );
 };
 
 // Lazy initialization cache
@@ -43,8 +50,8 @@ function getGoogleInstance(): ReturnType<typeof createGoogleGenerativeAI> {
     _google = createGoogleGenerativeAI({
       apiKey: apiKey,
       headers: {
-        'X-Powered-By': 'NeuroLink'
-      }
+        "X-Powered-By": "NeuroLink",
+      },
     });
   }
   return _google;
@@ -59,25 +66,25 @@ export class GoogleAIStudio implements AIProvider {
    * @param modelName - Optional model name to override the default from config
    */
   constructor(modelName?: string | null) {
-    const functionTag = 'GoogleAIStudio.constructor';
+    const functionTag = "GoogleAIStudio.constructor";
     this.modelName = modelName || getGoogleAIModelId();
 
     try {
       logger.debug(`[${functionTag}] Initialization started`, {
         modelName: this.modelName,
-        hasApiKey: hasValidAuth()
+        hasApiKey: hasValidAuth(),
       });
 
       logger.debug(`[${functionTag}] Initialization completed`, {
         modelName: this.modelName,
-        success: true
+        success: true,
       });
     } catch (err) {
       logger.error(`[${functionTag}] Initialization failed`, {
-        message: 'Error in initializing Google AI Studio',
+        message: "Error in initializing Google AI Studio",
         modelName: this.modelName,
         error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined
+        stack: err instanceof Error ? err.stack : undefined,
       });
     }
   }
@@ -87,8 +94,8 @@ export class GoogleAIStudio implements AIProvider {
    * @private
    */
   private getModel(): LanguageModelV1 {
-    logger.debug('GoogleAIStudio.getModel - Google AI model selected', {
-      modelName: this.modelName
+    logger.debug("GoogleAIStudio.getModel - Google AI model selected", {
+      modelName: this.modelName,
     });
 
     const google = getGoogleInstance();
@@ -103,24 +110,25 @@ export class GoogleAIStudio implements AIProvider {
    */
   async streamText(
     optionsOrPrompt: StreamTextOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>
+    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
   ): Promise<StreamTextResult<ToolSet, unknown> | null> {
-    const functionTag = 'GoogleAIStudio.streamText';
-    const provider = 'google-ai';
+    const functionTag = "GoogleAIStudio.streamText";
+    const provider = "google-ai";
     let chunkCount = 0;
 
     try {
       // Parse parameters - support both string and options object
-      const options = typeof optionsOrPrompt === 'string'
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
+      const options =
+        typeof optionsOrPrompt === "string"
+          ? { prompt: optionsOrPrompt }
+          : optionsOrPrompt;
 
       const {
         prompt,
         temperature = 0.7,
         maxTokens = 500,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema
+        schema,
       } = options;
 
       // Use schema from options or fallback parameter
@@ -132,7 +140,7 @@ export class GoogleAIStudio implements AIProvider {
         promptLength: prompt.length,
         temperature,
         maxTokens,
-        hasSchema: !!finalSchema
+        hasSchema: !!finalSchema,
       });
 
       const model = this.getModel();
@@ -146,7 +154,8 @@ export class GoogleAIStudio implements AIProvider {
 
         onError: (event: { error: unknown }) => {
           const error = event.error;
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           const errorStack = error instanceof Error ? error.stack : undefined;
 
           logger.error(`[${functionTag}] Stream text error`, {
@@ -155,7 +164,7 @@ export class GoogleAIStudio implements AIProvider {
             error: errorMessage,
             stack: errorStack,
             promptLength: prompt.length,
-            chunkCount
+            chunkCount,
           });
         },
 
@@ -171,7 +180,7 @@ export class GoogleAIStudio implements AIProvider {
             usage: event.usage,
             totalChunks: chunkCount,
             promptLength: prompt.length,
-            responseLength: event.text?.length || 0
+            responseLength: event.text?.length || 0,
           });
         },
 
@@ -182,13 +191,15 @@ export class GoogleAIStudio implements AIProvider {
             modelName: this.modelName,
             chunkNumber: chunkCount,
             chunkLength: event.chunk.text?.length || 0,
-            chunkType: event.chunk.type
+            chunkType: event.chunk.type,
           });
-        }
+        },
       } as Parameters<typeof streamText>[0];
 
       if (analysisSchema) {
-        streamOptions.experimental_output = Output.object({ schema: analysisSchema });
+        streamOptions.experimental_output = Output.object({
+          schema: analysisSchema,
+        });
       }
 
       const result = streamText(streamOptions);
@@ -197,9 +208,12 @@ export class GoogleAIStudio implements AIProvider {
       logger.error(`[${functionTag}] Exception`, {
         provider,
         modelName: this.modelName,
-        message: 'Error in streaming text',
+        message: "Error in streaming text",
         err: String(err),
-        promptLength: typeof optionsOrPrompt === 'string' ? optionsOrPrompt.length : optionsOrPrompt.prompt.length
+        promptLength:
+          typeof optionsOrPrompt === "string"
+            ? optionsOrPrompt.length
+            : optionsOrPrompt.prompt.length,
       });
       throw err; // Re-throw error to trigger fallback
     }
@@ -213,23 +227,24 @@ export class GoogleAIStudio implements AIProvider {
    */
   async generateText(
     optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>
+    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
   ): Promise<GenerateTextResult<ToolSet, unknown> | null> {
-    const functionTag = 'GoogleAIStudio.generateText';
-    const provider = 'google-ai';
+    const functionTag = "GoogleAIStudio.generateText";
+    const provider = "google-ai";
 
     try {
       // Parse parameters - support both string and options object
-      const options = typeof optionsOrPrompt === 'string'
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
+      const options =
+        typeof optionsOrPrompt === "string"
+          ? { prompt: optionsOrPrompt }
+          : optionsOrPrompt;
 
       const {
         prompt,
         temperature = 0.7,
         maxTokens = 500,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema
+        schema,
       } = options;
 
       // Use schema from options or fallback parameter
@@ -240,7 +255,7 @@ export class GoogleAIStudio implements AIProvider {
         modelName: this.modelName,
         promptLength: prompt.length,
         temperature,
-        maxTokens
+        maxTokens,
       });
 
       const model = this.getModel();
@@ -250,11 +265,13 @@ export class GoogleAIStudio implements AIProvider {
         prompt: prompt,
         system: systemPrompt,
         temperature,
-        maxTokens
+        maxTokens,
       } as Parameters<typeof generateText>[0];
 
       if (finalSchema) {
-        generateOptions.experimental_output = Output.object({ schema: finalSchema });
+        generateOptions.experimental_output = Output.object({
+          schema: finalSchema,
+        });
       }
 
       const result = await generateText(generateOptions);
@@ -264,7 +281,7 @@ export class GoogleAIStudio implements AIProvider {
         modelName: this.modelName,
         usage: result.usage,
         finishReason: result.finishReason,
-        responseLength: result.text?.length || 0
+        responseLength: result.text?.length || 0,
       });
 
       return result;
@@ -272,8 +289,8 @@ export class GoogleAIStudio implements AIProvider {
       logger.error(`[${functionTag}] Exception`, {
         provider,
         modelName: this.modelName,
-        message: 'Error in generating text',
-        err: String(err)
+        message: "Error in generating text",
+        err: String(err),
       });
       throw err; // Re-throw error to trigger fallback
     }

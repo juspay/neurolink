@@ -8,11 +8,13 @@
 ## 📊 **Executive Summary**
 
 ### **Total Visual Assets**: 50 files
+
 - **Videos**: 18 files (10 WebM + 5 MP4 + 3 Google AI MP4)
 - **Screenshots**: 26 PNG files across multiple categories
 - **CLI Recordings**: 9 asciinema .cast files (6 original + 3 Google AI Studio)
 
 ### **Content Categories**
+
 1. **Web Demo Content** (neurolink-demo/)
 2. **CLI Documentation** (docs/visual-content/)
 3. **MCP Integration** (mixed locations)
@@ -23,25 +25,27 @@
 ## 🌐 **Web Demo Visual Content** (`neurolink-demo/`)
 
 ### **📸 Web Interface Screenshots** (6 files)
-| Category | File | Generated | Purpose |
-|----------|------|-----------|---------|
-| **Overview** | `screenshots/01-overview/01-main-interface-overview-2025-06-04T13-56-43-628Z.png` | June 4, 2025 | Complete web interface dashboard |
-| **Basic Examples** | `screenshots/02-basic-examples/02-ai-generation-results-2025-06-04T13-57-13-156Z.png` | June 4, 2025 | Real AI content generation results |
-| **Business Cases** | `screenshots/03-business-use-cases/03-business-use-cases-2025-06-04T13-59-07-846Z.png` | June 4, 2025 | Professional business applications |
-| **Creative Tools** | `screenshots/04-creative-tools/04-creative-tools-2025-06-04T13-59-24-346Z.png` | June 4, 2025 | Creative content generation |
-| **Developer Tools** | `screenshots/05-developer-tools/05-developer-tools-2025-06-04T13-59-43-322Z.png` | June 4, 2025 | Code generation and API docs |
-| **Monitoring** | `screenshots/06-monitoring/06-monitoring-analytics-2025-06-04T14-00-08-919Z.png` | June 4, 2025 | Real-time provider analytics |
+
+| Category            | File                                                                                   | Generated    | Purpose                            |
+| ------------------- | -------------------------------------------------------------------------------------- | ------------ | ---------------------------------- |
+| **Overview**        | `screenshots/01-overview/01-main-interface-overview-2025-06-04T13-56-43-628Z.png`      | June 4, 2025 | Complete web interface dashboard   |
+| **Basic Examples**  | `screenshots/02-basic-examples/02-ai-generation-results-2025-06-04T13-57-13-156Z.png`  | June 4, 2025 | Real AI content generation results |
+| **Business Cases**  | `screenshots/03-business-use-cases/03-business-use-cases-2025-06-04T13-59-07-846Z.png` | June 4, 2025 | Professional business applications |
+| **Creative Tools**  | `screenshots/04-creative-tools/04-creative-tools-2025-06-04T13-59-24-346Z.png`         | June 4, 2025 | Creative content generation        |
+| **Developer Tools** | `screenshots/05-developer-tools/05-developer-tools-2025-06-04T13-59-43-322Z.png`       | June 4, 2025 | Code generation and API docs       |
+| **Monitoring**      | `screenshots/06-monitoring/06-monitoring-analytics-2025-06-04T14-00-08-919Z.png`       | June 4, 2025 | Real-time provider analytics       |
 
 **Note**: `07-results-showcase/` directory exists but is empty
 
 ### **🎥 Web Demo Videos** (10 files - 5 WebM + 5 MP4)
-| Category | WebM | MP4 | Purpose | Content |
-|----------|------|-----|---------|---------|
-| **Basic Examples** | `videos/basic-examples.webm` | `videos/basic-examples.mp4` | Core SDK functionality | 529 tokens generated |
-| **Business Use Cases** | `videos/business-use-cases.webm` | `videos/business-use-cases.mp4` | Professional applications | 1,677 tokens generated |
-| **Creative Tools** | `videos/creative-tools.webm` | `videos/creative-tools.mp4` | Content creation | 1,174 tokens generated |
-| **Developer Tools** | `videos/developer-tools.webm` | `videos/developer-tools.mp4` | Technical applications | 2,301 tokens generated |
-| **Monitoring** | `videos/monitoring-analytics.webm` | `videos/monitoring-analytics.mp4` | Performance features | Real-time demonstrations |
+
+| Category               | WebM                               | MP4                               | Purpose                   | Content                  |
+| ---------------------- | ---------------------------------- | --------------------------------- | ------------------------- | ------------------------ |
+| **Basic Examples**     | `videos/basic-examples.webm`       | `videos/basic-examples.mp4`       | Core SDK functionality    | 529 tokens generated     |
+| **Business Use Cases** | `videos/business-use-cases.webm`   | `videos/business-use-cases.mp4`   | Professional applications | 1,677 tokens generated   |
+| **Creative Tools**     | `videos/creative-tools.webm`       | `videos/creative-tools.mp4`       | Content creation          | 1,174 tokens generated   |
+| **Developer Tools**    | `videos/developer-tools.webm`      | `videos/developer-tools.mp4`      | Technical applications    | 2,301 tokens generated   |
+| **Monitoring**         | `videos/monitoring-analytics.webm` | `videos/monitoring-analytics.mp4` | Performance features      | Real-time demonstrations |
 
 **Total AI Content Generated**: 5,681+ tokens during video creation
 
@@ -52,29 +56,34 @@
 ### **📸 CLI Screenshots** (20 files total)
 
 #### **General CLI Screenshots** (10 files - 2 versions each)
-| Command | June 4, 2025 | June 8, 2025 | Latest Version |
-|---------|---------------|---------------|----------------|
-| **CLI Help** | `screenshots/cli-screenshots/01-cli-help-2025-06-04T19-38-12.png` | `screenshots/cli-screenshots/01-cli-help-2025-06-08T06-33-12.png` | ✅ June 8 |
-| **Provider Status** | `screenshots/cli-screenshots/02-provider-status-2025-06-04T19-38-25.png` | `screenshots/cli-screenshots/02-provider-status-2025-06-08T06-33-16.png` | ✅ June 8 |
-| **Text Generation** | `screenshots/cli-screenshots/03-text-generation-2025-06-04T19-38-30.png` | `screenshots/cli-screenshots/03-text-generation-2025-06-08T06-33-19.png` | ✅ June 8 |
-| **Auto Provider** | `screenshots/cli-screenshots/04-best-provider-2025-06-04T19-38-33.png` | `screenshots/cli-screenshots/04-best-provider-2025-06-08T06-33-22.png` | ✅ June 8 |
-| **Batch Results** | `screenshots/cli-screenshots/05-batch-results-2025-06-04T19-38-37.png` | `screenshots/cli-screenshots/05-batch-results-2025-06-08T06-33-26.png` | ✅ June 8 |
+
+| Command             | June 4, 2025                                                             | June 8, 2025                                                             | Latest Version |
+| ------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ | -------------- |
+| **CLI Help**        | `screenshots/cli-screenshots/01-cli-help-2025-06-04T19-38-12.png`        | `screenshots/cli-screenshots/01-cli-help-2025-06-08T06-33-12.png`        | ✅ June 8      |
+| **Provider Status** | `screenshots/cli-screenshots/02-provider-status-2025-06-04T19-38-25.png` | `screenshots/cli-screenshots/02-provider-status-2025-06-08T06-33-16.png` | ✅ June 8      |
+| **Text Generation** | `screenshots/cli-screenshots/03-text-generation-2025-06-04T19-38-30.png` | `screenshots/cli-screenshots/03-text-generation-2025-06-08T06-33-19.png` | ✅ June 8      |
+| **Auto Provider**   | `screenshots/cli-screenshots/04-best-provider-2025-06-04T19-38-33.png`   | `screenshots/cli-screenshots/04-best-provider-2025-06-08T06-33-22.png`   | ✅ June 8      |
+| **Batch Results**   | `screenshots/cli-screenshots/05-batch-results-2025-06-04T19-38-37.png`   | `screenshots/cli-screenshots/05-batch-results-2025-06-08T06-33-26.png`   | ✅ June 8      |
 
 #### **MCP CLI Screenshots** (12 files - 2 versions each)
-| Command | June 9, 2025 | June 10, 2025 | Latest Version |
-|---------|---------------|----------------|----------------|
-| **MCP Help** | `screenshots/mcp-cli/01-mcp-help-2025-06-09.png` | `screenshots/mcp-cli/01-mcp-help-2025-06-10.png` | ✅ June 10 |
-| **Server Install** | `screenshots/mcp-cli/02-mcp-install-2025-06-09.png` | `screenshots/mcp-cli/02-mcp-install-2025-06-10.png` | ✅ June 10 |
-| **Server Status** | `screenshots/mcp-cli/03-mcp-list-status-2025-06-09.png` | `screenshots/mcp-cli/03-mcp-list-status-2025-06-10.png` | ✅ June 10 |
-| **Server Testing** | `screenshots/mcp-cli/04-mcp-test-server-2025-06-09.png` | `screenshots/mcp-cli/04-mcp-test-server-2025-06-10.png` | ✅ June 10 |
-| **Custom Server** | `screenshots/mcp-cli/05-mcp-custom-server-2025-06-09.png` | `screenshots/mcp-cli/05-mcp-custom-server-2025-06-10.png` | ✅ June 10 |
-| **Workflow Demo** | `screenshots/mcp-cli/06-mcp-workflow-demo-2025-06-09.png` | `screenshots/mcp-cli/06-mcp-workflow-demo-2025-06-10.png` | ✅ June 10 |
+
+| Command            | June 9, 2025                                              | June 10, 2025                                             | Latest Version |
+| ------------------ | --------------------------------------------------------- | --------------------------------------------------------- | -------------- |
+| **MCP Help**       | `screenshots/mcp-cli/01-mcp-help-2025-06-09.png`          | `screenshots/mcp-cli/01-mcp-help-2025-06-10.png`          | ✅ June 10     |
+| **Server Install** | `screenshots/mcp-cli/02-mcp-install-2025-06-09.png`       | `screenshots/mcp-cli/02-mcp-install-2025-06-10.png`       | ✅ June 10     |
+| **Server Status**  | `screenshots/mcp-cli/03-mcp-list-status-2025-06-09.png`   | `screenshots/mcp-cli/03-mcp-list-status-2025-06-10.png`   | ✅ June 10     |
+| **Server Testing** | `screenshots/mcp-cli/04-mcp-test-server-2025-06-09.png`   | `screenshots/mcp-cli/04-mcp-test-server-2025-06-10.png`   | ✅ June 10     |
+| **Custom Server**  | `screenshots/mcp-cli/05-mcp-custom-server-2025-06-09.png` | `screenshots/mcp-cli/05-mcp-custom-server-2025-06-10.png` | ✅ June 10     |
+| **Workflow Demo**  | `screenshots/mcp-cli/06-mcp-workflow-demo-2025-06-09.png` | `screenshots/mcp-cli/06-mcp-workflow-demo-2025-06-10.png` | ✅ June 10     |
 
 ### **🎥 CLI Videos** (0 files)
+
 This directory contains subdirectories for different categories of CLI videos, but no videos are present at the top level.
 
 ### **📁 Empty CLI Video Directories**
+
 ⚠️ **These directories exist but contain no files:**
+
 - `cli-videos/cli-advanced-features/`
 - `cli-videos/cli-basic-generation/`
 - `cli-videos/cli-batch-processing/`
@@ -86,12 +95,13 @@ This directory contains subdirectories for different categories of CLI videos, b
 ## 🔧 **MCP Integration Content**
 
 ### **🎥 MCP Demo Videos** (5 files)
-| Video | WebM | MP4 | Purpose | Duration |
-|-------|------|-----|---------|----------|
-| **Server Management** | `neurolink-demo/videos/mcp-demos/mcp-server-management-demo.webm` | `neurolink-demo/videos/mcp-demos/mcp-server-management-demo.mp4` | Installing and configuring | ~45s |
-| **Tool Execution** | `neurolink-demo/videos/mcp-demos/mcp-tool-execution-demo.webm` | `neurolink-demo/videos/mcp-demos/mcp-tool-execution-demo.mp4` | Tool invocation | ~60s |
-| **Workflow Integration** | `neurolink-demo/videos/mcp-demos/mcp-workflow-integration-demo.webm` | `neurolink-demo/videos/mcp-demos/mcp-workflow-integration-demo.mp4` | Complete workflows | ~90s |
-| **Additional Content** | `neurolink-demo/videos/mcp-demos/53650a8af197e1bb00feda866a099232.webm` | `neurolink-demo/videos/mcp-demos/53650a8af197e1bb00feda866a099232.mp4` | Hash-named content | Variable |
+
+| Video                    | WebM                                                                    | MP4                                                                    | Purpose                    | Duration |
+| ------------------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------- | -------- |
+| **Server Management**    | `neurolink-demo/videos/mcp-demos/mcp-server-management-demo.webm`       | `neurolink-demo/videos/mcp-demos/mcp-server-management-demo.mp4`       | Installing and configuring | ~45s     |
+| **Tool Execution**       | `neurolink-demo/videos/mcp-demos/mcp-tool-execution-demo.webm`          | `neurolink-demo/videos/mcp-demos/mcp-tool-execution-demo.mp4`          | Tool invocation            | ~60s     |
+| **Workflow Integration** | `neurolink-demo/videos/mcp-demos/mcp-workflow-integration-demo.webm`    | `neurolink-demo/videos/mcp-demos/mcp-workflow-integration-demo.mp4`    | Complete workflows         | ~90s     |
+| **Additional Content**   | `neurolink-demo/videos/mcp-demos/53650a8af197e1bb00feda866a099232.webm` | `neurolink-demo/videos/mcp-demos/53650a8af197e1bb00feda866a099232.mp4` | Hash-named content         | Variable |
 
 **Missing**: WebM versions for the named MCP demo videos
 
@@ -102,34 +112,38 @@ This directory contains subdirectories for different categories of CLI videos, b
 ### **Asciinema Recordings** (9 files total)
 
 #### **Original CLI Recordings** (6 files)
-| Recording | File | Purpose |
-|-----------|------|---------|
-| **CLI Help** | `latest/cli-help-working.cast` | Command help demonstration |
-| **Provider Status** | `latest/provider-status-working.cast` | Connectivity testing |
-| **Text Generation** | `latest/text-generation-working.cast` | AI generation |
-| **MCP Help** | `mcp/mcp-help-working.cast` | MCP commands |
-| **MCP Listing** | `mcp/mcp-list-working.cast` | Server listing |
-| **Test Recording** | `test/test-recording.cast` | Testing purposes |
+
+| Recording           | File                                  | Purpose                    |
+| ------------------- | ------------------------------------- | -------------------------- |
+| **CLI Help**        | `latest/cli-help-working.cast`        | Command help demonstration |
+| **Provider Status** | `latest/provider-status-working.cast` | Connectivity testing       |
+| **Text Generation** | `latest/text-generation-working.cast` | AI generation              |
+| **MCP Help**        | `mcp/mcp-help-working.cast`           | MCP commands               |
+| **MCP Listing**     | `mcp/mcp-list-working.cast`           | Server listing             |
+| **Test Recording**  | `test/test-recording.cast`            | Testing purposes           |
 
 #### **Google AI Studio CLI Recordings** (3 files - NEW December 2025)
-| Recording | File | Purpose |
-|-----------|------|---------|
-| **Google AI Provider List** | `latest/google-ai-provider-list-updated.cast` | Shows google-ai in provider list |
-| **Google AI Configuration** | `latest/google-ai-provider-configure.cast` | Google AI Studio setup guidance |
-| **CLI Help with Google AI** | `latest/cli-help-with-google-ai.cast` | Updated help showing google-ai options |
+
+| Recording                   | File                                          | Purpose                                |
+| --------------------------- | --------------------------------------------- | -------------------------------------- |
+| **Google AI Provider List** | `latest/google-ai-provider-list-updated.cast` | Shows google-ai in provider list       |
+| **Google AI Configuration** | `latest/google-ai-provider-configure.cast`    | Google AI Studio setup guidance        |
+| **CLI Help with Google AI** | `latest/cli-help-with-google-ai.cast`         | Updated help showing google-ai options |
 
 ---
 
 ## 🔥 **Google AI Studio Integration Content** (NEW - December 2025)
 
 ### **🎥 Google AI Studio CLI Videos** (3 files)
-| Video | File | Purpose | Generated |
-|-------|------|---------|-----------|
+
+| Video             | File                                                                 | Purpose                              | Generated   |
+| ----------------- | -------------------------------------------------------------------- | ------------------------------------ | ----------- |
 | **Provider List** | `docs/visual-content/cli-videos/google-ai-provider-list-updated.mp4` | Shows google-ai in CLI provider list | Dec 6, 2025 |
-| **Configuration** | `docs/visual-content/cli-videos/google-ai-provider-configure.mp4` | Google AI Studio setup guidance | Dec 6, 2025 |
-| **CLI Help** | `docs/visual-content/cli-videos/cli-help-with-google-ai.mp4` | CLI help with google-ai options | Dec 6, 2025 |
+| **Configuration** | `docs/visual-content/cli-videos/google-ai-provider-configure.mp4`    | Google AI Studio setup guidance      | Dec 6, 2025 |
+| **CLI Help**      | `docs/visual-content/cli-videos/cli-help-with-google-ai.mp4`         | CLI help with google-ai options      | Dec 6, 2025 |
 
 ### **📋 Google AI Integration Features**
+
 - ✅ **Provider Integration**: Complete Google AI Studio provider as 6th major AI provider
 - ✅ **CLI Support**: `--provider google-ai` in all CLI commands
 - ✅ **Documentation**: All docs updated with Google AI Studio examples
@@ -138,30 +152,35 @@ This directory contains subdirectories for different categories of CLI videos, b
 - ✅ **MCP Integration**: All 10 MCP tools support Google AI Studio provider
 
 ### **🔧 Google AI Studio Content Creation Tools**
-| Script | File | Purpose |
-|--------|------|---------|
-| **CLI Screenshots** | `scripts/create-google-ai-cli-screenshots.js` | Automated screenshot generation |
-| **Demo Videos** | `scripts/create-google-ai-demo-video.js` | Playwright-based demo recording |
-| **MP4 Conversion** | `scripts/convert-google-ai-recordings-to-mp4.sh` | Convert .cast to MP4 format |
+
+| Script              | File                                             | Purpose                         |
+| ------------------- | ------------------------------------------------ | ------------------------------- |
+| **CLI Screenshots** | `scripts/create-google-ai-cli-screenshots.js`    | Automated screenshot generation |
+| **Demo Videos**     | `scripts/create-google-ai-demo-video.js`         | Playwright-based demo recording |
+| **MP4 Conversion**  | `scripts/convert-google-ai-recordings-to-mp4.sh` | Convert .cast to MP4 format     |
 
 ---
 
 ## 🎯 **Documentation Issues Identified**
 
 ### **1. Version Inconsistencies**
+
 - **CLI Screenshots**: Using June 4 versions in docs but June 8 versions exist
 - **MCP Screenshots**: Using June 9 versions in docs but June 10 versions exist
 - **Recommendation**: Update all documentation to use latest versions
 
 ### **2. Missing Content References**
+
 - **Empty CLI video directories**: Referenced in documentation but contain no files
 - **Missing WebM files**: MCP demo videos lack WebM versions for web optimization
 
 ### **3. File Organization Issues**
+
 - **Hash-named files**: `53650a8af197e1bb00feda866a099232.*` should be renamed descriptively
 - **Empty directories**: `07-results-showcase/` and CLI video subdirectories are empty
 
 ### **4. Documentation Gaps**
+
 - **No comprehensive inventory**: This document fills that gap
 - **Inconsistent references**: Different READMEs reference different file versions
 
@@ -170,18 +189,21 @@ This directory contains subdirectories for different categories of CLI videos, b
 ## 🔧 **Recommended Actions**
 
 ### **Immediate**
+
 1. **Update all documentation** to reference latest screenshot versions (June 8 for CLI, June 10 for MCP)
 2. **Remove references** to empty CLI video directories until they contain content
 3. **Create WebM versions** of MCP demo videos for web optimization
 4. **Rename hash-named files** to descriptive names
 
 ### **Medium Term**
+
 1. **Consolidate duplicate screenshots** - keep only latest versions
 2. **Create missing CLI videos** or remove empty directories
 3. **Standardize naming conventions** across all visual content
 4. **Create master index** linking all visual content
 
 ### **Long Term**
+
 1. **Automated inventory generation** to prevent future inconsistencies
 2. **Version control for visual assets** to track updates
 3. **Automated screenshot/video generation** pipelines
@@ -192,6 +214,7 @@ This directory contains subdirectories for different categories of CLI videos, b
 ## 📈 **Visual Content Statistics**
 
 ### **File Count by Type**
+
 - **PNG Screenshots**: 26 files
 - **WebM Videos**: 10 files
 - **MP4 Videos**: 8 files
@@ -200,12 +223,14 @@ This directory contains subdirectories for different categories of CLI videos, b
 - **Total Visual Assets**: 56 files
 
 ### **Content by Purpose**
+
 - **Web Demo Documentation**: 16 files (6 screenshots + 10 videos)
 - **CLI Documentation**: 25 files (20 screenshots + 5 videos)
 - **MCP Integration**: 6 files (5 videos + documentation)
 - **Google AI Studio Integration**: 9 files (3 recordings + 3 MP4 videos + 3 automation scripts)
 
 ### **Generation Timeline**
+
 - **June 4, 2025**: Web demo content
 - **June 8, 2025**: Updated CLI screenshots
 - **June 9-10, 2025**: MCP integration content
@@ -217,16 +242,19 @@ This directory contains subdirectories for different categories of CLI videos, b
 ## 🚀 **Using This Inventory**
 
 ### **For Documentation Updates**
+
 - Use this as the definitive reference for all visual content
 - Always reference latest versions (as marked with ✅)
 - Check this document before adding new visual content references
 
 ### **For Content Creation**
+
 - Follow established naming conventions
 - Create both WebM and MP4 versions for videos
 - Include descriptive documentation for all new content
 
 ### **For Project Maintenance**
+
 - Review this inventory monthly for accuracy
 - Update when new content is created
 - Use as checklist for documentation reviews

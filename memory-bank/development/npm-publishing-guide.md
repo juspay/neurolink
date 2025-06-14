@@ -15,6 +15,7 @@ The automated workflow uses **Changesets** to manage versioning and publishing t
 ## Workflow Components
 
 ### 1. Changesets Configuration
+
 - **Location**: `.changeset/config.json`
 - **Purpose**: Configures changeset behavior for our project
 - **Key Settings**:
@@ -23,6 +24,7 @@ The automated workflow uses **Changesets** to manage versioning and publishing t
   - `commit: false` - Manual commits for better control
 
 ### 2. GitHub Action Workflow
+
 - **Location**: `.github/workflows/npm-publish.yml`
 - **Trigger**: Pushes to `release` branch
 - **Actions**:
@@ -31,6 +33,7 @@ The automated workflow uses **Changesets** to manage versioning and publishing t
   - Creates version bump PR OR publishes to NPM
 
 ### 3. Package.json Scripts
+
 - `pnpm run changeset` - Create a new changeset
 - `pnpm run changeset:version` - Apply version changes
 - `pnpm run publish` - Build and publish to NPM
@@ -47,10 +50,12 @@ pnpm run changeset
 ```
 
 This will prompt you for:
+
 - **Change type**: `major`, `minor`, or `patch`
 - **Description**: What changed (appears in changelog)
 
 Example changeset creation:
+
 ```
 ? Which packages would you like to include? @juspay/neurolink
 ? Which type of change is this? minor
@@ -58,6 +63,7 @@ Example changeset creation:
 ```
 
 This creates a file like `.changeset/sharp-chairs-smile.md`:
+
 ```markdown
 ---
 "@juspay/neurolink": minor
@@ -83,6 +89,7 @@ git push origin your-feature-branch
 When your PR is approved and merged to the `release` branch, the workflow automatically:
 
 1. **First run**: Creates a "Version Packages" PR with:
+
    - Updated version in `package.json`
    - Updated `CHANGELOG.md` with changeset descriptions
    - Consumed changeset files (removed)
@@ -94,6 +101,7 @@ When your PR is approved and merged to the `release` branch, the workflow automa
 The workflow requires two GitHub secrets:
 
 ### 1. NPM_TOKEN
+
 ```bash
 # Create NPM access token
 npm login
@@ -103,6 +111,7 @@ npm token create --access=public
 ```
 
 ### 2. GITHUB_TOKEN
+
 - **Automatically provided** by GitHub Actions
 - No manual setup required
 - Used for creating PRs and accessing repository
@@ -110,6 +119,7 @@ npm token create --access=public
 ## Changeset Types and Versioning
 
 ### Patch (1.0.0 → 1.0.1)
+
 - Bug fixes
 - Documentation updates
 - Small improvements
@@ -120,6 +130,7 @@ pnpm run changeset
 ```
 
 ### Minor (1.0.0 → 1.1.0)
+
 - New features
 - Non-breaking changes
 - API additions
@@ -130,6 +141,7 @@ pnpm run changeset
 ```
 
 ### Major (1.0.0 → 2.0.0)
+
 - Breaking changes
 - API removals
 - Major redesigns
@@ -142,6 +154,7 @@ pnpm run changeset
 ## Example Workflow Scenarios
 
 ### Scenario 1: Feature Development
+
 ```bash
 # Developer working on new feature
 git checkout -b feature/new-provider
@@ -161,6 +174,7 @@ git push origin feature/new-provider
 ```
 
 ### Scenario 2: Multiple Changes Before Release
+
 ```bash
 # Developer A adds authentication fix
 pnpm run changeset  # patch: "Fix AWS session token handling"
@@ -177,6 +191,7 @@ pnpm run changeset  # minor: "Add streaming response support"
 ```
 
 ### Scenario 3: Emergency Bug Fix
+
 ```bash
 # Critical bug discovered
 git checkout -b hotfix/critical-auth-bug
@@ -194,6 +209,7 @@ pnpm run changeset
 ## Workflow Files Reference
 
 ### .changeset/config.json
+
 ```json
 {
   "$schema": "https://unpkg.com/@changesets/config@2.3.1/schema.json",
@@ -209,6 +225,7 @@ pnpm run changeset
 ```
 
 ### GitHub Actions Workflow
+
 ```yaml
 name: Publish to NPM
 on:
@@ -242,18 +259,21 @@ jobs:
 ## Benefits of This Approach
 
 ### For Developers
+
 - ✅ **Simple**: Just run `pnpm run changeset` after making changes
 - ✅ **Safe**: No manual version bumping or publishing
 - ✅ **Collaborative**: Multiple developers can contribute to same release
 - ✅ **Traceable**: Clear changelog showing what changed
 
 ### For Project Management
+
 - ✅ **Controlled**: All releases go through PR review
 - ✅ **Predictable**: Semantic versioning automatically applied
 - ✅ **Professional**: Auto-generated changelogs
 - ✅ **Auditable**: Git history shows exactly what was released
 
 ### For Users
+
 - ✅ **Reliable**: Consistent release process
 - ✅ **Informative**: Clear changelogs explain what changed
 - ✅ **Timely**: Automated publishing means faster releases
@@ -262,18 +282,22 @@ jobs:
 ## Troubleshooting
 
 ### "No changesets found"
+
 - **Cause**: No changesets were created before merging
 - **Solution**: Create changeset with `pnpm run changeset`
 
 ### "NPM publish failed"
+
 - **Cause**: NPM_TOKEN expired or invalid
 - **Solution**: Regenerate NPM token and update GitHub secret
 
 ### "Version PR not created"
+
 - **Cause**: No changes to release, or workflow permissions issue
 - **Solution**: Check changesets exist and GitHub permissions
 
 ### "Build failed before publish"
+
 - **Cause**: TypeScript errors or test failures
 - **Solution**: Fix build issues before merging to release
 

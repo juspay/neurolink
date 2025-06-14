@@ -6,7 +6,7 @@
 
 export const logger = {
   debug: (...args: any[]) => {
-    if (process.env.NEUROLINK_DEBUG === 'true') {
+    if (process.env.NEUROLINK_DEBUG === "true") {
       console.log(...args);
     }
   },
@@ -22,5 +22,5 @@ export const logger = {
   },
   always: (...args: any[]) => {
     console.log(...args);
-  }
+  },
 };

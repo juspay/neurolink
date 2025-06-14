@@ -5,6 +5,7 @@ The NeuroLink CLI provides all SDK functionality through an elegant command-line
 ## Installation & Usage
 
 ### Option 1: NPX (No Installation Required)
+
 ```bash
 # Use directly without installation
 npx @juspay/neurolink --help
@@ -13,6 +14,7 @@ npx @juspay/neurolink status
 ```
 
 ### Option 2: Global Installation
+
 ```bash
 # Install globally for convenient access
 npm install -g @juspay/neurolink
@@ -24,6 +26,7 @@ neurolink status --verbose
 ```
 
 ### Option 3: Local Project Usage
+
 ```bash
 # Add to project and use via npm scripts
 npm install @juspay/neurolink
@@ -46,16 +49,57 @@ neurolink generate-text "Write a story" --provider openai
 # With temperature and token control
 neurolink generate-text "Creative writing" --temperature 0.9 --max-tokens 1000
 
+# With system prompt and timeout
+neurolink generate-text "Write code" --system "You are a senior developer" --timeout 60000
+
 # JSON output for scripting
 neurolink generate-text "Summary of AI" --format json
+
+# Debug mode with detailed metadata
+neurolink generate-text "Hello AI" --debug
+
+# Quiet mode (no spinners)
+neurolink generate-text "Hello AI" --quiet
 ```
 
+**Available Options:**
+
+- `--provider <name>` - Choose specific provider or 'auto' (default: auto)
+- `--temperature <number>` - Creativity level 0.0-1.0 (default: 0.7)
+- `--max-tokens <number>` - Maximum tokens to generate (default: 500)
+- `--system <text>` - System prompt to guide AI behavior
+- `--format <type>` - Output format: 'text' or 'json' (default: text)
+- `--debug` - Enable debug mode with verbose output and metadata
+- `--timeout <ms>` - Request timeout in milliseconds (default: 30000)
+- `--quiet` - Suppress spinners and progress indicators
+
 **Output Example:**
+
 ```
 🤖 Generating text...
 ✅ Text generated successfully!
 Quantum computing represents a revolutionary approach to information processing...
 ℹ️  127 tokens used
+```
+
+**Debug Mode Output:**
+
+```
+🤖 Generating text...
+✅ Text generated successfully!
+
+Quantum computing represents a revolutionary approach to information processing...
+
+{
+  "provider": "openai",
+  "usage": {
+    "promptTokens": 15,
+    "completionTokens": 127,
+    "totalTokens": 142
+  },
+  "responseTime": 1234
+}
+ℹ️  142 tokens used
 ```
 
 ### `stream <prompt>` - Real-time Streaming
@@ -66,16 +110,41 @@ Stream text generation in real-time for better user experience.
 # Stream text generation in real-time
 neurolink stream "Tell me a story about robots"
 
-# With provider selection
+# With provider selection and temperature
 neurolink stream "Explain machine learning" --provider vertex --temperature 0.8
+
+# Debug mode with detailed logging
+neurolink stream "Write a poem" --debug
+
+# Quiet mode (minimal output)
+neurolink stream "Hello world" --quiet
 ```
 
+**Available Options:**
+
+- `--provider <name>` - Choose specific provider or 'auto' (default: auto)
+- `--temperature <number>` - Creativity level 0.0-1.0 (default: 0.7)
+- `--debug` - Enable debug mode with interleaved logging
+- `--quiet` - Suppress progress messages and status updates
+
 **Output Example:**
+
 ```
 🔄 Streaming from auto provider...
 
 Once upon a time, in a world where technology had advanced beyond...
 [text streams in real-time as it's generated]
+```
+
+**Debug Mode Output:**
+
+```
+🔄 Streaming from openai provider with debug logging...
+
+Once upon a time[DEBUG: chunk received, 15 chars]
+, in a world where technology[DEBUG: chunk received, 25 chars]
+...
+[text streams with interleaved debug information]
 ```
 
 ### `batch <file>` - Process Multiple Prompts
@@ -97,6 +166,7 @@ neurolink batch prompts.txt --delay 2000
 ```
 
 **Output Example:**
+
 ```
 📦 Processing 3 prompts...
 
@@ -119,6 +189,7 @@ neurolink status --verbose
 ```
 
 **Output Example:**
+
 ```
 🔍 Checking AI provider status...
 
@@ -136,12 +207,133 @@ Test which provider would be automatically selected.
 ```bash
 # Test which provider would be auto-selected
 neurolink get-best-provider
+
+# Debug mode with selection reasoning
+neurolink get-best-provider --debug
 ```
 
+**Available Options:**
+
+- `--debug` - Show selection logic and reasoning
+
 **Output Example:**
+
 ```
 🎯 Finding best provider...
 ✅ Best provider: bedrock
+```
+
+**Debug Mode Output:**
+
+```
+🎯 Finding best provider...
+✅ Best provider selected: openai
+
+Best available provider: openai
+Selection based on: availability, performance, and configuration
+```
+
+### `provider` - Provider Management Commands
+
+Comprehensive provider management and diagnostics.
+
+#### `provider status` - Detailed Provider Status
+
+```bash
+# Check all provider connectivity
+neurolink provider status
+
+# Verbose output with detailed information
+neurolink provider status --verbose
+```
+
+#### `provider list` - List Available Providers
+
+```bash
+# List all supported providers
+neurolink provider list
+```
+
+**Output Example:**
+
+```
+Available providers: openai, bedrock, vertex, anthropic, azure, google-ai, huggingface, ollama, mistral
+```
+
+#### `provider configure <provider>` - Configuration Help
+
+```bash
+# Get configuration guidance for specific provider
+neurolink provider configure openai
+neurolink provider configure bedrock
+neurolink provider configure vertex
+neurolink provider configure google-ai
+```
+
+**Output Example:**
+
+```
+🔧 Configuration guidance for openai:
+💡 Set relevant environment variables for API keys and other settings.
+   Refer to the documentation for details: https://github.com/juspay/neurolink#configuration
+```
+
+### `config` - Configuration Management Commands
+
+Manage NeuroLink configuration settings and preferences.
+
+#### `config setup` - Interactive Setup
+
+```bash
+# Run interactive configuration setup
+neurolink config setup
+
+# Alias for setup
+neurolink config init
+```
+
+#### `config show` - Display Current Configuration
+
+```bash
+# Show current NeuroLink configuration
+neurolink config show
+```
+
+#### `config set <key> <value>` - Set Configuration Values
+
+```bash
+# Set configuration key-value pairs
+neurolink config set provider openai
+neurolink config set temperature 0.8
+neurolink config set max-tokens 1000
+```
+
+#### `config import <file>` - Import Configuration
+
+```bash
+# Import configuration from JSON file
+neurolink config import my-config.json
+```
+
+#### `config export <file>` - Export Configuration
+
+```bash
+# Export current configuration to file
+neurolink config export backup-config.json
+```
+
+#### `config validate` - Validate Configuration
+
+```bash
+# Validate current configuration settings
+neurolink config validate
+```
+
+#### `config reset` - Reset to Defaults
+
+```bash
+# Reset configuration to default values
+neurolink config reset
 ```
 
 ### `mcp` - Model Context Protocol Integration
@@ -149,6 +341,7 @@ neurolink get-best-provider
 Manage external MCP servers for extended functionality. Connect to filesystem operations, GitHub integration, database access, and more through the growing MCP ecosystem.
 
 #### `mcp list` - List Configured Servers
+
 ```bash
 # List all configured MCP servers
 neurolink mcp list
@@ -158,6 +351,7 @@ neurolink mcp list --status
 ```
 
 **Output Example:**
+
 ```
 📋 Configured MCP servers (2):
 
@@ -173,6 +367,7 @@ neurolink mcp list --status
 ```
 
 #### `mcp install` - Install Popular Servers
+
 ```bash
 # Install filesystem server for file operations
 neurolink mcp install filesystem
@@ -191,6 +386,7 @@ neurolink mcp install brave-search
 ```
 
 **Output Example:**
+
 ```
 📦 Installing MCP server: filesystem
 ✅ Installed MCP server: filesystem
@@ -198,6 +394,7 @@ neurolink mcp install brave-search
 ```
 
 #### `mcp add` - Add Custom Servers
+
 ```bash
 # Add custom server with basic command
 neurolink mcp add myserver "python /path/to/server.py"
@@ -216,6 +413,7 @@ neurolink mcp add localserver "python server.py" --cwd "/project/directory"
 ```
 
 #### `mcp test` - Test Server Connectivity
+
 ```bash
 # Test specific server connectivity and discover tools
 neurolink mcp test filesystem
@@ -225,6 +423,7 @@ neurolink mcp list --status
 ```
 
 **Output Example:**
+
 ```
 🔍 Testing MCP server: filesystem
 
@@ -250,6 +449,7 @@ neurolink mcp list --status
 ```
 
 #### `mcp remove` - Remove Servers
+
 ```bash
 # Remove configured server
 neurolink mcp remove old-server
@@ -258,25 +458,47 @@ neurolink mcp remove old-server
 neurolink mcp remove server1 server2 server3
 ```
 
-#### `mcp exec` - Execute Tools (Coming Soon)
+#### `mcp exec` - Execute Tools
+
 ```bash
 # Execute tool from MCP server
 neurolink mcp exec filesystem read_file --params '{"path": "README.md"}'
 
 # Execute GitHub tool
-neurolink mcp exec github create_issue --params '{"title": "Bug report", "body": "Description"}'
+neurolink mcp exec github create_issue --params '{"owner": "juspay", "repo": "neurolink", "title": "Bug report", "body": "Description"}'
 
 # Execute database query
-neurolink mcp exec postgres query --params '{"sql": "SELECT * FROM users LIMIT 10"}'
+neurolink mcp exec postgres execute_query --params '{"query": "SELECT * FROM users LIMIT 10"}'
+
+# Execute directory listing
+neurolink mcp exec filesystem list_directory --params '{"path": "."}'
+
+# Execute web operations
+neurolink mcp exec puppeteer navigate --params '{"url": "https://example.com"}'
+neurolink mcp exec puppeteer screenshot --params '{"name": "homepage"}'
+```
+
+**Output Example:**
+
+```
+🔧 Executing tool: read_file on server: filesystem
+✔ ✅ Tool executed successfully!
+
+📋 Result:
+# 🧠 NeuroLink
+[![NPM Version](https://img.shields.io/npm/v/@juspay/neurolink)]...
+[complete file contents displayed]
 ```
 
 ### MCP Command Options
 
 #### Global MCP Options
+
 - `--help, -h` - Show MCP command help
 - `--status` - Include live connectivity status (for `list` command)
 
 #### Server Management Options
+
 - `--args <args>` - Comma-separated command arguments
 - `--transport <type>` - Transport type: `stdio` (default) or `sse`
 - `--url <url>` - Server URL (for SSE transport)
@@ -284,12 +506,14 @@ neurolink mcp exec postgres query --params '{"sql": "SELECT * FROM users LIMIT 1
 - `--cwd <path>` - Working directory for server process
 
 #### Tool Execution Options
+
 - `--params <json>` - Tool parameters as JSON string
 - `--timeout <ms>` - Execution timeout in milliseconds
 
 ### MCP Integration Examples
 
 #### File Operations Workflow
+
 ```bash
 # Install and test filesystem server
 neurolink mcp install filesystem
@@ -302,6 +526,7 @@ neurolink mcp exec filesystem search_files --params '{"path": ".", "pattern": "*
 ```
 
 #### GitHub Integration Workflow
+
 ```bash
 # Install GitHub server (requires GITHUB_PERSONAL_ACCESS_TOKEN)
 export GITHUB_PERSONAL_ACCESS_TOKEN="ghp_your_token"
@@ -314,6 +539,7 @@ neurolink mcp exec github create_issue --params '{"title": "Feature request", "b
 ```
 
 #### Database Operations Workflow
+
 ```bash
 # Install PostgreSQL server (requires POSTGRES_CONNECTION_STRING)
 export POSTGRES_CONNECTION_STRING="postgresql://user:pass@host:port/db"
@@ -326,6 +552,7 @@ neurolink mcp exec postgres list-tables --params '{}'
 ```
 
 #### Custom Server Development
+
 ```bash
 # Add your custom MCP server
 neurolink mcp add myapp "python /path/to/my-mcp-server.py" \
@@ -337,6 +564,53 @@ neurolink mcp test myapp
 
 # Use your custom tools
 neurolink mcp exec myapp my_custom_tool --params '{"input": "data"}'
+```
+
+### `ollama` - Local Model Management
+
+Manage Ollama local models directly from NeuroLink CLI.
+
+#### `ollama list-models` - List Installed Models
+
+```bash
+neurolink ollama list-models
+```
+
+#### `ollama pull <model>` - Download Model
+
+```bash
+neurolink ollama pull llama2
+neurolink ollama pull codellama
+```
+
+#### `ollama remove <model>` - Remove Model
+
+```bash
+neurolink ollama remove llama2
+```
+
+#### `ollama status` - Check Ollama Service
+
+```bash
+neurolink ollama status
+```
+
+#### `ollama start` - Start Ollama Service
+
+```bash
+neurolink ollama start
+```
+
+#### `ollama stop` - Stop Ollama Service
+
+```bash
+neurolink ollama stop
+```
+
+#### `ollama setup` - Interactive Setup
+
+```bash
+neurolink ollama setup
 ```
 
 ### MCP Configuration Management
@@ -368,37 +642,44 @@ MCP servers are automatically configured in `.mcp-config.json`:
 ## Command Options
 
 ### Global Options
+
 - `--help, -h` - Show help information
 - `--version, -v` - Show version number
 
 ### Generation Options
-- `--provider <name>` - Choose provider: `auto` (default), `openai`, `bedrock`, `vertex`, `anthropic`, `azure`, `google-ai`
+
+- `--provider <name>` - Choose provider: `auto` (default), `openai`, `bedrock`, `vertex`, `anthropic`, `azure`, `google-ai`, `huggingface`, `ollama`, `mistral`
 - `--temperature <number>` - Creativity level: `0.0` (focused) to `1.0` (creative), default: `0.7`
 - `--max-tokens <number>` - Maximum tokens to generate, default: `500`
 - `--format <type>` - Output format: `text` (default) or `json`
 
 ### Batch Processing Options
+
 - `--output <file>` - Save results to JSON file
 - `--delay <ms>` - Delay between requests in milliseconds, default: `1000`
 
 ### Status Options
+
 - `--verbose, -v` - Show detailed diagnostic information
 
 ## CLI Features
 
 ### ✨ Professional UX
+
 - **Animated Spinners**: Beautiful animations during AI generation
 - **Colorized Output**: Green ✅ for success, red ❌ for errors, blue ℹ️ for info
 - **Progress Tracking**: Real-time progress for batch operations
 - **Smart Error Messages**: Helpful hints for common issues
 
 ### 🛠️ Developer-Friendly
+
 - **Multiple Output Formats**: Text for humans, JSON for scripts
 - **Provider Selection**: Test specific providers or use auto-selection
 - **Batch Processing**: Handle multiple prompts efficiently
 - **Status Monitoring**: Check provider health and connectivity
 
 ### 🔧 Automation Ready
+
 - **Exit Codes**: Standard exit codes for scripting
 - **JSON Output**: Structured data for automated workflows
 - **Environment Variables**: All SDK environment variables work with CLI
@@ -407,6 +688,7 @@ MCP servers are automatically configured in `.mcp-config.json`:
 ## Usage Examples
 
 ### Creative Writing Workflow
+
 ```bash
 # Generate creative content with high temperature
 neurolink generate-text "Write a sci-fi story opening" \
@@ -420,6 +702,7 @@ cat story.json | jq '.content'
 ```
 
 ### Batch Content Processing
+
 ```bash
 # Create prompts file
 cat > content-prompts.txt << EOF
@@ -440,6 +723,7 @@ cat content-results.json | jq -r '.[].response'
 ```
 
 ### Provider Health Monitoring
+
 ```bash
 # Check provider status (useful for monitoring scripts)
 neurolink status --format json > status.json
@@ -450,6 +734,7 @@ echo "Working providers: $working_providers"
 ```
 
 ### Integration with Shell Scripts
+
 ```bash
 #!/bin/bash
 # AI-powered commit message generator
@@ -495,20 +780,21 @@ neurolink status
 
 ## CLI vs SDK Comparison
 
-| Feature | CLI | SDK |
-|---------|-----|-----|
-| **Text Generation** | ✅ `generate-text` | ✅ `generateText()` |
-| **Streaming** | ✅ `stream` | ✅ `streamText()` |
-| **Provider Selection** | ✅ `--provider` flag | ✅ `createProvider()` |
-| **Batch Processing** | ✅ `batch` command | ✅ Manual implementation |
-| **Status Monitoring** | ✅ `status` command | ✅ Manual testing |
-| **JSON Output** | ✅ `--format json` | ✅ Native objects |
-| **Automation** | ✅ Perfect for scripts | ✅ Perfect for apps |
-| **Learning Curve** | 🟢 Low | 🟡 Medium |
+| Feature                | CLI                    | SDK                      |
+| ---------------------- | ---------------------- | ------------------------ |
+| **Text Generation**    | ✅ `generate-text`     | ✅ `generateText()`      |
+| **Streaming**          | ✅ `stream`            | ✅ `streamText()`        |
+| **Provider Selection** | ✅ `--provider` flag   | ✅ `createProvider()`    |
+| **Batch Processing**   | ✅ `batch` command     | ✅ Manual implementation |
+| **Status Monitoring**  | ✅ `status` command    | ✅ Manual testing        |
+| **JSON Output**        | ✅ `--format json`     | ✅ Native objects        |
+| **Automation**         | ✅ Perfect for scripts | ✅ Perfect for apps      |
+| **Learning Curve**     | 🟢 Low                 | 🟡 Medium                |
 
 ## When to Use CLI vs SDK
 
 ### Use the CLI when:
+
 - 🔧 **Prototyping**: Quick testing of prompts and providers
 - 📜 **Scripting**: Shell scripts and automation workflows
 - 🔍 **Debugging**: Checking provider status and testing connectivity
@@ -516,6 +802,7 @@ neurolink status
 - 🎯 **One-off Tasks**: Generating content without writing code
 
 ### Use the SDK when:
+
 - 🏗️ **Application Development**: Building web apps, APIs, or services
 - 🔄 **Real-time Integration**: Chat interfaces, streaming responses
 - ⚙️ **Complex Logic**: Custom provider fallback, error handling
@@ -527,6 +814,7 @@ neurolink status
 **See the CLI in action with professional demonstrations:**
 
 ### **Command Tutorials**
+
 - **[Help & Overview](./visual-content/cli-videos/cli-01-cli-help.mp4)** - Complete command reference and usage examples
 - **[Provider Status](./visual-content/cli-videos/cli-02-provider-status.mp4)** - Connectivity testing and response time measurement
 - **[Text Generation](./visual-content/cli-videos/cli-03-text-generation.mp4)** - Real AI content generation with different providers
@@ -535,13 +823,16 @@ neurolink status
 - **[Advanced Features](./visual-content/cli-videos/cli-06-advanced-features.mp4)** - Verbose diagnostics and advanced options
 
 ### **MCP Integration Demos**
+
 - **[MCP Help](./visual-content/cli-videos/cli-advanced-features/mcp-help.mp4)** - MCP command reference and usage
 - **[MCP List](./visual-content/cli-videos/cli-advanced-features/mcp-list.mp4)** - MCP server listing and status
 
 ### **AI Workflow Tools Demo**
+
 - **[AI Workflow Tools](./visual-content/cli-videos/ai-workflow-tools-demo/ai-workflow-tools-cli-demo.mp4)** - Complete demonstration of AI workflow tools via CLI
 
 **All videos feature:**
+
 - ✅ Real command execution with live AI generation
 - ✅ Professional MP4 format for universal compatibility
 - ✅ Comprehensive coverage of all CLI features
