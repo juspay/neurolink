@@ -23,23 +23,33 @@ export type MCPServerCategory =
 
 /**
  * Tool execution context - Rich context passed to every tool execution
- * Based on Lighthouse patterns with NeuroLink enhancements
+ * Following Lighthouse's pattern for rich tool context
  */
 export interface NeuroLinkExecutionContext {
-  // Session Management
-  sessionId: string;
-  userId?: string;
+  // Core identifiers
+  sessionId: string; // Mandatory: Unique ID for the current session/request
+  userId?: string; // For user-specific actions
 
-  // AI Provider Context (existing NeuroLink)
+  // AI context
   aiProvider?: string;
   modelId?: string;
   temperature?: number;
   maxTokens?: number;
 
-  // Business Context (new)
+  // Application context
+  appId?: string;
+  clientId?: string;
+  clientVersion?: string;
   organizationId?: string;
   projectId?: string;
+
+  // Environment context
+  environment?: string;
   environmentType?: "development" | "staging" | "production";
+  platform?: string;
+  device?: string;
+  browser?: string;
+  userAgent?: string;
 
   // Framework Context (new)
   frameworkType?: "react" | "vue" | "svelte" | "next" | "nuxt" | "sveltekit";
@@ -48,9 +58,23 @@ export interface NeuroLinkExecutionContext {
   toolChain?: string[];
   parentToolId?: string;
 
-  // Security & Permissions
+  // Location context
+  locale?: string;
+  timezone?: string;
+  ipAddress?: string;
+
+  // Request context
+  requestId?: string;
+  timestamp?: number;
+
+  // Security context
   permissions?: string[];
+  features?: string[];
+  enableDemoMode?: boolean;
   securityLevel?: "public" | "private" | "organization";
+
+  // Extensible metadata
+  metadata?: Record<string, any>;
 
   // Extension points for custom context
   [key: string]: any;
@@ -77,6 +101,8 @@ export interface ToolResult {
     sessionId?: string;
     timestamp?: number;
     executionTime?: number;
+    executionId?: string;
+    [key: string]: any;
   };
 }
 
@@ -101,15 +127,12 @@ export interface NeuroLinkMCPTool {
 }
 
 /**
- * MCP Server Interface - 99% Lighthouse compatible
- * Minimal required fields for easy adoption
+ * MCP Server Interface - Lighthouse compatible
  */
 export interface NeuroLinkMCPServer {
-  // Required fields (Lighthouse compatible)
+  // Server identification
   id: string;
   title: string;
-
-  // Optional fields with sensible defaults
   description?: string;
   version?: string;
   category?: MCPServerCategory;
@@ -117,7 +140,9 @@ export interface NeuroLinkMCPServer {
 
   // Tool management
   tools: Record<string, NeuroLinkMCPTool>;
-  registerTool: (tool: NeuroLinkMCPTool) => NeuroLinkMCPServer;
+
+  // Tool registration method
+  registerTool(tool: NeuroLinkMCPTool): NeuroLinkMCPServer;
 
   // Extension points
   metadata?: Record<string, any>;

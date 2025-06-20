@@ -135,6 +135,176 @@ AWS_ACCESS_KEY_ID="your-aws-key"
 AWS_SECRET_ACCESS_KEY="your-aws-secret"
 ```
 
+### Dynamic Model Integration (v1.8.0+)
+
+#### Smart Model Selection API Route
+
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+import type { RequestHandler } from "./$types";
+
+export const POST: RequestHandler = async ({ request }) => {
+  try {
+    const { message, useCase, optimizeFor } = await request.json();
+
+    const factory = new AIProviderFactory();
+
+    // Use dynamic model selection based on use case
+    const provider = await factory.createProvider({
+      provider: "auto",
+      capability: useCase === "vision" ? "vision" : "general",
+      optimizeFor: optimizeFor || "quality", // 'cost', 'speed', or 'quality'
+    });
+
+    const result = await provider.streamText({
+      prompt: message,
+      temperature: 0.7,
+      maxTokens: 1000,
+    });
+
+    return new Response(result.toReadableStream(), {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+        "X-Model-Used": result.model,
+        "X-Provider-Used": result.provider,
+      },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+};
+```
+
+#### Cost-Optimized Component
+
+```svelte
+<script lang="ts">
+  let message = '';
+  let response = '';
+  let isLoading = false;
+  let optimizeFor = 'quality'; // 'cost', 'speed', 'quality'
+  let useCase = 'general';     // 'general', 'vision', 'code'
+  let modelUsed = '';
+  let providerUsed = '';
+
+  async function sendMessage() {
+    if (!message.trim()) return;
+
+    isLoading = true;
+    response = '';
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          useCase,
+          optimizeFor
+        })
+      });
+
+      // Extract model and provider info from headers
+      modelUsed = res.headers.get('X-Model-Used') || '';
+      providerUsed = res.headers.get('X-Provider-Used') || '';
+
+      if (!res.body) throw new Error('No response');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        response += decoder.decode(value, { stream: true });
+      }
+    } catch (error) {
+      response = `Error: ${error.message}`;
+    } finally {
+      isLoading = false;
+    }
+  }
+</script>
+
+<div class="smart-chat">
+  <!-- Model Selection Options -->
+  <div class="options">
+    <label>
+      Use Case:
+      <select bind:value={useCase}>
+        <option value="general">General</option>
+        <option value="code">Coding</option>
+        <option value="vision">Vision</option>
+      </select>
+    </label>
+
+    <label>
+      Optimize For:
+      <select bind:value={optimizeFor}>
+        <option value="quality">Quality</option>
+        <option value="speed">Speed</option>
+        <option value="cost">Cost</option>
+      </select>
+    </label>
+  </div>
+
+  <input bind:value={message} placeholder="Ask something..." />
+  <button on:click={sendMessage} disabled={isLoading}>
+    {isLoading ? 'Sending...' : 'Send'}
+  </button>
+
+  {#if response}
+    <div class="response">
+      <div class="model-info">
+        Model: {modelUsed} | Provider: {providerUsed}
+      </div>
+      <div class="content">{response}</div>
+    </div>
+  {/if}
+</div>
+
+<style>
+  .smart-chat {
+    max-width: 700px;
+    margin: 2rem auto;
+    padding: 1rem;
+  }
+
+  .options {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .options label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .options select {
+    padding: 0.25rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+
+  .model-info {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+    font-family: monospace;
+  }
+
+  .content {
+    white-space: pre-wrap;
+  }
+</style>
+```
+
 ## Next.js Integration
 
 ### App Router API (`app/api/ai/route.ts`)

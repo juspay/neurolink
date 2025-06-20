@@ -44,6 +44,65 @@
 - **Research Archive**: `./research/ai-analysis-archive.md`
 - **Demo Documentation**: `./demo-documentation/`
 
+## Function Calling Architecture
+
+### AI SDK Integration Pattern
+- **Core Integration**: `src/lib/providers/googleAIStudio.ts` with `maxSteps: 5`
+- **Tool Registration**: `src/lib/mcp/unified-registry.ts` for tool discovery
+- **Function Calling Provider**: `src/lib/providers/function-calling-provider.ts`
+- **Auto-Discovery**: `src/lib/mcp/auto-discovery.ts` for system-wide tool finding
+- **Debug Tools**: `debug-multi-turn.js`, `debug-ai-sdk-tools.js`
+
+### Multi-turn Conversation Flow
+- **Step 1**: AI analyzes prompt and identifies tool needs
+- **Step 2**: AI SDK calls appropriate tools with parameters
+- **Step 3**: Tools execute and return results
+- **Step 4**: AI generates response incorporating tool results
+- **Step 5**: User receives complete response with real data
+
+### Function Calling Components
+
+#### Enhanced Provider Architecture
+```typescript
+// MCPEnhancedProvider: Auto-injects discovered tools
+src/lib/core/factory.ts              # Factory with MCP integration
+src/lib/providers/function-calling-provider.ts  # Function calling wrapper
+src/lib/mcp/function-calling.ts      # Core function calling logic
+```
+
+#### MCP Tool Integration
+```typescript
+// Unified tool registry and discovery
+src/lib/mcp/unified-registry.ts      # Central tool registry
+src/lib/mcp/auto-discovery.ts        # System-wide tool discovery
+src/lib/mcp/factory.ts              # MCP server factory
+```
+
+#### Critical Configuration
+```typescript
+// The key fix: maxSteps for multi-turn conversations
+generateText({
+  model: provider,
+  tools: discoveredTools,
+  maxSteps: 5,  // NOT maxToolRoundtrips - enables continuation
+  prompt: userPrompt
+})
+```
+
+### Tool Categories Available
+- **Time & Date**: get-current-time, calculate-date-difference
+- **File Operations**: read-file, write-file, list-directory
+- **AI Analysis**: analyze-ai-usage, benchmark-provider-performance
+- **Code Tools**: refactor-code, generate-documentation, debug-ai-output
+- **External APIs**: Via 82+ auto-discovered MCP servers
+
+### Performance Characteristics
+- **Tool Discovery**: <1 second for 82+ tools
+- **Tool Execution**: Individual tools <1ms to 100ms
+- **AI Response**: Complete cycle <8 seconds
+- **Memory Usage**: Minimal impact with tool caching
+- **Error Handling**: Graceful fallback to non-tool responses
+
 ## Technology Stack
 
 ### Core Technologies

@@ -63,12 +63,18 @@ export const VERSION = "1.0.0";
  * ```typescript
  * import { createAIProvider } from 'neurolink';
  *
- * const provider = createAIProvider('bedrock');
+ * const provider = await createAIProvider('bedrock');
  * const result = await provider.streamText('Hello, AI!');
  * ```
  */
-export function createAIProvider(providerName?: string, modelName?: string) {
-  return AIProviderFactory.createProvider(providerName || "bedrock", modelName);
+export async function createAIProvider(
+  providerName?: string,
+  modelName?: string,
+) {
+  return await AIProviderFactory.createProvider(
+    providerName || "bedrock",
+    modelName,
+  );
 }
 
 /**
@@ -78,15 +84,15 @@ export function createAIProvider(providerName?: string, modelName?: string) {
  * ```typescript
  * import { createAIProviderWithFallback } from 'neurolink';
  *
- * const { primary, fallback } = createAIProviderWithFallback('bedrock', 'vertex');
+ * const { primary, fallback } = await createAIProviderWithFallback('bedrock', 'vertex');
  * ```
  */
-export function createAIProviderWithFallback(
+export async function createAIProviderWithFallback(
   primaryProvider?: string,
   fallbackProvider?: string,
   modelName?: string,
 ) {
-  return AIProviderFactory.createProviderWithFallback(
+  return await AIProviderFactory.createProviderWithFallback(
     primaryProvider || "bedrock",
     fallbackProvider || "vertex",
     modelName,
@@ -100,12 +106,15 @@ export function createAIProviderWithFallback(
  * ```typescript
  * import { createBestAIProvider } from 'neurolink';
  *
- * const provider = createBestAIProvider();
+ * const provider = await createBestAIProvider();
  * ```
  */
-export function createBestAIProvider(
+export async function createBestAIProvider(
   requestedProvider?: string,
   modelName?: string,
 ) {
-  return AIProviderFactory.createBestProvider(requestedProvider, modelName);
+  return await AIProviderFactory.createBestProvider(
+    requestedProvider,
+    modelName,
+  );
 }

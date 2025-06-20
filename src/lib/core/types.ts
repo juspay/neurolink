@@ -1,5 +1,11 @@
 import type { ZodType, ZodTypeDef } from "zod";
-import type { StreamTextResult, ToolSet, Schema, GenerateTextResult } from "ai";
+import type {
+  StreamTextResult,
+  ToolSet,
+  Schema,
+  GenerateTextResult,
+  Tool,
+} from "ai";
 
 /**
  * Supported AI Provider Names
@@ -92,6 +98,7 @@ export interface TextGenerationOptions {
   maxTokens?: number;
   systemPrompt?: string;
   schema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>;
+  tools?: Record<string, Tool>; // Enable MCP tools integration
 }
 
 /**
@@ -104,6 +111,7 @@ export interface StreamTextOptions {
   maxTokens?: number;
   systemPrompt?: string;
   schema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>;
+  tools?: Record<string, Tool>; // Enable MCP tools integration
 }
 
 /**

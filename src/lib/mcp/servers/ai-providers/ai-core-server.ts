@@ -114,7 +114,8 @@ aiCoreServer.registerTool({
       // Use existing AIProviderFactory with best provider selection
       const selectedProvider =
         params.provider || getBestProvider(params.provider);
-      const provider = AIProviderFactory.createBestProvider(selectedProvider);
+      const provider =
+        await AIProviderFactory.createBestProvider(selectedProvider);
 
       // Generate text using existing NeuroLink patterns
       const result = await provider.generateText({

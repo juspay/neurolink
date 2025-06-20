@@ -2,14 +2,14 @@
   "mcpServers": {
     "filesystem": {
       "name": "filesystem",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/"],
+      "command": "mcp-server-filesystem",
+      "args": ["/Users/sachinsharma/Developer/Official/neurolink"],
       "transport": "stdio"
     },
     "github": {
       "name": "github",
-      "command": "npx @modelcontextprotocol/server-github",
-      "args": [],
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
       "transport": "stdio"
     },
     "postgres": {
@@ -18,5 +18,13 @@
       "args": ["-y", "@modelcontextprotocol/server-postgres"],
       "transport": "stdio"
     }
+  },
+  "autoDiscovery": {
+    "enabled": false,
+    "autoRegister": false
+  },
+  "defaultRegistry": {
+    "enabled": true,
+    "includeBuiltInTools": true
   }
 }

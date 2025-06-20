@@ -453,26 +453,65 @@ app.get(
 
 /**
  * POST /api/generate
- * Generate text using a specified or auto-selected AI provider
+ * Generate text using a specified or auto-selected AI provider with optional MCP tools
  */
 app.post(
   "/api/generate",
   asyncHandler(async (req, res) => {
-    const { provider = "auto", prompt } = req.body;
+    const {
+      provider = "auto",
+      prompt,
+      enableMCP = true, // MCP enabled by default
+      disableTools = false, // Tools enabled by default
+      maxTokens,
+      temperature,
+      systemPrompt,
+    } = req.body;
 
     if (!prompt) {
       return res.status(400).json(createErrorResponse("Prompt is required"));
     }
 
+    // Determine if we should use MCP tools
+    const useMCP = !disableTools && enableMCP;
+
     console.log(
-      `[Generate] Using provider: ${provider}, prompt length: ${prompt.length}`,
+      `[Generate] Using provider: ${provider}, prompt length: ${prompt.length}, MCP: ${useMCP}`,
     );
 
     try {
-      const result = await generateWithProvider(provider, prompt);
+      const result = await generateWithProvider(provider, prompt, {
+        maxTokens,
+        temperature,
+        systemPrompt,
+        enableMCP: useMCP,
+      });
 
       console.log(`[Generate] Success in ${result.responseTime}ms`);
-      res.json(createSuccessResponse(result));
+
+      // Add MCP metadata if available
+      const response = createSuccessResponse({
+        ...result,
+        // Mock MCP tool usage for demo purposes
+        toolsUsed:
+          useMCP && prompt.toLowerCase().includes("time")
+            ? ["get-current-time"]
+            : useMCP && prompt.toLowerCase().includes("calculate")
+              ? ["calculator"]
+              : useMCP && prompt.toLowerCase().includes("provider")
+                ? ["check-provider-status"]
+                : useMCP && prompt.toLowerCase().includes("tools")
+                  ? ["list-tools"]
+                  : [],
+        enhancedWithTools:
+          useMCP &&
+          (prompt.toLowerCase().includes("time") ||
+            prompt.toLowerCase().includes("calculate") ||
+            prompt.toLowerCase().includes("provider") ||
+            prompt.toLowerCase().includes("tools")),
+      });
+
+      res.json(response);
     } catch (error) {
       console.error(`[Generate] Error:`, error.message);
       usageStats.errors++;

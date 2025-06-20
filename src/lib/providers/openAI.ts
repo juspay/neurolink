@@ -68,6 +68,13 @@ export class OpenAI implements AIProvider {
     }
   }
 
+  /**
+   * Get the underlying model for function calling
+   */
+  getModel(): LanguageModelV1 {
+    return this.model;
+  }
+
   async streamText(
     optionsOrPrompt: StreamTextOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,

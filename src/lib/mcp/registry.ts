@@ -11,6 +11,7 @@ import type {
   ToolResult,
 } from "./factory.js";
 import { ContextManager, ContextValidator } from "./context-manager.js";
+import { registryLogger, mcpLogger } from "./logging.js";
 
 /**
  * Tool registration information
@@ -85,9 +86,12 @@ export class MCPToolRegistry {
    * @throws Error if server ID already exists
    */
   async registerServer(server: NeuroLinkMCPServer): Promise<void> {
-    // Check for duplicate server ID
+    // Check for duplicate server ID - if already registered, skip silently
     if (this.servers.has(server.id)) {
-      throw new Error(`Server with ID '${server.id}' is already registered`);
+      mcpLogger.debug(
+        `Server with ID '${server.id}' is already registered, skipping registration`,
+      );
+      return;
     }
 
     // Register the server
@@ -98,8 +102,8 @@ export class MCPToolRegistry {
       await this.registerToolFromServer(server, toolName, tool);
     }
 
-    console.log(
-      `[MCPRegistry] Registered server '${server.id}' with ${Object.keys(server.tools).length} tools`,
+    registryLogger.debug(
+      `Registered server '${server.id}' with ${Object.keys(server.tools).length} tools`,
     );
   }
 
@@ -135,8 +139,8 @@ export class MCPToolRegistry {
     if (!this.tools.has(simpleName)) {
       this.tools.set(simpleName, registration);
     } else {
-      console.warn(
-        `[MCPRegistry] Tool name conflict: '${simpleName}' already exists, use qualified name '${qualifiedName}'`,
+      registryLogger.warn(
+        `Tool name conflict: '${simpleName}' already exists, use qualified name '${qualifiedName}'`,
       );
     }
   }
@@ -245,14 +249,14 @@ export class MCPToolRegistry {
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
-          console.warn(
-            `[MCPRegistry] Output validation warning for tool '${toolName}': ${errorMessage}`,
+          registryLogger.warn(
+            `Output validation warning for tool '${toolName}': ${errorMessage}`,
           );
         }
       }
 
-      console.log(
-        `[MCPRegistry] Executed tool '${toolName}' in ${executionTime}ms - ${result.success ? "SUCCESS" : "FAILED"}`,
+      registryLogger.debug(
+        `Executed tool '${toolName}' in ${executionTime}ms - ${result.success ? "SUCCESS" : "FAILED"}`,
       );
 
       return enhancedResult;
@@ -277,8 +281,8 @@ export class MCPToolRegistry {
         },
       };
 
-      console.error(
-        `[MCPRegistry] Tool execution failed '${toolName}': ${errorMessage}`,
+      registryLogger.error(
+        `Tool execution failed '${toolName}': ${errorMessage}`,
       );
 
       return errorResult;
@@ -477,8 +481,8 @@ export class MCPToolRegistry {
     // Remove the server
     this.servers.delete(serverId);
 
-    console.log(
-      `[MCPRegistry] Unregistered server '${serverId}' and ${toolsToRemove.length} tools`,
+    registryLogger.debug(
+      `Unregistered server '${serverId}' and ${toolsToRemove.length} tools`,
     );
 
     return true;
@@ -494,7 +498,7 @@ export class MCPToolRegistry {
     this.totalExecutionTime = 0;
     this.errorCount = 0;
 
-    console.log("[MCPRegistry] Cleared all servers and tools");
+    registryLogger.debug("Cleared all servers and tools");
   }
 
   /**

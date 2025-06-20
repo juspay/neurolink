@@ -252,6 +252,189 @@ const result1 = await provider.generateText({
 const result2 = await provider.generateText("Hello");
 ```
 
+## Usage Examples
+
+### Basic Usage
+
+```typescript
+import { createBestAIProvider } from "@juspay/neurolink";
+
+// Simple text generation
+const provider = createBestAIProvider();
+const result = await provider.generateText("Write a haiku about coding");
+console.log(result.text);
+```
+
+### Dynamic Model Usage (v1.8.0+)
+
+```typescript
+import { AIProviderFactory, DynamicModelRegistry } from "@juspay/neurolink";
+
+// Initialize factory and registry
+const factory = new AIProviderFactory();
+const registry = new DynamicModelRegistry();
+
+// Use model aliases for convenient access
+const provider1 = await factory.createProvider({
+  provider: "anthropic",
+  model: "claude-latest", // Auto-resolves to latest Claude model
+});
+
+// Capability-based model selection
+const provider2 = await factory.createProvider({
+  provider: "auto",
+  capability: "vision", // Automatically selects best vision model
+  optimizeFor: "cost", // Prefer cost-effective options
+});
+
+// Advanced model resolution
+const bestCodingModel = await registry.findBestModel({
+  capability: "code",
+  maxPrice: 0.005, // Max $0.005 per 1K tokens
+  provider: "anthropic", // Prefer Anthropic models
+});
+
+console.log(
+  `Selected: ${bestCodingModel.modelId} (${bestCodingModel.reasoning})`,
+);
+```
+
+### Cost-Optimized Generation
+
+```typescript
+import { DynamicModelRegistry } from "@juspay/neurolink";
+
+const registry = new DynamicModelRegistry();
+
+// Get the cheapest model for general tasks
+const cheapestModel = await registry.getCheapestModel("general");
+const provider = await factory.createProvider({
+  provider: cheapestModel.provider,
+  model: cheapestModel.id,
+});
+
+// Generate text with cost optimization
+const result = await provider.generateText({
+  prompt: "Summarize the benefits of renewable energy",
+  maxTokens: 200, // Control output length for cost
+});
+
+console.log(
+  `Generated with ${result.model} - Cost: $${calculateCost(result.usage, cheapestModel.pricing)}`,
+);
+```
+
+### Vision Capabilities with Dynamic Selection
+
+```typescript
+// Automatically select best vision model
+const visionProvider = await factory.createProvider({
+  capability: "vision",
+  optimizeFor: "quality", // Prefer highest quality vision model
+});
+
+const result = await visionProvider.generateText({
+  prompt: "Describe what you see in this image",
+  images: ["data:image/jpeg;base64,/9j/4AAQSkZJRgABA..."], // Base64 image
+  maxTokens: 500,
+});
+```
+
+### Function Calling with Smart Model Selection
+
+```typescript
+// Select model optimized for function calling
+const functionProvider = await factory.createProvider({
+  capability: "function-calling",
+  optimizeFor: "speed", // Fast function execution
+});
+
+const result = await functionProvider.generateText({
+  prompt: "What's the weather in San Francisco?",
+  schema: {
+    type: "object",
+    properties: {
+      location: { type: "string" },
+      temperature: { type: "number" },
+      conditions: { type: "string" },
+    },
+  },
+});
+
+console.log(JSON.parse(result.text)); // Structured weather data
+```
+
+### Model Discovery and Search
+
+```typescript
+import { DynamicModelRegistry } from "@juspay/neurolink";
+
+const registry = new DynamicModelRegistry();
+
+// Search for vision models under $0.001 per 1K tokens
+const affordableVisionModels = await registry.searchModels({
+  capability: "vision",
+  maxPrice: 0.001,
+  excludeDeprecated: true,
+});
+
+console.log("Affordable Vision Models:");
+affordableVisionModels.forEach((model) => {
+  console.log(`- ${model.name}: $${model.pricing.input}/1K tokens`);
+});
+
+// Get all models from a specific provider
+const anthropicModels = await registry.searchModels({
+  provider: "anthropic",
+});
+
+// Resolve aliases to actual model IDs
+const resolvedModel = await registry.resolveModel("claude-latest");
+console.log(`claude-latest resolves to: ${resolvedModel}`);
+```
+
+### Streaming with Dynamic Models
+
+```typescript
+// Use fastest model for streaming
+const streamingProvider = await factory.createProvider({
+  model: "fastest", // Alias for fastest available model
+});
+
+const stream = await streamingProvider.streamText({
+  prompt: "Write a story about space exploration",
+  maxTokens: 1000,
+});
+
+// Process streaming response
+for await (const chunk of stream.textStream) {
+  process.stdout.write(chunk);
+}
+```
+
+### Provider Fallback with Dynamic Models
+
+```typescript
+// Primary: Best quality model, Fallback: Fastest cheap model
+const primaryProvider = await factory.createProvider({
+  provider: "anthropic",
+  model: "claude-latest",
+});
+
+const fallbackProvider = await factory.createProvider({
+  model: "fastest",
+});
+
+try {
+  const result = await primaryProvider.generateText("Complex reasoning task");
+  console.log(result.text);
+} catch (error) {
+  console.log("Primary failed, using fallback...");
+  const result = await fallbackProvider.generateText("Complex reasoning task");
+  console.log(result.text);
+}
+```
+
 ## Supported Models
 
 ### OpenAI Models
@@ -334,6 +517,253 @@ type MistralModel =
   | "mistral-large";
 ```
 
+## Dynamic Model System (v1.8.0+)
+
+### Overview
+
+NeuroLink now supports a **dynamic model configuration system** that replaces static TypeScript enums with runtime-configurable model definitions. This enables:
+
+- ✅ **Runtime Model Updates** - Add/remove models without code changes
+- ✅ **Smart Model Resolution** - Use aliases like "claude-latest", "best-coding", "fastest"
+- ✅ **Cost Optimization** - Automatic best-value model selection
+- ✅ **Provider Agnostic** - Unified model interface across all providers
+- ✅ **Type Safety** - Zod schema validation for all configurations
+
+### Model Configuration Server
+
+The dynamic system includes a REST API server for model configurations:
+
+```bash
+# Start the model configuration server
+npm run start:model-server
+
+# Server runs on http://localhost:3001
+# API endpoints:
+# GET /models - List all models
+# GET /models/search?capability=vision - Search by capability
+# GET /models/provider/anthropic - Get provider models
+# GET /models/resolve/claude-latest - Resolve aliases
+```
+
+### Model Configuration Schema
+
+Models are defined in `config/models.json` with comprehensive metadata:
+
+```typescript
+interface ModelConfig {
+  id: string; // Unique model identifier
+  name: string; // Display name
+  provider: string; // Provider name (anthropic, openai, etc.)
+  pricing: {
+    input: number; // Cost per 1K input tokens
+    output: number; // Cost per 1K output tokens
+  };
+  capabilities: string[]; // ['function-calling', 'vision', 'code']
+  contextWindow: number; // Maximum context length
+  deprecated: boolean; // Whether model is deprecated
+  aliases: string[]; // Alternative names
+  metadata: {
+    description: string;
+    useCase: string; // 'general', 'coding', 'vision', etc.
+    speed: "fast" | "medium" | "slow";
+    quality: "high" | "medium" | "low";
+  };
+}
+```
+
+### Smart Model Resolution
+
+The dynamic system provides intelligent model resolution:
+
+```typescript
+import { DynamicModelRegistry } from "@juspay/neurolink";
+
+const registry = new DynamicModelRegistry();
+
+// Resolve aliases to actual model IDs
+await registry.resolveModel("claude-latest"); // → 'claude-3-5-sonnet'
+await registry.resolveModel("fastest"); // → 'gpt-4o-mini'
+await registry.resolveModel("best-coding"); // → 'claude-3-5-sonnet'
+
+// Find best model for specific criteria
+await registry.findBestModel({
+  capability: "vision",
+  maxPrice: 0.001, // Maximum cost per 1K tokens
+  provider: "anthropic", // Optional provider preference
+});
+
+// Get models by capability
+await registry.getModelsByCapability("function-calling");
+
+// Cost-optimized model selection
+await registry.getCheapestModel("general"); // Cheapest general-purpose model
+await registry.getFastestModel("coding"); // Fastest coding model
+```
+
+### Dynamic Model Usage in AI Factory
+
+The AI factory automatically uses the dynamic model system:
+
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const factory = new AIProviderFactory();
+
+// Use model aliases
+const provider1 = await factory.createProvider({
+  provider: "anthropic",
+  model: "claude-latest", // Resolves to latest Claude model
+});
+
+// Use capability-based selection
+const provider2 = await factory.createProvider({
+  provider: "auto",
+  model: "best-vision", // Selects best vision model
+  optimizeFor: "cost", // Prefer cost-effective models
+});
+
+// Use direct model IDs (still supported)
+const provider3 = await factory.createProvider({
+  provider: "openai",
+  model: "gpt-4o", // Direct model specification
+});
+```
+
+### Configuration Management
+
+#### Environment Variables for Dynamic Models
+
+```typescript
+// Model server configuration
+MODEL_SERVER_URL?: string        // Default: 'http://localhost:3001'
+MODEL_CONFIG_PATH?: string       // Default: './config/models.json'
+ENABLE_DYNAMIC_MODELS?: string   // Default: 'true'
+
+// Model selection preferences
+DEFAULT_MODEL_PREFERENCE?: 'cost' | 'speed' | 'quality'  // Default: 'quality'
+FALLBACK_MODEL?: string          // Model to use if preferred unavailable
+```
+
+#### Configuration File Structure
+
+The `config/models.json` file defines all available models:
+
+```json
+{
+  "models": [
+    {
+      "id": "claude-3-5-sonnet",
+      "name": "Claude 3.5 Sonnet",
+      "provider": "anthropic",
+      "pricing": { "input": 0.003, "output": 0.015 },
+      "capabilities": ["function-calling", "vision", "code"],
+      "contextWindow": 200000,
+      "deprecated": false,
+      "aliases": ["claude-latest", "best-coding", "claude-sonnet"],
+      "metadata": {
+        "description": "Most capable Claude model",
+        "useCase": "general",
+        "speed": "medium",
+        "quality": "high"
+      }
+    }
+  ],
+  "aliases": {
+    "claude-latest": "claude-3-5-sonnet",
+    "fastest": "gpt-4o-mini",
+    "cheapest": "claude-3-haiku",
+    "best-vision": "gpt-4o",
+    "best-coding": "claude-3-5-sonnet"
+  }
+}
+```
+
+### CLI Integration
+
+The CLI provides comprehensive dynamic model management:
+
+```bash
+# List all models with pricing
+neurolink models list
+
+# Search models by capability
+neurolink models search --capability function-calling
+neurolink models search --capability vision --max-price 0.001
+
+# Get best model for use case
+neurolink models best --use-case coding
+neurolink models best --use-case vision
+
+# Resolve aliases
+neurolink models resolve anthropic claude-latest
+neurolink models resolve google fastest
+
+# Test with dynamic model selection
+neurolink generate-text "Hello" --model best-coding
+neurolink generate-text "Describe this" --capability vision --optimize-cost
+```
+
+### Type Definitions for Dynamic Models
+
+```typescript
+interface DynamicModelOptions {
+  // Specify exact model ID
+  model?: string;
+
+  // OR specify requirements for automatic selection
+  capability?: "function-calling" | "vision" | "code" | "general";
+  maxPrice?: number; // Maximum cost per 1K tokens
+  optimizeFor?: "cost" | "speed" | "quality";
+  provider?: string; // Preferred provider
+}
+
+interface ModelResolutionResult {
+  modelId: string; // Resolved model ID
+  provider: string; // Provider name
+  reasoning: string; // Why this model was selected
+  pricing: {
+    input: number;
+    output: number;
+  };
+  capabilities: string[];
+}
+
+interface ModelSearchOptions {
+  capability?: string;
+  provider?: string;
+  maxPrice?: number;
+  minContextWindow?: number;
+  excludeDeprecated?: boolean;
+}
+```
+
+### Migration from Static Models
+
+For existing code using static model enums, the transition is seamless:
+
+```typescript
+// OLD: Static enum usage (still works)
+const provider = await factory.createProvider({
+  provider: "anthropic",
+  model: "claude-3-5-sonnet",
+});
+
+// NEW: Dynamic model usage (recommended)
+const provider = await factory.createProvider({
+  provider: "anthropic",
+  model: "claude-latest", // Auto-resolves to latest Claude
+});
+
+// ADVANCED: Capability-based selection
+const provider = await factory.createProvider({
+  provider: "auto",
+  capability: "vision",
+  optimizeFor: "cost",
+});
+```
+
+The dynamic model system maintains backward compatibility while enabling powerful new capabilities for intelligent model selection and cost optimization.
+
 ## Environment Configuration
 
 ### Required Environment Variables
@@ -379,6 +809,13 @@ OLLAMA_MODEL?: string                            // Default: 'llama2'
 // Mistral AI
 MISTRAL_API_KEY: string                          // API key from mistral.ai
 MISTRAL_MODEL?: string                           // Default: 'mistral-small'
+
+// Dynamic Model System (v1.8.0+)
+MODEL_SERVER_URL?: string                        // Default: 'http://localhost:3001'
+MODEL_CONFIG_PATH?: string                       // Default: './config/models.json'
+ENABLE_DYNAMIC_MODELS?: string                   // Default: 'true'
+DEFAULT_MODEL_PREFERENCE?: 'cost' | 'speed' | 'quality'  // Default: 'quality'
+FALLBACK_MODEL?: string                          // Model to use if preferred unavailable
 ```
 
 ### Optional Configuration Variables
@@ -454,6 +891,71 @@ interface TokenUsage {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+}
+```
+
+### Dynamic Model Types (v1.8.0+)
+
+```typescript
+interface ModelConfig {
+  id: string; // Unique model identifier
+  name: string; // Display name
+  provider: string; // Provider name (anthropic, openai, etc.)
+  pricing: {
+    input: number; // Cost per 1K input tokens
+    output: number; // Cost per 1K output tokens
+  };
+  capabilities: string[]; // ['function-calling', 'vision', 'code']
+  contextWindow: number; // Maximum context length
+  deprecated: boolean; // Whether model is deprecated
+  aliases: string[]; // Alternative names
+  metadata: {
+    description: string;
+    useCase: string; // 'general', 'coding', 'vision', etc.
+    speed: "fast" | "medium" | "slow";
+    quality: "high" | "medium" | "low";
+  };
+}
+
+interface DynamicModelOptions {
+  // Specify exact model ID
+  model?: string;
+
+  // OR specify requirements for automatic selection
+  capability?: "function-calling" | "vision" | "code" | "general";
+  maxPrice?: number; // Maximum cost per 1K tokens
+  optimizeFor?: "cost" | "speed" | "quality";
+  provider?: string; // Preferred provider
+}
+
+interface ModelResolutionResult {
+  modelId: string; // Resolved model ID
+  provider: string; // Provider name
+  reasoning: string; // Why this model was selected
+  pricing: {
+    input: number;
+    output: number;
+  };
+  capabilities: string[];
+}
+
+interface ModelSearchOptions {
+  capability?: string;
+  provider?: string;
+  maxPrice?: number;
+  minContextWindow?: number;
+  excludeDeprecated?: boolean;
+}
+
+interface DynamicModelRegistry {
+  resolveModel(alias: string): Promise<string>;
+  findBestModel(options: DynamicModelOptions): Promise<ModelResolutionResult>;
+  getModelsByCapability(capability: string): Promise<ModelConfig[]>;
+  getCheapestModel(useCase: string): Promise<ModelConfig>;
+  getFastestModel(useCase: string): Promise<ModelConfig>;
+  searchModels(options: ModelSearchOptions): Promise<ModelConfig[]>;
+  getModelConfig(modelId: string): Promise<ModelConfig | null>;
+  getAllModels(): Promise<ModelConfig[]>;
 }
 ```
 
@@ -775,18 +1277,53 @@ const typedProvider: TypedAIProvider<CustomOptions, CustomResult> =
 
 NeuroLink supports external MCP servers for extended functionality through both CLI and programmatic interfaces.
 
+### ✅ Current Status (v1.7.1)
+
+**Built-in Tools: ✅ FULLY FUNCTIONAL**
+
+- ✅ Time tool - Returns current time in human-readable format
+- ✅ Built-in utilities - All system tools working correctly
+- ✅ CLI integration - Direct tool execution via CLI
+- ✅ Function calling - Tools properly registered and callable
+
+**External MCP Tools: 🔍 DISCOVERY PHASE**
+
+- ✅ Auto-discovery working - 58+ external servers found
+- ✅ Configuration parsing - Resilient JSON parser handles all formats
+- ✅ Cross-platform support - macOS, Linux, Windows configurations
+- 🔧 Tool activation - External servers discovered but in placeholder mode
+- 🔧 Communication protocol - Under active development for full activation
+
+### Current Working Examples
+
+```bash
+# ✅ Working: Test built-in tools
+neurolink generate-text "What time is it?" --debug
+neurolink generate-text "What tools do you have access to?" --debug
+
+# ✅ Working: Discover external MCP servers
+neurolink mcp discover --format table
+
+# ✅ Working: Build and test system
+npm run build && npm run test:run -- src/test/mcp-comprehensive.test.ts
+```
+
 ### MCP CLI Commands
 
 All MCP functionality is available through the NeuroLink CLI:
 
 ```bash
-# Server management
-neurolink mcp install <server>    # Install popular MCP servers
+# ✅ Working: Built-in tool testing
+neurolink generate-text "What time is it?" --debug
+
+# ✅ Working: Server discovery and management
+neurolink mcp discover [--format table|json|yaml]  # Auto-discover MCP servers
+neurolink mcp list [--status]     # List discovered servers with optional status
+
+# 🔧 In Development: Server management and execution
+neurolink mcp install <server>    # Install popular MCP servers (discovery phase)
 neurolink mcp add <name> <command> # Add custom MCP server
 neurolink mcp remove <server>     # Remove MCP server
-neurolink mcp list [--status]     # List configured servers with optional status
-
-# Server testing and interaction
 neurolink mcp test <server>       # Test server connectivity
 neurolink mcp tools <server>      # List available tools for server
 neurolink mcp execute <server> <tool> [args] # Execute specific tool

@@ -34,7 +34,7 @@ async function testNeuroLink() {
 
     // Test 4: Direct factory usage
     console.log("\n4️⃣ Testing direct factory usage...");
-    const factoryProvider = AIProviderFactory.createProvider("vertex");
+    const factoryProvider = await AIProviderFactory.createProvider("vertex");
     console.log("✅ Factory provider created successfully");
 
     console.log("\n🎉 All tests passed! NeuroLink is ready to use.");
