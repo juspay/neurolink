@@ -73,6 +73,27 @@ neurolink generate-text "Hello AI" --quiet
 - `--timeout <ms>` - Request timeout in milliseconds (default: 30000)
 - `--quiet` - Suppress spinners and progress indicators
 
+### `agent-generate <prompt>` - Agent-Based Generation
+
+Generate text with agent capabilities, including tool calling.
+
+```bash
+# Basic agent generation
+neurolink agent-generate "What time is it?"
+
+# With a different provider
+neurolink agent-generate "List files in the current directory" --provider openai
+
+# With a specific tool category
+neurolink agent-generate "Calculate the square root of 256" --toolCategory basic
+```
+
+**Available Options:**
+
+- `--provider <name>` - Choose provider: `google-ai` (default), `openai`, `anthropic`
+- `--model <name>` - Specify a model to use
+- `--toolCategory <category>` - Tool category: `basic`, `filesystem`, `utility`, `all` (default: all)
+
 **Output Example:**
 
 ```
@@ -174,6 +195,68 @@ neurolink batch prompts.txt --delay 2000
 ✅ 2/3 completed
 ✅ 3/3 completed
 ✅ Results saved to results.json
+```
+
+### `models` - Dynamic Model Management
+
+The dynamic model system provides intelligent model selection and cost optimization.
+
+```bash
+# List all available models with pricing
+neurolink models list
+
+# Search models by capability
+neurolink models search --capability function-calling
+neurolink models search --capability vision --max-price 0.001
+
+# Get best model for specific use case
+neurolink models best --use-case coding
+neurolink models best --use-case vision
+neurolink models best --use-case cheapest
+
+# Resolve model aliases
+neurolink models resolve anthropic claude-latest
+neurolink models resolve google fastest
+
+# Show model configuration server status
+neurolink models server-status
+
+# Test dynamic model integration
+neurolink generate-text "Hello" --model best-coding
+neurolink generate-text "Describe this" --capability vision --optimize-cost
+```
+
+**Available Options:**
+
+- `--capability <feature>` - Filter by capability (function-calling, vision, code-execution)
+- `--max-price <amount>` - Maximum price per 1K input tokens
+- `--provider <name>` - Filter by specific provider
+- `--exclude-deprecated` - Exclude deprecated models
+- `--format <type>` - Output format: 'table', 'json', 'csv' (default: table)
+- `--optimize-cost` - Automatically select cheapest suitable model
+- `--use-case <type>` - Find best model for: coding, analysis, vision, fastest, cheapest
+
+**Example Output:**
+
+```
+📊 Dynamic Model Inventory (Auto-Updated)
+
+┌─────────────┬──────────────────────┬────────────┬─────────────────────────────────┬──────────────┐
+│ Provider    │ Model                │ Input Cost │ Capabilities                    │ Status       │
+├─────────────┼──────────────────────┼────────────┼─────────────────────────────────┼──────────────┤
+│ google      │ gemini-2.0-flash     │ $0.000075  │ function-calling, vision, code  │ ✅ Active    │
+│ openai      │ gpt-4o-mini          │ $0.000150  │ function-calling, json-mode     │ ✅ Active    │
+│ anthropic   │ claude-3-haiku       │ $0.000250  │ function-calling                │ ✅ Active    │
+│ anthropic   │ claude-3-sonnet      │ $0.003000  │ function-calling, vision        │ ✅ Active    │
+│ openai      │ gpt-4o               │ $0.005000  │ function-calling, vision        │ ✅ Active    │
+│ anthropic   │ claude-3-opus        │ $0.015000  │ function-calling, vision, analysis │ ✅ Active │
+│ openai      │ gpt-4-turbo          │ $0.010000  │ function-calling, vision        │ ❌ Deprecated │
+└─────────────┴──────────────────────┴────────────┴─────────────────────────────────┴──────────────┘
+
+💰 Cost Range: $0.000075 - $0.015000 per 1K tokens (200x difference)
+🔍 Capabilities: 9 function-calling, 7 vision, 1 code-execution
+⚡ Cheapest: google/gemini-2.0-flash
+🏆 Most Capable: anthropic/claude-3-opus
 ```
 
 ### `status` - Provider Diagnostics
@@ -336,61 +419,192 @@ neurolink config validate
 neurolink config reset
 ```
 
+**Available Options:**
+
+- `--format <type>` - Output format: `table` (default), `json`, `yaml`, `summary`
+- `--include-inactive` - Include servers that may not be currently active
+- `--preferred-tools <tools>` - Prioritize specific tools (comma-separated)
+- `--workspace-only` - Search only workspace/project configurations
+- `--global-only` - Search only global configurations
+
+**Output Example:**
+
+```
+🔍 NeuroLink MCP Server Discovery
+✔ Discovery completed!
+
+📋 Found 29 MCP servers:
+────────────────────────────────────────
+
+1. 🤖 kite
+   Title: kite
+   Source: Claude Desktop (global)
+   Command: bash -c source ~/.nvm/nvm.sh && nvm exec 20 npx mcp-remote https://mcp.kite.trade/sse
+
+2. 🔧 github.com/modelcontextprotocol/servers/tree/main/src/puppeteer
+   Title: github.com/modelcontextprotocol/servers/tree/main/src/puppeteer
+   Source: Cline AI Coder (global)
+   Command: npx -y @modelcontextprotocol/server-puppeteer
+
+📊 Discovery Statistics:
+   Execution time: 15ms
+   Config files found: 5
+   Servers discovered: 29
+   Duplicates removed: 0
+
+🎯 Search Sources:
+   🤖 Claude Desktop: 1 location(s)
+   🏄 Windsurf: 1 location(s)
+   📝 VS Code: 1 location(s)
+   🔧 Cline AI Coder: 1 location(s)
+   ⚙️ Generic: 1 location(s)
+```
+
+**Supported Tools & Platforms:**
+
+✅ **Claude Desktop** - Global configuration discovery
+✅ **VS Code** - Global and workspace configurations
+✅ **Cursor** - Global and project configurations
+✅ **Windsurf (Codeium)** - Global configuration discovery
+✅ **Cline AI Coder** - Extension globalStorage discovery
+✅ **Continue Dev** - Global configuration discovery
+✅ **Aider** - Global configuration discovery
+✅ **Generic Configs** - Project-level MCP configurations
+
+**Resilient JSON Parser:**
+
+The discovery system includes a sophisticated JSON parser that handles common configuration file issues:
+
+✅ **Trailing Commas** - Automatically removes trailing commas
+✅ **JavaScript Comments** - Strips `//` and `/* */` comments
+✅ **Control Characters** - Fixes unescaped control characters
+✅ **Unquoted Keys** - Adds missing quotes to object keys
+✅ **Non-printable Characters** - Sanitizes problematic characters
+✅ **Multiple Repair Strategies** - Three-stage repair with graceful fallback
+
+### `discover` - Auto-Discover MCP Servers
+
+Automatically discover MCP server configurations from all major AI development tools on your system.
+
+```bash
+# Basic discovery with table output
+neurolink discover
+
+# Different output formats
+neurolink discover --format table
+neurolink discover --format json
+neurolink discover --format yaml
+neurolink discover --format summary
+```
+
+**Options:**
+
+- `--format <type>` - Output format: table, json, yaml, summary (default: table)
+- `--include-inactive` - Include servers that may not be currently active
+- `--preferred-tools <tools>` - Prioritize specific tools (comma-separated)
+- `--workspace-only` - Search only workspace/project configurations
+- `--global-only` - Search only global configurations
+
+**Output Example:**
+
+```
+🔍 NeuroLink MCP Server Discovery
+✔ Discovery completed!
+
+📋 Found 29 MCP servers:
+────────────────────────────────────────
+1. 🤖 kite
+   Title: kite
+   Source: Claude Desktop (global)
+   Command: bash -c source ~/.nvm/nvm.sh && nvm exec 20 npx mcp-remote https://mcp.kite.trade/sse
+
+2. 🔧 github.com/modelcontextprotocol/servers/tree/main/src/puppeteer
+   Title: github.com/modelcontextprotocol/servers/tree/main/src/puppeteer
+   Source: Cline AI Coder (global)
+   Command: npx -y @modelcontextprotocol/server-puppeteer
+
+📊 Discovery Statistics:
+   Execution time: 15ms
+   Config files found: 5
+   Servers discovered: 29
+   Duplicates removed: 0
+```
+
 ### `mcp` - Model Context Protocol Integration
 
 Manage external MCP servers for extended functionality. Connect to filesystem operations, GitHub integration, database access, and more through the growing MCP ecosystem.
 
+> **Status Update (v1.7.1):** Built-in tools are fully functional! External MCP server discovery is working (58+ servers found), with activation currently in development.
+
+#### ✅ Working Now: Built-in Tool Testing
+
+```bash
+# Test built-in time tool
+neurolink generate-text "What time is it?"
+
+# Test tool discovery
+neurolink generate-text "What tools do you have access to? List and categorize them."
+
+# Multi-tool integration test
+neurolink generate-text "Can you help me refactor some code? And what time is it right now?"
+```
+
 #### `mcp list` - List Configured Servers
 
 ```bash
-# List all configured MCP servers
+# List all discovered MCP servers (58+ found from all AI tools)
 neurolink mcp list
 
-# List with live connectivity status
+# List with live connectivity status (external activation in development)
 neurolink mcp list --status
 ```
 
-**Output Example:**
+**Current Output Example:**
 
 ```
-📋 Configured MCP servers (2):
+📋 Discovered MCP servers (58+ found):
 
 🔧 filesystem
    Command: npx -y @modelcontextprotocol/server-filesystem /
    Transport: stdio
-✔ filesystem: ✅ Available
+🔍 filesystem: Discovered (activation in development)
 
 🔧 github
    Command: npx @modelcontextprotocol/server-github
    Transport: stdio
-✖ github: ❌ Not available
+🔍 github: Discovered (activation in development)
+
+... (56+ more servers discovered)
 ```
 
-#### `mcp install` - Install Popular Servers
+#### `mcp install` - Install Popular Servers (Discovery Phase)
+
+> **Note:** Installation commands are available but servers are currently in discovery/placeholder mode. Full activation coming soon!
 
 ```bash
-# Install filesystem server for file operations
+# Install filesystem server for file operations (discovered but not yet activated)
 neurolink mcp install filesystem
 
-# Install GitHub server for repository management
+# Install GitHub server for repository management (discovered but not yet activated)
 neurolink mcp install github
 
-# Install PostgreSQL server for database operations
+# Install PostgreSQL server for database operations (discovered but not yet activated)
 neurolink mcp install postgres
 
-# Install browser automation server
+# Install browser automation server (discovered but not yet activated)
 neurolink mcp install puppeteer
 
-# Install web search server
+# Install web search server (discovered but not yet activated)
 neurolink mcp install brave-search
 ```
 
-**Output Example:**
+**Current Output Example:**
 
 ```
 📦 Installing MCP server: filesystem
-✅ Installed MCP server: filesystem
-💡 Test it with: neurolink mcp test filesystem
+🔍 Server discovered and configured
+💡 Note: Server activation in development - use built-in tools for now
+💡 Test built-in tools with: neurolink generate-text "What time is it?" --debug
 ```
 
 #### `mcp add` - Add Custom Servers
@@ -412,20 +626,34 @@ neurolink mcp add dbserver "npx db-server" --env '{"DB_URL": "postgresql://..."}
 neurolink mcp add localserver "python server.py" --cwd "/project/directory"
 ```
 
-#### `mcp test` - Test Server Connectivity
+#### `mcp test` - Test Server Connectivity (Development Phase)
+
+> **Current Status:** Built-in tools are fully testable! External server connectivity testing is under development.
 
 ```bash
-# Test specific server connectivity and discover tools
+# ✅ Working: Test built-in tools
+neurolink generate-text "What time is it?" --debug
+
+# 🔧 In Development: Test external server connectivity
 neurolink mcp test filesystem
 
-# Test all servers
+# 🔍 Working: List discovered servers
 neurolink mcp list --status
 ```
 
-**Output Example:**
+**Current Output Example (Built-in Tools):**
 
 ```
-🔍 Testing MCP server: filesystem
+✅ Built-in tool execution via AI:
+🕐 The current time is Friday, December 13, 2024 at 10:30:45 AM PST
+📋 Available tools: 5 built-in tools discovered
+🔧 External servers: 58+ discovered, activation in development
+```
+
+**Future Output Example (External Servers):**
+
+```
+🔧 Testing MCP server: filesystem (Coming Soon)
 
 ⠋ Connecting...⠙ Getting capabilities...⠹ Listing tools...
 ✔ ✅ Connection successful!
@@ -438,14 +666,7 @@ neurolink mcp list --status
    • read_file: Read file contents from filesystem
    • write_file: Create/overwrite files
    • edit_file: Make line-based edits
-   • create_directory: Create directories
-   • list_directory: List directory contents
-   • directory_tree: Get recursive tree view
-   • move_file: Move/rename files and directories
-   • search_files: Search for files by pattern
-   • get_file_info: Get file metadata
-   • list_allowed_directories: Show allowed paths
-   + 1 more tool...
+   // ...existing tools...
 ```
 
 #### `mcp remove` - Remove Servers
@@ -458,36 +679,31 @@ neurolink mcp remove old-server
 neurolink mcp remove server1 server2 server3
 ```
 
-#### `mcp exec` - Execute Tools
+#### `mcp exec` - Execute Tools (Development Phase)
+
+> **Current Status:** Built-in tools work via AI generation! Direct external tool execution is under development.
 
 ```bash
-# Execute tool from MCP server
+# ✅ Working Now: Built-in tools via AI generation
+neurolink generate-text "What time is it?" --debug
+neurolink generate-text "What tools do you have access to?" --debug
+
+# 🔧 Coming Soon: Direct external tool execution
 neurolink mcp exec filesystem read_file --params '{"path": "README.md"}'
-
-# Execute GitHub tool
 neurolink mcp exec github create_issue --params '{"owner": "juspay", "repo": "neurolink", "title": "Bug report", "body": "Description"}'
-
-# Execute database query
 neurolink mcp exec postgres execute_query --params '{"query": "SELECT * FROM users LIMIT 10"}'
-
-# Execute directory listing
 neurolink mcp exec filesystem list_directory --params '{"path": "."}'
-
-# Execute web operations
 neurolink mcp exec puppeteer navigate --params '{"url": "https://example.com"}'
 neurolink mcp exec puppeteer screenshot --params '{"name": "homepage"}'
 ```
 
-**Output Example:**
+**Current Working Output (Built-in Tools):**
 
 ```
-🔧 Executing tool: read_file on server: filesystem
-✔ ✅ Tool executed successfully!
-
-📋 Result:
-# 🧠 NeuroLink
-[![NPM Version](https://img.shields.io/npm/v/@juspay/neurolink)]...
-[complete file contents displayed]
+✅ Built-in tool execution via AI:
+🕐 The current time is Friday, December 13, 2024 at 10:30:45 AM PST
+📋 Available tools: 5 built-in tools discovered
+🔧 External servers: 58+ discovered, activation in development
 ```
 
 ### MCP Command Options

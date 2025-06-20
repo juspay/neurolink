@@ -56,3 +56,20 @@ docs/cli-recordings/working/
 # Temporary automation files
 create-*.temp.js
 cli-automation-*.temp.js
+
+# Debug and temporary files (prevent future clutter)
+debug-*.js
+test-*.js
+test-*.mjs
+test-*.ts
+final-*.js
+validate-*.js
+quick-test.js
+
+# JSON output files
+*-validation-*.json
+test-output.json
+*-success-report.json
+
+# Package lock duplicates (use pnpm only)
+package-lock.json

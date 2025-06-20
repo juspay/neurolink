@@ -61,22 +61,95 @@ npx @juspay/neurolink status
 ## ✨ Key Features
 
 - 🔄 **9 AI Providers** - OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure, Hugging Face, Ollama, Mistral AI
+- ⚡ **Dynamic Model System** - Self-updating model configurations without code changes
+- 💰 **Cost Optimization** - Automatic selection of cheapest models for tasks
+- 🔍 **Smart Model Resolution** - Fuzzy matching, aliases, and capability-based search
 - ⚡ **Automatic Fallback** - Never fail when providers are down
 - 🖥️ **CLI + SDK** - Use from command line or integrate programmatically
 - 🛡️ **Production Ready** - TypeScript, error handling, extracted from production
-- 🔧 **MCP Integration** - Model Context Protocol support for extensibility
+- ✅ **MCP Integration** - Model Context Protocol with working built-in tools and 58+ external servers
+- 🔍 **MCP Auto-Discovery** - Zero-config discovery across VS Code, Claude, Cursor, Windsurf
+- ⚙️ **Built-in Tools** - Time, date calculations, and number formatting ready to use
 - 🤖 **AI Analysis Tools** - Built-in optimization and workflow assistance
 - 🏠 **Local AI Support** - Run completely offline with Ollama
 - 🌍 **Open Source Models** - Access 100,000+ models via Hugging Face
 - 🇪🇺 **GDPR Compliance** - European data processing with Mistral AI
+
+## 🛠️ MCP Integration Status (v1.7.1)
+
+| Component           | Status             | Description                                         |
+| ------------------- | ------------------ | --------------------------------------------------- |
+| Built-in Tools      | ✅ **Working**     | Time tool, utilities - fully functional             |
+| External Discovery  | ✅ **Working**     | 58+ MCP servers auto-discovered from all AI tools   |
+| Tool Execution      | ✅ **Working**     | Real-time AI tool calling with built-in tools       |
+| External Activation | 🔧 **Development** | Discovery complete, activation protocol in progress |
+
+### ✅ Quick MCP Test (v1.7.1)
+
+```bash
+# Test built-in tools (works immediately)
+npx @juspay/neurolink generate-text "What time is it?" --debug
+# Returns: "The current time is Friday, December 13, 2024 at 10:30:45 AM PST"
+
+# Test tool discovery
+npx @juspay/neurolink generate-text "What tools do you have access to?" --debug
+# AI will list 5+ built-in tools and 58+ discovered external servers
+
+# Test external server discovery
+npx @juspay/neurolink mcp discover --format table
+# Shows all discovered MCP servers from Claude, VS Code, Cursor, etc.
+```
+
+## ⚡ Dynamic Model System (v1.8.0)
+
+NeuroLink now features a revolutionary dynamic model configuration system that eliminates hardcoded model lists and enables automatic cost optimization.
+
+### ✅ Key Benefits
+
+- **🔄 Self-Updating**: New models automatically available without code updates
+- **💰 Cost-Optimized**: Automatic selection of cheapest models for tasks
+- **🔍 Smart Search**: Find models by capabilities (function-calling, vision, etc.)
+- **🏷️ Alias Support**: Use friendly names like "claude-latest" or "best-coding"
+- **📊 Real-Time Pricing**: Always current model costs and performance data
+
+### 🚀 Quick Examples
+
+```bash
+# Cost optimization - automatically use cheapest model
+npx @juspay/neurolink generate-text "Hello" --optimize-cost
+
+# Capability search - find models with specific features
+npx @juspay/neurolink generate-text "Describe this image" --capability vision
+
+# Model aliases - use friendly names
+npx @juspay/neurolink generate-text "Write code" --model best-coding
+
+# Test dynamic model server
+npm run model-server  # Starts config server on localhost:3001
+npm run test:dynamic-models  # Comprehensive test suite
+```
+
+### 📊 Current Model Inventory (Auto-Updated)
+
+- **10 active models** across 4 providers
+- **Cheapest**: Gemini 2.0 Flash ($0.000075/1K tokens)
+- **Most capable**: Claude 3 Opus (function-calling + vision + analysis)
+- **Best for coding**: Claude 3 Opus, Gemini 2.0 Flash
+- **1 deprecated model** automatically excluded
+
+**[📖 Complete Dynamic Models Guide](./docs/DYNAMIC-MODELS.md)** - Setup, configuration, and advanced usage
 
 ## 💻 Essential Examples
 
 ### CLI Commands
 
 ```bash
-# Text generation with provider selection
-npx @juspay/neurolink generate-text "Explain quantum computing" --provider openai
+# Text generation with automatic MCP tool detection (default)
+npx @juspay/neurolink generate-text "What time is it?"
+# AI automatically uses time tool for real-time data
+
+# Disable tools for training-data-only responses
+npx @juspay/neurolink generate-text "What time is it?" --disable-tools
 
 # Real-time streaming
 npx @juspay/neurolink stream "Tell me a story about robots"
@@ -151,6 +224,7 @@ cd neurolink-demo && node server.js
 ### Advanced Features
 
 - **[🔄 MCP Foundation](./docs/MCP-FOUNDATION.md)** - Model Context Protocol architecture
+- **[⚡ Dynamic Models](./docs/DYNAMIC-MODELS.md)** - Self-updating model configurations and cost optimization
 - **[🧠 AI Analysis Tools](./docs/AI-ANALYSIS-TOOLS.md)** - Usage optimization and benchmarking
 - **[🛠️ AI Workflow Tools](./docs/AI-WORKFLOW-TOOLS.md)** - Development lifecycle assistance
 - **[🎬 Visual Demos](./docs/VISUAL-DEMOS.md)** - Screenshots and videos

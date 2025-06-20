@@ -40,6 +40,7 @@ This directory contains all organized documentation, visual content, and develop
 ### 🔧 MCP Documentation
 
 - **MCP-INTEGRATION.md** - Complete MCP server setup and configuration guide
+- **MCP-CONFIGURATION-LOCATIONS.md** - Where different AI tools store MCP configurations
 - **MCP-TESTING-GUIDE.md** - MCP testing strategies and validation
 - **CLI-GUIDE.md** - MCP CLI commands and server management
 - **MCP-DOCUMENTATION-MASTER-PLAN.md** - Comprehensive MCP documentation roadmap

@@ -33,7 +33,7 @@ const getGoogleAIApiKey = (): string => {
 };
 
 const getGoogleAIModelId = (): string => {
-  return process.env.GOOGLE_AI_MODEL || "gemini-1.5-pro-latest";
+  return process.env.GOOGLE_AI_MODEL || "gemini-2.5-pro";
 };
 
 const hasValidAuth = (): boolean => {
@@ -91,15 +91,23 @@ export class GoogleAIStudio implements AIProvider {
 
   /**
    * Gets the appropriate model instance
-   * @private
+   * Made public to support FunctionCallingProvider integration
    */
-  private getModel(): LanguageModelV1 {
+  public getModel(): LanguageModelV1 {
     logger.debug("GoogleAIStudio.getModel - Google AI model selected", {
       modelName: this.modelName,
     });
 
     const google = getGoogleInstance();
     return google(this.modelName);
+  }
+
+  /**
+   * Expose model property for FunctionCallingProvider
+   * This allows the enhanced provider to access the underlying model
+   */
+  public get model(): LanguageModelV1 {
+    return this.getModel();
   }
 
   /**
@@ -129,6 +137,7 @@ export class GoogleAIStudio implements AIProvider {
         maxTokens = 500,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
         schema,
+        tools,
       } = options;
 
       // Use schema from options or fallback parameter
@@ -141,6 +150,8 @@ export class GoogleAIStudio implements AIProvider {
         temperature,
         maxTokens,
         hasSchema: !!finalSchema,
+        hasTools: !!tools,
+        toolCount: tools ? Object.keys(tools).length : 0,
       });
 
       const model = this.getModel();
@@ -151,6 +162,7 @@ export class GoogleAIStudio implements AIProvider {
         system: systemPrompt,
         temperature,
         maxTokens,
+        ...(tools && { tools }), // Add tools if provided
 
         onError: (event: { error: unknown }) => {
           const error = event.error;
@@ -245,6 +257,7 @@ export class GoogleAIStudio implements AIProvider {
         maxTokens = 500,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
         schema,
+        tools,
       } = options;
 
       // Use schema from options or fallback parameter
@@ -256,6 +269,8 @@ export class GoogleAIStudio implements AIProvider {
         promptLength: prompt.length,
         temperature,
         maxTokens,
+        hasTools: !!tools,
+        toolCount: tools ? Object.keys(tools).length : 0,
       });
 
       const model = this.getModel();
@@ -266,6 +281,10 @@ export class GoogleAIStudio implements AIProvider {
         system: systemPrompt,
         temperature,
         maxTokens,
+        ...(tools && {
+          tools,
+          maxSteps: 5, // Allow multiple steps for tool execution and response generation
+        }), // Add tools if provided
       } as Parameters<typeof generateText>[0];
 
       if (finalSchema) {

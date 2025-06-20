@@ -9,8 +9,21 @@ import type { Argv } from "yargs";
 import ora from "ora";
 import chalk from "chalk";
 import fs from "fs";
-import { spawn, execSync } from "child_process";
+import { spawn } from "child_process";
 import path from "path";
+import { discoverMCPServers } from "../../lib/mcp/auto-discovery.js";
+import {
+  defaultUnifiedRegistry,
+  type UnifiedExecutionOptions,
+} from "../../lib/mcp/unified-registry.js";
+import { ContextManager } from "../../lib/mcp/context-manager.js";
+import type { DiscoveryOptions } from "../../lib/mcp/auto-discovery.js";
+import { initializeNeuroLinkMCP } from "../../lib/mcp/initialize.js";
+import {
+  mcpLogger,
+  setGlobalMCPLogLevel,
+  LogLevel,
+} from "../../lib/mcp/logging.js";
 
 // MCP Server Configuration
 interface MCPServerConfig {
@@ -357,6 +370,258 @@ async function executeMCPTool(
   }
 
   throw new Error("SSE transport not yet implemented for tool execution");
+}
+
+/**
+ * Display discovery results in table format
+ */
+function displayTable(discoveryResult: any) {
+  console.log(
+    chalk.green(`\n📋 Found ${discoveryResult.discovered.length} MCP servers:`),
+  );
+  console.log(chalk.gray("─".repeat(80)));
+
+  discoveryResult.discovered.forEach((server: any, index: number) => {
+    const sourceIcon = getSourceIcon(server.source.tool);
+    const typeColor =
+      server.source.type === "global"
+        ? chalk.blue
+        : server.source.type === "workspace"
+          ? chalk.green
+          : chalk.gray;
+
+    console.log(
+      `${chalk.white(`${index + 1}.`)} ${sourceIcon} ${chalk.cyan(server.id)}`,
+    );
+    console.log(`   ${chalk.gray("Title:")} ${server.title}`);
+    console.log(
+      `   ${chalk.gray("Source:")} ${server.source.tool} ${typeColor(`(${server.source.type})`)}`,
+    );
+    console.log(
+      `   ${chalk.gray("Command:")} ${server.command} ${server.args?.join(" ") || ""}`,
+    );
+    console.log(`   ${chalk.gray("Config:")} ${server.configPath}`);
+
+    if (server.env && Object.keys(server.env).length > 0) {
+      console.log(
+        `   ${chalk.gray("Environment:")} ${Object.keys(server.env).length} variable(s)`,
+      );
+    }
+
+    console.log();
+  });
+
+  // Display statistics
+  console.log(chalk.blue("📊 Discovery Statistics:"));
+  console.log(
+    `   ${chalk.gray("Execution time:")} ${discoveryResult.stats.executionTime}ms`,
+  );
+  console.log(
+    `   ${chalk.gray("Config files found:")} ${discoveryResult.stats.configFilesFound}`,
+  );
+  console.log(
+    `   ${chalk.gray("Servers discovered:")} ${discoveryResult.stats.serversDiscovered}`,
+  );
+  console.log(
+    `   ${chalk.gray("Duplicates removed:")} ${discoveryResult.stats.duplicatesRemoved}`,
+  );
+
+  // Display sources
+  if (discoveryResult.sources.length > 0) {
+    console.log(chalk.blue("\n🎯 Search Sources:"));
+    const sourcesByTool = discoveryResult.sources.reduce(
+      (acc: any, source: any) => {
+        acc[source.tool] = (acc[source.tool] || 0) + 1;
+        return acc;
+      },
+      {},
+    );
+
+    Object.entries(sourcesByTool).forEach(([tool, count]) => {
+      const icon = getSourceIcon(tool);
+      console.log(`   ${icon} ${tool}: ${count} location(s)`);
+    });
+  }
+}
+
+/**
+ * Display discovery results in summary format
+ */
+function displaySummary(discoveryResult: any) {
+  console.log(chalk.green(`\n📊 Discovery Summary`));
+  console.log(chalk.gray("==================="));
+
+  console.log(
+    `${chalk.cyan("Total servers found:")} ${discoveryResult.discovered.length}`,
+  );
+  console.log(
+    `${chalk.cyan("Execution time:")} ${discoveryResult.stats.executionTime}ms`,
+  );
+  console.log(
+    `${chalk.cyan("Config files found:")} ${discoveryResult.stats.configFilesFound}`,
+  );
+  console.log(
+    `${chalk.cyan("Duplicates removed:")} ${discoveryResult.stats.duplicatesRemoved}`,
+  );
+
+  // Group by source tool
+  const serversByTool = discoveryResult.discovered.reduce(
+    (acc: any, server: any) => {
+      const tool = server.source.tool;
+      acc[tool] = (acc[tool] || 0) + 1;
+      return acc;
+    },
+    {},
+  );
+
+  if (Object.keys(serversByTool).length > 0) {
+    console.log(chalk.blue("\n🔧 Servers by Tool:"));
+    Object.entries(serversByTool).forEach(([tool, count]) => {
+      const icon = getSourceIcon(tool);
+      console.log(`   ${icon} ${tool}: ${count} server(s)`);
+    });
+  }
+
+  // Group by type
+  const serversByType = discoveryResult.discovered.reduce(
+    (acc: any, server: any) => {
+      const type = server.source.type;
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    },
+    {},
+  );
+
+  if (Object.keys(serversByType).length > 0) {
+    console.log(chalk.blue("\n📍 Servers by Type:"));
+    Object.entries(serversByType).forEach(([type, count]) => {
+      const typeColor =
+        type === "global"
+          ? chalk.blue
+          : type === "workspace"
+            ? chalk.green
+            : chalk.gray;
+      console.log(`   ${typeColor(`${type}:`)} ${count} server(s)`);
+    });
+  }
+}
+
+/**
+ * Get icon for source tool
+ */
+function getSourceIcon(tool: string): string {
+  const icons: Record<string, string> = {
+    "Claude Desktop": "🤖",
+    "VS Code": "📝",
+    Cursor: "🖱️",
+    Windsurf: "🏄",
+    "Roo Code": "🦘",
+    Generic: "⚙️",
+    "Cline AI Coder": "🔧",
+    "Continue Dev": "🔄",
+    Aider: "🛠️",
+  };
+
+  return icons[tool] || "🔧";
+}
+
+/**
+ * Get icon for source type
+ */
+function getSourceTypeIcon(sourceType: string): string {
+  const icons: Record<string, string> = {
+    manual: "📝",
+    auto: "🔍",
+    default: "⚙️",
+  };
+
+  return icons[sourceType] || "❓";
+}
+
+/**
+ * Get icon for server status
+ */
+function getStatusIcon(status: string): string {
+  const icons: Record<string, string> = {
+    available: "✅",
+    unavailable: "❌",
+    unknown: "❓",
+  };
+
+  return icons[status] || "❓";
+}
+
+// Export the tool execution function for use in other parts of the CLI
+export async function mcpExecuteTool(
+  serverName: string,
+  toolName: string,
+  toolParams: any,
+): Promise<any> {
+  // First try unified registry (includes built-in NeuroLink servers)
+  try {
+    await defaultUnifiedRegistry.initialize();
+
+    const contextManager = new ContextManager();
+    const context = contextManager.createContext({
+      sessionId: `cli-${Date.now()}`,
+      userId: "cli-user",
+      aiProvider: "unified-mcp",
+    });
+
+    const result = await defaultUnifiedRegistry.executeTool(
+      toolName,
+      toolParams,
+      context,
+      {
+        preferredSource: "default", // Try built-in servers first
+        fallbackEnabled: true,
+        validateBeforeExecution: true,
+        timeoutMs: 30000,
+      },
+    );
+
+    if (result.success) {
+      return result.data;
+    }
+  } catch (error) {
+    mcpLogger.debug(
+      "[mcpExecuteTool] Unified registry failed, trying manual config:",
+      {
+        error: error instanceof Error ? error.message : String(error),
+        serverName,
+        toolName: toolName,
+      },
+    );
+  }
+
+  // Fallback to manual configuration (legacy behavior)
+  const config = loadMCPConfig();
+  const serverConfig = config.mcpServers[serverName];
+
+  if (!serverConfig) {
+    throw new Error(`MCP server '${serverName}' not found`);
+  }
+
+  const result = await executeMCPTool(serverConfig, toolName, toolParams);
+
+  mcpLogger.debug("[mcpExecuteTool] Tool executed via manual config:", {
+    serverName,
+    toolName,
+    hasResult: !!result,
+    resultType: typeof result,
+  });
+
+  // Extract the text content from MCP result format
+  if (result.content && Array.isArray(result.content)) {
+    const textContent = result.content.find(
+      (item: any) => item.type === "text",
+    );
+    if (textContent) {
+      return JSON.parse(textContent.text);
+    }
+  }
+
+  return result;
 }
 
 // MCP Commands for yargs
@@ -776,8 +1041,581 @@ export function addMCPCommands(yargs: Argv): Argv {
           },
         )
 
+        // Enhanced unified list command
+        .command(
+          "list-all",
+          "List servers from all sources (manual + auto + default)",
+          (y) =>
+            y
+              .usage("Usage: $0 mcp list-all [options]")
+              .option("source", {
+                type: "string",
+                choices: ["manual", "auto", "default", "all"],
+                default: "all",
+                description: "Filter by source type",
+              })
+              .option("format", {
+                type: "string",
+                choices: ["table", "json"],
+                default: "table",
+                description: "Output format",
+              })
+              .option("refresh", {
+                type: "boolean",
+                description: "Force refresh auto-discovery cache",
+              })
+              .example("$0 mcp list-all", "List all servers from all sources")
+              .example(
+                "$0 mcp list-all --source auto",
+                "List only auto-discovered servers",
+              )
+              .example(
+                "$0 mcp list-all --refresh",
+                "Refresh auto-discovery and list all",
+              ),
+          async (argv) => {
+            console.log(chalk.blue("🌐 NeuroLink Unified MCP Registry"));
+            console.log(chalk.gray("==================================="));
+
+            const spinner = ora("Initializing NeuroLink MCP...").start();
+
+            try {
+              // Initialize built-in NeuroLink servers first
+              await initializeNeuroLinkMCP();
+
+              // Initialize unified registry
+              spinner.text = "Initializing unified registry...";
+              await defaultUnifiedRegistry.initialize();
+
+              // Force refresh if requested
+              if (argv.refresh) {
+                spinner.text = "Refreshing auto-discovery...";
+                await defaultUnifiedRegistry.refreshAutoDiscovery();
+              }
+
+              spinner.succeed(chalk.green("Registry initialized!"));
+
+              // Get servers based on source filter
+              const servers = defaultUnifiedRegistry.listAllServers();
+              const filteredServers =
+                argv.source === "all"
+                  ? servers
+                  : servers.filter((s) => s.source.type === argv.source);
+
+              if (filteredServers.length === 0) {
+                console.log(
+                  chalk.yellow(
+                    `\n📭 No servers found from source: ${argv.source}`,
+                  ),
+                );
+                return;
+              }
+
+              if (argv.format === "json") {
+                console.log(JSON.stringify(filteredServers, null, 2));
+                return;
+              }
+
+              // Table format
+              console.log(
+                chalk.green(`\n📋 Found ${filteredServers.length} servers:`),
+              );
+              console.log(chalk.gray("─".repeat(80)));
+
+              filteredServers.forEach((server, index) => {
+                const sourceIcon = getSourceTypeIcon(server.source.type);
+                const priorityColor =
+                  server.source.priority >= 9
+                    ? chalk.green
+                    : server.source.priority >= 7
+                      ? chalk.yellow
+                      : chalk.gray;
+
+                console.log(
+                  `${chalk.white(`${index + 1}.`)} ${sourceIcon} ${chalk.cyan(server.id)}`,
+                );
+                console.log(
+                  `   ${chalk.gray("Source:")} ${server.source.type} ${priorityColor(`(priority: ${server.source.priority})`)}`,
+                );
+                console.log(
+                  `   ${chalk.gray("Status:")} ${getStatusIcon(server.status)} ${server.status}`,
+                );
+
+                if (server.config) {
+                  console.log(
+                    `   ${chalk.gray("Command:")} ${server.config.command} ${server.config.args?.join(" ") || ""}`,
+                  );
+                }
+
+                if (server.source.metadata) {
+                  const metadata = server.source.metadata;
+                  if (metadata.configPath) {
+                    console.log(
+                      `   ${chalk.gray("Config:")} ${metadata.configPath}`,
+                    );
+                  }
+                  if (metadata.toolCount) {
+                    console.log(
+                      `   ${chalk.gray("Tools:")} ${metadata.toolCount}`,
+                    );
+                  }
+                }
+
+                console.log();
+              });
+
+              // Display statistics
+              const stats = defaultUnifiedRegistry.getStats();
+              console.log(chalk.blue("📊 Registry Statistics:"));
+              console.log(
+                `   ${chalk.gray("Manual servers:")} ${stats.manual.servers}`,
+              );
+              console.log(
+                `   ${chalk.gray("Auto-discovered:")} ${stats.auto.servers}`,
+              );
+              console.log(
+                `   ${chalk.gray("Default registry:")} ${stats.default.servers}`,
+              );
+              console.log(
+                `   ${chalk.gray("Total tools:")} ${stats.total.tools}`,
+              );
+            } catch (error) {
+              spinner.fail(chalk.red("Registry initialization failed"));
+              console.error(
+                chalk.red(
+                  `Error: ${error instanceof Error ? error.message : String(error)}`,
+                ),
+              );
+              process.exit(1);
+            }
+          },
+        )
+
+        // Enhanced tool execution with unified registry
+        .command(
+          "run <tool>",
+          "Execute a tool using unified registry (auto-fallback)",
+          (y) =>
+            y
+              .usage("Usage: $0 mcp run <tool> [options]")
+              .positional("tool", {
+                type: "string",
+                description: "Tool name to execute",
+                demandOption: true,
+              })
+              .option("params", {
+                type: "string",
+                description: "Tool parameters (JSON)",
+              })
+              .option("source", {
+                type: "string",
+                choices: ["manual", "auto", "default"],
+                description: "Preferred source (with fallback)",
+              })
+              .option("no-fallback", {
+                type: "boolean",
+                description: "Disable fallback to other sources",
+              })
+              .example(
+                '$0 mcp run generate-text --params \'{"prompt": "Hello world"}\'',
+                "Run tool with fallback",
+              )
+              .example(
+                '$0 mcp run read_file --params \'{"path": "README.md"}\' --source manual',
+                "Prefer manual config",
+              ),
+          async (argv) => {
+            console.log(chalk.blue(`🚀 Executing tool: ${argv.tool}`));
+
+            const spinner = ora("Initializing NeuroLink MCP...").start();
+
+            try {
+              // Initialize built-in NeuroLink servers first
+              await initializeNeuroLinkMCP();
+
+              // Initialize unified registry
+              spinner.text = "Initializing unified registry...";
+              await defaultUnifiedRegistry.initialize();
+
+              let params = {};
+              if (argv.params) {
+                try {
+                  params = JSON.parse(argv.params);
+                } catch (error) {
+                  spinner.fail(chalk.red("❌ Invalid JSON for parameters"));
+                  process.exit(1);
+                }
+              }
+
+              // Create execution context
+              const contextManager = new ContextManager();
+              const context = contextManager.createContext({
+                sessionId: `cli-${Date.now()}`,
+                userId: "cli-user",
+                aiProvider: "unified-mcp",
+              });
+
+              const executionOptions: UnifiedExecutionOptions = {
+                preferredSource: argv.source as any,
+                fallbackEnabled: !argv["no-fallback"],
+                validateBeforeExecution: true,
+                timeoutMs: 30000,
+              };
+
+              spinner.text = "Executing tool...";
+              const result = await defaultUnifiedRegistry.executeTool(
+                argv.tool as string,
+                params,
+                context,
+                executionOptions,
+              );
+
+              if (result.success) {
+                spinner.succeed(chalk.green("✅ Tool executed successfully!"));
+
+                console.log(chalk.blue("\n📋 Result:"));
+                if (result.data) {
+                  console.log(JSON.stringify(result.data, null, 2));
+                } else {
+                  console.log("No data returned");
+                }
+
+                if (result.metadata) {
+                  console.log(chalk.gray("\n🔧 Execution Details:"));
+                  console.log(`   Tool: ${result.metadata.toolName}`);
+                  console.log(
+                    `   Server: ${result.metadata.serverId || "unknown"}`,
+                  );
+                  console.log(
+                    `   Execution time: ${result.metadata.executionTime}ms`,
+                  );
+                  console.log(`   Session: ${result.metadata.sessionId}`);
+                }
+              } else {
+                spinner.fail(chalk.red("❌ Tool execution failed"));
+                console.error(chalk.red(`Error: ${result.error}`));
+                process.exit(1);
+              }
+            } catch (error) {
+              spinner.fail(chalk.red("❌ Execution failed"));
+              console.error(
+                chalk.red(
+                  `Error: ${error instanceof Error ? error.message : String(error)}`,
+                ),
+              );
+              process.exit(1);
+            }
+          },
+        )
+
+        // Configuration management commands
+        .command(
+          "config <action>",
+          "Manage unified registry configuration",
+          (y) =>
+            y
+              .usage("Usage: $0 mcp config <action> [options]")
+              .command("show", "Show current configuration", {}, async () => {
+                try {
+                  await defaultUnifiedRegistry.initialize();
+                  const config = defaultUnifiedRegistry.getConfig();
+
+                  console.log(chalk.blue("🔧 Unified Registry Configuration"));
+                  console.log(chalk.gray("================================"));
+                  console.log(JSON.stringify(config, null, 2));
+                } catch (error) {
+                  console.error(
+                    chalk.red(
+                      `Error: ${error instanceof Error ? error.message : String(error)}`,
+                    ),
+                  );
+                  process.exit(1);
+                }
+              })
+              .command(
+                "enable-auto-discovery",
+                "Enable auto-discovery",
+                {},
+                async () => {
+                  try {
+                    await defaultUnifiedRegistry.initialize();
+                    defaultUnifiedRegistry.updateAutoDiscoveryConfig({
+                      enabled: true,
+                    });
+                    console.log(chalk.green("✅ Auto-discovery enabled"));
+                  } catch (error) {
+                    console.error(
+                      chalk.red(
+                        `Error: ${error instanceof Error ? error.message : String(error)}`,
+                      ),
+                    );
+                    process.exit(1);
+                  }
+                },
+              )
+              .command(
+                "disable-auto-discovery",
+                "Disable auto-discovery",
+                {},
+                async () => {
+                  try {
+                    await defaultUnifiedRegistry.initialize();
+                    defaultUnifiedRegistry.updateAutoDiscoveryConfig({
+                      enabled: false,
+                    });
+                    console.log(chalk.green("✅ Auto-discovery disabled"));
+                  } catch (error) {
+                    console.error(
+                      chalk.red(
+                        `Error: ${error instanceof Error ? error.message : String(error)}`,
+                      ),
+                    );
+                    process.exit(1);
+                  }
+                },
+              )
+              .command(
+                "set-sources <sources>",
+                "Set preferred auto-discovery sources",
+                (y) =>
+                  y.positional("sources", {
+                    type: "string",
+                    description: "Comma-separated source list",
+                    demandOption: true,
+                  }),
+                async (argv) => {
+                  try {
+                    await defaultUnifiedRegistry.initialize();
+                    const sources = (argv.sources as string)
+                      .split(",")
+                      .map((s) => s.trim());
+                    defaultUnifiedRegistry.updateAutoDiscoveryConfig({
+                      sources,
+                    });
+                    console.log(
+                      chalk.green(
+                        `✅ Updated preferred sources: ${sources.join(", ")}`,
+                      ),
+                    );
+                  } catch (error) {
+                    console.error(
+                      chalk.red(
+                        `Error: ${error instanceof Error ? error.message : String(error)}`,
+                      ),
+                    );
+                    process.exit(1);
+                  }
+                },
+              )
+              .command(
+                "set-log-level <level>",
+                "Set MCP logging verbosity",
+                (y) =>
+                  y.positional("level", {
+                    type: "string",
+                    choices: ["silent", "error", "warn", "info", "debug"],
+                    description: "Log level to set",
+                    demandOption: true,
+                  }),
+                async (argv) => {
+                  try {
+                    const level = argv.level as string;
+                    const logLevel =
+                      level === "silent"
+                        ? LogLevel.SILENT
+                        : level === "error"
+                          ? LogLevel.ERROR
+                          : level === "warn"
+                            ? LogLevel.WARN
+                            : level === "info"
+                              ? LogLevel.INFO
+                              : LogLevel.DEBUG;
+
+                    setGlobalMCPLogLevel(logLevel);
+                    console.log(
+                      chalk.green(`✅ MCP log level set to: ${level}`),
+                    );
+                    console.log(
+                      chalk.gray(
+                        "This affects auto-discovery, registry operations, and tool execution logging",
+                      ),
+                    );
+                  } catch (error) {
+                    console.error(
+                      chalk.red(
+                        `Error: ${error instanceof Error ? error.message : String(error)}`,
+                      ),
+                    );
+                    process.exit(1);
+                  }
+                },
+              )
+              .example("$0 mcp config show", "Show current configuration")
+              .example(
+                "$0 mcp config enable-auto-discovery",
+                "Enable auto-discovery",
+              )
+              .example(
+                '$0 mcp config set-sources "claude,vscode,cursor"',
+                "Set preferred sources",
+              )
+              .example(
+                "$0 mcp config set-log-level debug",
+                "Enable debug logging for troubleshooting",
+              ),
+        )
+
+        // Discover MCP servers from all AI tools
+        .command(
+          ["discover [options]", "d [options]"],
+          "Discover MCP servers from all AI development tools",
+          (y) =>
+            y
+              .usage("Usage: $0 mcp discover [options]")
+              .option("format", {
+                alias: "f",
+                type: "string",
+                choices: ["table", "json", "yaml", "summary"],
+                default: "table",
+                description: "Output format",
+              })
+              .option("include-inactive", {
+                type: "boolean",
+                default: true,
+                description: "Include servers that may not be currently active",
+              })
+              .option("preferred-tools", {
+                type: "string",
+                description: "Prioritize specific tools (comma-separated)",
+              })
+              .option("workspace-only", {
+                type: "boolean",
+                description: "Search only workspace/project configurations",
+              })
+              .option("global-only", {
+                type: "boolean",
+                description: "Search only global configurations",
+              })
+              .example("$0 mcp discover", "Discover all MCP servers")
+              .example("$0 mcp d --format json", "Export as JSON (using alias)")
+              .example(
+                '$0 mcp discover --preferred-tools "claude,cursor"',
+                "Prioritize specific tools",
+              ),
+          async (argv) => {
+            console.log(chalk.blue("🔍 NeuroLink MCP Server Discovery"));
+            console.log(chalk.gray("====================================="));
+
+            const options: DiscoveryOptions = {
+              searchGlobal: !argv["workspace-only"],
+              searchWorkspace: !argv["global-only"],
+              searchCommonPaths: true,
+              includeInactive: argv["include-inactive"] as boolean,
+              preferredTools: argv["preferred-tools"]
+                ? (argv["preferred-tools"] as string)
+                    .split(",")
+                    .map((t) => t.trim())
+                : [],
+            };
+
+            const spinner = ora("Discovering MCP servers...").start();
+
+            try {
+              mcpLogger.debug("[MCP Discovery] Starting server discovery:", {
+                searchGlobal: options.searchGlobal,
+                searchWorkspace: options.searchWorkspace,
+                includeInactive: options.includeInactive,
+                preferredTools: options.preferredTools,
+              });
+
+              const discoveryResult = await discoverMCPServers(options);
+
+              mcpLogger.info("[MCP Discovery] Discovery completed:", {
+                serversFound: discoveryResult.discovered.length,
+                executionTime: discoveryResult.stats.executionTime,
+                configFilesFound: discoveryResult.stats.configFilesFound,
+                duplicatesRemoved: discoveryResult.stats.duplicatesRemoved,
+              });
+
+              spinner.succeed(chalk.green("Discovery completed!"));
+
+              if (discoveryResult.discovered.length === 0) {
+                console.log(chalk.yellow("\n📭 No MCP servers found"));
+                console.log(chalk.gray("\n💡 Tips for finding MCP servers:"));
+                console.log(
+                  chalk.gray(
+                    "  • Make sure you have Claude Desktop, VS Code, or Cursor with MCP configurations",
+                  ),
+                );
+                console.log(
+                  chalk.gray(
+                    "  • Check that MCP configuration files exist in their expected locations",
+                  ),
+                );
+                console.log(
+                  chalk.gray(
+                    "  • Run with 'neurolink mcp discover' to search all locations",
+                  ),
+                );
+                return;
+              }
+
+              // Display results based on format
+              if (argv.format === "json") {
+                console.log(JSON.stringify(discoveryResult, null, 2));
+                return;
+              }
+
+              if (argv.format === "yaml") {
+                // Simple YAML output
+                console.log("discovered:");
+                discoveryResult.discovered.forEach((server) => {
+                  console.log(`  - id: ${server.id}`);
+                  console.log(`    title: ${server.title}`);
+                  console.log(`    source: ${server.source.tool}`);
+                  console.log(`    command: ${server.command}`);
+                  if (server.args && server.args.length > 0) {
+                    console.log("    args:");
+                    server.args.forEach((arg) => console.log(`      - ${arg}`));
+                  }
+                });
+                return;
+              }
+
+              if (argv.format === "summary") {
+                displaySummary(discoveryResult);
+                return;
+              }
+
+              // Table format (default)
+              displayTable(discoveryResult);
+
+              // Display errors if any
+              if (discoveryResult.errors.length > 0) {
+                console.log(chalk.yellow("\n⚠️  Discovery warnings:"));
+                discoveryResult.errors.forEach((error) => {
+                  console.log(chalk.yellow(`  • ${error}`));
+                });
+              }
+            } catch (error) {
+              mcpLogger.error("[MCP Discovery] Discovery failed:", {
+                error: error instanceof Error ? error.message : String(error),
+                options,
+              });
+              spinner.fail(chalk.red("Discovery failed"));
+              console.error(
+                chalk.red(
+                  `Error: ${error instanceof Error ? error.message : String(error)}`,
+                ),
+              );
+              process.exit(1);
+            }
+          },
+        )
+
         .demandCommand(1, "Please specify an MCP subcommand")
         .example("$0 mcp list", "List configured MCP servers")
+        .example("$0 mcp discover", "Discover MCP servers from all tools")
         .example("$0 mcp install filesystem", "Install filesystem MCP server")
         .example("$0 mcp test filesystem", "Test filesystem server connection");
     },

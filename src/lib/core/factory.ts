@@ -11,10 +11,13 @@ import {
 } from "../providers/index.js";
 import { getBestProvider } from "../utils/providerUtils.js";
 import { logger } from "../utils/logger.js";
+import { dynamicModelProvider } from "./dynamic-models.js";
 import type {
   AIProvider,
   AIProviderName,
   SupportedModelName,
+  TextGenerationOptions,
+  StreamTextOptions,
 } from "./types.js";
 
 const componentIdentifier = "aiProviderFactory";
@@ -24,39 +27,140 @@ const componentIdentifier = "aiProviderFactory";
  */
 export class AIProviderFactory {
   /**
+   * Normalize provider name to match dynamic model registry keys
+   */
+  private static normalizeProviderName(providerName: string): string {
+    switch (providerName.toLowerCase()) {
+      case "vertex":
+      case "google":
+      case "gemini":
+        return "google";
+      case "bedrock":
+      case "amazon":
+      case "aws":
+        return "bedrock";
+      case "openai":
+      case "gpt":
+        return "openai";
+      case "anthropic":
+      case "claude":
+        return "anthropic";
+      case "azure":
+      case "azure-openai":
+        return "openai"; // Azure uses OpenAI models
+      case "google-ai":
+      case "google-studio":
+        return "google";
+      case "huggingface":
+      case "hugging-face":
+      case "hf":
+        return "huggingface";
+      case "ollama":
+      case "local":
+      case "local-ollama":
+        return "ollama";
+      case "mistral":
+      case "mistral-ai":
+      case "mistralai":
+        return "mistral";
+      default:
+        return providerName.toLowerCase();
+    }
+  }
+  /**
    * Create a provider instance for the specified provider type
    * @param providerName - Name of the provider ('vertex', 'bedrock', 'openai')
    * @param modelName - Optional model name override
+   * @param enableMCP - Optional flag to enable MCP integration (default: true)
    * @returns AIProvider instance
    */
-  static createProvider(
+  static async createProvider(
     providerName: string,
     modelName?: string | null,
-  ): AIProvider {
+    enableMCP: boolean = true,
+  ): Promise<AIProvider> {
     const functionTag = "AIProviderFactory.createProvider";
 
     logger.debug(`[${functionTag}] Provider creation started`, {
       providerName,
       modelName: modelName || "default",
+      enableMCP,
     });
 
     try {
+      // EMERGENCY FIX: Skip dynamic model provider initialization to prevent hanging
+      // TODO: Fix the hanging dynamic model provider.initialize()
+      // Initialize dynamic model provider if not already done
+      // try {
+      //   if (dynamicModelProvider.needsRefresh()) {
+      //     // Add timeout to prevent hanging
+      //     await Promise.race([
+      //       dynamicModelProvider.initialize(),
+      //       new Promise((_, reject) =>
+      //         setTimeout(() => reject(new Error('Dynamic model provider timeout')), 3000)
+      //       )
+      //     ]);
+      //   }
+      // } catch (dynamicError) {
+      //   logger.warn(`[${functionTag}] Dynamic model provider initialization failed, using fallback`, {
+      //     error: dynamicError instanceof Error ? dynamicError.message : String(dynamicError),
+      //   });
+      // }
+
+      // Resolve dynamic model if available
+      let resolvedModelName = modelName;
+      if (!modelName || modelName === "default") {
+        try {
+          const normalizedProvider = this.normalizeProviderName(providerName);
+          const dynamicModel = dynamicModelProvider.resolveModel(
+            normalizedProvider,
+            modelName || undefined,
+          );
+          if (dynamicModel) {
+            resolvedModelName = dynamicModel.id;
+            logger.debug(`[${functionTag}] Resolved dynamic model`, {
+              provider: normalizedProvider,
+              requestedModel: modelName || "default",
+              resolvedModel: resolvedModelName,
+              displayName: dynamicModel.displayName,
+              pricing: dynamicModel.pricing.input,
+            });
+          }
+        } catch (resolveError) {
+          logger.debug(
+            `[${functionTag}] Dynamic model resolution failed, using fallback`,
+            {
+              error:
+                resolveError instanceof Error
+                  ? resolveError.message
+                  : String(resolveError),
+            },
+          );
+        }
+      }
+
       let provider: AIProvider;
 
       switch (providerName.toLowerCase()) {
         case "vertex":
         case "google":
         case "gemini":
-          provider = new GoogleVertexAI(modelName);
+          provider = new GoogleVertexAI(
+            resolvedModelName === "default" ? null : resolvedModelName,
+          );
           break;
         case "bedrock":
         case "amazon":
         case "aws":
-          provider = new AmazonBedrock(modelName);
+          provider = new AmazonBedrock(
+            resolvedModelName === "default" ? null : resolvedModelName,
+          );
           break;
         case "openai":
         case "gpt":
-          provider = new OpenAI(modelName);
+          provider = new OpenAI(
+            resolvedModelName === "default" ? null : resolvedModelName,
+          );
           break;
         case "anthropic":
         case "claude":
@@ -68,22 +172,32 @@ export class AIProviderFactory {
           break;
         case "google-ai":
         case "google-studio":
-          provider = new GoogleAIStudio(modelName);
+          provider = new GoogleAIStudio(
+            resolvedModelName === "default" ? null : resolvedModelName,
+          );
           break;
         case "huggingface":
         case "hugging-face":
         case "hf":
-          provider = new HuggingFace(modelName);
+          provider = new HuggingFace(
+            resolvedModelName === "default" ? null : resolvedModelName,
+          );
           break;
         case "ollama":
         case "local":
         case "local-ollama":
-          provider = new Ollama(modelName || undefined);
+          provider = new Ollama(
+            resolvedModelName === "default"
+              ? undefined
+              : resolvedModelName || undefined,
+          );
           break;
         case "mistral":
         case "mistral-ai":
         case "mistralai":
-          provider = new MistralAI(modelName);
+          provider = new MistralAI(
+            resolvedModelName === "default" ? null : resolvedModelName,
+          );
           break;
         default:
           throw new Error(
@@ -91,10 +205,37 @@ export class AIProviderFactory {
           );
       }
 
+      // Wrap with MCP if enabled
+      if (enableMCP) {
+        try {
+          // TEMPORARY: Disable MCP wrapping to test for hanging issues
+          logger.debug(
+            `[${functionTag}] MCP wrapping temporarily disabled for debugging`,
+          );
+          // const { createMCPAwareProviderV3 } = await import("../providers/function-calling-provider.js");
+          // provider = createMCPAwareProviderV3(provider, {
+          //   providerName,
+          //   modelName: resolvedModelName || undefined,
+          //   enableMCP: true,
+          //   enableFunctionCalling: true,
+          // });
+          // logger.debug(`[${functionTag}] Provider wrapped with MCP support`);
+        } catch (mcpError) {
+          logger.warn(
+            `[${functionTag}] Failed to wrap with MCP, using base provider`,
+            {
+              error:
+                mcpError instanceof Error ? mcpError.message : String(mcpError),
+            },
+          );
+        }
+      }
+
       logger.debug(`[${functionTag}] Provider creation succeeded`, {
         providerName,
         modelName: modelName || "default",
         providerType: provider.constructor.name,
+        mcpEnabled: enableMCP,
       });
 
       return provider;
@@ -118,10 +259,10 @@ export class AIProviderFactory {
    * @param model - Specific model enum value
    * @returns AIProvider instance
    */
-  static createProviderWithModel(
+  static async createProviderWithModel(
     provider: AIProviderName,
     model: SupportedModelName,
-  ): AIProvider {
+  ): Promise<AIProvider> {
     const functionTag = "AIProviderFactory.createProviderWithModel";
 
     logger.debug(`[${functionTag}] Provider model creation started`, {
@@ -130,7 +271,7 @@ export class AIProviderFactory {
     });
 
     try {
-      const providerInstance = this.createProvider(provider, model);
+      const providerInstance = await this.createProvider(provider, model);
 
       logger.debug(`[${functionTag}] Provider model creation succeeded`, {
         provider,
@@ -157,12 +298,14 @@ export class AIProviderFactory {
    * Create the best available provider automatically
    * @param requestedProvider - Optional preferred provider
    * @param modelName - Optional model name override
+   * @param enableMCP - Optional flag to enable MCP integration (default: true)
    * @returns AIProvider instance
    */
-  static createBestProvider(
+  static async createBestProvider(
     requestedProvider?: string,
     modelName?: string | null,
-  ): AIProvider {
+    enableMCP: boolean = true,
+  ): Promise<AIProvider> {
     const functionTag = "AIProviderFactory.createBestProvider";
 
     try {
@@ -172,9 +315,10 @@ export class AIProviderFactory {
         requestedProvider: requestedProvider || "auto",
         selectedProvider: bestProvider,
         modelName: modelName || "default",
+        enableMCP,
       });
 
-      return this.createProvider(bestProvider, modelName);
+      return await this.createProvider(bestProvider, modelName, enableMCP);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -193,29 +337,41 @@ export class AIProviderFactory {
    * @param primaryProvider - Primary provider name
    * @param fallbackProvider - Fallback provider name
    * @param modelName - Optional model name override
+   * @param enableMCP - Optional flag to enable MCP integration (default: true)
    * @returns Object with primary and fallback providers
    */
-  static createProviderWithFallback(
+  static async createProviderWithFallback(
     primaryProvider: string,
     fallbackProvider: string,
     modelName?: string | null,
-  ): { primary: AIProvider; fallback: AIProvider } {
+    enableMCP: boolean = true,
+  ): Promise<{ primary: AIProvider; fallback: AIProvider }> {
     const functionTag = "AIProviderFactory.createProviderWithFallback";
 
     logger.debug(`[${functionTag}] Fallback provider setup started`, {
       primaryProvider,
       fallbackProvider,
       modelName: modelName || "default",
+      enableMCP,
     });
 
     try {
-      const primary = this.createProvider(primaryProvider, modelName);
-      const fallback = this.createProvider(fallbackProvider, modelName);
+      const primary = await this.createProvider(
+        primaryProvider,
+        modelName,
+        enableMCP,
+      );
+      const fallback = await this.createProvider(
+        fallbackProvider,
+        modelName,
+        enableMCP,
+      );
 
       logger.debug(`[${functionTag}] Fallback provider setup succeeded`, {
         primaryProvider,
         fallbackProvider,
         modelName: modelName || "default",
+        enableMCP,
       });
 
       return { primary, fallback };

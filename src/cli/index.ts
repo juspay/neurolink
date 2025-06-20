@@ -17,6 +17,7 @@ import chalk from "chalk";
 import fs from "fs";
 import { addMCPCommands } from "./commands/mcp.js";
 import ollamaCommand from "./commands/ollama.js";
+import { agentGenerateCommand } from "./commands/agent-generate.js";
 
 // Load environment variables from .env file
 try {
@@ -29,22 +30,6 @@ try {
 }
 
 // Utility Functions (Simple, Zero Maintenance)
-function formatOutput(result: any, format: string = "text"): string {
-  if (format === "json") {
-    return JSON.stringify(result, null, 2);
-  }
-
-  // Smart text formatting
-  if (result?.content) {
-    return result.content;
-  }
-
-  if (typeof result === "string") {
-    return result;
-  }
-
-  return JSON.stringify(result, null, 2);
-}
 
 function handleError(error: Error, context: string): void {
   const specificErrorMessage = error.message;
@@ -173,49 +158,6 @@ function handleError(error: Error, context: string): void {
   }
 
   process.exit(1);
-}
-
-function validateConfig(): void {
-  const hasGoogleAI = !!process.env.GOOGLE_AI_API_KEY;
-  const hasOpenAI = !!process.env.OPENAI_API_KEY;
-  const hasAWS = !!(process.env.AWS_REGION || process.env.AWS_ACCESS_KEY_ID);
-  const hasGoogle = !!(
-    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-    process.env.GOOGLE_SERVICE_ACCOUNT_KEY ||
-    process.env.GOOGLE_AUTH_CLIENT_EMAIL
-  );
-  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
-  const hasAzure = !!(
-    process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT
-  );
-
-  if (
-    !hasGoogleAI &&
-    !hasOpenAI &&
-    !hasAWS &&
-    !hasGoogle &&
-    !hasAnthropic &&
-    !hasAzure
-  ) {
-    console.error(chalk.red("⚠️  No AI provider credentials found"));
-    console.error(chalk.yellow("💡 Set one of:"));
-    console.error(chalk.yellow("   • GOOGLE_AI_API_KEY=AIza-..."));
-    console.error(chalk.yellow("   • OPENAI_API_KEY=sk-..."));
-    console.error(
-      chalk.yellow("   • AWS_REGION=us-east-1 (+ AWS credentials)"),
-    );
-    console.error(
-      chalk.yellow("   • GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json"),
-    );
-    console.error(chalk.yellow("   • ANTHROPIC_API_KEY=sk-ant-..."));
-    console.error(
-      chalk.yellow("   • AZURE_OPENAI_API_KEY=... (+ AZURE_OPENAI_ENDPOINT)"),
-    );
-    console.error(
-      chalk.blue("\n📚 See: https://github.com/juspay/neurolink#setup"),
-    );
-    process.exit(1);
-  }
 }
 
 // Initialize SDK
@@ -385,10 +327,24 @@ const cli = yargs(args)
           default: 30000,
           description: "Timeout for the request in milliseconds",
         })
+        .option("disable-tools", {
+          type: "boolean",
+          default: false,
+          description:
+            "Disable MCP tool integration (tools enabled by default)",
+        })
         .example('$0 generate-text "Hello world"', "Basic text generation")
         .example(
           '$0 generate-text "Write a story" --provider openai',
           "Use specific provider",
+        )
+        .example(
+          '$0 generate-text "What time is it?"',
+          "Use with natural tool integration (default)",
+        )
+        .example(
+          '$0 generate-text "Hello world" --disable-tools',
+          "Use without tool integration",
         ),
     async (argv) => {
       let originalConsole: any = {};
@@ -417,8 +373,9 @@ const cli = yargs(args)
           );
         });
 
+        // Use enhanced NeuroLink SDK with Lighthouse-style natural tool access
         const generatePromise = sdk.generateText({
-          prompt: argv.prompt as string, // Cast because demandOption is true
+          prompt: argv.prompt as string,
           provider:
             argv.provider === "auto"
               ? undefined
@@ -426,6 +383,8 @@ const cli = yargs(args)
           temperature: argv.temperature,
           maxTokens: argv.maxTokens,
           systemPrompt: argv.system,
+          // Lighthouse-style: Tools enabled by default, disable only if explicitly requested
+          disableTools: argv.disableTools === true, // Default true, can be disabled with --no-enable-tools
         });
 
         const result = (await Promise.race([
@@ -1255,6 +1214,9 @@ addMCPCommands(cli);
 
 // Add Ollama command
 cli.command(ollamaCommand);
+
+// Add Agent-Generate command
+cli.command(agentGenerateCommand);
 
 // Use an async IIFE to allow top-level await for parseAsync
 (async () => {
