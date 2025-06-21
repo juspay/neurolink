@@ -168,7 +168,7 @@ export class AzureOpenAIProvider implements AIProvider {
     const {
       prompt,
       temperature = 0.7,
-      maxTokens = 500,
+      maxTokens = 1000,
       systemPrompt = "You are a helpful AI assistant.",
     } = options;
 
@@ -238,7 +238,7 @@ export class AzureOpenAIProvider implements AIProvider {
     const {
       prompt,
       temperature = 0.7,
-      maxTokens = 500,
+      maxTokens = 1000,
       systemPrompt = "You are a helpful AI assistant.",
     } = options;
 
@@ -353,7 +353,7 @@ export class AzureOpenAIProvider implements AIProvider {
     const {
       prompt,
       temperature = 0.7,
-      maxTokens = 500,
+      maxTokens = 1000,
       systemPrompt = "You are a helpful AI assistant.",
     } = options;
 

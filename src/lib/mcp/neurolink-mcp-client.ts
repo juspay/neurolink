@@ -305,11 +305,41 @@ Response (JSON array only):`;
       // Create execution context
       const context: NeuroLinkExecutionContext = {
         sessionId: this.sessionId,
-        userId: this.config.userId,
-        organizationId: this.config.organizationId,
-        aiProvider: this.config.providerName,
+        userId: this.config.userId || "anonymous",
+        organizationId: this.config.organizationId || "default",
+        aiProvider: this.config.providerName || "unknown",
         modelId: this.config.modelName,
         timestamp: Date.now(),
+        // Required properties
+        secureFS: {
+          readFile: async () => {
+            throw new Error("secureFS not configured");
+          },
+          writeFile: async () => {
+            throw new Error("secureFS not configured");
+          },
+          readdir: async () => {
+            throw new Error("secureFS not configured");
+          },
+          stat: async () => {
+            throw new Error("secureFS not configured");
+          },
+          mkdir: async () => {
+            throw new Error("secureFS not configured");
+          },
+          exists: async () => false,
+        },
+        path: {
+          join: (...paths: string[]) => require("path").join(...paths),
+          resolve: (...paths: string[]) => require("path").resolve(...paths),
+          relative: (from: string, to: string) =>
+            require("path").relative(from, to),
+          dirname: (path: string) => require("path").dirname(path),
+          basename: (path: string, ext?: string) =>
+            require("path").basename(path, ext),
+        },
+        grantedPermissions: [],
+        log: console.log,
       };
 
       // Emit tool start event

@@ -372,7 +372,7 @@ neurolink get-best-provider
 
 - `--provider <name>` - Choose provider: `auto` (default), `openai`, `bedrock`, `vertex`, `google-ai`, `anthropic`, `azure`, `huggingface`, `ollama`, `mistral`
 - `--temperature <number>` - Creativity level: `0.0` (focused) to `1.0` (creative), default: `0.7`
-- `--max-tokens <number>` - Maximum tokens to generate, default: `500`
+- `--max-tokens <number>` - Maximum tokens to generate, default: `1000`
 - `--format <type>` - Output format: `text` (default) or `json`
 
 #### Batch Processing Options

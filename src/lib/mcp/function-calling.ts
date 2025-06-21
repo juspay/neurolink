@@ -12,7 +12,7 @@ import type {
   ToolResult,
   NeuroLinkExecutionContext,
 } from "./factory.js";
-import { defaultUnifiedRegistry } from "./unified-registry.js";
+import { unifiedRegistry } from "./unified-registry.js";
 import { createExecutionContext } from "./context-manager.js";
 import { mcpLogger } from "./logging.js";
 
@@ -102,7 +102,7 @@ export async function getAvailableFunctionTools(): Promise<{
         await initializeNeuroLinkMCP();
 
         // Ensure unified registry is initialized
-        await defaultUnifiedRegistry.initialize();
+        await unifiedRegistry.initialize();
 
         // Try to activate important servers like filesystem
         mcpLogger.debug(
@@ -111,18 +111,19 @@ export async function getAvailableFunctionTools(): Promise<{
 
         try {
           // Get auto-discovered servers
-          const autoServers = defaultUnifiedRegistry.getAutoDiscoveredServers();
+          const autoServers = unifiedRegistry.getAutoDiscoveredServers();
 
           // Try to activate filesystem server specifically
-          for (const [serverId, entry] of autoServers) {
-            if (
-              serverId.includes("filesystem") &&
-              entry.status !== "activated"
-            ) {
+          for (const server of autoServers) {
+            if (server.metadata.name.includes("filesystem")) {
               mcpLogger.debug(
-                `[${functionTag}] Activating filesystem server: ${serverId}`,
+                `[${functionTag}] Activating filesystem server: ${server.metadata.name}`,
               );
-              await defaultUnifiedRegistry.lazyActivateServer(serverId, entry);
+              const serverName = server.metadata.name;
+              if (typeof serverName === "string" && serverName.length > 0) {
+                // @ts-ignore - serverName is verified as string with length > 0 above
+                await unifiedRegistry.lazyActivateServer(serverName);
+              }
             }
           }
         } catch (error) {
@@ -132,7 +133,7 @@ export async function getAvailableFunctionTools(): Promise<{
         }
 
         // Get all tools from unified registry directly
-        const allTools = await defaultUnifiedRegistry.listAllTools();
+        const allTools = await unifiedRegistry.listAllTools();
         mcpLogger.debug(
           `[${functionTag}] Found ${allTools.length} total tools`,
         );
@@ -150,26 +151,25 @@ export async function getAvailableFunctionTools(): Promise<{
         );
 
         // Activate servers to convert placeholders to real tools
-        for (const serverId of [...new Set(serversToActivate)]) {
+        for (const serverId of [...new Set(serversToActivate)].filter(
+          (id): id is string => typeof id === "string" && id !== "unknown",
+        )) {
           try {
             mcpLogger.debug(`[${functionTag}] Activating server: ${serverId}`);
 
             // Get the server entry from auto-discovered or manual servers
-            const autoServers =
-              defaultUnifiedRegistry.getAutoDiscoveredServers();
-            const manualServers = defaultUnifiedRegistry.getManualServers();
+            const autoServers = unifiedRegistry.getAutoDiscoveredServers();
+            const manualServers = unifiedRegistry.getManualServers();
 
             const serverEntry =
-              autoServers.get(serverId) || manualServers.get(serverId);
+              autoServers.find((s) => s.metadata.name === serverId) ||
+              manualServers.get(serverId);
 
-            if (serverEntry) {
-              await defaultUnifiedRegistry.lazyActivateServer(
-                serverId,
-                serverEntry,
-              );
+            if (serverEntry && serverId.length > 0) {
+              await unifiedRegistry.lazyActivateServer(serverId);
             } else {
               mcpLogger.debug(
-                `[${functionTag}] Server entry not found for: ${serverId}`,
+                `[${functionTag}] Server entry not found for: ${serverId || "undefined"}`,
               );
             }
           } catch (error) {
@@ -181,7 +181,7 @@ export async function getAvailableFunctionTools(): Promise<{
         }
 
         // Get tools again after activation
-        const activatedTools = await defaultUnifiedRegistry.listAllTools();
+        const activatedTools = await unifiedRegistry.listAllTools();
         mcpLogger.debug(
           `[${functionTag}] Found ${activatedTools.length} total tools after activation`,
         );
@@ -228,7 +228,7 @@ export async function getAvailableFunctionTools(): Promise<{
             let originalFunctionName: string;
 
             // Convert server name to underscore format to check if it's embedded in tool name
-            const sanitizedServerCheck = toolInfo.server.replace(
+            const sanitizedServerCheck = (toolInfo.server || "unknown").replace(
               /[^a-zA-Z0-9_]/g,
               "_",
             );
@@ -298,10 +298,9 @@ export async function getAvailableFunctionTools(): Promise<{
               originalFunctionName = toolInfo.name;
             } else {
               // Tool name doesn't include server info, create compound name
-              const sanitizedServerName = toolInfo.server.replace(
-                /[^a-zA-Z0-9_]/g,
-                "_",
-              );
+              const sanitizedServerName = (
+                toolInfo.server || "unknown"
+              ).replace(/[^a-zA-Z0-9_]/g, "_");
               const sanitizedToolName = toolInfo.name.replace(
                 /[^a-zA-Z0-9_]/g,
                 "_",
@@ -342,7 +341,7 @@ export async function getAvailableFunctionTools(): Promise<{
                 }
               }
 
-              originalFunctionName = `${toolInfo.server}.${toolInfo.name}`;
+              originalFunctionName = `${toolInfo.server || "unknown"}.${toolInfo.name}`;
             }
 
             // Create AI SDK tool using the proper tool() helper
@@ -396,7 +395,7 @@ export async function getAvailableFunctionTools(): Promise<{
 
             // Store mapping for execution - CRITICAL: Use sanitized functionName as key
             toolMap.set(functionName, {
-              serverId: toolInfo.server,
+              serverId: toolInfo.server || "unknown",
               toolName: toolInfo.name,
             });
 
@@ -453,9 +452,25 @@ export async function executeFunctionCall(
   const functionTag = "executeFunctionCall";
 
   try {
+    // CRITICAL FIX: Unwrap 'input' parameter if it exists
+    // AI function calling wraps parameters in { input: { actualParams } }
+    // but MCP tools expect direct parameters
+    let actualParameters = parameters;
+    if (
+      parameters.input &&
+      typeof parameters.input === "object" &&
+      parameters.input !== null
+    ) {
+      actualParameters = parameters.input as Record<string, unknown>;
+      mcpLogger.debug(
+        `[${functionTag}] Unwrapped input parameter for ${functionName}`,
+        { original: parameters, unwrapped: actualParameters },
+      );
+    }
+
     mcpLogger.debug(
       `[${functionTag}] Executing function call: ${functionName}`,
-      { parameters },
+      { parameters: actualParameters },
     );
 
     // Create context if not provided
@@ -471,26 +486,36 @@ export async function executeFunctionCall(
     // Parse server and tool name from function name
     // First try underscore format (sanitized), then fallback to dot format
     let parts = functionName.split("_");
-    let serverId: string;
-    let toolName: string;
+    let serverId: string = "unknown";
+    let toolName: string = functionName;
 
     if (parts.length >= 2) {
       // Handle underscore format (sanitized names)
-      serverId = parts[0];
+      const firstPart = parts[0];
+      if (firstPart && typeof firstPart === "string" && firstPart.length > 0) {
+        serverId = firstPart as string;
+      } else {
+        serverId = "unknown";
+      }
       toolName = parts.slice(1).join("_"); // Rejoin in case tool name had underscores
     } else {
       // Fallback to dot format for backward compatibility
       parts = functionName.split(".");
       if (parts.length === 2) {
-        [serverId, toolName] = parts;
+        const parsedServerId = parts[0];
+        const parsedToolName = parts[1];
+        if (parsedServerId && parsedToolName) {
+          serverId = parsedServerId;
+          toolName = parsedToolName;
+        }
       } else {
         // Can't parse - try executing as-is through unified registry
         mcpLogger.debug(
           `[${functionTag}] Cannot parse function name format: ${functionName}, trying unified registry`,
         );
-        const result = await defaultUnifiedRegistry.executeTool(
+        const result = await unifiedRegistry.executeTool(
           functionName,
-          parameters,
+          actualParameters,
           finalContext,
         );
         return result;
@@ -509,10 +534,10 @@ export async function executeFunctionCall(
       );
 
       // Import and execute from default registry
-      const { defaultToolRegistry } = await import("./registry.js");
+      const { defaultToolRegistry } = await import("./tool-registry.js");
       return await defaultToolRegistry.executeTool(
         toolName,
-        parameters,
+        actualParameters,
         finalContext,
       );
     }
@@ -525,9 +550,9 @@ export async function executeFunctionCall(
 
       try {
         // First, try to execute through unified registry
-        const result = await defaultUnifiedRegistry.executeTool(
+        const result = await unifiedRegistry.executeTool(
           functionName,
-          parameters,
+          actualParameters,
           finalContext,
         );
         if (result.success) {
@@ -543,7 +568,7 @@ export async function executeFunctionCall(
       try {
         // Force activation by attempting to activate the filesystem server directly
         // This should convert placeholders to real tools
-        await defaultUnifiedRegistry.initialize();
+        await unifiedRegistry.initialize();
 
         // Try a few common activation patterns
         const activationAttempts = [
@@ -554,9 +579,9 @@ export async function executeFunctionCall(
 
         for (const attempt of activationAttempts) {
           try {
-            const result = await defaultUnifiedRegistry.executeTool(
+            const result = await unifiedRegistry.executeTool(
               attempt,
-              parameters,
+              actualParameters,
               finalContext,
             );
             if (result.success) {
@@ -573,7 +598,7 @@ export async function executeFunctionCall(
         // If all attempts fail, return a helpful error
         return {
           success: false,
-          error: `Filesystem tool '${toolName}' could not be activated. Available parameters: ${JSON.stringify(parameters)}`,
+          error: `Filesystem tool '${toolName}' could not be activated. Available parameters: ${JSON.stringify(actualParameters)}`,
           metadata: {
             functionName,
             timestamp: Date.now(),
@@ -601,9 +626,9 @@ export async function executeFunctionCall(
     mcpLogger.debug(
       `[${functionTag}] Executing through unified registry: ${functionName}`,
     );
-    const result = await defaultUnifiedRegistry.executeTool(
+    const result = await unifiedRegistry.executeTool(
       functionName,
-      parameters,
+      actualParameters,
       finalContext,
     );
 

@@ -108,7 +108,7 @@ const ConfigSchema = z.object({
     .object({
       outputFormat: z.enum(["text", "json", "yaml"]).default("text"),
       temperature: z.number().min(0).max(2).default(0.7),
-      maxTokens: z.number().min(1).max(4000).default(500),
+      maxTokens: z.number().min(1).max(4000).default(1000),
       enableLogging: z.boolean().default(false),
       enableCaching: z.boolean().default(true),
       cacheStrategy: z.enum(["memory", "file", "redis"]).default("memory"),

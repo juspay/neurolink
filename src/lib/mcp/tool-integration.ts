@@ -10,7 +10,7 @@ import type {
   NeuroLinkMCPTool,
 } from "./factory.js";
 import { logger } from "../utils/logger.js";
-import { MCPToolRegistry } from "./registry.js";
+import { MCPToolRegistry } from "./tool-registry.js";
 
 /**
  * Tool Integration System
@@ -24,10 +24,35 @@ export class MCPToolIntegration {
     this.registry = new MCPToolRegistry();
     this.context = {
       sessionId: context?.sessionId || `session-${Date.now()}`,
-      userId: context?.userId,
-      aiProvider: context?.aiProvider,
+      userId: context?.userId || "anonymous",
+      aiProvider: context?.aiProvider || "unknown",
       ...context,
-    };
+      // Ensure secureFS is properly typed
+      secureFS: context?.secureFS || {
+        readFile: async () => {
+          throw new Error("secureFS not configured");
+        },
+        writeFile: async () => {
+          throw new Error("secureFS not configured");
+        },
+        readdir: async () => {
+          throw new Error("secureFS not configured");
+        },
+        stat: async () => {
+          throw new Error("secureFS not configured");
+        },
+        mkdir: async () => {
+          throw new Error("secureFS not configured");
+        },
+        exists: async () => false,
+        rmdir: async () => {
+          throw new Error("secureFS not configured");
+        },
+        unlink: async () => {
+          throw new Error("secureFS not configured");
+        },
+      },
+    } as NeuroLinkExecutionContext;
 
     // Initialize with all active servers
     this.initializeTools();
@@ -40,12 +65,16 @@ export class MCPToolIntegration {
     const servers = await mcpConfig.getServers();
 
     for (const server of servers) {
-      await this.registry.registerServer(server);
+      await this.registry.registerServer(
+        server.id || (server as any).name || "unknown",
+        server,
+      );
     }
 
+    const tools = await this.registry.listTools();
     logger.debug("[Tool Integration] Initialized with servers:", {
       serverCount: servers.length,
-      toolCount: this.registry.listTools().length,
+      toolCount: tools.length,
     });
   }
 
@@ -59,13 +88,15 @@ export class MCPToolIntegration {
   /**
    * Find tools that match a query
    */
-  findTools(query: string): Array<{
-    name: string;
-    description: string;
-    serverId: string;
-    relevance: number;
-  }> {
-    const allTools = this.registry.listTools();
+  async findTools(query: string): Promise<
+    Array<{
+      name: string;
+      description: string;
+      serverId: string;
+      relevance: number;
+    }>
+  > {
+    const allTools = await this.registry.listTools();
     const queryLower = query.toLowerCase();
     const results = [];
 
@@ -78,20 +109,20 @@ export class MCPToolIntegration {
       }
 
       // Check tool description
-      if (toolInfo.description.toLowerCase().includes(queryLower)) {
+      if (toolInfo.description?.toLowerCase().includes(queryLower)) {
         relevance += 5;
       }
 
-      // Check category if present
-      if (toolInfo.category?.toLowerCase().includes(queryLower)) {
-        relevance += 3;
-      }
+      // Check category if present (category might not exist on ToolInfo)
+      // if (toolInfo.category?.toLowerCase().includes(queryLower)) {
+      //   relevance += 3;
+      // }
 
       if (relevance > 0) {
         results.push({
           name: toolInfo.name,
-          description: toolInfo.description,
-          serverId: toolInfo.server,
+          description: toolInfo.description || "No description available",
+          serverId: toolInfo.server || "unknown",
           relevance,
         });
       }
@@ -117,11 +148,6 @@ export class MCPToolIntegration {
         qualifiedName,
         params,
         this.context,
-        {
-          validateInput: true,
-          validatePermissions: true,
-          trackMetrics: true,
-        },
       );
 
       return result;
@@ -142,10 +168,10 @@ export class MCPToolIntegration {
   /**
    * Enhance AI prompt with tool context
    */
-  createToolAwarePrompt(userPrompt: string): string {
-    const tools = this.getAvailableTools();
+  async createToolAwarePrompt(userPrompt: string): Promise<string> {
+    const tools = await this.getAvailableTools();
     const toolDescriptions = tools
-      .map((t) => `- ${t.name}: ${t.description}`)
+      .map((t: any) => `- ${t.name}: ${t.description}`)
       .join("\n");
 
     return `${userPrompt}

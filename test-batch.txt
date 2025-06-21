@@ -1,0 +1,3 @@
+Hello, this is test prompt 1
+What is 2+2?
+Write a haiku about technology

@@ -12,18 +12,16 @@ import fs from "fs";
 import { spawn } from "child_process";
 import path from "path";
 import { discoverMCPServers } from "../../lib/mcp/auto-discovery.js";
-import {
-  defaultUnifiedRegistry,
-  type UnifiedExecutionOptions,
-} from "../../lib/mcp/unified-registry.js";
+import { unifiedRegistry } from "../../lib/mcp/unified-registry.js";
 import { ContextManager } from "../../lib/mcp/context-manager.js";
+import { MCPOrchestrator } from "../../lib/mcp/orchestrator.js";
 import type { DiscoveryOptions } from "../../lib/mcp/auto-discovery.js";
 import { initializeNeuroLinkMCP } from "../../lib/mcp/initialize.js";
 import {
   mcpLogger,
   setGlobalMCPLogLevel,
-  LogLevel,
 } from "../../lib/mcp/logging.js";
+import type { LogLevel } from "../../lib/mcp/logging.js";
 
 // MCP Server Configuration
 interface MCPServerConfig {
@@ -559,19 +557,17 @@ export async function mcpExecuteTool(
 ): Promise<any> {
   // First try unified registry (includes built-in NeuroLink servers)
   try {
-    await defaultUnifiedRegistry.initialize();
+    await unifiedRegistry.initialize();
 
-    const contextManager = new ContextManager();
-    const context = contextManager.createContext({
-      sessionId: `cli-${Date.now()}`,
-      userId: "cli-user",
-      aiProvider: "unified-mcp",
-    });
-
-    const result = await defaultUnifiedRegistry.executeTool(
+    const orchestrator = new MCPOrchestrator();
+    const result = await orchestrator.executeTool(
       toolName,
       toolParams,
-      context,
+      {
+        sessionId: `cli-${Date.now()}`,
+        userId: "cli-user",
+        aiProvider: "unified-mcp",
+      },
       {
         preferredSource: "default", // Try built-in servers first
         fallbackEnabled: true,
@@ -1085,22 +1081,22 @@ export function addMCPCommands(yargs: Argv): Argv {
 
               // Initialize unified registry
               spinner.text = "Initializing unified registry...";
-              await defaultUnifiedRegistry.initialize();
+              await unifiedRegistry.initialize();
 
               // Force refresh if requested
               if (argv.refresh) {
                 spinner.text = "Refreshing auto-discovery...";
-                await defaultUnifiedRegistry.refreshAutoDiscovery();
+                await unifiedRegistry.refresh();
               }
 
               spinner.succeed(chalk.green("Registry initialized!"));
 
               // Get servers based on source filter
-              const servers = defaultUnifiedRegistry.listAllServers();
+              const servers = unifiedRegistry.list();
               const filteredServers =
                 argv.source === "all"
                   ? servers
-                  : servers.filter((s) => s.source.type === argv.source);
+                  : servers.filter((s) => s.source === argv.source);
 
               if (filteredServers.length === 0) {
                 console.log(
@@ -1123,61 +1119,41 @@ export function addMCPCommands(yargs: Argv): Argv {
               console.log(chalk.gray("─".repeat(80)));
 
               filteredServers.forEach((server, index) => {
-                const sourceIcon = getSourceTypeIcon(server.source.type);
-                const priorityColor =
-                  server.source.priority >= 9
-                    ? chalk.green
-                    : server.source.priority >= 7
-                      ? chalk.yellow
-                      : chalk.gray;
+                const sourceIcon = getSourceTypeIcon(server.source);
+                const priorityColor = chalk.gray; // Default color
 
                 console.log(
-                  `${chalk.white(`${index + 1}.`)} ${sourceIcon} ${chalk.cyan(server.id)}`,
+                  `${chalk.white(`${index + 1}.`)} ${sourceIcon} ${chalk.cyan(server.metadata.name)}`,
                 );
                 console.log(
-                  `   ${chalk.gray("Source:")} ${server.source.type} ${priorityColor(`(priority: ${server.source.priority})`)}`,
+                  `   ${chalk.gray("Version:")} ${server.metadata.version}`,
                 );
-                console.log(
-                  `   ${chalk.gray("Status:")} ${getStatusIcon(server.status)} ${server.status}`,
-                );
-
-                if (server.config) {
+                console.log(`   ${chalk.gray("Source:")} ${server.source}`);
+                console.log(`   ${chalk.gray("Entry:")} ${server.entryPath}`);
+                if (server.metadata.description) {
                   console.log(
-                    `   ${chalk.gray("Command:")} ${server.config.command} ${server.config.args?.join(" ") || ""}`,
+                    `   ${chalk.gray("Description:")} ${server.metadata.description}`,
                   );
                 }
 
-                if (server.source.metadata) {
-                  const metadata = server.source.metadata;
-                  if (metadata.configPath) {
-                    console.log(
-                      `   ${chalk.gray("Config:")} ${metadata.configPath}`,
-                    );
-                  }
-                  if (metadata.toolCount) {
-                    console.log(
-                      `   ${chalk.gray("Tools:")} ${metadata.toolCount}`,
-                    );
-                  }
+                // Add spacing between entries
+                if (index < filteredServers.length - 1) {
+                  console.log();
                 }
-
-                console.log();
               });
 
               // Display statistics
-              const stats = defaultUnifiedRegistry.getStats();
+              const stats = await unifiedRegistry.getStats();
               console.log(chalk.blue("📊 Registry Statistics:"));
+              console.log(`   ${chalk.gray("Total plugins:")} ${stats.total}`);
               console.log(
-                `   ${chalk.gray("Manual servers:")} ${stats.manual.servers}`,
+                `   ${chalk.gray("Manual servers:")} ${stats.manual?.servers || 0}`,
               );
               console.log(
-                `   ${chalk.gray("Auto-discovered:")} ${stats.auto.servers}`,
+                `   ${chalk.gray("Auto-discovered:")} ${stats.auto?.servers || 0}`,
               );
               console.log(
-                `   ${chalk.gray("Default registry:")} ${stats.default.servers}`,
-              );
-              console.log(
-                `   ${chalk.gray("Total tools:")} ${stats.total.tools}`,
+                `   ${chalk.gray("Total tools:")} ${stats.tools || 0}`,
               );
             } catch (error) {
               spinner.fail(chalk.red("Registry initialization failed"));
@@ -1235,7 +1211,7 @@ export function addMCPCommands(yargs: Argv): Argv {
 
               // Initialize unified registry
               spinner.text = "Initializing unified registry...";
-              await defaultUnifiedRegistry.initialize();
+              await unifiedRegistry.initialize();
 
               let params = {};
               if (argv.params) {
@@ -1255,7 +1231,7 @@ export function addMCPCommands(yargs: Argv): Argv {
                 aiProvider: "unified-mcp",
               });
 
-              const executionOptions: UnifiedExecutionOptions = {
+              const executionOptions = {
                 preferredSource: argv.source as any,
                 fallbackEnabled: !argv["no-fallback"],
                 validateBeforeExecution: true,
@@ -1263,10 +1239,14 @@ export function addMCPCommands(yargs: Argv): Argv {
               };
 
               spinner.text = "Executing tool...";
-              const result = await defaultUnifiedRegistry.executeTool(
+              const orchestrator = new MCPOrchestrator();
+              const result = await orchestrator.executeTool(
                 argv.tool as string,
                 params,
-                context,
+                {
+                  sessionId: `cli-${Date.now()}`,
+                  userId: "cli-user",
+                },
                 executionOptions,
               );
 
@@ -1317,12 +1297,21 @@ export function addMCPCommands(yargs: Argv): Argv {
               .usage("Usage: $0 mcp config <action> [options]")
               .command("show", "Show current configuration", {}, async () => {
                 try {
-                  await defaultUnifiedRegistry.initialize();
-                  const config = defaultUnifiedRegistry.getConfig();
+                  await unifiedRegistry.initialize();
 
                   console.log(chalk.blue("🔧 Unified Registry Configuration"));
                   console.log(chalk.gray("================================"));
-                  console.log(JSON.stringify(config, null, 2));
+
+                  const stats = await unifiedRegistry.getStats();
+                  console.log(`Total servers: ${stats.total}`);
+                  console.log("\nBy Source:");
+                  Object.entries(stats.bySource).forEach(([source, count]) => {
+                    console.log(`  ${source}: ${count}`);
+                  });
+                  console.log("\nBy Type:");
+                  Object.entries(stats.byType).forEach(([type, count]) => {
+                    console.log(`  ${type}: ${count}`);
+                  });
                 } catch (error) {
                   console.error(
                     chalk.red(
@@ -1338,10 +1327,8 @@ export function addMCPCommands(yargs: Argv): Argv {
                 {},
                 async () => {
                   try {
-                    await defaultUnifiedRegistry.initialize();
-                    defaultUnifiedRegistry.updateAutoDiscoveryConfig({
-                      enabled: true,
-                    });
+                    await unifiedRegistry.initialize();
+                    unifiedRegistry.setAutoDiscovery(true);
                     console.log(chalk.green("✅ Auto-discovery enabled"));
                   } catch (error) {
                     console.error(
@@ -1359,10 +1346,8 @@ export function addMCPCommands(yargs: Argv): Argv {
                 {},
                 async () => {
                   try {
-                    await defaultUnifiedRegistry.initialize();
-                    defaultUnifiedRegistry.updateAutoDiscoveryConfig({
-                      enabled: false,
-                    });
+                    await unifiedRegistry.initialize();
+                    unifiedRegistry.setAutoDiscovery(false);
                     console.log(chalk.green("✅ Auto-discovery disabled"));
                   } catch (error) {
                     console.error(
@@ -1385,17 +1370,18 @@ export function addMCPCommands(yargs: Argv): Argv {
                   }),
                 async (argv) => {
                   try {
-                    await defaultUnifiedRegistry.initialize();
+                    await unifiedRegistry.initialize();
                     const sources = (argv.sources as string)
                       .split(",")
                       .map((s) => s.trim());
-                    defaultUnifiedRegistry.updateAutoDiscoveryConfig({
-                      sources,
-                    });
+                    // Note: Source preference configuration not yet implemented
                     console.log(
-                      chalk.green(
-                        `✅ Updated preferred sources: ${sources.join(", ")}`,
+                      chalk.yellow(
+                        `⚠️  Source preference configuration not yet implemented`,
                       ),
+                    );
+                    console.log(
+                      chalk.blue(`   Requested sources: ${sources.join(", ")}`),
                     );
                   } catch (error) {
                     console.error(
@@ -1420,16 +1406,18 @@ export function addMCPCommands(yargs: Argv): Argv {
                 async (argv) => {
                   try {
                     const level = argv.level as string;
+                    // Note: LogLevel is a type, not an enum
+                    // 'silent' is not a valid LogLevel, default to 'error' for minimal output
                     const logLevel =
                       level === "silent"
-                        ? LogLevel.SILENT
+                        ? ("error" as const) // Use 'error' for minimal output
                         : level === "error"
-                          ? LogLevel.ERROR
+                          ? ("error" as const)
                           : level === "warn"
-                            ? LogLevel.WARN
+                            ? ("warn" as const)
                             : level === "info"
-                              ? LogLevel.INFO
-                              : LogLevel.DEBUG;
+                              ? ("info" as const)
+                              : ("debug" as const);
 
                     setGlobalMCPLogLevel(logLevel);
                     console.log(
@@ -1507,39 +1495,32 @@ export function addMCPCommands(yargs: Argv): Argv {
             console.log(chalk.gray("====================================="));
 
             const options: DiscoveryOptions = {
-              searchGlobal: !argv["workspace-only"],
-              searchWorkspace: !argv["global-only"],
-              searchCommonPaths: true,
-              includeInactive: argv["include-inactive"] as boolean,
-              preferredTools: argv["preferred-tools"]
-                ? (argv["preferred-tools"] as string)
-                    .split(",")
-                    .map((t) => t.trim())
-                : [],
+              includeDevPlugins: argv["include-inactive"] as boolean,
+              // Additional search paths if needed
+              searchPaths: [
+                "./src/lib/mcp/plugins",
+                "./neurolink-mcp",
+                "./node_modules",
+              ],
             };
 
             const spinner = ora("Discovering MCP servers...").start();
 
             try {
               mcpLogger.debug("[MCP Discovery] Starting server discovery:", {
-                searchGlobal: options.searchGlobal,
-                searchWorkspace: options.searchWorkspace,
-                includeInactive: options.includeInactive,
-                preferredTools: options.preferredTools,
+                includeDevPlugins: options.includeDevPlugins,
+                searchPaths: options.searchPaths,
               });
 
-              const discoveryResult = await discoverMCPServers(options);
+              const discoveredPlugins = await discoverMCPServers(options);
 
               mcpLogger.info("[MCP Discovery] Discovery completed:", {
-                serversFound: discoveryResult.discovered.length,
-                executionTime: discoveryResult.stats.executionTime,
-                configFilesFound: discoveryResult.stats.configFilesFound,
-                duplicatesRemoved: discoveryResult.stats.duplicatesRemoved,
+                pluginsFound: discoveredPlugins.length,
               });
 
               spinner.succeed(chalk.green("Discovery completed!"));
 
-              if (discoveryResult.discovered.length === 0) {
+              if (discoveredPlugins.length === 0) {
                 console.log(chalk.yellow("\n📭 No MCP servers found"));
                 console.log(chalk.gray("\n💡 Tips for finding MCP servers:"));
                 console.log(
@@ -1562,41 +1543,48 @@ export function addMCPCommands(yargs: Argv): Argv {
 
               // Display results based on format
               if (argv.format === "json") {
-                console.log(JSON.stringify(discoveryResult, null, 2));
+                console.log(JSON.stringify(discoveredPlugins, null, 2));
                 return;
               }
 
               if (argv.format === "yaml") {
                 // Simple YAML output
                 console.log("discovered:");
-                discoveryResult.discovered.forEach((server) => {
-                  console.log(`  - id: ${server.id}`);
-                  console.log(`    title: ${server.title}`);
-                  console.log(`    source: ${server.source.tool}`);
-                  console.log(`    command: ${server.command}`);
-                  if (server.args && server.args.length > 0) {
-                    console.log("    args:");
-                    server.args.forEach((arg) => console.log(`      - ${arg}`));
+                discoveredPlugins.forEach((plugin) => {
+                  console.log(`  - name: ${plugin.metadata.name}`);
+                  console.log(`    version: ${plugin.metadata.version}`);
+                  console.log(`    source: ${plugin.source}`);
+                  console.log(`    entryPath: ${plugin.entryPath}`);
+                  if (plugin.metadata.description) {
+                    console.log(
+                      `    description: ${plugin.metadata.description}`,
+                    );
                   }
                 });
                 return;
               }
 
-              if (argv.format === "summary") {
-                displaySummary(discoveryResult);
-                return;
-              }
+              // Default format - show simple list
+              console.log(
+                chalk.green(
+                  `\n📋 Found ${discoveredPlugins.length} MCP plugins:`,
+                ),
+              );
+              console.log(chalk.gray("─".repeat(80)));
 
-              // Table format (default)
-              displayTable(discoveryResult);
-
-              // Display errors if any
-              if (discoveryResult.errors.length > 0) {
-                console.log(chalk.yellow("\n⚠️  Discovery warnings:"));
-                discoveryResult.errors.forEach((error) => {
-                  console.log(chalk.yellow(`  • ${error}`));
-                });
-              }
+              discoveredPlugins.forEach((plugin, index) => {
+                console.log(
+                  `${chalk.white(`${index + 1}.`)} ${chalk.cyan(plugin.metadata.name)} v${plugin.metadata.version}`,
+                );
+                console.log(`   ${chalk.gray("Source:")} ${plugin.source}`);
+                console.log(`   ${chalk.gray("Entry:")} ${plugin.entryPath}`);
+                if (plugin.metadata.description) {
+                  console.log(
+                    `   ${chalk.gray("Description:")} ${plugin.metadata.description}`,
+                  );
+                }
+                console.log();
+              });
             } catch (error) {
               mcpLogger.error("[MCP Discovery] Discovery failed:", {
                 error: error instanceof Error ? error.message : String(error),

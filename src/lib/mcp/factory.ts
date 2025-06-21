@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import type { ExecutionContext } from "./contracts/mcp-contract.js";
 
 /**
  * MCP Server Categories for organization and discovery
@@ -24,11 +25,10 @@ export type MCPServerCategory =
 /**
  * Tool execution context - Rich context passed to every tool execution
  * Following Lighthouse's pattern for rich tool context
+ * Extends ExecutionContext for compatibility
  */
-export interface NeuroLinkExecutionContext {
-  // Core identifiers
-  sessionId: string; // Mandatory: Unique ID for the current session/request
-  userId?: string; // For user-specific actions
+export interface NeuroLinkExecutionContext extends ExecutionContext {
+  // Core identifiers (sessionId and userId already in ExecutionContext)
 
   // AI context
   aiProvider?: string;
@@ -86,7 +86,7 @@ export interface NeuroLinkExecutionContext {
 export interface ToolResult {
   success: boolean;
   data?: any;
-  error?: string;
+  error?: string | Error;
   usage?: {
     tokens?: number;
     cost?: number;

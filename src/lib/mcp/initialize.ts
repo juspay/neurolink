@@ -4,7 +4,7 @@
  * Ensures built-in tools are always available without manual configuration
  */
 
-import { defaultToolRegistry } from "./registry.js";
+import { toolRegistry, defaultToolRegistry } from "./tool-registry.js";
 import { mcpLogger } from "./logging.js";
 
 let isInitialized = false;
@@ -27,17 +27,17 @@ export async function initializeNeuroLinkMCP(): Promise<void> {
     );
 
     // Register built-in NeuroLink servers with default registry
-    await defaultToolRegistry.registerServer(utilityServer);
+    await toolRegistry.registerServer(utilityServer.id, utilityServer);
     mcpLogger.debug("Registered neurolink-utility server with built-in tools");
 
     // TODO: Re-enable AI core server once circular dependencies are resolved
     // const { aiCoreServer } = await import('./servers/ai-providers/ai-core-server.js');
-    // await defaultToolRegistry.registerServer(aiCoreServer);
+    // await toolRegistry.registerServer(aiCoreServer.id, aiCoreServer);
     // mcpLogger.debug('Registered neurolink-ai-core server with AI tools');
 
-    const stats = defaultToolRegistry.getStats();
+    const stats = await toolRegistry.getStats();
     mcpLogger.info(
-      `Initialization complete: ${stats.totalServers} servers, ${stats.totalTools} tools available`,
+      `Initialization complete: ${stats.totalServers} server, ${stats.totalTools} tools available`,
     );
 
     isInitialized = true;

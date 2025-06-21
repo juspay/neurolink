@@ -217,15 +217,15 @@ export class NeuroLinkMCPClient extends EventEmitter {
       };
     }
 
-    // Create full context
-    const fullContext: NeuroLinkExecutionContext = {
+    // Create full context using createExecutionContext for proper structure
+    const { createExecutionContext } = await import("./context-manager.js");
+    const fullContext: NeuroLinkExecutionContext = createExecutionContext({
       sessionId: this.config.sessionId,
       userId: this.config.userId,
       aiProvider: this.config.aiProvider,
       modelId: this.config.modelId,
-      timestamp: Date.now(),
       ...context,
-    };
+    });
 
     // Track execution
     this.executionCount++;

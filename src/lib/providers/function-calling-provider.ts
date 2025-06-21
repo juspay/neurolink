@@ -316,18 +316,15 @@ export class FunctionCallingProvider implements AIProvider {
         description: tool.description,
         parameters: tool.parameters,
         execute: async (args: Record<string, unknown>) => {
-          // Enhanced debug logging for Gemini debugging
-          const providerName = this.baseProvider.constructor.name;
-          console.log(`[GEMINI DEBUG] Provider: ${providerName}`);
-          console.log(
-            `[GEMINI DEBUG] Tool: ${sanitizedToolName} (original: ${originalToolName})`,
-          );
-          console.log(
-            `[GEMINI DEBUG] Args received:`,
-            JSON.stringify(args, null, 2),
-          );
-          console.log(`[GEMINI DEBUG] Args type:`, typeof args);
-          console.log(`[GEMINI DEBUG] Args keys:`, Object.keys(args));
+          // Debug logging only in debug mode
+          if (process.env.NEUROLINK_DEBUG === "true") {
+            const providerName = this.baseProvider.constructor.name;
+            mcpLogger.debug(`Tool execution - Provider: ${providerName}`);
+            mcpLogger.debug(
+              `Tool: ${sanitizedToolName} (original: ${originalToolName})`,
+            );
+            mcpLogger.debug("Args received:", args);
+          }
 
           mcpLogger.debug(
             `[${functionTag}] Executing MCP tool: ${sanitizedToolName} (original: ${originalToolName}, ${toolInfo?.serverId}.${toolInfo?.toolName})`,
@@ -338,10 +335,13 @@ export class FunctionCallingProvider implements AIProvider {
             if (toolInfo) {
               const mcpToolName = `${toolInfo.serverId}.${toolInfo.toolName}`;
 
-              // Log exactly what we're sending to executeFunctionCall
-              console.log(`[GEMINI DEBUG] Calling executeFunctionCall with:`);
-              console.log(`[GEMINI DEBUG] - mcpToolName:`, mcpToolName);
-              console.log(`[GEMINI DEBUG] - args:`, args);
+              // Log execution details in debug mode only
+              if (process.env.NEUROLINK_DEBUG === "true") {
+                mcpLogger.debug("Calling executeFunctionCall with:", {
+                  mcpToolName,
+                  args,
+                });
+              }
 
               const result = await executeFunctionCall(
                 mcpToolName,
@@ -349,12 +349,13 @@ export class FunctionCallingProvider implements AIProvider {
                 context,
               );
 
-              console.log(`[GEMINI DEBUG] Tool execution result:`, {
-                success: result.success,
-                hasData: !!result.data,
-                error: result.error,
-                data: result.data,
-              });
+              if (process.env.NEUROLINK_DEBUG === "true") {
+                mcpLogger.debug("Tool execution result:", {
+                  success: result.success,
+                  hasData: !!result.data,
+                  error: result.error,
+                });
+              }
 
               mcpLogger.debug(
                 `[${functionTag}] Tool execution result for ${sanitizedToolName}:`,
@@ -383,7 +384,9 @@ export class FunctionCallingProvider implements AIProvider {
             );
             return { success: false, error: "Tool mapping not found" };
           } catch (error) {
-            console.log(`[GEMINI DEBUG] Tool execution error:`, error);
+            if (process.env.NEUROLINK_DEBUG === "true") {
+              mcpLogger.debug("Tool execution error:", error);
+            }
             mcpLogger.error(
               `[${functionTag}] Tool execution failed for ${sanitizedToolName}:`,
               error,
@@ -401,19 +404,16 @@ export class FunctionCallingProvider implements AIProvider {
       Object.keys(convertedTools),
     );
 
-    // Log first tool details for debugging
-    const firstToolName = Object.keys(convertedTools)[0];
-    if (firstToolName) {
-      console.log(`[GEMINI DEBUG] First tool details:`);
-      console.log(`[GEMINI DEBUG] - Name:`, firstToolName);
-      console.log(
-        `[GEMINI DEBUG] - Description:`,
-        convertedTools[firstToolName].description,
-      );
-      console.log(
-        `[GEMINI DEBUG] - Parameters:`,
-        convertedTools[firstToolName].parameters,
-      );
+    // Log first tool details for debugging in debug mode only
+    if (process.env.NEUROLINK_DEBUG === "true") {
+      const firstToolName = Object.keys(convertedTools)[0];
+      if (firstToolName) {
+        mcpLogger.debug("First tool details:", {
+          name: firstToolName,
+          description: convertedTools[firstToolName].description,
+          parameters: convertedTools[firstToolName].parameters,
+        });
+      }
     }
 
     return convertedTools;

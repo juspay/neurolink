@@ -340,14 +340,13 @@ const result = await googleAI.generateText({
 ### Complete Google AI Studio Configuration
 
 ```bash
-# Required: API key from Google AI Studio
+# Required: API key from Google AI Studio (choose one)
 export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
+# OR
+export GOOGLE_GENERATIVE_AI_API_KEY="AIza-your-google-ai-api-key"
 
 # Optional: Default model selection
 export GOOGLE_AI_MODEL="gemini-1.5-pro-latest"
-
-# Alternative environment variable names (backward compatibility)
-export GOOGLE_GENERATIVE_AI_API_KEY="AIza-your-google-ai-api-key"
 ```
 
 ### Rate Limits and Quotas

@@ -16,8 +16,9 @@ import ora from "ora";
 import chalk from "chalk";
 import fs from "fs";
 import { addMCPCommands } from "./commands/mcp.js";
-import ollamaCommand from "./commands/ollama.js";
+import { addOllamaCommands } from "./commands/ollama.js";
 import { agentGenerateCommand } from "./commands/agent-generate.js";
+import { AgentEnhancedProvider } from "../lib/providers/agent-enhanced-provider.js";
 
 // Load environment variables from .env file
 try {
@@ -304,7 +305,7 @@ const cli = yargs(args)
         })
         .option("max-tokens", {
           type: "number",
-          default: 500,
+          default: 1000,
           description: "Maximum tokens to generate",
         })
         .option("system", {
@@ -373,19 +374,44 @@ const cli = yargs(args)
           );
         });
 
-        // Use enhanced NeuroLink SDK with Lighthouse-style natural tool access
-        const generatePromise = sdk.generateText({
-          prompt: argv.prompt as string,
-          provider:
-            argv.provider === "auto"
-              ? undefined
-              : (argv.provider as AIProviderName | undefined),
-          temperature: argv.temperature,
-          maxTokens: argv.maxTokens,
-          systemPrompt: argv.system,
-          // Lighthouse-style: Tools enabled by default, disable only if explicitly requested
-          disableTools: argv.disableTools === true, // Default true, can be disabled with --no-enable-tools
-        });
+        // Use AgentEnhancedProvider when tools are enabled, otherwise use standard SDK
+        let generatePromise;
+
+        if (argv.disableTools === true) {
+          // Tools disabled - use standard SDK
+          generatePromise = sdk.generateText({
+            prompt: argv.prompt as string,
+            provider:
+              argv.provider === "auto"
+                ? undefined
+                : (argv.provider as AIProviderName | undefined),
+            temperature: argv.temperature,
+            maxTokens: argv.maxTokens,
+            systemPrompt: argv.system,
+          });
+        } else {
+          // Tools enabled - use AgentEnhancedProvider for tool calling capabilities
+          // Map provider to supported AgentEnhancedProvider types
+          const supportedProvider = (() => {
+            switch (argv.provider) {
+              case "openai":
+              case "anthropic":
+              case "google-ai":
+                return argv.provider;
+              case "auto":
+              default:
+                return "google-ai"; // Default to google-ai for best tool support
+            }
+          })();
+
+          const agentProvider = new AgentEnhancedProvider({
+            provider: supportedProvider,
+            model: undefined, // Use default model for provider
+            toolCategory: "all", // Enable all tool categories
+          });
+
+          generatePromise = agentProvider.generateText(argv.prompt as string);
+        }
 
         const result = (await Promise.race([
           generatePromise,
@@ -399,43 +425,72 @@ const cli = yargs(args)
           spinner.succeed(chalk.green("✅ Text generated successfully!"));
         }
 
+        // Handle both AgentEnhancedProvider (AI SDK) and standard NeuroLink SDK responses
+        const responseText = result.text || result.content || "";
+        const responseUsage = result.usage || {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+        };
+
         if (argv.format === "json") {
           const jsonOutput = {
-            content: result.content || "",
-            provider: result.provider,
-            usage: result.usage || {
-              promptTokens: 0,
-              completionTokens: 0,
-              totalTokens: 0,
-            },
+            content: responseText,
+            provider: result.provider || argv.provider,
+            usage: responseUsage,
             responseTime: result.responseTime || 0,
+            toolCalls: result.toolCalls || [],
+            toolResults: result.toolResults || [],
           };
           process.stdout.write(JSON.stringify(jsonOutput, null, 2) + "\n");
         } else if (argv.debug) {
           // Debug mode: Show AI response + full metadata
-          if (result.content) {
-            console.log("\n" + result.content + "\n");
+          if (responseText) {
+            console.log("\n" + responseText + "\n");
           }
+
+          // Show tool calls if any
+          if (result.toolCalls && result.toolCalls.length > 0) {
+            console.log(chalk.blue("🔧 Tools Called:"));
+            for (const toolCall of result.toolCalls) {
+              console.log(`- ${toolCall.toolName}`);
+              console.log(`  Args: ${JSON.stringify(toolCall.args)}`);
+            }
+            console.log();
+          }
+
+          // Show tool results if any
+          if (result.toolResults && result.toolResults.length > 0) {
+            console.log(chalk.blue("📋 Tool Results:"));
+            for (const toolResult of result.toolResults) {
+              console.log(`- ${toolResult.toolCallId}`);
+              console.log(
+                `  Result: ${JSON.stringify(toolResult.result).substring(0, 200)}...`,
+              );
+            }
+            console.log();
+          }
+
           console.log(
             JSON.stringify(
               {
-                provider: result.provider,
-                usage: result.usage,
-                responseTime: result.responseTime,
+                provider: result.provider || argv.provider,
+                usage: responseUsage,
+                responseTime: result.responseTime || 0,
               },
               null,
               2,
             ),
           );
-          if (result.usage) {
+          if (responseUsage.totalTokens) {
             console.log(
-              chalk.blue(`ℹ️  ${result.usage.totalTokens} tokens used`),
+              chalk.blue(`ℹ️  ${responseUsage.totalTokens} tokens used`),
             );
           }
         } else {
           // Default mode: Clean AI response only
-          if (result.content) {
-            console.log(result.content);
+          if (responseText) {
+            console.log(responseText);
           }
         }
 
@@ -744,8 +799,6 @@ const cli = yargs(args)
             const spinner = argv.quiet
               ? null
               : ora("🔍 Checking AI provider status...\n").start();
-            // Middleware sets argv.verbose if NEUROLINK_DEBUG is true and --verbose is not specified
-            // Removed the spinner.stopAndPersist logic from here as it's handled before spinner start
 
             const providers = [
               "openai",
@@ -760,7 +813,9 @@ const cli = yargs(args)
             ] as const;
 
             // Import hasProviderEnvVars to check environment variables
-            const { hasProviderEnvVars } = await import("../lib/utils/providerUtils.js");
+            const { hasProviderEnvVars } = await import(
+              "../lib/utils/providerUtils.js"
+            );
 
             const results: Array<{
               provider: string;
@@ -803,10 +858,13 @@ const cli = yargs(args)
               if (p === "ollama") {
                 try {
                   // First, check if the service is running
-                  const serviceResponse = await fetch('http://localhost:11434/api/tags', {
-                    method: 'GET',
-                    signal: AbortSignal.timeout(2000)
-                  });
+                  const serviceResponse = await fetch(
+                    "http://localhost:11434/api/tags",
+                    {
+                      method: "GET",
+                      signal: AbortSignal.timeout(2000),
+                    },
+                  );
 
                   if (!serviceResponse.ok) {
                     throw new Error("Ollama service not responding");
@@ -815,7 +873,9 @@ const cli = yargs(args)
                   // Service is running, now check if the default model is available
                   const { models } = await serviceResponse.json();
                   const defaultOllamaModel = "llama3.2:latest";
-                  const modelIsAvailable = models.some((m: any) => m.name === defaultOllamaModel);
+                  const modelIsAvailable = models.some(
+                    (m: any) => m.name === defaultOllamaModel,
+                  );
 
                   if (modelIsAvailable) {
                     results.push({
@@ -831,7 +891,7 @@ const cli = yargs(args)
                       );
                     }
                   } else {
-                     results.push({
+                    results.push({
                       provider: p,
                       status: "failed",
                       configured: true,
@@ -850,7 +910,8 @@ const cli = yargs(args)
                     status: "failed",
                     configured: false,
                     authenticated: false,
-                    error: "Ollama is not running. Please start with: ollama serve",
+                    error:
+                      "Ollama is not running. Please start with: ollama serve",
                   });
                   if (spinner) {
                     spinner.fail(
@@ -865,17 +926,24 @@ const cli = yargs(args)
               try {
                 const start = Date.now();
 
-                // Import AIProviderFactory to test providers directly without fallback
-                const { AIProviderFactory } = await import("../lib/core/factory.js");
-
-                // Create and test provider directly to avoid automatic fallback
-                const provider = await AIProviderFactory.createProvider(p);
-                await provider.generateText({
+                // Add timeout to prevent hanging
+                const testPromise = sdk.generateText({
                   prompt: "test",
+                  provider: p,
                   maxTokens: 1,
+                  disableTools: true, // Disable tools for faster status check
                 });
 
+                const timeoutPromise = new Promise((_, reject) => {
+                  setTimeout(
+                    () => reject(new Error("Provider test timeout (5s)")),
+                    5000,
+                  );
+                });
+
+                await Promise.race([testPromise, timeoutPromise]);
                 const duration = Date.now() - start;
+
                 results.push({
                   provider: p,
                   status: "working",
@@ -893,34 +961,22 @@ const cli = yargs(args)
                   );
                 }
               } catch (error) {
-                const errorMsg = (error as Error).message;
-                let authStatus = false;
-                let statusText = "Failed";
-
-                // Check if it's an authentication error
-                if (errorMsg.includes('401') || errorMsg.includes('Unauthorized') ||
-                    errorMsg.includes('Invalid API') || errorMsg.includes('Authentication') ||
-                    errorMsg.includes('API key') || errorMsg.includes('not authorized') ||
-                    errorMsg.includes('ExpiredToken') || errorMsg.includes('expired')) {
-                  statusText = "Invalid credentials";
-                } else if (errorMsg.includes('fetch') || errorMsg.includes('blob')) {
-                  statusText = "Service error";
-                }
+                const errorMsg = (error as Error).message.includes("timeout")
+                  ? "Connection timeout"
+                  : (error as Error).message.split("\n")[0];
 
                 results.push({
                   provider: p,
                   status: "failed",
                   configured: true,
-                  authenticated: authStatus,
+                  authenticated: false,
                   error: errorMsg,
                 });
                 if (spinner) {
-                  spinner.fail(
-                    `${p}: ${chalk.red("❌ " + statusText)} - ${errorMsg.split("\n")[0]}`,
-                  );
+                  spinner.fail(`${p}: ${chalk.red("❌ Failed")} - ${errorMsg}`);
                 } else if (!argv.quiet) {
                   console.error(
-                    `${p}: ${chalk.red("❌ " + statusText)} - ${errorMsg.split("\n")[0]}`,
+                    `${p}: ${chalk.red("❌ Failed")} - ${errorMsg}`,
                   );
                 }
               }
@@ -929,9 +985,7 @@ const cli = yargs(args)
             const working = results.filter(
               (r) => r.status === "working",
             ).length;
-            const configured = results.filter(
-              (r) => r.configured,
-            ).length;
+            const configured = results.filter((r) => r.configured).length;
 
             if (spinner) {
               spinner.info(
@@ -953,333 +1007,103 @@ const cli = yargs(args)
             }
           },
         )
-        .command(
-          "list",
-          "List available AI providers",
-          (y) => y.usage("Usage: $0 provider list"),
-          async () => {
-            console.log(
-              "Available providers: openai, bedrock, vertex, anthropic, azure, google-ai, huggingface, ollama, mistral",
-            );
-          },
-        )
-        .command(
-          "configure <providerName>",
-          "Display configuration guidance for a provider",
-          (y) =>
-            y
-              .usage("Usage: $0 provider configure <providerName>")
-              .positional("providerName", {
-                type: "string",
-                choices: [
-                  "openai",
-                  "bedrock",
-                  "vertex",
-                  "anthropic",
-                  "azure",
-                  "google-ai",
-                  "huggingface",
-                  "ollama",
-                  "mistral",
-                ],
-                description: "Name of the provider to configure",
-                demandOption: true,
-              })
-              .example(
-                "$0 provider configure openai",
-                "Show OpenAI configuration help",
-              ),
-          async (argv) => {
-            console.log(
-              chalk.blue(
-                `\n🔧 Configuration guidance for ${chalk.bold(argv.providerName as string)}:`,
-              ),
-            );
-            console.log(
-              chalk.yellow(
-                "💡 Set relevant environment variables for API keys and other settings.",
-              ),
-            );
-            console.log(
-              chalk.gray(
-                "   Refer to the documentation for details: https://github.com/juspay/neurolink#configuration",
-              ),
-            );
-          },
-        )
-        .demandCommand(
-          1,
-          "Please specify a provider subcommand (status, list, or configure).",
-        );
+        .demandCommand(1, "")
+        .example("$0 provider status", "Check all providers");
     },
-    // Base handler for 'provider' removed.
-    // If no subcommand is provided, yargsProvider.demandCommand should trigger an error,
-    // which will be caught by the main .fail() handler.
   )
 
-  // Status Command (Standalone, for backward compatibility or direct access)
+  // Status command alias
   .command(
     "status",
     "Check AI provider connectivity and performance (alias for provider status)",
-    (yargsInstance) =>
-      yargsInstance
-        .usage("Usage: $0 status [options]")
-        .option("verbose", {
-          // Ensure status alias also defines verbose
-          type: "boolean",
-          alias: "v", // Default is handled by middleware if NEUROLINK_DEBUG is set
-          description: "Show detailed information",
-        })
-        .example("$0 status", "Check all providers")
-        .example("$0 status --verbose", "Show detailed status information"),
+    (yargsConfig) =>
+      yargsConfig.example("$0 status", "Quick provider status check"),
     async (argv) => {
-      // This logic is duplicated from 'provider status' for the alias
-      if (argv.verbose && !argv.quiet) {
-        console.log(
-          chalk.yellow(
-            "ℹ️ Verbose mode enabled. Displaying detailed status.\n",
-          ),
-        ); // Added newline
-      }
-      const spinner = argv.quiet
-        ? null
-        : ora("🔍 Checking AI provider status...\n").start();
-      // Middleware sets argv.verbose if NEUROLINK_DEBUG is true and --verbose is not specified
-      // Removed the spinner.stopAndPersist logic from here as it's handled before spinner start
-
-      const providers = [
-        "openai",
-        "bedrock",
-        "vertex",
-        "anthropic",
-        "azure",
-        "google-ai",
-        "huggingface",
-        "ollama",
-        "mistral",
-      ] as const;
-      const results: Array<{
-        provider: string;
-        status: string;
-        responseTime?: number;
-        error?: string;
-      }> = [];
-      for (const p of providers) {
-        if (spinner) {
-          spinner.text = `Testing ${p}...`;
-        }
-        try {
-          const start = Date.now();
-          await sdk.generateText({ prompt: "test", provider: p, maxTokens: 1 });
-          const duration = Date.now() - start;
-          results.push({
-            provider: p,
-            status: "working",
-            responseTime: duration,
-          });
-          if (spinner) {
-            spinner.succeed(
-              `${p}: ${chalk.green("✅ Working")} (${duration}ms)`,
-            );
-          } else if (!argv.quiet) {
-            console.log(`${p}: ${chalk.green("✅ Working")} (${duration}ms)`);
-          }
-        } catch (error) {
-          results.push({
-            provider: p,
-            status: "failed",
-            error: (error as Error).message,
-          });
-          if (spinner) {
-            spinner.fail(
-              `${p}: ${chalk.red("❌ Failed")} - ${(error as Error).message.split("\n")[0]}`,
-            );
-          } else if (!argv.quiet) {
-            console.error(
-              `${p}: ${chalk.red("❌ Failed")} - ${(error as Error).message.split("\n")[0]}`,
-            );
-          }
-        }
-      }
-      const working = results.filter((r) => r.status === "working").length;
-      if (spinner) {
-        spinner.info(
-          chalk.blue(
-            `\n📊 Summary: ${working}/${results.length} providers working`,
-          ),
-        );
-      } else if (!argv.quiet) {
-        console.log(
-          chalk.blue(
-            `\n📊 Summary: ${working}/${results.length} providers working`,
-          ),
-        );
-      }
-
-      if (argv.verbose && !argv.quiet) {
-        console.log(chalk.blue("\n📋 Detailed Results:"));
-        console.log(JSON.stringify(results, null, 2));
-      }
+      // Simply redirect to provider status
+      process.argv = [
+        process.argv[0],
+        process.argv[1],
+        "provider",
+        "status",
+        ...process.argv.slice(3),
+      ];
+      const { hideBin } = await import("yargs/helpers");
+      const redirectedCli = yargs(hideBin(process.argv));
+      // Re-run with provider status
+      await cli.parse("provider status");
     },
   )
 
-  // Configuration Commands Refactored
+  // Configuration Command Group
   .command(
     "config <subcommand>",
     "Manage NeuroLink configuration",
     (yargsConfig) => {
       yargsConfig
-        .usage("Usage: $0 config <subcommand> [options]") // Add usage here
+        .usage("Usage: $0 config <subcommand> [options]")
         .command(
-          "setup",
-          "Interactive setup for NeuroLink configuration",
+          "export",
+          "Export current configuration",
           (y) =>
             y
-              .usage("Usage: $0 config setup [options]")
-              .option("quiet", {
-                type: "boolean",
-                alias: "q",
-                description:
-                  "Suppress progress messages and interactive prompts",
-              })
-              .example("$0 config setup", "Run interactive setup wizard")
-              .example(
-                "$0 config setup --quiet",
-                "Run setup with minimal output",
-              ),
-          async (argv) => {
-            const { configSetup } = await import("./utils/complete-setup.js");
-            await configSetup(argv.quiet);
-          },
-        )
-        .command(
-          "init",
-          "Alias for setup: Interactive setup for NeuroLink configuration",
-          (y) =>
-            y
-              .usage("Usage: $0 config init [options]")
-              .option("quiet", {
-                type: "boolean",
-                alias: "q",
-                description:
-                  "Suppress progress messages and interactive prompts",
-              })
-              .example(
-                "$0 config init",
-                "Run interactive setup wizard (alias for setup)",
-              )
-              .example(
-                "$0 config init --quiet",
-                "Run setup with minimal output",
-              ),
-          async (argv) => {
-            const { configInit } = await import("./utils/complete-setup.js");
-            await configInit(argv.quiet);
-          },
-        )
-        .command(
-          "show",
-          "Show current NeuroLink configuration",
-          () => {},
-          async (argv) => {
-            console.log("Config show: Displaying current configuration...");
-            // Actual show logic here
-          },
-        )
-        .command(
-          "set <key> <value>",
-          "Set a configuration key-value pair",
-          (y) =>
-            y
-              .positional("key", {
+              .usage("Usage: $0 config export [options]")
+              .option("output", {
                 type: "string",
-                description: "Configuration key to set",
-                demandOption: true,
+                alias: "o",
+                description: "Output file for configuration",
               })
-              .positional("value", {
-                type: "string",
-                description: "Value to set for the key",
-                demandOption: true,
-              }),
+              .example("$0 config export", "Export to stdout")
+              .example("$0 config export -o config.json", "Export to file"),
           async (argv) => {
-            console.log(`Config set: Key: ${argv.key}, Value: ${argv.value}`);
-            // Actual set logic here
-          },
-        )
-        .command(
-          "import <file>",
-          "Import configuration from a file",
-          (y) =>
-            y.positional("file", {
-              type: "string",
-              description: "File path to import from",
-              demandOption: true,
-            }),
-          async (argv) => {
-            console.log(`Config import: Importing from ${argv.file}`);
-            if ((argv.file as string).includes("invalid-config.json")) {
-              handleError(
-                new Error("Invalid or unparseable JSON in config file."),
-                "Config import",
-              );
+            try {
+              const config = {
+                providers: {
+                  openai: !!process.env.OPENAI_API_KEY,
+                  bedrock: !!(
+                    process.env.AWS_ACCESS_KEY_ID &&
+                    process.env.AWS_SECRET_ACCESS_KEY
+                  ),
+                  vertex: !!(
+                    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+                    process.env.GOOGLE_SERVICE_ACCOUNT_KEY ||
+                    (process.env.GOOGLE_AUTH_CLIENT_EMAIL &&
+                      process.env.GOOGLE_AUTH_PRIVATE_KEY)
+                  ),
+                  anthropic: !!process.env.ANTHROPIC_API_KEY,
+                  azure: !!(
+                    process.env.AZURE_OPENAI_API_KEY &&
+                    process.env.AZURE_OPENAI_ENDPOINT
+                  ),
+                  "google-ai": !!process.env.GOOGLE_AI_API_KEY,
+                },
+                defaults: {
+                  temperature: 0.7,
+                  maxTokens: 500,
+                },
+                timestamp: new Date().toISOString(),
+              };
+
+              const output = JSON.stringify(config, null, 2);
+              if (argv.output) {
+                fs.writeFileSync(argv.output, output);
+                if (!argv.quiet) {
+                  console.log(
+                    chalk.green(`✅ Configuration exported to ${argv.output}`),
+                  );
+                }
+              } else {
+                process.stdout.write(output + "\n");
+              }
+            } catch (error) {
+              handleError(error as Error, "Configuration export");
             }
-            // Actual import logic here
           },
         )
-        .command(
-          "export <file>",
-          "Export current configuration to a file",
-          (y) =>
-            y.positional("file", {
-              type: "string",
-              description: "File path to export to",
-              demandOption: true,
-            }),
-          async (argv) => {
-            console.log(`Config export: Exporting to ${argv.file}`);
-            if ((argv.file as string).includes("read-only-dir")) {
-              handleError(
-                new Error(
-                  "Permission denied. Cannot write to read-only directory.",
-                ),
-                "Config export",
-              );
-            }
-            // Actual export logic here
-          },
-        )
-        .command(
-          "validate",
-          "Validate the current configuration",
-          () => {},
-          async (argv) => {
-            console.log("Config validate: Validating configuration...");
-            // Actual validation logic here
-          },
-        )
-        .command(
-          "reset",
-          "Reset NeuroLink configuration to defaults",
-          () => {},
-          async (argv) => {
-            console.log("Config reset: Resetting configuration...");
-            // Actual reset logic here
-          },
-        )
-        .demandCommand(
-          1,
-          "Please specify a config subcommand (e.g., setup, show, set).",
-        )
-        .example("$0 config setup", "Run interactive setup")
-        .example(
-          "$0 config set provider openai",
-          "Set default provider (using key/value)",
-        );
+        .demandCommand(1, "")
+        .example("$0 config export", "Export configuration");
     },
-    // Base handler for 'config' removed.
-    // If no subcommand is provided, yargsConfig.demandCommand should trigger an error,
-    // which will be caught by the main .fail() handler.
   )
+
   // Get Best Provider Command
   .command(
     "get-best-provider",
@@ -1287,74 +1111,71 @@ const cli = yargs(args)
     (yargsInstance) =>
       yargsInstance
         .usage("Usage: $0 get-best-provider [options]")
-        .option("debug", {
-          type: "boolean",
-          default: false,
-          description: "Enable debug mode with selection reasoning",
+        .option("format", {
+          choices: ["text", "json"] as const,
+          default: "text",
+          description: "Output format",
         })
-        .example("$0 get-best-provider", "Get best provider")
-        .example("$0 get-best-provider --debug", "Show selection logic"),
+        .example("$0 get-best-provider", "Show best provider")
+        .example("$0 get-best-provider --format json", "Show in JSON format"),
     async (argv) => {
-      const spinner = argv.quiet
-        ? null
-        : ora("🎯 Finding best provider...").start();
       try {
-        const provider = await sdk.getBestProvider();
+        const { getBestProvider } = await import(
+          "../lib/utils/providerUtils-fixed.js"
+        );
+        const bestProvider = getBestProvider();
 
-        if (spinner) {
-          if (argv.debug) {
-            spinner.succeed(
-              chalk.green(`✅ Best provider selected: ${provider}`),
-            );
-          } else {
-            spinner.succeed(chalk.green("✅ Provider found"));
-          }
-        }
-
-        if (argv.debug) {
-          // Debug mode: Show selection reasoning and metadata
-          console.log(`\nBest available provider: ${provider}`);
-          console.log(
-            `Selection based on: availability, performance, and configuration`,
+        if (argv.format === "json") {
+          process.stdout.write(
+            JSON.stringify({ provider: bestProvider }, null, 2) + "\n",
           );
         } else {
-          // Default mode: Clean provider name only
-          console.log(provider);
+          if (!argv.quiet) {
+            console.log(
+              chalk.green(`🎯 Best available provider: ${bestProvider}`),
+            );
+          } else {
+            process.stdout.write(bestProvider + "\n");
+          }
         }
       } catch (error) {
-        if (spinner && spinner.isSpinning) {
-          spinner.fail();
-        }
         handleError(error as Error, "Provider selection");
       }
     },
   )
 
-  .completion("completion", "Generate shell completion script");
+  // Completion Command
+  .command(
+    "completion",
+    "Generate shell completion script",
+    (yargsInstance) =>
+      yargsInstance
+        .usage("Usage: $0 completion")
+        .example("$0 completion >> ~/.bashrc", "Add to bash")
+        .example("$0 completion >> ~/.zshrc", "Add to zsh"),
+    async (argv) => {
+      cli.showCompletionScript();
+    },
+  );
 
-// Add MCP commands
+// Add MCP Commands
 addMCPCommands(cli);
 
-// Add Ollama command
-cli.command(ollamaCommand);
+// Add Ollama Commands
+addOllamaCommands(cli);
 
-// Add Agent-Generate command
-cli.command(agentGenerateCommand);
+// Add Agent Generate Command
+agentGenerateCommand(cli);
 
-// Use an async IIFE to allow top-level await for parseAsync
+// Execute CLI
 (async () => {
   try {
-    await cli.parseAsync();
+    await cli.parse();
   } catch (error) {
-    // Yargs .fail() should handle most errors and exit,
-    // but catch any other unhandled promise rejections from async handlers.
-    // handleError is not called here because .fail() or command handlers should have already done so.
-    // If an error reaches here, it's likely an unhandled exception not caught by yargs.
-    if (error instanceof Error) {
-      console.error(chalk.red(`Unhandled CLI Error: ${error.message}`));
-    } else {
-      console.error(chalk.red(`Unhandled CLI Error: ${String(error)}`));
-    }
+    // Global error handler - should not reach here due to fail() handler
+    process.stderr.write(
+      chalk.red(`Unexpected CLI error: ${(error as Error).message}\n`),
+    );
     process.exit(1);
   }
 })();

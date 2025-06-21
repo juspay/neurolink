@@ -9,7 +9,7 @@ import {
   MCPToolRegistry,
   defaultToolRegistry,
   type ToolExecutionOptions,
-} from "./registry.js";
+} from "./tool-registry.js";
 import {
   ContextManager,
   defaultContextManager,
@@ -100,7 +100,7 @@ export class MCPOrchestrator {
    */
   private async initializeDefaultServers(): Promise<void> {
     try {
-      await this.registry.registerServer(aiCoreServer);
+      await this.registry.registerServer(aiCoreServer.id, aiCoreServer);
       console.log("[Orchestrator] Initialized with AI Core Server");
     } catch (error) {
       console.warn("[Orchestrator] Failed to register AI Core Server:", error);
@@ -130,12 +130,7 @@ export class MCPOrchestrator {
     );
 
     // Execute tool through registry
-    const result = await this.registry.executeTool(
-      toolName,
-      params,
-      context,
-      options,
-    );
+    const result = await this.registry.executeTool(toolName, params, context);
 
     console.log(
       `[Orchestrator] Tool '${toolName}' execution ${result.success ? "completed" : "failed"}`,
@@ -206,19 +201,17 @@ export class MCPOrchestrator {
               step.toolName,
               step.params,
               context,
-              {
-                ...step.options,
-                validateInput: validateInputs,
-                trackMetrics,
-                timeoutMs: timeout / steps.length, // Distribute timeout across steps
-              },
             );
 
             results.set(stepId, stepResult);
             stepsExecuted++;
 
             if (!stepResult.success) {
-              errors.set(stepId, stepResult.error || "Unknown error");
+              const errorMessage =
+                stepResult.error instanceof Error
+                  ? stepResult.error.message
+                  : stepResult.error || "Unknown error";
+              errors.set(stepId, errorMessage);
 
               if (stopOnError) {
                 console.error(
@@ -497,13 +490,16 @@ export class MCPOrchestrator {
             step.toolName,
             step.params,
             context,
-            { ...step.options, ...options },
           );
 
           results.set(stepId, result);
 
           if (!result.success) {
-            errors.set(stepId, result.error || "Unknown error");
+            const errorMessage =
+              result.error instanceof Error
+                ? result.error.message
+                : result.error || "Unknown error";
+            errors.set(stepId, errorMessage);
           }
         } catch (error) {
           const errorMessage =

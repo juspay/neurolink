@@ -1,5 +1,59 @@
 # NeuroLink System Patterns
 
+## 🚀 **Critical Architectural Patterns Learned** (June 21, 2025)
+
+### **TypeScript Compilation Error Resolution Patterns**
+
+**Pattern**: Systematic error analysis → Root cause identification → Strategic fixes → Integration validation
+
+**Key Patterns Applied**:
+```typescript
+// Type Safety Patterns
+- String undefined type errors → Proper null checks and type assertions
+- Async method signatures → Fixed Promise return types and async/await patterns  
+- Interface compliance → Complete NeuroLinkExecutionContext objects with all required properties
+- Method parameter alignment → Corrected method calls to match expected signatures
+- Smart type guards → Implemented proper filtering to eliminate undefined values
+```
+
+### **CLI Integration Architecture Patterns**
+
+**Critical Discovery**: CLI commands require different provider architectures for tool access
+
+```typescript
+// PATTERN: Tool-Aware CLI Commands
+if (toolsDisabled) {
+  // Standard SDK - no tool access
+  generatePromise = sdk.generateText({...});
+} else {
+  // AgentEnhancedProvider - full MCP tool access
+  const agentProvider = new AgentEnhancedProvider({...});
+  generatePromise = agentProvider.generateText(...);
+}
+```
+
+### **Response Handling Patterns**
+
+**Pattern**: Handle dual response structures for compatibility
+
+```typescript
+// Universal Response Pattern
+const responseText = result.text || result.content || "";
+const responseUsage = result.usage || { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+
+// AI SDK (AgentEnhancedProvider) → result.text
+// NeuroLink SDK (standard) → result.content
+```
+
+### **MCP Tool Integration Architecture**
+
+**Pattern**: Factory-First MCP with tool orchestration behind simple interfaces
+- **Tool Loading**: 23,230+ token context indicates full MCP tool access
+- **Function Calling**: AI successfully executes filesystem and system operations
+- **User Experience**: Tools enabled by default with opt-out capability
+
+---
+
 ## Architecture Overview
 
 The NeuroLink toolkit follows a structured architecture based on the following principles:

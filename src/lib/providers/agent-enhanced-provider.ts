@@ -84,7 +84,7 @@ export class AgentEnhancedProvider implements AIProvider {
     const {
       prompt,
       temperature = 0.7,
-      maxTokens = 500,
+      maxTokens = 1000,
       systemPrompt,
       schema,
     } = options;
@@ -126,7 +126,7 @@ export class AgentEnhancedProvider implements AIProvider {
     const {
       prompt,
       temperature = 0.7,
-      maxTokens = 500,
+      maxTokens = 1000,
       systemPrompt,
     } = options;
 

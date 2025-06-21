@@ -4,49 +4,51 @@ import chalk from "chalk";
 import ora from "ora";
 import inquirer from "inquirer";
 
-export const ollamaCommand = {
-  command: "ollama <command>",
-  describe: "Manage Ollama local AI models",
-  builder: (yargs: Argv) => {
-    return yargs
-      .command(
-        "list-models",
-        "List installed Ollama models",
-        {},
-        listModelsHandler,
-      )
-      .command(
-        "pull <model>",
-        "Download an Ollama model",
-        {
-          model: {
-            describe: "Model name to download",
-            type: "string",
-            demandOption: true,
+export function addOllamaCommands(cli: Argv) {
+  cli.command(
+    "ollama <command>",
+    "Manage Ollama local AI models",
+    (yargs: Argv) => {
+      return yargs
+        .command(
+          "list-models",
+          "List installed Ollama models",
+          {},
+          listModelsHandler,
+        )
+        .command(
+          "pull <model>",
+          "Download an Ollama model",
+          {
+            model: {
+              describe: "Model name to download",
+              type: "string",
+              demandOption: true,
+            },
           },
-        },
-        pullModelHandler,
-      )
-      .command(
-        "remove <model>",
-        "Remove an Ollama model",
-        {
-          model: {
-            describe: "Model name to remove",
-            type: "string",
-            demandOption: true,
+          pullModelHandler,
+        )
+        .command(
+          "remove <model>",
+          "Remove an Ollama model",
+          {
+            model: {
+              describe: "Model name to remove",
+              type: "string",
+              demandOption: true,
+            },
           },
-        },
-        removeModelHandler,
-      )
-      .command("status", "Check Ollama service status", {}, statusHandler)
-      .command("start", "Start Ollama service", {}, startHandler)
-      .command("stop", "Stop Ollama service", {}, stopHandler)
-      .command("setup", "Interactive Ollama setup", {}, setupHandler)
-      .demandCommand(1, "Please specify a command");
-  },
-  handler: () => {}, // No-op handler as subcommands handle everything
-};
+          removeModelHandler,
+        )
+        .command("status", "Check Ollama service status", {}, statusHandler)
+        .command("start", "Start Ollama service", {}, startHandler)
+        .command("stop", "Stop Ollama service", {}, stopHandler)
+        .command("setup", "Interactive Ollama setup", {}, setupHandler)
+        .demandCommand(1, "Please specify a command");
+    },
+    () => {}, // No-op handler as subcommands handle everything
+  );
+}
 
 async function listModelsHandler() {
   const spinner = ora("Fetching installed models...").start();
@@ -388,4 +390,4 @@ async function setupHandler() {
   );
 }
 
-export default ollamaCommand;
+export default addOllamaCommands;

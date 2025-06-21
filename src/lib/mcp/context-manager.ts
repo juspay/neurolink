@@ -58,7 +58,80 @@ export class ContextManager {
     const context: NeuroLinkExecutionContext = {
       // Session Management
       sessionId,
-      userId: request.userId,
+      userId: request.userId || "unknown-user",
+
+      // Required ExecutionContext properties
+      secureFS: {
+        readFile: async (path: string, encoding?: string) => {
+          const fs = await import("fs/promises");
+          if (encoding) {
+            return fs.readFile(path, { encoding: encoding as BufferEncoding });
+          } else {
+            return fs.readFile(path);
+          }
+        },
+        writeFile: async (path: string, content: string | Buffer) => {
+          const fs = await import("fs/promises");
+          return fs.writeFile(path, content);
+        },
+        readdir: async (path: string) => {
+          const fs = await import("fs/promises");
+          return fs.readdir(path);
+        },
+        stat: async (path: string) => {
+          const fs = await import("fs/promises");
+          return fs.stat(path);
+        },
+        mkdir: async (path: string, options?: any) => {
+          const fs = await import("fs/promises");
+          await fs.mkdir(path, options);
+        },
+        exists: async (path: string) => {
+          const fs = await import("fs/promises");
+          try {
+            await fs.access(path);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+      },
+      path: {
+        join: (...paths: string[]) => {
+          const path = require("path");
+          return path.join(...paths);
+        },
+        resolve: (...paths: string[]) => {
+          const path = require("path");
+          return path.resolve(...paths);
+        },
+        relative: (from: string, to: string) => {
+          const path = require("path");
+          return path.relative(from, to);
+        },
+        dirname: (path: string) => {
+          const pathModule = require("path");
+          return pathModule.dirname(path);
+        },
+        basename: (path: string, ext?: string) => {
+          const pathModule = require("path");
+          return pathModule.basename(path, ext);
+        },
+      },
+      grantedPermissions: request.permissions || [],
+      log: (
+        level: "debug" | "info" | "warn" | "error",
+        message: string,
+        data?: any,
+      ) => {
+        // Use logger if available, otherwise console
+        try {
+          const { logger } = require("../utils/logger.js");
+          logger[level](message, data);
+        } catch {
+          console[level === "debug" ? "log" : level](message, data);
+        }
+      },
 
       // AI Provider Context (from existing NeuroLink)
       aiProvider: request.aiProvider,

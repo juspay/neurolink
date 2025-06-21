@@ -205,7 +205,9 @@ class OllamaLanguageModel implements LanguageModelV1 {
         if (response.status === 404) {
           const errorData = await response.json();
           if (errorData.error && errorData.error.includes("not found")) {
-            throw new Error(`Model '${this.modelId}' not found. Please run 'ollama pull ${this.modelId}'`);
+            throw new Error(
+              `Model '${this.modelId}' not found. Please run 'ollama pull ${this.modelId}'`,
+            );
           }
         }
         throw new Error(
@@ -303,7 +305,9 @@ class OllamaLanguageModel implements LanguageModelV1 {
         if (response.status === 404) {
           const errorData = await response.json();
           if (errorData.error && errorData.error.includes("not found")) {
-            throw new Error(`Model '${this.modelId}' not found. Please run 'ollama pull ${this.modelId}'`);
+            throw new Error(
+              `Model '${this.modelId}' not found. Please run 'ollama pull ${this.modelId}'`,
+            );
           }
         }
         throw new Error(
@@ -559,7 +563,7 @@ export class Ollama implements AIProvider {
       const {
         prompt,
         temperature = 0.7,
-        maxTokens = 500,
+        maxTokens = 1000,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
         schema,
       } = options;
@@ -594,7 +598,9 @@ export class Ollama implements AIProvider {
       const result = await generateText(generateOptions);
 
       if (result.text.includes("model not found")) {
-        throw new Error(`Model '${this.modelName}' not found. Please run 'ollama pull ${this.modelName}'`);
+        throw new Error(
+          `Model '${this.modelName}' not found. Please run 'ollama pull ${this.modelName}'`,
+        );
       }
 
       logger.debug(`[${functionTag}] Generate text completed`, {
@@ -638,7 +644,7 @@ export class Ollama implements AIProvider {
       const {
         prompt,
         temperature = 0.7,
-        maxTokens = 500,
+        maxTokens = 1000,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
         schema,
       } = options;

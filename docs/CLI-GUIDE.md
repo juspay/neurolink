@@ -66,7 +66,7 @@ neurolink generate-text "Hello AI" --quiet
 
 - `--provider <name>` - Choose specific provider or 'auto' (default: auto)
 - `--temperature <number>` - Creativity level 0.0-1.0 (default: 0.7)
-- `--max-tokens <number>` - Maximum tokens to generate (default: 500)
+- `--max-tokens <number>` - Maximum tokens to generate (default: 1000)
 - `--system <text>` - System prompt to guide AI behavior
 - `--format <type>` - Output format: 'text' or 'json' (default: text)
 - `--debug` - Enable debug mode with verbose output and metadata
@@ -866,7 +866,7 @@ MCP servers are automatically configured in `.mcp-config.json`:
 
 - `--provider <name>` - Choose provider: `auto` (default), `openai`, `bedrock`, `vertex`, `anthropic`, `azure`, `google-ai`, `huggingface`, `ollama`, `mistral`
 - `--temperature <number>` - Creativity level: `0.0` (focused) to `1.0` (creative), default: `0.7`
-- `--max-tokens <number>` - Maximum tokens to generate, default: `500`
+- `--max-tokens <number>` - Maximum tokens to generate, default: `1000`
 - `--format <type>` - Output format: `text` (default) or `json`
 
 ### Batch Processing Options

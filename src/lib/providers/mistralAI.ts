@@ -123,7 +123,7 @@ export class MistralAI implements AIProvider {
       const {
         prompt,
         temperature = 0.7,
-        maxTokens = 500,
+        maxTokens = 1000,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
         schema,
       } = options;
@@ -239,7 +239,7 @@ export class MistralAI implements AIProvider {
       const {
         prompt,
         temperature = 0.7,
-        maxTokens = 500,
+        maxTokens = 1000,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
         schema,
       } = options;

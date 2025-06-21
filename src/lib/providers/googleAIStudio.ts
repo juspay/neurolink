@@ -27,7 +27,9 @@ const getGoogleAIApiKey = (): string => {
   const apiKey =
     process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
-    throw new Error("GOOGLE_AI_API_KEY environment variable is not set");
+    throw new Error(
+      "GOOGLE_AI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY environment variable is not set",
+    );
   }
   return apiKey;
 };
@@ -134,7 +136,7 @@ export class GoogleAIStudio implements AIProvider {
       const {
         prompt,
         temperature = 0.7,
-        maxTokens = 500,
+        maxTokens = 1000,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
         schema,
         tools,
@@ -254,7 +256,7 @@ export class GoogleAIStudio implements AIProvider {
       const {
         prompt,
         temperature = 0.7,
-        maxTokens = 500,
+        maxTokens = 1000,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
         schema,
         tools,

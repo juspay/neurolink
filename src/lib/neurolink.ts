@@ -2,16 +2,15 @@
  * NeuroLink - Unified AI Interface with Real MCP Tool Integration
  *
  * Enhanced AI provider system with natural MCP tool access.
- * Uses real MCP infrastructure for    // Initialize MCP with enhanced error handling
-    await this.initializeMCP();tool discovery and execution.
+ * Uses real MCP infrastructure for tool discovery and execution.
  */
 
 import type { AIProviderName } from "./core/types.js";
 import { AIProviderFactory } from "./index.js";
 import { ContextManager } from "./mcp/context-manager.js";
 import { mcpLogger } from "./mcp/logging.js";
-import { getDefaultToolRegistry } from "./mcp/registry.js";
-import { defaultUnifiedRegistry } from "./mcp/unified-registry.js";
+import { toolRegistry } from "./mcp/tool-registry.js";
+import { unifiedRegistry } from "./mcp/unified-registry.js";
 import { logger } from "./utils/logger.js";
 import { getBestProvider } from "./utils/providerUtils-fixed.js";
 
@@ -200,7 +199,7 @@ export class NeuroLink {
         contextId: context.sessionId,
       });
 
-      // Get available tools from default registry (simplified approach)
+      // Get available tools from tool registry (simplified approach)
       let availableTools: Array<{
         name: string;
         description: string;
@@ -208,9 +207,9 @@ export class NeuroLink {
         category?: string;
       }> = [];
       try {
-        // Use getDefaultToolRegistry() to avoid circular dependencies
-        const allTools = getDefaultToolRegistry().listTools();
-        availableTools = allTools.map((tool) => ({
+        // Use toolRegistry directly instead of unified registry to avoid hanging
+        const allTools = await toolRegistry.listTools();
+        availableTools = allTools.map((tool: any) => ({
           name: tool.name,
           description: tool.description || "No description available",
           server: tool.server,
@@ -600,7 +599,7 @@ Note: Tool integration is currently in development. Please provide helpful respo
    * Get access to the unified MCP registry for tool inspection and management
    */
   getUnifiedRegistry() {
-    return defaultUnifiedRegistry;
+    return unifiedRegistry;
   }
 
   /**
@@ -609,27 +608,24 @@ Note: Tool integration is currently in development. Please provide helpful respo
   async getMCPStatus() {
     await this.initializeMCP();
 
-    const totalServers = defaultUnifiedRegistry.getTotalServerCount();
-    const availableServers = defaultUnifiedRegistry.getAvailableServerCount();
-    const autoDiscoveredServers =
-      defaultUnifiedRegistry.getAutoDiscoveredServers();
-    const allTools = await defaultUnifiedRegistry.listAllTools();
+    const totalServers = unifiedRegistry.getTotalServerCount();
+    const availableServers = unifiedRegistry.getAvailableServerCount();
+    const autoDiscoveredServers = unifiedRegistry.getAutoDiscoveredServers();
+    const allTools = await unifiedRegistry.listAllTools();
 
     return {
       mcpInitialized: this.mcpInitialized,
       totalServers,
       availableServers,
-      autoDiscoveredCount: autoDiscoveredServers.size,
+      autoDiscoveredCount: autoDiscoveredServers.length,
       totalTools: allTools.length,
-      autoDiscoveredServers: Array.from(autoDiscoveredServers.entries()).map(
-        ([id, server]) => ({
-          id: server.id,
-          name: server.config?.name || id,
-          source: server.source,
-          status: server.status,
-          hasServer: !!server.server,
-        }),
-      ),
+      autoDiscoveredServers: autoDiscoveredServers.map((server) => ({
+        id: server.metadata.name,
+        name: server.metadata.name,
+        source: server.source,
+        status: "discovered",
+        hasServer: true,
+      })),
     };
   }
 }

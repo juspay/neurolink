@@ -151,7 +151,7 @@ export class AnthropicProvider implements AIProvider {
     const {
       prompt,
       temperature = 0.7,
-      maxTokens = 500,
+      maxTokens = 1000,
       systemPrompt = "You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.",
     } = options;
 
@@ -214,7 +214,7 @@ export class AnthropicProvider implements AIProvider {
     const {
       prompt,
       temperature = 0.7,
-      maxTokens = 500,
+      maxTokens = 1000,
       systemPrompt = "You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.",
     } = options;
 
@@ -322,7 +322,7 @@ export class AnthropicProvider implements AIProvider {
     const {
       prompt,
       temperature = 0.7,
-      maxTokens = 500,
+      maxTokens = 1000,
       systemPrompt = "You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.",
     } = options;
 

@@ -1,209 +1,124 @@
 /**
- * NeuroLink MCP Logging System
- * Provides configurable logging with different verbosity levels
+ * MCP Logging Utility
+ * Centralized logging for the MCP ecosystem
  */
 
-export enum LogLevel {
-  SILENT = 0,
-  ERROR = 1,
-  WARN = 2,
-  INFO = 3,
-  DEBUG = 4,
-}
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
-export interface LoggerConfig {
+interface LogEntry {
   level: LogLevel;
-  prefix?: string;
-  colors?: boolean;
-  timestamp?: boolean;
+  message: string;
+  timestamp: Date;
+  data?: unknown;
 }
 
-/**
- * Configurable logger for MCP operations
- */
-export class MCPLogger {
-  private config: LoggerConfig;
+class MCPLogger {
+  private logLevel: LogLevel = "info";
+  private logs: LogEntry[] = [];
+  private maxLogs = 1000;
 
-  constructor(config: Partial<LoggerConfig> = {}) {
-    // Determine log level from environment or default to SILENT
-    const envLogLevel = process.env.NEUROLINK_MCP_LOG_LEVEL?.toUpperCase();
-    let defaultLevel = LogLevel.SILENT;
+  constructor() {
+    // Set log level from environment
+    const envLevel = process.env.MCP_LOG_LEVEL?.toLowerCase() as LogLevel;
+    if (envLevel && ["debug", "info", "warn", "error"].includes(envLevel)) {
+      this.logLevel = envLevel;
+    }
+  }
 
-    switch (envLogLevel) {
-      case "SILENT":
-        defaultLevel = LogLevel.SILENT;
-        break;
-      case "ERROR":
-        defaultLevel = LogLevel.ERROR;
-        break;
-      case "WARN":
-        defaultLevel = LogLevel.WARN;
-        break;
-      case "INFO":
-        defaultLevel = LogLevel.INFO;
-        break;
-      case "DEBUG":
-        defaultLevel = LogLevel.DEBUG;
-        break;
+  setLogLevel(level: LogLevel): void {
+    this.logLevel = level;
+  }
+
+  private shouldLog(level: LogLevel): boolean {
+    const levels = ["debug", "info", "warn", "error"];
+    return levels.indexOf(level) >= levels.indexOf(this.logLevel);
+  }
+
+  private log(level: LogLevel, message: string, data?: unknown): void {
+    if (!this.shouldLog(level)) {
+      return;
     }
 
-    this.config = {
-      level: defaultLevel,
-      prefix: "",
-      colors: true,
-      timestamp: false,
-      ...config,
+    const entry: LogEntry = {
+      level,
+      message,
+      timestamp: new Date(),
+      data,
     };
-  }
 
-  /**
-   * Set log level
-   */
-  setLevel(level: LogLevel): void {
-    this.config.level = level;
-  }
+    // Store log entry
+    this.logs.push(entry);
 
-  /**
-   * Get current log level
-   */
-  getLevel(): LogLevel {
-    return this.config.level;
-  }
-
-  /**
-   * Log an error message
-   */
-  error(message: string, ...args: any[]): void {
-    if (this.config.level >= LogLevel.ERROR) {
-      this.log("ERROR", message, ...args);
-    }
-  }
-
-  /**
-   * Log a warning message
-   */
-  warn(message: string, ...args: any[]): void {
-    if (this.config.level >= LogLevel.WARN) {
-      this.log("WARN", message, ...args);
-    }
-  }
-
-  /**
-   * Log an info message
-   */
-  info(message: string, ...args: any[]): void {
-    if (this.config.level >= LogLevel.INFO) {
-      this.log("INFO", message, ...args);
-    }
-  }
-
-  /**
-   * Log a debug message
-   */
-  debug(message: string, ...args: any[]): void {
-    if (this.config.level >= LogLevel.DEBUG) {
-      this.log("DEBUG", message, ...args);
-    }
-  }
-
-  /**
-   * Internal logging method
-   */
-  private log(level: string, message: string, ...args: any[]): void {
-    let output = "";
-
-    // Add timestamp if enabled
-    if (this.config.timestamp) {
-      output += `[${new Date().toISOString()}] `;
+    // Trim old logs
+    if (this.logs.length > this.maxLogs) {
+      this.logs = this.logs.slice(-this.maxLogs);
     }
 
-    // Add prefix if configured
-    if (this.config.prefix) {
-      output += `[${this.config.prefix}] `;
-    }
+    // Console output
+    const timestamp = entry.timestamp.toISOString();
+    const prefix = `[${timestamp}] [MCP:${level.toUpperCase()}]`;
 
-    // Add log level
-    if (this.config.colors) {
-      switch (level) {
-        case "ERROR":
-          output += `\x1b[31m[${level}]\x1b[0m `;
-          break;
-        case "WARN":
-          output += `\x1b[33m[${level}]\x1b[0m `;
-          break;
-        case "INFO":
-          output += `\x1b[36m[${level}]\x1b[0m `;
-          break;
-        case "DEBUG":
-          output += `\x1b[90m[${level}]\x1b[0m `;
-          break;
-        default:
-          output += `[${level}] `;
-      }
-    } else {
-      output += `[${level}] `;
-    }
-
-    // Add message
-    output += message;
-
-    // Use appropriate console method
     switch (level) {
-      case "ERROR":
-        console.error(output, ...args);
+      case "debug":
+        console.debug(prefix, message, data ? data : "");
         break;
-      case "WARN":
-        console.warn(output, ...args);
+      case "info":
+        console.info(prefix, message, data ? data : "");
         break;
-      default:
-        console.log(output, ...args);
+      case "warn":
+        console.warn(prefix, message, data ? data : "");
+        break;
+      case "error":
+        console.error(prefix, message, data ? data : "");
+        break;
     }
   }
-}
 
-/**
- * Create logger instances for different MCP components
- */
-export const createLogger = (component: string): MCPLogger => {
-  return new MCPLogger({
-    prefix: component,
-  });
-};
+  debug(message: string, data?: unknown): void {
+    this.log("debug", message, data);
+  }
 
-/**
- * Default loggers for common MCP components
- */
-export const mcpLogger = createLogger("MCP");
-export const autoDiscoveryLogger = createLogger("MCPAutoDiscovery");
-export const registryLogger = createLogger("MCPRegistry");
-export const unifiedRegistryLogger = createLogger("UnifiedMCPRegistry");
+  info(message: string, data?: unknown): void {
+    this.log("info", message, data);
+  }
 
-/**
- * Utility function to set global MCP log level
- */
-export function setGlobalMCPLogLevel(level: LogLevel): void {
-  mcpLogger.setLevel(level);
-  autoDiscoveryLogger.setLevel(level);
-  registryLogger.setLevel(level);
-  unifiedRegistryLogger.setLevel(level);
-}
+  warn(message: string, data?: unknown): void {
+    this.log("warn", message, data);
+  }
 
-/**
- * Utility function to parse log level from string
- */
-export function parseLogLevel(level: string): LogLevel {
-  switch (level.toUpperCase()) {
-    case "SILENT":
-      return LogLevel.SILENT;
-    case "ERROR":
-      return LogLevel.ERROR;
-    case "WARN":
-      return LogLevel.WARN;
-    case "INFO":
-      return LogLevel.INFO;
-    case "DEBUG":
-      return LogLevel.DEBUG;
-    default:
-      return LogLevel.WARN;
+  error(message: string, data?: unknown): void {
+    this.log("error", message, data);
+  }
+
+  getLogs(level?: LogLevel): LogEntry[] {
+    if (level) {
+      return this.logs.filter((log) => log.level === level);
+    }
+    return [...this.logs];
+  }
+
+  clearLogs(): void {
+    this.logs = [];
   }
 }
+
+// Export singleton instance
+export const mcpLogger = new MCPLogger();
+
+// Additional logger instances for different modules
+export const autoDiscoveryLogger = mcpLogger;
+export const registryLogger = mcpLogger;
+export const unifiedRegistryLogger = mcpLogger;
+
+// Global log level setter
+export function setGlobalMCPLogLevel(level: LogLevel): void {
+  mcpLogger.setLogLevel(level);
+}
+
+// Export LogLevel enum for runtime use
+export const LogLevels = {
+  debug: "debug" as const,
+  info: "info" as const,
+  warn: "warn" as const,
+  error: "error" as const,
+} as const;

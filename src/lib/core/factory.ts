@@ -208,18 +208,19 @@ export class AIProviderFactory {
       // Wrap with MCP if enabled
       if (enableMCP) {
         try {
-          // TEMPORARY: Disable MCP wrapping to test for hanging issues
           logger.debug(
-            `[${functionTag}] MCP wrapping temporarily disabled for debugging`,
+            `[${functionTag}] Enabling MCP wrapping for AI integration`,
           );
-          // const { createMCPAwareProviderV3 } = await import("../providers/function-calling-provider.js");
-          // provider = createMCPAwareProviderV3(provider, {
-          //   providerName,
-          //   modelName: resolvedModelName || undefined,
-          //   enableMCP: true,
-          //   enableFunctionCalling: true,
-          // });
-          // logger.debug(`[${functionTag}] Provider wrapped with MCP support`);
+          const { createMCPAwareProviderV3 } = await import(
+            "../providers/function-calling-provider.js"
+          );
+          provider = createMCPAwareProviderV3(provider, {
+            providerName,
+            modelName: resolvedModelName || undefined,
+            enableMCP: true,
+            enableFunctionCalling: true,
+          });
+          logger.debug(`[${functionTag}] Provider wrapped with MCP support`);
         } catch (mcpError) {
           logger.warn(
             `[${functionTag}] Failed to wrap with MCP, using base provider`,

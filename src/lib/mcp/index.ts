@@ -1,228 +1,123 @@
 /**
- * NeuroLink MCP (Model Context Protocol) Module
- *
- * This module exports the MCP configuration and initialization utilities
- * for use throughout the application, following Lighthouse's patterns.
+ * MCP Ecosystem - Main Export
+ * Universal AI Development Platform with Extensible Plugin Architecture
+ * Implementation based on research blueprint
  */
 
-import { mcpConfig } from "./config.js";
-import { getMCPManager, removeMCPManager, MCPManager } from "./manager.js";
-import {
-  initializeMCPTools,
-  getAllAvailableTools,
-  initializeServerTools,
-} from "./initialize-tools.js";
-import { createMCPServer } from "./factory.js";
-import { logger } from "../utils/logger.js";
-import type { NeuroLinkMCPServer, NeuroLinkMCPTool } from "./factory.js";
-
-// Re-export core components
-export { createMCPServer } from "./factory.js";
-export { mcpConfig } from "./config.js";
-export { getMCPManager, removeMCPManager, MCPManager } from "./manager.js";
-export { createMCPClient } from "./client.js";
-export {
-  initializeMCPTools,
-  getAllAvailableTools,
-  initializeServerTools,
-} from "./initialize-tools.js";
-
-// Re-export types
+// Core contracts and types
+export { MCP } from "./contracts/mcp-contract.js";
 export type {
-  NeuroLinkMCPServer,
-  NeuroLinkMCPTool,
-  NeuroLinkExecutionContext,
-  ToolResult,
-  MCPServerCategory,
-  MCPServerConfig,
-} from "./factory.js";
+  MCPMetadata,
+  ExecutionContext,
+  MCPConstructor,
+  MCPInstance,
+  DiscoveredMCP,
+} from "./contracts/mcp-contract.js";
 
-export type { MCPClientConfig } from "./client.js";
+// Main ecosystem interface
+export { MCPEcosystem, mcpEcosystem } from "./ecosystem.js";
 
-/**
- * MCP utilities for system-wide operations
- */
-export const MCPUtils = {
-  /**
-   * Get a formatted list of all available tools across all registered MCP servers
-   * Useful for documentation or configuration UI
-   */
-  getAvailableTools: async () => {
-    const servers: NeuroLinkMCPServer[] = await mcpConfig.getServers();
+// Plugin management
+export { PluginManager, pluginManager } from "./plugin-manager.js";
 
-    return servers.map((server) => ({
-      serverId: server.id,
-      serverTitle: server.title,
-      serverDescription: server.description,
-      category: server.category,
-      toolCount: Object.keys(server.tools).length,
-      tools: Object.entries(server.tools).map(([name, tool]) => ({
-        name,
-        description: tool.description,
-        isImplemented: tool.isImplemented !== false,
-      })),
-    }));
-  },
+// Security
+export { SecurityManager } from "./security-manager.js";
 
-  /**
-   * Function to test connectivity with MCP servers
-   * Returns diagnostics about the MCP server initialization status
-   */
-  testConnectivity: async () => {
-    try {
-      const servers: NeuroLinkMCPServer[] = await mcpConfig.getServers();
+// Logging
+export { mcpLogger } from "./logging.js";
+export type { LogLevel } from "./logging.js";
 
-      const results = servers.map((server) => ({
-        serverId: server.id,
-        serverTitle: server.title,
-        status: "connected",
-        toolCount: Object.keys(server.tools).length,
-        implementedTools: Object.values(server.tools).filter(
-          (tool) => tool.isImplemented !== false,
-        ).length,
-      }));
-
-      const totalToolCount = results.reduce(
-        (acc, server) => acc + server.toolCount,
-        0,
-      );
-      const totalImplemented = results.reduce(
-        (acc, server) => acc + server.implementedTools,
-        0,
-      );
-
-      logger.info("[MCP Utils] Connectivity test successful", {
-        serverCount: results.length,
-        totalToolCount,
-        totalImplemented,
-      });
-
-      return {
-        status: "ok",
-        message: `Connected to ${results.length} MCP servers with ${totalToolCount} total tools (${totalImplemented} implemented)`,
-        servers: results,
-        timestamp: new Date().toISOString(),
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-
-      logger.error("[MCP Utils] Connectivity test failed", {
-        error: errorMessage,
-      });
-
-      return {
-        status: "error",
-        message: `Failed to connect to MCP servers: ${errorMessage}`,
-        timestamp: new Date().toISOString(),
-      };
-    }
-  },
-
-  /**
-   * Get statistics about MCP usage
-   */
-  getStatistics: async () => {
-    const servers = await mcpConfig.getServers();
-    const managerStats = MCPManager.getAllStats();
-
-    interface ToolStatsAccumulator {
-      totalTools: number;
-      implementedTools: number;
-      byCategory: Record<string, number>;
-    }
-
-    const toolStats = servers.reduce(
-      (acc: ToolStatsAccumulator, server: NeuroLinkMCPServer) => {
-        const tools = Object.values(server.tools);
-        acc.totalTools += tools.length;
-        acc.implementedTools += tools.filter(
-          (t: NeuroLinkMCPTool) => t.isImplemented !== false,
-        ).length;
-
-        // Count by category
-        if (server.category) {
-          acc.byCategory[server.category] =
-            (acc.byCategory[server.category] || 0) + tools.length;
-        }
-
-        return acc;
-      },
-      {
-        totalTools: 0,
-        implementedTools: 0,
-        byCategory: {} as Record<string, number>,
-      },
-    );
-
-    return {
-      servers: {
-        total: servers.length,
-        byCategory: servers.reduce(
-          (acc: Record<string, number>, server: NeuroLinkMCPServer) => {
-            const category = server.category || "custom";
-            acc[category] = (acc[category] || 0) + 1;
-            return acc;
-          },
-          {} as Record<string, number>,
-        ),
-      },
-      tools: toolStats,
-      sessions: managerStats,
-    };
-  },
-
-  /**
-   * Initialize MCP for a session
-   * Convenience method that sets up everything needed for a session
-   */
-  initializeSession: async (
-    sessionId: string,
-    config?: {
-      userId?: string;
-      aiProvider?: string;
-      modelId?: string;
-    },
-  ) => {
-    // Get or create MCP client for session
-    const client = getMCPManager(sessionId, config);
-
-    // Create context for tool execution
-    const context: import("./factory.js").NeuroLinkExecutionContext = {
-      sessionId,
-      userId: config?.userId,
-      aiProvider: config?.aiProvider,
-      modelId: config?.modelId,
-      timestamp: Date.now(),
-    };
-
-    // Initialize all tools
-    initializeMCPTools(sessionId, client, context);
-
-    // Return session info
-    return {
-      sessionId,
-      client,
-      context,
-      toolCount: Object.keys(client.getTools()).length,
-    };
-  },
-
-  /**
-   * Clean up a session
-   */
-  cleanupSession: async (sessionId: string) => {
-    return removeMCPManager(sessionId);
-  },
-};
+// Core plugins
+export { FileSystemMCP } from "./plugins/core/filesystem-mcp.js";
 
 /**
- * Default export for convenience
+ * Quick access functions for common MCP operations
  */
-export default {
-  config: mcpConfig,
-  utils: MCPUtils,
-  createServer: createMCPServer,
-  getManager: getMCPManager,
-  removeManager: removeMCPManager,
-};
+
+// Import the ecosystem singleton
+import { mcpEcosystem } from "./ecosystem.js";
+import type { MCPMetadata } from "./contracts/mcp-contract.js";
+
+/**
+ * Initialize the MCP ecosystem
+ */
+export async function initializeMCPEcosystem(): Promise<void> {
+  return mcpEcosystem.initialize();
+}
+
+/**
+ * List available MCPs
+ */
+export async function listMCPs(): Promise<MCPMetadata[]> {
+  return mcpEcosystem.list();
+}
+
+/**
+ * Execute an MCP operation
+ */
+export async function executeMCP<T = any>(
+  name: string,
+  config: any,
+  args: any,
+  context?: {
+    sessionId?: string;
+    userId?: string;
+  },
+): Promise<T> {
+  return mcpEcosystem.execute<T>(name, config, args, context);
+}
+
+/**
+ * Quick filesystem operations
+ */
+export async function readFile(path: string, basePath?: string): Promise<any> {
+  return mcpEcosystem.filesystem({
+    action: "readFile",
+    path,
+    basePath,
+  });
+}
+
+export async function writeFile(
+  path: string,
+  content: string,
+  basePath?: string,
+): Promise<any> {
+  return mcpEcosystem.filesystem({
+    action: "writeFile",
+    path,
+    content,
+    basePath,
+  });
+}
+
+export async function listFiles(path: string, basePath?: string): Promise<any> {
+  return mcpEcosystem.filesystem({
+    action: "listFiles",
+    path,
+    basePath,
+  });
+}
+
+export async function createDirectory(
+  path: string,
+  basePath?: string,
+): Promise<any> {
+  return mcpEcosystem.filesystem({
+    action: "createDir",
+    path,
+    basePath,
+  });
+}
+
+/**
+ * Get MCP ecosystem statistics
+ */
+export async function getMCPStats(): Promise<{
+  initialized: boolean;
+  pluginsDiscovered: number;
+  pluginsBySource: Record<string, number>;
+  availablePlugins: string[];
+}> {
+  return mcpEcosystem.getStats();
+}

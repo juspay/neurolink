@@ -1,59 +1,55 @@
 # [1.10.0](https://github.com/juspay/neurolink/compare/v1.9.0...v1.10.0) (2025-06-21)
 
-
 ### Features
 
-* **cli:** improve provider status accuracy and error handling ([523e845](https://github.com/juspay/neurolink/commit/523e84566fee5d9afa3638186f90c628e20e4894))
+- **cli:** improve provider status accuracy and error handling ([523e845](https://github.com/juspay/neurolink/commit/523e84566fee5d9afa3638186f90c628e20e4894))
 
 # 1.9.0 (2025-06-20)
 
-
-* 🎉 feat: Enhanced multi-provider support with production infrastructure ([#16](https://github.com/juspay/neurolink/issues/16)) ([55eb81a](https://github.com/juspay/neurolink/commit/55eb81a4a7e88c94f6017565b14633b254a15197))
-
+- 🎉 feat: Enhanced multi-provider support with production infrastructure ([#16](https://github.com/juspay/neurolink/issues/16)) ([55eb81a](https://github.com/juspay/neurolink/commit/55eb81a4a7e88c94f6017565b14633b254a15197))
 
 ### Bug Fixes
 
-* **cli:** prevent debug log persistence in production deployments ([#14](https://github.com/juspay/neurolink/issues/14)) ([7310a4c](https://github.com/juspay/neurolink/commit/7310a4cb405e1f35bcc5b22559f3da87a1d793f4))
-* production-ready CLI logging system and enhanced provider fallback ([#13](https://github.com/juspay/neurolink/issues/13)) ([a7e8122](https://github.com/juspay/neurolink/commit/a7e8122393f09cd85e473e5711fbfff05343025e))
-
+- **cli:** prevent debug log persistence in production deployments ([#14](https://github.com/juspay/neurolink/issues/14)) ([7310a4c](https://github.com/juspay/neurolink/commit/7310a4cb405e1f35bcc5b22559f3da87a1d793f4))
+- production-ready CLI logging system and enhanced provider fallback ([#13](https://github.com/juspay/neurolink/issues/13)) ([a7e8122](https://github.com/juspay/neurolink/commit/a7e8122393f09cd85e473e5711fbfff05343025e))
 
 ### Features
 
-* 🚀 MCP automatic tool discovery + dynamic models + AI function calling ([781b4e5](https://github.com/juspay/neurolink/commit/781b4e5c6e4886acb44a986f7b204eff346427e1))
-* add Google AI Studio integration and restructure documentation ([#11](https://github.com/juspay/neurolink/issues/11)) ([346fed2](https://github.com/juspay/neurolink/commit/346fed2ad458da07b80158f084afed8f3b804f06))
-* add Google AI Studio, fix CLI dependencies, and add LICENSE file ([#12](https://github.com/juspay/neurolink/issues/12)) ([c234bcb](https://github.com/juspay/neurolink/commit/c234bcb65ab1d07cb079ee9ffe9d61841aa945fb))
-* implement AI Development Workflow Tools and comprehensive visual documentation ([#10](https://github.com/juspay/neurolink/issues/10)) ([b0ae179](https://github.com/juspay/neurolink/commit/b0ae179d0b31936e4aa8c53c8e8a234cd467e7c3))
-* implement comprehensive CLI tool with visual documentation and … ([#4](https://github.com/juspay/neurolink/issues/4)) ([9991edb](https://github.com/juspay/neurolink/commit/9991edba7dbe7b9b33bd3b4e2b30186a81b40391))
-
+- 🚀 MCP automatic tool discovery + dynamic models + AI function calling ([781b4e5](https://github.com/juspay/neurolink/commit/781b4e5c6e4886acb44a986f7b204eff346427e1))
+- add Google AI Studio integration and restructure documentation ([#11](https://github.com/juspay/neurolink/issues/11)) ([346fed2](https://github.com/juspay/neurolink/commit/346fed2ad458da07b80158f084afed8f3b804f06))
+- add Google AI Studio, fix CLI dependencies, and add LICENSE file ([#12](https://github.com/juspay/neurolink/issues/12)) ([c234bcb](https://github.com/juspay/neurolink/commit/c234bcb65ab1d07cb079ee9ffe9d61841aa945fb))
+- implement AI Development Workflow Tools and comprehensive visual documentation ([#10](https://github.com/juspay/neurolink/issues/10)) ([b0ae179](https://github.com/juspay/neurolink/commit/b0ae179d0b31936e4aa8c53c8e8a234cd467e7c3))
+- implement comprehensive CLI tool with visual documentation and … ([#4](https://github.com/juspay/neurolink/issues/4)) ([9991edb](https://github.com/juspay/neurolink/commit/9991edba7dbe7b9b33bd3b4e2b30186a81b40391))
 
 ### BREAKING CHANGES
 
-* Enhanced provider architecture with MCP integration
+- Enhanced provider architecture with MCP integration
 
-- ✨ MCP automatic tool discovery - detects 82+ tools from connected servers
-- 🎯 AI function calling - seamless tool execution with Vercel AI SDK
-- 🔧 Dynamic model configuration via config/models.json
-- 🤖 Agent-based generation with automatic tool selection
-- 📡 Real-time MCP server management and monitoring
+* ✨ MCP automatic tool discovery - detects 82+ tools from connected servers
+* 🎯 AI function calling - seamless tool execution with Vercel AI SDK
+* 🔧 Dynamic model configuration via config/models.json
+* 🤖 Agent-based generation with automatic tool selection
+* 📡 Real-time MCP server management and monitoring
 
-- Added MCPEnhancedProvider for automatic tool integration
-- Implemented function calling for Google AI, OpenAI providers
-- Created unified tool registry for MCP and built-in tools
-- Enhanced CLI with `agent-generate` and MCP management commands
-- Added comprehensive examples and documentation
+* Added MCPEnhancedProvider for automatic tool integration
+* Implemented function calling for Google AI, OpenAI providers
+* Created unified tool registry for MCP and built-in tools
+* Enhanced CLI with `agent-generate` and MCP management commands
+* Added comprehensive examples and documentation
 
-- Automatic .mcp-config.json discovery across platforms
-- Session-based context management for tool execution
-- Graceful fallback when MCP servers unavailable
-- Performance optimized tool discovery (<1ms per tool)
+* Automatic .mcp-config.json discovery across platforms
+* Session-based context management for tool execution
+* Graceful fallback when MCP servers unavailable
+* Performance optimized tool discovery (<1ms per tool)
 
-- Added 5 new comprehensive guides (MCP, troubleshooting, dynamic models)
-- Created practical examples for all integration patterns
-- Updated API reference with new capabilities
-- Enhanced memory bank with implementation details
+* Added 5 new comprehensive guides (MCP, troubleshooting, dynamic models)
+* Created practical examples for all integration patterns
+* Updated API reference with new capabilities
+* Enhanced memory bank with implementation details
 
 Resolves: Enhanced AI capabilities with real-world tool integration
-* None - 100% backward compatibility maintained
+
+- None - 100% backward compatibility maintained
 
 Closes: Enhanced multi-provider support milestone
 Ready for: Immediate production deployment

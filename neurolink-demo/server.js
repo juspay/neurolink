@@ -204,13 +204,13 @@ function updateUsageStats(usage) {
  */
 async function testOllamaConnection() {
   try {
-    const response = await fetch('http://localhost:11434/api/tags', {
-      method: 'GET',
-      signal: AbortSignal.timeout(2000) // 2 second timeout
+    const response = await fetch("http://localhost:11434/api/tags", {
+      method: "GET",
+      signal: AbortSignal.timeout(2000), // 2 second timeout
     });
     return response.ok;
   } catch (error) {
-    console.log('[Ollama] Connection test failed:', error.message);
+    console.log("[Ollama] Connection test failed:", error.message);
     return false;
   }
 }
@@ -226,7 +226,7 @@ async function testProviderAvailability(providerName) {
     configured: false,
     authenticated: false,
     model: getModelForProvider(providerName),
-    error: null
+    error: null,
   };
 
   // Special handling for Ollama
@@ -236,7 +236,8 @@ async function testProviderAvailability(providerName) {
     result.available = isRunning;
     result.authenticated = isRunning;
     if (!isRunning) {
-      result.error = "Ollama is not running. Please start Ollama with: ollama serve";
+      result.error =
+        "Ollama is not running. Please start Ollama with: ollama serve";
     }
     return result;
   }
@@ -246,7 +247,7 @@ async function testProviderAvailability(providerName) {
   result.configured = hasEnvVars;
 
   if (!hasEnvVars) {
-    result.error = `Missing required environment variables: ${PROVIDER_ENV_VARS[providerName]?.join(', ') || 'Unknown'}`;
+    result.error = `Missing required environment variables: ${PROVIDER_ENV_VARS[providerName]?.join(", ") || "Unknown"}`;
     return result;
   }
 
@@ -266,7 +267,6 @@ async function testProviderAvailability(providerName) {
     // If we got here without throwing, the provider is authenticated
     result.available = true;
     result.authenticated = true;
-
   } catch (error) {
     result.available = false;
     result.authenticated = false;
@@ -274,16 +274,24 @@ async function testProviderAvailability(providerName) {
     // Parse error message to determine if it's auth or other issue
     const errorMsg = error.message || String(error);
 
-    if (errorMsg.includes('401') || errorMsg.includes('Unauthorized') ||
-        errorMsg.includes('Invalid API') || errorMsg.includes('Authentication') ||
-        errorMsg.includes('API key') || errorMsg.includes('not authorized')) {
+    if (
+      errorMsg.includes("401") ||
+      errorMsg.includes("Unauthorized") ||
+      errorMsg.includes("Invalid API") ||
+      errorMsg.includes("Authentication") ||
+      errorMsg.includes("API key") ||
+      errorMsg.includes("not authorized")
+    ) {
       result.error = "Invalid API key or authentication failed";
-    } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+    } else if (errorMsg.includes("404") || errorMsg.includes("not found")) {
       result.error = "Model or endpoint not found";
-    } else if (errorMsg.includes('429') || errorMsg.includes('rate limit')) {
+    } else if (errorMsg.includes("429") || errorMsg.includes("rate limit")) {
       result.error = "Rate limit exceeded";
       result.authenticated = true; // Auth is OK, just rate limited
-    } else if (errorMsg.includes('timeout') || errorMsg.includes('ECONNREFUSED')) {
+    } else if (
+      errorMsg.includes("timeout") ||
+      errorMsg.includes("ECONNREFUSED")
+    ) {
       result.error = "Connection failed - service may be down";
     } else {
       result.error = errorMsg;
@@ -515,7 +523,7 @@ app.get(
 
     // Get the best available provider (only from authenticated providers)
     const authenticatedProviders = ALL_PROVIDERS.filter(
-      p => status.providers[p].authenticated
+      (p) => status.providers[p].authenticated,
     );
 
     if (authenticatedProviders.length > 0) {

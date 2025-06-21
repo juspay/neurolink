@@ -118,3 +118,65 @@ export async function createBestAIProvider(
     modelName,
   );
 }
+
+// ============================================================================
+// MCP PLUGIN ECOSYSTEM - Universal AI Development Platform
+// ============================================================================
+
+/**
+ * MCP (Model Context Protocol) Plugin Ecosystem
+ *
+ * Extensible plugin architecture based on research blueprint for
+ * transforming NeuroLink into a Universal AI Development Platform.
+ *
+ * @example
+ * ```typescript
+ * import { mcpEcosystem, readFile, writeFile } from 'neurolink';
+ *
+ * // Initialize the ecosystem
+ * await mcpEcosystem.initialize();
+ *
+ * // List available plugins
+ * const plugins = await mcpEcosystem.list();
+ *
+ * // Use filesystem operations
+ * const content = await readFile('README.md');
+ * await writeFile('output.txt', 'Hello from MCP!');
+ * ```
+ */
+export {
+  // Core MCP ecosystem
+  MCPEcosystem,
+  mcpEcosystem,
+  initializeMCPEcosystem,
+
+  // Plugin management
+  PluginManager,
+  pluginManager,
+  listMCPs,
+  executeMCP,
+  getMCPStats,
+
+  // Quick filesystem operations
+  readFile,
+  writeFile,
+  listFiles,
+  createDirectory,
+
+  // Core contracts and types
+  MCP,
+  SecurityManager,
+  mcpLogger,
+
+  // Core plugins
+  FileSystemMCP,
+} from "./mcp/index.js";
+
+export type {
+  MCPMetadata,
+  ExecutionContext,
+  MCPConstructor,
+  MCPInstance,
+  DiscoveredMCP,
+  LogLevel,
+} from "./mcp/index.js";

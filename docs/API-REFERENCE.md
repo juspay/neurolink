@@ -860,7 +860,7 @@ interface AIProvider {
 interface GenerateTextOptions {
   prompt: string;
   temperature?: number; // 0.0 to 1.0, default: 0.7
-  maxTokens?: number; // Default: 500
+  maxTokens?: number; // Default: 1000
   systemPrompt?: string; // System message
   schema?: any; // For structured output
 }

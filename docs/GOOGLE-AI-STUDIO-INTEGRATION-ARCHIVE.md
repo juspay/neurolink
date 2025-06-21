@@ -92,14 +92,13 @@ async setupGoogleAI(): Promise<void> {
 ### **Environment Variables Support**
 
 ```bash
-# Primary API Key (Required)
-GOOGLE_AI_API_KEY=AIza-your-google-ai-studio-api-key
+# Required: API key from Google AI Studio (choose one)
+export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
+# OR
+export GOOGLE_GENERATIVE_AI_API_KEY="AIza-your-google-ai-api-key"
 
-# Alternative API Key Name (Backward Compatibility)
-GOOGLE_GENERATIVE_AI_API_KEY=AIza-your-google-ai-studio-api-key
-
-# Model Configuration (Optional)
-GOOGLE_AI_MODEL=gemini-1.5-pro-latest
+# Optional: Default model selection
+export GOOGLE_AI_MODEL="gemini-1.5-pro-latest"
 ```
 
 ### **Supported Models**
