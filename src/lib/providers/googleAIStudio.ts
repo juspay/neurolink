@@ -24,13 +24,22 @@ const DEFAULT_SYSTEM_CONTEXT = {
 
 // Configuration helpers
 const getGoogleAIApiKey = (): string => {
+  // Check for both possible environment variables
   const apiKey =
     process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
   if (!apiKey) {
     throw new Error(
       "GOOGLE_AI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY environment variable is not set",
     );
   }
+
+  // Ensure GOOGLE_GENERATIVE_AI_API_KEY is set for @ai-sdk/google compatibility
+  // The AI SDK specifically looks for this variable name
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY && process.env.GOOGLE_AI_API_KEY) {
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
+  }
+
   return apiKey;
 };
 
