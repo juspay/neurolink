@@ -3,7 +3,7 @@
     "filesystem": {
       "name": "filesystem",
       "command": "mcp-server-filesystem",
-      "args": ["/Users/sachinsharma/Developer/temp/neurolink-fork/neurolink"],
+      "args": ["/Users/sachinsharma/Developer/Official/neurolink"],
       "transport": "stdio"
     },
     "github": {
@@ -20,8 +20,8 @@
     }
   },
   "autoDiscovery": {
-    "enabled": false,
-    "autoRegister": false
+    "enabled": true,
+    "autoRegister": true
   },
   "defaultRegistry": {
     "enabled": true,

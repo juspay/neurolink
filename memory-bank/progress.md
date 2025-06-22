@@ -1242,3 +1242,10 @@ POST /api/mcp/install/:server       # Install new servers
     - Status: Ongoing
     - Target Version: 1.0.x
     - Description: Continuously improve documentation
+
+12. **MCP Two-Step Tool Calling Fix**:
+    - Priority: High
+    - Status: ✅ **COMPLETED** (2025-06-22)
+    - Target Version: 1.11.1
+    - Description: Fixed external MCP tools integration - CLI now generates clean human-readable responses instead of raw JSON
+    - Impact: Transform CLI from debugging tool to production-ready AI assistant

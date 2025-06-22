@@ -91,13 +91,15 @@ npx @juspay/neurolink status
 - 🌍 **Open Source Models** - Access 100,000+ models via Hugging Face
 - 🇪🇺 **GDPR Compliance** - European data processing with Mistral AI
 
-## 🛠️ MCP Integration Status (v1.7.1)
+## 🛠️ MCP Integration Status (v1.11.1) ✅ **PRODUCTION READY**
 
 | Component           | Status             | Description                                         |
 | ------------------- | ------------------ | --------------------------------------------------- |
 | Built-in Tools      | ✅ **Working**     | Time tool, utilities - fully functional             |
 | External Discovery  | ✅ **Working**     | 58+ MCP servers auto-discovered from all AI tools   |
 | Tool Execution      | ✅ **Working**     | Real-time AI tool calling with built-in tools       |
+| **External Tools**  | ✅ **SOLVED**      | **Two-step tool calling fixed - human-readable responses** |
+| **CLI Integration** | ✅ **READY**       | **Production-ready AI assistant with external tools** |
 | External Activation | 🔧 **Development** | Discovery complete, activation protocol in progress |
 
 ### ✅ Quick MCP Test (v1.7.1)
