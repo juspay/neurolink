@@ -56,7 +56,7 @@ export class UnifiedMCPSystem {
 
   constructor(options: UnifiedMCPOptions = {}) {
     this.options = {
-      configPath: ".mcp-config.json",
+      configPath: ".neuro.config.json",
       enableExternalServers: true,
       enableInternalServers: true,
       autoInitialize: false,
@@ -189,7 +189,11 @@ export class UnifiedMCPSystem {
   /**
    * List all available tools
    */
-  listTools(criteria?: any) {
+  async listTools(criteria?: any) {
+    // CRITICAL FIX: Use listAllTools if available (UnifiedMCPRegistry)
+    if (typeof (this.registry as any).listAllTools === 'function') {
+      return (this.registry as any).listAllTools();
+    }
     return this.registry.listTools();
   }
 

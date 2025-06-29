@@ -111,7 +111,7 @@ NeuroLink now provides a complete MCP (Model Context Protocol) ecosystem with tw
 
 - ✅ **`.env.example`** - Complete MCP environment variables section with GitHub, database, custom server config
 - ✅ **`.mcp-servers.example.json`** - Complete server configuration template with 10+ server examples
-- ✅ **`.mcp-config.json`** - Working configuration file for CLI and demo server integration
+- ✅ **`.neuro.config.json`** - Enhanced configuration file for CLI and demo server integration
 - ✅ **`package.json`** - Updated description reflecting MCP capabilities and comprehensive keywords
 
 ---
@@ -159,7 +159,7 @@ curl -X POST http://localhost:3000/api/mcp/execute -d '{"serverName": "filesyste
 - [x] **Demo Server**: 8 MCP API endpoints implemented with comprehensive functionality
 - [x] **Web Interface**: Complete MCP section in demo page with real-time interaction
 - [x] **Documentation**: MCP sections in all README files with examples and guides
-- [x] **Integration**: CLI and server share same `.mcp-config.json` configuration
+- [x] **Integration**: CLI and server share same `.neuro.config.json` configuration
 - [x] **Tests**: Comprehensive test coverage (27/27 tests passing)
 - [x] **Validation**: Professional visual content and working demonstrations
 

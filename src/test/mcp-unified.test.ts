@@ -21,7 +21,7 @@ import { writeFile, unlink } from "fs/promises";
 import { resolve } from "path";
 
 // Test configuration
-const TEST_CONFIG_PATH = ".mcp-config.test.json";
+const TEST_CONFIG_PATH = ".neuro.config.test.json";
 const TEST_SESSION_ID = "test-session-unified";
 
 // Mock MCP config for testing

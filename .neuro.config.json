@@ -1,0 +1,76 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "name": "filesystem",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./"],
+      "transport": "stdio",
+      "description": "File and directory operations for current project",
+      "enabled": true
+    },
+    "example-server": {
+      "name": "example-server",
+      "command": "node",
+      "args": ["./neurolink-demo/example-mcp-server.mjs"],
+      "transport": "stdio",
+      "description": "Example MCP server demonstrating modern SDK v1.13.0 patterns",
+      "enabled": true
+    }
+  },
+  "autoDiscovery": {
+    "enabled": true,
+    "autoRegister": true,
+    "sources": ["claude", "vscode", "cursor", "windsurf", "generic"]
+  },
+  "defaultRegistry": {
+    "enabled": true,
+    "includeBuiltInTools": true
+  },
+  "globalConfig": {
+    "timeout": 30000,
+    "retries": 3,
+    "logLevel": "info",
+    "enableDebug": false,
+    "autoDiscovery": true,
+    "maxConcurrentServers": 10,
+    "ai": {
+      "requestTimeoutMs": 60000,
+      "retries": 3,
+      "enableTimeoutLogging": true
+    }
+  },
+  "neurolink": {
+    "enableInternalServers": true,
+    "enableExternalServers": true,
+    "aiCore": {
+      "enabled": true,
+      "tools": [
+        "generate-text",
+        "select-provider", 
+        "check-provider-status",
+        "analyze-ai-usage",
+        "benchmark-provider-performance",
+        "optimize-prompt-parameters",
+        "generate-test-cases",
+        "refactor-code",
+        "generate-documentation",
+        "debug-ai-output"
+      ]
+    },
+    "utilities": {
+      "enabled": true,
+      "tools": [
+        "get-current-time",
+        "calculate-date-difference",
+        "format-number"
+      ]
+    }
+  },
+  "metadata": {
+    "version": "2.0.0",
+    "description": "NeuroLink Configuration - Unified AI and MCP Server Management",
+    "lastUpdated": "2025-01-27",
+    "documentation": "https://github.com/juspay/neurolink/docs/CONFIGURATION.md",
+    "configFormat": "neurolink-v2"
+  }
+}

@@ -385,7 +385,7 @@ Click "Run Complete Workflow" to see the full integration!
    Command: npx -y @modelcontextprotocol/server-filesystem /
    Transport: stdio
 
-📄 Configuration saved to .mcp-config.json
+📄 Configuration saved to .neuro.config.json
 
 🔍 Testing server connectivity...
 ✅ Connection successful!
@@ -444,7 +444,7 @@ Click "Run Complete Workflow" to see the full integration!
    Environment: ANALYTICS_API_KEY=***
 
 ✅ Custom server added successfully
-📄 Configuration saved to .mcp-config.json
+📄 Configuration saved to .neuro.config.json
 
 🔍 Testing custom server...
 ✅ Connection successful!

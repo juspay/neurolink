@@ -1,0 +1,107 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "name": "filesystem",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./"],
+      "transport": "stdio",
+      "description": "File and directory operations for current project",
+      "enabled": true
+    },
+    "github": {
+      "name": "github",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "transport": "stdio",
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_your_token_here"
+      },
+      "description": "GitHub repository management",
+      "enabled": false
+    },
+    "postgres": {
+      "name": "postgres",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://user:pass@host:port/db"
+      ],
+      "transport": "stdio",
+      "description": "PostgreSQL database operations",
+      "enabled": false
+    },
+    "puppeteer": {
+      "name": "puppeteer",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "transport": "stdio",
+      "description": "Browser automation and web scraping",
+      "enabled": false
+    },
+    "brave-search": {
+      "name": "brave-search",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "transport": "stdio",
+      "env": {
+        "BRAVE_API_KEY": "your_brave_api_key_here"
+      },
+      "description": "Web search capabilities",
+      "enabled": false
+    }
+  },
+  "autoDiscovery": {
+    "enabled": true,
+    "autoRegister": true,
+    "sources": ["claude", "vscode", "cursor", "windsurf", "generic"]
+  },
+  "defaultRegistry": {
+    "enabled": true,
+    "includeBuiltInTools": true
+  },
+  "globalConfig": {
+    "timeout": 30000,
+    "retries": 3,
+    "logLevel": "info",
+    "enableDebug": false,
+    "autoDiscovery": true,
+    "maxConcurrentServers": 10
+  },
+  "neurolink": {
+    "enableInternalServers": true,
+    "enableExternalServers": true,
+    "aiCore": {
+      "enabled": true,
+      "tools": [
+        "generate-text",
+        "select-provider", 
+        "check-provider-status",
+        "analyze-ai-usage",
+        "benchmark-provider-performance",
+        "optimize-prompt-parameters",
+        "generate-test-cases",
+        "refactor-code",
+        "generate-documentation",
+        "debug-ai-output"
+      ]
+    },
+    "utilities": {
+      "enabled": true,
+      "tools": [
+        "get-current-time",
+        "calculate-date-difference",
+        "format-number"
+      ]
+    }
+  },
+  "metadata": {
+    "version": "2.0.0",
+    "description": "NeuroLink Configuration Example - 100% MCP Reliability with Official SDK",
+    "lastUpdated": "2025-06-29",
+    "documentation": "https://github.com/juspay/neurolink/docs/CONFIGURATION.md",
+    "configFormat": "neurolink-v2",
+    "mcpReliability": "100%",
+    "sdkVersion": "@modelcontextprotocol/sdk@1.13.0"
+  }
+}

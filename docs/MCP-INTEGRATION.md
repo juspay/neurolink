@@ -164,11 +164,96 @@ neurolink mcp remove <server>
 
 ---
 
+## 🛠️ **Example MCP Server**
+
+NeuroLink includes a **complete working example** MCP server that demonstrates modern SDK patterns and best practices.
+
+### **Location & Setup**
+
+```bash
+# Example server is already configured and ready to use
+cd neurolink-demo/
+ls example-mcp-server.mjs  # Complete working server
+ls MCP-SERVER-README.md    # Detailed documentation
+```
+
+### **Available Tools**
+
+The example server provides three demonstration tools:
+
+#### **1. `test_hello` - Greeting Tool**
+```bash
+# Test the hello tool
+npx neurolink generate-text "Say hello to everyone using the example server" --provider google-ai
+# Returns: "Hello everyone! This message is from the example MCP server configured in .neuro.config.json. 🎉"
+```
+
+#### **2. `test_math` - Math Operations**
+```bash  
+# Test math operations with validation
+npx neurolink generate-text "Use the math tool to add 15 and 27 (operation should be 'add')" --provider google-ai
+# Returns: "Math result: 15 add 27 = 42"
+
+# Test validation (this will show proper error handling)
+npx neurolink generate-text "Calculate 10 divided by 2 using operation 'divide'" --provider google-ai
+# Returns: "Math result: 10 divide 2 = 5"
+```
+
+#### **3. `test_timestamp` - Time Information**
+```bash
+# Get current timestamp
+npx neurolink generate-text "What's the current time? Use the example server timestamp tool" --provider google-ai
+# Returns current time in ISO format
+```
+
+### **What It Demonstrates**
+
+The example server showcases:
+
+- ✅ **Modern MCP SDK v1.13.0** - Uses official `@modelcontextprotocol/sdk`
+- ✅ **Tool Registration** - `.tool()` method with proper schemas
+- ✅ **Zod Validation** - Parameter validation with detailed error messages
+- ✅ **Error Handling** - Proper error responses and validation
+- ✅ **Multiple Parameter Types** - Strings, numbers, enums, and optional parameters
+- ✅ **Real Configuration** - Pre-configured in `.neuro.config.json`
+
+### **Configuration**
+
+The example server is configured in `.neuro.config.json`:
+
+```json
+{
+  "mcpServers": {
+    "example-server": {
+      "name": "example-server",
+      "command": "node",
+      "args": ["./neurolink-demo/example-mcp-server.mjs"],
+      "transport": "stdio",
+      "description": "Example MCP server demonstrating modern SDK v1.13.0 patterns",
+      "enabled": true
+    }
+  }
+}
+```
+
+### **Creating Your Own Server**
+
+Use the example as a template:
+
+1. **Copy the server**: `cp neurolink-demo/example-mcp-server.mjs my-server.mjs`
+2. **Modify tools**: Add your custom tools using the same patterns
+3. **Update config**: Add your server to `.neuro.config.json`
+4. **Test**: Use CLI commands to verify functionality
+
+See **[MCP Server README](../neurolink-demo/MCP-SERVER-README.md)** for complete development guide.
+
+---
+
 ## ⚙️ **Configuration**
 
 ### **Configuration File**
 
-MCP servers are configured in `.mcp-config.json`:
+MCP servers are configured in `.neuro.config.json` (NeuroLink v2.0+ enhanced format):
 
 ```json
 {
@@ -176,8 +261,10 @@ MCP servers are configured in `.mcp-config.json`:
     "filesystem": {
       "name": "filesystem",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/"],
-      "transport": "stdio"
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./"],
+      "transport": "stdio",
+      "description": "File and directory operations for current project",
+      "enabled": true
     },
     "github": {
       "name": "github",
@@ -185,15 +272,43 @@ MCP servers are configured in `.mcp-config.json`:
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "transport": "stdio",
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
-      }
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_your_token_here"
+      },
+      "description": "GitHub repository management",
+      "enabled": false
     },
     "custom": {
       "name": "custom",
       "command": "python",
       "args": ["/path/to/server.py"],
       "transport": "stdio",
-      "cwd": "/project/directory"
+      "cwd": "/project/directory",
+      "description": "Custom Python MCP server",
+      "enabled": true
+    }
+  },
+  "autoDiscovery": {
+    "enabled": true,
+    "autoRegister": true,
+    "sources": ["claude", "vscode", "cursor", "windsurf", "generic"]
+  },
+  "globalConfig": {
+    "timeout": 30000,
+    "retries": 3,
+    "logLevel": "info",
+    "enableDebug": false,
+    "maxConcurrentServers": 10
+  },
+  "neurolink": {
+    "enableInternalServers": true,
+    "enableExternalServers": true,
+    "aiCore": {
+      "enabled": true,
+      "tools": ["generate-text", "select-provider", "check-provider-status"]
+    },
+    "utilities": {
+      "enabled": true,
+      "tools": ["get-current-time", "calculate-date-difference", "format-number"]
     }
   }
 }

@@ -489,7 +489,7 @@ function validateMCPConfiguration() {
     {
       name: "MCP Config File",
       check: () => {
-        const configPath = path.join(process.cwd(), ".mcp-config.json");
+        const configPath = path.join(process.cwd(), ".neuro.config.json");
         return fs.existsSync(configPath);
       },
     },

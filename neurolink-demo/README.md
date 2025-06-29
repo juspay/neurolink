@@ -267,6 +267,33 @@ curl http://localhost:9876/api/status
 
 ### 🔧 **MCP (Model Context Protocol) Integration** ✅
 
+#### **🛠️ Example MCP Server**
+
+The demo includes a **complete working MCP server** in `example-mcp-server.mjs`:
+
+```bash
+# Test the included example server
+npx @juspay/neurolink generate-text "Say hello to everyone using the example server" --provider google-ai
+# Result: "Hello everyone! This message is from the example MCP server configured in .neuro.config.json. 🎉"
+
+# Test math operations with validation
+npx @juspay/neurolink generate-text "Use the math tool to add 15 and 27 (operation should be 'add')" --provider google-ai
+# Result: "Math result: 15 add 27 = 42"
+
+# Test timestamp functionality
+npx @juspay/neurolink generate-text "What's the current time? Use the example server timestamp tool" --provider google-ai
+# Result: Current time in specified format
+```
+
+**Example Server Features:**
+- ✅ **Modern SDK v1.13.0** - Uses official `@modelcontextprotocol/sdk`
+- ✅ **3 Working Tools** - Hello, math operations, and timestamp tools
+- ✅ **Zod Validation** - Parameter validation with detailed error handling
+- ✅ **Pre-configured** - Ready to use in `.neuro.config.json`
+- ✅ **Development Template** - Copy and modify for custom servers
+
+See **[MCP Server README](./MCP-SERVER-README.md)** for complete development guide.
+
 #### **📸 MCP CLI Screenshots** _(Generated Jan 10, 2025)_
 
 | Command                  | Screenshot                                                                                       | Description                             |

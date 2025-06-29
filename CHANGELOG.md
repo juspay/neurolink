@@ -109,7 +109,7 @@ Files modified:
 * Enhanced CLI with `agent-generate` and MCP management commands
 * Added comprehensive examples and documentation
 
-* Automatic .mcp-config.json discovery across platforms
+* Automatic MCP configuration discovery across platforms
 * Session-based context management for tool execution
 * Graceful fallback when MCP servers unavailable
 * Performance optimized tool discovery (<1ms per tool)

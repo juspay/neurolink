@@ -81,13 +81,13 @@ export async function getAvailableFunctionTools(): Promise<{
 
   try {
     // Add overall timeout for the entire function
-    const overallTimeoutMs = 5000; // 5 seconds max for everything
+    const overallTimeoutMs = 8000; // 8 seconds max for everything (increased from 5s)
     let overallTimeoutId: NodeJS.Timeout | undefined;
 
     const overallTimeoutPromise = new Promise<never>((_, reject) => {
       overallTimeoutId = setTimeout(() => {
         mcpLogger.warn(
-          `[${functionTag}] Overall timeout reached, returning empty tools`,
+          `[${functionTag}] Overall timeout reached, returning built-in tools only`,
         );
         reject(new Error("getAvailableFunctionTools overall timeout"));
       }, overallTimeoutMs);
@@ -180,14 +180,27 @@ export async function getAvailableFunctionTools(): Promise<{
           }
         }
 
-        // Get tools again after activation
+        // Get tools from unified registry
         const activatedTools = await unifiedRegistry.listAllTools();
         mcpLogger.debug(
-          `[${functionTag}] Found ${activatedTools.length} total tools after activation`,
+          `[${functionTag}] Found ${activatedTools.length} tools from unified registry`,
+        );
+
+        // CRITICAL FIX: Also get tools from default tool registry (where ai-core tools are registered)
+        const { defaultToolRegistry } = await import("./tool-registry.js");
+        const manualTools = await defaultToolRegistry.listTools();
+        mcpLogger.debug(
+          `[${functionTag}] Found ${manualTools.length} tools from default tool registry`,
+        );
+
+        // Combine tools from both registries
+        const combinedTools = [...activatedTools, ...manualTools];
+        mcpLogger.debug(
+          `[${functionTag}] Combined total: ${combinedTools.length} tools from both registries`,
         );
 
         // Filter to get real, individual tools (not placeholder or grouped tools)
-        const realTools = activatedTools.filter((toolInfo) => {
+        const realTools = combinedTools.filter((toolInfo) => {
           // Skip placeholder tools that weren't activated
           if (
             toolInfo.name.includes("placeholder") &&
@@ -436,8 +449,27 @@ export async function getAvailableFunctionTools(): Promise<{
 
     return await Promise.race([toolsLoadingPromise, overallTimeoutPromise]);
   } catch (error) {
-    mcpLogger.error(`[${functionTag}] Error getting function tools:`, error);
-    return { tools: [], toolMap: new Map() };
+    mcpLogger.warn(`[${functionTag}] MCP tools failed to load, falling back to built-in tools:`, error);
+    
+    // Graceful fallback: return built-in AI tools instead of empty array
+    try {
+      const { directAgentTools } = await import('../agent/direct-tools.js');
+      const builtInTools: Tool[] = [];
+      const builtInToolMap = new Map<string, { serverId: string; toolName: string }>();
+      
+      // Convert direct tools to AI SDK format
+      for (const [toolName, toolDef] of Object.entries(directAgentTools)) {
+        builtInTools.push(toolDef);
+        builtInToolMap.set(toolName, { serverId: 'direct', toolName });
+      }
+      
+      mcpLogger.info(`[${functionTag}] Fallback: returning ${builtInTools.length} built-in tools`);
+      return { tools: builtInTools, toolMap: builtInToolMap };
+      
+    } catch (fallbackError) {
+      mcpLogger.error(`[${functionTag}] Even built-in tools failed to load:`, fallbackError);
+      return { tools: [], toolMap: new Map() };
+    }
   }
 }
 

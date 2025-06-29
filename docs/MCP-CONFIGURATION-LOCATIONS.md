@@ -79,9 +79,24 @@ The most common configuration keys are:
 Many tools also check for generic MCP configuration files in the project root:
 
 - `mcp.json`
-- `.mcp-config.json`
+- `.neuro.config.json` (NeuroLink v2.0+ enhanced format)
 - `mcp_config.json`
 - `.mcp-servers.json`
+
+### 9. NeuroLink-Specific Configuration (New in v2.0)
+
+**Location**: `./.neuro.config.json` (project root)
+
+NeuroLink introduced an enhanced configuration format that provides:
+
+- **Enhanced Schema**: 6 major configuration sections (mcpServers, autoDiscovery, globalConfig, neurolink, defaultRegistry, metadata)
+- **Granular Control**: Individual enable/disable flags for all servers and features
+- **Auto-Discovery Control**: Configure which AI development tools to scan for MCP servers
+- **Global Configuration**: Timeout, retry, logging, and debugging settings
+- **NeuroLink Features**: Control internal vs external servers, AI core tools, utilities
+- **Production Ready**: Version tracking and metadata management
+
+**Enhanced Configuration**: `.neuro.config.json` provides comprehensive functionality and user control for all MCP server management.
 
 ## Common Configuration Structure
 

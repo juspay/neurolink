@@ -101,7 +101,10 @@ export class MCPOrchestrator {
   private async initializeDefaultServers(): Promise<void> {
     try {
       await this.registry.registerServer(aiCoreServer.id, aiCoreServer);
-      console.log("[Orchestrator] Initialized with AI Core Server");
+      // Only log in debug mode
+      if (process.env.NEUROLINK_DEBUG === "true") {
+        console.log("[Orchestrator] Initialized with AI Core Server");
+      }
     } catch (error) {
       console.warn("[Orchestrator] Failed to register AI Core Server:", error);
     }

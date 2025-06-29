@@ -95,8 +95,8 @@ const bestCodingModel = dynamicModelProvider.getBestModelFor("coding");
 # Get all models
 curl http://localhost:3001/api/v1/models
 
-# Get OpenAI models
-curl http://localhost:3001/api/v1/models/openai
+# Get google-ai models
+curl http://localhost:3001/api/v1/models/google-ai
 
 # Search for function-calling models under $0.001
 curl "http://localhost:3001/api/v1/search?capability=function-calling&maxPrice=0.001"
@@ -174,7 +174,7 @@ resolveModel("anthropic", "opus"); // Matches 'claude-3-opus'
 
 ```typescript
 searchByCapability("function-calling", {
-  provider: "openai", // Filter by provider
+  provider: "google-ai", // Filter by provider
   maxPrice: 0.001, // Maximum input price per 1K tokens
   excludeDeprecated: true, // Exclude deprecated models
 });

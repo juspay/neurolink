@@ -106,7 +106,7 @@ For more help: neurolink mcp <command> --help`,
    Command: npx -y @modelcontextprotocol/server-filesystem /
    Transport: stdio
 
-📄 Configuration saved to .mcp-config.json
+📄 Configuration saved to .neuro.config.json
 
 💡 Test it with: neurolink mcp test filesystem`,
   },
@@ -169,7 +169,7 @@ For more help: neurolink mcp <command> --help`,
    Command: python /path/to/server.py
    Transport: stdio
 
-📄 Configuration saved to .mcp-config.json
+📄 Configuration saved to .neuro.config.json
 
 💡 Test it with: neurolink mcp test custom-python`,
   },

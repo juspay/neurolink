@@ -137,9 +137,25 @@ export class MCPToolRegistry extends MCPRegistry {
 
   /**
    * Get tool information
+   * Supports both qualified names (serverId.toolName) and unqualified names (toolName)
    */
   getToolInfo(toolName: string): ToolInfo | undefined {
-    return this.tools.get(toolName);
+    // First try direct lookup (for qualified names like "filesystem.read_file")
+    let toolInfo = this.tools.get(toolName);
+    if (toolInfo) {
+      return toolInfo;
+    }
+
+    // If not found, try to find by unqualified name
+    // Look for any tool where the name part matches
+    for (const [fullToolId, tool] of this.tools) {
+      if (tool.name === toolName) {
+        registryLogger.debug(`Found tool by unqualified name: ${toolName} -> ${fullToolId}`);
+        return tool;
+      }
+    }
+
+    return undefined;
   }
 
   /**

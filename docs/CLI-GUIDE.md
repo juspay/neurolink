@@ -1,6 +1,6 @@
-# 🖥️ NeuroLink CLI Guide
+# 🖥️ NeuroLink CLI Guide - 100% MCP Tool Reliability
 
-The NeuroLink CLI provides all SDK functionality through an elegant command-line interface with professional UX features.
+The NeuroLink CLI provides all SDK functionality through an elegant command-line interface with **production-ready MCP tool integration** and professional UX features.
 
 ## Installation & Usage
 
@@ -11,6 +11,14 @@ The NeuroLink CLI provides all SDK functionality through an elegant command-line
 npx @juspay/neurolink --help
 npx @juspay/neurolink generate-text "Hello, AI!"
 npx @juspay/neurolink status
+
+# NEW: MCP tools with 100% reliability
+npx @juspay/neurolink generate "Take a screenshot of google.com" --provider google-ai
+npx @juspay/neurolink generate "Create a test file with today's date" --provider google-ai
+
+# Test example MCP server (included with NeuroLink)
+npx @juspay/neurolink generate "Say hello to everyone using the example server" --provider google-ai
+npx @juspay/neurolink gen "Use the math tool to add 15 and 27 (operation should be 'add')" --provider google-ai
 ```
 
 ### Option 2: Global Installation
@@ -111,7 +119,7 @@ Generate text with agent capabilities, including tool calling.
 neurolink agent-generate "What time is it?"
 
 # With a different provider
-neurolink agent-generate "List files in the current directory" --provider openai
+neurolink agent-generate "List files in the current directory" --provider google-ai
 
 # With a specific tool category
 neurolink agent-generate "Calculate the square root of 256" --toolCategory basic
@@ -141,7 +149,7 @@ Quantum computing represents a revolutionary approach to information processing.
 Quantum computing represents a revolutionary approach to information processing...
 
 {
-  "provider": "openai",
+  "provider": "google-ai",
   "usage": {
     "promptTokens": 15,
     "completionTokens": 127,
@@ -204,7 +212,7 @@ Once upon a time, in a world where technology had advanced beyond...
 **Debug Mode Output:**
 
 ```
-🔄 Streaming from openai provider with debug logging...
+🔄 Streaming from google-ai provider with debug logging...
 
 Once upon a time[DEBUG: chunk received, 15 chars]
 , in a world where technology[DEBUG: chunk received, 25 chars]
@@ -247,9 +255,11 @@ neurolink batch prompts.txt --provider openai --timeout 1m --output results.json
 ✅ Results saved to results.json
 ```
 
-### `models` - Dynamic Model Management
+### `models` - Dynamic Model Management 🚧 **Work in Progress**
 
 The dynamic model system provides intelligent model selection and cost optimization.
+
+> **Status**: This command group is currently in development and not yet implemented in the CLI. The features documented below are planned for future release.
 
 ```bash
 # List all available models with pricing
@@ -272,8 +282,11 @@ neurolink models resolve google fastest
 neurolink models server-status
 
 # Test model parameter support
-node dist/cli/index.js generate "what is deepest you can think?" --provider google-ai --model gemini-2.5-flash
-node dist/cli/index.js generate "Analyze this complex problem" --provider google-ai --model gemini-2.5-pro
+neurolink generate generate "what is deepest you can think?" --provider google-ai --model gemini-2.5-flash
+neurolink generate generate "Analyze this complex problem" --provider google-ai --model gemini-2.5-pro
+# Test dynamic model integration
+neurolink generate "Hello" --model best-coding
+neurolink generate "Describe this" --capability vision --optimize-cost
 ```
 
 **Available Options:**
@@ -360,9 +373,9 @@ neurolink get-best-provider --debug
 
 ```
 🎯 Finding best provider...
-✅ Best provider selected: openai
+✅ Best provider selected: google-ai
 
-Best available provider: openai
+Best available provider: google-ai
 Selection based on: availability, performance, and configuration
 ```
 
@@ -393,10 +406,12 @@ neurolink provider list
 Available providers: openai, bedrock, vertex, anthropic, azure, google-ai, huggingface, ollama, mistral
 ```
 
-#### `provider configure <provider>` - Configuration Help
+#### `provider configure <provider>` - Configuration Help 🚧 **Work in Progress**
+
+> **Status**: This subcommand is planned for future release and not yet implemented.
 
 ```bash
-# Get configuration guidance for specific provider
+# Get configuration guidance for specific provider (planned)
 neurolink provider configure openai
 neurolink provider configure bedrock
 neurolink provider configure vertex
@@ -406,14 +421,16 @@ neurolink provider configure google-ai
 **Output Example:**
 
 ```
-🔧 Configuration guidance for openai:
+🔧 Configuration guidance for google-ai:
 💡 Set relevant environment variables for API keys and other settings.
    Refer to the documentation for details: https://github.com/juspay/neurolink#configuration
 ```
 
-### `config` - Configuration Management Commands
+### `config` - Configuration Management Commands 🚧 **Work in Progress**
 
 Manage NeuroLink configuration settings and preferences.
+
+> **Status**: Most config subcommands are planned for future release. Currently only `config export` is implemented.
 
 #### `config setup` - Interactive Setup
 
@@ -436,7 +453,7 @@ neurolink config show
 
 ```bash
 # Set configuration key-value pairs
-neurolink config set provider openai
+neurolink config set provider google-ai
 neurolink config set temperature 0.8
 neurolink config set max-tokens 1000
 ```
@@ -532,9 +549,11 @@ The discovery system includes a sophisticated JSON parser that handles common co
 ✅ **Non-printable Characters** - Sanitizes problematic characters
 ✅ **Multiple Repair Strategies** - Three-stage repair with graceful fallback
 
-### `discover` - Auto-Discover MCP Servers
+### `discover` - Auto-Discover MCP Servers 🚧 **Work in Progress**
 
 Automatically discover MCP server configurations from all major AI development tools on your system.
+
+> **Status**: This command is an alias for `mcp discover` which is already implemented. The standalone `discover` command will be added in a future release.
 
 ```bash
 # Basic discovery with table output
@@ -881,7 +900,7 @@ neurolink ollama setup
 
 ### MCP Configuration Management
 
-MCP servers are automatically configured in `.mcp-config.json`:
+MCP servers are automatically configured in `.neuro.config.json` (v2.0+ enhanced format):
 
 ```json
 {
@@ -959,7 +978,7 @@ MCP servers are automatically configured in `.mcp-config.json`:
 ```bash
 # Generate creative content with high temperature
 neurolink generate-text "Write a sci-fi story opening" \
-  --provider openai \
+  --provider google-ai \
   --temperature 0.9 \
   --max-tokens 1000 \
   --format json > story.json

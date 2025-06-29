@@ -7,7 +7,8 @@
 import { z } from "zod";
 import { createMCPServer } from "../../factory.js";
 import type { NeuroLinkExecutionContext, ToolResult } from "../../factory.js";
-import { AIProviderFactory } from "../../../core/factory.js";
+// CIRCULAR DEPENDENCY FIX: Lazy import AIProviderFactory
+// import { AIProviderFactory } from "../../../core/factory.js";
 import {
   getBestProviderSync as getBestProvider,
   getAvailableProviders,
@@ -111,6 +112,9 @@ aiCoreServer.registerTool({
         `[AI-Core] Starting text generation: "${params.prompt.substring(0, 50)}..."`,
       );
 
+      // CIRCULAR DEPENDENCY FIX: Lazy import AIProviderFactory
+      const { AIProviderFactory } = await import("../../../core/factory.js");
+      
       // Use existing AIProviderFactory with best provider selection
       const selectedProvider =
         params.provider || getBestProvider(params.provider);

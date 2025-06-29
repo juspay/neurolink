@@ -13,15 +13,22 @@ interface LogEntry {
 }
 
 class MCPLogger {
-  private logLevel: LogLevel = "info";
+  private logLevel: LogLevel = "error"; // Default to error level (quiet)
   private logs: LogEntry[] = [];
   private maxLogs = 1000;
 
   constructor() {
     // Set log level from environment
     const envLevel = process.env.MCP_LOG_LEVEL?.toLowerCase() as LogLevel;
+    const neurolinkDebug = process.env.NEUROLINK_DEBUG;
+    
     if (envLevel && ["debug", "info", "warn", "error"].includes(envLevel)) {
       this.logLevel = envLevel;
+    } else if (neurolinkDebug === "true") {
+      this.logLevel = "debug";
+    } else {
+      // Default to error level (only show errors) when debug is not explicitly enabled
+      this.logLevel = "error";
     }
   }
 

@@ -11,9 +11,10 @@ import {
   type StreamTextResult,
   type ToolSet,
 } from "ai";
-import { google } from "@ai-sdk/google";
-import { openai } from "@ai-sdk/openai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { z } from "zod";
+import { google, createGoogleGenerativeAI } from "@ai-sdk/google";
+import { openai, createOpenAI } from "@ai-sdk/openai";
+import { anthropic, createAnthropic } from "@ai-sdk/anthropic";
 import {
   directAgentTools,
   getToolsForCategory,
@@ -23,9 +24,10 @@ import type {
   TextGenerationOptions,
   StreamTextOptions,
 } from "../core/types.js";
-import { UnifiedMCPSystem } from "../mcp/unified-mcp.js";
 import { mcpLogger } from "../mcp/logging.js";
 import { parseTimeout } from "../utils/timeout.js";
+import { hubBasedRegistry } from '../mcp/unified-mcp-hub-integration.js';
+import { globalMCPHub } from '../mcp/mcp-hub.js';
 
 /**
  * Agent configuration options
@@ -39,6 +41,7 @@ interface AgentConfig {
   enableMCP?: boolean;
   mcpInitTimeoutMs?: number; // Timeout for MCP initialization in milliseconds
   toolExecutionTimeout?: number | string; // Timeout for individual tool execution
+  requestTimeoutMs?: number; // AI Provider request timeout in milliseconds
   mcpDiscoveryOptions?: {
     searchPaths?: string[];
     configFiles?: string[];
@@ -54,21 +57,25 @@ interface AgentConfig {
 export class AgentEnhancedProvider implements AIProvider {
   private config: AgentConfig;
   private model: any;
-  private mcpSystem: UnifiedMCPSystem | null = null;
   private mcpInitialized = false;
   private mcpInitializing = false;
   private mcpInitFailed = false;
+  private mcpInitPromise: Promise<void> | null = null;
 
   constructor(config: AgentConfig) {
+    // Load timeout from multiple sources (env var, config file, default)
+    const defaultTimeout = this.loadTimeoutConfig();
+
     this.config = {
-      maxSteps: 5,
+      maxSteps: 5, // Reduced from 20 to 5 for better reliability
       toolCategory: "all",
       enableTools: true,
-      enableMCP: true,
+      enableMCP: true, // Re-enabled with timeout fixes
+      requestTimeoutMs: defaultTimeout,
       mcpDiscoveryOptions: {
         autoDiscover: true,
         searchPaths: [process.cwd()],
-        configFiles: [".mcp-config.json", ".mcp-servers.json"],
+        configFiles: [".neuro.config.json", ".mcp-servers.json"],
       },
       ...config,
     };
@@ -76,26 +83,119 @@ export class AgentEnhancedProvider implements AIProvider {
     // Initialize the AI model based on provider
     this.model = this.createModel();
 
-    // Initialize MCP registry if enabled
-    if (this.config.enableMCP) {
-      this.initializeMCP();
+    // NOTE: MCP initialization is now lazy - happens only when tools are actually needed
+    // This prevents constructor timeout issues
+  }
+
+  /**
+   * Load timeout configuration from multiple sources
+   */
+  private loadTimeoutConfig(): number {
+    // Priority: explicit config > environment variable > neuro config file > default
+
+    // Check environment variable first
+    const envTimeout = process.env.AI_REQUEST_TIMEOUT_MS;
+    if (envTimeout) {
+      const parsed = parseInt(envTimeout, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        mcpLogger.debug(`[AgentEnhancedProvider] Using AI request timeout from environment: ${parsed}ms`);
+        return parsed;
+      }
     }
+
+    // Check neuro config file
+    try {
+      const configPath = require('path').join(process.cwd(), '.neuro.config.json');
+      if (require('fs').existsSync(configPath)) {
+        const configData = JSON.parse(require('fs').readFileSync(configPath, 'utf8'));
+        const aiTimeout = configData?.globalConfig?.ai?.requestTimeoutMs;
+        if (typeof aiTimeout === 'number' && aiTimeout > 0) {
+          mcpLogger.debug(`[AgentEnhancedProvider] Using AI request timeout from config file: ${aiTimeout}ms`);
+          return aiTimeout;
+        }
+      }
+    } catch (error) {
+      mcpLogger.debug(`[AgentEnhancedProvider] Could not load timeout from config file: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    // Default timeout
+    const defaultTimeout = 60000; // 60 seconds
+    mcpLogger.debug(`[AgentEnhancedProvider] Using default AI request timeout: ${defaultTimeout}ms`);
+    return defaultTimeout;
+  }
+
+  /**
+   * Create a custom fetch function with timeout support and enhanced error handling
+   */
+  private createTimeoutFetch() {
+    const timeoutMs = this.config.requestTimeoutMs || 60000;
+
+    return async (input: RequestInfo | URL, options: RequestInit = {}) => {
+      // Create AbortController for timeout
+      const controller = new AbortController();
+
+      // If there's already a signal in options, we need to merge them
+      const existingSignal = options.signal;
+      if (existingSignal) {
+        // If the existing signal is already aborted, don't make the request
+        if (existingSignal.aborted) {
+          throw new DOMException('Request was aborted', 'AbortError');
+        }
+
+        // Listen for the existing signal's abort event
+        existingSignal.addEventListener('abort', () => controller.abort());
+      }
+
+      const timeoutId = setTimeout(() => {
+        mcpLogger.warn(`[AgentEnhancedProvider] Request timeout after ${timeoutMs}ms for URL: ${input}`);
+        controller.abort();
+      }, timeoutMs);
+
+      try {
+        mcpLogger.debug(`[AgentEnhancedProvider] Making request to ${input} with ${timeoutMs}ms timeout`);
+        const response = await fetch(input, {
+          ...options,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        mcpLogger.debug(`[AgentEnhancedProvider] Request completed successfully for ${input}`);
+        return response;
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+
+        if (error.name === 'AbortError') {
+          const timeoutError = new Error(`Network error: Could not connect to the API endpoint or the request timed out (${timeoutMs}ms)`);
+          mcpLogger.error(`[AgentEnhancedProvider] Request timeout for ${input}:`, timeoutError.message);
+          throw timeoutError;
+        }
+
+        // Log other network errors
+        mcpLogger.error(`[AgentEnhancedProvider] Network error for ${input}:`, error.message);
+        throw error;
+      }
+    };
   }
 
   private createModel() {
     const { provider, model } = this.config;
+    const customFetch = this.createTimeoutFetch();
 
     switch (provider) {
       case "google-ai":
-        return google(
-          model || process.env.GOOGLE_AI_MODEL || "gemini-2.0-flash-exp",
-        );
+        return createGoogleGenerativeAI({
+          apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_AI_API_KEY,
+          fetch: customFetch,
+        })(model || process.env.GOOGLE_AI_MODEL || "gemini-2.0-flash-exp");
       case "openai":
-        return openai(model || process.env.OPENAI_MODEL || "gpt-4o");
+        return createOpenAI({
+          apiKey: process.env.OPENAI_API_KEY,
+          fetch: customFetch,
+        })(model || process.env.OPENAI_MODEL || "gpt-4o");
       case "anthropic":
-        return anthropic(
-          model || process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022",
-        );
+        return createAnthropic({
+          apiKey: process.env.ANTHROPIC_API_KEY,
+          fetch: customFetch,
+        })(model || process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022");
       default:
         throw new Error(`Unsupported provider: ${provider}`);
     }
@@ -105,50 +205,89 @@ export class AgentEnhancedProvider implements AIProvider {
    * Initialize MCP registry with auto-discovery
    */
   private async initializeMCP(): Promise<void> {
-    if (this.mcpInitializing || this.mcpInitFailed) {
+    // If already initialized or failed, return immediately
+    if (this.mcpInitialized || this.mcpInitFailed) {
       return;
     }
 
+    // If already initializing, wait for that promise to complete
+    if (this.mcpInitPromise) {
+      await this.mcpInitPromise;
+      return;
+    }
+
+    // Start new initialization
     this.mcpInitializing = true;
+    this.mcpInitPromise = this.doMCPInitialization();
 
     try {
-      mcpLogger.info("[AgentEnhancedProvider] Initializing MCP integration...");
-      this.mcpSystem = new UnifiedMCPSystem({
-        configPath:
-          this.config.mcpDiscoveryOptions?.configFiles?.[0] ||
-          ".mcp-config.json",
-        enableExternalServers: true,
-        enableInternalServers: true,
-        autoInitialize: false,
+      await this.mcpInitPromise;
+    } finally {
+      this.mcpInitPromise = null;
+    }
+  }
+
+  /**
+   * Actual MCP initialization logic with timeout and graceful fallback
+   */
+  private async doMCPInitialization(): Promise<void> {
+    try {
+      mcpLogger.info("[AgentEnhancedProvider] Starting MCP initialization with timeout...");
+
+      // Create timeout promise (30 seconds for debugging)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error('MCP initialization timeout (30s)'));
+        }, this.config.mcpInitTimeoutMs || 30000);
+        // Prevent hanging by unreferencing timeout
+        timeoutId.unref();
       });
 
-      // ADD TIMEOUT to prevent hanging forever
-      const initPromise = this.mcpSystem.initialize();
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(
-          () =>
-            reject(new Error("MCP initialization timeout after 15 seconds")),
-          this.config.mcpInitTimeoutMs || 15000,
-        ),
-      );
+      // Create initialization promise
+      const initPromise = this.initializeMCPSystem();
 
+      // Race between initialization and timeout
       await Promise.race([initPromise, timeoutPromise]);
+
+      mcpLogger.info("[AgentEnhancedProvider] MCP initialization completed successfully");
       this.mcpInitialized = true;
-      mcpLogger.info(
-        "[AgentEnhancedProvider] MCP integration initialized successfully",
-      );
+      this.mcpInitFailed = false;
+
     } catch (error) {
-      mcpLogger.error(
-        "[AgentEnhancedProvider] Failed to initialize MCP:",
-        error,
-      );
-      this.mcpSystem = null;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      mcpLogger.warn(`[AgentEnhancedProvider] MCP initialization failed: ${errorMsg}`);
+      mcpLogger.info("[AgentEnhancedProvider] Continuing with direct tools only - external MCP tools will be unavailable");
+
+      // Graceful fallback - don't fail the entire provider
       this.mcpInitialized = false;
       this.mcpInitFailed = true;
-      // Don't throw - continue with direct tools only
+
+      // Don't throw - let the provider continue with direct tools
     } finally {
       this.mcpInitializing = false;
     }
+  }
+
+  /**
+   * Initialize the MCP system with new hub architecture
+   */
+  private async initializeMCPSystem(): Promise<void> {
+    // Initialize hub-based registry with validated auto-discovery
+    const { UnifiedMCPRegistry } = await import('../mcp/unified-registry.js');
+    const unifiedRegistry = new UnifiedMCPRegistry();
+
+    // Initialize the unified registry (this runs validation and connection)
+    await unifiedRegistry.initialize();
+
+    // Get the validated discovered servers for hub integration
+    const discoveredServers = (unifiedRegistry as any).autoDiscoveredServers || [];
+
+    mcpLogger.info(`[AgentEnhancedProvider] Found ${discoveredServers.length} validated MCP servers`);
+
+    // Initialize the hub-based registry with validated servers
+    await hubBasedRegistry.initialize(discoveredServers);
+
+    mcpLogger.debug("[AgentEnhancedProvider] Hub-based MCP system initialized with validation");
   }
 
   /**
@@ -159,32 +298,110 @@ export class AgentEnhancedProvider implements AIProvider {
       ? getToolsForCategory(this.config.toolCategory)
       : {};
 
+    mcpLogger.debug(`[AgentEnhancedProvider] Direct tools count: ${Object.keys(directTools).length}`);
+
     // If MCP is disabled or failed to initialize, return only direct tools
-    if (!this.config.enableMCP || !this.mcpSystem) {
+    if (!this.config.enableMCP || this.mcpInitFailed) {
+      mcpLogger.debug("[AgentEnhancedProvider] MCP disabled or not available, returning direct tools only");
       return directTools;
     }
 
-    // Get MCP tools if available
-    const mcpTools = {};
+    // Get MCP tools if available (both internal and external)
+    let mcpTools = {};
+    let externalTools = {};
+
     try {
       // Skip if MCP failed to initialize or is still initializing
-      if (
-        this.mcpInitFailed ||
-        this.mcpInitializing ||
-        !this.mcpInitialized ||
-        !this.mcpSystem
-      ) {
+      if (this.mcpInitFailed || this.mcpInitializing || !this.mcpInitialized) {
+        mcpLogger.debug("[AgentEnhancedProvider] MCP not ready, returning direct tools only");
         return directTools;
       }
 
-      const mcpToolInfos = await this.mcpSystem.listTools();
+      // Get all tools from hub-based registry (both internal and external)
+      const mcpToolInfos = await hubBasedRegistry.listAllTools();
+      mcpLogger.debug(`[AgentEnhancedProvider] Hub-based MCP tools found: ${mcpToolInfos.length}`);
 
-      // Convert MCP tools to AI SDK format
+      // Convert MCP tools to AI SDK format using tool() wrapper
       for (const toolInfo of mcpToolInfos) {
-        const toolKey = `mcp_${toolInfo.name}`;
-        (mcpTools as any)[toolKey] = {
-          description: toolInfo.description || `MCP tool: ${toolInfo.name}`,
-          parameters: toolInfo.inputSchema || {},
+        // Use server-prefixed tool name to avoid conflicts
+        const toolKey = `${toolInfo.server || toolInfo.serverId}_${toolInfo.name}`;
+
+        // Create a proper Zod schema from the input schema
+        let parametersSchema;
+        try {
+          if (toolInfo.inputSchema && typeof toolInfo.inputSchema === 'object' && toolInfo.inputSchema.properties) {
+            // Convert JSON Schema to Zod schema
+            const schemaProps: any = {};
+            const properties = toolInfo.inputSchema.properties;
+            const required = toolInfo.inputSchema.required || [];
+
+            for (const [propName, propDef] of Object.entries(properties)) {
+              const propSchema = propDef as any;
+              if (propSchema.type === 'string') {
+                schemaProps[propName] = required.includes(propName)
+                  ? z.string().describe(propSchema.description || '')
+                  : z.string().optional().describe(propSchema.description || '');
+              } else if (propSchema.type === 'number' || propSchema.type === 'integer') {
+                schemaProps[propName] = required.includes(propName)
+                  ? z.number().describe(propSchema.description || '')
+                  : z.number().optional().describe(propSchema.description || '');
+              } else if (propSchema.type === 'boolean') {
+                schemaProps[propName] = required.includes(propName)
+                  ? z.boolean().describe(propSchema.description || '')
+                  : z.boolean().optional().describe(propSchema.description || '');
+              } else if (propSchema.type === 'array') {
+                // Handle array types properly for Google AI compatibility
+                const itemSchema = propSchema.items;
+                let arrayType;
+                if (itemSchema?.type === 'string') {
+                  arrayType = z.array(z.string());
+                } else if (itemSchema?.type === 'number' || itemSchema?.type === 'integer') {
+                  arrayType = z.array(z.number());
+                } else if (itemSchema?.type === 'boolean') {
+                  arrayType = z.array(z.boolean());
+                } else if (itemSchema?.type === 'object' && itemSchema.properties) {
+                  // Handle nested objects in arrays
+                  const nestedProps: any = {};
+                  for (const [nestedPropName, nestedPropDef] of Object.entries(itemSchema.properties)) {
+                    const nestedSchema = nestedPropDef as any;
+                    if (nestedSchema.type === 'string') {
+                      nestedProps[nestedPropName] = z.string().describe(nestedSchema.description || '');
+                    } else if (nestedSchema.type === 'number' || nestedSchema.type === 'integer') {
+                      nestedProps[nestedPropName] = z.number().describe(nestedSchema.description || '');
+                    } else if (nestedSchema.type === 'boolean') {
+                      nestedProps[nestedPropName] = z.boolean().describe(nestedSchema.description || '');
+                    } else {
+                      nestedProps[nestedPropName] = z.any().describe(nestedSchema.description || '');
+                    }
+                  }
+                  arrayType = z.array(z.object(nestedProps));
+                } else {
+                  // Fallback for arrays without items specification
+                  arrayType = z.array(z.any()).describe('Array of items');
+                }
+
+                schemaProps[propName] = required.includes(propName)
+                  ? arrayType.describe(propSchema.description || '')
+                  : arrayType.optional().describe(propSchema.description || '');
+              } else {
+                schemaProps[propName] = required.includes(propName)
+                  ? z.any().describe(propSchema.description || '')
+                  : z.any().optional().describe(propSchema.description || '');
+              }
+            }
+
+            parametersSchema = z.object(schemaProps);
+          } else {
+            parametersSchema = z.object({});
+          }
+        } catch (error) {
+          mcpLogger.warn(`Failed to parse schema for tool ${toolInfo.name}, using empty schema:`, error);
+          parametersSchema = z.object({});
+        }
+
+        (mcpTools as any)[toolKey] = tool({
+          description: toolInfo.description || `MCP tool: ${toolInfo.name} from ${toolInfo.server || toolInfo.serverId}`,
+          parameters: parametersSchema,
           execute: async (args: any) => {
             let timeoutId: NodeJS.Timeout | undefined;
 
@@ -196,10 +413,9 @@ export class AgentEnhancedProvider implements AIProvider {
                 : undefined;
 
               if (toolAbortController && toolTimeout) {
-                const timeoutMs =
-                  typeof toolTimeout === "string"
-                    ? parseTimeout(toolTimeout)
-                    : toolTimeout;
+                const timeoutMs = typeof toolTimeout === 'string'
+                  ? parseTimeout(toolTimeout)
+                  : toolTimeout;
                 timeoutId = setTimeout(() => {
                   toolAbortController.abort();
                 }, timeoutMs);
@@ -279,10 +495,10 @@ export class AgentEnhancedProvider implements AIProvider {
                   }
                 },
               };
-              const toolPromise = this.mcpSystem!.executeTool(
+              const toolPromise = hubBasedRegistry.executeTool(
                 toolInfo.name,
                 args,
-                context,
+                context
               );
 
               let result: any;
@@ -322,12 +538,10 @@ export class AgentEnhancedProvider implements AIProvider {
               throw error;
             }
           },
-        };
+        });
       }
 
-      mcpLogger.info(
-        `[AgentEnhancedProvider] Loaded ${Object.keys(mcpTools).length} MCP tools`,
-      );
+      mcpLogger.debug(`[AgentEnhancedProvider] Loaded ${Object.keys(mcpTools).length} internal MCP tools`);
     } catch (error) {
       mcpLogger.error(
         "[AgentEnhancedProvider] Failed to load MCP tools:",
@@ -335,7 +549,16 @@ export class AgentEnhancedProvider implements AIProvider {
       );
     }
 
-    return { ...directTools, ...mcpTools };
+    // Combine all tools: direct + internal MCP + external MCP
+    const combinedTools = { ...directTools, ...mcpTools, ...externalTools };
+
+    mcpLogger.info(`[AgentEnhancedProvider] Combined tools summary:`);
+    mcpLogger.info(`  - Direct tools: ${Object.keys(directTools).length}`);
+    mcpLogger.info(`  - Internal MCP tools: ${Object.keys(mcpTools).length}`);
+    mcpLogger.info(`  - External MCP tools: ${Object.keys(externalTools).length}`);
+    mcpLogger.info(`  - Total tools: ${Object.keys(combinedTools).length}`);
+
+    return combinedTools;
   }
 
   async generateText(
@@ -355,6 +578,12 @@ export class AgentEnhancedProvider implements AIProvider {
       timeout,
     } = options;
 
+    // Initialize MCP if enabled and not already initialized
+    if (this.config.enableMCP && !this.mcpInitialized && !this.mcpInitializing && !this.mcpInitFailed) {
+      mcpLogger.debug('[AgentEnhancedProvider] Starting lazy MCP initialization for generate-text');
+      await this.initializeMCP();
+    }
+
     // Get combined tools (direct + MCP) if enabled
     const tools = this.config.enableTools ? await this.getCombinedTools() : {};
 
@@ -365,10 +594,13 @@ export class AgentEnhancedProvider implements AIProvider {
       );
     };
 
-    log("Starting text generation", {
+    const optimalMaxSteps = this.getOptimalMaxSteps(prompt);
+
+    log('Starting text generation', {
       prompt: prompt.substring(0, 100),
       toolsCount: Object.keys(tools).length,
-      maxSteps: this.config.maxSteps,
+      maxSteps: optimalMaxSteps,
+      isComplex: optimalMaxSteps > (this.config.maxSteps || 20)
     });
 
     try {
@@ -404,33 +636,44 @@ export class AgentEnhancedProvider implements AIProvider {
         stepsCount: result.steps?.length || 0,
       });
 
-      // Check if tools were called but no final text was generated
-      if (
-        result.finishReason === "tool-calls" &&
-        !result.text &&
-        result.toolResults?.length > 0
-      ) {
-        log(
-          "Tools called but no final text generated, creating summary response",
-        );
+      // Check if tools were called but no final text was generated (common with long-running tools)
+      if ((result.finishReason === 'tool-calls' || result.finishReason === 'unknown') && (!result.text || result.text.trim().length === 0) && result.toolResults?.length > 0) {
+        log('Tools called but no final text generated, extracting tool results');
 
         try {
-          // Extract tool results and create a summary prompt
-          let toolResultsSummary = "";
+          // Extract tool results and create a comprehensive summary
+          let toolResultsSummary = '';
 
           if (result.toolResults) {
             for (const toolResult of result.toolResults) {
               const resultData = (toolResult as any).result || toolResult;
 
-              // Try to extract meaningful data from the result
-              if (typeof resultData === "object" && resultData !== null) {
+              // Handle enhanced results with stderr content (sequential thinking)
+              if (typeof resultData === 'object' && resultData !== null && resultData.stderrOutput) {
+                // This is an enhanced result with stderr content - use the stderr output
+                toolResultsSummary += resultData.stderrOutput;
+              } else if (typeof resultData === 'object' && resultData !== null && resultData.content && Array.isArray(resultData.content)) {
+                // This is an MCP content array result
+                for (const contentItem of resultData.content) {
+                  if (contentItem.type === 'text' && contentItem.text) {
+                    toolResultsSummary += contentItem.text;
+                  }
+                }
+              } else if (typeof resultData === 'string' && resultData.includes('💭')) {
+                // This looks like sequential thinking output
+                toolResultsSummary += resultData;
+              } else if (typeof resultData === 'object' && resultData !== null) {
                 if (resultData.success && resultData.items) {
                   // This looks like a filesystem listing
                   toolResultsSummary += `Directory listing for ${resultData.path}:\n`;
                   for (const item of resultData.items) {
                     toolResultsSummary += `- ${item.name} (${item.type})\n`;
                   }
+                } else if (resultData.analysis || resultData.conclusion) {
+                  // This looks like analysis results
+                  toolResultsSummary += resultData.analysis || resultData.conclusion;
                 } else {
+                  // Generic object response
                   toolResultsSummary += JSON.stringify(resultData, null, 2);
                 }
               } else {
@@ -442,30 +685,33 @@ export class AgentEnhancedProvider implements AIProvider {
 
           log("Tool results extracted", {
             summaryLength: toolResultsSummary.length,
-            preview: toolResultsSummary.substring(0, 200),
+            preview: toolResultsSummary.substring(0, 300)
           });
 
-          // Create a simple, direct summary
-          const finalText = `Based on the user request "${prompt}", here's what I found:\n\n${toolResultsSummary}`;
+          // For sequential thinking or analysis tools, return the analysis directly
+          if (toolResultsSummary.includes('💭') || toolResultsSummary.includes('analysis') || toolResultsSummary.includes('Thought')) {
+            return {
+              ...result,
+              text: toolResultsSummary.trim(),
+              finishReason: 'stop'
+            };
+          } else {
+            // For other tools, provide context
+            const finalText = `Based on your request: "${prompt}"\n\nHere's the analysis:\n\n${toolResultsSummary.trim()}`;
+            return {
+              ...result,
+              text: finalText,
+              finishReason: 'stop'
+            };
+          }
 
-          log("Final text created", {
-            textLength: finalText.length,
-            preview: finalText.substring(0, 200),
-          });
-
-          // Return result with the formatted text
-          return {
-            ...result,
-            text: finalText,
-            finishReason: "stop",
-          };
         } catch (error) {
           log("Error in summary generation", {
             error: error instanceof Error ? error.message : String(error),
           });
 
           // Fallback: return raw tool results
-          const fallbackText = `Tool execution completed. Raw results: ${JSON.stringify(result.toolResults, null, 2)}`;
+          const fallbackText = `Tool execution completed. Results:\n${JSON.stringify(result.toolResults, null, 2)}`;
           return {
             ...result,
             text: fallbackText,
@@ -476,7 +722,24 @@ export class AgentEnhancedProvider implements AIProvider {
 
       // Return the full result - the AI SDK has already handled tool execution and integration
       return result;
-    } catch (error) {
+    } catch (error: any) {
+      // Enhanced error handling for timeout and network issues
+      if (error.name === 'AbortError') {
+        const timeoutMs = this.config.requestTimeoutMs || 60000;
+        const timeoutError = new Error(`Network error: Could not connect to the API endpoint or the request timed out (${timeoutMs}ms)`);
+        mcpLogger.error(`[AgentEnhancedProvider] Request timeout during generateText:`, timeoutError.message);
+        throw timeoutError;
+      }
+
+      // Log detailed error information
+      mcpLogger.error("[AgentEnhancedProvider] generateText error:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n'), // First 5 lines of stack
+        provider: this.config.provider,
+        timeout: this.config.requestTimeoutMs
+      });
+
       console.error("[AgentEnhancedProvider] generateText error:", error);
       throw error;
     }
@@ -498,38 +761,97 @@ export class AgentEnhancedProvider implements AIProvider {
       timeout,
     } = options;
 
+    // Initialize MCP if enabled and not already initialized
+    if (this.config.enableMCP && !this.mcpInitialized && !this.mcpInitializing && !this.mcpInitFailed) {
+      mcpLogger.debug('[AgentEnhancedProvider] Starting lazy MCP initialization for stream-text');
+      await this.initializeMCP();
+    }
+
     // Get combined tools (direct + MCP) if enabled
     const tools = this.config.enableTools ? await this.getCombinedTools() : {};
 
+    const optimalMaxSteps = this.getOptimalMaxSteps(prompt);
+
     try {
-      // Parse timeout if provided
-      let abortSignal: AbortSignal | undefined;
-      if (timeout) {
-        const timeoutMs =
-          typeof timeout === "string" ? parseTimeout(timeout) : timeout;
-        if (timeoutMs !== undefined) {
-          abortSignal = AbortSignal.timeout(timeoutMs);
+      // Create manual AbortController for better compatibility
+      const controller = new AbortController();
+      const timeoutMs = this.config.requestTimeoutMs || 120000; // Increased for complex tool operations like sequential thinking
+      const timeoutId = setTimeout(() => {
+        mcpLogger.warn(`[AgentEnhancedProvider] StreamText timeout after ${timeoutMs}ms, aborting...`);
+        controller.abort();
+      }, timeoutMs);
+
+      try {
+        const result = await streamText({
+          model: this.model,
+          prompt: systemPrompt
+            ? `System: ${systemPrompt}\n\nUser: ${prompt}`
+            : prompt,
+          tools,
+          maxSteps: optimalMaxSteps, // Dynamic maxSteps for streaming too
+          temperature,
+          maxTokens,
+          toolChoice: this.shouldForceToolUsage(prompt) ? "required" : "auto",
+          abortSignal: controller.signal, // Use manual AbortController
+        });
+
+        clearTimeout(timeoutId);
+        return result;
+      } catch (error) {
+        clearTimeout(timeoutId);
+
+        // Better error handling for timeout vs other issues
+        if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('aborted'))) {
+          throw new Error(`StreamText timeout after ${timeoutMs}ms - consider reducing prompt complexity or maxSteps`);
         }
+        throw error;
+      }
+    } catch (error: any) {
+      // Enhanced error handling for timeout and network issues
+      if (error.message && error.message.includes('timeout')) {
+        mcpLogger.error(`[AgentEnhancedProvider] Request timeout during streamText:`, error.message);
+        throw error;
       }
 
-      const result = await streamText({
-        model: this.model,
-        prompt: systemPrompt
-          ? `System: ${systemPrompt}\n\nUser: ${prompt}`
-          : prompt,
-        tools,
-        maxSteps: this.config.maxSteps,
-        temperature,
-        maxTokens,
-        toolChoice: this.shouldForceToolUsage(prompt) ? "required" : "auto",
-        abortSignal, // Pass abort signal for timeout support
+      // Log detailed error information
+      mcpLogger.error("[AgentEnhancedProvider] streamText error:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n'), // First 5 lines of stack
+        provider: this.config.provider,
+        timeout: this.config.requestTimeoutMs
       });
 
-      return result;
-    } catch (error) {
       console.error("[AgentEnhancedProvider] streamText error:", error);
       throw error;
     }
+  }
+
+  /**
+   * Determine optimal maxSteps based on prompt complexity
+   * Reduced limits to avoid timeout cascades
+   */
+  private getOptimalMaxSteps(prompt: string): number {
+    const complexPatterns = [
+      /sequential thinking/i,
+      /analyze.*step.*by.*step/i,
+      /think.*through/i,
+      /multi.*step/i,
+      /comprehensive.*analysis/i,
+      /detailed.*plan/i,
+      /business.*plan/i,
+      /step.*by.*step/i,
+    ];
+
+    const isComplex = complexPatterns.some((pattern) => pattern.test(prompt));
+
+    if (isComplex) {
+      // Reduced from 25 to 8 to avoid timeout cascades
+      return 8;
+    }
+
+    // Reduced from 20 to 5 for better reliability
+    return this.config.maxSteps || 5;
   }
 
   /**
@@ -546,6 +868,8 @@ export class AgentEnhancedProvider implements AIProvider {
       /math/i,
       /search for/i,
       /find files/i,
+      /sequential thinking/i,
+      /use.*thinking/i,
     ];
 
     return forceToolPatterns.some((pattern) => pattern.test(prompt));

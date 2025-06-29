@@ -16,11 +16,15 @@ export interface MCPMetadata {
   /** Entry point path */
   main: string;
   /** Compatible NeuroLink version range */
-  engine: {
+  engine?: {
     neurolink: string;
   };
   /** Human-readable description */
-  description: string;
+  description?: string;
+  /** Author/tool that configured this */
+  author?: string;
+  /** Category/type of plugin */
+  category?: string;
   /** Declarative permissions array for security */
   permissions: string[];
   /** JSON Schema for configuration validation */
@@ -161,6 +165,16 @@ export interface DiscoveredMCP {
   entryPath: string;
   source: "core" | "project" | "installed";
   constructor?: MCPConstructor;
+  external?: {
+    command?: string;
+    args?: string[];
+    env?: Record<string, string>;
+    transport?: "stdio" | "sse";
+    url?: string;
+    cwd?: string;
+    tool?: string;
+    type?: "global" | "workspace";
+  };
 }
 
 /**

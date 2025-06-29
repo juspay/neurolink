@@ -20,7 +20,7 @@ Analyze AI usage patterns, token consumption, and cost optimization across all p
 ```typescript
 const analysis = await provider.analyzeAIUsage({
   timeframe: "last-24-hours",
-  providers: ["openai", "bedrock", "vertex", "google-ai"],
+  providers: ["google-ai", "openai", "bedrock", "vertex"],
   includeOptimizations: true,
 });
 
@@ -129,7 +129,7 @@ Content-Type: application/json
 
 {
   "timeframe": "last-24-hours",
-  "providers": ["openai", "vertex", "google-ai"],
+  "providers": ["google-ai", "openai", "vertex"],
   "includeOptimizations": true
 }
 ```

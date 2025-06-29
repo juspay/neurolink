@@ -19,11 +19,13 @@ import { mcpLogger as logger } from "./logging.js";
 export interface ExternalMCPServerConfig {
   name: string;
   command: string;
-  args: string[];
-  transport: "stdio";
+  args?: string[];
+  transport?: "stdio" | "sse";
   env?: Record<string, string>;
   timeout?: number;
   retryAttempts?: number;
+  url?: string; // For SSE transport
+  cwd?: string; // Working directory for the spawned process
 }
 
 /**
@@ -75,6 +77,8 @@ export class ExternalMCPClient extends EventEmitter {
     this.config = {
       timeout: 30000,
       retryAttempts: 3,
+      args: [],
+      transport: "stdio",
       ...config,
     };
   }
@@ -91,47 +95,11 @@ export class ExternalMCPClient extends EventEmitter {
     try {
       logger.info(`[External MCP] Connecting to ${this.config.name}...`);
 
-      // Spawn the MCP server process
-      this.process = spawn(this.config.command, this.config.args, {
-        stdio: ["pipe", "pipe", "pipe"],
-        env: { ...process.env, ...this.config.env },
-      });
-
-      if (!this.process.stdout || !this.process.stdin || !this.process.stderr) {
-        throw new Error("Failed to create stdio pipes");
+      if (this.config.transport === "sse") {
+        await this.connectSSE();
+      } else {
+        await this.connectStdio();
       }
-
-      // Setup stdout handler for receiving messages
-      this.process.stdout.on("data", (data: Buffer) => {
-        this.handleMessage(data.toString());
-      });
-
-      // Setup stderr handler for debugging
-      this.process.stderr.on("data", (data: Buffer) => {
-        logger.debug(
-          `[External MCP] ${this.config.name} stderr:`,
-          data.toString().trim(),
-        );
-      });
-
-      // Handle process exit
-      this.process.on("exit", (code, signal) => {
-        logger.warn(`[External MCP] ${this.config.name} process exited`, {
-          code,
-          signal,
-        });
-        this.isConnected = false;
-        this.emit("disconnected", { code, signal });
-      });
-
-      // Handle process errors
-      this.process.on("error", (error) => {
-        logger.error(
-          `[External MCP] ${this.config.name} process error:`,
-          error,
-        );
-        this.emit("error", error);
-      });
 
       // Initialize MCP session
       await this.initialize();
@@ -152,6 +120,73 @@ export class ExternalMCPClient extends EventEmitter {
       await this.disconnect();
       throw error;
     }
+  }
+
+  /**
+   * Connect via stdio transport
+   */
+  private async connectStdio(): Promise<void> {
+    // Spawn the MCP server process
+    this.process = spawn(this.config.command, this.config.args || [], {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, ...this.config.env },
+      cwd: this.config.cwd,
+    });
+
+    if (!this.process.stdout || !this.process.stdin || !this.process.stderr) {
+      throw new Error("Failed to create stdio pipes");
+    }
+
+    // Setup stdout handler for receiving messages
+    this.process.stdout.on("data", (data: Buffer) => {
+      this.handleMessage(data.toString());
+    });
+
+    // Setup stderr handler for debugging
+    this.process.stderr.on("data", (data: Buffer) => {
+      logger.debug(
+        `[External MCP] ${this.config.name} stderr:`,
+        data.toString().trim(),
+      );
+    });
+
+    // Handle process exit
+    this.process.on("exit", (code, signal) => {
+      logger.warn(`[External MCP] ${this.config.name} process exited`, {
+        code,
+        signal,
+      });
+      this.isConnected = false;
+      this.emit("disconnected", { code, signal });
+    });
+
+    // Handle process errors
+    this.process.on("error", (error) => {
+      logger.error(
+        `[External MCP] ${this.config.name} process error:`,
+        error,
+      );
+      this.emit("error", error);
+    });
+  }
+
+  /**
+   * Connect via SSE transport
+   */
+  private async connectSSE(): Promise<void> {
+    if (!this.config.url) {
+      throw new Error("SSE transport requires a URL");
+    }
+
+    // For now, throw an error as SSE is not fully implemented
+    throw new Error("SSE transport is not yet implemented. Please use stdio transport.");
+
+    // TODO: Implement SSE transport
+    // This would involve:
+    // 1. Creating an EventSource connection to this.config.url
+    // 2. Setting up message handlers for SSE events
+    // 3. Implementing a way to send requests via HTTP POST
+    // 4. Adapting the message handling to work with SSE format
   }
 
   /**

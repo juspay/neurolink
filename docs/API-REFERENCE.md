@@ -1,6 +1,6 @@
 # 📚 API Reference
 
-Complete reference for NeuroLink's TypeScript API.
+Complete reference for NeuroLink's TypeScript API with **100% MCP reliability** and official SDK integration.
 
 ## Core Functions
 
@@ -17,7 +17,7 @@ function createBestAIProvider(
 
 **Parameters:**
 
-- `requestedProvider` (optional): Preferred provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'google-ai'`, `'huggingface'`, `'ollama'`, `'mistral'`, or `'auto'`)
+- `requestedProvider` (optional): Preferred provider name (`'google-ai'`, `'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'huggingface'`, `'ollama'`, `'mistral'`, or `'auto'`)
 - `modelName` (optional): Specific model to use
 
 **Returns:** `AIProvider` instance
@@ -31,7 +31,7 @@ import { createBestAIProvider } from "@juspay/neurolink";
 const provider = createBestAIProvider();
 
 // Prefer specific provider
-const openaiProvider = createBestAIProvider("openai");
+const googleAiProvider = createBestAIProvider("google-ai");
 
 // Prefer specific provider and model
 const googleProvider = createBestAIProvider("google-ai", "gemini-2.5-flash");
@@ -65,7 +65,7 @@ function createAIProviderWithFallback(
 ```typescript
 import { createAIProviderWithFallback } from "@juspay/neurolink";
 
-const { primary, fallback } = createAIProviderWithFallback("bedrock", "openai");
+const { primary, fallback } = createAIProviderWithFallback("google-ai", "bedrock", "openai");
 
 try {
   const result = await primary.generateText({ prompt: "Hello AI!" });
@@ -92,7 +92,7 @@ static createProvider(
 
 **Parameters:**
 
-- `providerName`: Provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'google-ai'`, `'huggingface'`, `'ollama'`, `'mistral'`)
+- `providerName`: Provider name (`'google-ai'`, `'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'huggingface'`, `'ollama'`, `'mistral'`)
 - `modelName` (optional): Specific model to use
 
 **Returns:** `AIProvider` instance
@@ -103,7 +103,7 @@ static createProvider(
 import { AIProviderFactory } from "@juspay/neurolink";
 
 // Create specific providers
-const openai = AIProviderFactory.createProvider("openai", "gpt-4o");
+const googleAi = AIProviderFactory.createProvider("google-ai", "gpt-4o");
 const bedrock = AIProviderFactory.createProvider(
   "bedrock",
   "claude-3-7-sonnet",
@@ -111,7 +111,7 @@ const bedrock = AIProviderFactory.createProvider(
 const vertex = AIProviderFactory.createProvider("vertex", "gemini-2.5-flash");
 
 // Use default models
-const defaultOpenAI = AIProviderFactory.createProvider("openai");
+const defaultGoogleAI = AIProviderFactory.createProvider("google-ai");
 ```
 
 ### `createProviderWithFallback(primary, fallback, modelName?)`
@@ -124,6 +124,37 @@ static createProviderWithFallback(
   fallback: string,
   modelName?: string
 ): { primary: AIProvider; fallback: AIProvider }
+```
+
+## MCP Integration API
+
+### MCP Tool Execution
+
+NeuroLink automatically integrates MCP tools with **100% reliability** using the official SDK:
+
+```typescript
+// MCP tools are automatically available in generateText
+const result = await provider.generateText({
+  prompt: "Take a screenshot of google.com",
+  // MCP tools integrated automatically - no manual setup required
+});
+```
+
+### Custom MCP Server Configuration
+
+```typescript
+// Configure custom MCP servers via .neuro.config.json
+{
+  "mcpServers": {
+    "filesystem": {
+      "name": "filesystem", 
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./"],
+      "transport": "stdio",
+      "enabled": true
+    }
+  }
+}
 ```
 
 ## AIProvider Interface
@@ -592,7 +623,7 @@ Models are defined in `config/models.json` with comprehensive metadata:
 interface ModelConfig {
   id: string; // Unique model identifier
   name: string; // Display name
-  provider: string; // Provider name (anthropic, openai, etc.)
+  provider: string; // Provider name (anthropic, google-ai, etc.)
   pricing: {
     input: number; // Cost per 1K input tokens
     output: number; // Cost per 1K output tokens
@@ -663,8 +694,8 @@ const provider2 = await factory.createProvider({
 
 // Use direct model IDs (still supported)
 const provider3 = await factory.createProvider({
-  provider: "openai",
-  model: "gpt-4o", // Direct model specification
+  provider: "google-ai",
+  model: "gemini-2.5-pro", // Direct model specification
 });
 ```
 
@@ -939,7 +970,7 @@ interface TokenUsage {
 interface ModelConfig {
   id: string; // Unique model identifier
   name: string; // Display name
-  provider: string; // Provider name (anthropic, openai, etc.)
+  provider: string; // Provider name (anthropic, google-ai, etc.)
   pricing: {
     input: number; // Cost per 1K input tokens
     output: number; // Cost per 1K output tokens
@@ -1161,7 +1192,7 @@ class CustomSelector implements ProviderSelector {
   selectProvider(available: ProviderName[]): ProviderName {
     // Custom logic for provider selection
     if (available.includes("bedrock")) return "bedrock";
-    if (available.includes("openai")) return "openai";
+    if (available.includes("google-ai")) return "google-ai";
     return available[0];
   }
 }
@@ -1292,7 +1323,7 @@ interface NeuroLinkConfig {
 }
 
 const config: NeuroLinkConfig = {
-  defaultProvider: "openai",
+  defaultProvider: "google-ai",
   fallbackProvider: "bedrock",
   defaultOptions: {
     temperature: 0.7,
@@ -1435,25 +1466,57 @@ neurolink mcp add sseserver "sse://https://api.example.com/mcp"
 
 #### **Configuration File**
 
-MCP servers are configured in `.mcp-config.json`:
+MCP servers are configured in `.neuro.config.json` (NeuroLink v2.0+ enhanced format):
 
 ```typescript
 interface MCPConfig {
   mcpServers: {
     [serverName: string]: {
+      name?: string; // Display name
       command: string; // Command to start server
       args?: string[]; // Optional command arguments
+      transport?: "stdio" | "sse"; // Transport type
       env?: Record<string, string>; // Environment variables
-      cwd?: string; // Working directory
-      timeout?: number; // Connection timeout (ms)
-      retry?: number; // Retry attempts
-      enabled?: boolean; // Server enabled status
+      url?: string; // URL for SSE transport
+      description?: string; // Server description
+      enabled?: boolean; // Server enabled status (default: true)
     };
   };
-  global?: {
-    timeout?: number; // Global timeout
-    maxConnections?: number; // Max concurrent connections
-    logLevel?: "debug" | "info" | "warn" | "error";
+  autoDiscovery?: {
+    enabled: boolean; // Enable auto-discovery
+    autoRegister: boolean; // Auto-register discovered servers
+    sources?: string[]; // Discovery sources to check
+  };
+  defaultRegistry?: {
+    enabled: boolean; // Enable default registry
+    includeBuiltInTools: boolean; // Include built-in tools
+  };
+  globalConfig?: {
+    timeout?: number; // Connection timeout (ms)
+    retries?: number; // Retry attempts
+    logLevel?: string; // Log level
+    enableDebug?: boolean; // Debug mode
+    autoDiscovery?: boolean; // Global auto-discovery setting
+    maxConcurrentServers?: number; // Max concurrent servers
+  };
+  neurolink?: {
+    enableInternalServers?: boolean; // Enable internal servers
+    enableExternalServers?: boolean; // Enable external servers
+    aiCore?: {
+      enabled: boolean; // Enable AI core tools
+      tools: string[]; // Available AI tools
+    };
+    utilities?: {
+      enabled: boolean; // Enable utility tools
+      tools: string[]; // Available utility tools
+    };
+  };
+  metadata?: {
+    version?: string; // Configuration version
+    description?: string; // Configuration description
+    lastUpdated?: string; // Last update date
+    documentation?: string; // Documentation URL
+    configFormat?: string; // Configuration format identifier
   };
 }
 ```
@@ -1464,35 +1527,68 @@ interface MCPConfig {
 {
   "mcpServers": {
     "filesystem": {
+      "name": "filesystem",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/"],
-      "timeout": 5000,
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./"],
+      "transport": "stdio",
+      "description": "File and directory operations for current project",
       "enabled": true
     },
     "github": {
+      "name": "github",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
+      "transport": "stdio",
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_your_token_here"
       },
-      "timeout": 10000,
-      "enabled": true
+      "description": "GitHub repository management",
+      "enabled": false
     },
     "postgres": {
+      "name": "postgres",
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-postgres",
-        "${POSTGRES_CONNECTION_STRING}"
-      ],
-      "timeout": 8000,
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://user:pass@host:port/db"],
+      "transport": "stdio",
+      "description": "PostgreSQL database operations",
       "enabled": false
     }
   },
-  "global": {
-    "timeout": 10000,
-    "maxConnections": 5,
-    "logLevel": "info"
+  "autoDiscovery": {
+    "enabled": true,
+    "autoRegister": true,
+    "sources": ["claude", "vscode", "cursor", "windsurf", "generic"]
+  },
+  "defaultRegistry": {
+    "enabled": true,
+    "includeBuiltInTools": true
+  },
+  "globalConfig": {
+    "timeout": 30000,
+    "retries": 3,
+    "logLevel": "info",
+    "enableDebug": false,
+    "autoDiscovery": true,
+    "maxConcurrentServers": 10
+  },
+  "neurolink": {
+    "enableInternalServers": true,
+    "enableExternalServers": true,
+    "aiCore": {
+      "enabled": true,
+      "tools": ["generate-text", "select-provider", "check-provider-status"]
+    },
+    "utilities": {
+      "enabled": true,
+      "tools": ["get-current-time", "calculate-date-difference", "format-number"]
+    }
+  },
+  "metadata": {
+    "version": "2.0.0",
+    "description": "NeuroLink Configuration - Unified AI and MCP Server Management",
+    "lastUpdated": "2025-01-27",
+    "documentation": "https://github.com/juspay/neurolink/docs/CONFIGURATION.md",
+    "configFormat": "neurolink-v2"
   }
 }
 ```

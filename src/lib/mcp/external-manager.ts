@@ -1,7 +1,7 @@
 /**
  * NeuroLink External MCP Manager
  * Manages external MCP servers and bridges them into the NeuroLink factory ecosystem
- * Reads .mcp-config.json and spawns external clients
+ * Reads .neuro.config.json and spawns external clients
  */
 
 import { readFile } from "fs/promises";
@@ -9,6 +9,7 @@ import { resolve, join } from "path";
 import {
   ExternalMCPClient,
   createExternalMCPClient,
+  type ExternalMCPServerConfig,
 } from "./external-client.js";
 import { createMCPServer } from "./factory.js";
 import type {
@@ -27,20 +28,51 @@ interface MCPConfig {
   mcpServers: Record<
     string,
     {
-      name: string;
+      name?: string;
       command: string;
-      args: string[];
-      transport: "stdio";
+      args?: string[];
+      transport?: "stdio" | "sse";
       env?: Record<string, string>;
+      url?: string;
+      description?: string;
+      enabled?: boolean;
     }
   >;
   autoDiscovery?: {
     enabled: boolean;
     autoRegister: boolean;
+    sources?: string[];
   };
   defaultRegistry?: {
     enabled: boolean;
     includeBuiltInTools: boolean;
+  };
+  globalConfig?: {
+    timeout?: number;
+    retries?: number;
+    logLevel?: string;
+    enableDebug?: boolean;
+    autoDiscovery?: boolean;
+    maxConcurrentServers?: number;
+  };
+  neurolink?: {
+    enableInternalServers?: boolean;
+    enableExternalServers?: boolean;
+    aiCore?: {
+      enabled: boolean;
+      tools: string[];
+    };
+    utilities?: {
+      enabled: boolean;
+      tools: string[];
+    };
+  };
+  metadata?: {
+    version?: string;
+    description?: string;
+    lastUpdated?: string;
+    documentation?: string;
+    configFormat?: string;
   };
 }
 
@@ -69,7 +101,7 @@ export class ExternalMCPManager {
   private isInitialized = false;
 
   constructor(configPath?: string, registry?: MCPToolRegistry) {
-    this.configPath = configPath || ".mcp-config.json";
+    this.configPath = configPath || ".neuro.config.json";
     this.registry = registry || new MCPToolRegistry();
   }
 
@@ -95,13 +127,26 @@ export class ExternalMCPManager {
         return;
       }
 
-      // Connect to all configured servers
-      const serverNames = Object.keys(this.config.mcpServers);
+      // Filter enabled servers and respect neurolink.enableExternalServers setting
+      const enableExternalServers = this.config.neurolink?.enableExternalServers ?? true;
+      if (!enableExternalServers) {
+        logger.info("[External MCP Manager] External servers disabled in configuration");
+        this.isInitialized = true;
+        return;
+      }
+
+      // Connect to enabled servers only
+      const allServerNames = Object.keys(this.config.mcpServers);
+      const enabledServerNames = allServerNames.filter(serverName => {
+        const serverConfig = this.config!.mcpServers[serverName];
+        return serverConfig.enabled !== false; // Default to enabled if not specified
+      });
+      
       logger.info(
-        `[External MCP Manager] Connecting to ${serverNames.length} external servers: ${serverNames.join(", ")}`,
+        `[External MCP Manager] Connecting to ${enabledServerNames.length}/${allServerNames.length} enabled external servers: ${enabledServerNames.join(", ")}`,
       );
 
-      const connectionPromises = serverNames.map((serverName) =>
+      const connectionPromises = enabledServerNames.map((serverName) =>
         this.connectToServer(serverName).catch((error) => {
           logger.error(
             `[External MCP Manager] Failed to connect to ${serverName}:`,
@@ -117,7 +162,7 @@ export class ExternalMCPManager {
       ).length;
 
       logger.info(
-        `[External MCP Manager] Connected to ${connected}/${serverNames.length} external servers`,
+        `[External MCP Manager] Connected to ${connected}/${enabledServerNames.length} external servers`,
       );
       this.isInitialized = true;
     } catch (error) {
@@ -153,27 +198,45 @@ export class ExternalMCPManager {
   }
 
   /**
-   * Connect to a specific external server
+   * Connect to discovered external servers using provided configurations
    */
-  async connectToServer(
-    serverName: string,
-  ): Promise<ExternalServerInfo | null> {
-    if (!this.config?.mcpServers[serverName]) {
-      throw new Error(`Server configuration not found: ${serverName}`);
+  async connectDiscoveredServers(discoveredConfigs: ExternalMCPServerConfig[]): Promise<void> {
+    logger.info(`[External MCP Manager] Connecting ${discoveredConfigs.length} discovered servers...`);
+    
+    for (const serverConfig of discoveredConfigs) {
+      try {
+        logger.debug(`[External MCP Manager] Connecting discovered server: ${serverConfig.name}`);
+        
+        const serverInfo = await this.connectToServerWithConfig(serverConfig.name, serverConfig);
+        if (serverInfo) {
+          logger.info(`[External MCP Manager] Successfully connected discovered server: ${serverConfig.name}`);
+        }
+      } catch (error) {
+        logger.warn(`[External MCP Manager] Failed to connect discovered server ${serverConfig.name}:`, error);
+      }
     }
+  }
 
-    const serverConfig = this.config.mcpServers[serverName];
-
+  /**
+   * Connect to a server using provided configuration (for discovered servers)
+   */
+  async connectToServerWithConfig(
+    serverName: string,
+    serverConfig: any,
+  ): Promise<ExternalServerInfo | null> {
     try {
-      logger.info(`[External MCP Manager] Connecting to server: ${serverName}`);
+      logger.info(`[External MCP Manager] Connecting to server with config: ${serverName}`);
 
-      // Create external client
+      // Create external client with globalConfig settings
+      const globalConfig = this.config?.globalConfig;
       const client = createExternalMCPClient({
         name: serverName,
         command: serverConfig.command,
-        args: serverConfig.args,
-        transport: serverConfig.transport,
+        args: serverConfig.args || [],
+        transport: serverConfig.transport || "stdio",
+        timeout: globalConfig?.timeout || 30000,
         env: serverConfig.env,
+        url: serverConfig.url,
       });
 
       // Create server info
@@ -188,9 +251,9 @@ export class ExternalMCPManager {
           visibility: "private",
           metadata: {
             external: true,
-            transport: "stdio",
+            transport: serverConfig.transport || "stdio",
             command: serverConfig.command,
-            args: serverConfig.args,
+            args: serverConfig.args || [],
           },
         }),
         status: "connecting",
@@ -220,8 +283,126 @@ export class ExternalMCPManager {
       // Store server info
       this.servers.set(serverName, serverInfo);
 
-      // Connect to the server
-      await client.connect();
+      // Connect to the server with timeout
+      const connectionTimeout = globalConfig?.timeout || 15000; // 15 seconds default
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error(`Connection timeout after ${connectionTimeout}ms`));
+        }, connectionTimeout);
+        timeoutId.unref(); // Prevent hanging
+      });
+
+      await Promise.race([
+        client.connect(),
+        timeoutPromise
+      ]);
+
+      return serverInfo;
+    } catch (error) {
+      logger.error(
+        `[External MCP Manager] Failed to connect to ${serverName}:`,
+        error,
+      );
+
+      const serverInfo: ExternalServerInfo = {
+        name: serverName,
+        client: null as any,
+        server: null as any,
+        status: "error",
+        lastError: error instanceof Error ? error.message : String(error),
+        toolCount: 0,
+        retryCount: 0,
+      };
+
+      this.servers.set(serverName, serverInfo);
+      return null;
+    }
+  }
+
+  /**
+   * Connect to a specific external server
+   */
+  async connectToServer(
+    serverName: string,
+  ): Promise<ExternalServerInfo | null> {
+    if (!this.config?.mcpServers[serverName]) {
+      throw new Error(`Server configuration not found: ${serverName}`);
+    }
+
+    const serverConfig = this.config.mcpServers[serverName];
+
+    try {
+      logger.info(`[External MCP Manager] Connecting to server: ${serverName}`);
+
+      // Create external client with globalConfig settings
+      const globalConfig = this.config.globalConfig;
+      const client = createExternalMCPClient({
+        name: serverName,
+        command: serverConfig.command,
+        args: serverConfig.args || [],
+        transport: serverConfig.transport || "stdio",
+        timeout: globalConfig?.timeout || 30000,
+        env: serverConfig.env,
+        url: serverConfig.url,
+      });
+
+      // Create server info
+      const serverInfo: ExternalServerInfo = {
+        name: serverName,
+        client,
+        server: createMCPServer({
+          id: `external-${serverName}`,
+          title: `External ${serverConfig.name || serverName}`,
+          description: `External MCP server: ${serverName}`,
+          category: "integrations",
+          visibility: "private",
+          metadata: {
+            external: true,
+            transport: serverConfig.transport || "stdio",
+            command: serverConfig.command,
+            args: serverConfig.args || [],
+          },
+        }),
+        status: "connecting",
+        toolCount: 0,
+        retryCount: 0,
+      };
+
+      // Setup event handlers
+      client.on("connected", () => {
+        logger.info(`[External MCP Manager] Connected to ${serverName}`);
+        serverInfo.status = "connected";
+        this.registerServerTools(serverInfo);
+      });
+
+      client.on("disconnected", () => {
+        logger.warn(`[External MCP Manager] Disconnected from ${serverName}`);
+        serverInfo.status = "disconnected";
+        // TODO: Implement reconnection logic
+      });
+
+      client.on("error", (error) => {
+        logger.error(`[External MCP Manager] Error from ${serverName}:`, error);
+        serverInfo.status = "error";
+        serverInfo.lastError = error.message;
+      });
+
+      // Store server info
+      this.servers.set(serverName, serverInfo);
+
+      // Connect to the server with timeout
+      const connectionTimeout = globalConfig?.timeout || 15000; // 15 seconds default
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error(`Connection timeout after ${connectionTimeout}ms`));
+        }, connectionTimeout);
+        timeoutId.unref(); // Prevent hanging
+      });
+
+      await Promise.race([
+        client.connect(),
+        timeoutPromise
+      ]);
 
       return serverInfo;
     } catch (error) {
@@ -261,8 +442,16 @@ export class ExternalMCPManager {
 
       serverInfo.toolCount = Object.keys(tools).length;
 
-      // Register the server with the registry
-      await this.registry.registerServer(serverInfo.name, serverInfo);
+      // CRITICAL FIX: Register the server and its tools with the registry
+      // We need to pass the tools data so the registry can properly index them
+      const serverData = {
+        ...serverInfo,
+        tools: tools, // Add tools to the server data
+        client: serverInfo.client,
+        server: serverInfo.server,
+      };
+      
+      await this.registry.registerServer(serverInfo.name, serverData);
 
       logger.info(
         `[External MCP Manager] Registered ${serverInfo.toolCount} tools from ${serverInfo.name}`,

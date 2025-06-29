@@ -17,8 +17,13 @@ import chalk from "chalk";
 import fs from "fs";
 import { addMCPCommands } from "./commands/mcp.js";
 import { addOllamaCommands } from "./commands/ollama.js";
-import { agentGenerateCommand } from "./commands/agent-generate.js";
 import { AgentEnhancedProvider } from "../lib/providers/agent-enhanced-provider.js";
+import { initializeMCP, listMCPTools } from "../lib/mcp/unified-mcp.js";
+import { parseTimeout } from "../lib/utils/timeout.js";
+import updateNotifier from "update-notifier";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pkg = require("../../package.json");
 
 // Load environment variables from .env file
 try {
@@ -420,9 +425,15 @@ const cli = yargs(args)
             provider: supportedProvider,
             model: argv.model, // Use specified model or default
             toolCategory: "all", // Enable all tool categories
+            requestTimeoutMs: parseTimeout(argv.timeout as string) || 30000, // Parse timeout string to milliseconds
           });
 
-          generatePromise = agentProvider.generateText(argv.prompt as string);
+          generatePromise = agentProvider.generateText({
+            prompt: argv.prompt as string,
+            temperature: argv.temperature as number | undefined,
+            maxTokens: argv.maxTokens as number | undefined,
+            systemPrompt: argv.system as string | undefined,
+          });
         }
 
         const result = await generatePromise;
@@ -835,7 +846,9 @@ const cli = yargs(args)
         if (argv.output) {
           fs.writeFileSync(argv.output, outputData);
           if (!argv.quiet) {
-            console.log(chalk.green(`\n✅ Results saved to ${argv.output}`));
+            console.log(
+              chalk.green(`\n✅ Results saved to ${argv.output}`),
+            );
           }
         } else {
           process.stdout.write(outputData + "\n");
@@ -1233,15 +1246,32 @@ const cli = yargs(args)
   .command(
     "completion",
     "Generate shell completion script",
-    (yargsInstance) =>
+    (yargsInstance: any) =>
       yargsInstance
         .usage("Usage: $0 completion")
         .example("$0 completion >> ~/.bashrc", "Add to bash")
         .example("$0 completion >> ~/.zshrc", "Add to zsh"),
-    async (argv) => {
+    async (argv: any) => {
       cli.showCompletionScript();
     },
-  );
+  )
+  .command(
+    "debug:tools",
+    "List all discovered MCP tools",
+    {},
+    async (argv: any) => {
+      console.log(chalk.blue("🔍 Discovering and listing all MCP tools..."));
+      try {
+        await initializeMCP();
+        const tools = await listMCPTools();
+        console.log(chalk.green(`\n✅ Found ${tools.length} tools:`));
+        console.log(JSON.stringify(tools, null, 2));
+      } catch (error) {
+        handleError(error as Error, "Tool discovery");
+      }
+    },
+  )
+  .completion();
 
 // Add MCP Commands
 addMCPCommands(cli);
@@ -1249,8 +1279,10 @@ addMCPCommands(cli);
 // Add Ollama Commands
 addOllamaCommands(cli);
 
-// Add Agent Generate Command
-agentGenerateCommand(cli);
+
+// Check for updates
+const notifier = updateNotifier({ pkg });
+notifier.notify();
 
 // Execute CLI
 (async () => {

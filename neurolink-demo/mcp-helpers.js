@@ -10,10 +10,10 @@ import fs from "fs";
 import path from "path";
 
 // MCP configuration file path
-const MCP_CONFIG_FILE = path.join(process.cwd(), ".mcp-config.json");
+const MCP_CONFIG_FILE = path.join(process.cwd(), ".neuro.config.json");
 
 /**
- * Load MCP configuration from .mcp-config.json
+ * Load MCP configuration from .neuro.config.json
  */
 export function loadMCPConfig() {
   try {
@@ -30,7 +30,7 @@ export function loadMCPConfig() {
 }
 
 /**
- * Save MCP configuration to .mcp-config.json
+ * Save MCP configuration to .neuro.config.json
  */
 export function saveMCPConfig(config) {
   try {

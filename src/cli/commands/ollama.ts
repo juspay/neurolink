@@ -3,6 +3,7 @@ import { execSync } from "child_process";
 import chalk from "chalk";
 import ora from "ora";
 import inquirer from "inquirer";
+import Table from "cli-table3";
 
 export function addOllamaCommands(cli: Argv) {
   cli.command(
@@ -56,15 +57,26 @@ async function listModelsHandler() {
     const output = execSync("ollama list", { encoding: "utf8" });
     spinner.succeed("Installed models:");
 
-    if (output.trim()) {
-      console.log(output);
-    } else {
+    const lines = output.trim().split("\n");
+    if (lines.length <= 1) {
       console.log(
         chalk.yellow(
           'No models installed. Use "neurolink ollama pull <model>" to download a model.',
         ),
       );
+      return;
     }
+
+    const table = new Table({
+      head: lines[0].split("\t").map((h) => chalk.cyan(h)),
+      colWidths: [30, 15, 15, 15],
+    });
+
+    for (let i = 1; i < lines.length; i++) {
+      table.push(lines[i].split("\t"));
+    }
+
+    console.log(table.toString());
   } catch (error: any) {
     spinner.fail("Failed to list models. Is Ollama installed?");
     console.error(chalk.red("Error:", error.message));

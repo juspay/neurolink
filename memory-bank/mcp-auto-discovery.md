@@ -169,7 +169,7 @@ For a comprehensive guide to all supported tools and their configuration locatio
 - **Cline AI Coder**: VS Code globalStorage
 - **Continue Dev**: `~/.continue/config.json`
 - **Aider**: `~/.aider/config.json`
-- **Generic**: `.mcp-config.json`, `mcp.json` in project root
+- **Generic**: `.neuro.config.json`, `mcp.json` in project root
 
 All configurations use similar JSON structure with `mcpServers` as the primary key.
 

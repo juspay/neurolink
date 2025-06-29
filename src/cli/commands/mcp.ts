@@ -18,7 +18,7 @@ import { MCPOrchestrator } from "../../lib/mcp/orchestrator.js";
 import type { DiscoveryOptions } from "../../lib/mcp/auto-discovery.js";
 import { initializeNeuroLinkMCP } from "../../lib/mcp/initialize.js";
 import { mcpLogger, setGlobalMCPLogLevel } from "../../lib/mcp/logging.js";
-import type { LogLevel } from "../../lib/mcp/logging.js";
+import Table from "cli-table3";
 
 // MCP Server Configuration
 interface MCPServerConfig {
@@ -36,7 +36,7 @@ interface MCPConfigFile {
 }
 
 // Default MCP config file location
-const MCP_CONFIG_FILE = path.join(process.cwd(), ".mcp-config.json");
+const MCP_CONFIG_FILE = path.join(process.cwd(), ".neuro.config.json");
 
 // Load MCP configuration
 function loadMCPConfig(): MCPConfigFile {
@@ -556,7 +556,7 @@ export async function mcpExecuteTool(
   try {
     await unifiedRegistry.initialize();
 
-    const orchestrator = new MCPOrchestrator();
+    const orchestrator = new MCPOrchestrator(unifiedRegistry);
     const result = await orchestrator.executeTool(
       toolName,
       toolParams,
@@ -656,35 +656,46 @@ export function addMCPCommands(yargs: Argv): Argv {
               return;
             }
 
+            const table = new Table({
+              head: [
+                chalk.cyan("Name"),
+                chalk.cyan("Command"),
+                chalk.cyan("Transport"),
+                chalk.cyan("Status"),
+              ],
+              colWidths: [20, 40, 10, 15],
+            });
+
             console.log(
               chalk.blue(`📋 Configured MCP servers (${servers.length}):\n`),
             );
 
             for (const [name, serverConfig] of servers) {
-              console.log(chalk.bold(`🔧 ${name}`));
-              console.log(
-                `   Command: ${serverConfig.command} ${(serverConfig.args || []).join(" ")}`,
-              );
-              console.log(`   Transport: ${serverConfig.transport}`);
-
+              let status = chalk.gray("N/A");
               if (argv.status) {
                 const spinner = ora(`Checking ${name}...`).start();
                 try {
                   const isRunning = await checkMCPServerStatus(serverConfig);
                   if (isRunning) {
-                    spinner.succeed(`${name}: ${chalk.green("✅ Available")}`);
+                    spinner.succeed();
+                    status = chalk.green("✅ Available");
                   } else {
-                    spinner.fail(`${name}: ${chalk.red("❌ Not available")}`);
+                    spinner.fail();
+                    status = chalk.red("❌ Not available");
                   }
                 } catch (error) {
-                  spinner.fail(
-                    `${name}: ${chalk.red("❌ Error")} - ${(error as Error).message}`,
-                  );
+                  spinner.fail();
+                  status = chalk.red("❌ Error");
                 }
               }
-
-              console.log(); // Empty line
+              table.push([
+                name,
+                `${serverConfig.command} ${(serverConfig.args || []).join(" ")}`,
+                serverConfig.transport,
+                status,
+              ]);
             }
+            console.log(table.toString());
           },
         )
 
@@ -1236,7 +1247,7 @@ export function addMCPCommands(yargs: Argv): Argv {
               };
 
               spinner.text = "Executing tool...";
-              const orchestrator = new MCPOrchestrator();
+              const orchestrator = new MCPOrchestrator(unifiedRegistry);
               const result = await orchestrator.executeTool(
                 argv.tool as string,
                 params,

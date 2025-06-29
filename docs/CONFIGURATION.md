@@ -1,13 +1,56 @@
-# ⚙️ NeuroLink Configuration Guide
+# ⚙️ NeuroLink Configuration Guide - Production Ready
 
-**Version**: v1.8.0
-**Last Updated**: January 9, 2025
+**Version**: v1.11.3
+**Last Updated**: June 29, 2025
 
 ---
 
 ## 📖 **Overview**
 
-This guide covers all configuration options for NeuroLink, including AI provider setup, dynamic model configuration, MCP integration, and environment configuration.
+This guide covers all configuration options for NeuroLink, including AI provider setup, dynamic model configuration, **100% reliable MCP integration with official SDK**, and environment configuration.
+
+## 🚀 **MCP Configuration (.neuro.config.json)**
+
+NeuroLink now features **production-ready MCP integration** with 100% tool reliability:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "name": "filesystem",
+      "command": "npx", 
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./"],
+      "transport": "stdio",
+      "enabled": true
+    },
+    "example-server": {
+      "name": "example-server",
+      "command": "node", 
+      "args": ["./neurolink-demo/example-mcp-server.mjs"],
+      "transport": "stdio",
+      "description": "Example MCP server demonstrating modern SDK patterns",
+      "enabled": true
+    },
+    "custom-server": {
+      "name": "custom-server",
+      "command": "node", 
+      "args": ["./my-custom-server.mjs"],
+      "transport": "stdio",
+      "enabled": true
+    }
+  },
+  "autoDiscovery": {
+    "enabled": true,
+    "sources": ["claude", "vscode", "cursor", "windsurf"]
+  }
+}
+```
+
+### **Key Features**
+- ✅ **100% Tool Reliability**: Official SDK integration
+- ✅ **Custom Server Support**: Create your own MCP tools
+- ✅ **Auto-Discovery**: 58+ external servers automatically found
+- ✅ **Hierarchical Config**: Project, user, and system-level configuration
 
 ---
 
@@ -246,35 +289,101 @@ External servers are auto-discovered from all major AI tools:
 
 #### **Manual MCP Configuration**
 
-Create `.mcp-config.json` in your project root:
+Create `.neuro.config.json` in your project root:
 
 ```json
 {
   "mcpServers": {
     "filesystem": {
+      "name": "filesystem",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/"],
-      "transport": "stdio"
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./"],
+      "transport": "stdio",
+      "description": "File and directory operations for current project",
+      "enabled": true
     },
     "github": {
+      "name": "github",
       "command": "npx",
-      "args": ["@modelcontextprotocol/server-github"],
+      "args": ["-y", "@modelcontextprotocol/server-github"],
       "transport": "stdio",
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_your_token"
-      }
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_your_token_here"
+      },
+      "description": "GitHub repository management",
+      "enabled": false
     },
     "postgres": {
+      "name": "postgres",
       "command": "npx",
-      "args": ["@modelcontextprotocol/server-postgres"],
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://user:pass@host:port/db"],
       "transport": "stdio",
-      "env": {
-        "POSTGRES_CONNECTION_STRING": "postgresql://user:pass@localhost:5432/db"
-      }
+      "description": "PostgreSQL database operations",
+      "enabled": false
     }
+  },
+  "autoDiscovery": {
+    "enabled": true,
+    "autoRegister": true,
+    "sources": ["claude", "vscode", "cursor", "windsurf", "generic"]
+  },
+  "defaultRegistry": {
+    "enabled": true,
+    "includeBuiltInTools": true
+  },
+  "globalConfig": {
+    "timeout": 30000,
+    "retries": 3,
+    "logLevel": "info",
+    "enableDebug": false,
+    "autoDiscovery": true,
+    "maxConcurrentServers": 10
+  },
+  "neurolink": {
+    "enableInternalServers": true,
+    "enableExternalServers": true,
+    "aiCore": {
+      "enabled": true,
+      "tools": [
+        "generate-text",
+        "select-provider", 
+        "check-provider-status",
+        "analyze-ai-usage",
+        "benchmark-provider-performance",
+        "optimize-prompt-parameters",
+        "generate-test-cases",
+        "refactor-code",
+        "generate-documentation",
+        "debug-ai-output"
+      ]
+    },
+    "utilities": {
+      "enabled": true,
+      "tools": [
+        "get-current-time",
+        "calculate-date-difference",
+        "format-number"
+      ]
+    }
+  },
+  "metadata": {
+    "version": "2.0.0",
+    "description": "NeuroLink Configuration - Unified AI and MCP Server Management",
+    "lastUpdated": "2025-01-27",
+    "documentation": "https://github.com/juspay/neurolink/docs/CONFIGURATION.md",
+    "configFormat": "neurolink-v2"
   }
 }
 ```
+
+> **📝 Configuration**: NeuroLink v2.0+ uses `.neuro.config.json` for enhanced user control with granular enable/disable flags, global configuration settings, and NeuroLink-specific options.
+
+**Enhanced Configuration Features**:
+- **Server Control**: Individual `enabled` flags for each external MCP server
+- **Auto-Discovery**: Configure which AI development tools to scan for MCP servers
+- **Global Settings**: Timeout, retry, logging, and debugging configurations
+- **NeuroLink Features**: Control internal vs external servers, AI core tools, utilities
+- **Production Ready**: Metadata tracking and version management
 
 ### **MCP Discovery Commands**
 
