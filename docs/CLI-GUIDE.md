@@ -43,8 +43,11 @@ Generate AI content with customizable parameters. Prepared for multimodal suppor
 # Basic text generation
 npx @juspay/neurolink generate "Explain quantum computing"
 
-# With provider selection
-npx @juspay/neurolink generate "Write a story" --provider openai
+# With provider and model selection
+npx @juspay/neurolink generate "what is deepest you can think?" --provider google-ai --model gemini-2.5-flash
+
+# With different model for detailed responses
+npx @juspay/neurolink generate "Write a comprehensive analysis" --provider google-ai --model gemini-2.5-pro
 
 # With temperature control
 npx @juspay/neurolink generate "Creative writing" --temperature 0.9
@@ -67,11 +70,11 @@ Quick command alias for fast usage.
 # Basic generation (shortest)
 npx @juspay/neurolink gen "Explain quantum computing"
 
-# With provider
-npx @juspay/neurolink gen "Write a story" --provider openai
+# With provider and model
+npx @juspay/neurolink gen "what is deepest you can think?" --provider google-ai --model gemini-2.5-flash
 
-# With temperature
-npx @juspay/neurolink gen "Creative writing" --temperature 0.9
+# With different model for comprehensive responses
+npx @juspay/neurolink gen "Analyze this problem" --provider google-ai --model gemini-2.5-pro
 ```
 
 ### `generate-text <prompt>` - ⚠️ Deprecated
@@ -117,7 +120,7 @@ neurolink agent-generate "Calculate the square root of 256" --toolCategory basic
 **Available Options:**
 
 - `--provider <name>` - Choose provider: `google-ai` (default), `openai`, `anthropic`
-- `--model <name>` - Specify a model to use
+- `--model <name>` - Specify model: `gemini-2.5-flash` (fast), `gemini-2.5-pro` (comprehensive)
 - `--toolCategory <category>` - Tool category: `basic`, `filesystem`, `utility`, `all` (default: all)
 
 **Output Example:**
@@ -268,9 +271,9 @@ neurolink models resolve google fastest
 # Show model configuration server status
 neurolink models server-status
 
-# Test dynamic model integration
-neurolink generate-text "Hello" --model best-coding
-neurolink generate-text "Describe this" --capability vision --optimize-cost
+# Test model parameter support
+node dist/cli/index.js generate "what is deepest you can think?" --provider google-ai --model gemini-2.5-flash
+node dist/cli/index.js generate "Analyze this complex problem" --provider google-ai --model gemini-2.5-pro
 ```
 
 **Available Options:**

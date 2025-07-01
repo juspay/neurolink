@@ -214,6 +214,34 @@ npx tsc --noEmit
 
 **Solutions**:
 
+### **Model Parameter Not Working**
+
+**Symptom**: CLI `--model` parameter is ignored, always uses default model
+
+**Example Issue**:
+```bash
+# Command specifies model but output shows default model being used
+node dist/cli/index.js generate "test" --provider google-ai --model gemini-2.5-flash
+# Output shows: modelName: 'gemini-2.5-pro' (default instead of specified)
+```
+
+**Status**: ✅ **FIXED in latest version**
+
+**Solution**: Update to latest version where model parameter fix has been applied.
+
+**Verification**:
+```bash
+# Test that model parameter works correctly
+node dist/cli/index.js generate "what is deepest you can think?" --provider google-ai --model gemini-2.5-flash --debug
+# Should show: modelName: 'gemini-2.5-flash' in debug output
+```
+
+**Available Models for Google AI**:
+- `gemini-2.5-flash` - Fast, efficient responses
+- `gemini-2.5-pro` - Comprehensive, detailed responses
+
+**Build Issue Solutions**:
+
 1. **Clean Build**:
 
    ```bash

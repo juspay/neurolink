@@ -1,5 +1,25 @@
 # NeuroLink System Patterns
 
+## 🔧 **Parameter Passing Patterns** (July 1, 2025)
+
+### **CLI Parameter Flow Pattern**
+
+**Pattern**: CLI Options → Processing Function → Factory Method → Provider
+
+**Critical Learning**: Always pass through user-specified parameters, never substitute with undefined
+
+```typescript
+// WRONG Pattern (Bug)
+const provider = createBestProvider(providerName, undefined, true);
+
+// CORRECT Pattern (Fixed)
+const provider = createBestProvider(providerName, options.model, true);
+```
+
+**Application**: CLI `--model` parameter must flow through to provider creation
+
+**Verification**: Test with: `node dist/cli/index.js generate "test" --provider google-ai --model gemini-2.5-flash --debug`
+
 ## 🚀 **Critical Architectural Patterns Learned** (June 21, 2025)
 
 ### **TypeScript Compilation Error Resolution Patterns**

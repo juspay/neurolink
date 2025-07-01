@@ -328,6 +328,10 @@ const cli = yargs(args)
           default: "30s",
           description: "Timeout for the request (e.g., 30s, 2m, 1h, 5000)",
         })
+        .option("model", {
+          type: "string",
+          description: "Specific model to use (e.g. gemini-2.5-pro, gemini-2.5-flash)",
+        })
         .option("disable-tools", {
           type: "boolean",
           default: false,
@@ -391,6 +395,7 @@ const cli = yargs(args)
               argv.provider === "auto"
                 ? undefined
                 : (argv.provider as AIProviderName | undefined),
+            model: argv.model,
             temperature: argv.temperature,
             maxTokens: argv.maxTokens,
             systemPrompt: argv.system,
@@ -413,7 +418,7 @@ const cli = yargs(args)
 
           const agentProvider = new AgentEnhancedProvider({
             provider: supportedProvider,
-            model: undefined, // Use default model for provider
+            model: argv.model, // Use specified model or default
             toolCategory: "all", // Enable all tool categories
           });
 
@@ -577,6 +582,10 @@ const cli = yargs(args)
           default: "2m",
           description: "Timeout for streaming (e.g., 30s, 2m, 1h)",
         })
+        .option("model", {
+          type: "string",
+          description: "Specific model to use (e.g., gemini-1.5-pro-latest, gemini-2.0-flash-exp)",
+        })
         .option("debug", {
           type: "boolean",
           default: false,
@@ -621,6 +630,7 @@ const cli = yargs(args)
               argv.provider === "auto"
                 ? undefined
                 : (argv.provider as AIProviderName),
+            model: argv.model,
             temperature: argv.temperature,
             timeout: argv.timeout,
           });
@@ -641,7 +651,7 @@ const cli = yargs(args)
 
           const agentProvider = new AgentEnhancedProvider({
             provider: supportedProvider,
-            model: undefined, // Use default model for provider
+            model: argv.model, // Use specified model or default
             toolCategory: "all", // Enable all tool categories
           });
 

@@ -1,5 +1,20 @@
 # NeuroLink Technical Context
 
+## 🔧 **Model Parameter Fix Implementation** (July 1, 2025)
+
+### **Critical CLI Bug Fix Completed**
+- **Issue**: CLI `--model` parameter ignored, always used default models
+- **Root Cause**: Line ~242 in `neurolink.ts` passed `undefined` instead of `options.model`
+- **Fix**: `createBestProvider(providerName, undefined, true)` → `createBestProvider(providerName, options.model, true)`
+- **Testing**: Verified with `node dist/cli/index.js generate "what is deepest you can think?" --provider google-ai --model gemini-2.5-flash`
+- **Documentation**: Updated CLI-GUIDE, API-REFERENCE, PROVIDER-CONFIGURATION, TROUBLESHOOTING, memory bank
+
+### **Technical Implementation Details**
+- **Parameter Flow**: CLI → neurolink.ts → createBestProvider() → AI provider
+- **Available Models**: `gemini-2.5-flash` (fast), `gemini-2.5-pro` (comprehensive)
+- **Backward Compatibility**: Maintained - defaults work when model not specified
+- **Impact**: Tools-enabled generation now respects custom model selection
+
 ## � **Developer Experience Enhancement Plan 2.0: Enterprise Automation Complete** (June 22, 2025)
 
 ### **Comprehensive Automation Achieved**

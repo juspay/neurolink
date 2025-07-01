@@ -28,6 +28,7 @@ export interface TextGenerationOptions {
     | "ollama"
     | "mistral"
     | "auto";
+  model?: string; // NEW: Specific model to use
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
@@ -49,6 +50,7 @@ export interface StreamTextOptions {
     | "ollama"
     | "mistral"
     | "auto";
+  model?: string; // NEW: Specific model to use
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
@@ -239,7 +241,7 @@ export class NeuroLink {
       // Create provider with MCP enabled using best provider function
       const provider = await AIProviderFactory.createBestProvider(
         providerName,
-        undefined,
+        options.model,
         true,
       );
 
@@ -360,11 +362,12 @@ export class NeuroLink {
           provider: providerName,
         });
 
-        const provider = await AIProviderFactory.createProvider(providerName);
+        const provider = await AIProviderFactory.createProvider(providerName, options.model);
 
         const result = await provider.generateText(
           {
             prompt: options.prompt,
+            model: options.model,
             temperature: options.temperature,
             maxTokens: options.maxTokens,
             systemPrompt: options.systemPrompt,
@@ -530,10 +533,11 @@ Note: Tool integration is currently in development. Please provide helpful respo
           provider: providerName,
         });
 
-        const provider = await AIProviderFactory.createProvider(providerName);
+        const provider = await AIProviderFactory.createProvider(providerName, options.model);
 
         const result = await provider.streamText({
           prompt: options.prompt,
+          model: options.model,
           temperature: options.temperature,
           maxTokens: options.maxTokens,
           systemPrompt: options.systemPrompt,

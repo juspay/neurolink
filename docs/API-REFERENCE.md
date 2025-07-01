@@ -34,7 +34,10 @@ const provider = createBestAIProvider();
 const openaiProvider = createBestAIProvider("openai");
 
 // Prefer specific provider and model
-const claudeProvider = createBestAIProvider("bedrock", "claude-3-7-sonnet");
+const googleProvider = createBestAIProvider("google-ai", "gemini-2.5-flash");
+
+// Use more comprehensive model for detailed responses
+const detailedProvider = createBestAIProvider("google-ai", "gemini-2.5-pro");
 ```
 
 ### `createAIProviderWithFallback(primary, fallback, modelName?)`

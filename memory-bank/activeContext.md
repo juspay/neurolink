@@ -28,6 +28,15 @@
 - ✅ **Examples Added**: New timeout-usage.js example demonstrating all timeout features
 - ✅ **Production Ready**: 12/12 timeout tests passing with comprehensive error handling
 
+### 🔧 **MODEL PARAMETER FIX IMPLEMENTED** (July 1, 2025)
+
+**CRITICAL BUG FIX**: CLI `--model` parameter now correctly passed to AI providers
+- ✅ **Root Cause**: `undefined` passed instead of `options.model` in `neurolink.ts`
+- ✅ **Fix Applied**: Changed `createBestProvider(providerName, undefined, true)` to `createBestProvider(providerName, options.model, true)`
+- ✅ **Verification**: CLI now correctly honors model selection (e.g., `--model gemini-2.5-flash`)
+- ✅ **Documentation Updated**: CLI-GUIDE, API-REFERENCE, PROVIDER-CONFIGURATION, TROUBLESHOOTING updated
+- ✅ **Standard Example**: `node dist/cli/index.js generate "what is deepest you can think?" --provider google-ai --model gemini-2.5-flash`
+
 ### 🌐 **COMPREHENSIVE PROXY SUPPORT IMPLEMENTED** (July 1, 2025)
 
 **ENTERPRISE MILESTONE ACHIEVED**: Universal proxy support across all 5 AI providers

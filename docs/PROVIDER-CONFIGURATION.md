@@ -329,10 +329,8 @@ export GOOGLE_AI_MODEL="gemini-1.5-pro-latest"  # Default model to use
 
 ### Supported Models
 
-- `gemini-1.5-pro-latest` (default) - Latest Gemini Pro with enhanced capabilities
-- `gemini-2.0-flash-exp` - Experimental model with cutting-edge features
-- `gemini-1.5-flash-latest` - Fast, efficient responses for most tasks
-- `gemini-1.0-pro` - Stable legacy option
+- `gemini-2.5-pro` - Comprehensive, detailed responses for complex tasks
+- `gemini-2.5-flash` (recommended) - Fast, efficient responses for most tasks
 
 ### Usage Example
 
@@ -341,7 +339,7 @@ import { AIProviderFactory } from "@juspay/neurolink";
 
 const googleAI = AIProviderFactory.createProvider(
   "google-ai",
-  "gemini-1.5-pro-latest",
+  "gemini-2.5-flash",
 );
 const result = await googleAI.generateText({
   prompt: "Explain the future of AI",
