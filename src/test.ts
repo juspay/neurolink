@@ -26,7 +26,7 @@ async function testNeuroLink() {
 
     // Test 3: Create provider with fallback
     console.log("\n3️⃣ Testing provider with fallback...");
-    const { primary, fallback } = createAIProviderWithFallback(
+    const { primary, fallback } = await createAIProviderWithFallback(
       "bedrock",
       "openai",
     );

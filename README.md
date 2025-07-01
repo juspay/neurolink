@@ -11,28 +11,6 @@
 
 **NeuroLink** unifies OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure OpenAI, Hugging Face, Ollama, and Mistral AI with intelligent fallback and streaming support. Available as both a **programmatic SDK** and **professional CLI tool**. Extracted from production use at Juspay.
 
-## 🔥 **Latest Breakthrough: Full MCP Tool Integration Operational** (June 21, 2025)
-
-**MAJOR SUCCESS**: All blocking TypeScript compilation errors resolved + Complete CLI MCP integration achieved!
-
-✅ **Function Calling Ready**: AI can now execute real filesystem operations, data analysis, and system commands
-✅ **Production Validated**: 23,230+ token MCP context loading confirmed via comprehensive CLI testing
-✅ **Zero Build Errors**: Clean TypeScript compilation after resolving all 13 blocking errors
-✅ **CLI Tool Integration**: Both `generate`/`gen` and `agent-generate` commands use full MCP capabilities
-✅ **Backward Compatible**: Tools enabled by default with opt-out flag for traditional usage
-
-```bash
-# NEW: AI can now access your filesystem and execute tools (use preferred commands)
-npx @juspay/neurolink generate "List files in this directory" --provider google-ai
-
-# Alternative shorter command
-npx @juspay/neurolink gen "List files in this directory" --provider google-ai
-
-# ⚠️ DEPRECATED: generate-text will be removed in v2.0 (use 'generate' or 'gen' instead)
-# This command shows a deprecation warning and is kept for backward compatibility only
-npx @juspay/neurolink generate-text "List files in this directory" --provider google-ai
-```
-
 ## 🚀 Quick Start
 
 ### Install & Run (2 minutes)
@@ -61,7 +39,7 @@ import { createBestAIProvider } from "@juspay/neurolink";
 const provider = createBestAIProvider();
 const result = await provider.generateText({
   prompt: "Write a haiku about programming",
-  timeout: '30s' // Optional: Set custom timeout (default: 30s)
+  timeout: "30s", // Optional: Set custom timeout (default: 30s)
 });
 
 console.log(result.text);
@@ -101,14 +79,14 @@ npx @juspay/neurolink status
 
 ## 🛠️ MCP Integration Status (v1.11.1) ✅ **PRODUCTION READY**
 
-| Component           | Status             | Description                                         |
-| ------------------- | ------------------ | --------------------------------------------------- |
-| Built-in Tools      | ✅ **Working**     | Time tool, utilities - fully functional             |
-| External Discovery  | ✅ **Working**     | 58+ MCP servers auto-discovered from all AI tools   |
-| Tool Execution      | ✅ **Working**     | Real-time AI tool calling with built-in tools       |
+| Component           | Status             | Description                                                |
+| ------------------- | ------------------ | ---------------------------------------------------------- |
+| Built-in Tools      | ✅ **Working**     | Time tool, utilities - fully functional                    |
+| External Discovery  | ✅ **Working**     | 58+ MCP servers auto-discovered from all AI tools          |
+| Tool Execution      | ✅ **Working**     | Real-time AI tool calling with built-in tools              |
 | **External Tools**  | ✅ **SOLVED**      | **Two-step tool calling fixed - human-readable responses** |
-| **CLI Integration** | ✅ **READY**       | **Production-ready AI assistant with external tools** |
-| External Activation | 🔧 **Development** | Discovery complete, activation protocol in progress |
+| **CLI Integration** | ✅ **READY**       | **Production-ready AI assistant with external tools**      |
+| External Activation | 🔧 **Development** | Discovery complete, activation protocol in progress        |
 
 ### ✅ Quick MCP Test (v1.7.1)
 
@@ -213,16 +191,16 @@ npx @juspay/neurolink batch prompts.txt --timeout 45s --output results.json
 export const POST: RequestHandler = async ({ request }) => {
   const { message } = await request.json();
   const provider = createBestAIProvider();
-  
+
   try {
-    const result = await provider.streamText({ 
+    const result = await provider.streamText({
       prompt: message,
-      timeout: '2m' // 2 minutes for streaming
+      timeout: "2m", // 2 minutes for streaming
     });
     return new Response(result.toReadableStream());
   } catch (error) {
-    if (error.name === 'TimeoutError') {
-      return new Response('Request timed out', { status: 408 });
+    if (error.name === "TimeoutError") {
+      return new Response("Request timed out", { status: 408 });
     }
     throw error;
   }
@@ -232,12 +210,12 @@ export const POST: RequestHandler = async ({ request }) => {
 export async function POST(request: NextRequest) {
   const { prompt } = await request.json();
   const provider = createBestAIProvider();
-  
-  const result = await provider.generateText({ 
+
+  const result = await provider.generateText({
     prompt,
-    timeout: process.env.AI_TIMEOUT || '30s' // Configurable timeout
+    timeout: process.env.AI_TIMEOUT || "30s", // Configurable timeout
   });
-  
+
   return NextResponse.json({ text: result.text });
 }
 ```

@@ -16,7 +16,7 @@ import type {
   NeuroLinkExecutionContext,
   ToolResult,
 } from "../lib/mcp/factory.js";
-import { MCPToolRegistry } from "../lib/mcp/registry.js";
+import type { MCPToolRegistry } from "../lib/mcp/registry.js";
 import {
   ContextManager,
   ContextValidator,
@@ -31,10 +31,11 @@ describe("MCP Foundation Tests", () => {
   let contextManager: ContextManager;
   let orchestrator: MCPOrchestrator;
 
-  beforeEach(() => {
-    registry = new MCPToolRegistry();
+  beforeEach(async () => {
+    const { MCPRegistry } = await import("../lib/mcp/registry.js");
+    registry = new MCPRegistry();
     contextManager = new ContextManager();
-    orchestrator = new MCPOrchestrator(registry, contextManager);
+    orchestrator = new MCPOrchestrator(registry as any, contextManager);
   });
 
   afterEach(() => {

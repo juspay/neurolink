@@ -18,7 +18,11 @@ import type {
   StreamTextOptions,
 } from "../core/types.js";
 import { logger } from "../utils/logger.js";
-import { createTimeoutController, TimeoutError, getDefaultTimeout } from "../utils/timeout.js";
+import {
+  createTimeoutController,
+  TimeoutError,
+  getDefaultTimeout,
+} from "../utils/timeout.js";
 
 // Default system context
 const DEFAULT_SYSTEM_CONTEXT = {
@@ -307,7 +311,7 @@ export class HuggingFace implements AIProvider {
         maxTokens = 1000,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
         schema,
-        timeout = getDefaultTimeout(provider, 'stream'),
+        timeout = getDefaultTimeout(provider, "stream"),
       } = options;
 
       // Use schema from options or fallback parameter
@@ -326,7 +330,11 @@ export class HuggingFace implements AIProvider {
       const model = this.getModel();
 
       // Create timeout controller if timeout is specified
-      const timeoutController = createTimeoutController(timeout, provider, 'stream');
+      const timeoutController = createTimeoutController(
+        timeout,
+        provider,
+        "stream",
+      );
 
       const streamOptions = {
         model: model,
@@ -335,7 +343,9 @@ export class HuggingFace implements AIProvider {
         temperature,
         maxTokens,
         // Add abort signal if available
-        ...(timeoutController && { abortSignal: timeoutController.controller.signal }),
+        ...(timeoutController && {
+          abortSignal: timeoutController.controller.signal,
+        }),
 
         onError: (event: { error: unknown }) => {
           const error = event.error;
@@ -388,10 +398,10 @@ export class HuggingFace implements AIProvider {
       }
 
       const result = streamText(streamOptions);
-      
+
       // For streaming, we can't clean up immediately, but the timeout will auto-clean
       // The user should handle the stream and any timeout errors
-      
+
       return result;
     } catch (err) {
       // Log timeout errors specifically
@@ -444,7 +454,7 @@ export class HuggingFace implements AIProvider {
         maxTokens = 1000,
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
         schema,
-        timeout = getDefaultTimeout(provider, 'generate'),
+        timeout = getDefaultTimeout(provider, "generate"),
       } = options;
 
       // Use schema from options or fallback parameter
@@ -462,7 +472,11 @@ export class HuggingFace implements AIProvider {
       const model = this.getModel();
 
       // Create timeout controller if timeout is specified
-      const timeoutController = createTimeoutController(timeout, provider, 'generate');
+      const timeoutController = createTimeoutController(
+        timeout,
+        provider,
+        "generate",
+      );
 
       const generateOptions = {
         model: model,
@@ -471,7 +485,9 @@ export class HuggingFace implements AIProvider {
         temperature,
         maxTokens,
         // Add abort signal if available
-        ...(timeoutController && { abortSignal: timeoutController.controller.signal }),
+        ...(timeoutController && {
+          abortSignal: timeoutController.controller.signal,
+        }),
       } as Parameters<typeof generateText>[0];
 
       if (finalSchema) {
@@ -482,10 +498,10 @@ export class HuggingFace implements AIProvider {
 
       try {
         const result = await generateText(generateOptions);
-        
+
         // Clean up timeout if successful
         timeoutController?.cleanup();
-        
+
         logger.debug(`[${functionTag}] Generate text completed`, {
           provider,
           modelName: this.modelName,

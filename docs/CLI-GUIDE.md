@@ -77,6 +77,7 @@ npx @juspay/neurolink gen "Creative writing" --temperature 0.9
 ### `generate-text <prompt>` - ⚠️ Deprecated
 
 **DEPRECATION NOTICE**: This command is deprecated and will be removed in v2.0.
+
 - **Reason**: Preparing for multimodal support (images, audio, video)
 - **Migration**: Replace `generate-text` with `generate` or `gen`
 - **Timeline**: Removal planned for NeuroLink v2.0 (Est. Q2 2025)
@@ -1037,9 +1038,31 @@ export AWS_ACCESS_KEY_ID="your-aws-key"
 export AWS_SECRET_ACCESS_KEY="your-aws-secret"
 export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
 
+# Corporate proxy support (automatic detection)
+export HTTPS_PROXY="http://your-corporate-proxy:port"
+export HTTP_PROXY="http://your-corporate-proxy:port"
+
 # Test configuration
 neurolink status
 ```
+
+### 🏢 Enterprise Proxy Support
+
+The CLI automatically works behind corporate proxies:
+
+```bash
+# Set proxy environment variables
+export HTTPS_PROXY=http://proxy.company.com:8080
+export HTTP_PROXY=http://proxy.company.com:8080
+
+# CLI commands work automatically through proxy
+npx @juspay/neurolink generate "Hello from corporate network"
+npx @juspay/neurolink status
+```
+
+**No additional configuration required** - proxy detection is automatic.
+
+**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](ENTERPRISE-PROXY-SETUP.md)
 
 ## CLI vs SDK Comparison
 

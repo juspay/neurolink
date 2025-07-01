@@ -1,35 +1,30 @@
 # [2.1.0](https://github.com/juspay/neurolink/compare/v2.0.0...v2.1.0) (2025-06-29)
 
-
 ### Features
 
-* **timeout:** add comprehensive timeout support for all AI providers ([8610f4a](https://github.com/juspay/neurolink/commit/8610f4ade418345b0395ab72af6e675f6eec6f93))
+- **timeout:** add comprehensive timeout support for all AI providers ([8610f4a](https://github.com/juspay/neurolink/commit/8610f4ade418345b0395ab72af6e675f6eec6f93))
 
 # [2.0.0](https://github.com/juspay/neurolink/compare/v1.11.3...v2.0.0) (2025-06-28)
 
-
 ### Features
 
-* **cli:** add command variations and stream agent support ([5fc4c26](https://github.com/juspay/neurolink/commit/5fc4c26b23bd189be52272521bdd2ca40dd55837))
-
+- **cli:** add command variations and stream agent support ([5fc4c26](https://github.com/juspay/neurolink/commit/5fc4c26b23bd189be52272521bdd2ca40dd55837))
 
 ### BREAKING CHANGES
 
-* **cli:** 'generate-text' command is deprecated and will be removed in v2.0
+- **cli:** 'generate-text' command is deprecated and will be removed in v2.0
 
 ## [1.11.3](https://github.com/juspay/neurolink/compare/v1.11.2...v1.11.3) (2025-06-22)
 
-
 ### Bug Fixes
 
-* resolve MCP external tools returning raw JSON instead of human-readable responses ([921a12b](https://github.com/juspay/neurolink/commit/921a12b5b31ca96bbfe3f1db05001ddb84470e14))
+- resolve MCP external tools returning raw JSON instead of human-readable responses ([921a12b](https://github.com/juspay/neurolink/commit/921a12b5b31ca96bbfe3f1db05001ddb84470e14))
 
 ## [1.11.2](https://github.com/juspay/neurolink/compare/v1.11.1...v1.11.2) (2025-06-22)
 
-
 ### Bug Fixes
 
-* **ci:** refactor auto-converted Node.js scripts ([4088888](https://github.com/juspay/neurolink/commit/408888863f8223e64269423412f5c79a35ddfe36))
+- **ci:** refactor auto-converted Node.js scripts ([4088888](https://github.com/juspay/neurolink/commit/408888863f8223e64269423412f5c79a35ddfe36))
 
 ## [1.11.1](https://github.com/juspay/neurolink/compare/v1.11.0...v1.11.1) (2025-06-21)
 

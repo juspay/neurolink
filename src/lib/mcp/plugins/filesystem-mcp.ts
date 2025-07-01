@@ -7,8 +7,8 @@
 import path from "path";
 import {
   MCP,
-  MCPMetadata,
-  ExecutionContext,
+  type MCPMetadata,
+  type ExecutionContext,
   MCPCategory,
 } from "../contracts/mcp-contract.js";
 

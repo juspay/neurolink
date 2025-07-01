@@ -12,7 +12,11 @@ import type {
 } from "../core/types.js";
 import { AIProviderName } from "../core/types.js";
 import { logger } from "../utils/logger.js";
-import { createTimeoutController, TimeoutError, getDefaultTimeout } from "../utils/timeout.js";
+import {
+  createTimeoutController,
+  TimeoutError,
+  getDefaultTimeout,
+} from "../utils/timeout.js";
 
 // Azure OpenAI specific types
 interface AzureOpenAIMessage {
@@ -172,7 +176,7 @@ export class AzureOpenAIProvider implements AIProvider {
   ): Promise<any> {
     const functionTag = "AzureOpenAIProvider.generateText";
     const provider = "azure";
-    
+
     logger.debug(`[${functionTag}] Starting text generation`);
 
     // Parse parameters with backward compatibility
@@ -186,7 +190,7 @@ export class AzureOpenAIProvider implements AIProvider {
       temperature = 0.7,
       maxTokens = 1000,
       systemPrompt = "You are a helpful AI assistant.",
-      timeout = getDefaultTimeout(provider, 'generate'),
+      timeout = getDefaultTimeout(provider, "generate"),
     } = options;
 
     logger.debug(
@@ -214,13 +218,17 @@ export class AzureOpenAIProvider implements AIProvider {
     };
 
     // Create timeout controller if timeout is specified
-    const timeoutController = createTimeoutController(timeout, provider, 'generate');
+    const timeoutController = createTimeoutController(
+      timeout,
+      provider,
+      "generate",
+    );
 
     try {
       const response = await this.makeRequest(
         requestBody,
         false,
-        timeoutController?.controller.signal
+        timeoutController?.controller.signal,
       );
       const data: AzureOpenAIResponse = await response.json();
 
@@ -247,7 +255,7 @@ export class AzureOpenAIProvider implements AIProvider {
     } catch (error) {
       // Always cleanup timeout
       timeoutController?.cleanup();
-      
+
       // Log timeout errors specifically
       if (error instanceof TimeoutError) {
         logger.error(`[${functionTag}] Timeout error`, {
@@ -255,13 +263,13 @@ export class AzureOpenAIProvider implements AIProvider {
           timeout: error.timeout,
           message: error.message,
         });
-      } else if ((error as any)?.name === 'AbortError') {
+      } else if ((error as any)?.name === "AbortError") {
         // Convert AbortError to TimeoutError
         const timeoutError = new TimeoutError(
           `${provider} generate operation timed out after ${timeout}`,
           timeoutController?.timeoutMs || 0,
           provider,
-          'generate'
+          "generate",
         );
         logger.error(`[${functionTag}] Timeout error`, {
           provider,
@@ -282,7 +290,7 @@ export class AzureOpenAIProvider implements AIProvider {
   ): Promise<any> {
     const functionTag = "AzureOpenAIProvider.streamText";
     const provider = "azure";
-    
+
     logger.debug(`[${functionTag}] Starting text streaming`);
 
     // Parse parameters with backward compatibility
@@ -296,7 +304,7 @@ export class AzureOpenAIProvider implements AIProvider {
       temperature = 0.7,
       maxTokens = 1000,
       systemPrompt = "You are a helpful AI assistant.",
-      timeout = getDefaultTimeout(provider, 'stream'),
+      timeout = getDefaultTimeout(provider, "stream"),
     } = options;
 
     logger.debug(
@@ -325,13 +333,17 @@ export class AzureOpenAIProvider implements AIProvider {
     };
 
     // Create timeout controller if timeout is specified
-    const timeoutController = createTimeoutController(timeout, provider, 'stream');
+    const timeoutController = createTimeoutController(
+      timeout,
+      provider,
+      "stream",
+    );
 
     try {
       const response = await this.makeRequest(
-        requestBody, 
+        requestBody,
         true,
-        timeoutController?.controller.signal
+        timeoutController?.controller.signal,
       );
 
       if (!response.body) {
@@ -340,7 +352,10 @@ export class AzureOpenAIProvider implements AIProvider {
 
       // Return a StreamTextResult-like object with timeout signal
       return {
-        textStream: this.createAsyncIterable(response.body, timeoutController?.controller.signal),
+        textStream: this.createAsyncIterable(
+          response.body,
+          timeoutController?.controller.signal,
+        ),
         text: "",
         usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
         finishReason: "stop",
@@ -350,7 +365,7 @@ export class AzureOpenAIProvider implements AIProvider {
     } catch (error) {
       // Cleanup timeout on error
       timeoutController?.cleanup();
-      
+
       // Log timeout errors specifically
       if (error instanceof TimeoutError) {
         logger.error(`[${functionTag}] Timeout error`, {
@@ -358,13 +373,13 @@ export class AzureOpenAIProvider implements AIProvider {
           timeout: error.timeout,
           message: error.message,
         });
-      } else if ((error as any)?.name === 'AbortError') {
+      } else if ((error as any)?.name === "AbortError") {
         // Convert AbortError to TimeoutError
         const timeoutError = new TimeoutError(
           `${provider} stream operation timed out after ${timeout}`,
           timeoutController?.timeoutMs || 0,
           provider,
-          'stream'
+          "stream",
         );
         logger.error(`[${functionTag}] Timeout error`, {
           provider,
@@ -391,9 +406,9 @@ export class AzureOpenAIProvider implements AIProvider {
       while (true) {
         // Check if aborted
         if (signal?.aborted) {
-          throw new Error('AbortError');
+          throw new Error("AbortError");
         }
-        
+
         const { done, value } = await reader.read();
         if (done) {
           break;

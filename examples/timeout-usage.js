@@ -19,20 +19,20 @@ async function timeoutExamples() {
     // 1. Basic timeout usage with auto-selected provider
     console.log("1. Basic timeout with auto-selected provider:");
     const provider = createBestAIProvider();
-    
+
     const quickResult = await provider.generateText({
       prompt: "Say hello",
-      timeout: '10s', // 10 seconds
+      timeout: "10s", // 10 seconds
       maxTokens: 50,
     });
-    
+
     console.log("✅ Quick response:", quickResult.text);
     console.log(`   Provider: ${quickResult.provider}`);
     console.log(`   Response time: ${quickResult.responseTime}ms\n`);
 
     // 2. Different timeout formats
     console.log("2. Different timeout formats:");
-    
+
     // Milliseconds
     const msResult = await provider.generateText({
       prompt: "Count to 3",
@@ -40,25 +40,27 @@ async function timeoutExamples() {
       maxTokens: 50,
     });
     console.log("✅ Millisecond timeout (5000ms):", msResult.text);
-    
+
     // Human-readable formats
-    const humanFormats = ['30s', '1m', '2m30s'];
-    console.log("   Supported formats:", humanFormats.join(', '));
+    const humanFormats = ["30s", "1m", "2m30s"];
+    console.log("   Supported formats:", humanFormats.join(", "));
     console.log();
 
     // 3. Provider-specific timeouts
     console.log("3. Provider-specific timeout defaults:");
     const providerTimeouts = {
-      'openai': '30s',
-      'bedrock': '45s',
-      'vertex': '60s',
-      'google-ai': '30s',
-      'ollama': '5m',
-      'mistral': '30s',
-      'huggingface': '30s'
+      openai: "30s",
+      bedrock: "45s",
+      vertex: "60s",
+      "google-ai": "30s",
+      ollama: "5m",
+      mistral: "30s",
+      huggingface: "30s",
     };
-    
-    for (const [providerName, defaultTimeout] of Object.entries(providerTimeouts)) {
+
+    for (const [providerName, defaultTimeout] of Object.entries(
+      providerTimeouts,
+    )) {
       console.log(`   ${providerName}: ${defaultTimeout}`);
     }
     console.log();
@@ -66,14 +68,14 @@ async function timeoutExamples() {
     // 4. Handling timeout errors
     console.log("4. Handling timeout errors:");
     try {
-      const shortTimeoutProvider = AIProviderFactory.createProvider('openai');
+      const shortTimeoutProvider = AIProviderFactory.createProvider("openai");
       await shortTimeoutProvider.generateText({
         prompt: "Write a 10000 word essay on the history of computing",
-        timeout: '1s', // Very short timeout to trigger error
+        timeout: "1s", // Very short timeout to trigger error
         maxTokens: 10000,
       });
     } catch (error) {
-      if (error.name === 'TimeoutError') {
+      if (error.name === "TimeoutError") {
         console.log("⏱️  Caught TimeoutError!");
         console.log(`   Message: ${error.message}`);
         console.log(`   Timeout: ${error.timeout}`);
@@ -97,9 +99,9 @@ async function timeoutExamples() {
     console.log("6. Streaming with timeouts:");
     const streamResult = await provider.streamText({
       prompt: "Count from 1 to 5 slowly",
-      timeout: '30s', // Timeout for the entire stream
+      timeout: "30s", // Timeout for the entire stream
     });
-    
+
     console.log("✅ Streaming with timeout:");
     for await (const chunk of streamResult.textStream) {
       process.stdout.write(chunk);
@@ -115,19 +117,18 @@ async function timeoutExamples() {
         - Market share: 12%
         
         Provide a detailed analysis with recommendations.`,
-      timeout: '2m', // 2 minutes for complex analysis
+      timeout: "2m", // 2 minutes for complex analysis
       maxTokens: 1000,
       temperature: 0.3,
     });
-    
+
     console.log("✅ Complex analysis completed");
     console.log(`   Response length: ${complexResult.text.length} characters`);
     console.log(`   Time taken: ${complexResult.responseTime}ms`);
-
   } catch (error) {
     console.error("❌ Error:", error.message);
-    
-    if (error.name === 'TimeoutError') {
+
+    if (error.name === "TimeoutError") {
       console.log("\n💡 Timeout Tips:");
       console.log("- Increase timeout for complex prompts");
       console.log("- Use streaming for long responses");

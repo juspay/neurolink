@@ -118,7 +118,7 @@ describe("NeuroLink AI Providers (Fixed)", () => {
       const provider = new OpenAI("gpt-4");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
       expect(typeof provider.streamText).toBe("function");
     });
 
@@ -155,7 +155,7 @@ describe("NeuroLink AI Providers (Fixed)", () => {
       );
 
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
       expect(typeof provider.streamText).toBe("function");
     });
 
@@ -182,7 +182,7 @@ describe("NeuroLink AI Providers (Fixed)", () => {
       const provider = new GoogleVertexAI("gemini-pro");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
       expect(typeof provider.streamText).toBe("function");
     });
 
@@ -220,12 +220,12 @@ describe("NeuroLink AI Providers (Fixed)", () => {
     it("should create best available provider", () => {
       const provider = AIProviderFactory.createBestProvider();
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
     });
 
-    it("should create provider with fallback", () => {
+    it("should create provider with fallback", async () => {
       const { primary, fallback } =
-        AIProviderFactory.createProviderWithFallback("openai", "bedrock");
+        await AIProviderFactory.createProviderWithFallback("openai", "bedrock");
       expect(primary).toBeDefined();
       expect(fallback).toBeDefined();
       expect(primary.constructor.name).toBe("OpenAI");

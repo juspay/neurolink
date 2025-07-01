@@ -1471,6 +1471,41 @@ if (result.finishReason === 'tool-calls' && !result.text && result.toolResults?.
 
 ---
 
+## 🌐 **COMPREHENSIVE PROXY SUPPORT SUCCESS** (Learned 2025-07-01)
+
+### **🏆 UNIVERSAL PROXY IMPLEMENTATION ACHIEVED**
+- **LESSON**: Enterprise deployment requires proxy support across all providers
+- **PATTERN**: Clean undici ProxyAgent implementation vs redundant solutions
+- **IMPLEMENTATION**: All 5 providers (Google AI, Anthropic, Vertex, OpenAI, Bedrock) support proxy
+- **IMPACT**: Production-ready for AWS corporate environments
+
+### **Proxy Implementation Architecture (PRODUCTION-READY)**
+```typescript
+// CRITICAL: undici ProxyAgent Pattern
+const proxyFetch = createProxyFetch(); // Automatic proxy detection
+
+// Provider integration patterns:
+// - Custom fetch parameter (Google AI, Vertex AI)
+// - Direct fetch calls (Anthropic) 
+// - Global fetch handling (OpenAI, Bedrock)
+```
+
+### **Enterprise Proxy Success Patterns (ESSENTIAL)**
+- **ZERO CONFIGURATION**: Automatic proxy detection via environment variables
+- **UNIVERSAL COVERAGE**: All 5 providers work behind corporate firewalls
+- **CLEAN ARCHITECTURE**: Single undici approach eliminates redundancy
+- **PRODUCTION TESTED**: Real proxy server validation with API calls
+- **AWS CORPORATE READY**: Enterprise deployment capability achieved
+
+### **Critical Implementation Lessons (ESSENTIAL)**
+- **ENVIRONMENT VARIABLES**: `HTTPS_PROXY`, `HTTP_PROXY` automatically detected
+- **AUTHENTICATION**: Support for `http://user:pass@proxy:port` format
+- **NO CODE CHANGES**: Zero configuration required for proxy support
+- **DOCUMENTATION**: Comprehensive enterprise setup guide created
+- **MINIMAL FOOTPRINT**: Removed 3 redundant files and dependencies
+
+---
+
 ## 🎉 **CLI COMMAND VARIATIONS & STREAM AGENT SUCCESS** (Learned 2025-06-28)
 
 ### **🏆 CLI Command Modernization Achievement**

@@ -40,21 +40,21 @@ describe("NeuroLink Integration Tests", () => {
     // Initialize all available providers
     providers = {};
     try {
-      providers.openai = AIProviderFactory.createProvider("openai");
+      providers.openai = await AIProviderFactory.createProvider("openai");
       console.log("✅ OpenAI provider initialized");
     } catch (e) {
       console.log("❌ OpenAI provider failed:", (e as Error).message);
     }
 
     try {
-      providers.bedrock = AIProviderFactory.createProvider("bedrock");
+      providers.bedrock = await AIProviderFactory.createProvider("bedrock");
       console.log("✅ Bedrock provider initialized");
     } catch (e) {
       console.log("❌ Bedrock provider failed:", (e as Error).message);
     }
 
     try {
-      providers.vertex = AIProviderFactory.createProvider("vertex");
+      providers.vertex = await AIProviderFactory.createProvider("vertex");
       console.log("✅ Vertex AI provider initialized");
     } catch (e) {
       console.log("❌ Vertex AI provider failed:", (e as Error).message);
@@ -70,7 +70,7 @@ describe("NeuroLink Integration Tests", () => {
         for (const [name, provider] of Object.entries(providers)) {
           const startTime = Date.now();
           try {
-            const result = await provider.generateText({
+            const result = await (provider as any).generateText({
               prompt: TEST_PROMPTS.simple,
               maxTokens: 100,
               temperature: 0.7,
@@ -80,17 +80,17 @@ describe("NeuroLink Integration Tests", () => {
             results[name] = {
               success: true,
               responseTime,
-              contentLength: result.text.length,
-              usage: result.usage,
-              preview: result.text.substring(0, 50) + "...",
+              contentLength: result?.text?.length || 0,
+              usage: result?.usage,
+              preview: (result?.text?.substring(0, 50) || "") + "...",
             };
 
-            expect(result.text).toBeTruthy();
-            expect(result.text.length).toBeGreaterThan(10);
+            expect(result?.text).toBeTruthy();
+            expect(result?.text.length).toBeGreaterThan(10);
             expect(responseTime).toBeLessThan(30000); // 30 second timeout
 
             console.log(
-              `✅ ${name}: ${responseTime}ms, ${result.text.length} chars`,
+              `✅ ${name}: ${responseTime}ms, ${result?.text?.length || 0} chars`,
             );
           } catch (error) {
             results[name] = {
@@ -123,7 +123,7 @@ describe("NeuroLink Integration Tests", () => {
         const startTime = Date.now();
 
         try {
-          const result = await provider.streamText({
+          const result = await (provider as any).streamText({
             prompt: TEST_PROMPTS.creative,
             maxTokens: 200,
             temperature: 0.8,
@@ -167,7 +167,7 @@ describe("NeuroLink Integration Tests", () => {
         for (let i = 0; i < concurrentRequests; i++) {
           const provider = createBestAIProvider();
           promises.push(
-            provider.generateText({
+            (provider as any).generateText({
               prompt: `${TEST_PROMPTS.technical} (Request ${i + 1})`,
               maxTokens: 150,
               temperature: 0.5,
@@ -224,7 +224,7 @@ describe("NeuroLink Integration Tests", () => {
         for (const testCase of testCases) {
           const startTime = Date.now();
           try {
-            const result = await provider.generateText({
+            const result = await (provider as any).generateText({
               prompt: testCase.prompt,
               maxTokens: 300,
               temperature: 0.7,
@@ -260,7 +260,7 @@ describe("NeuroLink Integration Tests", () => {
 
         for (let i = 0; i < rapidRequests; i++) {
           try {
-            const result = await provider.generateText({
+            const result = await (provider as any).generateText({
               prompt: `Quick test ${i + 1}`,
               maxTokens: 50,
               temperature: 0.3,
@@ -305,7 +305,7 @@ describe("NeuroLink Integration Tests", () => {
 
         while (retryCount < maxRetries) {
           try {
-            const result = await provider.generateText({
+            const result = await (provider as any).generateText({
               prompt: "Network resilience test",
               maxTokens: 100,
               temperature: 0.5,
@@ -354,7 +354,7 @@ describe("NeuroLink Integration Tests", () => {
           for (let i = 0; i < runs; i++) {
             try {
               const startTime = Date.now();
-              const result = await provider.generateText({
+              const result = await (provider as any).generateText({
                 prompt: benchmarkPrompt,
                 maxTokens: 100,
                 temperature: 0.7,

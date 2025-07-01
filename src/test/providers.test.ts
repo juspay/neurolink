@@ -88,7 +88,7 @@ describe("NeuroLink AI Providers", () => {
       const provider = new OpenAI("gpt-4");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
     });
   });
 
@@ -108,7 +108,7 @@ describe("NeuroLink AI Providers", () => {
       );
 
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
     });
   });
 
@@ -124,7 +124,7 @@ describe("NeuroLink AI Providers", () => {
       const provider = new GoogleVertexAI("gemini-pro");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
     });
   });
 
@@ -140,7 +140,7 @@ describe("NeuroLink AI Providers", () => {
       const provider = new GoogleAIStudio("gemini-1.5-pro-latest");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
     });
 
     it("should support different Gemini models", () => {
@@ -166,7 +166,7 @@ describe("NeuroLink AI Providers", () => {
       const provider = new HuggingFace("microsoft/DialoGPT-medium");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
       expect(typeof provider.streamText).toBe("function");
     });
 
@@ -200,7 +200,7 @@ describe("NeuroLink AI Providers", () => {
       const provider = new Ollama("llama2");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
       expect(typeof provider.streamText).toBe("function");
     });
 
@@ -234,7 +234,7 @@ describe("NeuroLink AI Providers", () => {
       const provider = new MistralAI("mistral-small");
 
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
       expect(typeof provider.streamText).toBe("function");
     });
 
@@ -315,12 +315,12 @@ describe("NeuroLink AI Providers", () => {
     it("should create best available provider", () => {
       const provider = AIProviderFactory.createBestProvider();
       expect(provider).toBeDefined();
-      expect(typeof provider.generateText).toBe("function");
+      expect(typeof (provider as any).generateText).toBe("function");
     });
 
-    it("should create provider with fallback", () => {
+    it("should create provider with fallback", async () => {
       const { primary, fallback } =
-        AIProviderFactory.createProviderWithFallback("openai", "bedrock");
+        await AIProviderFactory.createProviderWithFallback("openai", "bedrock");
       expect(primary).toBeDefined();
       expect(fallback).toBeDefined();
       expect(primary.constructor.name).toBe("OpenAI");

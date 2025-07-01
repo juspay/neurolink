@@ -262,26 +262,27 @@ NeuroLink supports flexible timeout configuration for all AI operations:
 // Numeric milliseconds
 const result1 = await provider.generateText({
   prompt: "Write a story",
-  timeout: 30000 // 30 seconds
+  timeout: 30000, // 30 seconds
 });
 
 // Human-readable formats
 const result2 = await provider.generateText({
   prompt: "Complex calculation",
-  timeout: '2m' // 2 minutes
+  timeout: "2m", // 2 minutes
 });
 
 // Streaming with longer timeout
 const stream = await provider.streamText({
   prompt: "Generate long content",
-  timeout: '5m' // 5 minutes for streaming
+  timeout: "5m", // 5 minutes for streaming
 });
 
 // Provider-specific default timeouts
-const provider = createBestAIProvider('ollama'); // Uses 5m default timeout
+const provider = createBestAIProvider("ollama"); // Uses 5m default timeout
 ```
 
 **Supported Timeout Formats:**
+
 - Milliseconds: `5000`, `30000`
 - Seconds: `'30s'`, `'1.5s'`
 - Minutes: `'2m'`, `'0.5m'`
@@ -1122,9 +1123,9 @@ import {
 } from "@juspay/neurolink";
 
 try {
-  const result = await provider.generateText({ 
+  const result = await provider.generateText({
     prompt: "Hello",
-    timeout: '30s'
+    timeout: "30s",
   });
 } catch (error) {
   if (error instanceof TimeoutError) {
@@ -1233,7 +1234,7 @@ const prompts = [
 const results = await processBatch(prompts, {
   temperature: 0.7,
   maxTokens: 200,
-  timeout: '45s' // Set reasonable timeout for batch operations
+  timeout: "45s", // Set reasonable timeout for batch operations
 });
 ```
 

@@ -429,8 +429,12 @@ export class Ollama implements AIProvider {
     this.baseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
     this.modelName = modelName || process.env.OLLAMA_MODEL || "llama2";
     // Use environment variable for backward compatibility, but convert to format used by other providers
-    const envTimeout = process.env.OLLAMA_TIMEOUT ? parseInt(process.env.OLLAMA_TIMEOUT) : undefined;
-    this.defaultTimeout = envTimeout || parseInt(getDefaultTimeout('ollama', 'generate').replace(/[^\d]/g, ''));
+    const envTimeout = process.env.OLLAMA_TIMEOUT
+      ? parseInt(process.env.OLLAMA_TIMEOUT)
+      : undefined;
+    this.defaultTimeout =
+      envTimeout ||
+      parseInt(getDefaultTimeout("ollama", "generate").replace(/[^\d]/g, ""));
 
     logger.debug("[Ollama] Initialized", {
       baseUrl: this.baseUrl,
@@ -449,7 +453,11 @@ export class Ollama implements AIProvider {
       timeout: timeout || this.defaultTimeout,
     });
 
-    return new OllamaLanguageModel(this.modelName, this.baseUrl, timeout || this.defaultTimeout);
+    return new OllamaLanguageModel(
+      this.modelName,
+      this.baseUrl,
+      timeout || this.defaultTimeout,
+    );
   }
 
   /**
@@ -586,8 +594,12 @@ export class Ollama implements AIProvider {
       const finalSchema = schema || analysisSchema;
 
       // Convert timeout to milliseconds if provided as string
-      const timeoutMs = timeout 
-        ? (typeof timeout === 'string' ? parseInt(getDefaultTimeout('ollama', 'generate').replace(/[^\d]/g, '')) : timeout)
+      const timeoutMs = timeout
+        ? typeof timeout === "string"
+          ? parseInt(
+              getDefaultTimeout("ollama", "generate").replace(/[^\d]/g, ""),
+            )
+          : timeout
         : this.defaultTimeout;
 
       logger.debug(`[${functionTag}] Generate request started`, {
@@ -674,8 +686,12 @@ export class Ollama implements AIProvider {
       const finalSchema = schema || analysisSchema;
 
       // Convert timeout to milliseconds if provided as string
-      const timeoutMs = timeout 
-        ? (typeof timeout === 'string' ? parseInt(getDefaultTimeout('ollama', 'stream').replace(/[^\d]/g, '')) : timeout)
+      const timeoutMs = timeout
+        ? typeof timeout === "string"
+          ? parseInt(
+              getDefaultTimeout("ollama", "stream").replace(/[^\d]/g, ""),
+            )
+          : timeout
         : this.defaultTimeout;
 
       logger.debug(`[${functionTag}] Stream request started`, {

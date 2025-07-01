@@ -14,6 +14,19 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 - **Ollama** - Local AI models including Llama 2, Code Llama, Mistral, Vicuna
 - **Mistral AI** - Mistral Tiny, Small, Medium, and Large models
 
+## 🏢 Enterprise Proxy Support
+
+**All providers support corporate proxy environments automatically.** Simply set environment variables:
+
+```bash
+export HTTPS_PROXY=http://your-corporate-proxy:port
+export HTTP_PROXY=http://your-corporate-proxy:port
+```
+
+**No code changes required** - NeuroLink automatically detects and uses proxy settings.
+
+**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](ENTERPRISE-PROXY-SETUP.md)
+
 ## OpenAI Configuration
 
 ### Basic Setup
@@ -44,7 +57,7 @@ const result = await openai.generateText({
   prompt: "Explain machine learning",
   temperature: 0.7,
   maxTokens: 500,
-  timeout: '30s' // Optional: Override default 30s timeout
+  timeout: "30s", // Optional: Override default 30s timeout
 });
 ```
 
@@ -136,7 +149,7 @@ const result = await bedrock.generateText({
   prompt: "Write a haiku about AI",
   temperature: 0.8,
   maxTokens: 100,
-  timeout: '45s' // Optional: Override default 45s timeout
+  timeout: "45s", // Optional: Override default 45s timeout
 });
 ```
 
@@ -267,7 +280,7 @@ const result = await vertex.generateText({
   prompt: "Explain quantum computing",
   temperature: 0.6,
   maxTokens: 800,
-  timeout: '1m' // Optional: Override default 60s timeout
+  timeout: "1m", // Optional: Override default 60s timeout
 });
 ```
 
@@ -334,7 +347,7 @@ const result = await googleAI.generateText({
   prompt: "Explain the future of AI",
   temperature: 0.7,
   maxTokens: 1000,
-  timeout: '30s' // Optional: Override default 30s timeout
+  timeout: "30s", // Optional: Override default 30s timeout
 });
 ```
 
@@ -456,7 +469,7 @@ const result = await huggingface.generateText({
   prompt: "Explain machine learning",
   temperature: 0.8,
   maxTokens: 200,
-  timeout: '45s' // Optional: Override default 30s timeout
+  timeout: "45s", // Optional: Override default 30s timeout
 });
 ```
 
@@ -534,7 +547,7 @@ const result = await ollama.generateText({
   prompt: "Write a poem about privacy",
   temperature: 0.7,
   maxTokens: 300,
-  timeout: '10m' // Optional: Override default 5m timeout
+  timeout: "10m", // Optional: Override default 5m timeout
 });
 ```
 
@@ -611,7 +624,7 @@ const result = await mistral.generateText({
   prompt: "Translate to French: Hello world",
   temperature: 0.3,
   maxTokens: 100,
-  timeout: '30s' // Optional: Override default 30s timeout
+  timeout: "30s", // Optional: Override default 30s timeout
 });
 ```
 

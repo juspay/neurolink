@@ -114,23 +114,34 @@ export class AgentEnhancedProvider implements AIProvider {
     try {
       mcpLogger.info("[AgentEnhancedProvider] Initializing MCP integration...");
       this.mcpSystem = new UnifiedMCPSystem({
-        configPath: this.config.mcpDiscoveryOptions?.configFiles?.[0] || ".mcp-config.json",
+        configPath:
+          this.config.mcpDiscoveryOptions?.configFiles?.[0] ||
+          ".mcp-config.json",
         enableExternalServers: true,
         enableInternalServers: true,
-        autoInitialize: false
+        autoInitialize: false,
       });
 
       // ADD TIMEOUT to prevent hanging forever
       const initPromise = this.mcpSystem.initialize();
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('MCP initialization timeout after 15 seconds')), this.config.mcpInitTimeoutMs || 15000)
+        setTimeout(
+          () =>
+            reject(new Error("MCP initialization timeout after 15 seconds")),
+          this.config.mcpInitTimeoutMs || 15000,
+        ),
       );
 
       await Promise.race([initPromise, timeoutPromise]);
       this.mcpInitialized = true;
-      mcpLogger.info("[AgentEnhancedProvider] MCP integration initialized successfully");
+      mcpLogger.info(
+        "[AgentEnhancedProvider] MCP integration initialized successfully",
+      );
     } catch (error) {
-      mcpLogger.error("[AgentEnhancedProvider] Failed to initialize MCP:", error);
+      mcpLogger.error(
+        "[AgentEnhancedProvider] Failed to initialize MCP:",
+        error,
+      );
       this.mcpSystem = null;
       this.mcpInitialized = false;
       this.mcpInitFailed = true;
@@ -154,150 +165,174 @@ export class AgentEnhancedProvider implements AIProvider {
     }
 
     // Get MCP tools if available
-    let mcpTools = {};
+    const mcpTools = {};
     try {
       // Skip if MCP failed to initialize or is still initializing
-      if (this.mcpInitFailed || this.mcpInitializing || !this.mcpInitialized || !this.mcpSystem) {
+      if (
+        this.mcpInitFailed ||
+        this.mcpInitializing ||
+        !this.mcpInitialized ||
+        !this.mcpSystem
+      ) {
         return directTools;
       }
 
       const mcpToolInfos = await this.mcpSystem.listTools();
 
-        // Convert MCP tools to AI SDK format
-        for (const toolInfo of mcpToolInfos) {
-          const toolKey = `mcp_${toolInfo.name}`;
-          (mcpTools as any)[toolKey] = {
-            description: toolInfo.description || `MCP tool: ${toolInfo.name}`,
-            parameters: toolInfo.inputSchema || {},
-            execute: async (args: any) => {
-              let timeoutId: NodeJS.Timeout | undefined;
-              
-              try {
-                // Create timeout controller for tool execution if configured
-                const toolTimeout = this.config.toolExecutionTimeout;
-                const toolAbortController = toolTimeout
-                  ? new AbortController()
-                  : undefined;
-                
-                if (toolAbortController && toolTimeout) {
-                  const timeoutMs = typeof toolTimeout === 'string' 
-                    ? parseTimeout(toolTimeout) 
-                    : toolTimeout;
-                  timeoutId = setTimeout(() => {
-                    toolAbortController.abort();
-                  }, timeoutMs);
-                }
+      // Convert MCP tools to AI SDK format
+      for (const toolInfo of mcpToolInfos) {
+        const toolKey = `mcp_${toolInfo.name}`;
+        (mcpTools as any)[toolKey] = {
+          description: toolInfo.description || `MCP tool: ${toolInfo.name}`,
+          parameters: toolInfo.inputSchema || {},
+          execute: async (args: any) => {
+            let timeoutId: NodeJS.Timeout | undefined;
 
-                const context: any = {
-                  sessionId: 'cli-session',
-                  userId: 'cli-user',
-                  secureFS: {
-                    readFile: async (path: string, encoding?: string) => {
-                      const fs = await import('fs/promises');
-                      return encoding ? fs.readFile(path, { encoding: encoding as BufferEncoding }) : fs.readFile(path);
-                    },
-                    writeFile: async (path: string, content: string | Buffer) => {
-                      const fs = await import('fs/promises');
-                      await fs.writeFile(path, content);
-                    },
-                    readdir: async (path: string) => {
-                      const fs = await import('fs/promises');
-                      return fs.readdir(path);
-                    },
-                    stat: async (path: string) => {
-                      const fs = await import('fs/promises');
-                      return fs.stat(path);
-                    },
-                    mkdir: async (path: string, options?: any) => {
-                      const fs = await import('fs/promises');
-                      await fs.mkdir(path, options);
-                    },
-                    exists: async (path: string) => {
-                      const fs = await import('fs/promises');
-                      try {
-                        await fs.access(path);
-                        return true;
-                      } catch {
-                        return false;
-                      }
+            try {
+              // Create timeout controller for tool execution if configured
+              const toolTimeout = this.config.toolExecutionTimeout;
+              const toolAbortController = toolTimeout
+                ? new AbortController()
+                : undefined;
+
+              if (toolAbortController && toolTimeout) {
+                const timeoutMs =
+                  typeof toolTimeout === "string"
+                    ? parseTimeout(toolTimeout)
+                    : toolTimeout;
+                timeoutId = setTimeout(() => {
+                  toolAbortController.abort();
+                }, timeoutMs);
+              }
+
+              const context: any = {
+                sessionId: "cli-session",
+                userId: "cli-user",
+                secureFS: {
+                  readFile: async (path: string, encoding?: string) => {
+                    const fs = await import("fs/promises");
+                    return encoding
+                      ? fs.readFile(path, {
+                          encoding: encoding as BufferEncoding,
+                        })
+                      : fs.readFile(path);
+                  },
+                  writeFile: async (path: string, content: string | Buffer) => {
+                    const fs = await import("fs/promises");
+                    await fs.writeFile(path, content);
+                  },
+                  readdir: async (path: string) => {
+                    const fs = await import("fs/promises");
+                    return fs.readdir(path);
+                  },
+                  stat: async (path: string) => {
+                    const fs = await import("fs/promises");
+                    return fs.stat(path);
+                  },
+                  mkdir: async (path: string, options?: any) => {
+                    const fs = await import("fs/promises");
+                    await fs.mkdir(path, options);
+                  },
+                  exists: async (path: string) => {
+                    const fs = await import("fs/promises");
+                    try {
+                      await fs.access(path);
+                      return true;
+                    } catch {
+                      return false;
                     }
                   },
-                  path: {
-                    join: (...paths: string[]) => {
-                      const path = require('path');
-                      return path.join(...paths);
-                    },
-                    resolve: (...paths: string[]) => {
-                      const path = require('path');
-                      return path.resolve(...paths);
-                    },
-                    relative: (from: string, to: string) => {
-                      const path = require('path');
-                      return path.relative(from, to);
-                    },
-                    dirname: (path: string) => {
-                      const pathLib = require('path');
-                      return pathLib.dirname(path);
-                    },
-                    basename: (path: string, ext?: string) => {
-                      const pathLib = require('path');
-                      return pathLib.basename(path, ext);
-                    }
+                },
+                path: {
+                  join: (...paths: string[]) => {
+                    const path = require("path");
+                    return path.join(...paths);
                   },
-                  grantedPermissions: ['read', 'write', 'execute'],
-                  log: (level: string, message: string, data?: any) => {
-                    const logFn = mcpLogger[level as keyof typeof mcpLogger] as any;
-                    if (typeof logFn === 'function') {
-                      if (data) {
-                        logFn(`${message} ${JSON.stringify(data)}`);
-                      } else {
-                        logFn(message);
-                      }
+                  resolve: (...paths: string[]) => {
+                    const path = require("path");
+                    return path.resolve(...paths);
+                  },
+                  relative: (from: string, to: string) => {
+                    const path = require("path");
+                    return path.relative(from, to);
+                  },
+                  dirname: (path: string) => {
+                    const pathLib = require("path");
+                    return pathLib.dirname(path);
+                  },
+                  basename: (path: string, ext?: string) => {
+                    const pathLib = require("path");
+                    return pathLib.basename(path, ext);
+                  },
+                },
+                grantedPermissions: ["read", "write", "execute"],
+                log: (level: string, message: string, data?: any) => {
+                  const logFn = mcpLogger[
+                    level as keyof typeof mcpLogger
+                  ] as any;
+                  if (typeof logFn === "function") {
+                    if (data) {
+                      logFn(`${message} ${JSON.stringify(data)}`);
+                    } else {
+                      logFn(message);
                     }
                   }
-                };
-                const toolPromise = this.mcpSystem!.executeTool(
-                  toolInfo.name,
-                  args,
-                  context
-                );
+                },
+              };
+              const toolPromise = this.mcpSystem!.executeTool(
+                toolInfo.name,
+                args,
+                context,
+              );
 
-                let result: any;
-                if (toolAbortController) {
-                  // Race between tool execution and timeout
-                  result = await Promise.race([
-                    toolPromise,
-                    new Promise((_, reject) => {
-                      toolAbortController.signal.addEventListener('abort', () => {
-                        reject(new Error(`Tool ${toolInfo.name} timed out after ${this.config.toolExecutionTimeout}`));
-                      });
-                    })
-                  ]);
-                } else {
-                  result = await toolPromise;
-                }
-
-                // Clear timeout if successful
-                if (timeoutId) {
-                  clearTimeout(timeoutId);
-                }
-
-                return result.data || result;
-              } catch (error: any) {
-                // Clear timeout on error
-                if (timeoutId) {
-                  clearTimeout(timeoutId);
-                }
-                mcpLogger.error(`MCP tool ${toolInfo.name} execution failed:`, error);
-                throw error;
+              let result: any;
+              if (toolAbortController) {
+                // Race between tool execution and timeout
+                result = await Promise.race([
+                  toolPromise,
+                  new Promise((_, reject) => {
+                    toolAbortController.signal.addEventListener("abort", () => {
+                      reject(
+                        new Error(
+                          `Tool ${toolInfo.name} timed out after ${this.config.toolExecutionTimeout}`,
+                        ),
+                      );
+                    });
+                  }),
+                ]);
+              } else {
+                result = await toolPromise;
               }
-            }
-          };
-        }
 
-      mcpLogger.info(`[AgentEnhancedProvider] Loaded ${Object.keys(mcpTools).length} MCP tools`);
+              // Clear timeout if successful
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+              }
+
+              return result.data || result;
+            } catch (error: any) {
+              // Clear timeout on error
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+              }
+              mcpLogger.error(
+                `MCP tool ${toolInfo.name} execution failed:`,
+                error,
+              );
+              throw error;
+            }
+          },
+        };
+      }
+
+      mcpLogger.info(
+        `[AgentEnhancedProvider] Loaded ${Object.keys(mcpTools).length} MCP tools`,
+      );
     } catch (error) {
-      mcpLogger.error("[AgentEnhancedProvider] Failed to load MCP tools:", error);
+      mcpLogger.error(
+        "[AgentEnhancedProvider] Failed to load MCP tools:",
+        error,
+      );
     }
 
     return { ...directTools, ...mcpTools };
@@ -321,25 +356,27 @@ export class AgentEnhancedProvider implements AIProvider {
     } = options;
 
     // Get combined tools (direct + MCP) if enabled
-    const tools = this.config.enableTools
-      ? await this.getCombinedTools()
-      : {};
+    const tools = this.config.enableTools ? await this.getCombinedTools() : {};
 
     const log = (msg: string, data?: any) => {
-      mcpLogger.info(`[AgentEnhancedProvider] ${msg}`, data ? JSON.stringify(data, null, 2) : '');
+      mcpLogger.info(
+        `[AgentEnhancedProvider] ${msg}`,
+        data ? JSON.stringify(data, null, 2) : "",
+      );
     };
 
-    log('Starting text generation', {
+    log("Starting text generation", {
       prompt: prompt.substring(0, 100),
       toolsCount: Object.keys(tools).length,
-      maxSteps: this.config.maxSteps
+      maxSteps: this.config.maxSteps,
     });
 
     try {
       // Parse timeout if provided
       let abortSignal: AbortSignal | undefined;
       if (timeout) {
-        const timeoutMs = typeof timeout === 'string' ? parseTimeout(timeout) : timeout;
+        const timeoutMs =
+          typeof timeout === "string" ? parseTimeout(timeout) : timeout;
         if (timeoutMs !== undefined) {
           abortSignal = AbortSignal.timeout(timeoutMs);
         }
@@ -359,28 +396,34 @@ export class AgentEnhancedProvider implements AIProvider {
         abortSignal, // Pass abort signal for timeout support
       });
 
-      log('Generation completed', {
+      log("Generation completed", {
         text: result.text?.substring(0, 200),
         finishReason: result.finishReason,
         toolCallsCount: result.toolCalls?.length || 0,
         toolResultsCount: result.toolResults?.length || 0,
-        stepsCount: result.steps?.length || 0
+        stepsCount: result.steps?.length || 0,
       });
 
       // Check if tools were called but no final text was generated
-      if (result.finishReason === 'tool-calls' && !result.text && result.toolResults?.length > 0) {
-        log('Tools called but no final text generated, creating summary response');
+      if (
+        result.finishReason === "tool-calls" &&
+        !result.text &&
+        result.toolResults?.length > 0
+      ) {
+        log(
+          "Tools called but no final text generated, creating summary response",
+        );
 
         try {
           // Extract tool results and create a summary prompt
-          let toolResultsSummary = '';
+          let toolResultsSummary = "";
 
           if (result.toolResults) {
             for (const toolResult of result.toolResults) {
               const resultData = (toolResult as any).result || toolResult;
 
               // Try to extract meaningful data from the result
-              if (typeof resultData === 'object' && resultData !== null) {
+              if (typeof resultData === "object" && resultData !== null) {
                 if (resultData.success && resultData.items) {
                   // This looks like a filesystem listing
                   toolResultsSummary += `Directory listing for ${resultData.path}:\n`;
@@ -393,39 +436,40 @@ export class AgentEnhancedProvider implements AIProvider {
               } else {
                 toolResultsSummary += String(resultData);
               }
-              toolResultsSummary += '\n\n';
+              toolResultsSummary += "\n\n";
             }
           }
 
-          log('Tool results extracted', {
+          log("Tool results extracted", {
             summaryLength: toolResultsSummary.length,
-            preview: toolResultsSummary.substring(0, 200)
+            preview: toolResultsSummary.substring(0, 200),
           });
 
           // Create a simple, direct summary
           const finalText = `Based on the user request "${prompt}", here's what I found:\n\n${toolResultsSummary}`;
 
-          log('Final text created', {
+          log("Final text created", {
             textLength: finalText.length,
-            preview: finalText.substring(0, 200)
+            preview: finalText.substring(0, 200),
           });
 
           // Return result with the formatted text
           return {
             ...result,
             text: finalText,
-            finishReason: 'stop'
+            finishReason: "stop",
           };
-
         } catch (error) {
-          log('Error in summary generation', { error: error instanceof Error ? error.message : String(error) });
+          log("Error in summary generation", {
+            error: error instanceof Error ? error.message : String(error),
+          });
 
           // Fallback: return raw tool results
           const fallbackText = `Tool execution completed. Raw results: ${JSON.stringify(result.toolResults, null, 2)}`;
           return {
             ...result,
             text: fallbackText,
-            finishReason: 'stop'
+            finishReason: "stop",
           };
         }
       }
@@ -455,15 +499,14 @@ export class AgentEnhancedProvider implements AIProvider {
     } = options;
 
     // Get combined tools (direct + MCP) if enabled
-    const tools = this.config.enableTools
-      ? await this.getCombinedTools()
-      : {};
+    const tools = this.config.enableTools ? await this.getCombinedTools() : {};
 
     try {
       // Parse timeout if provided
       let abortSignal: AbortSignal | undefined;
       if (timeout) {
-        const timeoutMs = typeof timeout === 'string' ? parseTimeout(timeout) : timeout;
+        const timeoutMs =
+          typeof timeout === "string" ? parseTimeout(timeout) : timeout;
         if (timeoutMs !== undefined) {
           abortSignal = AbortSignal.timeout(timeoutMs);
         }

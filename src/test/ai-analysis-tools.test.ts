@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { MCPToolRegistry } from "../lib/mcp/registry.js";
+import type { MCPToolRegistry } from "../lib/mcp/registry.js";
 import {
   ContextManager,
   createExecutionContext,
@@ -17,7 +17,8 @@ describe("AI Analysis Tools Tests", () => {
   let contextManager: ContextManager;
 
   beforeEach(async () => {
-    registry = new MCPToolRegistry();
+    const { MCPRegistry } = await import("../lib/mcp/registry.js");
+    registry = new MCPRegistry();
     contextManager = new ContextManager();
 
     // Register AI Core Server with new tools (check if not already registered)

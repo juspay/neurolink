@@ -355,6 +355,80 @@ When reporting issues, please include:
 
 ---
 
+## 🏢 **Enterprise Proxy Issues**
+
+### **Proxy Not Working**
+
+**Symptoms**: Connection errors when `HTTPS_PROXY` is set
+
+**Diagnosis**:
+
+```bash
+# Check proxy environment variables
+echo $HTTPS_PROXY
+echo $HTTP_PROXY
+
+# Test proxy connectivity
+curl -I --proxy $HTTPS_PROXY https://api.openai.com
+```
+
+**Solutions**:
+
+1. **Verify proxy format**:
+
+   ```bash
+   # Correct format
+   export HTTPS_PROXY="http://proxy.company.com:8080"
+
+   # Not: https:// (use http:// even for HTTPS_PROXY)
+   ```
+
+2. **Check authentication**:
+
+   ```bash
+   # URL encode special characters
+   export HTTPS_PROXY="http://user%40domain.com:pass%3Aword@proxy:8080"
+   ```
+
+3. **Test bypass**:
+   ```bash
+   # Temporarily unset proxy
+   unset HTTPS_PROXY HTTP_PROXY
+   npx @juspay/neurolink generate "test direct connection"
+   ```
+
+### **Corporate Firewall Blocking**
+
+**Symptoms**: Network timeouts or SSL certificate errors
+
+**Solutions**:
+
+1. **Contact IT team** for allowlist:
+
+   - `generativelanguage.googleapis.com` (Google AI)
+   - `api.anthropic.com` (Anthropic)
+   - `api.openai.com` (OpenAI)
+   - `bedrock.amazonaws.com` (Bedrock)
+   - `aiplatform.googleapis.com` (Vertex AI)
+
+2. **Check SSL verification**:
+   ```bash
+   # Disable SSL verification (not recommended for production)
+   export NODE_TLS_REJECT_UNAUTHORIZED=0
+   ```
+
+### **Debug Proxy Connection**
+
+```bash
+# Enable detailed proxy logging
+export DEBUG=neurolink:proxy
+npx @juspay/neurolink generate "test proxy" --debug
+```
+
+**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](ENTERPRISE-PROXY-SETUP.md)
+
+---
+
 ## 📚 **Additional Resources**
 
 - **[MCP Integration Guide](./MCP-INTEGRATION.md)** - Complete MCP setup and usage

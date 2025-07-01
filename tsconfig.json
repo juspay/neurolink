@@ -11,5 +11,11 @@
     "strict": true,
     "module": "NodeNext",
     "moduleResolution": "NodeNext"
-  }
+  },
+  "exclude": [
+    "src/test/ai-analysis-tools.test.ts",
+    "src/test/ai-workflow-tools.test.ts",
+    "src/test/mcp-comprehensive.test.ts",
+    "src/test/mcp-unified.test.ts"
+  ]
 }

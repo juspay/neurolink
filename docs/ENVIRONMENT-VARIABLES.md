@@ -25,6 +25,35 @@ export AWS_ACCESS_KEY_ID="your-key"
 npx @juspay/neurolink status
 ```
 
+## 🏢 Enterprise Proxy Configuration
+
+### Proxy Environment Variables
+
+```bash
+# Corporate proxy support (automatic detection)
+HTTPS_PROXY="http://proxy.company.com:8080"
+HTTP_PROXY="http://proxy.company.com:8080"
+NO_PROXY="localhost,127.0.0.1,.company.com"
+```
+
+| Variable      | Description                     | Example                            |
+| ------------- | ------------------------------- | ---------------------------------- |
+| `HTTPS_PROXY` | Proxy server for HTTPS requests | `http://proxy.company.com:8080`    |
+| `HTTP_PROXY`  | Proxy server for HTTP requests  | `http://proxy.company.com:8080`    |
+| `NO_PROXY`    | Domains to bypass proxy         | `localhost,127.0.0.1,.company.com` |
+
+### Authenticated Proxy
+
+```bash
+# Proxy with username/password authentication
+HTTPS_PROXY="http://username:password@proxy.company.com:8080"
+HTTP_PROXY="http://username:password@proxy.company.com:8080"
+```
+
+**All NeuroLink providers automatically use proxy settings when configured.**
+
+**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](ENTERPRISE-PROXY-SETUP.md)
+
 ## 🤖 Provider Configuration
 
 ### 1. OpenAI

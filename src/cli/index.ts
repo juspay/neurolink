@@ -350,8 +350,12 @@ const cli = yargs(args)
     async (argv) => {
       // Check if generate-text was used specifically (for deprecation warning)
       const usedCommand = argv._[0];
-      if (usedCommand === 'generate-text' && !argv.quiet) {
-        console.warn(chalk.yellow('⚠️  Warning: "generate-text" is deprecated. Use "generate" or "gen" instead for multimodal support.'));
+      if (usedCommand === "generate-text" && !argv.quiet) {
+        console.warn(
+          chalk.yellow(
+            '⚠️  Warning: "generate-text" is deprecated. Use "generate" or "gen" instead for multimodal support.',
+          ),
+        );
       }
 
       let originalConsole: any = {};
@@ -426,21 +430,27 @@ const cli = yargs(args)
         }
 
         // Handle both AgentEnhancedProvider (AI SDK) and standard NeuroLink SDK responses
-        const responseText = result ? ((result as any).text || (result as any).content || "") : "";
-        const responseUsage = result ? ((result as any).usage || {
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0,
-        }) : { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+        const responseText = result
+          ? (result as any).text || (result as any).content || ""
+          : "";
+        const responseUsage = result
+          ? (result as any).usage || {
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+            }
+          : { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
 
         if (argv.format === "json") {
           const jsonOutput = {
             content: responseText,
-            provider: result ? ((result as any).provider || argv.provider) : argv.provider,
+            provider: result
+              ? (result as any).provider || argv.provider
+              : argv.provider,
             usage: responseUsage,
-            responseTime: result ? ((result as any).responseTime || 0) : 0,
-            toolCalls: result ? ((result as any).toolCalls || []) : [],
-            toolResults: result ? ((result as any).toolResults || []) : [],
+            responseTime: result ? (result as any).responseTime || 0 : 0,
+            toolCalls: result ? (result as any).toolCalls || [] : [],
+            toolResults: result ? (result as any).toolResults || [] : [],
           };
           process.stdout.write(JSON.stringify(jsonOutput, null, 2) + "\n");
         } else if (argv.debug) {
@@ -450,7 +460,11 @@ const cli = yargs(args)
           }
 
           // Show tool calls if any
-          if (result && (result as any).toolCalls && (result as any).toolCalls.length > 0) {
+          if (
+            result &&
+            (result as any).toolCalls &&
+            (result as any).toolCalls.length > 0
+          ) {
             console.log(chalk.blue("🔧 Tools Called:"));
             for (const toolCall of (result as any).toolCalls) {
               console.log(`- ${toolCall.toolName}`);
@@ -460,7 +474,11 @@ const cli = yargs(args)
           }
 
           // Show tool results if any
-          if (result && (result as any).toolResults && (result as any).toolResults.length > 0) {
+          if (
+            result &&
+            (result as any).toolResults &&
+            (result as any).toolResults.length > 0
+          ) {
             console.log(chalk.blue("📋 Tool Results:"));
             for (const toolResult of (result as any).toolResults) {
               console.log(`- ${toolResult.toolCallId}`);
@@ -474,9 +492,11 @@ const cli = yargs(args)
           console.log(
             JSON.stringify(
               {
-                provider: result ? ((result as any).provider || argv.provider) : argv.provider,
+                provider: result
+                  ? (result as any).provider || argv.provider
+                  : argv.provider,
                 usage: responseUsage,
-                responseTime: result ? ((result as any).responseTime || 0) : 0,
+                responseTime: result ? (result as any).responseTime || 0 : 0,
               },
               null,
               2,
@@ -627,14 +647,16 @@ const cli = yargs(args)
 
           // Note: AgentEnhancedProvider doesn't support streaming with tools yet
           // Fall back to generateText for now
-          const result = await agentProvider.generateText(argv.prompt as string);
+          const result = await agentProvider.generateText(
+            argv.prompt as string,
+          );
           // Simulate streaming by outputting the result
           const text = result?.text || "";
-					const CHUNK_SIZE = 10;
+          const CHUNK_SIZE = 10;
           const DELAY_MS = 50;
           for (let i = 0; i < text.length; i += CHUNK_SIZE) {
             process.stdout.write(text.slice(i, i + CHUNK_SIZE));
-            await new Promise(resolve => setTimeout(resolve, DELAY_MS)); // Small delay
+            await new Promise((resolve) => setTimeout(resolve, DELAY_MS)); // Small delay
           }
 
           if (!argv.quiet) {

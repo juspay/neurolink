@@ -35,7 +35,7 @@ async function basicUsageExample() {
     console.log("\n3. Generating with custom timeout...");
     const timeoutResult = await provider.generateText({
       prompt: "Explain quantum computing in simple terms",
-      timeout: '45s', // 45 seconds timeout
+      timeout: "45s", // 45 seconds timeout
       maxTokens: 300,
     });
 

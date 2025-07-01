@@ -278,7 +278,7 @@ vi.mock("../lib/utils/providerUtils.js", async () => {
 
 import { aiCoreServer } from "../lib/mcp/servers/ai-providers/ai-core-server.js";
 import { ContextManager } from "../lib/mcp/context-manager.js";
-import { MCPToolRegistry } from "../lib/mcp/registry.js";
+import type { MCPToolRegistry } from "../lib/mcp/registry.js";
 import { MCPOrchestrator } from "../lib/mcp/orchestrator.js";
 import type { NeuroLinkExecutionContext } from "../lib/mcp/factory.js";
 import { AIProviderFactory } from "../lib/core/factory.js";
@@ -293,8 +293,9 @@ describe("AI Development Workflow Tools - Phase 1.2", () => {
   beforeAll(async () => {
     // Initialize MCP components once for all tests
     contextManager = new ContextManager();
-    registry = new MCPToolRegistry();
-    orchestrator = new MCPOrchestrator(registry, contextManager);
+    const { MCPRegistry } = await import("../lib/mcp/registry.js");
+    registry = new MCPRegistry();
+    orchestrator = new MCPOrchestrator(registry as any, contextManager);
 
     // Register AI Core Server once (check if not already registered)
     try {
