@@ -1,3 +1,10 @@
+## [4.1.1](https://github.com/juspay/neurolink/compare/v4.1.0...v4.1.1) (2025-07-10)
+
+
+### Bug Fixes
+
+* **format:** fix formatting for all follow ([a49a94b](https://github.com/juspay/neurolink/commit/a49a94bf4d2e02cf1b1f7d4b555c3c71e25a0ea5))
+
 # [4.1.0](https://github.com/juspay/neurolink/compare/v4.0.0...v4.1.0) (2025-07-09)
 
 ### Features
