@@ -397,19 +397,7 @@ memory-bank/research/          # Research & analysis
 ### **Documentation Creation Workflow**
 
 #### **For API Documentation (docs/)**
-```bash
-# 1. Update API documentation
-# Edit docs/API-REFERENCE.md with new interfaces
-
-# 2. Validate documentation
-pnpm run docs:validate
-
-# 3. Sync across files
-pnpm run docs:sync
-
-# 4. Generate complete docs
-pnpm run docs:generate
-```
+<!-- TODO: ADD this -->
 
 #### **For Internal Knowledge (memory-bank/)**
 ```bash

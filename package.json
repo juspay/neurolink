@@ -71,7 +71,6 @@
     "content:cleanup": "node tools/converted-scripts/cleanup-hash-named-videos.js",
     "content:all": "pnpm run content:screenshots && pnpm run content:videos",
     "// Documentation Automation": "",
-    "docs:sync": "node tools/content/documentation-sync.js",
     "docs:validate": "node tools/content/documentation-sync.js --validate",
     "docs:generate": "pnpm run docs:sync && pnpm run content:screenshots",
     "// Development & Monitoring": "",

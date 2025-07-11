@@ -605,7 +605,7 @@ src/lib/mcp/
 - **Impact**: Complete MCP ecosystem now operational
 
 ### **CLI Architecture Enhanced**
-- **Integration**: `generate-text` command now uses AgentEnhancedProvider for tool calling
+- **Integration**: Enhanced `generate` command uses AgentEnhancedProvider for tool calling
 - **Response Handling**: Fixed result.text vs result.content compatibility patterns
 - **User Experience**: Tools enabled by default with opt-out capability
 - **Validation**: 23,230+ token usage confirms full MCP tool context loading

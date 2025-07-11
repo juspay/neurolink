@@ -24,7 +24,7 @@ import chalk from "chalk";
 import fs from "fs";
 import { addMCPCommands } from "./commands/mcp.js";
 import { addOllamaCommands } from "./commands/ollama.js";
-import { agentGenerateCommand } from "./commands/agent-generate.js";
+
 import { AgentEnhancedProvider } from "../lib/providers/agent-enhanced-provider.js";
 import { logger } from "../lib/utils/logger.js";
 
@@ -1602,8 +1602,7 @@ addMCPCommands(cli);
 // Add Ollama Commands
 addOllamaCommands(cli);
 
-// Add Agent Generate Command
-agentGenerateCommand(cli);
+
 
 // Execute CLI
 (async () => {

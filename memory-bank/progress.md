@@ -166,7 +166,7 @@ await neurolink.addMCPServer('bitbucket', {
 - **Tool Transparency**: Complete tool execution visibility and reporting
 
 ### **CLI Integration**
-- **Enhanced Commands**: `src/cli/commands/agent-generate.ts` supports all new features
+- **Enhanced Commands**: CLI commands support all new features
 - **MCP Management**: `src/cli/commands/mcp.ts` enhanced with health monitoring
 - **Configuration**: `src/cli/commands/config.ts` supports advanced MCP settings
 - **Professional UX**: Clean completion, no hanging processes, error-free operation
@@ -552,7 +552,7 @@ await neurolink.addMCPServer('bitbucket', {
 
 **Technical Impact**:
 - Build process: Clean TypeScript compilation with zero errors
-- CLI functionality: Both `generate-text` and `agent-generate` use identical tool-calling architecture
+- CLI functionality: Enhanced `generate` command provides comprehensive tool-calling architecture
 - User experience: Tools enabled by default with opt-out flag for backward compatibility
 - Performance: High token usage confirms complete MCP tool context loading
 

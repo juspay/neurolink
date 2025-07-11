@@ -88,12 +88,7 @@ test(
   15000
 );
 
-// 9. NEW: Agent Generate (Tool calling)
-test(
-  'Agent Generate (Tool Calling)',
-  'pnpm cli agent-generate "What files are in the current directory?" --provider google-ai',
-  25000
-);
+
 
 // 10. CORE: Short form generate
 test(

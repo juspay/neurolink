@@ -102,26 +102,7 @@ npx @juspay/neurolink generate-text "Explain quantum computing"
 - `--timeout <duration>` - Request timeout (default: 30s). Accepts: '30s', '2m', '5000' (ms), '1h'
 - `--quiet` - Suppress spinners and progress indicators
 
-### `agent-generate <prompt>` - Agent-Based Generation
 
-Generate text with agent capabilities, including tool calling.
-
-```bash
-# Basic agent generation
-neurolink agent-generate "What time is it?"
-
-# With a different provider
-neurolink agent-generate "List files in the current directory" --provider openai
-
-# With a specific tool category
-neurolink agent-generate "Calculate the square root of 256" --toolCategory basic
-```
-
-**Available Options:**
-
-- `--provider <name>` - Choose provider: `google-ai` (default), `openai`, `anthropic`
-- `--model <name>` - Specify model: `gemini-2.5-flash` (fast), `gemini-2.5-pro` (comprehensive)
-- `--toolCategory <category>` - Tool category: `basic`, `filesystem`, `utility`, `all` (default: all)
 
 **Output Example:**
 
