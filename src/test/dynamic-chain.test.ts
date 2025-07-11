@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createMockExecutionContext } from "./helpers/test-utilities.js";
 import {
   DynamicChainExecutor,
   HeuristicChainPlanner,
@@ -13,13 +14,24 @@ import { MCPOrchestrator } from "../lib/mcp/orchestrator.js";
 import { MCPToolRegistry } from "../lib/mcp/tool-registry.js";
 import { ErrorManager } from "../lib/mcp/error-manager.js";
 
+/**
+ * Helper to enrich tool objects with default description and inputSchema.
+ */
+function enrichTools(tools: any[]) {
+  return tools.map((tool) => ({
+    ...tool,
+    description: tool.description || "No description",
+    inputSchema: tool.inputSchema || { type: "object" },
+  }));
+}
+
 describe("Dynamic AI Tool Chains", () => {
   let chainExecutor: DynamicChainExecutor;
   let orchestrator: MCPOrchestrator;
   let registry: MCPToolRegistry;
   let errorManager: ErrorManager;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
 
     registry = new MCPToolRegistry();
@@ -38,31 +50,42 @@ describe("Dynamic AI Tool Chains", () => {
     );
 
     // Register mock tools
-    registry.registerTool("fetch-data", {
-      name: "fetch-data",
-      description: "Fetch data from external source",
-      inputSchema: { type: "object", properties: { url: { type: "string" } } },
-      execute: async (params: any) => ({
-        data: "fetched-data",
-        source: params.url,
-      }),
-    });
-
-    registry.registerTool("process-data", {
-      name: "process-data",
-      description: "Process and analyze data",
-      inputSchema: { type: "object", properties: { data: { type: "string" } } },
-      execute: async (params: any) => ({
-        processed: true,
-        analysis: "processed-" + params.data,
-      }),
-    });
-
-    registry.registerTool("save-result", {
-      name: "save-result",
-      description: "Save final result",
-      inputSchema: { type: "object", properties: { result: { type: "any" } } },
-      execute: async (params: any) => ({ saved: true, id: "result-123" }),
+    await registry.registerServer("test-server", {
+      tools: {
+        "fetch-data": {
+          name: "fetch-data",
+          description: "Fetch data from external source",
+          inputSchema: {
+            type: "object",
+            properties: { url: { type: "string" } },
+          },
+          execute: async (params: any) => ({
+            data: "fetched-data",
+            source: params.url,
+          }),
+        },
+        "process-data": {
+          name: "process-data",
+          description: "Process and analyze data",
+          inputSchema: {
+            type: "object",
+            properties: { data: { type: "string" } },
+          },
+          execute: async (params: any) => ({
+            processed: true,
+            analysis: "processed-" + params.data,
+          }),
+        },
+        "save-result": {
+          name: "save-result",
+          description: "Save final result",
+          inputSchema: {
+            type: "object",
+            properties: { result: { type: "any" } },
+          },
+          execute: async (params: any) => ({ saved: true, id: "result-123" }),
+        },
+      },
     });
   });
 
@@ -73,7 +96,7 @@ describe("Dynamic AI Tool Chains", () => {
 
       const step = await planner.planNextStep(
         "fetch and process user data",
-        availableTools,
+        enrichTools(availableTools),
         [],
         {},
       );
@@ -100,7 +123,7 @@ describe("Dynamic AI Tool Chains", () => {
 
       const step = await planner.planNextStep(
         "process the fetched data",
-        availableTools,
+        enrichTools(availableTools),
         executionHistory,
         { data: "test" },
       );
@@ -122,7 +145,7 @@ describe("Dynamic AI Tool Chains", () => {
 
       const step = await planner.planNextStep(
         "test goal",
-        availableTools,
+        enrichTools(availableTools),
         executionHistory,
         {},
       );
@@ -205,7 +228,7 @@ describe("Dynamic AI Tool Chains", () => {
       const availableTools = await registry.listTools();
       const step = await aiPlanner.planNextStep(
         "fetch and process data",
-        availableTools,
+        enrichTools(availableTools),
         [],
         {},
       );
@@ -231,7 +254,7 @@ describe("Dynamic AI Tool Chains", () => {
       const availableTools = await registry.listTools();
       const step = await aiPlanner.planNextStep(
         "analyze the data",
-        availableTools,
+        enrichTools(availableTools),
         [],
         { data: "test" },
       );
@@ -247,7 +270,7 @@ describe("Dynamic AI Tool Chains", () => {
       const result = await chainExecutor.executeChain(
         "fetch and process data from api.example.com",
         { url: "api.example.com" },
-        { sessionId: "test-session" },
+        createMockExecutionContext({ sessionId: "test-session" }),
         { maxSteps: 3 },
       );
 
@@ -262,7 +285,7 @@ describe("Dynamic AI Tool Chains", () => {
       const result = await chainExecutor.executeChain(
         "fetch data then process it",
         {},
-        { sessionId: "test-session" },
+        createMockExecutionContext({ sessionId: "test-session" }),
         { maxSteps: 3 },
       );
 
@@ -287,7 +310,7 @@ describe("Dynamic AI Tool Chains", () => {
       const result = await chainExecutor.executeChain(
         "keep processing forever",
         {},
-        { sessionId: "test-session" },
+        createMockExecutionContext({ sessionId: "test-session" }),
         { maxSteps: 2 },
       );
 
@@ -296,12 +319,16 @@ describe("Dynamic AI Tool Chains", () => {
 
     it("should handle tool execution failures", async () => {
       // Register a failing tool
-      registry.registerTool("failing-tool", {
-        name: "failing-tool",
-        description: "A tool that always fails",
-        inputSchema: { type: "object" },
-        execute: async () => {
-          throw new Error("Tool execution failed");
+      await registry.registerServer("failing-server", {
+        tools: {
+          "failing-tool": {
+            name: "failing-tool",
+            description: "A tool that always fails",
+            inputSchema: { type: "object" },
+            execute: async () => {
+              throw new Error("Tool execution failed");
+            },
+          },
         },
       });
 
@@ -312,7 +339,7 @@ describe("Dynamic AI Tool Chains", () => {
       const result = await chainExecutor.executeChain(
         "use failing tool",
         {},
-        { sessionId: "test-session" },
+        createMockExecutionContext({ sessionId: "test-session" }),
         { maxSteps: 2 },
       );
 
@@ -329,7 +356,7 @@ describe("Dynamic AI Tool Chains", () => {
       const result = await chainExecutor.executeChain(
         "fetch and process data",
         { initialData: "test" },
-        { sessionId: "test-session" },
+        createMockExecutionContext({ sessionId: "test-session" }),
         { maxSteps: 3 },
       );
 
@@ -348,7 +375,7 @@ describe("Dynamic AI Tool Chains", () => {
       const result = await chainExecutor.executeChain(
         "process data",
         {},
-        { sessionId: "test-session" },
+        createMockExecutionContext({ sessionId: "test-session" }),
         { maxSteps: 2 },
       );
 
@@ -369,7 +396,7 @@ describe("Dynamic AI Tool Chains", () => {
       const result = await chainExecutor.executeChain(
         "test goal",
         {},
-        { sessionId: "test-session" },
+        createMockExecutionContext({ sessionId: "test-session" }),
         { maxSteps: 1 },
       );
 
@@ -407,7 +434,7 @@ describe("Dynamic AI Tool Chains", () => {
       const result = await chainExecutor.executeChain(
         "test goal",
         {},
-        { sessionId: "test-session" },
+        createMockExecutionContext({ sessionId: "test-session" }),
         { maxSteps: 2 },
       );
 

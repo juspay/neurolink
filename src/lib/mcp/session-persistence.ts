@@ -99,7 +99,7 @@ export class SessionPersistence {
       state: Array.from(session.state.entries()),
     };
 
-    let fileData: SessionFile = {
+    const fileData: SessionFile = {
       session: sessionData as any,
       checksum: "",
       version: "1.0",

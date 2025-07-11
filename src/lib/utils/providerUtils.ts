@@ -4,18 +4,53 @@
 import { logger } from "./logger.js";
 
 /**
- * Get the best available provider based on preferences and availability
+ * Get the best available provider based on preferences and availability (async)
  * @param requestedProvider - Optional preferred provider name
  * @returns The best provider name to use
  */
-export function getBestProviderSync(requestedProvider?: string): string {
-  // If a specific provider is requested, return it
-  if (requestedProvider) {
+export async function getBestProvider(
+  requestedProvider?: string,
+): Promise<string> {
+  // If a specific provider is requested, return it (existing logic)
+  if (requestedProvider && requestedProvider !== "auto") {
     return requestedProvider;
   }
 
-  // Default fallback order - Google AI (Gemini) first as primary provider
-  // Ollama last since it requires local setup
+  // 🔧 FIX: Check for explicit default provider in env
+  if (
+    process.env.DEFAULT_PROVIDER &&
+    isProviderConfigured(process.env.DEFAULT_PROVIDER)
+  ) {
+    return process.env.DEFAULT_PROVIDER;
+  }
+
+  // 🔧 FIX: Special case for Ollama when explicitly configured
+  if (process.env.OLLAMA_BASE_URL && process.env.OLLAMA_MODEL) {
+    // Quick connectivity check for Ollama (non-blocking)
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      let res: Response | undefined;
+      try {
+        res = await fetch("http://localhost:11434/api/tags", {
+          method: "GET",
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (res.ok) {
+          return "ollama"; // Prioritize working local AI
+        }
+      } catch {
+        clearTimeout(timeout);
+        // Fall through to cloud providers
+      }
+      // Removed redundant if (res.ok) block here
+    } catch {
+      // Fall through to cloud providers
+    }
+  }
+
+  // Existing provider priority logic...
   const providers = [
     "google-ai",
     "anthropic",
@@ -25,7 +60,7 @@ export function getBestProviderSync(requestedProvider?: string): string {
     "azure",
     "huggingface",
     "bedrock",
-    "ollama",
+    "ollama", // Keep as fallback
   ];
 
   // Check which providers have their required environment variables

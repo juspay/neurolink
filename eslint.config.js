@@ -153,6 +153,7 @@ export default [
       "pnpm-lock.yaml",
       "*.tgz",
       "*.d.ts",
+      "src/cli/**/*.d.ts",
       // Exclude problematic test files with old MCP interfaces
       "src/test/ai-analysis-tools.test.ts",
       "src/test/ai-workflow-tools.test.ts",

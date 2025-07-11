@@ -201,7 +201,14 @@ describe("DynamicOrchestrator", () => {
     };
 
     // Mock error manager methods
-    vi.spyOn(mockErrorManager, "recordError").mockImplementation(() => {});
+    vi.spyOn(mockErrorManager, "recordError").mockImplementation(async () => ({
+      id: "test-error",
+      timestamp: Date.now(),
+      error: new Error("test error"),
+      category: "TOOL_ERROR" as any,
+      severity: "HIGH" as any,
+      context: {},
+    }));
 
     // Create dynamic orchestrator with all managers
     dynamicOrchestrator = new DynamicOrchestrator(
@@ -416,7 +423,7 @@ describe("DynamicOrchestrator", () => {
         "You are a specialized code analyzer. Always select analyze-code first.";
 
       // Mock to verify custom prompt is used
-      const mockGenerateText = aiCoreServer.tools["generate-text"];
+      const mockGenerateText = aiCoreServer.tools["generate-text"] as any;
       const executeSpy = vi.mocked(mockGenerateText.execute);
 
       await dynamicOrchestrator.executeDynamicToolChain(

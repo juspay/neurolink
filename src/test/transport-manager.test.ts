@@ -5,13 +5,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   TransportManager,
-  TransportConfig,
+  type TransportConfig,
 } from "../lib/mcp/transport-manager.js";
 import { ErrorManager } from "../lib/mcp/error-manager.js";
-import {
-  Client,
-  StdioClientTransport,
-} from "@modelcontextprotocol/sdk/client/index.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
 
@@ -157,6 +155,9 @@ describe("TransportManager", () => {
         type: "sse",
         url: "http://localhost:8080/sse",
         headers: { Authorization: "Bearer token" },
+        timeout: 30000,
+        maxRetryTime: 60000,
+        withCredentials: false,
       };
 
       const client = await transportManager.connect(config);
@@ -170,6 +171,7 @@ describe("TransportManager", () => {
       const config: TransportConfig = {
         type: "sse",
         url: "http://localhost:8080/sse",
+        timeout: 30000,
         maxRetryTime: 10000,
         withCredentials: true,
       };
@@ -190,6 +192,7 @@ describe("TransportManager", () => {
         type: "http",
         url: "http://localhost:8080/api",
         headers: { "X-API-Key": "test-key" },
+        timeout: 30000,
       };
 
       const client = await transportManager.connect(config);
@@ -203,6 +206,7 @@ describe("TransportManager", () => {
       const config = {
         type: "http" as const,
         url: "not-a-valid-url",
+        timeout: 30000,
       };
 
       await expect(transportManager.connect(config)).rejects.toThrow();
@@ -353,7 +357,7 @@ describe("TransportManager", () => {
 
       // Reset mocks to track new calls
       mockClient.connect.mockClear();
-      mockErrorManager.recordError.mockClear();
+      vi.clearAllMocks();
 
       // Mock health check to fail
       mockClient.request.mockRejectedValue(new Error("Health check failed"));
@@ -429,6 +433,7 @@ describe("TransportManager", () => {
       const config: TransportConfig = {
         type: "http",
         url: "http://localhost:8080",
+        timeout: 30000,
       };
 
       const initialStatus = transportManager.getStatus();

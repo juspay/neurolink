@@ -77,6 +77,7 @@ export interface McpMetadata {
   author?: string;
   homepage?: string;
   repository?: string;
+  category?: string; // Server category (e.g., "ai-tools", "database", "api")
 }
 
 /**

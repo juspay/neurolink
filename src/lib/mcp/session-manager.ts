@@ -172,7 +172,7 @@ export class SessionManager {
     sessionId: string,
     extend: boolean = true,
   ): OrchestratorSession | null {
-    let session = this.sessions.get(sessionId) || null;
+    const session = this.sessions.get(sessionId) || null;
 
     // For sync compatibility, skip disk loading in getSession
     // Use async getSessionAsync() for full persistence features

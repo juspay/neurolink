@@ -13,7 +13,7 @@ import type {
 import { AIProviderFactory } from "../../../core/factory.js";
 import type { AIProvider } from "../../../core/types.js";
 import {
-  getBestProviderSync as getBestProvider,
+  getBestProvider,
   getAvailableProviders,
 } from "../../../utils/providerUtils.js";
 

@@ -9,7 +9,7 @@ import { createMCPServer } from "../../factory.js";
 import type { NeuroLinkExecutionContext, ToolResult } from "../../factory.js";
 import { AIProviderFactory } from "../../../core/factory.js";
 import {
-  getBestProviderSync as getBestProvider,
+  getBestProvider,
   getAvailableProviders,
 } from "../../../utils/providerUtils.js";
 import { logger } from "../../../utils/logger.js";
@@ -113,7 +113,7 @@ aiCoreServer.registerTool({
 
       // Use existing AIProviderFactory with best provider selection
       const selectedProvider =
-        params.provider || getBestProvider(params.provider);
+        params.provider || (await getBestProvider(params.provider));
       const provider =
         await AIProviderFactory.createBestProvider(selectedProvider);
 
@@ -205,7 +205,7 @@ aiCoreServer.registerTool({
 
       // Use existing provider selection logic
       const availableProviders = getAvailableProviders();
-      const selectedProvider = getBestProvider(params.preferred);
+      const selectedProvider = await getBestProvider(params.preferred);
 
       // Get provider capabilities
       const getProviderCapabilities = (provider: string) => ({

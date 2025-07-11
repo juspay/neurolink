@@ -19,6 +19,7 @@ import type { DiscoveryOptions } from "../../lib/mcp/auto-discovery.js";
 import { initializeNeuroLinkMCP } from "../../lib/mcp/initialize.js";
 import { mcpLogger, setGlobalMCPLogLevel } from "../../lib/mcp/logging.js";
 import type { LogLevel } from "../../lib/mcp/logging.js";
+import { defaultTimeoutManager } from "../../lib/utils/timeout-manager.js";
 
 // MCP Server Configuration
 interface MCPServerConfig {
@@ -63,38 +64,55 @@ async function checkMCPServerStatus(
 ): Promise<boolean> {
   try {
     if (serverConfig.transport === "stdio") {
-      // For stdio servers, we need to actually try connecting
-      const child = spawn(serverConfig.command, serverConfig.args || [], {
-        stdio: ["pipe", "pipe", "pipe"],
-        env: { ...process.env, ...serverConfig.env },
-        cwd: serverConfig.cwd,
-      });
+      // For stdio servers, use timeout manager for proper cleanup
+      const result = await defaultTimeoutManager.wrapMCPOperation(
+        async () => {
+          const child = spawn(serverConfig.command, serverConfig.args || [], {
+            stdio: ["pipe", "pipe", "pipe"],
+            env: { ...process.env, ...serverConfig.env },
+            cwd: serverConfig.cwd,
+          });
 
-      return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-          child.kill();
-          resolve(false);
-        }, 3000);
+          return new Promise<boolean>((resolve, reject) => {
+            child.on("spawn", () => {
+              child.kill();
+              resolve(true);
+            });
 
-        child.on("spawn", () => {
-          clearTimeout(timeout);
-          child.kill();
-          resolve(true);
-        });
+            child.on("error", (error) => {
+              reject(error);
+            });
 
-        child.on("error", () => {
-          clearTimeout(timeout);
-          resolve(false);
-        });
-      });
+            child.on("exit", (code) => {
+              if (code === null) {
+                // Process was terminated (expected for quick check)
+                resolve(true);
+              } else {
+                resolve(false);
+              }
+            });
+          });
+        },
+        "server-status-check",
+        10000, // 10 seconds timeout for server status check
+      );
+
+      return result.success && result.data === true;
     } else if (serverConfig.transport === "sse" && serverConfig.url) {
-      // For SSE servers, check if URL is accessible
-      try {
-        const response = await fetch(serverConfig.url, { method: "HEAD" });
-        return response.ok;
-      } catch {
-        return false;
-      }
+      // For SSE servers, check if URL is accessible with timeout
+      const result = await defaultTimeoutManager.wrapMCPOperation(
+        async () => {
+          if (!serverConfig.url) {
+            throw new Error("SSE URL not configured");
+          }
+          const response = await fetch(serverConfig.url, { method: "HEAD" });
+          return response.ok;
+        },
+        "sse-status-check",
+        10000, // 10 seconds timeout for SSE check
+      );
+
+      return result.success && result.data === true;
     }
 
     return false;
@@ -108,67 +126,72 @@ async function getMCPServerCapabilities(
   serverConfig: MCPServerConfig,
 ): Promise<any> {
   if (serverConfig.transport === "stdio") {
-    // Spawn MCP server and send initialize request
-    const child = spawn(serverConfig.command, serverConfig.args || [], {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, ...serverConfig.env },
-      cwd: serverConfig.cwd,
-    });
+    // Use timeout manager for proper cleanup and longer timeout
+    const result = await defaultTimeoutManager.wrapMCPOperation(
+      async () => {
+        const child = spawn(serverConfig.command, serverConfig.args || [], {
+          stdio: ["pipe", "pipe", "pipe"],
+          env: { ...process.env, ...serverConfig.env },
+          cwd: serverConfig.cwd,
+        });
 
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        child.kill();
-        reject(new Error("Timeout connecting to MCP server"));
-      }, 5000);
+        return new Promise<any>((resolve, reject) => {
+          let responseData = "";
 
-      let responseData = "";
+          child.stdout?.on("data", (data) => {
+            responseData += data.toString();
 
-      child.stdout?.on("data", (data) => {
-        responseData += data.toString();
-
-        // Look for JSON-RPC response
-        try {
-          const lines = responseData.split("\n");
-          for (const line of lines) {
-            if (line.trim() && line.includes('"result"')) {
-              const response = JSON.parse(line.trim());
-              if (response.result && response.result.capabilities) {
-                clearTimeout(timeout);
-                child.kill();
-                resolve(response.result);
-                return;
+            // Look for JSON-RPC response
+            try {
+              const lines = responseData.split("\n");
+              for (const line of lines) {
+                if (line.trim() && line.includes('"result"')) {
+                  const response = JSON.parse(line.trim());
+                  if (response.result && response.result.capabilities) {
+                    child.kill();
+                    resolve(response.result);
+                    return;
+                  }
+                }
               }
+            } catch {
+              // Continue parsing
             }
-          }
-        } catch {
-          // Continue parsing
-        }
-      });
+          });
 
-      child.on("spawn", () => {
-        // Send initialize request
-        const initRequest = {
-          jsonrpc: "2.0",
-          id: 1,
-          method: "initialize",
-          params: {
-            protocolVersion: "2024-11-05",
-            capabilities: {},
-            clientInfo: {
-              name: "neurolink-cli",
-              version: "1.0.0",
-            },
-          },
-        };
+          child.on("spawn", () => {
+            // Send initialize request
+            const initRequest = {
+              jsonrpc: "2.0",
+              id: 1,
+              method: "initialize",
+              params: {
+                protocolVersion: "2024-11-05",
+                capabilities: {},
+                clientInfo: {
+                  name: "neurolink-cli",
+                  version: "1.0.0",
+                },
+              },
+            };
 
-        child.stdin?.write(JSON.stringify(initRequest) + "\n");
-      });
+            child.stdin?.write(JSON.stringify(initRequest) + "\n");
+          });
 
-      child.on("error", (error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-    });
+          child.on("error", (error) => {
+            reject(error);
+          });
+        });
+      },
+      "server-capabilities-check",
+      15000, // 15 seconds timeout for capabilities check
+    );
+
+    if (result.success) {
+      return result.data;
+    } else {
+      throw result.error || new Error("Failed to get MCP server capabilities");
+    }
   }
 
   throw new Error("SSE transport not yet implemented for capabilities");
@@ -179,189 +202,200 @@ async function listMCPServerTools(
   serverConfig: MCPServerConfig,
 ): Promise<any[]> {
   if (serverConfig.transport === "stdio") {
-    const child = spawn(serverConfig.command, serverConfig.args || [], {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, ...serverConfig.env },
-      cwd: serverConfig.cwd,
-    });
+    // Use timeout manager for proper cleanup and longer timeout
+    const result = await defaultTimeoutManager.wrapMCPOperation(
+      async () => {
+        const child = spawn(serverConfig.command, serverConfig.args || [], {
+          stdio: ["pipe", "pipe", "pipe"],
+          env: { ...process.env, ...serverConfig.env },
+          cwd: serverConfig.cwd,
+        });
 
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        child.kill();
-        reject(new Error("Timeout listing MCP server tools"));
-      }, 5000);
+        return new Promise<any[]>((resolve, reject) => {
+          let responseData = "";
+          let initialized = false;
 
-      let responseData = "";
-      let initialized = false;
+          child.stdout?.on("data", (data) => {
+            responseData += data.toString();
 
-      child.stdout?.on("data", (data) => {
-        responseData += data.toString();
+            try {
+              const lines = responseData.split("\n");
+              for (const line of lines) {
+                if (line.trim() && line.includes('"result"')) {
+                  const response = JSON.parse(line.trim());
 
-        try {
-          const lines = responseData.split("\n");
-          for (const line of lines) {
-            if (line.trim() && line.includes('"result"')) {
-              const response = JSON.parse(line.trim());
-
-              if (response.id === 1 && response.result.capabilities) {
-                // Initialize successful, now list tools
-                initialized = true;
-                const listToolsRequest = {
-                  jsonrpc: "2.0",
-                  id: 2,
-                  method: "tools/list",
-                  params: {},
-                };
-                child.stdin?.write(JSON.stringify(listToolsRequest) + "\n");
-              } else if (response.id === 2 && response.result.tools) {
-                clearTimeout(timeout);
-                child.kill();
-                resolve(response.result.tools);
-                return;
+                  if (response.id === 1 && response.result.capabilities) {
+                    // Initialize successful, now list tools
+                    initialized = true;
+                    const listToolsRequest = {
+                      jsonrpc: "2.0",
+                      id: 2,
+                      method: "tools/list",
+                      params: {},
+                    };
+                    child.stdin?.write(JSON.stringify(listToolsRequest) + "\n");
+                  } else if (response.id === 2 && response.result.tools) {
+                    child.kill();
+                    resolve(response.result.tools);
+                    return;
+                  }
+                }
               }
+            } catch {
+              // Continue parsing
             }
-          }
-        } catch {
-          // Continue parsing
-        }
-      });
+          });
 
-      child.on("spawn", () => {
-        // Send initialize request first
-        const initRequest = {
-          jsonrpc: "2.0",
-          id: 1,
-          method: "initialize",
-          params: {
-            protocolVersion: "2024-11-05",
-            capabilities: {},
-            clientInfo: {
-              name: "neurolink-cli",
-              version: "1.0.0",
-            },
-          },
-        };
+          child.on("spawn", () => {
+            // Send initialize request first
+            const initRequest = {
+              jsonrpc: "2.0",
+              id: 1,
+              method: "initialize",
+              params: {
+                protocolVersion: "2024-11-05",
+                capabilities: {},
+                clientInfo: {
+                  name: "neurolink-cli",
+                  version: "1.0.0",
+                },
+              },
+            };
 
-        child.stdin?.write(JSON.stringify(initRequest) + "\n");
-      });
+            child.stdin?.write(JSON.stringify(initRequest) + "\n");
+          });
 
-      child.on("error", (error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-    });
+          child.on("error", (error) => {
+            reject(error);
+          });
+        });
+      },
+      "server-tools-list",
+      15000, // 15 seconds timeout for tool listing
+    );
+
+    if (result.success) {
+      return result.data || [];
+    } else {
+      throw result.error || new Error("Failed to list MCP server tools");
+    }
   }
 
   throw new Error("SSE transport not yet implemented for tool listing");
 }
 
 // Execute tool on MCP server
-async function executeMCPTool(
+export async function executeMCPTool(
   serverConfig: MCPServerConfig,
   toolName: string,
   toolParams: any,
 ): Promise<any> {
   if (serverConfig.transport === "stdio") {
-    const child = spawn(serverConfig.command, serverConfig.args || [], {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, ...serverConfig.env },
-      cwd: serverConfig.cwd,
-    });
+    // Use timeout manager for proper cleanup and configurable timeout
+    const result = await defaultTimeoutManager.wrapMCPOperation(
+      async () => {
+        const child = spawn(serverConfig.command, serverConfig.args || [], {
+          stdio: ["pipe", "pipe", "pipe"],
+          env: { ...process.env, ...serverConfig.env },
+          cwd: serverConfig.cwd,
+        });
 
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        child.kill();
-        reject(new Error("Timeout executing MCP tool"));
-      }, 10000); // Longer timeout for tool execution
+        return new Promise<any>((resolve, reject) => {
+          let responseData = "";
+          let initialized = false;
 
-      let responseData = "";
-      let initialized = false;
+          child.stdout?.on("data", (data) => {
+            responseData += data.toString();
 
-      child.stdout?.on("data", (data) => {
-        responseData += data.toString();
+            try {
+              const lines = responseData.split("\n");
+              for (const line of lines) {
+                if (line.trim() && line.includes('"result"')) {
+                  const response = JSON.parse(line.trim());
 
-        try {
-          const lines = responseData.split("\n");
-          for (const line of lines) {
-            if (line.trim() && line.includes('"result"')) {
-              const response = JSON.parse(line.trim());
-
-              if (response.id === 1 && response.result.capabilities) {
-                // Initialize successful, now execute tool
-                initialized = true;
-                const toolCallRequest = {
-                  jsonrpc: "2.0",
-                  id: 2,
-                  method: "tools/call",
-                  params: {
-                    name: toolName,
-                    arguments: toolParams,
-                  },
-                };
-                child.stdin?.write(JSON.stringify(toolCallRequest) + "\n");
-              } else if (response.id === 2) {
-                clearTimeout(timeout);
-                child.kill();
-                if (response.result) {
-                  resolve(response.result);
-                } else if (response.error) {
-                  reject(
-                    new Error(
-                      `MCP Error: ${response.error.message || "Unknown error"}`,
-                    ),
-                  );
-                } else {
-                  reject(new Error("Unknown MCP response format"));
+                  if (response.id === 1 && response.result.capabilities) {
+                    // Initialize successful, now execute tool
+                    initialized = true;
+                    const toolCallRequest = {
+                      jsonrpc: "2.0",
+                      id: 2,
+                      method: "tools/call",
+                      params: {
+                        name: toolName,
+                        arguments: toolParams,
+                      },
+                    };
+                    child.stdin?.write(JSON.stringify(toolCallRequest) + "\n");
+                  } else if (response.id === 2) {
+                    child.kill();
+                    if (response.result) {
+                      resolve(response.result);
+                    } else if (response.error) {
+                      reject(
+                        new Error(
+                          `MCP Error: ${response.error.message || "Unknown error"}`,
+                        ),
+                      );
+                    } else {
+                      reject(new Error("Unknown MCP response format"));
+                    }
+                    return;
+                  }
+                } else if (line.trim() && line.includes('"error"')) {
+                  const response = JSON.parse(line.trim());
+                  if (response.error) {
+                    child.kill();
+                    reject(
+                      new Error(
+                        `MCP Error: ${response.error.message || "Unknown error"}`,
+                      ),
+                    );
+                    return;
+                  }
                 }
-                return;
               }
-            } else if (line.trim() && line.includes('"error"')) {
-              const response = JSON.parse(line.trim());
-              if (response.error) {
-                clearTimeout(timeout);
-                child.kill();
-                reject(
-                  new Error(
-                    `MCP Error: ${response.error.message || "Unknown error"}`,
-                  ),
-                );
-                return;
-              }
+            } catch {
+              // Continue parsing
             }
-          }
-        } catch {
-          // Continue parsing
-        }
-      });
+          });
 
-      child.stderr?.on("data", (data) => {
-        console.error(chalk.red(`MCP Server Error: ${data.toString()}`));
-      });
+          child.stderr?.on("data", (data) => {
+            console.error(chalk.red(`MCP Server Error: ${data.toString()}`));
+          });
 
-      child.on("spawn", () => {
-        // Send initialize request first
-        const initRequest = {
-          jsonrpc: "2.0",
-          id: 1,
-          method: "initialize",
-          params: {
-            protocolVersion: "2024-11-05",
-            capabilities: {},
-            clientInfo: {
-              name: "neurolink-cli",
-              version: "1.0.0",
-            },
-          },
-        };
+          child.on("spawn", () => {
+            // Send initialize request first
+            const initRequest = {
+              jsonrpc: "2.0",
+              id: 1,
+              method: "initialize",
+              params: {
+                protocolVersion: "2024-11-05",
+                capabilities: {},
+                clientInfo: {
+                  name: "neurolink-cli",
+                  version: "1.0.0",
+                },
+              },
+            };
 
-        child.stdin?.write(JSON.stringify(initRequest) + "\n");
-      });
+            child.stdin?.write(JSON.stringify(initRequest) + "\n");
+          });
 
-      child.on("error", (error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-    });
+          child.on("error", (error) => {
+            reject(error);
+          });
+        });
+      },
+      "tool-execution",
+      30000, // 30 seconds timeout for tool execution (longer than others)
+    );
+
+    if (result.success) {
+      return result.data;
+    } else {
+      throw result.error || new Error("Failed to execute MCP tool");
+    }
   }
 
   throw new Error("SSE transport not yet implemented for tool execution");
@@ -556,7 +590,7 @@ export async function mcpExecuteTool(
   try {
     await unifiedRegistry.initialize();
 
-    const orchestrator = new MCPOrchestrator();
+    const orchestrator = new MCPOrchestrator(unifiedRegistry);
     const result = await orchestrator.executeTool(
       toolName,
       toolParams,
@@ -1073,8 +1107,8 @@ export function addMCPCommands(yargs: Argv): Argv {
             const spinner = ora("Initializing NeuroLink MCP...").start();
 
             try {
-              // Initialize built-in NeuroLink servers first
-              await initializeNeuroLinkMCP();
+              // Initialize built-in NeuroLink servers first - register in unified registry
+              await initializeNeuroLinkMCP(unifiedRegistry);
 
               // Initialize unified registry
               spinner.text = "Initializing unified registry...";
@@ -1203,8 +1237,8 @@ export function addMCPCommands(yargs: Argv): Argv {
             const spinner = ora("Initializing NeuroLink MCP...").start();
 
             try {
-              // Initialize built-in NeuroLink servers first
-              await initializeNeuroLinkMCP();
+              // Initialize built-in NeuroLink servers first - register in unified registry
+              await initializeNeuroLinkMCP(unifiedRegistry);
 
               // Initialize unified registry
               spinner.text = "Initializing unified registry...";
@@ -1240,7 +1274,7 @@ export function addMCPCommands(yargs: Argv): Argv {
               };
 
               spinner.text = "Executing tool...";
-              const orchestrator = new MCPOrchestrator();
+              const orchestrator = new MCPOrchestrator(unifiedRegistry);
               const result = await orchestrator.executeTool(
                 argv.tool as string,
                 params,
@@ -1303,7 +1337,7 @@ export function addMCPCommands(yargs: Argv): Argv {
                   console.log(chalk.blue("🔧 Unified Registry Configuration"));
                   console.log(chalk.gray("================================"));
 
-                  const stats = await unifiedRegistry.getStats();
+                  const stats = await unifiedRegistry.getDetailedStats();
                   console.log(`Total servers: ${stats.total}`);
                   console.log("\nBy Source:");
                   Object.entries(stats.bySource).forEach(([source, count]) => {
@@ -1602,9 +1636,120 @@ export function addMCPCommands(yargs: Argv): Argv {
           },
         )
 
+        // Add debug command for tool registry diagnostics
+        .command(
+          "debug",
+          "Debug MCP tool registry state and diagnose issues",
+          (yargs) => {
+            return yargs.option("verbose", {
+              type: "boolean",
+              default: false,
+              description: "Show detailed debug information",
+            });
+          },
+          async (argv) => {
+            console.log(chalk.blue("🔍 MCP Tool Registry Debug"));
+            console.log(chalk.gray("=============================\n"));
+
+            try {
+              // Initialize built-in servers
+              console.log(chalk.cyan("🔧 Initializing Built-in Servers..."));
+              await initializeNeuroLinkMCP(unifiedRegistry);
+
+              // Initialize unified registry
+              console.log(chalk.cyan("🌐 Initializing Unified Registry..."));
+              await unifiedRegistry.initialize();
+              const registry = unifiedRegistry;
+
+              // Check built-in tools
+              console.log(chalk.green("\n📦 Built-in Tools:"));
+              const builtInTools = await registry.listTools();
+              if (builtInTools.length === 0) {
+                console.log(chalk.red("  ❌ No built-in tools found"));
+              } else {
+                builtInTools.forEach((tool: any) => {
+                  console.log(
+                    `  ✅ ${tool.name} (${tool.serverId || "unknown server"})`,
+                  );
+                  if (argv.verbose && tool.description) {
+                    console.log(`     └─ ${tool.description}`);
+                  }
+                });
+              }
+
+              // Check external servers
+              console.log(chalk.green("\n🌐 External Servers:"));
+              const allTools = await registry.listAllTools();
+              const externalTools = allTools.filter((t: any) => t.isExternal);
+
+              if (externalTools.length === 0) {
+                console.log(chalk.yellow("  ⚠️ No external servers connected"));
+              } else {
+                const serverGroups = externalTools.reduce(
+                  (acc: Record<string, any[]>, tool: any) => {
+                    const server = tool.serverId || "unknown";
+                    if (!acc[server]) {
+                      acc[server] = [];
+                    }
+                    acc[server].push(tool);
+                    return acc;
+                  },
+                  {} as Record<string, any[]>,
+                );
+
+                Object.entries(serverGroups).forEach(
+                  ([server, tools]: [string, any[]]) => {
+                    console.log(`  🔧 ${server} (${tools.length} tools)`);
+                    if (argv.verbose) {
+                      tools.forEach((tool: any) => {
+                        console.log(`     └─ ${tool.name}`);
+                      });
+                    }
+                  },
+                );
+              }
+
+              // Test specific tool execution
+              console.log(chalk.green("\n🧪 Testing 'get-current-time' Tool:"));
+              try {
+                const result = await registry.executeTool("get-current-time");
+                console.log(chalk.green("  ✅ Success:"));
+                if (argv.verbose) {
+                  console.log(JSON.stringify(result, null, 4));
+                } else {
+                  console.log(`  └─ Tool executed successfully`);
+                }
+              } catch (error: any) {
+                console.log(chalk.red("  ❌ Failed:"));
+                console.log(`  └─ ${error.message}`);
+
+                if (argv.verbose) {
+                  console.log(chalk.gray("\n📋 Debug Details:"));
+                  console.log(`     Error Type: ${error.constructor.name}`);
+                  console.log(`     Stack: ${error.stack}`);
+                }
+              }
+
+              // Summary
+              console.log(chalk.green(`\n📊 Summary:`));
+              console.log(`  Built-in tools: ${builtInTools.length}`);
+              console.log(`  External tools: ${externalTools.length}`);
+              console.log(`  Total tools: ${allTools.length}`);
+            } catch (error: any) {
+              console.error(chalk.red("❌ Debug failed:"));
+              console.error(`   ${error.message}`);
+              if (argv.verbose) {
+                console.error(error.stack);
+              }
+              process.exit(1);
+            }
+          },
+        )
+
         .demandCommand(1, "Please specify an MCP subcommand")
         .example("$0 mcp list", "List configured MCP servers")
         .example("$0 mcp discover", "Discover MCP servers from all tools")
+        .example("$0 mcp debug", "Debug tool registry state")
         .example("$0 mcp install filesystem", "Install filesystem MCP server")
         .example("$0 mcp test filesystem", "Test filesystem server connection");
     },

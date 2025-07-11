@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { createMockExecutionContext } from "./helpers/test-utilities.js";
 import { SemaphoreManager } from "../lib/mcp/semaphore-manager.js";
 import type { NeuroLinkExecutionContext } from "../lib/mcp/factory.js";
 
@@ -13,11 +14,11 @@ describe("SemaphoreManager", () => {
 
   beforeEach(() => {
     semaphoreManager = new SemaphoreManager();
-    mockContext = {
+    mockContext = createMockExecutionContext({
       sessionId: "test-session-123",
       userId: "test-user",
       timestamp: Date.now(),
-    };
+    });
   });
 
   describe("Basic Functionality", () => {

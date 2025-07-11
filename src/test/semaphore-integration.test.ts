@@ -22,23 +22,27 @@ describe("Semaphore Integration", () => {
 
   it("should prevent race conditions for the same tool", async () => {
     // Register a slow tool that tracks execution order
-    toolRegistry.registerTool("slow-tool", {
-      name: "slow-tool",
-      description: "A tool that takes time to execute",
-      inputSchema: { type: "object", properties: {} },
-      execute: async (args: any) => {
-        const id = args.id || "default";
-        executionOrder.push(`start-${id}`);
+    await toolRegistry.registerServer("test-server", {
+      tools: {
+        "slow-tool": {
+          name: "slow-tool",
+          description: "A tool that takes time to execute",
+          inputSchema: { type: "object", properties: {} },
+          execute: async (args: any) => {
+            const id = args.id || "default";
+            executionOrder.push(`start-${id}`);
 
-        // Simulate work
-        await new Promise((resolve) => setTimeout(resolve, 100));
+            // Simulate work
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
-        executionOrder.push(`end-${id}`);
-        return {
-          success: true,
-          data: { executed: id },
-          usage: { duration: 100 },
-        };
+            executionOrder.push(`end-${id}`);
+            return {
+              success: true,
+              data: { executed: id },
+              usage: { executionTime: 100 },
+            };
+          },
+        },
       },
     });
 
@@ -64,8 +68,9 @@ describe("Semaphore Integration", () => {
 
   it("should allow parallel execution of different tools", async () => {
     // Register multiple different tools
+    const tools: any = {};
     ["tool-a", "tool-b", "tool-c"].forEach((toolName) => {
-      toolRegistry.registerTool(toolName, {
+      tools[toolName] = {
         name: toolName,
         description: `Test tool ${toolName}`,
         inputSchema: { type: "object", properties: {} },
@@ -76,11 +81,13 @@ describe("Semaphore Integration", () => {
           return {
             success: true,
             data: { tool: toolName },
-            usage: { duration: 50 },
+            usage: { executionTime: 50 },
           };
         },
-      });
+      };
     });
+
+    await toolRegistry.registerServer("parallel-test-server", { tools });
 
     // Execute different tools concurrently
     const startTime = Date.now();
@@ -108,20 +115,24 @@ describe("Semaphore Integration", () => {
   it("should handle errors gracefully with semaphores", async () => {
     let callCount = 0;
 
-    toolRegistry.registerTool("error-tool", {
-      name: "error-tool",
-      description: "A tool that sometimes fails",
-      inputSchema: { type: "object", properties: {} },
-      execute: async () => {
-        callCount++;
-        if (callCount === 2) {
-          throw new Error("Simulated error");
-        }
-        return {
-          success: true,
-          data: { call: callCount },
-          usage: {},
-        };
+    await toolRegistry.registerServer("error-test-server", {
+      tools: {
+        "error-tool": {
+          name: "error-tool",
+          description: "A tool that sometimes fails",
+          inputSchema: { type: "object", properties: {} },
+          execute: async () => {
+            callCount++;
+            if (callCount === 2) {
+              throw new Error("Simulated error");
+            }
+            return {
+              success: true,
+              data: { call: callCount },
+              usage: {},
+            };
+          },
+        },
       },
     });
 
@@ -160,13 +171,17 @@ describe("Semaphore Integration", () => {
     );
 
     // Register a tool
-    toolRegistry.registerTool("stats-tool", {
-      name: "stats-tool",
-      description: "Tool for testing stats",
-      inputSchema: { type: "object", properties: {} },
-      execute: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        return { success: true, data: {}, usage: {} };
+    await toolRegistry.registerServer("stats-test-server", {
+      tools: {
+        "stats-tool": {
+          name: "stats-tool",
+          description: "Tool for testing stats",
+          inputSchema: { type: "object", properties: {} },
+          execute: async () => {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            return { success: true, data: {}, usage: {} };
+          },
+        },
       },
     });
 

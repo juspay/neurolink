@@ -1,15 +1,4 @@
-# @juspay/neurolink
-
-<!-- TOC -->
-
-- [📄 License](#[object Object])
-- [🔗 Related Projects](#-related-projects)
-<!-- /TOC -->
-
-Universal AI Development Platform with working MCP integration, multi-provider support, and professional CLI. Built-in tools operational, 58+ external MCP servers discoverable. Connect to filesystem, GitHub, database operations, and more. Build, test, and deploy AI applications with 9 major providers: OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, Hugging Face, Ollama, and Mistral AI.
-
-**Version:** 4.0.0
-**License:** MIT
+# 🧠 NeuroLink
 
 [![NPM Version](https://img.shields.io/npm/v/@juspay/neurolink)](https://www.npmjs.com/package/@juspay/neurolink)
 [![Downloads](https://img.shields.io/npm/dm/@juspay/neurolink)](https://www.npmjs.com/package/@juspay/neurolink)

@@ -78,7 +78,27 @@ declare const process: {
 const getGCPVertexBreezeProjectId = (): string => {
   const projectId = process.env.GOOGLE_VERTEX_PROJECT;
   if (!projectId) {
-    throw new Error("GOOGLE_VERTEX_PROJECT environment variable is not set");
+    // 🔧 FIX: Enhanced error message with setup instructions
+    throw new Error(
+      `❌ VERTEX Provider Configuration Error
+
+Missing required environment variables: GOOGLE_VERTEX_PROJECT
+
+🔧 Step 1: Get Credentials
+Set up Google Cloud project and download service account JSON
+
+💡 Step 2: Add to your .env file (or export in CLI):
+GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
+GOOGLE_VERTEX_PROJECT="your-gcp-project-id"
+GOOGLE_VERTEX_LOCATION="us-central1"
+# Optional:
+VERTEX_MODEL="gemini-2.5-pro"
+
+🚀 Step 3: Test the setup:
+npx neurolink generate "Hello" --provider vertex
+
+📖 Full setup guide: https://docs.neurolink.ai/providers/vertex`,
+    );
   }
   return projectId;
 };

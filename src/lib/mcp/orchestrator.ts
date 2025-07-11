@@ -183,7 +183,15 @@ export class MCPOrchestrator {
         options.sessionOptions,
       );
       // Update context with new session ID
+      const oldSessionId = context.sessionId;
       context.sessionId = session.id;
+
+      // Remove old context and store updated context in context manager
+      if (oldSessionId) {
+        this.contextManager.removeContext(oldSessionId);
+      }
+      // Store the updated context with the new session ID
+      this.contextManager.storeContext(context);
     }
 
     if (process.env.NEUROLINK_DEBUG === "true") {
@@ -200,6 +208,9 @@ export class MCPOrchestrator {
       semaphoreKey,
       async () => {
         try {
+          // Add tool to the execution chain
+          this.contextManager.addToToolChain(context, toolName);
+
           // Execute tool through registry
           const result = await this.registry.executeTool(
             toolName,

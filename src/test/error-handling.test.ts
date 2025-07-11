@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createMockExecutionContext } from "./helpers/test-utilities.js";
 import {
   ErrorManager,
   ErrorCategory,
@@ -25,11 +26,11 @@ describe("Enhanced Error Handling", () => {
       errorRateWindow: 60000,
     });
 
-    testContext = {
+    testContext = createMockExecutionContext({
       sessionId: "test-session",
       userId: "test-user",
       aiProvider: "test-provider",
-    };
+    });
   });
 
   afterEach(() => {

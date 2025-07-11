@@ -1,0 +1,107 @@
+# ST-001: Provider Authentication Tests (9 tests)
+ST-001.1.1:node dist/cli/index.js generate "test openai" --provider openai --disable-tools:180
+ST-001.1.2:node dist/cli/index.js generate "test anthropic" --provider anthropic:120
+ST-001.1.3:node dist/cli/index.js generate "test google-ai" --provider google-ai:60
+ST-001.1.4:node dist/cli/index.js generate "test vertex" --provider vertex --disable-tools:180
+ST-001.1.5:node dist/cli/index.js generate "test bedrock" --provider bedrock --disable-tools:180
+ST-001.1.6:node dist/cli/index.js generate "test azure" --provider azure --disable-tools:180
+ST-001.1.7:node dist/cli/index.js generate "test mistral" --provider mistral --disable-tools:180
+ST-001.1.8:node dist/cli/index.js generate "test ollama" --provider ollama --disable-tools:180
+ST-001.1.9:node dist/cli/index.js generate "test huggingface" --provider huggingface --disable-tools:180
+
+# ST-001: Provider Management Tests (3 tests)
+ST-001.2.1:node dist/cli/index.js generate "auto selection test":60
+ST-001.2.2:node dist/cli/index.js generate "fallback test" --provider bedrock --disable-tools:180
+ST-001.2.3:node dist/cli/index.js provider status:30
+
+# CLI-001: Basic Text Generation (6 tests)
+CLI-001.1.1:node dist/cli/index.js generate "basic test":60
+CLI-001.1.2:node dist/cli/index.js generate "provider test" --provider google-ai:60
+CLI-001.1.3:node dist/cli/index.js generate "params test" --temperature 0.1 --max-tokens 50:60
+CLI-001.1.4:node dist/cli/index.js generate "format test" --format json:60
+CLI-001.1.5:node dist/cli/index.js generate "What tools are available?":60
+CLI-001.1.6:node dist/cli/index.js generate "analytics test" --enable-analytics:90
+
+# CLI-001: Advanced Commands (3 tests)
+CLI-001.2.1:node dist/cli/index.js stream "streaming test":60
+CLI-001.2.2:node dist/cli/index.js stream "What time is it?":60
+CLI-001.3.1:node dist/cli/index.js batch test-batch-prompts-test.txt:120
+
+# SDK-001: Core SDK Tests (5 tests)
+SDK-001.1.1:node test-sdk.js:30
+SDK-001.1.2:node test-sdk-config.js:60
+SDK-001.1.3:node test-sdk-env.js:60
+SDK-001.2.1:node -e "import('./dist/index.js').then(m => console.log('SDK import test:', typeof m.NeuroLink))":30
+SDK-001.2.2:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); console.log('Provider test:', await sdk.getBestProvider()); })":60
+
+# ST-002: MCP Integration Tests (5 tests)
+ST-002.1.1:node dist/cli/index.js mcp discover:60
+ST-002.1.2:node dist/cli/index.js mcp install brave-search:90
+ST-002.1.3:node dist/cli/index.js mcp test filesystem:60
+ST-002.2.1:node dist/cli/index.js mcp list-all:30
+ST-002.2.2:node dist/cli/index.js mcp debug:60
+
+# CLI-002: Provider Management (3 tests)
+CLI-002.1.1:node dist/cli/index.js provider status:300
+CLI-002.1.2:node dist/cli/index.js provider status --verbose:360
+CLI-002.2.1:node dist/cli/index.js generate "best provider test":120
+
+# SDK-002: Provider Factory Tests (3 tests)
+SDK-002.1.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); await sdk.generateText({prompt:'factory test'}); })":60
+SDK-002.1.2:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); console.log(await sdk.getBestProvider()); })":30
+SDK-002.1.3:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink({preferredProvider:'google-ai'}); await sdk.generateText({prompt:'config test'}); })":60
+
+# CLI-003: Configuration Commands (5 tests)
+CLI-003.1.1:node dist/cli/index.js config export:30
+CLI-003.1.2:node -e "process.env.TEST_VAR='test'; console.log('env test')" && node dist/cli/index.js generate "env test":60
+CLI-003.2.1:node dist/cli/index.js generate "timeout test" --timeout 5:30
+CLI-003.2.2:node dist/cli/index.js generate "model test" --model gemini-1.5-pro:60
+CLI-003.3.1:node dist/cli/index.js generate "system test" --system "You are a test assistant":60
+
+# CLI-004: MCP Commands (5 tests)  
+CLI-004.1.1:node dist/cli/index.js mcp list:30
+CLI-004.1.2:node dist/cli/index.js mcp add test-server "echo test":30
+CLI-004.1.3:node dist/cli/index.js mcp remove test-server:30
+CLI-004.2.1:node dist/cli/index.js mcp exec filesystem list_directory "{}":60
+CLI-004.2.2:node dist/cli/index.js mcp run getCurrentTime:60
+
+# SDK-003: Text Generation APIs (8 tests)
+SDK-003.1.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generateText({prompt:'basic'}); console.log('len:', r.content?.length); })":60
+SDK-003.1.2:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.gen('short test'); console.log('gen:', typeof r); })":60
+SDK-003.1.3:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generate('generate test'); console.log('generate:', typeof r); })":60
+SDK-003.2.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generateText({prompt:'temp test', temperature:0.1}); console.log('temp done'); })":60
+SDK-003.2.2:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generateText({prompt:'token test', maxTokens:20}); console.log('tokens done'); })":60
+SDK-003.3.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generateText({prompt:'timeout test', timeout:5000}); console.log('timeout done'); })":30
+SDK-003.3.2:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generateText({prompt:'system test', system:'Be brief'}); console.log('system done'); })":60
+SDK-003.4.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); try { await sdk.generateText({}); } catch(e) { console.log('error handling:', e.message); } })":30
+
+# Performance Tests (10 tests)
+PERF-001:node dist/cli/index.js generate "$(printf 'performance test %.0s' {1..100})":90
+PERF-002:for i in {1..3}; do node dist/cli/index.js generate "concurrent $i" & done; wait:90
+PERF-003:node dist/cli/index.js generate "large response test - write a detailed explanation of AI testing methodologies":120
+PERF-004:time node dist/cli/index.js generate "timing test":60
+PERF-005:node dist/cli/index.js stream "performance streaming test with multiple sentences to check throughput":90
+PERF-006:node dist/cli/index.js batch <(printf '%s\n' "test 1" "test 2" "test 3" "test 4" "test 5"):120
+PERF-007:node dist/cli/index.js generate "memory test" --max-tokens 1000:90
+PERF-008:node dist/cli/index.js generate "quick test" --timeout 1:10
+PERF-009:seq 1 5 | parallel -j5 "node dist/cli/index.js generate 'parallel test {}'"':150
+PERF-010:node dist/cli/index.js generate "stress test" --enable-analytics --enable-evaluation --format json:120
+
+# Error Handling Tests (8 tests)
+ERROR-001:node dist/cli/index.js generate "":30
+ERROR-002:node dist/cli/index.js generate "test" --provider invalid-provider:30
+ERROR-003:node dist/cli/index.js generate "test" --temperature 2.0:60
+ERROR-004:node dist/cli/index.js generate "test" --max-tokens -1:30
+ERROR-005:node dist/cli/index.js nonexistent-command:30
+ERROR-006:node dist/cli/index.js mcp test nonexistent-server:60
+ERROR-007:node -e "import('./dist/index.js').then(async m => { try { await new m.NeuroLink().generateText(); } catch(e) { console.log('SDK error:', e.message); } })":30
+ERROR-008:timeout 1 node dist/cli/index.js generate "timeout error test":10
+
+# Edge Cases (7 tests)
+EDGE-001:node dist/cli/index.js generate "test with special chars: !@#$%^&*()":60
+EDGE-002:node dist/cli/index.js generate 'test with "quotes" and '"'"'apostrophes'"'"'':60
+EDGE-003:echo "test with newlines" | node dist/cli/index.js generate:60
+EDGE-004:node dist/cli/index.js generate "$(printf '\u03B1\u03B2\u03B3')":60
+EDGE-005:node dist/cli/index.js generate "test" --format json | jq '.content | length':60
+EDGE-006:node dist/cli/index.js generate "emoji test 🚀🔥⚡":60
+EDGE-007:node dist/cli/index.js generate "" --system "Handle empty prompts gracefully":60

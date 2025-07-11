@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { createMockExecutionContext } from "./helpers/test-utilities.js";
 import { SessionManager } from "../lib/mcp/session-manager.js";
 import type {
   NeuroLinkExecutionContext,
@@ -17,12 +18,12 @@ describe("SessionManager", () => {
   beforeEach(() => {
     // Create session manager with short TTL for testing
     sessionManager = new SessionManager(5000, 1000, false); // 5s TTL, 1s cleanup, no auto-cleanup
-    mockContext = {
+    mockContext = createMockExecutionContext({
       sessionId: "test-session-123",
       userId: "test-user",
       timestamp: Date.now(),
       permissions: ["read", "write"],
-    };
+    });
   });
 
   afterEach(() => {
@@ -318,11 +319,11 @@ describe("SessionManager", () => {
   });
 
   describe("Active Sessions", () => {
-    it("should return all active sessions", () => {
+    it("should return all active sessions", async () => {
       const session1 = sessionManager.createSession(mockContext);
       const session2 = sessionManager.createSession(mockContext);
 
-      const active = sessionManager.getActiveSessions();
+      const active = await sessionManager.getActiveSessions();
       expect(active).toHaveLength(2);
       expect(active.map((s) => s.id)).toContain(session1.id);
       expect(active.map((s) => s.id)).toContain(session2.id);
@@ -336,7 +337,7 @@ describe("SessionManager", () => {
       // Wait for first to expire
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const activeSessions = sessionManager.getActiveSessions();
+      const activeSessions = await sessionManager.getActiveSessions();
       expect(activeSessions).toHaveLength(1);
       expect(activeSessions[0].id).toBe(active.id);
     });

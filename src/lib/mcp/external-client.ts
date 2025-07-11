@@ -97,6 +97,11 @@ export class ExternalMCPClient extends EventEmitter {
         env: { ...process.env, ...this.config.env },
       });
 
+      // 🔧 FIX: Register for cleanup
+      process.once("beforeExit", () => this.disconnect());
+      process.once("SIGINT", () => this.disconnect());
+      process.once("SIGTERM", () => this.disconnect());
+
       if (!this.process.stdout || !this.process.stdin || !this.process.stderr) {
         throw new Error("Failed to create stdio pipes");
       }
@@ -406,7 +411,7 @@ export class ExternalMCPClient extends EventEmitter {
     }
     this.pendingRequests.clear();
 
-    // Close process
+    // 🔧 FIX: Enhanced process cleanup
     if (this.process) {
       this.process.kill("SIGTERM");
 
@@ -415,7 +420,7 @@ export class ExternalMCPClient extends EventEmitter {
         if (this.process && !this.process.killed) {
           this.process.kill("SIGKILL");
         }
-      }, 5000);
+      }, 1000); // Reduced from 5000ms to 1000ms
 
       this.process = null;
     }

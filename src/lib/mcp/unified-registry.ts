@@ -24,6 +24,8 @@ import {
 } from "./transport-manager.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { ErrorManager } from "./error-manager.js";
+import * as fs from "fs";
+import * as path from "path";
 
 /**
  * Unified registry combining multiple sources
@@ -42,10 +44,13 @@ export class UnifiedMCPRegistry extends MCPToolRegistry {
   }
 
   /**
-   * Initialize with auto-discovery
+   * Initialize with auto-discovery and manual config
    */
   async initialize(options: DiscoveryOptions = {}): Promise<void> {
     unifiedRegistryLogger.info("Initializing unified MCP registry...");
+
+    // Load manual configuration first
+    await this.loadManualConfig();
 
     if (this.autoDiscoveryEnabled) {
       const result = await autoRegisterMCPServers(options);
@@ -59,6 +64,76 @@ export class UnifiedMCPRegistry extends MCPToolRegistry {
         this.autoDiscoveredServers.push(plugin);
         this.availableServers.add(plugin.metadata.name);
       }
+    }
+  }
+
+  /**
+   * Load servers from .mcp-config.json
+   */
+  private async loadManualConfig(): Promise<void> {
+    const configPath = path.join(process.cwd(), ".mcp-config.json");
+
+    try {
+      await fs.promises.access(configPath, fs.constants.F_OK);
+    } catch {
+      unifiedRegistryLogger.debug("No .mcp-config.json found");
+      return;
+    }
+
+    try {
+      const configContent = await fs.promises.readFile(configPath, "utf-8");
+      const config = JSON.parse(configContent);
+
+      if (!config.mcpServers) {
+        unifiedRegistryLogger.debug("No mcpServers section in config");
+        return;
+      }
+
+      unifiedRegistryLogger.info(
+        `Loading ${Object.keys(config.mcpServers).length} servers from .mcp-config.json`,
+      );
+
+      for (const [serverId, serverConfig] of Object.entries(
+        config.mcpServers,
+      )) {
+        try {
+          // Convert server config to DiscoveredMCP format
+          const discoveredMcp: DiscoveredMCP = {
+            metadata: {
+              name: serverId,
+              version: "1.0.0",
+              main: "index.js",
+              engine: { neurolink: ">=4.0.0" },
+              description: `MCP server: ${serverId}`,
+              permissions: ["filesystem", "network"],
+            },
+            entryPath: (serverConfig as any).command || "npx",
+            source: "project" as const,
+            constructor: undefined,
+          };
+
+          // Register the server
+          this.register(discoveredMcp as any);
+          this.manualServers.set(serverId, serverConfig);
+          this.availableServers.add(serverId);
+
+          unifiedRegistryLogger.debug(`Registered manual server: ${serverId}`);
+        } catch (error) {
+          unifiedRegistryLogger.error(
+            `Failed to register server ${serverId}:`,
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      }
+
+      unifiedRegistryLogger.info(
+        `Manual config loaded: ${this.manualServers.size} servers registered`,
+      );
+    } catch (error) {
+      unifiedRegistryLogger.error(
+        "Failed to load manual config:",
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 
@@ -115,33 +190,78 @@ export class UnifiedMCPRegistry extends MCPToolRegistry {
    */
   async listAllTools(): Promise<ToolInfo[]> {
     const allTools: ToolInfo[] = [];
-    const plugins = this.list();
+
+    try {
+      // FIXED: Get built-in tools from base registry
+      const builtInTools = await super.listTools();
+      allTools.push(
+        ...builtInTools.map((tool) => ({
+          ...tool,
+          id: tool.name,
+          serverId: tool.serverId || "built-in",
+          source: "built-in",
+          isExternal: false,
+        })),
+      );
+
+      unifiedRegistryLogger.debug(
+        `Found ${builtInTools.length} built-in tools`,
+      );
+    } catch (error) {
+      unifiedRegistryLogger.warn("Failed to get built-in tools:", error);
+    }
+
+    // FIXED: Get tools from external servers with proper error handling
+    // Use the internal plugin registry for accurate server listing
+    const plugins = Array.from(this.plugins.values());
+    const externalToolPromises: Promise<void>[] = [];
 
     for (const plugin of plugins) {
-      try {
-        // Get tools from plugin metadata if available
-        const tools = await this.listTools();
-        allTools.push(
-          ...tools.map((tool) => ({
-            ...tool,
-            id: tool.name,
-            serverId: tool.serverId || plugin.metadata.name,
-            source: "unified",
-          })),
-        );
-      } catch (error) {
-        unifiedRegistryLogger.warn(
-          `Failed to get tools from ${plugin.metadata.name}:`,
-          error,
-        );
+      if (
+        plugin.metadata?.name &&
+        this.availableServers.has(plugin.metadata.name)
+      ) {
+        const connection = this.activeConnections.get(plugin.metadata.name);
+        if (connection) {
+          externalToolPromises.push(
+            connection
+              .listTools()
+              .then((response) => {
+                const serverTools = response.tools || [];
+                allTools.push(
+                  ...serverTools.map((tool) => ({
+                    name: tool.name,
+                    description: tool.description,
+                    inputSchema: tool.inputSchema,
+                    serverId: plugin.metadata.name,
+                    id: `${plugin.metadata.name}.${tool.name}`,
+                    source: "external",
+                    isExternal: true,
+                  })),
+                );
+                unifiedRegistryLogger.debug(
+                  `Found ${serverTools.length} tools from ${plugin.metadata.name}`,
+                );
+              })
+              .catch((error) => {
+                unifiedRegistryLogger.warn(
+                  `Failed to get tools from ${plugin.metadata.name}:`,
+                  error,
+                );
+              }),
+          );
+        }
       }
     }
 
+    await Promise.all(externalToolPromises);
+
+    unifiedRegistryLogger.info(`Total tools available: ${allTools.length}`);
     return allTools;
   }
 
   /**
-   * Execute a tool through the registry
+   * Execute a tool through the registry with fallback to direct MCP execution
    */
   async executeTool<T = unknown>(
     toolName: string,
@@ -149,7 +269,124 @@ export class UnifiedMCPRegistry extends MCPToolRegistry {
     context?: ExecutionContext,
   ): Promise<T> {
     unifiedRegistryLogger.info(`Executing tool: ${toolName}`);
-    return super.executeTool<T>(toolName, args, context);
+
+    // STEP 1: Try built-in tools first
+    try {
+      const result = await super.executeTool<T>(toolName, args, context);
+      unifiedRegistryLogger.info(
+        `Tool ${toolName} executed successfully via built-in registry`,
+      );
+      return result;
+    } catch (builtInError: any) {
+      unifiedRegistryLogger.debug(
+        `Built-in tool execution failed: ${builtInError.message}`,
+      );
+    }
+
+    // STEP 2: Try external MCP servers
+    try {
+      const result = await this.executeToolViaMCPServer<T>(
+        toolName,
+        args,
+        context,
+      );
+      unifiedRegistryLogger.info(
+        `Tool ${toolName} executed successfully via external MCP server`,
+      );
+      return result;
+    } catch (externalError: any) {
+      unifiedRegistryLogger.debug(
+        `External MCP execution failed: ${externalError.message}`,
+      );
+    }
+
+    // STEP 3: Comprehensive error with available tools
+    const availableTools = await this.listAllTools();
+    const toolNames = availableTools.map((t) => t.name).join(", ");
+    const builtInTools = availableTools
+      .filter((t) => !t.isExternal)
+      .map((t) => t.name)
+      .join(", ");
+    const externalTools = availableTools
+      .filter((t) => t.isExternal)
+      .map((t) => `${t.serverId}.${t.name}`)
+      .join(", ");
+
+    const errorMessage = [
+      `Tool '${toolName}' not found in any registry.`,
+      `Available built-in tools: ${builtInTools || "none"}`,
+      `Available external tools: ${externalTools || "none"}`,
+      `Connected servers: ${Array.from(this.availableServers).join(", ") || "none"}`,
+    ].join("\n");
+
+    throw new Error(errorMessage);
+  }
+
+  /**
+   * Execute tool via direct MCP server connection (fallback)
+   */
+  private async executeToolViaMCPServer<T = unknown>(
+    toolName: string,
+    args?: unknown,
+    context?: ExecutionContext,
+  ): Promise<T> {
+    const configPath = path.join(process.cwd(), ".mcp-config.json");
+
+    if (!fs.existsSync(configPath)) {
+      throw new Error(
+        `Tool '${toolName}' not found and no .mcp-config.json for fallback`,
+      );
+    }
+
+    const configContent = fs.readFileSync(configPath, "utf-8");
+    const config = JSON.parse(configContent);
+
+    if (!config.mcpServers) {
+      throw new Error(`Tool '${toolName}' not found and no servers configured`);
+    }
+
+    // Try each configured server
+    const errors: string[] = [];
+    for (const [serverId, serverConfig] of Object.entries(config.mcpServers)) {
+      try {
+        unifiedRegistryLogger.debug(
+          `Trying tool ${toolName} on server ${serverId}`,
+        );
+
+        // Import the executeMCPTool function
+        const { executeMCPTool } = await import("../../cli/commands/mcp.js");
+        const result = await executeMCPTool(
+          serverConfig as any,
+          toolName,
+          args || {},
+        );
+
+        // Convert to ToolResult format
+        const toolResult = {
+          success: true,
+          data: result,
+          metadata: { toolName, serverId, sessionId: context?.sessionId },
+        };
+
+        unifiedRegistryLogger.info(
+          `Tool ${toolName} executed successfully via server ${serverId}`,
+        );
+        return toolResult as T;
+      } catch (serverError) {
+        const errorMsg =
+          serverError instanceof Error
+            ? serverError.message
+            : String(serverError);
+        errors.push(`${serverId}: ${errorMsg}`);
+        unifiedRegistryLogger.debug(
+          `Tool ${toolName} failed on server ${serverId}: ${errorMsg}`,
+        );
+      }
+    }
+
+    throw new Error(
+      `Tool '${toolName}' not found on any configured MCP server. Errors: ${errors.join("; ")}`,
+    );
   }
 
   /**
@@ -192,11 +429,17 @@ export class UnifiedMCPRegistry extends MCPToolRegistry {
   /**
    * Get registry statistics (override parent method)
    */
-  getStats(): Record<
-    string,
-    { count: number; averageTime: number; totalTime: number }
-  > {
-    // Return execution stats in the expected format
+  getStats(): {
+    totalServers: number;
+    totalTools: number;
+    serversByCategory: Record<string, number>;
+    toolsByCategory: Record<string, number>;
+    executionStats: Record<
+      string,
+      { count: number; averageTime: number; totalTime: number }
+    >;
+  } {
+    // Return full stats interface as expected by MCPOrchestrator
     return super.getStats();
   }
 

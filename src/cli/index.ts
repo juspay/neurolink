@@ -374,15 +374,14 @@ const cli = yargs(args)
 
   // Generate Text Command
   .command(
-    ["generate-text <prompt>", "generate <prompt>", "gen <prompt>"],
+    ["generate-text [prompt]", "generate [prompt]", "gen [prompt]"],
     "Generate text using AI providers",
     (yargsInstance) =>
       yargsInstance
-        .usage("Usage: $0 generate-text <prompt> [options]")
+        .usage("Usage: $0 generate-text [prompt] [options]")
         .positional("prompt", {
           type: "string",
-          description: "Text prompt for AI generation",
-          demandOption: true,
+          description: "Text prompt for AI generation (or read from stdin)",
         })
         .option("provider", {
           choices: [
@@ -484,6 +483,73 @@ const cli = yargs(args)
           "Use without tool integration",
         ),
     async (argv) => {
+      // SOLUTION 1: Handle stdin input if no prompt provided
+      if (!argv.prompt && !process.stdin.isTTY) {
+        // Read from stdin
+        let stdinData = "";
+        process.stdin.setEncoding("utf8");
+
+        for await (const chunk of process.stdin) {
+          stdinData += chunk;
+        }
+
+        argv.prompt = stdinData.trim();
+
+        if (!argv.prompt) {
+          throw new Error("No input received from stdin");
+        }
+      } else if (!argv.prompt) {
+        throw new Error(
+          'Prompt required. Use: neurolink generate "your prompt" or echo "prompt" | neurolink generate',
+        );
+      }
+
+      // SOLUTION 2: Parameter validation
+      const errors: string[] = [];
+
+      // Validate max-tokens
+      if (argv.maxTokens !== undefined) {
+        if (!Number.isInteger(argv.maxTokens) || argv.maxTokens < 1) {
+          errors.push(
+            `max-tokens must be a positive integer >= 1, got: ${argv.maxTokens}`,
+          );
+        }
+        if (argv.maxTokens > 100000) {
+          errors.push(`max-tokens too large (>100000), got: ${argv.maxTokens}`);
+        }
+      }
+
+      // Validate temperature
+      if (argv.temperature !== undefined) {
+        if (
+          typeof argv.temperature !== "number" ||
+          argv.temperature < 0 ||
+          argv.temperature > 1
+        ) {
+          errors.push(
+            `temperature must be between 0.0 and 1.0, got: ${argv.temperature}`,
+          );
+        }
+      }
+
+      // Validate timeout
+      if (argv.timeout !== undefined) {
+        if (!Number.isInteger(argv.timeout) || argv.timeout < 1) {
+          errors.push(
+            `timeout must be a positive integer >= 1 second, got: ${argv.timeout}`,
+          );
+        }
+        if (argv.timeout > 600) {
+          errors.push(`timeout too large (>600s), got: ${argv.timeout}s`);
+        }
+      }
+
+      if (errors.length > 0) {
+        throw new Error(
+          `Parameter validation failed:\n${errors.map((e) => `  • ${e}`).join("\n")}\n\nUse --help for valid parameter ranges.`,
+        );
+      }
+
       // Check if generate-text was used specifically (for deprecation warning)
       const usedCommand = argv._[0];
       if (usedCommand === "generate-text" && !argv.quiet) {
@@ -759,15 +825,14 @@ const cli = yargs(args)
 
   // Stream Text Command
   .command(
-    "stream <prompt>",
+    "stream [prompt]",
     "Stream text generation in real-time",
     (yargsInstance) =>
       yargsInstance
-        .usage("Usage: $0 stream <prompt> [options]")
+        .usage("Usage: $0 stream [prompt] [options]")
         .positional("prompt", {
           type: "string",
-          description: "Text prompt for streaming",
-          demandOption: true,
+          description: "Text prompt for streaming (or read from stdin)",
         })
         .option("provider", {
           choices: [
@@ -850,6 +915,27 @@ const cli = yargs(args)
           "Stream without tool integration",
         ),
     async (argv) => {
+      // SOLUTION 1: Handle stdin input if no prompt provided
+      if (!argv.prompt && !process.stdin.isTTY) {
+        // Read from stdin
+        let stdinData = "";
+        process.stdin.setEncoding("utf8");
+
+        for await (const chunk of process.stdin) {
+          stdinData += chunk;
+        }
+
+        argv.prompt = stdinData.trim();
+
+        if (!argv.prompt) {
+          throw new Error("No input received from stdin");
+        }
+      } else if (!argv.prompt) {
+        throw new Error(
+          'Prompt required. Use: neurolink stream "your prompt" or echo "prompt" | neurolink stream',
+        );
+      }
+
       // Default mode: Simple streaming message
       // Debug mode: More detailed information
       if (!argv.quiet && !argv.debug) {

@@ -163,7 +163,7 @@ describe("Unified MCP System", () => {
         category: "custom",
       });
 
-      customServer.registerTool({
+      customServer.register({
         name: "test-tool",
         description: "A test tool",
         execute: async (params, context) => ({

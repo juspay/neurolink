@@ -8,10 +8,9 @@ import fs from "fs/promises";
 import path from "path";
 import { SessionManager } from "../lib/mcp/session-manager.js";
 import { SessionPersistence } from "../lib/mcp/session-persistence.js";
-import type {
-  OrchestratorSession,
-  NeuroLinkExecutionContext,
-} from "../lib/mcp/factory.js";
+import type { OrchestratorSession } from "../lib/mcp/session-manager.js";
+import type { NeuroLinkExecutionContext } from "../lib/mcp/factory.js";
+import { createMockExecutionContext } from "./helpers/test-utilities.js";
 
 // Mock fs module
 vi.mock("fs/promises");
@@ -52,12 +51,12 @@ describe("Session Persistence", () => {
     });
 
     // Test context
-    testContext = {
+    testContext = createMockExecutionContext({
       sessionId: "test-session-1",
       userId: "user-123",
       aiProvider: "openai",
       permissions: ["read", "write"],
-    };
+    });
   });
 
   afterEach(() => {
@@ -182,7 +181,7 @@ describe("Session Persistence", () => {
       await sessionManager.updateSession(session.id, {
         success: true,
         data: { result: "test" },
-        usage: { duration: 100 },
+        usage: { executionTime: 100 },
       });
 
       // Verify save was called
@@ -338,7 +337,7 @@ describe("SessionPersistence Class", () => {
   it("should handle atomic writes correctly", async () => {
     const session: OrchestratorSession = {
       id: "atomic-test",
-      context: { sessionId: "atomic-test" },
+      context: createMockExecutionContext({ sessionId: "atomic-test" }),
       toolHistory: [],
       state: new Map([["key", "value"]]),
       metadata: {},

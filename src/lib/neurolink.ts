@@ -178,6 +178,17 @@ export class NeuroLink {
   async generateText(
     options: TextGenerationOptions,
   ): Promise<TextGenerationResult> {
+    // 🔧 FIX: Add input validation
+    if (
+      !options ||
+      typeof options.prompt !== "string" ||
+      options.prompt.trim() === ""
+    ) {
+      throw new Error(
+        "options.prompt is required and must be a non-empty string",
+      );
+    }
+
     // Tools are DEFAULT behavior unless explicitly disabled
     if (options.disableTools === true) {
       return this.generateTextRegular(options);
@@ -214,7 +225,7 @@ export class NeuroLink {
     try {
       mcpLogger.debug(`[${functionTag}] Starting MCP-enabled generation`, {
         provider: providerName,
-        prompt: options.prompt.substring(0, 100) + "...",
+        prompt: (options.prompt?.substring(0, 100) || "No prompt") + "...",
         contextId: context.sessionId,
       });
 
@@ -359,25 +370,16 @@ export class NeuroLink {
     const requestedProvider =
       options.provider === "auto" ? undefined : options.provider;
 
-    // Local providers that should not fall back when explicitly requested
-    const localProviders = ["ollama"];
-
-    // If specific provider requested, check if we should allow fallback
+    // If specific provider requested, only use that provider (no fallback)
     const tryProviders = requestedProvider
-      ? localProviders.includes(requestedProvider)
-        ? [requestedProvider] // No fallback for local providers
-        : [
-            requestedProvider,
-            ...providerPriority.filter((p) => p !== requestedProvider),
-          ]
+      ? [requestedProvider] // Only use the requested provider, no fallback
       : providerPriority;
 
     logger.debug(`[${functionTag}] Starting text generation`, {
       requestedProvider: requestedProvider || "auto",
       tryProviders,
-      allowFallback:
-        !requestedProvider || !localProviders.includes(requestedProvider),
-      promptLength: options.prompt.length,
+      allowFallback: !requestedProvider,
+      promptLength: options.prompt?.length || 0,
     });
 
     let lastError: Error | null = null;
@@ -391,6 +393,7 @@ export class NeuroLink {
         const provider = await AIProviderFactory.createProvider(
           providerName,
           options.model,
+          false, // Explicitly disable MCP when tools are disabled
         );
 
         const result = await provider.generateText(
@@ -544,24 +547,15 @@ Note: Tool integration is currently in development. Please provide helpful respo
     const requestedProvider =
       options.provider === "auto" ? undefined : options.provider;
 
-    // Local providers that should not fall back when explicitly requested
-    const localProviders = ["ollama"];
-
-    // If specific provider requested, check if we should allow fallback
+    // If specific provider requested, only use that provider (no fallback)
     const tryProviders = requestedProvider
-      ? localProviders.includes(requestedProvider)
-        ? [requestedProvider] // No fallback for local providers
-        : [
-            requestedProvider,
-            ...providerPriority.filter((p) => p !== requestedProvider),
-          ]
+      ? [requestedProvider] // Only use the requested provider, no fallback
       : providerPriority;
 
     logger.debug(`[${functionTag}] Starting stream generation`, {
       requestedProvider: requestedProvider || "auto",
       tryProviders,
-      allowFallback:
-        !requestedProvider || !localProviders.includes(requestedProvider),
+      allowFallback: !requestedProvider,
       promptLength: options.prompt.length,
     });
 
@@ -576,6 +570,7 @@ Note: Tool integration is currently in development. Please provide helpful respo
         const provider = await AIProviderFactory.createProvider(
           providerName,
           options.model,
+          false, // Explicitly disable MCP when tools are disabled
         );
 
         const result = await provider.streamText({
@@ -659,7 +654,11 @@ Note: Tool integration is currently in development. Please provide helpful respo
     testPrompt: string = "test",
   ): Promise<boolean> {
     try {
-      const provider = await AIProviderFactory.createProvider(providerName);
+      const provider = await AIProviderFactory.createProvider(
+        providerName,
+        null,
+        false,
+      ); // Disable MCP for simple testing
       await provider.generateText({
         prompt: testPrompt,
         enableAnalytics: false,

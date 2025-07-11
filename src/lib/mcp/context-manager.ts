@@ -266,6 +266,15 @@ export class ContextManager {
   }
 
   /**
+   * Store context directly (used when session ID changes)
+   *
+   * @param context Complete execution context to store
+   */
+  storeContext(context: NeuroLinkExecutionContext): void {
+    this.activeContexts.set(context.sessionId, context);
+  }
+
+  /**
    * Remove context from active tracking
    *
    * @param sessionId Session identifier

@@ -12,6 +12,30 @@ import { hasProviderEnvVars } from "./providerUtils.js";
 export async function getBestProvider(
   requestedProvider?: string,
 ): Promise<string> {
+  // 🔧 FIX: Check for explicit default provider in env
+  if (
+    process.env.DEFAULT_PROVIDER &&
+    (await isProviderAvailable(process.env.DEFAULT_PROVIDER))
+  ) {
+    logger.debug(
+      `[getBestProvider] Using DEFAULT_PROVIDER: ${process.env.DEFAULT_PROVIDER}`,
+    );
+    return process.env.DEFAULT_PROVIDER;
+  }
+
+  // 🔧 FIX: Special case for Ollama when explicitly configured
+  if (process.env.OLLAMA_BASE_URL && process.env.OLLAMA_MODEL) {
+    // Quick connectivity check for Ollama
+    try {
+      if (await isProviderAvailable("ollama")) {
+        logger.debug(`[getBestProvider] Prioritizing working local Ollama`);
+        return "ollama"; // Prioritize working local AI
+      }
+    } catch {
+      // Fall through to cloud providers
+    }
+  }
+
   const providers = [
     "google-ai",
     "anthropic",
@@ -21,7 +45,7 @@ export async function getBestProvider(
     "azure",
     "huggingface",
     "bedrock",
-    "ollama",
+    "ollama", // Keep as fallback
   ];
 
   if (requestedProvider && requestedProvider !== "auto") {

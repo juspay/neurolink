@@ -43,7 +43,26 @@ declare const process: {
 const getOpenAIApiKey = (): string => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY environment variable is not set");
+    // 🔧 FIX: Enhanced error message with setup instructions
+    throw new Error(
+      `❌ OPENAI Provider Configuration Error
+
+Missing required environment variables: OPENAI_API_KEY
+
+🔧 Step 1: Get Credentials
+Get your API key from https://platform.openai.com/api-keys
+
+💡 Step 2: Add to your .env file (or export in CLI):
+OPENAI_API_KEY="sk-proj-your-openai-api-key"
+# Optional:
+OPENAI_MODEL="gpt-4o"
+OPENAI_BASE_URL="https://api.openai.com"
+
+🚀 Step 3: Test the setup:
+npx neurolink generate "Hello" --provider openai
+
+📖 Full setup guide: https://docs.neurolink.ai/providers/openai`,
+    );
   }
   return apiKey;
 };

@@ -11,6 +11,12 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "transport": "stdio"
+    },
+    "brave-search": {
+      "name": "brave-search",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "transport": "stdio"
     }
   },
   "autoDiscovery": {

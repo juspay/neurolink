@@ -33,7 +33,7 @@ export interface McpRegistry {
  * Maintains backward compatibility with existing code
  */
 export class MCPRegistry implements McpRegistry {
-  private plugins = new Map<string, DiscoveredMcp>();
+  public plugins = new Map<string, DiscoveredMcp>();
 
   /**
    * Register a plugin

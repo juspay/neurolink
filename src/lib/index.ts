@@ -40,7 +40,7 @@ export { PROVIDERS, AVAILABLE_PROVIDERS } from "./providers/index.js";
 
 // Utility exports
 export {
-  getBestProviderSync as getBestProvider,
+  getBestProvider,
   getAvailableProviders,
   isValidProvider,
 } from "./utils/providerUtils.js";

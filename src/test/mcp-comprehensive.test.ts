@@ -16,7 +16,7 @@ import type {
   NeuroLinkExecutionContext,
   ToolResult,
 } from "../lib/mcp/factory.js";
-import type { MCPToolRegistry } from "../lib/mcp/registry.js";
+import type { MCPToolRegistry } from "../lib/mcp/tool-registry.js";
 import {
   ContextManager,
   ContextValidator,
@@ -32,8 +32,8 @@ describe("MCP Foundation Tests", () => {
   let orchestrator: MCPOrchestrator;
 
   beforeEach(async () => {
-    const { MCPRegistry } = await import("../lib/mcp/registry.js");
-    registry = new MCPRegistry();
+    const { MCPToolRegistry } = await import("../lib/mcp/tool-registry.js");
+    registry = new MCPToolRegistry();
     contextManager = new ContextManager();
     orchestrator = new MCPOrchestrator(registry as any, contextManager);
   });
@@ -82,6 +82,7 @@ describe("MCP Foundation Tests", () => {
         category: "testing",
       };
 
+      // ✅ Fix: Use correct method name
       server.registerTool(mockTool);
 
       expect(server.tools["test-tool"]).toBeDefined();
@@ -101,6 +102,7 @@ describe("MCP Foundation Tests", () => {
         execute: async () => ({ success: true }),
       };
 
+      // ✅ Fix: Use correct method name
       server.registerTool(tool);
 
       expect(() => {
@@ -238,15 +240,16 @@ describe("MCP Foundation Tests", () => {
         category: "testing",
       };
 
+      // ✅ Fix: Use correct method name
       server.registerTool(tool);
       await registry.registerServer(server);
 
-      const tools = registry.listTools();
+      const tools = await registry.listTools();
       expect(tools.length).toBeGreaterThanOrEqual(1);
 
       const registryTool = tools.find((t) => t.name === "registry-tool");
       expect(registryTool).toBeDefined();
-      expect(registryTool?.server).toBe("registry-test");
+      expect(registryTool?.serverId).toBe("registry-test");
     });
 
     it("should execute tools with context tracking", async () => {
@@ -379,17 +382,17 @@ describe("MCP Foundation Tests", () => {
       await registry.registerServer(server);
 
       // Filter by category
-      const searchTools = registry.listTools({ category: "search" });
+      const searchTools = await registry.listTools({ category: "search" });
       expect(searchTools).toHaveLength(1);
       expect(searchTools[0].name).toBe("search-tool");
 
       // Filter by permissions
-      const adminTools = registry.listTools({ permissions: ["admin"] });
+      const adminTools = await registry.listTools({ permissions: ["admin"] });
       expect(adminTools).toHaveLength(1);
       expect(adminTools[0].name).toBe("admin-tool");
 
       // Filter by server category
-      const developmentServerTools = registry.listTools({
+      const developmentServerTools = await registry.listTools({
         serverCategory: "development",
       });
       expect(developmentServerTools).toHaveLength(2);
@@ -530,8 +533,8 @@ describe("MCP Foundation Tests", () => {
   describe("1.2 AI Provider Tools Integration", () => {
     // No beforeEach needed - orchestrator auto-registers AI Core Server
 
-    it("should list AI core tools", () => {
-      const tools = registry.listTools({ serverId: "neurolink-ai-core" });
+    it("should list AI core tools", async () => {
+      const tools = await registry.listTools({ serverId: "neurolink-ai-core" });
 
       expect(tools.length).toBeGreaterThan(0);
 

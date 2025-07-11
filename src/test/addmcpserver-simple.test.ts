@@ -322,6 +322,8 @@ describe("addMCPServer() Core Tests", () => {
     describe("SSE Transport", () => {
       it("should register SSE server with url and headers", async () => {
         await neurolink.addMCPServer("sse-server", {
+          command: "npx",
+          args: ["@example/sse-server"],
           type: "sse",
           url: "https://api.example.com/sse",
           headers: {
@@ -347,8 +349,11 @@ describe("addMCPServer() Core Tests", () => {
 
       it("should register SSE server with minimal config", async () => {
         await neurolink.addMCPServer("minimal-sse", {
+          command: "npx",
+          args: ["@example/minimal-sse"],
           type: "sse",
           url: "https://minimal.example.com/events",
+          timeout: 30000,
         });
 
         expect(unifiedRegistry.addExternalServer).toHaveBeenCalledWith(
@@ -364,6 +369,8 @@ describe("addMCPServer() Core Tests", () => {
     describe("HTTP Transport", () => {
       it("should register HTTP server with full configuration", async () => {
         await neurolink.addMCPServer("http-api", {
+          command: "npx",
+          args: ["@company/http-api-server"],
           type: "http",
           url: "https://api.company.com/mcp",
           headers: {
@@ -391,11 +398,14 @@ describe("addMCPServer() Core Tests", () => {
 
       it("should register HTTP server with basic auth", async () => {
         await neurolink.addMCPServer("auth-http", {
+          command: "npx",
+          args: ["@secure/auth-http-server"],
           type: "http",
           url: "https://secure.api.com/endpoint",
           headers: {
             Authorization: "Basic dXNlcjpwYXNz",
           },
+          timeout: 30000,
         });
 
         expect(unifiedRegistry.addExternalServer).toHaveBeenCalledWith(

@@ -9,7 +9,7 @@ import {
   Ollama,
   MistralAI,
 } from "../providers/index.js";
-import { getBestProviderSync } from "../utils/providerUtils.js";
+import { getBestProvider } from "../utils/providerUtils.js";
 import { logger } from "../utils/logger.js";
 import { dynamicModelProvider } from "./dynamic-models.js";
 import type {
@@ -312,7 +312,7 @@ export class AIProviderFactory {
     const functionTag = "AIProviderFactory.createBestProvider";
 
     try {
-      const bestProvider = getBestProviderSync(requestedProvider);
+      const bestProvider = await getBestProvider(requestedProvider);
 
       logger.debug(`[${functionTag}] Best provider selected`, {
         requestedProvider: requestedProvider || "auto",
