@@ -1,9 +1,8 @@
 # [4.2.0](https://github.com/juspay/neurolink/compare/v4.1.1...v4.2.0) (2025-07-11)
 
-
 ### Features
 
-* **mcp:** comprehensive MCP system enhancements with timeout management ([1d35b5e](https://github.com/juspay/neurolink/commit/1d35b5e12d03ce60bcdf0608749a1b99e8565567))
+- **mcp:** comprehensive MCP system enhancements with timeout management ([1d35b5e](https://github.com/juspay/neurolink/commit/1d35b5e12d03ce60bcdf0608749a1b99e8565567))
 
 ## [4.1.1](https://github.com/juspay/neurolink/compare/v4.1.0...v4.1.1) (2025-07-10)
 

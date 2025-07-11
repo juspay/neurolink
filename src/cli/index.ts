@@ -1602,8 +1602,6 @@ addMCPCommands(cli);
 // Add Ollama Commands
 addOllamaCommands(cli);
 
-
-
 // Execute CLI
 (async () => {
   try {
