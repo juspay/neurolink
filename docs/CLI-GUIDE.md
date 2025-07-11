@@ -102,8 +102,6 @@ npx @juspay/neurolink generate-text "Explain quantum computing"
 - `--timeout <duration>` - Request timeout (default: 30s). Accepts: '30s', '2m', '5000' (ms), '1h'
 - `--quiet` - Suppress spinners and progress indicators
 
-
-
 **Output Example:**
 
 ```
