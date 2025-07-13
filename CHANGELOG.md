@@ -1,3 +1,10 @@
+# [5.1.0](https://github.com/juspay/neurolink/compare/v5.0.0...v5.1.0) (2025-07-13)
+
+
+### Features
+
+* **core:** complete unified multimodal AI platform architecture with generate/stream unification ([846e409](https://github.com/juspay/neurolink/commit/846e409a4a77024ddee9961c9b5049bc99f8335e))
+
 # [5.0.0](https://github.com/juspay/neurolink/compare/v4.2.0...v5.0.0) (2025-07-11)
 
 
