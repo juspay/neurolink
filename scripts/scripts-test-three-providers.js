@@ -42,8 +42,8 @@ async function testHuggingFace() {
 
   try {
     const provider = AIProviderFactory.createProvider("huggingface");
-    const result = await provider.generateText({
-      prompt: testPrompt,
+    const result = await provider.generate({
+      input: { text: testPrompt },
       ...testOptions,
     });
 
@@ -68,8 +68,8 @@ async function testOllama() {
 
   try {
     const provider = AIProviderFactory.createProvider("ollama");
-    const result = await provider.generateText({
-      prompt: testPrompt,
+    const result = await provider.generate({
+      input: { text: testPrompt },
       ...testOptions,
     });
 
@@ -94,8 +94,8 @@ async function testMistralAI() {
 
   try {
     const provider = AIProviderFactory.createProvider("mistral");
-    const result = await provider.generateText({
-      prompt: testPrompt,
+    const result = await provider.generate({
+      input: { text: testPrompt },
       ...testOptions,
     });
 
@@ -141,8 +141,8 @@ async function performanceComparison() {
       const provider = AIProviderFactory.createProvider(providerName);
       const startTime = Date.now();
 
-      await provider.generateText({
-        prompt: "Say 'test'",
+      await provider.generate({
+        input: { text: "Say 'test'" },
         temperature: 0.1,
         maxTokens: 10,
       });

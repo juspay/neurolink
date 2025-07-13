@@ -99,13 +99,13 @@ export class WebSocketChatHandler extends SSEChatHandler {
         });
 
       // Generate AI response
-      const result = await this.provider.generateText({
+      const result = await this.provider.generate({
         prompt: request.prompt,
         temperature: request.options?.temperature,
         maxTokens: request.options?.maxTokens,
       });
 
-      if (!result || !result.text) {
+      if (!result || !result.content) {
         throw new Error("Invalid AI response");
       }
 
@@ -116,7 +116,7 @@ export class WebSocketChatHandler extends SSEChatHandler {
         connectionId,
         timestamp: Date.now(),
         data: {
-          text: result.text,
+          text: result.content,
           sessionId: request.sessionId,
           metadata: {
             provider: this.provider.constructor.name,
@@ -147,13 +147,13 @@ export class WebSocketChatHandler extends SSEChatHandler {
   ): Promise<void> {
     try {
       // Process AI request
-      const result = await this.provider.generateText({
+      const result = await this.provider.generate({
         prompt: request.prompt,
         temperature: request.options?.temperature,
         maxTokens: request.options?.maxTokens,
       });
 
-      if (!result || !result.text) {
+      if (!result || !result.content) {
         throw new Error("Invalid AI response");
       }
 
@@ -164,7 +164,7 @@ export class WebSocketChatHandler extends SSEChatHandler {
         connectionId: "system",
         timestamp: Date.now(),
         data: {
-          text: result.text,
+          text: result.content,
           sessionId: request.sessionId,
           userId: request.userId,
           isGroupMessage: true,
@@ -196,12 +196,12 @@ export class WebSocketChatHandler extends SSEChatHandler {
       );
 
       // Generate response
-      const result = await this.provider.generateText({
+      const result = await this.provider.generate({
         prompt: request.prompt,
         ...request.options,
       });
 
-      if (!result || !result.text) {
+      if (!result || !result.content) {
         throw new Error("Invalid AI response");
       }
 
@@ -212,7 +212,7 @@ export class WebSocketChatHandler extends SSEChatHandler {
         connectionId,
         timestamp: Date.now(),
         data: {
-          text: result.text,
+          text: result.content,
           isStreamingComplete: true,
           channelId,
         },

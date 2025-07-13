@@ -24,6 +24,7 @@ import chalk from "chalk";
 import fs from "fs";
 import { addMCPCommands } from "./commands/mcp.js";
 import { addOllamaCommands } from "./commands/ollama.js";
+import { CLICommandFactory } from "./factories/command-factory.js";
 
 import { AgentEnhancedProvider } from "../lib/providers/agent-enhanced-provider.js";
 import { logger } from "../lib/utils/logger.js";
@@ -372,13 +373,13 @@ const cli = yargs(args)
     exitProcess(); // Default exit
   })
 
-  // Generate Text Command
+  // Generate Command (Primary)
   .command(
-    ["generate-text [prompt]", "generate [prompt]", "gen [prompt]"],
-    "Generate text using AI providers",
+    ["generate [prompt]", "gen [prompt]"],
+    "Generate content using AI providers",
     (yargsInstance) =>
       yargsInstance
-        .usage("Usage: $0 generate-text [prompt] [options]")
+        .usage("Usage: $0 generate [prompt] [options]")
         .positional("prompt", {
           type: "string",
           description: "Text prompt for AI generation (or read from stdin)",
@@ -469,17 +470,17 @@ const cli = yargs(args)
           type: "string",
           description: "JSON context object for custom data",
         })
-        .example('$0 generate-text "Hello world"', "Basic text generation")
+        .example('$0 generate "Hello world"', "Basic content generation")
         .example(
-          '$0 generate-text "Write a story" --provider openai',
+          '$0 generate "Write a story" --provider openai',
           "Use specific provider",
         )
         .example(
-          '$0 generate-text "What time is it?"',
+          '$0 generate "What time is it?"',
           "Use with natural tool integration (default)",
         )
         .example(
-          '$0 generate-text "Hello world" --disable-tools',
+          '$0 generate "Hello world" --disable-tools',
           "Use without tool integration",
         ),
     async (argv) => {
@@ -550,15 +551,7 @@ const cli = yargs(args)
         );
       }
 
-      // Check if generate-text was used specifically (for deprecation warning)
-      const usedCommand = argv._[0];
-      if (usedCommand === "generate-text" && !argv.quiet) {
-        console.warn(
-          chalk.yellow(
-            '⚠️  Warning: "generate-text" is deprecated. Use "generate" or "gen" instead for multimodal support.',
-          ),
-        );
-      }
+      // Command is now the primary generate method
 
       let originalConsole: any = {};
       if (argv.format === "json" && !argv.quiet) {
@@ -606,8 +599,8 @@ const cli = yargs(args)
 
         if (argv.disableTools === true) {
           // Tools disabled - use standard SDK
-          generatePromise = sdk.generateText({
-            prompt: argv.prompt as string,
+          generatePromise = sdk.generate({
+            input: { text: argv.prompt as string },
             provider:
               argv.provider === "auto"
                 ? undefined
@@ -646,7 +639,7 @@ const cli = yargs(args)
             toolCategory: "all", // Enable all tool categories
           });
 
-          generatePromise = agentProvider.generateText({
+          generatePromise = agentProvider.generate({
             prompt: argv.prompt as string,
             temperature: argv.temperature,
             maxTokens: argv.maxTokens, // Respect user's token limit - no artificial caps
@@ -826,7 +819,7 @@ const cli = yargs(args)
   // Stream Text Command
   .command(
     "stream [prompt]",
-    "Stream text generation in real-time",
+    "Stream generation in real-time",
     (yargsInstance) =>
       yargsInstance
         .usage("Usage: $0 stream [prompt] [options]")
@@ -963,8 +956,8 @@ const cli = yargs(args)
 
         if (argv.disableTools === true) {
           // Tools disabled - use standard SDK
-          stream = await sdk.generateTextStream({
-            prompt: argv.prompt as string,
+          stream = await sdk.stream({
+            input: { text: argv.prompt as string },
             provider:
               argv.provider === "auto"
                 ? undefined
@@ -999,8 +992,8 @@ const cli = yargs(args)
           });
 
           // Note: AgentEnhancedProvider doesn't support streaming with tools yet
-          // Fall back to generateText for now
-          const result = await agentProvider.generateText({
+          // Fall back to generate for now
+          const result = await agentProvider.generate({
             prompt: argv.prompt as string,
             temperature: argv.temperature,
             // NEW: Analytics and evaluation support
@@ -1009,7 +1002,7 @@ const cli = yargs(args)
             context: contextObj,
           });
           // Simulate streaming by outputting the result
-          const text = result?.text || "";
+          const text = result?.content || "";
           const CHUNK_SIZE = 10;
           const DELAY_MS = 50;
           for (let i = 0; i < text.length; i += CHUNK_SIZE) {
@@ -1028,7 +1021,7 @@ const cli = yargs(args)
           return; // Exit early for agent mode
         }
 
-        for await (const chunk of stream) {
+        for await (const chunk of stream.stream) {
           process.stdout.write(chunk.content);
           // In debug mode, interleaved logging would appear here
           // (SDK logs are controlled by NEUROLINK_DEBUG set in middleware)
@@ -1037,6 +1030,9 @@ const cli = yargs(args)
         if (!argv.quiet) {
           process.stdout.write("\n");
         } // Ensure newline after stream
+
+        // Exit successfully
+        process.exit(0);
       } catch (error) {
         handleError(error as Error, "Text streaming");
       }
@@ -1152,8 +1148,8 @@ const cli = yargs(args)
             spinner.text = `Processing ${i + 1}/${prompts.length}: ${prompts[i].substring(0, 30)}...`;
           }
           try {
-            const result = await sdk.generateText({
-              prompt: prompts[i],
+            const result = await sdk.generate({
+              input: { text: prompts[i] },
               provider:
                 argv.provider === "auto"
                   ? undefined
@@ -1365,9 +1361,9 @@ const cli = yargs(args)
                 const start = Date.now();
 
                 // Add timeout to prevent hanging
-                const testPromise = sdk.generateText({
-                  prompt: "test",
-                  provider: p,
+                const testPromise = sdk.generate({
+                  input: { text: "test" },
+                  provider: p as any,
                   maxTokens: 1,
                   disableTools: true, // Disable tools for faster status check
                 });
@@ -1595,6 +1591,9 @@ const cli = yargs(args)
       cli.showCompletionScript();
     },
   );
+
+// Add NEW Generate Command (Primary)
+cli.command(CLICommandFactory.createGenerateCommand());
 
 // Add MCP Commands
 addMCPCommands(cli);

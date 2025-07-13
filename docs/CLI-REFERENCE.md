@@ -1,11 +1,34 @@
 # 🖥️ CLI Reference Guide
 
+## ✅ IMPLEMENTATION STATUS: COMPLETE (2025-01-07)
+
+**Generate Function Migration completed - CLI now supports both primary and legacy commands**
+
+- ✅ New `generate` command established as primary
+- ✅ All options and functionality maintained
+- ✅ Zero breaking changes for existing scripts
+
+> **Migration Note**: Use `generate` for new scripts. Existing `generate` scripts continue working with deprecation warnings.
+
+---
+
 ## Complete Command Reference
 
-### Basic Usage
+### Primary Usage (Recommended)
 
 ```bash
+# NEW: Primary command
 npx @juspay/neurolink generate "Your prompt here" [options]
+npx @juspay/neurolink gen "Your prompt here" [options]    # Short form
+
+```
+
+### Migration Examples
+
+```bash
+# ✅ NEW: Recommended usage
+npx @juspay/neurolink generate "Explain AI" --provider google-ai
+npx @juspay/neurolink gen "Write code" --provider openai
 ```
 
 ### Core Options

@@ -55,15 +55,15 @@ EOF
 
 # 1. Record Hugging Face demo
 create_recording "huggingface-demo.cast" "NeuroLink - Hugging Face Provider Demo" \
-    "node dist/cli/index.js generate-text 'What makes open source AI special?' --provider huggingface"
+    "node dist/cli/index.js generate 'What makes open source AI special?' --provider huggingface"
 
 # 2. Record Ollama demo (if available)
 create_recording "ollama-demo.cast" "NeuroLink - Ollama Local AI Demo" \
-    "node dist/cli/index.js generate-text 'Why is local AI important for privacy?' --provider ollama"
+    "node dist/cli/index.js generate 'Why is local AI important for privacy?' --provider ollama"
 
 # 3. Record Mistral demo
 create_recording "mistral-demo.cast" "NeuroLink - Mistral AI Demo" \
-    "node dist/cli/index.js generate-text 'Explain GDPR compliance in AI' --provider mistral"
+    "node dist/cli/index.js generate 'Explain GDPR compliance in AI' --provider mistral"
 
 # 4. Record all providers list
 create_recording "all-providers.cast" "NeuroLink - All 9 Providers" \

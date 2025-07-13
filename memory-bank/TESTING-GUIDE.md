@@ -85,10 +85,10 @@ Always Pass   Provider Mocks   Graceful Skipping   Credential Validation
 ### **Mock Configuration**
 
 ```typescript
-// Mock the AI SDK core functions
+// Mock the AI SDK core functions (providers use these internally)
 vi.mock("ai", () => ({
-  streamText: vi.fn(),
-  generateText: vi.fn(),
+  generate: vi.fn(), // Used internally by providers
+  stream: vi.fn(),   // Used internally by providers
   Output: { object: vi.fn() },
 }));
 

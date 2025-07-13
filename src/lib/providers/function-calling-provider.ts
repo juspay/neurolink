@@ -7,19 +7,16 @@
 import type {
   AIProvider,
   TextGenerationOptions,
-  StreamTextOptions,
-  EnhancedGenerateTextResult,
+  EnhancedGenerateResult,
 } from "../core/types.js";
 import {
-  generateText as aiGenerateText,
   streamText as aiStreamText,
+  generateText as aiGenerate,
   Output,
-  type GenerateTextResult,
-  type StreamTextResult,
-  type ToolSet,
   type Schema,
   type Tool,
 } from "ai";
+import type { GenerateResult } from "../types/generate-types.js";
 import type { ZodType, ZodTypeDef } from "zod";
 import {
   getAvailableFunctionTools,
@@ -30,6 +27,7 @@ import { createExecutionContext } from "../mcp/context-manager.js";
 import type { NeuroLinkExecutionContext } from "../mcp/factory.js";
 import { mcpLogger } from "../mcp/logging.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
+import type { StreamOptions, StreamResult } from "../types/stream-types.js";
 
 /**
  * Enhanced provider that enables real function calling with MCP tools
@@ -55,25 +53,80 @@ export class FunctionCallingProvider implements AIProvider {
   }
 
   /**
+   * PRIMARY METHOD: Stream content using AI (recommended for new code)
+   * Future-ready for multi-modal capabilities with current text focus
+   */
+  async stream(
+    optionsOrPrompt: StreamOptions | string,
+    analysisSchema?: any,
+  ): Promise<StreamResult> {
+    const functionTag = "FunctionCallingProvider.stream";
+    const startTime = Date.now();
+
+    // Parse parameters - support both string and options object
+    const options =
+      typeof optionsOrPrompt === "string"
+        ? { input: { text: optionsOrPrompt } }
+        : optionsOrPrompt;
+
+    // Validate input
+    if (
+      !options?.input?.text ||
+      typeof options.input.text !== "string" ||
+      options.input.text.trim() === ""
+    ) {
+      throw new Error(
+        "Stream options must include input.text as a non-empty string",
+      );
+    }
+
+    // Use base provider's stream implementation
+    const baseResult = await this.baseProvider.stream(options);
+
+    if (!baseResult) {
+      throw new Error("No stream response received from provider");
+    }
+
+    // Return the result with function-calling metadata
+    return {
+      ...baseResult,
+      provider: "function-calling",
+      model: options.model || "unknown",
+      metadata: {
+        streamId: `function-calling-${Date.now()}`,
+        startTime,
+      },
+    };
+  }
+
+  /**
    * Generate text with real function calling support
    */
-  async generateText(
+  async generate(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<GenerateTextResult<ToolSet, unknown> | null> {
+  ): Promise<GenerateResult> {
     const options =
       typeof optionsOrPrompt === "string"
         ? { prompt: optionsOrPrompt }
         : optionsOrPrompt;
 
-    const functionTag = "FunctionCallingProvider.generateText";
+    const functionTag = "FunctionCallingProvider.generate";
 
     // If function calling is disabled, use base provider
     if (!this.enableFunctionCalling) {
       mcpLogger.debug(
         `[${functionTag}] Function calling disabled, using base provider`,
       );
-      return this.baseProvider.generateText(options, analysisSchema);
+      const result = await this.baseProvider.generate(options, analysisSchema);
+      if (!result) {
+        return {
+          content: "No response generated",
+          provider: "function-calling",
+          model: "unknown",
+        };
+      }
+      return result;
     }
 
     try {
@@ -83,7 +136,18 @@ export class FunctionCallingProvider implements AIProvider {
         mcpLogger.debug(
           `[${functionTag}] No functions available, using base provider`,
         );
-        return this.baseProvider.generateText(options, analysisSchema);
+        const result = await this.baseProvider.generate(
+          options,
+          analysisSchema,
+        );
+        if (!result) {
+          return {
+            content: "No response generated",
+            provider: "function-calling",
+            model: "unknown",
+          };
+        }
+        return result;
       }
 
       // Get available function tools
@@ -92,7 +156,18 @@ export class FunctionCallingProvider implements AIProvider {
         mcpLogger.debug(
           `[${functionTag}] No tools available, using base provider`,
         );
-        return this.baseProvider.generateText(options, analysisSchema);
+        const result = await this.baseProvider.generate(
+          options,
+          analysisSchema,
+        );
+        if (!result) {
+          return {
+            content: "No response generated",
+            provider: "function-calling",
+            model: "unknown",
+          };
+        }
+        return result;
       }
 
       mcpLogger.debug(
@@ -106,9 +181,9 @@ export class FunctionCallingProvider implements AIProvider {
         aiProvider: this.baseProvider.constructor.name,
       });
 
-      // Use the AI SDK's native function calling by calling generateText directly
+      // Use the AI SDK's native function calling by calling generate directly
       // We need to get the underlying model from the base provider
-      const result = await this.generateTextWithTools(
+      const result = await this.generateWithTools(
         options,
         tools,
         toolMap,
@@ -117,7 +192,11 @@ export class FunctionCallingProvider implements AIProvider {
       );
 
       if (!result) {
-        return null;
+        return {
+          content: "No response generated",
+          provider: "function-calling",
+          model: "unknown",
+        };
       }
 
       // Enhance result with function calling metadata
@@ -135,27 +214,35 @@ export class FunctionCallingProvider implements AIProvider {
       mcpLogger.debug(
         `[${functionTag}] Function-calling generation completed with ${result.toolCalls?.length || 0} tool calls`,
       );
-      return enhancedResult as GenerateTextResult<ToolSet, unknown>;
+      return enhancedResult as GenerateResult;
     } catch (error) {
       mcpLogger.warn(
         `[${functionTag}] Function calling failed, using base provider:`,
         error,
       );
-      return this.baseProvider.generateText(options, analysisSchema);
+      const result = await this.baseProvider.generate(options, analysisSchema);
+      if (!result) {
+        return {
+          content: "No response generated",
+          provider: "function-calling",
+          model: "unknown",
+        };
+      }
+      return result;
     }
   }
 
   /**
    * Generate text using AI SDK's native function calling
    */
-  private async generateTextWithTools(
+  private async generateWithTools(
     options: TextGenerationOptions,
     tools: Tool[],
     toolMap: Map<string, { serverId: string; toolName: string }>,
     context: NeuroLinkExecutionContext,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<GenerateTextResult<ToolSet, unknown> | null> {
-    const functionTag = "FunctionCallingProvider.generateTextWithTools";
+  ): Promise<GenerateResult> {
+    const functionTag = "FunctionCallingProvider.generateWithTools";
 
     try {
       // Convert our tools to AI SDK format with proper execution
@@ -166,7 +253,7 @@ export class FunctionCallingProvider implements AIProvider {
       );
 
       mcpLogger.debug(
-        `[${functionTag}] Calling AI SDK generateText with ${Object.keys(toolsWithExecution).length} tools and maxSteps: 5`,
+        `[${functionTag}] Calling AI SDK generate with ${Object.keys(toolsWithExecution).length} tools and maxSteps: 5`,
       );
       mcpLogger.debug(
         `[${functionTag}] Sanitized tool names:`,
@@ -189,11 +276,22 @@ export class FunctionCallingProvider implements AIProvider {
         mcpLogger.warn(
           `[${functionTag}] Could not get model from provider, falling back to base provider`,
         );
-        return this.baseProvider.generateText(options, analysisSchema);
+        const result = await this.baseProvider.generate(
+          options,
+          analysisSchema,
+        );
+        if (!result) {
+          return {
+            content: "No response generated",
+            provider: "function-calling",
+            model: "unknown",
+          };
+        }
+        return result;
       }
 
-      // Use AI SDK's generateText directly with tools
-      const generateOptions: Parameters<typeof aiGenerateText>[0] = {
+      // Use AI SDK's generate directly with tools
+      const generateOptions: Parameters<typeof aiGenerate>[0] = {
         model: modelInfo.model,
         prompt: options.prompt,
         system: options.systemPrompt || "You are a helpful AI assistant.",
@@ -211,15 +309,31 @@ export class FunctionCallingProvider implements AIProvider {
         });
       }
 
-      const result = await aiGenerateText(generateOptions);
+      const result = await aiGenerate(generateOptions);
 
-      mcpLogger.debug(`[${functionTag}] AI SDK generateText completed`, {
+      mcpLogger.debug(`[${functionTag}] AI SDK generate completed`, {
         toolCalls: result.toolCalls?.length || 0,
         finishReason: result.finishReason,
         usage: result.usage,
       });
 
-      return result;
+      return {
+        content: result.text,
+        provider: "function-calling",
+        model: "unknown",
+        usage: result.usage
+          ? {
+              inputTokens: result.usage.promptTokens,
+              outputTokens: result.usage.completionTokens,
+              totalTokens: result.usage.totalTokens,
+            }
+          : undefined,
+        responseTime: 0,
+        toolsUsed: result.toolCalls?.map((tc) => tc.toolName) || [],
+        toolExecutions: [],
+        enhancedWithTools: (result.toolCalls?.length || 0) > 0,
+        availableTools: [],
+      };
     } catch (error) {
       mcpLogger.error(
         `[${functionTag}] Failed to generate text with tools:`,
@@ -458,91 +572,17 @@ These functions provide accurate, real-time data. Use them actively to enhance y
   }
 
   /**
-   * Stream text with function calling support
+   * Alias for generate() - CLI-SDK consistency
    */
-  async streamText(
-    optionsOrPrompt: StreamTextOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<StreamTextResult<ToolSet, unknown> | null> {
-    const options =
-      typeof optionsOrPrompt === "string"
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-    const functionTag = "FunctionCallingProvider.streamText";
-
-    // If function calling is disabled, use base provider
-    if (!this.enableFunctionCalling) {
-      mcpLogger.debug(
-        `[${functionTag}] Function calling disabled, using base provider`,
-      );
-      return this.baseProvider.streamText(options, analysisSchema);
-    }
-
-    try {
-      // Check if function calling is available
-      const functionsAvailable = await isFunctionCallingAvailable();
-      if (!functionsAvailable) {
-        mcpLogger.debug(
-          `[${functionTag}] No functions available, using base provider`,
-        );
-        return this.baseProvider.streamText(options, analysisSchema);
-      }
-
-      // Get available function tools
-      const { tools } = await getAvailableFunctionTools();
-      if (tools.length === 0) {
-        mcpLogger.debug(
-          `[${functionTag}] No tools available, using base provider`,
-        );
-        return this.baseProvider.streamText(options, analysisSchema);
-      }
-
-      mcpLogger.debug(
-        `[${functionTag}] Streaming with ${tools.length} functions available`,
-      );
-
-      // Enhance system prompt
-      const enhancedSystemPrompt = this.createFunctionAwareSystemPrompt(
-        options.systemPrompt,
-        tools,
-      );
-
-      // Stream with enhanced prompt
-      return this.baseProvider.streamText(
-        {
-          ...options,
-          systemPrompt: enhancedSystemPrompt,
-        },
-        analysisSchema,
-      );
-    } catch (error) {
-      mcpLogger.warn(
-        `[${functionTag}] Function calling failed, using base provider:`,
-        error,
-      );
-      return this.baseProvider.streamText(options, analysisSchema);
-    }
-  }
 
   /**
-   * Alias for generateText() - CLI-SDK consistency
-   */
-  async generate(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
-  }
-
-  /**
-   * Short alias for generateText() - CLI-SDK consistency
+   * Short alias for generate() - CLI-SDK consistency
    */
   async gen(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
+  ): Promise<EnhancedGenerateResult | null> {
+    return this.generate(optionsOrPrompt, analysisSchema);
   }
 }
 

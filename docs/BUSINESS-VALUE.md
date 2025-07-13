@@ -30,8 +30,8 @@ NeuroLink's analytics and evaluation features deliver measurable business value 
 
 ```javascript
 // Before: Using GPT-4 for all product descriptions
-const expensiveResult = await provider.generateText({
-  prompt: "Write product description for basic t-shirt",
+const expensiveResult = await provider.generate({
+  input: { text: "Write product description for basic t-shirt" },
   model: "gpt-4-turbo", // $30/1M tokens
   enableAnalytics: true,
 });
@@ -39,8 +39,8 @@ const expensiveResult = await provider.generateText({
 // Monthly cost (10,000 descriptions): $1,200
 
 // After: Using analytics-driven model selection
-const optimizedResult = await provider.generateText({
-  prompt: "Write product description for basic t-shirt",
+const optimizedResult = await provider.generate({
+  input: { text: "Write product description for basic t-shirt" },
   model: "gpt-3.5-turbo", // $3/1M tokens
   enableAnalytics: true,
 });
@@ -53,14 +53,14 @@ const optimizedResult = await provider.generateText({
 
 ```javascript
 // Track costs by department
-const marketingResult = await provider.generateText({
-  prompt: "Create social media post",
+const marketingResult = await provider.generate({
+  input: { text: "Create social media post" },
   enableAnalytics: true,
   context: { department: "marketing", campaign: "Q1-launch" },
 });
 
-const supportResult = await provider.generateText({
-  prompt: "Generate customer response",
+const supportResult = await provider.generate({
+  input: { text: "Generate customer response" },
   enableAnalytics: true,
   context: { department: "support", priority: "high" },
 });
@@ -94,8 +94,8 @@ const supportResult = await provider.generateText({
 
 ```javascript
 // Automated quality control
-const supportResponse = await provider.generateText({
-  prompt: "Customer complaining about delayed shipment",
+const supportResponse = await provider.generate({
+  input: { text: "Customer complaining about delayed shipment" },
   enableEvaluation: true,
   enableAnalytics: true,
   context: {
@@ -128,8 +128,8 @@ if (supportResponse.evaluation.overall < 8) {
 
 ```javascript
 // Medical content with strict accuracy requirements
-const medicalContent = await provider.generateText({
-  prompt: "Explain diabetes management for patients",
+const medicalContent = await provider.generate({
+  input: { text: "Explain diabetes management for patients" },
   enableEvaluation: true,
   context: {
     content_type: "medical",

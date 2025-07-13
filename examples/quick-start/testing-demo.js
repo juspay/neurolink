@@ -49,7 +49,7 @@ async function testingDemo() {
     test("Provider creation succeeds", provider !== null);
 
     if (provider) {
-      const result = await provider.generateText("Test");
+      const result = await provider.generate({ input: { text: "Test" } });
       test("Basic text generation works", result && result.text);
       test("Response is string", typeof result.text === "string");
       test("Response is not empty", result.text.length > 0);
@@ -60,8 +60,8 @@ async function testingDemo() {
     console.log("2. 📊 Analytics Tests");
 
     if (provider) {
-      const analyticsResult = await provider.generateText({
-        prompt: "Short test",
+      const analyticsResult = await provider.generate({
+        input: { text: "Short test" },
         enableAnalytics: true,
       });
 
@@ -120,7 +120,9 @@ async function testingDemo() {
 
     if (provider) {
       const startTime = Date.now();
-      const perfResult = await provider.generateText("Quick response test");
+      const perfResult = await provider.generate({
+        input: { text: "Quick response test" },
+      });
       const responseTime = Date.now() - startTime;
 
       test("Response under 10 seconds", responseTime < 10000);

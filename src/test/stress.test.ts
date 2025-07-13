@@ -46,7 +46,7 @@ describe("NeuroLink Stress Tests", () => {
         for (let i = 0; i < requestCount; i++) {
           const startTime = Date.now();
           try {
-            const result = await provider.generateText({
+            const result = await provider.generate({
               prompt: `Test request ${i + 1}: Write a brief sentence`,
               maxTokens: 50,
               temperature: 0.5,
@@ -56,7 +56,7 @@ describe("NeuroLink Stress Tests", () => {
               success: true,
               requestId: i + 1,
               responseTime: Date.now() - startTime,
-              contentLength: result?.text?.length || 0,
+              contentLength: result?.content?.length || 0,
             });
 
             // Small delay to avoid overwhelming the API
@@ -105,7 +105,7 @@ describe("NeuroLink Stress Tests", () => {
         for (let i = 0; i < concurrentCount; i++) {
           promises.push(
             provider
-              .generateText({
+              .generate({
                 prompt: `Concurrent test ${i + 1}: Generate a short response`,
                 maxTokens: 50,
                 temperature: 0.5,
@@ -113,7 +113,7 @@ describe("NeuroLink Stress Tests", () => {
               .then((result) => ({
                 success: true,
                 requestId: i + 1,
-                contentLength: result?.text.length,
+                contentLength: result?.content.length,
               }))
               .catch((error) => ({
                 success: false,
@@ -153,16 +153,16 @@ describe("NeuroLink Stress Tests", () => {
         ); // ~4000 characters
 
         try {
-          const result = await provider.generateText({
+          const result = await provider.generate({
             prompt: longPrompt,
             maxTokens: 100,
             temperature: 0.5,
           });
 
-          expect(result?.text).toBeTruthy();
-          expect(result?.text.length).toBeGreaterThan(10);
+          expect(result?.content).toBeTruthy();
+          expect(result?.content.length).toBeGreaterThan(10);
           console.log(
-            `✅ Long prompt handled: ${longPrompt.length} chars input, ${result?.text.length} chars output`,
+            `✅ Long prompt handled: ${longPrompt.length} chars input, ${result?.content.length} chars output`,
           );
         } catch (error) {
           // Some providers may have token limits
@@ -188,13 +188,13 @@ describe("NeuroLink Stress Tests", () => {
           "Test with emojis 🚀🤖🎯 and symbols @#$%^&*()[]{}|\\:\";'<>?,./`~";
 
         try {
-          const result = await provider.generateText({
+          const result = await provider.generate({
             prompt: specialPrompt,
             maxTokens: 50,
             temperature: 0.5,
           });
 
-          expect(result?.text).toBeTruthy();
+          expect(result?.content).toBeTruthy();
           console.log(`✅ Special characters handled: "${specialPrompt}"`);
         } catch (error) {
           console.log(
@@ -213,13 +213,13 @@ describe("NeuroLink Stress Tests", () => {
           "English, Español, Français, Deutsch, 日本語, 中文, العربية, हिंदी";
 
         try {
-          const result = await provider.generateText({
+          const result = await provider.generate({
             prompt: `Recognize these languages: ${multiLangPrompt}`,
             maxTokens: 100,
             temperature: 0.5,
           });
 
-          expect(result?.text).toBeTruthy();
+          expect(result?.content).toBeTruthy();
           console.log(`✅ Multi-language handled: "${multiLangPrompt}"`);
         } catch (error) {
           console.log(`❌ Multi-language failed: ${(error as Error).message}`);
@@ -238,14 +238,16 @@ describe("NeuroLink Stress Tests", () => {
 
         for (const temp of extremeTemps) {
           try {
-            const result = await provider.generateText({
+            const result = await provider.generate({
               prompt: "Generate a creative response",
               maxTokens: 50,
               temperature: temp,
             });
 
-            expect(result?.text).toBeTruthy();
-            console.log(`✅ Temperature ${temp}: ${result?.text.length} chars`);
+            expect(result?.content).toBeTruthy();
+            console.log(
+              `✅ Temperature ${temp}: ${result?.content.length} chars`,
+            );
           } catch (error) {
             const errorMessage = (error as Error).message;
             if (
@@ -276,20 +278,20 @@ describe("NeuroLink Stress Tests", () => {
 
         for (const maxTokens of extremeTokens) {
           try {
-            const result = await provider.generateText({
+            const result = await provider.generate({
               prompt: "Write about artificial intelligence",
               maxTokens,
               temperature: 0.7,
             });
 
-            expect(result?.text).toBeTruthy();
+            expect(result?.content).toBeTruthy();
             console.log(
-              `✅ MaxTokens ${maxTokens}: ${result?.text.length} chars`,
+              `✅ MaxTokens ${maxTokens}: ${result?.content.length} chars`,
             );
 
             // Very small token limits should produce short responses
             if (maxTokens <= 10) {
-              expect(result?.text.length).toBeLessThan(100);
+              expect(result?.content.length).toBeLessThan(100);
             }
           } catch (error) {
             const errorMessage = (error as Error).message;
@@ -328,8 +330,8 @@ describe("NeuroLink Stress Tests", () => {
             // Alternate between valid and potentially problematic requests
             const prompt = i % 2 === 0 ? "Valid prompt for testing" : ""; // Empty prompt might cause errors
 
-            await provider.generateText({
-              prompt,
+            await provider.generate({
+              prompt: prompt,
               maxTokens: 50,
               temperature: 0.5,
             });
@@ -346,13 +348,13 @@ describe("NeuroLink Stress Tests", () => {
         }
 
         // After errors, should still be able to generate valid responses
-        const recoveryResult = await provider.generateText({
+        const recoveryResult = await provider.generate({
           prompt: "Recovery test: generate a simple response",
           maxTokens: 50,
           temperature: 0.5,
         });
 
-        expect(recoveryResult?.text).toBeTruthy();
+        expect(recoveryResult?.content).toBeTruthy();
         console.log(
           `📊 Error recovery: ${successCount} success, ${errorCount} errors, recovery successful`,
         );
@@ -370,7 +372,7 @@ describe("NeuroLink Stress Tests", () => {
           try {
             const testProvider = AIProviderFactory.createProvider(providerName);
 
-            const result = await (testProvider as any).generateText({
+            const result = await (testProvider as any).generate({
               prompt: `Provider test: ${providerName}`,
               maxTokens: 50,
               temperature: 0.5,
@@ -379,7 +381,7 @@ describe("NeuroLink Stress Tests", () => {
             results.push({
               provider: providerName,
               success: true,
-              contentLength: result?.text.length,
+              contentLength: result?.content.length,
             });
           } catch (error) {
             results.push({
@@ -429,7 +431,7 @@ describe("NeuroLink Stress Tests", () => {
         // Test that they all work independently
         const promises = providers.slice(0, 3).map((p, i) =>
           p
-            .generateText({
+            .generate({
               prompt: `Instance test ${i + 1}`,
               maxTokens: 30,
               temperature: 0.5,
@@ -457,18 +459,18 @@ describe("NeuroLink Stress Tests", () => {
 
         const startTime = Date.now();
         try {
-          const result = await provider.generateText({
+          const result = await provider.generate({
             prompt: longRunningPrompt,
             maxTokens: 500,
             temperature: 0.7,
           });
 
           const duration = Date.now() - startTime;
-          expect(result?.text).toBeTruthy();
-          expect(result?.text.length).toBeGreaterThan(100);
+          expect(result?.content).toBeTruthy();
+          expect(result?.content.length).toBeGreaterThan(100);
 
           console.log(
-            `✅ Long operation: ${duration}ms, ${result?.text.length} chars`,
+            `✅ Long operation: ${duration}ms, ${result?.content.length} chars`,
           );
 
           // Should complete within reasonable time
@@ -499,9 +501,13 @@ describe("NeuroLink Stress Tests", () => {
         };
 
         try {
-          const result = await provider.generateText(minimalRequest);
-          expect(result?.text).toBeTruthy();
-          console.log(`✅ Minimal request: "${result?.text}"`);
+          const result = await provider.generate({
+            prompt: minimalRequest.prompt,
+            maxTokens: minimalRequest.maxTokens,
+            temperature: minimalRequest.temperature,
+          });
+          expect(result?.content).toBeTruthy();
+          console.log(`✅ Minimal request: "${result?.content}"`);
         } catch (error) {
           // Some providers might not support maxTokens: 1
           const errorMessage = (error as Error).message;
@@ -527,14 +533,14 @@ describe("NeuroLink Stress Tests", () => {
 
         for (let i = 0; i < repetitions; i++) {
           try {
-            const result = await provider.generateText({
+            const result = await provider.generate({
               prompt: identicalPrompt,
               maxTokens: 50,
               temperature: 0.0, // Low temperature for more deterministic results
             });
 
-            if (result?.text) {
-              results.push(result.text);
+            if (result?.content) {
+              results.push(result.content);
             }
             await new Promise((resolve) => setTimeout(resolve, 100));
           } catch (error) {

@@ -93,7 +93,7 @@ async function testAICoreServer() {
 
   // Test text generation tool
   try {
-    const result = await aiCoreServer.tools["generate-text"].execute(
+    const result = await aiCoreServer.tools["generate"].execute(
       {
         prompt: "Write a haiku about AI",
         temperature: 0.7,
@@ -174,7 +174,7 @@ async function testOrchestration() {
   try {
     const result = await orchestrator.executeTool(
       "neurolink-ai-core",
-      "generate-text",
+      "generate",
       { prompt: "Explain quantum computing in one sentence", maxTokens: 50 },
       context,
     );
@@ -195,7 +195,7 @@ async function testOrchestration() {
         },
         {
           serverId: "neurolink-ai-core",
-          toolName: "generate-text",
+          toolName: "generate",
           params: { prompt: "Write a technical joke", maxTokens: 100 },
         },
       ],
@@ -564,7 +564,7 @@ To integrate MCP functionality into the CLI, add these commands to `src/cli/inde
     try {
       const result = await orchestrator.executeTool(
         'neurolink-ai-core',
-        'generate-text',
+        'generate',
         { prompt: argv.prompt, maxTokens: 200 },
         context
       );

@@ -20,8 +20,8 @@ async function timeoutExamples() {
     console.log("1. Basic timeout with auto-selected provider:");
     const provider = createBestAIProvider();
 
-    const quickResult = await provider.generateText({
-      prompt: "Say hello",
+    const quickResult = await provider.generate({
+      input: { text: "Say hello" },
       timeout: "10s", // 10 seconds
       maxTokens: 50,
     });
@@ -34,8 +34,8 @@ async function timeoutExamples() {
     console.log("2. Different timeout formats:");
 
     // Milliseconds
-    const msResult = await provider.generateText({
-      prompt: "Count to 3",
+    const msResult = await provider.generate({
+      input: { text: "Count to 3" },
       timeout: 5000, // 5000ms = 5 seconds
       maxTokens: 50,
     });
@@ -69,8 +69,8 @@ async function timeoutExamples() {
     console.log("4. Handling timeout errors:");
     try {
       const shortTimeoutProvider = AIProviderFactory.createProvider("openai");
-      await shortTimeoutProvider.generateText({
-        prompt: "Write a 10000 word essay on the history of computing",
+      await shortTimeoutProvider.generate({
+        input: { text: "Write a 10000 word essay on the history of computing" },
         timeout: "1s", // Very short timeout to trigger error
         maxTokens: 10000,
       });
@@ -97,26 +97,28 @@ async function timeoutExamples() {
 
     // 6. Streaming with timeouts
     console.log("6. Streaming with timeouts:");
-    const streamResult = await provider.streamText({
-      prompt: "Count from 1 to 5 slowly",
+    const streamResult = await provider.stream({
+      input: { text: "Count from 1 to 5 slowly" },
       timeout: "30s", // Timeout for the entire stream
     });
 
     console.log("✅ Streaming with timeout:");
-    for await (const chunk of streamResult.textStream) {
-      process.stdout.write(chunk);
+    for await (const chunk of streamResult.stream) {
+      process.stdout.write(chunk.content);
     }
     console.log("\n");
 
     // 7. Complex prompt with extended timeout
     console.log("7. Complex prompt with extended timeout:");
-    const complexResult = await provider.generateText({
-      prompt: `Analyze the following data and provide insights:
+    const complexResult = await provider.generate({
+      input: {
+        text: `Analyze the following data and provide insights:
         - Revenue: $1.2M (Q1), $1.5M (Q2), $1.8M (Q3), $2.1M (Q4)
         - Customer growth: 15% YoY
         - Market share: 12%
         
         Provide a detailed analysis with recommendations.`,
+      },
       timeout: "2m", // 2 minutes for complex analysis
       maxTokens: 1000,
       temperature: 0.3,

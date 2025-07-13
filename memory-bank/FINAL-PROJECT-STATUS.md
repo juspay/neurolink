@@ -208,8 +208,8 @@ import { AIProviderFactory } from "neurolink";
 const provider = AIProviderFactory.createBestAIProvider();
 
 // Use with your AI application
-const response = await provider.generateText({
-  prompt: "Hello, world!",
+const response = await provider.generate({
+  input: { text: "Hello, world!" },
   maxTokens: 100,
 });
 ```

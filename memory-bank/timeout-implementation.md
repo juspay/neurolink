@@ -17,59 +17,59 @@
 
 - ✅ Updated `src/lib/core/types.ts`:
   - Added `timeout?: number | string` to `TextGenerationOptions`
-  - Added `timeout?: number | string` to `StreamTextOptions`
+  - Added `timeout?: number | string` to `StreamOptions`
 
 ### Phase 2: Provider Implementation ✅ COMPLETE
 - ✅ **OpenAI Provider** - Complete with AbortSignal support
-  - `generateText` method now supports timeout
-  - `streamText` method now supports timeout
+  - `generate()` method now supports timeout
+  - `stream` method now supports timeout
   - Proper error handling for `TimeoutError`
   - Uses default timeout from configuration
 
 - ✅ **Google AI Studio Provider** - Complete with AbortSignal support
-  - `generateText` method now supports timeout
-  - `streamText` method now supports timeout
+  - `generate()` method now supports timeout
+  - `stream` method now supports timeout
   - Proper error handling for `TimeoutError`
   - Uses default timeout from configuration
 
 - ✅ **Amazon Bedrock Provider** - Complete with AbortSignal support
-  - `generateText` method now supports timeout
-  - `streamText` method now supports timeout
+  - `generate()` method now supports timeout
+  - `stream` method now supports timeout
   - Proper error handling for `TimeoutError`
   - Uses default timeout from configuration
   - Handles AWS region-specific timeouts
 
 - ✅ **Google Vertex AI Provider** - Complete with AbortSignal support
-  - `generateText` method now supports timeout
-  - `streamText` method now supports timeout
+  - `generate()` method now supports timeout
+  - `stream` method now supports timeout
   - Proper error handling for `TimeoutError`
   - Uses default timeout from configuration
   - Supports both Google and Anthropic models
 
 - ✅ **Anthropic Provider** - Complete with AbortSignal support via fetch
-  - `generateText` method now supports timeout
-  - `streamText` method now supports timeout
+  - `generate()` method now supports timeout
+  - `stream` method now supports timeout
   - Proper error handling for `TimeoutError`
   - Converts AbortError to TimeoutError for consistency
   - Direct API implementation with timeout support
 
 - ✅ **Azure OpenAI Provider** - Complete with AbortSignal support via fetch
-  - `generateText` method now supports timeout
-  - `streamText` method now supports timeout
+  - `generate()` method now supports timeout
+  - `stream` method now supports timeout
   - Proper error handling for `TimeoutError`
   - Uses default timeout from configuration
   - Direct API implementation with timeout support
 
 - ✅ **Hugging Face Provider** - Complete with AbortSignal support
-  - `generateText` method now supports timeout
-  - `streamText` method now supports timeout
+  - `generate()` method now supports timeout
+  - `stream` method now supports timeout
   - Proper error handling for `TimeoutError`
   - Uses default timeout from configuration
   - Retry logic works with timeout support
 
 - ✅ **Mistral AI Provider** - Complete with AbortSignal support
-  - `generateText` method now supports timeout
-  - `streamText` method now supports timeout
+  - `generate()` method now supports timeout
+  - `stream` method now supports timeout
   - Proper error handling for `TimeoutError`
   - Uses default timeout from configuration
 
@@ -83,8 +83,8 @@
 ### Phase 3: Factory and NeuroLink Updates ✅ COMPLETE
 - ✅ Update NeuroLink class to pass timeout through all methods
   - Added `timeout?: number | string` to `TextGenerationOptions` interface
-  - Added `timeout?: number | string` to `StreamTextOptions` interface
-  - Pass timeout to provider `generateText` and `streamText` calls
+  - Added `timeout?: number | string` to `StreamOptions` interface
+  - Pass timeout to provider `generate` and `stream` calls
 - ✅ Handle TimeoutError in fallback logic
   - Import `TimeoutError` from utils
   - Special handling for timeout errors with specific logging
@@ -98,7 +98,7 @@
 
 ### Phase 4: CLI Integration ✅ COMPLETE
 - ✅ Add timeout flag to all generation commands
-  - `generate-text`/`generate`/`gen` command: `--timeout` flag with default "30s"
+  - `generate`/`generate`/`gen` command: `--timeout` flag with default "30s"
   - `stream` command: `--timeout` flag with default "2m" (longer for streaming)
   - `batch` command: `--timeout` flag with default "30s" per request
 - ✅ Update timeout option types
@@ -109,13 +109,13 @@
   - No additional validation needed in CLI
 - ✅ Pass CLI timeout to SDK methods
   - Removed manual timeout wrapper (Promise.race)
-  - Pass timeout directly to SDK's `generateText` and `generateTextStream`
+  - Pass timeout directly to SDK's `generate` and `stream`
   - SDK handles timeout internally with proper cleanup
 
 ### Phase 5: MCP Wrapper Updates ✅ COMPLETE
 - ✅ Update Function Calling Provider to respect timeout
-  - Updated `AgentEnhancedProvider` to accept timeout in both `generateText` and `streamText`
-  - Pass timeout as `abortSignal` to AI SDK's `generateText` and `streamText` functions
+  - Updated `AgentEnhancedProvider` to accept timeout in both `generate` and `stream`
+  - Pass timeout as `abortSignal` to AI SDK's `generate` and `stream` functions (internal AI SDK usage)
   - Uses `AbortSignal.timeout()` for modern timeout handling
 - ✅ Handle tool execution timeouts separately
   - Added `toolExecutionTimeout` configuration option to `AgentConfig`
@@ -203,7 +203,7 @@ const generateOptions = {
 
 // 6. Cleanup after operation
 try {
-  const result = await generateText(generateOptions);
+  const result = await generate(generateOptions);
   timeoutController?.cleanup();
   return result;
 } finally {

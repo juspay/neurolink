@@ -16,8 +16,8 @@ async function testSimpleAnalytics() {
     const neurolink = new NeuroLink();
 
     console.log('\n📝 Test 1: Basic generation WITHOUT analytics/evaluation');
-    const basicResult = await neurolink.generateText({
-      prompt: 'What is 2+2?'
+    const basicResult = await neurolink.generate({
+      input: { text: 'What is 2+2?' }
     });
 
     console.log('✅ Basic Response:', basicResult.content || basicResult.text);
@@ -25,8 +25,8 @@ async function testSimpleAnalytics() {
     console.log('Evaluation present:', !!basicResult.evaluation);
 
     console.log('\n📝 Test 2: Generation WITH analytics and evaluation');
-    const enhancedResult = await neurolink.generateText({
-      prompt: 'What is 3+3?',
+    const enhancedResult = await neurolink.generate({
+      input: { text: 'What is 3+3?' },
       enableAnalytics: true,
       enableEvaluation: true,
       context: { test: 'enhanced-mode' }

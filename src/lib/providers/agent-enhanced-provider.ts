@@ -3,14 +3,8 @@
  * Integrates direct tools with AI providers for true agent functionality
  */
 
-import {
-  generateText,
-  streamText,
-  tool,
-  type GenerateTextResult,
-  type StreamTextResult,
-  type ToolSet,
-} from "ai";
+import { streamText, tool, generateText as aiGenerate } from "ai";
+import type { GenerateResult } from "../types/generate-types.js";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -21,9 +15,7 @@ import {
 import type {
   AIProvider,
   TextGenerationOptions,
-  StreamTextOptions,
-  EnhancedGenerateTextResult,
-  EnhancedStreamTextOptions,
+  EnhancedGenerateResult,
   StreamingProgressData,
   ProgressCallback,
 } from "../core/types.js";
@@ -37,6 +29,7 @@ import { parseTimeout } from "../utils/timeout.js";
 import { evaluateResponse } from "../core/evaluation.js";
 import { createAnalytics } from "../core/analytics.js";
 import { logger } from "../utils/logger.js";
+import type { StreamOptions, StreamResult } from "../types/stream-types.js";
 
 /**
  * Agent configuration options
@@ -351,9 +344,52 @@ export class AgentEnhancedProvider implements AIProvider {
     return { ...directTools, ...mcpTools };
   }
 
-  async generateText(
+  /**
+   * PRIMARY METHOD: Stream content using AI (recommended for new code)
+   * Future-ready for multi-modal capabilities with current text focus
+   */
+  async stream(
+    optionsOrPrompt: StreamOptions | string,
+    analysisSchema?: any,
+  ): Promise<StreamResult> {
+    const functionTag = "AgentEnhancedProvider.stream";
+    const startTime = Date.now();
+
+    // Parse parameters - support both string and options object
+    const options =
+      typeof optionsOrPrompt === "string"
+        ? { input: { text: optionsOrPrompt } }
+        : optionsOrPrompt;
+
+    // Validate input
+    if (
+      !options?.input?.text ||
+      typeof options.input.text !== "string" ||
+      options.input.text.trim() === ""
+    ) {
+      throw new Error(
+        "Stream options must include input.text as a non-empty string",
+      );
+    }
+
+    // Convert StreamOptions for internal use
+    const convertedOptions = {
+      prompt: options.input.text,
+      provider: options.provider,
+      model: options.model,
+      temperature: options.temperature,
+      maxTokens: options.maxTokens,
+      systemPrompt: options.systemPrompt,
+      timeout: options.timeout,
+    };
+
+    // Use stream method to get streaming result
+    return await this.stream(options);
+  }
+
+  async generate(
     optionsOrPrompt: TextGenerationOptions | string,
-  ): Promise<GenerateTextResult<ToolSet, unknown> | null> {
+  ): Promise<GenerateResult> {
     const startTime = Date.now();
     const options =
       typeof optionsOrPrompt === "string"
@@ -397,7 +433,7 @@ export class AgentEnhancedProvider implements AIProvider {
       }
 
       // The AI SDK with maxSteps automatically handles tool calling and result integration
-      const result = await generateText({
+      const result = await aiGenerate({
         model: this.model,
         prompt: systemPrompt
           ? `System: ${systemPrompt}\n\nUser: ${prompt}`
@@ -469,9 +505,21 @@ export class AgentEnhancedProvider implements AIProvider {
 
           // Return result with the formatted text
           return {
-            ...result,
-            text: finalText,
-            finishReason: "stop",
+            content: finalText,
+            provider: this.getProviderName(),
+            model: this.getModelName(),
+            usage: result.usage
+              ? {
+                  inputTokens: result.usage.promptTokens,
+                  outputTokens: result.usage.completionTokens,
+                  totalTokens: result.usage.totalTokens,
+                }
+              : undefined,
+            responseTime: 0,
+            toolsUsed: [],
+            toolExecutions: [],
+            enhancedWithTools: false,
+            availableTools: [],
           };
         } catch (error) {
           log("Error in summary generation", {
@@ -481,9 +529,21 @@ export class AgentEnhancedProvider implements AIProvider {
           // Fallback: return raw tool results
           const fallbackText = `Tool execution completed. Raw results: ${JSON.stringify(result.toolResults, null, 2)}`;
           return {
-            ...result,
-            text: fallbackText,
-            finishReason: "stop",
+            content: fallbackText,
+            provider: this.getProviderName(),
+            model: this.getModelName(),
+            usage: result.usage
+              ? {
+                  inputTokens: result.usage.promptTokens,
+                  outputTokens: result.usage.completionTokens,
+                  totalTokens: result.usage.totalTokens,
+                }
+              : undefined,
+            responseTime: 0,
+            toolsUsed: [],
+            toolExecutions: [],
+            enhancedWithTools: false,
+            availableTools: [],
           };
         }
       }
@@ -509,114 +569,25 @@ export class AgentEnhancedProvider implements AIProvider {
       }
 
       // Return the full result - the AI SDK has already handled tool execution and integration
-      return result;
-    } catch (error) {
-      console.error("[AgentEnhancedProvider] generateText error:", error);
-      throw error;
-    }
-  }
-
-  async streamText(
-    optionsOrPrompt: EnhancedStreamTextOptions | string,
-  ): Promise<StreamTextResult<ToolSet, unknown> | null> {
-    const options =
-      typeof optionsOrPrompt === "string"
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-    const {
-      prompt,
-      temperature = 0.7,
-      maxTokens = 1000,
-      systemPrompt,
-      timeout,
-      // Phase 2: Enhanced streaming options
-      enableProgressTracking,
-      progressCallback,
-      includeStreamingMetadata,
-      streamingBufferSize,
-      enableStreamingHeaders,
-      customStreamingConfig,
-    } = options;
-
-    // Phase 2.1: Setup streaming enhancements
-    const streamId = `agent_stream_${Date.now()}`;
-    const streamingConfig = StreamingEnhancer.createStreamingConfig(options);
-
-    if (enableProgressTracking) {
-      StreamingMonitor.registerStream(streamId);
-    }
-
-    // Get combined tools (direct + MCP) if enabled
-    const tools = this.config.enableTools ? await this.getCombinedTools() : {};
-
-    try {
-      // Parse timeout if provided
-      let abortSignal: AbortSignal | undefined;
-      if (timeout) {
-        const timeoutMs =
-          typeof timeout === "string" ? parseTimeout(timeout) : timeout;
-        if (timeoutMs !== undefined) {
-          abortSignal = AbortSignal.timeout(timeoutMs);
-        }
-      }
-
-      const result = await streamText({
-        model: this.model,
-        prompt: systemPrompt
-          ? `System: ${systemPrompt}\n\nUser: ${prompt}`
-          : prompt,
-        tools,
-        maxSteps: this.config.maxSteps,
-        temperature,
-        maxTokens,
-        toolChoice: this.shouldForceToolUsage(prompt) ? "required" : "auto",
-        abortSignal, // Pass abort signal for timeout support
-      });
-
-      // Phase 2.1: Apply streaming enhancements if enabled
-      if (streamingConfig.progressTracking && result.textStream) {
-        const enhancedCallback = streamingConfig.callback
-          ? (progress: StreamingProgressData) => {
-              StreamingMonitor.updateStream(streamId, progress);
-              streamingConfig.callback!(progress);
-
-              if (progress.phase === "complete") {
-                StreamingMonitor.completeStream(streamId);
-              }
+      return {
+        content: result.text,
+        provider: this.getProviderName(),
+        model: this.getModelName(),
+        usage: result.usage
+          ? {
+              inputTokens: result.usage.promptTokens,
+              outputTokens: result.usage.completionTokens,
+              totalTokens: result.usage.totalTokens,
             }
-          : undefined;
-
-        // Enhance the stream with progress tracking
-        const enhancedStream = StreamingEnhancer.addProgressTracking(
-          result.textStream,
-          enhancedCallback,
-          { streamId, bufferSize: streamingConfig.bufferSize },
-        );
-
-        // Return enhanced result with tracking
-        return {
-          ...result,
-          textStream: enhancedStream,
-          // Phase 2.1: Add streaming metadata
-          streamingMetadata: streamingConfig.metadata
-            ? {
-                streamId,
-                provider: this.getProviderName(),
-                model: this.getModelName(),
-                enabledFeatures: {
-                  progressTracking: true,
-                  metadata: streamingConfig.metadata,
-                  headers: streamingConfig.headers,
-                },
-              }
-            : undefined,
-        } as any;
-      }
-
-      return result;
+          : undefined,
+        responseTime: 0,
+        toolsUsed: [],
+        toolExecutions: [],
+        enhancedWithTools: false,
+        availableTools: [],
+      };
     } catch (error) {
-      console.error("[AgentEnhancedProvider] streamText error:", error);
+      console.error("[AgentEnhancedProvider] generate error:", error);
       throw error;
     }
   }
@@ -674,13 +645,13 @@ export class AgentEnhancedProvider implements AIProvider {
     for (const prompt of testPrompts) {
       try {
         logger.debug(`Testing: "${prompt}"`);
-        const result = await this.generateText(prompt);
+        const result = await this.generate(prompt);
 
         if (!result) {
           results.push({
             prompt,
             success: false,
-            error: "No result returned from generateText",
+            error: "No result returned from generate",
           });
           logger.warn(`❌ No result returned`);
           continue;
@@ -697,11 +668,11 @@ export class AgentEnhancedProvider implements AIProvider {
           prompt,
           success,
           toolsCalled,
-          response: result.text.substring(0, 100) + "...",
+          response: result.content.substring(0, 100) + "...",
         });
 
         logger.debug(
-          `✅ Tools called: ${toolsCalled}, Response: ${result.text.substring(0, 50)}...`,
+          `✅ Tools called: ${toolsCalled}, Response: ${result.content.substring(0, 50)}...`,
         );
       } catch (error) {
         results.push({
@@ -753,23 +724,17 @@ export class AgentEnhancedProvider implements AIProvider {
   }
 
   /**
-   * Alias for generateText() - CLI-SDK consistency
+   * Alias for generate() - CLI-SDK consistency
    */
-  async generate(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt);
-  }
 
   /**
-   * Short alias for generateText() - CLI-SDK consistency
+   * Short alias for generate() - CLI-SDK consistency
    */
   async gen(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt);
+  ): Promise<EnhancedGenerateResult | null> {
+    return this.generate(optionsOrPrompt);
   }
 }
 

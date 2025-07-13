@@ -152,15 +152,15 @@ Examples:
 Response (JSON object only):`;
 
     try {
-      const response = await this.provider.generateText({
+      const response = await this.provider.generate({
         prompt: extractionPrompt,
         temperature: 0,
         maxTokens: 200,
       });
 
-      if (response?.text) {
+      if (response?.content) {
         // Extract JSON object from response
-        const match = response.text.match(/\{([^}]*)\}/);
+        const match = response.content.match(/\{([^}]*)\}/);
         if (match) {
           try {
             const params = JSON.parse(match[0]);
@@ -224,15 +224,15 @@ Examples:
 Response (JSON array only):`;
 
       try {
-        const response = await this.provider.generateText({
+        const response = await this.provider.generate({
           prompt: analysisPrompt,
           temperature: 0,
           maxTokens: 200,
         });
 
-        if (response?.text) {
+        if (response?.content) {
           // Extract JSON array from response
-          const match = response.text.match(/\[([^\]]*)\]/);
+          const match = response.content.match(/\[([^\]]*)\]/);
           if (match) {
             try {
               const toolNames = JSON.parse(match[0]);
@@ -419,8 +419,8 @@ Response (JSON array only):`;
   ): Promise<string> {
     // If no tools were used, generate regular response
     if (toolResults.length === 0) {
-      const response = await this.provider.generateText({ prompt });
-      return response?.text || "";
+      const response = await this.provider.generate({ prompt });
+      return response?.content || "";
     }
 
     // Extract human-readable results from tool executions
@@ -489,13 +489,13 @@ Tool results: ${toolResultsText}
 Please provide a natural response based on the tool results.`;
 
     // Generate final response
-    const response = await this.provider.generateText({
+    const response = await this.provider.generate({
       prompt: enhancedPrompt,
       temperature: 0.7,
       maxTokens: DEFAULT_MAX_TOKENS,
     });
 
-    return response?.text || toolResultsText;
+    return response?.content || toolResultsText;
   }
 
   /**

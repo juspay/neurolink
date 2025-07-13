@@ -8,8 +8,8 @@ console.log('🧪 QUICK EVALUATION TEST');
 const sdk = new NeuroLink();
 
 try {
-  const result = await sdk.generateText({
-    prompt: 'Explain AI in one sentence',
+  const result = await sdk.generate({
+    input: { text: 'Explain AI in one sentence' },
     provider: 'google-ai',
     enableEvaluation: true,
     maxTokens: 100

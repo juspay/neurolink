@@ -178,17 +178,17 @@ wsServer.on("chat-message", async ({ connectionId, message }) => {
   const provider = await createBestAIProvider();
 
   try {
-    // Start streaming AI response
-    const result = await provider.streamText({
-      prompt: message.data.prompt,
+    // Start streaming AI response (NEW: Primary method)
+    const result = await provider.stream({
+      input: { text: message.data.prompt },
       temperature: 0.7,
     });
 
     // Stream chunks to client
-    for await (const chunk of result.textStream) {
+    for await (const chunk of result.stream) {
       channel.send({
         type: "text-chunk",
-        data: { chunk, provider: result.provider },
+        data: { chunk: chunk.content, provider: result.provider },
       });
     }
 
@@ -549,7 +549,7 @@ console.log("Memory usage:", stats.memoryUsage);
 wsServer.addHealthCheck("ai-providers", async () => {
   try {
     const provider = await createBestAIProvider();
-    await provider.generateText({ prompt: "test", maxTokens: 1 });
+    await provider.generate({ input: { text: "test" }, maxTokens: 1 });
     return { status: "healthy", message: "AI providers operational" };
   } catch (error) {
     return { status: "unhealthy", message: error.message };

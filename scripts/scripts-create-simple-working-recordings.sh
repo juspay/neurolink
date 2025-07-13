@@ -71,15 +71,15 @@ create_simple_recording "all-providers.cast" "NeuroLink - All 9 Providers" \
 
 # 3. Record Mistral demo (most reliable provider)
 create_simple_recording "mistral-demo.cast" "NeuroLink - Mistral AI Demo" \
-    "node dist/cli/index.js generate-text 'Explain GDPR compliance in AI systems in one paragraph' --provider mistral" 45
+    "node dist/cli/index.js generate 'Explain GDPR compliance in AI systems in one paragraph' --provider mistral" 45
 
 # 4. Record Google AI demo (primary provider)
 create_simple_recording "google-ai-demo.cast" "NeuroLink - Google AI Demo" \
-    "node dist/cli/index.js generate-text 'Write a haiku about artificial intelligence' --provider google-ai" 30
+    "node dist/cli/index.js generate 'Write a haiku about artificial intelligence' --provider google-ai" 30
 
 # 5. Record auto provider demo
 create_simple_recording "auto-provider-demo.cast" "NeuroLink - Auto Provider Selection" \
-    "node dist/cli/index.js generate-text 'What makes AI development exciting?' --provider auto" 30
+    "node dist/cli/index.js generate 'What makes AI development exciting?' --provider auto" 30
 
 echo "✅ All CLI recordings created!"
 

@@ -6,16 +6,17 @@
 import type {
   AIProvider,
   TextGenerationOptions,
-  StreamTextOptions,
-  EnhancedGenerateTextResult,
+  EnhancedGenerateResult,
 } from "../core/types.js";
-import type { StreamTextResult, ToolSet, Schema, GenerateTextResult } from "ai";
+import type { Schema } from "ai";
+import type { GenerateResult } from "../types/generate-types.js";
 import type { ZodType, ZodTypeDef } from "zod";
 import { getMCPManager } from "../mcp/manager.js";
 import { initializeMCPTools } from "../mcp/initialize-tools.js";
 import type { NeuroLinkExecutionContext } from "../mcp/factory.js";
 import { logger } from "../utils/logger.js";
 import { v4 as uuidv4 } from "uuid";
+import type { StreamOptions, StreamResult } from "../types/stream-types.js";
 
 /**
  * MCP-Aware Provider Configuration
@@ -122,10 +123,57 @@ export class MCPAwareProvider implements AIProvider {
     }
   }
 
-  async generateText(
+  /**
+   * PRIMARY METHOD: Stream content using AI (recommended for new code)
+   * Future-ready for multi-modal capabilities with current text focus
+   */
+  async stream(
+    optionsOrPrompt: StreamOptions | string,
+    analysisSchema?: any,
+  ): Promise<StreamResult> {
+    const functionTag = "MCPAwareProvider.stream";
+    const startTime = Date.now();
+
+    // Parse parameters - support both string and options object
+    const options =
+      typeof optionsOrPrompt === "string"
+        ? { input: { text: optionsOrPrompt } }
+        : optionsOrPrompt;
+
+    // Validate input
+    if (
+      !options?.input?.text ||
+      typeof options.input.text !== "string" ||
+      options.input.text.trim() === ""
+    ) {
+      throw new Error(
+        "Stream options must include input.text as a non-empty string",
+      );
+    }
+
+    // Use base provider's stream implementation
+    const baseResult = await this.baseProvider.stream(options);
+
+    if (!baseResult) {
+      throw new Error("No stream response received from provider");
+    }
+
+    // Return the result with MCP metadata
+    return {
+      ...baseResult,
+      provider: "mcp",
+      model: options.model || "unknown",
+      metadata: {
+        streamId: `mcp-${Date.now()}`,
+        startTime,
+      },
+    };
+  }
+
+  async generate(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<GenerateTextResult<ToolSet, unknown> | null> {
+  ): Promise<GenerateResult> {
     // Ensure MCP is initialized
     await this.initializeMCP();
 
@@ -163,7 +211,7 @@ PARAMS: <json_params>
 Otherwise, provide a direct response.`;
 
       // Generate response with enhanced prompt
-      const response = await this.baseProvider.generateText(
+      const response = await this.baseProvider.generate(
         {
           ...options,
           prompt: enhancedPrompt,
@@ -172,11 +220,15 @@ Otherwise, provide a direct response.`;
       );
 
       if (!response) {
-        return null;
+        return {
+          content: "No response generated",
+          provider: "mcp",
+          model: "unknown",
+        };
       }
 
       // Check if response includes tool invocation
-      const toolMatch = response.text.match(
+      const toolMatch = response.content.match(
         /TOOL:\s*(\S+)\s*\nPARAMS:\s*({.*})/s,
       );
 
@@ -195,7 +247,7 @@ ${JSON.stringify(toolResult, null, 2)}
 
 Please provide a response based on this information.`;
 
-        const finalResponse = await this.baseProvider.generateText(
+        const finalResponse = await this.baseProvider.generate(
           {
             ...options,
             prompt: finalPrompt,
@@ -204,7 +256,11 @@ Please provide a response based on this information.`;
         );
 
         if (!finalResponse) {
-          return null;
+          return {
+            content: "Tool execution failed",
+            provider: "mcp",
+            model: "unknown",
+          };
         }
 
         // Return response (tool usage is tracked internally)
@@ -215,16 +271,15 @@ Please provide a response based on this information.`;
     }
 
     // Regular generation without tools
-    return this.baseProvider.generateText(options);
-  }
-
-  async streamText(
-    optionsOrPrompt: StreamTextOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<StreamTextResult<ToolSet, unknown> | null> {
-    // For now, streaming doesn't support tool usage
-    // This matches Lighthouse's approach where MCP is used for non-streaming requests
-    return this.baseProvider.streamText(optionsOrPrompt, analysisSchema);
+    const result = await this.baseProvider.generate(options);
+    if (!result) {
+      return {
+        content: "Base provider returned no result",
+        provider: "mcp",
+        model: "unknown",
+      };
+    }
+    return result;
   }
 
   /**
@@ -270,23 +325,17 @@ Please provide a response based on this information.`;
   }
 
   /**
-   * Alias for generateText() - CLI-SDK consistency
+   * Alias for generate() - CLI-SDK consistency
    */
-  async generate(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
-  }
 
   /**
-   * Short alias for generateText() - CLI-SDK consistency
+   * Short alias for generate() - CLI-SDK consistency
    */
   async gen(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
+  ): Promise<EnhancedGenerateResult | null> {
+    return this.generate(optionsOrPrompt, analysisSchema);
   }
 }
 

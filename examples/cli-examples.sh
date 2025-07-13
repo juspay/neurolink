@@ -23,13 +23,13 @@ echo ""
 echo "2. ✅ Built-in Tools Test (v1.7.1)"
 echo "----------------------------------"
 echo "Testing time tool..."
-npx @juspay/neurolink generate-text "What time is it?" --debug
+npx @juspay/neurolink generate "What time is it?" --debug
 
 echo ""
 echo "3. 🔍 Tool Discovery"
 echo "-------------------"
 echo "Discovering available tools..."
-npx @juspay/neurolink generate-text "What tools do you have access to?" --debug
+npx @juspay/neurolink generate "What tools do you have access to?" --debug
 
 echo ""
 echo "4. 🛠️  MCP External Server Discovery"
@@ -41,7 +41,7 @@ echo ""
 echo "5. 🤖 Basic Text Generation"
 echo "---------------------------"
 echo "Generating a haiku..."
-npx @juspay/neurolink generate-text "Write a haiku about coding"
+npx @juspay/neurolink generate "Write a haiku about coding"
 
 echo ""
 echo "6. 🌊 Streaming Example"
@@ -53,7 +53,7 @@ echo ""
 echo "7. 🔧 Multi-tool Integration"
 echo "---------------------------"
 echo "Testing combined tool usage..."
-npx @juspay/neurolink generate-text "Can you tell me the current time and also explain what you can help me with?" --debug
+npx @juspay/neurolink generate "Can you tell me the current time and also explain what you can help me with?" --debug
 
 echo ""
 echo "✅ CLI Examples Complete!"

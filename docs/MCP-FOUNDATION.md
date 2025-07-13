@@ -18,7 +18,9 @@ NeuroLink's MCP Foundation follows a **Factory-First** design where MCP tools wo
 
 ```typescript
 // Same simple interface you love
-const result = await provider.generateText("Create a React component");
+const result = await provider.generate({
+  input: { text: "Create a React component" },
+});
 
 // But now powered by enterprise-grade MCP tool orchestration internally:
 // ✅ Context tracking across tool chains (IMPLEMENTED)
@@ -44,7 +46,7 @@ const result = await provider.generateText("Create a React component");
 const server = createMCPServer({
   name: "ai-providers-server",
   version: "1.0.0",
-  tools: ["generate-text", "select-provider", "check-provider-status"],
+  tools: ["generate", "select-provider", "check-provider-status"],
 });
 ```
 
@@ -117,7 +119,7 @@ interface MCPContext {
 ```typescript
 // Registry tracks all available tools with metadata
 const registry = {
-  "generate-text": {
+  generate: {
     description: "Generate AI text content",
     schema: {
       /* JSON Schema */
@@ -141,7 +143,7 @@ const registry = {
 const pipeline = [
   { tool: "analyze-ai-usage", params: { timeframe: "24h" } },
   { tool: "optimize-prompt-parameters", params: { prompt: "user-input" } },
-  { tool: "generate-text", params: { optimizedParams: true } },
+  { tool: "generate", params: { optimizedParams: true } },
 ];
 ```
 
@@ -155,7 +157,7 @@ const pipeline = [
 ```typescript
 // AI Provider MCP Tools
 const aiTools = [
-  "generate-text", // Text generation with provider selection
+  "generate", // Text generation with provider selection
   "select-provider", // Automatic provider selection
   "check-provider-status", // Provider connectivity and health
 ];
@@ -190,7 +192,7 @@ const aiTools = [
 
 #### Core AI Tools (3)
 
-1. **`generate-text`** - AI text generation with provider selection
+1. **`generate`** - AI text generation with provider selection
 2. **`select-provider`** - Automatic best provider selection
 3. **`check-provider-status`** - Provider connectivity and health checks
 
@@ -307,7 +309,7 @@ src/lib/mcp/
 ├── registry.ts                 # Tool discovery, registration, execution + statistics
 ├── orchestrator.ts             # Single tools + sequential pipelines + error handling
 └── servers/ai-providers/       # AI Core Server with 3 tools integrated
-    └── ai-core-server.ts       # generate-text, select-provider, check-provider-status
+    └── ai-core-server.ts       # generate, select-provider, check-provider-status
 ```
 
 ### Context Flow

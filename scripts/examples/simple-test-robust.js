@@ -21,8 +21,8 @@ async function testWithFallback() {
     console.log(`\n🧪 Testing ${provider}...`);
 
     try {
-      const result = await sdk.generateText({
-        prompt: 'Test AI response',
+      const result = await sdk.generate({
+        input: { text: 'Test AI response' },
         provider: provider,
         enableAnalytics: true,
         enableEvaluation: true,

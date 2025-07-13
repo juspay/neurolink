@@ -1,5 +1,11 @@
 # NeuroLink Project Rules
 
+
+### **MIGRATION PATTERNS**
+- **Factory Pattern Integration**: ProviderGenerateFactory enhances all 9 providers
+- **Interface Future-Readiness**: GenerateOptions designed for multi-modal expansion
+- **Enhanced Error Handling**: Better provider management and graceful fallbacks
+
 > **📚 Historical Learning Archive**: See `memory-bank/archive/.clinerules-2025-01-07`
 > **🎯 Current Focus**: Complete operational guide for enterprise AI development
 
@@ -16,7 +22,7 @@ src/lib/mcp/
 ├── registry.ts                 # Tool discovery, registration, execution + statistics
 ├── orchestrator.ts             # Single tools + sequential pipelines + error handling
 └── servers/ai-providers/       # AI Core Server with 3 tools integrated
-    └── ai-core-server.ts       # generate-text, select-provider, check-provider-status
+    └── ai-core-server.ts       # generate, select-provider, check-provider-status
 ```
 
 ### **Key Implementation Principles**
@@ -340,8 +346,8 @@ pnpm run build:analyze
 ```typescript
 // Standard mock configuration
 vi.mock("ai", () => ({
-  streamText: vi.fn(),
-  generateText: vi.fn(),
+  stream: vi.fn(),
+  generate: vi.fn(),
   Output: { object: vi.fn() },
 }));
 
@@ -523,7 +529,7 @@ const options = typeof optionsOrPrompt === 'string'
 
 // Implementation pattern for all providers
 export class YourProvider implements AIProvider {
-  async generateText(
+  async generate(
     optionsOrPrompt: TextGenerationOptions | string,
   ): Promise<string> {
     const options = typeof optionsOrPrompt === 'string'
@@ -633,7 +639,7 @@ pnpm cli generate "prompt" --enable-analytics --enable-evaluation --debug
 ### **SDK Enhancement Integration**
 ```typescript
 // Enhanced SDK response structure
-interface GenerateTextResult {
+interface GenerateResult {
   text: string;
   analytics?: {
     provider: string;
@@ -668,7 +674,7 @@ export class YourProvider implements AIProvider {
     // Initialize with model configuration
   }
 
-  async generateText(
+  async generate(
     optionsOrPrompt: TextGenerationOptions | string,
   ): Promise<string> {
     // Support both string and options parameter formats
@@ -874,10 +880,10 @@ pnpm cli generate "What is AI?" --context '{"project":"demo"}' --debug
 ### **SDK Usage Patterns**
 ```typescript
 // Basic usage (unchanged)
-const result = await neurolink.generateText("What is AI?");
+const result = await neurolink.generate("What is AI?");
 
 // Enhanced usage with analytics
-const result = await neurolink.generateText({
+const result = await neurolink.generate({
   prompt: "What is AI?",
   enableAnalytics: true,
   enableEvaluation: true,

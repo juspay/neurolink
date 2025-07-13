@@ -34,8 +34,8 @@ async function testProvider(providerName) {
     // 2. Basic Generation Test
     spinner.start("Testing basic text generation...");
     const startTime = Date.now();
-    const result = await provider.generateText({
-      prompt: "Say hello in one sentence.",
+    const result = await provider.generate({
+      input: { text: "Say hello in one sentence." },
       temperature: 0.7,
       maxTokens: 50,
     });
@@ -58,8 +58,8 @@ async function testProvider(providerName) {
 
     // 3. Advanced Options Test
     spinner.start("Testing with advanced options...");
-    const advancedResult = await provider.generateText({
-      prompt: "Explain AI in simple terms.",
+    const advancedResult = await provider.generate({
+      input: { text: "Explain AI in simple terms." },
       temperature: 0.3,
       maxTokens: 100,
       topP: 0.9,
@@ -75,8 +75,8 @@ async function testProvider(providerName) {
     // 4. Error Handling Test
     spinner.start("Testing error handling...");
     try {
-      await provider.generateText({
-        prompt: "", // Empty prompt
+      await provider.generate({
+        input: { text: "" }, // Empty prompt
         maxTokens: -1, // Invalid tokens
       });
       spinner.fail("❌ Error handling test failed - should have thrown error");
@@ -92,8 +92,8 @@ async function testProvider(providerName) {
     const promises = [];
     for (let i = 0; i < 3; i++) {
       promises.push(
-        provider.generateText({
-          prompt: `Test prompt ${i}`,
+        provider.generate({
+          input: { text: `Test prompt ${i}` },
           maxTokens: 20,
         }),
       );

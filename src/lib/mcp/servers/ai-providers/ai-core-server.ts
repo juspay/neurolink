@@ -94,7 +94,7 @@ const ProviderSelectionSchema = z.object({
  * Core tool that leverages existing AIProviderFactory for text generation
  */
 aiCoreServer.registerTool({
-  name: "generate-text",
+  name: "generate",
   description:
     "Generate text using AI providers with automatic fallback and provider selection",
   category: "text-generation",
@@ -118,7 +118,7 @@ aiCoreServer.registerTool({
         await AIProviderFactory.createBestProvider(selectedProvider);
 
       // Generate text using existing NeuroLink patterns
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: params.prompt,
         model: params.model,
         temperature: params.temperature,
@@ -139,7 +139,7 @@ aiCoreServer.registerTool({
       return {
         success: true,
         data: {
-          text: result.text,
+          text: result.content,
           model: params.model || "default",
           provider: selectedProvider,
           generatedAt: new Date().toISOString(),
@@ -151,7 +151,7 @@ aiCoreServer.registerTool({
           executionTime,
         },
         metadata: {
-          toolName: "generate-text",
+          toolName: "generate",
           serverId: "neurolink-ai-core",
           sessionId: context.sessionId,
           timestamp: Date.now(),
@@ -169,7 +169,7 @@ aiCoreServer.registerTool({
         success: false,
         error: errorMessage,
         metadata: {
-          toolName: "generate-text",
+          toolName: "generate",
           serverId: "neurolink-ai-core",
           sessionId: context.sessionId,
           timestamp: Date.now(),

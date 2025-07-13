@@ -157,7 +157,7 @@ pnpm start
 # In another terminal, use the CLI to interact with the same providers:
 
 # Basic text generation using CLI
-npx @juspay/neurolink generate-text "Write a haiku about programming"
+npx @juspay/neurolink generate "Write a haiku about programming"
 
 # Compare with server API
 curl -X POST http://localhost:9876/api/generate \
@@ -179,7 +179,7 @@ npx @juspay/neurolink stream "Tell me a story about robots"
 
 ```bash
 # CLI approach (simple, scriptable)
-npx @juspay/neurolink generate-text "Hello world" --format json
+npx @juspay/neurolink generate "Hello world" --format json
 
 # API approach (programmatic integration)
 curl -X POST http://localhost:9876/api/generate \

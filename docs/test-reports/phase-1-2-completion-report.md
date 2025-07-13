@@ -130,7 +130,7 @@ const testCases = await provider.generateTestCases(codeSnippet);
 
 #### **Current Capabilities (10 Specialized Tools)**
 
-- **Core Tools** (3): generate-text, select-provider, check-provider-status
+- **Core Tools** (3): generate, select-provider, check-provider-status
 - **Analysis Tools** (3): analyze-ai-usage, benchmark-provider-performance, optimize-prompt-parameters
 - **Workflow Tools** (4): generate-test-cases, refactor-code, generate-documentation, debug-ai-output
 

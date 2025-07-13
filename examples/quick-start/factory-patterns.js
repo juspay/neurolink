@@ -29,7 +29,9 @@ async function factoryPatternsDemo() {
     if (provider) {
       console.log("   ✅ Google AI provider created");
 
-      const result = await provider.generateText("What is a factory pattern?");
+      const result = await provider.generate({
+        input: { text: "What is a factory pattern?" },
+      });
       console.log(`   📝 Response: "${result.text}"\n`);
     }
 
@@ -80,9 +82,9 @@ async function factoryPatternsDemo() {
     }
 
     if (workingProvider) {
-      const result = await workingProvider.generateText(
-        "Test fallback response",
-      );
+      const result = await workingProvider.generate({
+        input: { text: "Test fallback response" },
+      });
       console.log(`   📝 Fallback response: "${result.text}"\n`);
     }
 

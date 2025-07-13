@@ -306,12 +306,12 @@ export class DynamicOrchestrator extends MCPOrchestrator {
 
     try {
       // Use AI Core Server to get tool decision
-      const generateTextTool = aiCoreServer.tools["generate-text"];
-      if (!generateTextTool) {
-        throw new Error("generate-text tool not found");
+      const generateTool = aiCoreServer.tools["generate"];
+      if (!generateTool) {
+        throw new Error("generate tool not found");
       }
 
-      const aiResponse = await generateTextTool.execute(
+      const aiResponse = await generateTool.execute(
         {
           prompt:
             "Select the next tool to execute based on the context provided.",
@@ -410,12 +410,12 @@ Provide a clear, concise answer that addresses the user's request based on the t
 
     try {
       // Use AI to generate final summary
-      const generateTextTool = aiCoreServer.tools["generate-text"];
-      if (!generateTextTool) {
-        throw new Error("generate-text tool not found");
+      const generateTool = aiCoreServer.tools["generate"];
+      if (!generateTool) {
+        throw new Error("generate tool not found");
       }
 
-      const aiResponse = await generateTextTool.execute(
+      const aiResponse = await generateTool.execute(
         {
           prompt: summaryPrompt,
           provider: "google-ai",

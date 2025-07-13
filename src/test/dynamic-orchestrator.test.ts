@@ -75,9 +75,9 @@ describe("DynamicOrchestrator", () => {
       },
     );
 
-    // Mock AI Core Server's generate-text tool
-    const mockGenerateText = {
-      name: "generate-text",
+    // Mock AI Core Server's generate tool
+    const mockGenerate = {
+      name: "generate",
       description: "Generate text using AI",
       category: "text-generation",
       inputSchema: {} as any,
@@ -197,7 +197,7 @@ describe("DynamicOrchestrator", () => {
     originalTools = aiCoreServer.tools;
     // Mock the AI core server tools
     aiCoreServer.tools = {
-      "generate-text": mockGenerateText as any,
+      generate: mockGenerate as any,
     };
 
     // Mock error manager methods
@@ -266,8 +266,8 @@ describe("DynamicOrchestrator", () => {
 
     it("should stop execution on low confidence", async () => {
       // Mock low confidence response
-      const mockGenerateText = aiCoreServer.tools["generate-text"];
-      vi.mocked(mockGenerateText.execute).mockResolvedValueOnce({
+      const mockGenerate = aiCoreServer.tools["generate"];
+      vi.mocked(mockGenerate.execute).mockResolvedValueOnce({
         success: true,
         data: {
           text: JSON.stringify({
@@ -314,8 +314,8 @@ describe("DynamicOrchestrator", () => {
 
     it("should respect max iterations limit", async () => {
       // Mock AI to always continue
-      const mockGenerateText = aiCoreServer.tools["generate-text"];
-      vi.mocked(mockGenerateText.execute).mockResolvedValue({
+      const mockGenerate = aiCoreServer.tools["generate"];
+      vi.mocked(mockGenerate.execute).mockResolvedValue({
         success: true,
         data: {
           text: JSON.stringify({
@@ -341,8 +341,8 @@ describe("DynamicOrchestrator", () => {
 
     it("should handle AI decision parsing errors", async () => {
       // Mock invalid AI response
-      const mockGenerateText = aiCoreServer.tools["generate-text"];
-      vi.mocked(mockGenerateText.execute).mockResolvedValueOnce({
+      const mockGenerate = aiCoreServer.tools["generate"];
+      vi.mocked(mockGenerate.execute).mockResolvedValueOnce({
         success: true,
         data: {
           text: "This is not valid JSON",
@@ -423,8 +423,8 @@ describe("DynamicOrchestrator", () => {
         "You are a specialized code analyzer. Always select analyze-code first.";
 
       // Mock to verify custom prompt is used
-      const mockGenerateText = aiCoreServer.tools["generate-text"] as any;
-      const executeSpy = vi.mocked(mockGenerateText.execute);
+      const mockGenerate = aiCoreServer.tools["generate"] as any;
+      const executeSpy = vi.mocked(mockGenerate.execute);
 
       await dynamicOrchestrator.executeDynamicToolChain(
         "Analyze something",

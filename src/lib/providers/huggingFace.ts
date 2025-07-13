@@ -4,19 +4,17 @@ import {
   streamText,
   generateText,
   Output,
-  type StreamTextResult,
-  type ToolSet,
   type Schema,
-  type GenerateTextResult,
   type LanguageModelV1,
   type LanguageModelV1CallOptions,
   type LanguageModelV1StreamPart,
 } from "ai";
+import type { GenerateResult } from "../types/generate-types.js";
+import type { StreamOptions, StreamResult } from "../types/stream-types.js";
 import type {
   AIProvider,
   TextGenerationOptions,
-  StreamTextOptions,
-  EnhancedGenerateTextResult,
+  EnhancedGenerateResult,
 } from "../core/types.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -288,25 +286,48 @@ export class HuggingFace implements AIProvider {
   }
 
   /**
-   * Processes text using streaming approach with enhanced error handling callbacks
-   * @param prompt - The input text prompt to analyze
-   * @param analysisSchema - Optional Zod schema or Schema object for output validation
-   * @returns Promise resolving to StreamTextResult or null if operation fails
+   * PRIMARY METHOD: Stream content using AI (recommended for new code)
+   * Future-ready for multi-modal capabilities with current text focus
    */
-  async streamText(
-    optionsOrPrompt: StreamTextOptions | string,
+  async stream(
+    optionsOrPrompt: StreamOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<StreamTextResult<ToolSet, unknown> | null> {
-    const functionTag = "HuggingFace.streamText";
+  ): Promise<StreamResult> {
+    const functionTag = "HuggingFace.stream";
     const provider = "huggingface";
     let chunkCount = 0;
+    const startTime = Date.now();
 
     try {
       // Parse parameters - support both string and options object
       const options =
         typeof optionsOrPrompt === "string"
-          ? { prompt: optionsOrPrompt }
+          ? { input: { text: optionsOrPrompt } }
           : optionsOrPrompt;
+
+      // Validate input
+      if (
+        !options?.input?.text ||
+        typeof options.input.text !== "string" ||
+        options.input.text.trim() === ""
+      ) {
+        throw new Error(
+          "Stream options must include input.text as a non-empty string",
+        );
+      }
+
+      // Convert StreamOptions for internal use
+      const convertedOptions = {
+        prompt: options.input.text,
+        provider: options.provider,
+        model: options.model,
+        temperature: options.temperature,
+        maxTokens: options.maxTokens,
+        systemPrompt: options.systemPrompt,
+        timeout: options.timeout,
+        schema: options.schema,
+        tools: options.tools,
+      };
 
       const {
         prompt,
@@ -315,7 +336,7 @@ export class HuggingFace implements AIProvider {
         systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
         schema,
         timeout = getDefaultTimeout(provider, "stream"),
-      } = options;
+      } = convertedOptions;
 
       // Use schema from options or fallback parameter
       const finalSchema = schema || analysisSchema;
@@ -356,7 +377,7 @@ export class HuggingFace implements AIProvider {
             error instanceof Error ? error.message : String(error);
           const errorStack = error instanceof Error ? error.stack : undefined;
 
-          logger.error(`[${functionTag}] Stream text error`, {
+          logger.error(`[${functionTag}] Stream error`, {
             provider,
             modelName: this.modelName,
             error: errorMessage,
@@ -371,7 +392,7 @@ export class HuggingFace implements AIProvider {
           usage: Record<string, unknown>;
           text?: string;
         }) => {
-          logger.debug(`[${functionTag}] Stream text finished`, {
+          logger.debug(`[${functionTag}] Stream finished`, {
             provider,
             modelName: this.modelName,
             finishReason: event.finishReason,
@@ -384,7 +405,7 @@ export class HuggingFace implements AIProvider {
 
         onChunk: (event: { chunk: { type: string; text?: string } }) => {
           chunkCount++;
-          logger.debug(`[${functionTag}] Stream text chunk`, {
+          logger.debug(`[${functionTag}] Stream chunk`, {
             provider,
             modelName: this.modelName,
             chunkNumber: chunkCount,
@@ -402,10 +423,20 @@ export class HuggingFace implements AIProvider {
 
       const result = streamText(streamOptions);
 
-      // For streaming, we can't clean up immediately, but the timeout will auto-clean
-      // The user should handle the stream and any timeout errors
-
-      return result;
+      // Convert to StreamResult format
+      return {
+        stream: (async function* () {
+          for await (const chunk of result.textStream) {
+            yield { content: chunk };
+          }
+        })(),
+        provider: "huggingface",
+        model: this.modelName,
+        metadata: {
+          streamId: `huggingface-${Date.now()}`,
+          startTime,
+        },
+      };
     } catch (err) {
       // Log timeout errors specifically
       if (err instanceof TimeoutError) {
@@ -419,12 +450,12 @@ export class HuggingFace implements AIProvider {
         logger.error(`[${functionTag}] Exception`, {
           provider,
           modelName: this.modelName,
-          message: "Error in streaming text",
+          message: "Error in streaming content",
           err: String(err),
           promptLength:
             typeof optionsOrPrompt === "string"
               ? optionsOrPrompt.length
-              : optionsOrPrompt.prompt.length,
+              : optionsOrPrompt.input?.text?.length || 0,
         });
       }
       throw err; // Re-throw error to trigger fallback
@@ -435,13 +466,13 @@ export class HuggingFace implements AIProvider {
    * Processes text using non-streaming approach with optional schema validation
    * @param prompt - The input text prompt to analyze
    * @param analysisSchema - Optional Zod schema or Schema object for output validation
-   * @returns Promise resolving to GenerateTextResult or null if operation fails
+   * @returns Promise resolving to GenerateResult or null if operation fails
    */
-  async generateText(
+  async generate(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<GenerateTextResult<ToolSet, unknown> | null> {
-    const functionTag = "HuggingFace.generateText";
+  ): Promise<GenerateResult> {
+    const functionTag = "HuggingFace.generate";
     const provider = "huggingface";
     const startTime = Date.now();
 
@@ -535,7 +566,19 @@ export class HuggingFace implements AIProvider {
           );
         }
 
-        return result;
+        return {
+          content: result.text,
+          provider: "huggingface",
+          model: this.modelName,
+          usage: result.usage
+            ? {
+                inputTokens: result.usage.promptTokens,
+                outputTokens: result.usage.completionTokens,
+                totalTokens: result.usage.totalTokens,
+              }
+            : undefined,
+          responseTime: Date.now() - startTime,
+        };
       } finally {
         // Always cleanup timeout
         timeoutController?.cleanup();
@@ -561,17 +604,10 @@ export class HuggingFace implements AIProvider {
     }
   }
 
-  async generate(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
-  }
-
   async gen(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
+  ): Promise<EnhancedGenerateResult | null> {
+    return this.generate(optionsOrPrompt, analysisSchema);
   }
 }

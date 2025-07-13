@@ -8,11 +8,12 @@
 import type {
   AIProvider,
   TextGenerationOptions,
-  StreamTextOptions,
-  EnhancedGenerateTextResult,
+  EnhancedGenerateResult,
 } from "../core/types.js";
 import type { ZodType, ZodTypeDef } from "zod";
-import type { Schema, GenerateTextResult } from "ai";
+import type { Schema } from "ai";
+import type { GenerateResult } from "../types/generate-types.js";
+import type { StreamOptions, StreamResult } from "../types/stream-types.js";
 import { AIProviderName } from "../core/types.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -160,11 +161,131 @@ export class AnthropicProvider implements AIProvider {
     return response;
   }
 
-  async generateText(
+  /**
+   * PRIMARY METHOD: Stream content using AI (recommended for new code)
+   * Future-ready for multi-modal capabilities with current text focus
+   */
+  async stream(
+    optionsOrPrompt: StreamOptions | string,
+    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+  ): Promise<StreamResult> {
+    const functionTag = "AnthropicProvider.stream";
+    const provider = "anthropic";
+    const startTime = Date.now();
+
+    logger.debug(`[${functionTag}] Starting content streaming`);
+
+    // Parse parameters - support both string and options object
+    const options =
+      typeof optionsOrPrompt === "string"
+        ? { input: { text: optionsOrPrompt } }
+        : optionsOrPrompt;
+
+    // Validate input
+    if (
+      !options?.input?.text ||
+      typeof options.input.text !== "string" ||
+      options.input.text.trim() === ""
+    ) {
+      throw new Error(
+        "Stream options must include input.text as a non-empty string",
+      );
+    }
+
+    // Extract parameters
+    const {
+      prompt = options.input.text,
+      temperature = 0.7,
+      maxTokens = DEFAULT_MAX_TOKENS,
+      systemPrompt = "You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.",
+      timeout = getDefaultTimeout(provider, "stream"),
+    } = options as any;
+
+    logger.debug(
+      `[${functionTag}] Streaming prompt: "${prompt.substring(0, 100)}...", Timeout: ${timeout}`,
+    );
+
+    // Create timeout controller if timeout is specified
+    const timeoutController = createTimeoutController(
+      timeout,
+      provider,
+      "stream",
+    );
+
+    try {
+      const body = {
+        model: this.getModel(),
+        max_tokens: maxTokens,
+        messages: [
+          ...(systemPrompt
+            ? [{ role: "assistant", content: systemPrompt }]
+            : []),
+          { role: "user", content: prompt },
+        ],
+        temperature,
+        stream: true,
+      };
+
+      const response = await this.makeRequest(
+        "messages",
+        body,
+        true,
+        timeoutController?.controller.signal,
+      );
+
+      const streamIterable = this.createAsyncIterable(
+        response.body!,
+        timeoutController?.controller.signal,
+      );
+
+      // Clean up timeout controller
+      timeoutController?.cleanup();
+
+      logger.debug(`[${functionTag}] Stream initialized successfully`);
+
+      // Convert to StreamResult format
+      return {
+        stream: (async function* () {
+          for await (const chunk of streamIterable) {
+            yield { content: chunk };
+          }
+        })(),
+        provider: "anthropic",
+        model: this.getModel(),
+        metadata: {
+          streamId: `anthropic-${Date.now()}`,
+          startTime,
+        },
+      };
+    } catch (error: any) {
+      // Always cleanup timeout on error
+      timeoutController?.cleanup();
+
+      if (error.name === "AbortError" || error.message.includes("timeout")) {
+        const timeoutError = new TimeoutError(
+          `${provider} stream operation timed out after ${timeout}`,
+          timeoutController?.timeoutMs || 0,
+          provider,
+          "stream",
+        );
+        logger.error(`[${functionTag}] Timeout error`, {
+          provider,
+          timeout: timeoutController?.timeoutMs,
+          message: timeoutError.message,
+        });
+        throw timeoutError;
+      } else {
+        logger.error(`[${functionTag}] Error:`, error);
+      }
+      throw error;
+    }
+  }
+
+  async generate(
     optionsOrPrompt: TextGenerationOptions | string,
     schema?: any,
   ): Promise<any> {
-    const functionTag = "AnthropicProvider.generateText";
+    const functionTag = "AnthropicProvider.generate";
     const provider = "anthropic";
     const startTime = Date.now();
 
@@ -294,109 +415,10 @@ export class AnthropicProvider implements AIProvider {
     }
   }
 
-  async streamText(
-    optionsOrPrompt: StreamTextOptions | string,
-    schema?: any,
-  ): Promise<any> {
-    const functionTag = "AnthropicProvider.streamText";
-    const provider = "anthropic";
-
-    logger.debug(`[${functionTag}] Starting text streaming`);
-
-    // Parse parameters with backward compatibility
-    const options =
-      typeof optionsOrPrompt === "string"
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-    const {
-      prompt,
-      temperature = 0.7,
-      maxTokens = DEFAULT_MAX_TOKENS,
-      systemPrompt = "You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.",
-      timeout = getDefaultTimeout(provider, "stream"),
-    } = options;
-
-    logger.debug(
-      `[${functionTag}] Streaming prompt: "${prompt.substring(0, 100)}...", Timeout: ${timeout}`,
-    );
-
-    const requestBody: AnthropicRequestBody = {
-      model: this.getModel(),
-      max_tokens: maxTokens,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature,
-      system: systemPrompt,
-      stream: true,
-    };
-
-    // Create timeout controller if timeout is specified
-    const timeoutController = createTimeoutController(
-      timeout,
-      provider,
-      "stream",
-    );
-
-    try {
-      const response = await this.makeRequest(
-        "messages",
-        requestBody,
-        true,
-        timeoutController?.controller.signal,
-      );
-
-      if (!response.body) {
-        throw new Error("No response body received");
-      }
-
-      // Return a StreamTextResult-like object with timeout signal
-      return {
-        textStream: this.createAsyncIterable(
-          response.body,
-          timeoutController?.controller.signal,
-        ),
-        text: "",
-        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-        finishReason: "end_turn",
-        // Store timeout controller for external cleanup if needed
-        _timeoutController: timeoutController,
-      };
-    } catch (error) {
-      // Cleanup timeout on error
-      timeoutController?.cleanup();
-
-      // Log timeout errors specifically
-      if (error instanceof TimeoutError) {
-        logger.error(`[${functionTag}] Timeout error`, {
-          provider,
-          timeout: error.timeout,
-          message: error.message,
-        });
-      } else if ((error as any)?.name === "AbortError") {
-        // Convert AbortError to TimeoutError
-        const timeoutError = new TimeoutError(
-          `${provider} stream operation timed out after ${timeout}`,
-          timeoutController?.timeoutMs || 0,
-          provider,
-          "stream",
-        );
-        logger.error(`[${functionTag}] Timeout error`, {
-          provider,
-          timeout: timeoutController?.timeoutMs,
-          message: timeoutError.message,
-        });
-        throw timeoutError;
-      } else {
-        logger.error(`[${functionTag}] Error:`, error);
-      }
-      throw error;
-    }
-  }
+  /**
+   * LEGACY METHOD: Use stream() instead for new code
+   * @deprecated Use stream() method instead
+   */
 
   private async *createAsyncIterable(
     body: ReadableStream<Uint8Array>,
@@ -454,110 +476,6 @@ export class AnthropicProvider implements AIProvider {
     }
   }
 
-  async *generateTextStream(
-    optionsOrPrompt: StreamTextOptions | string,
-  ): AsyncGenerator<any, void, unknown> {
-    logger.debug(
-      "[AnthropicProvider.generateTextStream] Starting text streaming",
-    );
-
-    // Parse parameters with backward compatibility
-    const options =
-      typeof optionsOrPrompt === "string"
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-    const {
-      prompt,
-      temperature = 0.7,
-      maxTokens = DEFAULT_MAX_TOKENS,
-      systemPrompt = "You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.",
-    } = options;
-
-    logger.debug(
-      `[AnthropicProvider.generateTextStream] Streaming prompt: "${prompt.substring(0, 100)}..."`,
-    );
-
-    const requestBody: AnthropicRequestBody = {
-      model: this.getModel(),
-      max_tokens: maxTokens,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature,
-      system: systemPrompt,
-      stream: true,
-    };
-
-    try {
-      const response = await this.makeRequest("messages", requestBody, true);
-
-      if (!response.body) {
-        throw new Error("No response body received");
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            break;
-          }
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.trim() === "") {
-              continue;
-            }
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data.trim() === "[DONE]") {
-                continue;
-              }
-
-              try {
-                const chunk: AnthropicStreamChunk = JSON.parse(data);
-
-                // Extract text content from different chunk types
-                if (chunk.type === "content_block_delta" && chunk.delta?.text) {
-                  yield {
-                    content: chunk.delta.text,
-                    provider: this.name,
-                    model: this.getModel(),
-                  };
-                }
-              } catch (parseError) {
-                logger.warn(
-                  "[AnthropicProvider.generateTextStream] Failed to parse chunk:",
-                  parseError,
-                );
-                continue;
-              }
-            }
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
-
-      logger.debug(
-        "[AnthropicProvider.generateTextStream] Streaming completed",
-      );
-    } catch (error) {
-      logger.error("[AnthropicProvider.generateTextStream] Error:", error);
-      throw error;
-    }
-  }
-
   async testConnection(): Promise<{
     success: boolean;
     error?: string;
@@ -570,7 +488,7 @@ export class AnthropicProvider implements AIProvider {
     const startTime = Date.now();
 
     try {
-      await this.generateText({
+      await this.generate({
         prompt: "Hello",
         maxTokens: 5,
       });
@@ -645,22 +563,12 @@ export class AnthropicProvider implements AIProvider {
   }
 
   /**
-   * Alias for generateText() - CLI-SDK consistency
-   */
-  async generate(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
-  }
-
-  /**
-   * Short alias for generateText() - CLI-SDK consistency
+   * Short alias for generate() - CLI-SDK consistency
    */
   async gen(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
+  ): Promise<EnhancedGenerateResult | null> {
+    return this.generate(optionsOrPrompt, analysisSchema);
   }
 }

@@ -105,19 +105,19 @@ async function run() {
     {
       name: "mistral-demo.cast",
       title: "NeuroLink - Mistral AI Demo",
-      command: `node ${CLI_PATH} generate-text 'Explain GDPR compliance in AI systems in one paragraph' --provider mistral`,
+      command: `node ${CLI_PATH} generate 'Explain GDPR compliance in AI systems in one paragraph' --provider mistral`,
       wait: 45,
     },
     {
       name: "google-ai-demo.cast",
       title: "NeuroLink - Google AI Demo",
-      command: `node ${CLI_PATH} generate-text 'Write a haiku about artificial intelligence' --provider google-ai`,
+      command: `node ${CLI_PATH} generate 'Write a haiku about artificial intelligence' --provider google-ai`,
       wait: 30,
     },
     {
       name: "auto-provider-demo.cast",
       title: "NeuroLink - Auto Provider Selection",
-      command: `node ${CLI_PATH} generate-text 'What makes AI development exciting?' --provider auto`,
+      command: `node ${CLI_PATH} generate 'What makes AI development exciting?' --provider auto`,
       wait: 30,
     },
   ];

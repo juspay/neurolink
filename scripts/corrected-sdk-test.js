@@ -63,43 +63,43 @@ async function testCorrectSDK() {
     console.log('\n🔍 INSPECTING PROVIDER METHODS');
     
     const providerMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(provider));
-    const hasGenerateText = providerMethods.includes('generateText');
+    const hasGenerate = providerMethods.includes('generate');
     const hasGenerate = providerMethods.includes('generate');
     const hasGen = providerMethods.includes('gen');
-    const hasStreamText = providerMethods.includes('streamText');
+    const hasStream = providerMethods.includes('stream');
     
     log('Provider Method Inspection', 'SUCCESS', 
-      `generateText: ${hasGenerateText}, generate: ${hasGenerate}, gen: ${hasGen}, streamText: ${hasStreamText}`,
+      `generate: ${hasGenerate}, generate: ${hasGenerate}, gen: ${hasGen}, stream: ${hasStream}`,
       `All methods: ${providerMethods.join(', ')}`);
 
-    // Test 4: Test generateText if available
-    if (hasGenerateText) {
-      console.log('\n💬 TESTING GENERATETEXT METHOD');
+    // Test 4: Test generate if available
+    if (hasGenerate) {
+      console.log('\n💬 TESTING GENERATE METHOD');
       
       try {
-        const result = await provider.generateText('What is 2+2?');
-        if (result && result.text) {
-          log('generateText() - String Input', 'SUCCESS', 'Generated text successfully', result.text);
+        const result = await provider.generate({ input: { text: 'What is 2+2?' } });
+        if (result && result.content) {
+          log('generate() - String Input', 'SUCCESS', 'Generated text successfully', result.content);
         } else {
-          log('generateText() - String Input', 'FAILED', 'No text in result', JSON.stringify(result));
+          log('generate() - String Input', 'FAILED', 'No content in result', JSON.stringify(result));
         }
       } catch (error) {
-        log('generateText() - String Input', 'FAILED', error.message);
+        log('generate() - String Input', 'FAILED', error.message);
       }
       
       // Test with options object
       try {
-        const result = await provider.generateText({
-          prompt: 'Write a haiku about programming',
+        const result = await provider.generate({
+          input: { text: 'Write a haiku about programming' },
           maxTokens: 100
         });
-        if (result && result.text) {
-          log('generateText() - Options Object', 'SUCCESS', 'Generated with options', result.text);
+        if (result && result.content) {
+          log('generate() - Options Object', 'SUCCESS', 'Generated with options', result.content);
         } else {
-          log('generateText() - Options Object', 'FAILED', 'No text in result');
+          log('generate() - Options Object', 'FAILED', 'No content in result');
         }
       } catch (error) {
-        log('generateText() - Options Object', 'FAILED', error.message);
+        log('generate() - Options Object', 'FAILED', error.message);
       }
     }
 
@@ -143,20 +143,20 @@ async function testCorrectSDK() {
       log('NeuroLink Class Creation', 'SUCCESS', 'NeuroLink instance created');
       
       // Test NeuroLink methods
-      if (typeof neurolinkInstance.generateText === 'function') {
+      if (typeof neurolinkInstance.generate === 'function') {
         try {
-          const result = await neurolinkInstance.generateText('Test NeuroLink class');
-          if (result && (result.text || result.content)) {
-            log('NeuroLink.generateText()', 'SUCCESS', 'NeuroLink method working', 
-              result.text || result.content);
+          const result = await neurolinkInstance.generate({ input: { text: 'Test NeuroLink class' } });
+          if (result && result.content) {
+            log('NeuroLink.generate()', 'SUCCESS', 'NeuroLink method working', 
+              result.content);
           } else {
-            log('NeuroLink.generateText()', 'FAILED', 'No text in result');
+            log('NeuroLink.generate()', 'FAILED', 'No content in result');
           }
         } catch (error) {
-          log('NeuroLink.generateText()', 'FAILED', error.message);
+          log('NeuroLink.generate()', 'FAILED', error.message);
         }
       } else {
-        log('NeuroLink.generateText()', 'FAILED', 'Method not available');
+        log('NeuroLink.generate()', 'FAILED', 'Method not available');
       }
     } catch (error) {
       log('NeuroLink Class Creation', 'FAILED', error.message);
@@ -190,10 +190,10 @@ async function testCorrectSDK() {
     // Test 10: Test enhanced features if available
     console.log('\n🌟 TESTING ENHANCED FEATURES');
     
-    if (hasGenerateText && provider.generateText) {
+    if (hasGenerate && provider.generate) {
       try {
-        const result = await provider.generateText({
-          prompt: 'Test enhanced features',
+        const result = await provider.generate({
+          input: { text: 'Test enhanced features' },
           enableAnalytics: true,
           enableEvaluation: true
         });
@@ -210,15 +210,15 @@ async function testCorrectSDK() {
     }
 
     // Test 11: Test streaming if available
-    if (hasStreamText) {
+    if (hasStream) {
       console.log('\n🌊 TESTING STREAMING');
       
       try {
-        const streamResult = await provider.streamText('Quick stream test');
-        log('streamText() method', 'SUCCESS', 
+        const streamResult = await provider.stream({ input: { text: 'Quick stream test' } });
+        log('stream() method', 'SUCCESS', 
           `Stream result type: ${typeof streamResult}`);
       } catch (error) {
-        log('streamText() method', 'FAILED', error.message);
+        log('stream() method', 'FAILED', error.message);
       }
     }
 
@@ -244,7 +244,7 @@ testCorrectSDK().then(() => {
     criticalTests: {
       'SDK Import': results.find(r => r.test === 'SDK Import')?.status,
       'Provider Creation': results.find(r => r.test.includes('createBestAIProvider'))?.status,
-      'generateText Method': results.find(r => r.test.includes('generateText'))?.status,
+      'generate Method': results.find(r => r.test.includes('generate'))?.status,
       'NeuroLink Class': results.find(r => r.test === 'NeuroLink Class Creation')?.status
     },
     results

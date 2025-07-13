@@ -48,25 +48,25 @@ async function testSDK() {
       return;
     }
 
-    // Test 3: Basic generateText method
+    // Test 3: Basic generate method
     console.log('\n💬 TESTING BASIC TEXT GENERATION');
     
     try {
-      const result = await provider.generateText('What is 2+2?');
-      log('generateText() - Basic', 'SUCCESS', 'Generated text successfully', result);
+      const result = await provider.generate({ input: { text: 'What is 2+2?' } });
+      log('generate() - Basic', 'SUCCESS', 'Generated text successfully', result);
     } catch (error) {
-      log('generateText() - Basic', 'FAILED', error.message);
+      log('generate() - Basic', 'FAILED', error.message);
     }
 
-    // Test 4: generateText with options
+    // Test 4: generate with options
     try {
-      const result = await provider.generateText({
-        prompt: 'Write a haiku about AI',
+      const result = await provider.generate({
+        input: { text: 'Write a haiku about AI' },
         maxTokens: 100
       });
-      log('generateText() - With Options', 'SUCCESS', 'Generated with options', result);
+      log('generate() - With Options', 'SUCCESS', 'Generated with options', result);
     } catch (error) {
-      log('generateText() - With Options', 'FAILED', error.message);
+      log('generate() - With Options', 'FAILED', error.message);
     }
 
     // Test 5: CLI-style aliases
@@ -91,8 +91,8 @@ async function testSDK() {
     
     try {
       const neurolinkInstance = new NeuroLink();
-      const result = await neurolinkInstance.generateText({
-        prompt: 'Test enhanced features',
+      const result = await neurolinkInstance.generate({
+        input: { text: 'Test enhanced features' },
         enableAnalytics: true,
         enableEvaluation: true,
         context: { test: 'sdk-test' }
@@ -119,7 +119,7 @@ async function testSDK() {
     try {
       const { createAIProviderWithFallback } = await import('../dist/lib/index.js');
       const fallbackProvider = createAIProviderWithFallback('google-ai', 'openai');
-      const result = await fallbackProvider.generateText('Test fallback');
+      const result = await fallbackProvider.generate({ input: { text: 'Test fallback' } });
       log('Provider Fallback', 'SUCCESS', 'Fallback provider working', result);
     } catch (error) {
       log('Provider Fallback', 'FAILED', error.message);
@@ -130,7 +130,7 @@ async function testSDK() {
     
     try {
       const autoProvider = createBestAIProvider(); // No specific provider
-      const result = await autoProvider.generateText('Test auto selection');
+      const result = await autoProvider.generate({ input: { text: 'Test auto selection' } });
       log('Auto Provider Selection', 'SUCCESS', 'Auto selection working', result);
     } catch (error) {
       log('Auto Provider Selection', 'FAILED', error.message);
@@ -144,7 +144,7 @@ async function testSDK() {
     for (const providerName of providersToTest) {
       try {
         const testProvider = createBestAIProvider(providerName);
-        const result = await testProvider.generateText('Hello');
+        const result = await testProvider.generate({ input: { text: 'Hello' } });
         log(`Provider: ${providerName}`, 'SUCCESS', 'Provider working', result);
       } catch (error) {
         if (error.message.includes('API key') || error.message.includes('credentials')) {
@@ -159,21 +159,21 @@ async function testSDK() {
     console.log('\n🌊 TESTING STREAMING FEATURES');
     
     try {
-      if (provider.streamText) {
-        const stream = await provider.streamText('Tell me a short joke');
-        log('streamText() method', 'SUCCESS', 'Streaming method available');
+      if (provider.stream) {
+        const stream = await provider.stream({ input: { text: 'Tell me a short joke' } });
+        log('stream() method', 'SUCCESS', 'Streaming method available');
       } else {
-        log('streamText() method', 'SKIPPED', 'Method not available on provider');
+        log('stream() method', 'SKIPPED', 'Method not available on provider');
       }
     } catch (error) {
-      log('streamText() method', 'FAILED', error.message);
+      log('stream() method', 'FAILED', error.message);
     }
 
     // Test 11: Error handling
     console.log('\n🛡️ TESTING ERROR HANDLING');
     
     try {
-      await provider.generateText(''); // Empty prompt
+      await provider.generate({ input: { text: '' } }); // Empty prompt
       log('Empty Prompt Handling', 'UNCLEAR', 'Empty prompt accepted');
     } catch (error) {
       log('Empty Prompt Handling', 'SUCCESS', 'Properly rejected empty prompt');
@@ -181,7 +181,7 @@ async function testSDK() {
 
     try {
       const invalidProvider = createBestAIProvider('invalid-provider');
-      await invalidProvider.generateText('Test');
+      await invalidProvider.generate({ input: { text: 'Test' } });
       log('Invalid Provider Handling', 'FAILED', 'Should have rejected invalid provider');
     } catch (error) {
       log('Invalid Provider Handling', 'SUCCESS', 'Properly rejected invalid provider');
@@ -191,8 +191,8 @@ async function testSDK() {
     console.log('\n📝 TESTING TYPESCRIPT INTERFACES');
     
     try {
-      const result = await provider.generateText({
-        prompt: 'Test interfaces',
+      const result = await provider.generate({
+        input: { text: 'Test interfaces' },
         maxTokens: 50,
         temperature: 0.7
       });

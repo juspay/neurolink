@@ -9,7 +9,7 @@ The NeuroLink CLI provides all SDK functionality through an elegant command-line
 ```bash
 # Use directly without installation
 npx @juspay/neurolink --help
-npx @juspay/neurolink generate-text "Hello, AI!"
+npx @juspay/neurolink generate "Hello, AI!"
 npx @juspay/neurolink status
 ```
 
@@ -21,7 +21,7 @@ npm install -g @juspay/neurolink
 
 # Then use anywhere
 neurolink --help
-neurolink generate-text "Write a haiku about programming"
+neurolink generate "Write a haiku about programming"
 neurolink status --verbose
 ```
 
@@ -30,7 +30,7 @@ neurolink status --verbose
 ```bash
 # Add to project and use via npm scripts
 npm install @juspay/neurolink
-npx neurolink generate-text "Explain TypeScript"
+npx neurolink generate "Explain TypeScript"
 ```
 
 ## Commands Reference
@@ -75,20 +75,6 @@ npx @juspay/neurolink gen "what is deepest you can think?" --provider google-ai 
 
 # With different model for comprehensive responses
 npx @juspay/neurolink gen "Analyze this problem" --provider google-ai --model gemini-2.5-pro
-```
-
-### `generate-text <prompt>` - ⚠️ Deprecated
-
-**DEPRECATION NOTICE**: This command is deprecated and will be removed in v2.0.
-
-- **Reason**: Preparing for multimodal support (images, audio, video)
-- **Migration**: Replace `generate-text` with `generate` or `gen`
-- **Timeline**: Removal planned for NeuroLink v2.0 (Est. Q2 2025)
-- **Current Status**: Still functional but shows warning message
-
-```bash
-# Legacy usage (shows deprecation warning)
-npx @juspay/neurolink generate-text "Explain quantum computing"
 ```
 
 **Available Options:**
@@ -569,13 +555,13 @@ Manage external MCP servers for extended functionality. Connect to filesystem op
 
 ```bash
 # Test built-in time tool
-neurolink generate-text "What time is it?"
+neurolink generate "What time is it?"
 
 # Test tool discovery
-neurolink generate-text "What tools do you have access to? List and categorize them."
+neurolink generate "What tools do you have access to? List and categorize them."
 
 # Multi-tool integration test
-neurolink generate-text "Can you help me refactor some code? And what time is it right now?"
+neurolink generate "Can you help me refactor some code? And what time is it right now?"
 ```
 
 #### `mcp list` - List Configured Servers
@@ -633,7 +619,7 @@ neurolink mcp install brave-search
 📦 Installing MCP server: filesystem
 🔍 Server discovered and configured
 💡 Note: Server activation in development - use built-in tools for now
-💡 Test built-in tools with: neurolink generate-text "What time is it?" --debug
+💡 Test built-in tools with: neurolink generate "What time is it?" --debug
 ```
 
 #### `mcp add` - Add Custom Servers
@@ -661,7 +647,7 @@ neurolink mcp add localserver "python server.py" --cwd "/project/directory"
 
 ```bash
 # ✅ Working: Test built-in tools
-neurolink generate-text "What time is it?" --debug
+neurolink generate "What time is it?" --debug
 
 # 🔧 In Development: Test external server connectivity
 neurolink mcp test filesystem
@@ -714,8 +700,8 @@ neurolink mcp remove server1 server2 server3
 
 ```bash
 # ✅ Working Now: Built-in tools via AI generation
-neurolink generate-text "What time is it?" --debug
-neurolink generate-text "What tools do you have access to?" --debug
+neurolink generate "What time is it?" --debug
+neurolink generate "What tools do you have access to?" --debug
 
 # 🔧 Coming Soon: Direct external tool execution
 neurolink mcp exec filesystem read_file --params '{"path": "README.md"}'
@@ -937,7 +923,7 @@ MCP servers are automatically configured in `.mcp-config.json`:
 
 ```bash
 # Generate creative content with high temperature
-neurolink generate-text "Write a sci-fi story opening" \
+neurolink generate "Write a sci-fi story opening" \
   --provider openai \
   --temperature 0.9 \
   --max-tokens 1000 \
@@ -994,7 +980,7 @@ if [ -z "$diff" ]; then
 fi
 
 # Generate commit message
-commit_msg=$(neurolink generate-text \
+commit_msg=$(neurolink generate \
   "Generate a concise git commit message for these changes: $diff" \
   --max-tokens 50 \
   --temperature 0.3)
@@ -1050,8 +1036,8 @@ npx @juspay/neurolink status
 
 | Feature                | CLI                    | SDK                      |
 | ---------------------- | ---------------------- | ------------------------ |
-| **Text Generation**    | ✅ `generate-text`     | ✅ `generateText()`      |
-| **Streaming**          | ✅ `stream`            | ✅ `streamText()`        |
+| **Text Generation**    | ✅ `generate`          | ✅ `generate()`          |
+| **Streaming**          | ✅ `stream`            | ✅ `stream()`            |
 | **Provider Selection** | ✅ `--provider` flag   | ✅ `createProvider()`    |
 | **Batch Processing**   | ✅ `batch` command     | ✅ Manual implementation |
 | **Status Monitoring**  | ✅ `status` command    | ✅ Manual testing        |

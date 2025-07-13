@@ -33,8 +33,8 @@ async function testMistralProvider() {
 
     // Test 1: Simple generation
     spinner.start("Testing text generation...");
-    const response1 = await provider.generateText({
-      prompt: "Write a haiku about artificial intelligence",
+    const response1 = await provider.generate({
+      input: { text: "Write a haiku about artificial intelligence" },
       maxTokens: 100,
       temperature: 0.7,
     });
@@ -43,8 +43,8 @@ async function testMistralProvider() {
 
     // Test 2: Multilingual (French)
     spinner.start("\nTesting multilingual support (French)...");
-    const response2 = await provider.generateText({
-      prompt: "Écrivez un court poème sur Paris en français",
+    const response2 = await provider.generate({
+      input: { text: "Écrivez un court poème sur Paris en français" },
       maxTokens: 150,
       temperature: 0.7,
     });
@@ -53,8 +53,8 @@ async function testMistralProvider() {
 
     // Test 3: Code generation
     spinner.start("\nTesting code generation...");
-    const response3 = await provider.generateText({
-      prompt: "Write a JavaScript function to calculate fibonacci numbers",
+    const response3 = await provider.generate({
+      input: { text: "Write a JavaScript function to calculate fibonacci numbers" },
       maxTokens: 200,
       temperature: 0.3,
     });

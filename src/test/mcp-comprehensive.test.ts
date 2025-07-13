@@ -539,23 +539,23 @@ describe("MCP Foundation Tests", () => {
       expect(tools.length).toBeGreaterThan(0);
 
       const toolNames = tools.map((t) => t.name);
-      expect(toolNames).toContain("generate-text");
+      expect(toolNames).toContain("generate");
       expect(toolNames).toContain("select-provider");
       expect(toolNames).toContain("check-provider-status");
     });
 
     it("should get tool information", () => {
-      const toolInfo = registry.getToolInfo("generate-text");
+      const toolInfo = registry.getToolInfo("generate");
 
       expect(toolInfo).toBeDefined();
-      expect(toolInfo?.tool.name).toBe("generate-text");
+      expect(toolInfo?.tool.name).toBe("generate");
       expect(toolInfo?.tool.description).toContain("Generate text");
       expect(toolInfo?.tool.category).toBe("text-generation");
       expect(toolInfo?.server.id).toBe("neurolink-ai-core");
     });
 
     it("should validate AI tool input schemas", () => {
-      const toolInfo = registry.getToolInfo("generate-text");
+      const toolInfo = registry.getToolInfo("generate");
       const inputSchema = toolInfo?.tool.inputSchema;
 
       expect(inputSchema).toBeDefined();

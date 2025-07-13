@@ -126,8 +126,8 @@ export class AIModelChainPlanner implements ChainPlanner {
       Respond with a JSON object containing your decision.
     `;
 
-    const response = await this.aiProvider.generateText({
-      prompt: userPrompt,
+    const response = await this.aiProvider.generate({
+      input: { text: userPrompt },
       systemPrompt,
       maxTokens: 500,
       temperature: 0.3,
@@ -700,7 +700,9 @@ export class EnhancedAIProvider {
       Provide a comprehensive response using this information.
     `;
 
-    return await this.baseProvider.generateText(enhancedPrompt);
+    return await this.baseProvider.generate({
+      input: { text: enhancedPrompt },
+    });
   }
 }
 ```

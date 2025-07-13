@@ -177,7 +177,7 @@ For more help: neurolink mcp <command> --help`,
     name: "06-mcp-workflow-demo",
     title: "MCP Workflow Integration",
     command:
-      'neurolink generate-text "Read the README file and summarize it" --tools filesystem',
+      'neurolink generate "Read the README file and summarize it" --tools filesystem',
     output: `🔧 Using MCP tools: filesystem
 🔍 Reading file: README.md via filesystem server...
 

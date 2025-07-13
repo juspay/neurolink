@@ -8,9 +8,10 @@
 import type {
   AIProvider,
   TextGenerationOptions,
-  StreamTextOptions,
-  EnhancedGenerateTextResult,
+  EnhancedGenerateResult,
 } from "../core/types.js";
+import type { GenerateResult } from "../types/generate-types.js";
+import type { StreamOptions, StreamResult } from "../types/stream-types.js";
 import { AIProviderName } from "../core/types.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -21,6 +22,7 @@ import {
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
 import { evaluateResponse } from "../core/evaluation.js";
 import { createAnalytics } from "../core/analytics.js";
+// Note: AzureOpenAI uses custom API implementation, not AI SDK
 
 // Azure OpenAI specific types
 interface AzureOpenAIMessage {
@@ -174,11 +176,105 @@ export class AzureOpenAIProvider implements AIProvider {
     return response;
   }
 
-  async generateText(
+  /**
+   * PRIMARY METHOD: Stream content using AI (recommended for new code)
+   * Future-ready for multi-modal capabilities with current text focus
+   */
+  async stream(
+    optionsOrPrompt: StreamOptions | string,
+    analysisSchema?: any,
+  ): Promise<StreamResult> {
+    const functionTag = "AzureOpenAIProvider.stream";
+    const startTime = Date.now();
+
+    // Parse parameters - support both string and options object
+    const options =
+      typeof optionsOrPrompt === "string"
+        ? { input: { text: optionsOrPrompt } }
+        : optionsOrPrompt;
+
+    // Validate input
+    if (
+      !options?.input?.text ||
+      typeof options.input.text !== "string" ||
+      options.input.text.trim() === ""
+    ) {
+      throw new Error(
+        "Stream options must include input.text as a non-empty string",
+      );
+    }
+
+    // Convert StreamOptions for internal use
+    const convertedOptions = {
+      prompt: options.input.text,
+      provider: options.provider,
+      model: options.model,
+      temperature: options.temperature,
+      maxTokens: options.maxTokens,
+      systemPrompt: options.systemPrompt,
+      timeout: options.timeout,
+    };
+
+    // Prepare Azure OpenAI messages
+    const messages: AzureOpenAIMessage[] = [];
+    if (convertedOptions.systemPrompt) {
+      messages.push({
+        role: "system",
+        content: convertedOptions.systemPrompt,
+      });
+    }
+    messages.push({
+      role: "user",
+      content: convertedOptions.prompt,
+    });
+
+    const requestBody: AzureOpenAIRequestBody = {
+      messages,
+      temperature: convertedOptions.temperature ?? 0.7,
+      max_tokens: convertedOptions.maxTokens ?? DEFAULT_MAX_TOKENS,
+      stream: true,
+    };
+
+    // Create timeout controller if timeout is specified
+    const timeoutController = createTimeoutController(
+      convertedOptions.timeout,
+      this.name,
+      "stream",
+    );
+
+    try {
+      const response = await this.makeRequest(
+        requestBody,
+        true,
+        timeoutController?.controller.signal,
+      );
+
+      // Clean up timeout if successful
+      timeoutController?.cleanup();
+
+      // Return an async iterable for streaming chunks
+      const streamIterable = this.createAsyncIterable(
+        response.body!,
+        timeoutController?.controller.signal,
+      );
+
+      // Compose the StreamResult object
+      return {
+        stream: streamIterable,
+        provider: this.name,
+        model: convertedOptions.model,
+      };
+    } catch (error) {
+      timeoutController?.cleanup();
+      throw error;
+    }
+  }
+
+  async generate(
     optionsOrPrompt: TextGenerationOptions | string,
     schema?: any,
   ): Promise<any> {
-    const functionTag = "AzureOpenAIProvider.generateText";
+    const functionTag = "AzureOpenAIProvider.generate";
     const provider = "azure";
     const startTime = Date.now();
 
@@ -311,120 +407,10 @@ export class AzureOpenAIProvider implements AIProvider {
     }
   }
 
-  async streamText(
-    optionsOrPrompt: StreamTextOptions | string,
-    schema?: any,
-  ): Promise<any> {
-    const functionTag = "AzureOpenAIProvider.streamText";
-    const provider = "azure";
-
-    logger.debug(`[${functionTag}] Starting text streaming`);
-
-    // Parse parameters with backward compatibility
-    const options =
-      typeof optionsOrPrompt === "string"
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-    const {
-      prompt,
-      temperature = 0.7,
-      maxTokens = DEFAULT_MAX_TOKENS,
-      systemPrompt = "You are a helpful AI assistant.",
-      timeout = getDefaultTimeout(provider, "stream"),
-    } = options;
-
-    logger.debug(
-      `[${functionTag}] Streaming prompt: "${prompt.substring(0, 100)}...", Timeout: ${timeout}`,
-    );
-
-    const messages: AzureOpenAIMessage[] = [];
-
-    if (systemPrompt) {
-      messages.push({
-        role: "system",
-        content: systemPrompt,
-      });
-    }
-
-    messages.push({
-      role: "user",
-      content: prompt,
-    });
-
-    const requestBody: AzureOpenAIRequestBody = {
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-      stream: true,
-    };
-
-    // Create timeout controller if timeout is specified
-    const timeoutController = createTimeoutController(
-      timeout,
-      provider,
-      "stream",
-    );
-
-    try {
-      const response = await this.makeRequest(
-        requestBody,
-        true,
-        timeoutController?.controller.signal,
-      );
-
-      if (!response.body) {
-        throw new Error("No response body received");
-      }
-
-      // Return a StreamTextResult-like object with timeout signal
-      return {
-        textStream: this.createAsyncIterable(
-          response.body,
-          timeoutController?.controller.signal,
-        ),
-        text: "",
-        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-        finishReason: "stop",
-        // Store timeout controller for external cleanup if needed
-        _timeoutController: timeoutController,
-      };
-    } catch (error) {
-      // Cleanup timeout on error
-      timeoutController?.cleanup();
-
-      // Log timeout errors specifically
-      if (error instanceof TimeoutError) {
-        logger.error(`[${functionTag}] Timeout error`, {
-          provider,
-          timeout: error.timeout,
-          message: error.message,
-        });
-      } else if ((error as any)?.name === "AbortError") {
-        // Convert AbortError to TimeoutError
-        const timeoutError = new TimeoutError(
-          `${provider} stream operation timed out after ${timeout}`,
-          timeoutController?.timeoutMs || 0,
-          provider,
-          "stream",
-        );
-        logger.error(`[${functionTag}] Timeout error`, {
-          provider,
-          timeout: timeoutController?.timeoutMs,
-          message: timeoutError.message,
-        });
-        throw timeoutError;
-      } else {
-        logger.error(`[${functionTag}] Error:`, error);
-      }
-      throw error;
-    }
-  }
-
   private async *createAsyncIterable(
     body: ReadableStream<Uint8Array>,
     signal?: AbortSignal,
-  ): AsyncGenerator<string, void, unknown> {
+  ): AsyncGenerator<{ content: string }, void, unknown> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -460,7 +446,7 @@ export class AzureOpenAIProvider implements AIProvider {
 
               // Extract text content from chunk
               if (chunk.choices?.[0]?.delta?.content) {
-                yield chunk.choices[0].delta.content;
+                yield { content: chunk.choices[0].delta.content };
               }
             } catch (parseError) {
               logger.warn(
@@ -477,117 +463,6 @@ export class AzureOpenAIProvider implements AIProvider {
     }
   }
 
-  async *generateTextStream(
-    optionsOrPrompt: StreamTextOptions | string,
-  ): AsyncGenerator<any, void, unknown> {
-    logger.debug(
-      "[AzureOpenAIProvider.generateTextStream] Starting text streaming",
-    );
-
-    // Parse parameters with backward compatibility
-    const options =
-      typeof optionsOrPrompt === "string"
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-    const {
-      prompt,
-      temperature = 0.7,
-      maxTokens = DEFAULT_MAX_TOKENS,
-      systemPrompt = "You are a helpful AI assistant.",
-    } = options;
-
-    logger.debug(
-      `[AzureOpenAIProvider.generateTextStream] Streaming prompt: "${prompt.substring(0, 100)}..."`,
-    );
-
-    const messages: AzureOpenAIMessage[] = [];
-
-    if (systemPrompt) {
-      messages.push({
-        role: "system",
-        content: systemPrompt,
-      });
-    }
-
-    messages.push({
-      role: "user",
-      content: prompt,
-    });
-
-    const requestBody: AzureOpenAIRequestBody = {
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-      stream: true,
-    };
-
-    try {
-      const response = await this.makeRequest(requestBody, true);
-
-      if (!response.body) {
-        throw new Error("No response body received");
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            break;
-          }
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.trim() === "") {
-              continue;
-            }
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data.trim() === "[DONE]") {
-                continue;
-              }
-
-              try {
-                const chunk: AzureOpenAIStreamChunk = JSON.parse(data);
-
-                // Extract text content from chunk
-                if (chunk.choices?.[0]?.delta?.content) {
-                  yield {
-                    content: chunk.choices[0].delta.content,
-                    provider: this.name,
-                    model: chunk.model || this.deploymentId,
-                  };
-                }
-              } catch (parseError) {
-                logger.warn(
-                  "[AzureOpenAIProvider.generateTextStream] Failed to parse chunk:",
-                  parseError,
-                );
-                continue;
-              }
-            }
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
-
-      logger.debug(
-        "[AzureOpenAIProvider.generateTextStream] Streaming completed",
-      );
-    } catch (error) {
-      logger.error("[AzureOpenAIProvider.generateTextStream] Error:", error);
-      throw error;
-    }
-  }
-
   async testConnection(): Promise<{
     success: boolean;
     error?: string;
@@ -600,7 +475,7 @@ export class AzureOpenAIProvider implements AIProvider {
     const startTime = Date.now();
 
     try {
-      await this.generateText({
+      await this.generate({
         prompt: "Hello",
         maxTokens: 5,
       });
@@ -683,17 +558,10 @@ export class AzureOpenAIProvider implements AIProvider {
     ];
   }
 
-  async generate(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
-  }
-
   async gen(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
+  ): Promise<EnhancedGenerateResult | null> {
+    return this.generate(optionsOrPrompt, analysisSchema);
   }
 }

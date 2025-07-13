@@ -66,31 +66,31 @@ create_working_recording \
 # 2. Working OpenAI Generation
 create_working_recording \
     "02-openai-working" \
-    "node dist/cli/index.js generate-text 'Hello from OpenAI' --provider openai" \
+    "node dist/cli/index.js generate 'Hello from OpenAI' --provider openai" \
     "OpenAI Text Generation Success"
 
 # 3. Working Ollama Generation
 create_working_recording \
     "03-ollama-working" \
-    "node dist/cli/index.js generate-text 'Hello from Ollama local AI' --provider ollama" \
+    "node dist/cli/index.js generate 'Hello from Ollama local AI' --provider ollama" \
     "Ollama Local AI Success"
 
 # 4. Working Google AI Studio
 create_working_recording \
     "04-google-ai-working" \
-    "node dist/cli/index.js generate-text 'Hello from Google AI' --provider google-ai" \
+    "node dist/cli/index.js generate 'Hello from Google AI' --provider google-ai" \
     "Google AI Studio Success"
 
 # 5. Working Anthropic
 create_working_recording \
     "05-anthropic-working" \
-    "node dist/cli/index.js generate-text 'Hello from Anthropic Claude' --provider anthropic" \
+    "node dist/cli/index.js generate 'Hello from Anthropic Claude' --provider anthropic" \
     "Anthropic Claude Success"
 
 # 6. Auto Provider Selection (Best Available)
 create_working_recording \
     "06-auto-selection-working" \
-    "node dist/cli/index.js generate-text 'Auto select best provider' --provider auto" \
+    "node dist/cli/index.js generate 'Auto select best provider' --provider auto" \
     "Auto Provider Selection Success"
 
 # 7. Provider Configuration Help

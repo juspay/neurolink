@@ -683,7 +683,7 @@ env:
 npx @juspay/neurolink status --verbose
 
 # Test specific provider
-npx @juspay/neurolink generate-text "Hello" --provider openai
+npx @juspay/neurolink generate "Hello" --provider openai
 
 # Get best available provider
 npx @juspay/neurolink get-best-provider
@@ -771,7 +771,7 @@ cat .env
 npx @juspay/neurolink status --verbose
 
 # Test specific provider
-npx @juspay/neurolink generate-text "test" --provider openai --verbose
+npx @juspay/neurolink generate "test" --provider openai --verbose
 
 # Check environment loading
 node -e "require('dotenv').config(); console.log(process.env.OPENAI_API_KEY)"

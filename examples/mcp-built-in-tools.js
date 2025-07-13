@@ -22,9 +22,10 @@ async function mcpBuiltInToolsExample() {
 
     // 2. Test time tool (built-in, working in v1.7.1)
     console.log("2. Testing time tool...");
-    const timeResult = await provider.generateText({
-      prompt:
-        "What time is it right now? Please use the time tool to get the current time.",
+    const timeResult = await provider.generate({
+      input: {
+        text: "What time is it right now? Please use the time tool to get the current time.",
+      },
     });
 
     console.log("✅ Time tool result:");
@@ -32,8 +33,10 @@ async function mcpBuiltInToolsExample() {
 
     // 3. Test tool discovery
     console.log("\n3. Testing tool discovery...");
-    const toolsResult = await provider.generateText({
-      prompt: "What tools do you have access to? List and categorize them.",
+    const toolsResult = await provider.generate({
+      input: {
+        text: "What tools do you have access to? List and categorize them.",
+      },
     });
 
     console.log("✅ Available tools:");
@@ -41,9 +44,10 @@ async function mcpBuiltInToolsExample() {
 
     // 4. Test multi-tool integration
     console.log("\n4. Testing multi-tool integration...");
-    const multiResult = await provider.generateText({
-      prompt:
-        "Can you tell me the current time and then explain what tools you have available?",
+    const multiResult = await provider.generate({
+      input: {
+        text: "Can you tell me the current time and then explain what tools you have available?",
+      },
     });
 
     console.log("✅ Multi-tool result:");

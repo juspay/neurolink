@@ -200,7 +200,7 @@ node dist/cli/index.js generate "Hello world" --provider google-ai
 node dist/cli/index.js provider status
 
 # Test SDK functionality unchanged
-node -e "import('@juspay/neurolink').then(sdk => sdk.createBestAIProvider().then(p => p.generateText({prompt: 'test'})))"
+node -e "import('@juspay/neurolink').then(sdk => sdk.createBestAIProvider().then(p => p.generate({input: {text: 'test'}})))"
 ```
 
 **Success Criteria:**
@@ -217,7 +217,7 @@ node -e "import('@juspay/neurolink').then(sdk => sdk.createBestAIProvider().then
 // Test: Performance with features disabled (default)
 const startTime = Date.now();
 const provider = await AIProviderFactory.createProvider("google-ai");
-const result = await provider.generateText({ prompt: "test" });
+const result = await provider.generate({ input: { text: "test" } });
 const disabledTime = Date.now() - startTime;
 
 // Test: Performance with features enabled

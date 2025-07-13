@@ -1,13 +1,66 @@
 # 🚨 NeuroLink Troubleshooting Guide
 
+## ✅ IMPLEMENTATION STATUS: COMPLETE (2025-01-07)
+
+**Generate Function Migration completed - Updated troubleshooting for new primary method**
+
+- ✅ Added troubleshooting for `generate()` function
+- ✅ Migration guidance for common issues
+- ✅ Legacy `generate()` troubleshooting preserved
+- ✅ Factory pattern error handling documented
+
+> **Migration Note**: Most issues apply to both `generate()` and `generate()`.
+> Use `generate()` examples for new troubleshooting.
+
+---
+
 **Version**: v1.7.1
-**Last Updated**: December 18, 2024
+**Last Updated**: January 7, 2025
 
 ---
 
 ## 📖 **Overview**
 
-This guide helps diagnose and resolve common issues with NeuroLink, including AI provider connectivity, MCP integration, and CLI usage problems.
+This guide helps diagnose and resolve common issues with NeuroLink, including AI provider connectivity, MCP integration, CLI usage problems, and the new generate function migration.
+
+## 🎯 **Generate Function Migration Issues**
+
+### **Migration Questions**
+
+**Q: Should I update my existing code to use `generate()`?**
+A: Optional. Your existing `generate()` code continues working unchanged. Use `generate()` for new projects.
+
+**Q: What's the difference between `generate()` and `generate()`?**
+A: `generate()` has a more extensible interface for future multi-modal features. Both produce identical results for text generation.
+
+**Q: I see deprecation warnings with `generate()`**
+A: These are informational only. `generate()` remains fully supported. To remove warnings, migrate to `generate()`.
+
+### **Migration Examples**
+
+```typescript
+// ✅ NEW: Recommended usage
+const result = await neurolink.generate({
+  input: { text: "Your prompt" },
+  provider: "google-ai",
+});
+
+// 📜 LEGACY: Still fully supported
+const result = await neurolink.generate({
+  prompt: "Your prompt",
+  provider: "google-ai",
+});
+```
+
+### **CLI Migration**
+
+```bash
+# ✅ NEW: Primary command
+npx @juspay/neurolink generate "Your prompt"
+
+# 📜 LEGACY: Still works (shows deprecation warning)
+npx @juspay/neurolink generate "Your prompt"
+```
 
 ---
 
@@ -23,7 +76,7 @@ This guide helps diagnose and resolve common issues with NeuroLink, including AI
 
 ```bash
 # Fixed in v1.7.1 - built-in tools now work
-node dist/cli/index.js generate-text "What time is it?" --debug
+node dist/cli/index.js generate "What time is it?" --debug
 # Should return: "The current time is [current date and time]"
 ```
 
@@ -411,7 +464,7 @@ npx neurolink status --verbose
    export OPENAI_API_KEY="sk-your-openai-api-key"
 
    # Test connection
-   npx neurolink generate-text "Hello" --provider openai
+   npx neurolink generate "Hello" --provider openai
    ```
 
 2. **Google AI Studio Issues**:
@@ -421,7 +474,7 @@ npx neurolink status --verbose
    export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
 
    # Test connection
-   npx neurolink generate-text "Hello" --provider google-ai
+   npx neurolink generate "Hello" --provider google-ai
    ```
 
 3. **Multiple Provider Setup**:
@@ -435,7 +488,7 @@ npx neurolink status --verbose
    EOF
 
    # Test auto-selection
-   npx neurolink generate-text "Hello"
+   npx neurolink generate "Hello"
    ```
 
 ### **Provider Selection Issues**
@@ -449,7 +502,7 @@ npx neurolink status --verbose
 npx neurolink status
 
 # Test specific provider
-npx neurolink generate-text "Hello" --provider google-ai --debug
+npx neurolink generate "Hello" --provider google-ai --debug
 ```
 
 **Solutions**:
@@ -457,13 +510,13 @@ npx neurolink generate-text "Hello" --provider google-ai --debug
 1. **Force Specific Provider**:
 
    ```bash
-   npx neurolink generate-text "Hello" --provider openai
+   npx neurolink generate "Hello" --provider openai
    ```
 
 2. **Check Fallback Logic**:
    ```bash
    # This should automatically select best available provider
-   npx neurolink generate-text "Hello" --debug
+   npx neurolink generate "Hello" --debug
    ```
 
 ---
@@ -571,11 +624,11 @@ npm run build
 
 # 2. Test built-in tools
 echo "Testing built-in tools..."
-node dist/cli/index.js generate-text "What time is it?" --debug
+node dist/cli/index.js generate "What time is it?" --debug
 
 # 3. Test tool discovery
 echo "Testing tool discovery..."
-node dist/cli/index.js generate-text "What tools do you have access to?" --debug
+node dist/cli/index.js generate "What tools do you have access to?" --debug
 
 # 4. Test external server discovery
 echo "Testing external server discovery..."
@@ -608,7 +661,7 @@ Enable detailed logging for troubleshooting:
 export NEUROLINK_DEBUG=true
 
 # Run commands with debug output
-npx neurolink generate-text "Hello" --debug
+npx neurolink generate "Hello" --debug
 npx neurolink mcp discover --format table
 npx neurolink status --verbose
 ```
@@ -650,7 +703,7 @@ npx neurolink mcp discover --format table
 
 # Debug output
 export NEUROLINK_DEBUG=true
-npx neurolink generate-text "Test" --debug
+npx neurolink generate "Test" --debug
 ```
 
 ### **Report Issues**

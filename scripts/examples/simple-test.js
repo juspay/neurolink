@@ -12,8 +12,8 @@ console.log('🔍 SIMPLE ENHANCEMENT TEST');
 
 async function test() {
   try {
-    const result = await sdk.generateText({
-      prompt: 'Test AI response',
+    const result = await sdk.generate({
+      input: { text: 'Test AI response' },
       provider: 'google-ai',
       enableAnalytics: true,
       enableEvaluation: true,

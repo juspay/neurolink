@@ -39,8 +39,8 @@ async function batchProcessingDemo() {
     const sequentialResults = [];
 
     for (const prompt of prompts) {
-      const result = await provider.generateText({
-        prompt,
+      const result = await provider.generate({
+        input: { text: prompt },
         enableAnalytics: true,
       });
       sequentialResults.push(result);
@@ -56,7 +56,7 @@ async function batchProcessingDemo() {
     const parallelStart = Date.now();
     const parallelResults = await Promise.all(
       prompts.map((prompt) =>
-        provider.generateText({ prompt, enableAnalytics: true }),
+        provider.generate({ input: { text: prompt }, enableAnalytics: true }),
       ),
     );
 
@@ -77,8 +77,8 @@ async function batchProcessingDemo() {
         const batch = items.slice(i, i + batchSize);
         const batchResults = await Promise.all(
           batch.map((item) =>
-            provider.generateText({
-              prompt: item,
+            provider.generate({
+              input: { text: item },
               enableAnalytics: true,
             }),
           ),
@@ -145,7 +145,7 @@ async function batchProcessingDemo() {
       const results = await Promise.allSettled(
         prompts.map(async (prompt, index) => {
           try {
-            const result = await provider.generateText({ prompt });
+            const result = await provider.generate({ input: { text: prompt } });
             return { index, prompt, result: result.text, status: "success" };
           } catch (error) {
             return { index, prompt, error: error.message, status: "failed" };

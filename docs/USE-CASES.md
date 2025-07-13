@@ -12,10 +12,12 @@ This guide shows how different industries use NeuroLink's analytics and evaluati
 
 ```javascript
 // E-commerce product description with cost optimization
-const productResult = await provider.generateText({
-  prompt: `Write compelling product description for: ${product.name}
+const productResult = await provider.generate({
+  input: {
+    text: `Write compelling product description for: ${product.name}
   Features: ${product.features.join(", ")}
   Target audience: ${product.targetAudience}`,
+  },
 
   enableAnalytics: true,
   enableEvaluation: true,
@@ -78,10 +80,12 @@ npx @juspay/neurolink generate "Professional response to: 'Product broke after 2
 
 ```javascript
 // Medical content with strict accuracy requirements
-const medicalContent = await provider.generateText({
-  prompt: `Create patient education content about diabetes management.
+const medicalContent = await provider.generate({
+  input: {
+    text: `Create patient education content about diabetes management.
   Include: diet guidelines, exercise recommendations, monitoring tips.
   Audience: Adult patients, 6th grade reading level.`,
+  },
 
   enableAnalytics: true,
   enableEvaluation: true,
@@ -145,12 +149,14 @@ npx @juspay/neurolink generate "Summarize patient symptoms and recommended treat
 
 ```javascript
 // Financial report with compliance tracking
-const investmentReport = await provider.generateText({
-  prompt: `Generate quarterly investment performance report.
+const investmentReport = await provider.generate({
+  input: {
+    text: `Generate quarterly investment performance report.
   Portfolio: ${portfolio.name}
   Performance data: ${portfolio.quarterlyData}
   Market context: ${marketData.summary}
   Regulatory requirements: SEC compliance required.`,
+  },
 
   enableAnalytics: true,
   enableEvaluation: true,
@@ -215,12 +221,14 @@ npx @juspay/neurolink generate "Investment advice for retirement planning" \
 
 ```javascript
 // Automated customer support with quality control
-const supportResponse = await provider.generateText({
-  prompt: `Customer issue: "${ticket.description}"
+const supportResponse = await provider.generate({
+  input: {
+    text: `Customer issue: "${ticket.description}"
   Product: ${ticket.product}
   Customer tier: ${customer.tier}
   Previous interactions: ${ticket.history}
   Create helpful, professional response.`,
+  },
 
   enableAnalytics: true,
   enableEvaluation: true,
@@ -286,12 +294,14 @@ npx @juspay/neurolink generate "API documentation for user authentication endpoi
 
 ```javascript
 // Educational content with learning outcome tracking
-const courseContent = await provider.generateText({
-  prompt: `Create lesson content: "${lesson.title}"
+const courseContent = await provider.generate({
+  input: {
+    text: `Create lesson content: "${lesson.title}"
   Learning objectives: ${lesson.objectives.join(", ")}
   Target audience: ${course.audience}
   Duration: ${lesson.duration} minutes
   Include examples, exercises, and key takeaways.`,
+  },
 
   enableAnalytics: true,
   enableEvaluation: true,
@@ -334,12 +344,14 @@ const subjectCosts = await analytics.getCostsBySubject(course.subject);
 
 ```javascript
 // Safety documentation with compliance tracking
-const safetyDoc = await provider.generateText({
-  prompt: `Create safety procedure for: ${equipment.name}
+const safetyDoc = await provider.generate({
+  input: {
+    text: `Create safety procedure for: ${equipment.name}
   Hazards: ${equipment.hazards.join(", ")}
   Safety requirements: ${equipment.safetyReqs}
   Regulatory standards: OSHA compliance required
   Include step-by-step procedures and emergency protocols.`,
+  },
 
   enableAnalytics: true,
   enableEvaluation: true,
@@ -399,12 +411,14 @@ npx @juspay/neurolink generate "App store description for fitness tracking app" 
 
 ```javascript
 // Hotel marketing content with booking optimization
-const hotelDescription = await provider.generateText({
-  prompt: `Write compelling hotel description for: ${hotel.name}
+const hotelDescription = await provider.generate({
+  input: {
+    text: `Write compelling hotel description for: ${hotel.name}
   Location: ${hotel.location}
   Amenities: ${hotel.amenities.join(", ")}
   Target guests: ${hotel.targetGuests}
   Emphasize unique selling points and local attractions.`,
+  },
 
   enableAnalytics: true,
   enableEvaluation: true,

@@ -67,7 +67,7 @@ NeuroLink is the **enterprise-grade, TypeScript-first AI SDK** that eliminates v
 import { useNeuroLink } from '@neurolink/react'
 
 export function ChatComponent() {
-  const { generateText, streaming, error } = useNeuroLink({
+  const { generate, streaming, error } = useNeuroLink({
     provider: 'auto',
     fallback: ['openai', 'vertex', 'bedrock']
   })

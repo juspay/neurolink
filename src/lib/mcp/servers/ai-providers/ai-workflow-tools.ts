@@ -215,20 +215,20 @@ Return ONLY a valid JSON object with this exact structure:
 
 Generate 3-5 comprehensive test cases covering the requested types.`;
 
-      const result = await provider.generateText({
-        prompt,
+      const result = await provider.generate({
+        prompt: prompt,
         maxTokens: Math.floor(DEFAULT_MAX_TOKENS * 1.2),
         temperature: 0.3, // Lower temperature for more consistent structured output
       });
 
-      if (!result || !result.text) {
+      if (!result || !result.content) {
         throw new Error(
           "AI provider returned no result for test case generation.",
         );
       }
 
       // Parse AI response
-      const aiResponse = JSON.parse(result.text);
+      const aiResponse = JSON.parse(result.content);
       const testCases = aiResponse.testCases || [];
 
       const executionTime = Date.now() - startTime;
@@ -342,18 +342,18 @@ Return ONLY a valid JSON object with this exact structure:
 
 Focus on real, actionable improvements based on the specified objectives.`;
 
-      const result = await provider.generateText({
-        prompt,
+      const result = await provider.generate({
+        prompt: prompt,
         maxTokens: DEFAULT_MAX_TOKENS,
         temperature: 0.2, // Very low temperature for consistent refactoring
       });
 
-      if (!result || !result.text) {
+      if (!result || !result.content) {
         throw new Error("AI provider returned no result for code refactoring.");
       }
 
       // Parse AI response
-      const aiResponse = JSON.parse(result.text);
+      const aiResponse = JSON.parse(result.content);
       const executionTime = Date.now() - startTime;
 
       const responseData: RefactoringResult = {
@@ -471,20 +471,20 @@ Return ONLY a valid JSON object with this exact structure:
 
 Focus on creating accurate, useful documentation that explains the code's purpose, parameters, return values, and usage patterns.`;
 
-      const result = await provider.generateText({
-        prompt,
+      const result = await provider.generate({
+        prompt: prompt,
         maxTokens: Math.floor(DEFAULT_MAX_TOKENS * 1.2),
         temperature: 0.3, // Moderate temperature for creative but structured documentation
       });
 
-      if (!result || !result.text) {
+      if (!result || !result.content) {
         throw new Error(
           "AI provider returned no result for documentation generation.",
         );
       }
 
       // Parse AI response
-      const aiResponse = JSON.parse(result.text);
+      const aiResponse = JSON.parse(result.content);
       const executionTime = Date.now() - startTime;
 
       const responseData: DocumentationResult = {
@@ -621,18 +621,18 @@ Return ONLY a valid JSON object with this exact structure:
 
 Provide thorough, actionable analysis focused on improving AI output quality.`;
 
-      const result = await provider.generateText({
-        prompt,
+      const result = await provider.generate({
+        prompt: prompt,
         maxTokens: DEFAULT_MAX_TOKENS,
         temperature: 0.4, // Moderate temperature for analytical thinking
       });
 
-      if (!result || !result.text) {
+      if (!result || !result.content) {
         throw new Error("AI provider returned no result for output debugging.");
       }
 
       // Parse AI response
-      const aiResponse = JSON.parse(result.text);
+      const aiResponse = JSON.parse(result.content);
       const executionTime = Date.now() - startTime;
 
       const responseData: DebugResult = {

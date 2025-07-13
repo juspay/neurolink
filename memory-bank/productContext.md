@@ -51,8 +51,8 @@ A developer wants to add a simple Q&A feature to their application:
 import { createBestAIProvider } from "neurolink";
 
 const provider = createBestAIProvider();
-const result = await provider.generateText({
-  prompt: "What is TypeScript?",
+const result = await provider.generate({
+  input: { text: "What is TypeScript?" },
   temperature: 0.7,
 });
 
@@ -67,7 +67,7 @@ A developer wants to show AI responses as they're generated:
 import { createBestAIProvider } from "neurolink";
 
 const provider = createBestAIProvider();
-const result = await provider.streamText({
+const result = await provider.stream({ input: { text:
   prompt: "Write a story about AI",
 });
 
@@ -107,11 +107,11 @@ const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
 );
 
 try {
-  const result = await primary.generateText({ prompt });
+  const result = await primary.generate({ input: { text: prompt } });
   // Use result
 } catch (error) {
   console.log("Primary provider failed, using fallback");
-  const fallbackResult = await fallback.generateText({ prompt });
+  const fallbackResult = await fallback.generate({ input: { text: prompt } });
   // Use fallbackResult
 }
 ```

@@ -41,21 +41,21 @@ export class YourProvider implements AIProvider {
     // Initialize with model configuration
   }
 
-  async generateText(
-    optionsOrPrompt: TextGenerationOptions | string,
-  ): Promise<string> {
+  async generate(
+    optionsOrPrompt: GenerateOptions | string,
+  ): Promise<GenerateResult> {
     // Support both string and options parameter formats
     const options =
       typeof optionsOrPrompt === "string"
-        ? { prompt: optionsOrPrompt }
+        ? { input: { text: optionsOrPrompt } }
         : optionsOrPrompt;
 
     // Implementation logic
   }
 
-  async generateTextStream(
-    optionsOrPrompt: TextGenerationOptions | string,
-  ): Promise<AsyncIterable<string>> {
+  async stream(
+    optionsOrPrompt: StreamOptions | string,
+  ): Promise<StreamResult> {
     // Streaming implementation
   }
 }
@@ -308,7 +308,7 @@ asciinema rec docs/cli-recordings/latest/{provider}-demo.cast
 # Record commands
 node dist/cli/index.js provider list
 node dist/cli/index.js provider configure your-provider
-node dist/cli/index.js generate-text --help
+node dist/cli/index.js generate --help
 
 # Stop recording (Ctrl+D)
 ```

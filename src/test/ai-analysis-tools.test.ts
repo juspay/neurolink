@@ -405,7 +405,7 @@ describe("AI Analysis Tools Tests", () => {
       const toolNames = Object.keys(aiCoreServer.tools);
 
       // Original tools
-      expect(toolNames).toContain("generate-text");
+      expect(toolNames).toContain("generate");
       expect(toolNames).toContain("select-provider");
       expect(toolNames).toContain("check-provider-status");
 
@@ -544,7 +544,7 @@ describe("AI Analysis Tools Tests", () => {
     it("should maintain backward compatibility", () => {
       // Verify original AI Core tools still work
       const originalTools = [
-        "generate-text",
+        "generate",
         "select-provider",
         "check-provider-status",
       ];

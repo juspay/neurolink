@@ -135,17 +135,17 @@ export const analyzeAIUsageTool: NeuroLinkMCPTool = {
         - "insights" should contain: mostUsedProvider, avgCostPerToken, peakUsageHours, costOptimizationPotential, and an array of "recommendations".
       `;
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: analysisPrompt,
         maxTokens: 800,
         temperature: 0.5,
       });
 
-      if (!result || !result.text) {
+      if (!result || !result.content) {
         throw new Error("AI provider returned no result for usage analysis.");
       }
 
-      const parsedData = JSON.parse(result.text);
+      const parsedData = JSON.parse(result.content);
       const executionTime = Date.now() - startTime;
 
       return {
@@ -230,8 +230,8 @@ export const benchmarkProviderPerformanceTool: NeuroLinkMCPTool = {
         for (const prompt of testPrompts) {
           for (let i = 0; i < params.iterations; i++) {
             const testStartTime = Date.now();
-            const result = await provider.generateText({
-              prompt,
+            const result = await provider.generate({
+              prompt: prompt,
               maxTokens: params.maxTokens,
             });
             if (result && result.usage) {
@@ -326,7 +326,7 @@ export const optimizePromptParametersTool: NeuroLinkMCPTool = {
       const temperatures = [0.2, 0.7, 1.0]; // Test a range of temperatures
 
       for (const temp of temperatures) {
-        const result = await provider.generateText({
+        const result = await provider.generate({
           prompt: params.prompt,
           temperature: temp,
           maxTokens: params.targetLength || 250,
@@ -334,7 +334,7 @@ export const optimizePromptParametersTool: NeuroLinkMCPTool = {
         if (result) {
           optimizationResults.push({
             parameters: { temperature: temp },
-            output: result.text,
+            output: result.content,
             usage: result.usage,
           });
         }
@@ -356,15 +356,15 @@ export const optimizePromptParametersTool: NeuroLinkMCPTool = {
         Return a valid JSON object with keys: "optimalParameters", "reasoning", "recommendations".
       `;
 
-      const analysisResult = await analysisProvider.generateText({
+      const analysisResult = await analysisProvider.generate({
         prompt: analysisPrompt,
         maxTokens: 500,
       });
-      if (!analysisResult || !analysisResult.text) {
+      if (!analysisResult || !analysisResult.content) {
         throw new Error("Optimization analysis failed.");
       }
 
-      const parsedAnalysis = JSON.parse(analysisResult.text);
+      const parsedAnalysis = JSON.parse(analysisResult.content);
       const executionTime = Date.now() - startTime;
 
       return {

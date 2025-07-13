@@ -7,7 +7,6 @@ import type {
   StreamingProgressData,
   StreamingMetadata,
   ProgressCallback,
-  EnhancedStreamTextOptions,
 } from "../core/types.js";
 
 export interface UIProgressHandler {
@@ -28,6 +27,20 @@ export interface StreamingStats {
 /**
  * Enhanced streaming utilities for progress tracking and metadata
  */
+
+export interface StreamingConfigOptions {
+  enableProgressTracking?: boolean;
+  progressCallback?: ProgressCallback;
+  includeStreamingMetadata?: boolean;
+  streamingBufferSize?: number;
+  enableStreamingHeaders?: boolean;
+}
+
+/**
+ * Legacy interface for backward compatibility
+ */
+export interface EnhancedStreamTextOptions extends StreamingConfigOptions {}
+
 export class StreamingEnhancer {
   /**
    * Add progress tracking to a readable stream
@@ -222,7 +235,9 @@ export class StreamingEnhancer {
   /**
    * Create enhanced streaming configuration
    */
-  static createStreamingConfig(options: EnhancedStreamTextOptions): {
+  static createStreamingConfig(
+    options: StreamingConfigOptions | EnhancedStreamTextOptions,
+  ): {
     progressTracking: boolean;
     callback?: ProgressCallback;
     metadata: boolean;

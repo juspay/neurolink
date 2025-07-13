@@ -52,8 +52,8 @@ async function comprehensiveDemo() {
       "Explain the benefits of AI in software development in 2 sentences.";
 
     const startTime = Date.now();
-    const result = await provider.generateText({
-      prompt,
+    const result = await provider.generate({
+      input: { text: prompt },
       enableAnalytics: true,
       context: {
         featureDemo: "analytics",
@@ -102,8 +102,8 @@ async function comprehensiveDemo() {
     );
 
     if (fastProvider) {
-      const fastResult = await fastProvider.generateText({
-        prompt: "What is machine learning? (brief answer)",
+      const fastResult = await fastProvider.generate({
+        input: { text: "What is machine learning? (brief answer)" },
         enableAnalytics: true,
       });
 
@@ -145,8 +145,8 @@ async function comprehensiveDemo() {
     console.log("   Processing multiple queries...");
     const batchResults = await Promise.all(
       queries.map(async (query, index) => {
-        const result = await provider.generateText({
-          prompt: query,
+        const result = await provider.generate({
+          input: { text: query },
           enableAnalytics: true,
           context: { batchIndex: index },
         });

@@ -260,7 +260,7 @@ async function testProviderAvailability(providerName) {
 
     // Try a minimal test request to verify authentication
     const testPrompt = "Hi";
-    const testResult = await provider.generateText({
+    const testResult = await provider.generate({
       prompt: testPrompt,
       model: getModelForProvider(providerName),
       maxTokens: 5, // Minimal tokens to reduce cost
@@ -349,7 +349,7 @@ async function generateWithProvider(providerName, prompt, options = {}) {
       );
 
       const aiProvider = await createAIProvider(currentProvider);
-      const result = await aiProvider.generateText({
+      const result = await aiProvider.generate({
         prompt,
         model: getModelForProvider(currentProvider),
         maxTokens: options.maxTokens || DEFAULT_GENERATION_PARAMS.maxTokens,

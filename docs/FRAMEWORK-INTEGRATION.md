@@ -15,7 +15,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const { message } = await request.json();
 
     const provider = createBestAIProvider();
-    const result = await provider.streamText({
+    const result = await provider.stream({ input: { text:
       prompt: message,
       temperature: 0.7,
       maxTokens: 1000,
@@ -157,7 +157,7 @@ export const POST: RequestHandler = async ({ request }) => {
       optimizeFor: optimizeFor || "quality", // 'cost', 'speed', or 'quality'
     });
 
-    const result = await provider.streamText({
+    const result = await provider.stream({ input: { text:
       prompt: message,
       temperature: 0.7,
       maxTokens: 1000,
@@ -319,8 +319,8 @@ export async function POST(request: NextRequest) {
     const { prompt, ...options } = await request.json();
 
     const provider = createBestAIProvider();
-    const result = await provider.generateText({
-      prompt,
+    const result = await provider.generate({
+      input: { text: prompt },
       temperature: 0.7,
       maxTokens: 1000,
       ...options,
@@ -342,7 +342,7 @@ export async function PUT(request: NextRequest) {
     const { prompt } = await request.json();
 
     const provider = createBestAIProvider();
-    const result = await provider.streamText({ prompt });
+    const result = await provider.stream({ input: { text: prompt });
 
     return new Response(result.toReadableStream(), {
       headers: {
@@ -553,8 +553,8 @@ app.post("/api/generate", async (req, res) => {
     const { prompt, options = {} } = req.body;
 
     const provider = createBestAIProvider();
-    const result = await provider.generateText({
-      prompt,
+    const result = await provider.generate({
+      input: { text: prompt },
       ...options,
     });
 
@@ -578,7 +578,7 @@ app.post("/api/stream", async (req, res) => {
     const { prompt } = req.body;
 
     const provider = createBestAIProvider();
-    const result = await provider.streamText({ prompt });
+    const result = await provider.stream({ input: { text: prompt });
 
     res.setHeader("Content-Type", "text/plain");
     res.setHeader("Cache-Control", "no-cache");
@@ -602,8 +602,8 @@ app.get("/api/status", async (req, res) => {
       const provider = AIProviderFactory.createProvider(providerName);
       const start = Date.now();
 
-      await provider.generateText({
-        prompt: "test",
+      await provider.generate({
+        input: { text: "test" },
         maxTokens: 1,
       });
 
@@ -673,8 +673,8 @@ app.post("/api/ai/batch", async (req, res) => {
     const results = [];
     for (const prompt of prompts) {
       try {
-        const result = await req.aiProvider.generateText({
-          prompt,
+        const result = await req.aiProvider.generate({
+          input: { text: prompt },
           ...options,
         });
         results.push({ success: true, ...result });

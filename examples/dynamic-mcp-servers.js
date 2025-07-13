@@ -82,7 +82,7 @@ async function demonstrateDynamicServers() {
   console.log("\n🎉 Dynamic MCP server management demo completed!");
   console.log("\n💡 Next Steps:");
   console.log("   - Set environment variables for real integrations");
-  console.log("   - Use neurolink.generateText() to leverage new tools");
+  console.log("   - Use neurolink.generate() to leverage new tools");
   console.log("   - Build custom MCP servers for your specific needs");
 }
 

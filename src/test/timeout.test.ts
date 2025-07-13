@@ -233,7 +233,7 @@ describe("Provider Timeout Integration", () => {
   beforeEach(() => {
     vi.mock("../lib/providers/openAI.js", () => ({
       OpenAI: class {
-        async generateText(options: any) {
+        async generate(options: any) {
           // Simulate API delay
           await new Promise((resolve) => setTimeout(resolve, 100));
           const timeoutMs = options.timeout
@@ -247,7 +247,7 @@ describe("Provider Timeout Integration", () => {
               "generate",
             );
           }
-          return { text: "Success", usage: { totalTokens: 10 } };
+          return { content: "Success", usage: { totalTokens: 10 } };
         }
       },
     }));
@@ -257,8 +257,8 @@ describe("Provider Timeout Integration", () => {
     const sdk = new NeuroLink();
 
     // This should succeed
-    const result = await sdk.generateText({
-      prompt: "test",
+    const result = await sdk.generate({
+      input: { text: "test" },
       provider: "openai",
       timeout: "1s",
     });
@@ -273,8 +273,8 @@ describe("Provider Timeout Integration", () => {
     process.env.OPENAI_API_KEY = "test-key";
 
     await expect(
-      sdk.generateText({
-        prompt: "test",
+      sdk.generate({
+        input: { text: "test" },
         provider: "openai",
         timeout: "1ms", // Very short timeout
       }),

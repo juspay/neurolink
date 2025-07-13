@@ -89,7 +89,7 @@ Options:
   -h, --help                       display help for command
 
 Commands:
-  generate-text [options] <prompt> Generate AI text content
+  generate [options] <prompt>      Generate AI text content
   stream [options] <prompt>        Stream AI text generation
   batch [options] <file>           Process multiple prompts from file
   status [options]                 Check AI provider connectivity
@@ -98,7 +98,7 @@ Commands:
   help [command]                  display help for command
 
 Examples:
-  npx @juspay/neurolink generate-text "Hello, AI!"
+  npx @juspay/neurolink generate "Hello, AI!"
   npx @juspay/neurolink stream "Tell me a story"
   npx @juspay/neurolink status --verbose
   npx @juspay/neurolink mcp list
@@ -108,8 +108,8 @@ Examples:
   {
     name: "06-google-ai-provider-list",
     title: "Google AI Studio Provider Support",
-    command: "npx @juspay/neurolink generate-text --help",
-    output: `Usage: neurolink generate-text [options] <prompt>
+    command: "npx @juspay/neurolink generate --help",
+    output: `Usage: neurolink generate [options] <prompt>
 
 Generate AI text content using specified provider
 
@@ -128,9 +128,9 @@ Options:
   -h, --help                     display help for command
 
 Examples:
-  neurolink generate-text "Hello, AI!" --provider google-ai
-  neurolink generate-text "Write a story" --provider google-ai --model gemini-1.5-pro-latest
-  neurolink generate-text "Explain quantum computing" --provider google-ai --temperature 0.7
+  neurolink generate "Hello, AI!" --provider google-ai
+  neurolink generate "Write a story" --provider google-ai --model gemini-1.5-pro-latest
+  neurolink generate "Explain quantum computing" --provider google-ai --temperature 0.7
 
 🤖 Google AI Studio: Simple API key setup, generous free tier, latest Gemini models`,
   },
@@ -162,7 +162,7 @@ Examples:
     name: "03-text-generation",
     title: "AI Text Generation",
     command:
-      'npx @juspay/neurolink generate-text "Write a haiku about programming" --format json',
+      'npx @juspay/neurolink generate "Write a haiku about programming" --format json',
     output: `🤖 Generating text with auto-selected provider...
 
 {

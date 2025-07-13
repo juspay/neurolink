@@ -40,8 +40,8 @@ The **MCP Auto-Discovery System** is a revolutionary feature in NeuroLink that a
 ### 1. **✅ Working: Built-in Tool Testing**
 Test the current working built-in tools:
 ```bash
-npx neurolink generate-text "What time is it?" --debug
-npx neurolink generate-text "What tools do you have access to?" --debug
+npx neurolink generate "What time is it?" --debug
+npx neurolink generate "What tools do you have access to?" --debug
 ```
 
 ### 2. **✅ Working: MCP Server Inventory**
@@ -283,16 +283,16 @@ private parseJsonResilient(content: string, filePath: string): any {
 
 ```bash
 # Real-time Data Access
-$ npx neurolink generate-text "What time is it in Tokyo?"
+$ npx neurolink generate "What time is it in Tokyo?"
 > The current time is 6/17/2025, 2:30:15 PM in Asia/Tokyo.
 
 # Tool Discovery and Usage
-$ npx neurolink generate-text "What tools do you have and what time is it?"
+$ npx neurolink generate "What tools do you have and what time is it?"
 > I have access to 82+ tools including time, file operations, calculations...
 > The current time is 6/17/2025, 10:30:35 PM UTC.
 
 # Cross-tool Integration
-$ npx neurolink generate-text "Can you help me refactor code and tell me the time?"
+$ npx neurolink generate "Can you help me refactor code and tell me the time?"
 > I can help you refactor code using the refactor-code tool.
 > The current time is 6/17/2025, 10:31:04 PM UTC.
 ```
@@ -302,7 +302,7 @@ $ npx neurolink generate-text "Can you help me refactor code and tell me the tim
 #### AI SDK Integration Pattern
 ```typescript
 // CRITICAL: maxSteps enables multi-turn conversations
-generateText({
+generate({
   model: google('gemini-2.5-pro'),
   tools: discoveredTools,
   maxSteps: 5, // NOT maxToolRoundtrips - this was the key fix

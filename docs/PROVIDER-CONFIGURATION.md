@@ -53,8 +53,8 @@ export OPENAI_MODEL="gpt-4o"  # Default model to use
 import { AIProviderFactory } from "@juspay/neurolink";
 
 const openai = AIProviderFactory.createProvider("openai", "gpt-4o");
-const result = await openai.generateText({
-  prompt: "Explain machine learning",
+const result = await openai.generate({
+  input: { text: "Explain machine learning" },
   temperature: 0.7,
   maxTokens: 500,
   timeout: "30s", // Optional: Override default 30s timeout
@@ -145,8 +145,8 @@ export BEDROCK_MODEL_ID="arn:aws:bedrock:us-east-2:<account_id>:inference-profil
 import { AIProviderFactory } from "@juspay/neurolink";
 
 const bedrock = AIProviderFactory.createProvider("bedrock");
-const result = await bedrock.generateText({
-  prompt: "Write a haiku about AI",
+const result = await bedrock.generate({
+  input: { text: "Write a haiku about AI" },
   temperature: 0.8,
   maxTokens: 100,
   timeout: "45s", // Optional: Override default 45s timeout
@@ -276,8 +276,8 @@ export GOOGLE_AUTH_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhki
 import { AIProviderFactory } from "@juspay/neurolink";
 
 const vertex = AIProviderFactory.createProvider("vertex", "gemini-2.5-flash");
-const result = await vertex.generateText({
-  prompt: "Explain quantum computing",
+const result = await vertex.generate({
+  input: { text: "Explain quantum computing" },
   temperature: 0.6,
   maxTokens: 800,
   timeout: "1m", // Optional: Override default 60s timeout
@@ -341,8 +341,8 @@ const googleAI = AIProviderFactory.createProvider(
   "google-ai",
   "gemini-2.5-flash",
 );
-const result = await googleAI.generateText({
-  prompt: "Explain the future of AI",
+const result = await googleAI.generate({
+  input: { text: "Explain the future of AI" },
   temperature: 0.7,
   maxTokens: 1000,
   timeout: "30s", // Optional: Override default 30s timeout
@@ -403,7 +403,7 @@ import { AIProviderFactory } from "@juspay/neurolink";
 
 try {
   const provider = AIProviderFactory.createProvider("google-ai");
-  const result = await provider.generateText({
+  const result = await provider.generate({
     prompt: "Generate a creative story",
     temperature: 0.8,
     maxTokens: 500,
@@ -463,8 +463,8 @@ Hugging Face hosts 100,000+ models. Choose based on:
 import { AIProviderFactory } from "@juspay/neurolink";
 
 const huggingface = AIProviderFactory.createProvider("huggingface", "gpt2");
-const result = await huggingface.generateText({
-  prompt: "Explain machine learning",
+const result = await huggingface.generate({
+  input: { text: "Explain machine learning" },
   temperature: 0.8,
   maxTokens: 200,
   timeout: "45s", // Optional: Override default 30s timeout
@@ -541,8 +541,8 @@ ollama rm llama2
 
 ```typescript
 const ollama = AIProviderFactory.createProvider("ollama", "llama2");
-const result = await ollama.generateText({
-  prompt: "Write a poem about privacy",
+const result = await ollama.generate({
+  input: { text: "Write a poem about privacy" },
   temperature: 0.7,
   maxTokens: 300,
   timeout: "10m", // Optional: Override default 5m timeout
@@ -618,8 +618,8 @@ Mistral offers competitive pricing:
 
 ```typescript
 const mistral = AIProviderFactory.createProvider("mistral", "mistral-small");
-const result = await mistral.generateText({
-  prompt: "Translate to French: Hello world",
+const result = await mistral.generate({
+  input: { text: "Translate to French: Hello world" },
   temperature: 0.3,
   maxTokens: 100,
   timeout: "30s", // Optional: Override default 30s timeout
@@ -764,10 +764,10 @@ const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
 );
 
 try {
-  const result = await primary.generateText({ prompt: "Hello" });
+  const result = await primary.generate({ input: { text: "Hello" } });
 } catch (error) {
   console.log("Primary failed, trying fallback...");
-  const result = await fallback.generateText({ prompt: "Hello" });
+  const result = await fallback.generate({ input: { text: "Hello" } });
 }
 ```
 
@@ -819,8 +819,8 @@ async function testProviders() {
       const provider = AIProviderFactory.createProvider(providerName);
       const start = Date.now();
 
-      const result = await provider.generateText({
-        prompt: "Test",
+      const result = await provider.generate({
+        input: { text: "Test" },
         maxTokens: 10,
       });
 

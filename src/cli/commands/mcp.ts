@@ -1224,7 +1224,7 @@ export function addMCPCommands(yargs: Argv): Argv {
                 description: "Disable fallback to other sources",
               })
               .example(
-                '$0 mcp run generate-text --params \'{"prompt": "Hello world"}\'',
+                '$0 mcp run generate --params \'{"prompt": "Hello world"}\'',
                 "Run tool with fallback",
               )
               .example(

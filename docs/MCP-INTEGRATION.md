@@ -1,5 +1,19 @@
 # 🔧 MCP (Model Context Protocol) Integration Guide
 
+## ✅ IMPLEMENTATION STATUS: COMPLETE (2025-01-07)
+
+**Generate Function Migration completed - MCP integration enhanced with factory patterns**
+
+- ✅ MCP tools work seamlessly with modern `generate()` method
+- ✅ Factory pattern provides better MCP tool management
+- ✅ Enhanced error handling for MCP server connections
+- ✅ All existing MCP configurations continue working
+
+> **Migration Note**: MCP integration enhanced but remains transparent.
+> Use `generate()` for future-ready MCP workflows.
+
+---
+
 **NeuroLink Universal AI Platform with External Server Connectivity**
 
 ---
@@ -7,6 +21,28 @@
 ## 📖 **Overview**
 
 NeuroLink now supports the **Model Context Protocol (MCP)** for seamless integration with external servers and tools. This enables unlimited extensibility through the growing MCP ecosystem while maintaining NeuroLink's simple interface.
+
+### **Enhanced MCP Integration with Factory Patterns**
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// NEW: Enhanced MCP integration with generate()
+const result = await neurolink.generate({
+  input: { text: "List files in current directory using MCP" },
+  provider: "google-ai",
+  disableTools: false, // Enable MCP tool usage
+});
+
+// Alternative approach using legacy method (backward compatibility)
+const legacyResult = await neurolink.generate({
+  prompt: "List files in current directory using MCP",
+  provider: "google-ai",
+  disableTools: false,
+});
+```
 
 ### **What is MCP?**
 
@@ -433,7 +469,7 @@ neurolink mcp test filesystem
 
 ```bash
 # Generate text that uses MCP tool results
-neurolink generate-text "Analyze the README.md file and suggest improvements" --tools filesystem
+neurolink generate "Analyze the README.md file and suggest improvements" --tools filesystem
 
 # Stream responses that incorporate MCP data
 neurolink stream "Create a GitHub issue based on the project status" --tools github

@@ -15,19 +15,19 @@ pnpm run build:cli
 # 1. Hugging Face recording
 echo "📹 Recording Hugging Face CLI usage..."
 asciinema rec --quiet --title "NeuroLink - Hugging Face Provider Demo" \
-  --command "node dist/cli/index.js generate-text 'What makes open source AI special?' --provider huggingface" \
+  --command "node dist/cli/index.js generate 'What makes open source AI special?' --provider huggingface" \
   "$RECORDINGS_DIR/huggingface-demo.cast"
 
 # 2. Ollama recording
 echo "📹 Recording Ollama CLI usage..."
 asciinema rec --quiet --title "NeuroLink - Ollama Local AI Demo" \
-  --command "node dist/cli/index.js generate-text 'Why is local AI important for privacy?' --provider ollama" \
+  --command "node dist/cli/index.js generate 'Why is local AI important for privacy?' --provider ollama" \
   "$RECORDINGS_DIR/ollama-demo.cast"
 
 # 3. Mistral recording
 echo "📹 Recording Mistral CLI usage..."
 asciinema rec --quiet --title "NeuroLink - Mistral AI Demo" \
-  --command "node dist/cli/index.js generate-text 'Explain GDPR compliance in AI' --provider mistral" \
+  --command "node dist/cli/index.js generate 'Explain GDPR compliance in AI' --provider mistral" \
   "$RECORDINGS_DIR/mistral-demo.cast"
 
 # 4. Ollama commands recording
@@ -45,7 +45,7 @@ asciinema rec --quiet --title "NeuroLink - All 9 Providers" \
 # 6. Auto provider selection
 echo "📹 Recording auto provider selection..."
 asciinema rec --quiet --title "NeuroLink - Auto Provider Selection" \
-  --command "node dist/cli/index.js generate-text 'Hello from NeuroLink!'" \
+  --command "node dist/cli/index.js generate 'Hello from NeuroLink!'" \
   "$RECORDINGS_DIR/auto-provider.cast"
 
 echo "✅ All CLI recordings created!"

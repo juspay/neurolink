@@ -85,27 +85,27 @@ async function run() {
     },
     {
       name: "02-openai-working",
-      command: `node ${cli_path} generate-text 'Hello from OpenAI' --provider openai`,
+      command: `node ${cli_path} generate 'Hello from OpenAI' --provider openai`,
       description: "OpenAI Text Generation Success",
     },
     {
       name: "03-ollama-working",
-      command: `node ${cli_path} generate-text 'Hello from Ollama local AI' --provider ollama`,
+      command: `node ${cli_path} generate 'Hello from Ollama local AI' --provider ollama`,
       description: "Ollama Local AI Success",
     },
     {
       name: "04-google-ai-working",
-      command: `node ${cli_path} generate-text 'Hello from Google AI' --provider google-ai`,
+      command: `node ${cli_path} generate 'Hello from Google AI' --provider google-ai`,
       description: "Google AI Studio Success",
     },
     {
       name: "05-anthropic-working",
-      command: `node ${cli_path} generate-text 'Hello from Anthropic Claude' --provider anthropic`,
+      command: `node ${cli_path} generate 'Hello from Anthropic Claude' --provider anthropic`,
       description: "Anthropic Claude Success",
     },
     {
       name: "06-auto-selection-working",
-      command: `node ${cli_path} generate-text 'Auto select best provider' --provider auto`,
+      command: `node ${cli_path} generate 'Auto select best provider' --provider auto`,
       description: "Auto Provider Selection Success",
     },
     {

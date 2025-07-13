@@ -34,17 +34,15 @@ import {
   streamText,
   generateText,
   Output,
-  type StreamTextResult,
-  type ToolSet,
   type Schema,
-  type GenerateTextResult,
   type LanguageModelV1,
 } from "ai";
+import type { GenerateResult } from "../types/generate-types.js";
+import type { StreamOptions, StreamResult } from "../types/stream-types.js";
 import type {
   AIProvider,
   TextGenerationOptions,
-  StreamTextOptions,
-  EnhancedGenerateTextResult,
+  EnhancedGenerateResult,
 } from "../core/types.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -404,159 +402,16 @@ export class GoogleVertexAI implements AIProvider {
   }
 
   /**
-   * Processes text using streaming approach with enhanced error handling callbacks
-   * @param prompt - The input text prompt to analyze
-   * @param analysisSchema - Optional Zod schema or Schema object for output validation
-   * @returns Promise resolving to StreamTextResult or null if operation fails
-   */
-  async streamText(
-    optionsOrPrompt: StreamTextOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<StreamTextResult<ToolSet, unknown> | null> {
-    const functionTag = "GoogleVertexAI.streamText";
-    const provider = "vertex";
-    let chunkCount = 0;
-
-    try {
-      // Parse parameters - support both string and options object
-      const options =
-        typeof optionsOrPrompt === "string"
-          ? { prompt: optionsOrPrompt }
-          : optionsOrPrompt;
-
-      const {
-        prompt,
-        temperature = 0.7,
-        maxTokens = DEFAULT_MAX_TOKENS,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema,
-        timeout = getDefaultTimeout(provider, "stream"),
-      } = options;
-
-      // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
-
-      logger.debug(`[${functionTag}] Stream request started`, {
-        provider,
-        modelName: this.modelName,
-        isAnthropic: isAnthropicModel(this.modelName),
-        promptLength: prompt.length,
-        temperature,
-        maxTokens,
-        hasSchema: !!finalSchema,
-        timeout,
-      });
-
-      const model = await this.getModel();
-
-      // Create timeout controller if timeout is specified
-      const timeoutController = createTimeoutController(
-        timeout,
-        provider,
-        "stream",
-      );
-
-      const streamOptions = {
-        model: model,
-        prompt: prompt,
-        system: systemPrompt,
-        temperature,
-        maxTokens,
-        // Add abort signal if available
-        ...(timeoutController && {
-          abortSignal: timeoutController.controller.signal,
-        }),
-
-        onError: (event: { error: unknown }) => {
-          const error = event.error;
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          const errorStack = error instanceof Error ? error.stack : undefined;
-
-          logger.error(`[${functionTag}] Stream text error`, {
-            provider,
-            modelName: this.modelName,
-            error: errorMessage,
-            stack: errorStack,
-            promptLength: prompt.length,
-            chunkCount,
-          });
-        },
-
-        onFinish: (event: {
-          finishReason: string;
-          usage: Record<string, unknown>;
-          text?: string;
-        }) => {
-          logger.debug(`[${functionTag}] Stream text finished`, {
-            provider,
-            modelName: this.modelName,
-            finishReason: event.finishReason,
-            usage: event.usage,
-            totalChunks: chunkCount,
-            promptLength: prompt.length,
-            responseLength: event.text?.length || 0,
-          });
-        },
-
-        onChunk: (event: { chunk: { type: string; text?: string } }) => {
-          chunkCount++;
-          logger.debug(`[${functionTag}] Stream text chunk`, {
-            provider,
-            modelName: this.modelName,
-            chunkNumber: chunkCount,
-            chunkLength: event.chunk.text?.length || 0,
-            chunkType: event.chunk.type,
-          });
-        },
-      } as Parameters<typeof streamText>[0];
-
-      if (analysisSchema) {
-        streamOptions.experimental_output = Output.object({
-          schema: analysisSchema,
-        });
-      }
-
-      const result = streamText(streamOptions);
-
-      // For streaming, we can't clean up immediately, but the timeout will auto-clean
-      // The user should handle the stream and any timeout errors
-
-      return result;
-    } catch (err) {
-      // Log timeout errors specifically
-      if (err instanceof TimeoutError) {
-        logger.error(`[${functionTag}] Timeout error`, {
-          provider,
-          modelName: this.modelName,
-          isAnthropic: isAnthropicModel(this.modelName),
-          timeout: err.timeout,
-          message: err.message,
-        });
-      } else {
-        logger.error(`[${functionTag}] Exception`, {
-          provider,
-          modelName: this.modelName,
-          message: "Error in streaming text",
-          err: String(err),
-          promptLength: prompt.length,
-        });
-      }
-      throw err; // Re-throw error to trigger fallback
-    }
-  }
-
-  /**
    * Processes text using non-streaming approach with optional schema validation
    * @param prompt - The input text prompt to analyze
    * @param analysisSchema - Optional Zod schema or Schema object for output validation
-   * @returns Promise resolving to GenerateTextResult or null if operation fails
+   * @returns Promise resolving to GenerateResult or null if operation fails
    */
-  async generateText(
+  async generate(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<GenerateTextResult<ToolSet, unknown> | null> {
-    const functionTag = "GoogleVertexAI.generateText";
+  ): Promise<GenerateResult> {
+    const functionTag = "GoogleVertexAI.generate";
     const provider = "vertex";
     const startTime = Date.now();
 
@@ -651,7 +506,19 @@ export class GoogleVertexAI implements AIProvider {
           );
         }
 
-        return result;
+        return {
+          content: result.text,
+          provider: "vertex",
+          model: this.modelName,
+          usage: result.usage
+            ? {
+                inputTokens: result.usage.promptTokens,
+                outputTokens: result.usage.completionTokens,
+                totalTokens: result.usage.totalTokens,
+              }
+            : undefined,
+          responseTime: Date.now() - startTime,
+        };
       } finally {
         // Always cleanup timeout
         timeoutController?.cleanup();
@@ -679,22 +546,184 @@ export class GoogleVertexAI implements AIProvider {
   }
 
   /**
-   * Alias for generateText() - CLI-SDK consistency
+   * PRIMARY METHOD: Stream content using AI (recommended for new code)
+   * Future-ready for multi-modal capabilities with current text focus
    */
-  async generate(
-    optionsOrPrompt: TextGenerationOptions | string,
+  async stream(
+    optionsOrPrompt: StreamOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
+  ): Promise<StreamResult> {
+    const functionTag = "GoogleVertexAI.stream";
+    const startTime = Date.now();
+
+    try {
+      // Parse parameters - support both string and options object
+      const options =
+        typeof optionsOrPrompt === "string"
+          ? { input: { text: optionsOrPrompt } }
+          : optionsOrPrompt;
+
+      // Validate input
+      if (
+        !options?.input?.text ||
+        typeof options.input.text !== "string" ||
+        options.input.text.trim() === ""
+      ) {
+        throw new Error(
+          "Stream options must include input.text as a non-empty string",
+        );
+      }
+
+      logger.debug(`[${functionTag}] Stream request started`, {
+        provider: "vertex",
+        modelName: this.modelName,
+        isAnthropic: isAnthropicModel(this.modelName),
+        promptLength: options.input.text.length,
+        hasSchema: !!analysisSchema,
+      });
+
+      // Convert StreamOptions for internal use
+      const convertedOptions = {
+        prompt: options.input.text,
+        provider: options.provider,
+        model: options.model,
+        temperature: options.temperature,
+        maxTokens: options.maxTokens,
+        systemPrompt: options.systemPrompt,
+        timeout: options.timeout,
+        schema: options.schema,
+        tools: options.tools,
+      };
+
+      const {
+        prompt,
+        temperature = 0.7,
+        maxTokens = DEFAULT_MAX_TOKENS,
+        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
+        schema,
+        timeout = getDefaultTimeout("vertex", "stream"),
+      } = convertedOptions;
+
+      // Use schema from options or fallback parameter
+      const finalSchema = schema || analysisSchema;
+
+      logger.debug(`[${functionTag}] Stream request details`, {
+        provider: "vertex",
+        modelName: this.modelName,
+        isAnthropic: isAnthropicModel(this.modelName),
+        promptLength: prompt.length,
+        temperature,
+        maxTokens,
+        hasSchema: !!finalSchema,
+        timeout,
+      });
+
+      const model = await this.getModel();
+
+      // Create timeout controller if timeout is specified
+      const timeoutController = createTimeoutController(
+        timeout,
+        "vertex",
+        "stream",
+      );
+
+      let chunkCount = 0;
+      const streamOptions = {
+        model: model,
+        prompt: prompt,
+        system: systemPrompt,
+        temperature,
+        maxTokens,
+        // Add abort signal if available
+        ...(timeoutController && {
+          abortSignal: timeoutController.controller.signal,
+        }),
+
+        onError: (event: { error: unknown }) => {
+          const error = event.error;
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          const errorStack = error instanceof Error ? error.stack : undefined;
+
+          logger.error(`[${functionTag}] Stream error`, {
+            provider: "vertex",
+            modelName: this.modelName,
+            error: errorMessage,
+            stack: errorStack,
+            promptLength: prompt.length,
+            chunkCount,
+          });
+        },
+
+        onFinish: (event: {
+          finishReason: string;
+          usage: Record<string, unknown>;
+          text?: string;
+        }) => {
+          logger.debug(`[${functionTag}] Stream finished`, {
+            provider: "vertex",
+            modelName: this.modelName,
+            finishReason: event.finishReason,
+            usage: event.usage,
+            totalChunks: chunkCount,
+            promptLength: prompt.length,
+            responseLength: event.text?.length || 0,
+          });
+        },
+
+        onChunk: (event: { chunk: { type: string; text?: string } }) => {
+          chunkCount++;
+          logger.debug(`[${functionTag}] Stream chunk`, {
+            provider: "vertex",
+            modelName: this.modelName,
+            chunkNumber: chunkCount,
+            chunkLength: event.chunk.text?.length || 0,
+            chunkType: event.chunk.type,
+          });
+        },
+      } as Parameters<typeof streamText>[0];
+
+      if (finalSchema) {
+        streamOptions.experimental_output = Output.object({
+          schema: finalSchema,
+        });
+      }
+
+      const result = streamText(streamOptions);
+
+      // Convert to StreamResult format
+      return {
+        stream: (async function* () {
+          for await (const chunk of result.textStream) {
+            yield { content: chunk };
+          }
+        })(),
+        provider: "vertex",
+        model: this.modelName,
+        metadata: {
+          streamId: `vertex-${Date.now()}`,
+          startTime,
+        },
+      };
+    } catch (err) {
+      logger.error(`[${functionTag}] Exception`, {
+        provider: "vertex",
+        modelName: this.modelName,
+        isAnthropic: isAnthropicModel(this.modelName),
+        message: "Error in streaming text",
+        err: String(err),
+      });
+      throw err; // Re-throw error to trigger fallback
+    }
   }
 
   /**
-   * Short alias for generateText() - CLI-SDK consistency
+   * Short alias for generate() - CLI-SDK consistency
    */
   async gen(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
+  ): Promise<EnhancedGenerateResult | null> {
+    return this.generate(optionsOrPrompt, analysisSchema);
   }
 }

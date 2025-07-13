@@ -22,8 +22,8 @@ async function basicUsageExample() {
 
     // 2. Basic text generation
     console.log("2. Generating text...");
-    const result = await provider.generateText({
-      prompt: "Write a short haiku about artificial intelligence",
+    const result = await provider.generate({
+      input: { text: "Write a short haiku about artificial intelligence" },
     });
 
     console.log("✅ Generated text:");
@@ -33,8 +33,8 @@ async function basicUsageExample() {
 
     // 3. Using custom timeout (new in v1.12.0)
     console.log("\n3. Generating with custom timeout...");
-    const timeoutResult = await provider.generateText({
-      prompt: "Explain quantum computing in simple terms",
+    const timeoutResult = await provider.generate({
+      input: { text: "Explain quantum computing in simple terms" },
       timeout: "45s", // 45 seconds timeout
       maxTokens: 300,
     });

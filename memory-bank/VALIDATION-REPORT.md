@@ -41,7 +41,7 @@
    - **TEST RESULT**: Configuration detection working ✅
 
 5. **✅ Vercel AI SDK Integration**
-   - All providers implement streamText and generateText
+   - All providers implement stream and generate
    - Proper schema support for structured output
    - Working callback system for streaming
    - **TEST RESULT**: AI SDK integration verified ✅
@@ -109,7 +109,7 @@ import { createAIProvider } from "neurolink";
 
 // This works ✅
 const provider = createAIProvider("openai");
-const result = await provider.streamText("Hello, AI!");
+const result = await provider.stream({ input: { text: "Hello, AI!" } });
 ```
 
 ### Provider Auto-Selection

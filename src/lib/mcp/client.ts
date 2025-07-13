@@ -99,12 +99,12 @@ export class NeuroLinkMCPClient extends EventEmitter {
 
             // If it's in Lighthouse format with content array
             if (
-              result.content &&
-              Array.isArray(result.content) &&
-              result.content[0]?.text
+              result.text &&
+              Array.isArray(result.text) &&
+              result.text[0]?.text
             ) {
               try {
-                const data = JSON.parse(result.content[0].text);
+                const data = JSON.parse(result.text[0].text);
                 return {
                   success: !result.isError,
                   data,
@@ -119,7 +119,7 @@ export class NeuroLinkMCPClient extends EventEmitter {
                 // If JSON parsing fails, return the text as-is
                 return {
                   success: !result.isError,
-                  data: { text: result.content[0].text },
+                  data: { text: result.text[0].text },
                   metadata: {
                     toolName,
                     serverId,

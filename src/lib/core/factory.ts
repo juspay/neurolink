@@ -17,7 +17,6 @@ import type {
   AIProviderName,
   SupportedModelName,
   TextGenerationOptions,
-  StreamTextOptions,
 } from "./types.js";
 
 const componentIdentifier = "aiProviderFactory";

@@ -16,8 +16,8 @@ npx @juspay/neurolink generate "Hello world"
 const { NeuroLink } = require("@juspay/neurolink");
 const neurolink = new NeuroLink();
 
-const result = await neurolink.generateText({
-  prompt: "Write a professional email",
+const result = await neurolink.generate({
+  input: { text: "Write a professional email" },
   enableAnalytics: true,
 });
 
@@ -27,8 +27,8 @@ console.log("📊 Analytics:", result.analytics);
 ### Step 3: Add Quality Evaluation
 
 ```javascript
-const result = await neurolink.generateText({
-  prompt: "Explain quantum computing",
+const result = await neurolink.generate({
+  input: { text: "Explain quantum computing" },
   enableEvaluation: true,
 });
 
@@ -46,8 +46,8 @@ const app = express();
 const neurolink = new NeuroLink();
 
 app.post("/api/generate", async (req, res) => {
-  const result = await neurolink.generateText({
-    prompt: req.body.prompt,
+  const result = await neurolink.generate({
+    input: { text: req.body.prompt },
     enableAnalytics: true,
     enableEvaluation: true,
     context: {
@@ -106,8 +106,8 @@ class BatchProcessor {
     });
 
     for (const item of items) {
-      const result = await neurolink.generateText({
-        prompt: `Create marketing copy for: ${item.name}`,
+      const result = await neurolink.generate({
+        input: { text: `Create marketing copy for: ${item.name}` },
         enableAnalytics: true,
         enableEvaluation: true,
         context: { product_id: item.id, batch: true },
@@ -130,7 +130,8 @@ class BatchProcessor {
 const analyticsStore = { requests: [], stats: {} };
 
 app.post("/api/generate", async (req, res) => {
-  const result = await neurolink.generateText({
+  const result = await neurolink.generate({
+    input: { text: req.body.prompt },
     ...req.body,
     enableAnalytics: true,
     enableEvaluation: true,
@@ -191,8 +192,8 @@ npx @juspay/neurolink generate "Business proposal" \
 ### E-commerce: Product Descriptions
 
 ```javascript
-const productResult = await neurolink.generateText({
-  prompt: `Product: ${product.name}\nFeatures: ${product.features}`,
+const productResult = await neurolink.generate({
+  input: { text: `Product: ${product.name}\nFeatures: ${product.features}` },
   enableAnalytics: true,
   enableEvaluation: true,
   context: {
@@ -210,8 +211,8 @@ if (product.category === "basic" && productResult.analytics.cost > 0.05) {
 ### Healthcare: Patient Education
 
 ```javascript
-const medicalContent = await neurolink.generateText({
-  prompt: "Diabetes management guide for patients",
+const medicalContent = await neurolink.generate({
+  input: { text: "Diabetes management guide for patients" },
   enableEvaluation: true,
   context: {
     content_type: "medical",
@@ -228,8 +229,8 @@ if (medicalContent.evaluation.accuracy < 9) {
 ### Customer Support
 
 ```javascript
-const supportResponse = await neurolink.generateText({
-  prompt: `Customer issue: ${ticket.description}`,
+const supportResponse = await neurolink.generate({
+  input: { text: `Customer issue: ${ticket.description}` },
   enableAnalytics: true,
   enableEvaluation: true,
   context: {

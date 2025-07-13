@@ -29,8 +29,8 @@ async function analyticsDemo() {
 
     // 1. Basic Analytics Tracking
     console.log("1. 📈 Basic Analytics");
-    const result = await provider.generateText({
-      prompt: "Explain APIs in one sentence",
+    const result = await provider.generate({
+      input: { text: "Explain APIs in one sentence" },
       enableAnalytics: true,
       context: { team: "development", feature: "api-docs" },
     });
@@ -63,8 +63,8 @@ async function analyticsDemo() {
       );
 
       if (testProvider) {
-        const result = await testProvider.generateText({
-          prompt,
+        const result = await testProvider.generate({
+          input: { text: prompt },
           enableAnalytics: true,
         });
 
@@ -90,8 +90,8 @@ async function analyticsDemo() {
     ];
 
     for (const testPrompt of testPrompts) {
-      const result = await provider.generateText({
-        prompt: testPrompt,
+      const result = await provider.generate({
+        input: { text: testPrompt },
         enableAnalytics: true,
       });
 

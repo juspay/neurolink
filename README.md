@@ -17,59 +17,25 @@
 - **📊 Advanced Telemetry** - Optional OpenTelemetry monitoring with zero overhead when disabled
 - **💬 Enhanced Chat Services** - Dual-mode SSE + WebSocket support for enterprise applications
 - **🏗️ Enterprise Architecture** - Production-ready scaling with connection pooling and optimization
-
-## 🏗️ Enterprise Configuration Management
-
-### **✨ NEW: Automatic Backup System**
-
-```bash
-# All config changes create automatic backups
-npm run config:update
-# ✅ Backup created: .neurolink.backups/neurolink-config-2025-01-07T10-30-00.js
-
-# Auto-restore on failures
-npm run config:validate
-# ✅ Config validated with suggestions and warnings
-```
-
-### **✨ NEW: Industry-Standard Interfaces**
-
-```typescript
-// Modern camelCase interfaces with rich context
-interface ExecutionContext {
-  sessionId?: string;
-  userId?: string;
-  aiProvider?: string;
-  permissions?: string[];
-  cacheOptions?: CacheOptions;
-  fallbackOptions?: FallbackOptions;
-  metadata?: Record<string, unknown>;
-}
-
-// Optional methods for maximum flexibility
-interface McpRegistry {
-  registerServer?(
-    serverId: string,
-    config?: unknown,
-    context?: ExecutionContext,
-  ): Promise<void>;
-  executeTool?<T>(
-    toolName: string,
-    args?: unknown,
-    context?: ExecutionContext,
-  ): Promise<T>;
-  listTools?(context?: ExecutionContext): Promise<ToolInfo[]>;
-}
-```
-
-### **Enterprise Features**
-
 - **🔄 Automatic Backup/Restore** - Timestamped backups with hash verification
 - **✅ Config Validation** - Comprehensive validation with suggestions
 - **🏗️ Factory-First MCP** - Lighthouse-compatible architecture (99% compatible)
 - **🔧 Type Safety** - Industry-standard TypeScript interfaces
 - **⚡ Performance** - Tool execution <1ms, pipeline execution ~22ms
 - **🛡️ Error Recovery** - Graceful failures with auto-restore
+
+## ✅ LATEST UPDATE: Stream Function Migration Complete (2025-01-12)
+
+**NeuroLink now uses `stream()` as the primary streaming function with future-ready multi-modal interface.**
+
+- ✅ **New Primary Streaming**: `stream()` with multi-modal ready interface
+- ✅ **Enhanced Generation**: `generate()` as primary generation function
+- ✅ **Factory Enhanced**: Better provider management across all methods
+- ✅ **Zero Breaking Changes**: All existing code continues working (backward compatibility)
+
+> **Enhanced API**: NeuroLink uses `stream()` and `generate()` as primary functions with multi-modal ready interfaces and improved factory patterns.
+
+---
 
 ## 🚀 Quick Start
 
@@ -83,7 +49,11 @@ export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
 npx @juspay/neurolink generate "Hello, AI"
 npx @juspay/neurolink gen "Hello, AI"        # Shortest form
 
-# 🆕 NEW: AI Enhancement Features
+# ✨ Primary Method (generate) - Recommended
+npx @juspay/neurolink generate "Explain AI" --provider google-ai
+npx @juspay/neurolink gen "Write code" --provider openai       # Shortest form
+
+# 🆕 AI Enhancement Features
 npx @juspay/neurolink generate "Explain AI" --enable-analytics --debug
 npx @juspay/neurolink generate "Write code" --enable-evaluation --debug
 npx @juspay/neurolink generate "Help me" --context '{"userId":"123"}' --debug
@@ -99,13 +69,21 @@ npm install @juspay/neurolink
 ### Basic Usage
 
 ```typescript
-import { createBestAIProvider } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-// Auto-selects best available provider
-const provider = createBestAIProvider();
-const result = await provider.generateText({
-  prompt: "Write a haiku about programming",
+// NEW: Primary method (recommended)
+const neurolink = new NeuroLink();
+const result = await neurolink.generate({
+  input: { text: "Write a haiku about programming" },
+  provider: "google-ai",
   timeout: "30s", // Optional: Set custom timeout (default: 30s)
+});
+// Alternative: Auto-selects best available provider
+import { createBestAIProvider } from "@juspay/neurolink";
+const provider = createBestAIProvider();
+const providerResult = await provider.generate({
+  prompt: "Write a haiku about programming",
+  timeout: "30s",
 });
 
 console.log(result.text);
@@ -118,7 +96,7 @@ Method aliases that match CLI command names:
 
 ```typescript
 // All three methods are equivalent:
-const result1 = await provider.generateText({ prompt: "Hello" }); // Original
+const result1 = await provider.generate({ prompt: "Hello" }); // Original
 const result2 = await provider.generate({ prompt: "Hello" }); // Matches CLI 'generate'
 const result3 = await provider.gen({ prompt: "Hello" }); // Matches CLI 'gen'
 
@@ -126,7 +104,7 @@ const result3 = await provider.gen({ prompt: "Hello" }); // Matches CLI 'gen'
 const provider = createBestAIProvider();
 
 // Detailed method name
-const story = await provider.generateText({
+const story = await provider.generate({
   prompt: "Write a short story about AI",
   maxTokens: 200,
 });
@@ -162,10 +140,10 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink();
 
 // Basic usage
-const result = await neurolink.generateText("Write a story");
+const result = await neurolink.generate("Write a story");
 
 // With enhancements (NEW!)
-const enhancedResult = await neurolink.generateText({
+const enhancedResult = await neurolink.generate({
   prompt: "Write a business proposal",
   enableAnalytics: true, // Get usage & cost data
   enableEvaluation: true, // Get AI quality scores
@@ -189,7 +167,7 @@ const enhancedContext = createEnhancedContext(
   {
     domain: "Business development",
     role: "Business proposal assistant",
-    toolsUsed: ["generate-text", "analytics-helper"],
+    toolsUsed: ["generate", "analytics-helper"],
     conversationHistory: [
       { role: "user", content: "I need help with our Q1 business plan" },
       {
@@ -273,7 +251,7 @@ console.log("Version:", status.version);
 
 // All AI operations are now automatically monitored
 const provider = await createBestAIProvider();
-const result = await provider.generateText({
+const result = await provider.generate({
   prompt: "Generate business report",
 });
 // Telemetry automatically tracks: response time, token usage, cost, errors
@@ -426,7 +404,20 @@ export const POST: RequestHandler = async ({ request }) => {
   const provider = createBestAIProvider();
 
   try {
-    const result = await provider.streamText({
+    // NEW: Primary streaming method (recommended)
+    const result = await provider.stream({
+      input: { text: message },
+      timeout: "2m", // 2 minutes for streaming
+    });
+
+    // Process stream
+    for await (const chunk of result.stream) {
+      // Handle streaming content
+      console.log(chunk.content);
+    }
+
+    // LEGACY: Backward compatibility (still works)
+    const legacyResult = await provider.stream({ input: { text:
       prompt: message,
       timeout: "2m", // 2 minutes for streaming
     });
@@ -444,7 +435,7 @@ export async function POST(request: NextRequest) {
   const { prompt } = await request.json();
   const provider = createBestAIProvider();
 
-  const result = await provider.generateText({
+  const result = await provider.generate({
     prompt,
     timeout: process.env.AI_TIMEOUT || "30s", // Configurable timeout
   });

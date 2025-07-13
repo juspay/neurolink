@@ -37,7 +37,7 @@ Generated: 2025-06-10T05:18:03.215Z
 ### MCP Workflow Integration
 
 - **File**: `06-mcp-workflow-demo-2025-06-10.png`
-- **Command**: `neurolink generate-text "Read the README file and summarize it" --tools filesystem`
+- **Command**: `neurolink generate "Read the README file and summarize it" --tools filesystem`
 - **Purpose**: Demonstrates mcp workflow integration
 
 ## Usage

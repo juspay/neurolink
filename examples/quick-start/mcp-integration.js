@@ -84,8 +84,8 @@ async function mcpIntegrationDemo() {
       // Use AI with MCP tool context
       const prompt = `Analyze this text using available tools: "NeuroLink MCP system is excellent!"`;
 
-      const aiResult = await aiProvider.generateText({
-        prompt,
+      const aiResult = await aiProvider.generate({
+        input: { text: prompt },
         context: {
           availableTools: ["text-analyzer"],
           mcpEnabled: true,

@@ -105,10 +105,10 @@ ollama pull mistral
 
 ```bash
 # Test Ollama integration
-npx @juspay/neurolink generate-text "Hello from local AI!" --provider ollama
+npx @juspay/neurolink generate "Hello from local AI!" --provider ollama
 
 # Use specific model
-npx @juspay/neurolink generate-text "Write code" --provider ollama --model codellama
+npx @juspay/neurolink generate "Write code" --provider ollama --model codellama
 ```
 
 ### 3. Manage Models

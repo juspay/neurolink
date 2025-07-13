@@ -1,6 +1,44 @@
 # 📚 NeuroLink Examples
 
+## ✅ IMPLEMENTATION STATUS: COMPLETE (2025-01-07)
+
+**Generate Function Migration completed - Examples updated with new primary method**
+
+- ✅ All examples now show `generate()` as primary method
+- ✅ Legacy examples preserved for compatibility
+- ✅ Factory pattern benefits demonstrated
+- ✅ Migration guidance included
+
+> **Migration Note**: Examples now demonstrate `generate()` as the primary function.
+> Legacy `generate()` examples remain for backward compatibility reference.
+
+---
+
 This directory contains practical examples demonstrating NeuroLink's capabilities.
+
+## 🎯 **Generate Function Examples (NEW PRIMARY)**
+
+### **Basic Generate Usage**
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// NEW: Primary method (recommended)
+const result = await neurolink.generate({
+  input: { text: "Explain machine learning" },
+  provider: "google-ai",
+  temperature: 0.7,
+});
+
+// Alternative syntax (also supported)
+const alternativeResult = await neurolink.generate({
+  input: { text: "Explain machine learning" },
+  provider: "google-ai",
+  temperature: 0.7,
+});
+```
 
 ## � **Enhanced Examples: Developer Experience 2.0** (June 22, 2025)
 

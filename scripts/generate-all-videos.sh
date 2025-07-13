@@ -106,7 +106,7 @@ generate_cli_videos() {
            -vf "drawtext=text='NeuroLink CLI Help':fontcolor=white:fontsize=32:x=(w-text_w)/2:y=100,\
                 drawtext=text='Command reference and usage examples':fontcolor=gray:fontsize=18:x=(w-text_w)/2:y=200,\
                 drawtext=text='neurolink --help':fontcolor=cyan:fontsize=24:x=(w-text_w)/2:y=400,\
-                drawtext=text='neurolink generate-text \"prompt\"':fontcolor=green:fontsize=20:x=(w-text_w)/2:y=500,\
+                drawtext=text='neurolink generate \"prompt\"':fontcolor=green:fontsize=20:x=(w-text_w)/2:y=500,\
                 drawtext=text='neurolink status':fontcolor=yellow:fontsize=20:x=(w-text_w)/2:y=550" \
            -pix_fmt yuv420p \
            -movflags +faststart \
@@ -133,7 +133,7 @@ generate_cli_videos() {
            -i color=c=black:s=1280x800:d=8 \
            -vf "drawtext=text='AI Text Generation':fontcolor=white:fontsize=32:x=(w-text_w)/2:y=100,\
                 drawtext=text='Real AI content generation examples':fontcolor=gray:fontsize=18:x=(w-text_w)/2:y=200,\
-                drawtext=text='$ neurolink generate-text \"Write a haiku\"':fontcolor=cyan:fontsize=18:x=50:y=350,\
+                drawtext=text='$ neurolink generate \"Write a haiku\"':fontcolor=cyan:fontsize=18:x=50:y=350,\
                 drawtext=text='Generated haiku in 945ms using GPT-4o':fontcolor=green:fontsize=16:x=50:y=400,\
                 drawtext=text='Code weaves thoughts and dreams,':fontcolor=white:fontsize=18:x=50:y=450,\
                 drawtext=text='Silicon minds learn and grow—':fontcolor=white:fontsize=18:x=50:y=480,\

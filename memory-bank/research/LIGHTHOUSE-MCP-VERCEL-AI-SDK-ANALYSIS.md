@@ -41,7 +41,7 @@ This analysis focuses on how Model Context Protocol (MCP) can be integrated with
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { createGoogleGenerativeAI } from '@ai-sdk/google-vertex';
-import { generateText, streamText } from 'ai';
+import { generate, streamText } from 'ai';
 
 // Vercel AI SDK providers
 const openai = createOpenAI({
@@ -81,7 +81,7 @@ export class MCPAwareProvider implements AIProvider {
     }
   }
 
-  async generateText(options: TextGenerationOptions): Promise<GenerateTextResult> {
+  async generate(options: TextGenerationOptions): Promise<GenerateResult> {
     // Check if prompt needs tools
     const toolsNeeded = await this.mcpClient.analyzePrompt(options.prompt);
 
@@ -91,7 +91,7 @@ export class MCPAwareProvider implements AIProvider {
     }
 
     // Regular generation without tools
-    return this.baseProvider.generateText(options);
+    return this.baseProvider.generate(options);
   }
 }
 ```
@@ -220,7 +220,7 @@ async function executeToolWithAI(
 
     // Enhance result with AI if needed
     if (toolResult.requiresAIEnhancement) {
-      const enhanced = await aiProvider.generateText({
+      const enhanced = await aiProvider.generate({
         prompt: `Enhance this result: ${JSON.stringify(toolResult.data)}`,
         system: 'You are a helpful assistant that enhances tool outputs.',
       });
@@ -419,7 +419,7 @@ const aiProvider = createMCPAwareProvider({
 await initializeMCPServers();
 
 // 4. Use enhanced AI with automatic tool detection
-const result = await aiProvider.generateText({
+const result = await aiProvider.generate({
   prompt: 'What were our sales last month?',
   // Tools are automatically detected and used
 });

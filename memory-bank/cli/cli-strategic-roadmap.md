@@ -11,7 +11,7 @@ This strategic roadmap consolidates research from multiple CLI implementation st
 - **Framework**: Yargs-based CLI with enhanced simplified approach
 - **Professional UX**: Spinners (ora), colorized output (chalk), progress indicators
 - **Core Commands**:
-  - `neurolink generate-text` - Text generation with provider selection
+  - `neurolink generate` - Text generation with provider selection
   - `neurolink status` - Provider connectivity testing
   - `neurolink batch` - File-based batch processing
   - `neurolink stream` - Real-time streaming output
@@ -97,14 +97,14 @@ neurolink --provider <TAB>  # auto, openai, bedrock, vertex
 {
   "commands": [
     {
-      "command": "neurolink.generateText",
+      "command": "neurolink.generate",
       "title": "Generate Text with NeuroLink",
       "category": "NeuroLink"
     }
   ],
   "keybindings": [
     {
-      "command": "neurolink.generateText",
+      "command": "neurolink.generate",
       "key": "ctrl+shift+n",
       "when": "editorTextFocus"
     }

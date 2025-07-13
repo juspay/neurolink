@@ -212,7 +212,7 @@ const ServerConfigSchema = z.object({
  * });
  *
  * aiCoreServer.registerTool({
- *   name: 'generate-text',
+ *   name: 'generate',
  *   description: 'Generate text using AI providers',
  *   execute: async (params, context) => {
  *     // Tool implementation

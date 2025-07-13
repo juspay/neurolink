@@ -95,7 +95,7 @@ execute_parallel_test "ST-002.1.5" "node dist/cli/index.js mcp test brave-search
 # Batch 4: SDK Tests (basic)
 echo "🔧 Batch 4: SDK Tests"
 execute_parallel_test "SDK-001.1.1" "node -e \"const { NeuroLink } = require('./dist/index.js'); const sdk = new NeuroLink(); console.log('SDK initialized successfully');\""
-execute_parallel_test "SDK-002.1.1" "node -e \"const sdk = new (require('./dist/index.js')).NeuroLink(); sdk.generateText({ prompt: 'Hello SDK', disableTools: true }).then(r => console.log('SDK generation working')).catch(e => console.error('SDK error:', e.message));\""
+execute_parallel_test "SDK-002.1.1" "node -e \"const sdk = new (require('./dist/index.js')).NeuroLink(); sdk.generate({ input: { text: 'Hello SDK' }, disableTools: true }).then(r => console.log('SDK generation working')).catch(e => console.error('SDK error:', e.message));\""
 
 # Batch 5: Performance Tests
 echo "⚡ Batch 5: Performance Tests"

@@ -191,7 +191,7 @@ neurolink mcp remove server-name
 
 # Tool Execution (framework ready)
 neurolink mcp exec filesystem read-file --path "/path/to/file"
-neurolink generate-text "Read README and summarize" --tools filesystem
+neurolink generate "Read README and summarize" --tools filesystem
 ```
 
 ### MCP Integration Benefits

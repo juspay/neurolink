@@ -512,8 +512,8 @@ export class MCPOrchestrator {
 
       // Step 2: Text generation
       steps.push({
-        stepId: "generate-text",
-        toolName: "generate-text",
+        stepId: "generate",
+        toolName: "generate",
         params: {
           prompt,
           provider: options.provider,
@@ -534,7 +534,7 @@ export class MCPOrchestrator {
             params: {
               /* tool-specific params */
             },
-            dependsOn: ["generate-text"],
+            dependsOn: ["generate"],
           });
         }
       }
@@ -549,7 +549,7 @@ export class MCPOrchestrator {
       const executionTime = Date.now() - startTime;
 
       // Extract text generation result
-      const textResult = pipelineResult.results.get("generate-text");
+      const textResult = pipelineResult.results.get("generate");
       const providerResult = pipelineResult.results.get("select-provider");
 
       if (!textResult || !textResult.success) {

@@ -72,9 +72,9 @@ CLI-002.1.2:node dist/cli/index.js provider status --verbose:360
 CLI-002.2.1:node dist/cli/index.js generate "best provider test":120
 
 # SDK-002: Provider Factory Tests (3 tests)
-SDK-002.1.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); await sdk.generateText({prompt:'factory test'}); })":60
+SDK-002.1.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); await sdk.generate({input:{text:'factory test'}}); })":60
 SDK-002.1.2:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); console.log(await sdk.getBestProvider()); })":30
-SDK-002.1.3:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink({preferredProvider:'google-ai'}); await sdk.generateText({prompt:'config test'}); })":60
+SDK-002.1.3:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink({preferredProvider:'google-ai'}); await sdk.generate({input:{text:'config test'}}); })":60
 
 # CLI-003: Configuration Commands (5 tests)
 CLI-003.1.1:node dist/cli/index.js config export:30
@@ -91,14 +91,14 @@ CLI-004.2.1:node dist/cli/index.js mcp exec filesystem list_directory "{}":60
 CLI-004.2.2:node dist/cli/index.js mcp run getCurrentTime:60
 
 # SDK-003: Text Generation APIs (8 tests)
-SDK-003.1.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generateText({prompt:'basic'}); console.log('len:', r.content?.length); })":60
+SDK-003.1.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generate({input:{text:'basic'}}); console.log('len:', r.content?.length); })":60
 SDK-003.1.2:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.gen('short test'); console.log('gen:', typeof r); })":60
 SDK-003.1.3:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generate('generate test'); console.log('generate:', typeof r); })":60
-SDK-003.2.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generateText({prompt:'temp test', temperature:0.1}); console.log('temp done'); })":60
-SDK-003.2.2:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generateText({prompt:'token test', maxTokens:20}); console.log('tokens done'); })":60
-SDK-003.3.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generateText({prompt:'timeout test', timeout:5000}); console.log('timeout done'); })":30
-SDK-003.3.2:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generateText({prompt:'system test', system:'Be brief'}); console.log('system done'); })":60
-SDK-003.4.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); try { await sdk.generateText({}); } catch(e) { console.log('error handling:', e.message); } })":30
+SDK-003.2.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generate({input:{text:'temp test'}, temperature:0.1}); console.log('temp done'); })":60
+SDK-003.2.2:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generate({input:{text:'token test'}, maxTokens:20}); console.log('tokens done'); })":60
+SDK-003.3.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generate({input:{text:'timeout test'}, timeout:5000}); console.log('timeout done'); })":30
+SDK-003.3.2:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); const r = await sdk.generate({input:{text:'system test'}, system:'Be brief'}); console.log('system done'); })":60
+SDK-003.4.1:node -e "import('./dist/index.js').then(async m => { const sdk = new m.NeuroLink(); try { await sdk.generate({}); } catch(e) { console.log('error handling:', e.message); } })":30
 
 # Performance Tests (10 tests)
 PERF-001:node dist/cli/index.js generate "$(printf 'performance test %.0s' {1..100})":90
@@ -119,7 +119,7 @@ ERROR-003:node dist/cli/index.js generate "test" --temperature 2.0:60
 ERROR-004:node dist/cli/index.js generate "test" --max-tokens -1:30
 ERROR-005:node dist/cli/index.js nonexistent-command:30
 ERROR-006:node dist/cli/index.js mcp test nonexistent-server:60
-ERROR-007:node -e "import('./dist/index.js').then(async m => { try { await new m.NeuroLink().generateText(); } catch(e) { console.log('SDK error:', e.message); } })":30
+ERROR-007:node -e "import('./dist/index.js').then(async m => { try { await new m.NeuroLink().generate({}); } catch(e) { console.log('SDK error:', e.message); } })":30
 ERROR-008:timeout 1 node dist/cli/index.js generate "timeout error test":10
 
 # Edge Cases (7 tests)

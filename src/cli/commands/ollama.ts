@@ -83,7 +83,7 @@ async function pullModelHandler(argv: any) {
     console.log(chalk.green(`\n✅ Successfully downloaded ${model}`));
     console.log(
       chalk.blue(
-        `\nTest it with: npx @juspay/neurolink generate-text "Hello!" --provider ollama --model ${model}`,
+        `\nTest it with: npx @juspay/neurolink generate "Hello!" --provider ollama --model ${model}`,
       ),
     );
   } catch (error: any) {
@@ -374,12 +374,12 @@ async function setupHandler() {
   console.log("1. List models: " + chalk.gray("neurolink ollama list-models"));
   console.log(
     "2. Generate text: " +
-      chalk.gray('neurolink generate-text "Hello!" --provider ollama'),
+      chalk.gray('neurolink generate "Hello!" --provider ollama'),
   );
   console.log(
     "3. Use specific model: " +
       chalk.gray(
-        'neurolink generate-text "Hello!" --provider ollama --model codellama',
+        'neurolink generate "Hello!" --provider ollama --model codellama',
       ),
   );
 

@@ -251,7 +251,7 @@ async function testProviderInitialization(providerName) {
 
     // Test basic capabilities
     const capabilities = {
-      hasGenerateText: typeof provider.generateText === "function",
+      hasGenerate: typeof provider.generate === "function",
       hasStreamText: typeof provider.streamText === "function",
       hasGenerateObject: typeof provider.generateObject === "function",
     };
@@ -355,7 +355,7 @@ async function testProviderAPI(providerName, promptType = "standard") {
 
       for (const params of testParameters) {
         try {
-          textResult = await provider.generateText(params);
+          textResult = await provider.generate(params);
           successfulParams = params;
           break;
         } catch (paramError) {
@@ -408,7 +408,7 @@ async function testProviderAPI(providerName, promptType = "standard") {
     // Test 2: Streaming (if supported)
     log(`\n🌊 Test 2: Streaming Generation`, "blue");
     try {
-      const streamResult = await provider.streamText({
+      const streamResult = await provider.stream({ input: { text:
         prompt: "Count from 1 to 3.",
         maxTokens: 50,
         temperature: 0.1,
@@ -483,8 +483,8 @@ async function testFallbackMechanism() {
 
       // Test the selected provider
       try {
-        const testResult = await bestProvider.generateText({
-          prompt: "Hello, world!",
+        const testResult = await bestProvider.generate({
+          input: { text: "Hello, world!" },
           maxTokens: 50,
         });
 
@@ -510,8 +510,8 @@ async function testFallbackMechanism() {
         const startTime = Date.now();
 
         const provider = await createAIProvider(providerName);
-        const testResult = await provider.generateText({
-          prompt: "Test fallback",
+        const testResult = await provider.generate({
+          input: { text: "Test fallback" },
           maxTokens: 20,
         });
 
@@ -583,8 +583,8 @@ async function runPerformanceBenchmark() {
           const initTime = Date.now() - startTime;
 
           const genStartTime = Date.now();
-          const result = await provider.generateText({
-            prompt: testPrompt,
+          const result = await provider.generate({
+            input: { text: testPrompt },
             maxTokens: 100,
             temperature: 0.7,
           });

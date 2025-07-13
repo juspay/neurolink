@@ -75,21 +75,21 @@ export interface UnifiedEvaluationContext {
  */
 export const unifiedEvaluationSchema = z.object({
   // Core evaluation scores
-  relevanceScore: z
+  relevance: z
     .number()
     .min(0)
     .max(10)
     .describe(
       "Score (0-10) for how well the response addresses query intent and aligns with domain/role. 10 is most relevant.",
     ),
-  accuracyScore: z
+  accuracy: z
     .number()
     .min(0)
     .max(10)
     .describe(
       "Score (0-10) for factual correctness against data, tool outputs, and domain knowledge. 10 is most accurate.",
     ),
-  completenessScore: z
+  completeness: z
     .number()
     .min(0)
     .max(10)
@@ -220,8 +220,8 @@ export async function performUnifiedEvaluation(
           { structuredError },
         );
 
-        // Fallback to legacy generateText
-        const result = await evaluationModel.generateText({
+        // Fallback to legacy generate
+        const result = await evaluationModel.generate({
           prompt: evaluationPrompt + "\n\nRespond with valid JSON only.",
           temperature: 0.1,
           maxTokens: 1000,
@@ -479,15 +479,12 @@ function processStructuredEvaluationResult(
 
   return {
     // Core scores
-    relevanceScore: Math.max(
+    relevance: Math.max(
       0,
       Math.min(10, Math.round(result.relevanceScore || 0)),
     ),
-    accuracyScore: Math.max(
-      0,
-      Math.min(10, Math.round(result.accuracyScore || 0)),
-    ),
-    completenessScore: Math.max(
+    accuracy: Math.max(0, Math.min(10, Math.round(result.accuracyScore || 0))),
+    completeness: Math.max(
       0,
       Math.min(10, Math.round(result.completenessScore || 0)),
     ),
@@ -592,9 +589,9 @@ function parseUnifiedEvaluationResult(
       : 8; // Default fallback score
 
     return {
-      relevanceScore: Math.max(0, Math.min(10, relevance)),
-      accuracyScore: Math.max(0, Math.min(10, accuracy)),
-      completenessScore: Math.max(0, Math.min(10, completeness)),
+      relevance: Math.max(0, Math.min(10, relevance)),
+      accuracy: Math.max(0, Math.min(10, accuracy)),
+      completeness: Math.max(0, Math.min(10, completeness)),
       overall: Math.round((relevance + accuracy + completeness) / 3),
       isOffTopic: false,
       alertSeverity: "none",
@@ -625,9 +622,9 @@ function getDefaultUnifiedEvaluation(
   context: UnifiedEvaluationContext,
 ): UnifiedEvaluationResult {
   return {
-    relevanceScore: 0,
-    accuracyScore: 0,
-    completenessScore: 0,
+    relevance: 0,
+    accuracy: 0,
+    completeness: 0,
     overall: 0,
     isOffTopic: false,
     alertSeverity: "high",

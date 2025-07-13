@@ -71,8 +71,8 @@ console.log('⭐ Evaluation:', fullResult.evaluation);
 
 console.log('\n🎯 EXPECTED API USAGE:');
 console.log('```javascript');
-console.log('const result = await sdk.generateText({');
-console.log('  prompt: "What is AI?",');
+console.log('const result = await sdk.generate({');
+console.log('  input: { text: "What is AI?" },');
 console.log('  enableAnalytics: true,');
 console.log('  enableEvaluation: true,');
 console.log('  context: { demo: "test" }');

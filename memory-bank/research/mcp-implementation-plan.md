@@ -456,7 +456,7 @@ describe("Tool Registry", () => {
 
    ```typescript
    aiCoreServer.registerTool({
-     name: "generate-text",
+     name: "generate",
      description: "Generate text using AI providers with automatic fallback",
      inputSchema: z.object({
        prompt: z.string(),
@@ -471,7 +471,7 @@ describe("Tool Registry", () => {
      execute: async (params, context: NeuroLinkExecutionContext) => {
        try {
          const provider = AIProviderFactory.createBestProvider(params.provider);
-         const result = await provider.generateText({
+         const result = await provider.generate({
            prompt: params.prompt,
            model: params.model,
            temperature: params.temperature,
@@ -541,14 +541,14 @@ describe("AI Core Server", () => {
 
   test("generates text successfully", async () => {
     const mockProvider = {
-      generateText: jest.fn().mockResolvedValue({
+      generate: jest.fn().mockResolvedValue({
         text: "Generated text",
         usage: { totalTokens: 10 },
       }),
     };
     AIProviderFactory.createBestProvider.mockReturnValue(mockProvider);
 
-    const result = await aiCoreServer.tools["generate-text"].execute(
+    const result = await aiCoreServer.tools["generate"].execute(
       {
         prompt: "Test prompt",
       },
@@ -557,7 +557,7 @@ describe("AI Core Server", () => {
 
     expect(result.success).toBe(true);
     expect(result.data.text).toBe("Generated text");
-    expect(mockProvider.generateText).toHaveBeenCalledWith({
+    expect(mockProvider.generate).toHaveBeenCalledWith({
       prompt: "Test prompt",
       model: undefined,
       temperature: undefined,
@@ -568,11 +568,11 @@ describe("AI Core Server", () => {
 
   test("handles provider errors", async () => {
     const mockProvider = {
-      generateText: jest.fn().mockRejectedValue(new Error("Provider error")),
+      generate: jest.fn().mockRejectedValue(new Error("Provider error")),
     };
     AIProviderFactory.createBestProvider.mockReturnValue(mockProvider);
 
-    const result = await aiCoreServer.tools["generate-text"].execute(
+    const result = await aiCoreServer.tools["generate"].execute(
       {
         prompt: "Test prompt",
       },
@@ -584,7 +584,7 @@ describe("AI Core Server", () => {
   });
 
   test("validates input schema", async () => {
-    const result = await aiCoreServer.tools["generate-text"].execute(
+    const result = await aiCoreServer.tools["generate"].execute(
       {
         // Missing required prompt
       },
@@ -654,7 +654,7 @@ describe("AI Core Server", () => {
 
          // Step 2: Text Generation
          const textResult = await this.registry.executeTool(
-           "generate-text",
+           "generate",
            {
              prompt: request.prompt,
              provider: providerResult.data.provider,
@@ -716,7 +716,7 @@ describe("Tool Orchestrator", () => {
     });
 
     mockServer.registerTool({
-      name: "generate-text",
+      name: "generate",
       description: "Mock text generation",
       execute: async (params) => ({
         success: true,
@@ -736,7 +736,7 @@ describe("Tool Orchestrator", () => {
     expect(result.text).toBe("Generated: Test prompt");
     expect(result.provider).toBe("openai");
     expect(result.toolsUsed).toContain("select-provider");
-    expect(result.toolsUsed).toContain("generate-text");
+    expect(result.toolsUsed).toContain("generate");
   });
 
   test("handles pipeline failures", async () => {
@@ -816,8 +816,8 @@ describe("Tool Orchestrator", () => {
        await this.mcpRegistry.registerServer(aiCoreServer);
      }
 
-     // Enhanced generateText with MCP orchestration
-     async generateText(
+     // Enhanced generate with MCP orchestration
+     async generate(
        optionsOrPrompt: TextGenerationOptions | string,
      ): Promise<TextResult> {
        const options =
@@ -863,22 +863,22 @@ describe("Tool Orchestrator", () => {
        neurolink = new NeuroLink();
      });
 
-     test("existing generateText API still works", async () => {
+     test("existing generate API still works", async () => {
        // Mock AI provider
        jest.mock("../core/factory.js");
        AIProviderFactory.createBestProvider.mockReturnValue({
-         generateText: jest.fn().mockResolvedValue({
+         generate: jest.fn().mockResolvedValue({
            text: "Generated text",
            usage: { totalTokens: 10 },
          }),
        });
 
        // Test string parameter (existing API)
-       const result1 = await neurolink.generateText("Hello world");
+       const result1 = await neurolink.generate("Hello world");
        expect(result1.text).toBe("Generated text");
 
        // Test options parameter (existing API)
-       const result2 = await neurolink.generateText({
+       const result2 = await neurolink.generate({
          prompt: "Hello world",
          temperature: 0.7,
        });
@@ -888,20 +888,20 @@ describe("Tool Orchestrator", () => {
      test("new MCP features work", async () => {
        const tools = neurolink.listAvailableTools();
        expect(tools.length).toBeGreaterThan(0);
-       expect(tools.some((t) => t.name === "generate-text")).toBe(true);
+       expect(tools.some((t) => t.name === "generate")).toBe(true);
        expect(tools.some((t) => t.name === "select-provider")).toBe(true);
      });
 
      test("tool orchestration provides enhanced metadata", async () => {
        jest.mock("../core/factory.js");
        AIProviderFactory.createBestProvider.mockReturnValue({
-         generateText: jest.fn().mockResolvedValue({
+         generate: jest.fn().mockResolvedValue({
            text: "Generated text",
            usage: { totalTokens: 10 },
          }),
        });
 
-       const result = await neurolink.generateText("Hello world");
+       const result = await neurolink.generate("Hello world");
 
        // Enhanced with MCP metadata
        expect(result.toolsUsed).toBeDefined();
@@ -1091,7 +1091,7 @@ describe("CLI Tools Commands", () => {
        // Mock providers
        jest.mock("../../core/factory.js");
        const mockProvider = {
-         generateText: jest.fn().mockResolvedValue({
+         generate: jest.fn().mockResolvedValue({
            text: "Generated content",
            usage: { totalTokens: 25, cost: 0.001 },
          }),
@@ -1099,7 +1099,7 @@ describe("CLI Tools Commands", () => {
        AIProviderFactory.createBestProvider.mockReturnValue(mockProvider);
 
        // Test the complete workflow
-       const result = await neurolink.generateText({
+       const result = await neurolink.generate({
          prompt: "Create a React component",
          temperature: 0.7,
          maxTokens: 100,
@@ -1109,7 +1109,7 @@ describe("CLI Tools Commands", () => {
        expect(result.text).toBe("Generated content");
        expect(result.usage).toBeDefined();
        expect(result.toolsUsed).toContain("select-provider");
-       expect(result.toolsUsed).toContain("generate-text");
+       expect(result.toolsUsed).toContain("generate");
        expect(result.metadata.sessionId).toBeDefined();
        expect(result.provider).toBeDefined();
      });
@@ -1118,7 +1118,7 @@ describe("CLI Tools Commands", () => {
        const tools = neurolink.listAvailableTools();
 
        const toolNames = tools.map((t) => t.name);
-       expect(toolNames).toContain("generate-text");
+       expect(toolNames).toContain("generate");
        expect(toolNames).toContain("select-provider");
 
        const serverNames = tools.map((t) => t.server);
@@ -1128,18 +1128,18 @@ describe("CLI Tools Commands", () => {
      test("context flows through tool chain", async () => {
        jest.mock("../../core/factory.js");
        AIProviderFactory.createBestProvider.mockReturnValue({
-         generateText: jest.fn().mockResolvedValue({
+         generate: jest.fn().mockResolvedValue({
            text: "Test result",
            usage: { totalTokens: 10 },
          }),
        });
 
-       const result = await neurolink.generateText("Test prompt");
+       const result = await neurolink.generate("Test prompt");
 
        // Verify tool chain tracking
        expect(result.toolsUsed).toHaveLength(2);
        expect(result.toolsUsed[0]).toBe("select-provider");
-       expect(result.toolsUsed[1]).toBe("generate-text");
+       expect(result.toolsUsed[1]).toBe("generate");
      });
 
      test("error handling propagates correctly", async () => {
@@ -1148,7 +1148,7 @@ describe("CLI Tools Commands", () => {
          throw new Error("Provider initialization failed");
        });
 
-       await expect(neurolink.generateText("Test prompt")).rejects.toThrow(
+       await expect(neurolink.generate("Test prompt")).rejects.toThrow(
          "Pipeline execution failed",
        );
      });
@@ -1166,14 +1166,14 @@ describe("CLI Tools Commands", () => {
        // Mock fast provider
        jest.mock("../../core/factory.js");
        AIProviderFactory.createBestProvider.mockReturnValue({
-         generateText: jest.fn().mockResolvedValue({
+         generate: jest.fn().mockResolvedValue({
            text: "Fast result",
            usage: { totalTokens: 5 },
          }),
        });
 
        const startTime = Date.now();
-       await neurolink.generateText("Quick test");
+       await neurolink.generate("Quick test");
        const duration = Date.now() - startTime;
 
        expect(duration).toBeLessThan(100);
@@ -1184,7 +1184,7 @@ describe("CLI Tools Commands", () => {
 
        jest.mock("../../core/factory.js");
        AIProviderFactory.createBestProvider.mockReturnValue({
-         generateText: jest.fn().mockResolvedValue({
+         generate: jest.fn().mockResolvedValue({
            text: "Concurrent result",
            usage: { totalTokens: 5 },
          }),
@@ -1192,7 +1192,7 @@ describe("CLI Tools Commands", () => {
 
        const promises = Array(10)
          .fill(0)
-         .map((_, i) => neurolink.generateText(`Concurrent request ${i}`));
+         .map((_, i) => neurolink.generate(`Concurrent request ${i}`));
 
        const results = await Promise.all(promises);
 
@@ -1268,7 +1268,7 @@ describe("CLI Tools Commands", () => {
      }),
      execute: async (params, context) => {
        // Use AI generation with React-specific prompts
-       const aiResult = await context.executeChild("generate-text", {
+       const aiResult = await context.executeChild("generate", {
          prompt: `Create a ${params.componentType} React component named ${params.componentName}`,
          systemPrompt: `You are an expert React developer. Generate clean, modern React code following best practices...`,
          temperature: 0.3,
@@ -1326,7 +1326,7 @@ describe("React Tools Server", () => {
     expect(result.data.componentCode).toContain("Button");
     expect(result.data.fileName).toBe("Button.tsx");
     expect(mockContext.executeChild).toHaveBeenCalledWith(
-      "generate-text",
+      "generate",
       expect.objectContaining({
         prompt: expect.stringContaining("Button"),
       }),
@@ -1391,7 +1391,7 @@ describe("React Tools Server", () => {
      execute: async (params, context) => {
        const prompt = `Create a Vue ${params.useCompositionAPI ? "Composition API" : "Options API"} component named ${params.componentName}`;
 
-       const aiResult = await context.executeChild("generate-text", {
+       const aiResult = await context.executeChild("generate", {
          prompt,
          systemPrompt:
            "You are a Vue.js expert. Generate modern Vue components...",
@@ -1434,7 +1434,7 @@ describe("React Tools Server", () => {
      execute: async (params, context) => {
        const prompt = `Create a Svelte component named ${params.componentName} with features: ${params.features.join(", ")}`;
 
-       const aiResult = await context.executeChild("generate-text", {
+       const aiResult = await context.executeChild("generate", {
          prompt,
          systemPrompt:
            "You are a Svelte expert. Generate clean, reactive Svelte components...",
@@ -1502,7 +1502,7 @@ describe("React Tools Server", () => {
      execute: async (params, context) => {
        const analysisPrompt = `Analyze this ${params.language} code for ${params.focusAreas.join(", ")}:\n\n${params.code}`;
 
-       const aiResult = await context.executeChild("generate-text", {
+       const aiResult = await context.executeChild("generate", {
          prompt: analysisPrompt,
          systemPrompt:
            "You are a senior code reviewer. Provide detailed analysis with specific suggestions...",
@@ -1596,7 +1596,7 @@ describe("Code Analysis Server", () => {
      execute: async (params, context) => {
        const testPrompt = `Generate ${params.coverage} ${params.testFramework} unit tests for this code:\n\n${params.code}`;
 
-       const aiResult = await context.executeChild("generate-text", {
+       const aiResult = await context.executeChild("generate", {
          prompt: testPrompt,
          systemPrompt: `You are a testing expert. Generate ${params.testFramework} tests with ${params.coverage} coverage...`,
          temperature: 0.3,

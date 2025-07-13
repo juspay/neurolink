@@ -117,11 +117,9 @@ describe("Unified MCP System", () => {
       expect(aiTools.length).toBeGreaterThan(0);
 
       // Check for specific AI tools
-      const generateTextTool = tools.find(
-        (tool) => tool.name === "generate-text",
-      );
-      expect(generateTextTool).toBeDefined();
-      expect(generateTextTool?.description).toContain("Generate text");
+      const generateTool = tools.find((tool) => tool.name === "generate");
+      expect(generateTool).toBeDefined();
+      expect(generateTool?.description).toContain("Generate");
     });
 
     it("should execute internal tools successfully", async () => {
@@ -220,9 +218,9 @@ describe("Unified MCP System", () => {
       expect(providerTools.length).toBeGreaterThan(0);
 
       // Find specific tool
-      const toolInfo = unifiedSystem.getToolInfo("generate-text");
+      const toolInfo = unifiedSystem.getToolInfo("generate");
       expect(toolInfo).toBeDefined();
-      expect(toolInfo?.tool.name).toBe("generate-text");
+      expect(toolInfo?.tool.name).toBe("generate");
     });
   });
 
@@ -324,8 +322,8 @@ describe("Unified MCP System", () => {
 
       // Test with invalid parameters
       const result = await unifiedSystem.executeTool(
-        "generate-text",
-        {}, // Missing required 'prompt' parameter
+        "generate",
+        {}, // Missing required 'input' parameter
         testContext,
       );
 

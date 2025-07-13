@@ -17,7 +17,7 @@
 const neurolink = new NeuroLink();
 
 // Text Generation Factory Method
-const result = await neurolink.generateText("Create a React component");
+const result = await neurolink.generate("Create a React component");
 
 // Image Generation Factory Method
 const image = await neurolink.generateImage("A sunset over mountains");
@@ -40,7 +40,7 @@ class NeuroLink {
   private toolOrchestrator: ToolOrchestrator; // Tools work behind scenes
 
   // Public factory method - tools orchestrate internally
-  async generateText(
+  async generate(
     optionsOrPrompt: TextGenerationOptions | string,
   ): Promise<TextResult> {
     const options =
@@ -70,7 +70,7 @@ class NeuroLink {
 ┌─────────────────────────────────────────────────────┐
 │                 NeuroLink Factory                   │
 │                                                     │
-│  generateText()    generateImage()    generateCode() │
+│  generate()    generateImage()    generateCode() │
 │  analyzeContent() executeWorkflow()   processData() │
 │                                                     │
 └─────────────────┬───────────────────────────────────┘
@@ -430,7 +430,7 @@ const aiProviderServer = createMCPServer({
 
 // Core AI operations as MCP tools
 aiProviderServer.registerTool({
-  name: "generate-text",
+  name: "generate",
   description: "Generate text using AI providers with automatic fallback",
   inputSchema: z.object({
     prompt: z.string(),
@@ -442,7 +442,7 @@ aiProviderServer.registerTool({
   }),
   execute: async (params, context: NeuroLinkExecutionContext) => {
     const provider = AIProviderFactory.createBestProvider(params.provider);
-    const result = await provider.generateText({
+    const result = await provider.generate({
       prompt: params.prompt,
       model: params.model,
       temperature: params.temperature,
@@ -483,7 +483,7 @@ businessServer.registerTool({
   }),
   execute: async (params, context) => {
     // Step 1: Generate content with AI
-    const aiResult = await context.executeChild("generate-text", {
+    const aiResult = await context.executeChild("generate", {
       prompt: params.prompt,
       systemPrompt:
         "Generate content that will be validated against business rules",

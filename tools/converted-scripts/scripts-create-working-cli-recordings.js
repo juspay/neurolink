@@ -72,17 +72,17 @@ async function run() {
     {
       name: "huggingface-demo.cast",
       title: "NeuroLink - Hugging Face Provider Demo",
-      command: `node ${CLI_PATH} generate-text 'What makes open source AI special?' --provider huggingface`,
+      command: `node ${CLI_PATH} generate 'What makes open source AI special?' --provider huggingface`,
     },
     {
       name: "ollama-demo.cast",
       title: "NeuroLink - Ollama Local AI Demo",
-      command: `node ${CLI_PATH} generate-text 'Why is local AI important for privacy?' --provider ollama`,
+      command: `node ${CLI_PATH} generate 'Why is local AI important for privacy?' --provider ollama`,
     },
     {
       name: "mistral-demo.cast",
       title: "NeuroLink - Mistral AI Demo",
-      command: `node ${CLI_PATH} generate-text 'Explain GDPR compliance in AI' --provider mistral`,
+      command: `node ${CLI_PATH} generate 'Explain GDPR compliance in AI' --provider mistral`,
     },
     {
       name: "all-providers.cast",

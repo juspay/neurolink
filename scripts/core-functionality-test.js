@@ -185,7 +185,7 @@ import { createBestAIProvider } from './src/lib/index.js';
 
 try {
   const provider = createBestAIProvider('google-ai');
-  const result = await provider.generateText('Test SDK');
+  const result = await provider.generate({ input: { text: 'Test SDK' } });
   console.log('SDK Test SUCCESS:', result.slice(0, 50));
 } catch (error) {
   console.log('SDK Test FAILED:', error.message);
@@ -197,12 +197,12 @@ writeFileSync('./test-sdk.mjs', sdkTest);
 try {
   const sdkOutput = execSync('node test-sdk.mjs', { encoding: 'utf8', timeout: 30000 });
   if (sdkOutput.includes('SUCCESS')) {
-    log('SDK generateText() Method - SUCCESS', true, sdkOutput.slice(0, 100));
+    log('SDK generate() Method - SUCCESS', true, sdkOutput.slice(0, 100));
   } else {
-    log('SDK generateText() Method - FAILED', false, sdkOutput);
+    log('SDK generate() Method - FAILED', false, sdkOutput);
   }
 } catch (error) {
-  log('SDK generateText() Method - FAILED', false, error.message);
+  log('SDK generate() Method - FAILED', false, error.message);
 }
 
 // === PHASE 6: ERROR HANDLING ===

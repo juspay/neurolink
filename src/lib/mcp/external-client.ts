@@ -239,7 +239,7 @@ export class ExternalMCPClient extends EventEmitter {
       // Transform MCP response to NeuroLink format
       const result: ToolResult = {
         success: !response.isError,
-        data: response.content || response.result || response,
+        data: response.text || response.result || response,
         metadata: {
           toolName,
           serverId: this.config.name,
@@ -251,7 +251,7 @@ export class ExternalMCPClient extends EventEmitter {
       };
 
       if (response.isError) {
-        result.error = response.content?.[0]?.text || "Tool execution failed";
+        result.error = response.text?.[0]?.text || "Tool execution failed";
       }
 
       logger.debug(

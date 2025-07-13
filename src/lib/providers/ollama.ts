@@ -14,18 +14,16 @@
 import type {
   AIProvider,
   TextGenerationOptions,
-  StreamTextOptions,
-  EnhancedGenerateTextResult,
+  EnhancedGenerateResult,
 } from "../core/types.js";
 import type {
-  GenerateTextResult,
-  StreamTextResult,
-  ToolSet,
   LanguageModelV1,
   LanguageModelV1CallOptions,
   LanguageModelV1StreamPart,
 } from "ai";
 import { streamText, generateText, Output } from "ai";
+import type { GenerateResult } from "../types/generate-types.js";
+import type { StreamOptions, StreamResult } from "../types/stream-types.js";
 import type { ZodType, ZodTypeDef } from "zod";
 import type { Schema } from "ai";
 import { logger } from "../utils/logger.js";
@@ -568,13 +566,177 @@ export class Ollama implements AIProvider {
   }
 
   /**
+   * PRIMARY METHOD: Stream content using AI (recommended for new code)
+   * Future-ready for multi-modal capabilities with current text focus
+   */
+  async stream(
+    optionsOrPrompt: StreamOptions | string,
+    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+  ): Promise<StreamResult> {
+    const functionTag = "Ollama.stream";
+    const provider = "ollama";
+    let chunkCount = 0;
+    const startTime = Date.now();
+
+    try {
+      // Parse parameters - support both string and options object
+      const options =
+        typeof optionsOrPrompt === "string"
+          ? { input: { text: optionsOrPrompt } }
+          : optionsOrPrompt;
+
+      // Validate input
+      if (
+        !options?.input?.text ||
+        typeof options.input.text !== "string" ||
+        options.input.text.trim() === ""
+      ) {
+        throw new Error(
+          "Stream options must include input.text as a non-empty string",
+        );
+      }
+
+      // Extract parameters
+      const {
+        prompt = options.input.text,
+        temperature = 0.7,
+        maxTokens = DEFAULT_MAX_TOKENS,
+        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
+        schema,
+        timeout,
+      } = options as any;
+
+      // Use schema from options or fallback parameter
+      const finalSchema = schema || analysisSchema;
+
+      // Convert timeout to milliseconds if provided as string
+      const timeoutMs = timeout
+        ? typeof timeout === "string"
+          ? parseInt(
+              getDefaultTimeout("ollama", "stream").replace(/[^\d]/g, ""),
+            )
+          : timeout
+        : this.defaultTimeout;
+
+      logger.debug(`[${functionTag}] Stream request started`, {
+        provider,
+        modelName: this.modelName,
+        promptLength: prompt.length,
+        temperature,
+        maxTokens,
+        hasSchema: !!finalSchema,
+        timeout: timeoutMs,
+      });
+
+      const model = this.getModel(timeoutMs);
+
+      const streamOptions = {
+        model: model,
+        prompt: prompt,
+        system: systemPrompt,
+        temperature,
+        maxTokens,
+
+        onError: (event: { error: unknown }) => {
+          const error = event.error;
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          const errorStack = error instanceof Error ? error.stack : undefined;
+
+          logger.debug(`[${functionTag}] Stream error`, {
+            provider,
+            modelName: this.modelName,
+            error: errorMessage,
+            stack: errorStack,
+            promptLength: prompt.length,
+            chunkCount,
+          });
+        },
+
+        onFinish: (event: {
+          finishReason: string;
+          usage: Record<string, unknown>;
+          text?: string;
+        }) => {
+          logger.debug(`[${functionTag}] Stream finished`, {
+            provider,
+            modelName: this.modelName,
+            finishReason: event.finishReason,
+            usage: event.usage,
+            totalChunks: chunkCount,
+            promptLength: prompt.length,
+            responseLength: event.text?.length || 0,
+          });
+        },
+
+        onChunk: (event: { chunk: { type: string; text?: string } }) => {
+          chunkCount++;
+          logger.debug(`[${functionTag}] Stream chunk`, {
+            provider,
+            modelName: this.modelName,
+            chunkNumber: chunkCount,
+            chunkLength: event.chunk.text?.length || 0,
+            chunkType: event.chunk.type,
+          });
+        },
+      } as Parameters<typeof streamText>[0];
+
+      if (finalSchema) {
+        streamOptions.experimental_output = Output.object({
+          schema: finalSchema,
+        });
+      }
+
+      const result = streamText(streamOptions);
+
+      logger.debug(`[${functionTag}] Stream request completed`, {
+        provider,
+        modelName: this.modelName,
+      });
+
+      // Convert to StreamResult format
+      return {
+        stream: (async function* () {
+          for await (const chunk of result.textStream) {
+            yield { content: chunk };
+          }
+        })(),
+        provider: "ollama",
+        model: this.modelName,
+        metadata: {
+          streamId: `ollama-${Date.now()}`,
+          startTime,
+        },
+      };
+    } catch (err) {
+      // Log timeout errors specifically
+      if (err instanceof TimeoutError) {
+        logger.debug(`[${functionTag}] Timeout error`, {
+          provider,
+          modelName: this.modelName,
+          timeout: err.timeout,
+          message: err.message,
+        });
+      } else {
+        logger.debug(`[${functionTag}] Exception`, {
+          provider,
+          modelName: this.modelName,
+          message: "Error in streaming content",
+          err: String(err),
+        });
+      }
+      throw err; // Re-throw error to trigger fallback
+    }
+  }
+
+  /**
    * Generate text using Ollama local models
    */
-  async generateText(
+  async generate(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<GenerateTextResult<ToolSet, unknown> | null> {
-    const functionTag = "Ollama.generateText";
+  ): Promise<GenerateResult> {
+    const functionTag = "Ollama.generate";
     const provider = "ollama";
     const startTime = Date.now();
 
@@ -667,7 +829,19 @@ export class Ollama implements AIProvider {
         );
       }
 
-      return result;
+      return {
+        content: result.text,
+        provider: "ollama",
+        model: this.modelName,
+        usage: result.usage
+          ? {
+              inputTokens: result.usage.promptTokens,
+              outputTokens: result.usage.completionTokens,
+              totalTokens: result.usage.totalTokens,
+            }
+          : undefined,
+        responseTime: Date.now() - startTime,
+      };
     } catch (err) {
       logger.debug(`[${functionTag}] Exception`, {
         provider,
@@ -679,142 +853,10 @@ export class Ollama implements AIProvider {
     }
   }
 
-  /**
-   * Generate streaming text using Ollama local models
-   */
-  async streamText(
-    optionsOrPrompt: StreamTextOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<StreamTextResult<ToolSet, unknown> | null> {
-    const functionTag = "Ollama.streamText";
-    const provider = "ollama";
-    let chunkCount = 0;
-
-    try {
-      // Parse parameters - support both string and options object
-      const options =
-        typeof optionsOrPrompt === "string"
-          ? { prompt: optionsOrPrompt }
-          : optionsOrPrompt;
-
-      const {
-        prompt,
-        temperature = 0.7,
-        maxTokens = DEFAULT_MAX_TOKENS,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema,
-        timeout,
-      } = options;
-
-      // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
-
-      // Convert timeout to milliseconds if provided as string
-      const timeoutMs = timeout
-        ? typeof timeout === "string"
-          ? parseInt(
-              getDefaultTimeout("ollama", "stream").replace(/[^\d]/g, ""),
-            )
-          : timeout
-        : this.defaultTimeout;
-
-      logger.debug(`[${functionTag}] Stream request started`, {
-        provider,
-        modelName: this.modelName,
-        promptLength: prompt.length,
-        temperature,
-        maxTokens,
-        hasSchema: !!finalSchema,
-        timeout: timeoutMs,
-      });
-
-      const model = this.getModel(timeoutMs);
-
-      const streamOptions = {
-        model: model,
-        prompt: prompt,
-        system: systemPrompt,
-        temperature,
-        maxTokens,
-
-        onError: (event: { error: unknown }) => {
-          const error = event.error;
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          const errorStack = error instanceof Error ? error.stack : undefined;
-
-          logger.debug(`[${functionTag}] Stream text error`, {
-            provider,
-            modelName: this.modelName,
-            error: errorMessage,
-            stack: errorStack,
-            promptLength: prompt.length,
-            chunkCount,
-          });
-        },
-
-        onFinish: (event: {
-          finishReason: string;
-          usage: Record<string, unknown>;
-          text?: string;
-        }) => {
-          logger.debug(`[${functionTag}] Stream text finished`, {
-            provider,
-            modelName: this.modelName,
-            finishReason: event.finishReason,
-            usage: event.usage,
-            totalChunks: chunkCount,
-            promptLength: prompt.length,
-            responseLength: event.text?.length || 0,
-          });
-        },
-
-        onChunk: (event: { chunk: { type: string; text?: string } }) => {
-          chunkCount++;
-          logger.debug(`[${functionTag}] Stream text chunk`, {
-            provider,
-            modelName: this.modelName,
-            chunkNumber: chunkCount,
-            chunkLength: event.chunk.text?.length || 0,
-            chunkType: event.chunk.type,
-          });
-        },
-      } as Parameters<typeof streamText>[0];
-
-      if (finalSchema) {
-        streamOptions.experimental_output = Output.object({
-          schema: finalSchema,
-        });
-      }
-
-      const result = streamText(streamOptions);
-      return result;
-    } catch (err) {
-      logger.debug(`[${functionTag}] Exception`, {
-        provider,
-        modelName: this.modelName,
-        message: "Error in streaming text",
-        err: String(err),
-        promptLength:
-          typeof optionsOrPrompt === "string"
-            ? optionsOrPrompt.length
-            : optionsOrPrompt.prompt.length,
-      });
-      throw err; // Re-throw error to trigger fallback
-    }
-  }
-
-  async generate(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
-  }
-
   async gen(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: any,
-  ): Promise<EnhancedGenerateTextResult | null> {
-    return this.generateText(optionsOrPrompt, analysisSchema);
+  ): Promise<EnhancedGenerateResult | null> {
+    return this.generate(optionsOrPrompt, analysisSchema);
   }
 }

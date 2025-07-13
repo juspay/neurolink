@@ -16,7 +16,7 @@ export const businessEndpoints = (app) => {
         "follow-up": `Write a polite follow-up email regarding: ${context}. Be courteous, specific about next steps, and include timeline.`,
       };
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: prompts[type] || prompts.marketing,
         maxTokens: 400,
         temperature: 0.7,
@@ -38,7 +38,7 @@ export const businessEndpoints = (app) => {
       const { data } = req.body;
       const provider = await createAIProvider(await getBestProvider());
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: `Analyze this CSV data and provide insights, trends, and recommendations:
 
 ${data}
@@ -74,7 +74,7 @@ Please provide:
         detailed: `Create a detailed summary with key points, main ideas, and important details: ${text}`,
       };
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: prompts[length] || prompts.medium,
         maxTokens: length === "brief" ? 100 : length === "detailed" ? 400 : 200,
         temperature: 0.4,
@@ -105,7 +105,7 @@ export const creativeEndpoints = (app) => {
         dialogue: `You are a screenwriter. Write realistic, engaging dialogue between characters in this scenario: ${prompt}. Make it natural and character-driven.`,
       };
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: systemPrompts[type] || systemPrompts.story,
         maxTokens: 500,
         temperature: 0.8,
@@ -127,7 +127,7 @@ export const creativeEndpoints = (app) => {
       const { text, language } = req.body;
       const provider = await createAIProvider(await getBestProvider());
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: `Translate the following text to ${language}, maintaining tone and context:
 
 "${text}"
@@ -159,7 +159,7 @@ Provide only the translation:`,
         video: `Generate 10 video content ideas about ${topic}. Include concept, target audience, and key talking points for each.`,
       };
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: prompts[type] || prompts.blog,
         maxTokens: 500,
         temperature: 0.7,
@@ -184,7 +184,7 @@ export const developerEndpoints = (app) => {
       const { language, description } = req.body;
       const provider = await createAIProvider(await getBestProvider());
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: `Generate clean, well-commented ${language} code for: ${description}
 
 Requirements:
@@ -214,7 +214,7 @@ Code:`,
       const { description } = req.body;
       const provider = await createAIProvider(await getBestProvider());
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: `Create comprehensive API documentation for: ${description}
 
 Include:
@@ -246,7 +246,7 @@ Documentation:`,
       const { error } = req.body;
       const provider = await createAIProvider(await getBestProvider());
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: `Analyze this error and provide debugging help:
 
 ${error}
@@ -294,7 +294,7 @@ export const advancedEndpoints = (app, templateCache) => {
       });
 
       const provider = await createAIProvider(await getBestProvider());
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt,
         maxTokens: 500,
         temperature: 0.7,
@@ -327,7 +327,7 @@ export const advancedEndpoints = (app, templateCache) => {
       const results = [];
       for (const item of items) {
         try {
-          const result = await provider.generateText({
+          const result = await provider.generate({
             prompt: operations[operation](item),
             maxTokens: 100,
             temperature: 0.3,
@@ -379,7 +379,7 @@ export const aiWorkflowEndpoints = (app) => {
 
       const provider = await createAIProvider(await getBestProvider());
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: `Generate ${maxTestCases} ${coverage} test cases for this ${language} code using ${testFramework}:
 
 ${codeSnippet}
@@ -441,7 +441,7 @@ Return the test cases with clear descriptions:`,
 
       const provider = await createAIProvider(await getBestProvider());
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: `Refactor this ${language} code with goals: ${refactorGoals.join(", ")}
 Complexity level: ${complexityLevel}
 
@@ -502,7 +502,7 @@ Refactoring:`,
 
       const provider = await createAIProvider(await getBestProvider());
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: `Generate ${docType} ${format} documentation for this ${language} code:
 
 ${codeSnippet}
@@ -566,7 +566,7 @@ Documentation:`,
 
       const provider = await createAIProvider(await getBestProvider());
 
-      const result = await provider.generateText({
+      const result = await provider.generate({
         prompt: `Analyze this AI output for quality and suggest improvements:
 
 Original Prompt: "${originalPrompt}"
@@ -663,7 +663,7 @@ export const analyticsEndpoints = (app, usageStats) => {
         try {
           const startTime = Date.now();
           const provider = await createAIProvider(providerName);
-          await provider.generateText({
+          await provider.generate({
             prompt: testPrompt,
             maxTokens: 10,
             temperature: 0.1,

@@ -49,8 +49,9 @@ async function main() {
   const neurolink = new NeuroLink();
 
   try {
-    const response = await neurolink.generateText({
-      prompt: "Tell me a short joke about computers.",
+    const response = await neurolink.generate({
+      input: { text: "Tell me a short joke about computers." },
+      output: { format: "text" }, // Ensuring compliance with updated API signature
       provider: "google-ai", // Using a specific provider for a clear test
     });
 

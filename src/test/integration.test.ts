@@ -70,8 +70,8 @@ describe("NeuroLink Integration Tests", () => {
         for (const [name, provider] of Object.entries(providers)) {
           const startTime = Date.now();
           try {
-            const result = await (provider as any).generateText({
-              prompt: TEST_PROMPTS.simple,
+            const result = await (provider as any).generate({
+              input: { text: TEST_PROMPTS.simple },
               maxTokens: 100,
               temperature: 0.7,
             });
@@ -123,8 +123,8 @@ describe("NeuroLink Integration Tests", () => {
         const startTime = Date.now();
 
         try {
-          const result = await (provider as any).streamText({
-            prompt: TEST_PROMPTS.creative,
+          const result = await (provider as any).stream({
+            input: { text: TEST_PROMPTS.creative },
             maxTokens: 200,
             temperature: 0.8,
           });
@@ -132,9 +132,9 @@ describe("NeuroLink Integration Tests", () => {
           let chunks = 0;
           let totalContent = "";
 
-          for await (const chunk of result.textStream) {
+          for await (const chunk of result.stream) {
             chunks++;
-            totalContent += chunk;
+            totalContent += chunk.content;
 
             if (chunks > 100) {
               break;
@@ -167,8 +167,8 @@ describe("NeuroLink Integration Tests", () => {
         for (let i = 0; i < concurrentRequests; i++) {
           const provider = createBestAIProvider();
           promises.push(
-            (provider as any).generateText({
-              prompt: `${TEST_PROMPTS.technical} (Request ${i + 1})`,
+            (provider as any).generate({
+              input: { text: `${TEST_PROMPTS.technical} (Request ${i + 1})` },
               maxTokens: 150,
               temperature: 0.5,
             }),
@@ -224,8 +224,8 @@ describe("NeuroLink Integration Tests", () => {
         for (const testCase of testCases) {
           const startTime = Date.now();
           try {
-            const result = await (provider as any).generateText({
-              prompt: testCase.prompt,
+            const result = await (provider as any).generate({
+              input: { text: testCase.prompt },
               maxTokens: 300,
               temperature: 0.7,
             });
@@ -260,8 +260,8 @@ describe("NeuroLink Integration Tests", () => {
 
         for (let i = 0; i < rapidRequests; i++) {
           try {
-            const result = await (provider as any).generateText({
-              prompt: `Quick test ${i + 1}`,
+            const result = await (provider as any).generate({
+              input: { text: `Quick test ${i + 1}` },
               maxTokens: 50,
               temperature: 0.3,
             });
@@ -305,8 +305,8 @@ describe("NeuroLink Integration Tests", () => {
 
         while (retryCount < maxRetries) {
           try {
-            const result = await (provider as any).generateText({
-              prompt: "Network resilience test",
+            const result = await (provider as any).generate({
+              input: { text: "Network resilience test" },
               maxTokens: 100,
               temperature: 0.5,
             });
@@ -354,8 +354,8 @@ describe("NeuroLink Integration Tests", () => {
           for (let i = 0; i < runs; i++) {
             try {
               const startTime = Date.now();
-              const result = await (provider as any).generateText({
-                prompt: benchmarkPrompt,
+              const result = await (provider as any).generate({
+                input: { text: benchmarkPrompt },
                 maxTokens: 100,
                 temperature: 0.7,
               });

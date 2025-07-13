@@ -1,5 +1,19 @@
 # ⚙️ NeuroLink Configuration Guide
 
+## ✅ IMPLEMENTATION STATUS: COMPLETE (2025-01-07)
+
+**Generate Function Migration completed - Configuration examples updated**
+
+- ✅ All code examples now show `generate()` as primary method
+- ✅ Legacy `generate()` examples preserved for reference
+- ✅ Factory pattern configuration benefits documented
+- ✅ Zero configuration changes required for migration
+
+> **Migration Note**: Configuration remains identical for both `generate()` and `generate()`.
+> All existing configurations continue working unchanged.
+
+---
+
 **Version**: v1.8.0
 **Last Updated**: January 9, 2025
 
@@ -8,6 +22,28 @@
 ## 📖 **Overview**
 
 This guide covers all configuration options for NeuroLink, including AI provider setup, dynamic model configuration, MCP integration, and environment configuration.
+
+### **Basic Usage Examples**
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// NEW: Primary method (recommended)
+const result = await neurolink.generate({
+  input: { text: "Configure AI providers" },
+  provider: "google-ai",
+  temperature: 0.7,
+});
+
+// LEGACY: Still fully supported
+const legacyResult = await neurolink.generate({
+  prompt: "Configure AI providers",
+  provider: "google-ai",
+  temperature: 0.7,
+});
+```
 
 ---
 
@@ -71,7 +107,7 @@ NeuroLink automatically selects the best available provider:
 
 ```bash
 # CLI
-npx neurolink generate-text "Hello" --provider openai
+npx neurolink generate "Hello" --provider openai
 
 # SDK
 const provider = createAIProvider('openai');
@@ -143,10 +179,10 @@ Create or modify `config/models.json` to define available models:
 
 ```bash
 # Use model aliases for convenience
-npx neurolink generate-text "Write code" --model best-coding
+npx neurolink generate "Write code" --model best-coding
 
 # Capability-based selection
-npx neurolink generate-text "Describe image" --capability vision --optimize-cost
+npx neurolink generate "Describe image" --capability vision --optimize-cost
 
 # Search and discover models
 npx neurolink models search --capability function-calling --max-price 0.001
@@ -212,7 +248,7 @@ Built-in tools are automatically available in v1.7.1:
 
 ```bash
 # Built-in tools work immediately
-npx neurolink generate-text "What time is it?" --debug
+npx neurolink generate "What time is it?" --debug
 ```
 
 ### **External MCP Server Configuration**
@@ -310,19 +346,19 @@ export NEUROLINK_TIMEOUT=30000
 
 ```bash
 # Provider selection
-npx neurolink generate-text "Hello" --provider openai
+npx neurolink generate "Hello" --provider openai
 
 # Debug output
-npx neurolink generate-text "Hello" --debug
+npx neurolink generate "Hello" --debug
 
 # Temperature control
-npx neurolink generate-text "Hello" --temperature 0.7
+npx neurolink generate "Hello" --temperature 0.7
 
 # Token limits
-npx neurolink generate-text "Hello" --max-tokens 1000
+npx neurolink generate "Hello" --max-tokens 1000
 
 # Disable tools
-npx neurolink generate-text "Hello" --disable-tools
+npx neurolink generate "Hello" --disable-tools
 ```
 
 ---
@@ -353,9 +389,9 @@ Add useful scripts to your `package.json`:
 {
   "scripts": {
     "neurolink:status": "npx neurolink status --verbose",
-    "neurolink:test": "npx neurolink generate-text 'Test message'",
+    "neurolink:test": "npx neurolink generate 'Test message'",
     "neurolink:mcp-discover": "npx neurolink mcp discover --format table",
-    "neurolink:mcp-test": "npx neurolink generate-text 'What time is it?' --debug"
+    "neurolink:mcp-test": "npx neurolink generate 'What time is it?' --debug"
   }
 }
 ```
@@ -420,8 +456,8 @@ if npx neurolink status > /dev/null 2>&1; then
     echo ""
     echo "🎉 Setup complete! Next steps:"
     echo "1. Add your API key to .env file"
-    echo "2. Test: npx neurolink generate-text 'Hello'"
-    echo "3. Test MCP tools: npx neurolink generate-text 'What time is it?' --debug"
+    echo "2. Test: npx neurolink generate 'Hello'"
+    echo "3. Test MCP tools: npx neurolink generate 'What time is it?' --debug"
 else
     echo "❌ Installation test failed"
     exit 1
@@ -450,7 +486,7 @@ const provider = createAIProvider("openai", {
 
 ```typescript
 // Enable/disable tools
-const result = await provider.generateText({
+const result = await provider.generate({
   prompt: "Hello",
   tools: {
     enabled: true,
@@ -519,7 +555,7 @@ export NEUROLINK_MOCK_PROVIDERS=true
 npx neurolink status --verbose
 
 # Test built-in tools (v1.7.1)
-npx neurolink generate-text "What time is it?" --debug
+npx neurolink generate "What time is it?" --debug
 
 # Test external discovery
 npx neurolink mcp discover --format table
@@ -536,7 +572,7 @@ npm run build && npm run test:run -- src/test/mcp-comprehensive.test.ts
 
 ```bash
 export GOOGLE_AI_API_KEY="AIza-your-key"
-npx neurolink generate-text "Hello"
+npx neurolink generate "Hello"
 ```
 
 ### **Multi-Provider Setup**

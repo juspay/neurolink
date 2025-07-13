@@ -179,7 +179,6 @@ src/lib/mcp/
 ### **Improved Error Handling in Ollama Provider**
 - **LESSON**: Providers should throw specific, helpful errors instead of relying on generic HTTP status codes.
 - **PATTERN**: Catch "model not found" errors and re-throw them with a clear, user-friendly message.
-- **IMPLEMENTATION**: Added a check for "model not found" in the `Ollama.generateText` method.
 - **IMPACT**: Prevents confusing fallback behavior and provides clear guidance to the user.
 
 ---
@@ -324,7 +323,6 @@ const testCases = await provider.generateTestCases({
 - **PATTERN**: Use `optionsOrPrompt: TextGenerationOptions | string` pattern
 - **IMPLEMENTATION**: Parse parameters with type checking and default extraction
 - **BACKWARD COMPATIBILITY**: Maintain support for simple string inputs
-- **EXAMPLE**: `generateText("prompt")` AND `generateText({ prompt, temperature: 0.7 })`
 
 ### 🌟 Google Vertex AI Authentication Patterns (Learned 2025-06-04)
 - **LESSON**: Support multiple authentication methods for different deployment environments
@@ -1410,7 +1408,7 @@ function isProviderConfigured(provider) {
 ### **Function Calling Architecture (PRODUCTION-READY)**
 ```typescript
 // CRITICAL: maxSteps Pattern for Multi-turn
-generateText({
+generate({
   model: google('gemini-2.5-pro'),
   tools: toolsRecord,
   maxSteps: 5, // NOT maxToolRoundtrips - this is the key difference
@@ -1477,7 +1475,7 @@ npm run test:run -- src/test/mcp-comprehensive.test.ts  # 27/27 tests passing
 ## 🔧 **MCP TWO-STEP TOOL CALLING SOLUTION** (Learned 2025-06-22)
 
 ### **🏆 BREAKTHROUGH: Complete Fix for External MCP Tool Integration**
-- **CRITICAL ISSUE**: AI SDK `generateText` with `maxSteps` was calling external tools but finishing with `finishReason: "tool-calls"` and empty text
+- **CRITICAL ISSUE**: AI SDK `generate` with `maxSteps` was calling external tools but finishing with `finishReason: "tool-calls"` and empty text
 - **LESSON**: Vercel AI SDK doesn't support `role: "tool"` in messages - must use different approach for summary generation
 - **PATTERN**: Detect incomplete tool flows → Extract results → Format human-readable summary → Return clean text
 - **IMPLEMENTATION**: Direct text formatting without additional AI calls for better reliability
@@ -1633,7 +1631,7 @@ interface TextGenerationOptions {
 }
 
 // Enhanced Response with Real Metrics
-interface GenerateTextResult {
+interface GenerateResult {
   text: string;
   // ... existing fields ...
   analytics?: {

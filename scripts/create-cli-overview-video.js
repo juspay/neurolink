@@ -164,7 +164,7 @@ Options:
   -v, --version    display version number
 
 Commands:
-  generate-text <prompt>    Generate AI text content
+  generate <prompt>         Generate AI text content
   stream <prompt>           Stream AI text generation
   batch <file>              Process multiple prompts
   status                    Check provider connectivity

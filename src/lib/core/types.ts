@@ -1,11 +1,33 @@
 import type { ZodType, ZodTypeDef } from "zod";
-import type {
-  StreamTextResult,
-  ToolSet,
-  Schema,
-  GenerateTextResult,
-  Tool,
-} from "ai";
+import type { Schema, Tool } from "ai";
+import type { GenerateResult } from "../types/generate-types.js";
+import type { StreamOptions, StreamResult } from "../types/stream-types.js";
+
+export interface TextGenerationResult {
+  content: string;
+  provider?: string;
+  model?: string;
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
+  responseTime?: number;
+  toolsUsed?: string[];
+  toolExecutions?: Array<{
+    toolName: string;
+    executionTime: number;
+    success: boolean;
+    serverId?: string;
+  }>;
+  enhancedWithTools?: boolean;
+  availableTools?: Array<{
+    name: string;
+    description: string;
+    server: string;
+    category?: string;
+  }>;
+}
 
 /**
  * Supported AI Provider Names
@@ -20,6 +42,7 @@ export enum AIProviderName {
   HUGGINGFACE = "huggingface",
   OLLAMA = "ollama",
   MISTRAL = "mistral",
+  AUTO = "auto",
 }
 
 /**
@@ -92,29 +115,7 @@ export interface StreamingOptions {
  */
 export interface TextGenerationOptions {
   prompt: string;
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
-  systemPrompt?: string;
-  schema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>;
-  tools?: Record<string, Tool>; // Enable MCP tools integration
-  timeout?: number | string; // Optional timeout (e.g., 30000, '30s', '2m', '1h')
-  // NEW: Analytics and Evaluation Support
-  enableEvaluation?: boolean; // Default: false - AI quality scoring
-  enableAnalytics?: boolean; // Default: false - Usage tracking
-  context?: Record<string, any>; // Default: undefined - Custom context
-
-  // NEW: Lighthouse-Compatible Domain-Aware Evaluation
-  evaluationDomain?: string; // Domain expertise (e.g., "general AI assistant", "D2C analytics expert")
-  toolUsageContext?: string; // Tools/MCPs used in this interaction
-  conversationHistory?: Array<{ role: string; content: string }>; // Previous conversation context
-}
-
-/**
- * Stream text options interface
- */
-export interface StreamTextOptions {
-  prompt: string;
+  provider?: AIProviderName;
   model?: string;
   temperature?: number;
   maxTokens?: number;
@@ -155,11 +156,14 @@ export interface AnalyticsData {
  * Updated to match Lighthouse's exact evaluation interface for consistency
  */
 export interface EvaluationData {
-  // Core scores (1-10 scale) - Lighthouse field names
-  relevanceScore: number; // How well response addresses query intent and domain alignment
-  accuracyScore: number; // Factual correctness and terminological accuracy
-  completenessScore: number; // How completely the response addresses the query
+  // Core scores (1-10 scale) - Compatible with GenerateResult format
+  relevance: number; // How well response addresses query intent and domain alignment
+  accuracy: number; // Factual correctness and terminological accuracy
+  completeness: number; // How completely the response addresses the query
   overall: number; // Overall quality (derived from above scores)
+  domainAlignment?: number;
+  terminologyAccuracy?: number;
+  toolEffectiveness?: number;
 
   // Advanced insights (exact Lighthouse schema)
   isOffTopic: boolean; // True if response significantly deviates from query/domain
@@ -241,14 +245,7 @@ export interface ProviderModelConfig {
 /**
  * Enhanced result interfaces with optional analytics/evaluation
  */
-export interface EnhancedGenerateTextResult
-  extends GenerateTextResult<ToolSet, unknown> {
-  analytics?: AnalyticsData;
-  evaluation?: EvaluationData;
-}
-
-export interface EnhancedStreamTextResult
-  extends StreamTextResult<ToolSet, unknown> {
+export interface EnhancedGenerateResult extends GenerateResult {
   analytics?: AnalyticsData;
   evaluation?: EvaluationData;
 }
@@ -281,46 +278,25 @@ export interface StreamingMetadata {
 
 export type ProgressCallback = (progress: StreamingProgressData) => void;
 
-export interface EnhancedStreamTextOptions extends StreamTextOptions {
-  // Phase 2.1: Streaming Progress Tracking
-  enableProgressTracking?: boolean;
-  progressCallback?: ProgressCallback;
-  includeStreamingMetadata?: boolean;
-  streamingBufferSize?: number;
-
-  // Phase 2.2: Response Enhancement
-  enableStreamingHeaders?: boolean;
-  customStreamingConfig?: {
-    chunkDelayMs?: number;
-    maxConcurrentChunks?: number;
-    compressionEnabled?: boolean;
-  };
-}
-
 /**
  * AI Provider interface with flexible parameter support
  */
 export interface AIProvider {
-  streamText(
-    optionsOrPrompt: StreamTextOptions | string,
+  // NEW: Primary streaming method
+  stream(
+    optionsOrPrompt: StreamOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<EnhancedStreamTextResult | null>;
+  ): Promise<StreamResult>;
 
-  generateText(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<EnhancedGenerateTextResult | null>;
-
-  // CLI-SDK Consistency: Aliases for generateText
   generate(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<EnhancedGenerateTextResult | null>;
+  ): Promise<EnhancedGenerateResult | null>;
 
   gen(
     optionsOrPrompt: TextGenerationOptions | string,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<EnhancedGenerateTextResult | null>;
+  ): Promise<EnhancedGenerateResult | null>;
 }
 
 /**

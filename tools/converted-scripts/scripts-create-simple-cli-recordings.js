@@ -77,7 +77,7 @@ async function run() {
     const cast_path = path.join(RECORDINGS_DIR, `${rec.name}.cast`);
     const command =
       rec.command ||
-      `node ${CLI_PATH} generate-text '${rec.question}' --provider ${rec.provider}`;
+      `node ${CLI_PATH} generate '${rec.question}' --provider ${rec.provider}`;
     const title =
       rec.title ||
       `NeuroLink - ${rec.provider.charAt(0).toUpperCase() + rec.provider.slice(1)} Provider Demo`;

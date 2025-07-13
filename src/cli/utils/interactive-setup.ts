@@ -316,7 +316,7 @@ export async function testProviderConnectivity(
 
     try {
       const start = Date.now();
-      await sdk.generateText({ prompt: "test", provider, maxTokens: 1 });
+      await sdk.generate({ input: { text: "test" }, provider, maxTokens: 1 });
       const duration = Date.now() - start;
 
       results.push({ provider, status: "working", responseTime: duration });
@@ -388,7 +388,7 @@ export function displaySetupSummary(
         "💡 You can now use NeuroLink with your configured providers.",
       ),
     );
-    console.log(chalk.gray('   Try: neurolink generate-text "Hello, AI!"'));
+    console.log(chalk.gray('   Try: neurolink generate "Hello, AI!"'));
   } else {
     console.log(chalk.red("\n❌ No providers are working."));
     console.log(

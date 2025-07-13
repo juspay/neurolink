@@ -6,13 +6,13 @@
 
 ```bash
 # Test CLI enhancements
-node ./dist/cli/index.js generate-text "test" --provider google-ai --enable-analytics --enable-evaluation --debug
+node ./dist/cli/index.js generate "test" --provider google-ai --enable-analytics --enable-evaluation --debug
 
 # Test SDK enhancements
 node simple-test.js
 
 # Test backward compatibility
-node ./dist/cli/index.js generate-text "test" --provider google-ai
+node ./dist/cli/index.js generate "test" --provider google-ai
 ```
 
 ### Comprehensive Testing
@@ -78,7 +78,7 @@ node BEFORE_AFTER_COMPARISON.js
 ```bash
 # Test working model
 export GOOGLE_AI_MODEL=gemini-2.5-pro
-node ./dist/cli/index.js generate-text "Hello" --provider google-ai --debug
+node ./dist/cli/index.js generate "Hello" --provider google-ai --debug
 
 # Expected: Real AI response with token counts
 # Expected: No empty responses or fallbacks
@@ -88,7 +88,7 @@ node ./dist/cli/index.js generate-text "Hello" --provider google-ai --debug
 
 ```bash
 # Test OpenAI fallback
-node ./dist/cli/index.js generate-text "Hello" --provider openai --enable-analytics --debug
+node ./dist/cli/index.js generate "Hello" --provider openai --enable-analytics --debug
 
 # Expected: OpenAI response with analytics data
 # Expected: Accurate token counting (no NaN values)
@@ -98,7 +98,7 @@ node ./dist/cli/index.js generate-text "Hello" --provider openai --enable-analyt
 
 ```bash
 # Test provider auto-selection
-node ./dist/cli/index.js generate-text "Hello" --enable-analytics --debug
+node ./dist/cli/index.js generate "Hello" --enable-analytics --debug
 
 # Expected: Best available provider selected automatically
 # Expected: Graceful fallback if primary provider fails
@@ -110,7 +110,7 @@ node ./dist/cli/index.js generate-text "Hello" --enable-analytics --debug
 
 ```bash
 # Test existing CLI commands (no enhancement flags)
-node ./dist/cli/index.js generate-text "Simple test"
+node ./dist/cli/index.js generate "Simple test"
 node ./dist/cli/index.js generate "Simple test"
 node ./dist/cli/index.js gen "Simple test"
 
@@ -125,7 +125,7 @@ node ./dist/cli/index.js gen "Simple test"
 // Test basic SDK usage (no enhancements)
 const { createBestAIProvider } = require("@juspay/neurolink");
 const provider = createBestAIProvider();
-const result = await provider.generateText("Hello");
+const result = await provider.generate({ input: { text: "Hello" } });
 
 // Expected: result.content contains AI response
 // Expected: No analytics or evaluation fields
@@ -139,7 +139,7 @@ const result = await provider.generateText("Hello");
 ```bash
 # Test deprecated model handling
 export GOOGLE_AI_MODEL=gemini-2.5-pro-preview-05-06
-node ./dist/cli/index.js generate-text "test" --provider google-ai --debug
+node ./dist/cli/index.js generate "test" --provider google-ai --debug
 
 # Expected: Graceful fallback to working provider
 # Expected: Clear error message or automatic correction
@@ -151,7 +151,7 @@ node ./dist/cli/index.js generate-text "test" --provider google-ai --debug
 # Test without API keys
 unset GOOGLE_AI_API_KEY
 unset OPENAI_API_KEY
-node ./dist/cli/index.js generate-text "test" --debug
+node ./dist/cli/index.js generate "test" --debug
 
 # Expected: Clear error message about missing configuration
 # Expected: Helpful setup instructions
@@ -161,7 +161,7 @@ node ./dist/cli/index.js generate-text "test" --debug
 
 ```bash
 # Test with invalid API endpoint (simulated)
-node ./dist/cli/index.js generate-text "test" --timeout 5s --debug
+node ./dist/cli/index.js generate "test" --timeout 5s --debug
 
 # Expected: Timeout handled gracefully
 # Expected: Fallback to other providers if available
@@ -173,7 +173,7 @@ node ./dist/cli/index.js generate-text "test" --timeout 5s --debug
 
 ```bash
 # Test response times with analytics
-node ./dist/cli/index.js generate-text "Short prompt" --enable-analytics --debug
+node ./dist/cli/index.js generate "Short prompt" --enable-analytics --debug
 
 # Expected: responseTime field shows reasonable values (< 10s)
 # Expected: Analytics data doesn't significantly slow requests
@@ -183,7 +183,7 @@ node ./dist/cli/index.js generate-text "Short prompt" --enable-analytics --debug
 
 ```bash
 # Test accurate token counting
-node ./dist/cli/index.js generate-text "This is a test prompt for token counting" --enable-analytics --debug
+node ./dist/cli/index.js generate "This is a test prompt for token counting" --enable-analytics --debug
 
 # Expected: input + output = total tokens
 # Expected: No NaN values in any token fields
@@ -196,7 +196,7 @@ node ./dist/cli/index.js generate-text "This is a test prompt for token counting
 
 ```bash
 # Test analytics data structure
-node ./dist/cli/index.js generate-text "Business email" --enable-analytics --context '{"project":"test"}' --debug
+node ./dist/cli/index.js generate "Business email" --enable-analytics --context '{"project":"test"}' --debug
 
 # Expected analytics fields:
 # - provider: string
@@ -211,7 +211,7 @@ node ./dist/cli/index.js generate-text "Business email" --enable-analytics --con
 
 ```bash
 # Test evaluation scoring
-node ./dist/cli/index.js generate-text "Explain quantum physics" --enable-evaluation --debug
+node ./dist/cli/index.js generate "Explain quantum physics" --enable-evaluation --debug
 
 # Expected evaluation fields:
 # - relevance: number (1-10)
@@ -226,7 +226,7 @@ node ./dist/cli/index.js generate-text "Explain quantum physics" --enable-evalua
 
 ```bash
 # Test context preservation
-node ./dist/cli/index.js generate-text "Help with task" --context '{"userId":"123","department":"sales"}' --enable-analytics --debug
+node ./dist/cli/index.js generate "Help with task" --context '{"userId":"123","department":"sales"}' --enable-analytics --debug
 
 # Expected: Context object preserved in analytics.context
 # Expected: Context available throughout request chain
@@ -263,13 +263,13 @@ node ./dist/cli/index.js generate-text "Help with task" --context '{"userId":"12
 
 ```bash
 # Comprehensive debug information
-node ./dist/cli/index.js generate-text "debug test" --provider google-ai --enable-analytics --enable-evaluation --context '{"debug":true}' --debug
+node ./dist/cli/index.js generate "debug test" --provider google-ai --enable-analytics --enable-evaluation --context '{"debug":true}' --debug
 
 # Check provider status
 node ./dist/cli/index.js status
 
 # Test specific provider
-node ./dist/cli/index.js generate-text "provider test" --provider openai --debug
+node ./dist/cli/index.js generate "provider test" --provider openai --debug
 ```
 
 ## Test Automation

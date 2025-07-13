@@ -68,10 +68,10 @@ import { createAIProviderWithFallback } from "@juspay/neurolink";
 const { primary, fallback } = createAIProviderWithFallback("bedrock", "openai");
 
 try {
-  const result = await primary.generateText({ prompt: "Hello AI!" });
+  const result = await primary.generate({ input: { text: "Hello AI!" } });
 } catch (error) {
   console.log("Primary failed, trying fallback...");
-  const result = await fallback.generateText({ prompt: "Hello AI!" });
+  const result = await fallback.generate({ input: { text: "Hello AI!" } });
 }
 ```
 
@@ -132,12 +132,11 @@ All providers implement the `AIProvider` interface with these methods:
 
 ```typescript
 interface AIProvider {
-  generateText(options: GenerateTextOptions): Promise<GenerateTextResult>;
-  streamText(options: StreamTextOptions): Promise<StreamTextResult>;
+  generate(options: GenerateOptions): Promise<GenerateResult>;
+  stream(options: StreamOptions): Promise<StreamResult>; // PRIMARY streaming method
 
-  // CLI-SDK Consistency: Method aliases (Phase 1.1)
-  generate(options: GenerateTextOptions): Promise<GenerateTextResult>;
-  gen(options: GenerateTextOptions): Promise<GenerateTextResult>;
+  // Legacy compatibility
+  gen?(options: GenerateOptions): Promise<GenerateResult>;
 }
 ```
 
@@ -145,8 +144,8 @@ interface AIProvider {
 
 All providers now include method aliases that match CLI command names for consistent developer experience:
 
-- **`generate()`** - Alias for `generateText()` (matches `neurolink generate` CLI command)
-- **`gen()`** - Short alias for `generateText()` (matches `neurolink gen` CLI command)
+- **`generate()`** - Primary method for content generation (matches `neurolink generate` CLI command)
+- **`gen()`** - Short alias for `generate()` (matches `neurolink gen` CLI command)
 
 ## 🆕 NeuroLink Class API
 
@@ -233,28 +232,28 @@ Access the unified MCP registry for advanced server management.
 getUnifiedRegistry(): UnifiedMCPRegistry
 ```
 
-These methods have identical signatures and behavior to `generateText()`.
+These methods have identical signatures and behavior to `generate()`.
 
 ```typescript
 // All three methods are equivalent:
-const result1 = await provider.generateText({ prompt: "Hello" });
-const result2 = await provider.generate({ prompt: "Hello" });
-const result3 = await provider.gen({ prompt: "Hello" });
+const result1 = await provider.generate({ input: { text: "Hello" } });
+const result2 = await provider.generate({ input: { text: "Hello" } });
+const result3 = await provider.gen({ input: { text: "Hello" } });
 ```
 
-### `generateText(options)`
+### `generate(options)`
 
 Generate text content synchronously.
 
 ```typescript
-async generateText(options: GenerateTextOptions): Promise<GenerateTextResult>
+async generate(options: GenerateOptions): Promise<GenerateResult>
 ```
 
 **Parameters:**
 
 ```typescript
-interface GenerateTextOptions {
-  prompt: string;
+interface GenerateOptions {
+  input: { text: string };
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
@@ -266,8 +265,8 @@ interface GenerateTextOptions {
 **Returns:**
 
 ```typescript
-interface GenerateTextResult {
-  text: string;
+interface GenerateResult {
+  content: string;
   provider: string;
   model: string;
   usage?: {
@@ -621,11 +620,11 @@ if (status.stats) {
 
 ## 🔧 Enhanced Generation Options
 
-The base `GenerateTextOptions` interface now supports enterprise features:
+The base `GenerateOptions` interface now supports enterprise features:
 
 ```typescript
-interface GenerateTextOptions {
-  prompt: string;
+interface GenerateOptions {
+  input: { text: string };
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
@@ -642,8 +641,8 @@ interface GenerateTextOptions {
 **Enhanced Usage Example:**
 
 ```typescript
-const result = await provider.generateText({
-  prompt: 'Write a business proposal',
+const result = await provider.generate({
+  input: { text: 'Write a business proposal' },
   enableAnalytics: true,
   enableEvaluation: true,
   context: {
@@ -663,10 +662,10 @@ console.log('⭐ Evaluation:', result.evaluation);
 // 🆕 Enhanced Evaluation (NEW)
 const enhancedResult = await performEnhancedEvaluation({
   userQuery: 'Write a business proposal',
-  aiResponse: result.text,
+  aiResponse: result.content,
   primaryDomain: 'Business development',
   assistantRole: 'Business proposal assistant',
-  toolsUsed: ['generate-text'],
+  toolsUsed: ['generate'],
   conversationHistory: [
     { role: 'user', content: 'I need help with proposals' },
     { role: 'assistant', content: 'I can help you create effective proposals' }
@@ -686,68 +685,74 @@ console.log('🎯 Enhanced Evaluation:', enhancedResult);
 **Example:**
 
 ```typescript
-const result = await provider.generateText({
-  prompt: "Explain quantum computing in simple terms",
+const result = await provider.generate({
+  input: { text: "Explain quantum computing in simple terms" },
   temperature: 0.7,
   maxTokens: 500,
   systemPrompt: "You are a helpful science teacher",
 });
 
-console.log(result.text);
+console.log(result.content);
 console.log(`Used ${result.usage?.totalTokens} tokens`);
 console.log(`Provider: ${result.provider}, Model: ${result.model}`);
 ```
 
-### `streamText(options)`
+### `stream(options)` - **Recommended for New Code**
 
-Generate text content with streaming responses.
+Generate content with streaming responses using future-ready multi-modal interface.
 
 ```typescript
-async streamText(options: StreamTextOptions): Promise<StreamTextResult>
+async stream(options: StreamOptions): Promise<StreamResult>
 ```
 
 **Parameters:**
 
 ```typescript
-interface StreamTextOptions {
-  prompt: string;
+interface StreamOptions {
+  input: { text: string }; // Current scope: text input (future: multi-modal)
+  output?: {
+    format?: "text" | "structured" | "json";
+    streaming?: {
+      chunkSize?: number;
+      bufferSize?: number;
+      enableProgress?: boolean;
+    };
+  };
+  provider?: string;
+  model?: string;
   temperature?: number;
   maxTokens?: number;
-  systemPrompt?: string;
-  timeout?: number | string; // Timeout in ms or human-readable format (e.g., '30s', '2m', '1h')
+  timeout?: number | string;
 }
 ```
 
 **Returns:**
 
 ```typescript
-interface StreamTextResult {
-  textStream: AsyncIterable<string>;
-  provider: string;
-  model: string;
-  toReadableStream(): ReadableStream<Uint8Array>;
+interface StreamResult {
+  stream: AsyncIterable<{ content: string }>;
+  provider?: string;
+  model?: string;
+  metadata?: {
+    streamId?: string;
+    startTime?: number;
+    totalChunks?: number;
+  };
 }
 ```
 
 **Example:**
 
 ```typescript
-const result = await provider.streamText({
-  prompt: "Write a story about AI and humanity",
+const result = await provider.stream({
+  input: { text: "Write a story about AI and humanity" },
+  provider: "openai",
   temperature: 0.8,
-  maxTokens: 1000,
 });
 
-// Stream to console
-for await (const chunk of result.textStream) {
-  process.stdout.write(chunk);
+for await (const chunk of result.stream) {
+  process.stdout.write(chunk.content);
 }
-
-// Or convert to ReadableStream for web APIs
-const stream = result.toReadableStream();
-return new Response(stream, {
-  headers: { "Content-Type": "text/plain" },
-});
 ```
 
 ## Flexible Parameter Support
@@ -756,14 +761,14 @@ NeuroLink supports both object-based and string-based parameters for convenience
 
 ```typescript
 // Object format (recommended for complex options)
-const result1 = await provider.generateText({
-  prompt: "Hello",
+const result1 = await provider.generate({
+  input: { text: "Hello" },
   temperature: 0.7,
   maxTokens: 100,
 });
 
 // String format (convenient for simple prompts)
-const result2 = await provider.generateText("Hello");
+const result2 = await provider.generate({ input: { text: "Hello" } });
 ```
 
 ### Using Timeouts
@@ -772,19 +777,19 @@ NeuroLink supports flexible timeout configuration for all AI operations:
 
 ```typescript
 // Numeric milliseconds
-const result1 = await provider.generateText({
-  prompt: "Write a story",
+const result1 = await provider.generate({
+  input: { text: "Write a story" },
   timeout: 30000, // 30 seconds
 });
 
 // Human-readable formats
-const result2 = await provider.generateText({
-  prompt: "Complex calculation",
+const result2 = await provider.generate({
+  input: { text: "Complex calculation" },
   timeout: "2m", // 2 minutes
 });
 
 // Streaming with longer timeout
-const stream = await provider.streamText({
+const stream = await provider.stream({ input: { text:
   prompt: "Generate long content",
   timeout: "5m", // 5 minutes for streaming
 });
@@ -809,8 +814,10 @@ import { createBestAIProvider } from "@juspay/neurolink";
 
 // Simple text generation
 const provider = createBestAIProvider();
-const result = await provider.generateText("Write a haiku about coding");
-console.log(result.text);
+const result = await provider.generate({
+  input: { text: "Write a haiku about coding" },
+});
+console.log(result.content);
 ```
 
 ### Dynamic Model Usage (v1.8.0+)
@@ -862,8 +869,8 @@ const provider = await factory.createProvider({
 });
 
 // Generate text with cost optimization
-const result = await provider.generateText({
-  prompt: "Summarize the benefits of renewable energy",
+const result = await provider.generate({
+  input: { text: "Summarize the benefits of renewable energy" },
   maxTokens: 200, // Control output length for cost
 });
 
@@ -881,8 +888,8 @@ const visionProvider = await factory.createProvider({
   optimizeFor: "quality", // Prefer highest quality vision model
 });
 
-const result = await visionProvider.generateText({
-  prompt: "Describe what you see in this image",
+const result = await visionProvider.generate({
+  input: { text: "Describe what you see in this image" },
   images: ["data:image/jpeg;base64,/9j/4AAQSkZJRgABA..."], // Base64 image
   maxTokens: 500,
 });
@@ -897,8 +904,8 @@ const functionProvider = await factory.createProvider({
   optimizeFor: "speed", // Fast function execution
 });
 
-const result = await functionProvider.generateText({
-  prompt: "What's the weather in San Francisco?",
+const result = await functionProvider.generate({
+  input: { text: "What's the weather in San Francisco?" },
   schema: {
     type: "object",
     properties: {
@@ -909,7 +916,7 @@ const result = await functionProvider.generateText({
   },
 });
 
-console.log(JSON.parse(result.text)); // Structured weather data
+console.log(JSON.parse(result.content)); // Structured weather data
 ```
 
 ### Model Discovery and Search
@@ -949,7 +956,8 @@ const streamingProvider = await factory.createProvider({
   model: "fastest", // Alias for fastest available model
 });
 
-const stream = await streamingProvider.streamText({
+const stream = await streamingProvider.stream({
+  input: { text:
   prompt: "Write a story about space exploration",
   maxTokens: 1000,
 });
@@ -974,12 +982,16 @@ const fallbackProvider = await factory.createProvider({
 });
 
 try {
-  const result = await primaryProvider.generateText("Complex reasoning task");
-  console.log(result.text);
+  const result = await primaryProvider.generate({
+    input: { text: "Complex reasoning task" },
+  });
+  console.log(result.content);
 } catch (error) {
   console.log("Primary failed, using fallback...");
-  const result = await fallbackProvider.generateText("Complex reasoning task");
-  console.log(result.text);
+  const result = await fallbackProvider.generate({
+    input: { text: "Complex reasoning task" },
+  });
+  console.log(result.content);
 }
 ```
 
@@ -1245,8 +1257,8 @@ neurolink models resolve anthropic claude-latest
 neurolink models resolve google fastest
 
 # Test with dynamic model selection
-neurolink generate-text "Hello" --model best-coding
-neurolink generate-text "Describe this" --capability vision --optimize-cost
+neurolink generate "Hello" --model best-coding
+neurolink generate "Describe this" --capability vision --optimize-cost
 ```
 
 ### Type Definitions for Dynamic Models
@@ -1397,13 +1409,11 @@ type ProviderName =
   | "mistral";
 
 interface AIProvider {
-  generateText(
-    options: GenerateTextOptions | string,
-  ): Promise<GenerateTextResult>;
-  streamText(options: StreamTextOptions | string): Promise<StreamTextResult>;
+  generate(options: GenerateOptions): Promise<GenerateResult>;
+  stream(options: StreamOptions | string): Promise<StreamResult>; // PRIMARY streaming method
 }
 
-interface GenerateTextOptions {
+interface GenerateOptions {
   prompt: string;
   temperature?: number; // 0.0 to 1.0, default: 0.7
   maxTokens?: number; // Default: 1000
@@ -1411,26 +1421,12 @@ interface GenerateTextOptions {
   schema?: any; // For structured output
 }
 
-interface StreamTextOptions {
-  prompt: string;
-  temperature?: number;
-  maxTokens?: number;
-  systemPrompt?: string;
-}
-
-interface GenerateTextResult {
+interface GenerateResult {
   text: string;
   provider: string;
   model: string;
   usage?: TokenUsage;
   responseTime?: number; // Milliseconds
-}
-
-interface StreamTextResult {
-  textStream: AsyncIterable<string>;
-  provider: string;
-  model: string;
-  toReadableStream(): ReadableStream<Uint8Array>;
 }
 
 interface TokenUsage {
@@ -1509,7 +1505,7 @@ interface DynamicModelRegistry {
 
 ```typescript
 // OpenAI specific
-interface OpenAIOptions extends GenerateTextOptions {
+interface OpenAIOptions extends GenerateOptions {
   user?: string; // User identifier
   stop?: string | string[]; // Stop sequences
   topP?: number; // Nucleus sampling
@@ -1518,20 +1514,20 @@ interface OpenAIOptions extends GenerateTextOptions {
 }
 
 // Bedrock specific
-interface BedrockOptions extends GenerateTextOptions {
+interface BedrockOptions extends GenerateOptions {
   region?: string; // AWS region override
   inferenceProfile?: string; // Inference profile ARN
 }
 
 // Vertex AI specific
-interface VertexOptions extends GenerateTextOptions {
+interface VertexOptions extends GenerateOptions {
   project?: string; // GCP project override
   location?: string; // GCP location override
   safetySettings?: any[]; // Safety filter settings
 }
 
 // Google AI Studio specific
-interface GoogleAIOptions extends GenerateTextOptions {
+interface GoogleAIOptions extends GenerateOptions {
   safetySettings?: any[]; // Safety filter settings
   generationConfig?: {
     // Additional generation settings
@@ -1543,7 +1539,7 @@ interface GoogleAIOptions extends GenerateTextOptions {
 }
 
 // Anthropic specific
-interface AnthropicOptions extends GenerateTextOptions {
+interface AnthropicOptions extends GenerateOptions {
   stopSequences?: string[]; // Custom stop sequences
   metadata?: {
     // Usage tracking
@@ -1552,14 +1548,14 @@ interface AnthropicOptions extends GenerateTextOptions {
 }
 
 // Azure OpenAI specific
-interface AzureOptions extends GenerateTextOptions {
+interface AzureOptions extends GenerateOptions {
   deploymentId?: string; // Override deployment
   apiVersion?: string; // API version override
   user?: string; // User tracking
 }
 
 // Hugging Face specific
-interface HuggingFaceOptions extends GenerateTextOptions {
+interface HuggingFaceOptions extends GenerateOptions {
   waitForModel?: boolean; // Wait for model to load
   useCache?: boolean; // Use cached responses
   options?: {
@@ -1570,7 +1566,7 @@ interface HuggingFaceOptions extends GenerateTextOptions {
 }
 
 // Ollama specific
-interface OllamaOptions extends GenerateTextOptions {
+interface OllamaOptions extends GenerateOptions {
   format?: string; // Response format (e.g., 'json')
   context?: number[]; // Conversation context
   stream?: boolean; // Enable streaming
@@ -1579,7 +1575,7 @@ interface OllamaOptions extends GenerateTextOptions {
 }
 
 // Mistral AI specific
-interface MistralOptions extends GenerateTextOptions {
+interface MistralOptions extends GenerateOptions {
   topP?: number; // Nucleus sampling
   randomSeed?: number; // Reproducible outputs
   safeMode?: boolean; // Enable safe mode
@@ -1633,7 +1629,7 @@ import {
 } from "@juspay/neurolink";
 
 try {
-  const result = await provider.generateText({
+  const result = await provider.generate({
     prompt: "Hello",
     timeout: "30s",
   });
@@ -1681,20 +1677,20 @@ const provider = createBestAIProvider(); // Uses default selection logic
 
 ```typescript
 interface AIMiddleware {
-  beforeRequest?(options: GenerateTextOptions): GenerateTextOptions;
-  afterResponse?(result: GenerateTextResult): GenerateTextResult;
+  beforeRequest?(options: GenerateOptions): GenerateOptions;
+  afterResponse?(result: GenerateResult): GenerateResult;
   onError?(error: Error): Error;
 }
 
 class LoggingMiddleware implements AIMiddleware {
-  beforeRequest(options: GenerateTextOptions): GenerateTextOptions {
+  beforeRequest(options: GenerateOptions): GenerateOptions {
     console.log(
       `Generating text for prompt: ${options.prompt.slice(0, 50)}...`,
     );
     return options;
   }
 
-  afterResponse(result: GenerateTextResult): GenerateTextResult {
+  afterResponse(result: GenerateResult): GenerateResult {
     console.log(
       `Generated ${result.text.length} characters using ${result.provider}`,
     );
@@ -1708,16 +1704,13 @@ class LoggingMiddleware implements AIMiddleware {
 ### Batch Processing
 
 ```typescript
-async function processBatch(
-  prompts: string[],
-  options: GenerateTextOptions = {},
-) {
+async function processBatch(prompts: string[], options: GenerateOptions = {}) {
   const provider = createBestAIProvider();
   const results = [];
 
   for (const prompt of prompts) {
     try {
-      const result = await provider.generateText({ ...options, prompt });
+      const result = await provider.generate({ ...options, prompt });
       results.push({ success: true, ...result });
     } catch (error) {
       results.push({
@@ -1752,30 +1745,28 @@ const results = await processBatch(prompts, {
 
 ```typescript
 class CachedProvider implements AIProvider {
-  private cache = new Map<string, GenerateTextResult>();
+  private cache = new Map<string, GenerateResult>();
   private provider: AIProvider;
 
   constructor(provider: AIProvider) {
     this.provider = provider;
   }
 
-  async generateText(
-    options: GenerateTextOptions,
-  ): Promise<GenerateTextResult> {
+  async generate(options: GenerateOptions): Promise<GenerateResult> {
     const key = JSON.stringify(options);
 
     if (this.cache.has(key)) {
       return { ...this.cache.get(key)!, fromCache: true };
     }
 
-    const result = await this.provider.generateText(options);
+    const result = await this.provider.generate(options);
     this.cache.set(key, result);
     return result;
   }
 
-  async streamText(options: StreamTextOptions): Promise<StreamTextResult> {
+  async stream(options: StreamOptions): Promise<StreamResult> {
     // Streaming responses are not cached
-    return this.provider.streamText(options);
+    return this.provider.stream(options);
   }
 }
 
@@ -1792,7 +1783,7 @@ const cachedProvider = new CachedProvider(baseProvider);
 interface NeuroLinkConfig {
   defaultProvider?: ProviderName;
   fallbackProvider?: ProviderName;
-  defaultOptions?: Partial<GenerateTextOptions>;
+  defaultOptions?: Partial<GenerateOptions>;
   enableFallback?: boolean;
   enableStreaming?: boolean;
   debug?: boolean;
@@ -1814,18 +1805,18 @@ const config: NeuroLinkConfig = {
 
 ```typescript
 interface TypedAIProvider<
-  TOptions = GenerateTextOptions,
-  TResult = GenerateTextResult,
+  TOptions = GenerateOptions,
+  TResult = GenerateResult,
 > {
-  generateText(options: TOptions): Promise<TResult>;
+  generate(options: TOptions): Promise<TResult>;
 }
 
 // Custom typed provider
-interface CustomOptions extends GenerateTextOptions {
+interface CustomOptions extends GenerateOptions {
   customParameter?: string;
 }
 
-interface CustomResult extends GenerateTextResult {
+interface CustomResult extends GenerateResult {
   customData?: any;
 }
 
@@ -1858,8 +1849,8 @@ NeuroLink supports external MCP servers for extended functionality through both 
 
 ```bash
 # ✅ Working: Test built-in tools
-neurolink generate-text "What time is it?" --debug
-neurolink generate-text "What tools do you have access to?" --debug
+neurolink generate "What time is it?" --debug
+neurolink generate "What tools do you have access to?" --debug
 
 # ✅ Working: Discover external MCP servers
 neurolink mcp discover --format table
@@ -1874,7 +1865,7 @@ All MCP functionality is available through the NeuroLink CLI:
 
 ```bash
 # ✅ Working: Built-in tool testing
-neurolink generate-text "What time is it?" --debug
+neurolink generate "What time is it?" --debug
 
 # ✅ Working: Server discovery and management
 neurolink mcp discover [--format table|json|yaml]  # Auto-discover MCP servers

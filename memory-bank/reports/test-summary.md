@@ -15,12 +15,12 @@
 
 ### Test Coverage
 
-- ✅ **OpenAI Provider**: All tests passing (creation, interface, generateText, streamText)
-- ✅ **Amazon Bedrock Provider**: All tests passing (creation, interface, generateText)
+- ✅ **OpenAI Provider**: All tests passing (creation, interface, generate, stream)
+- ✅ **Amazon Bedrock Provider**: All tests passing (creation, interface, generate)
 - ✅ **Google Vertex AI Provider**: All tests passing (creation, interface, Google models)
 - ✅ **AI Provider Factory**: All tests passing (provider creation, best selection, fallback)
 - ✅ **Error Handling**: All API error scenarios working correctly
-- ✅ **Schema Validation**: Both generateText and streamText with validation working
+- ✅ **Schema Validation**: Both generate and stream with validation working
 
 ### Skipped Tests (3)
 

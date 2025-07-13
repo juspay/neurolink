@@ -59,15 +59,16 @@ export class SSEChatHandler {
         });
 
         // Generate AI response with streaming
-        const aiResponse = await this.provider.streamText({
-          prompt: message,
+        const aiResponse = await this.provider.stream({
+          input: { text: message },
           temperature: options.temperature,
           maxTokens: options.maxTokens,
           systemPrompt: options.systemPrompt,
         });
 
-        if (aiResponse?.textStream) {
-          const reader = aiResponse.textStream.getReader();
+        if (aiResponse?.stream) {
+          // Convert async iterable to readable stream
+          const reader = aiResponse.stream as any;
           let fullResponse = "";
 
           try {

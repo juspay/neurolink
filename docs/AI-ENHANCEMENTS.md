@@ -74,8 +74,8 @@ import { NeuroLink } from "@juspay/neurolink";
 
 const sdk = new NeuroLink();
 
-const result = await sdk.generateText({
-  prompt: "Explain artificial intelligence in simple terms",
+const result = await sdk.generate({
+  input: { text: "Explain artificial intelligence in simple terms" },
   provider: "openai",
   enableAnalytics: true, // 🆕 NEW: Track usage and costs
   context: {
@@ -102,8 +102,8 @@ console.log(result.analytics); // Usage metrics
 ### Usage with Quality Evaluation
 
 ```typescript
-const result = await sdk.generateText({
-  prompt: "Write a technical explanation of machine learning",
+const result = await sdk.generate({
+  input: { text: "Write a technical explanation of machine learning" },
   provider: "google-ai",
   enableEvaluation: true, // 🆕 NEW: AI quality scoring
   context: {
@@ -127,8 +127,8 @@ console.log(result.evaluation);
 ### Combined Analytics and Evaluation
 
 ```typescript
-const result = await sdk.generateText({
-  prompt: "Generate a product description for AI software",
+const result = await sdk.generate({
+  input: { text: "Generate a product description for AI software" },
   enableAnalytics: true, // Track usage and costs
   enableEvaluation: true, // Score response quality
   context: {
@@ -251,8 +251,8 @@ NEUROLINK_EVALUATION_RETRY_ATTEMPTS=2
 
 ```typescript
 // Automatic provider selection
-const result = await sdk.generateText({
-  prompt: "Explain quantum computing",
+const result = await sdk.generate({
+  input: { text: "Explain quantum computing" },
   enableEvaluation: true, // Uses configured evaluation system
 });
 
@@ -320,7 +320,7 @@ const enhancedContext = createEnhancedContext(
   {
     domain: "Business development",
     role: "Business proposal assistant",
-    toolsUsed: ["generate-text", "analytics-helper"],
+    toolsUsed: ["generate", "analytics-helper"],
     conversationHistory: [
       { role: "user", content: "I need help with our Q1 business plan" },
       {
@@ -470,15 +470,15 @@ const costMap = {
 **Zero Breaking Changes!** All existing code continues to work unchanged.
 
 ```typescript
-// Existing code (still works)
-const result = await sdk.generateText({
+// Legacy approach (still works)
+const result = await sdk.generate({
   prompt: "Hello world",
   provider: "openai",
 });
 
-// Enhanced with new features (optional)
-const result = await sdk.generateText({
-  prompt: "Hello world",
+// Modern approach with enhancements (recommended)
+const result = await sdk.generate({
+  input: { text: "Hello world" },
   provider: "openai",
   enableAnalytics: true, // Add analytics
   enableEvaluation: true, // Add evaluation
@@ -503,8 +503,8 @@ npx @juspay/neurolink generate "Hello world" --context '{"key":"value"}'
 ### Customer Support Analytics
 
 ```typescript
-const result = await sdk.generateText({
-  prompt: customerQuery,
+const result = await sdk.generate({
+  input: { text: customerQuery },
   enableAnalytics: true,
   enableEvaluation: true,
   context: {
@@ -528,18 +528,18 @@ trackSupportMetrics({
 
 ```typescript
 const results = await Promise.all([
-  sdk.generateText({
-    prompt: "Write blog title",
+  sdk.generate({
+    input: { text: "Write blog title" },
     enableEvaluation: true,
     context: { contentType: "title", campaign: "q1-launch" },
   }),
-  sdk.generateText({
-    prompt: "Write blog intro",
+  sdk.generate({
+    input: { text: "Write blog intro" },
     enableEvaluation: true,
     context: { contentType: "intro", campaign: "q1-launch" },
   }),
-  sdk.generateText({
-    prompt: "Write blog conclusion",
+  sdk.generate({
+    input: { text: "Write blog conclusion" },
     enableEvaluation: true,
     context: { contentType: "conclusion", campaign: "q1-launch" },
   }),

@@ -12,21 +12,21 @@ cd /Users/sachinsharma/Developer/Official/neurolink
 # 1. Record Hugging Face demo
 echo "📹 Recording Hugging Face CLI usage..."
 asciinema rec "$RECORDINGS_DIR/huggingface-demo.cast" --title "NeuroLink - Hugging Face Provider Demo" <<EOF
-node dist/cli/index.js generate-text 'What makes open source AI special?' --provider huggingface
+node dist/cli/index.js generate 'What makes open source AI special?' --provider huggingface
 exit
 EOF
 
 # 2. Record Ollama demo
 echo "📹 Recording Ollama CLI usage..."
 asciinema rec "$RECORDINGS_DIR/ollama-demo.cast" --title "NeuroLink - Ollama Local AI Demo" <<EOF
-node dist/cli/index.js generate-text 'Why is local AI important for privacy?' --provider ollama
+node dist/cli/index.js generate 'Why is local AI important for privacy?' --provider ollama
 exit
 EOF
 
 # 3. Record Mistral demo
 echo "📹 Recording Mistral CLI usage..."
 asciinema rec "$RECORDINGS_DIR/mistral-demo.cast" --title "NeuroLink - Mistral AI Demo" <<EOF
-node dist/cli/index.js generate-text 'Explain GDPR compliance in AI' --provider mistral
+node dist/cli/index.js generate 'Explain GDPR compliance in AI' --provider mistral
 exit
 EOF
 

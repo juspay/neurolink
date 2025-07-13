@@ -18,8 +18,8 @@ try {
   console.log('📊 DEMO 1: REAL ANALYTICS TRACKING');
   console.log('Making real AI call with analytics enabled...');
 
-  const analyticsResult = await sdk.generateText({
-    prompt: 'Explain what artificial intelligence is in 2 sentences',
+  const analyticsResult = await sdk.generate({
+    input: { text: 'Explain what artificial intelligence is in 2 sentences' },
     provider: 'auto',
     enableAnalytics: true,
     context: {
@@ -58,8 +58,8 @@ try {
   console.log('\n⭐ DEMO 2: REAL QUALITY EVALUATION');
   console.log('Making real AI call with evaluation enabled...');
 
-  const evaluationResult = await sdk.generateText({
-    prompt: 'Write a technical explanation of machine learning algorithms',
+  const evaluationResult = await sdk.generate({
+    input: { text: 'Write a technical explanation of machine learning algorithms' },
     provider: 'auto',
     enableEvaluation: true,
     context: {
@@ -91,8 +91,8 @@ try {
   console.log('\n🔥 DEMO 3: COMBINED ANALYTICS + EVALUATION');
   console.log('Making real AI call with BOTH features enabled...');
 
-  const combinedResult = await sdk.generateText({
-    prompt: 'Generate a professional email response to a customer complaint about delayed delivery',
+  const combinedResult = await sdk.generate({
+    input: { text: 'Generate a professional email response to a customer complaint about delayed delivery' },
     provider: 'auto',
     enableAnalytics: true,
     enableEvaluation: true,

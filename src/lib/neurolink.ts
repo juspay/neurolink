@@ -5,7 +5,11 @@
  * Uses real MCP infrastructure for tool discovery and execution.
  */
 
-import type { AIProviderName } from "./core/types.js";
+import type {
+  AIProviderName,
+  TextGenerationOptions,
+  TextGenerationResult,
+} from "./core/types.js";
 import { AIProviderFactory } from "./index.js";
 import { ContextManager } from "./mcp/context-manager.js";
 import { mcpLogger } from "./mcp/logging.js";
@@ -14,89 +18,15 @@ import { unifiedRegistry } from "./mcp/unified-registry.js";
 import { logger } from "./utils/logger.js";
 import { getBestProvider } from "./utils/providerUtils-fixed.js";
 import { TimeoutError } from "./utils/timeout.js";
+// NEW: Generate function imports
+import type {
+  GenerateOptions,
+  GenerateResult,
+} from "./types/generate-types.js";
+import type { StreamOptions, StreamResult } from "./types/stream-types.js";
+import { CompatibilityConversionFactory } from "./factories/compatibility-factory.js";
 
-export interface TextGenerationOptions {
-  prompt: string;
-  provider?:
-    | "openai"
-    | "bedrock"
-    | "vertex"
-    | "anthropic"
-    | "azure"
-    | "google-ai"
-    | "huggingface"
-    | "ollama"
-    | "mistral"
-    | "auto";
-  model?: string; // NEW: Specific model to use
-  temperature?: number;
-  maxTokens?: number;
-  systemPrompt?: string;
-  schema?: any;
-  timeout?: number | string; // NEW: Optional timeout (e.g., 30000, '30s', '2m', '1h')
-  disableTools?: boolean; // NEW: Disable MCP tool integration (tools enabled by default)
-  // NEW: Analytics and Evaluation Support
-  enableAnalytics?: boolean; // Default: false - Usage tracking
-  enableEvaluation?: boolean; // Default: false - AI quality scoring
-  context?: Record<string, any>; // Default: undefined - Custom context
-
-  // NEW: Lighthouse-Compatible Domain-Aware Evaluation
-  evaluationDomain?: string; // Domain expertise (e.g., "general AI assistant", "D2C analytics expert")
-  toolUsageContext?: string; // Tools/MCPs used in this interaction
-  conversationHistory?: Array<{ role: string; content: string }>; // Previous conversation context
-}
-
-export interface StreamTextOptions {
-  prompt: string;
-  provider?:
-    | "openai"
-    | "bedrock"
-    | "vertex"
-    | "anthropic"
-    | "azure"
-    | "google-ai"
-    | "huggingface"
-    | "ollama"
-    | "mistral"
-    | "auto";
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
-  systemPrompt?: string;
-  schema?: any;
-  timeout?: number | string;
-  disableTools?: boolean;
-  // NEW: Analytics and Evaluation Support
-  enableAnalytics?: boolean;
-  enableEvaluation?: boolean;
-  context?: Record<string, any>;
-}
-
-export interface TextGenerationResult {
-  content: string;
-  provider?: string;
-  model?: string;
-  usage?: {
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
-  };
-  responseTime?: number;
-  toolsUsed?: string[];
-  toolExecutions?: Array<{
-    toolName: string;
-    executionTime: number;
-    success: boolean;
-    serverId?: string;
-  }>;
-  enhancedWithTools?: boolean;
-  availableTools?: Array<{
-    name: string;
-    description: string;
-    server: string;
-    category?: string;
-  }>;
-}
+// Core types imported from core/types.js
 
 export class NeuroLink {
   private mcpInitialized = false;
@@ -172,39 +102,142 @@ export class NeuroLink {
   }
 
   /**
-   * Generate text using the best available AI provider with automatic fallback
-   * Tools are ENABLED BY DEFAULT for natural AI behavior
+   * PRIMARY METHOD: Generate content using AI (recommended for new code)
+   * Future-ready for multi-modal capabilities with current text focus
+   */
+  async generate(options: GenerateOptions): Promise<GenerateResult> {
+    // Validate input
+    if (
+      !options?.input?.text ||
+      typeof options.input.text !== "string" ||
+      options.input.text.trim() === ""
+    ) {
+      throw new Error(
+        "Generate options must include input.text as a non-empty string",
+      );
+    }
+
+    // Convert input format and extract text
+    const prompt = options.input.text;
+    const convertedOptions: TextGenerationOptions = {
+      prompt,
+      provider: options.provider as AIProviderName,
+      model: options.model,
+      temperature: options.temperature,
+      maxTokens: options.maxTokens,
+      systemPrompt: options.systemPrompt,
+      timeout: options.timeout,
+      enableAnalytics: options.enableAnalytics,
+      enableEvaluation: options.enableEvaluation,
+      context: options.context,
+    };
+
+    // Use existing generation infrastructure directly
+    // For now, always use generateWithTools for full functionality
+    const textResult = await this.generateWithTools(convertedOptions);
+
+    // Convert to GenerateResult format
+    const generateResult: GenerateResult = {
+      content: textResult.content,
+      provider: textResult.provider,
+      model: textResult.model,
+      usage: textResult.usage
+        ? {
+            inputTokens: textResult.usage.promptTokens || 0,
+            outputTokens: textResult.usage.completionTokens || 0,
+            totalTokens: textResult.usage.totalTokens || 0,
+          }
+        : undefined,
+      responseTime: textResult.responseTime,
+      toolsUsed: textResult.toolsUsed,
+      toolExecutions: textResult.toolExecutions?.map((te: any) => ({
+        name: te.toolName || te.name || "",
+        input: te.input || {},
+        output: te.output || te.result,
+        duration: te.executionTime || te.duration || 0,
+      })),
+      enhancedWithTools: textResult.enhancedWithTools,
+      availableTools: textResult.availableTools?.map((tool: any) => ({
+        name: tool.name || "",
+        description: tool.description || "",
+        parameters: tool.parameters || {},
+      })),
+      analytics: (textResult as any).analytics,
+      evaluation: (textResult as any).evaluation,
+    };
+
+    return generateResult;
+  }
+
+  /**
+   * BACKWARD COMPATIBILITY: Legacy generateText method
+   * Internally calls generate() and converts result format
    */
   async generateText(
     options: TextGenerationOptions,
   ): Promise<TextGenerationResult> {
-    // 🔧 FIX: Add input validation
+    // Validate required parameters for backward compatibility
     if (
-      !options ||
+      !options.prompt ||
       typeof options.prompt !== "string" ||
       options.prompt.trim() === ""
     ) {
       throw new Error(
-        "options.prompt is required and must be a non-empty string",
+        "GenerateText options must include prompt as a non-empty string",
       );
     }
 
-    // Tools are DEFAULT behavior unless explicitly disabled
-    if (options.disableTools === true) {
-      return this.generateTextRegular(options);
+    // Convert TextGenerationOptions to GenerateOptions
+    const generateOptions =
+      CompatibilityConversionFactory.convertTextToGenerate(options);
+
+    try {
+      // Use internal generate method for identical performance and behavior
+      const generateResult = await this.generate(generateOptions);
+
+      // Convert GenerateResult back to TextGenerationResult format for backward compatibility
+      const textResult: TextGenerationResult = {
+        content: generateResult.content,
+        provider: generateResult.provider,
+        model: generateResult.model,
+        usage: generateResult.usage
+          ? {
+              promptTokens: generateResult.usage?.inputTokens || 0,
+              completionTokens: generateResult.usage?.outputTokens || 0,
+              totalTokens: generateResult.usage?.totalTokens || 0,
+            }
+          : undefined,
+        responseTime: generateResult.responseTime,
+        toolsUsed: generateResult.toolsUsed,
+        toolExecutions: generateResult.toolExecutions?.map((te: any) => ({
+          toolName: te.name || te.toolName || "",
+          executionTime: te.duration || te.executionTime || 0,
+          success: true, // Assume success if execution completed
+          serverId: te.serverId,
+        })),
+        enhancedWithTools: generateResult.enhancedWithTools,
+        availableTools: generateResult.availableTools?.map((tool: any) => ({
+          name: tool.name || "",
+          description: tool.description || "",
+          server: tool.server || "unknown",
+          category: tool.category,
+        })),
+      };
+
+      return textResult;
+    } catch (error) {
+      throw new Error(`GenerateText compatibility method failed: ${error}`);
     }
-    // Default: Generate with tools (natural AI behavior)
-    return this.generateTextWithTools(options);
   }
 
   /**
    * Generate text with real MCP tool integration using automatic detection
    */
-  private async generateTextWithTools(
+  private async generateWithTools(
     options: TextGenerationOptions,
   ): Promise<TextGenerationResult> {
     const startTime = Date.now();
-    const functionTag = "NeuroLink.generateTextWithTools";
+    const functionTag = "NeuroLink.generateWithTools";
 
     // Initialize MCP if needed
     await this.initializeMCP();
@@ -272,7 +305,7 @@ export class NeuroLink {
       );
 
       // Generate text with automatic tool detection
-      const result = await provider.generateText(
+      const result = await provider.generate(
         {
           prompt: options.prompt,
           temperature: options.temperature,
@@ -308,22 +341,22 @@ export class NeuroLink {
       });
 
       // Check if we actually got content
-      if (!result.text || result.text.trim() === "") {
+      if (!result.content || result.content.trim() === "") {
         mcpLogger.warn(
           `[${functionTag}] Empty response from provider, attempting fallback`,
           {
             provider: providerName,
-            hasText: !!result.text,
-            textLength: result.text?.length || 0,
+            hasText: !!result.content,
+            textLength: result.content?.length || 0,
           },
         );
 
         // Fall back to regular generation if MCP generation returns empty
-        return this.generateTextRegular(options);
+        return this.generateRegular(options);
       }
 
       return {
-        content: result.text,
+        content: result.content,
         provider: providerName,
         usage: result.usage,
         responseTime,
@@ -343,18 +376,18 @@ export class NeuroLink {
         },
       );
 
-      return this.generateTextRegular(options);
+      return this.generateRegular(options);
     }
   }
 
   /**
    * Regular text generation (existing logic)
    */
-  private async generateTextRegular(
+  private async generateRegular(
     options: TextGenerationOptions,
   ): Promise<TextGenerationResult> {
     const startTime = Date.now();
-    const functionTag = "NeuroLink.generateTextRegular";
+    const functionTag = "NeuroLink.generateRegular";
 
     // Define fallback provider priority order
     const providerPriority = [
@@ -396,7 +429,7 @@ export class NeuroLink {
           false, // Explicitly disable MCP when tools are disabled
         );
 
-        const result = await provider.generateText(
+        const result = await provider.generate(
           {
             prompt: options.prompt,
             model: options.model,
@@ -421,11 +454,11 @@ export class NeuroLink {
         }
 
         // Check if we actually got content
-        if (!result.text || result.text.trim() === "") {
+        if (!result.content || result.content.trim() === "") {
           logger.warn(`[${functionTag}] Empty response from provider`, {
             provider: providerName,
-            hasText: !!result.text,
-            textLength: result.text?.length || 0,
+            hasText: !!result.content,
+            textLength: result.content?.length || 0,
           });
 
           // Continue to next provider if available
@@ -441,9 +474,15 @@ export class NeuroLink {
         });
 
         return {
-          content: result.text,
+          content: result.content,
           provider: providerName,
-          usage: result.usage,
+          usage: result.usage
+            ? {
+                promptTokens: result.usage.inputTokens || 0,
+                completionTokens: result.usage.outputTokens || 0,
+                totalTokens: result.usage.totalTokens || 0,
+              }
+            : undefined,
           responseTime,
           // NEW: Preserve enhancement data from provider
           ...(result.analytics && { analytics: result.analytics }),
@@ -526,117 +565,149 @@ Note: Tool integration is currently in development. Please provide helpful respo
   }
 
   /**
-   * Generate streaming text using the best available AI provider with automatic fallback
+   * PRIMARY METHOD: Stream content using AI (recommended for new code)
+   * Future-ready for multi-modal capabilities with current text focus
    */
-  async generateTextStream(
-    options: StreamTextOptions,
-  ): Promise<AsyncIterable<{ content: string }>> {
-    const functionTag = "NeuroLink.generateTextStream";
+  async stream(options: StreamOptions): Promise<StreamResult> {
+    const startTime = Date.now();
+    const functionTag = "NeuroLink.stream";
 
-    // Define fallback provider priority order
-    const providerPriority = [
-      "openai",
-      "vertex",
-      "bedrock",
-      "anthropic",
-      "azure",
-      "google-ai",
-      "huggingface",
-      "ollama",
-    ];
-    const requestedProvider =
-      options.provider === "auto" ? undefined : options.provider;
-
-    // If specific provider requested, only use that provider (no fallback)
-    const tryProviders = requestedProvider
-      ? [requestedProvider] // Only use the requested provider, no fallback
-      : providerPriority;
-
-    logger.debug(`[${functionTag}] Starting stream generation`, {
-      requestedProvider: requestedProvider || "auto",
-      tryProviders,
-      allowFallback: !requestedProvider,
-      promptLength: options.prompt.length,
-    });
-
-    let lastError: Error | null = null;
-
-    for (const providerName of tryProviders) {
-      try {
-        logger.debug(`[${functionTag}] Attempting provider`, {
-          provider: providerName,
-        });
-
-        const provider = await AIProviderFactory.createProvider(
-          providerName,
-          options.model,
-          false, // Explicitly disable MCP when tools are disabled
-        );
-
-        const result = await provider.streamText({
-          prompt: options.prompt,
-          model: options.model,
-          temperature: options.temperature,
-          maxTokens: options.maxTokens,
-          systemPrompt: options.systemPrompt,
-          timeout: options.timeout,
-        });
-
-        if (!result) {
-          throw new Error("No stream response received from AI provider");
-        }
-
-        logger.debug(`[${functionTag}] Provider succeeded`, {
-          provider: providerName,
-        });
-
-        // Convert the AI SDK stream to our expected format
-        async function* convertStream() {
-          if (result && result.textStream) {
-            for await (const chunk of result.textStream) {
-              yield { content: chunk };
-            }
-          }
-        }
-
-        return convertStream();
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        lastError = error instanceof Error ? error : new Error(errorMessage);
-
-        // Special handling for timeout errors
-        if (error instanceof TimeoutError) {
-          logger.warn(`[${functionTag}] Provider timed out`, {
-            provider: providerName,
-            timeout: error.timeout,
-            operation: error.operation,
-          });
-        }
-
-        logger.debug(`[${functionTag}] Provider failed, trying next`, {
-          provider: providerName,
-          error: errorMessage,
-          isTimeout: error instanceof TimeoutError,
-          remainingProviders: tryProviders.slice(
-            tryProviders.indexOf(providerName) + 1,
-          ),
-        });
-
-        // Continue to next provider
-        continue;
-      }
+    // Validate input
+    if (
+      !options?.input?.text ||
+      typeof options.input.text !== "string" ||
+      options.input.text.trim() === ""
+    ) {
+      throw new Error(
+        "Stream options must include input.text as a non-empty string",
+      );
     }
 
-    // All providers failed
-    logger.debug(`[${functionTag}] All providers failed`, {
-      triedProviders: tryProviders,
-      lastError: lastError?.message,
+    // Initialize MCP if needed
+    await this.initializeMCP();
+
+    // Create execution context for tool operations
+    const context = this.contextManager.createContext({
+      sessionId: `neurolink-stream-${Date.now()}`,
+      userId: "neurolink-user",
+      aiProvider: options.provider || "auto",
     });
 
-    throw new Error(
-      `Failed to stream text with all providers. Last error: ${lastError?.message || "Unknown error"}`,
-    );
+    // Determine provider to use
+    const providerName =
+      options.provider === "auto" || !options.provider
+        ? await getBestProvider()
+        : options.provider;
+
+    try {
+      mcpLogger.debug(`[${functionTag}] Starting MCP-enabled streaming`, {
+        provider: providerName,
+        prompt: (options.input.text?.substring(0, 100) || "No text") + "...",
+        contextId: context.sessionId,
+      });
+
+      // Create provider using the same factory pattern as generate
+      const provider = await AIProviderFactory.createBestProvider(
+        providerName,
+        options.model,
+        true,
+      );
+
+      // Call the provider's stream method directly
+      const streamResult = await provider.stream(options);
+
+      // Extract the stream from the result
+      const stream = streamResult.stream;
+
+      const responseTime = Date.now() - startTime;
+
+      mcpLogger.debug(`[${functionTag}] MCP-enabled streaming completed`, {
+        responseTime,
+        provider: providerName,
+      });
+
+      // Convert to StreamResult format
+      return {
+        stream,
+        provider: providerName,
+        model: options.model,
+        metadata: {
+          streamId: `neurolink-${Date.now()}`,
+          startTime,
+        },
+      };
+    } catch (error) {
+      // Fall back to regular streaming if MCP fails
+      mcpLogger.warn(
+        `[${functionTag}] MCP streaming failed, falling back to regular`,
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+
+      // Create provider and use regular streaming
+      const provider = await AIProviderFactory.createBestProvider(
+        providerName,
+        options.model,
+        true,
+      );
+
+      // Call the provider's stream method directly
+      const streamResult = await provider.stream(options);
+
+      // Extract the stream from the result
+      const stream = streamResult.stream;
+
+      return {
+        stream,
+        provider: providerName,
+        model: options.model,
+        metadata: {
+          streamId: `neurolink-fallback-${Date.now()}`,
+          startTime,
+        },
+      };
+    }
+  }
+
+  /**
+   * BACKWARD COMPATIBILITY: Legacy streamText method
+   * Internally calls stream() and converts result format
+   */
+  async streamText(
+    options: TextGenerationOptions,
+  ): Promise<AsyncIterable<{ content: string }>> {
+    // Validate required parameters for backward compatibility
+    if (
+      !options.prompt ||
+      typeof options.prompt !== "string" ||
+      options.prompt.trim() === ""
+    ) {
+      throw new Error(
+        "StreamText options must include prompt as a non-empty string",
+      );
+    }
+
+    // Convert legacy options to StreamOptions
+    const streamOptions = {
+      input: { text: options.prompt },
+      provider: options.provider,
+      model: options.model,
+      temperature: options.temperature,
+      maxTokens: options.maxTokens,
+      systemPrompt: options.systemPrompt,
+      timeout: options.timeout,
+    };
+
+    try {
+      // Use new stream method for identical performance and behavior
+      const streamResult = await this.stream(streamOptions);
+
+      // Return just the stream for backward compatibility
+      return streamResult.stream;
+    } catch (error) {
+      throw new Error(`StreamText compatibility method failed: ${error}`);
+    }
   }
 
   /**
@@ -659,13 +730,13 @@ Note: Tool integration is currently in development. Please provide helpful respo
         null,
         false,
       ); // Disable MCP for simple testing
-      await provider.generateText({
+      await provider.generate({
         prompt: testPrompt,
         enableAnalytics: false,
         enableEvaluation: false,
       });
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -823,18 +894,7 @@ Note: Tool integration is currently in development. Please provide helpful respo
   }
 
   /**
-   * Alias for generateText() - CLI-SDK consistency
-   * @param options - Text generation options
-   * @returns Promise resolving to text generation result
-   */
-  async generate(
-    options: TextGenerationOptions,
-  ): Promise<TextGenerationResult> {
-    return this.generateText(options);
-  }
-
-  /**
-   * Short alias for generateText() - CLI-SDK consistency
+   * Short alias for generate() - CLI-SDK consistency
    * @param options - Text generation options
    * @returns Promise resolving to text generation result
    */

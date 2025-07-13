@@ -46,7 +46,7 @@ Transform NeuroLink from text-only to **universal multimodal AI orchestrator** s
 const neurolink = new NeuroLink();
 
 // Text generation (current)
-await neurolink.generateText("Explain quantum computing");
+await neurolink.generate({ input: { text: "Explain quantum computing" } });
 
 // Image analysis (new)
 await neurolink.analyzeImage(imageBuffer, "What's in this image?");

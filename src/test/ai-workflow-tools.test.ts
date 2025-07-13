@@ -190,8 +190,8 @@ vi.mock("../lib/core/factory.js", async () => {
     ...actual,
     AIProviderFactory: {
       createProvider: vi.fn().mockResolvedValue({
-        generateText: vi.fn().mockImplementation(async (options: any) => {
-          const prompt = options.prompt || "";
+        generate: vi.fn().mockImplementation(async (options: any) => {
+          const prompt = options.input?.text || options.prompt || "";
 
           // Extract parameters from the prompt for context-aware responses
           const extractedOptions: any = {};

@@ -103,7 +103,7 @@ async function isProviderAvailable(providerName: string): Promise<boolean> {
 
   try {
     const provider = await AIProviderFactory.createProvider(providerName);
-    await provider.generateText({ prompt: "test", maxTokens: 1 });
+    await provider.generate({ prompt: "test", maxTokens: 1 });
     return true;
   } catch (error) {
     return false;

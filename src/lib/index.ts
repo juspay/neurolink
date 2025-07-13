@@ -19,6 +19,15 @@ export type {
   SupportedModelName,
 } from "./core/types.js";
 
+// NEW: Generate function exports
+export type {
+  GenerateOptions,
+  GenerateResult,
+  EnhancedProvider,
+} from "./types/generate-types.js";
+export { CompatibilityConversionFactory } from "./factories/compatibility-factory.js";
+export { ProviderGenerateFactory } from "./factories/provider-generate-factory.js";
+
 // Model enums
 export {
   BedrockModels,
@@ -47,11 +56,6 @@ export {
 
 // Main NeuroLink wrapper class
 export { NeuroLink } from "./neurolink.js";
-export type {
-  TextGenerationOptions,
-  StreamTextOptions,
-  TextGenerationResult,
-} from "./neurolink.js";
 
 // Version
 export const VERSION = "1.0.0";
@@ -64,7 +68,7 @@ export const VERSION = "1.0.0";
  * import { createAIProvider } from '@juspay/neurolink';
  *
  * const provider = await createAIProvider('bedrock');
- * const result = await provider.streamText('Hello, AI!');
+ * const result = await provider.stream({ input: { text: 'Hello, AI!' } });
  * ```
  */
 export async function createAIProvider(

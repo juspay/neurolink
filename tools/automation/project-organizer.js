@@ -82,7 +82,6 @@ class ProjectOrganizer {
 
     this.scriptsToIgnore = [
       "verify-working-integration.js", // Keep in root
-      "debug-generatetext-detailed.js", // Keep in root
       "debug-permissions.js", // Keep in root
       "debug-tools-for-ai.js", // Keep in root
     ];

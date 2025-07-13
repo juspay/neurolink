@@ -109,9 +109,9 @@ describe("NeuroLink CLI Tests", () => {
     });
   });
 
-  describe("Text Generation Commands", () => {
+  describe("Content Generation Commands", () => {
     it("should handle basic text generation command structure", () => {
-      const result = execCLI(`node ${CLI_PATH} generate-text "Hello world"`);
+      const result = execCLI(`node ${CLI_PATH} generate "Hello world"`);
       const output = result.stdout + result.stderr;
 
       // Should attempt to generate text or show proper error
@@ -121,9 +121,7 @@ describe("NeuroLink CLI Tests", () => {
     });
 
     it("should handle JSON output format", () => {
-      const result = execCLI(
-        `node ${CLI_PATH} generate-text "Test" --format json`,
-      );
+      const result = execCLI(`node ${CLI_PATH} generate "Test" --format json`);
       const output = result.stdout + result.stderr;
 
       // Should attempt JSON format or show JSON error
@@ -139,7 +137,7 @@ describe("NeuroLink CLI Tests", () => {
 
     it("should handle provider specification", () => {
       const result = execCLI(
-        `node ${CLI_PATH} generate-text "Test" --provider openai`,
+        `node ${CLI_PATH} generate "Test" --provider openai`,
       );
       const output = result.stdout + result.stderr;
 
@@ -151,7 +149,7 @@ describe("NeuroLink CLI Tests", () => {
 
     it("should handle Google AI Studio provider specification", () => {
       const result = execCLI(
-        `node ${CLI_PATH} generate-text "Test" --provider google-ai`,
+        `node ${CLI_PATH} generate "Test" --provider google-ai`,
       );
       const output = result.stdout + result.stderr;
 
@@ -205,7 +203,7 @@ describe("NeuroLink CLI Tests", () => {
     });
 
     it("should handle missing required arguments", () => {
-      const result = execCLI(`node ${CLI_PATH} generate-text`);
+      const result = execCLI(`node ${CLI_PATH} generate`);
       const output = result.stdout + result.stderr;
 
       // Should show argument requirement error
@@ -227,7 +225,7 @@ describe("NeuroLink CLI Tests", () => {
 
       for (const flagFormat of testCases) {
         const result = execCLI(
-          `node ${CLI_PATH} generate-text "test" ${flagFormat}`,
+          `node ${CLI_PATH} generate "test" ${flagFormat}`,
         );
         const output = result.stdout + result.stderr;
 
@@ -238,7 +236,7 @@ describe("NeuroLink CLI Tests", () => {
 
     it("should handle quoted prompts with spaces", () => {
       const result = execCLI(
-        `node ${CLI_PATH} generate-text "This is a test prompt with spaces"`,
+        `node ${CLI_PATH} generate "This is a test prompt with spaces"`,
       );
       const output = result.stdout + result.stderr;
 
