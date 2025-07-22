@@ -1,3 +1,10 @@
+# [5.2.0](https://github.com/juspay/neurolink/compare/v5.1.0...v5.2.0) (2025-07-22)
+
+
+### Features
+
+* **core:** implement comprehensive factory pattern architecture with full MCP integration and provider unification ([b13963a](https://github.com/juspay/neurolink/commit/b13963aaf6f95233be8b1e9bdc69ce1b65604cdf))
+
 # [5.1.0](https://github.com/juspay/neurolink/compare/v5.0.0...v5.1.0) (2025-07-13)
 
 ### Features
