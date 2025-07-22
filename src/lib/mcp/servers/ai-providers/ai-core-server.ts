@@ -7,7 +7,7 @@
 import { z } from "zod";
 import { createMCPServer } from "../../factory.js";
 import type { NeuroLinkExecutionContext, ToolResult } from "../../factory.js";
-import { AIProviderFactory } from "../../../core/factory.js";
+import { ServiceRegistry } from "../../../core/service-registry.js";
 import {
   getBestProvider,
   getAvailableProviders,
@@ -114,6 +114,10 @@ aiCoreServer.registerTool({
       // Use existing AIProviderFactory with best provider selection
       const selectedProvider =
         params.provider || (await getBestProvider(params.provider));
+
+      // Get AIProviderFactory from ServiceRegistry to avoid circular dependency
+      const AIProviderFactory =
+        await ServiceRegistry.get<any>("AIProviderFactory");
       const provider =
         await AIProviderFactory.createBestProvider(selectedProvider);
 

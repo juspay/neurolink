@@ -13,9 +13,9 @@
     "moduleResolution": "NodeNext"
   },
   "exclude": [
-    "src/test/ai-analysis-tools.test.ts",
-    "src/test/ai-workflow-tools.test.ts",
-    "src/test/mcp-comprehensive.test.ts",
-    "src/test/mcp-unified.test.ts"
+    "src/test/ai-analysis-tools.ts",
+    "src/test/ai-workflow-tools.ts",
+    "src/test/mcp-comprehensive.ts",
+    "src/test/mcp-unified.ts"
   ]
 }

@@ -33,6 +33,7 @@ const result = await neurolink.generate({
 });
 
 console.log("⭐ Quality:", result.evaluation);
+// Shows: { relevanceScore: 9, accuracyScore: 8, completenessScore: 9, overallScore: 8.7 }
 ```
 
 ## 🌐 Web App Integration
@@ -57,10 +58,10 @@ app.post("/api/generate", async (req, res) => {
   });
 
   // Quality gate
-  if (result.evaluation.overall < 7) {
+  if (result.evaluation.overallScore < 7) {
     return res.status(400).json({
       error: "Quality threshold not met",
-      quality_score: result.evaluation.overall,
+      quality_score: result.evaluation.overallScore,
     });
   }
 
@@ -114,7 +115,7 @@ class BatchProcessor {
       });
 
       console.log(
-        `Processed ${item.name}: Quality ${result.evaluation.overall}/10`,
+        `Processed ${item.name}: Quality ${result.evaluation.overallScore}/10`,
       );
     }
   }
@@ -157,7 +158,8 @@ app.get("/api/dashboard", (req, res) => {
     totalRequests: last24h.length,
     totalCost: last24h.reduce((sum, r) => sum + (r.cost || 0), 0),
     avgQuality:
-      last24h.reduce((sum, r) => sum + r.quality.overall, 0) / last24h.length,
+      last24h.reduce((sum, r) => sum + r.quality.overallScore, 0) /
+      last24h.length,
   });
 });
 ```
@@ -203,7 +205,7 @@ const productResult = await neurolink.generate({
 });
 
 // Cost optimization by category
-if (product.category === "basic" && productResult.analytics.cost > 0.05) {
+if (product.category === "basic" && productResult.analytics?.cost > 0.05) {
   // Switch to cheaper model for basic products
 }
 ```
@@ -221,7 +223,7 @@ const medicalContent = await neurolink.generate({
 });
 
 // Strict medical accuracy requirements
-if (medicalContent.evaluation.accuracy < 9) {
+if (medicalContent.evaluation.accuracyScore < 9) {
   await medicalReview(medicalContent);
 }
 ```
@@ -240,7 +242,10 @@ const supportResponse = await neurolink.generate({
 });
 
 // Quality gates based on customer tier
-if (customer.tier === "enterprise" && supportResponse.evaluation.overall < 9) {
+if (
+  customer.tier === "enterprise" &&
+  supportResponse.evaluation.overallScore < 9
+) {
   await escalateToHuman(ticket);
 }
 ```

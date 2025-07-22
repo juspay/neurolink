@@ -1,30 +1,27 @@
 # [5.1.0](https://github.com/juspay/neurolink/compare/v5.0.0...v5.1.0) (2025-07-13)
 
-
 ### Features
 
-* **core:** complete unified multimodal AI platform architecture with generate/stream unification ([846e409](https://github.com/juspay/neurolink/commit/846e409a4a77024ddee9961c9b5049bc99f8335e))
+- **core:** complete unified multimodal AI platform architecture with generate/stream unification ([846e409](https://github.com/juspay/neurolink/commit/846e409a4a77024ddee9961c9b5049bc99f8335e))
 
 # [5.0.0](https://github.com/juspay/neurolink/compare/v4.2.0...v5.0.0) (2025-07-11)
 
-
-* refactor(cli)!: remove agent-generate command, unify CLI to single generate command ([9c034b7](https://github.com/juspay/neurolink/commit/9c034b7b5a8df3b861fccae0e617c5aa4c85a903))
-
+- refactor(cli)!: remove agent-generate command, unify CLI to single generate command ([9c034b7](https://github.com/juspay/neurolink/commit/9c034b7b5a8df3b861fccae0e617c5aa4c85a903))
 
 ### Bug Fixes
 
-* **scripts:** update docs:generate to use docs:validate instead of removed docs:sync ([3277bab](https://github.com/juspay/neurolink/commit/3277bab3eb1cec24a60fe28bf3897fce63d83d3a))
-
+- **scripts:** update docs:generate to use docs:validate instead of removed docs:sync ([3277bab](https://github.com/juspay/neurolink/commit/3277bab3eb1cec24a60fe28bf3897fce63d83d3a))
 
 ### BREAKING CHANGES
 
-* agent-generate command has been removed
+- agent-generate command has been removed
 
-The agent-generate command has been completely removed from the CLI. All 
-functionality is now available through the enhanced generate command with 
+The agent-generate command has been completely removed from the CLI. All
+functionality is now available through the enhanced generate command with
 tools enabled by default.
 
 ### Changes Made:
+
 - Delete src/cli/commands/agent-generate.ts command implementation
 - Remove agent-generate import and registration from src/cli/index.ts
 - Update docs/CLI-GUIDE.md to remove agent-generate documentation
@@ -32,12 +29,14 @@ tools enabled by default.
 - Remove agent-generate test cases from scripts/corrected-functionality-test.js
 
 ### Migration Guide:
+
 - Replace `neurolink agent-generate "prompt"` with `neurolink generate "prompt"`
 - Tools are enabled by default in generate command
 - Use `--disable-tools` flag if tool-calling is not desired
 - All previous agent-generate functionality available in generate command
 
 ### Technical Impact:
+
 - Simplified CLI interface with single text generation command
 - Reduced codebase complexity and maintenance overhead
 - Enhanced generate command provides all tool-calling capabilities

@@ -1,20 +1,13 @@
-/**
- * Anthropic AI Provider (Direct API)
- *
- * Direct integration with Anthropic's Claude models via their native API.
- * Supports Claude 3.5 Sonnet, Claude 3.5 Haiku, and Claude 3 Opus.
- */
-
+import { anthropic } from "@ai-sdk/anthropic";
+import type { ZodType, ZodTypeDef } from "zod";
+import { streamText, Output, type Schema, type LanguageModelV1 } from "ai";
 import type {
-  AIProvider,
+  AIProviderName,
   TextGenerationOptions,
   EnhancedGenerateResult,
 } from "../core/types.js";
-import type { ZodType, ZodTypeDef } from "zod";
-import type { Schema } from "ai";
-import type { GenerateResult } from "../types/generate-types.js";
 import type { StreamOptions, StreamResult } from "../types/stream-types.js";
-import { AIProviderName } from "../core/types.js";
+import { BaseProvider } from "../core/base-provider.js";
 import { logger } from "../utils/logger.js";
 import {
   createTimeoutController,
@@ -22,553 +15,144 @@ import {
   getDefaultTimeout,
 } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
-import { evaluateResponse } from "../core/evaluation.js";
-import { createAnalytics } from "../core/analytics.js";
-import { createProxyFetch } from "../proxy/proxy-fetch.js";
 
-// Anthropic-specific types
-interface AnthropicMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
-interface AnthropicResponse {
-  id: string;
-  type: "message";
-  role: "assistant";
-  content: Array<{
-    type: "text";
-    text: string;
-  }>;
-  model: string;
-  stop_reason: "end_turn" | "max_tokens" | "stop_sequence";
-  stop_sequence?: string;
-  usage: {
-    input_tokens: number;
-    output_tokens: number;
-  };
-}
-
-interface AnthropicStreamChunk {
-  type:
-    | "message_start"
-    | "content_block_start"
-    | "content_block_delta"
-    | "content_block_stop"
-    | "message_delta"
-    | "message_stop";
-  message?: Partial<AnthropicResponse>;
-  content_block?: {
-    type: "text";
-    text: string;
-  };
-  delta?: {
-    type: "text_delta";
-    text: string;
-  };
-  usage?: {
-    input_tokens: number;
-    output_tokens: number;
-  };
-}
-
-interface AnthropicRequestBody {
-  model: string;
-  max_tokens: number;
-  messages: AnthropicMessage[];
-  temperature?: number;
-  system?: string;
-  stream?: boolean;
-}
-
-// Declare process for TypeScript
-declare const process: {
-  env: {
-    ANTHROPIC_API_KEY?: string;
-    ANTHROPIC_BASE_URL?: string;
-    ANTHROPIC_MODEL?: string;
-  };
+// Configuration helpers
+const getAnthropicApiKey = (): string => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      `❌ Anthropic Provider Configuration Error\n\nMissing required environment variable: ANTHROPIC_API_KEY\n\n🔧 Step 1: Get Anthropic API Key\n1. Visit: https://console.anthropic.com/\n2. Sign in or create an account\n3. Go to API Keys section\n4. Create a new API key\n\n🔧 Step 2: Set Environment Variable\nAdd to your .env file:\nANTHROPIC_API_KEY=your_api_key_here\n\n🔧 Step 3: Restart Application\nRestart your application to load the new environment variables.`,
+    );
+  }
+  return apiKey;
 };
 
-export class AnthropicProvider implements AIProvider {
-  readonly name: AIProviderName = AIProviderName.ANTHROPIC;
-  private apiKey: string;
-  private baseURL: string;
-  private defaultModel: string;
+const getDefaultAnthropicModel = (): string => {
+  return process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
+};
 
-  constructor() {
-    this.apiKey = this.getApiKey();
-    this.baseURL =
-      process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
-    this.defaultModel =
-      process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
+/**
+ * Anthropic Provider v2 - BaseProvider Implementation
+ * Fixed syntax and enhanced with proper error handling
+ */
+export class AnthropicProvider extends BaseProvider {
+  private model: LanguageModelV1;
 
-    logger.debug(
-      `[AnthropicProvider] Initialized with model: ${this.defaultModel}`,
-    );
-  }
+  constructor(modelName?: string, sdk?: any) {
+    super(modelName, "anthropic" as AIProviderName, sdk);
 
-  private getApiKey(): string {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error("ANTHROPIC_API_KEY environment variable is required");
-    }
-    return apiKey;
-  }
+    // Initialize Anthropic model with API key validation
+    const apiKey = getAnthropicApiKey();
+    this.model = anthropic(this.modelName || getDefaultAnthropicModel());
 
-  private getModel(): string {
-    return this.defaultModel;
-  }
-
-  private async makeRequest(
-    endpoint: string,
-    body: any,
-    stream: boolean = false,
-    signal?: AbortSignal,
-  ): Promise<Response> {
-    const url = `${this.baseURL}/v1/${endpoint}`;
-
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "x-api-key": this.apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true", // Required for browser usage
-    };
-
-    logger.debug(
-      `[AnthropicProvider.makeRequest] ${stream ? "Streaming" : "Non-streaming"} request to ${url}`,
-    );
-    logger.debug(
-      `[AnthropicProvider.makeRequest] Model: ${body.model}, Max tokens: ${body.max_tokens}`,
-    );
-
-    const proxyFetch = createProxyFetch();
-    const response = await proxyFetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-      signal, // Add abort signal for timeout support
+    logger.debug("Anthropic Provider v2 initialized", {
+      modelName: this.modelName,
+      provider: this.providerName,
     });
+  }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error(
-        `[AnthropicProvider.makeRequest] API error ${response.status}: ${errorText}`,
-      );
-      throw new Error(`Anthropic API error ${response.status}: ${errorText}`);
-    }
+  protected getProviderName(): AIProviderName {
+    return "anthropic" as AIProviderName;
+  }
 
-    return response;
+  protected getDefaultModel(): string {
+    return getDefaultAnthropicModel();
   }
 
   /**
-   * PRIMARY METHOD: Stream content using AI (recommended for new code)
-   * Future-ready for multi-modal capabilities with current text focus
+   * Returns the Vercel AI SDK model instance for Anthropic
    */
-  async stream(
-    optionsOrPrompt: StreamOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<StreamResult> {
-    const functionTag = "AnthropicProvider.stream";
-    const provider = "anthropic";
-    const startTime = Date.now();
+  protected getAISDKModel(): LanguageModelV1 {
+    return this.model;
+  }
 
-    logger.debug(`[${functionTag}] Starting content streaming`);
+  protected handleProviderError(error: any): Error {
+    if (error instanceof TimeoutError) {
+      return new Error(`Anthropic request timed out: ${error.message}`);
+    }
 
-    // Parse parameters - support both string and options object
-    const options =
-      typeof optionsOrPrompt === "string"
-        ? { input: { text: optionsOrPrompt } }
-        : optionsOrPrompt;
-
-    // Validate input
     if (
-      !options?.input?.text ||
-      typeof options.input.text !== "string" ||
-      options.input.text.trim() === ""
+      error?.message?.includes("API_KEY_INVALID") ||
+      error?.message?.includes("Invalid API key")
     ) {
-      throw new Error(
-        "Stream options must include input.text as a non-empty string",
+      return new Error(
+        "Invalid Anthropic API key. Please check your ANTHROPIC_API_KEY environment variable.",
       );
     }
 
-    // Extract parameters
-    const {
-      prompt = options.input.text,
-      temperature = 0.7,
-      maxTokens = DEFAULT_MAX_TOKENS,
-      systemPrompt = "You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.",
-      timeout = getDefaultTimeout(provider, "stream"),
-    } = options as any;
+    if (error?.message?.includes("rate limit")) {
+      return new Error(
+        "Anthropic rate limit exceeded. Please try again later.",
+      );
+    }
 
-    logger.debug(
-      `[${functionTag}] Streaming prompt: "${prompt.substring(0, 100)}...", Timeout: ${timeout}`,
-    );
+    return new Error(`Anthropic error: ${error?.message || "Unknown error"}`);
+  }
 
-    // Create timeout controller if timeout is specified
+  // executeGenerate removed - BaseProvider handles all generation with tools
+
+  protected async executeStream(
+    options: StreamOptions,
+    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+  ): Promise<StreamResult> {
+    // Convert StreamOptions to TextGenerationOptions for validation
+    const validationOptions: TextGenerationOptions = {
+      prompt: options.input.text,
+      systemPrompt: options.systemPrompt,
+      temperature: options.temperature,
+      maxTokens: options.maxTokens,
+    };
+    this.validateOptions(validationOptions);
+
+    const timeout = this.getTimeout(options);
     const timeoutController = createTimeoutController(
       timeout,
-      provider,
+      this.providerName,
       "stream",
     );
 
     try {
-      const body = {
-        model: this.getModel(),
-        max_tokens: maxTokens,
-        messages: [
-          ...(systemPrompt
-            ? [{ role: "assistant", content: systemPrompt }]
-            : []),
-          { role: "user", content: prompt },
-        ],
-        temperature,
-        stream: true,
-      };
-
-      const response = await this.makeRequest(
-        "messages",
-        body,
-        true,
-        timeoutController?.controller.signal,
-      );
-
-      const streamIterable = this.createAsyncIterable(
-        response.body!,
-        timeoutController?.controller.signal,
-      );
-
-      // Clean up timeout controller
-      timeoutController?.cleanup();
-
-      logger.debug(`[${functionTag}] Stream initialized successfully`);
-
-      // Convert to StreamResult format
-      return {
-        stream: (async function* () {
-          for await (const chunk of streamIterable) {
-            yield { content: chunk };
-          }
-        })(),
-        provider: "anthropic",
-        model: this.getModel(),
-        metadata: {
-          streamId: `anthropic-${Date.now()}`,
-          startTime,
-        },
-      };
-    } catch (error: any) {
-      // Always cleanup timeout on error
-      timeoutController?.cleanup();
-
-      if (error.name === "AbortError" || error.message.includes("timeout")) {
-        const timeoutError = new TimeoutError(
-          `${provider} stream operation timed out after ${timeout}`,
-          timeoutController?.timeoutMs || 0,
-          provider,
-          "stream",
-        );
-        logger.error(`[${functionTag}] Timeout error`, {
-          provider,
-          timeout: timeoutController?.timeoutMs,
-          message: timeoutError.message,
-        });
-        throw timeoutError;
-      } else {
-        logger.error(`[${functionTag}] Error:`, error);
-      }
-      throw error;
-    }
-  }
-
-  async generate(
-    optionsOrPrompt: TextGenerationOptions | string,
-    schema?: any,
-  ): Promise<any> {
-    const functionTag = "AnthropicProvider.generate";
-    const provider = "anthropic";
-    const startTime = Date.now();
-
-    logger.debug(`[${functionTag}] Starting text generation`);
-
-    // Parse parameters with backward compatibility
-    const options =
-      typeof optionsOrPrompt === "string"
-        ? { prompt: optionsOrPrompt }
-        : optionsOrPrompt;
-
-    const {
-      prompt,
-      temperature = 0.7,
-      maxTokens = DEFAULT_MAX_TOKENS,
-      systemPrompt = "You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.",
-      timeout = getDefaultTimeout(provider, "generate"),
-      enableAnalytics = false,
-      enableEvaluation = false,
-      context,
-    } = options;
-
-    logger.debug(
-      `[${functionTag}] Prompt: "${prompt.substring(0, 100)}...", Temperature: ${temperature}, Max tokens: ${maxTokens}, Timeout: ${timeout}`,
-    );
-
-    const requestBody: AnthropicRequestBody = {
-      model: this.getModel(),
-      max_tokens: maxTokens,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature,
-      system: systemPrompt,
-    };
-
-    // Create timeout controller if timeout is specified
-    const timeoutController = createTimeoutController(
-      timeout,
-      provider,
-      "generate",
-    );
-
-    try {
-      const response = await this.makeRequest(
-        "messages",
-        requestBody,
-        false,
-        timeoutController?.controller.signal,
-      );
-      const data: AnthropicResponse = await response.json();
-
-      // Clean up timeout if successful
-      timeoutController?.cleanup();
-
-      logger.debug(
-        `[${functionTag}] Success. Generated ${data.usage.output_tokens} tokens`,
-      );
-
-      const content = data.content.map((block) => block.text).join("");
-
-      const result: any = {
-        content,
-        provider: this.name,
-        model: data.model,
-        usage: {
-          promptTokens: data.usage.input_tokens,
-          completionTokens: data.usage.output_tokens,
-          totalTokens: data.usage.input_tokens + data.usage.output_tokens,
-        },
-        finishReason: data.stop_reason,
-      };
-
-      // Add analytics if enabled
-      if (options.enableAnalytics) {
-        result.analytics = createAnalytics(
-          provider,
-          this.defaultModel,
-          result,
-          Date.now() - startTime,
-          options.context,
-        );
-      }
-
-      // Add evaluation if enabled
-      if (options.enableEvaluation) {
-        result.evaluation = await evaluateResponse(
-          prompt,
-          result.content,
-          options.context,
-        );
-      }
-
-      return result;
-    } catch (error) {
-      // Always cleanup timeout
-      timeoutController?.cleanup();
-
-      // Log timeout errors specifically
-      if (error instanceof TimeoutError) {
-        logger.error(`[${functionTag}] Timeout error`, {
-          provider,
-          timeout: error.timeout,
-          message: error.message,
-        });
-      } else if ((error as any)?.name === "AbortError") {
-        // Convert AbortError to TimeoutError
-        const timeoutError = new TimeoutError(
-          `${provider} generate operation timed out after ${timeout}`,
-          timeoutController?.timeoutMs || 0,
-          provider,
-          "generate",
-        );
-        logger.error(`[${functionTag}] Timeout error`, {
-          provider,
-          timeout: timeoutController?.timeoutMs,
-          message: timeoutError.message,
-        });
-        throw timeoutError;
-      } else {
-        logger.error(`[${functionTag}] Error:`, error);
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * LEGACY METHOD: Use stream() instead for new code
-   * @deprecated Use stream() method instead
-   */
-
-  private async *createAsyncIterable(
-    body: ReadableStream<Uint8Array>,
-    signal?: AbortSignal,
-  ): AsyncGenerator<string, void, unknown> {
-    const reader = body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    try {
-      while (true) {
-        // Check if aborted
-        if (signal?.aborted) {
-          throw new Error("AbortError");
-        }
-
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.trim() === "") {
-            continue;
-          }
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data.trim() === "[DONE]") {
-              continue;
-            }
-
-            try {
-              const chunk: AnthropicStreamChunk = JSON.parse(data);
-
-              // Extract text content from different chunk types
-              if (chunk.type === "content_block_delta" && chunk.delta?.text) {
-                yield chunk.delta.text;
-              }
-            } catch (parseError) {
-              logger.warn(
-                "[AnthropicProvider.createAsyncIterable] Failed to parse chunk:",
-                parseError,
-              );
-              continue;
-            }
-          }
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
-  }
-
-  async testConnection(): Promise<{
-    success: boolean;
-    error?: string;
-    responseTime?: number;
-  }> {
-    logger.debug(
-      "[AnthropicProvider.testConnection] Testing connection to Anthropic API",
-    );
-
-    const startTime = Date.now();
-
-    try {
-      await this.generate({
-        prompt: "Hello",
-        maxTokens: 5,
+      const result = await streamText({
+        model: this.model,
+        prompt: options.input.text,
+        system: options.systemPrompt || undefined,
+        temperature: options.temperature,
+        maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        abortSignal: timeoutController?.controller.signal,
       });
 
-      const responseTime = Date.now() - startTime;
-      logger.debug(
-        `[AnthropicProvider.testConnection] Connection test successful (${responseTime}ms)`,
-      );
+      timeoutController?.cleanup();
+
+      // Transform string stream to content object stream
+      const transformedStream = async function* () {
+        for await (const chunk of result.textStream) {
+          yield { content: chunk };
+        }
+      };
 
       return {
-        success: true,
-        responseTime,
+        stream: transformedStream(),
+        provider: this.providerName,
+        model: this.modelName,
       };
-    } catch (error) {
-      const responseTime = Date.now() - startTime;
-      logger.error(
-        `[AnthropicProvider.testConnection] Connection test failed (${responseTime}ms):`,
-        error,
-      );
-
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-        responseTime,
-      };
+    } catch (error: unknown) {
+      timeoutController?.cleanup();
+      throw this.handleProviderError(error);
     }
   }
 
-  isConfigured(): boolean {
+  async isAvailable(): Promise<boolean> {
     try {
-      this.getApiKey();
+      getAnthropicApiKey();
       return true;
     } catch {
       return false;
     }
   }
 
-  getRequiredConfig(): string[] {
-    return ["ANTHROPIC_API_KEY"];
-  }
-
-  getOptionalConfig(): string[] {
-    return ["ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL"];
-  }
-
-  getModels(): string[] {
-    return [
-      "claude-3-5-sonnet-20241022",
-      "claude-3-5-haiku-20241022",
-      "claude-3-opus-20240229",
-      "claude-3-sonnet-20240229",
-      "claude-3-haiku-20240307",
-    ];
-  }
-
-  supportsStreaming(): boolean {
-    return true;
-  }
-
-  supportsSchema(): boolean {
-    return false; // Anthropic doesn't have native JSON schema support like OpenAI
-  }
-
-  getCapabilities(): string[] {
-    return [
-      "text-generation",
-      "streaming",
-      "conversation",
-      "system-prompts",
-      "long-context", // Claude models support up to 200k tokens
-    ];
-  }
-
-  /**
-   * Short alias for generate() - CLI-SDK consistency
-   */
-  async gen(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<EnhancedGenerateResult | null> {
-    return this.generate(optionsOrPrompt, analysisSchema);
+  getModel(): LanguageModelV1 {
+    return this.model;
   }
 }
+
+export default AnthropicProvider;

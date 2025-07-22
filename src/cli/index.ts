@@ -26,7 +26,6 @@ import { addMCPCommands } from "./commands/mcp.js";
 import { addOllamaCommands } from "./commands/ollama.js";
 import { CLICommandFactory } from "./factories/command-factory.js";
 
-import { AgentEnhancedProvider } from "../lib/providers/agent-enhanced-provider.js";
 import { logger } from "../lib/utils/logger.js";
 
 /**
@@ -261,6 +260,25 @@ function handleError(error: Error, context: string): void {
   process.exit(1);
 }
 
+// Initialize MCP system for CLI with manual config enabled
+async function initializeCLI() {
+  // Import and configure for CLI mode
+  const { ProviderRegistry } = await import(
+    "../lib/factories/provider-registry.js"
+  );
+  const { initializeNeuroLinkMCP } = await import("../lib/mcp/initialize.js");
+
+  // Enable manual MCP only for CLI
+  ProviderRegistry.setOptions({
+    enableManualMCP: true,
+  });
+
+  // Initialize MCP system
+  await initializeNeuroLinkMCP();
+
+  logger.debug("CLI initialized with manual MCP support enabled");
+}
+
 // Initialize SDK
 const sdk = new NeuroLink();
 
@@ -390,6 +408,7 @@ const cli = yargs(args)
             "openai",
             "bedrock",
             "vertex",
+            "google-vertex",
             "anthropic",
             "azure",
             "google-ai",
@@ -554,7 +573,10 @@ const cli = yargs(args)
       // Command is now the primary generate method
 
       let originalConsole: any = {};
-      if (argv.format === "json" && !argv.quiet) {
+      if (
+        (argv.format === "json" || argv.outputFormat === "json") &&
+        !argv.quiet
+      ) {
         // Suppress only if not quiet, as quiet implies no spinners anyway
         originalConsole = { ...console };
         (Object.keys(originalConsole) as Array<keyof Console>).forEach(
@@ -567,7 +589,7 @@ const cli = yargs(args)
       }
 
       const spinner =
-        argv.format === "json" || argv.quiet
+        argv.outputFormat === "json" || argv.format === "json" || argv.quiet
           ? null
           : ora("🤖 Generating text...").start();
 
@@ -584,9 +606,6 @@ const cli = yargs(args)
           }, cliTimeout);
         });
 
-        // Use AgentEnhancedProvider when tools are enabled, otherwise use standard SDK
-        let generatePromise;
-
         // Parse context if provided
         let contextObj: Record<string, any> | undefined;
         if (argv.context) {
@@ -597,62 +616,27 @@ const cli = yargs(args)
           }
         }
 
-        if (argv.disableTools === true) {
-          // Tools disabled - use standard SDK
-          generatePromise = sdk.generate({
-            input: { text: argv.prompt as string },
-            provider:
-              argv.provider === "auto"
-                ? undefined
-                : (argv.provider as AIProviderName | undefined),
-            model: argv.model,
-            temperature: argv.temperature,
-            maxTokens: argv.maxTokens,
-            systemPrompt: argv.system,
-            timeout: argv.timeout,
-            // NEW: Analytics and evaluation support
-            enableAnalytics: argv.enableAnalytics as boolean,
-            enableEvaluation: argv.enableEvaluation as boolean,
-            context: contextObj,
-            // NEW: Lighthouse-compatible domain-aware evaluation
-            evaluationDomain: argv.evaluationDomain,
-            toolUsageContext: argv.toolUsageContext,
-          });
-        } else {
-          // Tools enabled - use AgentEnhancedProvider for tool calling capabilities
-          // Map provider to supported AgentEnhancedProvider types
-          const supportedProvider = (() => {
-            switch (argv.provider) {
-              case "openai":
-              case "anthropic":
-              case "google-ai":
-                return argv.provider;
-              case "auto":
-              default:
-                return "google-ai"; // Default to google-ai for best tool support
-            }
-          })();
-
-          const agentProvider = new AgentEnhancedProvider({
-            provider: supportedProvider,
-            model: argv.model, // Use specified model or default
-            toolCategory: "all", // Enable all tool categories
-          });
-
-          generatePromise = agentProvider.generate({
-            prompt: argv.prompt as string,
-            temperature: argv.temperature,
-            maxTokens: argv.maxTokens, // Respect user's token limit - no artificial caps
-            systemPrompt: argv.system,
-            // NEW: Analytics and evaluation support
-            enableAnalytics: argv.enableAnalytics as boolean,
-            enableEvaluation: argv.enableEvaluation as boolean,
-            context: contextObj,
-            // NEW: Lighthouse-compatible domain-aware evaluation
-            evaluationDomain: argv.evaluationDomain,
-            toolUsageContext: argv.toolUsageContext,
-          });
-        }
+        // Use standard SDK for all generation - tools are now built into BaseProvider
+        const generatePromise = sdk.generate({
+          input: { text: argv.prompt as string },
+          provider:
+            argv.provider === "auto"
+              ? undefined
+              : (argv.provider as AIProviderName | undefined),
+          model: argv.model,
+          temperature: argv.temperature,
+          maxTokens: argv.maxTokens,
+          systemPrompt: argv.system,
+          timeout: argv.timeout,
+          disableTools: argv.disableTools === true, // Tools are enabled by default
+          // NEW: Analytics and evaluation support
+          enableAnalytics: argv.enableAnalytics as boolean,
+          enableEvaluation: argv.enableEvaluation as boolean,
+          context: contextObj,
+          // NEW: Lighthouse-compatible domain-aware evaluation
+          evaluationDomain: argv.evaluationDomain,
+          toolUsageContext: argv.toolUsageContext,
+        });
 
         // Wrap generation with master timeout to prevent infinite hangs
         const result = await Promise.race([generatePromise, timeoutPromise]);
@@ -664,7 +648,7 @@ const cli = yargs(args)
           spinner.succeed(chalk.green("✅ Text generated successfully!"));
         }
 
-        // Handle both AgentEnhancedProvider (AI SDK) and standard NeuroLink SDK responses
+        // Handle NeuroLink SDK responses
         interface AIResponse {
           text?: string;
           content?: string;
@@ -689,7 +673,9 @@ const cli = yargs(args)
           totalTokens: 0,
         };
 
-        if (argv.format === "json") {
+        if (argv.format === "json" || argv.outputFormat === "json") {
+          // CLI debug removed - analytics and evaluation now working correctly
+
           const jsonOutput: any = {
             content: responseText,
             provider: typedResult?.provider || argv.provider,
@@ -833,6 +819,7 @@ const cli = yargs(args)
             "openai",
             "bedrock",
             "vertex",
+            "google-vertex",
             "anthropic",
             "azure",
             "google-ai",
@@ -847,6 +834,10 @@ const cli = yargs(args)
           type: "number",
           default: 0.7,
           description: "Creativity level",
+        })
+        .option("max-tokens", {
+          type: "number",
+          description: "Maximum number of tokens to generate",
         })
         .option("timeout", {
           type: "string",
@@ -952,86 +943,34 @@ const cli = yargs(args)
           }
         }
 
-        let stream;
+        // Use standard SDK streaming - tools are handled automatically
+        const sdk = new NeuroLink();
+        const stream = await sdk.stream({
+          input: { text: argv.prompt as string },
+          provider:
+            argv.provider === "auto"
+              ? undefined
+              : (argv.provider as AIProviderName),
+          model: argv.model,
+          temperature: argv.temperature,
+          timeout: argv.timeout,
+          disableTools: argv.disableTools === true, // Tools are enabled by default
+          // NEW: Analytics and evaluation support
+          enableAnalytics: argv.enableAnalytics as boolean,
+          enableEvaluation: argv.enableEvaluation as boolean,
+          context: contextObj,
+        });
 
-        if (argv.disableTools === true) {
-          // Tools disabled - use standard SDK
-          stream = await sdk.stream({
-            input: { text: argv.prompt as string },
-            provider:
-              argv.provider === "auto"
-                ? undefined
-                : (argv.provider as AIProviderName),
-            model: argv.model,
-            temperature: argv.temperature,
-            timeout: argv.timeout,
-            // NEW: Analytics and evaluation support
-            enableAnalytics: argv.enableAnalytics as boolean,
-            enableEvaluation: argv.enableEvaluation as boolean,
-            context: contextObj,
-          });
-        } else {
-          // Tools enabled - use AgentEnhancedProvider for streaming tool calls
-          // Map provider to supported AgentEnhancedProvider types
-          const supportedProvider = (() => {
-            switch (argv.provider) {
-              case "openai":
-              case "anthropic":
-              case "google-ai":
-                return argv.provider;
-              case "auto":
-              default:
-                return "google-ai"; // Default to google-ai for best tool support
-            }
-          })();
-
-          const agentProvider = new AgentEnhancedProvider({
-            provider: supportedProvider,
-            model: argv.model, // Use specified model or default
-            toolCategory: "all", // Enable all tool categories
-          });
-
-          // Note: AgentEnhancedProvider doesn't support streaming with tools yet
-          // Fall back to generate for now
-          const result = await agentProvider.generate({
-            prompt: argv.prompt as string,
-            temperature: argv.temperature,
-            // NEW: Analytics and evaluation support
-            enableAnalytics: argv.enableAnalytics as boolean,
-            enableEvaluation: argv.enableEvaluation as boolean,
-            context: contextObj,
-          });
-          // Simulate streaming by outputting the result
-          const text = result?.content || "";
-          const CHUNK_SIZE = 10;
-          const DELAY_MS = 50;
-          for (let i = 0; i < text.length; i += CHUNK_SIZE) {
-            process.stdout.write(text.slice(i, i + CHUNK_SIZE));
-            await new Promise((resolve) => setTimeout(resolve, DELAY_MS)); // Small delay
-          }
-
-          if (!argv.quiet) {
-            process.stdout.write("\n");
-          }
-
-          // Show analytics if enabled
-          // Show analytics and evaluation if enabled
-          displayAnalyticsAndEvaluation(result, argv);
-
-          return; // Exit early for agent mode
-        }
-
+        // Process the stream
         for await (const chunk of stream.stream) {
           process.stdout.write(chunk.content);
-          // In debug mode, interleaved logging would appear here
-          // (SDK logs are controlled by NEUROLINK_DEBUG set in middleware)
         }
 
         if (!argv.quiet) {
           process.stdout.write("\n");
-        } // Ensure newline after stream
+        }
 
-        // Exit successfully
+        // Clean exit for tools-disabled streaming
         process.exit(0);
       } catch (error) {
         handleError(error as Error, "Text streaming");
@@ -1066,6 +1005,7 @@ const cli = yargs(args)
             "openai",
             "bedrock",
             "vertex",
+            "google-vertex",
             "anthropic",
             "azure",
             "google-ai",
@@ -1238,6 +1178,7 @@ const cli = yargs(args)
               "openai",
               "bedrock",
               "vertex",
+              "google-vertex",
               "anthropic",
               "azure",
               "google-ai",
@@ -1451,20 +1392,27 @@ const cli = yargs(args)
     "status",
     "Check AI provider connectivity and performance (alias for provider status)",
     (yargsConfig) =>
-      yargsConfig.example("$0 status", "Quick provider status check"),
+      yargsConfig
+        .usage("Usage: $0 status [options]")
+        .option("verbose", {
+          type: "boolean",
+          alias: "v",
+          description: "Show detailed information",
+        })
+        .option("quiet", {
+          type: "boolean",
+          alias: "q",
+          description: "Suppress non-essential output",
+        })
+        .example("$0 status", "Quick provider status check")
+        .example("$0 status --verbose", "Show detailed status information"),
     async (argv) => {
-      // Simply redirect to provider status
-      process.argv = [
-        process.argv[0],
-        process.argv[1],
-        "provider",
-        "status",
-        ...process.argv.slice(3),
-      ];
-      const { hideBin } = await import("yargs/helpers");
-      const redirectedCli = yargs(hideBin(process.argv));
-      // Re-run with provider status
-      await cli.parse("provider status");
+      // Direct implementation instead of redirect to avoid recursion
+      const { CLICommandFactory } = await import(
+        "./factories/command-factory.js"
+      );
+      const commandFactory = new CLICommandFactory();
+      await commandFactory.executeProviderStatus(argv);
     },
   )
 
@@ -1557,7 +1505,7 @@ const cli = yargs(args)
         const { getBestProvider } = await import(
           "../lib/utils/providerUtils-fixed.js"
         );
-        const bestProvider = getBestProvider();
+        const bestProvider = await getBestProvider();
 
         if (argv.format === "json") {
           process.stdout.write(
@@ -1604,6 +1552,10 @@ addOllamaCommands(cli);
 // Execute CLI
 (async () => {
   try {
+    // Initialize CLI with manual MCP support
+    await initializeCLI();
+
+    // Parse and execute commands
     await cli.parse();
   } catch (error) {
     // Global error handler - should not reach here due to fail() handler

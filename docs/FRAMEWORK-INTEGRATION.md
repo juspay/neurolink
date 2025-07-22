@@ -15,8 +15,8 @@ export const POST: RequestHandler = async ({ request }) => {
     const { message } = await request.json();
 
     const provider = createBestAIProvider();
-    const result = await provider.stream({ input: { text:
-      prompt: message,
+    const result = await provider.stream({
+      input: { text: message },
       temperature: 0.7,
       maxTokens: 1000,
     });
@@ -157,8 +157,8 @@ export const POST: RequestHandler = async ({ request }) => {
       optimizeFor: optimizeFor || "quality", // 'cost', 'speed', or 'quality'
     });
 
-    const result = await provider.stream({ input: { text:
-      prompt: message,
+    const result = await provider.stream({
+      input: { text: message },
       temperature: 0.7,
       maxTokens: 1000,
     });
@@ -342,7 +342,9 @@ export async function PUT(request: NextRequest) {
     const { prompt } = await request.json();
 
     const provider = createBestAIProvider();
-    const result = await provider.stream({ input: { text: prompt });
+    const result = await provider.stream({
+      input: { text: prompt },
+    });
 
     return new Response(result.toReadableStream(), {
       headers: {
@@ -578,7 +580,9 @@ app.post("/api/stream", async (req, res) => {
     const { prompt } = req.body;
 
     const provider = createBestAIProvider();
-    const result = await provider.stream({ input: { text: prompt });
+    const result = await provider.stream({
+      input: { text: prompt },
+    });
 
     res.setHeader("Content-Type", "text/plain");
     res.setHeader("Cache-Control", "no-cache");

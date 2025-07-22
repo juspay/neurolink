@@ -17,6 +17,7 @@ import {
   MCPToolRegistry,
   type ToolInfo,
   type ToolExecutionResult,
+  defaultToolRegistry,
 } from "./tool-registry.js";
 import {
   TransportManager,
@@ -49,8 +50,24 @@ export class UnifiedMCPRegistry extends MCPToolRegistry {
   async initialize(options: DiscoveryOptions = {}): Promise<void> {
     unifiedRegistryLogger.info("Initializing unified MCP registry...");
 
-    // Load manual configuration first
-    await this.loadManualConfig();
+    // Import ProviderRegistry to check options
+    const { ProviderRegistry } = await import(
+      "../factories/provider-registry.js"
+    );
+    const registryOptions = ProviderRegistry.getOptions();
+
+    // Only load manual config if explicitly enabled (CLI mode)
+    if (registryOptions.enableManualMCP) {
+      unifiedRegistryLogger.info(
+        "Manual MCP config enabled - loading .mcp-config.json",
+      );
+      await this.loadManualConfig();
+      await this.connectManualServers();
+    } else {
+      unifiedRegistryLogger.debug(
+        "Manual MCP config disabled - skipping .mcp-config.json",
+      );
+    }
 
     if (this.autoDiscoveryEnabled) {
       const result = await autoRegisterMCPServers(options);
@@ -138,6 +155,36 @@ export class UnifiedMCPRegistry extends MCPToolRegistry {
   }
 
   /**
+   * Connect to manually configured servers
+   */
+  private async connectManualServers(): Promise<void> {
+    for (const [serverId, serverConfig] of this.manualServers.entries()) {
+      try {
+        unifiedRegistryLogger.info(`Connecting to manual server: ${serverId}`);
+
+        // Use addExternalServer method which properly establishes connections
+        await this.addExternalServer(serverId, {
+          type: "stdio" as const,
+          command: (serverConfig as any).command || "npx",
+          args: (serverConfig as any).args || [],
+          env: (serverConfig as any).env,
+        });
+
+        unifiedRegistryLogger.info(
+          `Successfully connected manual server: ${serverId}`,
+        );
+      } catch (error) {
+        unifiedRegistryLogger.error(
+          `Failed to connect manual server ${serverId}:`,
+          error instanceof Error ? error.message : String(error),
+        );
+        // Remove from available servers if connection fails
+        this.availableServers.delete(serverId);
+      }
+    }
+  }
+
+  /**
    * Enable or disable auto-discovery
    */
   setAutoDiscovery(enabled: boolean): void {
@@ -192,8 +239,8 @@ export class UnifiedMCPRegistry extends MCPToolRegistry {
     const allTools: ToolInfo[] = [];
 
     try {
-      // FIXED: Get built-in tools from base registry
-      const builtInTools = await super.listTools();
+      // FIXED: Get built-in tools from defaultToolRegistry where they are actually registered
+      const builtInTools = await defaultToolRegistry.listTools();
       allTools.push(
         ...builtInTools.map((tool) => ({
           ...tool,
@@ -205,7 +252,7 @@ export class UnifiedMCPRegistry extends MCPToolRegistry {
       );
 
       unifiedRegistryLogger.debug(
-        `Found ${builtInTools.length} built-in tools`,
+        `Found ${builtInTools.length} built-in tools from defaultToolRegistry`,
       );
     } catch (error) {
       unifiedRegistryLogger.warn("Failed to get built-in tools:", error);
@@ -270,11 +317,15 @@ export class UnifiedMCPRegistry extends MCPToolRegistry {
   ): Promise<T> {
     unifiedRegistryLogger.info(`Executing tool: ${toolName}`);
 
-    // STEP 1: Try built-in tools first
+    // STEP 1: Try built-in tools first from defaultToolRegistry
     try {
-      const result = await super.executeTool<T>(toolName, args, context);
+      const result = await defaultToolRegistry.executeTool<T>(
+        toolName,
+        args,
+        context,
+      );
       unifiedRegistryLogger.info(
-        `Tool ${toolName} executed successfully via built-in registry`,
+        `Tool ${toolName} executed successfully via defaultToolRegistry`,
       );
       return result;
     } catch (builtInError: any) {

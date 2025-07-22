@@ -16,6 +16,7 @@ interface GenerateCommandArgs {
   enableAnalytics?: boolean;
   enableEvaluation?: boolean;
   outputFormat?: "text" | "structured" | "json";
+  format?: "text" | "structured" | "json"; // Alias for outputFormat
   debug?: boolean;
 }
 
@@ -92,6 +93,7 @@ export class CLICommandFactory {
             type: "string",
             choices: ["text", "structured", "json"],
             default: "text",
+            alias: "format",
           })
           .option("debug", {
             describe: "Enable debug output",
@@ -107,6 +109,63 @@ export class CLICommandFactory {
   }
 
   /**
+   * Execute provider status command
+   */
+  async executeProviderStatus(argv: any) {
+    if (argv.verbose && !argv.quiet) {
+      console.log(
+        chalk.yellow("ℹ️ Verbose mode enabled. Displaying detailed status.\n"),
+      );
+    }
+    const spinner = argv.quiet
+      ? null
+      : ora("🔍 Checking AI provider status...\n").start();
+
+    try {
+      // Use SDK's provider diagnostic method instead of manual testing
+      const sdk = new NeuroLink();
+      const results = await sdk.getProviderStatus();
+
+      if (spinner) {
+        const working = results.filter((r) => r.status === "working").length;
+        const configured = results.filter((r) => r.configured).length;
+        spinner.succeed(
+          `Provider check complete: ${working}/${configured} providers working`,
+        );
+      }
+
+      // Display results
+      for (const result of results) {
+        const status =
+          result.status === "working"
+            ? chalk.green("✅ Working")
+            : result.status === "failed"
+              ? chalk.red("❌ Failed")
+              : chalk.gray("⚪ Not configured");
+
+        const time = result.responseTime ? ` (${result.responseTime}ms)` : "";
+        const model = result.model ? ` [${result.model}]` : "";
+        console.log(`${result.provider}: ${status}${time}${model}`);
+
+        if (argv.verbose && result.error) {
+          console.log(`  Error: ${chalk.red(result.error)}`);
+        }
+      }
+
+      if (argv.verbose && !argv.quiet) {
+        console.log(chalk.blue("\n📋 Detailed Results:"));
+        console.log(JSON.stringify(results, null, 2));
+      }
+    } catch (error) {
+      if (spinner) {
+        spinner.fail("Provider status check failed");
+      }
+      console.error(chalk.red("Error checking provider status:"), error);
+      process.exit(1);
+    }
+  }
+
+  /**
    * Execute the generate command
    */
   private static async executeGenerate(argv: GenerateCommandArgs) {
@@ -115,9 +174,11 @@ export class CLICommandFactory {
     try {
       const sdk = new NeuroLink();
 
+      const outputFormat = argv.outputFormat || argv.format || "text";
+
       const result = await sdk.generate({
         input: { text: argv.input },
-        output: { format: argv.outputFormat },
+        output: { format: outputFormat },
         provider: argv.provider as AIProviderName,
         model: argv.model,
         temperature: argv.temperature,
@@ -130,8 +191,13 @@ export class CLICommandFactory {
 
       spinner.succeed("Content generated successfully!");
 
-      console.log("\n" + chalk.cyan("Generated Content:"));
-      console.log(result.content);
+      // Handle different output formats
+      if (outputFormat === "json") {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log("\n" + chalk.cyan("Generated Content:"));
+        console.log(result.content);
+      }
 
       if (argv.debug) {
         console.log("\n" + chalk.yellow("Debug Information:"));

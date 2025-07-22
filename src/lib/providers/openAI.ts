@@ -1,65 +1,23 @@
 import { openai } from "@ai-sdk/openai";
 import type { ZodType, ZodTypeDef } from "zod";
-import {
-  streamText,
-  generateText,
-  Output,
-  type Schema,
-  type LanguageModelV1,
-} from "ai";
-import type { GenerateResult } from "../types/generate-types.js";
+import { streamText, Output, type Schema, type LanguageModelV1 } from "ai";
+import { AIProviderName } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/stream-types.js";
+import { BaseProvider } from "../core/base-provider.js";
 import { logger } from "../utils/logger.js";
-import type {
-  AIProvider,
-  TextGenerationOptions,
-  EnhancedGenerateResult,
-} from "../core/types.js";
 import {
   createTimeoutController,
-  getDefaultTimeout,
   TimeoutError,
+  getDefaultTimeout,
 } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
-import { evaluateResponse } from "../core/evaluation.js";
-import { createAnalytics } from "../core/analytics.js";
-
-// Default system context
-const DEFAULT_SYSTEM_CONTEXT = {
-  systemPrompt: "You are a helpful AI assistant.",
-};
-
-// Declare process for TypeScript
-declare const process: {
-  env: {
-    OPENAI_API_KEY?: string;
-    OPENAI_MODEL?: string;
-  };
-};
 
 // Configuration helpers
 const getOpenAIApiKey = (): string => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    // 🔧 FIX: Enhanced error message with setup instructions
     throw new Error(
-      `❌ OPENAI Provider Configuration Error
-
-Missing required environment variables: OPENAI_API_KEY
-
-🔧 Step 1: Get Credentials
-Get your API key from https://platform.openai.com/api-keys
-
-💡 Step 2: Add to your .env file (or export in CLI):
-OPENAI_API_KEY="sk-proj-your-openai-api-key"
-# Optional:
-OPENAI_MODEL="gpt-4o"
-OPENAI_BASE_URL="https://api.openai.com"
-
-🚀 Step 3: Test the setup:
-npx neurolink generate "Hello" --provider openai
-
-📖 Full setup guide: https://docs.neurolink.ai/providers/openai`,
+      `❌ OPENAI Provider Configuration Error\n\nMissing required environment variables: OPENAI_API_KEY\n\n🔧 Step 1: Get Credentials\n1. Visit: https://platform.openai.com/api-keys\n2. Create new API key\n3. Copy the key\n\n🔧 Step 2: Set Environment Variable\nAdd to your .env file:\nOPENAI_API_KEY=your_api_key_here\n\n🔧 Step 3: Restart Application\nRestart your application to load the new environment variables.`,
     );
   }
   return apiKey;
@@ -69,362 +27,129 @@ const getOpenAIModel = (): string => {
   return process.env.OPENAI_MODEL || "gpt-4o";
 };
 
-// OpenAI class with enhanced error handling
-export class OpenAI implements AIProvider {
-  private modelName: string;
+/**
+ * OpenAI Provider v2 - BaseProvider Implementation
+ * Migrated to use factory pattern with exact Google AI provider pattern
+ */
+export class OpenAIProvider extends BaseProvider {
   private model: LanguageModelV1;
 
-  constructor(modelName?: string | null) {
-    const functionTag = "OpenAI.constructor";
-    this.modelName = modelName || getOpenAIModel();
+  constructor(modelName?: string) {
+    super(modelName, AIProviderName.OPENAI);
 
-    try {
-      logger.debug(`[${functionTag}] Function called`, {
-        modelName: this.modelName,
-      });
+    // Set OpenAI API key as environment variable (required by @ai-sdk/openai)
+    process.env.OPENAI_API_KEY = getOpenAIApiKey();
 
-      // Set OpenAI API key as environment variable
-      process.env.OPENAI_API_KEY = getOpenAIApiKey();
+    // Initialize model
+    this.model = openai(this.modelName);
 
-      this.model = openai(this.modelName);
+    logger.debug("OpenAIProviderV2 initialized", {
+      model: this.modelName,
+      provider: this.providerName,
+    });
+  }
 
-      logger.debug(`[${functionTag}] Function result`, {
-        modelName: this.modelName,
-        success: true,
-      });
-    } catch (err) {
-      logger.debug(`[${functionTag}] Exception`, {
-        message: "Error in initializing OpenAI",
-        modelName: this.modelName,
-        err: String(err),
-      });
-      throw err;
-    }
+  // ===================
+  // ABSTRACT METHOD IMPLEMENTATIONS
+  // ===================
+
+  protected getProviderName(): AIProviderName {
+    return AIProviderName.OPENAI;
+  }
+
+  protected getDefaultModel(): string {
+    return getOpenAIModel();
   }
 
   /**
-   * Get the underlying model for function calling
+   * Returns the Vercel AI SDK model instance for OpenAI
    */
-  getModel(): LanguageModelV1 {
+  protected getAISDKModel(): LanguageModelV1 {
     return this.model;
   }
 
-  async generate(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<GenerateResult> {
-    const functionTag = "OpenAI.generate";
-    const provider = "openai";
-    const startTime = Date.now();
-
-    try {
-      // Parse parameters - support both string and options object
-      const options =
-        typeof optionsOrPrompt === "string"
-          ? { prompt: optionsOrPrompt }
-          : optionsOrPrompt;
-
-      const {
-        prompt,
-        temperature = 0.7,
-        maxTokens = DEFAULT_MAX_TOKENS,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema,
-        timeout = getDefaultTimeout(provider, "generate"),
-      } = options;
-
-      // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
-
-      logger.debug(`[${functionTag}] Generate text started`, {
-        provider,
-        modelName: this.modelName,
-        promptLength: prompt?.length || 0,
-        temperature,
-        maxTokens,
-        timeout,
-      });
-
-      // Create timeout controller if timeout is specified
-      const timeoutController = createTimeoutController(
-        timeout,
-        provider,
-        "generate",
-      );
-
-      const generateOptions = {
-        model: this.model,
-        prompt: prompt,
-        system: systemPrompt,
-        temperature,
-        maxTokens,
-        // Add abort signal if available
-        ...(timeoutController && {
-          abortSignal: timeoutController.controller.signal,
-        }),
-      } as Parameters<typeof generateText>[0];
-
-      if (finalSchema) {
-        generateOptions.experimental_output = Output.object({
-          schema: finalSchema,
-        });
-      }
-
-      try {
-        const result = await generateText(generateOptions);
-
-        // Clean up timeout if successful
-        timeoutController?.cleanup();
-
-        logger.debug(`[${functionTag}] Generate text completed`, {
-          provider,
-          modelName: this.modelName,
-          usage: result.usage,
-          finishReason: result.finishReason,
-          responseLength: result.text?.length || 0,
-          timeout,
-        });
-
-        // Add analytics if enabled
-        if (options.enableAnalytics) {
-          const { createAnalytics } = await import("./analytics-helper.js");
-          (result as any).analytics = createAnalytics(
-            provider,
-            this.modelName,
-            result,
-            Date.now() - startTime,
-            options.context,
-          );
-        }
-
-        // Add evaluation if enabled
-        if (options.enableEvaluation) {
-          (result as any).evaluation = await evaluateResponse(
-            prompt,
-            result.text,
-            options.context,
-            options.evaluationDomain,
-            options.toolUsageContext,
-            options.conversationHistory,
-          );
-        }
-
-        return {
-          content: result.text,
-          provider: "openai",
-          model: this.modelName,
-          usage: result.usage
-            ? {
-                inputTokens: result.usage.promptTokens,
-                outputTokens: result.usage.completionTokens,
-                totalTokens: result.usage.totalTokens,
-              }
-            : undefined,
-          responseTime: Date.now() - startTime,
-        };
-      } finally {
-        // Always cleanup timeout
-        timeoutController?.cleanup();
-      }
-    } catch (err) {
-      // Log timeout errors specifically
-      if (err instanceof TimeoutError) {
-        logger.debug(`[${functionTag}] Timeout error`, {
-          provider,
-          modelName: this.modelName,
-          timeout: err.timeout,
-          message: err.message,
-        });
-      } else {
-        logger.debug(`[${functionTag}] Exception`, {
-          provider,
-          modelName: this.modelName,
-          message: "Error in generating text",
-          err: String(err),
-        });
-      }
-      throw err; // Re-throw error to trigger fallback
+  protected handleProviderError(error: any): Error {
+    if (error instanceof TimeoutError) {
+      return new Error(`OpenAI request timed out: ${error.message}`);
     }
+
+    if (
+      error?.message?.includes("API_KEY_INVALID") ||
+      error?.message?.includes("Invalid API key")
+    ) {
+      return new Error(
+        "Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.",
+      );
+    }
+
+    if (error?.message?.includes("rate limit")) {
+      return new Error("OpenAI rate limit exceeded. Please try again later.");
+    }
+
+    return new Error(`OpenAI error: ${error?.message || "Unknown error"}`);
   }
 
   /**
-   * PRIMARY METHOD: Stream content using AI (recommended for new code)
-   * Future-ready for multi-modal capabilities with current text focus
+   * executeGenerate method removed - generation is now handled by BaseProvider.
+   * For details on the changes and migration steps, refer to the BaseProvider documentation
+   * and the migration guide in the project repository.
    */
-  async stream(
-    optionsOrPrompt: StreamOptions | string,
+
+  protected async executeStream(
+    options: StreamOptions,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
   ): Promise<StreamResult> {
-    const functionTag = "OpenAI.stream";
-    const provider = "openai";
-    let chunkCount = 0;
-    const startTime = Date.now();
+    this.validateStreamOptions(options);
+
+    const timeout = this.getTimeout(options);
+    const timeoutController = createTimeoutController(
+      timeout,
+      this.providerName,
+      "stream",
+    );
 
     try {
-      // Parse parameters - support both string and options object
-      const options =
-        typeof optionsOrPrompt === "string"
-          ? { input: { text: optionsOrPrompt } }
-          : optionsOrPrompt;
-
-      // Validate input
-      if (
-        !options?.input?.text ||
-        typeof options.input.text !== "string" ||
-        options.input.text.trim() === ""
-      ) {
-        throw new Error(
-          "Stream options must include input.text as a non-empty string",
-        );
-      }
-
-      // Convert to internal parameters
-      const {
-        prompt = options.input.text,
-        temperature = 0.7,
-        maxTokens = DEFAULT_MAX_TOKENS,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema,
-        timeout = getDefaultTimeout(provider, "stream"),
-      } = options as any;
-
-      // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
-
-      logger.debug(`[${functionTag}] Stream request started`, {
-        provider,
-        modelName: this.modelName,
-        promptLength: prompt?.length || 0,
-        temperature,
-        maxTokens,
-        timeout,
-      });
-
-      // Create timeout controller if timeout is specified
-      const timeoutController = createTimeoutController(
-        timeout,
-        provider,
-        "stream",
-      );
-
-      const streamOptions = {
+      const result = await streamText({
         model: this.model,
-        prompt: prompt,
-        system: systemPrompt,
-        temperature,
-        maxTokens,
-        // Add abort signal if available
-        ...(timeoutController && {
-          abortSignal: timeoutController.controller.signal,
-        }),
-
-        onError: (event: { error: unknown }) => {
-          const error = event.error;
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          const errorStack = error instanceof Error ? error.stack : undefined;
-
-          logger.debug(`[${functionTag}] Stream error`, {
-            provider,
-            modelName: this.modelName,
-            error: errorMessage,
-            stack: errorStack,
-            promptLength: prompt.length,
-            chunkCount,
-          });
-        },
-
-        onFinish: (event: {
-          finishReason: string;
-          usage: Record<string, unknown>;
-          text?: string;
-        }) => {
-          logger.debug(`[${functionTag}] Stream finished`, {
-            provider,
-            modelName: this.modelName,
-            finishReason: event.finishReason,
-            usage: event.usage,
-            totalChunks: chunkCount,
-            promptLength: prompt.length,
-            responseLength: event.text?.length || 0,
-          });
-        },
-
-        onChunk: (event: { chunk: { type: string; text?: string } }) => {
-          chunkCount++;
-          logger.debug(`[${functionTag}] Stream chunk`, {
-            provider,
-            modelName: this.modelName,
-            chunkNumber: chunkCount,
-            chunkLength: event.chunk.text?.length || 0,
-            chunkType: event.chunk.type,
-          });
-        },
-      } as Parameters<typeof streamText>[0];
-
-      if (finalSchema) {
-        streamOptions.experimental_output = Output.object({
-          schema: finalSchema,
-        });
-      }
-
-      const result = streamText(streamOptions);
-
-      logger.debug(`[${functionTag}] Stream request completed`, {
-        provider,
-        modelName: this.modelName,
+        prompt: options.input.text,
+        system: options.systemPrompt,
+        temperature: options.temperature,
+        maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        tools: options.tools,
+        toolChoice: "auto",
+        abortSignal: timeoutController?.controller.signal,
       });
 
-      // Convert to StreamResult format
-      return {
-        stream: result.textStream
-          ? (async function* () {
-              for await (const chunk of result.textStream) {
-                yield { content: chunk };
-              }
-            })()
-          : (async function* () {
-              yield { content: "" };
-              throw new Error("No textStream available from AI SDK");
-            })(),
-        provider: "openai",
-        model: this.modelName,
-        metadata: {
-          streamId: `openai-${Date.now()}`,
-          startTime,
-        },
+      timeoutController?.cleanup();
+
+      // Transform stream to match StreamResult interface
+      const transformedStream = async function* () {
+        for await (const chunk of result.textStream) {
+          yield { content: chunk };
+        }
       };
-    } catch (err) {
-      // Log timeout errors specifically
-      if (err instanceof TimeoutError) {
-        logger.debug(`[${functionTag}] Timeout error`, {
-          provider,
-          modelName: this.modelName,
-          timeout: err.timeout,
-          message: err.message,
-        });
-      } else {
-        logger.debug(`[${functionTag}] Exception`, {
-          provider,
-          modelName: this.modelName,
-          message: "Error in streaming content",
-          err: String(err),
-        });
-      }
-      throw err; // Re-throw error to trigger fallback
+
+      return {
+        stream: transformedStream(),
+        provider: this.providerName,
+        model: this.modelName,
+      };
+    } catch (error) {
+      timeoutController?.cleanup();
+      throw this.handleProviderError(error);
     }
   }
 
-  /**
-   * Short alias for generate() - CLI-SDK consistency
-   * @param optionsOrPrompt - TextGenerationOptions object or prompt string
-   * @param analysisSchema - Optional schema for output validation
-   * @returns Promise resolving to GenerateResult or null
-   */
-  async gen(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<EnhancedGenerateResult | null> {
-    return this.generate(optionsOrPrompt, analysisSchema);
+  // ===================
+  // PRIVATE VALIDATION METHODS
+  // ===================
+
+  private validateStreamOptions(options: StreamOptions): void {
+    if (!options.input?.text || options.input.text.trim().length === 0) {
+      throw new Error("Input text is required and cannot be empty");
+    }
   }
 }
+
+// Export for factory registration
+export default OpenAIProvider;

@@ -232,9 +232,9 @@ neurolink mcp remove <server>
 
 ## ⚙️ **Configuration**
 
-### **Configuration File**
+### **External Server Configuration** [Coming Soon]
 
-MCP servers are configured in `.mcp-config.json`:
+External MCP servers will be configured in `.mcp-config.json`:
 
 ```json
 {

@@ -27,6 +27,9 @@ export interface TextGenerationResult {
     server: string;
     category?: string;
   }>;
+  // 🔧 FIX: Add analytics and evaluation fields
+  analytics?: any;
+  evaluation?: any;
 }
 
 /**
@@ -114,7 +117,8 @@ export interface StreamingOptions {
  * Text generation options interface
  */
 export interface TextGenerationOptions {
-  prompt: string;
+  prompt?: string;
+  input?: { text: string }; // Alternative to prompt for SDK compatibility
   provider?: AIProviderName;
   model?: string;
   temperature?: number;
@@ -123,6 +127,8 @@ export interface TextGenerationOptions {
   schema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>;
   tools?: Record<string, Tool>; // Enable MCP tools integration
   timeout?: number | string; // Optional timeout (e.g., 30000, '30s', '2m', '1h')
+  disableTools?: boolean; // Disable tools (tools are enabled by default)
+  maxSteps?: number; // Maximum tool execution steps (default: 5)
   // NEW: Analytics and Evaluation Support
   enableEvaluation?: boolean; // Default: false - AI quality scoring
   enableAnalytics?: boolean; // Default: false - Usage tracking

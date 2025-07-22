@@ -205,10 +205,16 @@ export function enhanceAnalyticsWithEvaluation(
   return {
     ...analytics,
     evaluation: {
-      relevanceScore: evaluationResult.relevanceScore || 0,
-      accuracyScore: evaluationResult.accuracyScore || 0,
-      completenessScore: evaluationResult.completenessScore || 0,
-      overall: evaluationResult.overall || 0,
+      // FIX: Use correct field names and ensure minimum score of 1
+      relevanceScore:
+        evaluationResult.relevance || evaluationResult.relevanceScore || 1,
+      accuracyScore:
+        evaluationResult.accuracy || evaluationResult.accuracyScore || 1,
+      completenessScore:
+        evaluationResult.completeness ||
+        evaluationResult.completenessScore ||
+        1,
+      overall: evaluationResult.overall || 1,
       evaluationProvider: evaluationResult.evaluationProvider,
       evaluationTime: evaluationResult.evaluationTime,
       evaluationAttempt: evaluationResult.evaluationAttempt,

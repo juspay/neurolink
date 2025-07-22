@@ -18,7 +18,7 @@ import { MCPOrchestrator } from "../../lib/mcp/orchestrator.js";
 import type { DiscoveryOptions } from "../../lib/mcp/auto-discovery.js";
 import { initializeNeuroLinkMCP } from "../../lib/mcp/initialize.js";
 import { mcpLogger, setGlobalMCPLogLevel } from "../../lib/mcp/logging.js";
-import type { LogLevel } from "../../lib/mcp/logging.js";
+// import type { LogLevel } from "../../lib/mcp/logging.js"; // Commented out as unused
 import { defaultTimeoutManager } from "../../lib/utils/timeout-manager.js";
 
 // MCP Server Configuration
@@ -213,7 +213,7 @@ async function listMCPServerTools(
 
         return new Promise<any[]>((resolve, reject) => {
           let responseData = "";
-          let initialized = false;
+          // let initialized = false; // Commented out as unused
 
           child.stdout?.on("data", (data) => {
             responseData += data.toString();
@@ -226,7 +226,7 @@ async function listMCPServerTools(
 
                   if (response.id === 1 && response.result.capabilities) {
                     // Initialize successful, now list tools
-                    initialized = true;
+                    // initialized = true; // Commented out as unused
                     const listToolsRequest = {
                       jsonrpc: "2.0",
                       id: 2,
@@ -302,7 +302,7 @@ export async function executeMCPTool(
 
         return new Promise<any>((resolve, reject) => {
           let responseData = "";
-          let initialized = false;
+          // let initialized = false; // Commented out as unused
 
           child.stdout?.on("data", (data) => {
             responseData += data.toString();
@@ -315,7 +315,7 @@ export async function executeMCPTool(
 
                   if (response.id === 1 && response.result.capabilities) {
                     // Initialize successful, now execute tool
-                    initialized = true;
+                    // initialized = true; // Commented out as unused
                     const toolCallRequest = {
                       jsonrpc: "2.0",
                       id: 2,
@@ -404,7 +404,7 @@ export async function executeMCPTool(
 /**
  * Display discovery results in table format
  */
-function displayTable(discoveryResult: any) {
+function _displayTable(discoveryResult: any) {
   console.log(
     chalk.green(`\n📋 Found ${discoveryResult.discovered.length} MCP servers:`),
   );
@@ -476,7 +476,7 @@ function displayTable(discoveryResult: any) {
 /**
  * Display discovery results in summary format
  */
-function displaySummary(discoveryResult: any) {
+function _displaySummary(discoveryResult: any) {
   console.log(chalk.green(`\n📊 Discovery Summary`));
   console.log(chalk.gray("==================="));
 
@@ -570,7 +570,7 @@ function getSourceTypeIcon(sourceType: string): string {
 /**
  * Get icon for server status
  */
-function getStatusIcon(status: string): string {
+function _getStatusIcon(status: string): string {
   const icons: Record<string, string> = {
     available: "✅",
     unavailable: "❌",

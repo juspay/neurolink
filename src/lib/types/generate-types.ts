@@ -62,6 +62,7 @@ export interface GenerateResult {
     toolName: string;
     args: Record<string, any>;
   }>;
+  toolResults?: any[]; // Results from tool execution (Vercel AI SDK)
   toolsUsed?: string[];
   toolExecutions?: Array<{
     name: string;

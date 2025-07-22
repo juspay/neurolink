@@ -7,6 +7,27 @@ import type {
 } from "../core/types.js";
 
 /**
+ * Interface for tool execution calls
+ */
+export interface ToolCall {
+  toolName: string; // Name of the tool being called
+  parameters: Record<string, any>; // Parameters passed to the tool
+  id?: string; // Optional unique identifier for the call
+}
+
+/**
+ * Interface for tool execution results
+ */
+export interface ToolResult {
+  toolName: string; // Name of the tool that was executed
+  status: "success" | "failure"; // Execution status
+  output?: any; // Output from the tool (can be refined further based on specific tools)
+  error?: string; // Error message if the tool failed
+  id?: string; // Optional unique identifier matching the call
+  executionTime?: number; // Time taken to execute the tool in milliseconds
+}
+
+/**
  * Stream function options interface - Primary method for streaming content
  * Future-ready for multi-modal capabilities while maintaining text focus
  */
@@ -31,6 +52,7 @@ export interface StreamOptions {
   tools?: Record<string, Tool>;
   timeout?: number | string;
   disableTools?: boolean;
+  maxSteps?: number; // Maximum tool execution steps. Defaults to 5 in the implementation if not specified.
 
   // Analytics and Evaluation
   enableEvaluation?: boolean;
@@ -54,33 +76,29 @@ export interface StreamResult {
   provider?: string;
   model?: string;
 
+  // Usage information
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+  };
+
+  // Finish reason
+  finishReason?: string;
+
+  // Tool integration (from Vercel AI SDK)
+  toolCalls?: ToolCall[]; // Tool calls made during generation
+  toolResults?: ToolResult[]; // Results from tool execution
+
   // Stream metadata
   metadata?: {
     streamId?: string;
     startTime?: number;
     totalChunks?: number;
     estimatedDuration?: number;
+    responseTime?: number;
+    fallback?: boolean;
   };
-
-  // Tool integration
-  toolCalls?: Array<{
-    toolCallId: string;
-    toolName: string;
-    args: Record<string, any>;
-  }>;
-  toolsUsed?: string[];
-  toolExecutions?: Array<{
-    name: string;
-    input: Record<string, any>;
-    output: any;
-    duration: number;
-  }>;
-  enhancedWithTools?: boolean;
-  availableTools?: Array<{
-    name: string;
-    description: string;
-    parameters: Record<string, any>;
-  }>;
 
   // Analytics and evaluation
   analytics?: AnalyticsData;

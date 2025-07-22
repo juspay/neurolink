@@ -10,6 +10,7 @@ import {
   type MCPToolRegistry,
 } from "./tool-registry.js";
 import { mcpLogger } from "./logging.js";
+import { ServiceRegistry } from "../core/service-registry.js";
 
 let isInitialized = false;
 
@@ -26,8 +27,14 @@ export async function initializeNeuroLinkMCP(
   mcpLogger.debug("Initializing built-in MCP servers...");
 
   try {
+    // First, register AIProviderFactory in ServiceRegistry to break circular dependencies
+    ServiceRegistry.register("AIProviderFactory", async () => {
+      const { AIProviderFactory } = await import("../core/factory.js");
+      return AIProviderFactory;
+    });
+    mcpLogger.debug("Registered AIProviderFactory in ServiceRegistry");
+
     // Import utility server dynamically to avoid circular dependencies
-    // Note: AI core server temporarily disabled due to circular dependency issues
     const { utilityServer } = await import(
       "./servers/utilities/utility-server.js"
     );
@@ -39,14 +46,23 @@ export async function initializeNeuroLinkMCP(
       `Registered neurolink-utility server with built-in tools in ${targetRegistry ? "target" : "default"} registry`,
     );
 
-    // TODO: Re-enable AI core server once circular dependencies are resolved
-    // const { aiCoreServer } = await import('./servers/ai-providers/ai-core-server.js');
-    // await registry.registerServer(aiCoreServer.id, aiCoreServer);
-    // mcpLogger.debug('Registered neurolink-ai-core server with AI tools');
+    // Now safe to import and register AI core server
+    const { aiCoreServer } = await import(
+      "./servers/ai-providers/ai-core-server.js"
+    );
+    await registry.registerServer(aiCoreServer.id, aiCoreServer);
+    mcpLogger.debug("Registered neurolink-ai-core server with AI tools");
+
+    // Register direct tools server
+    const { directToolsServer } = await import(
+      "./servers/agent/direct-tools-server.js"
+    );
+    await registry.registerServer(directToolsServer.id, directToolsServer);
+    mcpLogger.debug("Registered neurolink-direct server with direct tools");
 
     const stats = await registry.getStats();
     mcpLogger.info(
-      `Initialization complete: ${stats.totalServers} server, ${stats.totalTools} tools available`,
+      `Initialization complete: ${stats.totalServers} servers, ${stats.totalTools} tools available`,
     );
 
     isInitialized = true;

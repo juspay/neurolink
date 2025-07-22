@@ -1,21 +1,14 @@
-import { HfInference } from "@huggingface/inference";
+import { createOpenAI } from "@ai-sdk/openai";
 import type { ZodType, ZodTypeDef } from "zod";
-import {
-  streamText,
-  generateText,
-  Output,
-  type Schema,
-  type LanguageModelV1,
-  type LanguageModelV1CallOptions,
-  type LanguageModelV1StreamPart,
-} from "ai";
-import type { GenerateResult } from "../types/generate-types.js";
-import type { StreamOptions, StreamResult } from "../types/stream-types.js";
+import { streamText, Output, type Schema, type LanguageModelV1 } from "ai";
 import type {
   AIProvider,
+  AIProviderName,
   TextGenerationOptions,
   EnhancedGenerateResult,
 } from "../core/types.js";
+import type { StreamOptions, StreamResult } from "../types/stream-types.js";
+import { BaseProvider } from "../core/base-provider.js";
 import { logger } from "../utils/logger.js";
 import {
   createTimeoutController,
@@ -23,14 +16,8 @@ import {
   getDefaultTimeout,
 } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
-import { evaluateResponse } from "../core/evaluation.js";
 
-// Default system context
-const DEFAULT_SYSTEM_CONTEXT = {
-  systemPrompt: "You are a helpful AI assistant.",
-};
-
-// Declare process for TypeScript
+// Environment variables
 declare const process: {
   env: {
     HUGGINGFACE_API_KEY?: string;
@@ -43,571 +30,170 @@ declare const process: {
 const getHuggingFaceApiKey = (): string => {
   const apiKey = process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN;
   if (!apiKey) {
-    throw new Error("HUGGINGFACE_API_KEY environment variable is not set");
+    throw new Error(
+      `❌ HuggingFace Provider Configuration Error\n\nMissing required environment variables: HUGGINGFACE_API_KEY\n\n🔧 Step 1: Get Credentials\n1. Visit: https://huggingface.co/settings/tokens\n2. Create new API token\n3. Copy the token\n\n🔧 Step 2: Set Environment Variable\nAdd to your .env file:\nHUGGINGFACE_API_KEY=your_token_here\n\n🔧 Step 3: Restart Application\nRestart your application to load the new environment variables.`,
+    );
   }
   return apiKey;
 };
 
-const getHuggingFaceModelId = (): string => {
+const getDefaultHuggingFaceModel = (): string => {
   return process.env.HUGGINGFACE_MODEL || "microsoft/DialoGPT-medium";
 };
 
-const hasValidAuth = (): boolean => {
+const hasHuggingFaceCredentials = (): boolean => {
   return !!(process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN);
 };
 
-// Lazy initialization cache
-let _hfClient: HfInference | null = null;
-function getHuggingFaceClient(): HfInference {
-  if (!_hfClient) {
+/**
+ * HuggingFace Provider - BaseProvider Implementation
+ * Using AI SDK with HuggingFace's OpenAI-compatible endpoint
+ */
+export class HuggingFaceProvider extends BaseProvider {
+  private model: LanguageModelV1;
+
+  constructor(modelName?: string) {
+    super(modelName, "huggingface" as AIProviderName);
+
+    // Get API key and validate
     const apiKey = getHuggingFaceApiKey();
-    _hfClient = new HfInference(apiKey);
-  }
-  return _hfClient;
-}
 
-// Retry configuration for model loading
-const RETRY_CONFIG = {
-  maxRetries: 3,
-  baseDelay: 2000, // 2 seconds
-  maxDelay: 30000, // 30 seconds
-  backoffMultiplier: 2,
-};
-
-// Helper function for exponential backoff retry
-async function retryWithBackoff<T>(
-  operation: () => Promise<T>,
-  retryConfig = RETRY_CONFIG,
-): Promise<T> {
-  let lastError: Error;
-
-  for (let attempt = 0; attempt <= retryConfig.maxRetries; attempt++) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error as Error;
-
-      // Check if it's a model loading error (503 status)
-      if (error instanceof Error && error.message.includes("503")) {
-        if (attempt < retryConfig.maxRetries) {
-          const delay = Math.min(
-            retryConfig.baseDelay *
-              Math.pow(retryConfig.backoffMultiplier, attempt),
-            retryConfig.maxDelay,
-          );
-
-          logger.debug("HuggingFace model loading, retrying...", {
-            attempt: attempt + 1,
-            maxRetries: retryConfig.maxRetries,
-            delayMs: delay,
-            error: error.message,
-          });
-
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          continue;
-        }
-      }
-
-      // For non-503 errors or final attempt, throw immediately
-      throw error;
-    }
-  }
-
-  throw lastError!;
-}
-
-// Custom LanguageModelV1 implementation for Hugging Face
-class HuggingFaceLanguageModel implements LanguageModelV1 {
-  readonly specificationVersion = "v1";
-  readonly provider = "huggingface";
-  readonly modelId: string;
-  readonly maxTokens?: number;
-  readonly supportsStreaming = true;
-  readonly defaultObjectGenerationMode = "json" as const;
-
-  private client: HfInference;
-
-  constructor(modelId: string, client: HfInference) {
-    this.modelId = modelId;
-    this.client = client;
-  }
-
-  private estimateTokens(text: string): number {
-    return Math.ceil(text.length / 4); // Rough estimation: 4 characters per token
-  }
-
-  private convertMessagesToPrompt(messages: any[]): string {
-    return messages
-      .map((msg) => {
-        if (typeof msg.content === "string") {
-          return `${msg.role}: ${msg.content}`;
-        } else if (Array.isArray(msg.content)) {
-          // Handle multi-part content (text, images, etc.)
-          return `${msg.role}: ${msg.content
-            .filter((part: any) => part.type === "text")
-            .map((part: any) => part.text)
-            .join(" ")}`;
-        }
-        return "";
-      })
-      .join("\n");
-  }
-
-  async doGenerate(options: LanguageModelV1CallOptions) {
-    const prompt = this.convertMessagesToPrompt(options.prompt);
-
-    const response = await retryWithBackoff(async () => {
-      return await this.client.textGeneration({
-        model: this.modelId,
-        inputs: prompt,
-        parameters: {
-          temperature: options.temperature || 0.7,
-          max_new_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
-          return_full_text: false,
-          do_sample: (options.temperature || 0.7) > 0,
-        },
-      });
+    // Create HuggingFace provider using unified router endpoint (2025)
+    const huggingface = createOpenAI({
+      apiKey: apiKey,
+      baseURL: "https://router.huggingface.co/v1",
     });
 
-    const generatedText = response.generated_text || "";
-    const promptTokens = this.estimateTokens(prompt);
-    const completionTokens = this.estimateTokens(generatedText);
+    // Initialize model
+    this.model = huggingface(this.modelName);
 
-    return {
-      text: generatedText,
-      usage: {
-        promptTokens,
-        completionTokens,
-        totalTokens: promptTokens + completionTokens,
-      },
-      finishReason: "stop" as const,
-      logprobs: undefined,
-      rawCall: { rawPrompt: prompt, rawSettings: options },
-      rawResponse: { headers: {} },
-    };
-  }
-
-  async doStream(options: LanguageModelV1CallOptions) {
-    const prompt = this.convertMessagesToPrompt(options.prompt);
-
-    // HuggingFace Inference API doesn't support true streaming
-    // We'll simulate streaming by generating the full text and chunking it
-    const response = await this.doGenerate(options);
-
-    // Create a ReadableStream that chunks the response
-    const stream = new ReadableStream<LanguageModelV1StreamPart>({
-      start(controller) {
-        const text = response.text || "";
-        const chunkSize = Math.max(1, Math.floor(text.length / 10)); // 10 chunks
-
-        let index = 0;
-
-        const pushChunk = () => {
-          if (index < text.length) {
-            const chunk = text.slice(index, index + chunkSize);
-            controller.enqueue({
-              type: "text-delta",
-              textDelta: chunk,
-            });
-            index += chunkSize;
-
-            // Add delay to simulate streaming
-            setTimeout(pushChunk, 50);
-          } else {
-            // Send finish event
-            controller.enqueue({
-              type: "finish",
-              finishReason: response.finishReason,
-              usage: response.usage,
-              logprobs: response.logprobs,
-            });
-            controller.close();
-          }
-        };
-
-        pushChunk();
-      },
+    logger.debug("HuggingFaceProvider initialized", {
+      model: this.modelName,
+      provider: this.providerName,
     });
-
-    return {
-      stream,
-      rawCall: response.rawCall,
-      rawResponse: response.rawResponse,
-    };
-  }
-}
-
-// Hugging Face class with enhanced error handling
-export class HuggingFace implements AIProvider {
-  private modelName: string;
-  private client: HfInference;
-
-  /**
-   * Initializes a new instance of HuggingFace
-   * @param modelName - Optional model name to override the default from config
-   */
-  constructor(modelName?: string | null) {
-    const functionTag = "HuggingFace.constructor";
-    this.modelName = modelName || getHuggingFaceModelId();
-
-    try {
-      this.client = getHuggingFaceClient();
-
-      logger.debug(`[${functionTag}] Initialization started`, {
-        modelName: this.modelName,
-        hasApiKey: hasValidAuth(),
-      });
-
-      logger.debug(`[${functionTag}] Initialization completed`, {
-        modelName: this.modelName,
-        success: true,
-      });
-    } catch (err) {
-      logger.error(`[${functionTag}] Initialization failed`, {
-        message: "Error in initializing Hugging Face",
-        modelName: this.modelName,
-        error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-      });
-      throw err;
-    }
   }
 
-  /**
-   * Gets the appropriate model instance
-   * @private
-   */
-  private getModel(): LanguageModelV1 {
-    logger.debug("HuggingFace.getModel - Hugging Face model selected", {
-      modelName: this.modelName,
-    });
+  // ===================
+  // ABSTRACT METHOD IMPLEMENTATIONS
+  // ===================
 
-    return new HuggingFaceLanguageModel(this.modelName, this.client);
+  /**
+   * HuggingFace models currently don't properly support tool/function calling
+   *
+   * **Tested Models & Issues:**
+   * - microsoft/DialoGPT-medium: Describes tools instead of executing them
+   * - Most HF models via router endpoint: Function schema passed but not executed
+   * - Issue: Models treat tool definitions as conversation context rather than executable functions
+   *
+   * **Known Limitations:**
+   * - Tools are visible to model but treated as descriptive text
+   * - No proper function call response format handling
+   * - HuggingFace router endpoint doesn't enforce OpenAI-compatible tool execution
+   *
+   * @returns false to disable tools by default until proper implementation
+   */
+  supportsTools(): boolean {
+    // TODO: Implement proper HuggingFace tool calling support
+    // Requires: Custom tool schema formatting, response parsing, execution flow
+    // Track models that support function calling: CodeLlama, Llama variants
+    return false;
   }
 
-  /**
-   * PRIMARY METHOD: Stream content using AI (recommended for new code)
-   * Future-ready for multi-modal capabilities with current text focus
-   */
-  async stream(
-    optionsOrPrompt: StreamOptions | string,
+  // executeGenerate removed - BaseProvider handles all generation with tools
+
+  protected async executeStream(
+    options: StreamOptions,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
   ): Promise<StreamResult> {
-    const functionTag = "HuggingFace.stream";
-    const provider = "huggingface";
-    let chunkCount = 0;
-    const startTime = Date.now();
+    this.validateStreamOptions(options);
+
+    const timeout = this.getTimeout(options);
+    const timeoutController = createTimeoutController(
+      timeout,
+      this.providerName,
+      "stream",
+    );
 
     try {
-      // Parse parameters - support both string and options object
-      const options =
-        typeof optionsOrPrompt === "string"
-          ? { input: { text: optionsOrPrompt } }
-          : optionsOrPrompt;
-
-      // Validate input
-      if (
-        !options?.input?.text ||
-        typeof options.input.text !== "string" ||
-        options.input.text.trim() === ""
-      ) {
-        throw new Error(
-          "Stream options must include input.text as a non-empty string",
-        );
-      }
-
-      // Convert StreamOptions for internal use
-      const convertedOptions = {
+      const result = await streamText({
+        model: this.model,
         prompt: options.input.text,
-        provider: options.provider,
-        model: options.model,
+        system: options.systemPrompt,
         temperature: options.temperature,
-        maxTokens: options.maxTokens,
-        systemPrompt: options.systemPrompt,
-        timeout: options.timeout,
-        schema: options.schema,
+        maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
         tools: options.tools,
-      };
-
-      const {
-        prompt,
-        temperature = 0.7,
-        maxTokens = DEFAULT_MAX_TOKENS,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema,
-        timeout = getDefaultTimeout(provider, "stream"),
-      } = convertedOptions;
-
-      // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
-
-      logger.debug(`[${functionTag}] Stream request started`, {
-        provider,
-        modelName: this.modelName,
-        promptLength: prompt.length,
-        temperature,
-        maxTokens,
-        hasSchema: !!finalSchema,
-        timeout,
+        toolChoice: "auto",
+        abortSignal: timeoutController?.controller.signal,
       });
 
-      const model = this.getModel();
+      timeoutController?.cleanup();
 
-      // Create timeout controller if timeout is specified
-      const timeoutController = createTimeoutController(
-        timeout,
-        provider,
-        "stream",
-      );
-
-      const streamOptions = {
-        model: model,
-        prompt: prompt,
-        system: systemPrompt,
-        temperature,
-        maxTokens,
-        // Add abort signal if available
-        ...(timeoutController && {
-          abortSignal: timeoutController.controller.signal,
-        }),
-
-        onError: (event: { error: unknown }) => {
-          const error = event.error;
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          const errorStack = error instanceof Error ? error.stack : undefined;
-
-          logger.error(`[${functionTag}] Stream error`, {
-            provider,
-            modelName: this.modelName,
-            error: errorMessage,
-            stack: errorStack,
-            promptLength: prompt.length,
-            chunkCount,
-          });
-        },
-
-        onFinish: (event: {
-          finishReason: string;
-          usage: Record<string, unknown>;
-          text?: string;
-        }) => {
-          logger.debug(`[${functionTag}] Stream finished`, {
-            provider,
-            modelName: this.modelName,
-            finishReason: event.finishReason,
-            usage: event.usage,
-            totalChunks: chunkCount,
-            promptLength: prompt.length,
-            responseLength: event.text?.length || 0,
-          });
-        },
-
-        onChunk: (event: { chunk: { type: string; text?: string } }) => {
-          chunkCount++;
-          logger.debug(`[${functionTag}] Stream chunk`, {
-            provider,
-            modelName: this.modelName,
-            chunkNumber: chunkCount,
-            chunkLength: event.chunk.text?.length || 0,
-            chunkType: event.chunk.type,
-          });
-        },
-      } as Parameters<typeof streamText>[0];
-
-      if (finalSchema) {
-        streamOptions.experimental_output = Output.object({
-          schema: finalSchema,
-        });
-      }
-
-      const result = streamText(streamOptions);
-
-      // Convert to StreamResult format
-      return {
-        stream: (async function* () {
-          for await (const chunk of result.textStream) {
-            yield { content: chunk };
-          }
-        })(),
-        provider: "huggingface",
-        model: this.modelName,
-        metadata: {
-          streamId: `huggingface-${Date.now()}`,
-          startTime,
-        },
+      // Transform stream to match StreamResult interface
+      const transformedStream = async function* () {
+        for await (const chunk of result.textStream) {
+          yield { content: chunk };
+        }
       };
-    } catch (err) {
-      // Log timeout errors specifically
-      if (err instanceof TimeoutError) {
-        logger.error(`[${functionTag}] Timeout error`, {
-          provider,
-          modelName: this.modelName,
-          timeout: err.timeout,
-          message: err.message,
-        });
-      } else {
-        logger.error(`[${functionTag}] Exception`, {
-          provider,
-          modelName: this.modelName,
-          message: "Error in streaming content",
-          err: String(err),
-          promptLength:
-            typeof optionsOrPrompt === "string"
-              ? optionsOrPrompt.length
-              : optionsOrPrompt.input?.text?.length || 0,
-        });
-      }
-      throw err; // Re-throw error to trigger fallback
+
+      return {
+        stream: transformedStream(),
+        provider: this.providerName,
+        model: this.modelName,
+      };
+    } catch (error) {
+      timeoutController?.cleanup();
+      throw this.handleProviderError(error);
     }
+  }
+
+  protected getProviderName(): AIProviderName {
+    return "huggingface" as AIProviderName;
+  }
+
+  protected getDefaultModel(): string {
+    return getDefaultHuggingFaceModel();
   }
 
   /**
-   * Processes text using non-streaming approach with optional schema validation
-   * @param prompt - The input text prompt to analyze
-   * @param analysisSchema - Optional Zod schema or Schema object for output validation
-   * @returns Promise resolving to GenerateResult or null if operation fails
+   * Returns the Vercel AI SDK model instance for HuggingFace
    */
-  async generate(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
-  ): Promise<GenerateResult> {
-    const functionTag = "HuggingFace.generate";
-    const provider = "huggingface";
-    const startTime = Date.now();
+  protected getAISDKModel(): LanguageModelV1 {
+    return this.model;
+  }
 
-    try {
-      // Parse parameters - support both string and options object
-      const options =
-        typeof optionsOrPrompt === "string"
-          ? { prompt: optionsOrPrompt }
-          : optionsOrPrompt;
+  protected handleProviderError(error: any): Error {
+    if (error instanceof TimeoutError) {
+      return new Error(`HuggingFace request timed out: ${error.message}`);
+    }
 
-      const {
-        prompt,
-        temperature = 0.7,
-        maxTokens = DEFAULT_MAX_TOKENS,
-        systemPrompt = DEFAULT_SYSTEM_CONTEXT.systemPrompt,
-        schema,
-        timeout = getDefaultTimeout(provider, "generate"),
-      } = options;
-
-      // Use schema from options or fallback parameter
-      const finalSchema = schema || analysisSchema;
-
-      logger.debug(`[${functionTag}] Generate request started`, {
-        provider,
-        modelName: this.modelName,
-        promptLength: prompt.length,
-        temperature,
-        maxTokens,
-        timeout,
-      });
-
-      const model = this.getModel();
-
-      // Create timeout controller if timeout is specified
-      const timeoutController = createTimeoutController(
-        timeout,
-        provider,
-        "generate",
+    if (
+      error?.message?.includes("API_TOKEN_INVALID") ||
+      error?.message?.includes("Invalid token")
+    ) {
+      return new Error(
+        "Invalid HuggingFace API token. Please check your HUGGING_FACE_API_KEY environment variable.",
       );
+    }
 
-      const generateOptions = {
-        model: model,
-        prompt: prompt,
-        system: systemPrompt,
-        temperature,
-        maxTokens,
-        // Add abort signal if available
-        ...(timeoutController && {
-          abortSignal: timeoutController.controller.signal,
-        }),
-      } as Parameters<typeof generateText>[0];
+    if (error?.message?.includes("rate limit")) {
+      return new Error(
+        "HuggingFace rate limit exceeded. Please try again later.",
+      );
+    }
 
-      if (finalSchema) {
-        generateOptions.experimental_output = Output.object({
-          schema: finalSchema,
-        });
-      }
+    return new Error(`HuggingFace error: ${error?.message || "Unknown error"}`);
+  }
 
-      try {
-        const result = await generateText(generateOptions);
+  // ===================
+  // PRIVATE VALIDATION METHODS
+  // ===================
 
-        // Clean up timeout if successful
-        timeoutController?.cleanup();
-
-        logger.debug(`[${functionTag}] Generate text completed`, {
-          provider,
-          modelName: this.modelName,
-          usage: result.usage,
-          finishReason: result.finishReason,
-          responseLength: result.text?.length || 0,
-          timeout,
-        });
-
-        // Add analytics if enabled
-        if (options.enableAnalytics) {
-          (result as any).analytics = {
-            provider,
-            model: this.modelName,
-            tokens: result.usage,
-            responseTime: Date.now() - startTime,
-            context: options.context,
-          };
-        }
-
-        // Add evaluation if enabled
-        if (options.enableEvaluation) {
-          (result as any).evaluation = await evaluateResponse(
-            prompt,
-            result.text,
-            options.context,
-          );
-        }
-
-        return {
-          content: result.text,
-          provider: "huggingface",
-          model: this.modelName,
-          usage: result.usage
-            ? {
-                inputTokens: result.usage.promptTokens,
-                outputTokens: result.usage.completionTokens,
-                totalTokens: result.usage.totalTokens,
-              }
-            : undefined,
-          responseTime: Date.now() - startTime,
-        };
-      } finally {
-        // Always cleanup timeout
-        timeoutController?.cleanup();
-      }
-    } catch (err) {
-      // Log timeout errors specifically
-      if (err instanceof TimeoutError) {
-        logger.error(`[${functionTag}] Timeout error`, {
-          provider,
-          modelName: this.modelName,
-          timeout: err.timeout,
-          message: err.message,
-        });
-      } else {
-        logger.error(`[${functionTag}] Exception`, {
-          provider,
-          modelName: this.modelName,
-          message: "Error in generating text",
-          err: String(err),
-        });
-      }
-      throw err; // Re-throw error to trigger fallback
+  private validateStreamOptions(options: StreamOptions): void {
+    if (!options.input?.text || options.input.text.trim().length === 0) {
+      throw new Error("Input text is required and cannot be empty");
     }
   }
-
-  async gen(
-    optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: any,
-  ): Promise<EnhancedGenerateResult | null> {
-    return this.generate(optionsOrPrompt, analysisSchema);
-  }
 }
+
+// Export for factory registration
+export default HuggingFaceProvider;

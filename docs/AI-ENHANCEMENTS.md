@@ -86,7 +86,7 @@ const result = await sdk.generate({
   },
 });
 
-console.log(result.text); // AI response
+console.log(result.content); // AI response
 console.log(result.analytics); // Usage metrics
 // {
 //   provider: 'openai',
@@ -115,10 +115,10 @@ const result = await sdk.generate({
 
 console.log(result.evaluation);
 // {
-//   relevance: 9,
-//   accuracy: 8,
-//   completeness: 9,
-//   overall: 8.7,
+//   relevanceScore: 9,
+//   accuracyScore: 8,
+//   completenessScore: 9,
+//   overallScore: 8.7,
 //   evaluationModel: 'gemini-2.5-flash',
 //   evaluationTime: 1200
 // }
@@ -139,10 +139,10 @@ const result = await sdk.generate({
 });
 
 // Access all enhancement data
-const { text, analytics, evaluation } = result;
+const { content, analytics, evaluation } = result;
 
 // Custom monitoring logic
-if (evaluation.overall < 7) {
+if (evaluation.overallScore < 7) {
   console.warn("Low quality response detected");
 }
 
@@ -153,7 +153,7 @@ if (analytics.cost > 0.1) {
 // Send to your monitoring system
 sendToMonitoring({
   requestId: analytics.context.productId,
-  quality: evaluation.overall,
+  quality: evaluation.overallScore,
   cost: analytics.cost,
   responseTime: analytics.responseTime,
 });
@@ -348,7 +348,7 @@ console.log("🎯 Enhanced Evaluation:", domainEvaluation);
 ```typescript
 interface TextGenerationOptions {
   // Existing fields (unchanged)
-  prompt: string;
+  input: { text: string };
   provider?: string;
   model?: string;
   temperature?: number;
@@ -386,10 +386,10 @@ interface AnalyticsData {
 
 ```typescript
 interface EvaluationData {
-  relevance: number; // 1-10 scale
-  accuracy: number; // 1-10 scale
-  completeness: number; // 1-10 scale
-  overall: number; // 1-10 scale
+  relevanceScore: number; // 1-10 scale
+  accuracyScore: number; // 1-10 scale
+  completenessScore: number; // 1-10 scale
+  overallScore: number; // 1-10 scale
   evaluationModel: string; // Model used for evaluation
   evaluationTime: number; // Evaluation time (ms)
 }
@@ -472,7 +472,7 @@ const costMap = {
 ```typescript
 // Legacy approach (still works)
 const result = await sdk.generate({
-  prompt: "Hello world",
+  input: { text: "Hello world" },
   provider: "openai",
 });
 
@@ -518,7 +518,7 @@ const result = await sdk.generate({
 // Track support quality and costs
 trackSupportMetrics({
   ticketId: ticket.id,
-  responseQuality: result.evaluation.overall,
+  responseQuality: result.evaluation.overallScore,
   cost: result.analytics.cost,
   responseTime: result.analytics.responseTime,
 });
@@ -546,7 +546,9 @@ const results = await Promise.all([
 ]);
 
 // Quality gate: only publish high-quality content
-const highQualityContent = results.filter((r) => r.evaluation.overall >= 8);
+const highQualityContent = results.filter(
+  (r) => r.evaluation.overallScore >= 8,
+);
 ```
 
 ### Cost Monitoring Dashboard
@@ -570,7 +572,7 @@ function createCostDashboard() {
     if (result.evaluation) {
       qualityMetrics.push({
         date: new Date(),
-        quality: result.evaluation.overall,
+        quality: result.evaluation.overallScore,
         prompt: result.analytics?.context?.promptType,
       });
     }

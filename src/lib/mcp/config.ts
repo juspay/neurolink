@@ -5,16 +5,45 @@
  */
 
 import type { NeuroLinkMCPServer } from "./factory.js";
-import { aiCoreServer } from "./servers/ai-providers/ai-core-server.js";
 import { utilityServer } from "./servers/utilities/utility-server.js";
 import { logger } from "../utils/logger.js";
+
+/**
+ * Lazy-loaded AI Core Server to avoid circular dependencies
+ */
+let aiCoreServerCache: NeuroLinkMCPServer | null = null;
+
+async function getAICoreServer(): Promise<NeuroLinkMCPServer> {
+  if (!aiCoreServerCache) {
+    const { aiCoreServer } = await import(
+      "./servers/ai-providers/ai-core-server.js"
+    );
+    aiCoreServerCache = aiCoreServer;
+  }
+  return aiCoreServerCache;
+}
+
+/**
+ * Lazy-loaded Direct Tools Server to avoid circular dependencies
+ */
+let directToolsServerCache: NeuroLinkMCPServer | null = null;
+
+async function getDirectToolsServer(): Promise<NeuroLinkMCPServer> {
+  if (!directToolsServerCache) {
+    const { directToolsServer } = await import(
+      "./servers/agent/direct-tools-server.js"
+    );
+    directToolsServerCache = directToolsServer;
+  }
+  return directToolsServerCache;
+}
 
 /**
  * Built-in MCP servers (kept for backward compatibility)
  * Add new servers here as they are created
  */
 export const allServers: NeuroLinkMCPServer[] = [
-  aiCoreServer,
+  // aiCoreServer will be added dynamically in getServers()
   utilityServer,
   // Add more servers as they are created
 ];
@@ -30,8 +59,13 @@ export const mcpConfig = {
   getServers: async (): Promise<NeuroLinkMCPServer[]> => {
     const activeServers: NeuroLinkMCPServer[] = [];
 
+    // Get all servers including dynamically loaded ones
+    const aiCoreServer = await getAICoreServer();
+    const directToolsServer = await getDirectToolsServer();
+    const servers = [aiCoreServer, directToolsServer, ...allServers];
+
     // Include built-in servers with filtering
-    for (const server of allServers) {
+    for (const server of servers) {
       const implementedTools: typeof server.tools = {};
       let hasImplementedTools = false;
 

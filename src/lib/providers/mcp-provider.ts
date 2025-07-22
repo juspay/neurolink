@@ -183,6 +183,13 @@ export class MCPAwareProvider implements AIProvider {
         ? { prompt: optionsOrPrompt }
         : optionsOrPrompt;
 
+    // Validate prompt is provided
+    if (!options.prompt || options.prompt.trim() === "") {
+      throw new Error(
+        "MCP Provider requires a valid prompt. Please provide a non-empty prompt string.",
+      );
+    }
+
     // Check if prompt requests tool usage
     const needsTools = this.detectToolRequest(options.prompt);
 

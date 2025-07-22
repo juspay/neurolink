@@ -27,7 +27,7 @@ async function basicUsageExample() {
     });
 
     console.log("✅ Generated text:");
-    console.log(result.text);
+    console.log(result.content);
     console.log(`\n📊 Provider used: ${result.provider}`);
     console.log(`📊 Tokens used: ${result.usage?.totalTokens || "unknown"}`);
 

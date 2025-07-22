@@ -11,12 +11,12 @@ class NeuroLink {
     const enhancedProvider = ProviderGenerateFactory.enhanceProvider(baseProvider);
     return await enhancedProvider.generate(options);
   }
-  
+
   // PRESERVED: Legacy generate() method
   async generate(options: TextGenerationOptions): Promise<TextGenerationResult> {
     // Existing implementation unchanged
   }
-  
+
   // ENHANCED: stream() with factory benefits
   async stream(options: StreamOptions) {
     const enhancedProvider = ProviderGenerateFactory.enhanceProvider(baseProvider);

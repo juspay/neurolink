@@ -18,7 +18,7 @@ export class CompatibilityConversionFactory {
     const { prompt, ...rest } = options;
 
     return {
-      input: { text: prompt },
+      input: { text: prompt || "" },
       output: { format: "text" },
       provider: rest.provider as any,
       model: rest.model,

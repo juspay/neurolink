@@ -408,7 +408,7 @@ try {
     temperature: 0.8,
     maxTokens: 500,
   });
-  console.log(result.text);
+  console.log(result.content);
 } catch (error) {
   if (error.message.includes("API_KEY_INVALID")) {
     console.error(

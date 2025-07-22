@@ -4,7 +4,7 @@
  */
 
 // Core AI Generation Defaults
-export const DEFAULT_MAX_TOKENS = 10000;
+export const DEFAULT_MAX_TOKENS = 8192; // Changed from 10000 to fix Anthropic error
 export const DEFAULT_TEMPERATURE = 0.7;
 export const DEFAULT_TIMEOUT = 30000;
 

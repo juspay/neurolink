@@ -51,11 +51,11 @@ class BaseRegistry implements McpRegistry {
   async registerServer?(serverId: string, config?: unknown, context?: ExecutionContext): Promise<void> {
     // Implementation
   }
-  
+
   async executeTool?<T>(toolName: string, args?: unknown, context?: ExecutionContext): Promise<T> {
     // Implementation with generic return type
   }
-  
+
   // Other methods can be omitted if not needed
 }
 
@@ -93,24 +93,24 @@ interface ExecutionContext {
   sessionId?: string;
   userId?: string;
   aiProvider?: string;
-  
+
   // Performance & Optimization
   cacheOptions?: CacheOptions;
   fallbackOptions?: FallbackOptions;
   priority?: 'low' | 'normal' | 'high';
   timeout?: number;
   retries?: number;
-  
+
   // Security & Permissions
   permissions?: string[];
-  
+
   // Debugging & Monitoring
   correlationId?: string;
   requestId?: string;
   userAgent?: string;
   clientVersion?: string;
   environment?: string;
-  
+
   // Extensibility
   metadata?: Record<string, unknown>;
 }
@@ -250,7 +250,7 @@ function isAnalysisResult(result: ToolResult): result is AnalysisResult {
 // Usage
 const result = await registry.executeTool<ToolResult>('someToolResult', args, context);
 if (isTextGenerationResult(result)) {
-  console.log(result.text); // TypeScript knows this is safe
+  console.log(result.content); // TypeScript knows this is safe
 }
 ```
 
@@ -264,7 +264,7 @@ const result = await registry.executeTool<AIResult>('aiTool', args, context);
 switch (result.type) {
   case 'text-generation':
     if (isTextGenerationResult(result)) {
-      console.log(result.text);
+      console.log(result.content);
     }
     break;
   case 'analysis':
@@ -293,11 +293,11 @@ interface CacheOptions {
 // Implementation
 class CachedRegistry implements McpRegistry {
   private cache: Map<string, CacheEntry> = new Map();
-  
+
   async executeTool<T>(toolName: string, args?: unknown, context?: ExecutionContext): Promise<T> {
     // Generate cache key
     const cacheKey = this.generateCacheKey(toolName, args, context?.cacheOptions?.key);
-    
+
     // Check cache if enabled
     if (context?.cacheOptions?.enabled) {
       const cached = this.cache.get(cacheKey);
@@ -305,10 +305,10 @@ class CachedRegistry implements McpRegistry {
         return cached.data as T;
       }
     }
-    
+
     // Execute tool
     const result = await this.executeToolImpl<T>(toolName, args, context);
-    
+
     // Cache result if enabled
     if (context?.cacheOptions?.enabled) {
       this.cache.set(cacheKey, {
@@ -317,7 +317,7 @@ class CachedRegistry implements McpRegistry {
         tags: context.cacheOptions.tags || []
       });
     }
-    
+
     return result;
   }
 }
@@ -345,12 +345,12 @@ class BatchRegistry implements McpRegistry {
     // Group operations by tool for optimization
     const groupedOps = this.groupOperationsByTool(operations);
     const results: BatchResult<T>[] = [];
-    
+
     // Execute operations in parallel where possible
     const promises = Object.entries(groupedOps).map(async ([toolName, ops]) => {
       return this.executeBatchForTool<T>(toolName, ops);
     });
-    
+
     const batchResults = await Promise.all(promises);
     return batchResults.flat();
   }
@@ -371,28 +371,28 @@ interface FallbackOptions {
 class FallbackRegistry implements McpRegistry {
   async executeTool<T>(toolName: string, args?: unknown, context?: ExecutionContext): Promise<T> {
     const fallbackOptions = context?.fallbackOptions;
-    
+
     if (!fallbackOptions?.enabled) {
       return this.executeToolImpl<T>(toolName, args, context);
     }
-    
+
     const providers = fallbackOptions.providers || ['primary'];
     let lastError: Error;
-    
+
     for (const provider of providers) {
       try {
         const providerContext = { ...context, aiProvider: provider };
         return await this.executeToolImpl<T>(toolName, args, providerContext);
       } catch (error) {
         lastError = error;
-        
+
         // Wait before trying next provider
         if (fallbackOptions.retryDelay) {
           await this.delay(fallbackOptions.retryDelay);
         }
       }
     }
-    
+
     throw lastError;
   }
 }
@@ -428,7 +428,7 @@ class DefaultMCPFactory implements MCPFactory {
       ...options
     });
   }
-  
+
   createServer(type: string, config?: unknown): MCPServer {
     switch (type) {
       case 'ai-core':
@@ -488,18 +488,18 @@ class ResilientRegistry implements McpRegistry {
         error: error.message,
         context: context?.correlationId
       });
-      
+
       // Try fallback if configured
       if (context?.fallbackOptions?.enabled) {
         return this.executeFallback<T>(toolName, args, context);
       }
-      
+
       // Return safe default if possible
       const safeDefault = this.getSafeDefault<T>(toolName);
       if (safeDefault !== undefined) {
         return safeDefault;
       }
-      
+
       // Re-throw if no recovery possible
       throw error;
     }
@@ -511,14 +511,14 @@ class ResilientRegistry implements McpRegistry {
 ```typescript
 class CircuitBreakerRegistry implements McpRegistry {
   private circuitBreakers: Map<string, CircuitBreaker> = new Map();
-  
+
   async executeTool<T>(toolName: string, args?: unknown, context?: ExecutionContext): Promise<T> {
     const breaker = this.getCircuitBreaker(toolName);
-    
+
     if (breaker.isOpen()) {
       throw new Error(`Circuit breaker open for tool: ${toolName}`);
     }
-    
+
     try {
       const result = await this.executeToolImpl<T>(toolName, args, context);
       breaker.recordSuccess();
@@ -547,28 +547,28 @@ interface ToolMetrics {
 
 class ObservableRegistry implements McpRegistry {
   private metrics: Map<string, ToolMetrics> = new Map();
-  
+
   async executeTool<T>(toolName: string, args?: unknown, context?: ExecutionContext): Promise<T> {
     const startTime = performance.now();
     const metrics = this.getMetrics(toolName);
-    
+
     try {
       const result = await this.executeToolImpl<T>(toolName, args, context);
-      
+
       // Update success metrics
       const duration = performance.now() - startTime;
       this.updateMetrics(toolName, { success: true, duration });
-      
+
       return result;
     } catch (error) {
       // Update error metrics
       const duration = performance.now() - startTime;
       this.updateMetrics(toolName, { success: false, duration });
-      
+
       throw error;
     }
   }
-  
+
   getMetrics(toolName?: string): ToolMetrics | Map<string, ToolMetrics> {
     if (toolName) {
       return this.metrics.get(toolName) || this.createDefaultMetrics();

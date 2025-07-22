@@ -201,7 +201,9 @@ export const initializeMCPTools = async (
  * Get all available tools across all servers
  * Useful for documentation and discovery
  */
-export async function getAllAvailableTools(): Promise<
+export async function getAllAvailableTools(
+  inMemoryServers?: Map<string, any>,
+): Promise<
   Array<{
     serverId: string;
     serverTitle: string;
@@ -219,6 +221,57 @@ export async function getAllAvailableTools(): Promise<
     description: string;
     isImplemented: boolean;
   }> = [];
+
+  // Add in-memory server tools first
+  if (inMemoryServers) {
+    for (const [serverId, serverConfig] of inMemoryServers) {
+      const server = serverConfig.server;
+      if (server && server.tools) {
+        // Handle both Map and object formats
+        const toolEntries =
+          server.tools instanceof Map
+            ? Array.from(server.tools.entries())
+            : Object.entries(server.tools || {});
+
+        for (const [toolName, toolInfo] of toolEntries as [string, any][]) {
+          const prefix = `${serverId}_`;
+          const finalToolName =
+            toolName.length > 64 - prefix.length
+              ? toolName.substring(0, 64 - prefix.length)
+              : toolName;
+          const namespacedName = sanitizeToolName(`${prefix}${finalToolName}`);
+
+          // Handle different tool info structures
+          let description = `Tool from ${serverId}`;
+          let isImplemented = true;
+
+          if (toolInfo) {
+            // Check if it's a tool info object with description
+            if (typeof toolInfo.description === "string") {
+              description = toolInfo.description;
+            } else if (typeof toolInfo === "function") {
+              // It's a raw function, no description available
+              description = `${toolName} from ${serverId}`;
+            }
+
+            // Check implementation status
+            if (typeof toolInfo.isImplemented === "boolean") {
+              isImplemented = toolInfo.isImplemented;
+            }
+          }
+
+          tools.push({
+            serverId,
+            serverTitle: server.title || serverId,
+            toolName,
+            namespacedName,
+            description,
+            isImplemented,
+          });
+        }
+      }
+    }
+  }
 
   const servers = await mcpConfig.getServers();
 

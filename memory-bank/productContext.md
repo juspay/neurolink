@@ -56,7 +56,7 @@ const result = await provider.generate({
   temperature: 0.7,
 });
 
-console.log(result.text);
+console.log(result.content);
 ```
 
 ### Scenario 2: Streaming Responses

@@ -3,15 +3,15 @@
  * This file centralizes all AI provider classes for easy import and usage
  */
 
-export { GoogleVertexAI } from "./googleVertexAI.js";
-export { AmazonBedrock } from "./amazonBedrock.js";
-export { OpenAI } from "./openAI.js";
-export { AnthropicProvider } from "./anthropic.js";
-export { AzureOpenAIProvider } from "./azureOpenAI.js";
-export { GoogleAIStudio } from "./googleAIStudio.js";
-export { HuggingFace } from "./huggingFace.js";
-export { Ollama } from "./ollama.js";
-export { MistralAI } from "./mistralAI.js";
+export { GoogleVertexProvider as GoogleVertexAI } from "./google-vertex.js";
+export { AmazonBedrockProvider as AmazonBedrock } from "./amazon-bedrock.js";
+export { OpenAIProvider as OpenAI } from "./openAI.js";
+export { AnthropicProvider as AnthropicProvider } from "./anthropic.js";
+export { AzureOpenAIProvider } from "./azure-openai.js";
+export { GoogleAIStudioProvider as GoogleAIStudio } from "./google-ai-studio.js";
+export { HuggingFaceProvider as HuggingFace } from "./huggingFace.js";
+export { OllamaProvider as Ollama } from "./ollama.js";
+export { MistralProvider as MistralAI } from "./mistral.js";
 
 // Re-export the AIProvider interface for convenience
 export type { AIProvider } from "../core/types.js";

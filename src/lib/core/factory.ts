@@ -1,14 +1,7 @@
-import {
-  GoogleVertexAI,
-  AmazonBedrock,
-  OpenAI,
-  AnthropicProvider,
-  AzureOpenAIProvider,
-  GoogleAIStudio,
-  HuggingFace,
-  Ollama,
-  MistralAI,
-} from "../providers/index.js";
+// ✅ CIRCULAR DEPENDENCY FIX: Remove barrel export import
+// Providers are now managed via ProviderFactory instead of direct imports
+import { ProviderFactory } from "../factories/provider-factory.js";
+import { ProviderRegistry } from "../factories/provider-registry.js";
 import { getBestProvider } from "../utils/providerUtils.js";
 import { logger } from "../utils/logger.js";
 import { dynamicModelProvider } from "./dynamic-models.js";
@@ -26,45 +19,17 @@ const componentIdentifier = "aiProviderFactory";
  */
 export class AIProviderFactory {
   /**
-   * Normalize provider name to match dynamic model registry keys
+   * Normalize provider name using ProviderFactory
    */
   private static normalizeProviderName(providerName: string): string {
-    switch (providerName.toLowerCase()) {
-      case "vertex":
-      case "google":
-      case "gemini":
-        return "google";
-      case "bedrock":
-      case "amazon":
-      case "aws":
-        return "bedrock";
-      case "openai":
-      case "gpt":
-        return "openai";
-      case "anthropic":
-      case "claude":
-        return "anthropic";
-      case "azure":
-      case "azure-openai":
-        return "openai"; // Azure uses OpenAI models
-      case "google-ai":
-      case "google-studio":
-        return "google";
-      case "huggingface":
-      case "hugging-face":
-      case "hf":
-        return "huggingface";
-      case "ollama":
-      case "local":
-      case "local-ollama":
-        return "ollama";
-      case "mistral":
-      case "mistral-ai":
-      case "mistralai":
-        return "mistral";
-      default:
-        return providerName.toLowerCase();
+    // Use ProviderFactory registration - no more legacy switch statements
+    const normalized = ProviderFactory.normalizeProviderName(providerName);
+    if (normalized) {
+      return normalized;
     }
+
+    // If not found in factory, return as-is (will be handled by factory error handling)
+    return providerName.toLowerCase();
   }
   /**
    * Create a provider instance for the specified provider type
@@ -77,8 +42,11 @@ export class AIProviderFactory {
     providerName: string,
     modelName?: string | null,
     enableMCP: boolean = true,
+    sdk?: any,
   ): Promise<AIProvider> {
-    const functionTag = "AIProviderFactory.createProvider";
+    const functionTag = "AIawait ProviderFactory.createProvider";
+
+    // Providers are registered via ProviderFactory.initialize() on first use
 
     logger.debug(`[${functionTag}] Provider creation started`, {
       providerName,
@@ -142,69 +110,30 @@ export class AIProviderFactory {
 
       let provider: AIProvider;
 
-      switch (providerName.toLowerCase()) {
-        case "vertex":
-        case "google":
-        case "gemini":
-          provider = new GoogleVertexAI(
-            resolvedModelName === "default" ? null : resolvedModelName,
-          );
-          break;
-        case "bedrock":
-        case "amazon":
-        case "aws":
-          provider = new AmazonBedrock(
-            resolvedModelName === "default" ? null : resolvedModelName,
-          );
-          break;
-        case "openai":
-        case "gpt":
-          provider = new OpenAI(
-            resolvedModelName === "default" ? null : resolvedModelName,
-          );
-          break;
-        case "anthropic":
-        case "claude":
-          provider = new AnthropicProvider();
-          break;
-        case "azure":
-        case "azure-openai":
-          provider = new AzureOpenAIProvider();
-          break;
-        case "google-ai":
-        case "google-studio":
-          provider = new GoogleAIStudio(
-            resolvedModelName === "default" ? null : resolvedModelName,
-          );
-          break;
-        case "huggingface":
-        case "hugging-face":
-        case "hf":
-          provider = new HuggingFace(
-            resolvedModelName === "default" ? null : resolvedModelName,
-          );
-          break;
-        case "ollama":
-        case "local":
-        case "local-ollama":
-          provider = new Ollama(
-            resolvedModelName === "default"
-              ? undefined
-              : resolvedModelName || undefined,
-          );
-          break;
-        case "mistral":
-        case "mistral-ai":
-        case "mistralai":
-          provider = new MistralAI(
-            resolvedModelName === "default" ? null : resolvedModelName,
-          );
-          break;
-        default:
-          throw new Error(
-            `Unknown provider: ${providerName}. Supported providers: vertex, bedrock, openai, anthropic, azure, google-ai, huggingface, ollama, mistral`,
-          );
-      }
+      // PURE FACTORY PATTERN: No switch statements - use ProviderFactory exclusively
+      const normalizedName = this.normalizeProviderName(providerName);
+      const finalModelName =
+        resolvedModelName === "default" || resolvedModelName === null
+          ? undefined
+          : resolvedModelName;
+
+      provider = await ProviderFactory.createProvider(
+        normalizedName,
+        finalModelName,
+        sdk,
+      );
+
+      logger.debug(
+        componentIdentifier,
+        "Pure factory pattern provider created",
+        {
+          providerName: normalizedName,
+          modelName: finalModelName,
+          factoryUsed: true,
+        },
+      );
+
+      // PURE FACTORY PATTERN: All providers handled by ProviderFactory - no switch statements needed
 
       // Wrap with MCP if enabled
       if (enableMCP) {
@@ -235,7 +164,7 @@ export class AIProviderFactory {
 
       logger.debug(`[${functionTag}] Provider creation succeeded`, {
         providerName,
-        modelName: modelName || "default",
+        modelName: finalModelName || "default",
         providerType: provider.constructor.name,
         mcpEnabled: enableMCP,
       });
@@ -265,7 +194,7 @@ export class AIProviderFactory {
     provider: AIProviderName,
     model: SupportedModelName,
   ): Promise<AIProvider> {
-    const functionTag = "AIProviderFactory.createProviderWithModel";
+    const functionTag = "AIawait ProviderFactory.createProviderWithModel";
 
     logger.debug(`[${functionTag}] Provider model creation started`, {
       provider,
@@ -307,6 +236,7 @@ export class AIProviderFactory {
     requestedProvider?: string,
     modelName?: string | null,
     enableMCP: boolean = true,
+    sdk?: any,
   ): Promise<AIProvider> {
     const functionTag = "AIProviderFactory.createBestProvider";
 
@@ -320,7 +250,7 @@ export class AIProviderFactory {
         enableMCP,
       });
 
-      return await this.createProvider(bestProvider, modelName, enableMCP);
+      return await this.createProvider(bestProvider, modelName, enableMCP, sdk);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -348,7 +278,7 @@ export class AIProviderFactory {
     modelName?: string | null,
     enableMCP: boolean = true,
   ): Promise<{ primary: AIProvider; fallback: AIProvider }> {
-    const functionTag = "AIProviderFactory.createProviderWithFallback";
+    const functionTag = "AIawait ProviderFactory.createProviderWithFallback";
 
     logger.debug(`[${functionTag}] Fallback provider setup started`, {
       primaryProvider,

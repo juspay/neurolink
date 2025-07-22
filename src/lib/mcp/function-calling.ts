@@ -81,7 +81,7 @@ export async function getAvailableFunctionTools(): Promise<{
 
   try {
     // Add overall timeout for the entire function
-    const overallTimeoutMs = 5000; // 5 seconds max for everything
+    const overallTimeoutMs = process.env.NODE_ENV === "test" ? 30000 : 15000; // 30s for tests, 15s for production
     let overallTimeoutId: NodeJS.Timeout | undefined;
 
     const overallTimeoutPromise = new Promise<never>((_, reject) => {

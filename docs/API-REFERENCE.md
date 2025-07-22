@@ -6,7 +6,7 @@ Complete reference for NeuroLink's TypeScript API.
 
 ### `createBestAIProvider(requestedProvider?, modelName?)`
 
-Creates the best available AI provider based on environment configuration and provider availability. This now includes authentication and model availability checks.
+Creates the best available AI provider based on environment configuration and provider availability. All providers inherit from BaseProvider and include built-in tool support.
 
 ```typescript
 function createBestAIProvider(
@@ -75,9 +75,73 @@ try {
 }
 ```
 
+## BaseProvider Class
+
+All AI providers inherit from BaseProvider, which provides unified tool support and consistent behavior across all providers.
+
+### Key Features
+
+- **Automatic Tool Support**: All providers include six built-in tools without additional configuration
+- **Unified Interface**: Consistent `generate()` and `stream()` methods across all providers
+- **Analytics & Evaluation**: Built-in support for usage analytics and quality evaluation
+- **Error Handling**: Standardized error handling and recovery
+
+### Built-in Tools
+
+Every provider automatically includes these tools:
+
+```typescript
+interface BuiltInTools {
+  getCurrentTime: {
+    description: "Get the current date and time";
+    parameters: { timezone?: string };
+  };
+  readFile: {
+    description: "Read contents of a file";
+    parameters: { path: string };
+  };
+  listDirectory: {
+    description: "List contents of a directory";
+    parameters: { path: string };
+  };
+  calculateMath: {
+    description: "Perform mathematical calculations";
+    parameters: { expression: string };
+  };
+  writeFile: {
+    description: "Write content to a file";
+    parameters: { path: string; content: string };
+  };
+  searchFiles: {
+    description: "Search for files by pattern";
+    parameters: { pattern: string; path?: string };
+  };
+}
+```
+
+### Example Usage
+
+```typescript
+// All providers automatically have tool support
+const provider = createBestAIProvider("openai");
+
+// Tools are used automatically when appropriate
+const result = await provider.generate({
+  input: { text: "What time is it?" },
+});
+// Result will use getCurrentTime tool automatically
+
+// Disable tools if needed
+const resultNoTools = await provider.generate({
+  input: { text: "What time is it?" },
+  disableTools: true,
+});
+// Result will use training data instead of real-time tools
+```
+
 ## AIProviderFactory
 
-Factory class for creating specific provider instances.
+Factory class for creating specific provider instances with BaseProvider inheritance.
 
 ### `createProvider(providerName, modelName?)`
 
@@ -259,6 +323,10 @@ interface GenerateOptions {
   systemPrompt?: string;
   schema?: any; // For structured output
   timeout?: number | string; // Timeout in ms or human-readable format (e.g., '30s', '2m', '1h')
+  disableTools?: boolean; // Disable tool usage for this request
+  enableAnalytics?: boolean; // Enable usage analytics
+  enableEvaluation?: boolean; // Enable AI quality scoring
+  context?: Record<string, any>; // Custom context for analytics
 }
 ```
 
@@ -630,6 +698,7 @@ interface GenerateOptions {
   systemPrompt?: string;
   schema?: any;
   timeout?: number | string;
+  disableTools?: boolean; // Disable tool usage for this request
 
   // 🆕 NEW: AI Enhancement Features
   enableAnalytics?: boolean; // Enable usage analytics
@@ -642,44 +711,22 @@ interface GenerateOptions {
 
 ```typescript
 const result = await provider.generate({
-  input: { text: 'Write a business proposal' },
+  input: { text: "Write a business proposal" },
   enableAnalytics: true,
   enableEvaluation: true,
   context: {
-    userId: '12345',
-    session: 'business-meeting',
-    department: 'sales'
-  }
+    userId: "12345",
+    session: "business-meeting",
+    department: "sales",
+  },
 });
 
 // Access enhancement data
-console.log('📊 Analytics:', result.analytics);
+console.log("📊 Analytics:", result.analytics);
 // { provider: 'openai', model: 'gpt-4o', tokens: {...}, cost: 0.02, responseTime: 2340 }
 
-console.log('⭐ Evaluation:', result.evaluation);
-// { relevance: 9, accuracy: 8, completeness: 9, overall: 8.7 }
-
-// 🆕 Enhanced Evaluation (NEW)
-const enhancedResult = await performEnhancedEvaluation({
-  userQuery: 'Write a business proposal',
-  aiResponse: result.content,
-  primaryDomain: 'Business development',
-  assistantRole: 'Business proposal assistant',
-  toolsUsed: ['generate'],
-  conversationHistory: [
-    { role: 'user', content: 'I need help with proposals' },
-    { role: 'assistant', content: 'I can help you create effective proposals' }
-  ]
-});
-
-console.log('🎯 Enhanced Evaluation:', enhancedResult);
-// {
-//   relevanceScore: 9, accuracyScore: 8, completenessScore: 9,
-//   domainAlignment: 9, terminologyAccuracy: 8, toolEffectiveness: 9,
-//   overall: 8.7, alertSeverity: 'none',
-//   contextUtilization: { conversationUsed: true, toolsUsed: true, domainKnowledgeUsed: true }
-// }
-}
+console.log("⭐ Evaluation:", result.evaluation);
+// { relevanceScore: 9, accuracyScore: 8, completenessScore: 9, overallScore: 8.7 }
 ```
 
 **Example:**
@@ -1414,19 +1461,40 @@ interface AIProvider {
 }
 
 interface GenerateOptions {
-  prompt: string;
+  input: { text: string };
   temperature?: number; // 0.0 to 1.0, default: 0.7
   maxTokens?: number; // Default: 1000
   systemPrompt?: string; // System message
   schema?: any; // For structured output
+  timeout?: number | string; // Timeout in ms or human-readable format
+  disableTools?: boolean; // Disable tool usage
+  enableAnalytics?: boolean; // Enable usage analytics
+  enableEvaluation?: boolean; // Enable AI quality scoring
+  context?: Record<string, any>; // Custom context for analytics
 }
 
 interface GenerateResult {
-  text: string;
+  content: string;
   provider: string;
   model: string;
   usage?: TokenUsage;
   responseTime?: number; // Milliseconds
+  analytics?: {
+    provider: string;
+    model: string;
+    tokens: { input: number; output: number; total: number };
+    cost?: number;
+    responseTime: number;
+    context?: Record<string, any>;
+  };
+  evaluation?: {
+    relevanceScore: number; // 1-10 scale
+    accuracyScore: number; // 1-10 scale
+    completenessScore: number; // 1-10 scale
+    overallScore: number; // 1-10 scale
+    alertLevel?: string; // 'none', 'low', 'medium', 'high'
+    reasoning?: string; // AI reasoning for the evaluation
+  };
 }
 
 interface TokenUsage {
@@ -1500,6 +1568,22 @@ interface DynamicModelRegistry {
   getAllModels(): Promise<ModelConfig[]>;
 }
 ```
+
+### Provider Tool Support Status
+
+Due to the factory pattern refactoring, all providers now have consistent tool support through BaseProvider:
+
+| Provider     | Tool Support | Notes                                                |
+| ------------ | ------------ | ---------------------------------------------------- |
+| OpenAI       | ✅ Full      | All tools work correctly                             |
+| Google AI    | ✅ Full      | Excellent tool execution                             |
+| Anthropic    | ✅ Full      | Reliable tool usage                                  |
+| Azure OpenAI | ✅ Full      | Same as OpenAI                                       |
+| Mistral      | ✅ Full      | Good tool support                                    |
+| HuggingFace  | ⚠️ Partial   | Model sees tools but may describe instead of execute |
+| Vertex AI    | ⚠️ Partial   | Tools available but may not execute                  |
+| Ollama       | ❌ Limited   | Requires specific models like gemma3n                |
+| Bedrock      | ✅ Full\*    | Requires valid AWS credentials                       |
 
 ### Provider-Specific Types
 
@@ -1826,9 +1910,9 @@ const typedProvider: TypedAIProvider<CustomOptions, CustomResult> =
 
 ## MCP (Model Context Protocol) APIs
 
-NeuroLink supports external MCP servers for extended functionality through both CLI and programmatic interfaces.
+NeuroLink supports MCP through built-in tools and SDK custom tool registration.
 
-### ✅ Current Status (v1.7.1)
+### ✅ Current Status
 
 **Built-in Tools: ✅ FULLY FUNCTIONAL**
 

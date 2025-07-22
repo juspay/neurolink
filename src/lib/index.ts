@@ -28,6 +28,21 @@ export type {
 export { CompatibilityConversionFactory } from "./factories/compatibility-factory.js";
 export { ProviderGenerateFactory } from "./factories/provider-generate-factory.js";
 
+// Tool Registration exports
+export type { SimpleTool, ToolContext } from "./sdk/tool-registration.js";
+export {
+  createTool,
+  createTypedTool,
+  validateTool,
+} from "./sdk/tool-registration.js";
+
+// MCP Types for extensions
+export type {
+  InMemoryMCPServerConfig,
+  InMemoryToolInfo,
+  InMemoryToolResult,
+} from "./types/mcp-types.js";
+
 // Model enums
 export {
   BedrockModels,
@@ -36,17 +51,6 @@ export {
   DEFAULT_PROVIDER_CONFIGS,
 } from "./core/types.js";
 
-// Provider exports
-export {
-  GoogleVertexAI,
-  AmazonBedrock,
-  OpenAI,
-  AnthropicProvider,
-  AzureOpenAIProvider,
-} from "./providers/index.js";
-export type { ProviderName } from "./providers/index.js";
-export { PROVIDERS, AVAILABLE_PROVIDERS } from "./providers/index.js";
-
 // Utility exports
 export {
   getBestProvider,
@@ -54,8 +58,9 @@ export {
   isValidProvider,
 } from "./utils/providerUtils.js";
 
-// Main NeuroLink wrapper class
+// Main NeuroLink wrapper class and diagnostic types
 export { NeuroLink } from "./neurolink.js";
+export type { ProviderStatus, MCPStatus, MCPServerInfo } from "./neurolink.js";
 
 // Version
 export const VERSION = "1.0.0";

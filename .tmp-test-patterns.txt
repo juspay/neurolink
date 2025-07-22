@@ -1,0 +1,2 @@
+tests/integration/**
+tests/providers/**

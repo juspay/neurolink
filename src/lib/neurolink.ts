@@ -1,38 +1,94 @@
 /**
  * NeuroLink - Unified AI Interface with Real MCP Tool Integration
  *
+ * REDESIGNED FALLBACK CHAIN - NO CIRCULAR DEPENDENCIES
  * Enhanced AI provider system with natural MCP tool access.
  * Uses real MCP infrastructure for tool discovery and execution.
  */
+
+// Load environment variables from .env file (critical for SDK usage)
+import { config as dotenvConfig } from "dotenv";
+
+try {
+  dotenvConfig(); // Load .env from current working directory
+} catch (error) {
+  // Environment variables should be set externally in production
+}
 
 import type {
   AIProviderName,
   TextGenerationOptions,
   TextGenerationResult,
 } from "./core/types.js";
-import { AIProviderFactory } from "./index.js";
+import { AIProviderFactory } from "./core/factory.js";
 import { ContextManager } from "./mcp/context-manager.js";
 import { mcpLogger } from "./mcp/logging.js";
 import { toolRegistry } from "./mcp/tool-registry.js";
 import { unifiedRegistry } from "./mcp/unified-registry.js";
 import { logger } from "./utils/logger.js";
 import { getBestProvider } from "./utils/providerUtils-fixed.js";
-import { TimeoutError } from "./utils/timeout.js";
+import { ProviderRegistry } from "./factories/provider-registry.js";
 // NEW: Generate function imports
 import type {
   GenerateOptions,
   GenerateResult,
 } from "./types/generate-types.js";
 import type { StreamOptions, StreamResult } from "./types/stream-types.js";
-import { CompatibilityConversionFactory } from "./factories/compatibility-factory.js";
+// Tool registration imports
+import type { SimpleTool } from "./sdk/tool-registration.js";
+import {
+  validateTool,
+  createMCPServerFromTools,
+} from "./sdk/tool-registration.js";
+import type { InMemoryMCPServerConfig } from "./types/mcp-types.js";
+
+// Provider and MCP diagnostic types
+export interface ProviderStatus {
+  provider: string;
+  status: "working" | "failed" | "not-configured";
+  configured: boolean;
+  authenticated: boolean;
+  error?: string;
+  responseTime?: number;
+  model?: string;
+}
+
+export interface MCPStatus {
+  mcpInitialized: boolean;
+  totalServers: number;
+  availableServers: number;
+  autoDiscoveredCount: number;
+  totalTools: number;
+  autoDiscoveredServers: MCPServerInfo[];
+  customToolsCount: number;
+  inMemoryServersCount: number;
+  error?: string;
+}
+
+export interface MCPServerInfo {
+  id: string;
+  name: string;
+  source: string;
+  status: "connected" | "discovered" | "failed";
+  hasServer: boolean;
+  metadata?: any;
+}
 
 // Core types imported from core/types.js
 
 export class NeuroLink {
   private mcpInitialized = false;
   private contextManager: ContextManager;
+  // Tool registration support
+  private customTools: Map<string, SimpleTool> = new Map();
+  private inMemoryServers: Map<string, InMemoryMCPServerConfig> = new Map();
 
   constructor() {
+    // SDK always disables manual MCP config for security
+    ProviderRegistry.setOptions({
+      enableManualMCP: false,
+    });
+
     this.contextManager = new ContextManager();
   }
 
@@ -48,95 +104,72 @@ export class NeuroLink {
     try {
       mcpLogger.debug("[NeuroLink] Starting isolated MCP initialization...");
 
-      // Use Promise.race with aggressive timeout and isolated context
-      const initTimeout = 3000; // 3 seconds max (reduced from 5)
-      const mcpInitPromise = Promise.race([
-        this.doIsolatedMCPInitialization(),
+      // Initialize tool registry with timeout protection
+      const initTimeout = 3000; // 3 second timeout
+      await Promise.race([
+        Promise.resolve(), // toolRegistry doesn't need explicit initialization
         new Promise<void>((_, reject) => {
-          setTimeout(() => {
-            reject(new Error("MCP initialization timeout after 3s"));
-          }, initTimeout);
+          setTimeout(
+            () => reject(new Error("MCP initialization timeout")),
+            initTimeout,
+          );
         }),
       ]);
 
-      await mcpInitPromise;
+      // Register all providers with lazy loading support
+      await ProviderRegistry.registerAllProviders();
 
       this.mcpInitialized = true;
-      mcpLogger.debug(
-        "[NeuroLink] MCP tool integration initialized successfully",
-      );
+      mcpLogger.debug("[NeuroLink] MCP initialization completed successfully");
     } catch (error) {
-      mcpLogger.warn(
-        "[NeuroLink] MCP initialization failed, continuing without tools:",
-        error,
-      );
-      // Mark as initialized to prevent infinite retries
-      this.mcpInitialized = true;
+      mcpLogger.warn("[NeuroLink] MCP initialization failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Continue without MCP - graceful degradation
     }
   }
 
   /**
-   * Isolated MCP initialization to prevent context-dependent hanging
+   * MAIN ENTRY POINT: Enhanced generate method with new function signature
+   * Replaces both generateText and legacy methods
    */
-  private async doIsolatedMCPInitialization(): Promise<void> {
-    try {
-      // Initialize only the essential built-in tools without complex registry
-      mcpLogger.debug("[NeuroLink] Initializing essential MCP tools...");
+  async generate(
+    optionsOrPrompt: GenerateOptions | string,
+  ): Promise<GenerateResult> {
+    const startTime = Date.now();
 
-      // Use dynamic import in isolated context to avoid circular dependencies
-      const { initializeNeuroLinkMCP, isNeuroLinkMCPInitialized } =
-        await import("./mcp/initialize.js");
+    // Convert string prompt to full options
+    const options: GenerateOptions =
+      typeof optionsOrPrompt === "string"
+        ? { input: { text: optionsOrPrompt } }
+        : optionsOrPrompt;
 
-      // Only initialize if not already done
-      if (!isNeuroLinkMCPInitialized()) {
-        await initializeNeuroLinkMCP();
-      }
-
-      mcpLogger.debug(
-        "[NeuroLink] Essential MCP tools initialized successfully",
-      );
-    } catch (error) {
-      mcpLogger.warn("[NeuroLink] Isolated MCP initialization failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * PRIMARY METHOD: Generate content using AI (recommended for new code)
-   * Future-ready for multi-modal capabilities with current text focus
-   */
-  async generate(options: GenerateOptions): Promise<GenerateResult> {
-    // Validate input
-    if (
-      !options?.input?.text ||
-      typeof options.input.text !== "string" ||
-      options.input.text.trim() === ""
-    ) {
-      throw new Error(
-        "Generate options must include input.text as a non-empty string",
-      );
+    // Validate prompt
+    if (!options.input?.text || typeof options.input.text !== "string") {
+      throw new Error("Input text is required and must be a non-empty string");
     }
 
-    // Convert input format and extract text
-    const prompt = options.input.text;
-    const convertedOptions: TextGenerationOptions = {
-      prompt,
+    // Convert to internal TextGenerationOptions for compatibility
+    const textOptions: TextGenerationOptions = {
+      prompt: options.input.text,
       provider: options.provider as AIProviderName,
       model: options.model,
       temperature: options.temperature,
       maxTokens: options.maxTokens,
       systemPrompt: options.systemPrompt,
-      timeout: options.timeout,
+      disableTools: options.disableTools, // FIX: Pass disableTools flag
+      // 🔧 FIX: Include analytics and evaluation options!
       enableAnalytics: options.enableAnalytics,
       enableEvaluation: options.enableEvaluation,
       context: options.context,
+      evaluationDomain: options.evaluationDomain,
+      toolUsageContext: options.toolUsageContext,
     };
 
-    // Use existing generation infrastructure directly
-    // For now, always use generateWithTools for full functionality
-    const textResult = await this.generateWithTools(convertedOptions);
+    // Use redesigned generation logic
+    const textResult = await this.generateTextInternal(textOptions);
 
-    // Convert to GenerateResult format
+    // Convert back to GenerateResult
     const generateResult: GenerateResult = {
       content: textResult.content,
       provider: textResult.provider,
@@ -187,90 +220,96 @@ export class NeuroLink {
       );
     }
 
-    // Convert TextGenerationOptions to GenerateOptions
-    const generateOptions =
-      CompatibilityConversionFactory.convertTextToGenerate(options);
+    // Use internal generation method directly
+    return await this.generateTextInternal(options);
+  }
+
+  /**
+   * REDESIGNED INTERNAL GENERATION - NO CIRCULAR DEPENDENCIES
+   *
+   * This method implements a clean fallback chain:
+   * 1. Try MCP-enhanced generation if available
+   * 2. Fall back to direct provider generation
+   * 3. No recursive calls - each method has a specific purpose
+   */
+  private async generateTextInternal(
+    options: TextGenerationOptions,
+  ): Promise<TextGenerationResult> {
+    const startTime = Date.now();
+    const functionTag = "NeuroLink.generateTextInternal";
+
+    logger.debug(`[${functionTag}] Starting generation`, {
+      provider: options.provider || "auto",
+      promptLength: options.prompt?.length || 0,
+    });
 
     try {
-      // Use internal generate method for identical performance and behavior
-      const generateResult = await this.generate(generateOptions);
+      // Try MCP-enhanced generation first (if not explicitly disabled)
+      if (!options.disableTools) {
+        try {
+          const mcpResult = await this.tryMCPGeneration(options);
+          if (mcpResult && mcpResult.content) {
+            logger.debug(`[${functionTag}] MCP generation successful`);
+            return mcpResult;
+          }
+        } catch (error) {
+          logger.debug(`[${functionTag}] MCP generation failed, falling back`, {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
 
-      // Convert GenerateResult back to TextGenerationResult format for backward compatibility
-      const textResult: TextGenerationResult = {
-        content: generateResult.content,
-        provider: generateResult.provider,
-        model: generateResult.model,
-        usage: generateResult.usage
-          ? {
-              promptTokens: generateResult.usage?.inputTokens || 0,
-              completionTokens: generateResult.usage?.outputTokens || 0,
-              totalTokens: generateResult.usage?.totalTokens || 0,
-            }
-          : undefined,
-        responseTime: generateResult.responseTime,
-        toolsUsed: generateResult.toolsUsed,
-        toolExecutions: generateResult.toolExecutions?.map((te: any) => ({
-          toolName: te.name || te.toolName || "",
-          executionTime: te.duration || te.executionTime || 0,
-          success: true, // Assume success if execution completed
-          serverId: te.serverId,
-        })),
-        enhancedWithTools: generateResult.enhancedWithTools,
-        availableTools: generateResult.availableTools?.map((tool: any) => ({
-          name: tool.name || "",
-          description: tool.description || "",
-          server: tool.server || "unknown",
-          category: tool.category,
-        })),
-      };
-
-      return textResult;
+      // Fall back to direct provider generation
+      const directResult = await this.directProviderGeneration(options);
+      logger.debug(`[${functionTag}] Direct generation successful`);
+      return directResult;
     } catch (error) {
-      throw new Error(`GenerateText compatibility method failed: ${error}`);
+      logger.error(`[${functionTag}] All generation methods failed`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
   }
 
   /**
-   * Generate text with real MCP tool integration using automatic detection
+   * Try MCP-enhanced generation (no fallback recursion)
    */
-  private async generateWithTools(
+  private async tryMCPGeneration(
     options: TextGenerationOptions,
-  ): Promise<TextGenerationResult> {
-    const startTime = Date.now();
-    const functionTag = "NeuroLink.generateWithTools";
-
-    // Initialize MCP if needed
-    await this.initializeMCP();
-
-    // Create execution context for tool operations
-    const context = this.contextManager.createContext({
-      sessionId: `neurolink-${Date.now()}`,
-      userId: "neurolink-user",
-      aiProvider: options.provider || "auto",
-    });
-
-    // Determine provider to use
-    const providerName =
-      options.provider === "auto" || !options.provider
-        ? await getBestProvider()
-        : options.provider;
+  ): Promise<TextGenerationResult | null> {
+    const functionTag = "NeuroLink.tryMCPGeneration";
+    const startTime = Date.now(); // 🔧 FIX: Add proper timing
 
     try {
-      mcpLogger.debug(`[${functionTag}] Starting MCP-enabled generation`, {
-        provider: providerName,
-        prompt: (options.prompt?.substring(0, 100) || "No prompt") + "...",
-        contextId: context.sessionId,
+      // Initialize MCP if needed
+      await this.initializeMCP();
+
+      if (!this.mcpInitialized) {
+        return null; // Skip MCP if not available
+      }
+
+      // Create execution context
+      const context = this.contextManager.createContext({
+        sessionId: `neurolink-${Date.now()}`,
+        userId: "neurolink-user",
+        aiProvider: options.provider || "auto",
       });
 
-      // Get available tools from tool registry (simplified approach)
+      // Determine provider
+      const providerName =
+        options.provider === "auto" || !options.provider
+          ? await getBestProvider()
+          : options.provider;
+
+      // Get available tools
       let availableTools: Array<{
         name: string;
         description: string;
         server: string;
         category?: string;
       }> = [];
+
       try {
-        // Use toolRegistry directly instead of unified registry to avoid hanging
         const allTools = await toolRegistry.listTools();
         availableTools = allTools.map((tool: any) => ({
           name: tool.name,
@@ -278,17 +317,8 @@ export class NeuroLink {
           server: tool.server,
           category: tool.category,
         }));
-
-        mcpLogger.debug(
-          `[${functionTag}] Found ${availableTools.length} available tools from default registry`,
-          {
-            tools: availableTools.map((t) => t.name),
-          },
-        );
       } catch (error) {
-        mcpLogger.warn(`[${functionTag}] Failed to get available tools`, {
-          error,
-        });
+        mcpLogger.warn(`[${functionTag}] Failed to get tools`, { error });
       }
 
       // Create tool-aware system prompt
@@ -297,99 +327,57 @@ export class NeuroLink {
         availableTools,
       );
 
-      // Create provider with MCP enabled using best provider function
-      const provider = await AIProviderFactory.createBestProvider(
-        providerName,
+      // Create provider and generate
+      const provider = await AIProviderFactory.createProvider(
+        providerName as AIProviderName,
         options.model,
-        true,
+        !options.disableTools, // Pass disableTools as inverse of enableMCP
+        this, // Pass SDK instance
       );
 
-      // Generate text with automatic tool detection
-      const result = await provider.generate(
-        {
-          prompt: options.prompt,
-          temperature: options.temperature,
-          maxTokens: options.maxTokens,
-          systemPrompt: enhancedSystemPrompt,
-          timeout: options.timeout,
-          // NEW: Pass enhancement options
-          enableAnalytics: options.enableAnalytics,
-          enableEvaluation: options.enableEvaluation,
-          context: options.context,
-          // NEW: Lighthouse-compatible domain-aware evaluation
-          evaluationDomain: options.evaluationDomain,
-          toolUsageContext: options.toolUsageContext,
-          conversationHistory: options.conversationHistory,
-        },
-        options.schema,
-      );
-
-      if (!result) {
-        throw new Error("No response received from AI provider");
-      }
-
-      const responseTime = Date.now() - startTime;
-
-      // Extract MCP metadata if available
-      const metadata = (result as any).metadata || {};
-
-      mcpLogger.debug(`[${functionTag}] MCP-enabled generation completed`, {
-        responseTime,
-        toolsUsed: metadata.toolsUsed || [],
-        enhancedWithTools: metadata.enhancedWithTools || false,
-        availableToolsCount: availableTools.length,
+      const result = await provider.generate({
+        ...options,
+        systemPrompt: enhancedSystemPrompt,
       });
 
-      // Check if we actually got content
-      if (!result.content || result.content.trim() === "") {
-        mcpLogger.warn(
-          `[${functionTag}] Empty response from provider, attempting fallback`,
-          {
-            provider: providerName,
-            hasText: !!result.content,
-            textLength: result.content?.length || 0,
-          },
-        );
+      const responseTime = Date.now() - startTime; // 🔧 FIX: Proper timing calculation
 
-        // Fall back to regular generation if MCP generation returns empty
-        return this.generateRegular(options);
+      // Check if result is meaningful
+      if (!result || !result.content || result.content.trim().length === 0) {
+        return null; // Let caller fall back to direct generation
       }
 
+      // Return enhanced result
       return {
         content: result.content,
         provider: providerName,
         usage: result.usage,
         responseTime,
-        toolsUsed: metadata.toolsUsed || [],
-        enhancedWithTools: metadata.enhancedWithTools || false,
+        toolsUsed: [],
+        enhancedWithTools: true,
         availableTools: availableTools.length > 0 ? availableTools : undefined,
-        // NEW: Preserve enhancement data from provider
-        ...(result.analytics && { analytics: result.analytics }),
-        ...(result.evaluation && { evaluation: result.evaluation }),
+        // 🔧 FIX: Include analytics and evaluation from BaseProvider
+        analytics: (result as any).analytics,
+        evaluation: (result as any).evaluation,
       };
     } catch (error) {
-      // Fall back to regular generation if MCP fails
-      mcpLogger.warn(
-        `[${functionTag}] MCP generation failed, falling back to regular`,
-        {
-          error: error instanceof Error ? error.message : String(error),
-        },
-      );
-
-      return this.generateRegular(options);
+      mcpLogger.warn(`[${functionTag}] MCP generation failed`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null; // Let caller fall back
     }
   }
 
   /**
-   * Regular text generation (existing logic)
+   * Direct provider generation (no MCP, no recursion)
    */
-  private async generateRegular(
+  private async directProviderGeneration(
     options: TextGenerationOptions,
   ): Promise<TextGenerationResult> {
     const startTime = Date.now();
-    const functionTag = "NeuroLink.generateRegular";
+    const functionTag = "NeuroLink.directProviderGeneration";
 
-    // Define fallback provider priority order
+    // Define provider priority for fallback
     const providerPriority = [
       "openai",
       "vertex",
@@ -400,126 +388,73 @@ export class NeuroLink {
       "huggingface",
       "ollama",
     ];
+
     const requestedProvider =
       options.provider === "auto" ? undefined : options.provider;
 
     // If specific provider requested, only use that provider (no fallback)
     const tryProviders = requestedProvider
-      ? [requestedProvider] // Only use the requested provider, no fallback
+      ? [requestedProvider]
       : providerPriority;
 
-    logger.debug(`[${functionTag}] Starting text generation`, {
+    logger.debug(`[${functionTag}] Starting direct generation`, {
       requestedProvider: requestedProvider || "auto",
       tryProviders,
       allowFallback: !requestedProvider,
-      promptLength: options.prompt?.length || 0,
     });
 
     let lastError: Error | null = null;
 
+    // Try each provider in order
     for (const providerName of tryProviders) {
       try {
-        logger.debug(`[${functionTag}] Attempting provider`, {
-          provider: providerName,
-        });
+        logger.debug(`[${functionTag}] Attempting provider: ${providerName}`);
 
         const provider = await AIProviderFactory.createProvider(
-          providerName,
+          providerName as AIProviderName,
           options.model,
-          false, // Explicitly disable MCP when tools are disabled
+          !options.disableTools, // Pass disableTools as inverse of enableMCP
+          this, // Pass SDK instance
         );
 
-        const result = await provider.generate(
-          {
-            prompt: options.prompt,
-            model: options.model,
-            temperature: options.temperature,
-            maxTokens: options.maxTokens,
-            systemPrompt: options.systemPrompt,
-            timeout: options.timeout,
-            // NEW: Pass enhancement options
-            enableAnalytics: options.enableAnalytics,
-            enableEvaluation: options.enableEvaluation,
-            context: options.context,
-            // NEW: Lighthouse-compatible domain-aware evaluation
-            evaluationDomain: options.evaluationDomain,
-            toolUsageContext: options.toolUsageContext,
-            conversationHistory: options.conversationHistory,
-          },
-          options.schema,
-        );
-
-        if (!result) {
-          throw new Error("No response received from AI provider");
-        }
-
-        // Check if we actually got content
-        if (!result.content || result.content.trim() === "") {
-          logger.warn(`[${functionTag}] Empty response from provider`, {
-            provider: providerName,
-            hasText: !!result.content,
-            textLength: result.content?.length || 0,
-          });
-
-          // Continue to next provider if available
-          throw new Error(`Empty response from ${providerName}`);
-        }
-
+        const result = await provider.generate(options);
         const responseTime = Date.now() - startTime;
 
-        logger.debug(`[${functionTag}] Provider succeeded`, {
-          provider: providerName,
+        if (!result) {
+          throw new Error(`Provider ${providerName} returned null result`);
+        }
+
+        logger.debug(`[${functionTag}] Provider ${providerName} succeeded`, {
           responseTime,
-          usage: result.usage,
+          contentLength: result.content?.length || 0,
         });
 
         return {
-          content: result.content,
+          content: result.content || "",
           provider: providerName,
-          usage: result.usage
-            ? {
-                promptTokens: result.usage.inputTokens || 0,
-                completionTokens: result.usage.outputTokens || 0,
-                totalTokens: result.usage.totalTokens || 0,
-              }
-            : undefined,
+          model: result.model,
+          usage: result.usage,
           responseTime,
-          // NEW: Preserve enhancement data from provider
-          ...(result.analytics && { analytics: result.analytics }),
-          ...(result.evaluation && { evaluation: result.evaluation }),
+          toolsUsed: [],
+          enhancedWithTools: false,
+          analytics: (result as any).analytics,
+          evaluation: (result as any).evaluation,
         };
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        lastError = error instanceof Error ? error : new Error(errorMessage);
-
-        // Special handling for timeout errors
-        if (error instanceof TimeoutError) {
-          logger.warn(`[${functionTag}] Provider timed out`, {
-            provider: providerName,
-            timeout: error.timeout,
-            operation: error.operation,
-          });
-        }
-
-        logger.debug(`[${functionTag}] Provider failed, trying next`, {
-          provider: providerName,
-          error: errorMessage,
-          isTimeout: error instanceof TimeoutError,
-          remainingProviders: tryProviders.slice(
-            tryProviders.indexOf(providerName) + 1,
-          ),
+        lastError = error instanceof Error ? error : new Error(String(error));
+        logger.warn(`[${functionTag}] Provider ${providerName} failed`, {
+          error: lastError.message,
         });
-
         // Continue to next provider
-        continue;
       }
     }
 
     // All providers failed
-    logger.debug(`[${functionTag}] All providers failed`, {
+    const responseTime = Date.now() - startTime;
+    logger.error(`[${functionTag}] All providers failed`, {
       triedProviders: tryProviders,
       lastError: lastError?.message,
+      responseTime,
     });
 
     throw new Error(
@@ -539,29 +474,46 @@ export class NeuroLink {
       category?: string;
     }>,
   ): string {
-    const basePrompt =
-      originalSystemPrompt || "You are a helpful AI assistant.";
-
     if (availableTools.length === 0) {
-      return basePrompt;
+      return originalSystemPrompt || "";
     }
 
     const toolDescriptions = availableTools
-      .map((tool) => `- ${tool.name}: ${tool.description}`)
+      .map(
+        (tool) => `- ${tool.name}: ${tool.description} (from ${tool.server})`,
+      )
       .join("\n");
 
-    return `${basePrompt}
+    const toolPrompt = `\n\nAvailable Tools:\n${toolDescriptions}\n\nYou can use these tools when appropriate to enhance your responses.`;
 
-Available tools that can be used when relevant:
+    return (originalSystemPrompt || "") + toolPrompt;
+  }
 
-${toolDescriptions}
+  /**
+   * BACKWARD COMPATIBILITY: Legacy streamText method
+   * Internally calls stream() and converts result format
+   */
+  async streamText(
+    prompt: string,
+    options?: Partial<StreamOptions>,
+  ): Promise<AsyncIterable<string>> {
+    // Convert legacy format to new StreamOptions
+    const streamOptions: StreamOptions = {
+      input: { text: prompt },
+      ...options,
+    };
 
-You can mention these capabilities when they're relevant to user questions. For example:
-- For time questions: "I can get the current time"
-- For provider questions: "I can check AI provider status"
-- For tool questions: "I can list available tools"
+    // Call the new stream method
+    const result = await this.stream(streamOptions);
 
-Note: Tool integration is currently in development. Please provide helpful responses based on your knowledge while mentioning tool capabilities when relevant.`;
+    // Convert StreamResult to simple string async iterable
+    async function* stringStream() {
+      for await (const chunk of result.stream) {
+        yield chunk.content;
+      }
+    }
+
+    return stringStream();
   }
 
   /**
@@ -611,6 +563,7 @@ Note: Tool integration is currently in development. Please provide helpful respo
         providerName,
         options.model,
         true,
+        this, // Pass SDK instance
       );
 
       // Call the provider's stream method directly
@@ -645,96 +598,441 @@ Note: Tool integration is currently in development. Please provide helpful respo
         },
       );
 
-      // Create provider and use regular streaming
+      // Use factory to create provider without MCP
       const provider = await AIProviderFactory.createBestProvider(
         providerName,
         options.model,
-        true,
+        false, // Disable MCP for fallback
+        this, // Pass SDK instance
       );
 
-      // Call the provider's stream method directly
       const streamResult = await provider.stream(options);
-
-      // Extract the stream from the result
-      const stream = streamResult.stream;
+      const responseTime = Date.now() - startTime;
 
       return {
-        stream,
+        stream: streamResult.stream,
         provider: providerName,
         model: options.model,
         metadata: {
-          streamId: `neurolink-fallback-${Date.now()}`,
+          streamId: `neurolink-${Date.now()}`,
           startTime,
+          responseTime,
+          fallback: true,
         },
       };
     }
   }
 
+  // ========================================
+  // Tool Registration API
+  // ========================================
+
   /**
-   * BACKWARD COMPATIBILITY: Legacy streamText method
-   * Internally calls stream() and converts result format
+   * Register a custom tool that will be available to all AI providers
+   * @param name - Unique name for the tool
+   * @param tool - Tool configuration
    */
-  async streamText(
-    options: TextGenerationOptions,
-  ): Promise<AsyncIterable<{ content: string }>> {
-    // Validate required parameters for backward compatibility
-    if (
-      !options.prompt ||
-      typeof options.prompt !== "string" ||
-      options.prompt.trim() === ""
-    ) {
-      throw new Error(
-        "StreamText options must include prompt as a non-empty string",
+  registerTool(name: string, tool: SimpleTool): void {
+    try {
+      // Validate tool configuration
+      validateTool(name, tool);
+
+      // Store the tool
+      this.customTools.set(name, tool);
+
+      // Convert to MCP server format for integration
+      const serverId = `custom-tool-${name}`;
+      const mcpServer = createMCPServerFromTools(
+        serverId,
+        { [name]: tool },
+        {
+          title: `Custom Tool: ${name}`,
+          category: "custom",
+        },
       );
-    }
 
-    // Convert legacy options to StreamOptions
-    const streamOptions = {
-      input: { text: options.prompt },
-      provider: options.provider,
-      model: options.model,
-      temperature: options.temperature,
-      maxTokens: options.maxTokens,
-      systemPrompt: options.systemPrompt,
-      timeout: options.timeout,
-    };
+      // Store as in-memory server
+      this.inMemoryServers.set(serverId, mcpServer);
 
-    try {
-      // Use new stream method for identical performance and behavior
-      const streamResult = await this.stream(streamOptions);
-
-      // Return just the stream for backward compatibility
-      return streamResult.stream;
+      logger.info(`Registered custom tool: ${name}`);
     } catch (error) {
-      throw new Error(`StreamText compatibility method failed: ${error}`);
+      logger.error(`Failed to register tool ${name}:`, error);
+      throw error;
     }
   }
 
   /**
-   * Get the best available AI provider
+   * Register multiple tools at once
+   * @param tools - Object mapping tool names to configurations
    */
-  async getBestProvider(): Promise<string> {
-    return await getBestProvider();
+  registerTools(tools: Record<string, SimpleTool>): void {
+    for (const [name, tool] of Object.entries(tools)) {
+      this.registerTool(name, tool);
+    }
   }
 
   /**
-   * Test a specific provider
+   * Unregister a custom tool
+   * @param name - Name of the tool to remove
+   * @returns true if the tool was removed, false if it didn't exist
    */
-  async testProvider(
-    providerName: AIProviderName,
-    testPrompt: string = "test",
-  ): Promise<boolean> {
+  unregisterTool(name: string): boolean {
+    const removed = this.customTools.delete(name);
+    if (removed) {
+      const serverId = `custom-tool-${name}`;
+      this.inMemoryServers.delete(serverId);
+      logger.info(`Unregistered custom tool: ${name}`);
+    }
+    return removed;
+  }
+
+  /**
+   * Get all registered custom tools
+   * @returns Map of tool names to configurations
+   */
+  getCustomTools(): Map<string, SimpleTool> {
+    return new Map(this.customTools);
+  }
+
+  /**
+   * Add an in-memory MCP server (from git diff)
+   * Allows registration of pre-instantiated server objects
+   * @param serverId - Unique identifier for the server
+   * @param config - Server configuration
+   */
+  async addInMemoryMCPServer(
+    serverId: string,
+    config: InMemoryMCPServerConfig,
+  ): Promise<void> {
     try {
-      const provider = await AIProviderFactory.createProvider(
-        providerName,
-        null,
-        false,
-      ); // Disable MCP for simple testing
-      await provider.generate({
-        prompt: testPrompt,
-        enableAnalytics: false,
-        enableEvaluation: false,
+      mcpLogger.debug(
+        `[NeuroLink] Registering in-memory MCP server: ${serverId}`,
+      );
+
+      // Validate server configuration
+      if (!config.server) {
+        throw new Error(`Server object is required for ${serverId}`);
+      }
+
+      // Store in registry
+      this.inMemoryServers.set(serverId, config);
+
+      mcpLogger.info(
+        `[NeuroLink] Successfully registered in-memory server: ${serverId}`,
+        {
+          category: config.category,
+          provider: config.metadata?.provider,
+          version: config.metadata?.version,
+        },
+      );
+    } catch (error) {
+      mcpLogger.error(
+        `[NeuroLink] Failed to register in-memory server ${serverId}:`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get all registered in-memory servers
+   * @returns Map of server IDs to configurations
+   */
+  getInMemoryServers(): Map<string, InMemoryMCPServerConfig> {
+    return new Map(this.inMemoryServers);
+  }
+
+  /**
+   * Execute a specific tool by name (from git diff)
+   * Supports both custom tools and MCP server tools
+   * @param toolName - Name of the tool to execute
+   * @param params - Parameters to pass to the tool
+   * @param options - Execution options
+   * @returns Tool execution result
+   */
+  async executeTool<T = any>(
+    toolName: string,
+    params: any = {},
+    options?: { timeout?: number },
+  ): Promise<T> {
+    const functionTag = "NeuroLink.executeTool";
+
+    try {
+      mcpLogger.debug(`[${functionTag}] Executing tool: ${toolName}`, {
+        toolName,
+        params,
+        options,
       });
+
+      // First check custom tools
+      if (this.customTools.has(toolName)) {
+        const tool = this.customTools.get(toolName)!;
+        const context = {
+          sessionId: `direct-execution-${Date.now()}`,
+          logger,
+        };
+
+        const startTime = Date.now();
+        const result = await tool.execute(params, context);
+        const executionTime = Date.now() - startTime;
+
+        mcpLogger.debug(`[${functionTag}] Custom tool executed successfully`, {
+          toolName,
+          executionTime,
+        });
+
+        return result as T;
+      }
+
+      // Then check in-memory servers
+      for (const [serverId, serverConfig] of this.inMemoryServers.entries()) {
+        const server = serverConfig.server;
+
+        // Check if this server has the requested tool
+        if (server && server.tools) {
+          const tool =
+            server.tools instanceof Map
+              ? server.tools.get(toolName)
+              : server.tools[toolName];
+
+          if (tool && typeof tool.execute === "function") {
+            mcpLogger.debug(
+              `[${functionTag}] Found tool in in-memory server: ${serverId}`,
+            );
+
+            const startTime = Date.now();
+
+            try {
+              const result = await tool.execute(params);
+              const executionTime = Date.now() - startTime;
+
+              mcpLogger.debug(`[${functionTag}] Tool executed successfully`, {
+                toolName,
+                serverId,
+                executionTime,
+              });
+
+              // Handle MCP-style results
+              if (result && typeof result === "object" && "success" in result) {
+                if (result.success) {
+                  return result.data as T;
+                } else {
+                  throw new Error(result.error || "Tool execution failed");
+                }
+              }
+
+              return result as T;
+            } catch (toolError) {
+              mcpLogger.error(`[${functionTag}] Tool execution failed`, {
+                toolName,
+                serverId,
+                error:
+                  toolError instanceof Error
+                    ? toolError.message
+                    : String(toolError),
+              });
+              throw toolError;
+            }
+          }
+        }
+      }
+
+      // If not found in custom tools or in-memory servers, try unified registry
+      try {
+        // Ensure built-in tools are initialized
+        const { initializeNeuroLinkMCP, isNeuroLinkMCPInitialized } =
+          await import("./mcp/initialize.js");
+        if (!isNeuroLinkMCPInitialized()) {
+          mcpLogger.debug(`[${functionTag}] Initializing built-in MCP servers`);
+          await initializeNeuroLinkMCP();
+        }
+
+        // Create minimal execution context for external tools
+        const context = this.contextManager.createContext({
+          sessionId: `neurolink-tool-${Date.now()}`,
+          userId: "neurolink-user",
+          aiProvider: "auto",
+        });
+
+        const result = (await unifiedRegistry.executeTool(
+          toolName,
+          params,
+          context,
+        )) as T;
+        return result;
+      } catch (error) {
+        mcpLogger.warn(`[${functionTag}] External tool execution failed`, {
+          toolName,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      mcpLogger.error(
+        `[${functionTag}] Tool execution failed: ${errorMessage}`,
+        {
+          toolName,
+          error: errorMessage,
+        },
+      );
+      throw new Error(`Failed to execute tool '${toolName}': ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Get all available tools including custom and in-memory ones
+   * @returns Array of available tools with metadata
+   */
+  async getAllAvailableTools() {
+    const { getAllAvailableTools } = await import("./mcp/initialize-tools.js");
+    return getAllAvailableTools(this.inMemoryServers);
+  }
+
+  // ============================================================================
+  // PROVIDER DIAGNOSTICS - SDK-First Architecture
+  // ============================================================================
+
+  /**
+   * Get comprehensive status of all AI providers
+   * Primary method for provider health checking and diagnostics
+   */
+  async getProviderStatus(): Promise<ProviderStatus[]> {
+    const { AIProviderFactory } = await import("./core/factory.js");
+    const { hasProviderEnvVars } = await import("./utils/providerUtils.js");
+
+    const providers = [
+      "openai",
+      "bedrock",
+      "vertex",
+      "google-vertex",
+      "anthropic",
+      "azure",
+      "google-ai",
+      "huggingface",
+      "ollama",
+      "mistral",
+    ] as const;
+
+    const results: ProviderStatus[] = [];
+
+    for (const providerName of providers) {
+      const startTime = Date.now();
+
+      // Check if provider has required environment variables
+      const hasEnvVars = await this.hasProviderEnvVars(providerName);
+
+      if (!hasEnvVars && providerName !== "ollama") {
+        results.push({
+          provider: providerName,
+          status: "not-configured",
+          configured: false,
+          authenticated: false,
+          error: "Missing required environment variables",
+          responseTime: 0,
+        });
+        continue;
+      }
+
+      // Special handling for Ollama
+      if (providerName === "ollama") {
+        try {
+          const response = await fetch("http://localhost:11434/api/tags", {
+            method: "GET",
+            signal: AbortSignal.timeout(2000),
+          });
+
+          if (!response.ok) {
+            throw new Error("Ollama service not responding");
+          }
+
+          const { models } = await response.json();
+          const defaultOllamaModel = "llama3.2:latest";
+          const modelIsAvailable = models.some(
+            (m: any) => m.name === defaultOllamaModel,
+          );
+
+          if (modelIsAvailable) {
+            results.push({
+              provider: providerName,
+              status: "working",
+              configured: true,
+              authenticated: true,
+              responseTime: Date.now() - startTime,
+              model: defaultOllamaModel,
+            });
+          } else {
+            results.push({
+              provider: providerName,
+              status: "failed",
+              configured: true,
+              authenticated: false,
+              error: `Ollama service running but model '${defaultOllamaModel}' not found`,
+              responseTime: Date.now() - startTime,
+            });
+          }
+        } catch (error) {
+          results.push({
+            provider: providerName,
+            status: "failed",
+            configured: false,
+            authenticated: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Ollama service not running",
+            responseTime: Date.now() - startTime,
+          });
+        }
+        continue;
+      }
+
+      // Test other providers with actual generation call
+      try {
+        const testTimeout = 5000;
+        const testPromise = this.testProviderConnection(providerName);
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error("Provider test timeout (5s)")),
+            testTimeout,
+          );
+        });
+
+        await Promise.race([testPromise, timeoutPromise]);
+
+        results.push({
+          provider: providerName,
+          status: "working",
+          configured: true,
+          authenticated: true,
+          responseTime: Date.now() - startTime,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        results.push({
+          provider: providerName,
+          status: "failed",
+          configured: true,
+          authenticated: false,
+          error: errorMessage,
+          responseTime: Date.now() - startTime,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Test a specific AI provider's connectivity and authentication
+   * @param providerName - Name of the provider to test
+   * @returns Promise resolving to true if provider is working
+   */
+  async testProvider(providerName: string): Promise<boolean> {
+    try {
+      await this.testProviderConnection(providerName);
       return true;
     } catch {
       return false;
@@ -742,181 +1040,152 @@ Note: Tool integration is currently in development. Please provide helpful respo
   }
 
   /**
-   * Get access to the unified MCP registry for tool inspection and management
+   * Internal method to test provider connection with minimal generation call
    */
-  getUnifiedRegistry() {
-    return unifiedRegistry;
-  }
+  private async testProviderConnection(providerName: string): Promise<void> {
+    const { AIProviderFactory } = await import("./core/factory.js");
 
-  /**
-   * Initialize MCP and return discovery statistics
-   */
-  async getMCPStatus() {
-    await this.initializeMCP();
+    const provider = await AIProviderFactory.createProvider(
+      providerName as any,
+      null,
+      false, // Disable MCP for testing
+    );
 
-    const totalServers = unifiedRegistry.getTotalServerCount();
-    const availableServers = unifiedRegistry.getAvailableServerCount();
-    const autoDiscoveredServers = unifiedRegistry.getAutoDiscoveredServers();
-    const allTools = await unifiedRegistry.listAllTools();
-
-    return {
-      mcpInitialized: this.mcpInitialized,
-      totalServers,
-      availableServers,
-      autoDiscoveredCount: autoDiscoveredServers.length,
-      totalTools: allTools.length,
-      autoDiscoveredServers: autoDiscoveredServers.map((server) => ({
-        id: server.metadata.name,
-        name: server.metadata.name,
-        source: server.source,
-        status: "discovered",
-        hasServer: true,
-      })),
-    };
-  }
-
-  /**
-   * Add a new MCP server programmatically
-   *
-   * Allows dynamic registration of MCP servers at runtime for enhanced
-   * tool ecosystem management. Perfect for integrating external services
-   * like Bitbucket, Slack, databases, etc.
-   *
-   * @param serverId - Unique identifier for the server (e.g., 'bitbucket', 'slack-api')
-   * @param config - Server configuration with command and execution parameters
-   * @returns Promise that resolves when server is successfully added and connected
-   *
-   * @example
-   * ```typescript
-   * // Add Bitbucket MCP server
-   * await neurolink.addMCPServer('bitbucket', {
-   *   command: 'npx',
-   *   args: ['-y', '@nexus2520/bitbucket-mcp-server'],
-   *   env: {
-   *     BITBUCKET_USERNAME: 'your-username',
-   *     BITBUCKET_APP_PASSWORD: 'your-app-password'
-   *   }
-   * });
-   *
-   * // Add custom database connector
-   * await neurolink.addMCPServer('database', {
-   *   command: 'node',
-   *   args: ['./custom-db-mcp-server.js'],
-   *   env: { DB_CONNECTION_STRING: 'postgresql://...' }
-   * });
-   * ```
-   */
-  async addMCPServer(
-    serverId: string,
-    config: {
-      command: string;
-      args?: string[];
-      env?: Record<string, string>;
-      cwd?: string;
-      type?: "stdio" | "sse" | "http"; // Transport type (default: stdio)
-      url?: string; // Required for SSE/HTTP transports
-      headers?: Record<string, string>; // Optional headers for SSE/HTTP
-      timeout?: number; // Connection timeout for SSE/HTTP
-    },
-  ): Promise<void> {
-    const functionTag = "NeuroLink.addMCPServer";
-
-    mcpLogger.info(`[${functionTag}] Adding MCP server: ${serverId}`, {
-      command: config.command,
-      argsCount: config.args?.length || 0,
-      hasEnv: Object.keys(config.env || {}).length > 0,
+    await provider.generate({
+      prompt: "test",
+      maxTokens: 1,
+      disableTools: true,
     });
+  }
+
+  /**
+   * Check if a provider has required environment variables configured
+   * @param providerName - Name of the provider to check
+   * @returns True if provider has required environment variables
+   */
+  async hasProviderEnvVars(providerName: string): Promise<boolean> {
+    const { hasProviderEnvVars } = await import("./utils/providerUtils.js");
+    return hasProviderEnvVars(providerName);
+  }
+
+  /**
+   * Get the best available AI provider based on configuration and availability
+   * @param requestedProvider - Optional preferred provider name
+   * @returns Promise resolving to the best provider name
+   */
+  async getBestProvider(requestedProvider?: string): Promise<string> {
+    const { getBestProvider } = await import("./utils/providerUtils.js");
+    return getBestProvider(requestedProvider);
+  }
+
+  /**
+   * Get list of all available AI provider names
+   * @returns Array of supported provider names
+   */
+  async getAvailableProviders(): Promise<string[]> {
+    const { getAvailableProviders } = await import("./utils/providerUtils.js");
+    return getAvailableProviders();
+  }
+
+  /**
+   * Validate if a provider name is supported
+   * @param providerName - Provider name to validate
+   * @returns True if provider name is valid
+   */
+  async isValidProvider(providerName: string): Promise<boolean> {
+    const { isValidProvider } = await import("./utils/providerUtils.js");
+    return isValidProvider(providerName);
+  }
+
+  // ============================================================================
+  // MCP DIAGNOSTICS - SDK-First Architecture
+  // ============================================================================
+
+  /**
+   * Get comprehensive MCP (Model Context Protocol) status information
+   * @returns Promise resolving to MCP status details
+   */
+  async getMCPStatus(): Promise<MCPStatus> {
+    const { unifiedRegistry } = await import("./mcp/unified-registry.js");
 
     try {
-      // Ensure MCP is initialized
-      await this.initializeMCP();
+      const totalServers = unifiedRegistry.getTotalServerCount();
+      const availableServers = unifiedRegistry.getAvailableServerCount();
+      const autoDiscoveredServers = unifiedRegistry.getAutoDiscoveredServers();
+      const allTools = await unifiedRegistry.listAllTools();
 
-      // Add server to unified registry with configurable transport type
-      const transportType = config.type || "stdio";
-
-      // Validate URL requirement for non-stdio transports
-      if (
-        (transportType === "sse" || transportType === "http") &&
-        !config.url
-      ) {
-        throw new Error(
-          `URL is required for ${transportType} transport. Please provide config.url for server '${serverId}'.`,
-        );
-      }
-      const transportConfig: any = {
-        type: transportType,
-        ...(transportType === "stdio" && {
-          command: config.command,
-          args: config.args || [],
-          env: config.env || {},
-          cwd: config.cwd,
-        }),
-        ...(transportType === "sse" && {
-          url: config.url,
-          headers: config.headers,
-          timeout: config.timeout,
-        }),
-        ...(transportType === "http" && {
-          url: config.url,
-          headers: config.headers,
-          timeout: config.timeout,
-        }),
+      return {
+        mcpInitialized: this.mcpInitialized,
+        totalServers,
+        availableServers,
+        autoDiscoveredCount: autoDiscoveredServers.length,
+        totalTools: allTools.length,
+        autoDiscoveredServers: autoDiscoveredServers.map((server) => ({
+          id: server.metadata.name,
+          name: server.metadata.name,
+          source: server.source,
+          status: "discovered",
+          hasServer: true,
+        })),
+        customToolsCount: this.customTools.size,
+        inMemoryServersCount: this.inMemoryServers.size,
       };
-
-      await unifiedRegistry.addExternalServer(serverId, transportConfig);
-
-      // Check if server is actually connected vs just registered
-      const isConnected = unifiedRegistry.isConnected(serverId);
-      if (isConnected) {
-        mcpLogger.info(
-          `[${functionTag}] Successfully connected to MCP server: ${serverId}`,
-        );
-      } else {
-        mcpLogger.info(
-          `[${functionTag}] MCP server registered: ${serverId} (connection failed, but server available for retry)`,
-        );
-      }
     } catch (error) {
-      mcpLogger.error(
-        `[${functionTag}] Failed to add MCP server: ${serverId}`,
-        {
-          error: error instanceof Error ? error.message : String(error),
-        },
-      );
-      const newError = new Error(
-        `Failed to add MCP server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
-      );
-      if (error instanceof Error && error.stack) {
-        newError.stack = `${newError.stack}\nCaused by: ${error.stack}`;
-      }
-      throw newError;
+      return {
+        mcpInitialized: false,
+        totalServers: 0,
+        availableServers: 0,
+        autoDiscoveredCount: 0,
+        totalTools: 0,
+        autoDiscoveredServers: [],
+        customToolsCount: this.customTools.size,
+        inMemoryServersCount: this.inMemoryServers.size,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
   /**
-   * Short alias for generate() - CLI-SDK consistency
-   * @param options - Text generation options
-   * @returns Promise resolving to text generation result
+   * List all configured MCP servers with their status
+   * @returns Promise resolving to array of MCP server information
    */
-  async gen(options: TextGenerationOptions): Promise<TextGenerationResult> {
-    return this.generateText(options);
+  async listMCPServers(): Promise<MCPServerInfo[]> {
+    const { unifiedRegistry } = await import("./mcp/unified-registry.js");
+
+    try {
+      const servers = unifiedRegistry.getAutoDiscoveredServers();
+      return servers.map((server) => ({
+        id: server.metadata.name,
+        name: server.metadata.name,
+        source: server.source,
+        status: unifiedRegistry.isConnected(server.metadata.name)
+          ? "connected"
+          : "discovered",
+        hasServer: true,
+        metadata: server.metadata,
+      }));
+    } catch (error) {
+      logger.warn("Failed to list MCP servers", { error });
+      return [];
+    }
   }
 
   /**
-   * Get the connection client for a specific MCP server
-   * @param serverId - The ID of the server to get connection for
-   * @returns Client connection object or undefined if not connected
+   * Test connectivity to a specific MCP server
+   * @param serverId - ID of the MCP server to test
+   * @returns Promise resolving to true if server is reachable
    */
-  getConnection(serverId: string) {
-    return unifiedRegistry.getConnection(serverId);
-  }
+  async testMCPServer(serverId: string): Promise<boolean> {
+    const { unifiedRegistry } = await import("./mcp/unified-registry.js");
 
-  /**
-   * Check if a specific MCP server is currently connected
-   * @param serverId - The ID of the server to check
-   * @returns True if server is connected, false otherwise
-   */
-  isConnected(serverId: string): boolean {
-    return unifiedRegistry.isConnected(serverId);
+    try {
+      return unifiedRegistry.isConnected(serverId);
+    } catch {
+      return false;
+    }
   }
 }
+
+// Create default instance
+export const neurolink = new NeuroLink();
+export default neurolink;
