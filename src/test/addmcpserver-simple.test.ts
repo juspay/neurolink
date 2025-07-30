@@ -34,7 +34,7 @@ vi.mock("../lib/mcp/factory.js", () => ({
 }));
 
 // Mock all loggers
-vi.mock("../lib/mcp/logging.js", () => ({
+vi.mock("../lib/utils/logger.js", () => ({
   mcpLogger: {
     info: vi.fn(),
     warn: vi.fn(),

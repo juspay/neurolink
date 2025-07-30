@@ -22,7 +22,7 @@ import type {
 } from "./core/types.js";
 import { AIProviderFactory } from "./core/factory.js";
 
-import { mcpLogger } from "./mcp/logging.js";
+import { mcpLogger } from "./utils/logger.js";
 import { toolRegistry } from "./mcp/tool-registry.js";
 import { logger } from "./utils/logger.js";
 import { getBestProvider } from "./utils/providerUtils.js";

@@ -14,8 +14,8 @@ export type {
 } from "./contracts/mcpContract.js";
 
 // Core functionality exports
-export { mcpLogger } from "./logging.js";
-export type { LogLevel } from "./logging.js";
+export { mcpLogger } from "../utils/logger.js";
+export type { LogLevel } from "../utils/logger.js";
 
 // Core contracts and types remain
 import type { McpMetadata } from "./contracts/mcpContract.js";

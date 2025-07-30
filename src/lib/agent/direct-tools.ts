@@ -7,6 +7,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
+import { logger } from "../utils/logger.js";
 
 /**
  * Direct tool definitions that work immediately with Gemini/AI SDK
@@ -417,22 +418,22 @@ export function validateToolStructure(): boolean {
   try {
     for (const [name, tool] of Object.entries(directAgentTools)) {
       if (!tool.description || typeof tool.description !== "string") {
-        console.error(`❌ Tool ${name} missing description`);
+        logger.error(`❌ Tool ${name} missing description`);
         return false;
       }
       if (!tool.parameters) {
-        console.error(`❌ Tool ${name} missing parameters`);
+        logger.error(`❌ Tool ${name} missing parameters`);
         return false;
       }
       if (!tool.execute || typeof tool.execute !== "function") {
-        console.error(`❌ Tool ${name} missing execute function`);
+        logger.error(`❌ Tool ${name} missing execute function`);
         return false;
       }
     }
-    console.log("✅ All tools have valid structure");
+    logger.info("✅ All tools have valid structure");
     return true;
   } catch (error) {
-    console.error("❌ Tool validation failed:", error);
+    logger.error("❌ Tool validation failed:", error);
     return false;
   }
 }

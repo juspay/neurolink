@@ -6,6 +6,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
+import { logger } from "../utils/logger.js";
 import type {
   NeuroLinkConfig,
   ProviderConfig,
@@ -59,7 +60,7 @@ export class NeuroLinkConfigManager {
     if (createBackup) {
       await this.createBackup(reason);
       if (!silent) {
-        console.log("💾 Backup created before config update");
+        logger.info("💾 Backup created before config update");
       }
     }
 
@@ -83,14 +84,14 @@ export class NeuroLinkConfigManager {
     try {
       await this.persistConfig(this.config);
       if (!silent) {
-        console.log("✅ Configuration updated successfully");
+        logger.info("✅ Configuration updated successfully");
       }
     } catch (error) {
       // Auto-restore on failure
       if (createBackup) {
         await this.restoreLatestBackup();
         if (!silent) {
-          console.log("🔄 Auto-restored from backup due to error");
+          logger.info("🔄 Auto-restored from backup due to error");
         }
       }
       throw new Error(
@@ -161,7 +162,7 @@ export default ${JSON.stringify(currentConfig, null, 2)};`;
             config,
           });
         } catch (error) {
-          console.warn(
+          logger.warn(
             `Failed to read backup ${file}:`,
             (error as Error).message,
           );
@@ -172,7 +173,7 @@ export default ${JSON.stringify(currentConfig, null, 2)};`;
         (a, b) => b.metadata.timestamp - a.metadata.timestamp,
       );
     } catch (error) {
-      console.warn("Failed to list backups:", (error as Error).message);
+      logger.warn("Failed to list backups:", (error as Error).message);
       return [];
     }
   }
@@ -201,7 +202,7 @@ export default ${JSON.stringify(currentConfig, null, 2)};`;
       this.config = restoredConfig;
       await this.persistConfig(this.config);
 
-      console.log(`✅ Config restored from backup: ${backupFilename}`);
+      logger.info(`✅ Config restored from backup: ${backupFilename}`);
     } catch (error) {
       throw new Error(
         `Failed to restore from backup ${backupFilename}: ${(error as Error).message}`,
@@ -231,9 +232,9 @@ export default ${JSON.stringify(currentConfig, null, 2)};`;
     for (const backup of toDelete) {
       try {
         await unlink(backup.path);
-        console.log(`🗑️ Deleted old backup: ${backup.filename}`);
+        logger.info(`🗑️ Deleted old backup: ${backup.filename}`);
       } catch (error) {
-        console.warn(
+        logger.warn(
           `Failed to delete backup ${backup.filename}:`,
           (error as Error).message,
         );
@@ -334,7 +335,7 @@ export default ${JSON.stringify(currentConfig, null, 2)};`;
     try {
       await mkdir(this.backupDir, { recursive: true });
     } catch (error) {
-      console.warn(
+      logger.warn(
         "Failed to create backup directory:",
         (error as Error).message,
       );
@@ -356,7 +357,7 @@ export default ${JSON.stringify(currentConfig, null, 2)};`;
 
       throw new Error("Invalid config file format");
     } catch (error) {
-      console.log("Config file not found, generating default...");
+      logger.info("Config file not found, generating default...");
       return await this.generateDefaultConfig();
     }
   }

@@ -13,6 +13,7 @@ import {
   createAzureAPIKeyConfig,
   createAzureEndpointConfig,
 } from "../utils/providerConfig.js";
+import { logger } from "../utils/logger.js";
 
 export class AzureOpenAIProvider extends BaseProvider {
   private apiKey: string;
@@ -56,7 +57,7 @@ export class AzureOpenAIProvider extends BaseProvider {
       apiVersion: this.apiVersion,
     });
 
-    console.log("Azure Vercel Provider initialized", {
+    logger.debug("Azure Vercel Provider initialized", {
       deployment: this.deployment,
       resourceName: this.resourceName,
       provider: "azure-vercel",

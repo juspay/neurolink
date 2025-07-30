@@ -9,7 +9,7 @@ import type {
   ToolInfo,
 } from "./contracts/mcpContract.js";
 import type { UnknownRecord } from "../types/common.js";
-import { registryLogger } from "./logging.js";
+import { registryLogger } from "../utils/logger.js";
 
 /**
  * MCP Registry interface with optional methods for maximum flexibility

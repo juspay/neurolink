@@ -16,6 +16,7 @@ import {
   getBestProvider,
   getAvailableProviders,
 } from "../../../utils/providerUtils.js";
+import { logger } from "../../../utils/logger.js";
 
 /**
  * Input Schemas for AI Analysis Tools
@@ -113,7 +114,7 @@ const analyzeAIUsageTool: NeuroLinkMCPTool = {
     const typedParams = params as AnalyzeUsageParams;
     const startTime = Date.now();
     try {
-      console.log(
+      logger.debug(
         `[AI-Analysis] Starting real AI-powered usage analysis for timeRange: ${typedParams.timeRange}`,
       );
 

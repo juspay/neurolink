@@ -1,5 +1,6 @@
 // Optional Telemetry Infrastructure (Phase 2)
 export { TelemetryService, type HealthMetrics } from "./telemetry-service.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Initialize telemetry for NeuroLink
@@ -10,7 +11,7 @@ export async function initializeTelemetry() {
   const telemetry = TelemetryService.getInstance();
   if (telemetry.isEnabled()) {
     await telemetry.initialize();
-    console.log("[NeuroLink] Telemetry initialized");
+    logger.info("[NeuroLink] Telemetry initialized");
   }
   return telemetry;
 }

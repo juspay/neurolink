@@ -11,7 +11,7 @@ import type {
 import type { ToolResult } from "./factory.js";
 import type { JsonValue, UnknownRecord } from "../types/common.js";
 import { MCPRegistry } from "./registry.js";
-import { registryLogger } from "./logging.js";
+import { registryLogger } from "../utils/logger.js";
 import { randomUUID } from "crypto";
 
 interface ToolImplementation {

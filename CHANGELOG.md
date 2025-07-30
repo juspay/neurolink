@@ -1,9 +1,8 @@
 # [6.2.0](https://github.com/juspay/neurolink/compare/v6.1.0...v6.2.0) (2025-07-30)
 
-
 ### Features
 
-* systematic dead code elimination across entire codebase ([571060a](https://github.com/juspay/neurolink/commit/571060a6146dc13e486da22610122d599420fcb2))
+- systematic dead code elimination across entire codebase ([571060a](https://github.com/juspay/neurolink/commit/571060a6146dc13e486da22610122d599420fcb2))
 
 # [6.1.0](https://github.com/juspay/neurolink/compare/v6.0.0...v6.1.0) (2025-07-24)
 
