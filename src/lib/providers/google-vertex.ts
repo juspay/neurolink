@@ -19,6 +19,11 @@ import {
   getDefaultTimeout,
 } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
+import {
+  validateApiKey,
+  createVertexProjectConfig,
+  createGoogleAuthConfig,
+} from "../utils/providerConfig.js";
 
 // Cache for anthropic module to avoid repeated imports
 let _createVertexAnthropic: unknown = null;
@@ -51,17 +56,9 @@ async function getCreateVertexAnthropic() {
 }
 
 // Configuration helpers
+// Configuration helpers - now using consolidated utility
 const getVertexProjectId = (): string => {
-  const projectId =
-    process.env.GOOGLE_CLOUD_PROJECT_ID ||
-    process.env.VERTEX_PROJECT_ID ||
-    process.env.GOOGLE_VERTEX_PROJECT;
-  if (!projectId) {
-    throw new Error(
-      `❌ Google Vertex AI Provider Configuration Error\n\nMissing required environment variables: GOOGLE_CLOUD_PROJECT_ID or VERTEX_PROJECT_ID\n\n🔧 Step 1: Get Google Cloud Credentials\n1. Visit: https://console.cloud.google.com/\n2. Create or select a project\n3. Enable Vertex AI API\n4. Set up authentication\n\n🔧 Step 2: Set Environment Variables\nAdd to your .env file:\nGOOGLE_CLOUD_PROJECT_ID=your_project_id_here\nGOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json\n\n🔧 Step 3: Restart Application\nRestart your application to load the new environment variables.`,
-    );
-  }
-  return projectId;
+  return validateApiKey(createVertexProjectConfig());
 };
 
 const getVertexLocation = (): string => {
@@ -112,11 +109,9 @@ export class GoogleVertexProvider extends BaseProvider {
       sdk as NeuroLinkSDK | undefined,
     );
 
-    // Validate Google Cloud credentials
+    // Validate Google Cloud credentials - now using consolidated utility
     if (!hasGoogleCredentials()) {
-      throw new Error(
-        `❌ Google Vertex AI Provider Configuration Error\n\nMissing Google Cloud authentication. One of the following is required:\n\n🔧 Option 1: Service Account Key File\nGOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json\n\n🔧 Option 2: Service Account Key (Base64)\nGOOGLE_SERVICE_ACCOUNT_KEY=base64_encoded_key\n\n🔧 Option 3: Individual Credentials\nGOOGLE_AUTH_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com\nGOOGLE_AUTH_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----...\n\n🔧 Step 4: Restart Application\nRestart your application to load the new environment variables.`,
-      );
+      validateApiKey(createGoogleAuthConfig());
     }
 
     // Initialize Google Cloud configuration

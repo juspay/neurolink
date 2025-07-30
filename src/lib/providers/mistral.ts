@@ -9,21 +9,20 @@ import type { StreamOptions, StreamResult } from "../types/stream-types.js";
 import type { Unknown } from "../types/common.js";
 import { BaseProvider, type NeuroLinkSDK } from "../core/base-provider.js";
 import { logger } from "../utils/logger.js";
-import { createAnalytics } from "./analytics-helper.js";
+import { createAnalytics } from "../core/analytics.js";
+import {
+  validateApiKey,
+  createMistralConfig,
+  getProviderModel,
+} from "../utils/providerConfig.js";
 
-// Configuration helpers
+// Configuration helpers - now using consolidated utility
 const getMistralApiKey = (): string => {
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "Mistral API key not found. Please set MISTRAL_API_KEY environment variable.",
-    );
-  }
-  return apiKey;
+  return validateApiKey(createMistralConfig());
 };
 
 const getDefaultMistralModel = (): string => {
-  return process.env.MISTRAL_MODEL || "mistral-large-latest";
+  return getProviderModel("MISTRAL_MODEL", "mistral-large-latest");
 };
 
 /**

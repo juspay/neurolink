@@ -412,37 +412,10 @@ export abstract class BaseProvider implements AIProvider {
       }
     }
 
-    // Try to load MCP tools if not already loaded
+    // MCP tools loading simplified - removed function-calling dependency
     if (!this.mcpTools) {
-      try {
-        const { getAvailableFunctionTools } = await import(
-          "../mcp/function-calling.js"
-        );
-        const result = await getAvailableFunctionTools();
-        if (isValidToolsObject(result)) {
-          this.mcpTools = result.toolsObject as Record<string, Tool>;
-        } else {
-          logger.debug(
-            `Invalid or empty toolsObject for ${this.providerName}: Expected an object with at least one key, but got ${typeof (result as UnknownRecord)?.toolsObject} with ${
-              (result as UnknownRecord)?.toolsObject
-                ? Object.keys(
-                    (result as UnknownRecord).toolsObject as Record<
-                      string,
-                      unknown
-                    >,
-                  ).length
-                : 0
-            } keys. Full result:`,
-            result,
-          );
-        }
-      } catch (error) {
-        logger.debug(
-          `MCP tools not available for ${this.providerName}:`,
-          error,
-        );
-        // Not an error - MCP tools are optional
-      }
+      // Set empty tools object - MCP tools are handled at a higher level
+      this.mcpTools = {};
     }
 
     // Add MCP tools if available
@@ -558,9 +531,7 @@ export abstract class BaseProvider implements AIProvider {
     responseTime: number,
     options: TextGenerationOptions,
   ): Promise<AnalyticsData> {
-    const { createAnalytics } = await import(
-      "../providers/analytics-helper.js"
-    );
+    const { createAnalytics } = await import("./analytics.js");
     return createAnalytics(
       this.providerName,
       this.modelName,

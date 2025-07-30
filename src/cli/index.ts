@@ -24,9 +24,8 @@ import { hideBin } from "yargs/helpers";
 import ora from "ora";
 import chalk from "chalk";
 import fs from "fs";
-import { addMCPCommands } from "./commands/mcp.js";
+
 import { addOllamaCommands } from "./commands/ollama.js";
-import { CLICommandFactory } from "./factories/command-factory.js";
 
 import { logger } from "../lib/utils/logger.js";
 
@@ -308,15 +307,10 @@ async function initializeCLI() {
   const { ProviderRegistry } = await import(
     "../lib/factories/provider-registry.js"
   );
-  const { initializeNeuroLinkMCP } = await import("../lib/mcp/initialize.js");
-
   // Enable manual MCP only for CLI
   ProviderRegistry.setOptions({
     enableManualMCP: true,
   });
-
-  // Initialize MCP system
-  await initializeNeuroLinkMCP();
 
   logger.debug("CLI initialized with manual MCP support enabled");
 }
@@ -1550,7 +1544,7 @@ const cli = yargs(args)
     async (argv) => {
       try {
         const { getBestProvider } = await import(
-          "../lib/utils/providerUtils-fixed.js"
+          "../lib/utils/providerUtils.js"
         );
         const bestProvider = await getBestProvider();
 
@@ -1588,10 +1582,9 @@ const cli = yargs(args)
   );
 
 // Add NEW Generate Command (Primary)
-cli.command(CLICommandFactory.createGenerateCommand());
+// Removed CLICommandFactory call - commands are handled directly above.createGenerateCommand());
 
-// Add MCP Commands
-addMCPCommands(cli);
+// MCP Commands: Integrated within base provider functionality
 
 // Add Ollama Commands
 addOllamaCommands(cli);

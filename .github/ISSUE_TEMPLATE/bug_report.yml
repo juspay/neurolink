@@ -79,7 +79,7 @@ body:
         - OS: 
         - Node.js version: 
         - NeuroLink version: 
-        - Package manager: 
+        - Package manager:
       render: markdown
     validations:
       required: true

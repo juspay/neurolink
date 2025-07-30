@@ -21,12 +21,11 @@ import type {
   TextGenerationResult,
 } from "./core/types.js";
 import { AIProviderFactory } from "./core/factory.js";
-import { ContextManager } from "./mcp/context-manager.js";
+
 import { mcpLogger } from "./mcp/logging.js";
 import { toolRegistry } from "./mcp/tool-registry.js";
-import { unifiedRegistry } from "./mcp/unified-registry.js";
 import { logger } from "./utils/logger.js";
-import { getBestProvider } from "./utils/providerUtils-fixed.js";
+import { getBestProvider } from "./utils/providerUtils.js";
 import { ProviderRegistry } from "./factories/provider-registry.js";
 // NEW: Generate function imports
 import type {
@@ -80,7 +79,7 @@ export interface MCPServerInfo {
 
 export class NeuroLink {
   private mcpInitialized = false;
-  private contextManager: ContextManager;
+
   // Tool registration support
   private customTools: Map<string, SimpleTool> = new Map();
   private inMemoryServers: Map<string, InMemoryMCPServerConfig> = new Map();
@@ -90,8 +89,6 @@ export class NeuroLink {
     ProviderRegistry.setOptions({
       enableManualMCP: false,
     });
-
-    this.contextManager = new ContextManager();
   }
 
   /**
@@ -327,12 +324,7 @@ export class NeuroLink {
         return null; // Skip MCP if not available
       }
 
-      // Create execution context
-      const context = this.contextManager.createContext({
-        sessionId: `neurolink-${Date.now()}`,
-        userId: "neurolink-user",
-        aiProvider: options.provider || "auto",
-      });
+      // Context creation removed - was never used
 
       // Determine provider
       const providerName =
@@ -578,12 +570,7 @@ export class NeuroLink {
     // Initialize MCP if needed
     await this.initializeMCP();
 
-    // Create execution context for tool operations
-    const context = this.contextManager.createContext({
-      sessionId: `neurolink-stream-${Date.now()}`,
-      userId: "neurolink-user",
-      aiProvider: options.provider || "auto",
-    });
+    // Context creation removed - was never used
 
     // Determine provider to use
     const providerName =
@@ -595,7 +582,6 @@ export class NeuroLink {
       mcpLogger.debug(`[${functionTag}] Starting MCP-enabled streaming`, {
         provider: providerName,
         prompt: (options.input.text?.substring(0, 100) || "No text") + "...",
-        contextId: context.sessionId,
       });
 
       // Create provider using the same factory pattern as generate
@@ -879,22 +865,16 @@ export class NeuroLink {
 
       // If not found in custom tools or in-memory servers, try unified registry
       try {
-        // Ensure built-in tools are initialized
-        const { initializeNeuroLinkMCP, isNeuroLinkMCPInitialized } =
-          await import("./mcp/initialize.js");
-        if (!isNeuroLinkMCPInitialized()) {
-          mcpLogger.debug(`[${functionTag}] Initializing built-in MCP servers`);
-          await initializeNeuroLinkMCP();
-        }
+        // Built-in tools initialization simplified
+        mcpLogger.debug(`[${functionTag}] MCP initialization simplified`);
 
         // Create minimal execution context for external tools
-        const context = this.contextManager.createContext({
+        const context = {
           sessionId: `neurolink-tool-${Date.now()}`,
           userId: "neurolink-user",
-          aiProvider: "auto",
-        });
+        };
 
-        const result = (await unifiedRegistry.executeTool(
+        const result = (await toolRegistry.executeTool(
           toolName,
           params,
           context,
@@ -926,10 +906,9 @@ export class NeuroLink {
    * @returns Array of available tools with metadata
    */
   async getAllAvailableTools() {
-    const { getAllAvailableTools } = await import("./mcp/initialize-tools.js");
-    return getAllAvailableTools(
-      this.inMemoryServers as unknown as Map<string, UnknownRecord>,
-    );
+    // Simplified tool listing - removed initialize-tools dependency
+    const tools = await toolRegistry.listTools();
+    return tools;
   }
 
   // ============================================================================
@@ -1148,27 +1127,17 @@ export class NeuroLink {
    * @returns Promise resolving to MCP status details
    */
   async getMCPStatus(): Promise<MCPStatus> {
-    const { unifiedRegistry } = await import("./mcp/unified-registry.js");
-
     try {
-      const totalServers = unifiedRegistry.getTotalServerCount();
-      const availableServers = unifiedRegistry.getAvailableServerCount();
-      const autoDiscoveredServers = unifiedRegistry.getAutoDiscoveredServers();
-      const allTools = await unifiedRegistry.listAllTools();
+      // Simplified MCP status - unified registry removed
+      const allTools = await toolRegistry.listTools();
 
       return {
         mcpInitialized: this.mcpInitialized,
-        totalServers,
-        availableServers,
-        autoDiscoveredCount: autoDiscoveredServers.length,
+        totalServers: 1, // Only tool registry now
+        availableServers: 1,
+        autoDiscoveredCount: 0, // No auto-discovery
         totalTools: allTools.length,
-        autoDiscoveredServers: autoDiscoveredServers.map((server) => ({
-          id: server.metadata.name,
-          name: server.metadata.name,
-          source: server.source,
-          status: "discovered",
-          hasServer: true,
-        })),
+        autoDiscoveredServers: [], // No auto-discovery
         customToolsCount: this.customTools.size,
         inMemoryServersCount: this.inMemoryServers.size,
       };
@@ -1192,24 +1161,8 @@ export class NeuroLink {
    * @returns Promise resolving to array of MCP server information
    */
   async listMCPServers(): Promise<MCPServerInfo[]> {
-    const { unifiedRegistry } = await import("./mcp/unified-registry.js");
-
-    try {
-      const servers = unifiedRegistry.getAutoDiscoveredServers();
-      return servers.map((server) => ({
-        id: server.metadata.name,
-        name: server.metadata.name,
-        source: server.source,
-        status: unifiedRegistry.isConnected(server.metadata.name)
-          ? "connected"
-          : "discovered",
-        hasServer: true,
-        metadata: server.metadata,
-      }));
-    } catch (error) {
-      logger.warn("Failed to list MCP servers", { error });
-      return [];
-    }
+    // Simplified MCP servers listing - unified registry removed
+    return [];
   }
 
   /**
@@ -1218,13 +1171,8 @@ export class NeuroLink {
    * @returns Promise resolving to true if server is reachable
    */
   async testMCPServer(serverId: string): Promise<boolean> {
-    const { unifiedRegistry } = await import("./mcp/unified-registry.js");
-
-    try {
-      return unifiedRegistry.isConnected(serverId);
-    } catch {
-      return false;
-    }
+    // Simplified MCP server testing - unified registry removed
+    return false; // No auto-discovery servers available
   }
 }
 

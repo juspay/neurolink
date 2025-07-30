@@ -16,6 +16,13 @@ import {
   getDefaultTimeout,
 } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
+import {
+  validateApiKey,
+  createAWSAccessKeyConfig,
+  createAWSSecretConfig,
+  getAWSRegion,
+  getAWSSessionToken,
+} from "../utils/providerConfig.js";
 
 // Configuration helpers
 const getBedrockModelId = (): string => {
@@ -26,33 +33,16 @@ const getBedrockModelId = (): string => {
   );
 };
 
+// Configuration helpers - now using consolidated utility
 const getAWSAccessKeyId = (): string => {
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-  if (!accessKeyId) {
-    throw new Error(
-      `❌ AWS Bedrock Provider Configuration Error\n\nMissing required environment variables: AWS_ACCESS_KEY_ID\n\n🔧 Step 1: Get AWS Credentials\n1. Visit: https://console.aws.amazon.com/iam/\n2. Create IAM user with Bedrock permissions\n3. Generate access key\n\n🔧 Step 2: Set Environment Variables\nAdd to your .env file:\nAWS_ACCESS_KEY_ID=your_access_key_here\nAWS_SECRET_ACCESS_KEY=your_secret_key_here\nAWS_REGION=us-east-1\n\n🔧 Step 3: Restart Application\nRestart your application to load the new environment variables.`,
-    );
-  }
-  return accessKeyId;
+  return validateApiKey(createAWSAccessKeyConfig());
 };
 
 const getAWSSecretAccessKey = (): string => {
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-  if (!secretAccessKey) {
-    throw new Error(
-      `❌ AWS Bedrock Provider Configuration Error\n\nMissing required environment variables: AWS_SECRET_ACCESS_KEY\n\n🔧 Step 1: Get AWS Credentials\n1. Visit: https://console.aws.amazon.com/iam/\n2. Create IAM user with Bedrock permissions\n3. Generate access key\n\n🔧 Step 2: Set Environment Variables\nAdd to your .env file:\nAWS_ACCESS_KEY_ID=your_access_key_here\nAWS_SECRET_ACCESS_KEY=your_secret_key_here\nAWS_REGION=us-east-1\n\n🔧 Step 3: Restart Application\nRestart your application to load the new environment variables.`,
-    );
-  }
-  return secretAccessKey;
+  return validateApiKey(createAWSSecretConfig());
 };
 
-const getAWSRegion = (): string => {
-  return process.env.AWS_REGION || "us-east-1";
-};
-
-const getAWSSessionToken = (): string | undefined => {
-  return process.env.AWS_SESSION_TOKEN;
-};
+// Note: getAWSRegion and getAWSSessionToken are now directly imported from consolidated utility
 
 const getAppEnvironment = (): string => {
   return process.env.PUBLIC_APP_ENVIRONMENT || "production";

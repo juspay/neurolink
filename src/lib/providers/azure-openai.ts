@@ -8,6 +8,11 @@ import type {
 } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/stream-types.js";
 import type { Unknown, UnknownRecord } from "../types/common.js";
+import {
+  validateApiKey,
+  createAzureAPIKeyConfig,
+  createAzureEndpointConfig,
+} from "../utils/providerConfig.js";
 
 export class AzureOpenAIProvider extends BaseProvider {
   private apiKey: string;
@@ -36,11 +41,12 @@ export class AzureOpenAIProvider extends BaseProvider {
       "gpt-4o";
     this.apiVersion = process.env.AZURE_API_VERSION || "2024-10-01-preview";
 
+    // Configuration validation - now using consolidated utility
     if (!this.apiKey) {
-      throw new Error("AZURE_OPENAI_API_KEY environment variable is required");
+      validateApiKey(createAzureAPIKeyConfig());
     }
     if (!this.resourceName) {
-      throw new Error("AZURE_OPENAI_ENDPOINT environment variable is required");
+      validateApiKey(createAzureEndpointConfig());
     }
 
     // Create the Azure provider instance

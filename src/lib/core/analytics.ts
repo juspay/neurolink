@@ -20,6 +20,17 @@ export interface AnalyticsData {
   responseTime: number;
   context?: Record<string, JsonValue>;
   timestamp: string;
+  // Extended fields from analytics-helper consolidation
+  evaluation?: {
+    relevanceScore: number;
+    accuracyScore: number;
+    completenessScore: number;
+    overall: number;
+    evaluationProvider?: string;
+    evaluationTime?: number;
+    evaluationAttempt?: number;
+  };
+  costDetails?: UnknownRecord;
 }
 
 /**
@@ -28,15 +39,15 @@ export interface AnalyticsData {
 export function createAnalytics(
   provider: string,
   model: string,
-  result: UnknownRecord,
+  result: unknown,
   responseTime: number,
-  context?: Record<string, JsonValue>,
+  context?: Record<string, unknown>,
 ): AnalyticsData {
   const functionTag = "createAnalytics";
 
   try {
     // Extract token usage from different result formats
-    const tokens = extractTokenUsage(result);
+    const tokens = extractTokenUsage(result as UnknownRecord);
 
     // Estimate cost based on provider and tokens
     const cost = estimateCost(provider, model, tokens);
@@ -47,7 +58,7 @@ export function createAnalytics(
       tokens,
       cost,
       responseTime,
-      context,
+      context: context as Record<string, JsonValue> | undefined,
       timestamp: new Date().toISOString(),
     };
 
@@ -69,7 +80,7 @@ export function createAnalytics(
       model,
       tokens: { input: 0, output: 0, total: 0 },
       responseTime,
-      context,
+      context: context as Record<string, JsonValue> | undefined,
       timestamp: new Date().toISOString(),
     };
   }

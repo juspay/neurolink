@@ -1,56 +1,40 @@
 /**
  * Utility functions for AI provider management
+ * Consolidated from providerUtils-fixed.ts
  */
+import { AIProviderFactory } from "../core/factory.js";
 import { logger } from "./logger.js";
+import type { UnknownRecord } from "../types/common.js";
 
 /**
- * Get the best available provider based on preferences and availability (async)
+ * Get the best available provider based on real-time availability checks
+ * Enhanced version consolidated from providerUtils-fixed.ts
  * @param requestedProvider - Optional preferred provider name
  * @returns The best provider name to use
  */
 export async function getBestProvider(
   requestedProvider?: string,
 ): Promise<string> {
-  // If a specific provider is requested, return it (existing logic)
-  if (requestedProvider && requestedProvider !== "auto") {
-    return requestedProvider;
-  }
-
   // 🔧 FIX: Check for explicit default provider in env
   if (
     process.env.DEFAULT_PROVIDER &&
-    isProviderConfigured(process.env.DEFAULT_PROVIDER)
+    (await isProviderAvailable(process.env.DEFAULT_PROVIDER))
   ) {
     return process.env.DEFAULT_PROVIDER;
   }
 
-  // 🔧 FIX: Special case for Ollama when explicitly configured
+  // 🔧 FIX: Special case for Ollama - prioritize local when available
   if (process.env.OLLAMA_BASE_URL && process.env.OLLAMA_MODEL) {
-    // Quick connectivity check for Ollama (non-blocking)
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
-      let res: Response | undefined;
-      try {
-        res = await fetch("http://localhost:11434/api/tags", {
-          method: "GET",
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-        if (res.ok) {
-          return "ollama"; // Prioritize working local AI
-        }
-      } catch {
-        clearTimeout(timeout);
-        // Fall through to cloud providers
+      if (await isProviderAvailable("ollama")) {
+        logger.debug(`[getBestProvider] Prioritizing working local Ollama`);
+        return "ollama"; // Prioritize working local AI
       }
-      // Removed redundant if (res.ok) block here
     } catch {
       // Fall through to cloud providers
     }
   }
 
-  // Existing provider priority logic...
   const providers = [
     "google-ai",
     "anthropic",
@@ -63,28 +47,66 @@ export async function getBestProvider(
     "ollama", // Keep as fallback
   ];
 
-  // Check which providers have their required environment variables
+  if (requestedProvider && requestedProvider !== "auto") {
+    if (await isProviderAvailable(requestedProvider)) {
+      logger.debug(
+        `[getBestProvider] Using requested provider: ${requestedProvider}`,
+      );
+      return requestedProvider;
+    } else {
+      logger.warn(
+        `[getBestProvider] Requested provider '${requestedProvider}' is not available. Falling back to auto-selection.`,
+      );
+    }
+  }
+
   for (const provider of providers) {
-    if (isProviderConfigured(provider)) {
+    if (await isProviderAvailable(provider)) {
       logger.debug(`[getBestProvider] Selected provider: ${provider}`);
       return provider;
     }
   }
 
-  // Default to bedrock if nothing is configured
-  logger.warn(
-    "[getBestProvider] No providers configured, defaulting to bedrock",
+  throw new Error(
+    "No available AI providers. Please check your configurations.",
   );
-  return "bedrock";
 }
 
 /**
- * Check if a provider has the minimum required configuration
- * @param provider - Provider name to check
- * @returns True if the provider appears to be configured
+ * Check if a provider is truly available by performing a quick authentication test.
+ * Enhanced function consolidated from providerUtils-fixed.ts
+ * @param providerName - The name of the provider to check.
+ * @returns True if the provider is available and authenticated.
  */
-function isProviderConfigured(provider: string): boolean {
-  return hasProviderEnvVars(provider);
+async function isProviderAvailable(providerName: string): Promise<boolean> {
+  if (!hasProviderEnvVars(providerName) && providerName !== "ollama") {
+    return false;
+  }
+
+  if (providerName === "ollama") {
+    try {
+      const response = await fetch("http://localhost:11434/api/tags", {
+        method: "GET",
+        signal: AbortSignal.timeout(2000),
+      });
+      if (response.ok) {
+        const { models } = await response.json();
+        const defaultOllamaModel = "llama3.2:latest";
+        return models.some((m: UnknownRecord) => m.name === defaultOllamaModel);
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  try {
+    const provider = await AIProviderFactory.createProvider(providerName);
+    await provider.generate({ prompt: "test", maxTokens: 1 });
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 /**

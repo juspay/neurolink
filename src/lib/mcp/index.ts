@@ -4,56 +4,39 @@
  * Implementation based on research blueprint
  */
 
-// Core contracts and types
-export { MCP } from "./contracts/mcp-contract.js";
+// Core contracts and types - using camelCase standard
 export type {
-  MCPMetadata,
+  McpMetadata,
   ExecutionContext,
-  MCPConstructor,
-  MCPInstance,
-  DiscoveredMCP,
-} from "./contracts/mcp-contract.js";
+  DiscoveredMcp,
+  ToolInfo,
+  ToolExecutionResult,
+} from "./contracts/mcpContract.js";
 
-// Main ecosystem interface
-export { MCPEcosystem, mcpEcosystem } from "./ecosystem.js";
-
-// Plugin management
-export { PluginManager, pluginManager } from "./plugin-manager.js";
-
-// Security
-export { SecurityManager } from "./security-manager.js";
-
-// Logging
+// Core functionality exports
 export { mcpLogger } from "./logging.js";
 export type { LogLevel } from "./logging.js";
 
-// Core plugins
-export { FileSystemMCP } from "./plugins/core/filesystem-mcp.js";
+// Core contracts and types remain
+import type { McpMetadata } from "./contracts/mcpContract.js";
 
 /**
- * Quick access functions for common MCP operations
- */
-
-// Import the ecosystem singleton
-import { mcpEcosystem } from "./ecosystem.js";
-import type { MCPMetadata } from "./contracts/mcp-contract.js";
-
-/**
- * Initialize the MCP ecosystem
+ * Initialize the MCP ecosystem - simplified
  */
 export async function initializeMCPEcosystem(): Promise<void> {
-  return mcpEcosystem.initialize();
+  // Simplified initialization - no complex ecosystem needed
+  return Promise.resolve();
 }
 
 /**
- * List available MCPs
+ * List available MCPs - simplified
  */
-export async function listMCPs(): Promise<MCPMetadata[]> {
-  return mcpEcosystem.list();
+export async function listMCPs(): Promise<McpMetadata[]> {
+  return [];
 }
 
 /**
- * Execute an MCP operation
+ * Execute an MCP operation - simplified
  */
 export async function executeMCP<T = unknown>(
   name: string,
@@ -64,60 +47,11 @@ export async function executeMCP<T = unknown>(
     userId?: string;
   },
 ): Promise<T> {
-  return mcpEcosystem.execute<T>(name, config, args, context);
+  throw new Error("MCP execution not available - ecosystem removed");
 }
 
 /**
- * Quick filesystem operations
- */
-export async function readFile(
-  path: string,
-  basePath?: string,
-): Promise<string | Buffer> {
-  return mcpEcosystem.filesystem({
-    action: "readFile",
-    path,
-    basePath,
-  }) as Promise<string | Buffer>;
-}
-
-export async function writeFile(
-  path: string,
-  content: string,
-  basePath?: string,
-): Promise<void> {
-  return mcpEcosystem.filesystem({
-    action: "writeFile",
-    path,
-    content,
-    basePath,
-  }) as Promise<void>;
-}
-
-export async function listFiles(
-  path: string,
-  basePath?: string,
-): Promise<string[]> {
-  return mcpEcosystem.filesystem({
-    action: "listFiles",
-    path,
-    basePath,
-  }) as Promise<string[]>;
-}
-
-export async function createDirectory(
-  path: string,
-  basePath?: string,
-): Promise<void> {
-  return mcpEcosystem.filesystem({
-    action: "createDir",
-    path,
-    basePath,
-  }) as Promise<void>;
-}
-
-/**
- * Get MCP ecosystem statistics
+ * Get MCP ecosystem statistics - simplified
  */
 export async function getMCPStats(): Promise<{
   initialized: boolean;
@@ -125,5 +59,10 @@ export async function getMCPStats(): Promise<{
   pluginsBySource: Record<string, number>;
   availablePlugins: string[];
 }> {
-  return mcpEcosystem.getStats();
+  return {
+    initialized: false,
+    pluginsDiscovered: 0,
+    pluginsBySource: {},
+    availablePlugins: [],
+  };
 }

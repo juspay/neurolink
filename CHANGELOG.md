@@ -1,21 +1,18 @@
 # [6.1.0](https://github.com/juspay/neurolink/compare/v6.0.0...v6.1.0) (2025-07-24)
 
-
 ### Features
 
-* **github:** enhance GitHub project configuration and community features ([deb1407](https://github.com/juspay/neurolink/commit/deb1407cb8c7be7eff4baf365f6600da33ac4255))
+- **github:** enhance GitHub project configuration and community features ([deb1407](https://github.com/juspay/neurolink/commit/deb1407cb8c7be7eff4baf365f6600da33ac4255))
 
 # [6.0.0](https://github.com/juspay/neurolink/compare/v5.3.0...v6.0.0) (2025-07-24)
 
-
 ### Features
 
-* **types:** eliminate all TypeScript any usage across entire codebase ([777c3cd](https://github.com/juspay/neurolink/commit/777c3cda582cbefcf01480a12d13a2adb7c140c8))
-
+- **types:** eliminate all TypeScript any usage across entire codebase ([777c3cd](https://github.com/juspay/neurolink/commit/777c3cda582cbefcf01480a12d13a2adb7c140c8))
 
 ### BREAKING CHANGES
 
-* **types:** Complete removal of TypeScript 'any' types for enhanced type safety
+- **types:** Complete removal of TypeScript 'any' types for enhanced type safety
 
 This comprehensive refactor eliminates all TypeScript 'any' usage across the entire
 NeuroLink codebase, affecting 140+ files with systematic type safety improvements:
