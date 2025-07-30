@@ -99,4 +99,4 @@ file.txt
 greeting.txt
 poem.txt
 .mcp-config-test.json
-test-direct-tools-temp/*
+test-direct-tools-temp/

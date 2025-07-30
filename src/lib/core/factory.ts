@@ -109,8 +109,6 @@ export class AIProviderFactory {
       //   }
       // }
 
-      let provider: AIProvider;
-
       // PURE FACTORY PATTERN: No switch statements - use ProviderFactory exclusively
       const normalizedName = this.normalizeProviderName(providerName);
       const finalModelName =
@@ -118,7 +116,7 @@ export class AIProviderFactory {
           ? undefined
           : resolvedModelName;
 
-      provider = await ProviderFactory.createProvider(
+      const provider = await ProviderFactory.createProvider(
         normalizedName,
         finalModelName,
         sdk,
@@ -140,18 +138,9 @@ export class AIProviderFactory {
       if (enableMCP) {
         try {
           logger.debug(
-            `[${functionTag}] Enabling MCP wrapping for AI integration`,
+            `[${functionTag}] MCP wrapping disabled - function-calling removed`,
           );
-          const { createMCPAwareProviderV3 } = await import(
-            "../providers/function-calling-provider.js"
-          );
-          provider = createMCPAwareProviderV3(provider, {
-            providerName,
-            modelName: resolvedModelName || undefined,
-            enableMCP: true,
-            enableFunctionCalling: true,
-          });
-          logger.debug(`[${functionTag}] Provider wrapped with MCP support`);
+          // MCP wrapping simplified - removed function-calling dependency
         } catch (mcpError) {
           logger.warn(
             `[${functionTag}] Failed to wrap with MCP, using base provider`,

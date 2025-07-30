@@ -12,20 +12,19 @@ import {
 } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
 import type { UnknownRecord } from "../types/common.js";
+import {
+  validateApiKey,
+  createOpenAIConfig,
+  getProviderModel,
+} from "../utils/providerConfig.js";
 
-// Configuration helpers
+// Configuration helpers - now using consolidated utility
 const getOpenAIApiKey = (): string => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      `❌ OPENAI Provider Configuration Error\n\nMissing required environment variables: OPENAI_API_KEY\n\n🔧 Step 1: Get Credentials\n1. Visit: https://platform.openai.com/api-keys\n2. Create new API key\n3. Copy the key\n\n🔧 Step 2: Set Environment Variable\nAdd to your .env file:\nOPENAI_API_KEY=your_api_key_here\n\n🔧 Step 3: Restart Application\nRestart your application to load the new environment variables.`,
-    );
-  }
-  return apiKey;
+  return validateApiKey(createOpenAIConfig());
 };
 
 const getOpenAIModel = (): string => {
-  return process.env.OPENAI_MODEL || "gpt-4o";
+  return getProviderModel("OPENAI_MODEL", "gpt-4o");
 };
 
 /**

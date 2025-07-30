@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import type { ExecutionContext } from "./contracts/mcp-contract.js";
+import type { ExecutionContext } from "./contracts/mcpContract.js";
 
 /**
  * MCP Server Categories for organization and discovery

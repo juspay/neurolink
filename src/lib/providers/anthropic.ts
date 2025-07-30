@@ -16,20 +16,19 @@ import {
   getDefaultTimeout,
 } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
+import {
+  validateApiKey,
+  createAnthropicConfig,
+  getProviderModel,
+} from "../utils/providerConfig.js";
 
-// Configuration helpers
+// Configuration helpers - now using consolidated utility
 const getAnthropicApiKey = (): string => {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      `❌ Anthropic Provider Configuration Error\n\nMissing required environment variable: ANTHROPIC_API_KEY\n\n🔧 Step 1: Get Anthropic API Key\n1. Visit: https://console.anthropic.com/\n2. Sign in or create an account\n3. Go to API Keys section\n4. Create a new API key\n\n🔧 Step 2: Set Environment Variable\nAdd to your .env file:\nANTHROPIC_API_KEY=your_api_key_here\n\n🔧 Step 3: Restart Application\nRestart your application to load the new environment variables.`,
-    );
-  }
-  return apiKey;
+  return validateApiKey(createAnthropicConfig());
 };
 
 const getDefaultAnthropicModel = (): string => {
-  return process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
+  return getProviderModel("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022");
 };
 
 /**

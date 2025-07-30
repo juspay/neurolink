@@ -15,6 +15,10 @@ import {
   getDefaultTimeout,
 } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
+import {
+  validateApiKey,
+  createAnthropicBaseConfig,
+} from "../utils/providerConfig.js";
 
 /**
  * Anthropic provider implementation using BaseProvider pattern
@@ -81,30 +85,9 @@ export class AnthropicProviderV2 extends BaseProvider {
     );
   }
 
+  // Configuration helper - now using consolidated utility
   private getApiKey(): string {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        `❌ ANTHROPIC Provider Configuration Error
-
-Missing required environment variables: ANTHROPIC_API_KEY
-
-🔧 Step 1: Get Credentials
-Get your API key from https://console.anthropic.com/
-
-💡 Step 2: Add to your .env file (or export in CLI):
-ANTHROPIC_API_KEY="sk-ant-your-anthropic-api-key"
-# Optional:
-ANTHROPIC_MODEL="claude-3-5-sonnet-20241022"
-ANTHROPIC_BASE_URL="https://api.anthropic.com"
-
-🚀 Step 3: Test the setup:
-npx neurolink generate "Hello" --provider anthropic
-
-📖 More info: https://docs.neurolink.dev/providers/anthropic`,
-      );
-    }
-    return apiKey;
+    return validateApiKey(createAnthropicBaseConfig());
   }
 
   // executeGenerate removed - BaseProvider handles all generation with tools

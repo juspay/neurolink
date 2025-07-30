@@ -17,6 +17,12 @@ import {
 } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
 import type { UnknownRecord } from "../types/common.js";
+import {
+  validateApiKey,
+  createHuggingFaceConfig,
+  getProviderModel,
+  hasHuggingFaceCredentials,
+} from "../utils/providerConfig.js";
 
 // Environment variables
 declare const process: {
@@ -27,24 +33,16 @@ declare const process: {
   };
 };
 
-// Configuration helpers
+// Configuration helpers - now using consolidated utility
 const getHuggingFaceApiKey = (): string => {
-  const apiKey = process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN;
-  if (!apiKey) {
-    throw new Error(
-      `❌ HuggingFace Provider Configuration Error\n\nMissing required environment variables: HUGGINGFACE_API_KEY\n\n🔧 Step 1: Get Credentials\n1. Visit: https://huggingface.co/settings/tokens\n2. Create new API token\n3. Copy the token\n\n🔧 Step 2: Set Environment Variable\nAdd to your .env file:\nHUGGINGFACE_API_KEY=your_token_here\n\n🔧 Step 3: Restart Application\nRestart your application to load the new environment variables.`,
-    );
-  }
-  return apiKey;
+  return validateApiKey(createHuggingFaceConfig());
 };
 
 const getDefaultHuggingFaceModel = (): string => {
-  return process.env.HUGGINGFACE_MODEL || "microsoft/DialoGPT-medium";
+  return getProviderModel("HUGGINGFACE_MODEL", "microsoft/DialoGPT-medium");
 };
 
-const hasHuggingFaceCredentials = (): boolean => {
-  return !!(process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN);
-};
+// Note: hasHuggingFaceCredentials now directly imported from consolidated utility
 
 /**
  * HuggingFace Provider - BaseProvider Implementation

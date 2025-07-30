@@ -25,8 +25,6 @@ export type {
   GenerateResult,
   EnhancedProvider,
 } from "./types/generate-types.js";
-export { CompatibilityConversionFactory } from "./factories/compatibility-factory.js";
-export { ProviderGenerateFactory } from "./factories/provider-generate-factory.js";
 
 // Tool Registration exports
 export type { SimpleTool, ToolContext } from "./sdk/tool-registration.js";
@@ -155,38 +153,20 @@ export async function createBestAIProvider(
  */
 export {
   // Core MCP ecosystem
-  MCPEcosystem,
-  mcpEcosystem,
+  // Simplified MCP exports
   initializeMCPEcosystem,
-
-  // Plugin management
-  PluginManager,
-  pluginManager,
   listMCPs,
   executeMCP,
   getMCPStats,
-
-  // Quick filesystem operations
-  readFile,
-  writeFile,
-  listFiles,
-  createDirectory,
-
-  // Core contracts and types
-  MCP,
-  SecurityManager,
   mcpLogger,
-
-  // Core plugins
-  FileSystemMCP,
 } from "./mcp/index.js";
 
 export type {
-  MCPMetadata,
+  McpMetadata,
   ExecutionContext,
-  MCPConstructor,
-  MCPInstance,
-  DiscoveredMCP,
+  DiscoveredMcp,
+  ToolInfo,
+  ToolExecutionResult,
   LogLevel,
 } from "./mcp/index.js";
 
