@@ -1,3 +1,15 @@
+# [7.0.0](https://github.com/juspay/neurolink/compare/v6.2.1...v7.0.0) (2025-07-31)
+
+
+### Code Refactoring
+
+* **structure:** standardize all filenames and directories to camelCase ([656d094](https://github.com/juspay/neurolink/commit/656d094ac5f6caeecb4aebbfbe3f49f75f1adc4a))
+
+
+### BREAKING CHANGES
+
+* **structure:** None - all functionality preserved, only naming conventions updated
+
 ## [6.2.1](https://github.com/juspay/neurolink/compare/v6.2.0...v6.2.1) (2025-07-31)
 
 ### Bug Fixes
