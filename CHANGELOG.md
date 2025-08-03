@@ -1,3 +1,10 @@
+# [7.1.0](https://github.com/juspay/neurolink/compare/v7.0.0...v7.1.0) (2025-08-03)
+
+
+### Features
+
+* **core:** major CLI optimization and comprehensive core functionality overhaul ([66ad664](https://github.com/juspay/neurolink/commit/66ad6649163c21c1f5cf7dcb936af8903abc4a17))
+
 # [7.0.0](https://github.com/juspay/neurolink/compare/v6.2.1...v7.0.0) (2025-07-31)
 
 ### Code Refactoring
