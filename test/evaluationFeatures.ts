@@ -32,7 +32,7 @@ const validateRealCredentials = async (provider: string): Promise<boolean> => {
 
     // Make actual API call with minimum 1000 tokens to test connectivity
     const { stdout, stderr } = await execAsync(
-      `cd ${process.cwd()} && pnpm cli generate "Write a detailed explanation of artificial intelligence and its applications in modern technology" --provider ${provider} --max-tokens 1000 --output-format json`,
+      `cd ${process.cwd()} && pnpm cli generate "Write a detailed explanation of artificial intelligence and its applications in modern technology" --provider ${provider} --max-tokens 1000 --format json`,
       { timeout: 15000 },
     );
 
@@ -97,7 +97,7 @@ describe(`Evaluation Features Tests (${getTestProvider().toUpperCase()})`, () =>
     it(
       `should generate with evaluation enabled and validate real scores`,
       async () => {
-        const command = `${cliPrefix} generate "Write a comprehensive analysis of machine learning algorithms and their applications" --provider ${getTestProvider()} --max-tokens 1000 --output-format json --enable-evaluation`;
+        const command = `${cliPrefix} generate "Write a comprehensive analysis of machine learning algorithms and their applications" --provider ${getTestProvider()} --max-tokens 1000 --format json --enable-evaluation`;
         console.log("🔍 INPUT:", command);
         console.log(`🤖 Provider: ${getTestProvider()}`);
 
@@ -245,7 +245,7 @@ describe(`Evaluation Features Tests (${getTestProvider().toUpperCase()})`, () =>
     it(
       `should validate evaluation score ranges are never 0`,
       async () => {
-        const command = `${cliPrefix} generate "Analyze the impact of quantum computing on cybersecurity" --provider ${getTestProvider()} --max-tokens 1000 --output-format json --enable-evaluation`;
+        const command = `${cliPrefix} generate "Analyze the impact of quantum computing on cybersecurity" --provider ${getTestProvider()} --max-tokens 1000 --format json --enable-evaluation`;
         console.log("🔍 INPUT:", command);
         console.log(`🤖 Provider: ${getTestProvider()}`);
 

@@ -272,6 +272,16 @@ export function validateTool(name: string, tool: SimpleTool): void {
     );
   }
 
+  // Check for common mistake: using 'schema' instead of 'parameters'
+  if ('schema' in tool && !('parameters' in tool)) {
+    throw new Error(
+      `Tool '${name}' uses 'schema' property, but NeuroLink expects 'parameters'. ` +
+        `Please change 'schema' to 'parameters' and use a Zod schema: ` +
+        `{ parameters: z.object({ ... }), execute: ... } ` +
+        `See documentation: https://docs.neurolink.com/tools`
+    );
+  }
+
   // Validate parameters schema if provided - support both Zod and custom schemas
   if (tool.parameters) {
     if (typeof tool.parameters !== "object") {
@@ -287,6 +297,19 @@ export function validateTool(name: string, tool: SimpleTool): void {
       typeof params.parse === "function" ||
       typeof params.validate === "function" ||
       "_def" in params; // Zod schemas have _def property
+
+    // Check for plain JSON schema objects (common mistake)
+    if ('type' in params && 'properties' in params && !hasValidationMethod) {
+      throw new Error(
+        `Tool '${name}' appears to use a plain JSON schema object as parameters. ` +
+          `NeuroLink requires a Zod schema for proper type validation and tool integration. ` +
+          `Please change from:\n` +
+          `  { type: 'object', properties: { ... } }\n` +
+          `To:\n` +
+          `  z.object({ fieldName: z.string() })\n` +
+          `Import Zod with: import { z } from 'zod'`
+      );
+    }
 
     if (!hasValidationMethod) {
       const errorMessage =

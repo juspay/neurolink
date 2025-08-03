@@ -97,7 +97,7 @@ neurolink/
 │   │   └── providerUtils.ts ✅ Utility functions
 │   └── index.ts            ✅ Main exports
 ├── dist/                   ✅ Compiled JavaScript
-├── src/test/
+├── test/
 │   └── mcp-comprehensive.test.ts ✅ 27 MCP foundation tests
 ├── debug-multi-turn.js     ✅ Function calling validation
 ├── MCP-FUNCTION-CALLING-SUCCESS.md ✅ Integration documentation

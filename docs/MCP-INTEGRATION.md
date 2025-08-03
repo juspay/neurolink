@@ -249,10 +249,7 @@ External MCP servers will be configured in `.mcp-config.json`:
       "name": "github",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
-      "transport": "stdio",
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
-      }
+      "transport": "stdio"
     },
     "custom": {
       "name": "custom",
@@ -270,12 +267,6 @@ External MCP servers will be configured in `.mcp-config.json`:
 Set these in your `.env` file for server authentication:
 
 ```bash
-# GitHub Integration
-GITHUB_PERSONAL_ACCESS_TOKEN=ghp_...
-
-# Database Integration
-POSTGRES_CONNECTION_STRING=postgresql://user:pass@host:port/db
-
 # Custom Server Configuration
 CUSTOM_API_KEY=your-api-key
 CUSTOM_ENDPOINT=https://api.example.com
@@ -306,7 +297,6 @@ CUSTOM_ENDPOINT=https://api.example.com
 
 **Purpose:** GitHub repository management
 **Installation:** `neurolink mcp install github`
-**Requirements:** `GITHUB_PERSONAL_ACCESS_TOKEN`
 
 **Available Tools:**
 
@@ -322,7 +312,6 @@ CUSTOM_ENDPOINT=https://api.example.com
 
 **Purpose:** Database operations
 **Installation:** `neurolink mcp install postgres`
-**Requirements:** `POSTGRES_CONNECTION_STRING`
 
 **Available Tools:**
 

@@ -759,21 +759,19 @@ neurolink mcp exec filesystem search_files --params '{"path": ".", "pattern": "*
 #### GitHub Integration Workflow
 
 ```bash
-# Install GitHub server (requires GITHUB_PERSONAL_ACCESS_TOKEN)
-export GITHUB_PERSONAL_ACCESS_TOKEN="ghp_your_token"
+# Install GitHub server
 neurolink mcp install github
 neurolink mcp test github
 
 # (Future) GitHub operations
 neurolink mcp exec github search_repositories --params '{"query": "neurolink"}'
-neurolink mcp exec github create_issue --params '{"title": "Feature request", "body": "Add new feature"}'
+neurolink mcp exec github create_issue --params '{"title": "Feature request", "body": "Add new feature"}''
 ```
 
 #### Database Operations Workflow
 
 ```bash
-# Install PostgreSQL server (requires POSTGRES_CONNECTION_STRING)
-export POSTGRES_CONNECTION_STRING="postgresql://user:pass@host:port/db"
+# Install PostgreSQL server
 neurolink mcp install postgres
 neurolink mcp test postgres
 
@@ -861,10 +859,7 @@ MCP servers are automatically configured in `.mcp-config.json`:
       "name": "github",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
-      "transport": "stdio",
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
-      }
+      "transport": "stdio"
     }
   }
 }

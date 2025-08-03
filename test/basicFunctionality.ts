@@ -135,7 +135,7 @@ describe(`Basic Functionality Tests (${getTestProvider().toUpperCase()})`, () =>
           getTestProvider(),
           "--max-tokens",
           "2000",
-          "--output-format",
+          "--format",
           "text",
         ];
         console.log("🔍 INPUT: pnpm cli", args.join(" "));

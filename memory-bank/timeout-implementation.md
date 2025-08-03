@@ -160,7 +160,7 @@
   - Race condition handling
   - Multiple cleanup calls safety
 
-Created comprehensive test suite in `src/test/timeout.test.ts` covering all timeout functionality.
+Created comprehensive test suite in `test/timeout.test.ts` covering all timeout functionality.
 
 ### Phase 7: Documentation Updates
 - [ ] API Reference - timeout parameter

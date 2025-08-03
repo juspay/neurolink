@@ -131,7 +131,7 @@ Run tests with:
 pnpm test
 ```
 
-For mocking AI providers, use the approach in the `src/test/providers.test.ts` file.
+For mocking AI providers, use the approach in the `test/providers.test.ts` file.
 
 ## Documentation
 

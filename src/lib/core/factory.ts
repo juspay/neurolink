@@ -109,6 +109,9 @@ export class AIProviderFactory {
       //   }
       // }
 
+      // CRITICAL FIX: Initialize providers before using them
+      await ProviderRegistry.registerAllProviders();
+
       // PURE FACTORY PATTERN: No switch statements - use ProviderFactory exclusively
       const normalizedName = this.normalizeProviderName(providerName);
       const finalModelName =

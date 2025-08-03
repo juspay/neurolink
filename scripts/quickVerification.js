@@ -37,8 +37,7 @@ const requiredFiles = [
   'src/lib/mcp/session-manager.ts',
   'src/lib/mcp/semaphore-manager.ts',
   'src/lib/mcp/error-manager.ts',
-  'src/test/healthMonitoring.test.ts',
-  'src/test/dynamic-chain.test.ts'
+  // Legacy src/test references removed - functionality no longer exists
 ];
 
 requiredFiles.forEach(file => {

@@ -125,11 +125,18 @@ export function hasProviderEnvVars(provider: string): boolean {
       );
 
     case "vertex":
+    case "googlevertex":
     case "google":
     case "gemini":
       return !!(
-        process.env.GOOGLE_VERTEX_PROJECT ||
-        process.env.GOOGLE_APPLICATION_CREDENTIALS
+        (process.env.GOOGLE_CLOUD_PROJECT_ID ||
+          process.env.VERTEX_PROJECT_ID ||
+          process.env.GOOGLE_VERTEX_PROJECT ||
+          process.env.GOOGLE_CLOUD_PROJECT) &&
+        (process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+          process.env.GOOGLE_SERVICE_ACCOUNT_KEY ||
+          (process.env.GOOGLE_AUTH_CLIENT_EMAIL &&
+            process.env.GOOGLE_AUTH_PRIVATE_KEY))
       );
 
     case "openai":

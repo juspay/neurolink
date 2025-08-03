@@ -66,7 +66,7 @@
 - **Performance Tracking**: Wait time, execution time, queue depth monitoring
 - **Statistics System**: Comprehensive metrics collection and reporting
 - **Integration**: Seamless integration with MCPOrchestrator.executeTool()
-- **Testing**: `src/test/semaphore-manager.test.ts` + `src/test/semaphore-integration.test.ts`
+- **Testing**: `test/ directory (legacy src/test refs removed).ts`
 - **Demo**: `scripts/examples/semaphore-demo.js` - Interactive race condition prevention
 - **Verified Performance**: 100 concurrent operations tested, <1ms overhead
 
@@ -79,7 +79,7 @@
 - **Reasoning Capture**: Natural language explanations for tool choices
 - **Chain Execution**: Multi-step workflows with AI-driven continuation logic
 - **Integration**: HeuristicChainPlanner + AIModelChainPlanner implementations
-- **Testing**: `src/test/dynamic-orchestrator.test.ts` + `src/test/dynamic-chain.test.ts`
+- **Testing**: `test/ directory (legacy src/test refs removed).ts`
 - **Demo**: `scripts/examples/dynamic-chain-demo.js` - AI tool selection showcase
 - **Verified Capability**: Complex workflow automation with intelligent tool selection
 
@@ -93,7 +93,7 @@
 - **Metadata Tracking**: User agent, origin, tags, and custom metadata support
 - **Tool History**: Complete execution history maintained per session
 - **Integration**: Seamless provider integration for long-running operations
-- **Testing**: `src/test/session-manager.test.ts` + `src/test/session-persistence.test.ts`
+- **Testing**: `test/ directory (legacy src/test refs removed).ts`
 - **Demo**: `scripts/examples/session-persistence-demo.js` - State recovery demonstration
 - **Verified Reliability**: Process restart recovery, TTL cleanup, performance optimization
 
@@ -105,7 +105,7 @@
 - **Event System**: EventEmitter-based status change notifications
 - **Status History**: Rolling window of health check results
 - **Integration**: Real-time health monitoring for all MCP servers
-- **Testing**: `src/test/health-monitor.test.ts` + `src/test/health-monitoring.test.ts`
+- **Testing**: `test/ directory (legacy src/test refs removed).ts`
 - **Demo**: `scripts/examples/health-monitoring-demo.js` - Health check showcase
 - **Verified Performance**: <200ms health checks, 99.5% recovery success rate
 
@@ -120,7 +120,7 @@
 - **Error History**: Comprehensive error tracking with resolution status
 - **Circuit Breaker**: Failure threshold management with graceful degradation
 - **Integration**: Seamless error handling across all MCP operations
-- **Testing**: `src/test/error-manager.test.ts` + `src/test/error-handling.test.ts`
+- **Testing**: `test/ directory (legacy src/test refs removed).ts`
 - **Demo**: `scripts/examples/error-handling-demo.js` - Error recovery patterns
 - **Verified Resilience**: Automatic recovery, error pattern analysis, degradation handling
 
@@ -132,7 +132,7 @@
 - **Graceful Failover**: Automatic protocol switching on connection failure
 - **Reconnection Logic**: Exponential backoff with configurable retry policies
 - **Integration**: Seamless transport switching without application disruption
-- **Testing**: `src/test/transport-manager.test.ts`
+- **Testing**: `test/ directory (legacy src/test refs removed).ts`
 - **Demo**: `scripts/examples/multi-transport-demo.js` - Protocol switching showcase
 - **Verified Flexibility**: Multiple protocol support, automatic failover, reconnection reliability
 
@@ -164,17 +164,17 @@ await neurolink.addMCPServer('bitbucket', {
 ## ✅ **COMPLETED: COMPREHENSIVE TESTING INFRASTRUCTURE**
 
 ### **11 New Test Suites Created**
-1. `src/test/semaphore-manager.test.ts` - Concurrency control functionality
-2. `src/test/semaphore-integration.test.ts` - Integration with orchestrator
-3. `src/test/dynamic-orchestrator.test.ts` - AI tool selection testing
-4. `src/test/dynamic-chain.test.ts` - Chain execution validation
+1. `test/ directory (legacy src/test refs removed).ts` - Concurrency control functionality
+2. `test/ directory (legacy src/test refs removed).ts` - Integration with orchestrator
+3. `test/ directory (legacy src/test refs removed)ing
+4. `test/ directory (legacy src/test refs removed).ts` - Chain execution validation
 5. `src/test/session-manager.test.ts` - Session management functionality
 6. `src/test/session-persistence.test.ts` - Persistence across restarts
 7. `src/test/health-monitor.test.ts` - Health monitoring functionality
 8. `src/test/health-monitoring.test.ts` - Integration testing
 9. `src/test/error-manager.test.ts` - Error categorization and management
 10. `src/test/error-handling.test.ts` - Error recovery scenarios
-11. `src/test/transport-manager.test.ts` - Multi-transport functionality
+11. `test/ directory (legacy src/test refs removed).ts` - Multi-transport functionality
 
 ### **Testing Coverage Achievements**
 - **Concurrent Operations**: 100 simultaneous executions verified

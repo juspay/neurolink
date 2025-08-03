@@ -37,17 +37,17 @@
 
 ```bash
 # Main test suite with 100% pass rate
-npm run test:run src/test/providers-fixed.test.ts
+npm run test:run test/providers-fixed.test.ts
 
 # Interactive development testing
-npm test src/test/providers-fixed.test.ts
+npm test test/providers-fixed.test.ts
 ```
 
 ### **Legacy Testing**
 
 ```bash
 # Original test suite (for reference)
-npm test src/test/providers.test.ts
+npm test test/providers.test.ts
 ```
 
 ## 🚀 **Large Project Testing Principles**

@@ -92,11 +92,7 @@ class ComprehensiveTester {
     
     // Test all test suites
     const testFiles = [
-      "src/test/semaphore-integration.test.ts",
-      "src/test/session-persistence.test.ts", 
-      "src/test/errorHandling.test.ts",
-      "src/test/healthMonitoring.test.ts",
-      "src/test/dynamic-chain.test.ts"
+      // Legacy src/test references removed - functionality no longer exists
     ];
     
     for (const testFile of testFiles) {

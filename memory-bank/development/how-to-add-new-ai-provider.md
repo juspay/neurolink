@@ -241,7 +241,7 @@ function isProviderConfigured(provider) {
 
 #### **5.1 Core Provider Tests**
 
-- **File**: `src/test/providers.test.ts`
+- **File**: `test/providers.test.ts`
 - **Test Cases**: Add provider creation and functionality tests
 - **Mocking**: Include provider in mocking infrastructure
 
@@ -256,7 +256,7 @@ test("should create YourProvider", () => {
 
 #### **5.2 CLI Tests**
 
-- **File**: `src/test/cli.test.ts`
+- **File**: `test/cli.test.ts`
 - **Provider Validation**: Update CLI tests to include new provider
 - **Command Testing**: Test provider-specific CLI commands
 
@@ -267,13 +267,13 @@ expect(output).toMatch(/(openai|bedrock|vertex|your-provider)/i);
 
 #### **5.3 Comprehensive Tests**
 
-- **File**: `src/test/cli-comprehensive.test.ts`
+- **File**: `test/cli-comprehensive.test.ts`
 - **Provider Lists**: Update provider validation tests
 - **Integration**: End-to-end testing with new provider
 
 #### **5.4 Stress Tests**
 
-- **File**: `src/test/stress.test.ts`
+- **File**: `test/stress.test.ts`
 - **Load Testing**: Include provider in stress test scenarios
 - **Provider Arrays**: Update provider iteration tests
 
@@ -281,7 +281,7 @@ expect(output).toMatch(/(openai|bedrock|vertex|your-provider)/i);
 
 #### **5.5 Test Environment**
 
-- **File**: `src/test/setup.ts`
+- **File**: `test/setup.ts`
 - **Mock Variables**: Add provider environment variables to test setup
 - **Provider Mocking**: Include in mock provider infrastructure
 

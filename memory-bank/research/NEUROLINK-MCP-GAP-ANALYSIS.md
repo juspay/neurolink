@@ -215,10 +215,7 @@ export class NeuroLinkMCPClient {
     "github": {
       "command": "npx",
       "args": ["@modelcontextprotocol/server-github"],
-      "transport": "stdio",
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-      }
+      "transport": "stdio"
     },
     "brave-search": {
       "command": "npx",

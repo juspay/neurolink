@@ -10,7 +10,6 @@ export default defineConfig({
     testTimeout: 30000, // 30 seconds max per test (reduce if possible)
     hookTimeout: 10000, // Reduced to detect hangs faster
     globals: true, // Enable describe, it, expect globally
-    setupFiles: ["src/test/setup-minimal.ts"], // Use minimal setup
 
     // SIMPLE execution configuration - no complex pooling
     // Switched from "forks" to "threads" for improved performance and parallelism.

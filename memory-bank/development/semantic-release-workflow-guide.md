@@ -190,6 +190,25 @@ rm -f scripts/rename-*.cjs scripts/update-*.cjs scripts/fix-*.cjs
 
 ### **Semantic Commit Messages**
 
+#### **⚠️ CRITICAL: Accidental Major Version Prevention**
+**Real Incident:** v7.0.0 was accidentally released due to improper commit message format.
+
+**❌ NEVER Write This (Triggers Major Version):**
+```
+BREAKING CHANGE: None - all functionality preserved
+BREAKING CHANGE: No breaking changes
+BREAKING CHANGE: Internal only
+```
+
+**✅ ALWAYS Use Instead:**
+```
+Note: No breaking changes - all functionality preserved
+All existing functionality preserved
+Internal changes only - no public API impact
+```
+
+**Why:** Semantic-release sees "BREAKING CHANGE:" and triggers major version bump regardless of what follows the colon!
+
 #### **Format:**
 ```
 type(scope): description
@@ -198,7 +217,7 @@ type(scope): description
 - Detailed change 2
 - Detailed change 3
 
-BREAKING CHANGE: description (if applicable)
+BREAKING CHANGE: description (ONLY if actually breaking!)
 
 Closes: #issue-number (if applicable)
 ```

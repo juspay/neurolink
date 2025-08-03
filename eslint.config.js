@@ -104,7 +104,7 @@ export default [
   },
   {
     // TypeScript files in test/ directory (no project-based linting due to path mismatch)
-    files: ["test/**/*.ts", "src/test/**/*.ts"],
+    files: ["test/**/*.ts"],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -204,11 +204,6 @@ export default [
       "*.tgz",
       "*.d.ts",
       "src/cli/**/*.d.ts",
-      // Exclude problematic test files with old MCP interfaces
-      "src/test/ai-analysis-tools.ts",
-      "src/test/ai-workflow-tools.ts",
-      "src/test/mcp-comprehensive.ts",
-      "src/test/mcp-unified.ts",
       // Exclude analysis files with Node.js environment issues
       "comprehensive-gap-analysis.cjs",
       "test-feature-gaps.cjs",

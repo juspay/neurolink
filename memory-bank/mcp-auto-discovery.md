@@ -59,7 +59,7 @@ npx neurolink mcp discover --format json > discovered-servers.json
 ### 4. **✅ Working: Development Validation**
 Run comprehensive tests to validate the MCP system:
 ```bash
-npm run build && npm run test:run -- src/test/mcp-comprehensive.test.ts
+npm run build && npm run test:run -- test/mcp-comprehensive.test.ts
 ```
 
 ### 5. **🔧 Coming Soon: Tool Integration**

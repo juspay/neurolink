@@ -13,6 +13,7 @@ import type { JsonValue, UnknownRecord } from "../types/common.js";
 import { MCPRegistry } from "./registry.js";
 import { registryLogger } from "../utils/logger.js";
 import { randomUUID } from "crypto";
+import { directAgentTools } from "../agent/directTools.js";
 
 interface ToolImplementation {
   execute: (
@@ -59,6 +60,78 @@ export class MCPToolRegistry extends MCPRegistry {
     string,
     { count: number; totalTime: number }
   > = new Map();
+
+  constructor() {
+    super();
+    // Auto-register direct tools on initialization
+    this.registerDirectTools();
+  }
+
+  /**
+   * Register all direct tools from directAgentTools
+   */
+  private registerDirectTools(): void {
+    registryLogger.info("Auto-registering direct tools...");
+
+    for (const [toolName, toolDef] of Object.entries(directAgentTools)) {
+      const toolId = `direct.${toolName}`;
+      const toolInfo: ToolInfo = {
+        name: toolName,
+        description: toolDef.description || `Direct tool: ${toolName}`,
+        inputSchema: {},
+        serverId: "direct",
+        category: "built-in",
+      };
+
+      this.tools.set(toolId, toolInfo);
+      this.toolImpls.set(toolId, {
+        execute: async (params: unknown, context?: ExecutionContext) => {
+          try {
+            // Direct tools from AI SDK expect their specific parameter structure
+            // Each tool validates its own parameters, so we safely pass them through
+            const result = await (
+              toolDef.execute as (
+                params: unknown,
+                ctx: unknown,
+              ) => Promise<unknown>
+            )(params, {
+              toolCallId: context?.sessionId || "unknown",
+              messages: [],
+            });
+
+            // Return the result wrapped in our standard format
+            return {
+              success: true,
+              data: result,
+              metadata: {
+                toolName,
+                serverId: "direct",
+                executionTime: 0,
+              },
+            };
+          } catch (error) {
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+              metadata: {
+                toolName,
+                serverId: "direct",
+                executionTime: 0,
+              },
+            };
+          }
+        },
+        description: toolDef.description,
+        inputSchema: {},
+      });
+
+      registryLogger.debug(`Registered direct tool: ${toolName} as ${toolId}`);
+    }
+
+    registryLogger.info(
+      `Auto-registered ${Object.keys(directAgentTools).length} direct tools`,
+    );
+  }
 
   /**
    * Register a server with its tools (updated signature)

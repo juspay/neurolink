@@ -163,9 +163,6 @@ class MCPServerExamples {
 
     if (!testResult.success) {
       console.log("⚠️  GitHub server not available. Skipping GitHub examples.");
-      console.log(
-        "💡 Configure GITHUB_PERSONAL_ACCESS_TOKEN to enable GitHub integration.",
-      );
       return;
     }
 
@@ -212,9 +209,6 @@ class MCPServerExamples {
     if (!testResult.success) {
       console.log(
         "⚠️  Database server not available. Skipping database examples.",
-      );
-      console.log(
-        "💡 Configure POSTGRES_CONNECTION_STRING to enable database integration.",
       );
       return;
     }
@@ -497,11 +491,7 @@ function validateMCPConfiguration() {
       name: "Environment Variables",
       check: () => {
         // Check for common MCP environment variables
-        return !!(
-          process.env.GITHUB_PERSONAL_ACCESS_TOKEN ||
-          process.env.POSTGRES_CONNECTION_STRING ||
-          process.env.OPENAI_API_KEY
-        );
+        return !!process.env.OPENAI_API_KEY;
       },
     },
   ];

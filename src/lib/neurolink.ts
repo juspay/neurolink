@@ -513,7 +513,7 @@ export class NeuroLink {
       )
       .join("\n");
 
-    const toolPrompt = `\n\nAvailable Tools:\n${toolDescriptions}\n\nYou can use these tools when appropriate to enhance your responses.`;
+    const toolPrompt = `\n\nYou have access to these additional tools if needed:\n${toolDescriptions}\n\nIMPORTANT: You are a general-purpose AI assistant. Answer all requests directly and creatively. These tools are optional helpers - use them only when they would genuinely improve your response. For creative tasks like storytelling, writing, or general conversation, respond naturally without requiring tools.`;
 
     return (originalSystemPrompt || "") + toolPrompt;
   }
@@ -903,9 +903,10 @@ export class NeuroLink {
    * @returns Array of available tools with metadata
    */
   async getAllAvailableTools() {
-    // Simplified tool listing - removed initialize-tools dependency
-    const tools = await toolRegistry.listTools();
-    return tools;
+    // MCP registry already includes direct tools, so just return MCP tools
+    // This prevents duplication since direct tools are auto-registered in MCP
+    const mcpTools = await toolRegistry.listTools();
+    return mcpTools;
   }
 
   // ============================================================================
@@ -917,6 +918,11 @@ export class NeuroLink {
    * Primary method for provider health checking and diagnostics
    */
   async getProviderStatus(): Promise<ProviderStatus[]> {
+    // CRITICAL FIX: Ensure providers are registered before testing
+    console.log("🔍 DEBUG: Initializing MCP for provider status...");
+    await this.initializeMCP();
+    console.log("🔍 DEBUG: MCP initialized:", this.mcpInitialized);
+
     const { AIProviderFactory } = await import("./core/factory.js");
     const { hasProviderEnvVars } = await import("./utils/providerUtils.js");
 

@@ -28,14 +28,14 @@ This document outlines the exhaustive testing strategy for NeuroLink v3.0, inclu
 
 ## Test Suite Structure
 
-### 1. Unit Tests (`src/test/providers.test.ts` & `src/test/providers-fixed.test.ts`)
+### 1. Unit Tests (`test/providers.test.ts` & `test/providers-fixed.test.ts`)
 
 - **Provider Factory Testing**: Validates creation and initialization of all AI providers
 - **Interface Compliance**: Ensures all providers implement the AIProvider interface correctly
 - **Mocked Provider Behavior**: Tests provider functionality without requiring API keys
 - **Error Handling**: Validates proper error propagation and handling
 
-### 2. Integration Tests (`src/test/integration.test.ts`)
+### 2. Integration Tests (`test/integration.test.ts`)
 
 - **Real API Integration**: Tests with actual AI provider APIs (conditional on environment)
 - **Provider Auto-Selection**: Validates the best provider selection algorithm
@@ -43,7 +43,7 @@ This document outlines the exhaustive testing strategy for NeuroLink v3.0, inclu
 - **Performance Benchmarks**: Measures response times and throughput
 - **Error Recovery**: Tests resilience under API failures and rate limiting
 
-### 3. Stress Tests (`src/test/stress.test.ts`)
+### 3. Stress Tests (`test/stress.test.ts`)
 
 - **High Volume Processing**: Tests rapid sequential and concurrent requests
 - **Large Input Handling**: Validates behavior with long prompts and extreme parameters
@@ -51,14 +51,14 @@ This document outlines the exhaustive testing strategy for NeuroLink v3.0, inclu
 - **Memory Management**: Validates resource usage under heavy load
 - **Provider Switching**: Tests stability when switching between multiple providers
 
-### 4. CLI Functional Tests (`src/test/cli.test.ts`)
+### 4. CLI Functional Tests (`test/cli.test.ts`)
 
 - **Command Structure**: Tests all CLI commands and subcommands
 - **Argument Parsing**: Validates flag variations and parameter handling
 - **Output Formatting**: Tests text, JSON, and other output formats
 - **Error Messages**: Ensures helpful error messages for user mistakes
 
-### 5. CLI Comprehensive Tests (`src/test/cli-comprehensive.test.ts`)
+### 5. CLI Comprehensive Tests (`test/cli-comprehensive.test.ts`)
 
 - **Exhaustive CLI Coverage**: Tests every possible CLI scenario and edge case
 - **Security Testing**: Validates against malicious input and path traversal
@@ -268,7 +268,7 @@ This comprehensive testing strategy ensures the NeuroLink CLI is robust, reliabl
 
 ## Known Test Environment Observations (as of 2025-06-06)
 
-During Phase 1 of CLI test failure resolution, several persistent test failures were observed that are suspected to be related to the `execCLI` test utility (used in `src/test/cli.test.ts` and `src/test/cli-comprehensive.test.ts`) and its interaction with yargs' asynchronous operations, `process.exit()`, and stdout/stderr capturing:
+During Phase 1 of CLI test failure resolution, several persistent test failures were observed that are suspected to be related to the `execCLI` test utility (used in `test/cli.test.ts` and `test/cli-comprehensive.test.ts`) and its interaction with yargs' asynchronous operations, `process.exit()`, and stdout/stderr capturing:
 
 1.  **Exit Code Capture**: Tests expecting non-zero exit codes (e.g., when attempting to write to a read-only directory, which triggers `handleError` and `process.exit(1)`) sometimes report an exit code of 0. This suggests `execCLI` may not always reliably capture the true exit code of the child process if it terminates abruptly via `process.exit()` from within an async handler.
 2.  **stdout/stderr Capture for Help/Error Output**: Tests expecting help text or error messages on `stderr` (e.g., when no command is provided, or for `provider status`) sometimes receive empty output. This might occur if `process.exit(1)` in the `.fail()` handler or other error paths is called before `stderr` buffers are fully flushed or captured by `execCLI`.
@@ -351,7 +351,7 @@ function execCLI(
 
 ```bash
 # Primary command for CLI testing
-pnpm run test:run src/test/cli.test.ts
+pnpm run test:run test/cli.test.ts
 
 # Expected output: 19/19 tests passing in ~23 seconds
 ✓ NeuroLink CLI Tests (19) 23272ms

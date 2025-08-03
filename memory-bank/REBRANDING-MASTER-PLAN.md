@@ -23,7 +23,7 @@
   - ✅ Documentation header ("Zephyr-Mind" → "NeuroLink AI Toolkit")
   - ✅ All import examples in JSDoc comments
   - ✅ Function documentation and examples
-- ✅ **Task 1.2.2**: Update test runner (src/test.ts)
+- ✅ **Task 1.2.2**: Update test runner (test.ts)
   - ✅ Function name (`testZephyrMind` → `testNeuroLink`)
   - ✅ Console log messages
   - ✅ Export statements

@@ -567,6 +567,20 @@ docs(api): update TypeScript interfaces
 feat(core)!: breaking change with migration guide
 ```
 
+### **⚠️ CRITICAL: Accidental Major Version Prevention**
+```bash
+# ❌ NEVER write this (triggers major version bump)
+BREAKING CHANGE: None - all functionality preserved
+
+# ✅ ALWAYS use this instead
+Note: No breaking changes - all functionality preserved
+All existing functionality preserved
+Internal changes only - no public API impact
+```
+
+**Real Incident:** v7.0.0 was accidentally released due to "BREAKING CHANGE:" in commit message.
+**Prevention:** See `memory-bank/development/semantic-commit-guidelines.md` for complete guide.
+
 ### **GitHub Actions Integration**
 ```yaml
 # ci.yml - Continuous Integration

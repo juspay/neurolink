@@ -405,7 +405,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    setupFiles: ['./src/test/setup.ts'],
+    setupFiles: ['./test/setup.ts'],
     testTimeout: 30000, // Extended for MCP operations
     coverage: {
       provider: 'v8',
@@ -697,7 +697,7 @@ src/lib/mcp/
 
 - **Test Strategy**: `./development/testing-strategy.md`
 - **AI Workflow Tools Testing**: `./development/aiWorkflowTools-testing-guide.md`
-- **Test Files**: `src/test/` directory
+- **Test Files**: `test/` directory
 - **Test Reports**: `./reports/build-summary.md`, `./reports/test-summary.md`
 
 ## Research & Documentation
@@ -828,7 +828,7 @@ pnpm test
 - `src/lib/core/factory.ts`: Provider factory
 - `src/lib/providers/`: Provider implementations
 - `src/lib/index.ts`: Public exports
-- `src/test/providers.test.ts`: Provider tests
+- `test/providers.test.ts`: Provider tests
 
 ## Technical Decisions
 

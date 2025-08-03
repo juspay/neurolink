@@ -291,22 +291,6 @@ Create `.mcp-config.json` in your project root:
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/"],
       "transport": "stdio"
-    },
-    "github": {
-      "command": "npx",
-      "args": ["@modelcontextprotocol/server-github"],
-      "transport": "stdio",
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_your_token"
-      }
-    },
-    "postgres": {
-      "command": "npx",
-      "args": ["@modelcontextprotocol/server-postgres"],
-      "transport": "stdio",
-      "env": {
-        "POSTGRES_CONNECTION_STRING": "postgresql://user:pass@localhost:5432/db"
-      }
     }
   }
 }
@@ -561,7 +545,7 @@ npx neurolink generate "What time is it?" --debug
 npx neurolink mcp discover --format table
 
 # Full system test
-npm run build && npm run test:run -- src/test/mcp-comprehensive.test.ts
+npm run build && npm run test:run -- test/mcp-comprehensive.test.ts
 ```
 
 ---

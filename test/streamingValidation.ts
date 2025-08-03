@@ -91,7 +91,7 @@ const validateRealCredentials = async (provider: string): Promise<boolean> => {
       provider,
       "--max-tokens",
       "1000",
-      "--output-format",
+      "--format",
       "json",
     ];
     const { stdout, stderr } = await runPnpmCliCommand(

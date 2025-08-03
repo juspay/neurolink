@@ -50,8 +50,6 @@ Testing of MCP (Model Context Protocol) commands documented in the API Reference
 ✖ github: ❌ Not available
 ```
 
-**Note**: GitHub server requires `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable to be available.
-
 #### 3. `neurolink mcp test filesystem`
 
 **Status**: ✅ WORKING

@@ -130,7 +130,7 @@ export function registerTools(sdk) {
   describe("JSON Output with Tools", () => {
     it("should output JSON format with tool information", async () => {
       const { stdout } = await execAsync(
-        'pnpm cli generate "What is 10 divided by 2?" --provider google-ai --output-format json',
+        'pnpm cli generate "What is 10 divided by 2?" --provider google-ai --format json',
       );
 
       const response = JSON.parse(stdout);

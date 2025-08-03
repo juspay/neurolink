@@ -20,7 +20,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should run generate command successfully",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Test" --provider google-ai --max-tokens 2000 --output-format text`,
+          `${cliPrefix} generate "Test" --provider google-ai --max-tokens 2000 --format text`,
         );
         expect(stdout).toContain("Generated Content:");
       },
@@ -76,7 +76,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should handle temperature parameter",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Test" --provider google-ai --temperature 0.5 --max-tokens 2000 --output-format text`,
+          `${cliPrefix} generate "Test" --provider google-ai --temperature 0.5 --max-tokens 2000 --format text`,
         );
         expect(stdout).toContain("Generated Content:");
       },
@@ -87,7 +87,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should handle json output format",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Test" --provider google-ai --max-tokens 2000 --output-format json`,
+          `${cliPrefix} generate "Test" --provider google-ai --max-tokens 2000 --format json`,
         );
         expect(stdout).toMatch(/\{.*\}/); // Should contain JSON
         expect(stdout).toContain('"content":'); // Should have content field
@@ -102,7 +102,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should generate with analytics enabled via CLI",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Test analytics" --provider google-ai --max-tokens 2000 --output-format json --enable-analytics`,
+          `${cliPrefix} generate "Test analytics" --provider google-ai --max-tokens 2000 --format json --enable-analytics`,
         );
         expect(stdout).toMatch(/\{.*\}/); // Should contain JSON
         expect(stdout).toContain('"usage":'); // Should have usage field
@@ -157,7 +157,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should validate analytics data structure",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Validate analytics structure" --provider google-ai --max-tokens 2000 --output-format json --enable-analytics`,
+          `${cliPrefix} generate "Validate analytics structure" --provider google-ai --max-tokens 2000 --format json --enable-analytics`,
         );
         // Extract JSON from CLI output (find the JSON block)
         const jsonStart = stdout.indexOf("{");
@@ -179,7 +179,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should generate with evaluation enabled via CLI",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Test evaluation" --provider google-ai --max-tokens 2000 --output-format json --enable-evaluation`,
+          `${cliPrefix} generate "Test evaluation" --provider google-ai --max-tokens 2000 --format json --enable-evaluation`,
         );
         expect(stdout).toMatch(/\{.*\}/); // Should contain JSON
         expect(stdout).toContain('"evaluation":'); // Should have evaluation field
@@ -234,7 +234,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should validate evaluation score ranges",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Validate evaluation scores" --provider google-ai --max-tokens 2000 --output-format json --enable-evaluation`,
+          `${cliPrefix} generate "Validate evaluation scores" --provider google-ai --max-tokens 2000 --format json --enable-evaluation`,
         );
         // Extract JSON from CLI output (find the JSON block)
         const jsonStart = stdout.indexOf("{");
@@ -334,7 +334,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should handle system prompt parameter",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Hello" --provider google-ai --system-prompt "Be very brief" --max-tokens 2000 --output-format text`,
+          `${cliPrefix} generate "Hello" --provider google-ai --system-prompt "Be very brief" --max-tokens 2000 --format text`,
         );
         expect(stdout).toContain("Generated Content:");
       },
@@ -345,7 +345,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should handle model selection",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Test" --provider google-ai --model gemini-2.5-flash --max-tokens 2000 --output-format text`,
+          `${cliPrefix} generate "Test" --provider google-ai --model gemini-2.5-flash --max-tokens 2000 --format text`,
         );
         expect(stdout).toContain("Generated Content:");
       },
@@ -356,7 +356,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should handle multiple parameters together",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Test combo" --provider google-ai --temperature 0.7 --system-prompt "Be helpful" --max-tokens 2000 --output-format json --enable-analytics`,
+          `${cliPrefix} generate "Test combo" --provider google-ai --temperature 0.7 --system-prompt "Be helpful" --max-tokens 2000 --format json --enable-analytics`,
         );
         expect(stdout).toMatch(/\{.*\}/);
         expect(stdout).toContain('"usage":');
@@ -602,7 +602,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should validate complete JSON structure",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Validate JSON structure" --provider google-ai --max-tokens 2000 --output-format json --enable-analytics`,
+          `${cliPrefix} generate "Validate JSON structure" --provider google-ai --max-tokens 2000 --format json --enable-analytics`,
         );
 
         // Extract JSON from CLI output (find the JSON block)
@@ -630,7 +630,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should validate analytics data accuracy",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Short response" --provider google-ai --max-tokens 2000 --output-format json --enable-analytics`,
+          `${cliPrefix} generate "Short response" --provider google-ai --max-tokens 2000 --format json --enable-analytics`,
         );
 
         const jsonStart = stdout.indexOf("{");
@@ -653,7 +653,7 @@ describe("NeuroLink Complete Baseline Test", () => {
       "should validate provider metadata",
       async () => {
         const { stdout } = await execAsync(
-          `${cliPrefix} generate "Test metadata" --provider google-ai --max-tokens 2000 --output-format json`,
+          `${cliPrefix} generate "Test metadata" --provider google-ai --max-tokens 2000 --format json`,
         );
 
         const jsonStart = stdout.indexOf("{");

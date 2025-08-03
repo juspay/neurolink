@@ -36,12 +36,7 @@ class NeuroLinkLogger {
       process.env.NEUROLINK_DEBUG === "true";
 
     // Check NEUROLINK_LOG_LEVEL for consistency with the unified NeuroLink logger
-    let envLevel = process.env.NEUROLINK_LOG_LEVEL?.toLowerCase() as LogLevel;
-
-    // Fallback to MCP_LOG_LEVEL for backward compatibility (if needed)
-    if (!envLevel) {
-      envLevel = process.env.MCP_LOG_LEVEL?.toLowerCase() as LogLevel;
-    }
+    const envLevel = process.env.NEUROLINK_LOG_LEVEL?.toLowerCase() as LogLevel;
 
     if (envLevel && ["debug", "info", "warn", "error"].includes(envLevel)) {
       this.logLevel = envLevel;
@@ -53,8 +48,13 @@ class NeuroLinkLogger {
   }
 
   shouldLog(level: LogLevel): boolean {
+    // Dynamic debug mode check to handle CLI middleware timing
+    const currentDebugMode =
+      process.argv.includes("--debug") ||
+      process.env.NEUROLINK_DEBUG === "true";
+
     // Hide all logs except errors unless debugging
-    if (!this.isDebugMode && level !== "error") {
+    if (!currentDebugMode && level !== "error") {
       return false;
     }
 

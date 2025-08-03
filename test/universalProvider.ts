@@ -598,7 +598,7 @@ export class UniversalProviderTest {
           "2000",
           "--temperature",
           "0",
-          "--output-format",
+          "--format",
           "text",
         ],
         {
@@ -743,7 +743,7 @@ export class UniversalProviderTest {
           "0.5",
           "--system-prompt",
           "You are a helpful assistant.",
-          "--output-format",
+          "--format",
           "text",
         ],
         {

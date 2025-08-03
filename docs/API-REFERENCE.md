@@ -1940,7 +1940,7 @@ neurolink generate "What tools do you have access to?" --debug
 neurolink mcp discover --format table
 
 # ✅ Working: Build and test system
-npm run build && npm run test:run -- src/test/mcp-comprehensive.test.ts
+npm run build && npm run test:run -- test/mcp-comprehensive.test.ts
 ```
 
 ### MCP CLI Commands
@@ -2051,22 +2051,7 @@ interface MCPConfig {
       "timeout": 5000,
       "enabled": true
     },
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
-      },
-      "timeout": 10000,
-      "enabled": true
-    },
-    "postgres": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-postgres",
-        "${POSTGRES_CONNECTION_STRING}"
-      ],
+
       "timeout": 8000,
       "enabled": false
     }
@@ -2084,20 +2069,13 @@ interface MCPConfig {
 Configure MCP server authentication through environment variables:
 
 ```bash
-# GitHub integration
-GITHUB_PERSONAL_ACCESS_TOKEN=ghp_...
-
 # Database connections
-POSTGRES_CONNECTION_STRING=postgresql://user:pass@localhost/db
 MYSQL_CONNECTION_STRING=mysql://user:pass@localhost/db
 
 # Web services
 BRAVE_API_KEY=BSA...
 GOOGLE_API_KEY=AIza...
 
-# Custom server configuration
-MCP_CUSTOM_SERVER_URL=https://api.example.com
-MCP_CUSTOM_API_KEY=key_...
 ```
 
 ### MCP Tool Execution
@@ -2328,7 +2306,7 @@ curl -X POST http://localhost:9876/api/mcp/execute \
 **2. GitHub Integration via HTTP API**
 
 ```bash
-# Install GitHub server (requires GITHUB_PERSONAL_ACCESS_TOKEN)
+# Install GitHub server
 curl -X POST http://localhost:9876/api/mcp/install \
   -H "Content-Type: application/json" \
   -d '{"serverName": "github"}'
@@ -2474,13 +2452,8 @@ neurolink mcp list --status
 #### **Environment Setup**
 
 ```bash
-# Use environment variables for sensitive data
-export GITHUB_PERSONAL_ACCESS_TOKEN="ghp_..."
-export POSTGRES_CONNECTION_STRING="postgresql://..."
-
 # Test configuration
-neurolink mcp test github
-neurolink mcp test postgres
+neurolink mcp test
 ```
 
 #### **Error Recovery**

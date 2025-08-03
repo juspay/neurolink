@@ -113,9 +113,9 @@ const wsServer = new NeuroLinkWebSocketServer({
 
 **Tests to Create:**
 
-- `src/test/websocket-server.test.ts`
-- `src/test/streaming-manager.test.ts`
-- `src/test/websocket-chat-handler.test.ts`
+- `test/websocket-server.test.ts`
+- `test/streaming-manager.test.ts`
+- `test/websocket-chat-handler.test.ts`
 
 **Success Criteria:**
 
@@ -143,9 +143,9 @@ process.env.NEUROLINK_TELEMETRY_ENABLED = "true";
 
 **Tests to Create:**
 
-- `src/test/telemetryService.test.ts`
-- `src/test/ai-instrumentation.test.ts`
-- `src/test/mcp-instrumentation.test.ts`
+- `test/telemetryService.test.ts`
+- `test/ai-instrumentation.test.ts`
+- `test/mcp-instrumentation.test.ts`
 
 **Success Criteria:**
 
@@ -172,8 +172,8 @@ const chatService = createEnhancedChatService({
 
 **Tests to Create:**
 
-- `src/test/enhanced-chat.test.ts`
-- `src/test/chat-integration.test.ts`
+- `test/enhanced-chat.test.ts`
+- `test/chat-integration.test.ts`
 
 **Success Criteria:**
 

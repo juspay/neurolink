@@ -593,7 +593,7 @@ To integrate MCP functionality into the CLI, add these commands to `src/cli/inde
 pnpm run test:run
 
 # Run specific MCP tests
-npx vitest run src/test/mcp-comprehensive.test.ts
+npx vitest run test/mcp-comprehensive.test.ts
 ```
 
 ### **2. Test Custom MCP Server**

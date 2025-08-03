@@ -57,7 +57,7 @@ const validateRealCredentials = async (provider: string): Promise<boolean> => {
       `"${TEST_PROMPT}"`,
       `--provider ${provider}`,
       `--max-tokens ${MIN_TEST_TOKENS}`,
-      `--output-format json`,
+      `--format json`,
     ].join(" ");
 
     const { stdout, stderr } = await execAsync(
@@ -140,7 +140,7 @@ describe(`Analytics Features Tests (${getTestProvider().toUpperCase()})`, () => 
     it(
       `should handle temperature parameter with real content validation`,
       async () => {
-        const command = `${cliPrefix} generate "Write a comprehensive analysis of machine learning algorithms" --provider ${getTestProvider()} --temperature 0.5 --max-tokens 1000 --output-format text`;
+        const command = `${cliPrefix} generate "Write a comprehensive analysis of machine learning algorithms" --provider ${getTestProvider()} --temperature 0.5 --max-tokens 1000 --format text`;
         console.log("🔍 INPUT:", command);
         console.log(`🤖 Provider: ${getTestProvider()}`);
 
@@ -168,7 +168,7 @@ describe(`Analytics Features Tests (${getTestProvider().toUpperCase()})`, () => 
     it(
       `should handle json output format with real validation`,
       async () => {
-        const command = `${cliPrefix} generate "Explain the principles of deep learning" --provider ${getTestProvider()} --max-tokens 1000 --output-format json`;
+        const command = `${cliPrefix} generate "Explain the principles of deep learning" --provider ${getTestProvider()} --max-tokens 1000 --format json`;
         console.log("🔍 INPUT:", command);
         console.log(`🤖 Provider: ${getTestProvider()}`);
 
@@ -209,7 +209,7 @@ describe(`Analytics Features Tests (${getTestProvider().toUpperCase()})`, () => 
     it(
       `should generate with analytics enabled and validate data structure`,
       async () => {
-        const command = `${cliPrefix} generate "Analyze the impact of artificial intelligence on modern business" --provider ${getTestProvider()} --max-tokens 1000 --output-format json --enable-analytics`;
+        const command = `${cliPrefix} generate "Analyze the impact of artificial intelligence on modern business" --provider ${getTestProvider()} --max-tokens 1000 --format json --enable-analytics`;
         console.log("🔍 INPUT:", command);
         console.log(`🤖 Provider: ${getTestProvider()}`);
 
@@ -324,7 +324,7 @@ describe(`Analytics Features Tests (${getTestProvider().toUpperCase()})`, () => 
     it(
       `should validate comprehensive analytics data structure`,
       async () => {
-        const command = `${cliPrefix} generate "Comprehensive analysis of renewable energy technologies" --provider ${getTestProvider()} --max-tokens 1000 --output-format json --enable-analytics`;
+        const command = `${cliPrefix} generate "Comprehensive analysis of renewable energy technologies" --provider ${getTestProvider()} --max-tokens 1000 --format json --enable-analytics`;
         console.log("🔍 INPUT:", command);
         console.log(`🤖 Provider: ${getTestProvider()}`);
 

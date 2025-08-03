@@ -640,7 +640,7 @@ npx neurolink status --verbose
 
 # 6. Run comprehensive tests
 echo "Running comprehensive tests..."
-npm run test:run -- src/test/mcp-comprehensive.test.ts
+npm run test:run -- test/mcp-comprehensive.test.ts
 ```
 
 **Expected Results**:

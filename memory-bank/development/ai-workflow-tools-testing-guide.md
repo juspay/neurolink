@@ -24,13 +24,13 @@ pnpm run build
 
 ```bash
 # Phase 1.2 AI Workflow Tools tests (36 tests)
-pnpm test src/test/aiWorkflowTools.test.ts
+pnpm test test/aiWorkflowTools.test.ts
 
 # All MCP foundation tests (27 tests)
-pnpm test src/test/mcp-comprehensive.test.ts
+pnpm test test/mcp-comprehensive.test.ts
 
 # Phase 1.1 AI Analysis Tools tests (20 tests)
-pnpm test src/test/aiAnalysisTools.test.ts
+pnpm test test/aiAnalysisTools.test.ts
 
 # Complete suite validation
 pnpm test --run

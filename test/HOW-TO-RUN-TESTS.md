@@ -2,7 +2,7 @@
 
 ## 🚨 IMPORTANT: Test Structure Update
 
-**Test Location**: All unit tests are in `src/test/` directory, integration tests in `test/` directory
+**Test Location**: All unit tests are in `test/` directory, integration tests in `test/` directory
 
 **✅ Recommended Testing Method**: Use Vitest for all test execution
 
@@ -33,10 +33,10 @@ pnpm test:run
 
 ```bash
 # Run only provider tests
-pnpm vitest src/test/providers-fixed.test.ts --run
+pnpm vitest test/providers-fixed.test.ts --run
 
 # Run only MCP tests
-pnpm vitest src/test/mcp-*.test.ts --run
+pnpm vitest test/mcp-*.test.ts --run
 
 # Run integration tests
 pnpm vitest test/ --run
@@ -46,29 +46,29 @@ pnpm vitest test/ --run
 
 ## 📋 Test Categories
 
-### Unit Tests (src/test/)
+### Unit Tests (test/)
 
 ```bash
 # Provider Tests
-pnpm vitest src/test/providers-fixed.test.ts --run
+pnpm vitest test/providers-fixed.test.ts --run
 
 # MCP Tests
-pnpm vitest src/test/mcp-comprehensive.test.ts --run
-pnpm vitest src/test/mcp-unified.test.ts --run
+pnpm vitest test/mcp-comprehensive.test.ts --run
+pnpm vitest test/mcp-unified.test.ts --run
 
 # CLI Tests
-pnpm vitest src/test/cli.test.ts --run
-pnpm vitest src/test/cli-comprehensive.test.ts --run
+pnpm vitest test/cli.test.ts --run
+pnpm vitest test/cli-comprehensive.test.ts --run
 
 # Feature Tests
-pnpm vitest src/test/streaming-enhancements.test.ts --run
-pnpm vitest src/test/errorHandling.test.ts --run
-pnpm vitest src/test/timeout.test.ts --run
+pnpm vitest test/streaming-enhancements.test.ts --run
+pnpm vitest test/errorHandling.test.ts --run
+pnpm vitest test/timeout.test.ts --run
 
 # Advanced Features
-pnpm vitest src/test/dynamic-chain.test.ts --run
-pnpm vitest src/test/session-manager.test.ts --run
-pnpm vitest src/test/health-monitor.test.ts --run
+pnpm vitest test/dynamic-chain.test.ts --run
+pnpm vitest test/session-manager.test.ts --run
+pnpm vitest test/health-monitor.test.ts --run
 ```
 
 ### Integration Tests (test/)

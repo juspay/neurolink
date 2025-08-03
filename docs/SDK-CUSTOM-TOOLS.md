@@ -50,6 +50,48 @@ const result = await neurolink.generate({
 // Returns: "¡Hola, John!"
 ```
 
+## ⚠️ Common Mistakes
+
+### ❌ Using `schema` instead of `parameters`
+```typescript
+// WRONG - will throw validation error
+neurolink.registerTool("badTool", {
+  description: "This will fail",
+  schema: {  // ❌ Should be 'parameters'
+    type: 'object',
+    properties: { value: { type: 'string' } }
+  },
+  execute: async (args) => args
+});
+```
+
+### ❌ Using plain JSON schema as `parameters`
+```typescript
+// WRONG - will throw validation error  
+neurolink.registerTool("badTool", {
+  description: "This will also fail",
+  parameters: {  // ❌ Should be Zod schema
+    type: 'object', 
+    properties: { value: { type: 'string' } }
+  },
+  execute: async (args) => args
+});
+```
+
+### ✅ Correct Zod Schema Format
+```typescript
+// CORRECT - works perfectly
+import { z } from 'zod';
+
+neurolink.registerTool("goodTool", {
+  description: "This works correctly", 
+  parameters: z.object({  // ✅ Zod schema
+    value: z.string()
+  }),
+  execute: async (args) => args
+});
+```
+
 ## 📖 SimpleTool Interface
 
 All custom tools implement the `SimpleTool` interface:

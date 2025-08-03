@@ -76,7 +76,7 @@ describe("Parameter Validation Tests", () => {
     it(
       "should handle system prompt parameter",
       async () => {
-        const command = `${cliPrefix} generate "Hello" --provider ${getTestProvider()} --system-prompt "Be very brief" --max-tokens 2000 --output-format text`;
+        const command = `${cliPrefix} generate "Hello" --provider ${getTestProvider()} --system-prompt "Be very brief" --max-tokens 2000 --format text`;
         console.log("🔍 INPUT:", command);
 
         const { stdout } = await execWithTimeout(command);
@@ -91,7 +91,7 @@ describe("Parameter Validation Tests", () => {
     it(
       "should handle model selection",
       async () => {
-        const command = `${cliPrefix} generate "Test" --provider ${getTestProvider()} --model gemini-2.5-flash --max-tokens 2000 --output-format text`;
+        const command = `${cliPrefix} generate "Test" --provider ${getTestProvider()} --model gemini-2.5-flash --max-tokens 2000 --format text`;
         console.log("🔍 INPUT:", command);
 
         const { stdout } = await execWithTimeout(command);
@@ -106,7 +106,7 @@ describe("Parameter Validation Tests", () => {
     it(
       "should handle multiple parameters together",
       async () => {
-        const command = `${cliPrefix} generate "Test combo" --provider ${getTestProvider()} --temperature 0.7 --system-prompt "Be helpful" --max-tokens 2000 --output-format json --enable-analytics`;
+        const command = `${cliPrefix} generate "Test combo" --provider ${getTestProvider()} --temperature 0.7 --system-prompt "Be helpful" --max-tokens 2000 --format json --enable-analytics`;
         console.log("🔍 INPUT:", command);
 
         const { stdout } = await execWithTimeout(command);
@@ -151,7 +151,7 @@ describe("Parameter Validation Tests", () => {
     it(
       "should validate complete JSON structure",
       async () => {
-        const command = `${cliPrefix} generate "Validate JSON structure" --provider ${getTestProvider()} --max-tokens 2000 --output-format json --enable-analytics`;
+        const command = `${cliPrefix} generate "Validate JSON structure" --provider ${getTestProvider()} --max-tokens 2000 --format json --enable-analytics`;
         console.log("🔍 INPUT:", command);
 
         const { stdout } = await execWithTimeout(command);
@@ -182,7 +182,7 @@ describe("Parameter Validation Tests", () => {
     it(
       "should validate analytics data accuracy",
       async () => {
-        const command = `${cliPrefix} generate "Short response" --provider ${getTestProvider()} --max-tokens 2000 --output-format json --enable-analytics`;
+        const command = `${cliPrefix} generate "Short response" --provider ${getTestProvider()} --max-tokens 2000 --format json --enable-analytics`;
         console.log("🔍 INPUT:", command);
 
         const { stdout } = await execWithTimeout(command);
@@ -208,7 +208,7 @@ describe("Parameter Validation Tests", () => {
     it(
       "should validate provider metadata",
       async () => {
-        const command = `${cliPrefix} generate "Test metadata" --provider ${getTestProvider()} --max-tokens 2000 --output-format json`;
+        const command = `${cliPrefix} generate "Test metadata" --provider ${getTestProvider()} --max-tokens 2000 --format json`;
         console.log("🔍 INPUT:", command);
 
         const { stdout } = await execWithTimeout(command);
