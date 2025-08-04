@@ -60,6 +60,7 @@ jobs:
       - name: Build documentation
         run: |
           mkdocs build --clean --verbose
+          touch site/.nojekyll
 
       - name: Verify build output
         run: |
