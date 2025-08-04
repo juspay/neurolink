@@ -1,3 +1,10 @@
+# [7.2.0](https://github.com/juspay/neurolink/compare/v7.1.0...v7.2.0) (2025-08-04)
+
+
+### Features
+
+* **core:** complete NeuroLink Phase 1-4 implementation with comprehensive verification ([37d5cb1](https://github.com/juspay/neurolink/commit/37d5cb1a494850cd564d6fbce68895997939886f))
+
 # [7.1.0](https://github.com/juspay/neurolink/compare/v7.0.0...v7.1.0) (2025-08-03)
 
 ### Features
