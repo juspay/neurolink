@@ -42,18 +42,18 @@ theme:
     - toc.follow
     - toc.integrate
   palette:
-    - scheme: default
-      primary: blue
-      accent: orange
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
     - scheme: slate
       primary: blue
       accent: orange
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+    - scheme: default
+      primary: blue
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
   font:
     text: Roboto
     code: Roboto Mono
@@ -202,4 +202,4 @@ extra:
 
 # Copyright
 copyright: |
-  &copy; 2024 <a href="https://juspay.io"  target="_blank" rel="noopener">Juspay Technologies</a>
+  &copy; 2025 <a href="https://juspay.io"  target="_blank" rel="noopener">Juspay Technologies</a>
