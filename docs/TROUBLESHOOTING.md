@@ -435,7 +435,7 @@ npx neurolink mcp discover --format json | jq '.servers | length'
 
 ```bash
 # Coming Soon: Direct tool execution
-npx neurolink mcp exec filesystem read_file --params '{"path": "README.md"}'
+npx neurolink mcp exec filesystem read_file --params '{"path": "index.md"}'
 ```
 
 **Current Workaround**: Use built-in tools while external activation is developed

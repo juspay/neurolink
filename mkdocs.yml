@@ -1,0 +1,215 @@
+site_name: "NeuroLink"
+site_description: "Enterprise AI Development Platform with built-in tools, universal provider support, and factory pattern architecture. Production-ready with TypeScript support."
+site_url: "https://juspay.github.io/neurolink"
+repo_url: "https://github.com/juspay/neurolink"
+repo_name: "juspay/neurolink"
+edit_uri: "edit/main/docs/"
+
+# Build settings
+docs_dir: "docs"
+site_dir: "site"
+
+# Exclude files that conflict with navigation
+exclude_docs: |
+  README.md
+
+# Theme configuration
+theme:
+  name: material
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+    - content.tooltips
+    - header.autohide
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.prune
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+    - toc.integrate
+  palette:
+    - scheme: default
+      primary: blue
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  # logo: assets/images/logo.png
+  # favicon: assets/images/favicon.ico
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+
+# Plugins
+plugins:
+  - search:
+      lang: en
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+      custom_format: "%d. %B %Y"
+      timezone: UTC
+      locale: en
+      fallback_to_build_date: false
+      exclude:
+        - index.md
+  # - social:
+  #     cards_layout_options:
+  #       font_family: Roboto
+
+# Markdown extensions
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      title: Page contents
+  - tables
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: juspay
+      repo: neurolink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      auto_append:
+        - includes/mkdocs.md
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Page navigation
+nav:
+  - Home: index.md
+  - Getting Started:
+    - getting-started/index.md
+    - Quick Start: getting-started/quick-start.md
+    - Installation: getting-started/installation.md
+    - Provider Setup: getting-started/provider-setup.md
+    - Environment Variables: getting-started/environment-variables.md
+  - CLI Guide:
+    - cli/index.md
+    - Commands Reference: cli/commands.md
+    - Examples: cli/examples.md
+    - Advanced Usage: cli/advanced.md
+  - SDK Reference:
+    - sdk/index.md
+    - API Reference: sdk/api-reference.md
+    - Framework Integration: sdk/framework-integration.md
+    - Custom Tools: sdk/custom-tools.md
+  - Advanced Features:
+    - advanced/index.md
+    - MCP Integration: advanced/mcp-integration.md
+    - Analytics & Evaluation: advanced/analytics.md
+    - Factory Patterns: advanced/factory-patterns.md
+    - Dynamic Models: advanced/dynamic-models.md
+    - Streaming: advanced/streaming.md
+  - Examples & Tutorials:
+    - examples/index.md
+    - Basic Usage: examples/basic-usage.md
+    - Advanced Examples: examples/advanced.md
+    - Use Cases: examples/use-cases.md
+    - Business Applications: examples/business.md
+  - Visual Demos:
+    - demos/index.md
+    - Screenshots: demos/screenshots.md
+    - Videos: demos/videos.md
+    - Interactive Demo: demos/interactive.md
+  - Development:
+    - development/index.md
+    - Contributing: development/contributing.md
+    - Testing: development/testing.md
+    - Architecture: development/architecture.md
+    - Factory Pattern Migration: development/factory-migration.md
+  - Reference:
+    - reference/index.md
+    - Troubleshooting: reference/troubleshooting.md
+    - Configuration: reference/configuration.md
+    - Provider Comparison: reference/provider-comparison.md
+    - FAQ: reference/faq.md
+
+# Social links and extras
+extra:
+  version:
+    provider: mike
+    default: latest
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/juspay/neurolink
+      name: GitHub Repository
+    - icon: fontawesome/brands/npm
+      link: https://www.npmjs.com/package/@juspay/neurolink
+      name: NPM Package
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/juspay
+      name: Follow on Twitter
+  analytics:
+    provider: google
+    property: !ENV GOOGLE_ANALYTICS_KEY
+  generator: false
+
+# Copyright
+copyright: |
+  &copy; 2024 <a href="https://juspay.io"  target="_blank" rel="noopener">Juspay Technologies</a>

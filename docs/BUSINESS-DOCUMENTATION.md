@@ -204,7 +204,7 @@ This hub provides comprehensive business-focused documentation for implementing 
 
 - **Technical Issues**: [GitHub Issues](https://github.com/juspay/neurolink/issues)
 - **Feature Requests**: [GitHub Discussions](https://github.com/juspay/neurolink/discussions)
-- **Documentation**: [Complete API Reference](../README.md)
+- **Documentation**: [Complete API Reference](./index.md)
 - **Examples**: [Working Code Examples](../examples/)
 
 ### Community

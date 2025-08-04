@@ -329,7 +329,7 @@ src/lib/mcp/
 
 ## 📚 Related Documentation
 
-- **[Main README](../README.md)** - Project overview and quick start
+- **[Main README](./index.md)** - Project overview and quick start
 - **[AI Analysis Tools](./AI-ANALYSIS-TOOLS.md)** - AI optimization and analysis tools
 - **[AI Workflow Tools](./AI-WORKFLOW-TOOLS.md)** - Development lifecycle tools
 - **[MCP Integration Guide](./MCP-INTEGRATION.md)** - Complete MCP setup and usage

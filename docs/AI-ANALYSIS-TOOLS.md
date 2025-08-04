@@ -172,7 +172,7 @@ Content-Type: application/json
 
 All analysis tools are demonstrated in our comprehensive demo videos:
 
-- **[AI Analysis Tools Demo](../neurolink-demo/videos/monitoring-analytics.webm)** - Real-time analysis and optimization
+- **[Visual Demos](demos/index.md)** - Real-time analysis and optimization demonstrations
 
 ## 🔧 Technical Implementation
 
@@ -205,13 +205,13 @@ const mcpTools = [
 ## 🚀 Getting Started
 
 1. **Install NeuroLink**: `npm install @juspay/neurolink`
-2. **Set up providers**: Configure at least one AI provider (see [Provider Configuration](./PROVIDER-CONFIGURATION.md)) (now with authentication and model availability checks)
+2. **Set up providers**: Configure at least one AI provider (see [Provider Configuration](./getting-started/provider-setup.md)) (now with authentication and model availability checks)
 3. **Try the tools**: Use factory methods or visit the demo application
 4. **Integrate APIs**: Use REST endpoints for web applications
 
 ## 📚 Related Documentation
 
-- **[Main README](../README.md)** - Project overview and quick start
+- **[Main README](./index.md)** - Project overview and quick start
 - **[AI Workflow Tools](./AI-WORKFLOW-TOOLS.md)** - Development lifecycle tools
 - **[MCP Foundation](./MCP-FOUNDATION.md)** - Technical architecture details
 - **[API Reference](./API-REFERENCE.md)** - Complete TypeScript API

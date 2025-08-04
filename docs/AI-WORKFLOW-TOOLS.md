@@ -248,8 +248,7 @@ Content-Type: application/json
 
 All workflow tools are demonstrated in our comprehensive demo videos:
 
-- **[AI Workflow Tools Demo](../neurolink-demo/videos/aiWorkflowTools-demo/aiWorkflowTools-demo.mp4)** - Complete workflow demonstration
-- **[Developer Tools Demo](../neurolink-demo/videos/developer-tools.webm)** - Technical applications and code generation
+- **[Visual Demos](demos/index.md)** - Complete workflow demonstrations and technical applications
 
 ## 🔧 Technical Implementation
 
@@ -293,7 +292,7 @@ const workflowTools = [
 ### Prerequisites
 
 1. **Install NeuroLink**: `npm install @juspay/neurolink`
-2. **Configure Providers**: Set up at least one AI provider (see [Provider Configuration](./PROVIDER-CONFIGURATION.md)) (now with authentication and model availability checks)
+2. **Configure Providers**: Set up at least one AI provider (see [Provider Configuration](./getting-started/provider-setup.md)) (now with authentication and model availability checks)
 3. **Verify Setup**: Run `npx @juspay/neurolink status` to check connectivity
 
 ### Quick Examples
@@ -363,7 +362,7 @@ neurolink debug-output --file ai-response.json --format json
 
 ## 📚 Related Documentation
 
-- **[Main README](../README.md)** - Project overview and quick start
+- **[Main README](./index.md)** - Project overview and quick start
 - **[AI Analysis Tools](./AI-ANALYSIS-TOOLS.md)** - AI optimization and analysis tools
 - **[MCP Foundation](./MCP-FOUNDATION.md)** - Technical architecture details
 - **[API Reference](./API-REFERENCE.md)** - Complete TypeScript API

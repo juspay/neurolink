@@ -33,7 +33,7 @@ This directory contains all organized documentation, visual content, and develop
 
 - **API-REFERENCE.md** - Complete API documentation and reference
 - **CLI-GUIDE.md** - Comprehensive CLI commands and usage guide
-- **ENVIRONMENT-VARIABLES.md** - Environment configuration guide
+- **getting-started/environment-variables.md** - Environment configuration guide
 - **FRAMEWORK-INTEGRATION.md** - Framework integration examples
 - **MCP-INTEGRATION.md** - MCP (Model Context Protocol) setup and usage guide
 - **MCP-TESTING-GUIDE.md** - MCP testing strategies and examples

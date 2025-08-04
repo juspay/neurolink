@@ -8,46 +8,46 @@ Experience NeuroLink's capabilities through comprehensive visual documentation. 
 
 | Feature                    | Screenshot                                                                                                                | Description                                                  |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| **Main Interface**         | ![Main Interface](../neurolink-demo/screenshots/01-overview/01-main-interface-overview-2025-06-04T13-56-43-628Z.png)      | Complete web interface showing all features and capabilities |
-| **AI Generation Results**  | ![AI Generation](../neurolink-demo/screenshots/02-basic-examples/02-ai-generation-results-2025-06-04T13-57-13-156Z.png)   | Real AI content generation with OpenAI GPT-4o                |
-| **Business Use Cases**     | ![Business Cases](../neurolink-demo/screenshots/03-business-use-cases/03-business-use-cases-2025-06-04T13-59-07-846Z.png) | Professional business applications and workflows             |
-| **Creative Tools**         | ![Creative Tools](../neurolink-demo/screenshots/04-creative-tools/04-creative-tools-2025-06-04T13-59-24-346Z.png)         | Creative content generation and storytelling                 |
-| **Developer Tools**        | ![Developer Tools](../neurolink-demo/screenshots/05-developer-tools/05-developer-tools-2025-06-04T13-59-43-322Z.png)      | Code generation, API documentation, debugging help           |
-| **Analytics & Monitoring** | ![Monitoring](../neurolink-demo/screenshots/06-monitoring/06-monitoring-analytics-2025-06-04T14-00-08-919Z.png)           | Real-time provider analytics and performance metrics         |
+| **Main Interface**         | *[Screenshots available in demo application]*      | Complete web interface showing all features and capabilities |
+| **AI Generation Results**  | *[Screenshots available in demo application]*   | Real AI content generation with OpenAI GPT-4o                |
+| **Business Use Cases**     | *[Screenshots available in demo application]* | Professional business applications and workflows             |
+| **Creative Tools**         | *[Screenshots available in demo application]*         | Creative content generation and storytelling                 |
+| **Developer Tools**        | *[Screenshots available in demo application]*      | Code generation, API documentation, debugging help           |
+| **Analytics & Monitoring** | *[Screenshots available in demo application]*           | Real-time provider analytics and performance metrics         |
 
 ### Complete Demo Videos
 
 **5,681+ tokens of real AI generation captured!**
 
-#### **Basic Examples** - [📹 WebM](../neurolink-demo/videos/basic-examples.webm) | [🎬 MP4](../neurolink-demo/videos/basic-examples.mp4)
+#### **Basic Examples** - *[Demo videos available in live application]*
 
 - Text generation fundamentals
 - Haiku creation with Claude 3.7 Sonnet
 - Creative storytelling with OpenAI GPT-4o
 - **Content Generated**: 529 tokens (robot painting story)
 
-#### **Business Use Cases** - [📹 WebM](../neurolink-demo/videos/business-use-cases.webm) | [🎬 MP4](../neurolink-demo/videos/business-use-cases.mp4)
+#### **Business Use Cases** - *[Demo videos available in live application]*
 
 - Professional email generation
 - Business analysis and reporting
 - Executive summaries and insights
 - **Content Generated**: 1,677 tokens (email + analysis + summaries)
 
-#### **Creative Tools** - [📹 WebM](../neurolink-demo/videos/creative-tools.webm) | [🎬 MP4](../neurolink-demo/videos/creative-tools.mp4)
+#### **Creative Tools** - *[Demo videos available in live application]*
 
 - Story writing and narrative creation
 - Language translation capabilities
 - Creative brainstorming and ideation
 - **Content Generated**: 1,174 tokens (stories + translation + ideas)
 
-#### **Developer Tools** - [📹 WebM](../neurolink-demo/videos/developer-tools.webm) | [🎬 MP4](../neurolink-demo/videos/developer-tools.mp4)
+#### **Developer Tools** - *[Demo videos available in live application]*
 
 - React component generation
 - API documentation creation
 - Code debugging and optimization
 - **Content Generated**: 2,301 tokens (React code + API docs + debugging)
 
-#### **Monitoring & Analytics** - [📹 WebM](../neurolink-demo/videos/monitoring-analytics.webm) | [🎬 MP4](../neurolink-demo/videos/monitoring-analytics.mp4)
+#### **Monitoring & Analytics** - *[Demo videos available in live application]*
 
 - Live provider status monitoring
 - Performance metrics tracking
@@ -298,4 +298,4 @@ neurolink/
 
 ---
 
-[← Back to Main README](../README.md) | [Next: Error Handling →](./ERROR-HANDLING.md)
+[← Back to Main README](./index.md) | [Next: Error Handling →](./ERROR-HANDLING.md)

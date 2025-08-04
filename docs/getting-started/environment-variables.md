@@ -781,7 +781,7 @@ node -e "require('dotenv').config(); console.log(process.env.OPENAI_API_KEY)"
 
 ## 📖 Related Documentation
 
-- **[Provider Configuration Guide](./PROVIDER-CONFIGURATION.md)** - Detailed provider setup
+- **[Provider Configuration Guide](./getting-started/provider-setup.md)** - Detailed provider setup
 - **[CLI Guide](./CLI-GUIDE.md)** - Complete CLI command reference
 - **[API Reference](./API-REFERENCE.md)** - Programmatic usage examples
 - **[Framework Integration](./FRAMEWORK-INTEGRATION.md)** - Next.js, SvelteKit, React

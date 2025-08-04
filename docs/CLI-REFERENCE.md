@@ -266,7 +266,7 @@ Artificial Intelligence (AI) refers to...
 
 ## Environment Variables
 
-See the [Environment Variables](./ENVIRONMENT-VARIABLES.md) documentation for complete configuration options.
+See the [Environment Variables](./getting-started/environment-variables.md) documentation for complete configuration options.
 
 ## API Integration
 

@@ -751,7 +751,7 @@ neurolink generate "What time is it?" --debug
 neurolink generate "What tools do you have access to?" --debug
 
 # 🔧 Coming Soon: Direct external tool execution
-neurolink mcp exec filesystem read_file --params '{"path": "README.md"}'
+neurolink mcp exec filesystem read_file --params '{"path": "index.md"}'
 neurolink mcp exec github create_issue --params '{"owner": "juspay", "repo": "neurolink", "title": "Bug report", "body": "Description"}'
 neurolink mcp exec postgres execute_query --params '{"query": "SELECT * FROM users LIMIT 10"}'
 neurolink mcp exec filesystem list_directory --params '{"path": "."}'
@@ -1181,21 +1181,21 @@ npx @juspay/neurolink generate "Performance critical task" --provider auto
 
 ### **Command Tutorials**
 
-- **[Help & Overview](./visual-content/cli-videos/cli-01-cli-help.mp4)** - Complete command reference and usage examples
-- **[Provider Status](./visual-content/cli-videos/cli-02-provider-status.mp4)** - Connectivity testing and response time measurement
-- **[Text Generation](./visual-content/cli-videos/cli-03-text-generation.mp4)** - Real AI content generation with different providers
-- **[Auto Selection](./visual-content/cli-videos/cli-04-auto-selection.mp4)** - Automatic provider selection algorithm
-- **[Streaming](./visual-content/cli-videos/cli-05-streaming.mp4)** - Real-time text generation streaming
-- **[Advanced Features](./visual-content/cli-videos/cli-06-advanced-features.mp4)** - Verbose diagnostics and advanced options
+- **[Help & Overview](demos/videos.md)** - Complete command reference and usage examples
+- **[Provider Status](demos/videos.md)** - Connectivity testing and response time measurement
+- **[Text Generation](demos/videos.md)** - Real AI content generation with different providers
+- **[Auto Selection](demos/videos.md)** - Automatic provider selection algorithm
+- **[Streaming](demos/videos.md)** - Real-time text generation streaming
+- **[Advanced Features](demos/videos.md)** - Verbose diagnostics and advanced options
 
 ### **MCP Integration Demos**
 
-- **[MCP Help](./visual-content/cli-videos/cli-advanced-features/mcp-help.mp4)** - MCP command reference and usage
-- **[MCP List](./visual-content/cli-videos/cli-advanced-features/mcp-list.mp4)** - MCP server listing and status
+- **[MCP Help](demos/videos.md)** - MCP command reference and usage
+- **[MCP List](demos/videos.md)** - MCP server listing and status
 
 ### **AI Workflow Tools Demo**
 
-- **[AI Workflow Tools](./visual-content/cli-videos/aiWorkflowTools-demo/aiWorkflowTools-cli-demo.mp4)** - Complete demonstration of AI workflow tools via CLI
+- **[AI Workflow Tools](demos/videos.md)** - Complete demonstration of AI workflow tools via CLI
 
 **All videos feature:**
 
@@ -1208,4 +1208,4 @@ For complete visual documentation including web interface demos, see the [Visual
 
 ---
 
-[← Back to Main README](../README.md) | [Next: Framework Integration →](./FRAMEWORK-INTEGRATION.md)
+[← Back to Main README](./index.md) | [Next: Framework Integration →](./FRAMEWORK-INTEGRATION.md)

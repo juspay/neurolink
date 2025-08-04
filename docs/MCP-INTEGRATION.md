@@ -115,7 +115,7 @@ console.log("Active servers:", status.totalServers);
 
 ```bash
 # Execute tools from connected servers
-npx neurolink mcp exec filesystem read_file --params '{"path": "README.md"}'
+npx neurolink mcp exec filesystem read_file --params '{"path": "index.md"}'
 npx neurolink mcp exec github create_issue --params '{"title": "New feature", "body": "Description"}'
 ```
 
@@ -458,7 +458,7 @@ neurolink mcp test filesystem
 
 ```bash
 # Generate text that uses MCP tool results
-neurolink generate "Analyze the README.md file and suggest improvements" --tools filesystem
+neurolink generate "Analyze the index.md file and suggest improvements" --tools filesystem
 
 # Stream responses that incorporate MCP data
 neurolink stream "Create a GitHub issue based on the project status" --tools github

@@ -2192,7 +2192,7 @@ interface MCPDemoEndpoints {
     };
   };
 
-  "POST /api/mcp/test/:name": {
+  "POST /api/mdevelopment/testing.md
     // Test server connectivity and get diagnostics
     params: { name: string };
     response: {
@@ -2290,7 +2290,7 @@ curl -X POST http://localhost:9876/api/mcp/execute \
   -d '{
     "serverName": "filesystem",
     "toolName": "read_file",
-    "params": {"path": "README.md"}
+    "params": {"path": "index.md"}
   }'
 
 # List directory contents
@@ -2492,4 +2492,4 @@ neurolink mcp test filesystem
 
 ---
 
-[← Back to Main README](../README.md) | [Next: Visual Demos →](./VISUAL-DEMOS.md)
+[← Back to Main README](./index.md) | [Next: Visual Demos →](./VISUAL-DEMOS.md)
