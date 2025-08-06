@@ -16,13 +16,23 @@ async function demonstrateDynamicServers() {
   // Example 1: Bitbucket Integration
   console.log("📋 Example 1: Adding Bitbucket Integration");
   try {
-    await neurolink.addMCPServer("bitbucket", {
-      command: "npx",
-      args: ["-y", "@nexus2520/bitbucket-mcp-server"],
-      env: {
-        BITBUCKET_USERNAME: process.env.BITBUCKET_USERNAME || "demo-user",
-        BITBUCKET_APP_PASSWORD:
-          process.env.BITBUCKET_APP_PASSWORD || "demo-token",
+    await neurolink.addInMemoryMCPServer("bitbucket", {
+      server: {
+        title: "Bitbucket MCP Server",
+        description:
+          "Bitbucket repository management and development workflows",
+        tools: {}, // External MCP server - tools discovered at runtime
+      },
+      metadata: {
+        command: "npx",
+        args: ["-y", "@nexus2520/bitbucket-mcp-server"],
+        env: {
+          BITBUCKET_USERNAME: process.env.BITBUCKET_USERNAME || "demo-user",
+          BITBUCKET_TOKEN: process.env.BITBUCKET_TOKEN || "demo-token",
+          BITBUCKET_BASE_URL:
+            process.env.BITBUCKET_BASE_URL || "https://api.bitbucket.org/2.0",
+        },
+        transport: "stdio",
       },
     });
     console.log("✅ Bitbucket server added successfully");
@@ -33,15 +43,23 @@ async function demonstrateDynamicServers() {
   // Example 2: Custom Database Connector
   console.log("\n📋 Example 2: Adding Custom Database Connector");
   try {
-    await neurolink.addMCPServer("database-analytics", {
-      command: "node",
-      args: ["./custom-db-mcp-server.js"],
-      env: {
-        DATABASE_URL:
-          process.env.DATABASE_URL || "postgresql://localhost:5432/demo",
-        DB_POOL_SIZE: "10",
+    await neurolink.addInMemoryMCPServer("database-analytics", {
+      server: {
+        title: "Database Analytics MCP Server",
+        description: "Custom database analytics and reporting server",
+        tools: {},
       },
-      cwd: process.cwd(),
+      metadata: {
+        command: "node",
+        args: ["./custom-db-mcp-server.js"],
+        env: {
+          DATABASE_URL:
+            process.env.DATABASE_URL || "postgresql://localhost:5432/demo",
+          DB_POOL_SIZE: "10",
+        },
+        transport: "stdio",
+        cwd: process.cwd(),
+      },
     });
     console.log("✅ Database analytics server added successfully");
   } catch (error) {
@@ -51,12 +69,21 @@ async function demonstrateDynamicServers() {
   // Example 3: Slack Integration
   console.log("\n📋 Example 3: Adding Slack Integration");
   try {
-    await neurolink.addMCPServer("slack-bot", {
-      command: "npx",
-      args: ["-y", "@slack/mcp-server"],
-      env: {
-        SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN || "xoxb-demo-token",
-        SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET || "demo-secret",
+    await neurolink.addInMemoryMCPServer("slack-bot", {
+      server: {
+        title: "Slack Bot MCP Server",
+        description: "Slack integration for messaging and notifications",
+        tools: {},
+      },
+      metadata: {
+        command: "npx",
+        args: ["-y", "@slack/mcp-server"],
+        env: {
+          SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN || "xoxb-demo-token",
+          SLACK_SIGNING_SECRET:
+            process.env.SLACK_SIGNING_SECRET || "demo-secret",
+        },
+        transport: "stdio",
       },
     });
     console.log("✅ Slack bot server added successfully");

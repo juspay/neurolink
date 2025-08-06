@@ -543,7 +543,6 @@ OLLAMA_MODEL="llama2"                        # Default model
 #### How to Set Up Ollama
 
 1. **Install Ollama**:
-
    - macOS: `brew install ollama` or download from [ollama.ai](https://ollama.ai)
    - Linux: `curl -fsSL https://ollama.ai/install.sh | sh`
    - Windows: Download installer from [ollama.ai](https://ollama.ai)

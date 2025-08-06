@@ -203,12 +203,10 @@ import('./dist/lib/neurolink.js').then(({NeuroLink}) => {
 ### **MCP Test Environment Setup**
 
 1. **Manual MCP Config** (`.mcp-config.json`):
-
    - CLI will load this when tools are enabled
    - SDK will NEVER load this (security by design)
 
 2. **Available Direct Tools** (Always available):
-
    - `getCurrentTime` - Get current time
    - `readFile` - Read file contents
    - `listDirectory` - List directory contents

@@ -67,6 +67,9 @@ npx neurolink mcp install filesystem
 # Install GitHub server for repository management
 npx neurolink mcp install github
 
+# Install Bitbucket server for repository management
+npx neurolink mcp install bitbucket
+
 # Install database server for SQL operations
 npx neurolink mcp install postgres
 ```
@@ -90,20 +93,37 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink();
 
 // Add external servers dynamically
-await neurolink.addMCPServer("bitbucket", {
-  command: "npx",
-  args: ["-y", "@nexus2520/bitbucket-mcp-server"],
-  env: {
-    BITBUCKET_USERNAME: "your-username",
-    BITBUCKET_APP_PASSWORD: "your-token",
+await neurolink.addInMemoryMCPServer("bitbucket", {
+  server: {
+    title: "Bitbucket MCP Server",
+    description: "Bitbucket repository management and development workflows",
+    tools: {},
+  },
+  metadata: {
+    command: "npx",
+    args: ["-y", "@nexus2520/bitbucket-mcp-server"],
+    env: {
+      BITBUCKET_USERNAME: "your-username",
+      BITBUCKET_TOKEN: "your-app-password",
+      BITBUCKET_BASE_URL: "https://api.bitbucket.org/2.0",
+    },
+    transport: "stdio",
   },
 });
 
 // Add database integration
-await neurolink.addMCPServer("database", {
-  command: "node",
-  args: ["./custom-db-server.js"],
-  env: { DB_CONNECTION: "postgresql://..." },
+await neurolink.addInMemoryMCPServer("database", {
+  server: {
+    title: "Custom Database MCP Server",
+    description: "Custom database analytics and reporting",
+    tools: {},
+  },
+  metadata: {
+    command: "node",
+    args: ["./custom-db-server.js"],
+    env: { DB_CONNECTION: "postgresql://..." },
+    transport: "stdio",
+  },
 });
 
 // Verify registration
@@ -135,6 +155,7 @@ neurolink mcp install <server>
 
 - `filesystem` - File and directory operations
 - `github` - GitHub repository management
+- `bitbucket` - Bitbucket repository management and development workflows
 - `postgres` - PostgreSQL database operations
 - `brave-search` - Web search capabilities
 - `puppeteer` - Browser automation
@@ -145,6 +166,10 @@ neurolink mcp install <server>
 neurolink mcp install filesystem
 # ✅ Installed MCP server: filesystem
 # 💡 Test it with: neurolink mcp test filesystem
+
+neurolink mcp install bitbucket
+# ✅ Installed MCP server: bitbucket
+# 💡 Test it with: neurolink mcp test bitbucket
 ```
 
 #### **Add Custom Servers**
@@ -307,6 +332,29 @@ CUSTOM_ENDPOINT=https://api.example.com
 - `create_issue` - Create GitHub issues
 - `create_pull_request` - Create pull requests
 - `fork_repository` - Fork repositories
+
+### **Bitbucket Server**
+
+**Purpose:** Bitbucket repository management and development workflows
+**Installation:** `neurolink mcp install bitbucket`
+
+**Configuration:** Set environment variables before installation:
+
+```bash
+export BITBUCKET_USERNAME="your-username"
+export BITBUCKET_TOKEN="your-app-password"
+export BITBUCKET_BASE_URL="https://api.bitbucket.org/2.0"
+```
+
+**Available Tools:**
+
+- Repository management and file operations
+- Issue tracking and project management
+- Pull request creation and management
+- Workspace and project administration
+- Branch and commit operations
+
+**Note:** Tool discovery happens at runtime when the MCP server connects.
 
 ### **PostgreSQL Server**
 

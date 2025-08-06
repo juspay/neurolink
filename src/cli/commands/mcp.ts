@@ -132,6 +132,17 @@ const POPULAR_MCP_SERVERS: Record<
     transport: "stdio",
     description: "Persistent memory and knowledge storage",
   },
+  bitbucket: {
+    command: "npx",
+    args: ["-y", "@nexus2520/bitbucket-mcp-server"],
+    env: {
+      BITBUCKET_USERNAME: "${BITBUCKET_USERNAME}",
+      BITBUCKET_TOKEN: "${BITBUCKET_TOKEN}",
+      BITBUCKET_BASE_URL: "${BITBUCKET_BASE_URL}",
+    },
+    transport: "stdio",
+    description: "Bitbucket repository management and development workflows",
+  },
 };
 
 /**

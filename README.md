@@ -303,6 +303,11 @@ npx @juspay/neurolink generate "Write a poem" --disable-tools
 
 # Discover available MCP servers
 npx @juspay/neurolink mcp discover --format table
+
+# Install popular MCP servers (NEW: Bitbucket support added!)
+npx @juspay/neurolink mcp install filesystem
+npx @juspay/neurolink mcp install github
+npx @juspay/neurolink mcp install bitbucket  # 🆕 NEW
 ```
 
 ### 🔧 SDK Custom Tool Registration (NEW!)
