@@ -164,7 +164,65 @@ async function comprehensiveDemo() {
 
     console.log();
 
-    // 7. SUMMARY: Performance Metrics
+    // 7. FEATURE: LiteLLM Proxy Integration (100+ Models)
+    console.log("7. 🚀 LiteLLM Proxy Demo (100+ Models)");
+    console.log("   Testing unified access to multiple providers...");
+
+    try {
+      // Test LiteLLM with different models
+      const litellmProvider = await AIProviderFactory.createProvider(
+        "litellm",
+        "openai/gpt-4o-mini",
+        {
+          enableAnalytics: true,
+        },
+      );
+
+      if (litellmProvider) {
+        console.log("   ✅ LiteLLM provider created successfully");
+
+        const litellmResult = await litellmProvider.generate({
+          input: { text: "Explain LiteLLM in one sentence" },
+          enableAnalytics: true,
+        });
+
+        console.log(`   🤖 OpenAI via LiteLLM: "${litellmResult.text}"`);
+        console.log(
+          `   📊 Time: ${litellmResult.analytics?.responseTime}ms, Model: openai/gpt-4o-mini`,
+        );
+
+        // Test different model through LiteLLM
+        const claudeProvider = await AIProviderFactory.createProvider(
+          "litellm",
+          "anthropic/claude-3-5-sonnet",
+          {
+            enableAnalytics: true,
+          },
+        );
+
+        if (claudeProvider) {
+          const claudeResult = await claudeProvider.generate({
+            input: { text: "What makes Claude different from GPT?" },
+            enableAnalytics: true,
+          });
+
+          console.log(`   🤖 Claude via LiteLLM: "${claudeResult.text}"`);
+          console.log(
+            `   📊 Time: ${claudeResult.analytics?.responseTime}ms, Model: anthropic/claude-3-5-sonnet`,
+          );
+        }
+      } else {
+        console.log("   ⚠️  LiteLLM not available (proxy not running?)");
+        console.log("   💡 Setup: pip install litellm && litellm --port 4000");
+      }
+    } catch (error) {
+      console.log("   ⚠️  LiteLLM demo skipped (proxy not available)");
+      console.log("   💡 Setup: pip install litellm && litellm --port 4000");
+    }
+
+    console.log();
+
+    // 8. SUMMARY: Performance Metrics
     console.log("7. 📋 Demo Summary");
     console.log("   ✅ AI Provider Factory: Working");
     console.log("   ✅ Analytics Tracking: Working");

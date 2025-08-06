@@ -149,6 +149,26 @@ export const PROVIDER_CONFIGS: ProviderConfig[] = [
       { key: "MISTRAL_API_KEY", prompt: "Mistral AI API Key", secure: true },
     ],
   },
+  {
+    id: AIProviderName.LITELLM,
+    name: "LiteLLM",
+    description: "Access 100+ models via LiteLLM proxy server",
+    envVars: [
+      {
+        key: "LITELLM_BASE_URL",
+        prompt: "LiteLLM Proxy Server URL",
+        default: "http://localhost:4000",
+        secure: false,
+      },
+      {
+        key: "LITELLM_API_KEY",
+        prompt: "LiteLLM API Key (or any value)",
+        default: "sk-anything",
+        secure: false,
+        optional: true,
+      },
+    ],
+  },
 ];
 
 export interface SetupResult {

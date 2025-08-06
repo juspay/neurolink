@@ -172,6 +172,21 @@ export class ProviderRegistry {
         ["ollama", "local"],
       );
 
+      // Register LiteLLM provider
+      ProviderFactory.registerProvider(
+        AIProviderName.LITELLM,
+        async (
+          modelName?: string,
+          providerName?: string,
+          sdk?: UnknownRecord,
+        ) => {
+          const { LiteLLMProvider } = await import("../providers/litellm.js");
+          return new LiteLLMProvider(modelName, sdk);
+        },
+        process.env.LITELLM_MODEL || "openai/gpt-4o-mini",
+        ["litellm"],
+      );
+
       logger.debug("All providers registered successfully");
       this.registered = true;
     } catch (error) {

@@ -64,6 +64,11 @@ const PROVIDER_CONFIGS = {
     envKey: "OLLAMA_BASE_URL",
     model: "llama3.2:latest",
   },
+  litellm: {
+    name: "LiteLLM",
+    envKey: "LITELLM_API_KEY",
+    model: "gemini-2.5-pro",
+  },
 };
 
 // COMPREHENSIVE: All 7 test batches for 100% coverage (as requested)

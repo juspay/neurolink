@@ -38,6 +38,22 @@ const alternativeResult = await neurolink.generate({
   provider: "google-ai",
   temperature: 0.7,
 });
+
+// LiteLLM proxy - Access 100+ models through unified interface
+const litellmResult = await neurolink.generate({
+  input: { text: "Explain machine learning" },
+  provider: "litellm",
+  model: "openai/gpt-4o",
+  temperature: 0.7,
+});
+
+// Access different providers through LiteLLM
+const claudeResult = await neurolink.generate({
+  input: { text: "Write a technical summary" },
+  provider: "litellm",
+  model: "anthropic/claude-3-5-sonnet",
+  temperature: 0.5,
+});
 ```
 
 ## � **Enhanced Examples: Developer Experience 2.0** (June 22, 2025)
@@ -89,6 +105,7 @@ npm install @juspay/neurolink
 # Set up environment (choose one)
 export GOOGLE_AI_API_KEY="AIza-your-key"  # Recommended for free tier
 export OPENAI_API_KEY="sk-your-key"
+export LITELLM_BASE_URL="http://localhost:4000"  # LiteLLM proxy (100+ models)
 ```
 
 ### **Run Examples**
@@ -125,6 +142,36 @@ node dist/examples/sdk-basic.js
 - External server activation
 - Direct external tool execution
 - Advanced tool workflows
+
+## 🚀 **LiteLLM Setup (100+ Models)**
+
+LiteLLM provides unified access to 100+ AI models through a proxy server:
+
+```bash
+# Install LiteLLM
+pip install litellm
+
+# Start proxy server
+litellm --port 4000
+
+# Set environment variable
+export LITELLM_BASE_URL="http://localhost:4000"
+```
+
+**Example Usage:**
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// Use any model through LiteLLM proxy
+const result = await neurolink.generate({
+  input: { text: "Compare GPT-4 vs Claude" },
+  provider: "litellm",
+  model: "openai/gpt-4o", // or "anthropic/claude-3-5-sonnet"
+});
+```
 
 ## 🎯 **Example Categories**
 

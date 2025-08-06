@@ -7,48 +7,44 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](https://www.typescriptlang.org/)
 [![CI](https://github.com/juspay/neurolink/workflows/CI/badge.svg)](https://github.com/juspay/neurolink/actions)
 
-> Enterprise AI Development Platform with built-in tools, universal provider support, and factory pattern architecture. Production-ready with TypeScript support.
+> **Enterprise AI Development Platform** with universal provider support, factory pattern architecture, and **access to 100+ AI models** through LiteLLM integration. Production-ready with TypeScript support.
 
-**NeuroLink** is an Enterprise AI Development Platform that unifies 9 major AI providers with intelligent fallback and built-in tool support. Available as both a **programmatic SDK** and **professional CLI tool**. Features 6 core tools working across all providers plus SDK custom tool registration. Extracted from production use at Juspay.
+**NeuroLink** is an Enterprise AI Development Platform that unifies **10 major AI providers** with intelligent fallback and built-in tool support. Available as both a **programmatic SDK** and **professional CLI tool**. Features LiteLLM integration for **100+ models**, plus 6 core tools working across all providers. Extracted from production use at Juspay.
+
+## 🎉 **NEW: LiteLLM Integration - Access 100+ AI Models**
+
+**NeuroLink now supports LiteLLM**, providing unified access to **100+ AI models** from all major providers through a single interface:
+
+- **🔄 Universal Access**: OpenAI, Anthropic, Google, Mistral, Meta, and more
+- **🎯 Unified Interface**: OpenAI-compatible API for all models
+- **💰 Cost Optimization**: Automatic routing to cost-effective models
+- **⚡ Load Balancing**: Automatic failover and load distribution
+- **📊 Analytics**: Built-in usage tracking and monitoring
+
+```bash
+# Quick start with LiteLLM
+pip install litellm && litellm --port 4000
+
+# Use any of 100+ models through one interface
+npx @juspay/neurolink generate "Hello" --provider litellm --model "openai/gpt-4o"
+npx @juspay/neurolink generate "Hello" --provider litellm --model "anthropic/claude-3-5-sonnet"
+npx @juspay/neurolink generate "Hello" --provider litellm --model "google/gemini-2.0-flash"
+```
+
+**[📖 Complete LiteLLM Integration Guide](./docs/LITELLM-INTEGRATION.md)** - Setup, configuration, and 100+ model access
 
 ## 🚀 Enterprise Platform Features
 
 - **🏭 Factory Pattern Architecture** - Unified provider management through BaseProvider inheritance
 - **🔧 Tools-First Design** - All providers include built-in tool support without additional configuration
-- **🌐 Real-time WebSocket Infrastructure** - [Coming Soon - Broken in migration, being fixed]
-- **📊 Advanced Telemetry** - [Coming Soon - Broken in migration, being fixed]
-- **💬 Enhanced Chat Services** - [Coming Soon - Broken in migration, being fixed]
+- **🔗 LiteLLM Integration** - **100+ models** from all major providers through unified interface
 - **🏗️ Enterprise Architecture** - Production-ready with clean abstractions
-- **🔄 Configuration Management** - Flexible provider configuration
+- **🔄 Configuration Management** - Flexible provider configuration with automatic backups
 - **✅ Type Safety** - Industry-standard TypeScript interfaces
-- **⚡ Performance** - Fast response times with streaming support
-- **🛡️ Error Recovery** - Graceful failures with provider fallback
-
-## ✅ LATEST UPDATE: Advanced Features & Performance Optimization Complete (2025-08-03)
-
-**NeuroLink Phase 3 implementation delivers comprehensive system polish and production-ready performance.**
-
-- ✅ **Enhanced Evaluation System**: Detailed reasoning explanations in all evaluation responses
-- ✅ **Real Streaming Architecture**: Vercel AI SDK real streaming with comprehensive analytics support
-- ✅ **Performance Optimization**: 68% improvement in provider status checks (16s → 5s via parallel execution)
-- ✅ **Memory Management**: Automatic cleanup for operations >50MB with performance tracking
-- ✅ **Edge Case Handling**: Input validation, timeout warnings, and network resilience
-- ✅ **Scalability Improvements**: Retry logic, circuit breakers, and rate limiting
-- ✅ **Factory Pattern Architecture**: All providers inherit from BaseProvider with built-in tool support
-- ✅ **Direct Tools**: Six core tools available across all providers (getCurrentTime, readFile, listDirectory, calculateMath, writeFile, searchFiles)
-
-> **Production Ready**: NeuroLink now features enterprise-grade performance optimizations, comprehensive error handling, and real streaming architecture for multi-modal future.
-
-## ✅ Stream Function Migration Complete (2025-01-12)
-
-**NeuroLink uses `stream()` as the primary streaming function with future-ready multi-modal interface.**
-
-- ✅ **New Primary Streaming**: `stream()` with multi-modal ready interface
-- ✅ **Enhanced Generation**: `generate()` as primary generation function
-- ✅ **Factory Enhanced**: Better provider management across all methods
-- ✅ **Zero Breaking Changes**: All existing code continues working (backward compatibility)
-
-> **Enhanced API**: NeuroLink uses `stream()` and `generate()` as primary functions with multi-modal ready interfaces and improved factory patterns.
+- **⚡ Performance** - Fast response times with streaming support and 68% improved status checks
+- **🛡️ Error Recovery** - Graceful failures with provider fallback and retry logic
+- **📊 Analytics & Evaluation** - Built-in usage tracking and AI-powered quality assessment
+- **🔧 MCP Integration** - Model Context Protocol with 6 built-in tools and 58+ discoverable servers
 
 ---
 
@@ -57,26 +53,24 @@
 ### Install & Run (2 minutes)
 
 ```bash
-# Quick setup with Google AI Studio (free tier available)
+# Option 1: LiteLLM - Access 100+ models through one interface
+pip install litellm && litellm --port 4000
+export LITELLM_BASE_URL="http://localhost:4000"
+export LITELLM_API_KEY="sk-anything"
+
+# Use any of 100+ models
+npx @juspay/neurolink generate "Hello, AI" --provider litellm --model "openai/gpt-4o"
+npx @juspay/neurolink generate "Hello, AI" --provider litellm --model "anthropic/claude-3-5-sonnet"
+
+# Option 2: Direct Provider - Quick setup with Google AI Studio (free tier)
 export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
+npx @juspay/neurolink generate "Hello, AI" --provider google-ai
 
-# CLI - No installation required
-npx @juspay/neurolink generate "Hello, AI"
-npx @juspay/neurolink gen "Hello, AI"        # Shortest form
-
-# ✨ Primary Method (generate) - Recommended
-npx @juspay/neurolink generate "Explain AI" --provider google-ai
-npx @juspay/neurolink gen "Write code" --provider openai       # Shortest form
-
-# 🆕 AI Enhancement Features (Phase 3 Complete)
-npx @juspay/neurolink generate "Explain AI" --enableAnalytics --debug
-npx @juspay/neurolink generate "Write code" --enableEvaluation --debug
-npx @juspay/neurolink generate "Help me" --context '{"userId":"123"}' --debug
-
-# 🚀 Real Streaming with Analytics (Phase 3.2B Complete)
-npx @juspay/neurolink stream "Explain quantum computing" --enableAnalytics --enableEvaluation
-
-npx @juspay/neurolink status
+# CLI Commands - No installation required
+npx @juspay/neurolink generate "Explain AI"  # Auto-selects best provider
+npx @juspay/neurolink gen "Write code"       # Shortest form
+npx @juspay/neurolink stream "Tell a story" # Real-time streaming
+npx @juspay/neurolink status                # Check all providers
 ```
 
 ```bash
@@ -87,20 +81,38 @@ npm install @juspay/neurolink
 ### Basic Usage
 
 ```typescript
-import { NeuroLink } from "@juspay/neurolink";
+import { NeuroLink, AIProviderFactory } from "@juspay/neurolink";
 
-// NEW: Primary method (recommended)
-const neurolink = new NeuroLink();
-const result = await neurolink.generate({
+// LiteLLM - Access 100+ models through unified interface
+const litellmProvider = await AIProviderFactory.createProvider(
+  "litellm",
+  "openai/gpt-4o",
+);
+const result = await litellmProvider.generate({
   input: { text: "Write a haiku about programming" },
-  provider: "google-ai",
-  timeout: "30s", // Optional: Set custom timeout (default: 30s)
 });
-// Alternative: Auto-selects best available provider
-import { createBestAIProvider } from "@juspay/neurolink";
-const provider = createBestAIProvider();
-const providerResult = await provider.generate({
-  input: { text: "Write a haiku about programming" },
+
+// Compare multiple models simultaneously
+const models = [
+  "openai/gpt-4o",
+  "anthropic/claude-3-5-sonnet",
+  "google/gemini-2.0-flash",
+];
+const comparisons = await Promise.all(
+  models.map(async (model) => {
+    const provider = await AIProviderFactory.createProvider("litellm", model);
+    const result = await provider.generate({
+      input: { text: "Explain quantum computing" },
+    });
+    return { model, response: result.content, provider: result.provider };
+  }),
+);
+
+// Auto-select best available provider
+const neurolink = new NeuroLink();
+const autoResult = await neurolink.generate({
+  input: { text: "Write a business email" },
+  provider: "google-ai", // or let it auto-select
   timeout: "30s",
 });
 
@@ -132,119 +144,58 @@ const poem = await provider.generate({ input: { text: "Write a poem" } });
 const joke = await provider.gen({ input: { text: "Tell me a joke" } });
 ```
 
-### 🆕 Enhanced Usage (NEW! ✨)
+### Enhanced Features
 
-#### Enhanced CLI with Analytics & Evaluation
+#### CLI with Analytics & Evaluation
 
 ```bash
-# Basic AI generation
+# Basic AI generation with auto-provider selection
 npx @juspay/neurolink generate "Write a business email"
 
-# With analytics and evaluation (NEW!)
-npx @juspay/neurolink generate "Write a business email" --enable-analytics --enable-evaluation --debug
+# LiteLLM with specific model
+npx @juspay/neurolink generate "Write code" --provider litellm --model "anthropic/claude-3-5-sonnet"
 
-# See detailed usage data:
-# 📊 Analytics: Provider usage, token costs, response times
-# ⭐ Response Evaluation: AI-powered quality scores
+# With analytics and evaluation
+npx @juspay/neurolink generate "Write a proposal" --enable-analytics --enable-evaluation --debug
 
-# With custom context
-npx @juspay/neurolink generate "Create a proposal" --context '{"company":"TechCorp"}' --debug
+# Streaming with tools (default behavior)
+npx @juspay/neurolink stream "What time is it and write a file with the current date"
 ```
 
-#### Enhanced SDK with Analytics & Evaluation
+#### SDK with LiteLLM and Enhancement Features
 
 ```typescript
-import { NeuroLink } from "@juspay/neurolink";
+import { NeuroLink, AIProviderFactory } from "@juspay/neurolink";
+
+// LiteLLM multi-model comparison
+const models = [
+  "openai/gpt-4o",
+  "anthropic/claude-3-5-sonnet",
+  "google/gemini-2.0-flash",
+];
+const comparisons = await Promise.all(
+  models.map(async (model) => {
+    const provider = await AIProviderFactory.createProvider("litellm", model);
+    return await provider.generate({
+      input: { text: "Explain the benefits of renewable energy" },
+      enableAnalytics: true,
+      enableEvaluation: true,
+    });
+  }),
+);
+
+// Enhanced generation with analytics
 const neurolink = new NeuroLink();
-
-// Basic usage
-const result = await neurolink.generate({ input: { text: "Write a story" } });
-
-// With enhancements (NEW!)
-const enhancedResult = await neurolink.generate({
+const result = await neurolink.generate({
   input: { text: "Write a business proposal" },
   enableAnalytics: true, // Get usage & cost data
   enableEvaluation: true, // Get AI quality scores
-  context: { project: "Q1-sales" }, // Custom context
+  context: { project: "Q1-sales" },
 });
 
-// Access enhancement data
-console.log("📊 Usage:", enhancedResult.analytics);
-console.log("⭐ Quality:", enhancedResult.evaluation);
-console.log("Response:", enhancedResult.content);
-
-// Enhanced evaluation included when enableEvaluation is true
-// Returns basic quality scores for the generated content
-```
-
-### 🌐 Enterprise Real-time Features (NEW! 🚀)
-
-#### Real-time WebSocket Chat
-
-```typescript
-import {
-  createEnhancedChatService,
-  NeuroLinkWebSocketServer,
-} from "@juspay/neurolink";
-
-// Enhanced chat with WebSocket support
-const chatService = createEnhancedChatService({
-  provider: await createBestAIProvider(),
-  enableWebSocket: true,
-  enableSSE: true,
-  streamingConfig: {
-    bufferSize: 8192,
-    compressionEnabled: true,
-  },
-});
-
-// WebSocket server for real-time applications
-const wsServer = new NeuroLinkWebSocketServer({
-  port: 8080,
-  maxConnections: 1000,
-  enableCompression: true,
-});
-
-// Handle real-time chat
-wsServer.on("chat-message", async ({ connectionId, message }) => {
-  await chatService.streamChat({
-    prompt: message.data.prompt,
-    onChunk: (chunk) => {
-      wsServer.sendMessage(connectionId, {
-        type: "ai-chunk",
-        data: { chunk },
-      });
-    },
-  });
-});
-```
-
-#### Enterprise Telemetry Integration
-
-```typescript
-import { initializeTelemetry, getTelemetryStatus } from "@juspay/neurolink";
-
-// Optional enterprise monitoring (zero overhead when disabled)
-const telemetry = initializeTelemetry({
-  serviceName: "my-ai-app",
-  endpoint: "http://localhost:4318",
-  enableTracing: true,
-  enableMetrics: true,
-  enableLogs: true,
-});
-
-// Check telemetry status
-const status = await getTelemetryStatus();
-console.log("Telemetry enabled:", status.enabled);
-console.log("Service:", status.service);
-console.log("Version:", status.version);
-
-// All AI operations are now automatically monitored
-const provider = await createBestAIProvider();
-const result = await provider.generate({
-  prompt: "Generate business report",
-});
-// Telemetry automatically tracks: response time, token usage, cost, errors
+console.log("📊 Usage:", result.analytics);
+console.log("⭐ Quality:", result.evaluation);
+console.log("Response:", result.content);
 ```
 
 ### Environment Setup
@@ -263,22 +214,19 @@ npx @juspay/neurolink status
 
 ## ✨ Key Features
 
+- 🔗 **LiteLLM Integration** - **Access 100+ AI models** from all major providers through unified interface
 - 🏭 **Factory Pattern Architecture** - Unified provider management with BaseProvider inheritance
-- 🔧 **Tools-First Design** - All providers automatically include direct tool support (getCurrentTime, readFile, listDirectory, calculateMath, writeFile, searchFiles)
-- 🔄 **9 AI Providers** - OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure, Hugging Face, Ollama, Mistral AI
-- ⚡ **Dynamic Model System** - Self-updating model configurations without code changes
-- 💰 **Cost Optimization** - Automatic selection of cheapest models for tasks
-- 🔍 **Smart Model Resolution** - Fuzzy matching, aliases, and capability-based search
-- ⚡ **Automatic Fallback** - Never fail when providers are down
-- 🖥️ **CLI + SDK** - Use from command line or integrate programmatically
-- 🛡️ **Production Ready** - TypeScript, error handling, extracted from production
-- ✅ **MCP Integration** - Model Context Protocol with working built-in tools and 58+ external servers
-- 🔍 **MCP Auto-Discovery** - Zero-config discovery across VS Code, Claude, Cursor, Windsurf
-- ⚙️ **Built-in Tools** - Time, date calculations, and number formatting ready to use
-- 🤖 **AI Analysis Tools** - Built-in optimization and workflow assistance
-- 🏠 **Local AI Support** - Run completely offline with Ollama
-- 🌍 **Open Source Models** - Access 100,000+ models via Hugging Face
-- 🇪🇺 **GDPR Compliance** - European data processing with Mistral AI
+- 🔧 **Tools-First Design** - All providers automatically include 6 direct tools (getCurrentTime, readFile, listDirectory, calculateMath, writeFile, searchFiles)
+- 🔄 **10 AI Providers** - OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure, **LiteLLM**, Hugging Face, Ollama, Mistral AI
+- 💰 **Cost Optimization** - Automatic selection of cheapest models and LiteLLM routing
+- ⚡ **Automatic Fallback** - Never fail when providers are down, intelligent provider switching
+- 🖥️ **CLI + SDK** - Use from command line or integrate programmatically with TypeScript support
+- 🛡️ **Production Ready** - Enterprise-grade error handling, performance optimization, extracted from production
+- ✅ **MCP Integration** - Model Context Protocol with working built-in tools and 58+ discoverable external servers
+- 🔍 **Smart Model Resolution** - Fuzzy matching, aliases, and capability-based search across all providers
+- 🏠 **Local AI Support** - Run completely offline with Ollama or through LiteLLM proxy
+- 🌍 **Universal Model Access** - Direct providers + 100,000+ models via Hugging Face + 100+ models via LiteLLM
+- 📊 **Analytics & Evaluation** - Built-in usage tracking and AI-powered quality assessment
 
 ## 🛠️ MCP Integration Status ✅ **BUILT-IN TOOLS WORKING**
 
@@ -353,44 +301,27 @@ neurolink.registerTools({
 });
 ```
 
-## ⚡ Dynamic Model System (v1.8.0)
+## 💰 Smart Model Selection
 
-NeuroLink now features a revolutionary dynamic model configuration system that eliminates hardcoded model lists and enables automatic cost optimization.
+NeuroLink features intelligent model selection and cost optimization:
 
-### ✅ Key Benefits
+### Cost Optimization Features
 
-- **🔄 Self-Updating**: New models automatically available without code updates
-- **💰 Cost-Optimized**: Automatic selection of cheapest models for tasks
-- **🔍 Smart Search**: Find models by capabilities (functionCalling, vision, etc.)
-- **🏷️ Alias Support**: Use friendly names like "claude-latest" or "best-coding"
-- **📊 Real-Time Pricing**: Always current model costs and performance data
-
-### 🚀 Quick Examples
+- **💰 Automatic Cost Optimization**: Selects cheapest models for simple tasks
+- **🔄 LiteLLM Model Routing**: Access 100+ models with automatic load balancing
+- **🔍 Capability-Based Selection**: Find models with specific features (vision, function calling)
+- **⚡ Intelligent Fallback**: Seamless switching when providers fail
 
 ```bash
 # Cost optimization - automatically use cheapest model
 npx @juspay/neurolink generate "Hello" --optimize-cost
 
-# Capability search - find models with specific features
-npx @juspay/neurolink generate "Describe this image" --capability vision
+# LiteLLM specific model selection
+npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "anthropic/claude-3-5-sonnet"
 
-# Model aliases - use friendly names
-npx @juspay/neurolink gen "Write code" --model best-coding
-
-# Test dynamic model server
-npm run model-server  # Starts config server on localhost:3001
-npm run test:dynamicModels  # Comprehensive test suite
+# Auto-select best available provider
+npx @juspay/neurolink generate "Write code" # Automatically chooses optimal provider
 ```
-
-### 📊 Current Model Inventory (Auto-Updated)
-
-- **10 active models** across 4 providers
-- **Cheapest**: Gemini 2.0 Flash ($0.000075/1K tokens)
-- **Most capable**: Claude 3 Opus (functionCalling + vision + analysis)
-- **Best for coding**: Claude 3 Opus, Gemini 2.0 Flash
-- **1 deprecated model** automatically excluded
-
-**[📖 Complete Dynamic Models Guide](./docs/DYNAMIC-MODELS.md)** - Setup, configuration, and advanced usage
 
 ## 💻 Essential Examples
 
@@ -533,17 +464,18 @@ cd neurolink-demo && node server.js
 
 ## 🏗️ Supported Providers & Models
 
-| Provider             | Models                     | Auth Method        | Free Tier | Tool Support |
-| -------------------- | -------------------------- | ------------------ | --------- | ------------ |
-| **OpenAI**           | GPT-4o, GPT-4o-mini        | API Key            | ❌        | ✅ Full      |
-| **Google AI Studio** | Gemini 2.5 Flash/Pro       | API Key            | ✅        | ✅ Full      |
-| **Amazon Bedrock**   | Claude 3.5/3.7 Sonnet      | AWS Credentials    | ❌        | ✅ Full\*    |
-| **Google Vertex AI** | Gemini 2.5 Flash           | Service Account    | ❌        | ✅ Full      |
-| **Anthropic**        | Claude 3.5 Sonnet          | API Key            | ❌        | ✅ Full      |
-| **Azure OpenAI**     | GPT-4, GPT-3.5             | API Key + Endpoint | ❌        | ✅ Full      |
-| **Hugging Face** 🆕  | 100,000+ models            | API Key            | ✅        | ⚠️ Partial   |
-| **Ollama** 🆕        | Llama 3.2, Gemma, Mistral  | None (Local)       | ✅        | ⚠️ Partial   |
-| **Mistral AI** 🆕    | Tiny, Small, Medium, Large | API Key            | ✅        | ✅ Full      |
+| Provider             | Models                            | Auth Method        | Free Tier | Tool Support | Key Benefit          |
+| -------------------- | --------------------------------- | ------------------ | --------- | ------------ | -------------------- |
+| **🔗 LiteLLM** 🆕    | **100+ Models** (All Providers)   | Proxy Server       | Varies    | ✅ Full      | **Universal Access** |
+| **Google AI Studio** | Gemini 2.5 Flash/Pro              | API Key            | ✅        | ✅ Full      | Free Tier Available  |
+| **OpenAI**           | GPT-4o, GPT-4o-mini               | API Key            | ❌        | ✅ Full      | Industry Standard    |
+| **Anthropic**        | Claude 3.5 Sonnet                 | API Key            | ❌        | ✅ Full      | Advanced Reasoning   |
+| **Amazon Bedrock**   | Claude 3.5/3.7 Sonnet             | AWS Credentials    | ❌        | ✅ Full\*    | Enterprise Scale     |
+| **Google Vertex AI** | Gemini 2.5 Flash                  | Service Account    | ❌        | ✅ Full      | Enterprise Google    |
+| **Azure OpenAI**     | GPT-4, GPT-3.5                    | API Key + Endpoint | ❌        | ✅ Full      | Microsoft Ecosystem  |
+| **Ollama** 🆕        | Llama 3.2, Gemma, Mistral (Local) | None (Local)       | ✅        | ⚠️ Partial   | Complete Privacy     |
+| **Hugging Face** 🆕  | 100,000+ open source models       | API Key            | ✅        | ⚠️ Partial   | Open Source          |
+| **Mistral AI** 🆕    | Tiny, Small, Medium, Large        | API Key            | ✅        | ✅ Full      | European/GDPR        |
 
 **Tool Support Legend:**
 

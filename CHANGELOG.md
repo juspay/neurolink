@@ -1,16 +1,14 @@
 # [7.4.0](https://github.com/juspay/neurolink/compare/v7.3.8...v7.4.0) (2025-08-06)
 
-
 ### Features
 
-* add Bitbucket MCP server integration ([239ca6d](https://github.com/juspay/neurolink/commit/239ca6df81be5474d983df95998f90e2e6d633b9))
+- add Bitbucket MCP server integration ([239ca6d](https://github.com/juspay/neurolink/commit/239ca6df81be5474d983df95998f90e2e6d633b9))
 
 ## [7.3.8](https://github.com/juspay/neurolink/compare/v7.3.7...v7.3.8) (2025-08-05)
 
-
 ### Bug Fixes
 
-* **lint:** improve linting ([580130a](https://github.com/juspay/neurolink/commit/580130aa33700b67f9d99de60dbe3d0c7415adfc))
+- **lint:** improve linting ([580130a](https://github.com/juspay/neurolink/commit/580130aa33700b67f9d99de60dbe3d0c7415adfc))
 
 ## [7.3.7](https://github.com/juspay/neurolink/compare/v7.3.6...v7.3.7) (2025-08-04)
 

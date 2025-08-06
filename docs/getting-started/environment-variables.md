@@ -299,7 +299,7 @@ AWS_REGION="us-east-1"
 
 ```bash
 # Use full inference profile ARN for Anthropic models
-BEDROCK_MODEL="arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+BEDROCK_MODEL="arn:aws:bedrock:us-east-2:<account_id>:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0"
 
 # OR use simple model names for non-Anthropic models
 BEDROCK_MODEL="amazon.titan-text-express-v1"
@@ -331,8 +331,8 @@ AWS_SESSION_TOKEN="IQoJb3..."           # For temporary credentials
 #### Supported Models
 
 - **Anthropic Claude**:
-  - `arn:aws:bedrock:region:account:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0`
-  - `arn:aws:bedrock:region:account:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0`
+  - `arn:aws:bedrock:<region>:<account_id>:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0`
+  - `arn:aws:bedrock:<region>:<account_id>:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0`
 - **Amazon Titan**:
   - `amazon.titan-text-express-v1`
   - `amazon.titan-text-lite-v1`
@@ -543,6 +543,7 @@ OLLAMA_MODEL="llama2"                        # Default model
 #### How to Set Up Ollama
 
 1. **Install Ollama**:
+
    - macOS: `brew install ollama` or download from [ollama.ai](https://ollama.ai)
    - Linux: `curl -fsSL https://ollama.ai/install.sh | sh`
    - Windows: Download installer from [ollama.ai](https://ollama.ai)
@@ -602,12 +603,54 @@ MISTRAL_ENDPOINT="https://api.mistral.ai"   # Default endpoint
 
 ---
 
+### 10. LiteLLM 🆕
+
+#### Required Variables
+
+```bash
+LITELLM_BASE_URL="http://localhost:4000"         # Local LiteLLM proxy (default)
+LITELLM_API_KEY="sk-anything"                    # API key for local proxy (any value works)
+```
+
+#### Optional Variables
+
+```bash
+LITELLM_MODEL="gemini-2.5-pro"                   # Default model
+LITELLM_TIMEOUT="60000"                          # Request timeout (ms)
+```
+
+#### How to Use LiteLLM
+
+LiteLLM provides access to 100+ AI models through a unified proxy interface:
+
+1. **Local Setup**: Run LiteLLM locally with your API keys (recommended)
+2. **Self-Hosted**: Deploy your own LiteLLM proxy server
+3. **Cloud Deployment**: Use cloud-hosted LiteLLM instances
+
+#### Available Models (Example Configuration)
+
+- `openai/gpt-4o` - OpenAI GPT-4 Optimized
+- `anthropic/claude-3-5-sonnet` - Anthropic Claude Sonnet
+- `google/gemini-2.0-flash` - Google Gemini Flash
+- `mistral/mistral-large` - Mistral Large model
+- Many more via [LiteLLM Providers](https://docs.litellm.ai/docs/providers)
+
+#### Benefits
+
+- **100+ Models**: Access to all major AI providers through one interface
+- **Cost Optimization**: Automatic routing to cost-effective models
+- **Unified API**: OpenAI-compatible API for all models
+- **Load Balancing**: Automatic failover and load distribution
+- **Analytics**: Built-in usage tracking and monitoring
+
+---
+
 ## 🔧 Configuration Examples
 
 ### Complete .env File Example
 
 ```bash
-# NeuroLink Environment Configuration - All 9 Providers
+# NeuroLink Environment Configuration - All 10 Providers
 
 # OpenAI Configuration
 OPENAI_API_KEY="sk-proj-your-openai-key"
@@ -617,7 +660,7 @@ OPENAI_MODEL="gpt-4o"
 AWS_ACCESS_KEY_ID="AKIA..."
 AWS_SECRET_ACCESS_KEY="your-aws-secret"
 AWS_REGION="us-east-1"
-BEDROCK_MODEL="arn:aws:bedrock:us-east-1:123456789:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+BEDROCK_MODEL="arn:aws:bedrock:us-east-1:<account_id>:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0"
 
 # Google Vertex AI Configuration
 GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
@@ -649,6 +692,11 @@ OLLAMA_MODEL="llama2"
 # Mistral AI Configuration
 MISTRAL_API_KEY="your_mistral_api_key"
 MISTRAL_MODEL="mistral-small"
+
+# LiteLLM Configuration
+LITELLM_BASE_URL="http://localhost:4000"
+LITELLM_API_KEY="sk-anything"
+LITELLM_MODEL="openai/gpt-4o-mini"
 ```
 
 ### Docker/Container Configuration

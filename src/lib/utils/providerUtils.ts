@@ -175,6 +175,11 @@ export function hasProviderEnvVars(provider: string): boolean {
     case "mistralai":
       return !!process.env.MISTRAL_API_KEY;
 
+    case "litellm":
+      // LiteLLM requires a proxy server, which can be checked for availability
+      // Default base URL is assumed, or can be configured via environment
+      return true; // LiteLLM proxy availability will be checked during usage
+
     default:
       return false;
   }

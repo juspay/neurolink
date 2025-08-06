@@ -10,6 +10,7 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 - **Google AI Studio** - Gemini 1.5 Pro, Gemini 2.0 Flash, Gemini 1.5 Flash
 - **Anthropic** - Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
 - **Azure OpenAI** - GPT-4, GPT-3.5-Turbo
+- **LiteLLM** - 100+ models from all providers via proxy server
 - **Hugging Face** - 100,000+ open source models including DialoGPT, GPT-2, GPT-Neo
 - **Ollama** - Local AI models including Llama 2, Code Llama, Mistral, Vicuna
 - **Mistral AI** - Mistral Tiny, Small, Medium, and Large models
@@ -428,6 +429,117 @@ try {
 - **Environment Variables**: Never commit API keys to version control
 - **Rate Limiting**: Implement client-side rate limiting for production apps
 - **Monitoring**: Monitor usage to avoid unexpected charges
+
+## LiteLLM Configuration
+
+LiteLLM provides access to 100+ models through a unified proxy server, allowing you to use any AI provider through a single interface.
+
+### Prerequisites
+
+1. Install LiteLLM:
+
+```bash
+pip install litellm
+```
+
+2. Start LiteLLM proxy server:
+
+```bash
+# Basic usage
+litellm --port 4000
+
+# With configuration file (recommended)
+litellm --config litellm_config.yaml --port 4000
+```
+
+### Basic Setup
+
+```bash
+export LITELLM_BASE_URL="http://localhost:4000"
+export LITELLM_API_KEY="sk-anything"  # Optional, any value works
+```
+
+### Optional Configuration
+
+```bash
+export LITELLM_MODEL="openai/gpt-4o-mini"  # Default model to use
+```
+
+### Supported Model Formats
+
+LiteLLM uses the `provider/model` format:
+
+```bash
+# OpenAI models
+openai/gpt-4o
+openai/gpt-4o-mini
+openai/gpt-4
+
+# Anthropic models
+anthropic/claude-3-5-sonnet
+anthropic/claude-3-haiku
+
+# Google models
+google/gemini-2.0-flash
+vertex_ai/gemini-pro
+
+# Mistral models
+mistral/mistral-large
+mistral/mixtral-8x7b
+
+# And many more...
+```
+
+### LiteLLM Configuration File (Optional)
+
+Create `litellm_config.yaml` for advanced configuration:
+
+```yaml
+model_list:
+  - model_name: openai/gpt-4o
+    litellm_params:
+      model: gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: anthropic/claude-3-5-sonnet
+    litellm_params:
+      model: claude-3-5-sonnet-20241022
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  - model_name: google/gemini-2.0-flash
+    litellm_params:
+      model: gemini-2.0-flash
+      api_key: os.environ/GOOGLE_AI_API_KEY
+```
+
+### Usage Example
+
+```typescript
+import { ProviderFactory } from "@juspay/neurolink";
+
+// Create LiteLLM provider with specific model
+const litellm = ProviderFactory.createProvider("litellm", "openai/gpt-4o");
+const result = await litellm.generate({
+  input: { text: "Explain quantum computing" },
+  temperature: 0.7,
+});
+
+console.log(result.content);
+```
+
+### Advanced Features
+
+- **Cost Tracking**: Built-in usage and cost monitoring
+- **Load Balancing**: Automatic failover between providers
+- **Rate Limiting**: Built-in rate limiting and retry logic
+- **Caching**: Optional response caching for efficiency
+
+### Production Considerations
+
+- **Deployment**: Run LiteLLM proxy as a separate service
+- **Security**: Configure authentication for production environments
+- **Scaling**: Use Docker/Kubernetes for high-availability deployments
+- **Monitoring**: Enable logging and metrics collection
 
 ## Hugging Face Configuration
 

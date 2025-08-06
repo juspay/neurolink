@@ -58,6 +58,7 @@ console.log(`Used: ${result.provider}`);
 
 - **OpenAI**: [platform.openai.com](https://platform.openai.com/)
 - **Anthropic**: [console.anthropic.com](https://console.anthropic.com/)
+- **LiteLLM**: Access 100+ models through one proxy server (requires setup)
 - **Ollama**: Local installation, no API key needed
 
 ## ✅ Verify Setup

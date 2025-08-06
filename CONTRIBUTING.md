@@ -87,6 +87,7 @@ By participating in this project, you agree to abide by our Code of Conduct (to 
    ```
 
    Prefix your commit message with one of the following:
+
    - `Feature:` - New functionality
    - `Fix:` - Bug fixes
    - `Docs:` - Documentation changes

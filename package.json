@@ -252,5 +252,9 @@
     "darwin",
     "linux",
     "win32"
-  ]
+  ],
+  "prettier": {
+    "tabWidth": 2,
+    "useTabs": false
+  }
 }

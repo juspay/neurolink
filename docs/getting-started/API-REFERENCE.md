@@ -17,7 +17,7 @@ function createBestAIProvider(
 
 **Parameters:**
 
-- `requestedProvider` (optional): Preferred provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'google-ai'`, `'huggingface'`, `'ollama'`, `'mistral'`, or `'auto'`)
+- `requestedProvider` (optional): Preferred provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'google-ai'`, `'huggingface'`, `'ollama'`, `'mistral'`, `'litellm'`, or `'auto'`)
 - `modelName` (optional): Specific model to use
 
 **Returns:** `AIProvider` instance
@@ -38,6 +38,13 @@ const googleProvider = createBestAIProvider("google-ai", "gemini-2.5-flash");
 
 // Use more comprehensive model for detailed responses
 const detailedProvider = createBestAIProvider("google-ai", "gemini-2.5-pro");
+
+// Use LiteLLM proxy for access to 100+ models
+const litellmProvider = createBestAIProvider("litellm", "openai/gpt-4o");
+const claudeProvider = createBestAIProvider(
+  "litellm",
+  "anthropic/claude-3-5-sonnet",
+);
 ```
 
 ### `createAIProviderWithFallback(primary, fallback, modelName?)`
@@ -137,6 +144,13 @@ const resultNoTools = await provider.generate({
   disableTools: true,
 });
 // Result will use training data instead of real-time tools
+
+// LiteLLM Provider - Access 100+ Models
+const litellmProvider = createBestAIProvider("litellm");
+const litellmResult = await litellmProvider.generate({
+  input: { text: "Hello from multiple AI models!" },
+  // Automatically uses configured LiteLLM model (e.g., gemini-2.5-pro, claude-sonnet-4)
+});
 ```
 
 ## AIProviderFactory
@@ -156,7 +170,7 @@ static createProvider(
 
 **Parameters:**
 
-- `providerName`: Provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'google-ai'`, `'huggingface'`, `'ollama'`, `'mistral'`)
+- `providerName`: Provider name (`'openai'`, `'bedrock'`, `'vertex'`, `'anthropic'`, `'azure'`, `'google-ai'`, `'huggingface'`, `'ollama'`, `'mistral'`, `'litellm'`)
 - `modelName` (optional): Specific model to use
 
 **Returns:** `AIProvider` instance
@@ -173,6 +187,17 @@ const bedrock = AIProviderFactory.createProvider(
   "claude-3-7-sonnet",
 );
 const vertex = AIProviderFactory.createProvider("vertex", "gemini-2.5-flash");
+
+// LiteLLM Provider - Access multiple models through proxy
+const litellm = AIProviderFactory.createProvider("litellm", "gemini-2.5-pro");
+const claudeLiteLLM = AIProviderFactory.createProvider(
+  "litellm",
+  "claude-sonnet-4",
+);
+const llamaLiteLLM = AIProviderFactory.createProvider(
+  "litellm",
+  "llama4-scout",
+);
 
 // Use default models
 const defaultOpenAI = AIProviderFactory.createProvider("openai");
@@ -1122,6 +1147,19 @@ type MistralModel =
   | "mistral-large";
 ```
 
+### LiteLLM Models
+
+```typescript
+type LiteLLMModel = string; // Uses provider/model format
+// Popular models:
+// - 'openai/gpt-4o' (default: openai/gpt-4o-mini)
+// - 'anthropic/claude-3-5-sonnet'
+// - 'google/gemini-2.0-flash'
+// - 'mistral/mistral-large'
+// - 'meta/llama-3.1-70b'
+// Note: Requires LiteLLM proxy server configuration
+```
+
 ## Dynamic Model System (v1.8.0+)
 
 ### Overview
@@ -1415,6 +1453,11 @@ OLLAMA_MODEL?: string                            // Default: 'llama2'
 MISTRAL_API_KEY: string                          // API key from mistral.ai
 MISTRAL_MODEL?: string                           // Default: 'mistral-small'
 
+// LiteLLM (100+ Models via Proxy)
+LITELLM_BASE_URL?: string                        // Default: 'http://localhost:4000'
+LITELLM_API_KEY?: string                         // Default: 'sk-anything'
+LITELLM_MODEL?: string                           // Default: 'openai/gpt-4o-mini'
+
 // Dynamic Model System (v1.8.0+)
 MODEL_SERVER_URL?: string                        // Default: 'http://localhost:3001'
 MODEL_CONFIG_PATH?: string                       // Default: './config/models.json'
@@ -1427,8 +1470,8 @@ FALLBACK_MODEL?: string                          // Model to use if preferred un
 
 ```typescript
 // Provider preferences
-DEFAULT_PROVIDER?: 'auto' | 'openai' | 'bedrock' | 'vertex' | 'anthropic' | 'azure' | 'google-ai' | 'huggingface' | 'ollama' | 'mistral'
-FALLBACK_PROVIDER?: 'openai' | 'bedrock' | 'vertex' | 'anthropic' | 'azure' | 'google-ai' | 'huggingface' | 'ollama' | 'mistral'
+DEFAULT_PROVIDER?: 'auto' | 'openai' | 'bedrock' | 'vertex' | 'anthropic' | 'azure' | 'google-ai' | 'huggingface' | 'ollama' | 'mistral' | 'litellm'
+FALLBACK_PROVIDER?: 'openai' | 'bedrock' | 'vertex' | 'anthropic' | 'azure' | 'google-ai' | 'huggingface' | 'ollama' | 'mistral' | 'litellm'
 
 // Feature toggles
 ENABLE_STREAMING?: 'true' | 'false'
@@ -1453,7 +1496,8 @@ type ProviderName =
   | "google-ai"
   | "huggingface"
   | "ollama"
-  | "mistral";
+  | "mistral"
+  | "litellm";
 
 interface AIProvider {
   generate(options: GenerateOptions): Promise<GenerateResult>;

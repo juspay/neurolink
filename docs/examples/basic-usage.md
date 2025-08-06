@@ -348,6 +348,46 @@ const analysis = await analyzeData(
 );
 ```
 
+### Multi-Model Access with LiteLLM
+
+```typescript
+async function compareResponses(prompt: string) {
+  const models = [
+    "openai/gpt-4o",
+    "anthropic/claude-3-5-sonnet",
+    "google/gemini-2.0-flash",
+  ];
+
+  const comparisons = await Promise.all(
+    models.map(async (model) => {
+      const result = await neurolink.generate({
+        input: { text: prompt },
+        provider: "litellm",
+        model: model,
+        temperature: 0.7,
+      });
+
+      return {
+        model: model,
+        response: result.content,
+        provider: result.provider,
+      };
+    }),
+  );
+
+  return comparisons;
+}
+
+// Usage
+const prompt = "Explain the benefits of renewable energy";
+const responses = await compareResponses(prompt);
+
+responses.forEach(({ model, response }) => {
+  console.log(`\n${model}:`);
+  console.log(response);
+});
+```
+
 ## 🔧 Configuration Examples
 
 ### Environment-based Configuration

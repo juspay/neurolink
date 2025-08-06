@@ -963,6 +963,7 @@ export class NeuroLink {
       "huggingface",
       "ollama",
       "mistral",
+      "litellm",
     ] as const;
 
     // 🚀 PERFORMANCE FIX: Test providers with controlled concurrency

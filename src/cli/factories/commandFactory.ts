@@ -85,6 +85,7 @@ export class CLICommandFactory {
         "huggingface",
         "ollama",
         "mistral",
+        "litellm",
       ],
       default: "auto",
       description: "AI provider to use (auto-selects best available)",

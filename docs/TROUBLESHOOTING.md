@@ -442,6 +442,285 @@ npx neurolink mcp exec filesystem read_file --params '{"path": "index.md"}'
 
 ---
 
+## 🔗 **LiteLLM Provider Issues**
+
+### **LiteLLM Proxy Server Not Available**
+
+**Symptom**: `LiteLLM proxy server not available. Please start the LiteLLM proxy server at http://localhost:4000`
+
+**Diagnosis**:
+
+```bash
+# Check if LiteLLM proxy is running
+curl http://localhost:4000/health
+
+# Check if process is running
+ps aux | grep litellm
+```
+
+**Solutions**:
+
+1. **Start LiteLLM Proxy Server**:
+
+   ```bash
+   # Install LiteLLM
+   pip install litellm
+
+   # Start proxy server
+   litellm --port 4000
+
+   # Server should start and show available models
+   ```
+
+2. **Verify Environment Variables**:
+
+   ```bash
+   # Check configuration
+   echo $LITELLM_BASE_URL    # Should be http://localhost:4000
+   echo $LITELLM_API_KEY     # Should be sk-anything or configured value
+   echo $LITELLM_MODEL       # Optional default model
+   ```
+
+3. **Test Proxy Connectivity**:
+
+   ```bash
+   # Test health endpoint
+   curl http://localhost:4000/health
+
+   # Check available models
+   curl http://localhost:4000/models
+
+   # Test basic completion
+   curl -X POST http://localhost:4000/v1/completions \
+     -H "Content-Type: application/json" \
+     -d '{"model": "openai/gpt-4o-mini", "prompt": "Hello", "max_tokens": 5}'
+   ```
+
+### **LiteLLM Model Format Issues**
+
+**Symptom**: `Model not found` or `Invalid model format` errors
+
+**Diagnosis**:
+
+```bash
+# Check available models through proxy
+curl http://localhost:4000/models | jq '.data[].id'
+```
+
+**Solutions**:
+
+1. **Use Correct Model Format**:
+
+   ```bash
+   # Correct format: provider/model-name
+   npx neurolink generate "Hello" --provider litellm --model "openai/gpt-4o-mini"
+   npx neurolink generate "Hello" --provider litellm --model "anthropic/claude-3-5-sonnet"
+   npx neurolink generate "Hello" --provider litellm --model "google/gemini-2.0-flash"
+   ```
+
+2. **Popular Model Formats**:
+
+   ```typescript
+   // OpenAI models
+   "openai/gpt-4o";
+   "openai/gpt-4o-mini";
+   "openai/gpt-4";
+
+   // Anthropic models
+   "anthropic/claude-3-5-sonnet";
+   "anthropic/claude-3-haiku";
+
+   // Google models
+   "google/gemini-2.0-flash";
+   "vertex_ai/gemini-pro";
+
+   // Mistral models
+   "mistral/mistral-large";
+   "mistral/mixtral-8x7b";
+   ```
+
+3. **Check LiteLLM Configuration**:
+
+   ```yaml
+   # litellm_config.yaml
+   model_list:
+     - model_name: openai/gpt-4o
+       litellm_params:
+         model: gpt-4o
+         api_key: os.environ/OPENAI_API_KEY
+
+     - model_name: anthropic/claude-3-5-sonnet
+       litellm_params:
+         model: claude-3-5-sonnet-20241022
+         api_key: os.environ/ANTHROPIC_API_KEY
+   ```
+
+### **LiteLLM API Key Configuration Issues**
+
+**Symptom**: Authentication errors when using specific models through LiteLLM
+
+**Diagnosis**:
+
+```bash
+# Check if LiteLLM proxy has access to underlying provider API keys
+curl -X POST http://localhost:4000/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "openai/gpt-4o-mini", "prompt": "test", "max_tokens": 5}'
+```
+
+**Solutions**:
+
+1. **Configure Provider API Keys for LiteLLM**:
+
+   ```bash
+   # Set underlying provider API keys that LiteLLM will use
+   export OPENAI_API_KEY="sk-your-openai-key"
+   export ANTHROPIC_API_KEY="sk-ant-your-anthropic-key"
+   export GOOGLE_AI_API_KEY="AIza-your-google-key"
+
+   # Then start LiteLLM proxy
+   litellm --port 4000
+   ```
+
+2. **Use LiteLLM Configuration File**:
+
+   ```bash
+   # Create litellm_config.yaml with API keys
+   litellm --config litellm_config.yaml --port 4000
+   ```
+
+3. **Set NeuroLink LiteLLM Variables**:
+
+   ```bash
+   # NeuroLink LiteLLM configuration
+   export LITELLM_BASE_URL="http://localhost:4000"
+   export LITELLM_API_KEY="sk-anything"  # Can be any value for local proxy
+   ```
+
+### **LiteLLM Connection Timeout Issues**
+
+**Symptom**: Requests to LiteLLM proxy timing out
+
+**Diagnosis**:
+
+```bash
+# Test proxy response time
+time curl http://localhost:4000/health
+
+# Check proxy logs for performance issues
+```
+
+**Solutions**:
+
+1. **Increase Timeout Values**:
+
+   ```bash
+   # Set longer timeout for LiteLLM requests
+   export LITELLM_TIMEOUT=60000  # 60 seconds
+
+   # Test with longer timeout
+   npx neurolink generate "Complex reasoning task" \
+     --provider litellm \
+     --timeout 60s
+   ```
+
+2. **Optimize LiteLLM Configuration**:
+
+   ```bash
+   # Start LiteLLM with performance optimizations
+   litellm --port 4000 --num_workers 4 --timeout 60
+   ```
+
+3. **Check System Resources**:
+
+   ```bash
+   # Monitor system resources during LiteLLM usage
+   htop
+
+   # Check available memory
+   free -h
+   ```
+
+### **LiteLLM Provider Selection Issues**
+
+**Symptom**: LiteLLM not included in auto-provider selection
+
+**Diagnosis**:
+
+```bash
+# Check if LiteLLM is available
+npx neurolink status --verbose | grep litellm
+
+# Test LiteLLM specific generation
+npx neurolink generate "Hello" --provider litellm --debug
+```
+
+**Solutions**:
+
+1. **Ensure LiteLLM Service is Running**:
+
+   ```bash
+   # Check proxy health before using auto-selection
+   curl http://localhost:4000/health
+
+   # If healthy, LiteLLM should be included in auto-selection
+   npx neurolink generate "Hello" --debug
+   ```
+
+2. **Force LiteLLM Provider**:
+
+   ```bash
+   # Explicitly use LiteLLM when auto-selection fails
+   npx neurolink generate "Hello" --provider litellm
+   ```
+
+3. **Check Provider Priority**:
+
+   ```typescript
+   // In your code, you can set provider preferences
+   const provider = await AIProviderFactory.createProvider("litellm");
+
+   // Or use with fallback
+   const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
+     "litellm",
+     "openai",
+   );
+   ```
+
+### **LiteLLM Debugging**
+
+**Enable Debug Mode**:
+
+```bash
+# Enable NeuroLink debug output
+export NEUROLINK_DEBUG=true
+
+# Test LiteLLM with debug info
+npx neurolink generate "Hello" --provider litellm --debug
+
+# Enable LiteLLM proxy debug mode
+litellm --port 4000 --debug
+```
+
+**Check LiteLLM Logs**:
+
+```bash
+# LiteLLM proxy shows request/response logs
+# Monitor the terminal where you started `litellm --port 4000`
+
+# Check curl responses for detailed error info
+curl -v http://localhost:4000/health
+```
+
+**Common LiteLLM Error Messages**:
+
+- `ECONNREFUSED`: LiteLLM proxy not running
+- `Model not found`: Invalid model format or model not configured
+- `Authentication failed`: Underlying provider API keys not set
+- `Timeout`: Proxy taking too long to respond
+
+---
+
 ## 🤖 **AI Provider Issues**
 
 ### **Provider Authentication Errors**
@@ -785,6 +1064,7 @@ curl -I --proxy $HTTPS_PROXY https://api.openai.com
 **Solutions**:
 
 1. **Contact IT team** for allowlist:
+
    - `generativelanguage.googleapis.com` (Google AI)
    - `api.anthropic.com` (Anthropic)
    - `api.openai.com` (OpenAI)

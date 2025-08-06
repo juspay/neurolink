@@ -24,6 +24,7 @@ const PROVIDER_ENV_KEYS = {
   huggingface: ["HUGGING_FACE_API_KEY", "HUGGINGFACE_API_KEY"],
   mistral: "MISTRAL_API_KEY",
   ollama: "OLLAMA_BASE_URL", // Ollama doesn't need API key, but needs URL
+  litellm: "LITELLM_BASE_URL", // LiteLLM uses URL instead of API key for basic testing
 };
 
 // Get provider configuration from environment (accessed at runtime)
