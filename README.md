@@ -37,6 +37,7 @@ npx @juspay/neurolink generate "Hello" --provider litellm --model "google/gemini
 
 - **🏭 Factory Pattern Architecture** - Unified provider management through BaseProvider inheritance
 - **🔧 Tools-First Design** - All providers include built-in tool support without additional configuration
+- **🧠 Conversation Memory** - Intelligent context management with session persistence and automatic cleanup
 - **🔗 LiteLLM Integration** - **100+ models** from all major providers through unified interface
 - **🏗️ Enterprise Architecture** - Production-ready with clean abstractions
 - **🔄 Configuration Management** - Flexible provider configuration with automatic backups
@@ -193,6 +194,97 @@ const result = await neurolink.generate({
   context: { project: "Q1-sales" },
 });
 
+// Access enhancement data
+console.log("📊 Usage:", enhancedResult.analytics);
+console.log("⭐ Quality:", enhancedResult.evaluation);
+console.log("Response:", enhancedResult.content);
+
+// Enhanced evaluation included when enableEvaluation is true
+// Returns basic quality scores for the generated content
+
+// 🧠 With conversation memory (NEW!)
+const memoryResult = await neurolink.generate({
+  input: { text: "My favorite color is blue" },
+  context: { sessionId: "user-123" },
+  conversationMemory: { enabled: true },
+});
+
+// Later conversation - AI remembers context
+const followUp = await neurolink.generate({
+  input: { text: "What's my favorite color?" },
+  context: { sessionId: "user-123" },
+});
+// AI Response: "Based on our previous conversation, your favorite color is blue."
+```
+
+### 🌐 Enterprise Real-time Features (NEW! 🚀)
+
+#### Real-time WebSocket Chat
+
+```typescript
+import {
+  createEnhancedChatService,
+  NeuroLinkWebSocketServer,
+} from "@juspay/neurolink";
+
+// Enhanced chat with WebSocket support
+const chatService = createEnhancedChatService({
+  provider: await createBestAIProvider(),
+  enableWebSocket: true,
+  enableSSE: true,
+  streamingConfig: {
+    bufferSize: 8192,
+    compressionEnabled: true,
+  },
+});
+
+// WebSocket server for real-time applications
+const wsServer = new NeuroLinkWebSocketServer({
+  port: 8080,
+  maxConnections: 1000,
+  enableCompression: true,
+});
+
+// Handle real-time chat
+wsServer.on("chat-message", async ({ connectionId, message }) => {
+  await chatService.streamChat({
+    prompt: message.data.prompt,
+    onChunk: (chunk) => {
+      wsServer.sendMessage(connectionId, {
+        type: "ai-chunk",
+        data: { chunk },
+      });
+    },
+  });
+});
+```
+
+#### Enterprise Telemetry Integration
+
+```typescript
+import { initializeTelemetry, getTelemetryStatus } from "@juspay/neurolink";
+
+// Optional enterprise monitoring (zero overhead when disabled)
+const telemetry = initializeTelemetry({
+  serviceName: "my-ai-app",
+  endpoint: "http://localhost:4318",
+  enableTracing: true,
+  enableMetrics: true,
+  enableLogs: true,
+});
+
+// Check telemetry status
+const status = await getTelemetryStatus();
+console.log("Telemetry enabled:", status.enabled);
+console.log("Service:", status.service);
+console.log("Version:", status.version);
+
+// All AI operations are now automatically monitored
+const provider = await createBestAIProvider();
+const result = await provider.generate({
+  prompt: "Generate business report",
+});
+// Telemetry automatically tracks: response time, token usage, cost, errors
 console.log("📊 Usage:", result.analytics);
 console.log("⭐ Quality:", result.evaluation);
 console.log("Response:", result.content);
