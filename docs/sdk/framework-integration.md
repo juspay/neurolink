@@ -1126,4 +1126,4 @@ CMD ["npm", "start"]
 
 ---
 
-[← Back to Main README](../index.md) | [Next: Provider Configuration →](./getting-started/provider-setup.md)
+[← Back to Main README](../index.md) | [Next: Provider Configuration →](../getting-started/provider-setup.md)

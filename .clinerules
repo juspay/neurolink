@@ -584,7 +584,7 @@ Internal changes only - no public API impact
 ### **GitHub Actions Integration**
 ```yaml
 # ci.yml - Continuous Integration
-Triggers: push [main, release, dev] + PR [main, release]
+Triggers: push [release] + PR [release]
 Jobs: Node 18/20 matrix → format → lint → build → CLI test
 
 # release.yml - Automated Release & Publishing

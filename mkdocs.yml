@@ -3,11 +3,16 @@ site_description: "Enterprise AI Development Platform with built-in tools, unive
 site_url: "https://juspay.github.io/neurolink"
 repo_url: "https://github.com/juspay/neurolink"
 repo_name: "juspay/neurolink"
-edit_uri: "edit/main/docs/"
+edit_uri: "edit/release/docs/"
 
 # Build settings
 docs_dir: "docs"
-site_dir: "site"
+# Use '_site' instead of the default 'site' directory for the following reasons:
+# 1. Alignment with GitHub Pages deployment workflow expectations
+# 2. Avoids potential conflicts with other static site generators and tools
+# 3. Provides clear distinction for MkDocs-specific output directory
+# 4. Follows modern convention for build artifacts separation
+site_dir: "_site"
 
 # Exclude files that conflict with navigation
 exclude_docs: |
@@ -69,24 +74,6 @@ plugins:
   - search:
       lang: en
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
-  - minify:
-      minify_html: true
-      minify_js: true
-      minify_css: true
-      htmlmin_opts:
-        remove_comments: true
-  - git-revision-date-localized:
-      enable_creation_date: true
-      type: timeago
-      custom_format: "%d. %B %Y"
-      timezone: UTC
-      locale: en
-      fallback_to_build_date: false
-      exclude:
-        - index.md
-  # - social:
-  #     cards_layout_options:
-  #       font_family: Roboto
 
 # Markdown extensions
 markdown_extensions:
@@ -122,9 +109,10 @@ markdown_extensions:
       repo: neurolink
   - pymdownx.mark
   - pymdownx.smartsymbols
-  - pymdownx.snippets:
-      auto_append:
-        - includes/mkdocs.md
+  # The 'auto_append' option for pymdownx.snippets was intentionally removed to simplify configuration.
+  # If your documentation previously relied on auto-appended snippets, you must now manually include those snippets in each Markdown file where needed.
+  # Verified: No documentation files depend on auto-appended snippets. All required content is included manually.
+  - pymdownx.snippets
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true

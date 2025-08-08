@@ -78,11 +78,11 @@ npm start
 
 | Command                     | Screenshot                                                                                                  | Description                                                 |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| **CLI Help Overview**       | ![CLI Help](./visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-10T12-00-00.png)               | Complete command reference and usage examples               |
-| **Provider Status Check**   | ![Provider Status](./visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-10T12-00-00.png) | All provider connectivity verification with response times  |
-| **Text Generation**         | ![Text Generation](./visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-10T12-00-00.png) | Real AI haiku generation with JSON output and usage metrics |
-| **Auto Provider Selection** | ![Best Provider](./visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-10T12-00-00.png)     | Automatic provider selection algorithm demonstration        |
-| **Batch Processing**        | ![Batch Results](./visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-10T12-00-00.png)     | Multi-prompt processing with progress tracking and results  |
+| **CLI Help Overview**       | ![CLI Help](visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-10T12-00-00.png)               | Complete command reference and usage examples               |
+| **Provider Status Check**   | ![Provider Status](visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-10T12-00-00.png) | All provider connectivity verification with response times  |
+| **Text Generation**         | ![Text Generation](visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-10T12-00-00.png) | Real AI haiku generation with JSON output and usage metrics |
+| **Auto Provider Selection** | ![Best Provider](visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-10T12-00-00.png)     | Automatic provider selection algorithm demonstration        |
+| **Batch Processing**        | ![Batch Results](visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-10T12-00-00.png)     | Multi-prompt processing with progress tracking and results  |
 
 ### CLI Demonstration Videos
 
@@ -170,7 +170,7 @@ asciinema play docs/cli-recordings/latest/06-advanced-features.cast
 
 **Real external server integration demonstrations**
 
-#### **Server Management** - [🎬 MP4](../neurolink-demo/videos/mcp-demos/mcp-server-management-demo.mp4)
+#### **Server Management** - [🎬 MP4](videos/mcp-server-management-demo.mp4)
 
 - Installing and configuring MCP servers
 - Server lifecycle management

@@ -38,6 +38,7 @@ test-reports/build-output.txt
 
 # Development artifacts (prevent root clutter)
 *-2025-*-*-*
+!docs/visual-content/screenshots/cli-screenshots/*-2025-*.png
 debug-output.txt
 test-output.txt
 demo-results.json
@@ -109,3 +110,4 @@ poem.txt
 test-direct-tools-temp/
 test-directTools-temp/
 site/
+_site/

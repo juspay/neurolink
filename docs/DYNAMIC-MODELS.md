@@ -151,7 +151,7 @@ The system tries multiple sources in order:
 
 1. `process.env.MODEL_CONFIG_URL` - Custom URL override
 2. `http://localhost:3001/api/v1/models` - Local development server
-3. `https://raw.githubusercontent.com/sachinsharma92/neurolink/main/config/models.json` - GitHub
+3. `https://raw.githubusercontent.com/juspay/neurolink/release/config/models.json` - GitHub
 4. `./config/models.json` - Local fallback
 
 ### Model Resolution Logic
