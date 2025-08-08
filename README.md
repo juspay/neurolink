@@ -62,7 +62,17 @@ export LITELLM_API_KEY="sk-anything"
 npx @juspay/neurolink generate "Hello, AI" --provider litellm --model "openai/gpt-4o"
 npx @juspay/neurolink generate "Hello, AI" --provider litellm --model "anthropic/claude-3-5-sonnet"
 
-# Option 2: Direct Provider - Quick setup with Google AI Studio (free tier)
+# Option 2: OpenAI Compatible - Use any OpenAI-compatible endpoint with auto-discovery
+export OPENAI_COMPATIBLE_BASE_URL="https://api.openrouter.ai/api/v1"
+export OPENAI_COMPATIBLE_API_KEY="sk-or-v1-your-api-key"
+# Auto-discovers available models via /v1/models endpoint
+npx @juspay/neurolink generate "Hello, AI" --provider openai-compatible
+
+# Or specify a model explicitly
+export OPENAI_COMPATIBLE_MODEL="claude-3-5-sonnet"
+npx @juspay/neurolink generate "Hello, AI" --provider openai-compatible
+
+# Option 3: Direct Provider - Quick setup with Google AI Studio (free tier)
 export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
 npx @juspay/neurolink generate "Hello, AI" --provider google-ai
 
@@ -215,9 +225,10 @@ npx @juspay/neurolink status
 ## ✨ Key Features
 
 - 🔗 **LiteLLM Integration** - **Access 100+ AI models** from all major providers through unified interface
+- 🔍 **Smart Model Auto-Discovery** - OpenAI Compatible provider automatically detects available models via `/v1/models` endpoint
 - 🏭 **Factory Pattern Architecture** - Unified provider management with BaseProvider inheritance
 - 🔧 **Tools-First Design** - All providers automatically include 6 direct tools (getCurrentTime, readFile, listDirectory, calculateMath, writeFile, searchFiles)
-- 🔄 **10 AI Providers** - OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure, **LiteLLM**, Hugging Face, Ollama, Mistral AI
+- 🔄 **11 AI Providers** - OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure, **LiteLLM**, **OpenAI Compatible**, Hugging Face, Ollama, Mistral AI
 - 💰 **Cost Optimization** - Automatic selection of cheapest models and LiteLLM routing
 - ⚡ **Automatic Fallback** - Never fail when providers are down, intelligent provider switching
 - 🖥️ **CLI + SDK** - Use from command line or integrate programmatically with TypeScript support
@@ -464,18 +475,19 @@ cd neurolink-demo && node server.js
 
 ## 🏗️ Supported Providers & Models
 
-| Provider             | Models                            | Auth Method        | Free Tier | Tool Support | Key Benefit          |
-| -------------------- | --------------------------------- | ------------------ | --------- | ------------ | -------------------- |
-| **🔗 LiteLLM** 🆕    | **100+ Models** (All Providers)   | Proxy Server       | Varies    | ✅ Full      | **Universal Access** |
-| **Google AI Studio** | Gemini 2.5 Flash/Pro              | API Key            | ✅        | ✅ Full      | Free Tier Available  |
-| **OpenAI**           | GPT-4o, GPT-4o-mini               | API Key            | ❌        | ✅ Full      | Industry Standard    |
-| **Anthropic**        | Claude 3.5 Sonnet                 | API Key            | ❌        | ✅ Full      | Advanced Reasoning   |
-| **Amazon Bedrock**   | Claude 3.5/3.7 Sonnet             | AWS Credentials    | ❌        | ✅ Full\*    | Enterprise Scale     |
-| **Google Vertex AI** | Gemini 2.5 Flash                  | Service Account    | ❌        | ✅ Full      | Enterprise Google    |
-| **Azure OpenAI**     | GPT-4, GPT-3.5                    | API Key + Endpoint | ❌        | ✅ Full      | Microsoft Ecosystem  |
-| **Ollama** 🆕        | Llama 3.2, Gemma, Mistral (Local) | None (Local)       | ✅        | ⚠️ Partial   | Complete Privacy     |
-| **Hugging Face** 🆕  | 100,000+ open source models       | API Key            | ✅        | ⚠️ Partial   | Open Source          |
-| **Mistral AI** 🆕    | Tiny, Small, Medium, Large        | API Key            | ✅        | ✅ Full      | European/GDPR        |
+| Provider                    | Models                             | Auth Method        | Free Tier | Tool Support | Key Benefit                      |
+| --------------------------- | ---------------------------------- | ------------------ | --------- | ------------ | -------------------------------- |
+| **🔗 LiteLLM** 🆕           | **100+ Models** (All Providers)    | Proxy Server       | Varies    | ✅ Full      | **Universal Access**             |
+| **🔗 OpenAI Compatible** 🆕 | **Any OpenAI-compatible endpoint** | API Key + Base URL | Varies    | ✅ Full      | **Auto-Discovery + Flexibility** |
+| **Google AI Studio**        | Gemini 2.5 Flash/Pro               | API Key            | ✅        | ✅ Full      | Free Tier Available              |
+| **OpenAI**                  | GPT-4o, GPT-4o-mini                | API Key            | ❌        | ✅ Full      | Industry Standard                |
+| **Anthropic**               | Claude 3.5 Sonnet                  | API Key            | ❌        | ✅ Full      | Advanced Reasoning               |
+| **Amazon Bedrock**          | Claude 3.5/3.7 Sonnet              | AWS Credentials    | ❌        | ✅ Full\*    | Enterprise Scale                 |
+| **Google Vertex AI**        | Gemini 2.5 Flash                   | Service Account    | ❌        | ✅ Full      | Enterprise Google                |
+| **Azure OpenAI**            | GPT-4, GPT-3.5                     | API Key + Endpoint | ❌        | ✅ Full      | Microsoft Ecosystem              |
+| **Ollama** 🆕               | Llama 3.2, Gemma, Mistral (Local)  | None (Local)       | ✅        | ⚠️ Partial   | Complete Privacy                 |
+| **Hugging Face** 🆕         | 100,000+ open source models        | API Key            | ✅        | ⚠️ Partial   | Open Source                      |
+| **Mistral AI** 🆕           | Tiny, Small, Medium, Large         | API Key            | ✅        | ✅ Full      | European/GDPR                    |
 
 **Tool Support Legend:**
 
@@ -485,6 +497,31 @@ cd neurolink-demo && node server.js
 - \* Bedrock requires valid AWS credentials, Ollama requires specific models like gemma3n for tool support
 
 **✨ Auto-Selection**: NeuroLink automatically chooses the best available provider based on speed, reliability, and configuration.
+
+### 🔍 Smart Model Auto-Discovery (OpenAI Compatible)
+
+The OpenAI Compatible provider includes intelligent model discovery that automatically detects available models from any endpoint:
+
+```bash
+# Setup - no model specified
+export OPENAI_COMPATIBLE_BASE_URL="https://api.your-endpoint.ai/v1"
+export OPENAI_COMPATIBLE_API_KEY="your-api-key"
+
+# Auto-discovers and uses first available model
+npx @juspay/neurolink generate "Hello!" --provider openai-compatible
+# → 🔍 Auto-discovered model: claude-sonnet-4 from 3 available models
+
+# Or specify explicitly to skip discovery
+export OPENAI_COMPATIBLE_MODEL="gemini-2.5-pro"
+npx @juspay/neurolink generate "Hello!" --provider openai-compatible
+```
+
+**How it works:**
+
+- Queries `/v1/models` endpoint to discover available models
+- Automatically selects the first available model when none specified
+- Falls back gracefully if discovery fails
+- Works with any OpenAI-compatible service (OpenRouter, vLLM, LiteLLM, etc.)
 
 ## 🎯 Production Features
 

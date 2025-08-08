@@ -76,6 +76,7 @@ export class CLICommandFactory {
       choices: [
         "auto",
         "openai",
+        "openai-compatible",
         "bedrock",
         "vertex",
         "googleVertex",

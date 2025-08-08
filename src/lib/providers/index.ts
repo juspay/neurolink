@@ -6,6 +6,7 @@
 export { GoogleVertexProvider as GoogleVertexAI } from "./googleVertex.js";
 export { AmazonBedrockProvider as AmazonBedrock } from "./amazonBedrock.js";
 export { OpenAIProvider as OpenAI } from "./openAI.js";
+export { OpenAICompatibleProvider as OpenAICompatible } from "./openaiCompatible.js";
 export { AnthropicProvider as AnthropicProvider } from "./anthropic.js";
 export { AzureOpenAIProvider } from "./azureOpenai.js";
 export { GoogleAIStudioProvider as GoogleAIStudio } from "./googleAiStudio.js";
@@ -23,6 +24,7 @@ export const PROVIDERS = {
   vertex: "GoogleVertexAI",
   bedrock: "AmazonBedrock",
   openai: "OpenAI",
+  "openai-compatible": "OpenAICompatible",
   anthropic: "AnthropicProvider",
   azure: "AzureOpenAIProvider",
   "google-ai": "GoogleAIStudio",

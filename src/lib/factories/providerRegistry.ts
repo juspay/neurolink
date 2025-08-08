@@ -187,6 +187,23 @@ export class ProviderRegistry {
         ["litellm"],
       );
 
+      // Register OpenAI Compatible provider
+      ProviderFactory.registerProvider(
+        AIProviderName.OPENAI_COMPATIBLE,
+        async (
+          modelName?: string,
+          providerName?: string,
+          sdk?: UnknownRecord,
+        ) => {
+          const { OpenAICompatibleProvider } = await import(
+            "../providers/openaiCompatible.js"
+          );
+          return new OpenAICompatibleProvider(modelName, sdk);
+        },
+        process.env.OPENAI_COMPATIBLE_MODEL || undefined, // Enable auto-discovery when no model specified
+        ["openai-compatible", "openrouter", "vllm", "compatible"],
+      );
+
       logger.debug("All providers registered successfully");
       this.registered = true;
     } catch (error) {

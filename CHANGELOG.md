@@ -1,9 +1,8 @@
 # [7.5.0](https://github.com/juspay/neurolink/compare/v7.4.0...v7.5.0) (2025-08-06)
 
-
 ### Features
 
-* **providers:** add LiteLLM provider integration with access to 100+ AI models ([8918f8e](https://github.com/juspay/neurolink/commit/8918f8efc853a2fa42b75838259b22d8022f02b3))
+- **providers:** add LiteLLM provider integration with access to 100+ AI models ([8918f8e](https://github.com/juspay/neurolink/commit/8918f8efc853a2fa42b75838259b22d8022f02b3))
 
 # [7.4.0](https://github.com/juspay/neurolink/compare/v7.3.8...v7.4.0) (2025-08-06)
 

@@ -328,6 +328,27 @@ export function createAzureEndpointConfig(): ProviderConfigOptions {
 }
 
 /**
+ * Creates OpenAI Compatible provider configuration
+ */
+export function createOpenAICompatibleConfig(): ProviderConfigOptions {
+  return {
+    providerName: "OpenAI Compatible",
+    envVarName: "OPENAI_COMPATIBLE_API_KEY",
+    setupUrl: "https://openrouter.ai/",
+    description: "OpenAI-compatible API credentials",
+    instructions: [
+      "1. Set OPENAI_COMPATIBLE_BASE_URL to your endpoint (e.g., https://api.openrouter.ai/api/v1)",
+      "2. Get API key from your OpenAI-compatible service:",
+      "   • OpenRouter: https://openrouter.ai/keys",
+      "   • vLLM: Use any value for local deployments",
+      "   • LiteLLM: Check your LiteLLM server configuration",
+      "3. Set OPENAI_COMPATIBLE_API_KEY to your API key",
+      "4. Optionally set OPENAI_COMPATIBLE_MODEL (will auto-discover if not set)",
+    ],
+  };
+}
+
+/**
  * Creates Google Vertex Project ID configuration
  */
 export function createVertexProjectConfig(): ProviderConfigOptions {

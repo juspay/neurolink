@@ -45,6 +45,7 @@ export interface TextGenerationResult {
 export enum AIProviderName {
   BEDROCK = "bedrock",
   OPENAI = "openai",
+  OPENAI_COMPATIBLE = "openai-compatible",
   VERTEX = "vertex",
   ANTHROPIC = "anthropic",
   AZURE = "azure",

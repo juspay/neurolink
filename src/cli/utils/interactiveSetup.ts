@@ -169,6 +169,30 @@ export const PROVIDER_CONFIGS: ProviderConfig[] = [
       },
     ],
   },
+  {
+    id: AIProviderName.OPENAI_COMPATIBLE,
+    name: "OpenAI Compatible",
+    description: "Any OpenAI-compatible endpoint (OpenRouter, vLLM, etc.)",
+    envVars: [
+      {
+        key: "OPENAI_COMPATIBLE_BASE_URL",
+        prompt:
+          "OpenAI-compatible endpoint URL (e.g., https://api.openrouter.ai/api/v1)",
+        secure: false,
+      },
+      {
+        key: "OPENAI_COMPATIBLE_API_KEY",
+        prompt: "API Key for the OpenAI-compatible service",
+        secure: true,
+      },
+      {
+        key: "OPENAI_COMPATIBLE_MODEL",
+        prompt: "Model name (optional - will auto-discover if not specified)",
+        secure: false,
+        optional: true,
+      },
+    ],
+  },
 ];
 
 export interface SetupResult {

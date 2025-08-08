@@ -14,6 +14,7 @@ const execAsync = promisify(exec);
 const PROVIDERS_TO_TEST = [
   "google-ai",
   "openai",
+  "openai-compatible",
   "anthropic",
   "bedrock",
   "vertex",
@@ -24,6 +25,11 @@ const PROVIDERS_TO_TEST = [
       return !!process.env.GOOGLE_AI_API_KEY;
     case "openai":
       return !!process.env.OPENAI_API_KEY;
+    case "openai-compatible":
+      return !!(
+        process.env.OPENAI_COMPATIBLE_BASE_URL &&
+        process.env.OPENAI_COMPATIBLE_API_KEY
+      );
     case "anthropic":
       return !!process.env.ANTHROPIC_API_KEY;
     case "bedrock":
