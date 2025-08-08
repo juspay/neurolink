@@ -221,10 +221,10 @@ spec:
 
 ## 🔗 Related Documentation
 
-- [Provider Configuration](getting-started/provider-setup.md) - Detailed provider setup
-- [CLI Guide](CLI-GUIDE.md) - Command line proxy usage
-- [Environment Variables](getting-started/environment-variables.md) - Complete variable reference
-- [Troubleshooting](TROUBLESHOOTING.md) - Common issues and solutions
+- [Provider Configuration](provider-setup.md) - Detailed provider setup
+- [CLI Guide](../CLI-GUIDE.md) - Command line proxy usage
+- [Environment Variables](environment-variables.md) - Complete variable reference
+- [Troubleshooting](../TROUBLESHOOTING.md) - Common issues and solutions
 
 ---
 

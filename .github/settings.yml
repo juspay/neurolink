@@ -187,7 +187,7 @@ branches:
       allow_force_pushes: false
       allow_deletions: false
 
-  - name: main
+  - name: release
     protection:
       required_status_checks:
         strict: true

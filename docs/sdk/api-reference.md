@@ -2518,4 +2518,4 @@ neurolink mcp test filesystem
 
 ---
 
-[← Back to Main README](../index.md) | [Next: Visual Demos →](./VISUAL-DEMOS.md)
+[← Back to Main README](../index.md) | [Next: Visual Demos →](../VISUAL-DEMOS.md)

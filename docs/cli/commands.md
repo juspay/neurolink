@@ -1072,7 +1072,7 @@ npx @juspay/neurolink status
 
 **No additional configuration required** - proxy detection is automatic.
 
-**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](ENTERPRISE-PROXY-SETUP.md)
+**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](../getting-started/ENTERPRISE-PROXY-SETUP.md)
 
 ## CLI vs SDK Comparison
 
@@ -1181,21 +1181,21 @@ npx @juspay/neurolink generate "Performance critical task" --provider auto
 
 ### **Command Tutorials**
 
-- **[Help & Overview](./visual-content/cli-videos/cli-01-cli-help.mp4)** - Complete command reference and usage examples
-- **[Provider Status](./visual-content/cli-videos/cli-02-provider-status.mp4)** - Connectivity testing and response time measurement
-- **[Text Generation](./visual-content/cli-videos/cli-03-text-generation.mp4)** - Real AI content generation with different providers
-- **[Auto Selection](./visual-content/cli-videos/cli-04-auto-selection.mp4)** - Automatic provider selection algorithm
-- **[Streaming](./visual-content/cli-videos/cli-05-streaming.mp4)** - Real-time text generation streaming
-- **[Advanced Features](./visual-content/cli-videos/cli-06-advanced-features.mp4)** - Verbose diagnostics and advanced options
+- **[Help & Overview](../visual-content/cli-videos/cli-01-cli-help.mp4)** - Complete command reference and usage examples
+- **[Provider Status](../visual-content/cli-videos/cli-02-provider-status.mp4)** - Connectivity testing and response time measurement
+- **[Text Generation](../visual-content/cli-videos/cli-03-text-generation.mp4)** - Real AI content generation with different providers
+- **[Auto Selection](../visual-content/cli-videos/cli-04-auto-selection.mp4)** - Automatic provider selection algorithm
+- **[Streaming](../visual-content/cli-videos/cli-05-streaming.mp4)** - Real-time text generation streaming
+- **[Advanced Features](../visual-content/cli-videos/cli-06-advanced-features.mp4)** - Verbose diagnostics and advanced options
 
 ### **MCP Integration Demos**
 
-- **[MCP Help](./visual-content/cli-videos/cli-advanced-features/mcp-help.mp4)** - MCP command reference and usage
-- **[MCP List](./visual-content/cli-videos/cli-advanced-features/mcp-list.mp4)** - MCP server listing and status
+- **[MCP Help](../visual-content/cli-videos/cli-advanced-features/mcp-help.mp4)** - MCP command reference and usage
+- **[MCP List](../visual-content/cli-videos/cli-advanced-features/mcp-list.mp4)** - MCP server listing and status
 
 ### **AI Workflow Tools Demo**
 
-- **[AI Workflow Tools](./visual-content/cli-videos/aiWorkflowTools-demo/aiWorkflowTools-cli-demo.mp4)** - Complete demonstration of AI workflow tools via CLI
+- **[AI Workflow Tools](../visual-content/cli-videos/ai-workflow-tools-demo/ai-workflow-tools-cli-demo.mp4)** - Complete demonstration of AI workflow tools via CLI
 
 **All videos feature:**
 
@@ -1204,8 +1204,8 @@ npx @juspay/neurolink generate "Performance critical task" --provider auto
 - ✅ Comprehensive coverage of all CLI features
 - ✅ Suitable for documentation, tutorials, and presentations
 
-For complete visual documentation including web interface demos, see the [Visual Demos Guide](./VISUAL-DEMOS.md).
+For complete visual documentation including web interface demos, see the [Visual Demos Guide](../VISUAL-DEMOS.md).
 
 ---
 
-[← Back to Main README](../index.md) | [Next: Framework Integration →](./FRAMEWORK-INTEGRATION.md)
+[← Back to Main README](../index.md) | [Next: Framework Integration →](../FRAMEWORK-INTEGRATION.md)

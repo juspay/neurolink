@@ -53,7 +53,7 @@ export class DynamicModelProvider {
   async initialize(): Promise<void> {
     const sources = [
       process.env.MODEL_CONFIG_URL || "http://localhost:3001/api/v1/models",
-      "https://raw.githubusercontent.com/sachinsharma92/neurolink/main/config/models.json",
+      `https://raw.githubusercontent.com/${process.env.MODEL_CONFIG_GITHUB_REPO || "juspay/neurolink"}/${process.env.MODEL_CONFIG_GITHUB_BRANCH || "release"}/config/models.json`,
       "./config/models.json", // Local fallback
     ];
 
@@ -99,7 +99,7 @@ export class DynamicModelProvider {
       const response = await fetch(source, {
         headers: {
           "User-Agent":
-            "NeuroLink/1.0 (+https://github.com/sachinsharma92/neurolink)",
+            "NeuroLink/1.0 (+https://github.com/juspay/neurolink)",
         },
       });
 
