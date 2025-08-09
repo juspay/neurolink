@@ -1,3 +1,10 @@
+# [7.6.0](https://github.com/juspay/neurolink/compare/v7.5.0...v7.6.0) (2025-08-09)
+
+
+### Features
+
+* **openai-compatible:** add OpenAI Compatible provider with intelligent model auto-discovery ([3041d26](https://github.com/juspay/neurolink/commit/3041d26fb33881e5962cb1f13d3d06f021f642f2))
+
 # [7.5.0](https://github.com/juspay/neurolink/compare/v7.4.0...v7.5.0) (2025-08-06)
 
 ### Features
