@@ -50,6 +50,11 @@ const getDefaultLiteLLMModel = (): string => {
 export class LiteLLMProvider extends BaseProvider {
   private model: LanguageModelV1;
 
+  // Cache for available models to avoid repeated API calls
+  private static modelsCache: string[] = [];
+  private static modelsCacheTime = 0;
+  private static readonly MODELS_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+
   constructor(modelName?: string, sdk?: unknown) {
     super(
       modelName,
@@ -228,28 +233,135 @@ export class LiteLLMProvider extends BaseProvider {
 
   /**
    * Get available models from LiteLLM proxy server
-   *
-   * TODO: Implement dynamic fetching from LiteLLM's /v1/models endpoint.
-   * Currently returns a hardcoded list of commonly available models.
-   *
-   * Implementation would involve:
-   * 1. Fetch from `${baseURL}/v1/models`
-   * 2. Parse response to extract model IDs
-   * 3. Handle network errors gracefully
-   * 4. Cache results to avoid repeated API calls
+   * Dynamically fetches from /v1/models endpoint with caching and fallback
    */
   async getAvailableModels(): Promise<string[]> {
-    // Hardcoded list of commonly available models
-    // TODO: Replace with dynamic fetch from LiteLLM proxy /v1/models endpoint
-    return [
+    const functionTag = "LiteLLMProvider.getAvailableModels";
+    const now = Date.now();
+
+    // Check if cached models are still valid
+    if (
+      LiteLLMProvider.modelsCache.length > 0 &&
+      now - LiteLLMProvider.modelsCacheTime <
+        LiteLLMProvider.MODELS_CACHE_DURATION
+    ) {
+      logger.debug(`[${functionTag}] Using cached models`, {
+        cacheAge: Math.round((now - LiteLLMProvider.modelsCacheTime) / 1000),
+        modelCount: LiteLLMProvider.modelsCache.length,
+      });
+      return LiteLLMProvider.modelsCache;
+    }
+
+    // Try to fetch models dynamically
+    try {
+      const dynamicModels = await this.fetchModelsFromAPI();
+      if (dynamicModels.length > 0) {
+        // Cache successful result
+        LiteLLMProvider.modelsCache = dynamicModels;
+        LiteLLMProvider.modelsCacheTime = now;
+
+        logger.debug(`[${functionTag}] Successfully fetched models from API`, {
+          modelCount: dynamicModels.length,
+        });
+        return dynamicModels;
+      }
+    } catch (error) {
+      logger.warn(
+        `[${functionTag}] Failed to fetch models from API, using fallback`,
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+    }
+
+    // Fallback to hardcoded list if API fetch fails
+    const fallbackModels = [
       "openai/gpt-4o",
       "openai/gpt-4o-mini",
-      "anthropic/claude-3-5-sonnet",
-      "anthropic/claude-3-haiku",
+      "openai/gpt-3.5-turbo",
+      "anthropic/claude-3-5-sonnet-20241022",
+      "anthropic/claude-3-haiku-20240307",
       "google/gemini-2.0-flash",
-      "mistral/mistral-large",
-      "mistral/mistral-medium",
+      "google/gemini-1.5-pro",
+      "mistral/mistral-large-latest",
+      "mistral/mistral-medium-latest",
+      "meta-llama/llama-3.1-8b-instruct",
+      "meta-llama/llama-3.1-70b-instruct",
     ];
+
+    logger.debug(`[${functionTag}] Using fallback model list`, {
+      modelCount: fallbackModels.length,
+    });
+
+    return fallbackModels;
+  }
+
+  /**
+   * Fetch available models from LiteLLM proxy /v1/models endpoint
+   * @private
+   */
+  private async fetchModelsFromAPI(): Promise<string[]> {
+    const functionTag = "LiteLLMProvider.fetchModelsFromAPI";
+    const config = getLiteLLMConfig();
+    const modelsUrl = `${config.baseURL}/v1/models`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+    try {
+      logger.debug(`[${functionTag}] Fetching models from ${modelsUrl}`);
+
+      const response = await fetch(modelsUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Parse OpenAI-compatible models response
+      if (data && Array.isArray(data.data)) {
+        const models = data.data
+          .map((model: unknown) =>
+            typeof model === "object" &&
+            model !== null &&
+            "id" in model &&
+            typeof (model as { id?: unknown }).id === "string"
+              ? (model as { id: string }).id
+              : undefined,
+          )
+          .filter(
+            (id: string | undefined) => typeof id === "string" && id.length > 0,
+          )
+          .sort();
+
+        logger.debug(`[${functionTag}] Successfully parsed models`, {
+          totalModels: models.length,
+          sampleModels: models.slice(0, 5),
+        });
+
+        return models;
+      } else {
+        throw new Error("Invalid response format: expected data.data array");
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error("Request timed out after 5 seconds");
+      }
+
+      throw error;
+    }
   }
 
   // ===================

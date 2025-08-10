@@ -118,6 +118,79 @@ const ConfigSchema = z.object({
       enableLogging: z.boolean().default(false),
       enableCaching: z.boolean().default(true),
       cacheStrategy: z.enum(["memory", "file", "redis"]).default("memory"),
+      defaultEvaluationDomain: z.string().optional(),
+      enableAnalyticsByDefault: z.boolean().default(false),
+      enableEvaluationByDefault: z.boolean().default(false),
+    })
+    .default({}),
+  domains: z
+    .object({
+      healthcare: z
+        .object({
+          evaluationCriteria: z
+            .array(z.string())
+            .default(["accuracy", "safety", "compliance", "clarity"]),
+          analyticsConfig: z
+            .object({
+              trackPatientData: z.boolean().default(false),
+              trackDiagnosticAccuracy: z.boolean().default(true),
+              trackTreatmentOutcomes: z.boolean().default(true),
+            })
+            .default({}),
+        })
+        .default({}),
+      analytics: z
+        .object({
+          evaluationCriteria: z
+            .array(z.string())
+            .default(["accuracy", "relevance", "completeness", "insight"]),
+          analyticsConfig: z
+            .object({
+              trackDataQuality: z.boolean().default(true),
+              trackModelPerformance: z.boolean().default(true),
+              trackBusinessImpact: z.boolean().default(true),
+            })
+            .default({}),
+        })
+        .default({}),
+      finance: z
+        .object({
+          evaluationCriteria: z
+            .array(z.string())
+            .default([
+              "accuracy",
+              "risk-awareness",
+              "compliance",
+              "timeliness",
+            ]),
+          analyticsConfig: z
+            .object({
+              trackRiskMetrics: z.boolean().default(true),
+              trackRegulatory: z.boolean().default(true),
+              trackPortfolioImpact: z.boolean().default(false),
+            })
+            .default({}),
+        })
+        .default({}),
+      ecommerce: z
+        .object({
+          evaluationCriteria: z
+            .array(z.string())
+            .default([
+              "conversion-potential",
+              "user-experience",
+              "revenue-impact",
+              "practicality",
+            ]),
+          analyticsConfig: z
+            .object({
+              trackConversions: z.boolean().default(true),
+              trackUserBehavior: z.boolean().default(true),
+              trackRevenueImpact: z.boolean().default(true),
+            })
+            .default({}),
+        })
+        .default({}),
     })
     .default({}),
 });
@@ -235,6 +308,31 @@ export class ConfigManager {
           validate: (value: number) => value >= 0 && value <= 2,
         },
         {
+          type: "list",
+          name: "defaultEvaluationDomain",
+          message: "Default evaluation domain (optional):",
+          choices: [
+            { name: "None (manual selection)", value: undefined },
+            { name: "Healthcare", value: "healthcare" },
+            { name: "Analytics", value: "analytics" },
+            { name: "Finance", value: "finance" },
+            { name: "E-commerce", value: "ecommerce" },
+          ],
+          default: this.config.preferences.defaultEvaluationDomain,
+        },
+        {
+          type: "confirm",
+          name: "enableAnalyticsByDefault",
+          message: "Enable analytics by default?",
+          default: this.config.preferences.enableAnalyticsByDefault,
+        },
+        {
+          type: "confirm",
+          name: "enableEvaluationByDefault",
+          message: "Enable evaluation by default?",
+          default: this.config.preferences.enableEvaluationByDefault,
+        },
+        {
           type: "confirm",
           name: "setupProviders",
           message: "Would you like to configure provider credentials now?",
@@ -246,6 +344,12 @@ export class ConfigManager {
       this.config.defaultProvider = preferences.defaultProvider;
       this.config.preferences.outputFormat = preferences.outputFormat;
       this.config.preferences.temperature = preferences.temperature;
+      this.config.preferences.defaultEvaluationDomain =
+        preferences.defaultEvaluationDomain;
+      this.config.preferences.enableAnalyticsByDefault =
+        preferences.enableAnalyticsByDefault;
+      this.config.preferences.enableEvaluationByDefault =
+        preferences.enableEvaluationByDefault;
 
       // Setup providers if requested
       if (preferences.setupProviders) {
@@ -692,6 +796,7 @@ export class ConfigManager {
   }
 
   /**
+  /**
    * Get current configuration
    */
   getConfig(): NeuroLinkConfig {
@@ -725,6 +830,15 @@ export class ConfigManager {
     logger.always(
       `  Max Tokens: ${chalk.white(this.config.preferences.maxTokens)}`,
     );
+    logger.always(
+      `  Default Evaluation Domain: ${chalk.white(this.config.preferences.defaultEvaluationDomain || "None")}`,
+    );
+    logger.always(
+      `  Analytics by Default: ${chalk.white(this.config.preferences.enableAnalyticsByDefault)}`,
+    );
+    logger.always(
+      `  Evaluation by Default: ${chalk.white(this.config.preferences.enableEvaluationByDefault)}`,
+    );
 
     logger.always(chalk.cyan("\nConfigured Providers:"));
 
@@ -733,6 +847,27 @@ export class ConfigManager {
         logger.always(`  ${chalk.green("✅")} ${name.toUpperCase()}`);
         if ("model" in config) {
           logger.always(`    Model: ${chalk.white(config.model)}`);
+        }
+      }
+    });
+
+    logger.always(chalk.cyan("\nConfigured Domains:"));
+
+    Object.entries(this.config.domains).forEach(([name, config]) => {
+      if (config && Object.keys(config).length > 0) {
+        logger.always(`  ${chalk.green("✅")} ${name.toUpperCase()}`);
+        if (config.evaluationCriteria && config.evaluationCriteria.length > 0) {
+          logger.always(
+            `    Evaluation Criteria: ${chalk.white(config.evaluationCriteria.join(", "))}`,
+          );
+        }
+        if (config.analyticsConfig) {
+          const analyticsEnabled = Object.values(config.analyticsConfig).some(
+            Boolean,
+          );
+          logger.always(
+            `    Analytics: ${chalk.white(analyticsEnabled ? "Configured" : "Disabled")}`,
+          );
         }
       }
     });

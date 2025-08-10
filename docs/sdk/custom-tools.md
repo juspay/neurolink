@@ -124,11 +124,17 @@ interface SimpleTool<T = any, R = any> {
 neurolink.registerTool(name: string, tool: SimpleTool): void
 ```
 
-### Register Multiple Tools
+### Register Multiple Tools (Unified API)
 
 ```typescript
+// Object format (existing compatibility)
 neurolink.registerTools(tools: Record<string, SimpleTool>): void
+
+// Array format (Lighthouse compatible)
+neurolink.registerTools(tools: Array<{ name: string; tool: SimpleTool }>): void
 ```
+
+The `registerTools()` method automatically detects the input format and handles both object and array formats seamlessly.
 
 ### Get Registered Tools
 

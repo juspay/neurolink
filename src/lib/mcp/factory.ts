@@ -1,7 +1,7 @@
 /**
  * NeuroLink MCP Server Factory
  * Factory-First Architecture: MCP servers create tools for internal orchestration
- * Compatible with Lighthouse MCP patterns for seamless migration
+ * Compatible with MCP patterns for seamless integration
  */
 
 import { z } from "zod";
@@ -24,7 +24,7 @@ export type MCPServerCategory =
 
 /**
  * Tool execution context - Rich context passed to every tool execution
- * Following Lighthouse's pattern for rich tool context
+ * Following standard patterns for rich tool context
  * Extends ExecutionContext for compatibility
  */
 export interface NeuroLinkExecutionContext extends ExecutionContext {
@@ -107,7 +107,7 @@ export interface ToolResult {
 }
 
 /**
- * MCP Tool Interface - Lighthouse compatible with NeuroLink enhancements
+ * MCP Tool Interface - Standard compatible with NeuroLink enhancements
  */
 export interface NeuroLinkMCPTool {
   name: string;
@@ -127,7 +127,7 @@ export interface NeuroLinkMCPTool {
 }
 
 /**
- * MCP Server Interface - Lighthouse compatible
+ * MCP Server Interface - Standard compatible
  */
 export interface NeuroLinkMCPServer {
   // Server identification
@@ -196,7 +196,7 @@ const ServerConfigSchema = z.object({
 /**
  * Create MCP Server Factory Function
  *
- * Core factory function for creating Lighthouse-compatible MCP servers.
+ * Core factory function for creating MCP servers.
  * Follows Factory-First architecture where tools are internal implementation.
  *
  * @param config Server configuration with minimal required fields

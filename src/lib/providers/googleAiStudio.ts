@@ -105,6 +105,12 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     const startTime = Date.now();
     const apiKey = this.getApiKey();
+
+    // Ensure environment variable is set for @ai-sdk/google
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
+    }
+
     const google = createGoogleGenerativeAI({ apiKey });
     const model = google(this.modelName);
 

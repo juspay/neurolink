@@ -356,4 +356,53 @@ describe("Streaming Performance Benchmarking", () => {
       timeout * 2,
     );
   });
+
+  // === MERGED FROM test/performance/cliStartupBenchmark.test.ts ===
+  describe("CLI Startup Performance", () => {
+    const { execAsync } = require("child_process");
+    const { promisify } = require("util");
+    const execAsyncPromise = promisify(execAsync);
+
+    const STARTUP_TIMEOUT = 15000;
+    const PERFORMANCE_THRESHOLD_MS = 5000;
+    const DOMAIN_PERFORMANCE_THRESHOLD_MS = 6000;
+
+    let baselineStartupTime: number;
+    let domainStartupTime: number;
+
+    it(
+      "should start CLI help command quickly (baseline)",
+      async () => {
+        const startTime = Date.now();
+        const { stdout } = await execAsyncPromise("pnpm cli --help", {
+          timeout: STARTUP_TIMEOUT,
+        });
+        const endTime = Date.now();
+        baselineStartupTime = endTime - startTime;
+        console.log(`⚡ Baseline CLI startup time: ${baselineStartupTime}ms`);
+        expect(stdout).toContain("Generate content using AI providers");
+        expect(baselineStartupTime).toBeLessThan(PERFORMANCE_THRESHOLD_MS);
+      },
+      STARTUP_TIMEOUT,
+    );
+
+    it(
+      "should start generate with domain features efficiently",
+      async () => {
+        const startTime = Date.now();
+        const { stdout } = await execAsyncPromise(
+          'pnpm cli generate "Domain performance test" --evaluationDomain healthcare --enable-evaluation --format json --dryRun',
+          { timeout: STARTUP_TIMEOUT },
+        );
+        const endTime = Date.now();
+        domainStartupTime = endTime - startTime;
+        console.log(
+          `⚡ CLI with domain features startup time: ${domainStartupTime}ms`,
+        );
+        expect(stdout).toContain("Mock response for testing purposes");
+        expect(domainStartupTime).toBeLessThan(DOMAIN_PERFORMANCE_THRESHOLD_MS);
+      },
+      STARTUP_TIMEOUT,
+    );
+  });
 });

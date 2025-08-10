@@ -4,17 +4,17 @@ on:
   push:
     branches: [release]
     paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - 'requirements.txt'
-      - '.github/workflows/docs.yml'
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements.txt"
+      - ".github/workflows/docs.yml"
   pull_request:
     branches: [release]
     paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - 'requirements.txt'
-      - '.github/workflows/docs.yml'
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements.txt"
+      - ".github/workflows/docs.yml"
 
 permissions:
   contents: read
@@ -37,8 +37,8 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
-          cache: 'pip'
+          python-version: "3.x"
+          cache: "pip"
 
       - name: Install dependencies
         run: |

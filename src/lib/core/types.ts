@@ -83,13 +83,17 @@ export enum OpenAIModels {
  */
 export enum VertexModels {
   CLAUDE_4_0_SONNET = "claude-sonnet-4@20250514",
-  GEMINI_2_5_FLASH = "gemini-2.5-flash-preview-05-20",
+  GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001",
+  GEMINI_2_5_PRO = "gemini-2.5-pro",
+  GEMINI_2_5_FLASH = "gemini-2.5-flash",
+  GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite",
 }
 
 /**
  * Supported Models for Google AI Studio
  */
 export enum GoogleAIModels {
+  GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001",
   GEMINI_2_5_PRO = "gemini-2.5-pro",
   GEMINI_2_5_FLASH = "gemini-2.5-flash",
   GEMINI_1_5_FLASH_LITE = "gemini-2.5-flash-lite",
@@ -143,7 +147,7 @@ export interface TextGenerationOptions {
   enableAnalytics?: boolean; // Default: false - Usage tracking
   context?: Record<string, JsonValue>; // Default: undefined - Custom context
 
-  // NEW: Lighthouse-Compatible Domain-Aware Evaluation
+  // NEW: Domain-Aware Evaluation
   evaluationDomain?: string; // Domain expertise (e.g., "general AI assistant", "D2C analytics expert")
   toolUsageContext?: string; // Tools/MCPs used in this interaction
   conversationHistory?: Array<{ role: string; content: string }>; // Previous conversation context
@@ -167,8 +171,8 @@ export interface AnalyticsData {
 }
 
 /**
- * Response quality evaluation scores (Lighthouse-Compatible Schema)
- * Updated to match Lighthouse's exact evaluation interface for consistency
+ * Response quality evaluation scores
+ * Comprehensive evaluation interface for response quality assessment
  */
 export interface EvaluationData {
   // Core scores (1-10 scale) - Compatible with GenerateResult format
@@ -180,7 +184,7 @@ export interface EvaluationData {
   terminologyAccuracy?: number;
   toolEffectiveness?: number;
 
-  // Advanced insights (exact Lighthouse schema)
+  // Advanced insights
   isOffTopic: boolean; // True if response significantly deviates from query/domain
   alertSeverity: "low" | "medium" | "high" | "none"; // Quality alert level
   reasoning: string; // Brief justification for scores (max 150 words)
@@ -189,6 +193,7 @@ export interface EvaluationData {
   // Metadata
   evaluationModel: string; // Model used for evaluation
   evaluationTime: number; // Time taken for evaluation (ms)
+  evaluationDomain?: string; // Domain for evaluation (e.g., "healthcare", "analytics")
 
   // Enhanced metadata (Universal Evaluation System)
   evaluationProvider?: string; // Provider used for evaluation
@@ -198,6 +203,24 @@ export interface EvaluationData {
     mode: string;
     fallbackUsed: boolean;
     costEstimate: number;
+  };
+
+  // NEW: Domain configuration support
+  domainConfig?: {
+    domainName: string;
+    domainDescription: string;
+    keyTerms: string[];
+    failurePatterns: string[];
+    successPatterns: string[];
+    evaluationCriteria?: Record<string, unknown>;
+  };
+
+  // NEW: Domain-specific evaluation metadata
+  domainEvaluation?: {
+    domainRelevance: number;
+    terminologyAccuracy: number;
+    domainExpertise: number;
+    domainSpecificInsights: string[];
   };
 }
 

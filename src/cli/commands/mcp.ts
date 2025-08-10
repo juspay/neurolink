@@ -930,32 +930,74 @@ export class MCPCommandFactory {
         process.exit(1);
       }
 
-      // Execute the tool (This would need actual MCP execution logic)
-      // For now, showing a placeholder implementation
-      const result = {
-        tool: toolName,
-        server: serverName,
-        params,
-        result: "Tool execution not yet implemented in NeuroLink SDK",
-        timestamp: new Date().toISOString(),
-      };
+      // Execute the tool using the NeuroLink MCP tool registry
+      try {
+        const { toolRegistry } = await import("../../lib/mcp/toolRegistry.js");
+        const executionResult = await toolRegistry.executeTool(
+          toolName,
+          params,
+          {
+            sessionId: `cli-${Date.now()}`,
+            userId: process.env.USER || "cli-user",
+            config: {
+              domainType: "cli-execution",
+              customData: { serverName },
+            },
+          },
+        );
 
-      if (spinner) {
-        spinner.succeed(chalk.green("✅ Tool executed successfully"));
-      }
+        const result = {
+          tool: toolName,
+          server: serverName,
+          params,
+          result: executionResult,
+          success: true,
+          timestamp: new Date().toISOString(),
+        };
 
-      // Display results
-      if (argv.format === "json") {
-        logger.always(JSON.stringify(result, null, 2));
-      } else {
-        logger.always(chalk.bold("\n🛠️  Tool Execution Result:\n"));
-        logger.always(`Tool: ${toolName}`);
-        logger.always(`Server: ${serverName}`);
-        if (Object.keys(params).length > 0) {
-          logger.always(`Params: ${JSON.stringify(params)}`);
+        if (spinner) {
+          spinner.succeed(chalk.green("✅ Tool executed successfully"));
         }
-        logger.always(`Result: ${result.result}`);
-        logger.always(`Time: ${result.timestamp}`);
+
+        // Display results
+        if (argv.format === "json") {
+          logger.always(JSON.stringify(result, null, 2));
+        } else {
+          logger.always(chalk.green("🔧 Tool Execution Results:"));
+          logger.always(`   Tool: ${chalk.cyan(toolName)}`);
+          logger.always(`   Server: ${chalk.cyan(serverName)}`);
+          logger.always(
+            `   Result: ${JSON.stringify(executionResult, null, 2)}`,
+          );
+          logger.always(`   Timestamp: ${result.timestamp}`);
+        }
+      } catch (toolError) {
+        const errorMessage =
+          toolError instanceof Error ? toolError.message : String(toolError);
+
+        if (spinner) {
+          spinner.fail(chalk.red("❌ Tool execution failed"));
+        }
+
+        const result = {
+          tool: toolName,
+          server: serverName,
+          params,
+          error: errorMessage,
+          success: false,
+          timestamp: new Date().toISOString(),
+        };
+
+        if (argv.format === "json") {
+          logger.always(JSON.stringify(result, null, 2));
+        } else {
+          logger.error(chalk.red("🔧 Tool Execution Failed:"));
+          logger.error(`   Tool: ${chalk.cyan(toolName)}`);
+          logger.error(`   Server: ${chalk.cyan(serverName)}`);
+          logger.error(`   Error: ${chalk.red(errorMessage)}`);
+        }
+
+        process.exit(1);
       }
     } catch (error) {
       logger.error(
@@ -995,16 +1037,41 @@ export class MCPCommandFactory {
         ? null
         : ora(`Removing MCP server: ${serverName}...`).start();
 
-      // Remove server (This would need actual removal logic in NeuroLink SDK)
-      // For now, showing a placeholder
-      logger.always(
-        chalk.yellow("⚠️  Server removal not yet implemented in NeuroLink SDK"),
-      );
+      // Remove server using the NeuroLink MCP tool registry
+      try {
+        const { toolRegistry } = await import("../../lib/mcp/toolRegistry.js");
+        const removed = toolRegistry.unregisterServer(serverName);
 
-      if (spinner) {
-        spinner.succeed(
-          chalk.green(`✅ Server ${serverName} removed successfully`),
+        if (!removed) {
+          throw new Error(
+            `Failed to remove server ${serverName} from registry`,
+          );
+        }
+
+        if (spinner) {
+          spinner.succeed(
+            chalk.green(`✅ Server ${serverName} removed successfully`),
+          );
+        }
+
+        logger.always(
+          chalk.green(`🗑️  Successfully removed MCP server: ${serverName}`),
         );
+        logger.always(
+          chalk.gray("   All associated tools have been unregistered"),
+        );
+      } catch (removalError) {
+        const errorMessage =
+          removalError instanceof Error
+            ? removalError.message
+            : String(removalError);
+
+        if (spinner) {
+          spinner.fail(chalk.red(`❌ Failed to remove server ${serverName}`));
+        }
+
+        logger.error(chalk.red(`❌ Server removal failed: ${errorMessage}`));
+        process.exit(1);
       }
     } catch (error) {
       logger.error(

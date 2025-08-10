@@ -135,7 +135,7 @@ console.log(result.evaluation); // Quality scores
 ### Custom Tools
 
 ```typescript
-// Register a custom tool
+// Register a single tool
 neurolink.registerTool("weatherLookup", {
   description: "Get current weather for a city",
   parameters: z.object({
@@ -147,6 +147,42 @@ neurolink.registerTool("weatherLookup", {
     return { city, temperature: 22, units, condition: "sunny" };
   },
 });
+
+// Register multiple tools - Object format
+neurolink.registerTools({
+  stockPrice: {
+    description: "Get stock price",
+    execute: async () => ({ price: 150.25 }),
+  },
+  calculator: {
+    description: "Calculate math",
+    execute: async () => ({ result: 42 }),
+  },
+});
+
+// Register multiple tools - Array format (Lighthouse compatible)
+neurolink.registerTools([
+  {
+    name: "analytics",
+    tool: {
+      description: "Get analytics data",
+      parameters: z.object({
+        merchantId: z.string(),
+        dateRange: z.string().optional(),
+      }),
+      execute: async ({ merchantId, dateRange }) => {
+        return { data: "analytics result" };
+      },
+    },
+  },
+  {
+    name: "processor",
+    tool: {
+      description: "Process payments",
+      execute: async () => ({ status: "processed" }),
+    },
+  },
+]);
 ```
 
 ### Context Integration

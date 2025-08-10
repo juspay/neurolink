@@ -174,7 +174,7 @@ export class UniversalProviderTest {
 
       const result = await sdk.generate({
         input: { text: 'Say "Hello from SDK" and nothing else.' },
-        provider: providerName as UnknownRecord,
+        provider: providerName,
         maxTokens: 2000,
         temperature: 0,
       });
@@ -236,7 +236,7 @@ export class UniversalProviderTest {
 
       const streamResult = await sdk.stream({
         input: { text: "Count from 1 to 3, one number per line." },
-        provider: providerName as UnknownRecord,
+        provider: providerName,
         maxTokens: 2000,
         temperature: 0,
       });
@@ -319,7 +319,7 @@ export class UniversalProviderTest {
       for (const params of paramTests) {
         const result = await sdk.generate({
           input: { text: 'Say "test" and describe the weather.' },
-          provider: providerName as UnknownRecord,
+          provider: providerName,
           ...params,
         });
 
@@ -375,7 +375,7 @@ export class UniversalProviderTest {
         input: {
           text: "What time is it right now? Please use tools to get the current time.",
         },
-        provider: providerName as UnknownRecord,
+        provider: providerName,
         maxTokens: 2000,
         // Tools should be enabled by default
       });
@@ -387,9 +387,7 @@ export class UniversalProviderTest {
         result.content?.toLowerCase().includes("time") ||
         result.content?.match(/\d{1,2}:\d{2}/) !== null;
 
-      const hasToolInfo =
-        !!(result as UnknownRecord).toolCalls ||
-        !!(result as UnknownRecord).toolResults;
+      const hasToolInfo = !!result.toolCalls || !!result.toolResults;
 
       console.log(
         `   ✅ Success (${duration}ms) - Tool integration available, mentions time: ${mentionsTime}`,
@@ -431,13 +429,13 @@ export class UniversalProviderTest {
 
       const result = await sdk.generate({
         input: { text: 'Say "analytics test"' },
-        provider: providerName as UnknownRecord,
+        provider: providerName,
         maxTokens: 2000,
         enableAnalytics: true,
       });
 
       const duration = Date.now() - startTime;
-      const hasAnalytics = !!(result as UnknownRecord).analytics;
+      const hasAnalytics = !!result.analytics;
 
       console.log(
         `   ✅ Success (${duration}ms) - Analytics enabled: ${hasAnalytics}`,
@@ -449,9 +447,10 @@ export class UniversalProviderTest {
         duration,
         details: {
           hasAnalytics,
-          analyticsKeys: hasAnalytics
-            ? Object.keys((result as UnknownRecord).analytics)
-            : [],
+          analyticsKeys:
+            hasAnalytics && result.analytics
+              ? Object.keys(result.analytics)
+              : [],
         },
       };
     } catch (error) {
@@ -482,13 +481,13 @@ export class UniversalProviderTest {
         input: {
           text: "Explain what artificial intelligence is in one sentence.",
         },
-        provider: providerName as UnknownRecord,
+        provider: providerName,
         maxTokens: 2000,
         enableEvaluation: false,
       });
 
       const duration = Date.now() - startTime;
-      const hasEvaluation = !!(result as UnknownRecord).evaluation;
+      const hasEvaluation = !!result.evaluation;
 
       console.log(
         `   ✅ Success (${duration}ms) - Evaluation enabled: ${hasEvaluation}`,
@@ -500,9 +499,10 @@ export class UniversalProviderTest {
         duration,
         details: {
           hasEvaluation,
-          evaluationKeys: hasEvaluation
-            ? Object.keys((result as UnknownRecord).evaluation)
-            : [],
+          evaluationKeys:
+            hasEvaluation && result.evaluation
+              ? Object.keys(result.evaluation)
+              : [],
         },
       };
     } catch (error) {
@@ -534,7 +534,7 @@ export class UniversalProviderTest {
       try {
         await sdk.generate({
           input: { text: "test" },
-          provider: providerName as UnknownRecord,
+          provider: providerName,
           maxTokens: -1, // Invalid value
         });
       } catch (error) {
@@ -883,4 +883,4 @@ export class UniversalProviderTest {
 }
 
 // Export for use in other tests
-export { ProviderTestConfig, TestResult, TestSuiteResult };
+export type { ProviderTestConfig, TestResult, TestSuiteResult };

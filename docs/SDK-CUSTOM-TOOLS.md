@@ -843,6 +843,44 @@ const result = await neurolink.generate({
 // 3. Call processRefund({ orderId: <most_recent>, amount: 50, reason: "damaged item" })
 ```
 
+## 🚀 Lighthouse Tool Integration (NEW!)
+
+NeuroLink now supports direct integration with Lighthouse's 60+ production-ready e-commerce and payment analytics tools through a simple import approach.
+
+### Quick Lighthouse Integration
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+import { juspayAnalyticsServer } from "lighthouse/src/lib/mcp/servers/juspay/analytics-server";
+
+const neurolink = new NeuroLink();
+
+// Register Lighthouse server with context mapping
+neurolink.registerLighthouseServer(juspayAnalyticsServer, {
+  contextMapping: {
+    shopId: "context.shopId",
+    merchantId: "context.merchantId",
+  },
+});
+
+// AI can now answer e-commerce questions using real production data
+const result = await neurolink.generate({
+  input: { text: "What were our payment success rates last month?" },
+  // AI automatically discovers and uses juspay_get-success-rate-by-time tool
+});
+```
+
+### Available Lighthouse Tools (60+ Tools)
+
+- **Payment Analytics**: Success rates, transaction trends, failure analysis
+- **E-commerce Analytics**: Conversion rates, order stats, shop performance
+- **Platform Integration**: Shopify, WooCommerce, Magento APIs
+- **Customer Tools**: Segmentation, lifetime value, behavior analysis
+- **Inventory Tools**: Stock management, recommendations
+- **Marketing Tools**: Campaign effectiveness, attribution
+
+**📄 Complete Integration Guide**: [docs/LIGHTHOUSE-UNIFIED-INTEGRATION.md](./LIGHTHOUSE-UNIFIED-INTEGRATION.md)
+
 ## 🌐 MCP Server Integration
 
 Beyond simple tool registration, NeuroLink SDK supports adding complete MCP (Model Context Protocol) servers for more complex tool ecosystems.

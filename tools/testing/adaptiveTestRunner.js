@@ -7,19 +7,157 @@
  */
 
 import { execSync } from "child_process";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
-import { join, dirname } from "path";
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+} from "fs";
+import { join, dirname, extname, resolve } from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, "../..");
 
+/**
+ * Helper function to determine if debug logging should be enabled
+ * @returns {boolean} True if debug logging is enabled
+ */
+function shouldDebugLog() {
+  return (
+    process.env.DEBUG_ADAPTIVE_RUNNER || process.env.NODE_ENV === "development"
+  );
+}
+
+/**
+ * Recursively finds files in a directory tree that match specified extensions, with multiple performance optimizations.
+ *
+ * Performance optimizations:
+ * - Uses Set for O(1) lookups of extensions and excluded directories.
+ * - Limits recursion depth and total files found for early exit and resource control.
+ * - Tracks canonical directories to avoid duplicate processing and symlink loops.
+ * - Caches resolved paths to minimize filesystem calls.
+ *
+ * @param {string} dir - The root directory to start searching from.
+ * @param {string[]} extensions - Array of file extensions to match (e.g., [".js", ".ts"]).
+ * @param {string[]} [excludeDirs=["node_modules", ".git", "dist", "build", ".next", "coverage"]] - Directories to exclude from search for performance and relevance.
+ * @param {number} [maxFiles=20] - Maximum number of files to find before stopping search. Default is 20 to prevent excessive resource usage.
+ * @returns {string[]} Array of absolute file paths matching the given extensions.
+ *
+ * @remarks
+ * - The default value for `maxFiles` (20) is chosen to balance thoroughness and performance, avoiding long search times in large codebases.
+ * - Depth limits and exclusion of common build/output directories further improve performance and relevance of results.
+ * - Symlink protection prevents infinite loops and duplicate results in complex directory structures.
+ */
+function findFilesByExtension(
+  dir,
+  extensions,
+  excludeDirs = ["node_modules", ".git", "dist", "build", ".next", "coverage"],
+  maxFiles = 20,
+) {
+  const files = [];
+  const extensionSet = new Set(extensions); // O(1) lookup instead of O(n)
+  const excludeSet = new Set(excludeDirs);
+  const processedDirs = new Set(); // Prevent duplicate directory processing
+  const resolveCache = new Map(); // Cache resolved paths for performance
+
+  function traverse(currentDir, depth = 0) {
+    // Early exit conditions for performance
+    if (depth > 10 || files.length >= maxFiles) {
+      return;
+    }
+
+    // Prevent processing same directory twice (symlink protection) with caching
+    let canonicalDir;
+    if (resolveCache.has(currentDir)) {
+      canonicalDir = resolveCache.get(currentDir);
+    } else {
+      canonicalDir = resolve(currentDir);
+      resolveCache.set(currentDir, canonicalDir);
+    }
+    if (processedDirs.has(canonicalDir)) {
+      return;
+    }
+    processedDirs.add(canonicalDir);
+
+    try {
+      // Use withFileTypes for better performance (no additional stat calls)
+      const entries = readdirSync(currentDir, { withFileTypes: true });
+
+      // Separate directories and files for optimized processing
+      const directories = [];
+      const targetFiles = [];
+
+      for (const entry of entries) {
+        if (files.length >= maxFiles) {
+          break; // Early exit if we have enough files
+        }
+
+        if (entry.isDirectory()) {
+          // Quick exclude check with O(1) lookup
+          if (!excludeSet.has(entry.name) && !entry.name.startsWith(".")) {
+            directories.push(entry.name);
+          }
+        } else if (entry.isFile()) {
+          const ext = extname(entry.name);
+          if (extensionSet.has(ext)) {
+            targetFiles.push(entry.name);
+          }
+        }
+      }
+
+      // Process files first (they're our target)
+      for (const fileName of targetFiles) {
+        if (files.length >= maxFiles) {
+          break;
+        }
+
+        const fullPath = join(currentDir, fileName);
+        // Optimized path conversion using replace with platform-agnostic handling
+        const relativePath = fullPath
+          .replace(ROOT_DIR, "")
+          .replace(/^[/\\]/, "");
+        files.push(relativePath);
+      }
+
+      // Process subdirectories only if we still need more files
+      if (files.length < maxFiles) {
+        for (const dirName of directories) {
+          if (files.length >= maxFiles) {
+            break;
+          }
+          const fullPath = join(currentDir, dirName);
+          traverse(fullPath, depth + 1);
+        }
+      }
+    } catch (error) {
+      // Skip directories we can't read (permissions, etc.)
+      // Conditional debug logging to help with troubleshooting while maintaining performance
+      if (shouldDebugLog()) {
+        console.warn(
+          `[AdaptiveTestRunner][DEBUG] Failed to read directory "${currentDir}": ${error.message}`,
+        );
+      }
+    }
+  }
+
+  traverse(dir);
+  return files;
+}
+
 class AdaptiveTestRunner {
   constructor() {
     this.changedFiles = new Set();
     this.testFiles = new Set();
     this.dependencyMap = new Map();
+
+    // Performance optimization caches
+    this.importCache = new Map();
+    this.testFileCache = new Map();
+
     this.config = {
       testPatterns: [
         "**/*.test.js",
@@ -158,23 +296,22 @@ class AdaptiveTestRunner {
   }
 
   /**
-   * Fallback: detect recently modified files
+   * Fallback: detect recently modified files using Node.js APIs
    */
   async detectRecentlyModified() {
     try {
-      const files = execSync(
-        'find . -name "*.js" -o -name "*.ts" -o -name "*.svelte" | head -20',
-        {
-          encoding: "utf8",
-          cwd: ROOT_DIR,
-        },
-      )
-        .trim()
-        .split("\n");
+      // Use Node.js APIs instead of shell commands
+      const extensions = [".js", ".ts", ".svelte"];
+      const files = findFilesByExtension(
+        ROOT_DIR,
+        extensions,
+        ["node_modules", ".git"],
+        20,
+      );
 
       files.forEach((file) => {
         if (file && !file.includes("node_modules") && !file.includes(".git")) {
-          this.changedFiles.add(file.replace("./", ""));
+          this.changedFiles.add(file);
         }
       });
 
@@ -250,34 +387,61 @@ class AdaptiveTestRunner {
   }
 
   /**
-   * Resolve relative import path
+   * Optimized resolve relative import path with caching and reduced file system calls
    */
   resolveImport(fromFile, importPath) {
+    // Static cache for resolved imports to avoid repeated file system calls
+    const cacheKey = `${fromFile}:${importPath}`;
+    // Cache already initialized in constructor
+
+    if (this.importCache.has(cacheKey)) {
+      return this.importCache.get(cacheKey);
+    }
+
+    let resolvedPath = null;
+
     try {
       const dir = dirname(fromFile);
       const resolved = join(dir, importPath);
 
-      // Try different extensions
+      // Optimized extensions array with most common first
       const extensions = [".js", ".ts", ".svelte", ".json"];
+
+      // Batch file existence checks to minimize system calls
+      const candidatePaths = [];
+
+      // Direct file with extensions
       for (const ext of extensions) {
-        const withExt = resolved + ext;
-        if (existsSync(join(ROOT_DIR, withExt))) {
-          return withExt;
-        }
+        candidatePaths.push(resolved + ext);
       }
 
-      // Try index files
+      // Index files
       for (const ext of extensions) {
-        const indexFile = join(resolved, "index" + ext);
-        if (existsSync(join(ROOT_DIR, indexFile))) {
-          return indexFile;
+        candidatePaths.push(join(resolved, "index" + ext));
+      }
+
+      // Check all candidates efficiently
+      for (const candidate of candidatePaths) {
+        const fullPath = join(ROOT_DIR, candidate);
+        try {
+          // Use a single statSync call instead of existsSync for better performance
+          const stats = statSync(fullPath);
+          if (stats.isFile()) {
+            resolvedPath = candidate;
+            break;
+          }
+        } catch {
+          // File doesn't exist, continue to next candidate
         }
       }
     } catch {
       // Ignore resolution errors
     }
 
-    return null;
+    // Cache the result (including null results to avoid repeated failures)
+    this.importCache.set(cacheKey, resolvedPath);
+
+    return resolvedPath;
   }
 
   /**
@@ -340,31 +504,59 @@ class AdaptiveTestRunner {
   }
 
   /**
-   * Find test file for a source file
+   * Optimized find test file for a source file with caching and reduced file system calls
    */
   findTestFile(sourceFile) {
+    // Cache test file lookups to avoid repeated file system operations
+    // Cache already initialized in constructor
+
+    if (this.testFileCache.has(sourceFile)) {
+      return this.testFileCache.get(sourceFile);
+    }
+
     const baseName = sourceFile.replace(/\.(js|ts|svelte)$/, "");
     const dir = dirname(sourceFile);
+    const fileName = baseName.split("/").pop(); // Get just the filename without path
 
-    // Common test file patterns
+    // Optimized test file patterns - ordered by likelihood of existence
     const patterns = [
+      // Most common patterns first
       `${baseName}.test.js`,
-      `${baseName}.spec.js`,
       `${baseName}.test.ts`,
+      `${baseName}.spec.js`,
       `${baseName}.spec.ts`,
-      join(dir, "__tests__", `${baseName}.js`),
-      join(dir, "__tests__", `${baseName}.ts`),
+      // Test directory patterns
+      join(dir, "__tests__", `${fileName}.test.js`),
+      join(dir, "__tests__", `${fileName}.test.ts`),
+      join(dir, "__tests__", `${fileName}.spec.js`),
+      join(dir, "__tests__", `${fileName}.spec.ts`),
+      // Global test patterns
+      `test/${baseName}.test.js`,
+      `test/${baseName}.spec.js`,
       `tests/${baseName}.test.js`,
       `tests/${baseName}.spec.js`,
     ];
 
+    let foundTestFile = null;
+
+    // Batch check using statSync for better performance
     for (const pattern of patterns) {
-      if (existsSync(join(ROOT_DIR, pattern))) {
-        return pattern;
+      const fullPath = join(ROOT_DIR, pattern);
+      try {
+        const stats = statSync(fullPath);
+        if (stats.isFile()) {
+          foundTestFile = pattern;
+          break;
+        }
+      } catch {
+        // File doesn't exist, continue to next pattern
       }
     }
 
-    return null;
+    // Cache the result (including null results to avoid repeated lookups)
+    this.testFileCache.set(sourceFile, foundTestFile);
+
+    return foundTestFile;
   }
 
   /**
@@ -480,6 +672,27 @@ class AdaptiveTestRunner {
 
     // Efficiency = (selected tests / changed files) * 100, capped at 100%
     return Math.min(100, Math.round((selectedCount / changedCount) * 100));
+  }
+
+  /**
+   * Clear performance caches for memory management
+   * Useful for long-running processes or between test runs
+   */
+  clearCaches() {
+    this.importCache.clear();
+    this.testFileCache.clear();
+    console.log("🧹 Performance caches cleared");
+  }
+
+  /**
+   * Get cache statistics for performance monitoring
+   */
+  getCacheStats() {
+    return {
+      importCacheSize: this.importCache.size,
+      testFileCacheSize: this.testFileCache.size,
+      timestamp: Date.now(),
+    };
   }
 }
 

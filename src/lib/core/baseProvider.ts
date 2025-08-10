@@ -16,6 +16,7 @@ import type { TokenUsage } from "../types/providers.js";
 import { logger } from "../utils/logger.js";
 import { SYSTEM_LIMITS } from "../core/constants.js";
 import { directAgentTools } from "../agent/directTools.js";
+import { getSafeMaxTokens } from "../utils/tokenLimits.js";
 
 // Interface for AI SDK generate result with steps
 interface AISDKGenerateResult {
@@ -325,6 +326,40 @@ export abstract class BaseProvider implements AIProvider {
       // Remove duplicates
       const uniqueToolsUsed = [...new Set(toolsUsed)];
 
+      // ✅ Extract tool executions from AI SDK result
+      const toolExecutions: Array<{
+        name: string;
+        input: Record<string, unknown>;
+        output: unknown;
+        duration: number;
+      }> = [];
+
+      // Extract tool executions from AI SDK result steps
+
+      // Extract tool executions from steps (where tool results are stored)
+      if (
+        (result as unknown as AISDKGenerateResult).steps &&
+        Array.isArray((result as unknown as AISDKGenerateResult).steps)
+      ) {
+        for (const step of (result as unknown as AISDKGenerateResult).steps ||
+          []) {
+          // Focus only on tool results (which have complete execution data)
+          // Tool calls are just the requests, tool results contain the actual execution data
+          if (step?.toolResults && Array.isArray(step.toolResults)) {
+            for (const toolResult of step.toolResults) {
+              const trRecord = toolResult as UnknownRecord;
+
+              toolExecutions.push({
+                name: (trRecord.toolName as string) || "unknown",
+                input: (trRecord.args as Record<string, unknown>) || {},
+                output: (trRecord.result as unknown) || "success",
+                duration: 0, // AI SDK doesn't track duration
+              });
+            }
+          }
+        }
+      }
+
       // Format the result with tool executions included
       const enhancedResult: EnhancedGenerateResult = {
         content: result.text,
@@ -353,6 +388,7 @@ export abstract class BaseProvider implements AIProvider {
           : [],
         toolResults: result.toolResults as ToolResult[],
         toolsUsed: uniqueToolsUsed,
+        toolExecutions, // ✅ Add extracted tool executions
       };
 
       // Enhanced result with analytics and evaluation
@@ -533,21 +569,33 @@ export abstract class BaseProvider implements AIProvider {
     optionsOrPrompt: TextGenerationOptions | string,
   ): TextGenerationOptions {
     if (typeof optionsOrPrompt === "string") {
+      const safeMaxTokens = getSafeMaxTokens(this.providerName, this.modelName);
       return {
         prompt: optionsOrPrompt,
         provider: this.providerName,
         model: this.modelName,
+        maxTokens: safeMaxTokens,
       };
     }
 
     // Handle both prompt and input.text formats
     const prompt = optionsOrPrompt.prompt || optionsOrPrompt.input?.text || "";
+    const modelName = optionsOrPrompt.model || this.modelName;
+    const providerName = optionsOrPrompt.provider || this.providerName;
+
+    // Apply safe maxTokens based on provider and model
+    const safeMaxTokens = getSafeMaxTokens(
+      providerName,
+      modelName,
+      optionsOrPrompt.maxTokens,
+    );
 
     return {
       ...optionsOrPrompt,
       prompt,
-      provider: optionsOrPrompt.provider || this.providerName,
-      model: optionsOrPrompt.model || this.modelName,
+      provider: providerName,
+      model: modelName,
+      maxTokens: safeMaxTokens,
     };
   }
 
@@ -555,17 +603,30 @@ export abstract class BaseProvider implements AIProvider {
     optionsOrPrompt: StreamOptions | string,
   ): StreamOptions {
     if (typeof optionsOrPrompt === "string") {
+      const safeMaxTokens = getSafeMaxTokens(this.providerName, this.modelName);
       return {
         input: { text: optionsOrPrompt },
         provider: this.providerName,
         model: this.modelName,
+        maxTokens: safeMaxTokens,
       };
     }
 
+    const modelName = optionsOrPrompt.model || this.modelName;
+    const providerName = optionsOrPrompt.provider || this.providerName;
+
+    // Apply safe maxTokens based on provider and model
+    const safeMaxTokens = getSafeMaxTokens(
+      providerName,
+      modelName,
+      optionsOrPrompt.maxTokens,
+    );
+
     return {
       ...optionsOrPrompt,
-      provider: optionsOrPrompt.provider || this.providerName,
-      model: optionsOrPrompt.model || this.modelName,
+      provider: providerName,
+      model: modelName,
+      maxTokens: safeMaxTokens,
     };
   }
 

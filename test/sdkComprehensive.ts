@@ -232,4 +232,228 @@ describe("SDK Comprehensive Tests", () => {
       timeout,
     );
   });
+
+  // ✅ FACTORY PATTERN INTEGRATION TESTS - Testing Phase 1 Factory Infrastructure via SDK
+  describe("Factory Pattern Integration Tests (Phase 1 Features)", () => {
+    beforeAll(() => {
+      console.log("🧪 Testing Factory Pattern Integration with SDK Methods");
+      console.log("Using provider: google-ai");
+    });
+
+    it(
+      "should test SDK with domain configuration and evaluation",
+      async () => {
+        console.log("🏥 Testing healthcare domain configuration via SDK...");
+
+        const testCode = `
+        import('./dist/lib/neurolink.js').then(({NeuroLink}) => {
+          const sdk = new NeuroLink();
+          return sdk.generate({
+            input: {text: 'Analyze patient symptoms: fever, cough, fatigue. Provide differential diagnosis.'},
+            provider: 'google-ai',
+            maxTokens: 300,
+            evaluationDomain: 'healthcare',
+            enableEvaluation: true,
+            enableAnalytics: true
+          });
+        }).then(r => {
+          console.log('SDK_DOMAIN_SUCCESS:', !!(r.content && r.evaluation));
+          console.log('SDK_EVALUATION_DOMAIN:', r.evaluation?.evaluationDomain || 'none');
+          console.log('SDK_ANALYTICS_PRESENT:', !!r.analytics);
+          console.log('SDK_CONTENT_LENGTH:', r.content?.length || 0);
+        }).catch(e => {
+          console.log('SDK_DOMAIN_ERROR:', e.message);
+        });
+      `;
+
+        const tmpFile = path.join(process.cwd(), "tmp-sdk-domain-test.js");
+        await fs.writeFile(tmpFile, testCode);
+
+        const { stdout } = await execAsync(`node ${tmpFile}`, {
+          env: {
+            ...process.env,
+            GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY,
+          },
+        });
+
+        await fs.unlink(tmpFile);
+
+        expect(stdout).toContain("SDK_DOMAIN_SUCCESS: true");
+        expect(stdout).toContain("SDK_EVALUATION_DOMAIN: healthcare");
+        expect(stdout).toContain("SDK_ANALYTICS_PRESENT: true");
+        expect(stdout).toMatch(/SDK_CONTENT_LENGTH: [1-9]\d+/); // At least 10+ characters
+
+        console.log("✅ Healthcare domain configuration working via SDK");
+      },
+      timeout,
+    );
+
+    it(
+      "should test SDK with analytics domain configuration",
+      async () => {
+        console.log("📊 Testing analytics domain configuration via SDK...");
+
+        const testCode = `
+        import('./dist/lib/neurolink.js').then(({NeuroLink}) => {
+          const sdk = new NeuroLink();
+          return sdk.generate({
+            input: {text: 'Analyze quarterly sales data: Q1: $100k, Q2: $150k, Q3: $120k. Calculate growth trends.'},
+            provider: 'google-ai',
+            maxTokens: 300,
+            evaluationDomain: 'analytics',
+            enableEvaluation: true,
+            enableAnalytics: true
+          });
+        }).then(r => {
+          console.log('SDK_ANALYTICS_DOMAIN_SUCCESS:', !!(r.content && r.evaluation));
+          console.log('SDK_ANALYTICS_EVALUATION_DOMAIN:', r.evaluation?.evaluationDomain || 'none');
+          console.log('SDK_ANALYTICS_DATA_PRESENT:', !!r.analytics);
+          console.log('SDK_ANALYTICS_CONTENT_LENGTH:', r.content?.length || 0);
+        }).catch(e => {
+          console.log('SDK_ANALYTICS_DOMAIN_ERROR:', e.message);
+        });
+      `;
+
+        const tmpFile = path.join(
+          process.cwd(),
+          "tmp-sdk-analytics-domain-test.js",
+        );
+        await fs.writeFile(tmpFile, testCode);
+
+        const { stdout } = await execAsync(`node ${tmpFile}`, {
+          env: {
+            ...process.env,
+            GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY,
+          },
+        });
+
+        await fs.unlink(tmpFile);
+
+        expect(stdout).toContain("SDK_ANALYTICS_DOMAIN_SUCCESS: true");
+        expect(stdout).toContain("SDK_ANALYTICS_EVALUATION_DOMAIN: analytics");
+        expect(stdout).toContain("SDK_ANALYTICS_DATA_PRESENT: true");
+        expect(stdout).toMatch(/SDK_ANALYTICS_CONTENT_LENGTH: [1-9]\d+/); // At least 10+ characters
+
+        console.log("✅ Analytics domain configuration working via SDK");
+      },
+      timeout,
+    );
+
+    it(
+      "should test SDK factory pattern with context integration",
+      async () => {
+        console.log(
+          "🔄 Testing factory pattern with context integration via SDK...",
+        );
+
+        const testCode = `
+        import('./dist/lib/neurolink.js').then(({NeuroLink}) => {
+          const sdk = new NeuroLink();
+          const contextData = {
+            "organizationId": "health-corp",
+            "department": "research",
+            "projectId": "clinical-trial-2024",
+            "userId": "researcher123"
+          };
+          
+          return sdk.generate({
+            input: {
+              text: 'Analyze clinical trial data for cardiovascular drug efficacy', 
+              context: contextData
+            },
+            provider: 'google-ai',
+            maxTokens: 300,
+            evaluationDomain: 'healthcare',
+            enableEvaluation: true,
+            enableAnalytics: true
+          });
+        }).then(r => {
+          console.log('SDK_CONTEXT_FACTORY_SUCCESS:', !!(r.content && r.evaluation && r.analytics));
+          console.log('SDK_CONTEXT_EVALUATION_DOMAIN:', r.evaluation?.evaluationDomain || 'none');
+          console.log('SDK_CONTEXT_ANALYTICS_PRESENT:', !!r.analytics);
+          console.log('SDK_CONTEXT_CONTENT_LENGTH:', r.content?.length || 0);
+        }).catch(e => {
+          console.log('SDK_CONTEXT_FACTORY_ERROR:', e.message);
+        });
+      `;
+
+        const tmpFile = path.join(
+          process.cwd(),
+          "tmp-sdk-context-factory-test.js",
+        );
+        await fs.writeFile(tmpFile, testCode);
+
+        const { stdout } = await execAsync(`node ${tmpFile}`, {
+          env: {
+            ...process.env,
+            GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY,
+          },
+        });
+
+        await fs.unlink(tmpFile);
+
+        expect(stdout).toContain("SDK_CONTEXT_FACTORY_SUCCESS: true");
+        expect(stdout).toContain("SDK_CONTEXT_EVALUATION_DOMAIN: healthcare");
+        expect(stdout).toContain("SDK_CONTEXT_ANALYTICS_PRESENT: true");
+        expect(stdout).toMatch(/SDK_CONTEXT_CONTENT_LENGTH: [1-9]\d+/); // At least 10+ characters
+
+        console.log(
+          "✅ Factory pattern with context integration working via SDK",
+        );
+      },
+      timeout,
+    );
+
+    it(
+      "should test SDK factory pattern backwards compatibility",
+      async () => {
+        console.log(
+          "⚡ Testing factory pattern backwards compatibility via SDK...",
+        );
+
+        const testCode = `
+        import('./dist/lib/neurolink.js').then(({NeuroLink}) => {
+          const sdk = new NeuroLink();
+          
+          // Test that basic SDK usage still works without domain features
+          return sdk.generate({
+            input: {text: 'Simple test without domain features'},
+            provider: 'google-ai',
+            maxTokens: 100
+          });
+        }).then(r => {
+          console.log('SDK_BACKWARDS_COMPAT_SUCCESS:', !!r.content);
+          console.log('SDK_BACKWARDS_COMPAT_CONTENT_LENGTH:', r.content?.length || 0);
+          console.log('SDK_BACKWARDS_COMPAT_NO_EVALUATION:', !r.evaluation);
+        }).catch(e => {
+          console.log('SDK_BACKWARDS_COMPAT_ERROR:', e.message);
+        });
+      `;
+
+        const tmpFile = path.join(
+          process.cwd(),
+          "tmp-sdk-backwards-compat-test.js",
+        );
+        await fs.writeFile(tmpFile, testCode);
+
+        const { stdout } = await execAsync(`node ${tmpFile}`, {
+          env: {
+            ...process.env,
+            GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY,
+          },
+        });
+
+        await fs.unlink(tmpFile);
+
+        expect(stdout).toContain("SDK_BACKWARDS_COMPAT_SUCCESS: true");
+        expect(stdout).toContain("SDK_BACKWARDS_COMPAT_NO_EVALUATION: true");
+        expect(stdout).toMatch(/SDK_BACKWARDS_COMPAT_CONTENT_LENGTH: [1-9]\d+/); // At least 10+ characters
+
+        console.log(
+          "✅ Factory pattern backwards compatibility verified via SDK",
+        );
+      },
+      timeout,
+    );
+  });
 });

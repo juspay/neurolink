@@ -34,6 +34,29 @@ export interface GenerateOptions {
   evaluationDomain?: string;
   toolUsageContext?: string;
   conversationHistory?: Array<{ role: string; content: string }>;
+
+  // Factory configuration support
+  factoryConfig?: {
+    domainType?: string;
+    domainConfig?: Record<string, unknown>;
+    enhancementType?:
+      | "domain-configuration"
+      | "streaming-optimization"
+      | "mcp-integration"
+      | "legacy-migration"
+      | "context-conversion";
+    preserveLegacyFields?: boolean;
+    validateDomainData?: boolean;
+  };
+
+  // Streaming configuration support
+  streaming?: {
+    enabled?: boolean;
+    chunkSize?: number;
+    bufferSize?: number;
+    enableProgress?: boolean;
+    fallbackToGenerate?: boolean;
+  };
 }
 
 /**
@@ -80,6 +103,37 @@ export interface GenerateResult {
   // Analytics and evaluation
   analytics?: AnalyticsData;
   evaluation?: EvaluationData;
+
+  // Factory enhancement metadata
+  factoryMetadata?: {
+    enhancementApplied: boolean;
+    enhancementType?: string;
+    domainType?: string;
+    processingTime?: number;
+    configurationUsed?: Record<string, unknown>;
+    migrationPerformed?: boolean;
+    legacyFieldsPreserved?: boolean;
+  };
+
+  // Streaming integration metadata
+  streamingMetadata?: {
+    streamingUsed: boolean;
+    fallbackToGenerate?: boolean;
+    chunkCount?: number;
+    streamingDuration?: number;
+    streamId?: string;
+    bufferOptimization?: boolean;
+  };
+}
+
+/**
+ * Unified options for both generation and streaming
+ * Supports factory patterns and domain configuration
+ */
+export interface UnifiedGenerationOptions extends GenerateOptions {
+  // Streaming preference (if enabled, attempts streaming first)
+  preferStreaming?: boolean;
+  streamingFallback?: boolean;
 }
 
 /**
@@ -89,4 +143,20 @@ export interface EnhancedProvider {
   generate(options: GenerateOptions): Promise<GenerateResult>;
   getName(): string;
   isAvailable(): Promise<boolean>;
+}
+
+/**
+ * Factory-enhanced provider interface
+ * Supports domain configuration and streaming optimizations
+ */
+export interface FactoryEnhancedProvider extends EnhancedProvider {
+  generateWithFactory(
+    options: UnifiedGenerationOptions,
+  ): Promise<GenerateResult>;
+  getDomainSupport(): string[];
+  getStreamingCapabilities(): {
+    supportsStreaming: boolean;
+    maxChunkSize: number;
+    bufferOptimizations: boolean;
+  };
 }

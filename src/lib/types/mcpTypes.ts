@@ -1,6 +1,6 @@
 /**
  * MCP Types for In-Memory Server Support
- * Enables Lighthouse and other integrations to register tools directly
+ * Enables various integrations to register tools directly
  */
 
 import type { JsonValue, JsonObject } from "./common.js";

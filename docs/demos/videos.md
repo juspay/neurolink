@@ -126,7 +126,7 @@ Comprehensive workflow automation demonstration:
 
 ### Executive Decision Support
 
-**[Business Applications Demo](../visual-content/videos/business/business-use-cases.mp4)** *(General Business Demo)*
+**[Business Applications Demo](../visual-content/videos/business/business-use-cases.mp4)** _(General Business Demo)_
 _Duration: 4:15 | Format: MP4_
 
 General business use cases demonstration covering strategic analysis, sales intelligence, and financial planning:
@@ -174,7 +174,7 @@ Business process analysis and improvement:
 
 ### Software Development
 
-**[Developer Tools Demo](../visual-content/videos/demo/developer-tools.mp4)** *(General Developer Demo)*
+**[Developer Tools Demo](../visual-content/videos/demo/developer-tools.mp4)** _(General Developer Demo)_
 _Duration: 5:30 | Format: MP4_
 
 General developer workflow demonstration covering multiple development scenarios:

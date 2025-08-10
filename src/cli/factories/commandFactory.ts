@@ -1,7 +1,7 @@
 import type { CommandModule, Argv } from "yargs";
 import { NeuroLink } from "../../lib/neurolink.js";
 import type { AIProviderName } from "../../lib/index.js";
-import type { UnknownRecord } from "../../lib/types/common.js";
+import type { UnknownRecord, JsonValue } from "../../lib/types/common.js";
 import type {
   BaseCommandArgs,
   GenerateCommandArgs,
@@ -43,6 +43,7 @@ interface CLICommandArgs extends BaseCommandArgs {
   disableTools?: boolean;
   enableAnalytics?: boolean;
   enableEvaluation?: boolean;
+  domain?: string;
   outputFormat?: "text" | "structured" | "json";
   output?: string;
   delay?: number;
@@ -62,6 +63,7 @@ interface CLICommandArgs extends BaseCommandArgs {
   context?: Record<string, unknown>;
   noColor?: boolean;
   configFile?: string;
+  dryRun?: boolean;
   [key: string]: unknown;
 }
 
@@ -156,6 +158,22 @@ export class CLICommandFactory {
       default: false,
       description: "Enable AI response quality evaluation",
     },
+    domain: {
+      type: "string" as const,
+      choices: [
+        "healthcare",
+        "finance",
+        "analytics",
+        "ecommerce",
+        "education",
+        "legal",
+        "technology",
+        "generic",
+        "auto",
+      ],
+      description: "Domain type for specialized processing and optimization",
+      alias: "d",
+    },
     evaluationDomain: {
       type: "string" as const,
       description:
@@ -166,10 +184,10 @@ export class CLICommandFactory {
       description:
         "Tool usage context for evaluation (e.g., 'Used sales-data MCP tools')",
     },
-    lighthouseStyle: {
+    domainAware: {
       type: "boolean" as const,
       default: false,
-      description: "Use Lighthouse-compatible domain-aware evaluation",
+      description: "Use domain-aware evaluation",
     },
     context: {
       type: "string" as const,
@@ -197,6 +215,11 @@ export class CLICommandFactory {
     configFile: {
       type: "string" as const,
       description: "Path to custom configuration file",
+    },
+    dryRun: {
+      type: "boolean" as const,
+      default: false,
+      description: "Test command without making actual API calls (for testing)",
     },
   };
 
@@ -266,9 +289,10 @@ export class CLICommandFactory {
       disableTools: argv.disableTools,
       enableAnalytics: argv.enableAnalytics,
       enableEvaluation: argv.enableEvaluation,
+      domain: argv.domain,
       evaluationDomain: argv.evaluationDomain,
       toolUsageContext: argv.toolUsageContext,
-      lighthouseStyle: argv.lighthouseStyle,
+      domainAware: argv.domainAware,
       context: processedContext,
       contextConfig,
       debug: argv.debug,
@@ -278,6 +302,7 @@ export class CLICommandFactory {
       delay: argv.delay,
       noColor: argv.noColor,
       configFile: argv.configFile,
+      dryRun: argv.dryRun,
     };
   }
 
@@ -687,6 +712,62 @@ export class CLICommandFactory {
       : ora("🔍 Checking AI provider status...\n").start();
 
     try {
+      // Handle dry-run mode for provider status
+      if (argv.dryRun) {
+        const mockResults = [
+          {
+            provider: "google-ai",
+            status: "working",
+            configured: true,
+            responseTime: 150,
+            model: "gemini-2.5-flash",
+          },
+          {
+            provider: "openai",
+            status: "working",
+            configured: true,
+            responseTime: 200,
+            model: "gpt-4o-mini",
+          },
+          {
+            provider: "anthropic",
+            status: "working",
+            configured: true,
+            responseTime: 180,
+            model: "claude-3-haiku",
+          },
+          { provider: "bedrock", status: "not configured", configured: false },
+          { provider: "vertex", status: "not configured", configured: false },
+        ];
+
+        if (spinner) {
+          spinner.succeed(
+            "Provider check complete (dry-run): 3/3 providers working",
+          );
+        }
+
+        // Display mock results
+        for (const result of mockResults) {
+          const status =
+            result.status === "working"
+              ? chalk.green("✅ Working")
+              : result.status === "failed"
+                ? chalk.red("❌ Failed")
+                : chalk.gray("⚪ Not configured");
+
+          const time = result.responseTime ? ` (${result.responseTime}ms)` : "";
+          const model = result.model ? ` [${result.model}]` : "";
+          logger.always(`${result.provider}: ${status}${time}${model}`);
+        }
+
+        if (argv.verbose && !argv.quiet) {
+          logger.always(chalk.blue("\n📋 Detailed Results (Dry-run):"));
+          logger.always(JSON.stringify(mockResults, null, 2));
+        }
+
+        return;
+      }
+
       // Use SDK's provider diagnostic method instead of manual testing
       const sdk = new NeuroLink();
       const results = await sdk.getProviderStatus({ quiet: !!argv.quiet });
@@ -791,6 +872,60 @@ export class CLICommandFactory {
         }
       }
 
+      // Handle dry-run mode for testing
+      if (options.dryRun) {
+        const mockResult = {
+          content: "Mock response for testing purposes",
+          provider: options.provider || "auto",
+          model: options.model || "test-model",
+          usage: {
+            inputTokens: 10,
+            outputTokens: 15,
+            totalTokens: 25,
+          },
+          responseTime: 150,
+          analytics: options.enableAnalytics
+            ? {
+                provider: options.provider || "auto",
+                model: options.model || "test-model",
+                tokens: { input: 10, output: 15, total: 25 },
+                cost: 0.00025,
+                responseTime: 150,
+                context: contextMetadata,
+              }
+            : undefined,
+          evaluation: options.enableEvaluation
+            ? {
+                relevance: 8,
+                accuracy: 9,
+                completeness: 8,
+                overall: 8.3,
+                isOffTopic: false,
+                alertSeverity: "none" as const,
+                reasoning: "Test evaluation response",
+                evaluationModel: "test-evaluator",
+                evaluationTime: 50,
+              }
+            : undefined,
+        };
+
+        if (spinner) {
+          spinner.succeed(chalk.green("✅ Dry-run completed successfully!"));
+        }
+
+        this.handleOutput(mockResult, options);
+
+        if (options.debug) {
+          logger.debug("\n" + chalk.yellow("Debug Information (Dry-run):"));
+          logger.debug("Provider:", mockResult.provider);
+          logger.debug("Model:", mockResult.model);
+          logger.debug("Mode: DRY-RUN (no actual API calls made)");
+        }
+
+        process.exit(0);
+        return;
+      }
+
       const sdk = new NeuroLink();
       const result = await sdk.generate({
         input: { text: inputText },
@@ -806,6 +941,13 @@ export class CLICommandFactory {
         evaluationDomain: options.evaluationDomain as string | undefined,
         toolUsageContext: options.toolUsageContext as string | undefined,
         context: contextMetadata,
+        factoryConfig: options.domain
+          ? {
+              domainType: options.domain,
+              enhancementType: "domain-configuration",
+              validateDomainData: true,
+            }
+          : undefined,
       });
 
       if (spinner) {
@@ -909,6 +1051,90 @@ export class CLICommandFactory {
         }
       }
 
+      // Handle dry-run mode for testing
+      if (options.dryRun) {
+        if (!options.quiet) {
+          logger.always(chalk.blue("🔄 Dry-run streaming..."));
+        }
+
+        // Simulate streaming output
+        const chunks = [
+          "Mock ",
+          "streaming ",
+          "response ",
+          "for ",
+          "testing ",
+          "purposes",
+        ];
+        let fullContent = "";
+
+        for (const chunk of chunks) {
+          process.stdout.write(chunk);
+          fullContent += chunk;
+          await new Promise((resolve) => setTimeout(resolve, 50)); // Simulate streaming delay
+        }
+
+        if (!options.quiet) {
+          process.stdout.write("\n");
+        }
+
+        // Mock analytics and evaluation for dry-run
+        if (options.enableAnalytics) {
+          const mockAnalytics: AnalyticsData = {
+            provider: options.provider || "auto",
+            model: options.model || "test-model",
+            requestDuration: 300,
+            tokenUsage: {
+              inputTokens: 10,
+              outputTokens: 15,
+              totalTokens: 25,
+            },
+            timestamp: Date.now(),
+            context: contextMetadata as JsonValue,
+          };
+
+          const mockGenerateResult: GenerateResult = {
+            success: true,
+            content: fullContent,
+            analytics: mockAnalytics,
+            model: mockAnalytics.model,
+            toolsUsed: [],
+          };
+
+          const analyticsDisplay =
+            this.formatAnalyticsForTextMode(mockGenerateResult);
+          logger.always(analyticsDisplay);
+        }
+
+        if (options.enableEvaluation) {
+          logger.always(chalk.blue("\n📊 Response Evaluation (Dry-run):"));
+          logger.always(`   Relevance: 8/10`);
+          logger.always(`   Accuracy: 9/10`);
+          logger.always(`   Completeness: 8/10`);
+          logger.always(`   Overall: 8.3/10`);
+          logger.always(`   Reasoning: Test evaluation response`);
+        }
+
+        if (options.output) {
+          fs.writeFileSync(options.output, fullContent);
+          if (!options.quiet) {
+            logger.always(`\nOutput saved to ${options.output}`);
+          }
+        }
+
+        if (options.debug) {
+          logger.debug(
+            "\n" + chalk.yellow("Debug Information (Dry-run Streaming):"),
+          );
+          logger.debug("Provider:", options.provider || "auto");
+          logger.debug("Model:", options.model || "test-model");
+          logger.debug("Mode: DRY-RUN (no actual API calls made)");
+        }
+
+        process.exit(0);
+        return;
+      }
+
       const sdk = new NeuroLink();
       const stream = await sdk.stream({
         input: { text: inputText },
@@ -922,6 +1148,13 @@ export class CLICommandFactory {
         enableAnalytics: options.enableAnalytics,
         enableEvaluation: options.enableEvaluation,
         context: contextMetadata,
+        factoryConfig: options.domain
+          ? {
+              domainType: options.domain,
+              enhancementType: "domain-configuration",
+              validateDomainData: true,
+            }
+          : undefined,
       });
 
       let fullContent = "";
@@ -1071,6 +1304,19 @@ export class CLICommandFactory {
         }
 
         try {
+          // Handle dry-run mode for batch processing
+          if (options.dryRun) {
+            results.push({
+              prompt: prompts[i],
+              response: `Mock batch response ${i + 1} for testing purposes`,
+            });
+
+            if (spinner) {
+              spinner.render();
+            }
+            continue;
+          }
+
           // Process context for each batch item
           let inputText = prompts[i];
           let contextMetadata: UnknownRecord | undefined;
@@ -1105,6 +1351,13 @@ export class CLICommandFactory {
             enableAnalytics: options.enableAnalytics,
             enableEvaluation: options.enableEvaluation,
             context: contextMetadata,
+            factoryConfig: options.domain
+              ? {
+                  domainType: options.domain,
+                  enhancementType: "domain-configuration",
+                  validateDomainData: true,
+                }
+              : undefined,
           });
 
           results.push({ prompt: prompts[i], response: result.content });
@@ -1230,8 +1483,149 @@ export class CLICommandFactory {
    * Execute completion command
    */
   private static async executeCompletion(argv: CLICommandArgs) {
-    // This would need to be implemented with the actual CLI instance
-    logger.always("# Completion script would be generated here");
-    logger.always("# This requires access to the yargs CLI instance");
+    try {
+      // Generate shell completion script as concatenated strings to avoid template literal issues
+      const completionScript =
+        "#!/usr/bin/env bash\n\n" +
+        "# NeuroLink CLI Bash Completion Script\n" +
+        "# Generated by: neurolink completion\n" +
+        "# \n" +
+        "# Installation instructions:\n" +
+        "#   1. Save this script to a file (e.g., ~/.neurolink-completion.sh)\n" +
+        "#   2. Add to your shell profile: source ~/.neurolink-completion.sh\n" +
+        "#   3. Restart your shell or run: source ~/.bashrc\n\n" +
+        "_neurolink_completion() {\n" +
+        "    local cur prev opts base\n" +
+        "    COMPREPLY=()\n" +
+        '    cur="${COMP_WORDS[COMP_CWORD]}"\n' +
+        '    prev="${COMP_WORDS[COMP_CWORD - 1]}"\n\n' +
+        "    # Main commands\n" +
+        "    if [[ ${COMP_CWORD} -eq 1 ]]; then\n" +
+        '        opts="generate gen stream batch provider status models mcp discover config get-best-provider completion"\n' +
+        '        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )\n' +
+        "        return 0\n" +
+        "    fi\n\n" +
+        "    # Subcommand completion\n" +
+        '    case "${COMP_WORDS[1]}" in\n' +
+        "        generate|gen)\n" +
+        '            case "${prev}" in\n' +
+        "                --provider|-p)\n" +
+        '                    COMPREPLY=( $(compgen -W "auto openai bedrock vertex googleVertex anthropic azure google-ai huggingface ollama mistral litellm" -- ${cur}) )\n' +
+        "                    return 0\n" +
+        "                    ;;\n" +
+        "                --format|-f|--output-format)\n" +
+        '                    COMPREPLY=( $(compgen -W "text json table" -- ${cur}) )\n' +
+        "                    return 0\n" +
+        "                    ;;\n" +
+        "                --model|-m)\n" +
+        '                    COMPREPLY=( $(compgen -W "gemini-2.5-pro gemini-2.5-flash gpt-4o gpt-4o-mini claude-3-5-sonnet" -- ${cur}) )\n' +
+        "                    return 0\n" +
+        "                    ;;\n" +
+        "                *)\n" +
+        '                    opts="--provider --model --temperature --maxTokens --system --format --output --timeout --delay --disableTools --enableAnalytics --enableEvaluation --debug --quiet --noColor --configFile --dryRun"\n' +
+        '                    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )\n' +
+        "                    return 0\n" +
+        "                    ;;\n" +
+        "            esac\n" +
+        "            ;;\n" +
+        "        mcp)\n" +
+        '            case "${COMP_WORDS[2]}" in\n' +
+        "                install)\n" +
+        "                    if [[ ${COMP_CWORD} -eq 3 ]]; then\n" +
+        '                        COMPREPLY=( $(compgen -W "filesystem github postgres sqlite brave puppeteer git memory bitbucket" -- ${cur}) )\n' +
+        "                        return 0\n" +
+        "                    fi\n" +
+        "                    ;;\n" +
+        "                *)\n" +
+        "                    if [[ ${COMP_CWORD} -eq 2 ]]; then\n" +
+        '                        opts="list install add test exec remove"\n' +
+        '                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )\n' +
+        "                        return 0\n" +
+        "                    fi\n" +
+        "                    ;;\n" +
+        "            esac\n" +
+        "            ;;\n" +
+        "        provider)\n" +
+        "            if [[ ${COMP_CWORD} -eq 2 ]]; then\n" +
+        '                COMPREPLY=( $(compgen -W "status" -- ${cur}) )\n' +
+        "                return 0\n" +
+        "            fi\n" +
+        "            ;;\n" +
+        "        models)\n" +
+        "            if [[ ${COMP_CWORD} -eq 2 ]]; then\n" +
+        '                COMPREPLY=( $(compgen -W "list test" -- ${cur}) )\n' +
+        "                return 0\n" +
+        "            fi\n" +
+        "            ;;\n" +
+        "        config)\n" +
+        "            if [[ ${COMP_CWORD} -eq 2 ]]; then\n" +
+        '                COMPREPLY=( $(compgen -W "init show validate reset export" -- ${cur}) )\n' +
+        "                return 0\n" +
+        "            fi\n" +
+        "            ;;\n" +
+        "        *)\n" +
+        "            # Global options for all commands\n" +
+        '            opts="--help --version --debug --quiet --noColor --configFile"\n' +
+        '            COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )\n' +
+        "            return 0\n" +
+        "            ;;\n" +
+        "    esac\n\n" +
+        "    # File completion for certain options\n" +
+        '    case "${prev}" in\n' +
+        "        --output|-o|--configFile)\n" +
+        "            COMPREPLY=( $(compgen -f -- ${cur}) )\n" +
+        "            return 0\n" +
+        "            ;;\n" +
+        "        batch)\n" +
+        "            COMPREPLY=( $(compgen -f -- ${cur}) )\n" +
+        "            return 0\n" +
+        "            ;;\n" +
+        "    esac\n\n" +
+        "    return 0\n" +
+        "}\n\n" +
+        "# Register the completion function\n" +
+        "complete -F _neurolink_completion neurolink\n\n" +
+        "# Zsh completion (if running zsh)\n" +
+        'if [[ -n "${ZSH_VERSION}" ]]; then\n' +
+        "    autoload -U +X bashcompinit && bashcompinit\n" +
+        "    complete -F _neurolink_completion neurolink\n" +
+        "fi\n\n" +
+        'echo "NeuroLink CLI completion script loaded successfully!"\n' +
+        'echo "Available commands: generate, stream, batch, provider, status, models, mcp, discover, config, get-best-provider, completion"';
+
+      // Handle output options
+      if (argv.output) {
+        const fs = await import("fs");
+        fs.writeFileSync(argv.output, completionScript);
+        if (!argv.quiet) {
+          logger.always(`✅ Completion script saved to ${argv.output}`);
+          logger.always(`💡 Run: source ${argv.output}`);
+        }
+      } else {
+        logger.always(completionScript);
+      }
+
+      if (!argv.quiet) {
+        logger.always(chalk.blue("\n📋 Installation Instructions:"));
+        logger.always("1. Save the output to a file:");
+        logger.always("   neurolink completion > ~/.neurolink-completion.sh");
+        logger.always("2. Add to your shell profile:");
+        logger.always(
+          "   echo 'source ~/.neurolink-completion.sh' >> ~/.bashrc",
+        );
+        logger.always("3. Restart your shell or run:");
+        logger.always("   source ~/.bashrc");
+        logger.always(
+          chalk.green("\n🎉 Then enjoy tab completion for NeuroLink commands!"),
+        );
+      }
+    } catch (error) {
+      logger.error(
+        chalk.red(
+          `❌ Completion generation failed: ${(error as Error).message}`,
+        ),
+      );
+      process.exit(1);
+    }
   }
 }

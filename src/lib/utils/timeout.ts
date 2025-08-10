@@ -94,7 +94,7 @@ export const DEFAULT_TIMEOUTS = {
     openai: "30s", // OpenAI typically responds quickly
     bedrock: "45s", // AWS can be slower, especially for cold starts
     vertex: "60s", // Google Cloud can be slower
-    anthropic: "30s", // Direct Anthropic API is fast
+    anthropic: "60s", // Increased timeout for Anthropic API stability
     azure: "30s", // Azure OpenAI similar to OpenAI
     "google-ai": "30s", // Google AI Studio is fast
     huggingface: "2m", // Open source models vary significantly

@@ -744,6 +744,82 @@ console.log(`Used ${result.usage?.totalTokens} tokens`);
 console.log(`Provider: ${result.provider}, Model: ${result.model}`);
 ```
 
+**JSON Schema Support:**
+
+```typescript
+// Structured output with JSON schema
+const result = await provider.generate({
+  input: {
+    text: "Create a user profile for John Doe, age 30, software engineer",
+  },
+  schema: {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      age: { type: "number" },
+      profession: { type: "string" },
+      skills: { type: "array", items: { type: "string" } },
+      experience: { type: "number" },
+    },
+    required: ["name", "age", "profession"],
+  },
+});
+
+// Parse structured response
+const userProfile = JSON.parse(result.content);
+console.log("Name:", userProfile.name);
+console.log("Skills:", userProfile.skills);
+console.log("Experience:", userProfile.experience);
+
+// Example output:
+// {
+//   "name": "John Doe",
+//   "age": 30,
+//   "profession": "Software Engineer",
+//   "skills": ["JavaScript", "TypeScript", "React", "Node.js"],
+//   "experience": 5
+// }
+```
+
+**Batch JSON Processing:**
+
+```typescript
+// Process multiple prompts with JSON output
+const prompts = [
+  "Create a product specification for a smartphone",
+  "Generate a recipe for chocolate cake",
+  "Write a job description for a data scientist",
+];
+
+const results = await Promise.all(
+  prompts.map(async (prompt) => {
+    const result = await provider.generate({
+      input: { text: prompt },
+      schema: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          description: { type: "string" },
+          details: { type: "array", items: { type: "string" } },
+        },
+      },
+    });
+
+    return {
+      prompt,
+      data: JSON.parse(result.content),
+      metadata: {
+        provider: result.provider,
+        tokens: result.usage?.totalTokens,
+        responseTime: result.responseTime,
+      },
+    };
+  }),
+);
+
+console.log("Batch processing results:", results);
+```
+
 ### `stream(options)` - **Recommended for New Code**
 
 Generate content with streaming responses using future-ready multi-modal interface.

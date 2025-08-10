@@ -261,12 +261,60 @@ async function main() {
 
     // Handle find commands (basic conversion)
     if (shellLine.startsWith("find ")) {
-      return `// TODO: Convert find command: ${shellLine}`;
+      // Parse basic find patterns
+      const findMatch = shellLine.match(
+        /find\s+([^\s]+)\s*(-name\s+[^\s]+)?(.+)?/,
+      );
+      if (findMatch) {
+        const searchPath = findMatch[1].replace(/['"]/g, "");
+        const namePattern = findMatch[2]
+          ? findMatch[2].replace(/-name\s+/, "").replace(/['"]/g, "")
+          : "*";
+        const additionalArgs = findMatch[3] || "";
+
+        return `// Find files matching pattern
+const glob = await import('glob');
+const files = await glob.glob('${namePattern}', { 
+  cwd: '${searchPath}', 
+  absolute: true 
+});${additionalArgs.includes("-delete") ? "\n// Delete found files\nfor (const file of files) {\n  await fs.unlink(file);\n}" : ""}`;
+      }
+      return `// Complex find command - manual conversion needed: ${shellLine}`;
     }
 
     // Handle grep commands
     if (shellLine.includes(" | grep ")) {
-      return `// TODO: Convert grep pipeline: ${shellLine}`;
+      // Parse grep pipeline patterns
+      const grepMatch = shellLine.match(/(.+)\s*\|\s*grep\s+([^\s]+)(.+)?/);
+      if (grepMatch) {
+        const sourceCommand = grepMatch[1].trim();
+        const grepPattern = grepMatch[2].replace(/['"]/g, "");
+        const grepOptions = grepMatch[3] || "";
+
+        // Convert common source commands
+        let sourceConversion = "";
+        if (sourceCommand.startsWith("cat ")) {
+          const filePath = sourceCommand
+            .substring(4)
+            .trim()
+            .replace(/['"]/g, "");
+          sourceConversion = `const content = await fs.readFile('${filePath}', 'utf-8');`;
+        } else if (sourceCommand.startsWith("ls")) {
+          sourceConversion = `const content = (await fs.readdir('.')).join('\\n');`;
+        } else {
+          sourceConversion = `// Source command: ${sourceCommand}\nconst content = /* result from above command */;`;
+        }
+
+        return `${sourceConversion}
+// Filter content with grep pattern
+const lines = content.split('\\n');
+const filteredLines = lines.filter(line => {
+  const regex = new RegExp('${grepPattern}'${grepOptions.includes("-i") ? ", 'i'" : ""});
+  return regex.test(line);
+});
+console.log(filteredLines.join('\\n'));`;
+      }
+      return `// Complex grep pipeline - manual conversion needed: ${shellLine}`;
     }
 
     // Fallback: execute as shell command with warning

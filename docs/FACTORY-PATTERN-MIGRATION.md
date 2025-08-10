@@ -51,6 +51,42 @@ const result = await provider.generate({
 // Tools are used automatically
 ```
 
+#### JSON Format Support (Enhanced)
+
+```typescript
+// Generate structured output with schema
+const provider = createBestAIProvider("google-ai");
+const result = await provider.generate({
+  input: { text: "Create a meeting agenda for product planning" },
+  schema: {
+    type: "object",
+    properties: {
+      title: { type: "string" },
+      attendees: { type: "array", items: { type: "string" } },
+      agenda: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            topic: { type: "string" },
+            duration: { type: "number" },
+            presenter: { type: "string" },
+          },
+        },
+      },
+    },
+  },
+});
+
+// Parse structured response
+const meetingPlan = JSON.parse(result.content);
+console.log("Meeting:", meetingPlan.title);
+console.log("Agenda items:", meetingPlan.agenda.length);
+
+// CLI equivalent with JSON output
+// npx @juspay/neurolink generate "Create meeting agenda" --format json --provider google-ai
+```
+
 #### Disabling Tools (New Option)
 
 ```typescript

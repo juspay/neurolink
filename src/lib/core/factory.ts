@@ -32,6 +32,46 @@ export class AIProviderFactory {
     // If not found in factory, return as-is (will be handled by factory error handling)
     return providerName.toLowerCase();
   }
+
+  /**
+   * Initialize dynamic model provider with timeout protection
+   * Prevents hanging on non-responsive endpoints
+   */
+  private static async initializeDynamicProviderWithTimeout(): Promise<void> {
+    const functionTag =
+      "AIProviderFactory.initializeDynamicProviderWithTimeout";
+    const INIT_TIMEOUT = 10000; // 10 seconds total timeout for initialization
+
+    try {
+      // Race the initialization against a timeout
+      await Promise.race([
+        dynamicModelProvider.initialize(),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Dynamic provider initialization timeout")),
+            INIT_TIMEOUT,
+          ),
+        ),
+      ]);
+
+      logger.debug(
+        `[${functionTag}] Dynamic model provider initialized successfully`,
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.warn(
+        `[${functionTag}] Dynamic model provider initialization failed`,
+        {
+          error: errorMessage,
+          fallback: "Using static model defaults",
+        },
+      );
+
+      // Don't throw - graceful degradation to static models
+      // This ensures the factory continues to work even if dynamic models fail
+    }
+  }
   /**
    * Create a provider instance for the specified provider type
    * @param providerName - Name of the provider ('vertex', 'bedrock', 'openai')
@@ -56,59 +96,56 @@ export class AIProviderFactory {
     });
 
     try {
-      // DYNAMIC MODEL PROVIDER STATUS (2025): Disabled due to reliability issues
+      // DYNAMIC MODEL PROVIDER STATUS (2025): Enhanced with timeout handling
       //
-      // Root Cause: Dynamic model provider initialization can hang when:
-      // - Local model server (localhost:3001) is not running or responding
-      // - GitHub raw URL requests timeout due to network issues
-      // - Local config file doesn't exist
+      // ✅ FIXED: Hanging issues resolved with comprehensive timeout implementation
+      // - Added robust timeout handling (3s localhost, 5s GitHub, 1s local file)
+      // - Implemented health checks for localhost endpoints
+      // - Added graceful degradation when all sources fail
+      // - Enhanced error handling and logging for debugging
       //
-      // Current Behavior: Static model resolution works reliably
-      // Impact: No functionality loss - providers use built-in model defaults
-      //
-      // Implementation Requirements (if re-enabling):
-      // 1. Add robust timeout handling (3s max per source)
-      // 2. Implement exponential backoff for network requests
-      // 3. Add graceful degradation when all sources fail
-      // 4. Create health check for localhost:3001 before attempting connection
-      // 5. Add comprehensive error handling and logging
-      //
-      // Until these improvements are implemented, dynamic model provider remains disabled
-      // for system reliability. Static model defaults provide stable functionality.
+      // The dynamic model provider now provides reliable functionality without hanging
 
-      // COMPREHENSIVE FIX: Disable dynamic model resolution completely until provider is fixed
-      // This prevents stale gemini-1.5-pro-latest from overriding correct gemini-2.5-pro defaults
-      const resolvedModelName = modelName;
-      // COMMENTED OUT: Dynamic model resolution causing 1.5 vs 2.5 Pro issues
-      // if (!modelName || modelName === "default") {
-      //   try {
-      //     const normalizedProvider = this.normalizeProviderName(providerName);
-      //     const dynamicModel = dynamicModelProvider.resolveModel(
-      //       normalizedProvider,
-      //       modelName || undefined,
-      //     );
-      //     if (dynamicModel) {
-      //       resolvedModelName = dynamicModel.id;
-      //       logger.debug(`[${functionTag}] Resolved dynamic model`, {
-      //         provider: normalizedProvider,
-      //         requestedModel: modelName || "default",
-      //         resolvedModel: resolvedModelName,
-      //         displayName: dynamicModel.displayName,
-      //         pricing: dynamicModel.pricing.input,
-      //       });
-      //     }
-      //   } catch (resolveError) {
-      //     logger.debug(
-      //       `[${functionTag}] Dynamic model resolution failed, using fallback`,
-      //       {
-      //         error:
-      //           resolveError instanceof Error
-      //             ? resolveError.message
-      //             : String(resolveError),
-      //       },
-      //     );
-      //   }
-      // }
+      let resolvedModelName = modelName;
+
+      // Enable dynamic model resolution with timeout-protected initialization
+      if (!modelName || modelName === "default") {
+        try {
+          const normalizedProvider = this.normalizeProviderName(providerName);
+
+          // Initialize with timeout protection - won't hang anymore
+          if (dynamicModelProvider.needsRefresh()) {
+            await this.initializeDynamicProviderWithTimeout();
+          }
+
+          const dynamicModel = dynamicModelProvider.resolveModel(
+            normalizedProvider,
+            modelName || undefined,
+          );
+
+          if (dynamicModel) {
+            resolvedModelName = dynamicModel.id;
+            logger.debug(`[${functionTag}] Resolved dynamic model`, {
+              provider: normalizedProvider,
+              requestedModel: modelName || "default",
+              resolvedModel: resolvedModelName,
+              displayName: dynamicModel.displayName,
+              pricing: dynamicModel.pricing.input,
+            });
+          }
+        } catch (resolveError) {
+          logger.debug(
+            `[${functionTag}] Dynamic model resolution failed, using static fallback`,
+            {
+              error:
+                resolveError instanceof Error
+                  ? resolveError.message
+                  : String(resolveError),
+            },
+          );
+          // Continue with static model name - no functionality loss
+        }
+      }
 
       // CRITICAL FIX: Initialize providers before using them
       await ProviderRegistry.registerAllProviders();

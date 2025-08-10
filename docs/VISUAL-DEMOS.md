@@ -76,8 +76,8 @@ npm start
 
 ### Professional CLI Screenshots _(Latest: June 10, 2025)_
 
-| Command                     | Screenshot                                                                                                  | Description                                                 |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Command                     | Screenshot                                                                                                | Description                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | **CLI Help Overview**       | ![CLI Help](visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-10T12-00-00.png)               | Complete command reference and usage examples               |
 | **Provider Status Check**   | ![Provider Status](visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-10T12-00-00.png) | All provider connectivity verification with response times  |
 | **Text Generation**         | ![Text Generation](visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-10T12-00-00.png) | Real AI haiku generation with JSON output and usage metrics |

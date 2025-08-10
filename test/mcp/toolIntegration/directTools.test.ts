@@ -6,6 +6,24 @@ import { writeFileSync, unlinkSync, mkdirSync, rmdirSync } from "fs";
 import { join } from "path";
 import dotenv from "dotenv";
 import type { UnknownRecord } from "../../../src/lib/types/common.js";
+
+/**
+ * Threshold for debug chunking.
+ * Default is 3, chosen to balance verbosity and performance in test output.
+ * Can be overridden via the DEBUG_CHUNK_THRESHOLD environment variable.
+ */
+const envValue = process.env.DEBUG_CHUNK_THRESHOLD;
+const DEBUG_CHUNK_THRESHOLD =
+  envValue !== undefined && !isNaN(parseInt(envValue, 10)) && parseInt(envValue, 10) > 0
+    ? parseInt(envValue, 10)
+    : (() => {
+        if (envValue !== undefined) {
+          console.warn(
+            `DEBUG_CHUNK_THRESHOLD environment variable is set to a non-numeric value ("${envValue}"). Using default value 3.`,
+          );
+        }
+        return 3;
+      })();
 /**
  * Minimal execCLI implementation for test usage.
  * Runs the CLI command with arguments and returns { stdout, stderr }.
@@ -35,7 +53,7 @@ dotenv.config();
 const execAsync = promisify(exec);
 
 // Get provider configuration
-const getTestProvider = () => process.env.TEST_PROVIDER || "google-ai";
+const getTestProvider = () => process.env.TEST_PROVIDER || "openai";
 
 /**
  * DIRECT TOOLS INTEGRATION TESTS
@@ -249,8 +267,39 @@ describe("Direct Tools Integration Tests", () => {
           });
 
           let fullContent = "";
+          let chunkCount = 0;
           for await (const chunk of streamResult.stream) {
-            fullContent += chunk.content || "";
+            chunkCount++;
+            // Handle multiple possible chunk formats from different providers
+            let chunkContent = "";
+
+            if (typeof chunk === "string") {
+              chunkContent = chunk;
+            } else if (chunk && typeof chunk === "object") {
+              // Try different property names used by different providers
+              chunkContent =
+                chunk.content || chunk.text || chunk.delta?.content || "";
+
+              // Debug logging to understand chunk structure
+              if (!chunkContent && chunkCount <= DEBUG_CHUNK_THRESHOLD) {
+                console.log(
+                  `🔍 DEBUG Chunk ${chunkCount}:`,
+                  JSON.stringify(chunk, null, 2),
+                );
+                console.log(`🔍 DEBUG Chunk keys:`, Object.keys(chunk));
+              }
+            }
+
+            fullContent += chunkContent;
+          }
+
+          console.log(
+            `📊 Stream summary: ${chunkCount} chunks, ${fullContent.length} total chars`,
+          );
+          if (fullContent.length > 0) {
+            console.log(
+              `📝 Content sample: "${fullContent.substring(0, 100)}..."`,
+            );
           }
 
           expect(fullContent).toBeTruthy();

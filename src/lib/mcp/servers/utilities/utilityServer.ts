@@ -1,6 +1,6 @@
 /**
  * NeuroLink Utility Server
- * Provides general utility tools following Lighthouse patterns
+ * Provides general utility tools following standard patterns
  */
 
 import { z } from "zod";

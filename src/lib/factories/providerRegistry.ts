@@ -1,5 +1,5 @@
 import { ProviderFactory } from "./providerFactory.js";
-// ✅ FINAL CIRCULAR DEPENDENCY FIX: Lazy loading all providers
+// Lazy loading all providers to avoid circular dependencies
 // Removed all static imports - providers loaded dynamically when needed
 // This breaks the circular dependency chain completely
 import { AIProviderName, GoogleAIModels, OpenAIModels } from "../core/types.js";
@@ -37,7 +37,7 @@ export class ProviderRegistry {
     }
 
     try {
-      // ✅ LAZY LOADING: Register providers with dynamic import factory functions
+      // Register providers with dynamic import factory functions
       const { ProviderFactory } = await import("./providerFactory.js");
 
       // Register Google AI Studio Provider (our validated baseline)
@@ -126,7 +126,7 @@ export class ProviderRegistry {
           );
           return new GoogleVertexProvider(modelName);
         },
-        "gemini-2.5-pro",
+        "gemini-2.5-flash",
         ["vertex", "googleVertex"],
       );
 

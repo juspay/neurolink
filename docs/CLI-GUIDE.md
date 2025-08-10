@@ -55,8 +55,27 @@ npx @juspay/neurolink generate "Creative writing" --temperature 0.9
 # With system prompt
 npx @juspay/neurolink generate "Write code" --system "You are a senior developer"
 
-# JSON output for scripting
+# JSON output for scripting and automation
 npx @juspay/neurolink generate "Summary of AI" --format json
+npx @juspay/neurolink gen "Create product specification" --format json --provider google-ai
+
+# JSON Output Example:
+{
+  "content": "AI (Artificial Intelligence) represents a transformative technology...",
+  "provider": "google-ai",
+  "model": "gemini-2.5-flash",
+  "usage": {
+    "promptTokens": 12,
+    "completionTokens": 156,
+    "totalTokens": 168
+  },
+  "responseTime": 987
+}
+
+# Parse JSON in shell scripts
+response=$(npx @juspay/neurolink gen "Generate greeting" --format json)
+content=$(echo "$response" | jq -r '.content')
+echo "AI says: $content"
 
 # Debug mode with detailed metadata
 npx @juspay/neurolink generate "Hello AI" --debug
@@ -973,6 +992,15 @@ neurolink generate "Write a sci-fi story opening" \
 
 # Check what was generated
 cat story.json | jq '.content'
+
+# Extract specific fields from JSON response
+cat story.json | jq -r '.provider, .usage.totalTokens, .responseTime'
+
+# Automated workflow with JSON parsing
+story_response=$(neurolink gen "Write a mystery story" --format json)
+title=$(echo "$story_response" | jq -r '.content' | head -1)
+tokens=$(echo "$story_response" | jq -r '.usage.totalTokens')
+echo "Generated story: $title (${tokens} tokens)"
 ```
 
 ### Batch Content Processing

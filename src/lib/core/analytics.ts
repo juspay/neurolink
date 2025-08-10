@@ -7,6 +7,7 @@
 
 import { logger } from "../utils/logger.js";
 import type { JsonValue, UnknownRecord } from "../types/common.js";
+import { modelConfig } from "./modelConfiguration.js";
 
 export interface AnalyticsData {
   provider: string;
@@ -154,45 +155,15 @@ function estimateCost(
   tokens: { input: number; output: number; total: number },
 ): number | undefined {
   try {
-    // Cost per 1K tokens (USD) - approximate rates as of 2024
-    const costMap: Record<
-      string,
-      Record<string, { input: number; output: number }>
-    > = {
-      openai: {
-        "gpt-4": { input: 0.03, output: 0.06 },
-        "gpt-4-turbo": { input: 0.01, output: 0.03 },
-        "gpt-3.5-turbo": { input: 0.0015, output: 0.002 },
-      },
-      anthropic: {
-        "claude-3-opus": { input: 0.015, output: 0.075 },
-        "claude-3-sonnet": { input: 0.003, output: 0.015 },
-        "claude-3-haiku": { input: 0.00025, output: 0.00125 },
-      },
-      "google-ai": {
-        "gemini-pro": { input: 0.00035, output: 0.00105 },
-        "gemini-2.5-flash": { input: 0.000075, output: 0.0003 },
-      },
-    };
-
-    const providerCosts = costMap[provider.toLowerCase()];
-    if (!providerCosts) {
+    // Use the new configuration system instead of hardcoded costs
+    const costInfo = modelConfig.getCostInfo(provider.toLowerCase(), model);
+    if (!costInfo) {
       return undefined;
     }
 
-    // Find best matching model
-    const modelKey = Object.keys(providerCosts).find(
-      (key) =>
-        model.toLowerCase().includes(key) || key.includes(model.toLowerCase()),
-    );
-
-    if (!modelKey) {
-      return undefined;
-    }
-
-    const rates = providerCosts[modelKey];
-    const inputCost = (tokens.input / 1000) * rates.input;
-    const outputCost = (tokens.output / 1000) * rates.output;
+    // Calculate cost using the configuration system
+    const inputCost = (tokens.input / 1000) * costInfo.input;
+    const outputCost = (tokens.output / 1000) * costInfo.output;
 
     return Math.round((inputCost + outputCost) * 100000) / 100000; // Round to 5 decimal places
   } catch (error) {

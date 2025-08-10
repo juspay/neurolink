@@ -86,3 +86,13 @@ export type {
   ToolCalls,
   StreamAnalyticsData,
 } from "./streamTypes.js";
+
+// Domain factory types
+export type {
+  DomainType,
+  DomainConfig,
+  DomainTemplate,
+  DomainConfigOptions,
+  DomainEvaluationCriteria,
+  DomainValidationRule,
+} from "./domainTypes.js";

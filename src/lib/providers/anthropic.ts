@@ -7,7 +7,7 @@ import type {
   EnhancedGenerateResult,
 } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
-import type { Unknown, UnknownRecord } from "../types/common.js";
+import type { Unknown, UnknownRecord, JsonValue } from "../types/common.js";
 import { BaseProvider, type NeuroLinkSDK } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -77,10 +77,14 @@ export class AnthropicProvider extends BaseProvider {
 
   protected handleProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(`Anthropic request timed out: ${error.message}`);
+      return new Error(
+        `Anthropic request timed out after ${error.timeout}ms: ${error.message}`,
+      );
     }
 
     const errorRecord = error as UnknownRecord;
+
+    // Handle API key errors
     if (
       (typeof errorRecord?.message === "string" &&
         errorRecord.message.includes("API_KEY_INVALID")) ||
@@ -92,12 +96,43 @@ export class AnthropicProvider extends BaseProvider {
       );
     }
 
+    // Handle rate limiting errors
     if (
       typeof errorRecord?.message === "string" &&
-      errorRecord.message.includes("rate limit")
+      (errorRecord.message.includes("rate limit") ||
+        errorRecord.message.includes("too_many_requests") ||
+        errorRecord.message.includes("429"))
     ) {
       return new Error(
         "Anthropic rate limit exceeded. Please try again later.",
+      );
+    }
+
+    // Handle connection errors
+    if (
+      typeof errorRecord?.message === "string" &&
+      (errorRecord.message.includes("ECONNRESET") ||
+        errorRecord.message.includes("ENOTFOUND") ||
+        errorRecord.message.includes("ECONNREFUSED") ||
+        errorRecord.message.includes("network") ||
+        errorRecord.message.includes("connection"))
+    ) {
+      return new Error(
+        "Anthropic API connection error. Please check your internet connection and try again.",
+      );
+    }
+
+    // Handle server errors
+    if (
+      typeof errorRecord?.message === "string" &&
+      (errorRecord.message.includes("500") ||
+        errorRecord.message.includes("502") ||
+        errorRecord.message.includes("503") ||
+        errorRecord.message.includes("504") ||
+        errorRecord.message.includes("server error"))
+    ) {
+      return new Error(
+        "Anthropic API server error. Please try again in a few moments.",
       );
     }
 
@@ -131,12 +166,27 @@ export class AnthropicProvider extends BaseProvider {
     );
 
     try {
+      // ✅ Get tools for streaming (same as generate method)
+      const shouldUseTools = !options.disableTools && this.supportsTools();
+      const tools = shouldUseTools ? await this.getAllTools() : {};
+
+      // 🔧 CRITICAL FIX: Vercel AI SDK streamText() hangs with tools and maxSteps > 1
+      // For stream-focused SDK, we need reliable streaming, so avoid the hanging case
+      if (shouldUseTools && Object.keys(tools).length > 0) {
+        throw new Error(
+          "Vercel AI SDK streamText() limitation with tools - falling back to synthetic streaming",
+        );
+      }
+
       const result = await streamText({
         model: this.model,
         prompt: options.input.text,
         system: options.systemPrompt || undefined,
         temperature: options.temperature,
         maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        tools: {}, // 🔧 Force empty tools for real streaming to avoid hanging
+        maxSteps: 1, // 🔧 Force single step for real streaming
+        toolChoice: "none", // 🔧 Force no tools for real streaming
         abortSignal: timeoutController?.controller.signal,
       });
 
@@ -149,10 +199,39 @@ export class AnthropicProvider extends BaseProvider {
         }
       };
 
+      // ✅ Note: Vercel AI SDK's streamText() method limitations with tools
+      // The streamText() function doesn't provide the same tool result access as generateText()
+      // For full tool support, the BaseProvider will fall back to synthetic streaming when needed
+      const toolCalls: Array<{
+        toolCallId: string;
+        toolName: string;
+        args: Record<string, unknown>;
+      }> = [];
+
+      const toolResults: Array<{
+        toolName: string;
+        status: "success" | "failure";
+        output?: JsonValue;
+        id: string;
+      }> = [];
+
+      const usage = await result.usage;
+      const finishReason = await result.finishReason;
+
       return {
         stream: transformedStream(),
         provider: this.providerName,
         model: this.modelName,
+        toolCalls, // ✅ Include tool calls in stream result
+        toolResults, // ✅ Include tool results in stream result
+        usage: usage
+          ? {
+              inputTokens: usage.promptTokens || 0,
+              outputTokens: usage.completionTokens || 0,
+              totalTokens: usage.totalTokens || 0,
+            }
+          : undefined,
+        finishReason: finishReason || undefined,
       };
     } catch (error: unknown) {
       timeoutController?.cleanup();

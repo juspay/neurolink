@@ -4,7 +4,7 @@
  * A unified AI provider interface with support for multiple providers,
  * automatic fallback, streaming, and tool integration.
  *
- * Extracted from lighthouse project's proven AI functionality.
+ * Provides comprehensive AI functionality with proven patterns.
  */
 
 // Core exports

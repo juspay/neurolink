@@ -71,7 +71,7 @@ export class MCPToolRegistry extends MCPRegistry {
    * Register all direct tools from directAgentTools
    */
   private registerDirectTools(): void {
-    registryLogger.info("Auto-registering direct tools...");
+    registryLogger.debug("Auto-registering direct tools...");
 
     for (const [toolName, toolDef] of Object.entries(directAgentTools)) {
       const toolId = `direct.${toolName}`;
@@ -128,7 +128,7 @@ export class MCPToolRegistry extends MCPRegistry {
       registryLogger.debug(`Registered direct tool: ${toolName} as ${toolId}`);
     }
 
-    registryLogger.info(
+    registryLogger.debug(
       `Auto-registered ${Object.keys(directAgentTools).length} direct tools`,
     );
   }

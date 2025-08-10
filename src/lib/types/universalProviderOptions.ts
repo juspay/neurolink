@@ -3,7 +3,7 @@
  * Based on TypeScript factory pattern best practices for AI provider abstraction
  */
 
-import { BaseContext, ContextConfig } from "./contextTypes.js";
+import type { BaseContext, ContextConfig } from "./contextTypes.js";
 
 /**
  * Base configuration interface for all AI providers

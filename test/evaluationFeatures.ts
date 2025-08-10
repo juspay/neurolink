@@ -311,4 +311,278 @@ describe(`Evaluation Features Tests (${getTestProvider().toUpperCase()})`, () =>
       timeout,
     );
   });
+
+  // ✅ DOMAIN-SPECIFIC EVALUATION TESTS - Testing Phase 1 Factory Infrastructure
+  describe("Domain-Specific Evaluation Features", () => {
+    beforeAll(() => {
+      console.log(
+        "🧪 Testing Domain-Specific Evaluation with Factory Pattern Implementation",
+      );
+      console.log(`Using provider: ${getTestProvider()}`);
+    });
+
+    it(
+      "should provide healthcare domain evaluation",
+      async () => {
+        if (!getProviderApiKey()) {
+          console.log("⚠️ SKIP: No API key configured for provider");
+          return;
+        }
+
+        console.log("🏥 Testing healthcare domain evaluation...");
+
+        const command = `${cliPrefix} generate "Analyze patient symptoms: fever, cough, shortness of breath. Provide differential diagnosis." --provider ${getTestProvider()} --max-tokens 300 --format json --enable-evaluation --evaluationDomain healthcare`;
+        console.log("🔍 INPUT:", command);
+
+        const { stdout, stderr } = await execWithTimeout(command);
+        console.log("📤 OUTPUT:", stdout.substring(0, 200) + "...");
+
+        // Verify basic success
+        expect(stdout).toContain('"content":');
+        expect(stdout.length).toBeGreaterThan(200);
+        expect(stderr).not.toContain("error");
+
+        // Parse JSON response
+        const lines = stdout.split("\n");
+        const jsonStartIndex = lines.findIndex((line) =>
+          line.trim().startsWith("{"),
+        );
+        expect(jsonStartIndex).toBeGreaterThan(-1);
+
+        const jsonContent = lines.slice(jsonStartIndex).join("\n");
+        const result = JSON.parse(jsonContent.trim());
+
+        // Verify healthcare domain evaluation
+        expect(result.evaluation).toBeDefined();
+        expect(result.evaluation.evaluationDomain).toBe("healthcare");
+
+        console.log("🏥 HEALTHCARE EVALUATION:", {
+          domain: result.evaluation.evaluationDomain,
+          relevance: result.evaluation.relevance,
+          accuracy: result.evaluation.accuracy,
+          overall: result.evaluation.overall,
+        });
+
+        // Verify healthcare evaluation scores
+        expect(result.evaluation.relevance).toBeGreaterThan(0);
+        expect(result.evaluation.accuracy).toBeGreaterThan(0);
+        expect(result.evaluation.overall).toBeGreaterThan(0);
+
+        console.log("✅ Healthcare domain evaluation working correctly");
+      },
+      timeout,
+    );
+
+    it(
+      "should provide analytics domain evaluation",
+      async () => {
+        if (!getProviderApiKey()) {
+          console.log("⚠️ SKIP: No API key configured for provider");
+          return;
+        }
+
+        console.log("📊 Testing analytics domain evaluation...");
+
+        const command = `${cliPrefix} generate "Analyze quarterly sales data: Q1: $100k, Q2: $150k, Q3: $120k. Calculate growth trends and forecast Q4." --provider ${getTestProvider()} --max-tokens 300 --format json --enable-evaluation --evaluationDomain analytics`;
+        console.log("🔍 INPUT:", command);
+
+        const { stdout, stderr } = await execWithTimeout(command);
+        console.log("📤 OUTPUT:", stdout.substring(0, 200) + "...");
+
+        // Verify basic success
+        expect(stdout).toContain('"content":');
+        expect(stdout.length).toBeGreaterThan(200);
+        expect(stderr).not.toContain("error");
+
+        // Parse JSON response
+        const lines = stdout.split("\n");
+        const jsonStartIndex = lines.findIndex((line) =>
+          line.trim().startsWith("{"),
+        );
+        expect(jsonStartIndex).toBeGreaterThan(-1);
+
+        const jsonContent = lines.slice(jsonStartIndex).join("\n");
+        const result = JSON.parse(jsonContent.trim());
+
+        // Verify analytics domain evaluation
+        expect(result.evaluation).toBeDefined();
+        expect(result.evaluation.evaluationDomain).toBe("analytics");
+
+        console.log("📊 ANALYTICS EVALUATION:", {
+          domain: result.evaluation.evaluationDomain,
+          relevance: result.evaluation.relevance,
+          accuracy: result.evaluation.accuracy,
+          overall: result.evaluation.overall,
+        });
+
+        // Verify analytics evaluation scores
+        expect(result.evaluation.relevance).toBeGreaterThan(0);
+        expect(result.evaluation.accuracy).toBeGreaterThan(0);
+        expect(result.evaluation.overall).toBeGreaterThan(0);
+
+        console.log("✅ Analytics domain evaluation working correctly");
+      },
+      timeout,
+    );
+
+    it(
+      "should provide finance domain evaluation",
+      async () => {
+        if (!getProviderApiKey()) {
+          console.log("⚠️ SKIP: No API key configured for provider");
+          return;
+        }
+
+        console.log("💰 Testing finance domain evaluation...");
+
+        const command = `${cliPrefix} generate "Assess investment portfolio risk: 60% stocks, 30% bonds, 10% crypto. Market volatility high. Recommend rebalancing strategy." --provider ${getTestProvider()} --max-tokens 300 --format json --enable-evaluation --evaluationDomain finance`;
+        console.log("🔍 INPUT:", command);
+
+        const { stdout, stderr } = await execWithTimeout(command);
+        console.log("📤 OUTPUT:", stdout.substring(0, 200) + "...");
+
+        // Verify basic success
+        expect(stdout).toContain('"content":');
+        expect(stdout.length).toBeGreaterThan(200);
+        expect(stderr).not.toContain("error");
+
+        // Parse JSON response
+        const lines = stdout.split("\n");
+        const jsonStartIndex = lines.findIndex((line) =>
+          line.trim().startsWith("{"),
+        );
+        expect(jsonStartIndex).toBeGreaterThan(-1);
+
+        const jsonContent = lines.slice(jsonStartIndex).join("\n");
+        const result = JSON.parse(jsonContent.trim());
+
+        // Verify finance domain evaluation
+        expect(result.evaluation).toBeDefined();
+        expect(result.evaluation.evaluationDomain).toBe("finance");
+
+        console.log("💰 FINANCE EVALUATION:", {
+          domain: result.evaluation.evaluationDomain,
+          relevance: result.evaluation.relevance,
+          accuracy: result.evaluation.accuracy,
+          overall: result.evaluation.overall,
+        });
+
+        // Verify finance evaluation scores
+        expect(result.evaluation.relevance).toBeGreaterThan(0);
+        expect(result.evaluation.accuracy).toBeGreaterThan(0);
+        expect(result.evaluation.overall).toBeGreaterThan(0);
+
+        console.log("✅ Finance domain evaluation working correctly");
+      },
+      timeout,
+    );
+
+    it(
+      "should handle custom domain evaluation",
+      async () => {
+        if (!getProviderApiKey()) {
+          console.log("⚠️ SKIP: No API key configured for provider");
+          return;
+        }
+
+        console.log("🛒 Testing custom ecommerce domain evaluation...");
+
+        const command = `${cliPrefix} generate "Optimize e-commerce conversion funnel: current cart abandonment rate 70%, checkout completion 30%. Identify bottlenecks and improvement strategies." --provider ${getTestProvider()} --max-tokens 300 --format json --enable-evaluation --evaluationDomain ecommerce`;
+        console.log("🔍 INPUT:", command);
+
+        const { stdout, stderr } = await execWithTimeout(command);
+        console.log("📤 OUTPUT:", stdout.substring(0, 200) + "...");
+
+        // Verify basic success
+        expect(stdout).toContain('"content":');
+        expect(stdout.length).toBeGreaterThan(200);
+        expect(stderr).not.toContain("error");
+
+        // Parse JSON response
+        const lines = stdout.split("\n");
+        const jsonStartIndex = lines.findIndex((line) =>
+          line.trim().startsWith("{"),
+        );
+        expect(jsonStartIndex).toBeGreaterThan(-1);
+
+        const jsonContent = lines.slice(jsonStartIndex).join("\n");
+        const result = JSON.parse(jsonContent.trim());
+
+        // Verify custom domain evaluation
+        expect(result.evaluation).toBeDefined();
+        expect(result.evaluation.evaluationDomain).toBe("ecommerce");
+
+        console.log("🛒 ECOMMERCE EVALUATION:", {
+          domain: result.evaluation.evaluationDomain,
+          relevance: result.evaluation.relevance,
+          accuracy: result.evaluation.accuracy,
+          overall: result.evaluation.overall,
+        });
+
+        // Verify ecommerce evaluation scores
+        expect(result.evaluation.relevance).toBeGreaterThan(0);
+        expect(result.evaluation.accuracy).toBeGreaterThan(0);
+        expect(result.evaluation.overall).toBeGreaterThan(0);
+
+        console.log("✅ Custom ecommerce domain evaluation working correctly");
+      },
+      timeout,
+    );
+
+    it(
+      "should combine domain evaluation with analytics",
+      async () => {
+        if (!getProviderApiKey()) {
+          console.log("⚠️ SKIP: No API key configured for provider");
+          return;
+        }
+
+        console.log("🔬 Testing combined domain evaluation + analytics...");
+
+        const command = `${cliPrefix} generate "Research and development budget analysis: allocated $2M, spent $1.8M, 3 projects completed, 2 ongoing. Evaluate ROI and recommend future allocation." --provider ${getTestProvider()} --max-tokens 300 --format json --enable-evaluation --enable-analytics --evaluationDomain analytics`;
+        console.log("🔍 INPUT:", command);
+
+        const { stdout, stderr } = await execWithTimeout(command);
+        console.log("📤 OUTPUT:", stdout.substring(0, 200) + "...");
+
+        // Verify basic success
+        expect(stdout).toContain('"content":');
+        expect(stdout.length).toBeGreaterThan(200);
+        expect(stderr).not.toContain("error");
+
+        // Parse JSON response
+        const lines = stdout.split("\n");
+        const jsonStartIndex = lines.findIndex((line) =>
+          line.trim().startsWith("{"),
+        );
+        expect(jsonStartIndex).toBeGreaterThan(-1);
+
+        const jsonContent = lines.slice(jsonStartIndex).join("\n");
+        const result = JSON.parse(jsonContent.trim());
+
+        // Verify both evaluation and analytics are present
+        expect(result.evaluation).toBeDefined();
+        expect(result.analytics).toBeDefined();
+        expect(result.evaluation.evaluationDomain).toBe("analytics");
+
+        console.log("🔬 COMBINED FEATURES:", {
+          evaluationDomain: result.evaluation.evaluationDomain,
+          evaluationOverall: result.evaluation.overall,
+          analyticsPresent: !!result.analytics,
+          analyticsDataPoints: result.analytics?.dataPoints?.length || 0,
+        });
+
+        // Verify both features work together
+        expect(result.evaluation.relevance).toBeGreaterThan(0);
+        expect(result.evaluation.accuracy).toBeGreaterThan(0);
+        expect(result.evaluation.overall).toBeGreaterThan(0);
+        expect(result.analytics).toBeDefined();
+
+        console.log(
+          "✅ Combined domain evaluation + analytics working correctly",
+        );
+      },
+      timeout,
+    );
+  });
 });

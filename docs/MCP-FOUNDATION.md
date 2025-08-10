@@ -281,21 +281,65 @@ const context = {
 - **Alert System**: Automated alerts for performance issues
 - **Usage Reports**: Detailed usage and cost reporting
 
-## 🚀 Next Phase: Lighthouse Tool Migration
+## 🚀 Lighthouse Integration: 60+ Production-Ready Tools
 
-### Migration Roadmap (4-5 weeks)
+### Direct Import Approach (1-2 weeks)
 
-- **Phase 2.1**: Core Lighthouse tool compatibility layer
-- **Phase 2.2**: Enhanced context integration for existing tools
-- **Phase 2.3**: Performance optimization and monitoring
-- **Phase 2.4**: Production deployment and validation
+**BREAKTHROUGH**: Instead of migrating 30+ tools (8-10 weeks), we now **directly import** Lighthouse's 60+ production-ready tools into NeuroLink.
 
-### Expected Benefits
+```typescript
+// Import Lighthouse tools directly
+import { juspayAnalyticsServer } from "lighthouse/src/lib/mcp/servers/juspay/analytics-server";
 
-- **Unlimited Extensibility**: Access to entire Lighthouse tool ecosystem
-- **Enhanced Performance**: Better error handling and monitoring
-- **Rich Context**: All tools gain enterprise-grade context
-- **Backward Compatibility**: Existing code continues working unchanged
+// Register in NeuroLink with one method call
+const neurolink = new NeuroLink();
+neurolink.registerLighthouseServer(juspayAnalyticsServer, {
+  contextMapping: {
+    shopId: "context.shopId",
+    merchantId: "context.merchantId",
+  },
+});
+
+// AI can now answer e-commerce questions using real production data
+const result = await neurolink.generate({
+  input: { text: "What were our payment success rates last month?" },
+  // AI automatically discovers and uses juspay_get-success-rate-by-time tool
+});
+```
+
+### Available Lighthouse Tools (60+ Tools)
+
+#### **Payment Analytics Tools:**
+
+- `get-success-rate-by-time` - Payment success rates over time
+- `get-payment-method-wise-sr` - Success rates by payment method
+- `get-transaction-trends` - Transaction trend analysis
+- `get-failure-transactional-data` - Failed transaction analysis
+- `get-gmv-order-value-payment-wise` - Revenue by payment method
+
+#### **E-commerce Analytics Tools:**
+
+- `get-conversion-rates` - Shop conversion metrics
+- `process-analytics-data` - Process raw analytics
+- `get-order-stats` - Order statistics and trends
+- `get-merchant-data` - Merchant information
+- `get-shop-performance` - Shop performance metrics
+
+#### **Platform Integration Tools:**
+
+- **Shopify**: Complete Shopify store integration
+- **WooCommerce**: WooCommerce integration
+- **Magento**: Magento store integration
+
+### Integration Benefits
+
+- **Zero Duplication**: Import existing tools, don't recreate
+- **Auto-Updates**: Lighthouse improvements flow to NeuroLink automatically
+- **Battle-Tested**: Production-ready tools with real API integrations
+- **Minimal Maintenance**: Lighthouse team maintains tool implementations
+- **Rich Context**: Full business context (shopId, merchantId, etc.)
+
+**📄 Complete Integration Guide**: [docs/LIGHTHOUSE-UNIFIED-INTEGRATION.md](./LIGHTHOUSE-UNIFIED-INTEGRATION.md)
 
 ## 🔧 Technical Implementation Details
 

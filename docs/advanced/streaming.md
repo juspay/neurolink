@@ -38,6 +38,9 @@ npx @juspay/neurolink stream "Explain quantum computing" --provider google-ai
 
 # With debug output
 npx @juspay/neurolink stream "Write a poem" --debug
+
+# JSON format streaming (future-ready)
+npx @juspay/neurolink stream "Create structured data" --format json --provider google-ai
 ```
 
 ## 🔧 Advanced Streaming
@@ -50,12 +53,61 @@ const stream = await neurolink.stream({
   provider: "anthropic",
   temperature: 0.7,
   maxTokens: 2000,
-  stream: {
-    bufferSize: 1024,
-    flushInterval: 100,
-    enableChunking: true,
+  output: {
+    format: "json", // Future-ready JSON streaming
+    streaming: {
+      chunkSize: 256,
+      bufferSize: 1024,
+      enableProgress: true,
+    },
   },
 });
+```
+
+### JSON Streaming Support
+
+```typescript
+// Structured data streaming (future-ready)
+const jsonStream = await neurolink.stream({
+  input: { text: "Create a detailed project plan with milestones" },
+  output: {
+    format: "structured",
+    streaming: {
+      chunkSize: 512,
+      enableProgress: true,
+    },
+  },
+  schema: {
+    type: "object",
+    properties: {
+      projectName: { type: "string" },
+      phases: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            duration: { type: "string" },
+            tasks: { type: "array", items: { type: "string" } },
+          },
+        },
+      },
+    },
+  },
+});
+
+let structuredData = "";
+for await (const chunk of jsonStream.stream) {
+  structuredData += chunk.content;
+
+  // Try to parse partial JSON
+  try {
+    const partial = JSON.parse(structuredData);
+    console.log("Partial structure:", partial);
+  } catch {
+    // Still building complete JSON
+  }
+}
 ```
 
 ### Error Handling

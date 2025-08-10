@@ -48,21 +48,41 @@ export class DynamicModelProvider {
   }
 
   /**
-   * Initialize the model registry from multiple sources
+   * Initialize the model registry from multiple sources with timeout handling
+   * Addresses hanging issues when localhost:3001 is not running or GitHub URLs timeout
    */
   async initialize(): Promise<void> {
     const sources = [
-      process.env.MODEL_CONFIG_URL || "http://localhost:3001/api/v1/models",
-      `https://raw.githubusercontent.com/${process.env.MODEL_CONFIG_GITHUB_REPO || "juspay/neurolink"}/${process.env.MODEL_CONFIG_GITHUB_BRANCH || "release"}/config/models.json`,
-      "./config/models.json", // Local fallback
+      {
+        url:
+          process.env.MODEL_CONFIG_URL || "http://localhost:3001/api/v1/models",
+        timeout: 3000, // 3s for localhost
+        name: "local-server",
+      },
+      {
+        url: `https://raw.githubusercontent.com/${process.env.MODEL_CONFIG_GITHUB_REPO || "juspay/neurolink"}/${process.env.MODEL_CONFIG_GITHUB_BRANCH || "release"}/config/models.json`,
+        timeout: 5000, // 5s for GitHub
+        name: "github-raw",
+      },
+      {
+        url: "./config/models.json",
+        timeout: 1000, // 1s for local file
+        name: "local-file",
+      },
     ];
+
+    const errors: Array<{ source: string; error: string }> = [];
 
     for (const source of sources) {
       try {
         logger.debug(
-          `[DynamicModelProvider] Attempting to load from: ${source}`,
+          `[DynamicModelProvider] Attempting to load from: ${source.url} (timeout: ${source.timeout}ms)`,
         );
-        const config = await this.loadFromSource(source);
+
+        const config = await this.loadFromSourceWithTimeout(
+          source.url,
+          source.timeout,
+        );
 
         // Validate the configuration
         const validatedConfig = ModelRegistrySchema.parse(config);
@@ -70,53 +90,175 @@ export class DynamicModelProvider {
         this.lastFetch = Date.now();
 
         logger.info(
-          `[DynamicModelProvider] Successfully loaded model registry from: ${source}`,
+          `[DynamicModelProvider] Successfully loaded model registry from: ${source.name}`,
           {
+            source: source.url,
             modelCount: this.getTotalModelCount(),
             providerCount: Object.keys(validatedConfig.models).length,
+            loadTime: `<${source.timeout}ms`,
           },
         );
 
         return; // Success, stop trying other sources
       } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        errors.push({ source: source.name, error: errorMessage });
+
         logger.warn(
-          `[DynamicModelProvider] Failed to load from ${source}:`,
-          error,
+          `[DynamicModelProvider] Failed to load from ${source.name} (${source.url}):`,
+          {
+            error: errorMessage,
+            timeout: source.timeout,
+          },
         );
         continue;
       }
     }
 
-    throw new Error("Failed to load model configuration from any source");
+    // Log all failures for debugging
+    logger.warn(
+      `[DynamicModelProvider] All model configuration sources failed`,
+      { errors },
+    );
+
+    throw new Error(
+      `Failed to load model configuration from any source. Attempted: ${errors.map((e) => e.source).join(", ")}`,
+    );
   }
 
   /**
-   * Load configuration from a source (URL or file path)
+   * Load configuration from a source with timeout handling
+   * Prevents hanging when local servers are down or network requests timeout
    */
-  private async loadFromSource(source: string): Promise<ModelRegistry> {
+  private async loadFromSourceWithTimeout(
+    source: string,
+    timeoutMs: number,
+  ): Promise<ModelRegistry> {
     if (source.startsWith("http")) {
-      // Load from URL
-      const response = await fetch(source, {
-        headers: {
-          "User-Agent":
-            "NeuroLink/1.0 (+https://github.com/juspay/neurolink)",
-        },
-      });
+      // Setup timeout and abort controller
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      try {
+        // Add health check for localhost before attempting full request
+        if (source.includes("localhost") || source.includes("127.0.0.1")) {
+          await this.healthCheckLocalhost(source, Math.min(timeoutMs, 1000));
+        }
+
+        const response = await fetch(source, {
+          headers: {
+            "User-Agent":
+              "NeuroLink/1.0 (+https://github.com/sachinsharma92/neurolink)",
+            Accept: "application/json",
+            "Cache-Control": "no-cache",
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        clearTimeout(timeoutId);
+
+        if (error instanceof Error && error.name === "AbortError") {
+          throw new Error(`Request timeout after ${timeoutMs}ms`);
+        }
+
+        throw error;
+      }
+    } else {
+      // Load from local file with timeout (for very large files)
+      return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error(`File read timeout after ${timeoutMs}ms`));
+        }, timeoutMs);
+
+        (async () => {
+          try {
+            const fs = await import("fs");
+            const path = await import("path");
+
+            const fullPath = path.resolve(source);
+
+            // Check if file exists first
+            if (!fs.existsSync(fullPath)) {
+              throw new Error(`File not found: ${fullPath}`);
+            }
+
+            const content = fs.readFileSync(fullPath, "utf8");
+            const data = JSON.parse(content);
+
+            clearTimeout(timeoutId);
+            resolve(data);
+          } catch (error) {
+            clearTimeout(timeoutId);
+            reject(error);
+          }
+        })();
+      });
+    }
+  }
+
+  /**
+   * Quick health check for localhost endpoints
+   * Prevents hanging on non-responsive local servers
+   */
+  private async healthCheckLocalhost(
+    url: string,
+    timeoutMs: number,
+  ): Promise<void> {
+    const healthUrl = url.replace(/\/api\/.*$/, "/health") || `${url}/health`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(healthUrl, {
+        method: "HEAD", // Lightweight request
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      // Don't throw on 404 - the main endpoint might still work
+      if (response.status >= 500) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error(
+          `Localhost health check timeout - server may not be running`,
+        );
       }
 
-      return response.json();
-    } else {
-      // Load from local file
-      const fs = await import("fs");
-      const path = await import("path");
+      // For connection refused, throw a more specific error
+      if (error instanceof Error && error.message.includes("ECONNREFUSED")) {
+        throw new Error(`Localhost server not running at ${url}`);
+      }
 
-      const fullPath = path.resolve(source);
-      const content = fs.readFileSync(fullPath, "utf8");
-      return JSON.parse(content);
+      // For other errors, let the main request handle them
+      logger.debug(
+        `Health check failed for ${url}, proceeding with main request`,
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
     }
+  }
+
+  /**
+   * Load configuration from a source (URL or file path) - Legacy method for compatibility
+   * @deprecated Use loadFromSourceWithTimeout instead
+   */
+  private async loadFromSource(source: string): Promise<ModelRegistry> {
+    return this.loadFromSourceWithTimeout(source, 10000); // 10s default timeout
   }
 
   /**

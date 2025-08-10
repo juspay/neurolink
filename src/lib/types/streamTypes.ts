@@ -104,6 +104,29 @@ export interface StreamOptions {
   evaluationDomain?: string;
   toolUsageContext?: string;
   conversationHistory?: Array<{ role: string; content: string }>;
+
+  // 🔧 FIX: Factory configuration support (matching GenerateOptions)
+  factoryConfig?: {
+    domainType?: string;
+    domainConfig?: Record<string, unknown>;
+    enhancementType?:
+      | "domain-configuration"
+      | "streaming-optimization"
+      | "mcp-integration"
+      | "legacy-migration"
+      | "context-conversion";
+    preserveLegacyFields?: boolean;
+    validateDomainData?: boolean;
+  };
+
+  // 🔧 FIX: Additional streaming configuration support (matching GenerateOptions)
+  streaming?: {
+    enabled?: boolean;
+    chunkSize?: number;
+    bufferSize?: number;
+    enableProgress?: boolean;
+    fallbackToGenerate?: boolean;
+  };
 }
 
 /**

@@ -5,6 +5,8 @@
 import { AIProviderFactory } from "../core/factory.js";
 import { logger } from "./logger.js";
 import type { UnknownRecord } from "../types/common.js";
+import type { AIProviderName } from "../core/types.js";
+import { ProviderHealthChecker } from "./providerHealth.js";
 
 /**
  * Get the best available provider based on real-time availability checks
@@ -15,15 +17,62 @@ import type { UnknownRecord } from "../types/common.js";
 export async function getBestProvider(
   requestedProvider?: string,
 ): Promise<string> {
-  // 🔧 FIX: Check for explicit default provider in env
+  // Check requested provider FIRST - explicit user choice overrides defaults
+  if (requestedProvider && requestedProvider !== "auto") {
+    // For explicit provider requests, check health first
+    try {
+      const health = await ProviderHealthChecker.checkProviderHealth(
+        requestedProvider as AIProviderName,
+        { includeConnectivityTest: false, cacheResults: true },
+      );
+
+      if (health.isHealthy) {
+        logger.debug(
+          `[getBestProvider] Using healthy explicitly requested provider: ${requestedProvider}`,
+        );
+        return requestedProvider;
+      } else {
+        logger.warn(
+          `[getBestProvider] Requested provider ${requestedProvider} is unhealthy, finding alternative`,
+          { error: health.error },
+        );
+      }
+    } catch (error) {
+      logger.warn(
+        `[getBestProvider] Health check failed for ${requestedProvider}, using anyway`,
+        { error: error instanceof Error ? error.message : String(error) },
+      );
+      return requestedProvider; // Return anyway for explicit requests
+    }
+  }
+
+  // Use health checker to get best available provider
+  const healthyProvider = await ProviderHealthChecker.getBestHealthyProvider();
+
+  if (healthyProvider) {
+    logger.debug(
+      `[getBestProvider] Selected healthy provider: ${healthyProvider}`,
+    );
+    return healthyProvider;
+  }
+
+  // Fallback to legacy provider checking if health system fails
+  logger.warn(
+    "[getBestProvider] Health system failed, falling back to legacy checking",
+  );
+
+  // Check for explicit default provider in env (only when no provider requested)
   if (
     process.env.DEFAULT_PROVIDER &&
     (await isProviderAvailable(process.env.DEFAULT_PROVIDER))
   ) {
+    logger.debug(
+      `[getBestProvider] Using default provider from env: ${process.env.DEFAULT_PROVIDER}`,
+    );
     return process.env.DEFAULT_PROVIDER;
   }
 
-  // 🔧 FIX: Special case for Ollama - prioritize local when available
+  // Special case for Ollama - prioritize local when available
   if (process.env.OLLAMA_BASE_URL && process.env.OLLAMA_MODEL) {
     try {
       if (await isProviderAvailable("ollama")) {
@@ -35,30 +84,26 @@ export async function getBestProvider(
     }
   }
 
+  /**
+   * Provider priority order rationale:
+   * - Vertex (Google Cloud AI) is prioritized first for its enterprise-grade reliability and advanced model capabilities.
+   * - Google AI follows as second priority for comprehensive Google AI ecosystem support.
+   * - OpenAI maintains high priority due to its consistent reliability and broad model support.
+   * - Other providers are ordered based on a combination of reliability, feature set, and historical performance in our use cases.
+   * - Ollama is kept as a fallback for local deployments when available.
+   * Please update this comment if the order is changed in the future, and document the rationale for maintainability.
+   */
   const providers = [
-    "google-ai",
+    "vertex", // Prioritize Google Cloud AI (Vertex) first
+    "google-ai", // Google AI ecosystem support
+    "openai", // Reliable with broad model support
     "anthropic",
-    "openai",
-    "mistral",
-    "vertex",
-    "azure",
-    "huggingface",
     "bedrock",
+    "azure",
+    "mistral",
+    "huggingface",
     "ollama", // Keep as fallback
   ];
-
-  if (requestedProvider && requestedProvider !== "auto") {
-    if (await isProviderAvailable(requestedProvider)) {
-      logger.debug(
-        `[getBestProvider] Using requested provider: ${requestedProvider}`,
-      );
-      return requestedProvider;
-    } else {
-      logger.warn(
-        `[getBestProvider] Requested provider '${requestedProvider}' is not available. Falling back to auto-selection.`,
-      );
-    }
-  }
 
   for (const provider of providers) {
     if (await isProviderAvailable(provider)) {
@@ -110,8 +155,303 @@ async function isProviderAvailable(providerName: string): Promise<boolean> {
 }
 
 /**
+ * Validation results for environment variables
+ */
+export interface EnvVarValidationResult {
+  isValid: boolean;
+  missingVars: string[];
+  invalidVars: string[];
+  warnings: string[];
+}
+
+/**
+ * Google Cloud Project ID validation regex
+ * Format requirements:
+ * - Must start with a lowercase letter
+ * - Can contain lowercase letters, numbers, and hyphens
+ * - Must end with a lowercase letter or number
+ * - Total length must be 6-30 characters
+ */
+const GOOGLE_CLOUD_PROJECT_ID_REGEX = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/;
+
+/**
+ * Validate environment variable values for a provider
+ * Addresses GitHub Copilot comment about adding environment variable validation
+ * @param provider - Provider name to validate
+ * @returns Validation result with detailed information
+ */
+export function validateProviderEnvVars(
+  provider: string,
+): EnvVarValidationResult {
+  const result: EnvVarValidationResult = {
+    isValid: true,
+    missingVars: [],
+    invalidVars: [],
+    warnings: [],
+  };
+
+  switch (provider.toLowerCase()) {
+    case "bedrock":
+    case "amazon":
+    case "aws":
+      validateAwsCredentials(result);
+      break;
+
+    case "vertex":
+    case "googlevertex":
+    case "google":
+    case "gemini":
+      validateVertexCredentials(result);
+      break;
+
+    case "openai":
+    case "gpt":
+      validateOpenAICredentials(result);
+      break;
+
+    case "anthropic":
+    case "claude":
+      validateAnthropicCredentials(result);
+      break;
+
+    case "azure":
+    case "azureOpenai":
+      validateAzureCredentials(result);
+      break;
+
+    case "google-ai":
+    case "google-studio":
+      validateGoogleAICredentials(result);
+      break;
+
+    case "huggingface":
+    case "hugging-face":
+    case "hf":
+      validateHuggingFaceCredentials(result);
+      break;
+
+    case "mistral":
+    case "mistral-ai":
+    case "mistralai":
+      validateMistralCredentials(result);
+      break;
+
+    case "ollama":
+    case "local":
+    case "local-ollama":
+      // Ollama doesn't require environment variables
+      break;
+
+    case "litellm":
+      // LiteLLM validation can be added if needed
+      break;
+
+    default:
+      result.isValid = false;
+      result.warnings.push(`Unknown provider: ${provider}`);
+  }
+
+  result.isValid =
+    result.missingVars.length === 0 && result.invalidVars.length === 0;
+  return result;
+}
+
+/**
+ * Validate AWS credentials with flexible validation
+ * Note: AWS credential formats can vary, so validation is kept reasonably flexible
+ */
+function validateAwsCredentials(result: EnvVarValidationResult): void {
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
+
+  if (!accessKeyId) {
+    result.missingVars.push("AWS_ACCESS_KEY_ID");
+  } else if (!/^[A-Z0-9]{16,}$/.test(accessKeyId)) {
+    // Flexible validation: at least 16 uppercase alphanumeric characters
+    result.invalidVars.push(
+      "AWS_ACCESS_KEY_ID (should be uppercase alphanumeric characters, typically 20 chars)",
+    );
+  }
+
+  if (!secretAccessKey) {
+    result.missingVars.push("AWS_SECRET_ACCESS_KEY");
+  } else if (!/^[A-Za-z0-9+/]{30,}$/.test(secretAccessKey)) {
+    // Flexible validation: at least 30 base64 characters (can vary in length)
+    result.invalidVars.push(
+      "AWS_SECRET_ACCESS_KEY (should be base64 characters, typically 40+ chars)",
+    );
+  }
+
+  if (!region) {
+    result.warnings.push("AWS_REGION not set, will use default region");
+  }
+}
+
+/**
+ * Validate Google Vertex credentials
+ */
+function validateVertexCredentials(result: EnvVarValidationResult): void {
+  const projectId =
+    process.env.GOOGLE_CLOUD_PROJECT_ID ||
+    process.env.VERTEX_PROJECT_ID ||
+    process.env.GOOGLE_VERTEX_PROJECT ||
+    process.env.GOOGLE_CLOUD_PROJECT;
+
+  const hasCredentials =
+    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    process.env.GOOGLE_SERVICE_ACCOUNT_KEY ||
+    (process.env.GOOGLE_AUTH_CLIENT_EMAIL &&
+      process.env.GOOGLE_AUTH_PRIVATE_KEY);
+
+  if (!projectId) {
+    result.missingVars.push("GOOGLE_CLOUD_PROJECT_ID (or variant)");
+  } else if (!GOOGLE_CLOUD_PROJECT_ID_REGEX.test(projectId)) {
+    result.invalidVars.push(
+      "Project ID format invalid (must be 6-30 lowercase letters, digits, hyphens)",
+    );
+  }
+
+  if (!hasCredentials) {
+    result.missingVars.push(
+      "Google credentials (GOOGLE_APPLICATION_CREDENTIALS or explicit auth)",
+    );
+  }
+
+  if (
+    process.env.GOOGLE_AUTH_CLIENT_EMAIL &&
+    !isValidEmail(process.env.GOOGLE_AUTH_CLIENT_EMAIL)
+  ) {
+    result.invalidVars.push("GOOGLE_AUTH_CLIENT_EMAIL (invalid email format)");
+  }
+}
+
+/**
+ * Validate OpenAI credentials
+ */
+function validateOpenAICredentials(result: EnvVarValidationResult): void {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    result.missingVars.push("OPENAI_API_KEY");
+  } else if (!/^sk-[A-Za-z0-9]{48,}$/.test(apiKey)) {
+    result.invalidVars.push(
+      "OPENAI_API_KEY (should start with 'sk-' followed by 48+ characters)",
+    );
+  }
+}
+
+/**
+ * Validate Anthropic credentials
+ */
+function validateAnthropicCredentials(result: EnvVarValidationResult): void {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!apiKey) {
+    result.missingVars.push("ANTHROPIC_API_KEY");
+  } else if (!/^sk-ant-[A-Za-z0-9-_]{95,}$/.test(apiKey)) {
+    result.invalidVars.push(
+      "ANTHROPIC_API_KEY (should start with 'sk-ant-' followed by 95+ characters)",
+    );
+  }
+}
+
+/**
+ * Validate Azure credentials
+ */
+function validateAzureCredentials(result: EnvVarValidationResult): void {
+  const apiKey = process.env.AZURE_OPENAI_API_KEY;
+  const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+
+  if (!apiKey) {
+    result.missingVars.push("AZURE_OPENAI_API_KEY");
+  } else if (!/^[a-f0-9]{32}$/.test(apiKey)) {
+    result.invalidVars.push(
+      "AZURE_OPENAI_API_KEY (should be 32 hexadecimal characters)",
+    );
+  }
+
+  if (!endpoint) {
+    result.missingVars.push("AZURE_OPENAI_ENDPOINT");
+  } else if (!isValidUrl(endpoint)) {
+    result.invalidVars.push(
+      "AZURE_OPENAI_ENDPOINT (should be a valid HTTPS URL)",
+    );
+  }
+}
+
+/**
+ * Validate Google AI credentials
+ */
+function validateGoogleAICredentials(result: EnvVarValidationResult): void {
+  const apiKey =
+    process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+  if (!apiKey) {
+    result.missingVars.push(
+      "GOOGLE_AI_API_KEY (or GOOGLE_GENERATIVE_AI_API_KEY)",
+    );
+  } else if (!/^[A-Za-z0-9_-]{39}$/.test(apiKey)) {
+    result.invalidVars.push(
+      "GOOGLE_AI_API_KEY (should be 39 alphanumeric characters with dashes/underscores)",
+    );
+  }
+}
+
+/**
+ * Validate HuggingFace credentials
+ */
+function validateHuggingFaceCredentials(result: EnvVarValidationResult): void {
+  const apiKey = process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN;
+
+  if (!apiKey) {
+    result.missingVars.push("HUGGINGFACE_API_KEY (or HF_TOKEN)");
+  } else if (!/^hf_[A-Za-z0-9]{37}$/.test(apiKey)) {
+    result.invalidVars.push(
+      "HUGGINGFACE_API_KEY (should start with 'hf_' followed by 37 characters)",
+    );
+  }
+}
+
+/**
+ * Validate Mistral credentials
+ */
+function validateMistralCredentials(result: EnvVarValidationResult): void {
+  const apiKey = process.env.MISTRAL_API_KEY;
+
+  if (!apiKey) {
+    result.missingVars.push("MISTRAL_API_KEY");
+  } else if (!/^[A-Za-z0-9]{32,}$/.test(apiKey)) {
+    result.invalidVars.push(
+      "MISTRAL_API_KEY (should be 32+ alphanumeric characters)",
+    );
+  }
+}
+
+/**
+ * Helper function to validate email format
+ */
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Helper function to validate URL format
+ */
+function isValidUrl(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Check if a provider has the minimum required environment variables
  * NOTE: This only checks if variables exist, not if they're valid
+ * For validation, use validateProviderEnvVars instead
  * @param provider - Provider name to check
  * @returns True if the provider has required environment variables
  */

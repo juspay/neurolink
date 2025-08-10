@@ -16,6 +16,7 @@ import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import { getDefaultTimeout, TimeoutError } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
+import { modelConfig } from "../core/modelConfiguration.js";
 
 // Model version constants (configurable via environment)
 const DEFAULT_OLLAMA_MODEL = "llama3.1:8b";
@@ -364,49 +365,56 @@ export class OllamaProvider extends BaseProvider {
   }
 
   /**
-   * Ollama tool/function calling support is currently disabled due to integration issues.
+   * Ollama Tool Calling Support (Enhanced 2025)
    *
-   * **Current Issues:**
-   * 1. The OllamaLanguageModel from @ai-sdk/provider-utils doesn't properly integrate
-   *    with BaseProvider's tool calling mechanism
-   * 2. Ollama models require specific prompt formatting for function calls that differs
-   *    from the standardized AI SDK format
-   * 3. Tool response parsing and execution flow needs custom implementation
+   * Uses configurable model list from ModelConfiguration instead of hardcoded values.
+   * Tool-capable models can be configured via OLLAMA_TOOL_CAPABLE_MODELS environment variable.
    *
-   * **What's needed to enable tool support:**
-   * - Create a custom OllamaLanguageModel wrapper that handles tool schema formatting
-   * - Implement Ollama-specific tool calling prompt templates
-   * - Add proper response parsing for Ollama's function call format
-   * - Test with models that support function calling (llama3.1, mistral, etc.)
+   * **Configuration Options:**
+   * - Environment variable: OLLAMA_TOOL_CAPABLE_MODELS (comma-separated list)
+   * - Configuration file: providers.ollama.modelBehavior.toolCapableModels
+   * - Fallback: Default list of known tool-capable models
    *
-   * **Tracking:**
-   * - See BaseProvider tool integration patterns in other providers
-   * - Monitor Ollama function calling documentation: https://ollama.com/blog/tool-support
-   * - Track AI SDK updates for better Ollama integration
+   * **Implementation Features:**
+   * - Direct Ollama API integration (/v1/chat/completions)
+   * - Automatic tool schema conversion to Ollama format
+   * - Streaming tool calls with incremental response parsing
+   * - Model compatibility validation and fallback handling
    *
-   * @returns false to disable tools by default
+   * @returns true for supported models, false for unsupported models
    */
   supportsTools(): boolean {
-    // IMPLEMENTATION STATUS (2025): Ollama function calling actively evolving
-    //
-    // Current State:
-    // - Function calling added in Ollama 2024, improving in 2025
-    // - Requires compatible models (Llama 3.1+, Code Llama variants)
-    // - AI SDK integration needs custom adapter for Ollama's tool format
-    //
-    // Technical Requirements:
-    // 1. Replace AI SDK with direct Ollama API tool calls
-    // 2. Implement Ollama-specific tool schema conversion
-    // 3. Add function response parsing from Ollama's JSON format
-    // 4. Handle streaming tool calls with incremental parsing
-    // 5. Validate model compatibility before enabling tools
-    //
-    // Implementation Path:
-    // - Use Ollama's chat API with 'tools' parameter
-    // - Parse tool_calls from response.message.tool_calls
-    // - Execute functions and return results to conversation
-    //
-    // Until Ollama-specific implementation, tools disabled for compatibility
+    const modelName = this.modelName.toLowerCase();
+
+    // Get tool-capable models from configuration
+    const ollamaConfig = modelConfig.getProviderConfig("ollama");
+    const toolCapableModels =
+      (ollamaConfig?.modelBehavior?.toolCapableModels as string[]) || [];
+
+    // Check if current model matches any tool-capable model patterns
+    const isToolCapable = toolCapableModels.some((capableModel) =>
+      modelName.includes(capableModel),
+    );
+
+    if (isToolCapable) {
+      logger.debug("Ollama tool calling enabled", {
+        model: this.modelName,
+        reason: "Model supports function calling",
+        baseUrl: this.baseUrl,
+        configuredModels: toolCapableModels.length,
+      });
+      return true;
+    }
+
+    // Log why tools are disabled for transparency
+    logger.debug("Ollama tool calling disabled", {
+      model: this.modelName,
+      reason: "Model not in tool-capable list",
+      suggestion:
+        "Consider using llama3.1:8b-instruct, mistral:7b-instruct, or hermes3:8b for tool calling",
+      availableToolModels: toolCapableModels.slice(0, 3), // Show first 3 for brevity
+    });
+
     return false;
   }
 
@@ -420,48 +428,278 @@ export class OllamaProvider extends BaseProvider {
       this.validateStreamOptions(options);
       await this.checkOllamaHealth();
 
-      // Direct HTTP streaming implementation for better compatibility
-      const response = await fetch(`${this.baseUrl}/api/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: this.modelName || FALLBACK_OLLAMA_MODEL,
-          prompt: options.input.text,
-          system: options.systemPrompt,
-          stream: true,
-          options: {
-            temperature: options.temperature,
-            num_predict: options.maxTokens || DEFAULT_MAX_TOKENS,
-          },
-        }),
-        signal: createAbortSignalWithTimeout(this.timeout),
-      });
+      // Check if tools are supported and provided
+      const modelSupportsTools = this.supportsTools();
+      const hasTools = options.tools && Object.keys(options.tools).length > 0;
 
-      if (!response.ok) {
-        throw new Error(
-          `Ollama API error: ${response.status} ${response.statusText}`,
-        );
+      if (modelSupportsTools && hasTools) {
+        // Use chat API with tools for tool-capable models
+        return this.executeStreamWithTools(options, analysisSchema);
+      } else {
+        // Use generate API for non-tool scenarios
+        return this.executeStreamWithoutTools(options, analysisSchema);
       }
-
-      // Transform to async generator to match other providers
-      const self = this;
-      const transformedStream = async function* () {
-        const generator = self.createOllamaStream(response);
-        for await (const chunk of generator) {
-          yield chunk;
-        }
-      };
-
-      return {
-        stream: transformedStream(),
-        provider: this.providerName,
-        model: this.modelName,
-      };
     } catch (error) {
       throw this.handleProviderError(error);
     }
   }
 
+  /**
+   * Execute streaming with Ollama's function calling support
+   * Uses the /v1/chat/completions endpoint with tools parameter
+   */
+  private async executeStreamWithTools(
+    options: StreamOptions,
+    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+  ): Promise<StreamResult> {
+    // Convert tools to Ollama format
+    const ollamaTools = this.convertToolsToOllamaFormat(options.tools);
+
+    // Prepare messages in Ollama chat format
+    const messages = [
+      ...(options.systemPrompt
+        ? [{ role: "system", content: options.systemPrompt }]
+        : []),
+      { role: "user", content: options.input.text },
+    ];
+
+    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: this.modelName || FALLBACK_OLLAMA_MODEL,
+        messages,
+        tools: ollamaTools,
+        tool_choice: "auto",
+        stream: true,
+        temperature: options.temperature,
+        max_tokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+      }),
+      signal: createAbortSignalWithTimeout(this.timeout),
+    });
+
+    if (!response.ok) {
+      // Fallback to non-tool mode if chat API fails
+      logger.warn("Ollama chat API failed, falling back to generate API", {
+        status: response.status,
+        statusText: response.statusText,
+      });
+      return this.executeStreamWithoutTools(options, analysisSchema);
+    }
+
+    // Transform to async generator with tool call handling
+    const self = this;
+    const transformedStream = async function* () {
+      const generator = self.createOllamaChatStream(response, options.tools);
+      for await (const chunk of generator) {
+        yield chunk;
+      }
+    };
+
+    return {
+      stream: transformedStream(),
+      provider: self.providerName,
+      model: self.modelName,
+    };
+  }
+
+  /**
+   * Execute streaming without tools using the generate API
+   * Fallback for non-tool scenarios or when chat API is unavailable
+   */
+  private async executeStreamWithoutTools(
+    options: StreamOptions,
+    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+  ): Promise<StreamResult> {
+    const response = await fetch(`${this.baseUrl}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: this.modelName || FALLBACK_OLLAMA_MODEL,
+        prompt: options.input.text,
+        system: options.systemPrompt,
+        stream: true,
+        options: {
+          temperature: options.temperature,
+          num_predict: options.maxTokens || DEFAULT_MAX_TOKENS,
+        },
+      }),
+      signal: createAbortSignalWithTimeout(this.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Ollama API error: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    // Transform to async generator to match other providers
+    const self = this;
+    const transformedStream = async function* () {
+      const generator = self.createOllamaStream(response);
+      for await (const chunk of generator) {
+        yield chunk;
+      }
+    };
+
+    return {
+      stream: transformedStream(),
+      provider: this.providerName,
+      model: this.modelName,
+    };
+  }
+
+  /**
+   * Convert AI SDK tools format to Ollama's function calling format
+   */
+  private convertToolsToOllamaFormat(tools: unknown): unknown[] {
+    if (!tools || typeof tools !== "object") {
+      return [];
+    }
+
+    const toolsArray = Array.isArray(tools) ? tools : Object.values(tools);
+
+    return toolsArray.map(
+      (tool: {
+        name?: string;
+        description?: string;
+        parameters?: unknown;
+        function?: {
+          name?: string;
+          description?: string;
+          parameters?: unknown;
+        };
+      }) => ({
+        type: "function",
+        function: {
+          name: tool.name || tool.function?.name,
+          description: tool.description || tool.function?.description,
+          parameters: tool.parameters ||
+            tool.function?.parameters || {
+              type: "object",
+              properties: {},
+              required: [],
+            },
+        },
+      }),
+    );
+  }
+
+  /**
+   * Create stream generator for Ollama chat API with tool call support
+   */
+  private async *createOllamaChatStream(
+    response: Response,
+    tools?: unknown,
+  ): AsyncGenerator<{ content: string }> {
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("No response body");
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.trim() && line.startsWith("data: ")) {
+            const dataLine = line.slice(6); // Remove "data: " prefix
+            if (dataLine === "[DONE]") {
+              return;
+            }
+
+            try {
+              const data = JSON.parse(dataLine);
+              const delta = data.choices?.[0]?.delta;
+
+              if (delta?.content) {
+                yield { content: delta.content };
+              }
+
+              if (delta?.tool_calls) {
+                // Handle tool calls - for now, we'll include them as content
+                // Future enhancement: Execute tools and return results
+                const toolCallDescription = this.formatToolCallForDisplay(
+                  delta.tool_calls,
+                );
+                if (toolCallDescription) {
+                  yield { content: toolCallDescription };
+                }
+              }
+
+              if (data.choices?.[0]?.finish_reason) {
+                return;
+              }
+            } catch (error) {
+              // Ignore JSON parse errors for incomplete chunks
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
+  /**
+   * Format tool calls for display when tools aren't executed directly
+   */
+  private formatToolCallForDisplay(
+    toolCalls: Array<{
+      function?: {
+        name?: string;
+        arguments?: string;
+      };
+    }>,
+  ): string {
+    if (!toolCalls || toolCalls.length === 0) {
+      return "";
+    }
+
+    const descriptions = toolCalls.map(
+      (call: {
+        function?: {
+          name?: string;
+          arguments?: string;
+        };
+      }) => {
+        const functionName = call.function?.name || "unknown_function";
+        let args = {};
+        if (call.function?.arguments) {
+          try {
+            args = JSON.parse(call.function.arguments);
+          } catch (error) {
+            // If arguments are malformed, preserve for debugging while marking as invalid
+            logger.warn?.(
+              "Malformed tool call arguments: " + call.function.arguments,
+            );
+            args = {
+              _malformed: true,
+              _originalArguments: call.function.arguments,
+              _error: error instanceof Error ? error.message : String(error),
+            };
+          }
+        }
+        return `\n[Tool Call: ${functionName}(${JSON.stringify(args)})]`;
+      },
+    );
+
+    return descriptions.join("");
+  }
+
+  /**
+   * Create stream generator for Ollama generate API (non-tool mode)
+   */
   private async *createOllamaStream(
     response: Response,
   ): AsyncGenerator<{ content: string }> {
@@ -612,6 +850,55 @@ export class OllamaProvider extends BaseProvider {
   async isModelAvailable(modelName: string): Promise<boolean> {
     const models = await this.getAvailableModels();
     return models.includes(modelName);
+  }
+
+  /**
+   * Get recommendations for tool-calling capable Ollama models
+   * Provides guidance for users who want to use function calling locally
+   */
+  static getToolCallingRecommendations(): {
+    recommended: string[];
+    performance: Record<
+      string,
+      { speed: number; quality: number; size: string }
+    >;
+    notes: Record<string, string>;
+    installation: Record<string, string>;
+  } {
+    return {
+      recommended: [
+        "llama3.1:8b-instruct",
+        "mistral:7b-instruct-v0.3",
+        "hermes3:8b-llama3.1",
+        "codellama:34b-instruct",
+        "firefunction-v2:70b",
+      ],
+      performance: {
+        "llama3.1:8b-instruct": { speed: 3, quality: 3, size: "4.6GB" },
+        "mistral:7b-instruct-v0.3": { speed: 3, quality: 2, size: "4.1GB" },
+        "hermes3:8b-llama3.1": { speed: 3, quality: 3, size: "4.6GB" },
+        "codellama:34b-instruct": { speed: 1, quality: 3, size: "19GB" },
+        "firefunction-v2:70b": { speed: 1, quality: 3, size: "40GB" },
+      },
+      notes: {
+        "llama3.1:8b-instruct":
+          "Best balance of speed, quality, and tool calling capability",
+        "mistral:7b-instruct-v0.3":
+          "Lightweight with reliable function calling",
+        "hermes3:8b-llama3.1": "Specialized for tool execution and reasoning",
+        "codellama:34b-instruct":
+          "Excellent for code-related tool calling, requires more resources",
+        "firefunction-v2:70b":
+          "Optimized specifically for function calling, requires high-end hardware",
+      },
+      installation: {
+        "llama3.1:8b-instruct": "ollama pull llama3.1:8b-instruct",
+        "mistral:7b-instruct-v0.3": "ollama pull mistral:7b-instruct-v0.3",
+        "hermes3:8b-llama3.1": "ollama pull hermes3:8b-llama3.1",
+        "codellama:34b-instruct": "ollama pull codellama:34b-instruct",
+        "firefunction-v2:70b": "ollama pull firefunction-v2:70b",
+      },
+    };
   }
 }
 

@@ -45,6 +45,7 @@ npx @juspay/neurolink generate "Hello" --provider litellm --model "google/gemini
 - **🛡️ Error Recovery** - Graceful failures with provider fallback and retry logic
 - **📊 Analytics & Evaluation** - Built-in usage tracking and AI-powered quality assessment
 - **🔧 MCP Integration** - Model Context Protocol with 6 built-in tools and 58+ discoverable servers
+- **🚀 Lighthouse Integration** - Unified tool registration API supporting both object and array formats for seamless Lighthouse tool import
 
 ---
 
@@ -220,6 +221,53 @@ echo 'AWS_ACCESS_KEY_ID="your-aws-access-key"' >> .env
 npx @juspay/neurolink status
 ```
 
+### JSON Format Support (Complete)
+
+NeuroLink provides comprehensive JSON input/output support for both CLI and SDK:
+
+```bash
+# CLI JSON Output - Structured data for scripts
+npx @juspay/neurolink generate "Summary of AI trends" --format json
+npx @juspay/neurolink gen "Create a user profile" --format json --provider google-ai
+
+# Example JSON Output:
+{
+  "content": "AI trends include increased automation...",
+  "provider": "google-ai",
+  "model": "gemini-2.5-flash",
+  "usage": {
+    "promptTokens": 15,
+    "completionTokens": 127,
+    "totalTokens": 142
+  },
+  "responseTime": 1234
+}
+```
+
+```typescript
+// SDK JSON Input/Output - Full TypeScript support
+import { createBestAIProvider } from "@juspay/neurolink";
+
+const provider = createBestAIProvider();
+
+// Structured input
+const result = await provider.generate({
+  input: { text: "Create a product specification" },
+  schema: {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      price: { type: "number" },
+      features: { type: "array", items: { type: "string" } },
+    },
+  },
+});
+
+// Access structured response
+const productData = JSON.parse(result.content);
+console.log(productData.name, productData.price, productData.features);
+```
+
 **📖 [Complete Setup Guide](./docs/PROVIDER-CONFIGURATION.md)** - All providers with detailed instructions
 
 ## ✨ Key Features
@@ -301,15 +349,42 @@ const result = await neurolink.generate({
   provider: "google-ai",
 });
 
-// Register multiple tools at once
+// Register multiple tools - Object format (existing)
 neurolink.registerTools({
   stockPrice: {
-    /* tool definition */
+    description: "Get stock price",
+    execute: async () => ({ price: 150.25 }),
   },
   calculator: {
-    /* tool definition */
+    description: "Calculate math",
+    execute: async () => ({ result: 42 }),
   },
 });
+
+// Register multiple tools - Array format (Lighthouse compatible)
+neurolink.registerTools([
+  {
+    name: "lighthouseTool1",
+    tool: {
+      description: "Lighthouse analytics tool",
+      parameters: z.object({
+        merchantId: z.string(),
+        dateRange: z.string().optional(),
+      }),
+      execute: async ({ merchantId, dateRange }) => {
+        // Lighthouse tool implementation with Zod schema
+        return { data: "analytics result" };
+      },
+    },
+  },
+  {
+    name: "lighthouseTool2",
+    tool: {
+      description: "Payment processing tool",
+      execute: async () => ({ status: "processed" }),
+    },
+  },
+]);
 ```
 
 ## 💰 Smart Model Selection

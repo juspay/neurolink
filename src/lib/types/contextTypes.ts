@@ -3,7 +3,7 @@
  * Provides type-safe context integration for AI generation
  */
 
-import { JsonValue, JsonObject } from "./common.js";
+import type { JsonValue, JsonObject } from "./common.js";
 
 /**
  * Base context interface for all AI operations
@@ -38,7 +38,7 @@ export interface BaseContext {
 /**
  * Context integration mode types
  */
-export type ContextIntegrationMode =
+type ContextIntegrationMode =
   | "prompt_prefix" // Add context as prompt prefix
   | "prompt_suffix" // Add context as prompt suffix
   | "system_prompt" // Include context in system prompt
@@ -61,7 +61,7 @@ export interface ContextConfig {
 /**
  * Context processing result
  */
-export interface ProcessedContext {
+interface ProcessedContext {
   originalContext: BaseContext;
   processedContext: string | null;
   config: ContextConfig;
@@ -74,9 +74,158 @@ export interface ProcessedContext {
 }
 
 /**
+ * Configuration for framework fields exclusion
+ * Can be customized per application or environment
+ */
+export interface FrameworkFieldsConfig {
+  // Default framework fields to exclude from custom data
+  defaultFields: string[];
+
+  // Additional custom fields to exclude
+  additionalFields?: string[];
+
+  // Override all fields (replaces default)
+  overrideFields?: string[];
+
+  // Include normally excluded fields
+  includeFields?: string[];
+}
+
+/**
  * Factory for context processing
  */
 export class ContextFactory {
+  /**
+   * Default framework fields configuration
+   */
+  static readonly DEFAULT_FRAMEWORK_FIELDS: FrameworkFieldsConfig = {
+    defaultFields: [
+      "sessionId",
+      "userId",
+      "apiToken",
+      "authToken",
+      "apiEndpoint",
+      "serviceUrl",
+      "endpoint",
+      "environment",
+      "region",
+      "enabledFeatures",
+      "platformType",
+      "platformUrl",
+      "platformId",
+      "enableDemoMode",
+    ],
+    additionalFields: [],
+    includeFields: [],
+  };
+
+  /**
+   * Current framework fields configuration
+   */
+  private static frameworkFieldsConfig: FrameworkFieldsConfig =
+    ContextFactory.DEFAULT_FRAMEWORK_FIELDS;
+
+  /**
+   * Flag to track if framework fields have been initialized
+   */
+  private static isFrameworkFieldsInitialized = false;
+
+  /**
+   * Configure framework fields for exclusion from custom data
+   */
+  static configureFrameworkFields(
+    config: Partial<FrameworkFieldsConfig>,
+  ): void {
+    ContextFactory.frameworkFieldsConfig = {
+      ...ContextFactory.DEFAULT_FRAMEWORK_FIELDS,
+      ...config,
+    };
+    ContextFactory.isFrameworkFieldsInitialized = true;
+  }
+
+  /**
+   * Get current framework fields configuration
+   * Ensures lazy initialization if not already loaded
+   */
+  static getFrameworkFieldsConfig(): FrameworkFieldsConfig {
+    // Lazy initialization - load from environment if not explicitly configured
+    if (!ContextFactory.isFrameworkFieldsInitialized) {
+      ContextFactory.loadFrameworkFieldsFromEnv();
+      ContextFactory.isFrameworkFieldsInitialized = true;
+    }
+    return { ...ContextFactory.frameworkFieldsConfig };
+  }
+
+  /**
+   * Reset framework fields configuration to default
+   */
+  static resetFrameworkFieldsConfig(): void {
+    ContextFactory.frameworkFieldsConfig = {
+      ...ContextFactory.DEFAULT_FRAMEWORK_FIELDS,
+    };
+  }
+
+  /**
+   * Load framework fields configuration from environment variables
+   * Supports NEUROLINK_CONTEXT_EXCLUDE_FIELDS and NEUROLINK_CONTEXT_INCLUDE_FIELDS
+   */
+  static loadFrameworkFieldsFromEnv(): void {
+    const excludeFields = process.env.NEUROLINK_CONTEXT_EXCLUDE_FIELDS;
+    const includeFields = process.env.NEUROLINK_CONTEXT_INCLUDE_FIELDS;
+    const overrideFields = process.env.NEUROLINK_CONTEXT_OVERRIDE_FIELDS;
+
+    const config: Partial<FrameworkFieldsConfig> = {};
+
+    if (excludeFields) {
+      config.additionalFields = excludeFields
+        .split(",")
+        .map((f) => f.trim())
+        .filter(Boolean);
+    }
+
+    if (includeFields) {
+      config.includeFields = includeFields
+        .split(",")
+        .map((f) => f.trim())
+        .filter(Boolean);
+    }
+
+    if (overrideFields) {
+      config.overrideFields = overrideFields
+        .split(",")
+        .map((f) => f.trim())
+        .filter(Boolean);
+    }
+
+    // Optimized check: avoid creating array with Object.keys() for simple property existence check
+    const hasConfigChanges =
+      config.additionalFields || config.includeFields || config.overrideFields;
+    if (hasConfigChanges) {
+      ContextFactory.configureFrameworkFields(config);
+    }
+    ContextFactory.isFrameworkFieldsInitialized = true;
+  }
+
+  /**
+   * Add additional fields to exclude
+   */
+  static addFrameworkFieldsToExclude(fields: string[]): void {
+    const currentConfig = ContextFactory.frameworkFieldsConfig;
+    ContextFactory.configureFrameworkFields({
+      additionalFields: [...(currentConfig.additionalFields || []), ...fields],
+    });
+  }
+
+  /**
+   * Add fields to include (override exclusion)
+   */
+  static addFrameworkFieldsToInclude(fields: string[]): void {
+    const currentConfig = ContextFactory.frameworkFieldsConfig;
+    ContextFactory.configureFrameworkFields({
+      includeFields: [...(currentConfig.includeFields || []), ...fields],
+    });
+  }
+
   /**
    * Default context configuration
    */
@@ -290,14 +439,158 @@ export class ContextFactory {
 /**
  * Type guard to check if value is valid context
  */
-export function isValidContext(value: unknown): value is BaseContext {
+function isValidContext(value: unknown): value is BaseContext {
   return ContextFactory.validateContext(value) !== null;
 }
 
 /**
- * Context integration options for AI generation
+ * Context conversion utilities for domain-specific data
+ * Replaces hardcoded business context with generic domain context
  */
-export interface ContextIntegrationOptions {
-  context?: BaseContext;
-  contextConfig?: Partial<ContextConfig>;
+
+import type { ExecutionContext } from "../mcp/contracts/mcpContract.js";
+
+interface ContextConversionOptions {
+  preserveLegacyFields?: boolean;
+  validateDomainData?: boolean;
+  includeMetadata?: boolean;
 }
+
+export class ContextConverter {
+  /**
+   * Convert legacy business context to generic domain context
+   * Based on business context patterns
+   */
+  static convertBusinessContext(
+    legacyContext: Record<string, unknown>,
+    domainType: string,
+    options: ContextConversionOptions = {},
+  ): ExecutionContext {
+    const {
+      preserveLegacyFields = false,
+      validateDomainData = true,
+      includeMetadata = true,
+    } = options;
+
+    return {
+      sessionId: legacyContext.sessionId as string,
+      userId: legacyContext.userId as string,
+      config: {
+        domainType,
+        providerConfig: {
+          token:
+            legacyContext.apiToken ||
+            legacyContext.authToken ||
+            legacyContext.accessToken,
+          endpoint: legacyContext.apiEndpoint || legacyContext.serviceUrl,
+          provider: this.inferProvider(legacyContext),
+        },
+        platformConfig: {
+          type: legacyContext.platformType || "generic",
+          url: legacyContext.platformUrl || legacyContext.serviceUrl,
+          id: legacyContext.platformId || legacyContext.serviceId,
+          integrations: legacyContext.platformIntegrations || [],
+        },
+        operationalConfig: {
+          demoMode: legacyContext.enableDemoMode || false,
+          environment: legacyContext.environment || "production",
+          region: legacyContext.region,
+          features: legacyContext.enabledFeatures || [],
+        },
+        customData: {
+          // Preserve domain-specific fields if needed
+          ...(preserveLegacyFields
+            ? {
+                entityId:
+                  legacyContext.entityId || legacyContext.organizationId,
+                departmentId: legacyContext.departmentId,
+                projectId: legacyContext.projectId,
+              }
+            : {}),
+          // Include any additional custom data
+          ...this.extractCustomData(legacyContext),
+        },
+      },
+      metadata: includeMetadata
+        ? {
+            convertedFrom: "legacy-business-context",
+            conversionTime: Date.now(),
+            originalKeys: Object.keys(legacyContext),
+            domainType,
+          }
+        : undefined,
+    };
+  }
+
+  /**
+   * Create execution context for any domain
+   */
+  static createDomainContext(
+    domainType: string,
+    domainData: Record<string, unknown>,
+    sessionInfo: { sessionId?: string; userId?: string } = {},
+  ): ExecutionContext {
+    return {
+      sessionId: sessionInfo.sessionId || `session_${Date.now()}`,
+      userId: sessionInfo.userId,
+      config: {
+        domainType,
+        customData: domainData,
+      },
+      metadata: {
+        source: "domain-context-factory",
+        createdAt: Date.now(),
+        domainType,
+      },
+    };
+  }
+
+  private static inferProvider(context: Record<string, unknown>): string {
+    // Generic provider inference based on context structure
+    if (context.apiToken || context.authToken) {
+      return "api-provider";
+    }
+    if (context.serviceUrl || context.endpoint) {
+      return "service-provider";
+    }
+    return "generic-provider";
+  }
+
+  private static extractCustomData(
+    context: Record<string, unknown>,
+  ): Record<string, unknown> {
+    // Get current framework fields configuration
+    const config = ContextFactory.getFrameworkFieldsConfig();
+
+    // Build the set of fields to exclude
+    let fieldsToExclude: Set<string>;
+
+    if (config.overrideFields) {
+      // Use override fields completely
+      fieldsToExclude = new Set(config.overrideFields);
+    } else {
+      // Use default fields + additional fields
+      fieldsToExclude = new Set([
+        ...config.defaultFields,
+        ...(config.additionalFields || []),
+      ]);
+    }
+
+    // Remove any fields that should be included despite being in the exclude list
+    if (config.includeFields) {
+      config.includeFields.forEach((field) => fieldsToExclude.delete(field));
+    }
+
+    const customData: Record<string, unknown> = {};
+    Object.entries(context).forEach(([key, value]) => {
+      if (!fieldsToExclude.has(key)) {
+        customData[key] = value;
+      }
+    });
+
+    return customData;
+  }
+}
+
+// Framework fields configuration loading moved to lazy initialization
+// Call ContextFactory.loadFrameworkFieldsFromEnv() explicitly in application entrypoint or test setup

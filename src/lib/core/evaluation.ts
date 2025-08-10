@@ -8,6 +8,7 @@ import type { EvaluationData } from "./types.js";
 import type { UnknownRecord } from "../types/common.js";
 import { z } from "zod";
 import { ProviderRegistry } from "../factories/providerRegistry.js";
+import { modelConfig } from "./modelConfiguration.js";
 
 // Enhanced evaluation result interface
 export interface UnifiedEvaluationResult extends EvaluationData {
@@ -217,8 +218,11 @@ export async function generateUnifiedEvaluation(
     // Get evaluation provider
     const evaluationProvider =
       process.env.NEUROLINK_EVALUATION_PROVIDER || "google-ai";
+    // Use configurable model selection instead of hardcoded default
     const evaluationModel =
-      process.env.NEUROLINK_EVALUATION_MODEL || "gemini-2.5-flash";
+      process.env.NEUROLINK_EVALUATION_MODEL ||
+      modelConfig.getModelForTier(evaluationProvider, "fast") ||
+      "gemini-2.5-flash"; // Ultimate fallback
 
     logger.debug(
       `[${functionTag}] Using provider: ${evaluationProvider}, model: ${evaluationModel}`,

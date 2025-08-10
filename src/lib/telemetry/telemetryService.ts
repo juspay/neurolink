@@ -43,6 +43,13 @@ export class TelemetryService {
   private connectionCounter?: Counter;
   private responseTimeHistogram?: Histogram;
 
+  // Runtime metrics tracking
+  private activeConnectionCount: number = 0;
+  private errorCount: number = 0;
+  private requestCount: number = 0;
+  private totalResponseTime: number = 0;
+  private responseTimeCount: number = 0;
+
   private constructor() {
     // Check if telemetry is enabled
     this.enabled = this.isTelemetryEnabled();
@@ -199,6 +206,11 @@ export class TelemetryService {
     tokens: number,
     duration: number,
   ): void {
+    // Track runtime metrics
+    this.requestCount++;
+    this.totalResponseTime += duration;
+    this.responseTimeCount++;
+
     if (!this.enabled || !this.aiRequestCounter) {
       return;
     }
@@ -211,6 +223,9 @@ export class TelemetryService {
   }
 
   recordAIError(provider: string, error: Error): void {
+    // Track runtime metrics
+    this.errorCount++;
+
     if (!this.enabled || !this.aiProviderErrors) {
       return;
     }
@@ -239,6 +254,9 @@ export class TelemetryService {
   }
 
   recordConnection(type: "websocket" | "sse" | "http"): void {
+    // Track runtime metrics
+    this.activeConnectionCount++;
+
     if (!this.enabled || !this.connectionCounter) {
       return;
     }
@@ -246,7 +264,26 @@ export class TelemetryService {
     this.connectionCounter.add(1, { connection_type: type });
   }
 
+  recordConnectionClosed(type: "websocket" | "sse" | "http"): void {
+    // Track runtime metrics
+    this.activeConnectionCount = Math.max(0, this.activeConnectionCount - 1);
+
+    if (!this.enabled || !this.connectionCounter) {
+      return;
+    }
+
+    // Optionally record disconnection metrics if needed
+    this.connectionCounter.add(-1, {
+      connection_type: type,
+      event: "disconnect",
+    });
+  }
+
   recordResponseTime(endpoint: string, method: string, duration: number): void {
+    // Track runtime metrics
+    this.totalResponseTime += duration;
+    this.responseTimeCount++;
+
     if (!this.enabled || !this.responseTimeHistogram) {
       return;
     }
@@ -295,13 +332,23 @@ export class TelemetryService {
   async getHealthMetrics(): Promise<HealthMetrics> {
     const memoryUsage = process.memoryUsage();
 
+    // Calculate error rate as percentage of errors vs total requests
+    const errorRate =
+      this.requestCount > 0 ? (this.errorCount / this.requestCount) * 100 : 0;
+
+    // Calculate average response time
+    const averageResponseTime =
+      this.responseTimeCount > 0
+        ? this.totalResponseTime / this.responseTimeCount
+        : 0;
+
     return {
       timestamp: Date.now(),
       memoryUsage,
       uptime: process.uptime(),
-      activeConnections: 0, // Would need to be provided by calling code
-      errorRate: 0, // Would need to be calculated from metrics
-      averageResponseTime: 0, // Would need to be calculated from metrics
+      activeConnections: this.activeConnectionCount,
+      errorRate: Math.round(errorRate * 100) / 100, // Round to 2 decimal places
+      averageResponseTime: Math.round(averageResponseTime * 100) / 100, // Round to 2 decimal places
     };
   }
 

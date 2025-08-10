@@ -2,7 +2,7 @@ import type { AIProvider, AIProviderName } from "../core/types.js";
 import type { UnknownRecord } from "../types/common.js";
 import { logger } from "../utils/logger.js";
 
-// ✅ NO HARDCODED IMPORTS - Pure factory pattern
+// Pure factory pattern with no hardcoded imports
 // All providers loaded dynamically via registry to avoid circular dependencies
 
 /**

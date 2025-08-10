@@ -31,6 +31,54 @@ export const PROVIDER_CONFIG = {
   },
 };
 
+// Provider-specific maxTokens limits (discovered through testing)
+export const PROVIDER_MAX_TOKENS = {
+  anthropic: {
+    "claude-3-haiku-20240307": 4096,
+    "claude-3-5-sonnet-20241022": 4096,
+    "claude-3-opus-20240229": 4096,
+    "claude-3-5-sonnet-20240620": 4096,
+    default: 4096, // Conservative default for Anthropic
+  },
+  openai: {
+    "gpt-4o": 16384,
+    "gpt-4o-mini": 16384,
+    "gpt-3.5-turbo": 4096,
+    "gpt-4": 8192,
+    "gpt-4-turbo": 4096,
+    default: 8192, // OpenAI generally supports higher limits
+  },
+  "google-ai": {
+    "gemini-1.5-pro": 8192,
+    "gemini-1.5-flash": 8192,
+    "gemini-2.5-pro": 8192,
+    "gemini-2.5-flash": 8192,
+    "gemini-pro": 4096,
+    default: 4096, // Conservative default due to 500 errors at high limits
+  },
+  vertex: {
+    "gemini-1.5-pro": 8192,
+    "gemini-1.5-flash": 8192,
+    "gemini-2.5-pro": 8192,
+    "gemini-2.5-flash": 8192,
+    "claude-4.0-sonnet": 4096,
+    default: 4096,
+  },
+  bedrock: {
+    "anthropic.claude-3-sonnet-20240229-v1:0": 4096,
+    "anthropic.claude-3-haiku-20240307-v1:0": 4096,
+    "anthropic.claude-3-5-sonnet-20240620-v1:0": 4096,
+    default: 4096,
+  },
+  ollama: {
+    default: 8192, // Ollama typically supports higher limits
+  },
+  litellm: {
+    default: 4096, // Conservative default
+  },
+  default: 4096, // Safe default across all providers
+};
+
 // CLI Validation Limits
 export const CLI_LIMITS = {
   maxTokens: {
