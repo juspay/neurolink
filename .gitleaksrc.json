@@ -1,0 +1,87 @@
+{
+  "description": "NeuroLink Gitleaks Configuration for Comprehensive Secret Detection",
+  "extend": {
+    "useDefault": true
+  },
+  "rules": [
+    {
+      "id": "neurolink-api-key",
+      "description": "NeuroLink API Key Pattern",
+      "regex": "neurolink[_-]?api[_-]?key[\"'\\s]*[=:][\"'\\s]*[a-zA-Z0-9]{32,64}",
+      "keywords": ["neurolink_api_key", "neurolink-api-key", "neurolinkApiKey"]
+    },
+    {
+      "id": "custom-bearer-token",
+      "description": "Bearer Token Pattern",
+      "regex": "bearer[\\s]+[a-zA-Z0-9\\-._~+/]+=*",
+      "keywords": ["bearer"]
+    },
+    {
+      "id": "database-url",
+      "description": "Database Connection String",
+      "regex": "(postgres|mysql|mongodb)://[a-zA-Z0-9_:@.-]+/[a-zA-Z0-9_-]+",
+      "keywords": ["postgres://", "mysql://", "mongodb://"]
+    },
+    {
+      "id": "private-key",
+      "description": "Private Key Pattern",
+      "regex": "-----BEGIN [A-Z ]+ PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]+ PRIVATE KEY-----",
+      "keywords": ["PRIVATE KEY"]
+    }
+  ],
+  "allowlist": {
+    "description": "Global allowlist for common false positives",
+    "regexes": [
+      "your[-_]api[-_]key[-_]here",
+      "replace[-_]with[-_]your",
+      "example[-_]key",
+      "test[-_]key",
+      "dummy[-_]key",
+      "placeholder",
+      "sample[-_]token",
+      "[Xx]{20,}",
+      "123456789",
+      "abcdefgh",
+      "sk-[Xx]{48}",
+      "AIza[Xx]{35}"
+    ],
+    "paths": [
+      ".gitleaksrc.json",
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      ".svelte-kit/**",
+      "coverage/**",
+      "*.min.js",
+      "*.bundle.js",
+      ".git/**",
+      "docs/**/*.md",
+      "examples/**",
+      "test/**/*.json",
+      "tools/**",
+      "memory-bank/**"
+    ],
+    "commits": [],
+    "stopwords": [
+      "example",
+      "test",
+      "dummy",
+      "placeholder",
+      "sample",
+      "demo",
+      "fake",
+      "mock",
+      "template"
+    ]
+  },
+  "severity": {
+    "rules": {
+      "aws-access-token": "high",
+      "openai-api-key": "high",
+      "github-token": "high",
+      "neurolink-api-key": "critical",
+      "private-key": "critical",
+      "database-url": "medium"
+    }
+  }
+}

@@ -15,6 +15,7 @@ import {
   type EndpointSummary,
 } from "@aws-sdk/client-sagemaker";
 import type { UnknownRecord } from "../../lib/types/common.js";
+import { logger } from "../../lib/utils/logger.js";
 import {
   checkSageMakerConfiguration,
   getSageMakerConfig,
@@ -284,37 +285,37 @@ async function statusHandler() {
     const status = checkSageMakerConfiguration();
     spinner.stop();
 
-    console.log(chalk.blue("\n🔍 SageMaker Configuration Status\n"));
+    logger.always(chalk.blue("\n🔍 SageMaker Configuration Status\n"));
 
     if (status.configured) {
-      console.log(chalk.green("✅ Configuration: Valid"));
+      logger.always(chalk.green("✅ Configuration: Valid"));
     } else {
-      console.log(chalk.red("❌ Configuration: Invalid"));
+      logger.always(chalk.red("❌ Configuration: Invalid"));
     }
 
     if (status.issues.length > 0) {
-      console.log(chalk.yellow("\n⚠️  Issues found:"));
+      logger.always(chalk.yellow("\n⚠️  Issues found:"));
       status.issues.forEach((issue) => {
-        console.log(`   • ${issue}`);
+        logger.always(`   • ${issue}`);
       });
     }
 
     // Show configuration summary (safe for display)
     if (status.summary) {
-      console.log(chalk.blue("\n📋 Configuration Summary:"));
+      logger.always(chalk.blue("\n📋 Configuration Summary:"));
       if (typeof status.summary === "object" && status.summary.aws) {
         const aws = status.summary.aws as UnknownRecord;
-        console.log(`   Region: ${aws.region}`);
-        console.log(`   Access Key: ${aws.accessKeyId}`);
-        console.log(`   Timeout: ${aws.timeout}ms`);
-        console.log(`   Max Retries: ${aws.maxRetries}`);
+        logger.always(`   Region: ${aws.region}`);
+        logger.always(`   Access Key: ${aws.accessKeyId}`);
+        logger.always(`   Timeout: ${aws.timeout}ms`);
+        logger.always(`   Max Retries: ${aws.maxRetries}`);
       }
     }
 
     process.exit(status.configured ? 0 : 1);
   } catch (error) {
     spinner.fail("Failed to check SageMaker configuration");
-    console.error(
+    logger.error(
       chalk.red(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       ),
@@ -341,7 +342,7 @@ async function testEndpointHandler(argv: {
     const status = checkSageMakerConfiguration();
     if (!status.configured) {
       spinner.fail("SageMaker configuration is invalid");
-      console.error(chalk.red("Please run 'neurolink sagemaker setup' first"));
+      logger.error(chalk.red("Please run 'neurolink sagemaker setup' first"));
       process.exit(1);
     }
 
@@ -372,18 +373,18 @@ async function testEndpointHandler(argv: {
         });
 
         spinner.succeed("✅ Text generation test successful");
-        console.log(chalk.blue("\n📝 Test Response:"));
-        console.log(`   Input: "${prompt}"`);
-        console.log(
+        logger.always(chalk.blue("\n📝 Test Response:"));
+        logger.always(`   Input: "${prompt}"`);
+        logger.always(
           `   Output: "${result.text?.substring(0, 100)}${result.text && result.text.length > 100 ? "..." : ""}"`,
         );
-        console.log(
+        logger.always(
           `   Tokens: ${result.usage.promptTokens} → ${result.usage.completionTokens} (${(result.usage as { totalTokens?: number }).totalTokens ?? result.usage.promptTokens + result.usage.completionTokens} total)`,
         );
-        console.log(`   Finish Reason: ${result.finishReason}`);
+        logger.always(`   Finish Reason: ${result.finishReason}`);
       } catch (genError) {
         spinner.fail("❌ Text generation test failed");
-        console.error(
+        logger.error(
           chalk.red(
             `Generation Error: ${genError instanceof Error ? genError.message : String(genError)}`,
           ),
@@ -391,12 +392,12 @@ async function testEndpointHandler(argv: {
       }
     } else {
       spinner.fail(`❌ Endpoint '${endpoint}' is not accessible`);
-      console.error(chalk.red(`Error: ${testResult.error}`));
+      logger.error(chalk.red(`Error: ${testResult.error}`));
       process.exit(1);
     }
   } catch (error) {
     spinner.fail("Failed to test SageMaker endpoint");
-    console.error(
+    logger.error(
       chalk.red(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       ),
@@ -431,40 +432,42 @@ async function listEndpointsHandler() {
       spinner.stop();
 
       if (endpoints.Endpoints && endpoints.Endpoints.length > 0) {
-        console.log(chalk.blue("\n🔗 Available SageMaker Endpoints:\n"));
+        logger.always(chalk.blue("\n🔗 Available SageMaker Endpoints:\n"));
 
         endpoints.Endpoints.forEach(
           (endpoint: EndpointSummary, index: number) => {
-            console.log(`${index + 1}. ${chalk.green(endpoint.EndpointName)}`);
-            console.log(`   Status: ${endpoint.EndpointStatus}`);
-            console.log(
+            logger.always(
+              `${index + 1}. ${chalk.green(endpoint.EndpointName)}`,
+            );
+            logger.always(`   Status: ${endpoint.EndpointStatus}`);
+            logger.always(
               `   Created: ${endpoint.CreationTime?.toLocaleDateString() ?? "Unknown"}`,
             );
             if (endpoint.LastModifiedTime) {
-              console.log(
+              logger.always(
                 `   Modified: ${endpoint.LastModifiedTime.toLocaleDateString()}`,
               );
             }
-            console.log();
+            logger.always();
           },
         );
       } else {
-        console.log(chalk.yellow("No SageMaker endpoints found"));
+        logger.always(chalk.yellow("No SageMaker endpoints found"));
       }
-    } catch (awsError) {
+    } catch (_awsError) {
       spinner.fail("Failed to list endpoints");
-      console.error(
+      logger.error(
         chalk.red("AWS SDK credentials error or insufficient permissions"),
       );
-      console.log(chalk.yellow("\nTo list endpoints, please:"));
-      console.log("1. Set AWS_ACCESS_KEY_ID environment variable");
-      console.log("2. Set AWS_SECRET_ACCESS_KEY environment variable");
-      console.log("3. Set AWS_REGION environment variable (or use default)");
-      console.log("4. Ensure you have sagemaker:ListEndpoints permission");
+      logger.always(chalk.yellow("\nTo list endpoints, please:"));
+      logger.always("1. Set AWS_ACCESS_KEY_ID environment variable");
+      logger.always("2. Set AWS_SECRET_ACCESS_KEY environment variable");
+      logger.always("3. Set AWS_REGION environment variable (or use default)");
+      logger.always("4. Ensure you have sagemaker:ListEndpoints permission");
     }
   } catch (error) {
     spinner.fail("Failed to list SageMaker endpoints");
-    console.error(
+    logger.error(
       chalk.red(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       ),
@@ -484,20 +487,20 @@ async function configHandler(args: { format: "json" | "table" | "yaml" }) {
     const summary = getConfigurationSummary();
     spinner.stop();
 
-    console.log(chalk.blue("\n⚙️  SageMaker Configuration\n"));
+    logger.always(chalk.blue("\n⚙️  SageMaker Configuration\n"));
 
     if (format === "json") {
-      console.log(JSON.stringify(summary, null, 2));
+      logger.always(JSON.stringify(summary, null, 2));
     } else if (format === "yaml") {
       // Simple YAML-like output
       function printYaml(obj: UnknownRecord, indent = 0) {
         const spaces = " ".repeat(indent);
         for (const [key, value] of Object.entries(obj)) {
           if (typeof value === "object" && value !== null) {
-            console.log(`${spaces}${key}:`);
+            logger.always(`${spaces}${key}:`);
             printYaml(value as UnknownRecord, indent + 2);
           } else {
-            console.log(`${spaces}${key}: ${value}`);
+            logger.always(`${spaces}${key}: ${value}`);
           }
         }
       }
@@ -511,38 +514,38 @@ async function configHandler(args: { format: "json" | "table" | "yaml" }) {
         const environment = ((summary as UnknownRecord).environment ||
           {}) as UnknownRecord;
 
-        console.log(chalk.green("AWS Configuration:"));
-        console.log(`  Region: ${aws.region}`);
-        console.log(`  Access Key: ${aws.accessKeyId}`);
-        console.log(`  Secret Key: ${aws.secretAccessKey}`);
-        console.log(`  Session Token: ${aws.sessionToken}`);
-        console.log(`  Timeout: ${aws.timeout}ms`);
-        console.log(`  Max Retries: ${aws.maxRetries}`);
-        console.log(`  Custom Endpoint: ${aws.endpoint || "None"}`);
+        logger.always(chalk.green("AWS Configuration:"));
+        logger.always(`  Region: ${aws.region}`);
+        logger.always(`  Access Key: ${aws.accessKeyId}`);
+        logger.always(`  Secret Key: ${aws.secretAccessKey}`);
+        logger.always(`  Session Token: ${aws.sessionToken}`);
+        logger.always(`  Timeout: ${aws.timeout}ms`);
+        logger.always(`  Max Retries: ${aws.maxRetries}`);
+        logger.always(`  Custom Endpoint: ${aws.endpoint || "None"}`);
 
-        console.log(chalk.blue("\nSageMaker Configuration:"));
-        console.log(`  Default Endpoint: ${sagemaker.defaultEndpoint}`);
-        console.log(`  Model Name: ${sagemaker.model}`);
+        logger.always(chalk.blue("\nSageMaker Configuration:"));
+        logger.always(`  Default Endpoint: ${sagemaker.defaultEndpoint}`);
+        logger.always(`  Model Name: ${sagemaker.model}`);
         if (sagemaker.modelConfig) {
           const modelConfig = sagemaker.modelConfig as UnknownRecord;
-          console.log(`  Model Type: ${modelConfig.modelType}`);
-          console.log(`  Content Type: ${modelConfig.contentType}`);
-          console.log(`  Accept: ${modelConfig.accept}`);
+          logger.always(`  Model Type: ${modelConfig.modelType}`);
+          logger.always(`  Content Type: ${modelConfig.contentType}`);
+          logger.always(`  Accept: ${modelConfig.accept}`);
         }
 
-        console.log(chalk.yellow("\nEnvironment:"));
-        console.log(`  Node Environment: ${environment.nodeEnv}`);
-        console.log(
+        logger.always(chalk.yellow("\nEnvironment:"));
+        logger.always(`  Node Environment: ${environment.nodeEnv}`);
+        logger.always(
           `  SageMaker Configured: ${environment.sagemakerConfigured ? "Yes" : "No"}`,
         );
-        console.log(
+        logger.always(
           `  AWS Configured: ${environment.awsConfigured ? "Yes" : "No"}`,
         );
       }
     }
   } catch (error) {
     spinner.fail("Failed to load SageMaker configuration");
-    console.error(
+    logger.error(
       chalk.red(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       ),
@@ -555,10 +558,10 @@ async function configHandler(args: { format: "json" | "table" | "yaml" }) {
  * Handler for interactive setup
  */
 async function setupHandler() {
-  console.log(chalk.blue("\n🚀 SageMaker Interactive Setup\n"));
+  logger.always(chalk.blue("\n🚀 SageMaker Interactive Setup\n"));
 
   // Pre-setup security advisory
-  console.log(
+  logger.always(
     chalk.yellow.bold(
       "🔒 SECURITY NOTICE: You will be prompted to enter AWS credentials.\n" +
         "These credentials will be stored temporarily in memory only.\n" +
@@ -578,15 +581,15 @@ async function setupHandler() {
   ]);
 
   if (!confirmSetup) {
-    console.log(
+    logger.always(
       chalk.blue(
         "\nSetup cancelled. Consider using alternative credential methods:",
       ),
     );
-    console.log("• AWS credential files: ~/.aws/credentials");
-    console.log("• Environment variables in .env file");
-    console.log("• AWS CLI configuration: aws configure");
-    console.log("• IAM roles for production environments");
+    logger.always("• AWS credential files: ~/.aws/credentials");
+    logger.always("• Environment variables in .env file");
+    logger.always("• AWS CLI configuration: aws configure");
+    logger.always("• IAM roles for production environments");
     return;
   }
 
@@ -637,9 +640,9 @@ async function setupHandler() {
 
     // Enhanced security warnings for credential handling
     spinner.stop();
-    console.log(chalk.red.bold("\n🔒 CRITICAL SECURITY WARNINGS\n"));
+    logger.always(chalk.red.bold("\n🔒 CRITICAL SECURITY WARNINGS\n"));
 
-    console.log(
+    logger.always(
       chalk.yellow.bold(
         "⚠️  CREDENTIAL PERSISTENCE: AWS credentials will only be set for this session.\n" +
           "   They will NOT persist after you exit the CLI.\n\n" +
@@ -685,21 +688,21 @@ async function setupHandler() {
       validateSecureConfiguration(secureConfig); // Validate configuration is loadable
       spinner.succeed("✅ Configuration validated successfully");
 
-      console.log(chalk.green("\n🎉 SageMaker setup complete!"));
-      console.log(chalk.yellow("\n💡 Next steps:"));
-      console.log(
+      logger.always(chalk.green("\n🎉 SageMaker setup complete!"));
+      logger.always(chalk.yellow("\n💡 Next steps:"));
+      logger.always(
         "1. Test your endpoint: neurolink sagemaker test <endpoint-name>",
       );
-      console.log("2. Check status: neurolink sagemaker status");
-      console.log("3. List endpoints: neurolink sagemaker list-endpoints");
+      logger.always("2. Check status: neurolink sagemaker status");
+      logger.always("3. List endpoints: neurolink sagemaker list-endpoints");
 
-      console.log(chalk.blue("\n🔒 Secure configuration validated:"));
-      console.log("  ✓ AWS credentials verified");
-      console.log("  ✓ AWS region validated");
-      console.log("  ✓ SageMaker endpoint configured");
-      console.log("  ✓ Timeout and retry settings applied");
+      logger.always(chalk.blue("\n🔒 Secure configuration validated:"));
+      logger.always("  ✓ AWS credentials verified");
+      logger.always("  ✓ AWS region validated");
+      logger.always("  ✓ SageMaker endpoint configured");
+      logger.always("  ✓ Timeout and retry settings applied");
 
-      console.log(
+      logger.always(
         chalk.yellow(
           "\n⚠️  For persistent configuration, add these to your .env file:\n" +
             "  AWS_ACCESS_KEY_ID=your_access_key\n" +
@@ -723,7 +726,7 @@ async function setupHandler() {
       clearSecureCredentials(secureConfig.sessionId);
     } catch (configError) {
       spinner.fail("❌ Configuration validation failed");
-      console.error(
+      logger.error(
         chalk.red(
           `Error: ${configError instanceof Error ? configError.message : String(configError)}`,
         ),
@@ -733,7 +736,7 @@ async function setupHandler() {
       process.exit(1);
     }
   } catch (error) {
-    console.error(
+    logger.error(
       chalk.red(
         `Setup failed: ${error instanceof Error ? error.message : String(error)}`,
       ),
@@ -752,29 +755,29 @@ async function validateHandler() {
     const status = checkSageMakerConfiguration();
     spinner.stop();
 
-    console.log(chalk.blue("\n🔍 Configuration Validation Results\n"));
+    logger.always(chalk.blue("\n🔍 Configuration Validation Results\n"));
 
     if (status.configured) {
-      console.log(chalk.green("✅ All checks passed"));
-      console.log(chalk.blue("🚀 SageMaker is ready to use"));
+      logger.always(chalk.green("✅ All checks passed"));
+      logger.always(chalk.blue("🚀 SageMaker is ready to use"));
     } else {
-      console.log(chalk.red("❌ Configuration validation failed"));
+      logger.always(chalk.red("❌ Configuration validation failed"));
 
       if (status.issues.length > 0) {
-        console.log(chalk.yellow("\n🔧 Issues to fix:"));
+        logger.always(chalk.yellow("\n🔧 Issues to fix:"));
         status.issues.forEach((issue, index) => {
-          console.log(`${index + 1}. ${issue}`);
+          logger.always(`${index + 1}. ${issue}`);
         });
       }
 
-      console.log(chalk.blue("\n💡 How to fix:"));
-      console.log("Run: neurolink sagemaker setup");
+      logger.always(chalk.blue("\n💡 How to fix:"));
+      logger.always("Run: neurolink sagemaker setup");
 
       process.exit(1);
     }
   } catch (error) {
     spinner.fail("Validation failed");
-    console.error(
+    logger.error(
       chalk.red(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       ),
@@ -794,11 +797,11 @@ async function benchmarkHandler(argv: {
   maxTokens?: number;
 }) {
   const { endpoint, requests = 10, concurrency = 2, maxTokens = 100 } = argv;
-  console.log(chalk.blue(`\n⚡ SageMaker Performance Benchmark\n`));
-  console.log(`Endpoint: ${endpoint}`);
-  console.log(`Requests: ${requests}`);
-  console.log(`Concurrency: ${concurrency}`);
-  console.log(`Max Tokens: ${maxTokens}\n`);
+  logger.always(chalk.blue(`\n⚡ SageMaker Performance Benchmark\n`));
+  logger.always(`Endpoint: ${endpoint}`);
+  logger.always(`Requests: ${requests}`);
+  logger.always(`Concurrency: ${concurrency}`);
+  logger.always(`Max Tokens: ${maxTokens}\n`);
 
   const spinner = ora("Setting up benchmark...").start();
 
@@ -807,7 +810,7 @@ async function benchmarkHandler(argv: {
     const status = checkSageMakerConfiguration();
     if (!status.configured) {
       spinner.fail("SageMaker configuration is invalid");
-      console.error(chalk.red("Please run 'neurolink sagemaker setup' first"));
+      logger.error(chalk.red("Please run 'neurolink sagemaker setup' first"));
       process.exit(1);
     }
 
@@ -820,7 +823,7 @@ async function benchmarkHandler(argv: {
 
     if (!connectivityTest.success) {
       spinner.fail(`Endpoint '${endpoint}' is not accessible`);
-      console.error(chalk.red(`Error: ${connectivityTest.error}`));
+      logger.error(chalk.red(`Error: ${connectivityTest.error}`));
       process.exit(1);
     }
 
@@ -895,49 +898,49 @@ async function benchmarkHandler(argv: {
     const durations = successful.map((r) => r.duration);
     const totalTokens = successful.reduce((sum, r) => sum + r.tokens, 0);
 
-    console.log(chalk.green("\n📊 Benchmark Results\n"));
-    console.log(`Total Time: ${totalTime}ms`);
-    console.log(`Successful Requests: ${successful.length}/${requests}`);
-    console.log(`Failed Requests: ${failed.length}`);
-    console.log(
+    logger.always(chalk.green("\n📊 Benchmark Results\n"));
+    logger.always(`Total Time: ${totalTime}ms`);
+    logger.always(`Successful Requests: ${successful.length}/${requests}`);
+    logger.always(`Failed Requests: ${failed.length}`);
+    logger.always(
       `Success Rate: ${((successful.length / requests) * 100).toFixed(1)}%`,
     );
 
     if (successful.length > 0) {
-      console.log(`\nLatency Statistics:`);
-      console.log(
+      logger.always(`\nLatency Statistics:`);
+      logger.always(
         `  Average: ${(durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(0)}ms`,
       );
-      console.log(`  Minimum: ${Math.min(...durations)}ms`);
-      console.log(`  Maximum: ${Math.max(...durations)}ms`);
-      console.log(
+      logger.always(`  Minimum: ${Math.min(...durations)}ms`);
+      logger.always(`  Maximum: ${Math.max(...durations)}ms`);
+      logger.always(
         `  Median: ${durations.sort((a, b) => a - b)[Math.floor(durations.length / 2)]}ms`,
       );
 
-      console.log(`\nThroughput:`);
-      console.log(
+      logger.always(`\nThroughput:`);
+      logger.always(
         `  Requests/sec: ${(successful.length / (totalTime / 1000)).toFixed(2)}`,
       );
-      console.log(
+      logger.always(
         `  Tokens/sec: ${(totalTokens / (totalTime / 1000)).toFixed(2)}`,
       );
-      console.log(
+      logger.always(
         `  Average tokens/request: ${(totalTokens / successful.length).toFixed(1)}`,
       );
     }
 
     if (failed.length > 0) {
-      console.log(chalk.red(`\n❌ Failed Requests (${failed.length}):`));
+      logger.always(chalk.red(`\n❌ Failed Requests (${failed.length}):`));
       failed.slice(0, 5).forEach((failure, index) => {
-        console.log(`  ${index + 1}. ${failure.error}`);
+        logger.always(`  ${index + 1}. ${failure.error}`);
       });
       if (failed.length > 5) {
-        console.log(`  ... and ${failed.length - 5} more`);
+        logger.always(`  ... and ${failed.length - 5} more`);
       }
     }
   } catch (error) {
     spinner.fail("Benchmark failed");
-    console.error(
+    logger.error(
       chalk.red(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       ),
@@ -955,10 +958,10 @@ async function clearCacheHandler() {
   try {
     clearConfigurationCache();
     spinner.succeed("✅ Configuration cache cleared");
-    console.log(chalk.blue("Configuration will be reloaded on next use"));
+    logger.always(chalk.blue("Configuration will be reloaded on next use"));
   } catch (error) {
     spinner.fail("Failed to clear cache");
-    console.error(
+    logger.error(
       chalk.red(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       ),
@@ -980,16 +983,16 @@ async function diagnoseHandler(argv: {
 }) {
   const { endpoint, quick, full, timeout } = argv;
 
-  console.log(chalk.blue(`\n🔍 SageMaker Streaming Diagnostics\n`));
+  logger.always(chalk.blue(`\n🔍 SageMaker Streaming Diagnostics\n`));
 
   if (endpoint) {
-    console.log(`Endpoint: ${endpoint}`);
+    logger.always(`Endpoint: ${endpoint}`);
   } else {
-    console.log("Endpoint: Not specified (configuration tests only)");
+    logger.always("Endpoint: Not specified (configuration tests only)");
   }
 
-  console.log(`Mode: ${quick ? "Quick" : full ? "Full" : "Standard"}`);
-  console.log(`Timeout: ${timeout}ms\n`);
+  logger.always(`Mode: ${quick ? "Quick" : full ? "Full" : "Standard"}`);
+  logger.always(`Timeout: ${timeout}ms\n`);
 
   const spinner = ora("Starting diagnostics...").start();
 
@@ -1001,44 +1004,44 @@ async function diagnoseHandler(argv: {
 
     // Display results
     const formatted = formatDiagnosticReport(report);
-    console.log(formatted);
+    logger.always(formatted);
 
     // Additional insights based on results
     if (report.overallStatus === "critical") {
-      console.log(chalk.red("🚨 Critical Issues Detected"));
-      console.log(
+      logger.always(chalk.red("🚨 Critical Issues Detected"));
+      logger.always(
         chalk.red(
           "   Your streaming configuration has serious problems that need immediate attention.",
         ),
       );
-      console.log(
+      logger.always(
         chalk.yellow(
           "   See the recommendations above for resolution steps.\n",
         ),
       );
     } else if (report.overallStatus === "issues") {
-      console.log(chalk.yellow("⚠️  Issues Detected"));
-      console.log(
+      logger.always(chalk.yellow("⚠️  Issues Detected"));
+      logger.always(
         chalk.yellow(
           "   Your streaming setup works but has some issues that could affect performance.",
         ),
       );
-      console.log(
+      logger.always(
         chalk.blue("   Consider addressing the recommendations above.\n"),
       );
     } else {
-      console.log(chalk.green("✅ All Systems Go"));
-      console.log(
+      logger.always(chalk.green("✅ All Systems Go"));
+      logger.always(
         chalk.green("   Your SageMaker streaming configuration looks healthy!"),
       );
 
       if (endpoint) {
-        console.log(
+        logger.always(
           chalk.blue(
             "   You can now use streaming features with confidence.\n",
           ),
         );
-        console.log(
+        logger.always(
           chalk.dim("   Try: neurolink sagemaker stream " + endpoint),
         );
       }
@@ -1047,7 +1050,7 @@ async function diagnoseHandler(argv: {
     // Show additional help based on findings
     const failedTests = report.results.filter((r) => r.status === "fail");
     if (failedTests.length > 0) {
-      console.log(chalk.blue("📚 Additional Resources:"));
+      logger.always(chalk.blue("📚 Additional Resources:"));
 
       const hasConnectivityIssues = failedTests.some(
         (t) => t.category === "connectivity",
@@ -1060,47 +1063,47 @@ async function diagnoseHandler(argv: {
       );
 
       if (hasConfigIssues) {
-        console.log("   • Configuration: neurolink sagemaker setup");
+        logger.always("   • Configuration: neurolink sagemaker setup");
       }
       if (hasConnectivityIssues) {
-        console.log(
+        logger.always(
           "   • Connectivity: neurolink sagemaker test " +
             (endpoint || "your-endpoint"),
         );
       }
       if (hasStreamingIssues) {
-        console.log(
+        logger.always(
           "   • Streaming Guide: docs/providers/sagemaker/streaming-troubleshooting.md",
         );
       }
 
-      console.log(
+      logger.always(
         "   • Full Diagnostics: neurolink sagemaker diagnose " +
           (endpoint || "") +
           " --full",
       );
-      console.log();
+      logger.always();
     }
 
     // Exit with appropriate code
     process.exit(report.overallStatus === "critical" ? 1 : 0);
   } catch (error) {
     spinner.fail("Diagnostics failed");
-    console.error(
+    logger.error(
       chalk.red(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
       ),
     );
 
-    console.log(chalk.yellow("\n💡 Diagnostic troubleshooting:"));
-    console.log(
+    logger.always(chalk.yellow("\n💡 Diagnostic troubleshooting:"));
+    logger.always(
       "   • Check your SageMaker configuration: neurolink sagemaker status",
     );
-    console.log("   • Verify AWS credentials and permissions");
-    console.log(
+    logger.always("   • Verify AWS credentials and permissions");
+    logger.always(
       "   • Try with a specific endpoint: neurolink sagemaker diagnose your-endpoint",
     );
-    console.log("   • Run quick mode: neurolink sagemaker diagnose --quick");
+    logger.always("   • Run quick mode: neurolink sagemaker diagnose --quick");
 
     process.exit(1);
   }

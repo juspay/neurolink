@@ -374,11 +374,43 @@ export const directAgentTools = {
 };
 
 /**
- * Get a subset of tools for specific use cases
+ * Type aliases for specific tool categories
  */
+export type BasicToolsMap = {
+  getCurrentTime: typeof directAgentTools.getCurrentTime;
+  calculateMath: typeof directAgentTools.calculateMath;
+};
+
+export type FilesystemToolsMap = {
+  readFile: typeof directAgentTools.readFile;
+  listDirectory: typeof directAgentTools.listDirectory;
+  writeFile: typeof directAgentTools.writeFile;
+  searchFiles: typeof directAgentTools.searchFiles;
+};
+
+export type UtilityToolsMap = {
+  getCurrentTime: typeof directAgentTools.getCurrentTime;
+  calculateMath: typeof directAgentTools.calculateMath;
+  listDirectory: typeof directAgentTools.listDirectory;
+};
+
+export type AllToolsMap = typeof directAgentTools;
+
+/**
+ * Get a subset of tools for specific use cases with improved type safety
+ */
+
+export function getToolsForCategory(category: "basic"): BasicToolsMap;
+// eslint-disable-next-line no-redeclare
+export function getToolsForCategory(category: "filesystem"): FilesystemToolsMap;
+// eslint-disable-next-line no-redeclare
+export function getToolsForCategory(category: "utility"): UtilityToolsMap;
+// eslint-disable-next-line no-redeclare
+export function getToolsForCategory(category: "all"): AllToolsMap;
+// eslint-disable-next-line no-redeclare
 export function getToolsForCategory(
   category: "basic" | "filesystem" | "utility" | "all" = "all",
-) {
+): BasicToolsMap | FilesystemToolsMap | UtilityToolsMap | AllToolsMap {
   switch (category) {
     case "basic":
       return {

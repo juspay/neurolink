@@ -32,6 +32,12 @@ This section covers everything needed for contributing to NeuroLink, understandi
 
   Guide for upgrading from older architectures to the new unified factory pattern system.
 
+- :material-package-variant: **[Package Overrides](package-overrides.md)**
+
+  ***
+
+  Documentation for package version overrides, security vulnerabilities, and maintenance procedures.
+
 </div>
 
 ## 🚀 Quick Development Setup
@@ -46,14 +52,20 @@ This section covers everything needed for contributing to NeuroLink, understandi
     # Install dependencies
     pnpm install
 
+    # Setup git hooks for build rule enforcement
+    npx husky install
+
     # Complete automated setup
     pnpm setup:complete
 
     # Run comprehensive tests
     pnpm test:adaptive
 
-    # Build the project
+    # Build the project with validation
     pnpm build:complete
+
+    # Validate build rules and quality
+    pnpm run validate:all
     ```
 
 === "Minimal Setup"

@@ -5,15 +5,8 @@
  */
 
 import type { CommandModule, Argv } from "yargs";
-import type { UnknownRecord, JsonValue } from "../../lib/types/common.js";
-import type {
-  InMemoryMCPServerConfig,
-  MCPServerStatus,
-  MCPDiscoveredServer,
-  MCPServerConfig,
-  MCPServerRegistryEntry,
-  MCPTransportType,
-} from "../../lib/types/mcpTypes.js";
+import type { UnknownRecord } from "../../lib/types/common.js";
+import type { MCPServerConfig } from "../../lib/types/mcpTypes.js";
 import type { MCPCommandArgs } from "../../lib/types/cli.js";
 import { NeuroLink } from "../../lib/neurolink.js";
 import { logger } from "../../lib/utils/logger.js";
@@ -23,6 +16,87 @@ import fs from "fs";
 import path from "path";
 
 // Using MCPCommandArgs from types/cli.ts
+
+/**
+ * Response interface for MCP status information returned from the NeuroLink SDK.
+ * This interface represents the raw status data that gets converted to CLI-friendly format.
+ *
+ * @interface MCPStatusResponse
+ * @since 7.6.1
+ *
+ * @example
+ * ```typescript
+ * const status: MCPStatusResponse = {
+ *   autoDiscoveredServers: [
+ *     {
+ *       name: "filesystem",
+ *       id: "fs-server-001",
+ *       status: "connected",
+ *       source: "claude-desktop"
+ *     }
+ *   ],
+ *   mcpInitialized: true,
+ *   totalServers: 3,
+ *   availableServers: 2
+ * };
+ * ```
+ */
+interface MCPStatusResponse {
+  /**
+   * Array of servers that were automatically discovered from various sources.
+   * These servers are found by scanning configuration files from Claude Desktop,
+   * VS Code, and other MCP-compatible applications.
+   *
+   * @optional
+   * @since 7.6.1
+   */
+  autoDiscoveredServers?: Array<{
+    /**
+     * Display name of the discovered MCP server.
+     * Falls back to `id` if name is not available.
+     *
+     * @optional
+     * @example "filesystem" | "github-integration" | "database-connector"
+     */
+    name?: string;
+
+    /**
+     * Unique identifier for the MCP server instance.
+     * Used for internal tracking and deduplication.
+     *
+     * @optional
+     * @example "fs-server-001" | "gh-server-abc123"
+     */
+    id?: string;
+
+    /**
+     * Current connection status of the discovered server.
+     * Indicates whether the server is operational and reachable.
+     *
+     * @optional
+     * @example "connected" | "disconnected" | "error" | "unknown"
+     */
+    status?: string;
+
+    /**
+     * Source from which this server was discovered.
+     * Helps users understand where the server configuration originated.
+     *
+     * @optional
+     * @example "claude-desktop" | "vscode" | "manual-config" | "auto-scan"
+     */
+    source?: string;
+  }>;
+
+  /**
+   * Additional properties that may be included in the status response.
+   * Allows for extensibility and compatibility with future SDK versions.
+   * Common properties include `mcpInitialized`, `totalServers`, `availableServers`, etc.
+   *
+   * @since 7.6.1
+   */
+  [key: string]: unknown;
+}
 
 /**
  * MCP server configuration interface for CLI
@@ -146,6 +220,61 @@ const POPULAR_MCP_SERVERS: Record<
 };
 
 /**
+ * Type guard to check if an object conforms to MCPStatusResponse interface
+ */
+function isMCPStatusResponse(obj: unknown): obj is MCPStatusResponse {
+  if (!obj || typeof obj !== "object") {
+    return false;
+  }
+
+  const record = obj as Record<string, unknown>;
+
+  // Check if autoDiscoveredServers is either undefined or an array
+  if (record.autoDiscoveredServers !== undefined) {
+    if (!Array.isArray(record.autoDiscoveredServers)) {
+      return false;
+    }
+
+    // Check each server object in the array
+    for (const server of record.autoDiscoveredServers) {
+      if (!server || typeof server !== "object") {
+        return false;
+      }
+
+      const serverRecord = server as Record<string, unknown>;
+
+      // Optional properties should be correct type if present
+      if (
+        serverRecord.name !== undefined &&
+        typeof serverRecord.name !== "string"
+      ) {
+        return false;
+      }
+      if (
+        serverRecord.id !== undefined &&
+        typeof serverRecord.id !== "string"
+      ) {
+        return false;
+      }
+      if (
+        serverRecord.status !== undefined &&
+        typeof serverRecord.status !== "string"
+      ) {
+        return false;
+      }
+      if (
+        serverRecord.source !== undefined &&
+        typeof serverRecord.source !== "string"
+      ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+/**
  * Convert SDK MCPStatus to CLI format with server list
  */
 function convertMCPStatusForCLI(
@@ -167,26 +296,20 @@ function convertMCPStatusForCLI(
   });
 
   // Add auto-discovered servers
-  if (
-    status.autoDiscoveredServers &&
-    Array.isArray(status.autoDiscoveredServers)
-  ) {
-    status.autoDiscoveredServers.forEach(
-      (server: { [key: string]: unknown }) => {
-        servers.push({
-          name: (server.name as string) || (server.id as string),
-          connected: (server.status as string) === "connected",
-          description: server.source
-            ? `Auto-discovered from ${server.source as string}`
-            : `Auto-discovered server`,
-          tools: [],
-          error:
-            (server.status as string) === "failed"
-              ? "Connection failed"
-              : undefined,
-        });
-      },
-    );
+  // Cache the type guard result to avoid repeated validation
+  const isValidStatusResponse = isMCPStatusResponse(status);
+  if (isValidStatusResponse && status.autoDiscoveredServers) {
+    status.autoDiscoveredServers.forEach((server) => {
+      servers.push({
+        name: server.name || server.id || "Unknown",
+        connected: server.status === "connected",
+        description: server.source
+          ? `Auto-discovered from ${server.source}`
+          : `Auto-discovered server`,
+        tools: [],
+        error: server.status === "failed" ? "Connection failed" : undefined,
+      });
+    });
   }
 
   return {
@@ -563,9 +686,9 @@ export class MCPCommandFactory {
           logger.always();
         }
       }
-    } catch (error) {
+    } catch (_error) {
       logger.error(
-        chalk.red(`❌ List command failed: ${(error as Error).message}`),
+        chalk.red(`❌ List command failed: ${(_error as Error).message}`),
       );
       process.exit(1);
     }
@@ -600,7 +723,7 @@ export class MCPCommandFactory {
         try {
           const parsedEnv = JSON.parse(argv.env);
           env = { ...env, ...parsedEnv } as Record<string, string>;
-        } catch (error) {
+        } catch (_error) {
           if (spinner) {
             spinner.fail();
           }
@@ -687,9 +810,9 @@ export class MCPCommandFactory {
       } catch (testError) {
         logger.always(chalk.yellow("⚠️  Could not test connection"));
       }
-    } catch (error) {
+    } catch (_error) {
       logger.error(
-        chalk.red(`❌ Install command failed: ${(error as Error).message}`),
+        chalk.red(`❌ Install command failed: ${(_error as Error).message}`),
       );
       process.exit(1);
     }
@@ -712,7 +835,7 @@ export class MCPCommandFactory {
       if (argv.env) {
         try {
           env = JSON.parse(argv.env) as Record<string, string>;
-        } catch (error) {
+        } catch (_error) {
           if (spinner) {
             spinner.fail();
           }
@@ -770,9 +893,9 @@ export class MCPCommandFactory {
         );
       }
       logger.always(`Transport: ${config.transport}`);
-    } catch (error) {
+    } catch (_error) {
       logger.error(
-        chalk.red(`❌ Add command failed: ${(error as Error).message}`),
+        chalk.red(`❌ Add command failed: ${(_error as Error).message}`),
       );
       process.exit(1);
     }
@@ -856,9 +979,9 @@ export class MCPCommandFactory {
           chalk.yellow(`⚠️  ${connected}/${total} servers connected`),
         );
       }
-    } catch (error) {
+    } catch (_error) {
       logger.error(
-        chalk.red(`❌ Test command failed: ${(error as Error).message}`),
+        chalk.red(`❌ Test command failed: ${(_error as Error).message}`),
       );
       process.exit(1);
     }
@@ -881,7 +1004,7 @@ export class MCPCommandFactory {
       if (argv.params) {
         try {
           params = JSON.parse(argv.params);
-        } catch (error) {
+        } catch (_error) {
           if (spinner) {
             spinner.fail();
           }
@@ -999,9 +1122,9 @@ export class MCPCommandFactory {
 
         process.exit(1);
       }
-    } catch (error) {
+    } catch (_error) {
       logger.error(
-        chalk.red(`❌ Exec command failed: ${(error as Error).message}`),
+        chalk.red(`❌ Exec command failed: ${(_error as Error).message}`),
       );
       process.exit(1);
     }
@@ -1073,9 +1196,9 @@ export class MCPCommandFactory {
         logger.error(chalk.red(`❌ Server removal failed: ${errorMessage}`));
         process.exit(1);
       }
-    } catch (error) {
+    } catch (_error) {
       logger.error(
-        chalk.red(`❌ Remove command failed: ${(error as Error).message}`),
+        chalk.red(`❌ Remove command failed: ${(_error as Error).message}`),
       );
       process.exit(1);
     }
@@ -1154,18 +1277,18 @@ export class MCPCommandFactory {
               },
             });
             logger.always(chalk.green(`✅ Installed ${server.name}`));
-          } catch (error) {
+          } catch (_error) {
             logger.always(
               chalk.red(
-                `❌ Failed to install ${server.name}: ${(error as Error).message}`,
+                `❌ Failed to install ${server.name}: ${(_error as Error).message}`,
               ),
             );
           }
         }
       }
-    } catch (error) {
+    } catch (_error) {
       logger.error(
-        chalk.red(`❌ Discover command failed: ${(error as Error).message}`),
+        chalk.red(`❌ Discover command failed: ${(_error as Error).message}`),
       );
       process.exit(1);
     }
@@ -1226,7 +1349,7 @@ export class MCPCommandFactory {
           break; // Found config file, stop searching
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors in discovery
     }
 
@@ -1285,7 +1408,7 @@ export class MCPCommandFactory {
           break;
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors in discovery
     }
 

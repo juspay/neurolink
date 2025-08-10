@@ -139,6 +139,12 @@ export class DynamicModelProvider {
       // Setup timeout and abort controller
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      // Load from URL
+      const response = await fetch(source, {
+        headers: {
+          "User-Agent": "NeuroLink/1.0 (+https://github.com/juspay/neurolink)",
+        },
+      });
 
       try {
         // Add health check for localhost before attempting full request

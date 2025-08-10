@@ -2,15 +2,15 @@
 
 ### Features
 
-* **(core):**  add EventEmitter functionality for real-time event monitoring ([fd8b6b0](https://github.com/juspay/neurolink/commit/fd8b6b075ca46df4f35a58d26ad6cd4839fe2361))
+- **(core):** add EventEmitter functionality for real-time event monitoring ([fd8b6b0](https://github.com/juspay/neurolink/commit/fd8b6b075ca46df4f35a58d26ad6cd4839fe2361))
 
 ### Bug Fixes
 
-* **(ci):**  add semantic-release configuration with dependencies and testing ([d48e274](https://github.com/juspay/neurolink/commit/d48e274bed6473df28403ae440d7109656216307))
-* **(ci):**  configure semantic-release to handle ticket prefixes with proper JSON escaping ([6d575dc](https://github.com/juspay/neurolink/commit/6d575dcf90611ad6a9854daff551dade3f06e001))
-* **(ci):**  correct JSON escaping in semantic-release configuration ([b9bbe50](https://github.com/juspay/neurolink/commit/b9bbe50461771f82e19cdbbb413ca6af6f28c31d))
-* **(cli):**  missing model name in analytics output ([416c5b7](https://github.com/juspay/neurolink/commit/416c5b74745776d1b3742557add4f501669f06f9))
-* **(providers):**  respect VERTEX_MODEL environment variable in model selection ([40eddb1](https://github.com/juspay/neurolink/commit/40eddb1d52a61891dec7fab5998b840f233352ee))
+- **(ci):** add semantic-release configuration with dependencies and testing ([d48e274](https://github.com/juspay/neurolink/commit/d48e274bed6473df28403ae440d7109656216307))
+- **(ci):** configure semantic-release to handle ticket prefixes with proper JSON escaping ([6d575dc](https://github.com/juspay/neurolink/commit/6d575dcf90611ad6a9854daff551dade3f06e001))
+- **(ci):** correct JSON escaping in semantic-release configuration ([b9bbe50](https://github.com/juspay/neurolink/commit/b9bbe50461771f82e19cdbbb413ca6af6f28c31d))
+- **(cli):** missing model name in analytics output ([416c5b7](https://github.com/juspay/neurolink/commit/416c5b74745776d1b3742557add4f501669f06f9))
+- **(providers):** respect VERTEX_MODEL environment variable in model selection ([40eddb1](https://github.com/juspay/neurolink/commit/40eddb1d52a61891dec7fab5998b840f233352ee))
 
 # [7.8.0](https://github.com/juspay/neurolink/compare/v7.7.1...v7.8.0) (2025-08-11)
 

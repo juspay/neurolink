@@ -54,7 +54,7 @@ export class ProviderHealthChecker {
 
     const parsed = Number(envValue);
     if (isNaN(parsed) || parsed <= 0 || parsed > 10) {
-      console.warn(
+      logger.warn(
         `Invalid PROVIDER_FAILURE_THRESHOLD: ${envValue} (must be between 1 and 10), using default: 3`,
       );
       return 3;

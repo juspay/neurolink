@@ -668,25 +668,36 @@ We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTIN
 git clone https://github.com/juspay/neurolink
 cd neurolink
 pnpm install
-pnpm setup:complete  # One-command setup with all automation
-pnpm test:adaptive   # Intelligent testing
-pnpm build:complete  # Full build pipeline
+npx husky install          # Setup git hooks for build rule enforcement
+pnpm setup:complete        # One-command setup with all automation
+pnpm test:adaptive         # Intelligent testing
+pnpm build:complete       # Full build pipeline
 ```
 
-### New Developer Experience (v2.0)
+### Enterprise Developer Experience
 
-NeuroLink now features **enterprise-grade automation** with 72+ commands:
+NeuroLink features **enterprise-grade build rule enforcement** with comprehensive quality validation:
 
 ```bash
+# Quality & Validation (required for all commits)
+pnpm run validate:all      # Run all validation checks
+pnpm run validate:security # Security scanning with gitleaks
+pnpm run validate:env      # Environment consistency checks
+pnpm run quality:metrics   # Generate quality score report
+
+# Development Workflow
+pnpm run check:all         # Pre-commit validation simulation
+pnpm run format           # Auto-fix code formatting
+pnpm run lint             # ESLint validation with zero-error tolerance
+
 # Environment & Setup (2-minute initialization)
 pnpm setup:complete        # Complete project setup
 pnpm env:setup             # Safe .env configuration
 pnpm env:backup            # Environment backup
 
-# Testing & Quality (60-80% faster)
+# Testing (60-80% faster)
 pnpm test:adaptive         # Intelligent test selection
 pnpm test:providers        # AI provider validation
-pnpm quality:check         # Full quality pipeline
 
 # Documentation & Content
 pnpm docs:sync             # Cross-file documentation sync
@@ -696,6 +707,8 @@ pnpm content:generate      # Automated content creation
 pnpm build:complete        # 7-phase enterprise pipeline
 pnpm dev:health            # System health monitoring
 ```
+
+**Build Rule Enforcement:** All commits automatically validated with pre-commit hooks. See [Contributing Guidelines](./CONTRIBUTING.md) for complete requirements.
 
 **[📖 Complete Automation Guide](./docs/CLI-GUIDE.md)** - All 72+ commands and automation features
 
@@ -715,3 +728,4 @@ MIT © [Juspay Technologies](https://juspay.in)
   <strong>Built with ❤️ by <a href="https://juspay.in">Juspay Technologies</a></strong>
 </p>
 # Force fresh deployment after GitHub Pages source change
+# Trigger fresh CI run

@@ -143,11 +143,14 @@ async function statusHandler() {
       if (data.models && data.models.length > 0) {
         logger.always(chalk.green(`\n${data.models.length} models available`));
       }
-    } catch {
-      // Curl might not be available, that's ok
+    } catch (error) {
+      // Curl might not be available, that's ok. Error is ignored.
+      logger.debug &&
+        logger.debug("Optional curl command failed in statusHandler:", error);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     spinner.fail("Ollama service is not running");
+    logger.debug && logger.debug("Ollama status check failed:", error);
     logger.always(chalk.yellow("\nStart Ollama with: ollama serve"));
     logger.always(
       chalk.blue("Or restart the Ollama app if using the desktop version"),
@@ -237,9 +240,10 @@ async function stopHandler() {
     }
 
     spinner.succeed("Ollama service stopped");
-  } catch (error: unknown) {
+  } catch (err) {
     spinner.fail("Failed to stop Ollama service");
     logger.error(chalk.red("It may not be running or requires manual stop"));
+    logger.error(chalk.red(`Error details: ${err}`));
   }
 }
 
