@@ -31,7 +31,7 @@
     "build:cli": "echo 'Building CLI...' && tsc --project tsconfig.cli.json",
     "cli": "node dist/cli/index.js",
     "preview": "vite preview",
-    "prepare": "svelte-kit sync || echo ''",
+    "prepare": "git rev-parse --git-dir > /dev/null 2>&1 && husky install || echo 'Skipping husky in non-git environment'",
     "prepack": "svelte-kit sync && svelte-package && pnpm run build:cli && publint",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -43,6 +43,7 @@
     "format": "prettier --write .",
     "changeset": "changeset",
     "changeset:version": "changeset version && git add --all",
+    "format:changelog": "node scripts/format-changelog.cjs",
     "// ===== NEUROLINK DEVELOPER EXPERIENCE ENHANCEMENT 2.0 =====": "",
     "// Environment & Setup (pnpm-first)": "",
     "setup": "pnpm install && node tools/automation/environmentManager.js",
@@ -88,7 +89,18 @@
     "// Release & Publishing": "",
     "release": "pnpm run build:complete && pnpm run test:ci && changeset publish",
     "test:semantic-release": "node scripts/test-semantic-release.js",
-    "release:dry-run": "npx semantic-release --dry-run"
+    "release:dry-run": "npx semantic-release --dry-run",
+    "// Build Rule Enforcement Scripts": "",
+    "validate": "node scripts/build-validations.cjs",
+    "validate:env": "node scripts/env-validation.cjs",
+    "validate:security": "node scripts/security-check.cjs",
+    "validate:all": "pnpm run validate && pnpm run validate:env && pnpm run validate:security",
+    "validate:commit": "node scripts/commit-validation.cjs",
+    "quality:metrics": "node scripts/quality-metrics.cjs",
+    "quality:report": "pnpm run quality:metrics && echo 'Quality metrics saved to quality-metrics.json'",
+    "pre-commit": "lint-staged",
+    "pre-push": "pnpm run validate && pnpm run test:run",
+    "check:all": "pnpm run lint && pnpm run format --check && pnpm run validate && pnpm run validate:commit"
   },
   "files": [
     "dist",
@@ -170,6 +182,7 @@
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.1.4",
     "@changesets/changelog-github": "^0.5.1",
     "@changesets/cli": "^2.26.2",
     "@eslint/js": "^9.0.0",
@@ -196,6 +209,8 @@
     "cors": "^2.8.5",
     "eslint": "^9.0.0",
     "express": "^5.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.5",
     "playwright": "^1.52.0",
     "prettier": "^3.0.0",
     "publint": "^0.3.2",
@@ -252,7 +267,13 @@
       "esbuild",
       "protobufjs",
       "puppeteer"
-    ]
+    ],
+    "overrides": {
+      "esbuild@<=0.24.2": ">=0.25.0",
+      "cookie@<0.7.0": ">=0.7.0",
+      "@eslint/plugin-kit@<0.3.4": ">=0.3.4",
+      "tmp@<=0.2.3": ">=0.2.4"
+    }
   },
   "os": [
     "darwin",
@@ -261,6 +282,20 @@
   ],
   "prettier": {
     "tabWidth": 2,
-    "useTabs": false
+    "useTabs": false,
+    "proseWrap": "preserve"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "eslint --fix --max-warnings=50",
+      "prettier --write"
+    ],
+    "test/**/*.{ts,tsx}": [
+      "eslint --fix --max-warnings=0",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
   }
 }

@@ -1,0 +1,247 @@
+name: Single Commit Per Branch Enforcement
+
+on:
+  push:
+    branches-ignore: [release, main, develop]
+  pull_request:
+    branches: [release, main]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  enforce-single-commit:
+    runs-on: ubuntu-latest
+    name: 🔒 Single Commit Policy Validation
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Single Commit Policy
+        id: validate
+        run: |
+          # Determine the base branch and current branch
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_BRANCH="origin/${{ github.base_ref }}"
+            CURRENT_BRANCH="origin/${{ github.head_ref }}"
+            BRANCH_NAME="${{ github.head_ref }}"
+            
+            # For PR events, check out the actual head branch instead of merge commit
+            echo "🔄 Switching to actual PR head branch for validation..."
+            git checkout "origin/${{ github.head_ref }}"
+          else
+            BASE_BRANCH="origin/release"
+            CURRENT_BRANCH="HEAD"
+            BRANCH_NAME="${{ github.ref_name }}"
+          fi
+
+          echo "🔍 Validating single commit policy..."
+          echo "Base branch: $BASE_BRANCH"
+          echo "Current branch: $BRANCH_NAME"
+
+          # Ensure we have the latest refs
+          git fetch origin
+
+          # Count commits ahead of base branch
+          COMMIT_COUNT=$(git rev-list --count $CURRENT_BRANCH ^$BASE_BRANCH 2>/dev/null || echo "0")
+
+          echo "commits_ahead=$COMMIT_COUNT" >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+
+          echo "📊 Commits ahead of base: $COMMIT_COUNT"
+
+          # Validate commit count
+          if [ $COMMIT_COUNT -eq 0 ]; then
+            echo "✅ Branch is up to date with base branch"
+            echo "status=up_to_date" >> $GITHUB_OUTPUT
+          elif [ $COMMIT_COUNT -eq 1 ]; then
+            echo "✅ Branch contains exactly 1 commit - POLICY COMPLIANT"
+            echo "status=compliant" >> $GITHUB_OUTPUT
+            
+            # Get the single commit details
+            COMMIT_HASH=$(git rev-list -1 $CURRENT_BRANCH ^$BASE_BRANCH)
+            COMMIT_MSG=$(git log -1 --pretty=format:"%s" $COMMIT_HASH)
+            COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an" $COMMIT_HASH)
+            
+            echo "📝 Commit: $COMMIT_MSG"
+            echo "👤 Author: $COMMIT_AUTHOR"
+            echo "🔑 Hash: $COMMIT_HASH"
+            
+            echo "commit_message=$COMMIT_MSG" >> $GITHUB_OUTPUT
+            echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
+            echo "commit_author=$COMMIT_AUTHOR" >> $GITHUB_OUTPUT
+            
+          else
+            echo "❌ POLICY VIOLATION: Branch contains $COMMIT_COUNT commits"
+            echo "status=violation" >> $GITHUB_OUTPUT
+            
+            # Get details of all commits for the error message
+            echo "📋 Commits in this branch:"
+            git log --oneline $CURRENT_BRANCH ^$BASE_BRANCH
+          fi
+
+      - name: Validate Commit Message Format
+        if: steps.validate.outputs.status == 'compliant'
+        run: |
+          COMMIT_MSG="${{ steps.validate.outputs.commit_message }}"
+          echo "🔍 Validating commit message format: '$COMMIT_MSG'"
+
+          # Check semantic commit format: type(scope): description  
+          if ! echo "$COMMIT_MSG" | grep -qE "^[a-z]+\([^)]+\): .+"; then
+            echo "❌ Commit message doesn't follow semantic format"
+            echo "Expected: type(scope): description"
+            echo "Received: $COMMIT_MSG"
+            echo ""
+            echo "Valid examples:"
+            echo "  feat(auth): add OAuth2 authentication flow"
+            echo "  fix(api): resolve null pointer exception in user service"
+            echo "  docs(readme): update installation instructions"
+            exit 1
+          fi
+
+          echo "✅ Commit message format is valid"
+
+      - name: Check for Merge Commits
+        if: steps.validate.outputs.status == 'compliant'
+        run: |
+          BASE_BRANCH="${{ steps.validate.outputs.base_branch }}"
+
+          # Check for merge commits in the branch
+          MERGE_COMMITS=$(git rev-list --merges HEAD ^$BASE_BRANCH)
+          if [ -n "$MERGE_COMMITS" ]; then
+            echo "❌ POLICY VIOLATION: Branch contains merge commits"
+            echo "Merge commits are not allowed in feature branches."
+            echo "Please rebase your branch instead of merging."
+            echo ""
+            echo "To fix:"
+            echo "  git rebase $BASE_BRANCH"
+            echo "  git push --force-with-lease"
+            exit 1
+          fi
+
+          echo "✅ No merge commits found"
+
+      - name: Provide Squash Instructions
+        if: steps.validate.outputs.status == 'violation'
+        run: |
+          COMMIT_COUNT="${{ steps.validate.outputs.commits_ahead }}"
+          BRANCH_NAME="${{ steps.validate.outputs.branch_name }}"
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🚫 SINGLE COMMIT POLICY VIOLATION"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "❌ Branch '$BRANCH_NAME' contains $COMMIT_COUNT commits"
+          echo "✅ NeuroLink requires exactly 1 commit per branch"
+          echo ""
+          echo "🔧 TO FIX - Squash your commits:"
+          echo ""
+          echo "1. Interactive rebase to squash commits:"
+          echo "   git rebase -i HEAD~$COMMIT_COUNT"
+          echo ""
+          echo "2. In the editor, change 'pick' to 'squash' (or 's') for all commits except the first"
+          echo "3. Save and close the editor"
+          echo "4. Edit the commit message in the next editor"
+          echo "5. Force push the squashed commit:"
+          echo "   git push --force-with-lease"
+          echo ""
+          echo "🎯 Alternative - Reset and recommit:"
+          echo "   git reset --soft HEAD~$COMMIT_COUNT"
+          echo "   git commit -m 'type(scope): your combined commit message'"
+          echo "   git push --force-with-lease"
+          echo ""
+          echo "📋 Current commits that need squashing:"
+          git log --oneline HEAD~$COMMIT_COUNT..HEAD
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          exit 1
+
+      - name: Find existing comment
+        if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'compliant'
+        uses: peter-evans/find-comment@v3
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: "github-actions[bot]"
+          body-includes: Single Commit Policy
+
+      - name: Post Minimal Success Comment
+        if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'compliant'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          body: |
+            ## ✅ Single Commit Policy - COMPLIANT
+
+            **Status**: Policy requirements met • 1 commit • Valid format • Ready for merge
+
+            <details>
+            <summary>📊 View validation details</summary>
+
+            ### 📝 Commit Details
+            - **Hash**: `${{ steps.validate.outputs.commit_hash }}`
+            - **Message**: ${{ steps.validate.outputs.commit_message }}
+            - **Author**: ${{ steps.validate.outputs.commit_author }}
+
+            ### ✅ Validation Results
+            - Single commit requirement met
+            - No merge commits in branch
+            - Semantic commit message format verified
+            - Ready for squash merge to release branch
+
+            </details>
+
+            ---
+            *🤖 Automated validation by NeuroLink Single Commit Enforcement*
+          edit-mode: replace
+
+      - name: Generate Policy Summary
+        if: always()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔒 NEUROLINK SINGLE COMMIT POLICY ENFORCEMENT SUMMARY"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          STATUS="${{ steps.validate.outputs.status }}"
+          case $STATUS in
+            "compliant")
+              echo "✅ STATUS: POLICY COMPLIANT"
+              echo "✅ Single commit requirement satisfied"
+              echo "✅ Ready for merge to release branch"
+              ;;
+            "violation")
+              echo "❌ STATUS: POLICY VIOLATION" 
+              echo "❌ Multiple commits detected"
+              echo "🔧 Squashing required before merge"
+              ;;
+            "up_to_date")
+              echo "ℹ️  STATUS: BRANCH UP TO DATE"
+              echo "ℹ️  No new commits to validate"
+              ;;
+            *)
+              echo "⚠️  STATUS: UNKNOWN"
+              ;;
+          esac
+
+          echo ""
+          echo "📋 Policy Requirements:"
+          echo "  • Exactly 1 commit per branch"
+          echo "  • Semantic commit message format: type(scope): description" 
+          echo "  • No merge commits allowed"
+          echo "  • Squash merge enforced at branch protection level"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

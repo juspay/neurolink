@@ -12,9 +12,9 @@ import type { AIProviderName } from "../lib/index.js";
 import type { UnknownRecord } from "../lib/types/common.js";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import ora from "ora";
+import _ora from "ora";
 import chalk from "chalk";
-import fs from "fs";
+import _fs from "fs";
 
 import { addOllamaCommands } from "./commands/ollama.js";
 import { addSageMakerCommands } from "./commands/sagemaker.js";

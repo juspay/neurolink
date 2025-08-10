@@ -40,8 +40,12 @@ Complete installation guide for NeuroLink CLI and SDK across different environme
     git clone https://github.com/juspay/neurolink
     cd neurolink
     pnpm install
-    pnpm setup:complete
+    npx husky install       # Setup git hooks for build rule enforcement
+    pnpm setup:complete     # Complete automated setup
+    pnpm run validate:all   # Validate build rules and quality
     ```
+
+    **Build Rule Enforcement:** All commits automatically validated with pre-commit hooks. See [Contributing Guidelines](../development/contributing.md) for requirements.
 
 ## 📋 System Requirements
 

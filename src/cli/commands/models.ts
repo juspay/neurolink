@@ -96,7 +96,7 @@ function mapRequirementToCapability(
 /**
  * Models command arguments interface (extended)
  */
-interface ExtendedModelsCommandArgs extends UnknownRecord {
+interface Extended_ModelsCommandArgs extends UnknownRecord {
   // List command options
   provider?: AIProviderName | AIProviderName[];
   category?: string;
@@ -472,7 +472,7 @@ export class ModelsCommandFactory {
    * Execute list command
    */
   private static async executeList(
-    argv: ExtendedModelsCommandArgs,
+    argv: Extended_ModelsCommandArgs,
   ): Promise<void> {
     try {
       const spinner = argv.quiet
@@ -555,7 +555,7 @@ export class ModelsCommandFactory {
    * Execute search command
    */
   private static async executeSearch(
-    argv: ExtendedModelsCommandArgs,
+    argv: Extended_ModelsCommandArgs,
   ): Promise<void> {
     try {
       const spinner = argv.quiet ? null : ora("Searching models...").start();
@@ -641,7 +641,7 @@ export class ModelsCommandFactory {
    * Execute best command
    */
   private static async executeBest(
-    argv: ExtendedModelsCommandArgs,
+    argv: Extended_ModelsCommandArgs,
   ): Promise<void> {
     try {
       const spinner = argv.quiet ? null : ora("Finding best model...").start();
@@ -750,7 +750,7 @@ export class ModelsCommandFactory {
    * Execute resolve command
    */
   private static async executeResolve(
-    argv: ExtendedModelsCommandArgs,
+    argv: Extended_ModelsCommandArgs,
   ): Promise<void> {
     try {
       const query = argv.model!;
@@ -805,7 +805,7 @@ export class ModelsCommandFactory {
    * Execute compare command
    */
   private static async executeCompare(
-    argv: ExtendedModelsCommandArgs,
+    argv: Extended_ModelsCommandArgs,
   ): Promise<void> {
     try {
       const modelIds = argv.models!;
@@ -869,7 +869,7 @@ export class ModelsCommandFactory {
    * Execute stats command
    */
   private static async executeStats(
-    argv: ExtendedModelsCommandArgs,
+    argv: Extended_ModelsCommandArgs,
   ): Promise<void> {
     try {
       const stats = ModelResolver.getModelStatistics();

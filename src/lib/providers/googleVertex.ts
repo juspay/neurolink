@@ -714,12 +714,12 @@ export class GoogleVertexProvider extends BaseProvider {
   private getModelSuggestions(requestedModel: string | undefined): string {
     const availableModels = {
       google: [
-        "gemini-2.5-pro", 
-        "gemini-2.5-flash", 
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
         "gemini-2.5-flash-lite",
         "gemini-2.0-flash-001",
-        "gemini-1.5-pro", 
-        "gemini-1.5-flash"
+        "gemini-1.5-pro",
+        "gemini-1.5-flash",
       ],
       claude: [
         "claude-sonnet-4@20250514",

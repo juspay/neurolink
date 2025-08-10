@@ -610,7 +610,7 @@ export class CLICommandFactory {
             "init",
             "Interactive configuration setup wizard",
             (y) => this.buildOptions(y),
-            async (argv) => {
+            async (_argv) => {
               const { configManager } = await import("../commands/config.js");
               await configManager.initInteractive();
             },
@@ -619,7 +619,7 @@ export class CLICommandFactory {
             "show",
             "Display current configuration",
             (y) => this.buildOptions(y),
-            async (argv) => {
+            async (_argv) => {
               const { configManager } = await import("../commands/config.js");
               configManager.showConfig();
             },
@@ -628,7 +628,7 @@ export class CLICommandFactory {
             "validate",
             "Validate current configuration",
             (y) => this.buildOptions(y),
-            async (argv) => {
+            async (_argv) => {
               const { configManager } = await import("../commands/config.js");
               const result = configManager.validateConfig();
               if (result.valid) {
@@ -644,7 +644,7 @@ export class CLICommandFactory {
             "reset",
             "Reset configuration to defaults",
             (y) => this.buildOptions(y),
-            async (argv) => {
+            async (_argv) => {
               const { configManager } = await import("../commands/config.js");
               configManager.resetConfig();
             },

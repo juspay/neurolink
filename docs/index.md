@@ -211,9 +211,11 @@ We welcome contributions! NeuroLink features enterprise-grade automation with 72
 git clone https://github.com/juspay/neurolink
 cd neurolink
 pnpm install
-pnpm setup:complete  # One-command setup with all automation
-pnpm test:adaptive   # Intelligent testing
-pnpm build:complete  # Full build pipeline
+npx husky install          # Setup git hooks for build rule enforcement
+pnpm setup:complete        # One-command setup with all automation
+pnpm test:adaptive         # Intelligent testing
+pnpm build:complete        # Full build pipeline
+pnpm run validate:all      # Validate build rules and quality
 ```
 
 [Learn more about contributing →](development/contributing.md)

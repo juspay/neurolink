@@ -13,7 +13,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
-    "checkJs": true
+    "checkJs": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["src/cli/**/*.ts", "src/lib/**/*.ts"],
   "exclude": ["node_modules", "dist"]
