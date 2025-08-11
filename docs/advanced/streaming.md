@@ -1916,12 +1916,12 @@ streaming:
 - [CLI Commands](../cli/commands.md) - Streaming CLI commands
 - [SDK Reference](../sdk/api-reference.md) - Complete streaming API
 - [Analytics](analytics.md) - Streaming analytics features
-- [Multi-Model Integration](../advanced/multi-model.md) - Multi-model endpoint setup
-- [Security & Compliance](../advanced/security.md) - Enterprise security features
-- [Performance Optimization](../advanced/performance.md) - Optimization strategies
-- [Monitoring & Alerting](../advanced/monitoring.md) - Comprehensive monitoring
+- [Dynamic Models](dynamic-models.md) - Multi-model endpoint setup
+- [Enterprise Features](enterprise.md) - Enterprise security features
+- [Performance Optimization](../PERFORMANCE-OPTIMIZATION.md) - Optimization strategies
+- [Analytics & Monitoring](analytics.md) - Comprehensive monitoring
 - [Provider Setup](../getting-started/provider-setup.md) - Provider configuration
-- [Enterprise Deployment](../deployment/enterprise.md) - Production deployment guide
+- [Development Guide](../development/index.md) - Development and deployment guide
 
 ## 🎆 What's Next
 

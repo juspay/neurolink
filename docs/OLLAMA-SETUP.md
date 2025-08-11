@@ -232,5 +232,5 @@ export OLLAMA_BASE_URL=http://remote-host:11434
 
 - [Ollama Documentation](https://github.com/ollama/ollama)
 - [Model Library](https://ollama.ai/library)
-- [NeuroLink + Ollama Examples](../examples/ollama)
+- [NeuroLink Examples](examples/index.md)
 - [Community Discord](https://discord.gg/ollama)

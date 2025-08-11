@@ -339,7 +339,7 @@ We're particularly interested in contributions for:
 
 ## 📝 License
 
-By contributing to NeuroLink, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+By contributing to NeuroLink, you agree that your contributions will be licensed under the [MIT License](https://github.com/juspay/neurolink/blob/main/LICENSE).
 
 ---
 
