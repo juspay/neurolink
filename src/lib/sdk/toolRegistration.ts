@@ -23,12 +23,21 @@ import type { JsonValue } from "../types/common.js";
 /**
  * Configuration constants for tool validation
  */
-const envValue = parseInt(
+const envDescValue = parseInt(
   process.env.NEUROLINK_TOOL_DESCRIPTION_MAX_LENGTH || "200",
   10,
 );
+// Allow 0 to mean unlimited (no length restriction)
 const DEFAULT_DESCRIPTION_MAX_LENGTH =
-  Number.isInteger(envValue) && envValue > 0 ? envValue : 200;
+  Number.isInteger(envDescValue) && envDescValue >= 0 ? envDescValue : 200;
+
+const envNameValue = parseInt(
+  process.env.NEUROLINK_TOOL_NAME_MAX_LENGTH || "50",
+  10,
+);
+// Allow 0 to mean unlimited (no length restriction)
+const DEFAULT_NAME_MAX_LENGTH =
+  Number.isInteger(envNameValue) && envNameValue >= 0 ? envNameValue : 50;
 
 /**
  * Enhanced validation configuration
@@ -36,7 +45,7 @@ const DEFAULT_DESCRIPTION_MAX_LENGTH =
 const VALIDATION_CONFIG = {
   // Tool name constraints
   NAME_MIN_LENGTH: 2,
-  NAME_MAX_LENGTH: 50,
+  NAME_MAX_LENGTH: DEFAULT_NAME_MAX_LENGTH,
 
   // Description constraints
   DESCRIPTION_MIN_LENGTH: 10,
@@ -355,7 +364,11 @@ function validateToolName(name: string): void {
     );
   }
 
-  if (trimmedName.length > VALIDATION_CONFIG.NAME_MAX_LENGTH) {
+  // Only check name length if limit is greater than 0 (0 means unlimited)
+  if (
+    VALIDATION_CONFIG.NAME_MAX_LENGTH > 0 &&
+    trimmedName.length > VALIDATION_CONFIG.NAME_MAX_LENGTH
+  ) {
     throw new Error(
       `Tool name too long: '${name}' (${trimmedName.length} chars). ` +
         `Maximum length: ${VALIDATION_CONFIG.NAME_MAX_LENGTH} characters. ` +
@@ -423,7 +436,11 @@ function validateToolDescription(name: string, description: string): void {
     );
   }
 
-  if (trimmedDescription.length > VALIDATION_CONFIG.DESCRIPTION_MAX_LENGTH) {
+  // Only check description length if limit is greater than 0 (0 means unlimited)
+  if (
+    VALIDATION_CONFIG.DESCRIPTION_MAX_LENGTH > 0 &&
+    trimmedDescription.length > VALIDATION_CONFIG.DESCRIPTION_MAX_LENGTH
+  ) {
     throw new Error(
       `Tool '${name}' description too long: ${trimmedDescription.length} characters. ` +
         `Maximum length: ${VALIDATION_CONFIG.DESCRIPTION_MAX_LENGTH} characters. ` +

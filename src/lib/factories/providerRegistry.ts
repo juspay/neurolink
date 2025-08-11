@@ -126,7 +126,7 @@ export class ProviderRegistry {
           );
           return new GoogleVertexProvider(modelName);
         },
-        "gemini-2.5-flash",
+        "claude-sonnet-4@20250514",
         ["vertex", "googleVertex"],
       );
 

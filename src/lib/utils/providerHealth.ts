@@ -351,15 +351,23 @@ export class ProviderHealthChecker {
     providerName: AIProviderName,
     healthStatus: ProviderHealthStatus,
   ): Promise<void> {
-    // For now, we'll do basic model name validation
-    // In the future, this could be enhanced with actual API calls
-
+    // Basic model name validation and recommendations
     const commonModels = this.getCommonModelsForProvider(providerName);
 
     if (commonModels.length > 0) {
-      healthStatus.recommendations.push(
-        `Common models for ${providerName}: ${commonModels.slice(0, 3).join(", ")}`,
-      );
+      if (providerName === AIProviderName.VERTEX) {
+        // Provide more detailed information for Vertex AI
+        healthStatus.recommendations.push(
+          `Available models for ${providerName}:\n` +
+            `  Google Models: gemini-1.5-pro, gemini-1.5-flash\n` +
+            `  Claude Models: claude-3-5-sonnet-20241022, claude-3-sonnet-20240229, claude-3-haiku-20240307, claude-3-opus-20240229\n` +
+            `  Note: Claude models require Anthropic integration to be enabled in your Google Cloud project`,
+        );
+      } else {
+        healthStatus.recommendations.push(
+          `Common models for ${providerName}: ${commonModels.slice(0, 3).join(", ")}`,
+        );
+      }
     }
   }
 
@@ -580,7 +588,14 @@ export class ProviderHealthChecker {
       case AIProviderName.GOOGLE_AI:
         return ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"];
       case AIProviderName.VERTEX:
-        return ["gemini-1.5-pro", "gemini-1.5-flash"];
+        return [
+          "gemini-1.5-pro",
+          "gemini-1.5-flash",
+          "claude-3-5-sonnet-20241022",
+          "claude-3-sonnet-20240229",
+          "claude-3-haiku-20240307",
+          "claude-3-opus-20240229",
+        ];
       case AIProviderName.BEDROCK:
         return [
           "anthropic.claude-3-sonnet-20240229-v1:0",

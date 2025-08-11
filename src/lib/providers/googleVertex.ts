@@ -69,9 +69,9 @@ const getVertexLocation = (): string => {
 };
 
 const getDefaultVertexModel = (): string => {
-  // Use gemini-1.5-pro as default - stable and widely supported model
+  // Use gemini-2.5-flash as default - latest and best price-performance model
   // Override with VERTEX_MODEL environment variable if needed
-  return process.env.VERTEX_MODEL || "gemini-1.5-pro";
+  return process.env.VERTEX_MODEL || "gemini-2.5-flash";
 };
 
 const hasGoogleCredentials = (): boolean => {
@@ -378,8 +378,9 @@ export class GoogleVertexProvider extends BaseProvider {
     }
 
     if (message.includes("NOT_FOUND")) {
+      const modelSuggestions = this.getModelSuggestions(this.modelName);
       return new Error(
-        `❌ Google Vertex AI Model Not Found\n\n${message}\n\nCheck:\n1. Model name is correct (e.g., 'gemini-1.5-pro')\n2. Model is available in your region (${this.location})\n3. Your project has access to the model\n4. Model supports your request parameters`,
+        `❌ Google Vertex AI Model Not Found\n\n${message}\n\nModel '${this.modelName}' is not available.\n\nSuggested alternatives:\n${modelSuggestions}\n\nTroubleshooting:\n1. Check model name spelling and format\n2. Verify model is available in your region (${this.location})\n3. Ensure your project has access to the model\n4. For Claude models, enable Anthropic integration in Google Cloud Console`,
       );
     }
 
@@ -705,6 +706,51 @@ export class GoogleVertexProvider extends BaseProvider {
         maxTokens: now - GoogleVertexProvider.maxTokensCacheTime,
       },
     };
+  }
+
+  /**
+   * Get model suggestions when a model is not found
+   */
+  private getModelSuggestions(requestedModel: string | undefined): string {
+    const availableModels = {
+      google: [
+        "gemini-2.5-pro", 
+        "gemini-2.5-flash", 
+        "gemini-2.5-flash-lite",
+        "gemini-2.0-flash-001",
+        "gemini-1.5-pro", 
+        "gemini-1.5-flash"
+      ],
+      claude: [
+        "claude-sonnet-4@20250514",
+        "claude-opus-4@20250514",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-haiku-20241022",
+        "claude-3-sonnet-20240229",
+        "claude-3-haiku-20240307",
+        "claude-3-opus-20240229",
+      ],
+    };
+
+    let suggestions = "\n🤖 Google Models (always available):\n";
+    availableModels.google.forEach((model) => {
+      suggestions += `  • ${model}\n`;
+    });
+
+    suggestions += "\n🧠 Claude Models (requires Anthropic integration):\n";
+    availableModels.claude.forEach((model) => {
+      suggestions += `  • ${model}\n`;
+    });
+
+    // If the requested model looks like a Claude model, provide specific guidance
+    if (requestedModel && requestedModel.toLowerCase().includes("claude")) {
+      suggestions += `\n💡 Tip: "${requestedModel}" appears to be a Claude model.\n`;
+      suggestions +=
+        "Ensure Anthropic integration is enabled in your Google Cloud project.\n";
+      suggestions += "Try using an available Claude model from the list above.";
+    }
+
+    return suggestions;
   }
 }
 
