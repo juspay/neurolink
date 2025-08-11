@@ -83,21 +83,48 @@ export enum OpenAIModels {
  * Supported Models for Google Vertex AI
  */
 export enum VertexModels {
+  // Claude 4 Series (Latest - May 2025)
   CLAUDE_4_0_SONNET = "claude-sonnet-4@20250514",
-  GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001",
+  CLAUDE_4_0_OPUS = "claude-opus-4@20250514",
+  
+  // Claude 3.5 Series (Still supported)
+  CLAUDE_3_5_SONNET = "claude-3-5-sonnet-20241022",
+  CLAUDE_3_5_HAIKU = "claude-3-5-haiku-20241022",
+  
+  // Claude 3 Series (Legacy support)
+  CLAUDE_3_SONNET = "claude-3-sonnet-20240229",
+  CLAUDE_3_OPUS = "claude-3-opus-20240229",
+  CLAUDE_3_HAIKU = "claude-3-haiku-20240307",
+  
+  // Gemini 2.5 Series (Latest - 2025)
   GEMINI_2_5_PRO = "gemini-2.5-pro",
   GEMINI_2_5_FLASH = "gemini-2.5-flash",
   GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite",
+  
+  // Gemini 2.0 Series
+  GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001",
+  
+  // Gemini 1.5 Series (Legacy support)
+  GEMINI_1_5_PRO = "gemini-1.5-pro",
+  GEMINI_1_5_FLASH = "gemini-1.5-flash",
 }
 
 /**
  * Supported Models for Google AI Studio
  */
 export enum GoogleAIModels {
-  GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001",
+  // Gemini 2.5 Series (Latest - 2025)
   GEMINI_2_5_PRO = "gemini-2.5-pro",
   GEMINI_2_5_FLASH = "gemini-2.5-flash",
-  GEMINI_1_5_FLASH_LITE = "gemini-2.5-flash-lite",
+  GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite",
+  
+  // Gemini 2.0 Series
+  GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001",
+  
+  // Gemini 1.5 Series (Legacy support)
+  GEMINI_1_5_PRO = "gemini-1.5-pro",
+  GEMINI_1_5_FLASH = "gemini-1.5-flash",
+  GEMINI_1_5_FLASH_LITE = "gemini-1.5-flash-lite",
 }
 
 /**

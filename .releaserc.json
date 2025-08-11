@@ -5,9 +5,24 @@
       "@semantic-release/commit-analyzer",
       {
         "preset": "conventionalcommits",
+        "releaseRules": [
+          {"type": "feat", "release": "minor"},
+          {"type": "fix", "release": "patch"},
+          {"type": "perf", "release": "patch"},
+          {"type": "revert", "release": "patch"},
+          {"type": "docs", "release": false},
+          {"type": "style", "release": false},
+          {"type": "refactor", "release": "patch"},
+          {"type": "test", "release": false},
+          {"type": "build", "release": "patch"},
+          {"type": "ci", "release": false},
+          {"type": "chore", "release": false},
+          {"breaking": true, "release": "major"}
+        ],
         "parserOpts": {
-          "headerPattern": "^(?:\\\\w+-\\\\d+:\\\\s*)?(\\\\w+)(\\\\([\\\\w\\\\$\\\\.\\\\-\\\\*\\\\s]*\\\\))?\\\\s*:(.*)$",
-          "headerCorrespondence": ["type", "scope", "subject"]
+          "headerPattern": "^(?:\\w+-\\d+:\\s*)?(\\w+!?)(\\([\\w\\$\\.\\-\\*\\s]*\\))?\\s*:(.*)$",
+          "headerCorrespondence": ["type", "scope", "subject"],
+          "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES", "BREAKING"]
         }
       }
     ],
@@ -16,8 +31,9 @@
       {
         "preset": "conventionalcommits",
         "parserOpts": {
-          "headerPattern": "^(?:\\\\w+-\\\\d+:\\\\s*)?(\\\\w+)(\\\\([\\\\w\\\\$\\\\.\\\\-\\\\*\\\\s]*\\\\))?\\\\s*:(.*)$",
-          "headerCorrespondence": ["type", "scope", "subject"]
+          "headerPattern": "^(?:\\w+-\\d+:\\s*)?(\\w+!?)(\\([\\w\\$\\.\\-\\*\\s]*\\))?\\s*:(.*)$",
+          "headerCorrespondence": ["type", "scope", "subject"],
+          "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES", "BREAKING"]
         }
       }
     ],
