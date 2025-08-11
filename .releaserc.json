@@ -1,8 +1,26 @@
 {
   "branches": ["release"],
   "plugins": [
-    "@semantic-release/commit-analyzer",
-    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "parserOpts": {
+          "headerPattern": "^(?:\\\\w+-\\\\d+:\\\\s*)?(\\\\w+)(\\\\([\\\\w\\\\$\\\\.\\\\-\\\\*\\\\s]*\\\\))?\\\\s*:(.*)$",
+          "headerCorrespondence": ["type", "scope", "subject"]
+        }
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "parserOpts": {
+          "headerPattern": "^(?:\\\\w+-\\\\d+:\\\\s*)?(\\\\w+)(\\\\([\\\\w\\\\$\\\\.\\\\-\\\\*\\\\s]*\\\\))?\\\\s*:(.*)$",
+          "headerCorrespondence": ["type", "scope", "subject"]
+        }
+      }
+    ],
     "@semantic-release/changelog",
     "@semantic-release/npm",
     "@semantic-release/github",
