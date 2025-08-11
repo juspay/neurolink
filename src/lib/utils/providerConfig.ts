@@ -363,7 +363,11 @@ export function createVertexProjectConfig(): ProviderConfigOptions {
       "3. Enable Vertex AI API",
       "4. Set up authentication",
     ],
-    fallbackEnvVars: ["VERTEX_PROJECT_ID"],
+    fallbackEnvVars: [
+      "VERTEX_PROJECT_ID",
+      "GOOGLE_VERTEX_PROJECT",
+      "GOOGLE_CLOUD_PROJECT",
+    ],
   };
 }
 
@@ -387,7 +391,7 @@ export function createGoogleAuthConfig(): ProviderConfigOptions {
       "GOOGLE_AUTH_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com",
       "GOOGLE_AUTH_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----...",
     ],
-    fallbackEnvVars: ["GOOGLE_SERVICE_ACCOUNT_KEY", "GOOGLE_AUTH_CLIENT_EMAIL"],
+    fallbackEnvVars: ["GOOGLE_SERVICE_ACCOUNT_KEY"],
   };
 }
 

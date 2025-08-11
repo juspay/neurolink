@@ -14,7 +14,9 @@ import type { UnknownRecord } from "../../../src/lib/types/common.js";
  */
 const envValue = process.env.DEBUG_CHUNK_THRESHOLD;
 const DEBUG_CHUNK_THRESHOLD =
-  envValue !== undefined && !isNaN(parseInt(envValue, 10)) && parseInt(envValue, 10) > 0
+  envValue !== undefined &&
+  !isNaN(parseInt(envValue, 10)) &&
+  parseInt(envValue, 10) > 0
     ? parseInt(envValue, 10)
     : (() => {
         if (envValue !== undefined) {

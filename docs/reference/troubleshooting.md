@@ -477,7 +477,42 @@ npx neurolink status --verbose
    npx neurolink generate "Hello" --provider google-ai
    ```
 
-3. **Multiple Provider Setup**:
+3. **Google Vertex AI Issues**:
+
+   ```bash
+   # Complete Vertex AI setup
+   export GOOGLE_VERTEX_PROJECT="your-project-id"
+   export GOOGLE_VERTEX_LOCATION="us-east5"
+   export GOOGLE_AUTH_CLIENT_EMAIL="service-account@project.iam.gserviceaccount.com"
+   export GOOGLE_AUTH_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+
+   # Test Claude Sonnet 4 (recommended model)
+   npx neurolink generate "test" --provider vertex --model claude-sonnet-4@20250514
+   ```
+
+   **Common Vertex AI Issues**:
+
+   - **"Not configured" despite valid credentials**:
+     Use `GOOGLE_VERTEX_PROJECT` instead of `GOOGLE_CLOUD_PROJECT_ID`
+   - **Authentication failed**:
+     Ensure both `GOOGLE_AUTH_CLIENT_EMAIL` and `GOOGLE_AUTH_PRIVATE_KEY` are set
+   - **Model not found**:
+     Use `claude-sonnet-4@20250514` format for Anthropic models via Vertex AI
+
+   **Debugging Commands**:
+
+   ```bash
+   # Check provider status
+   npx neurolink status
+
+   # Test basic connectivity
+   npx neurolink generate "hello" --provider vertex --model claude-sonnet-4@20250514
+
+   # Debug with verbose output
+   npx neurolink generate "test" --provider vertex --debug
+   ```
+
+4. **Multiple Provider Setup**:
 
    ```bash
    # Create .env file

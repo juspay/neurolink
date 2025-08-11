@@ -5,6 +5,7 @@
 
 import { logger } from "./logger.js";
 import { AIProviderName } from "../core/types.js";
+import { basename } from "path";
 
 export interface ProviderHealthStatus {
   provider: AIProviderName;
@@ -46,7 +47,7 @@ export class ProviderHealthChecker {
    */
   private static getValidatedFailureThreshold(): number {
     const envValue = process.env.PROVIDER_FAILURE_THRESHOLD;
-    
+
     if (!envValue) {
       return 3; // default
     }
@@ -374,7 +375,11 @@ export class ProviderHealthChecker {
       case AIProviderName.OPENAI:
         return ["OPENAI_API_KEY"];
       case AIProviderName.VERTEX:
-        return ["GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_PROJECT_ID"];
+        // Vertex AI requires authentication, but not via a single environment variable.
+        // Authentication can be provided via a credential file or individual credentials + project.
+        // The required authentication is checked in checkProviderSpecificConfig instead of here.
+        // Returning an empty array here does NOT mean authentication is not required.
+        return [];
       case AIProviderName.GOOGLE_AI:
         return ["GOOGLE_AI_API_KEY"];
       case AIProviderName.BEDROCK:
@@ -467,23 +472,70 @@ export class ProviderHealthChecker {
     healthStatus: ProviderHealthStatus,
   ): Promise<void> {
     switch (providerName) {
-      case AIProviderName.VERTEX:
-        // Check for Google Cloud specific configuration
-        if (!process.env.GOOGLE_PROJECT_ID) {
-          healthStatus.configurationIssues.push("GOOGLE_PROJECT_ID not set");
+      case AIProviderName.VERTEX: {
+        // Check for Google Cloud project ID (with fallbacks)
+        const projectId =
+          process.env.GOOGLE_PROJECT_ID ||
+          process.env.GOOGLE_CLOUD_PROJECT_ID ||
+          process.env.GOOGLE_VERTEX_PROJECT ||
+          process.env.GOOGLE_CLOUD_PROJECT ||
+          process.env.VERTEX_PROJECT_ID;
+
+        if (!projectId) {
+          healthStatus.configurationIssues.push(
+            "Google Cloud project ID not set",
+          );
           healthStatus.recommendations.push(
-            "Set GOOGLE_PROJECT_ID to your GCP project ID",
+            "Set one of: GOOGLE_VERTEX_PROJECT, GOOGLE_CLOUD_PROJECT_ID, GOOGLE_PROJECT_ID, or GOOGLE_CLOUD_PROJECT",
           );
         }
 
-        {
-          const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-          if (credPath && !credPath.includes("json")) {
+        // Check for authentication (either credentials file OR individual credentials)
+        const hasCredentialsFile = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        const hasServiceAccountKey = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+        const hasIndividualCredentials = !!(
+          process.env.GOOGLE_AUTH_CLIENT_EMAIL &&
+          process.env.GOOGLE_AUTH_PRIVATE_KEY
+        );
+
+        if (
+          !hasCredentialsFile &&
+          !hasServiceAccountKey &&
+          !hasIndividualCredentials
+        ) {
+          healthStatus.configurationIssues.push(
+            "Google Cloud authentication not configured",
+          );
+          healthStatus.recommendations.push(
+            "Set either GOOGLE_APPLICATION_CREDENTIALS (file path), GOOGLE_SERVICE_ACCOUNT_KEY (base64), or both GOOGLE_AUTH_CLIENT_EMAIL and GOOGLE_AUTH_PRIVATE_KEY",
+          );
+        } else {
+          healthStatus.hasApiKey = true; // At least one auth method is configured
+        }
+
+        // Validate credentials file if provided
+        if (hasCredentialsFile) {
+          const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS!;
+          const fileName = basename(credPath);
+          // Use regex to match .json files with optional backup extensions
+          const jsonFilePattern = /\.json(\.\w+)?$/;
+          if (!jsonFilePattern.test(fileName)) {
             healthStatus.warning =
-              "GOOGLE_APPLICATION_CREDENTIALS should point to a JSON file";
+              "GOOGLE_APPLICATION_CREDENTIALS should point to a JSON file (e.g., 'credentials.json' or 'key.json.backup')";
           }
         }
+
+        // Mark as configured if we have both project ID and auth
+        if (
+          projectId &&
+          (hasCredentialsFile ||
+            hasServiceAccountKey ||
+            hasIndividualCredentials)
+        ) {
+          healthStatus.isConfigured = true;
+        }
         break;
+      }
 
       case AIProviderName.BEDROCK:
         // Check AWS region
