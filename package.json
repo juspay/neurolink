@@ -86,7 +86,9 @@
     "reset": "pnpm run clean && pnpm install",
     "audit": "pnpm audit && pnpm run build:analyze",
     "// Release & Publishing": "",
-    "release": "pnpm run build:complete && pnpm run test:ci && changeset publish"
+    "release": "pnpm run build:complete && pnpm run test:ci && changeset publish",
+    "test:semantic-release": "node scripts/test-semantic-release.js",
+    "release:dry-run": "npx semantic-release --dry-run"
   },
   "files": [
     "dist",
@@ -190,6 +192,7 @@
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^2.1.9",
+    "conventional-changelog-conventionalcommits": "^9.1.0",
     "cors": "^2.8.5",
     "eslint": "^9.0.0",
     "express": "^5.1.0",
