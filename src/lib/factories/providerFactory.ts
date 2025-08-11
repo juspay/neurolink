@@ -86,7 +86,16 @@ export class ProviderFactory {
       );
     }
 
-    const model = modelName || registration.defaultModel;
+    // Respect environment variables before falling back to registry default
+    let model = modelName;
+    if (!model) {
+      // Check for provider-specific environment variables
+      if (providerName.toLowerCase().includes("vertex")) {
+        model = process.env.VERTEX_MODEL;
+      }
+      // Fallback to registry default if no env var
+      model = model || registration.defaultModel;
+    }
 
     try {
       // Try calling as factory function first, then fallback to constructor
