@@ -30,8 +30,7 @@ const ROOT_DIR = join(__dirname, "../..");
  */
 function isDebugHealthMonitor() {
   return (
-    process.env.DEBUG_HEALTH_MONITOR ||
-    process.env.NODE_ENV === "development"
+    process.env.DEBUG_HEALTH_MONITOR || process.env.NODE_ENV === "development"
   );
 }
 

@@ -1,9 +1,8 @@
 # [7.7.0](https://github.com/juspay/neurolink/compare/v7.6.1...v7.7.0) (2025-08-10)
 
-
 ### Features
 
-* **tools:** add Lighthouse compatibility with unified registerTools API ([5200da2](https://github.com/juspay/neurolink/commit/5200da22b130b57c6b235346bd9db80970703900))
+- **tools:** add Lighthouse compatibility with unified registerTools API ([5200da2](https://github.com/juspay/neurolink/commit/5200da22b130b57c6b235346bd9db80970703900))
 
 ## [7.6.1](https://github.com/juspay/neurolink/compare/v7.6.0...v7.6.1) (2025-08-09)
 
