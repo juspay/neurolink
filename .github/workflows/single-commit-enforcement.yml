@@ -33,12 +33,28 @@ jobs:
           # Determine the base branch and current branch
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE_BRANCH="origin/${{ github.base_ref }}"
-            CURRENT_BRANCH="origin/${{ github.head_ref }}"
             BRANCH_NAME="${{ github.head_ref }}"
             
-            # For PR events, check out the actual head branch instead of merge commit
-            echo "🔄 Switching to actual PR head branch for validation..."
-            git checkout "origin/${{ github.head_ref }}"
+            # Handle external vs internal contributors differently
+            if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+              # External contributor - use the PR head SHA directly
+              CURRENT_BRANCH="HEAD"
+              echo "📡 External contributor detected"
+              echo "🔍 Head repository: ${{ github.event.pull_request.head.repo.full_name }}"
+              echo "🔍 Base repository: ${{ github.repository }}"
+              echo "🔍 Using PR head SHA: ${{ github.event.pull_request.head.sha }}"
+              
+              # For external PRs, checkout the actual PR commit (not the merge commit)
+              echo "🔄 Checking out PR head commit for validation..."
+              git checkout "${{ github.event.pull_request.head.sha }}"
+              CURRENT_BRANCH="HEAD"
+            else
+              # Internal branch - can checkout the actual branch
+              echo "🏠 Internal contributor detected"
+              echo "🔄 Switching to actual PR head branch for validation..."
+              git checkout "origin/${{ github.head_ref }}"
+              CURRENT_BRANCH="origin/${{ github.head_ref }}"
+            fi
           else
             BASE_BRANCH="origin/release"
             CURRENT_BRANCH="HEAD"
