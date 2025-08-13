@@ -1,3 +1,9 @@
+## [7.10.1](https://github.com/juspay/neurolink/compare/v7.10.0...v7.10.1) (2025-08-13)
+
+### Bug Fixes
+
+- **(ci):** resolve external contributor PR failures in single commit policy validation ([0536828](https://github.com/juspay/neurolink/commit/0536828f89cad869dc1474b4bd80f7f0fde292da)), closes [#60](https://github.com/juspay/neurolink/issues/60)
+
 ## [7.10.0](https://github.com/juspay/neurolink/compare/v7.9.0...v7.10.0) (2025-08-12)
 
 ### Features
