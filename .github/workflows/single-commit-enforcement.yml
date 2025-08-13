@@ -35,13 +35,13 @@ jobs:
             BASE_BRANCH="origin/${{ github.base_ref }}"
             BRANCH_NAME="${{ github.head_ref }}"
             
-            # Handle external vs internal contributors differently
-            if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            # Handle external vs internal contributors differently using repository IDs for security
+            if [ "${{ github.event.pull_request.head.repo.id }}" != "${{ github.event.repository.id }}" ]; then
               # External contributor - use the PR head SHA directly
               CURRENT_BRANCH="HEAD"
               echo "📡 External contributor detected"
-              echo "🔍 Head repository: ${{ github.event.pull_request.head.repo.full_name }}"
-              echo "🔍 Base repository: ${{ github.repository }}"
+              echo "🔍 Head repository ID: ${{ github.event.pull_request.head.repo.id }}"
+              echo "🔍 Base repository ID: ${{ github.event.repository.id }}"
               echo "🔍 Using PR head SHA: ${{ github.event.pull_request.head.sha }}"
               
               # For external PRs, checkout the actual PR commit (not the merge commit)
@@ -184,8 +184,21 @@ jobs:
 
           exit 1
 
+      - name: Check Comment Permissions
+        if: steps.validate.outputs.status == 'compliant'
+        id: check-permissions
+        run: |
+          # Check if this is an external contributor PR using repository IDs for security
+          if [ "${{ github.event.pull_request.head.repo.id }}" != "${{ github.event.repository.id }}" ]; then
+            echo "🔒 External contributor PR detected - comment posting will be skipped due to GitHub security restrictions"
+            echo "can_comment=false" >> $GITHUB_OUTPUT
+          else
+            echo "🏠 Internal contributor PR - comment posting enabled"
+            echo "can_comment=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Find existing comment
-        if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'compliant'
+        if: steps.validate.outputs.status == 'compliant' && steps.check-permissions.outputs.can_comment == 'true'
         uses: peter-evans/find-comment@v3
         id: find-comment
         with:
@@ -194,7 +207,7 @@ jobs:
           body-includes: Single Commit Policy
 
       - name: Post Minimal Success Comment
-        if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'compliant'
+        if: steps.validate.outputs.status == 'compliant' && steps.check-permissions.outputs.can_comment == 'true'
         uses: peter-evans/create-or-update-comment@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
