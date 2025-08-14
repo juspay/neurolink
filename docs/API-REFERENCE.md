@@ -353,6 +353,43 @@ const result = await neurolink.generate("What is artificial intelligence?");
 - ✅ **Performance Metrics**: Response times and token usage data
 - ✅ **Tool Transparency**: Complete visibility into tool execution lifecycle
 
+### `enableContextSummarization(config?)`
+
+Enables automatic context summarization for the `NeuroLink` instance. Once enabled, the instance will maintain a stateful conversation history and automatically summarize it when token limits are exceeded. This is ideal for building conversational agents.
+
+```typescript
+enableContextSummarization(config?: Partial<ContextManagerConfig>): void
+```
+
+**Parameters:**
+
+- `config` (optional): An object to override the default summarization settings.
+  - `highWaterMarkWords: number` (default: 3000): The word count at which to trigger summarization.
+  - `lowWaterMarkWords: number` (default: 800): The target word count for the generated summary.
+  - `summarizationModel: string`: The model to use for summarization.
+  - `summarizationProvider: string`: The provider to use for summarization.
+
+**Example:**
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+const neurolink = new NeuroLink();
+
+// Enable with default settings
+neurolink.enableContextSummarization();
+
+// Enable with custom settings
+neurolink.enableContextSummarization({
+  highWaterMarkWords: 2000,
+  lowWaterMarkWords: 500,
+});
+
+// Now, all subsequent calls to `generate` will be context-aware
+for (const prompt of conversation) {
+  await neurolink.generate({ input: { text: prompt } });
+}
+```
+
 ### `addMCPServer(serverId, config)`
 
 **NEW!** Programmatically add MCP servers at runtime for dynamic tool ecosystem management.

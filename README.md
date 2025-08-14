@@ -331,6 +331,7 @@ console.log(productData.name, productData.price, productData.features);
 - 🔍 **Smart Model Resolution** - Fuzzy matching, aliases, and capability-based search across all providers
 - 🏠 **Local AI Support** - Run completely offline with Ollama or through LiteLLM proxy
 - 🌍 **Universal Model Access** - Direct providers + 100,000+ models via Hugging Face + 100+ models via LiteLLM
+- 🧠 **Automatic Context Summarization** - Stateful, long-running conversations with automatic history summarization.
 - 📊 **Analytics & Evaluation** - Built-in usage tracking and AI-powered quality assessment
 
 ## 🛠️ MCP Integration Status ✅ **BUILT-IN TOOLS WORKING**

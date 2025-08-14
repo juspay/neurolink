@@ -391,6 +391,32 @@ export class SecurityManager {
 
 ---
 
+## 🧠 **AUTOMATIC CONTEXT SUMMARIZATION PATTERN** (2025-08-08)
+
+### **SDK-Style Opt-In Activation**
+```typescript
+// The feature is enabled on the NeuroLink instance, which then maintains state.
+const neurolink = new NeuroLink();
+
+// Enable the feature with optional configuration overrides
+neurolink.enableContextSummarization({
+  highWaterMarkWords: 3000, // Trigger summarization above this word count
+  lowWaterMarkWords: 800,  // Target for the summarized context
+});
+
+// Subsequent generate calls are now context-aware
+await neurolink.generate({ input: { text: "This is the first turn." } });
+await neurolink.generate({ input: { text: "This is the second turn." } });
+```
+
+### **Architectural Integration**
+- **Non-Breaking:** The feature is off by default and does not change any existing method signatures.
+- **Stateful Instance:** The `NeuroLink` instance holds the `ContextManager`, preserving the conversation history across multiple `generate` calls.
+- **Decoupled Logic:** The core summarization logic is encapsulated in `src/lib/context/ContextManager.ts`, which is called by the main `NeuroLink` class.
+- **Recursion-Safe:** The `ContextManager` calls an internal generation method (`generateTextInternal`) to summarize, avoiding an infinite loop with the public `generate` method.
+
+---
+
 ## 🧪 **TESTING PATTERNS**
 
 ### **Comprehensive Test Coverage**

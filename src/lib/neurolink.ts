@@ -104,11 +104,16 @@ export interface MCPServerInfo {
   metadata?: unknown;
 }
 
+import { ContextManager } from "./context/ContextManager.js";
+import { defaultContextConfig } from "./context/config.js";
+import type { ContextManagerConfig } from "./context/types.js";
+
 // Core types imported from core/types.js
 
 export class NeuroLink {
   private mcpInitialized = false;
   private emitter = new EventEmitter();
+  private contextManager: ContextManager | null = null;
 
   // Tool registration support
   private customTools: Map<string, SimpleTool> = new Map();
@@ -232,9 +237,42 @@ export class NeuroLink {
    * MAIN ENTRY POINT: Enhanced generate method with new function signature
    * Replaces both generateText and legacy methods
    */
+  /**
+   * Extracts the original prompt text from the provided input.
+   * If a string is provided, it returns the string directly.
+   * If a GenerateOptions object is provided, it returns the input text from the object.
+   * @param optionsOrPrompt The prompt input, either as a string or a GenerateOptions object.
+   * @returns The original prompt text as a string.
+   */
+  private _extractOriginalPrompt(optionsOrPrompt: GenerateOptions | string): string {
+    return typeof optionsOrPrompt === 'string' ? optionsOrPrompt : optionsOrPrompt.input.text;
+  }
+
+  /**
+   * Enables automatic context summarization for the NeuroLink instance.
+   * Once enabled, the instance will maintain conversation history and
+   * automatically summarize it when it exceeds token limits.
+   * @param config Optional configuration to override default summarization settings.
+   */
+  public enableContextSummarization(
+    config?: Partial<ContextManagerConfig>,
+  ): void {
+    const contextConfig = {
+      ...defaultContextConfig,
+      ...config,
+    };
+    // Pass the internal generator function directly, bound to the correct `this` context.
+    this.contextManager = new ContextManager(
+      this.generateTextInternal.bind(this),
+      contextConfig
+    );
+    logger.info("[NeuroLink] Automatic context summarization enabled.");
+  }
+
   async generate(
     optionsOrPrompt: GenerateOptions | string,
   ): Promise<GenerateResult> {
+    const originalPrompt = this._extractOriginalPrompt(optionsOrPrompt);
     // Convert string prompt to full options
     const options: GenerateOptions =
       typeof optionsOrPrompt === "string"
@@ -244,6 +282,12 @@ export class NeuroLink {
     // Validate prompt
     if (!options.input?.text || typeof options.input.text !== "string") {
       throw new Error("Input text is required and must be a non-empty string");
+    }
+
+    // Handle Context Management if enabled
+    if (this.contextManager) {
+      // Get the full context for the prompt without permanently adding the user's turn yet
+      options.input.text = this.contextManager.getContextForPrompt("user", options.input.text);
     }
 
     const startTime = Date.now();
@@ -385,6 +429,12 @@ export class NeuroLink {
           }
         : undefined,
     };
+
+    // Add both the user's turn and the AI's response to the permanent history
+    if (this.contextManager) {
+      await this.contextManager.addTurn("user", originalPrompt);
+      await this.contextManager.addTurn("assistant", generateResult.content);
+    }
 
     return generateResult;
   }

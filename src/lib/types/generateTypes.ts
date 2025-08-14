@@ -5,6 +5,7 @@ import type {
   AnalyticsData,
   EvaluationData,
 } from "../core/types.js";
+import type { ContextManagerConfig } from "../context/types.js";
 
 /**
  * Generate function options interface - Primary method for content generation
