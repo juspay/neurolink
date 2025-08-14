@@ -6,5 +6,5 @@ import type { ChatMessage } from "./types.js";
  * @returns A formatted string representing the conversation.
  */
 export function formatHistoryToString(history: ChatMessage[]): string {
-  return history.map(msg => `${msg.role}: ${msg.content}`).join('\n\n');
+  return history.map((msg) => `${msg.role}: ${msg.content}`).join("\n\n");
 }

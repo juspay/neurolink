@@ -120,11 +120,15 @@ export class ProviderRegistry {
       // Register Google Vertex AI provider
       ProviderFactory.registerProvider(
         AIProviderName.VERTEX,
-        async (modelName?: string) => {
+        async (
+          modelName?: string,
+          providerName?: string,
+          sdk?: UnknownRecord,
+        ) => {
           const { GoogleVertexProvider } = await import(
             "../providers/googleVertex.js"
           );
-          return new GoogleVertexProvider(modelName);
+          return new GoogleVertexProvider(modelName, providerName, sdk);
         },
         "claude-sonnet-4@20250514",
         ["vertex", "googleVertex"],

@@ -98,20 +98,20 @@ export class ProviderFactory {
     }
 
     try {
-      // Try calling as factory function first, then fallback to constructor
       let result: AIProvider | Promise<AIProvider>;
 
       try {
-        // Try as factory function
-        result = (
+        // Try as async factory function first (most providers are async functions)
+
+        result = await (
           registration.constructor as (
             modelName?: string,
             providerName?: string,
             sdk?: UnknownRecord,
           ) => Promise<AIProvider> | AIProvider
         )(model, providerName, sdk);
-      } catch (factoryError) {
-        // Fallback to constructor
+      } catch (functionError) {
+        // Fallback to constructor - ensure parameters are maintained
         result = new (registration.constructor as new (
           modelName?: string,
           providerName?: string,
@@ -119,15 +119,7 @@ export class ProviderFactory {
         ) => AIProvider)(model, providerName, sdk);
       }
 
-      // Only await if result is actually a Promise
-      if (
-        result &&
-        typeof result === "object" &&
-        typeof (result as Promise<AIProvider>).then === "function"
-      ) {
-        result = await result;
-      }
-
+      // Return result (no need to await again if already awaited in try block)
       return result as AIProvider;
     } catch (error) {
       logger.error(`Failed to create provider ${providerName}:`, error);

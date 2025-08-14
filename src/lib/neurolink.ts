@@ -70,6 +70,13 @@ import {
   getConversationMessages,
   storeConversationTurn,
 } from "./utils/conversationMemoryUtils.js";
+import { ExternalServerManager } from "./mcp/externalServerManager.js";
+import type {
+  ExternalMCPServerConfig,
+  ExternalMCPServerInstance,
+  ExternalMCPOperationResult,
+  ExternalMCPToolInfo,
+} from "./types/externalMcp.js";
 
 // Provider and MCP diagnostic types
 export interface ProviderStatus {
@@ -91,6 +98,10 @@ export interface MCPStatus {
   autoDiscoveredServers: MCPServerInfo[];
   customToolsCount: number;
   inMemoryServersCount: number;
+  externalMCPServersCount?: number;
+  externalMCPConnectedCount?: number;
+  externalMCPFailedCount?: number;
+  externalMCPServers?: MCPServerInfo[];
   error?: string;
   [key: string]: unknown; // Add index signature for flexible object access
 }
@@ -118,6 +129,9 @@ export class NeuroLink {
   // Tool registration support
   private customTools: Map<string, SimpleTool> = new Map();
   private inMemoryServers: Map<string, InMemoryMCPServerConfig> = new Map();
+
+  // External MCP server management
+  private externalServerManager: ExternalServerManager;
 
   // Enhanced error handling support
   private toolCircuitBreakers: Map<string, CircuitBreaker> = new Map();
@@ -173,6 +187,38 @@ export class NeuroLink {
         maxTurnsPerSession: memoryConfig.maxTurnsPerSession,
       });
     }
+
+    // Initialize external server manager
+    this.externalServerManager = new ExternalServerManager({
+      maxServers: 20,
+      defaultTimeout: 15000,
+      enableAutoRestart: true,
+      enablePerformanceMonitoring: true,
+    });
+
+    // Forward external server events
+    this.externalServerManager.on("connected", (event) => {
+      this.emitter.emit("externalMCP:serverConnected", event);
+    });
+
+    this.externalServerManager.on("disconnected", (event) => {
+      this.emitter.emit("externalMCP:serverDisconnected", event);
+    });
+
+    this.externalServerManager.on("failed", (event) => {
+      this.emitter.emit("externalMCP:serverFailed", event);
+    });
+
+    this.externalServerManager.on("toolDiscovered", (event) => {
+      this.emitter.emit("externalMCP:toolDiscovered", event);
+      // Tools are already registered on server connection, no need to duplicate here
+    });
+
+    this.externalServerManager.on("toolRemoved", (event) => {
+      this.emitter.emit("externalMCP:toolRemoved", event);
+      // Unregister removed tools from main tool registry
+      this.unregisterExternalMCPToolFromRegistry(event.toolName);
+    });
   }
 
   /**
@@ -244,8 +290,12 @@ export class NeuroLink {
    * @param optionsOrPrompt The prompt input, either as a string or a GenerateOptions object.
    * @returns The original prompt text as a string.
    */
-  private _extractOriginalPrompt(optionsOrPrompt: GenerateOptions | string): string {
-    return typeof optionsOrPrompt === 'string' ? optionsOrPrompt : optionsOrPrompt.input.text;
+  private _extractOriginalPrompt(
+    optionsOrPrompt: GenerateOptions | string,
+  ): string {
+    return typeof optionsOrPrompt === "string"
+      ? optionsOrPrompt
+      : optionsOrPrompt.input.text;
   }
 
   /**
@@ -264,7 +314,7 @@ export class NeuroLink {
     // Pass the internal generator function directly, bound to the correct `this` context.
     this.contextManager = new ContextManager(
       this.generateTextInternal.bind(this),
-      contextConfig
+      contextConfig,
     );
     logger.info("[NeuroLink] Automatic context summarization enabled.");
   }
@@ -287,7 +337,10 @@ export class NeuroLink {
     // Handle Context Management if enabled
     if (this.contextManager) {
       // Get the full context for the prompt without permanently adding the user's turn yet
-      options.input.text = this.contextManager.getContextForPrompt("user", options.input.text);
+      options.input.text = this.contextManager.getContextForPrompt(
+        "user",
+        options.input.text,
+      );
     }
 
     const startTime = Date.now();
@@ -492,6 +545,7 @@ export class NeuroLink {
       // Try MCP-enhanced generation first (if not explicitly disabled)
       if (!options.disableTools) {
         try {
+          logger.debug(`[${functionTag}] Attempting MCP generation...`);
           const mcpResult = await this.tryMCPGeneration(options);
           if (mcpResult && mcpResult.content) {
             logger.debug(`[${functionTag}] MCP generation successful`);
@@ -504,6 +558,15 @@ export class NeuroLink {
             );
 
             return mcpResult;
+          } else {
+            logger.debug(
+              `[${functionTag}] MCP generation returned empty result:`,
+              {
+                hasResult: !!mcpResult,
+                hasContent: !!(mcpResult && mcpResult.content),
+                contentLength: mcpResult?.content?.length || 0,
+              },
+            );
           }
         } catch (error) {
           logger.debug(`[${functionTag}] MCP generation failed, falling back`, {
@@ -558,45 +621,7 @@ export class NeuroLink {
           : options.provider;
 
       // Get available tools
-      let availableTools: Array<{
-        name: string;
-        description: string;
-        server: string;
-        category?: string;
-      }> = [];
-
-      try {
-        // 1. Get MCP server tools (existing functionality)
-        const mcpTools = await toolRegistry.listTools();
-        const mappedMcpTools = mcpTools.map((tool: UnknownRecord) => ({
-          name: (tool.name as string) || "Unknown",
-          description:
-            (tool.description as string) || "No description available",
-          server: (tool.serverId as string) || "Unknown", // Fix: use serverId instead of server
-          category: tool.category as string | undefined,
-        }));
-
-        // 2. ✅ NEW: Get custom tools from this NeuroLink instance
-        const customTools = Array.from(this.customTools.entries()).map(
-          ([name, tool]) => ({
-            name,
-            description: tool.description || "Custom tool",
-            server: "custom",
-            category: "user-defined",
-          }),
-        );
-
-        // 3. ✅ NEW: Combine all tools for AI generation
-        availableTools = [...mappedMcpTools, ...customTools];
-
-        logger.debug(`[${functionTag}] Available tools for AI generation:`, {
-          mcpTools: mappedMcpTools.length,
-          customTools: customTools.length,
-          total: availableTools.length,
-        });
-      } catch (error) {
-        mcpLogger.warn(`[${functionTag}] Failed to get tools`, { error });
-      }
+      const availableTools = await this.getAllAvailableTools();
 
       // Create tool-aware system prompt
       const enhancedSystemPrompt = this.createToolAwareSystemPrompt(
@@ -640,7 +665,7 @@ export class NeuroLink {
         return null; // Let caller fall back to direct generation
       }
 
-      // Return enhanced result
+      // Return enhanced result with external tool information
       return {
         content: result.content,
         provider: providerName,
@@ -656,9 +681,14 @@ export class NeuroLink {
               success: true, // Assume success if tool executed (AI providers handle failures differently)
               serverId: (teRecord.serverId as string) || undefined,
             };
-          }) || [], // ✅ NEW: Add missing toolExecutions with proper format
+          }) || [],
         enhancedWithTools: true,
-        availableTools: availableTools.length > 0 ? availableTools : undefined,
+        availableTools: availableTools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          server: tool.server,
+          category: tool.category,
+        })),
         // Include analytics and evaluation from BaseProvider
         analytics: result.analytics,
         evaluation: result.evaluation,
@@ -725,7 +755,7 @@ export class NeuroLink {
           !options.disableTools, // Pass disableTools as inverse of enableMCP
           this as unknown as UnknownRecord, // Pass SDK instance
         );
-        
+
         // Enable tool execution for direct provider generation using BaseProvider method
         provider.setupToolExecutor(
           {
@@ -800,10 +830,26 @@ export class NeuroLink {
     }
 
     const toolDescriptions = availableTools
-      .map(
-        (tool) => `- ${tool.name}: ${tool.description} (from ${tool.server})`,
-      )
-      .join("\n");
+      .map((tool) => {
+        const toolWithSchema = tool as any;
+        const schema = (toolWithSchema.inputSchema ||
+          toolWithSchema.parameters) as {
+          properties?: any;
+          required?: string[];
+        };
+        let params = "";
+        if (schema && schema.properties) {
+          const requiredParams = new Set(schema.required || []);
+          params = Object.entries(schema.properties)
+            .map(([key, value]: [string, any]) => {
+              const required = requiredParams.has(key) ? " (required)" : "";
+              return `  - ${key}: ${value.type}${required}`;
+            })
+            .join("\n");
+        }
+        return `- ${tool.name}: ${tool.description} (from ${tool.server})\n${params}`;
+      })
+      .join("\n\n");
 
     const toolPrompt = `\n\nYou have access to these additional tools if needed:\n${toolDescriptions}\n\nIMPORTANT: You are a general-purpose AI assistant. Answer all requests directly and creatively. These tools are optional helpers - use them only when they would genuinely improve your response. For creative tasks like storytelling, writing, or general conversation, respond naturally without requiring tools.`;
 
@@ -1298,6 +1344,16 @@ export class NeuroLink {
     const functionTag = "NeuroLink.executeTool";
     const executionStartTime = Date.now();
 
+    // Debug: Log tool execution attempt
+    logger.debug(`[${functionTag}] Tool execution requested:`, {
+      toolName,
+      params:
+        typeof params === "object"
+          ? Object.keys(params as any).length + " params"
+          : params,
+      hasExternalManager: !!this.externalServerManager,
+    });
+
     // Emit tool start event
     this.emitter.emit("tool:start", {
       toolName,
@@ -1555,7 +1611,56 @@ export class NeuroLink {
       }
     }
 
-    // If not found in custom tools or in-memory servers, try unified registry
+    // Check external MCP servers
+    const externalTools = this.externalServerManager.getAllTools();
+    const externalTool = externalTools.find((tool) => tool.name === toolName);
+
+    logger.debug(`[${functionTag}] External MCP tool search:`, {
+      toolName,
+      externalToolsCount: externalTools.length,
+      foundTool: !!externalTool,
+      isAvailable: externalTool?.isAvailable,
+      serverId: externalTool?.serverId,
+    });
+
+    if (externalTool && externalTool.isAvailable) {
+      try {
+        mcpLogger.debug(
+          `[${functionTag}] Executing external MCP tool: ${toolName} from ${externalTool.serverId}`,
+        );
+
+        const result = await this.externalServerManager.executeTool(
+          externalTool.serverId,
+          toolName,
+          params as Record<string, any>,
+          { timeout: options.timeout },
+        );
+
+        logger.debug(
+          `[${functionTag}] External MCP tool execution successful:`,
+          {
+            toolName,
+            serverId: externalTool.serverId,
+            resultType: typeof result,
+          },
+        );
+
+        return result as T;
+      } catch (error) {
+        logger.error(`[${functionTag}] External MCP tool execution failed:`, {
+          toolName,
+          serverId: externalTool.serverId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw ErrorFactory.toolExecutionFailed(
+          toolName,
+          error instanceof Error ? error : new Error(String(error)),
+          externalTool.serverId,
+        );
+      }
+    }
+
+    // If not found in custom tools, in-memory servers, or external servers, try unified registry
     try {
       const context = {
         sessionId: `neurolink-tool-${Date.now()}`,
@@ -1650,14 +1755,46 @@ export class NeuroLink {
         }
       }
 
-      // 4. Combine all tools
-      const allTools = [...mcpTools, ...customTools, ...inMemoryTools];
+      // 4. Get external MCP tools
+      const externalMCPTools = this.externalServerManager
+        .getAllTools()
+        .map((tool) => ({
+          name: tool.name,
+          toolName: tool.name,
+          description: tool.description,
+          serverId: tool.serverId,
+          category: tool.metadata?.category || "external-mcp",
+          inputSchema: tool.inputSchema || {},
+          isAvailable: tool.isAvailable,
+          stats: tool.stats,
+        }));
+
+      // 5. Combine all tools with deduplication by name
+      const combinedTools = [
+        ...mcpTools,
+        ...customTools,
+        ...inMemoryTools,
+        ...externalMCPTools,
+      ];
+
+      const uniqueTools = Array.from(
+        combinedTools
+          .reduce((map, tool) => {
+            const key = tool.name;
+            if (!map.has(key)) {
+              map.set(key, tool);
+            }
+            return map;
+          }, new Map<string, any>())
+          .values(),
+      );
 
       mcpLogger.debug("Tool discovery results", {
         mcpTools: mcpTools.length,
         customTools: customTools.length,
         inMemoryTools: inMemoryTools.length,
-        total: allTools.length,
+        externalMCPTools: externalMCPTools.length,
+        total: uniqueTools.length,
       });
 
       // Check memory usage after tool enumeration
@@ -1669,14 +1806,14 @@ export class NeuroLink {
           `🔍 Tool listing used ${memoryDelta}MB memory (large tool registry detected)`,
         );
         // Suggest periodic cleanup for large tool registries
-        if (allTools.length > 100) {
+        if (uniqueTools.length > 100) {
           mcpLogger.debug(
             "💡 Suggestion: Consider using tool categories or lazy loading for large tool sets",
           );
         }
       }
 
-      return allTools;
+      return uniqueTools;
     } catch (error) {
       mcpLogger.error("Failed to list available tools", { error });
       return [];
@@ -1925,18 +2062,53 @@ export class NeuroLink {
    */
   async getMCPStatus(): Promise<MCPStatus> {
     try {
-      // Simplified MCP status - unified registry removed
+      // Get built-in tools
       const allTools = await toolRegistry.listTools();
+
+      // Get external MCP server statistics
+      const externalStats = this.externalServerManager.getStatistics();
+      const externalServers = this.listExternalMCPServers();
+
+      // Calculate totals
+      const totalServers =
+        1 + externalStats.totalServers + this.inMemoryServers.size; // toolRegistry + external + in-memory
+      const availableServers = 1 + externalStats.connectedServers; // toolRegistry always available + connected external
+      const totalTools =
+        allTools.length + externalStats.totalTools + this.customTools.size;
+
+      // Convert external servers to MCPServerInfo format
+      const externalMCPServers: MCPServerInfo[] = externalServers.map(
+        (server) => ({
+          id: server.serverId,
+          name:
+            typeof server.config.metadata?.title === "string"
+              ? server.config.metadata.title
+              : server.serverId,
+          source: `external-${server.config.transport}`,
+          status: server.status as "connected" | "discovered" | "failed",
+          hasServer: server.isHealthy,
+          metadata: {
+            transport: server.config.transport,
+            command: server.config.command,
+            toolCount: server.toolCount,
+            uptime: server.uptime,
+          },
+        }),
+      );
 
       return {
         mcpInitialized: this.mcpInitialized,
-        totalServers: 1, // Only tool registry now
-        availableServers: 1,
-        autoDiscoveredCount: 0, // No auto-discovery
-        totalTools: allTools.length,
-        autoDiscoveredServers: [], // No auto-discovery
+        totalServers,
+        availableServers,
+        autoDiscoveredCount: 0, // No auto-discovery for external servers
+        totalTools,
+        autoDiscoveredServers: [],
         customToolsCount: this.customTools.size,
         inMemoryServersCount: this.inMemoryServers.size,
+        externalMCPServersCount: externalStats.totalServers,
+        externalMCPConnectedCount: externalStats.connectedServers,
+        externalMCPFailedCount: externalStats.failedServers,
+        externalMCPServers,
       };
     } catch (error) {
       return {
@@ -1948,6 +2120,10 @@ export class NeuroLink {
         autoDiscoveredServers: [],
         customToolsCount: this.customTools.size,
         inMemoryServersCount: this.inMemoryServers.size,
+        externalMCPServersCount: 0,
+        externalMCPConnectedCount: 0,
+        externalMCPFailedCount: 0,
+        externalMCPServers: [],
         error: error instanceof Error ? error.message : String(error),
       };
     }
@@ -1958,8 +2134,60 @@ export class NeuroLink {
    * @returns Promise resolving to array of MCP server information
    */
   async listMCPServers(): Promise<MCPServerInfo[]> {
-    // Simplified MCP servers listing - unified registry removed
-    return [];
+    const servers: MCPServerInfo[] = [];
+
+    // Add built-in toolRegistry as a server
+    servers.push({
+      id: "neurolink-direct",
+      name: "NeuroLink Built-in Tools",
+      source: "built-in",
+      status: "connected",
+      hasServer: true,
+      metadata: {
+        type: "direct-tools",
+        description:
+          "Built-in NeuroLink tools (getCurrentTime, readFile, etc.)",
+      },
+    });
+
+    // Add in-memory servers
+    for (const [serverId, serverConfig] of this.inMemoryServers.entries()) {
+      servers.push({
+        id: serverId,
+        name: serverConfig.server.title || serverId,
+        source: "in-memory",
+        status: "connected",
+        hasServer: true,
+        metadata: {
+          category: serverConfig.category,
+          provider: serverConfig.metadata?.provider,
+          version: serverConfig.metadata?.version,
+        },
+      });
+    }
+
+    // Add external MCP servers
+    const externalServers = this.listExternalMCPServers();
+    for (const server of externalServers) {
+      servers.push({
+        id: server.serverId,
+        name:
+          typeof server.config.metadata?.title === "string"
+            ? server.config.metadata.title
+            : server.serverId,
+        source: `external-${server.config.transport}`,
+        status: server.status as "connected" | "discovered" | "failed",
+        hasServer: server.isHealthy,
+        metadata: {
+          transport: server.config.transport,
+          command: server.config.command,
+          toolCount: server.toolCount,
+          uptime: server.uptime,
+        },
+      });
+    }
+
+    return servers;
   }
 
   /**
@@ -1968,8 +2196,36 @@ export class NeuroLink {
    * @returns Promise resolving to true if server is reachable
    */
   async testMCPServer(serverId: string): Promise<boolean> {
-    // Simplified MCP server testing - unified registry removed
-    return false; // No auto-discovery servers available
+    try {
+      // Test built-in tools
+      if (serverId === "neurolink-direct") {
+        const tools = await toolRegistry.listTools();
+        return tools.length > 0;
+      }
+
+      // Test in-memory servers
+      if (this.inMemoryServers.has(serverId)) {
+        const serverConfig = this.inMemoryServers.get(serverId)!;
+        return !!(serverConfig.server && serverConfig.server.tools);
+      }
+
+      // Test external MCP servers
+      const externalServer = this.externalServerManager.getServer(serverId);
+      if (externalServer) {
+        return (
+          externalServer.status === "connected" &&
+          externalServer.client !== null
+        );
+      }
+
+      return false;
+    } catch (error) {
+      mcpLogger.error(
+        `[NeuroLink] Error testing MCP server ${serverId}:`,
+        error,
+      );
+      return false;
+    }
   }
 
   // ==================== PROVIDER HEALTH CHECKING ====================
@@ -2395,6 +2651,402 @@ export class NeuroLink {
     }
 
     await this.conversationMemory.clearAllSessions();
+  }
+
+  // ===== EXTERNAL MCP SERVER METHODS =====
+
+  /**
+   * Add an external MCP server
+   * Automatically discovers and registers tools from the server
+   * @param serverId - Unique identifier for the server
+   * @param config - External MCP server configuration
+   * @returns Operation result with server instance
+   */
+  async addExternalMCPServer(
+    serverId: string,
+    config: ExternalMCPServerConfig,
+  ): Promise<ExternalMCPOperationResult<ExternalMCPServerInstance>> {
+    try {
+      mcpLogger.info(`[NeuroLink] Adding external MCP server: ${serverId}`, {
+        command: config.command,
+        transport: config.transport,
+      });
+
+      const result = await this.externalServerManager.addServer(
+        serverId,
+        config,
+      );
+
+      if (result.success) {
+        mcpLogger.info(
+          `[NeuroLink] External MCP server added successfully: ${serverId}`,
+          {
+            toolsDiscovered: result.metadata?.toolsDiscovered || 0,
+            duration: result.duration,
+          },
+        );
+
+        // Emit server added event
+        this.emitter.emit("externalMCP:serverAdded", {
+          serverId,
+          config,
+          toolCount: result.metadata?.toolsDiscovered || 0,
+          timestamp: Date.now(),
+        });
+      } else {
+        mcpLogger.error(
+          `[NeuroLink] Failed to add external MCP server: ${serverId}`,
+          {
+            error: result.error,
+          },
+        );
+      }
+
+      return result;
+    } catch (error) {
+      mcpLogger.error(
+        `[NeuroLink] Error adding external MCP server: ${serverId}`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Remove an external MCP server
+   * Stops the server and removes all its tools
+   * @param serverId - ID of the server to remove
+   * @returns Operation result
+   */
+  async removeExternalMCPServer(
+    serverId: string,
+  ): Promise<ExternalMCPOperationResult<void>> {
+    try {
+      mcpLogger.info(`[NeuroLink] Removing external MCP server: ${serverId}`);
+
+      const result = await this.externalServerManager.removeServer(serverId);
+
+      if (result.success) {
+        mcpLogger.info(
+          `[NeuroLink] External MCP server removed successfully: ${serverId}`,
+        );
+
+        // Emit server removed event
+        this.emitter.emit("externalMCP:serverRemoved", {
+          serverId,
+          timestamp: Date.now(),
+        });
+      } else {
+        mcpLogger.error(
+          `[NeuroLink] Failed to remove external MCP server: ${serverId}`,
+          {
+            error: result.error,
+          },
+        );
+      }
+
+      return result;
+    } catch (error) {
+      mcpLogger.error(
+        `[NeuroLink] Error removing external MCP server: ${serverId}`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * List all external MCP servers
+   * @returns Array of server health information
+   */
+  listExternalMCPServers(): Array<{
+    serverId: string;
+    status: string;
+    toolCount: number;
+    uptime: number;
+    isHealthy: boolean;
+    config: ExternalMCPServerConfig;
+  }> {
+    const serverStatuses = this.externalServerManager.getServerStatuses();
+    const allServers = this.externalServerManager.getAllServers();
+
+    return serverStatuses.map((health) => {
+      const server = allServers.get(health.serverId);
+      return {
+        serverId: health.serverId,
+        status: health.status,
+        toolCount: health.toolCount,
+        uptime: health.performance.uptime,
+        isHealthy: health.isHealthy,
+        config: server?.config || ({} as ExternalMCPServerConfig),
+      };
+    });
+  }
+
+  /**
+   * Get external MCP server status
+   * @param serverId - ID of the server
+   * @returns Server instance or undefined if not found
+   */
+  getExternalMCPServer(
+    serverId: string,
+  ): ExternalMCPServerInstance | undefined {
+    return this.externalServerManager.getServer(serverId);
+  }
+
+  /**
+   * Execute a tool from an external MCP server
+   * @param serverId - ID of the server
+   * @param toolName - Name of the tool
+   * @param parameters - Tool parameters
+   * @param options - Execution options
+   * @returns Tool execution result
+   */
+  async executeExternalMCPTool(
+    serverId: string,
+    toolName: string,
+    parameters: Record<string, any>,
+    options?: { timeout?: number },
+  ): Promise<any> {
+    try {
+      mcpLogger.debug(
+        `[NeuroLink] Executing external MCP tool: ${toolName} on ${serverId}`,
+      );
+
+      const result = await this.externalServerManager.executeTool(
+        serverId,
+        toolName,
+        parameters,
+        options,
+      );
+
+      mcpLogger.debug(
+        `[NeuroLink] External MCP tool executed successfully: ${toolName}`,
+      );
+      return result;
+    } catch (error) {
+      mcpLogger.error(
+        `[NeuroLink] External MCP tool execution failed: ${toolName}`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get all tools from external MCP servers
+   * @returns Array of external tool information
+   */
+  getExternalMCPTools(): ExternalMCPToolInfo[] {
+    return this.externalServerManager.getAllTools();
+  }
+
+  /**
+   * Get tools from a specific external MCP server
+   * @param serverId - ID of the server
+   * @returns Array of tool information for the server
+   */
+  getExternalMCPServerTools(serverId: string): ExternalMCPToolInfo[] {
+    return this.externalServerManager.getServerTools(serverId);
+  }
+
+  /**
+   * Test connection to an external MCP server
+   * @param config - Server configuration to test
+   * @returns Test result with connection status
+   */
+  async testExternalMCPConnection(
+    config: ExternalMCPServerConfig,
+  ): Promise<{ success: boolean; error?: string; toolCount?: number }> {
+    try {
+      const { MCPClientFactory } = await import("./mcp/mcpClientFactory.js");
+
+      const testResult = await MCPClientFactory.testConnection(config, 10000);
+
+      return {
+        success: testResult.success,
+        error: testResult.error,
+        toolCount: testResult.capabilities ? 1 : 0, // Basic indication
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Get external MCP server manager statistics
+   * @returns Statistics about external servers and tools
+   */
+  getExternalMCPStatistics(): {
+    totalServers: number;
+    connectedServers: number;
+    failedServers: number;
+    totalTools: number;
+    totalConnections: number;
+    totalErrors: number;
+  } {
+    return this.externalServerManager.getStatistics();
+  }
+
+  /**
+   * Shutdown all external MCP servers
+   * Called automatically on process exit
+   */
+  async shutdownExternalMCPServers(): Promise<void> {
+    try {
+      mcpLogger.info("[NeuroLink] Shutting down all external MCP servers...");
+      // First, unregister all external MCP tools from the main tool registry
+      this.unregisterAllExternalMCPToolsFromRegistry();
+      // Then shutdown the external server manager
+      await this.externalServerManager.shutdown();
+      mcpLogger.info(
+        "[NeuroLink] All external MCP servers shut down successfully",
+      );
+    } catch (error) {
+      mcpLogger.error(
+        "[NeuroLink] Error shutting down external MCP servers:",
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Convert external MCP tools to Vercel AI SDK tool format
+   * This allows AI providers to use external tools directly
+   */
+  private convertExternalMCPToolsToAISDKFormat(): Record<string, any> {
+    const externalTools = this.externalServerManager.getAllTools();
+    const aiSDKTools: Record<string, any> = {};
+
+    for (const tool of externalTools) {
+      if (tool.isAvailable) {
+        // Create tool definition without parameters schema to avoid Zod issues
+        // The AI provider will handle parameters dynamically based on the tool description
+        const toolDefinition: any = {
+          description: tool.description,
+          execute: async (args: Record<string, any>) => {
+            try {
+              mcpLogger.debug(
+                `[NeuroLink] Executing external MCP tool via AI SDK: ${tool.name}`,
+                { args },
+              );
+              const result = await this.externalServerManager.executeTool(
+                tool.serverId,
+                tool.name,
+                args,
+                { timeout: 30000 },
+              );
+              mcpLogger.debug(
+                `[NeuroLink] External MCP tool execution result: ${tool.name}`,
+                {
+                  success: !!result,
+                  hasData: !!(
+                    result &&
+                    typeof result === "object" &&
+                    "content" in result
+                  ),
+                },
+              );
+              return result;
+            } catch (error) {
+              mcpLogger.error(
+                `[NeuroLink] External MCP tool execution failed: ${tool.name}`,
+                error,
+              );
+              throw error;
+            }
+          },
+        };
+
+        // Only add parameters if we have a valid schema - otherwise omit it entirely
+        // This prevents Zod schema parsing errors
+
+        aiSDKTools[tool.name] = toolDefinition;
+        mcpLogger.debug(
+          `[NeuroLink] Converted external MCP tool to AI SDK format: ${tool.name} from server ${tool.serverId}`,
+        );
+      }
+    }
+
+    mcpLogger.info(
+      `[NeuroLink] Converted ${Object.keys(aiSDKTools).length} external MCP tools to AI SDK format`,
+    );
+    return aiSDKTools;
+  }
+
+  /**
+   * Convert JSON Schema to AI SDK compatible format
+   * For now, we'll skip schema validation and let the AI SDK handle parameters dynamically
+   */
+  private convertJSONSchemaToAISDKFormat(inputSchema: any): any {
+    // The simplest approach: don't provide parameters schema
+    // This lets the AI SDK handle the tool without schema validation
+    // Tools will still work, they just won't have strict parameter validation
+    return undefined;
+  }
+
+  /**
+   * Unregister external MCP tools from a specific server
+   */
+  private unregisterExternalMCPToolsFromRegistry(serverId: string): void {
+    try {
+      const externalTools = this.externalServerManager.getServerTools(serverId);
+
+      for (const tool of externalTools) {
+        toolRegistry.removeTool(tool.name);
+        mcpLogger.debug(
+          `[NeuroLink] Unregistered external MCP tool from main registry: ${tool.name}`,
+        );
+      }
+    } catch (error) {
+      mcpLogger.error(
+        `[NeuroLink] Failed to unregister external MCP tools from registry for server ${serverId}:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Unregister a specific external MCP tool from the main registry
+   */
+  private unregisterExternalMCPToolFromRegistry(toolName: string): void {
+    try {
+      toolRegistry.removeTool(toolName);
+      mcpLogger.debug(
+        `[NeuroLink] Unregistered external MCP tool from main registry: ${toolName}`,
+      );
+    } catch (error) {
+      mcpLogger.error(
+        `[NeuroLink] Failed to unregister external MCP tool ${toolName} from registry:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Unregister all external MCP tools from the main registry
+   */
+  private unregisterAllExternalMCPToolsFromRegistry(): void {
+    try {
+      const externalTools = this.externalServerManager.getAllTools();
+
+      for (const tool of externalTools) {
+        toolRegistry.removeTool(tool.name);
+      }
+
+      mcpLogger.debug(
+        `[NeuroLink] Unregistered ${externalTools.length} external MCP tools from main registry`,
+      );
+    } catch (error) {
+      mcpLogger.error(
+        "[NeuroLink] Failed to unregister all external MCP tools from registry:",
+        error,
+      );
+    }
   }
 }
 

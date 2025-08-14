@@ -1064,7 +1064,6 @@ curl -I --proxy $HTTPS_PROXY https://api.openai.com
 **Solutions**:
 
 1. **Contact IT team** for allowlist:
-
    - `generativelanguage.googleapis.com` (Google AI)
    - `api.anthropic.com` (Anthropic)
    - `api.openai.com` (OpenAI)

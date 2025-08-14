@@ -321,19 +321,16 @@ app.post("/generate", async (req, res) => {
 ### Common Issues
 
 1. **"Endpoint not found"**
-
    - Verify endpoint name spelling
    - Check if endpoint is in the correct region
    - Ensure endpoint is deployed and in service
 
 2. **"Access denied"**
-
    - Verify IAM permissions
    - Check AWS credentials
    - Ensure endpoint allows access from your account
 
 3. **"Model not ready"**
-
    - Wait for endpoint to finish deploying
    - Check endpoint status in AWS Console
    - Some models need warm-up time

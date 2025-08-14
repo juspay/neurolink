@@ -157,10 +157,25 @@ export class AIProviderFactory {
           ? undefined
           : resolvedModelName;
 
+      // ✅ CRITICAL FIX: Pass external MCP tools interface to BaseProvider
+
+      let finalSdk = sdk;
+      if (sdk && typeof (sdk as any).getExternalMCPTools === "function") {
+        finalSdk = {
+          ...sdk,
+          externalServerManager: {
+            getAllTools: () => (sdk as any).getExternalMCPTools(),
+            executeTool: (serverId: string, toolName: string, params: any) =>
+              (sdk as any).executeExternalMCPTool(serverId, toolName, params),
+          },
+        } as UnknownRecord;
+      }
+
+      // Create provider with enhanced SDK
       const provider = await ProviderFactory.createProvider(
         normalizedName,
         finalModelName,
-        sdk,
+        finalSdk,
       );
 
       logger.debug(
@@ -172,8 +187,6 @@ export class AIProviderFactory {
           factoryUsed: true,
         },
       );
-
-      // PURE FACTORY PATTERN: All providers handled by ProviderFactory - no switch statements needed
 
       // Wrap with MCP if enabled
       if (enableMCP) {

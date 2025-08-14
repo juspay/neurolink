@@ -45,7 +45,7 @@ interface AISDKGenerateResult {
 // Analytics helper will be dynamically imported when needed
 
 /**
- * Interface for SDK with in-memory MCP servers
+ * Interface for SDK with in-memory MCP servers and external MCP support
  */
 export interface NeuroLinkSDK {
   getInMemoryServers?: () => Map<
@@ -60,6 +60,20 @@ export interface NeuroLinkSDK {
       metadata?: UnknownRecord;
     }
   >;
+  externalServerManager?: {
+    getAllTools: () => Array<{
+      name: string;
+      description: string;
+      serverId: string;
+      isAvailable: boolean;
+      inputSchema?: Record<string, unknown>;
+    }>;
+    executeTool: (
+      serverId: string,
+      toolName: string,
+      params: any,
+    ) => Promise<any>;
+  };
 }
 
 /**
@@ -274,18 +288,23 @@ export abstract class BaseProvider implements AIProvider {
       // Import generateText dynamically to avoid circular dependencies
       const { generateText } = await import("ai");
 
-      // Get ALL available tools (direct + MCP when available)
+      // Get ALL available tools (direct + MCP + external from options)
       const shouldUseTools = !options.disableTools && this.supportsTools();
-
-      const tools = shouldUseTools ? await this.getAllTools() : {};
-
-      logger.debug(
-        `[BaseProvider.generate] Tools for ${this.providerName}: ${Object.keys(tools).join(", ")}`,
-      );
+      const baseTools = shouldUseTools ? await this.getAllTools() : {};
+      const tools = shouldUseTools
+        ? {
+            ...baseTools,
+            ...(options.tools || {}), // Include external tools passed from NeuroLink
+          }
+        : {};
+      logger.debug(`[BaseProvider.generate] Tools for ${this.providerName}:`, {
+        directTools: Object.keys(baseTools),
+        externalTools: Object.keys(options.tools || {}),
+        totalTools: Object.keys(tools),
+      });
 
       // EVERY provider uses Vercel AI SDK - no exceptions
       const model = await this.getAISDKModel(); // This method is now REQUIRED
-
 
       // Build proper message array with conversation history
       const messages = buildMessagesArray(options);
@@ -342,29 +361,74 @@ export abstract class BaseProvider implements AIProvider {
         name: string;
         input: Record<string, unknown>;
         output: unknown;
-        duration: number;
       }> = [];
 
-      // Extract tool executions from AI SDK result steps
+      // Create a map of tool calls to their arguments for matching with results
+      const toolCallArgsMap = new Map<string, Record<string, unknown>>();
 
-      // Extract tool executions from steps (where tool results are stored)
+      // Extract tool executions from AI SDK result steps
       if (
         (result as unknown as AISDKGenerateResult).steps &&
         Array.isArray((result as unknown as AISDKGenerateResult).steps)
       ) {
         for (const step of (result as unknown as AISDKGenerateResult).steps ||
           []) {
-          // Focus only on tool results (which have complete execution data)
-          // Tool calls are just the requests, tool results contain the actual execution data
+          // First, collect tool calls and their arguments
+          if (step?.toolCalls && Array.isArray(step.toolCalls)) {
+            for (const toolCall of step.toolCalls) {
+              const tcRecord = toolCall as UnknownRecord;
+              const toolName =
+                (tcRecord.toolName as string) ||
+                (tcRecord.name as string) ||
+                "unknown";
+              const toolId =
+                (tcRecord.toolCallId as string) ||
+                (tcRecord.id as string) ||
+                toolName;
+
+              // Extract arguments from tool call
+              let callArgs: Record<string, unknown> = {};
+              if (tcRecord.args) {
+                callArgs = tcRecord.args as Record<string, unknown>;
+              } else if (tcRecord.arguments) {
+                callArgs = tcRecord.arguments as Record<string, unknown>;
+              } else if (tcRecord.parameters) {
+                callArgs = tcRecord.parameters as Record<string, unknown>;
+              }
+
+              toolCallArgsMap.set(toolId, callArgs);
+              toolCallArgsMap.set(toolName, callArgs); // Also map by name as fallback
+            }
+          }
+
+          // Then, process tool results and match with call arguments
           if (step?.toolResults && Array.isArray(step.toolResults)) {
             for (const toolResult of step.toolResults) {
               const trRecord = toolResult as UnknownRecord;
+              const toolName = (trRecord.toolName as string) || "unknown";
+              const toolId =
+                (trRecord.toolCallId as string) || (trRecord.id as string);
+
+              // Try to get arguments from the tool result first
+              let toolArgs: Record<string, unknown> = {};
+
+              if (trRecord.args) {
+                toolArgs = trRecord.args as Record<string, unknown>;
+              } else if (trRecord.arguments) {
+                toolArgs = trRecord.arguments as Record<string, unknown>;
+              } else if (trRecord.parameters) {
+                toolArgs = trRecord.parameters as Record<string, unknown>;
+              } else if (trRecord.input) {
+                toolArgs = trRecord.input as Record<string, unknown>;
+              } else {
+                // Fallback: get arguments from the corresponding tool call
+                toolArgs = toolCallArgsMap.get(toolId || toolName) || {};
+              }
 
               toolExecutions.push({
-                name: (trRecord.toolName as string) || "unknown",
-                input: (trRecord.args as Record<string, unknown>) || {},
+                name: toolName,
+                input: toolArgs,
                 output: (trRecord.result as unknown) || "success",
-                duration: 0, // AI SDK doesn't track duration
               });
             }
           }
@@ -400,6 +464,12 @@ export abstract class BaseProvider implements AIProvider {
         toolResults: result.toolResults as ToolResult[],
         toolsUsed: uniqueToolsUsed,
         toolExecutions, // ✅ Add extracted tool executions
+        availableTools: Object.keys(tools).map((name) => ({
+          name,
+          description: tools[name].description || "No description available",
+          parameters: tools[name].parameters || {},
+          server: (tools[name] as any).serverId || "direct",
+        })),
       };
 
       // Enhanced result with analytics and evaluation
@@ -554,6 +624,107 @@ export abstract class BaseProvider implements AIProvider {
       }
     }
 
+    // ✅ CRITICAL FIX: Add external MCP tools if SDK has external server manager
+
+    if (
+      this.sdk &&
+      this.sdk.externalServerManager &&
+      typeof this.sdk.externalServerManager.getAllTools === "function"
+    ) {
+      try {
+        logger.debug(
+          `[BaseProvider] Loading external MCP tools from SDK via externalServerManager`,
+        );
+        const externalTools = this.sdk.externalServerManager.getAllTools();
+
+        logger.debug(
+          `[BaseProvider] Found ${externalTools.length} external MCP tools`,
+          {
+            tools: externalTools.map((t) => ({
+              name: t.name,
+              available: t.isAvailable,
+              server: t.serverId,
+            })),
+          },
+        );
+
+        for (const externalTool of externalTools) {
+          if (externalTool.isAvailable) {
+            logger.debug(
+              `[BaseProvider] Converting external MCP tool: ${externalTool.name} from ${externalTool.serverId}`,
+            );
+
+            // Convert to AI SDK tool format
+            const { tool: createAISDKTool } = await import("ai");
+            const { z } = await import("zod");
+
+            tools[externalTool.name] = createAISDKTool({
+              description:
+                externalTool.description ||
+                `External MCP tool ${externalTool.name}`,
+              parameters: await this.convertMCPSchemaToZod(
+                externalTool.inputSchema,
+              ),
+              execute: async (args) => {
+                logger.debug(
+                  `[BaseProvider] Executing external MCP tool: ${externalTool.name}`,
+                  { args },
+                );
+
+                // Execute via SDK's external server manager
+                if (
+                  this.sdk &&
+                  this.sdk.externalServerManager &&
+                  typeof this.sdk.externalServerManager.executeTool ===
+                    "function"
+                ) {
+                  return await this.sdk.externalServerManager.executeTool(
+                    externalTool.serverId,
+                    externalTool.name,
+                    args,
+                  );
+                } else {
+                  throw new Error(
+                    `Cannot execute external MCP tool: SDK externalServerManager.executeTool not available`,
+                  );
+                }
+              },
+            });
+
+            logger.debug(
+              `[BaseProvider] Successfully added external MCP tool: ${externalTool.name}`,
+            );
+          } else {
+            logger.debug(
+              `[BaseProvider] Skipping unavailable external MCP tool: ${externalTool.name}`,
+            );
+          }
+        }
+
+        logger.debug(`[BaseProvider] External MCP tools loading complete`, {
+          totalExternalTools: externalTools.length,
+          availableExternalTools: externalTools.filter((t) => t.isAvailable)
+            .length,
+          addedToTools: externalTools.filter((t) => t.isAvailable).length,
+        });
+      } catch (error) {
+        logger.error(
+          `[BaseProvider] Failed to load external MCP tools for ${this.providerName}:`,
+          error,
+        );
+        // Not an error - external tools are optional
+      }
+    } else {
+      logger.debug(`[BaseProvider] No external MCP tools interface available`, {
+        hasSDK: !!this.sdk,
+        hasExternalServerManager: this.sdk && !!this.sdk.externalServerManager,
+        hasGetAllTools:
+          this.sdk &&
+          this.sdk.externalServerManager &&
+          typeof this.sdk.externalServerManager.getAllTools === "function",
+      });
+    }
+
     // MCP tools loading simplified - removed functionCalling dependency
     if (!this.mcpTools) {
       // Set empty tools object - MCP tools are handled at a higher level
@@ -570,6 +741,95 @@ export abstract class BaseProvider implements AIProvider {
     );
 
     return tools;
+  }
+
+  /**
+   * Convert MCP JSON Schema to Zod schema for AI SDK tools
+   * Handles common MCP schema patterns safely
+   */
+  private async convertMCPSchemaToZod(
+    inputSchema?: Record<string, unknown>,
+  ): Promise<any> {
+    const { z } = await import("zod");
+
+    if (!inputSchema || typeof inputSchema !== "object") {
+      return z.object({});
+    }
+
+    try {
+      const schema = inputSchema as any;
+      const zodFields: Record<string, any> = {};
+
+      // Handle JSON Schema properties
+      if (schema.properties && typeof schema.properties === "object") {
+        const required = new Set(
+          Array.isArray(schema.required) ? schema.required : [],
+        );
+
+        for (const [propName, propDef] of Object.entries(schema.properties)) {
+          const prop = propDef as any;
+          let zodType: any;
+
+          // Convert based on JSON Schema type
+          switch (prop.type) {
+            case "string":
+              zodType = z.string();
+              if (prop.description) {
+                zodType = zodType.describe(prop.description);
+              }
+              break;
+            case "number":
+            case "integer":
+              zodType = z.number();
+              if (prop.description) {
+                zodType = zodType.describe(prop.description);
+              }
+              break;
+            case "boolean":
+              zodType = z.boolean();
+              if (prop.description) {
+                zodType = zodType.describe(prop.description);
+              }
+              break;
+            case "array":
+              zodType = z.array(z.unknown());
+              if (prop.description) {
+                zodType = zodType.describe(prop.description);
+              }
+              break;
+            case "object":
+              zodType = z.object({});
+              if (prop.description) {
+                zodType = zodType.describe(prop.description);
+              }
+              break;
+            default:
+              // Unknown type, use string as fallback
+              zodType = z.string();
+              if (prop.description) {
+                zodType = zodType.describe(prop.description);
+              }
+          }
+
+          // Make optional if not required
+          if (!required.has(propName)) {
+            zodType = zodType.optional();
+          }
+
+          zodFields[propName] = zodType;
+        }
+      }
+
+      return Object.keys(zodFields).length > 0
+        ? z.object(zodFields)
+        : z.object({});
+    } catch (error) {
+      logger.warn(
+        `Failed to convert MCP schema to Zod, using empty schema:`,
+        error,
+      );
+      return z.object({});
+    }
   }
 
   /**

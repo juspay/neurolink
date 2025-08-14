@@ -10,7 +10,11 @@ import type {
   ChatMessage,
 } from "../types/conversationTypes.js";
 import { ConversationMemoryError } from "../types/conversationTypes.js";
-import { DEFAULT_MAX_TURNS_PER_SESSION, DEFAULT_MAX_SESSIONS, MESSAGES_PER_TURN } from "../config/conversationMemoryConfig.js";
+import {
+  DEFAULT_MAX_TURNS_PER_SESSION,
+  DEFAULT_MAX_SESSIONS,
+  MESSAGES_PER_TURN,
+} from "../config/conversationMemoryConfig.js";
 import { logger } from "../utils/logger.js";
 
 export class ConversationMemoryManager {
@@ -77,7 +81,9 @@ export class ConversationMemoryManager {
       session.lastActivity = Date.now();
 
       // Enforce per-session turn limit (each turn = MESSAGES_PER_TURN messages: user + assistant)
-      const maxMessages = (this.config.maxTurnsPerSession || DEFAULT_MAX_TURNS_PER_SESSION) * MESSAGES_PER_TURN;
+      const maxMessages =
+        (this.config.maxTurnsPerSession || DEFAULT_MAX_TURNS_PER_SESSION) *
+        MESSAGES_PER_TURN;
       if (session.messages.length > maxMessages) {
         session.messages = session.messages.slice(-maxMessages);
       }

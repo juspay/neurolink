@@ -8,7 +8,15 @@ function estimateWordCount(history: ChatMessage[]): number {
   if (!history || history.length === 0) {
     return 0;
   }
-  return history.reduce((acc, msg) => acc + (msg.content.trim().split(/\s+/).filter(word => word.length > 0).length || 0), 0);
+  return history.reduce(
+    (acc, msg) =>
+      acc +
+      (msg.content
+        .trim()
+        .split(/\s+/)
+        .filter((word) => word.length > 0).length || 0),
+    0,
+  );
 }
 
 /**

@@ -81,7 +81,8 @@ export async function storeConversationTurn(
 
   const context = originalOptions.context as Record<string, unknown>;
   const sessionId = context.sessionId;
-  const userId = typeof context.userId === "string" ? context.userId : undefined;
+  const userId =
+    typeof context.userId === "string" ? context.userId : undefined;
 
   if (typeof sessionId !== "string" || !sessionId) {
     return;

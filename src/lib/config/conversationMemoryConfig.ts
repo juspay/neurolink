@@ -40,8 +40,10 @@ Always reference and build upon this conversation history when relevant. If the 
 export function getConversationMemoryDefaults(): ConversationMemoryConfig {
   return {
     enabled: process.env.NEUROLINK_MEMORY_ENABLED === "true",
-    maxSessions: Number(process.env.NEUROLINK_MEMORY_MAX_SESSIONS) || DEFAULT_MAX_SESSIONS,
+    maxSessions:
+      Number(process.env.NEUROLINK_MEMORY_MAX_SESSIONS) || DEFAULT_MAX_SESSIONS,
     maxTurnsPerSession:
-      Number(process.env.NEUROLINK_MEMORY_MAX_TURNS_PER_SESSION) || DEFAULT_MAX_TURNS_PER_SESSION,
+      Number(process.env.NEUROLINK_MEMORY_MAX_TURNS_PER_SESSION) ||
+      DEFAULT_MAX_TURNS_PER_SESSION,
   };
 }

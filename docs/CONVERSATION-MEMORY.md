@@ -5,6 +5,7 @@ NeuroLink's Conversation Memory feature enables AI models to maintain context ac
 ## 🧠 Overview
 
 The conversation memory system provides:
+
 - **Session-based memory**: Each conversation session maintains its own context
 - **Turn-by-turn persistence**: AI remembers previous messages within a session
 - **Automatic cleanup**: Configurable limits to prevent memory bloat
@@ -29,14 +30,14 @@ NEUROLINK_MEMORY_MAX_TURNS_PER_SESSION=50
 ### Programmatic Configuration
 
 ```javascript
-import { NeuroLink } from 'neurolink';
+import { NeuroLink } from "neurolink";
 
 const neurolink = new NeuroLink({
   conversationMemory: {
     enabled: true,
     maxSessions: 10,
-    maxTurnsPerSession: 20
-  }
+    maxTurnsPerSession: 20,
+  },
 });
 ```
 
@@ -45,28 +46,28 @@ const neurolink = new NeuroLink({
 ### Basic Usage with Session ID
 
 ```javascript
-import { NeuroLink } from 'neurolink';
+import { NeuroLink } from "neurolink";
 
 const neurolink = new NeuroLink({
-  conversationMemory: { enabled: true }
+  conversationMemory: { enabled: true },
 });
 
 // First message in session
 const response1 = await neurolink.generate({
   prompt: "My name is Alice and I love reading books",
-  context: { 
+  context: {
     sessionId: "user-123",
-    userId: "alice" 
-  }
+    userId: "alice",
+  },
 });
 
 // Follow-up message - AI will remember previous context
 const response2 = await neurolink.generate({
   prompt: "What is my favorite hobby?",
-  context: { 
+  context: {
     sessionId: "user-123",
-    userId: "alice" 
-  }
+    userId: "alice",
+  },
 });
 // Response: "Based on what you told me, your favorite hobby is reading books!"
 ```
@@ -77,13 +78,13 @@ const response2 = await neurolink.generate({
 // Session 1
 await neurolink.generate({
   prompt: "My favorite color is blue",
-  context: { sessionId: "session-1" }
+  context: { sessionId: "session-1" },
 });
 
 // Session 2 - completely isolated
 await neurolink.generate({
-  prompt: "What is my favorite color?", 
-  context: { sessionId: "session-2" }
+  prompt: "What is my favorite color?",
+  context: { sessionId: "session-2" },
 });
 // Response: "I don't have information about your favorite color..."
 ```
@@ -141,13 +142,13 @@ The conversation memory system has been thoroughly tested and validated:
 
 ### ✅ Test Suite Results
 
-| Test Case | Status | Description |
-|-----------|--------|-------------|
-| **Basic Memory** | ✅ PASS | AI correctly remembers information across turns |
-| **Session Isolation** | ✅ PASS | Sessions remain completely separate |
-| **Turn Limits** | ✅ PASS | Automatic cleanup when limits exceeded |
-| **Session Limits** | ✅ PASS | LRU eviction of old sessions |
-| **API Functions** | ✅ PASS | Clear operations work correctly |
+| Test Case             | Status  | Description                                     |
+| --------------------- | ------- | ----------------------------------------------- |
+| **Basic Memory**      | ✅ PASS | AI correctly remembers information across turns |
+| **Session Isolation** | ✅ PASS | Sessions remain completely separate             |
+| **Turn Limits**       | ✅ PASS | Automatic cleanup when limits exceeded          |
+| **Session Limits**    | ✅ PASS | LRU eviction of old sessions                    |
+| **API Functions**     | ✅ PASS | Clear operations work correctly                 |
 
 ### Example Test Output
 
@@ -183,7 +184,7 @@ const sessionId = `user-${userId}-${conversationId}`;
 // Include user ID for better tracking
 const context = {
   sessionId: sessionId,
-  userId: userId
+  userId: userId,
 };
 ```
 
@@ -192,14 +193,14 @@ const context = {
 ```javascript
 // For chat applications
 const chatConfig = {
-  maxSessions: 100,        // Support many users
-  maxTurnsPerSession: 50   // Long conversations
+  maxSessions: 100, // Support many users
+  maxTurnsPerSession: 50, // Long conversations
 };
 
 // For short interactions
 const quickConfig = {
-  maxSessions: 20,         // Fewer concurrent users
-  maxTurnsPerSession: 10   // Brief exchanges
+  maxSessions: 20, // Fewer concurrent users
+  maxTurnsPerSession: 10, // Brief exchanges
 };
 ```
 
@@ -209,7 +210,7 @@ const quickConfig = {
 try {
   const response = await neurolink.generate({
     prompt: "Hello",
-    context: { sessionId: "test-session" }
+    context: { sessionId: "test-session" },
   });
 } catch (error) {
   console.error("Generation failed:", error);
@@ -261,16 +262,19 @@ interface SessionMemory {
 ### Common Issues
 
 **Memory not persisting between calls**
+
 - Ensure `sessionId` is consistent across calls
 - Verify `conversationMemory.enabled` is true
 - Check that `sessionId` is a valid string
 
 **Performance issues with large conversations**
+
 - Reduce `maxTurnsPerSession` limit
 - Implement session cleanup strategies
 - Monitor memory usage statistics
 
 **Session isolation not working**
+
 - Verify different `sessionId` values are being used
 - Check for session ID conflicts or duplicates
 
@@ -280,7 +284,7 @@ interface SessionMemory {
 // Enable debug logging to see memory operations
 const neurolink = new NeuroLink({
   conversationMemory: { enabled: true },
-  debug: true  // Enables detailed logging
+  debug: true, // Enables detailed logging
 });
 ```
 

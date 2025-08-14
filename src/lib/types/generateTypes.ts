@@ -92,7 +92,6 @@ export interface GenerateResult {
     name: string;
     input: Record<string, unknown>;
     output: unknown;
-    duration: number;
   }>;
   enhancedWithTools?: boolean;
   availableTools?: Array<{

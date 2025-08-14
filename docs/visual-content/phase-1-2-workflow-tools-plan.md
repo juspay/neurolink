@@ -62,22 +62,18 @@ Create professional visual documentation for the 4 AI Development Workflow Tools
 ## Implementation Steps
 
 1. **Ensure Demo Server Running**
-
    - Server should be on port 9876
    - All 4 Phase 1.2 tools integrated
 
 2. **Create AI Workflow Demo Page**
-
    - Professional UI with forms for each tool
    - Green color theme for Phase 1.2 distinction
 
 3. **Capture Screenshots**
-
    - Use browser or Playwright for consistent captures
    - Save to `docs/visual-content/screenshots/phase-1-2-workflow/`
 
 4. **Create Demo Videos** (Optional)
-
    - Record tool demonstrations
    - Save to `docs/visual-content/videos/phase-1-2-workflow/`
 

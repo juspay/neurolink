@@ -69,7 +69,7 @@ npx @juspay/neurolink sagemaker benchmark my-endpoint  # Performance testing
 - **🛡️ Error Recovery** - Graceful failures with provider fallback and retry logic
 - **📊 Analytics & Evaluation** - Built-in usage tracking and AI-powered quality assessment
 - **🎯 Real-time Event Monitoring** - EventEmitter integration for progress tracking and debugging
-- **🔧 MCP Integration** - Model Context Protocol with 6 built-in tools and 58+ discoverable servers
+- **🔧 External MCP Integration** - Model Context Protocol with 6 built-in tools + full external MCP server support
 - **🚀 Lighthouse Integration** - Unified tool registration API supporting both object and array formats for seamless Lighthouse tool import
 
 ---
@@ -118,6 +118,28 @@ npx @juspay/neurolink status                # Check all providers
 ```bash
 # SDK Installation for using in your typescript projects
 npm install @juspay/neurolink
+
+# 🆕 NEW: External MCP Server Integration Quick Test
+node -e "
+const { NeuroLink } = require('@juspay/neurolink');
+(async () => {
+  const neurolink = new NeuroLink();
+
+  // Add external filesystem MCP server
+  await neurolink.addExternalMCPServer('filesystem', {
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'],
+    transport: 'stdio'
+  });
+
+  // External tools automatically available in generate()
+  const result = await neurolink.generate({
+    input: { text: 'List files in the current directory' }
+  });
+  console.log('🎉 External MCP integration working!');
+  console.log(result.content);
+})();
+"
 ```
 
 ### Basic Usage
@@ -327,41 +349,56 @@ console.log(productData.name, productData.price, productData.features);
 - ⚡ **Automatic Fallback** - Never fail when providers are down, intelligent provider switching
 - 🖥️ **CLI + SDK** - Use from command line or integrate programmatically with TypeScript support
 - 🛡️ **Production Ready** - Enterprise-grade error handling, performance optimization, extracted from production
-- ✅ **MCP Integration** - Model Context Protocol with working built-in tools and 58+ discoverable external servers
+- ✅ **External MCP Integration** - Model Context Protocol with built-in tools + full external MCP server support
 - 🔍 **Smart Model Resolution** - Fuzzy matching, aliases, and capability-based search across all providers
 - 🏠 **Local AI Support** - Run completely offline with Ollama or through LiteLLM proxy
 - 🌍 **Universal Model Access** - Direct providers + 100,000+ models via Hugging Face + 100+ models via LiteLLM
 - 🧠 **Automatic Context Summarization** - Stateful, long-running conversations with automatic history summarization.
 - 📊 **Analytics & Evaluation** - Built-in usage tracking and AI-powered quality assessment
 
-## 🛠️ MCP Integration Status ✅ **BUILT-IN TOOLS WORKING**
+## 🛠️ External MCP Integration Status ✅ **PRODUCTION READY**
 
-| Component           | Status             | Description                                              |
-| ------------------- | ------------------ | -------------------------------------------------------- |
-| Built-in Tools      | ✅ **Working**     | 6 core tools fully functional across all providers       |
-| SDK Custom Tools    | ✅ **Working**     | Register custom tools programmatically                   |
-| External Discovery  | 🔍 **Discovery**   | 58+ MCP servers discovered from AI tools ecosystem       |
-| Tool Execution      | ✅ **Working**     | Real-time AI tool calling with built-in tools            |
-| **External Tools**  | 🚧 **Development** | Manual config needs one-line fix, activation in progress |
-| **CLI Integration** | ✅ **READY**       | **Production-ready with built-in tools**                 |
-| External Activation | 🔧 **Development** | Discovery complete, activation protocol in progress      |
+| Component              | Status         | Description                                                      |
+| ---------------------- | -------------- | ---------------------------------------------------------------- |
+| Built-in Tools         | ✅ **Working** | 6 core tools fully functional across all providers               |
+| SDK Custom Tools       | ✅ **Working** | Register custom tools programmatically                           |
+| **External MCP Tools** | ✅ **Working** | **Full external MCP server support with dynamic tool discovery** |
+| Tool Execution         | ✅ **Working** | Real-time AI tool calling with all tool types                    |
+| **Streaming Support**  | ✅ **Working** | **External MCP tools work with streaming generation**            |
+| **Multi-Provider**     | ✅ **Working** | **External tools work across all AI providers**                  |
+| **CLI Integration**    | ✅ **READY**   | **Production-ready with external MCP support**                   |
 
-### ✅ Quick MCP Test (v1.7.1)
+### ✅ External MCP Integration Demo
 
 ```bash
 # Test built-in tools (works immediately)
 npx @juspay/neurolink generate "What time is it?" --debug
 
-# Disable tools for pure text generation
-npx @juspay/neurolink generate "Write a poem" --disable-tools
+# 🆕 NEW: External MCP server integration (SDK)
+import { NeuroLink } from '@juspay/neurolink';
+
+const neurolink = new NeuroLink();
+
+// Add external MCP server (e.g., Bitbucket)
+await neurolink.addExternalMCPServer('bitbucket', {
+  command: 'npx',
+  args: ['-y', '@nexus2520/bitbucket-mcp-server'],
+  transport: 'stdio',
+  env: {
+    BITBUCKET_USERNAME: process.env.BITBUCKET_USERNAME,
+    BITBUCKET_TOKEN: process.env.BITBUCKET_TOKEN,
+    BITBUCKET_BASE_URL: 'https://bitbucket.example.com'
+  }
+});
+
+// Use external MCP tools in generation
+const result = await neurolink.generate({
+  input: { text: 'Get pull request #123 details from the main repository' },
+  disableTools: false // External MCP tools automatically available
+});
 
 # Discover available MCP servers
 npx @juspay/neurolink mcp discover --format table
-
-# Install popular MCP servers (NEW: Bitbucket support added!)
-npx @juspay/neurolink mcp install filesystem
-npx @juspay/neurolink mcp install github
-npx @juspay/neurolink mcp install bitbucket  # 🆕 NEW
 ```
 
 ### 🔧 SDK Custom Tool Registration (NEW!)
@@ -663,16 +700,43 @@ npx @juspay/neurolink generate "Hello!" --provider openai-compatible
 - **Extensibility**: Connect external tools and services via MCP protocol
 - **🆕 Dynamic Server Management**: Programmatically add MCP servers at runtime
 
-### 🔧 Programmatic MCP Server Management [Coming Soon]
+### 🔧 External MCP Server Management ✅ **AVAILABLE NOW**
 
-**Note**: External MCP server activation is in development. Currently available:
+**External MCP integration is now production-ready:**
 
 - ✅ 6 built-in tools working across all providers
 - ✅ SDK custom tool registration
-- 🔍 MCP server discovery (58+ servers found)
-- 🚧 External server activation (one-line fix pending)
+- ✅ **External MCP server management** (add, remove, list, test servers)
+- ✅ **Dynamic tool discovery** (automatic tool registration from external servers)
+- ✅ **Multi-provider support** (external tools work with all AI providers)
+- ✅ **Streaming integration** (external tools work with real-time streaming)
+- ✅ **Enhanced tool tracking** (proper parameter extraction and execution logging)
 
-Manual MCP configuration (`.mcp-config.json`) support coming soon.
+```typescript
+// Complete external MCP server API
+const neurolink = new NeuroLink();
+
+// Server management
+await neurolink.addExternalMCPServer(serverId, config);
+await neurolink.removeExternalMCPServer(serverId);
+const servers = neurolink.listExternalMCPServers();
+const server = neurolink.getExternalMCPServer(serverId);
+
+// Tool management
+const tools = neurolink.getExternalMCPTools();
+const serverTools = neurolink.getExternalMCPServerTools(serverId);
+
+// Direct tool execution
+const result = await neurolink.executeExternalMCPTool(
+  serverId,
+  toolName,
+  params,
+);
+
+// Statistics and monitoring
+const stats = neurolink.getExternalMCPStatistics();
+await neurolink.shutdownExternalMCPServers();
+```
 
 ## 🤝 Contributing
 

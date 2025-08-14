@@ -70,6 +70,21 @@ export type {
   MCPServerRegistryEntry,
 } from "./mcpTypes.js";
 
+// External MCP types
+export type {
+  ExternalMCPServerConfig,
+  ExternalMCPServerInstance,
+  ExternalMCPServerStatus,
+  ExternalMCPToolInfo,
+  ExternalMCPServerHealth,
+  ExternalMCPConfigValidation,
+  ExternalMCPOperationResult,
+  ExternalMCPToolContext,
+  ExternalMCPToolResult,
+  ExternalMCPServerEvents,
+  ExternalMCPManagerConfig,
+} from "./externalMcp.js";
+
 // Model/Provider domain types
 export type {
   ModelCapability,

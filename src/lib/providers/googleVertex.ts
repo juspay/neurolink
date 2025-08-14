@@ -184,7 +184,7 @@ export class GoogleVertexProvider extends BaseProvider {
   private static maxTokensCache: Map<string, boolean> = new Map();
   private static maxTokensCacheTime = 0;
 
-  constructor(modelName?: string, sdk?: unknown) {
+  constructor(modelName?: string, providerName?: string, sdk?: unknown) {
     super(
       modelName,
       "vertex" as AIProviderName,
@@ -287,6 +287,16 @@ export class GoogleVertexProvider extends BaseProvider {
 
       const model = await this.getModel();
 
+      // Get all available tools (direct + MCP + external) for streaming
+      const shouldUseTools = !options.disableTools && this.supportsTools();
+      const tools = shouldUseTools ? await this.getAllTools() : {};
+
+      logger.debug(`${functionTag}: Tools for streaming`, {
+        shouldUseTools,
+        toolCount: Object.keys(tools).length,
+        toolNames: Object.keys(tools),
+      });
+
       // Model-specific maxTokens handling
       const modelName = this.modelName || getDefaultVertexModel();
 
@@ -297,19 +307,19 @@ export class GoogleVertexProvider extends BaseProvider {
         ? options.maxTokens || DEFAULT_MAX_TOKENS
         : undefined;
 
-      // Get tools consistently with generate method (using BaseProvider pattern)
-      const shouldUseTools = !options.disableTools && this.supportsTools();
-      const tools = shouldUseTools ? await this.getAllTools() : {};
-
       // Build complete stream options with proper typing
       let streamOptions: Parameters<typeof streamText>[0] = {
         model: model,
         messages: messages,
         temperature: options.temperature,
         ...(maxTokens && { maxTokens }),
-        tools,
-        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-        toolChoice: shouldUseTools ? "auto" : "none",
+        // Add tools support for streaming
+        ...(shouldUseTools &&
+          Object.keys(tools).length > 0 && {
+            tools,
+            toolChoice: "auto",
+            maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+          }),
         abortSignal: timeoutController?.controller.signal,
 
         onError: (event: { error: unknown }) => {
@@ -362,10 +372,27 @@ export class GoogleVertexProvider extends BaseProvider {
       // Transform string stream to content object stream using BaseProvider method
       const transformedStream = this.createTextStream(result);
 
+      // Track tool calls and results for streaming
+      const toolCalls: Array<{
+        toolName: string;
+        parameters: Record<string, unknown>;
+        id?: string;
+      }> = [];
+      const toolResults: Array<{
+        toolName: string;
+        status: "success" | "failure";
+        result?: unknown;
+        error?: string;
+      }> = [];
+
       return {
         stream: transformedStream,
         provider: this.providerName,
         model: this.modelName,
+        ...(shouldUseTools && {
+          toolCalls,
+          toolResults,
+        }),
       };
     } catch (error) {
       timeoutController?.cleanup();
