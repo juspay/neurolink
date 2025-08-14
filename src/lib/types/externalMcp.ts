@@ -8,7 +8,6 @@ import type { JsonValue, JsonObject } from "./common.js";
 import type { ChildProcess } from "child_process";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-
 /**
  * Supported MCP transport protocols
  */
@@ -91,6 +90,13 @@ export interface ExternalMCPServerInstance {
 
   /** Available tools from this server */
   tools: Map<string, ExternalMCPToolInfo>;
+
+  /** Cached tools array for ZERO conversion - MCP format */
+  toolsArray?: Array<{
+    name: string;
+    description: string;
+    inputSchema?: object;
+  }>;
 
   /** Server capabilities reported by MCP */
   capabilities?: Record<string, JsonValue>;
@@ -370,3 +376,5 @@ export interface ExternalMCPManagerConfig {
   /** Log level for external MCP operations */
   logLevel?: "debug" | "info" | "warn" | "error";
 }
+
+// Note: In Phase 2, these interfaces will be consolidated into MCPServerInfo

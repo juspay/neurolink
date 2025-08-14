@@ -8,12 +8,14 @@
  */
 
 import { EventEmitter } from "events";
-import { spawn, ChildProcess } from "child_process";
+import type { ChildProcess } from "child_process";
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { mcpLogger } from "../utils/logger.js";
 import { MCPClientFactory } from "./mcpClientFactory.js";
 import { ToolDiscoveryService } from "./toolDiscoveryService.js";
+import { toolRegistry } from "./toolRegistry.js";
 import type {
-  ExternalMCPServerConfig,
   ExternalMCPServerInstance,
   ExternalMCPServerStatus,
   ExternalMCPServerHealth,
@@ -23,19 +25,144 @@ import type {
   ExternalMCPManagerConfig,
   ExternalMCPToolInfo,
 } from "../types/externalMcp.js";
-import type { JsonValue } from "../types/common.js";
+import type {
+  MCPServerInfo,
+  MCPServerCategory,
+  MCPTransportType,
+} from "../types/mcpTypes.js";
+import type {
+  JsonValue,
+  JsonObject,
+  UnknownRecord,
+  Unknown,
+} from "../types/common.js";
+import { detectCategory } from "../utils/mcpDefaults.js";
+
+/**
+ * Type guard to validate if an object can be safely used as Record<string, JsonValue>
+ */
+function isValidJsonRecord(value: unknown): value is Record<string, JsonValue> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return Object.values(record).every((val) => {
+    // JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+    if (
+      val === null ||
+      typeof val === "string" ||
+      typeof val === "number" ||
+      typeof val === "boolean"
+    ) {
+      return true;
+    }
+    if (Array.isArray(val)) {
+      return val.every(
+        (item) =>
+          isValidJsonRecord(item) ||
+          typeof item === "string" ||
+          typeof item === "number" ||
+          typeof item === "boolean" ||
+          item === null,
+      );
+    }
+    if (typeof val === "object" && val !== null) {
+      return isValidJsonRecord(val);
+    }
+    return false;
+  });
+}
+
+/**
+ * Safely converts unknown metadata to Record<string, JsonValue> or returns undefined
+ */
+function safeMetadataConversion(
+  metadata: unknown,
+): Record<string, JsonValue> | undefined {
+  return isValidJsonRecord(metadata) ? metadata : undefined;
+}
+
+/**
+ * Type guard to validate external MCP server configuration
+ */
+function isValidExternalMCPServerConfig(
+  config: unknown,
+): config is UnknownRecord {
+  if (typeof config !== "object" || config === null) {
+    return false;
+  }
+  const record = config as UnknownRecord;
+  return (
+    typeof record.command === "string" &&
+    (record.args === undefined || Array.isArray(record.args)) &&
+    (record.env === undefined ||
+      (typeof record.env === "object" && record.env !== null)) &&
+    (record.transport === undefined || typeof record.transport === "string") &&
+    (record.timeout === undefined || typeof record.timeout === "number") &&
+    (record.retries === undefined || typeof record.retries === "number") &&
+    (record.healthCheckInterval === undefined ||
+      typeof record.healthCheckInterval === "number") &&
+    (record.autoRestart === undefined ||
+      typeof record.autoRestart === "boolean") &&
+    (record.cwd === undefined || typeof record.cwd === "string") &&
+    (record.url === undefined || typeof record.url === "string") &&
+    (record.metadata === undefined ||
+      (typeof record.metadata === "object" && record.metadata !== null))
+  );
+}
 
 /**
  * ExternalServerManager
  * Core class for managing external MCP servers
  */
+/**
+ * Extended MCPServerInfo with runtime state for external servers
+ * This represents the transition towards zero-conversion architecture
+ */
+interface RuntimeMCPServerInfo extends MCPServerInfo {
+  // Runtime-only fields not in MCPServerInfo
+  process: ChildProcess | null;
+  client: Client | null;
+  transportInstance: Transport | null; // Rename to avoid conflict with MCPServerInfo.transport
+  lastError?: string;
+  startTime?: Date;
+  lastHealthCheck?: Date;
+  reconnectAttempts: number;
+  maxReconnectAttempts: number;
+  capabilities?: Record<string, JsonValue>;
+  healthTimer?: NodeJS.Timeout;
+  restartTimer?: NodeJS.Timeout;
+  metrics: {
+    totalConnections: number;
+    totalDisconnections: number;
+    totalErrors: number;
+    totalToolCalls: number;
+    averageResponseTime: number;
+    lastResponseTime: number;
+  };
+  // Legacy compatibility - maintain tools map for now
+  toolsMap: Map<string, ExternalMCPToolInfo>;
+  toolsArray?: Array<{
+    name: string;
+    description: string;
+    inputSchema?: object;
+  }>;
+  // Compatibility field for existing code
+  config: MCPServerInfo;
+}
+
 export class ExternalServerManager extends EventEmitter {
-  private servers: Map<string, ExternalMCPServerInstance> = new Map();
+  private servers: Map<string, RuntimeMCPServerInfo> = new Map();
   private config: Required<ExternalMCPManagerConfig>;
   private isShuttingDown = false;
   private toolDiscovery: ToolDiscoveryService;
+  private enableMainRegistryIntegration: boolean;
 
-  constructor(config: ExternalMCPManagerConfig = {}) {
+  constructor(
+    config: ExternalMCPManagerConfig = {},
+    options: { enableMainRegistryIntegration?: boolean } = {},
+  ) {
     super();
 
     // Set defaults for configuration
@@ -49,6 +176,10 @@ export class ExternalServerManager extends EventEmitter {
       enablePerformanceMonitoring: config.enablePerformanceMonitoring ?? true,
       logLevel: config.logLevel ?? "info",
     };
+
+    // Enable main tool registry integration by default
+    this.enableMainRegistryIntegration =
+      options.enableMainRegistryIntegration ?? true;
 
     // Initialize tool discovery service
     this.toolDiscovery = new ToolDiscoveryService();
@@ -69,9 +200,140 @@ export class ExternalServerManager extends EventEmitter {
   }
 
   /**
+   * Load MCP server configurations from .mcp-config.json file
+   * Automatically registers servers found in the configuration
+   * @param configPath Optional path to config file (defaults to .mcp-config.json in cwd)
+   * @returns Promise resolving to number of servers loaded
+   */
+  async loadMCPConfiguration(
+    configPath?: string,
+  ): Promise<{ serversLoaded: number; errors: string[] }> {
+    const fs = await import("fs");
+    const path = await import("path");
+
+    const finalConfigPath =
+      configPath || path.join(process.cwd(), ".mcp-config.json");
+
+    if (!fs.existsSync(finalConfigPath)) {
+      mcpLogger.debug(
+        `[ExternalServerManager] No MCP config found at ${finalConfigPath}`,
+      );
+      return { serversLoaded: 0, errors: [] };
+    }
+
+    mcpLogger.debug(
+      `[ExternalServerManager] Loading MCP configuration from ${finalConfigPath}`,
+    );
+
+    try {
+      const configContent = fs.readFileSync(finalConfigPath, "utf8");
+      const config = JSON.parse(configContent);
+
+      if (!config.mcpServers || typeof config.mcpServers !== "object") {
+        mcpLogger.debug(
+          "[ExternalServerManager] No mcpServers found in configuration",
+        );
+        return { serversLoaded: 0, errors: [] };
+      }
+
+      let serversLoaded = 0;
+      const errors: string[] = [];
+
+      for (const [serverId, serverConfig] of Object.entries(
+        config.mcpServers,
+      )) {
+        try {
+          // Validate and convert config format to MCPServerInfo
+          if (!isValidExternalMCPServerConfig(serverConfig)) {
+            throw new Error(
+              `Invalid server config for ${serverId}: missing required properties or wrong types`,
+            );
+          }
+          const externalConfig: MCPServerInfo = {
+            id: serverId,
+            name: serverId,
+            description: `External MCP server: ${serverId}`,
+            transport:
+              typeof serverConfig.transport === "string"
+                ? (serverConfig.transport as MCPTransportType)
+                : "stdio",
+            status: "initializing" as const,
+            tools: [],
+            command: serverConfig.command as string,
+            args: Array.isArray(serverConfig.args)
+              ? (serverConfig.args as string[])
+              : [],
+            env:
+              typeof serverConfig.env === "object" && serverConfig.env !== null
+                ? (serverConfig.env as Record<string, string>)
+                : {},
+            timeout:
+              typeof serverConfig.timeout === "number"
+                ? serverConfig.timeout
+                : undefined,
+            retries:
+              typeof serverConfig.retries === "number"
+                ? serverConfig.retries
+                : undefined,
+            healthCheckInterval:
+              typeof serverConfig.healthCheckInterval === "number"
+                ? serverConfig.healthCheckInterval
+                : undefined,
+            autoRestart:
+              typeof serverConfig.autoRestart === "boolean"
+                ? serverConfig.autoRestart
+                : undefined,
+            cwd:
+              typeof serverConfig.cwd === "string"
+                ? serverConfig.cwd
+                : undefined,
+            url:
+              typeof serverConfig.url === "string"
+                ? serverConfig.url
+                : undefined,
+            metadata: safeMetadataConversion(serverConfig.metadata),
+          };
+
+          const result = await this.addServer(serverId, externalConfig);
+
+          if (result.success) {
+            serversLoaded++;
+            mcpLogger.debug(
+              `[ExternalServerManager] Successfully loaded MCP server: ${serverId}`,
+            );
+          } else {
+            const error = `Failed to load server ${serverId}: ${result.error}`;
+            errors.push(error);
+            mcpLogger.warn(`[ExternalServerManager] ${error}`);
+          }
+        } catch (error) {
+          const errorMsg = `Failed to load MCP server ${serverId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`;
+          errors.push(errorMsg);
+          mcpLogger.warn(`[ExternalServerManager] ${errorMsg}`);
+          // Continue with other servers - don't let one failure break everything
+        }
+      }
+
+      mcpLogger.info(
+        `[ExternalServerManager] MCP configuration loading complete: ${serversLoaded} servers loaded, ${errors.length} errors`,
+      );
+
+      return { serversLoaded, errors };
+    } catch (error) {
+      const errorMsg = `Failed to load MCP configuration: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
+      mcpLogger.error(`[ExternalServerManager] ${errorMsg}`);
+      return { serversLoaded: 0, errors: [errorMsg] };
+    }
+  }
+
+  /**
    * Validate external MCP server configuration
    */
-  validateConfig(config: ExternalMCPServerConfig): ExternalMCPConfigValidation {
+  validateConfig(config: MCPServerInfo): ExternalMCPConfigValidation {
     const errors: string[] = [];
     const warnings: string[] = [];
     const suggestions: string[] = [];
@@ -130,15 +392,71 @@ export class ExternalServerManager extends EventEmitter {
   }
 
   /**
-   * Add a new external MCP server
+   * Convert MCPServerInfo format (keeping for backward compatibility)
+   * Helper function for transitioning to zero-conversion architecture
+   */
+  private convertConfigToMCPServerInfo(
+    serverId: string,
+    config: MCPServerInfo,
+  ): MCPServerInfo {
+    return {
+      id: serverId,
+      name: String(config.metadata?.title || serverId),
+      description: `External MCP server (${config.transport})`,
+      status: "initializing" as const,
+      transport: config.transport,
+      command: config.command,
+      args: config.args,
+      env: config.env,
+      tools: [], // Will be populated after server connection
+      metadata: {
+        category: "external" as MCPServerCategory,
+        // Store additional ExternalMCPServerConfig fields in metadata
+        timeout: config.timeout,
+        retries: config.retries,
+        healthCheckInterval: config.healthCheckInterval,
+        autoRestart: config.autoRestart,
+        cwd: config.cwd,
+        url: config.url,
+        ...(safeMetadataConversion(config.metadata) || {}),
+      },
+    };
+  }
+
+  /**
+   * Add a new external MCP server - Backward compatibility overload
    */
   async addServer(
     serverId: string,
-    config: ExternalMCPServerConfig,
+    config: MCPServerInfo,
+  ): Promise<ExternalMCPOperationResult<ExternalMCPServerInstance>>;
+
+  /**
+   * Add a new external MCP server - Updated to accept MCPServerInfo
+   */
+  async addServer(
+    serverId: string,
+    serverInfo: MCPServerInfo,
+  ): Promise<ExternalMCPOperationResult<ExternalMCPServerInstance>>;
+
+  async addServer(
+    serverId: string,
+    configOrServerInfo: MCPServerInfo,
   ): Promise<ExternalMCPOperationResult<ExternalMCPServerInstance>> {
     const startTime = Date.now();
 
     try {
+      // Use MCPServerInfo directly (zero-conversion architecture)
+      const serverInfo: MCPServerInfo =
+        "transport" in configOrServerInfo &&
+        "command" in configOrServerInfo &&
+        !("tools" in configOrServerInfo)
+          ? this.convertConfigToMCPServerInfo(
+              serverId,
+              configOrServerInfo as MCPServerInfo,
+            )
+          : (configOrServerInfo as MCPServerInfo);
+
       // Check server limit
       if (this.servers.size >= this.config.maxServers) {
         return {
@@ -149,8 +467,27 @@ export class ExternalServerManager extends EventEmitter {
         };
       }
 
-      // Validate configuration
-      const validation = this.validateConfig(config);
+      // Validate configuration (for backward compatibility, create temporary config)
+      const tempConfig: MCPServerInfo = {
+        id: serverId,
+        name: serverInfo.name,
+        description: serverInfo.description,
+        transport: serverInfo.transport,
+        status: serverInfo.status,
+        tools: serverInfo.tools,
+        command: serverInfo.command || "",
+        args: serverInfo.args || [],
+        env: serverInfo.env || {},
+        timeout: serverInfo.metadata?.timeout as number,
+        retries: serverInfo.metadata?.retries as number,
+        healthCheckInterval: serverInfo.metadata?.healthCheckInterval as number,
+        autoRestart: serverInfo.metadata?.autoRestart as boolean,
+        cwd: serverInfo.metadata?.cwd as string,
+        url: serverInfo.metadata?.url as string,
+        metadata: safeMetadataConversion(serverInfo.metadata),
+      };
+
+      const validation = this.validateConfig(tempConfig);
       if (!validation.isValid) {
         return {
           success: false,
@@ -171,20 +508,20 @@ export class ExternalServerManager extends EventEmitter {
       }
 
       mcpLogger.info(`[ExternalServerManager] Adding server: ${serverId}`, {
-        command: config.command,
-        transport: config.transport,
+        command: serverInfo.command,
+        transport: serverInfo.transport,
       });
 
-      // Create server instance
-      const instance: ExternalMCPServerInstance = {
-        config: { ...config, id: serverId },
+      // Create server instance as RuntimeMCPServerInfo (transition to zero-conversion)
+      const instance: RuntimeMCPServerInfo = {
+        ...serverInfo,
         process: null,
         client: null,
-        transport: null,
+        transportInstance: null,
         status: "initializing",
         reconnectAttempts: 0,
         maxReconnectAttempts: this.config.maxRestartAttempts,
-        tools: new Map(),
+        toolsMap: new Map(),
         metrics: {
           totalConnections: 0,
           totalDisconnections: 0,
@@ -193,6 +530,7 @@ export class ExternalServerManager extends EventEmitter {
           averageResponseTime: 0,
           lastResponseTime: 0,
         },
+        config: tempConfig,
       };
 
       // Store the instance
@@ -203,15 +541,35 @@ export class ExternalServerManager extends EventEmitter {
 
       const finalInstance = this.servers.get(serverId)!;
 
+      // Convert RuntimeMCPServerInfo to ExternalMCPServerInstance for return
+      const convertedInstance: ExternalMCPServerInstance = {
+        config: finalInstance.config,
+        process: finalInstance.process,
+        client: finalInstance.client,
+        transport: finalInstance.transportInstance,
+        status: finalInstance.status as ExternalMCPServerStatus,
+        lastError: finalInstance.lastError,
+        startTime: finalInstance.startTime,
+        lastHealthCheck: finalInstance.lastHealthCheck,
+        reconnectAttempts: finalInstance.reconnectAttempts,
+        maxReconnectAttempts: finalInstance.maxReconnectAttempts,
+        tools: finalInstance.toolsMap,
+        toolsArray: finalInstance.toolsArray,
+        capabilities: finalInstance.capabilities,
+        healthTimer: finalInstance.healthTimer,
+        restartTimer: finalInstance.restartTimer,
+        metrics: finalInstance.metrics,
+      } as ExternalMCPServerInstance;
+
       return {
         success: true,
-        data: finalInstance,
+        data: convertedInstance,
         serverId,
         duration: Date.now() - startTime,
         metadata: {
           timestamp: Date.now(),
           operation: "addServer",
-          toolsDiscovered: finalInstance.tools.size,
+          toolsDiscovered: finalInstance.tools.length,
         },
       };
     } catch (error) {
@@ -326,11 +684,9 @@ export class ExternalServerManager extends EventEmitter {
 
       // Store client components
       instance.client = clientResult.client;
-      instance.transport = clientResult.transport;
+      instance.transportInstance = clientResult.transport;
       instance.process = clientResult.process || null;
-      instance.capabilities = clientResult.capabilities as
-        | Record<string, JsonValue>
-        | undefined;
+      instance.capabilities = safeMetadataConversion(clientResult.capabilities);
       instance.startTime = new Date();
       instance.lastHealthCheck = new Date();
       instance.metrics.totalConnections++;
@@ -376,13 +732,18 @@ export class ExternalServerManager extends EventEmitter {
       // Discover tools from the server
       await this.discoverServerTools(serverId);
 
+      // Register tools with main registry if integration is enabled
+      if (this.enableMainRegistryIntegration) {
+        await this.registerServerToolsWithMainRegistry(serverId);
+      }
+
       // Start health monitoring
       this.startHealthMonitoring(serverId);
 
       // Emit connected event
       this.emit("connected", {
         serverId,
-        toolCount: instance.tools.size,
+        toolCount: instance.toolsMap.size,
         timestamp: new Date(),
       } satisfies ExternalMCPServerEvents["connected"]);
 
@@ -424,15 +785,20 @@ export class ExternalServerManager extends EventEmitter {
         instance.restartTimer = undefined;
       }
 
+      // Unregister tools from main registry if integration is enabled
+      if (this.enableMainRegistryIntegration) {
+        this.unregisterServerToolsFromMainRegistry(serverId);
+      }
+
       // Clear server tools from discovery service
       this.toolDiscovery.clearServerTools(serverId);
 
       // Close MCP client using factory cleanup
-      if (instance.client && instance.transport) {
+      if (instance.client && instance.transportInstance) {
         try {
           await MCPClientFactory.closeClient(
             instance.client,
-            instance.transport,
+            instance.transportInstance,
             instance.process || undefined,
           );
         } catch (error) {
@@ -443,7 +809,7 @@ export class ExternalServerManager extends EventEmitter {
         }
 
         instance.client = null;
-        instance.transport = null;
+        instance.transportInstance = null;
         instance.process = null;
       }
       this.updateServerStatus(serverId, "stopped");
@@ -471,7 +837,19 @@ export class ExternalServerManager extends EventEmitter {
     }
 
     const oldStatus = instance.status;
-    instance.status = newStatus;
+    // Map ExternalMCPServerStatus to MCPServerInfo status
+    const mappedStatus: MCPServerInfo["status"] =
+      newStatus === "connecting" || newStatus === "restarting"
+        ? "initializing"
+        : newStatus === "stopping" || newStatus === "stopped"
+          ? "stopping"
+          : newStatus === "connected"
+            ? "connected"
+            : newStatus === "disconnected"
+              ? "disconnected"
+              : "failed";
+
+    instance.status = mappedStatus;
 
     // Emit status change event
     this.emit("statusChanged", {
@@ -646,7 +1024,7 @@ export class ExternalServerManager extends EventEmitter {
         status: instance.status,
         checkedAt: new Date(),
         responseTime,
-        toolCount: instance.tools.size,
+        toolCount: instance.toolsMap.size,
         issues,
         performance: {
           uptime: instance.startTime
@@ -686,17 +1064,67 @@ export class ExternalServerManager extends EventEmitter {
   }
 
   /**
-   * Get server instance
+   * Get server instance - converted to ExternalMCPServerInstance for compatibility
    */
   getServer(serverId: string): ExternalMCPServerInstance | undefined {
-    return this.servers.get(serverId);
+    const runtime = this.servers.get(serverId);
+    if (!runtime) {
+      return undefined;
+    }
+
+    return {
+      config: runtime.config,
+      process: runtime.process,
+      client: runtime.client,
+      transport: runtime.transportInstance,
+      status: runtime.status as ExternalMCPServerStatus,
+      lastError: runtime.lastError,
+      startTime: runtime.startTime,
+      lastHealthCheck: runtime.lastHealthCheck,
+      reconnectAttempts: runtime.reconnectAttempts,
+      maxReconnectAttempts: runtime.maxReconnectAttempts,
+      tools: runtime.toolsMap,
+      toolsArray: runtime.toolsArray,
+      capabilities: runtime.capabilities,
+      healthTimer: runtime.healthTimer,
+      restartTimer: runtime.restartTimer,
+      metrics: runtime.metrics,
+    } as ExternalMCPServerInstance;
   }
 
   /**
-   * Get all servers
+   * Get all servers - converted to ExternalMCPServerInstance for compatibility
    */
   getAllServers(): Map<string, ExternalMCPServerInstance> {
-    return new Map(this.servers);
+    const converted = new Map<string, ExternalMCPServerInstance>();
+    for (const [serverId, runtime] of this.servers.entries()) {
+      converted.set(serverId, {
+        config: runtime.config,
+        process: runtime.process,
+        client: runtime.client,
+        transport: runtime.transportInstance,
+        status: runtime.status as ExternalMCPServerStatus,
+        lastError: runtime.lastError,
+        startTime: runtime.startTime,
+        lastHealthCheck: runtime.lastHealthCheck,
+        reconnectAttempts: runtime.reconnectAttempts,
+        maxReconnectAttempts: runtime.maxReconnectAttempts,
+        tools: runtime.toolsMap,
+        toolsArray: runtime.toolsArray,
+        capabilities: runtime.capabilities,
+        healthTimer: runtime.healthTimer,
+        restartTimer: runtime.restartTimer,
+        metrics: runtime.metrics,
+      } as ExternalMCPServerInstance);
+    }
+    return converted;
+  }
+
+  /**
+   * List servers as MCPServerInfo - ZERO conversion needed
+   */
+  listServers(): MCPServerInfo[] {
+    return Array.from(this.servers.values()) as MCPServerInfo[];
   }
 
   /**
@@ -715,7 +1143,7 @@ export class ExternalServerManager extends EventEmitter {
         isHealthy: instance.status === "connected",
         status: instance.status,
         checkedAt: instance.lastHealthCheck || new Date(),
-        toolCount: instance.tools.size,
+        toolCount: instance.toolsMap.size,
         issues: instance.lastError ? [instance.lastError] : [],
         performance: {
           uptime,
@@ -777,7 +1205,7 @@ export class ExternalServerManager extends EventEmitter {
         failedServers++;
       }
 
-      totalTools += instance.tools.size;
+      totalTools += instance.toolsMap.size;
       totalConnections += instance.metrics.totalConnections;
       totalErrors += instance.metrics.totalErrors;
     }
@@ -813,10 +1241,16 @@ export class ExternalServerManager extends EventEmitter {
       );
 
       if (discoveryResult.success) {
-        // Update instance tools
-        instance.tools.clear();
+        instance.toolsMap.clear();
+        instance.toolsArray = undefined;
+        instance.tools = [];
         for (const tool of discoveryResult.tools) {
-          instance.tools.set(tool.name, tool);
+          instance.toolsMap.set(tool.name, tool);
+          instance.tools.push({
+            name: tool.name,
+            description: tool.description,
+            inputSchema: tool.inputSchema,
+          });
         }
 
         mcpLogger.info(
@@ -836,14 +1270,118 @@ export class ExternalServerManager extends EventEmitter {
   }
 
   /**
+   * Register server tools with main tool registry for unified access
+   * This enables external MCP tools to be accessed via the main toolRegistry.executeTool()
+   */
+  private async registerServerToolsWithMainRegistry(
+    serverId: string,
+  ): Promise<void> {
+    const instance = this.servers.get(serverId);
+    if (!instance) {
+      throw new Error(`Server '${serverId}' not found`);
+    }
+
+    try {
+      mcpLogger.debug(
+        `[ExternalServerManager] Registering ${instance.toolsMap.size} tools with main registry for server: ${serverId}`,
+      );
+
+      for (const [toolName, tool] of instance.toolsMap.entries()) {
+        const toolId = `${serverId}.${toolName}`;
+
+        const toolInfo = {
+          name: toolName,
+          description: tool.description || toolName,
+          inputSchema: tool.inputSchema || {},
+          serverId: serverId,
+          category: detectCategory({ isExternal: true, serverId }),
+        };
+
+        // Register with main tool registry
+        try {
+          toolRegistry.registerTool(toolId, toolInfo, {
+            execute: async (params: unknown, context?: Unknown) => {
+              // Execute tool via ExternalServerManager for proper lifecycle management
+              return await this.executeTool(
+                serverId,
+                toolName,
+                params as JsonObject,
+                { timeout: this.config.defaultTimeout },
+              );
+            },
+          });
+
+          mcpLogger.debug(
+            `[ExternalServerManager] Registered tool with main registry: ${toolId}`,
+          );
+        } catch (registrationError) {
+          mcpLogger.warn(
+            `[ExternalServerManager] Failed to register tool ${toolId} with main registry:`,
+            registrationError,
+          );
+        }
+      }
+
+      mcpLogger.info(
+        `[ExternalServerManager] Successfully registered ${instance.toolsMap.size} tools with main registry for ${serverId}`,
+      );
+    } catch (error) {
+      mcpLogger.error(
+        `[ExternalServerManager] Failed to register tools with main registry for ${serverId}:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Unregister server tools from main tool registry
+   */
+  private unregisterServerToolsFromMainRegistry(serverId: string): void {
+    const instance = this.servers.get(serverId);
+    if (!instance || !this.enableMainRegistryIntegration) {
+      return;
+    }
+
+    try {
+      mcpLogger.debug(
+        `[ExternalServerManager] Unregistering tools from main registry for server: ${serverId}`,
+      );
+
+      for (const [toolName] of instance.toolsMap.entries()) {
+        const toolId = `${serverId}.${toolName}`;
+        try {
+          toolRegistry.removeTool(toolId);
+          mcpLogger.debug(
+            `[ExternalServerManager] Unregistered tool from main registry: ${toolId}`,
+          );
+        } catch (error) {
+          mcpLogger.debug(
+            `[ExternalServerManager] Failed to unregister tool ${toolId}:`,
+            error,
+          );
+        }
+      }
+
+      mcpLogger.debug(
+        `[ExternalServerManager] Completed unregistering tools from main registry for ${serverId}`,
+      );
+    } catch (error) {
+      mcpLogger.error(
+        `[ExternalServerManager] Error unregistering tools from main registry for ${serverId}:`,
+        error,
+      );
+    }
+  }
+
+  /**
    * Execute a tool on a specific server
    */
   async executeTool(
     serverId: string,
     toolName: string,
-    parameters: Record<string, any>,
+    parameters: JsonObject,
     options?: { timeout?: number },
-  ): Promise<any> {
+  ): Promise<unknown> {
     const instance = this.servers.get(serverId);
     if (!instance) {
       throw new Error(`Server '${serverId}' not found`);

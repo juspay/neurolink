@@ -10,11 +10,13 @@ import type {
 } from "./contracts/mcpContract.js";
 import type { ToolResult } from "./factory.js";
 import type { JsonValue, UnknownRecord } from "../types/common.js";
+import type { MCPServerInfo, MCPServerCategory } from "../types/mcpTypes.js";
 import { MCPRegistry } from "./registry.js";
 import { registryLogger } from "../utils/logger.js";
 import { randomUUID } from "crypto";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
 import { directAgentTools } from "../agent/directTools.js";
+import { detectCategory, createMCPServerInfo } from "../utils/mcpDefaults.js";
 
 interface ToolImplementation {
   execute: (
@@ -61,6 +63,7 @@ export class MCPToolRegistry extends MCPRegistry {
     string,
     { count: number; totalTime: number }
   > = new Map();
+  private builtInServerInfos: MCPServerInfo[] = []; // DIRECT storage for MCPServerInfo
 
   constructor() {
     super();
@@ -85,7 +88,7 @@ export class MCPToolRegistry extends MCPRegistry {
         description: toolDef.description || `Direct tool: ${toolName}`,
         inputSchema: {},
         serverId: "direct",
-        category: "built-in",
+        category: detectCategory({ isBuiltIn: true, serverId: "direct" }),
       };
 
       this.tools.set(toolId, toolInfo);
@@ -139,96 +142,146 @@ export class MCPToolRegistry extends MCPRegistry {
   }
 
   /**
-   * Register a server with its tools (updated signature)
+   * Register a server with its tools - ONLY accepts MCPServerInfo (zero conversions)
    */
   async registerServer(
-    serverOrId: string | ServerRegistration,
+    serverInfo: MCPServerInfo,
+    context?: ExecutionContext,
+  ): Promise<void>;
+  async registerServer(
+    serverId: string,
     serverConfig?: unknown,
     context?: ExecutionContext,
+  ): Promise<void>;
+  async registerServer(
+    serverInfoOrId: MCPServerInfo | string,
+    serverConfigOrContext?: unknown | ExecutionContext,
+    context?: ExecutionContext,
   ): Promise<void> {
-    let serverId: string;
-    let plugin: DiscoveredMcp;
+    // Handle both signatures for backward compatibility
+    let serverInfo: MCPServerInfo;
+    let finalContext: ExecutionContext | undefined;
 
-    if (typeof serverOrId === "string") {
-      // Original behavior: register by ID and config
-      serverId = serverOrId;
-      registryLogger.info(`Registering server by ID: ${serverId}`);
+    if (typeof serverInfoOrId === "string") {
+      // Legacy signature: registerServer(serverId, serverConfig, context)
+      const serverId = serverInfoOrId;
+      finalContext = context;
 
-      plugin = {
-        metadata: {
-          name: serverId,
-          description:
-            typeof serverConfig === "object" && serverConfig
-              ? (serverConfig as ServerRegistration).description ||
-                "No description"
-              : "No description",
-        },
-        tools:
-          typeof serverConfig === "object" && serverConfig
-            ? (serverConfig as ServerRegistration).tools
-            : {},
-        configuration:
-          typeof serverConfig === "object" && serverConfig
-            ? (serverConfig as Record<string, string | number | boolean>)
-            : {},
-      };
+      // Convert legacy call to MCPServerInfo format using smart defaults
+      serverInfo = createMCPServerInfo({
+        id: serverId,
+        name: serverId,
+        tools: [],
+        isExternal: true,
+      });
     } else {
-      // New behavior: register server object
-      const server = serverOrId;
-      serverId = String(server.id || server.serverId || "unknown-server");
-      registryLogger.info(`Registering server object: ${serverId}`);
+      // New signature: registerServer(serverInfo, context)
+      serverInfo = serverInfoOrId;
+      finalContext = serverConfigOrContext as ExecutionContext | undefined;
+    }
+    const serverId = serverInfo.id;
+    registryLogger.info(`Registering MCPServerInfo directly: ${serverId}`);
 
-      plugin = {
-        metadata: {
-          name: serverId,
-          description: String(
-            server.description || server.title || "No description",
-          ),
-          category: String(server.category || ""),
-        },
-        tools: server.tools || {},
-        configuration:
-          (server.configuration as Record<string, string | number | boolean>) ||
-          {},
+    // Use MCPServerInfo.tools array directly - ZERO conversions!
+    const toolsObject: Record<string, ToolImplementation> = {};
+    for (const tool of serverInfo.tools) {
+      toolsObject[tool.name] = {
+        execute:
+          tool.execute ||
+          (async () => {
+            throw new Error(`Tool ${tool.name} has no execute function`);
+          }),
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        category: detectCategory({
+          existingCategory: serverInfo.metadata?.category,
+          serverId: serverInfo.id,
+        }),
       };
     }
+
+    const plugin: DiscoveredMcp = {
+      metadata: {
+        name: serverInfo.name,
+        description: serverInfo.description,
+        category: detectCategory({
+          existingCategory: serverInfo.metadata?.category,
+          serverId: serverInfo.id,
+        }),
+      },
+      tools: toolsObject,
+      configuration: {},
+    };
 
     // Call the parent register method
     this.register(plugin);
 
-    // Extract tools from server info if available
-    const tools = plugin.tools || {};
+    // Use MCPServerInfo.tools array directly - ZERO conversions!
+    const tools = serverInfo.tools;
     registryLogger.debug(
-      `Registering ${Object.keys(tools).length} tools for server ${serverId}:`,
-      Object.keys(tools),
+      `Registering ${tools.length} tools for server ${serverId}:`,
+      tools.map((t) => t.name),
     );
 
-    for (const [toolName, toolDef] of Object.entries(tools)) {
-      const toolId = `${serverId}.${toolName}`;
+    for (const tool of tools) {
+      // For custom tools, use just the tool name to avoid redundant serverId.toolName format
+      // For other tools, use fully-qualified serverId.toolName to avoid collisions
+      const isCustomTool = serverId.startsWith("custom-tool-");
+      const toolId = isCustomTool ? tool.name : `${serverId}.${tool.name}`;
       const toolInfo = {
-        name: toolName,
-        description: (toolDef as ToolImplementation)?.description,
-        inputSchema: (toolDef as ToolImplementation)?.inputSchema as
-          | Record<string, unknown>
-          | undefined,
-        outputSchema: (toolDef as ToolImplementation)?.outputSchema as
-          | Record<string, unknown>
-          | undefined,
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema as Record<string, unknown> | undefined,
+        outputSchema: undefined, // MCPServerInfo.tools doesn't have outputSchema
         serverId,
-        category: (toolDef as ToolImplementation)?.category || "general",
-        permissions: (toolDef as ToolImplementation)?.permissions || [],
+        category: detectCategory({
+          existingCategory: serverInfo.metadata?.category,
+          serverId: serverInfo.id,
+        }),
+        permissions: [], // MCPServerInfo.tools doesn't have permissions
       };
 
       // Register only with fully-qualified toolId to avoid collisions
       this.tools.set(toolId, toolInfo);
 
       // Store the actual tool implementation for execution using toolId as key
-      this.toolImpls.set(toolId, toolDef as ToolImplementation);
+      this.toolImpls.set(toolId, {
+        execute:
+          tool.execute ||
+          (async () => {
+            throw new Error(`Tool ${tool.name} has no execute function`);
+          }),
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        category: detectCategory({
+          existingCategory: serverInfo.metadata?.category,
+          serverId: serverInfo.id,
+        }),
+      });
 
       registryLogger.debug(
-        `Registered tool '${toolName}' with execute function:`,
-        typeof (toolDef as ToolImplementation)?.execute,
+        `Registered tool '${tool.name}' with execute function:`,
+        typeof tool.execute,
       );
+    }
+
+    // Store MCPServerInfo directly - NO recreation needed!
+    if (tools.length > 0) {
+      const category = detectCategory({
+        existingCategory: serverInfo.metadata?.category,
+        serverId: serverInfo.id,
+      });
+
+      // Only store in builtInServerInfos if it's a real in-memory MCP server
+      // Do NOT create fake servers for built-in direct tools
+      if (category === "in-memory") {
+        // Use the original MCPServerInfo directly - ZERO conversions!
+        this.builtInServerInfos.push(serverInfo);
+
+        registryLogger.debug(
+          `Added ${category} server to builtInServerInfos: ${serverId} with ${tools.length} tools`,
+        );
+      }
     }
   }
 
@@ -505,6 +558,14 @@ export class MCPToolRegistry extends MCPRegistry {
   }
 
   /**
+   * Get built-in servers
+   * @returns Array of MCPServerInfo for built-in tools
+   */
+  getBuiltInServerInfos(): MCPServerInfo[] {
+    return this.builtInServerInfos;
+  }
+
+  /**
    * Get tools by category
    */
   getToolsByCategory(category: string): ToolInfo[] {
@@ -522,7 +583,7 @@ export class MCPToolRegistry extends MCPRegistry {
    * Check if tool exists
    */
   hasTool(toolName: string): boolean {
-    // Check by fully-qualified name first, then fallback to any matching tool name
+    // Check by fully-qualified name first, then fallback to first matching tool name
     if (this.tools.has(toolName)) {
       return true;
     }
@@ -535,10 +596,27 @@ export class MCPToolRegistry extends MCPRegistry {
   }
 
   /**
+   * Register a tool with implementation directly
+   * This is used for external MCP server tools
+   */
+  registerTool(
+    toolId: string,
+    toolInfo: ToolInfo,
+    toolImpl: ToolImplementation,
+  ): void {
+    registryLogger.debug(`Registering tool: ${toolId}`);
+
+    this.tools.set(toolId, toolInfo);
+    this.toolImpls.set(toolId, toolImpl);
+
+    registryLogger.debug(`Successfully registered tool: ${toolId}`);
+  }
+
+  /**
    * Remove a tool
    */
   removeTool(toolName: string): boolean {
-    // Remove by fully-qualified name first, then fallback to any matching tool name
+    // Remove by fully-qualified name first, then fallback to first matching tool name
     let removed = false;
     if (this.tools.has(toolName)) {
       this.tools.delete(toolName);
@@ -585,14 +663,15 @@ export class MCPToolRegistry extends MCPRegistry {
     // Count servers by category
     const serversByCategory: Record<string, number> = {};
     for (const server of servers) {
-      const category = server.metadata?.category || "uncategorized";
+      const category =
+        server.metadata?.category || ("uncategorized" as MCPServerCategory);
       serversByCategory[category] = (serversByCategory[category] || 0) + 1;
     }
 
     // Count tools by category
     const toolsByCategory: Record<string, number> = {};
     for (const tool of allTools) {
-      const category = tool.category || "uncategorized";
+      const category = tool.category || ("uncategorized" as MCPServerCategory);
       toolsByCategory[category] = (toolsByCategory[category] || 0) + 1;
     }
 
@@ -618,11 +697,20 @@ export class MCPToolRegistry extends MCPRegistry {
       }
     }
 
+    // Remove from builtInServerInfos storage
+    const originalLength = this.builtInServerInfos.length;
+    this.builtInServerInfos = this.builtInServerInfos.filter(
+      (server) => server.id !== serverId,
+    );
+    const removedFromBuiltIn = originalLength > this.builtInServerInfos.length;
+
     // Remove from parent registry
     const removed = this.unregister(serverId);
 
     registryLogger.info(
-      `Unregistered server ${serverId}, removed ${removedTools.length} tools`,
+      `Unregistered server ${serverId}, removed ${removedTools.length} tools${
+        removedFromBuiltIn ? " and server from builtInServerInfos" : ""
+      }`,
     );
     return removed;
   }

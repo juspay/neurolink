@@ -8,7 +8,8 @@ import type {
 } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { Unknown, UnknownRecord } from "../types/common.js";
-import { BaseProvider, type NeuroLinkSDK } from "../core/baseProvider.js";
+import type { NeuroLink } from "../neurolink.js";
+import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import {
   createTimeoutController,
@@ -57,11 +58,7 @@ export class LiteLLMProvider extends BaseProvider {
   private static readonly MODELS_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
   constructor(modelName?: string, sdk?: unknown) {
-    super(
-      modelName,
-      "litellm" as AIProviderName,
-      sdk as NeuroLinkSDK | undefined,
-    );
+    super(modelName, "litellm" as AIProviderName, sdk as NeuroLink | undefined);
 
     // Initialize LiteLLM using OpenAI SDK with explicit configuration
     const config = getLiteLLMConfig();

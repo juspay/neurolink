@@ -113,8 +113,8 @@ describe("SDK Tool Registration - Phase 1", () => {
       expect(inMemoryServers.has("custom-tool-testTool")).toBe(true);
 
       const serverConfig = inMemoryServers.get("custom-tool-testTool");
-      expect(serverConfig?.server.title).toBe("Custom Tool: testTool");
-      expect(serverConfig?.server.tools).toHaveProperty("testTool");
+      expect(serverConfig?.name).toBe("testTool");
+      expect(serverConfig?.tools).toHaveProperty("testTool");
     });
 
     it("should add custom MCP server directly", async () => {

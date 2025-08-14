@@ -1,6 +1,6 @@
 import { createAzure } from "@ai-sdk/azure";
 import { streamText, type LanguageModelV1 } from "ai";
-import { BaseProvider, type NeuroLinkSDK } from "../core/baseProvider.js";
+import { BaseProvider } from "../core/baseProvider.js";
 import type {
   AIProviderName,
   TextGenerationOptions,
@@ -8,6 +8,7 @@ import type {
 } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { Unknown, UnknownRecord } from "../types/common.js";
+import type { NeuroLink } from "../neurolink.js";
 import {
   validateApiKey,
   createAzureAPIKeyConfig,
@@ -24,11 +25,7 @@ export class AzureOpenAIProvider extends BaseProvider {
   private azureProvider: ReturnType<typeof createAzure>;
 
   constructor(modelName?: string, sdk?: unknown) {
-    super(
-      modelName,
-      "azure" as AIProviderName,
-      sdk as NeuroLinkSDK | undefined,
-    );
+    super(modelName, "azure" as AIProviderName, sdk as NeuroLink | undefined);
 
     this.apiKey = process.env.AZURE_OPENAI_API_KEY || "";
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT || "";

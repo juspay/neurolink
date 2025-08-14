@@ -6,9 +6,13 @@
 
 import type { CommandModule, Argv } from "yargs";
 import type { UnknownRecord } from "../../lib/types/common.js";
-import type { MCPServerConfig } from "../../lib/types/mcpTypes.js";
+import type {
+  MCPServerInfo,
+  MCPTransportType,
+} from "../../lib/types/mcpTypes.js";
+import { createExternalServerInfo } from "../../lib/utils/mcpDefaults.js";
 import type { MCPCommandArgs } from "../../lib/types/cli.js";
-import { NeuroLink } from "../../lib/neurolink.js";
+import { NeuroLink, type MCPStatus } from "../../lib/neurolink.js";
 import { logger } from "../../lib/utils/logger.js";
 import chalk from "chalk";
 import ora from "ora";
@@ -99,56 +103,11 @@ interface MCPStatusResponse {
 }
 
 /**
- * MCP server configuration interface for CLI
- */
-interface CLIMCPServerConfig {
-  name: string;
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  transport: "stdio" | "sse" | "ws";
-  description?: string;
-  url?: string;
-  installed: boolean;
-  status: "connected" | "disconnected" | "error" | "unknown";
-  tools?: Array<{
-    name: string;
-    description: string;
-  }>;
-  lastError?: string;
-}
-
-/**
- * Extended MCP status for CLI with server list
- */
-interface CLIMCPStatus {
-  mcpInitialized: boolean;
-  totalServers: number;
-  availableServers: number;
-  autoDiscoveredCount: number;
-  totalTools: number;
-  customToolsCount: number;
-  inMemoryServersCount: number;
-  error?: string;
-  servers: Array<{
-    name: string;
-    connected: boolean;
-    command?: string;
-    description?: string;
-    tools?: Array<{
-      name: string;
-      description: string;
-    }>;
-    error?: string;
-  }>;
-}
-
-/**
  * Popular MCP servers registry
  */
 const POPULAR_MCP_SERVERS: Record<
   string,
-  Omit<CLIMCPServerConfig, "name" | "installed" | "status">
+  Pick<MCPServerInfo, "command" | "args" | "env" | "transport" | "description">
 > = {
   filesystem: {
     command: "npx",
@@ -218,112 +177,6 @@ const POPULAR_MCP_SERVERS: Record<
     description: "Bitbucket repository management and development workflows",
   },
 };
-
-/**
- * Type guard to check if an object conforms to MCPStatusResponse interface
- */
-function isMCPStatusResponse(obj: unknown): obj is MCPStatusResponse {
-  if (!obj || typeof obj !== "object") {
-    return false;
-  }
-
-  const record = obj as Record<string, unknown>;
-
-  // Check if autoDiscoveredServers is either undefined or an array
-  if (record.autoDiscoveredServers !== undefined) {
-    if (!Array.isArray(record.autoDiscoveredServers)) {
-      return false;
-    }
-
-    // Check each server object in the array
-    for (const server of record.autoDiscoveredServers) {
-      if (!server || typeof server !== "object") {
-        return false;
-      }
-
-      const serverRecord = server as Record<string, unknown>;
-
-      // Optional properties should be correct type if present
-      if (
-        serverRecord.name !== undefined &&
-        typeof serverRecord.name !== "string"
-      ) {
-        return false;
-      }
-      if (
-        serverRecord.id !== undefined &&
-        typeof serverRecord.id !== "string"
-      ) {
-        return false;
-      }
-      if (
-        serverRecord.status !== undefined &&
-        typeof serverRecord.status !== "string"
-      ) {
-        return false;
-      }
-      if (
-        serverRecord.source !== undefined &&
-        typeof serverRecord.source !== "string"
-      ) {
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
-/**
- * Convert SDK MCPStatus to CLI format with server list
- */
-function convertMCPStatusForCLI(
-  status: { [key: string]: unknown }, // Use flexible object type
-  sdk: NeuroLink,
-): CLIMCPStatus {
-  // Create server list from in-memory servers and discovered servers
-  const servers: CLIMCPStatus["servers"] = [];
-
-  // Add in-memory servers
-  const inMemoryServers = sdk.getInMemoryServers();
-  inMemoryServers.forEach((config, name) => {
-    servers.push({
-      name,
-      connected: true, // In-memory servers are always "connected"
-      description: config.server?.title || "In-memory MCP server",
-      tools: [], // Could extract from config.server.tools if needed
-    });
-  });
-
-  // Add auto-discovered servers
-  // Cache the type guard result to avoid repeated validation
-  const isValidStatusResponse = isMCPStatusResponse(status);
-  if (isValidStatusResponse && status.autoDiscoveredServers) {
-    status.autoDiscoveredServers.forEach((server) => {
-      servers.push({
-        name: server.name || server.id || "Unknown",
-        connected: server.status === "connected",
-        description: server.source
-          ? `Auto-discovered from ${server.source}`
-          : `Auto-discovered server`,
-        tools: [],
-        error: server.status === "failed" ? "Connection failed" : undefined,
-      });
-    });
-  }
-
-  return {
-    mcpInitialized: status.mcpInitialized as boolean,
-    totalServers: status.totalServers as number,
-    availableServers: status.availableServers as number,
-    autoDiscoveredCount: status.autoDiscoveredCount as number,
-    totalTools: status.totalTools as number,
-    customToolsCount: status.customToolsCount as number,
-    inMemoryServersCount: status.inMemoryServersCount as number,
-    error: status.error as string | undefined,
-    servers,
-  };
-}
 
 /**
  * MCP CLI command factory
@@ -489,8 +342,8 @@ export class MCPCommandFactory {
         demandOption: true,
       })
       .option("transport", {
-        choices: ["stdio", "sse", "ws"],
-        default: "stdio",
+        choices: ["stdio", "sse", "websocket"] as MCPTransportType[],
+        default: "stdio" as MCPTransportType,
         description: "Transport type for MCP communication",
       })
       .option("args", {
@@ -528,8 +381,8 @@ export class MCPCommandFactory {
         demandOption: true,
       })
       .option("transport", {
-        choices: ["stdio", "sse", "ws"],
-        default: "stdio",
+        choices: ["stdio", "sse", "websocket"] as MCPTransportType[],
+        default: "stdio" as MCPTransportType,
         description: "Transport type for MCP communication",
       })
       .option("args", {
@@ -630,14 +483,14 @@ export class MCPCommandFactory {
 
       // Get configured servers from NeuroLink
       const sdk = new NeuroLink();
-      const rawMcpStatus = await sdk.getMCPStatus();
-      const mcpStatus = convertMCPStatusForCLI(rawMcpStatus, sdk);
+      const mcpStatus: MCPStatus = await sdk.getMCPStatus();
+      const allServers = await sdk.listMCPServers();
 
       if (spinner) {
-        spinner.succeed(`Found ${mcpStatus.servers.length} MCP servers`);
+        spinner.succeed(`Found ${allServers.length} MCP servers`);
       }
 
-      if (mcpStatus.servers.length === 0) {
+      if (allServers.length === 0) {
         logger.always(chalk.yellow("No MCP servers configured."));
         logger.always(
           chalk.blue(
@@ -653,9 +506,11 @@ export class MCPCommandFactory {
       // Format and display results
       if (argv.format === "json") {
         logger.always(JSON.stringify(mcpStatus, null, 2));
-      } else if (argv.format && (argv.format as string) === "compact") {
-        mcpStatus.servers.forEach((server) => {
-          const status = server.connected ? chalk.green("✓") : chalk.red("✗");
+      } else if ((argv.format as string) === "compact") {
+        const allServers = await sdk.listMCPServers();
+        allServers.forEach((server) => {
+          const status =
+            server.status === "connected" ? chalk.green("✓") : chalk.red("✗");
           logger.always(
             `${status} ${server.name} - ${server.description || "No description"}`,
           );
@@ -664,10 +519,12 @@ export class MCPCommandFactory {
         // Table format
         logger.always(chalk.bold("\n🔧 MCP Servers:\n"));
 
-        for (const server of mcpStatus.servers) {
-          const status = server.connected
-            ? chalk.green("CONNECTED")
-            : chalk.red("DISCONNECTED");
+        const allServers = await sdk.listMCPServers();
+        for (const server of allServers) {
+          const status =
+            server.status === "connected"
+              ? chalk.green("CONNECTED")
+              : chalk.red("DISCONNECTED");
 
           logger.always(`${chalk.cyan(server.name)} ${status}`);
           logger.always(`  Command: ${server.command || "Unknown"}`);
@@ -732,38 +589,15 @@ export class MCPCommandFactory {
         }
       }
 
-      // Create server configuration
-      const config: CLIMCPServerConfig = {
+      const serverInfo = createExternalServerInfo({
+        ...serverConfig,
+        id: serverName,
         name: serverName,
-        command: serverConfig.command,
-        args: (argv.args as string[]) || serverConfig.args,
-        env,
-        transport:
-          (argv.transport &&
-            (argv.transport === "websocket"
-              ? "ws"
-              : (argv.transport as "stdio" | "sse" | "ws"))) ||
-          (serverConfig.transport as "stdio" | "sse" | "ws"),
-        description: serverConfig.description,
-        installed: true,
-        status: "unknown",
-      };
-
-      // Add server to NeuroLink (using in-memory MCP server for now)
-      const sdk = new NeuroLink();
-      await sdk.addInMemoryMCPServer(serverName, {
-        server: {
-          title: serverConfig.description,
-          tools: {}, // Empty tools for external servers
-          description: serverConfig.description,
-        },
-        metadata: {
-          command: config.command,
-          args: config.args,
-          env: config.env,
-          transport: config.transport,
-        },
       });
+
+      // Add server to NeuroLink - direct usage, zero transformations!
+      const sdk = new NeuroLink();
+      await sdk.addInMemoryMCPServer(serverName, serverInfo);
 
       if (spinner) {
         spinner.succeed(
@@ -773,28 +607,28 @@ export class MCPCommandFactory {
 
       // Display configuration info
       logger.always(chalk.bold("\n📋 Server Configuration:"));
-      logger.always(`Name: ${config.name}`);
-      logger.always(`Command: ${config.command}`);
-      if (config.args?.length) {
-        logger.always(`Args: ${config.args.join(" ")}`);
+      logger.always(`Name: ${serverInfo.name}`);
+      logger.always(`Command: ${serverInfo.command}`);
+      if (serverInfo.args?.length) {
+        logger.always(`Args: ${serverInfo.args.join(" ")}`);
       }
-      if (config.env) {
+      if (serverInfo.env) {
         logger.always(
-          `Environment: ${Object.keys(config.env).length} variables`,
+          `Environment: ${Object.keys(serverInfo.env).length} variables`,
         );
       }
-      logger.always(`Transport: ${config.transport}`);
-      logger.always(`Description: ${config.description}`);
+      logger.always(`Transport: ${serverInfo.transport}`);
+      logger.always(`Description: ${serverInfo.description}`);
 
       // Test connection
       logger.always(chalk.blue("\n🔍 Testing connection..."));
       try {
         const rawStatus = await sdk.getMCPStatus();
-        const status = convertMCPStatusForCLI(rawStatus, sdk);
-        const installedServer = status.servers.find(
-          (s) => s.name === serverName,
+        const status: MCPStatus = rawStatus;
+        const installedServer = status.externalMCPServers?.find(
+          (s: MCPServerInfo) => s.name === serverName,
         );
-        if (installedServer?.connected) {
+        if (installedServer?.status === "connected") {
           logger.always(chalk.green("✅ Server connected successfully"));
           if (installedServer.tools?.length) {
             logger.always(
@@ -844,35 +678,20 @@ export class MCPCommandFactory {
         }
       }
 
-      // Create server configuration
-      const config: CLIMCPServerConfig = {
+      const serverInfo = createExternalServerInfo({
+        id: name,
         name,
         command,
-        args: argv.args as string[],
+        args: argv.args,
         env,
         transport:
-          (argv.transport === "websocket"
-            ? "ws"
-            : (argv.transport as "stdio" | "sse" | "ws")) || "stdio",
-        installed: true,
-        status: "unknown",
-      };
-
-      // Add server to NeuroLink
-      const sdk = new NeuroLink();
-      await sdk.addInMemoryMCPServer(name, {
-        server: {
-          title: name,
-          tools: {}, // Empty tools for external servers
-          description: `Custom MCP server: ${command}`,
-        },
-        metadata: {
-          command: config.command,
-          args: config.args,
-          env: config.env,
-          transport: config.transport,
-        },
+          (argv.transport as MCPTransportType) || ("stdio" as MCPTransportType),
+        description: command,
       });
+
+      // Add server to NeuroLink using MCPServerInfo directly
+      const sdk = new NeuroLink();
+      await sdk.addInMemoryMCPServer(name, serverInfo);
 
       if (spinner) {
         spinner.succeed(
@@ -882,17 +701,17 @@ export class MCPCommandFactory {
 
       // Display configuration
       logger.always(chalk.bold("\n📋 Server Configuration:"));
-      logger.always(`Name: ${config.name}`);
-      logger.always(`Command: ${config.command}`);
-      if (config.args?.length) {
-        logger.always(`Args: ${config.args.join(" ")}`);
+      logger.always(`Name: ${serverInfo.name}`);
+      logger.always(`Command: ${serverInfo.command}`);
+      if (serverInfo.args?.length) {
+        logger.always(`Args: ${serverInfo.args.join(" ")}`);
       }
-      if (config.env) {
+      if (serverInfo.env) {
         logger.always(
-          `Environment: ${Object.keys(config.env).length} variables`,
+          `Environment: ${Object.keys(serverInfo.env).length} variables`,
         );
       }
-      logger.always(`Transport: ${config.transport}`);
+      logger.always(`Transport: ${serverInfo.transport}`);
     } catch (_error) {
       logger.error(
         chalk.red(`❌ Add command failed: ${(_error as Error).message}`),
@@ -913,13 +732,10 @@ export class MCPCommandFactory {
 
       const sdk = new NeuroLink();
       const rawMcpStatus = await sdk.getMCPStatus();
-      const mcpStatus = convertMCPStatusForCLI(rawMcpStatus, sdk);
 
-      let serversToTest = mcpStatus.servers;
+      let serversToTest = await sdk.listMCPServers();
       if (targetServer) {
-        serversToTest = mcpStatus.servers.filter(
-          (s) => s.name === targetServer,
-        );
+        serversToTest = serversToTest.filter((s) => s.name === targetServer);
         if (serversToTest.length === 0) {
           if (spinner) {
             spinner.fail();
@@ -937,13 +753,14 @@ export class MCPCommandFactory {
       logger.always(chalk.bold("\n🧪 MCP Server Test Results:\n"));
 
       for (const server of serversToTest) {
-        const status = server.connected
-          ? chalk.green("✅ CONNECTED")
-          : chalk.red("❌ DISCONNECTED");
+        const status =
+          server.status === "connected"
+            ? chalk.green("✅ CONNECTED")
+            : chalk.red("❌ DISCONNECTED");
 
         logger.always(`${server.name}: ${status}`);
 
-        if (server.connected) {
+        if (server.status === "connected") {
           logger.always(`  Tools: ${server.tools?.length || 0} available`);
           if (server.tools?.length) {
             server.tools.slice(0, 3).forEach((tool) => {
@@ -967,7 +784,9 @@ export class MCPCommandFactory {
       }
 
       // Summary
-      const connected = serversToTest.filter((s) => s.connected).length;
+      const connected = serversToTest.filter(
+        (s) => s.status === "connected",
+      ).length;
       const total = serversToTest.length;
 
       if (connected === total) {
@@ -1016,9 +835,8 @@ export class MCPCommandFactory {
       const sdk = new NeuroLink();
 
       // Check if server exists and is connected
-      const rawMcpStatus = await sdk.getMCPStatus();
-      const mcpStatus = convertMCPStatusForCLI(rawMcpStatus, sdk);
-      const server = mcpStatus.servers.find((s) => s.name === serverName);
+      const allServers = await sdk.listMCPServers();
+      const server = allServers.find((s) => s.name === serverName);
 
       if (!server) {
         if (spinner) {
@@ -1028,7 +846,7 @@ export class MCPCommandFactory {
         process.exit(1);
       }
 
-      if (!server.connected) {
+      if (server.status !== "connected") {
         if (spinner) {
           spinner.fail();
         }
@@ -1138,9 +956,8 @@ export class MCPCommandFactory {
       const serverName = argv.server!;
 
       const sdk = new NeuroLink();
-      const rawMcpStatus = await sdk.getMCPStatus();
-      const mcpStatus = convertMCPStatusForCLI(rawMcpStatus, sdk);
-      const server = mcpStatus.servers.find((s) => s.name === serverName);
+      const allServers = await sdk.listMCPServers();
+      const server = allServers.find((s) => s.name === serverName);
 
       if (!server) {
         logger.error(chalk.red(`❌ Server not found: ${serverName}`));
@@ -1213,7 +1030,7 @@ export class MCPCommandFactory {
         ? null
         : ora("Discovering MCP servers...").start();
 
-      const discovered: CLIMCPServerConfig[] = [];
+      const discovered: MCPServerInfo[] = [];
 
       // Discover from Claude Desktop
       if (argv.source === "claude-desktop" || argv.source === "all") {
@@ -1263,19 +1080,8 @@ export class MCPCommandFactory {
 
         for (const server of discovered) {
           try {
-            await sdk.addInMemoryMCPServer(server.name, {
-              server: {
-                title: server.name,
-                tools: {},
-                description: server.description,
-              },
-              metadata: {
-                command: server.command,
-                args: server.args,
-                env: server.env,
-                transport: server.transport,
-              },
-            });
+            // Use discovered MCPServerInfo directly - zero conversions!
+            await sdk.addInMemoryMCPServer(server.name, server);
             logger.always(chalk.green(`✅ Installed ${server.name}`));
           } catch (_error) {
             logger.always(
@@ -1297,10 +1103,8 @@ export class MCPCommandFactory {
   /**
    * Discover servers from Claude Desktop configuration
    */
-  private static async discoverFromClaudeDesktop(): Promise<
-    CLIMCPServerConfig[]
-  > {
-    const servers: CLIMCPServerConfig[] = [];
+  private static async discoverFromClaudeDesktop(): Promise<MCPServerInfo[]> {
+    const servers: MCPServerInfo[] = [];
 
     try {
       // Common Claude Desktop config paths
@@ -1332,17 +1136,16 @@ export class MCPCommandFactory {
           if (config.mcpServers) {
             Object.entries(config.mcpServers).forEach(
               ([name, serverConfig]) => {
-                const config = serverConfig as MCPServerConfig;
-                servers.push({
-                  name,
-                  command: config.command,
-                  args: config.args,
-                  env: config.env,
-                  transport: "stdio",
-                  description: "Discovered from Claude Desktop",
-                  installed: false,
-                  status: "unknown",
-                });
+                const typedConfig = serverConfig as MCPServerInfo;
+                // SMART DEFAULTS: Use utility to eliminate manual MCPServerInfo creation
+                servers.push(
+                  createExternalServerInfo({
+                    ...typedConfig,
+                    id: name,
+                    name,
+                    description: "Discovered from Claude Desktop",
+                  }),
+                );
               },
             );
           }
@@ -1359,8 +1162,8 @@ export class MCPCommandFactory {
   /**
    * Discover servers from VS Code configuration
    */
-  private static async discoverFromVSCode(): Promise<CLIMCPServerConfig[]> {
-    const servers: CLIMCPServerConfig[] = [];
+  private static async discoverFromVSCode(): Promise<MCPServerInfo[]> {
+    const servers: MCPServerInfo[] = [];
 
     try {
       // VS Code settings paths
@@ -1391,17 +1194,15 @@ export class MCPCommandFactory {
           if (settings["mcp.servers"]) {
             Object.entries(settings["mcp.servers"]).forEach(
               ([name, serverConfig]) => {
-                const config = serverConfig as MCPServerConfig;
-                servers.push({
-                  name,
-                  command: config.command || "unknown",
-                  args: config.args,
-                  env: config.env,
-                  transport: "stdio",
-                  description: "Discovered from VS Code",
-                  installed: false,
-                  status: "unknown",
-                });
+                const config = serverConfig as MCPServerInfo;
+                servers.push(
+                  createExternalServerInfo({
+                    ...config,
+                    id: name,
+                    name,
+                    description: "Discovered from VS Code",
+                  }),
+                );
               },
             );
           }

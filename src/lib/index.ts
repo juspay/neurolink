@@ -26,20 +26,11 @@ export type {
   EnhancedProvider,
 } from "./types/generateTypes.js";
 
-// Tool Registration exports
-export type { SimpleTool, ToolContext } from "./sdk/toolRegistration.js";
-export {
-  createTool,
-  createTypedTool,
-  validateTool,
-} from "./sdk/toolRegistration.js";
+// Tool Registration exports - use MCPServerInfo.tools format
+export type { ToolContext } from "./sdk/toolRegistration.js";
+export { validateTool } from "./sdk/toolRegistration.js";
 
-// MCP Types for extensions
-export type {
-  InMemoryMCPServerConfig,
-  InMemoryToolInfo,
-  InMemoryToolResult,
-} from "./types/mcpTypes.js";
+export type { ToolResult, ToolDefinition } from "./types/tools.js";
 
 // Model enums
 export {
@@ -58,7 +49,8 @@ export {
 
 // Main NeuroLink wrapper class and diagnostic types
 export { NeuroLink } from "./neurolink.js";
-export type { ProviderStatus, MCPStatus, MCPServerInfo } from "./neurolink.js";
+export type { ProviderStatus, MCPStatus } from "./neurolink.js";
+export type { MCPServerInfo } from "./types/mcpTypes.js";
 
 // Version
 export const VERSION = "1.0.0";

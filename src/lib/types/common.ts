@@ -1,10 +1,9 @@
 /**
  * Common utility types for NeuroLink
- * These types provide type-safe alternatives to 'any' usage
  */
 
 /**
- * Type-safe unknown value - use instead of 'any' when type is truly unknown
+ * Type-safe unknown value - use when type is truly unknown
  */
 export type Unknown = unknown;
 

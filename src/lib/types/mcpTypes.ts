@@ -8,109 +8,101 @@ import type { JsonValue, JsonObject } from "./common.js";
 /**
  * In-memory MCP server configuration
  */
-export interface InMemoryMCPServerConfig {
-  /**
-   * The actual server instance with tools
-   */
-  server: {
-    /**
-     * Server title for display
-     */
-    title?: string;
+// InMemoryMCPServerConfig has been removed.
+// Replacement: Use MCPServerInfo for all in-memory server configuration needs.
+// MCPServerInfo unifies configuration and runtime state, covering all fields previously in InMemoryMCPServerConfig.
+// Migration: Update type references from InMemoryMCPServerConfig to MCPServerInfo and ensure all required fields are present.
+// For detailed migration steps, see docs/mcp-migration.md or the MCP 2024-11-05 specification.
 
-    /**
-     * Map of tool name to tool implementation
-     */
-    tools: Map<string, InMemoryToolInfo> | Record<string, InMemoryToolInfo>;
-
-    /**
-     * Optional server description
-     */
-    description?: string;
-  };
-
-  /**
-   * Category for grouping tools
-   */
-  category?: string;
-
-  /**
-   * Metadata about the server
-   */
-  metadata?: {
-    provider?: string;
-    version?: string;
-    author?: string;
-    [key: string]: unknown;
-  };
-}
-
-/**
- * In-memory tool information
- */
-export interface InMemoryToolInfo {
-  /**
-   * Tool description
-   */
-  description: string;
-
-  /**
-   * Tool execution function
-   */
-  execute: (
-    params: unknown,
-  ) => Promise<InMemoryToolResult> | InMemoryToolResult;
-
-  /**
-   * Input parameter schema (Zod or JSON Schema)
-   */
-  inputSchema?: unknown;
-
-  /**
-   * Whether the tool is implemented (default: true)
-   */
-  isImplemented?: boolean;
-
-  /**
-   * Optional metadata
-   */
-  metadata?: Record<string, unknown>;
-}
-
-/**
- * Result from in-memory tool execution
- */
-export interface InMemoryToolResult {
-  /**
-   * Whether execution was successful
-   */
-  success: boolean;
-
-  /**
-   * Result data if successful
-   */
-  data?: unknown;
-
-  /**
-   * Error message if failed
-   */
-  error?: string;
-
-  /**
-   * Optional metadata about execution
-   */
-  metadata?: {
-    executionTime?: number;
-    toolName?: string;
-    serverId?: string;
-    [key: string]: unknown;
-  };
-}
+// InMemoryToolInfo has been eliminated – use ToolDefinition from types/tools.js instead
+// InMemoryToolResult has been eliminated – use ToolResult from types/tools.js instead
 
 /**
  * MCP Transport Types - Maximally Reusable
  */
-export type MCPTransportType = "stdio" | "websocket" | "tcp" | "unix";
+export type MCPTransportType =
+  | "stdio"
+  | "sse"
+  | "websocket"
+  | "ws"
+  | "tcp"
+  | "unix";
+
+/**
+ * MCP Server Connection Status - Individual server status
+ */
+export type MCPServerConnectionStatus =
+  | "initializing" // Server is being started
+  | "connecting" // Attempting to connect
+  | "connected" // Successfully connected and ready
+  | "disconnected" // Cleanly disconnected
+  | "failed" // Connection failed
+  | "restarting" // Server is being restarted
+  | "stopping" // Server is being stopped
+  | "stopped"; // Server has been stopped
+
+/**
+ * MCP Server Category Types - Organizational classification
+ */
+export type MCPServerCategory =
+  | "external" // External process-based MCP servers
+  | "in-memory" // In-memory tool registrations
+  | "built-in" // Built-in NeuroLink tools
+  | "user-defined" // Custom user tools
+  | "custom" // Legacy alias for user-defined
+  | "uncategorized"; // Fallback category
+
+/**
+ * Universal MCP Server - Unified configuration and runtime state
+ * MCP 2024-11-05 specification compliant
+ * Replaces both MCPServerInfo and MCPServerConfig
+ */
+export interface MCPServerInfo {
+  // Core MCP-compliant fields (always required)
+  id: string;
+  name: string;
+  description: string;
+  transport: MCPTransportType;
+  status: MCPServerConnectionStatus;
+
+  // Tools array (always present, may be empty)
+  tools: Array<{
+    name: string;
+    description: string;
+    inputSchema?: object;
+    execute?: (
+      params: unknown,
+      context?: unknown,
+    ) => Promise<unknown> | unknown;
+  }>;
+
+  // Configuration fields (optional, for setup)
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string;
+  timeout?: number;
+  retries?: number;
+  error?: string;
+  installed?: boolean; // CLI-specific
+
+  // Process management fields (from ExternalMCPServerConfig)
+  cwd?: string; // Working directory for the process
+  autoRestart?: boolean; // Whether to automatically restart on failure
+  healthCheckInterval?: number; // Health check interval in milliseconds
+
+  // Extensible metadata
+  metadata?: {
+    uptime?: number;
+    toolCount?: number;
+    category?: MCPServerCategory;
+    provider?: string;
+    version?: string;
+    author?: string;
+    tags?: string[];
+    [key: string]: unknown;
+  };
+}
 
 /**
  * MCP Server Status for CLI Operations - High Reusability
@@ -130,7 +122,7 @@ export interface MCPServerStatus {
   customToolsCount: number;
   /** Number of in-memory servers */
   inMemoryServersCount: number;
-  /** Error message if any */
+  /** Error message */
   error?: string;
   /** Auto-discovered servers from various sources */
   autoDiscoveredServers?: MCPDiscoveredServer[];
@@ -139,7 +131,7 @@ export interface MCPServerStatus {
   /** Available tools across all servers */
   availableTools: MCPToolInfo[];
   /** Server registry entries */
-  serverRegistry?: Record<string, MCPServerConfig>;
+  serverRegistry?: Record<string, MCPServerInfo>;
 }
 
 /**
@@ -147,7 +139,7 @@ export interface MCPServerStatus {
  */
 export interface MCPDiscoveredServer {
   name: string;
-  status: "connected" | "disconnected" | "error" | "pending" | "failed";
+  status: MCPServerConnectionStatus;
   source: string;
   transport: MCPTransportType;
   description?: string;
@@ -172,22 +164,6 @@ export interface MCPConnectedServer {
 }
 
 /**
- * MCP Server Configuration - Maximally Reusable
- */
-export interface MCPServerConfig {
-  name: string;
-  transport: MCPTransportType;
-  description?: string;
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  url?: string;
-  timeout?: number;
-  retries?: number;
-  metadata?: MCPServerMetadata;
-}
-
-/**
  * MCP Tool Information - High Reusability
  */
 export interface MCPToolInfo {
@@ -200,6 +176,12 @@ export interface MCPToolInfo {
   outputSchema?: JsonObject;
   metadata?: MCPToolMetadata;
 }
+
+/**
+ * MCP Executable Tool - Tool with execution capability
+ * Extracted from MCPServerInfo.tools array for better readability
+ */
+export type MCPExecutableTool = MCPServerInfo["tools"][0];
 
 /**
  * MCP Server Metadata - Extensible
@@ -229,7 +211,7 @@ export type MCPToolMetadata = {
 /**
  * MCP Server Registry Entry - For Object.entries() usage
  */
-export type MCPServerRegistryEntry = [string, MCPServerConfig];
+export type MCPServerRegistryEntry = [string, MCPServerInfo];
 
 /**
  * Unified MCP Registry interface
@@ -240,7 +222,7 @@ export interface UnifiedMCPRegistry {
    */
   registerInMemoryServer(
     serverId: string,
-    config: InMemoryMCPServerConfig,
+    serverInfo: MCPServerInfo,
   ): Promise<void>;
 
   /**
@@ -255,7 +237,7 @@ export interface UnifiedMCPRegistry {
     toolName: string,
     params: JsonObject,
     context: JsonObject,
-  ): Promise<InMemoryToolResult>;
+  ): Promise<unknown>;
 
   /**
    * Check if connected to a server

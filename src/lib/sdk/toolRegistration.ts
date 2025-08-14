@@ -4,14 +4,8 @@
  */
 
 import { z } from "zod";
-import { tool as createAISDKTool } from "ai";
-import type { Tool } from "ai";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { logger } from "../utils/logger.js";
-import type {
-  InMemoryMCPServerConfig,
-  InMemoryToolInfo,
-} from "../types/mcpTypes.js";
+import type { MCPServerInfo, MCPServerCategory } from "../types/mcpTypes.js";
 import type {
   ToolArgs,
   ToolContext as CoreToolContext,
@@ -19,6 +13,7 @@ import type {
   SimpleTool as CoreSimpleTool,
 } from "../types/tools.js";
 import type { JsonValue } from "../types/common.js";
+import { createMCPServerInfo } from "../utils/mcpDefaults.js";
 
 /**
  * Configuration constants for tool validation
@@ -160,62 +155,7 @@ export interface SimpleTool<TArgs = ToolArgs, TResult = JsonValue>
 }
 
 /**
- * Converts a SimpleTool to Vercel AI SDK format
- */
-export function convertToAISDKTool(name: string, simpleTool: SimpleTool): Tool {
-  return createAISDKTool({
-    description: simpleTool.description,
-    parameters: simpleTool.parameters || z.object({}),
-    execute: async (args) => {
-      try {
-        // Create a minimal context for standalone execution
-        const context: ToolContext = {
-          sessionId: `tool-${name}-${Date.now()}`,
-          logger,
-        };
-
-        const result = await simpleTool.execute(args, context);
-        return result;
-      } catch (error) {
-        logger.error(`Tool ${name} execution failed:`, error);
-        throw error;
-      }
-    },
-  });
-}
-
-/**
- * Converts a SimpleTool to MCP tool format
- */
-export function convertToMCPTool(simpleTool: SimpleTool): InMemoryToolInfo {
-  return {
-    description: simpleTool.description,
-    execute: async (params: unknown) => {
-      const typedParams = params as ToolArgs;
-      try {
-        const result = await simpleTool.execute(typedParams);
-        return {
-          success: true,
-          data: result,
-        };
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        logger.error("MCP tool execution failed:", error);
-        return {
-          success: false,
-          error: errorMessage,
-        };
-      }
-    },
-    inputSchema: simpleTool.parameters,
-    isImplemented: true,
-    metadata: simpleTool.metadata,
-  };
-}
-
-/**
- * Creates an in-memory MCP server configuration from a set of tools
+ * Creates a MCPServerInfo from a set of tools
  */
 export function createMCPServerFromTools(
   serverId: string,
@@ -223,27 +163,38 @@ export function createMCPServerFromTools(
   metadata?: {
     title?: string;
     description?: string;
-    category?: string;
+    category?: MCPServerCategory;
     version?: string;
     author?: string;
     [key: string]: JsonValue | undefined;
   },
-): InMemoryMCPServerConfig {
-  const mcpTools: Record<string, InMemoryToolInfo> = {};
+): MCPServerInfo {
+  const mcpTools: Array<{
+    name: string;
+    description: string;
+    inputSchema?: object;
+  }> = [];
 
   for (const [name, tool] of Object.entries(tools)) {
-    mcpTools[name] = convertToMCPTool(tool);
+    mcpTools.push({
+      name,
+      description: tool.description || name,
+      inputSchema: {},
+    });
   }
 
-  return {
-    server: {
-      title: metadata?.title || serverId,
-      description: metadata?.description,
-      tools: mcpTools,
-    },
+  // SMART DEFAULTS: Use utility to eliminate manual MCPServerInfo creation
+  return createMCPServerInfo({
+    id: serverId,
+    name: metadata?.title || serverId,
+    tools: mcpTools,
+    description: metadata?.description || serverId,
     category: metadata?.category,
-    metadata: metadata || {},
-  };
+    // Detect category based on context if not provided
+    isExternal: metadata?.category === "external",
+    isBuiltIn: metadata?.category === "built-in",
+    isCustomTool: false,
+  });
 }
 
 /**

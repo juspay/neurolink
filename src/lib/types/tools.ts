@@ -1,6 +1,6 @@
 /**
- * Tool system type definitions for NeuroLink
- * Replaces 'any' types in tool registration and execution
+ * Type definitions for NeuroLink tool system, including parameter schemas,
+ * argument patterns, execution metadata, context, and result types.
  */
 
 import { z } from "zod";

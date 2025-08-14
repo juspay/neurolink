@@ -20,10 +20,10 @@ import {
   globalCircuitBreakerManager,
 } from "./mcpCircuitBreaker.js";
 import type {
-  ExternalMCPServerConfig,
   ExternalMCPServerInstance,
   MCPTransportType,
 } from "../types/externalMcp.js";
+import type { MCPServerInfo } from "../types/mcpTypes.js";
 
 /**
  * MCP client creation result
@@ -55,7 +55,7 @@ export interface MCPClientResult {
  * Transport creation options
  */
 interface TransportOptions {
-  config: ExternalMCPServerConfig;
+  config: MCPServerInfo;
   timeout?: number;
 }
 
@@ -83,7 +83,7 @@ export class MCPClientFactory {
    * Create an MCP client for the given server configuration
    */
   static async createClient(
-    config: ExternalMCPServerConfig,
+    config: MCPServerInfo,
     timeout = 10000,
   ): Promise<MCPClientResult> {
     const startTime = Date.now();
@@ -143,7 +143,7 @@ export class MCPClientFactory {
    * Internal client creation logic
    */
   private static async createClientInternal(
-    config: ExternalMCPServerConfig,
+    config: MCPServerInfo,
     timeout: number,
   ): Promise<Omit<MCPClientResult, "success" | "duration">> {
     // Create transport
@@ -203,7 +203,7 @@ export class MCPClientFactory {
    * Create transport based on configuration
    */
   private static async createTransport(
-    config: ExternalMCPServerConfig,
+    config: MCPServerInfo,
   ): Promise<{ transport: Transport; process?: ChildProcess }> {
     switch (config.transport) {
       case "stdio":
@@ -224,7 +224,7 @@ export class MCPClientFactory {
    * Create stdio transport with process spawning
    */
   private static async createStdioTransport(
-    config: ExternalMCPServerConfig,
+    config: MCPServerInfo,
   ): Promise<{ transport: Transport; process: ChildProcess }> {
     mcpLogger.debug(
       `[MCPClientFactory] Creating stdio transport for ${config.id}`,
@@ -234,8 +234,13 @@ export class MCPClientFactory {
       },
     );
 
+    // Validate command is present
+    if (!config.command) {
+      throw new Error(`Command is required for stdio transport`);
+    }
+
     // Spawn the process
-    const childProcess = spawn(config.command, config.args, {
+    const childProcess = spawn(config.command, config.args || [], {
       stdio: ["pipe", "pipe", "pipe"],
       env: {
         ...process.env,
@@ -246,11 +251,11 @@ export class MCPClientFactory {
 
     // Handle process errors
     const processErrorPromise = new Promise<never>((_, reject) => {
-      childProcess.on("error", (error: Error) => {
+      (childProcess as any).on("error", (error: Error) => {
         reject(new Error(`Process spawn error: ${error.message}`));
       });
 
-      childProcess.on(
+      (childProcess as any).on(
         "exit",
         (code: number | null, signal: NodeJS.Signals | null) => {
           if (code !== 0) {
@@ -269,14 +274,17 @@ export class MCPClientFactory {
     ]);
 
     // Check if process is still running
-    if (childProcess.killed || childProcess.exitCode !== null) {
+    if (
+      (childProcess as any).killed ||
+      (childProcess as any).exitCode !== null
+    ) {
       throw new Error("Process failed to start or exited immediately");
     }
 
     // Create transport
     const transport = new StdioClientTransport({
-      command: config.command,
-      args: config.args,
+      command: config.command!,
+      args: config.args || [],
       env: Object.fromEntries(
         Object.entries({
           ...process.env,
@@ -293,7 +301,7 @@ export class MCPClientFactory {
    * Create SSE transport
    */
   private static async createSSETransport(
-    config: ExternalMCPServerConfig,
+    config: MCPServerInfo,
   ): Promise<{ transport: Transport }> {
     if (!config.url) {
       throw new Error("URL is required for SSE transport");
@@ -322,7 +330,7 @@ export class MCPClientFactory {
    * Create WebSocket transport
    */
   private static async createWebSocketTransport(
-    config: ExternalMCPServerConfig,
+    config: MCPServerInfo,
   ): Promise<{ transport: Transport }> {
     if (!config.url) {
       throw new Error("URL is required for WebSocket transport");
@@ -484,7 +492,7 @@ export class MCPClientFactory {
    * Test connection to an MCP server
    */
   static async testConnection(
-    config: ExternalMCPServerConfig,
+    config: MCPServerInfo,
     timeout = 5000,
   ): Promise<{
     success: boolean;
@@ -545,7 +553,7 @@ export class MCPClientFactory {
   /**
    * Validate MCP server configuration for client creation
    */
-  static validateClientConfig(config: ExternalMCPServerConfig): {
+  static validateClientConfig(config: MCPServerInfo): {
     isValid: boolean;
     errors: string[];
   } {

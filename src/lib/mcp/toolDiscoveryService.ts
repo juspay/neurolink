@@ -19,6 +19,7 @@ import type {
   ExternalMCPToolResult,
   ExternalMCPToolContext,
 } from "../types/externalMcp.js";
+import type { MCPServerInfo } from "../types/mcpTypes.js";
 import type { JsonObject, JsonValue } from "../types/common.js";
 
 /**
@@ -127,6 +128,7 @@ export interface ToolRegistryEvents {
  * Handles automatic tool discovery and registration from external MCP servers
  */
 export class ToolDiscoveryService extends EventEmitter {
+  private serverToolStorage = new Map<string, MCPServerInfo["tools"]>();
   private toolRegistry = new Map<string, ExternalMCPToolInfo>();
   private serverTools = new Map<string, Set<string>>();
   private discoveryInProgress = new Set<string>();
@@ -300,7 +302,20 @@ export class ToolDiscoveryService extends EventEmitter {
         const toolKey = this.createToolKey(serverId, tool.name);
         this.toolRegistry.set(toolKey, toolInfo);
 
-        // Track server tools
+        if (!this.serverToolStorage.has(serverId)) {
+          this.serverToolStorage.set(serverId, []);
+        }
+        const serverTools = this.serverToolStorage.get(serverId)!;
+        // Add tool if not already present
+        if (!serverTools.find((t) => t.name === tool.name)) {
+          serverTools.push({
+            name: tool.name,
+            description: tool.description || "",
+            inputSchema: tool.inputSchema,
+          });
+        }
+
+        // Track server tools (legacy)
         if (!this.serverTools.has(serverId)) {
           this.serverTools.set(serverId, new Set());
         }
@@ -774,6 +789,25 @@ export class ToolDiscoveryService extends EventEmitter {
    * Get all tools for a server
    */
   getServerTools(serverId: string): ExternalMCPToolInfo[] {
+    const serverTools = this.serverToolStorage.get(serverId);
+    if (serverTools) {
+      return serverTools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        serverId,
+        inputSchema: tool.inputSchema as JsonObject,
+        isAvailable: true,
+        stats: {
+          totalCalls: 0,
+          successfulCalls: 0,
+          failedCalls: 0,
+          averageExecutionTime: 0,
+          lastExecutionTime: 0,
+        },
+      }));
+    }
+
+    // Fallback to legacy storage
     const tools: ExternalMCPToolInfo[] = [];
     const serverToolNames = this.serverTools.get(serverId);
 
@@ -794,26 +828,71 @@ export class ToolDiscoveryService extends EventEmitter {
    * Get all registered tools
    */
   getAllTools(): ExternalMCPToolInfo[] {
-    return Array.from(this.toolRegistry.values());
+    const allTools: ExternalMCPToolInfo[] = [];
+
+    // Add tools from server-based storage (preferred)
+    for (const [serverId, serverTools] of this.serverToolStorage.entries()) {
+      for (const tool of serverTools) {
+        allTools.push({
+          name: tool.name,
+          description: tool.description,
+          serverId,
+          inputSchema: tool.inputSchema as JsonObject,
+          isAvailable: true,
+          stats: {
+            totalCalls: 0,
+            successfulCalls: 0,
+            failedCalls: 0,
+            averageExecutionTime: 0,
+            lastExecutionTime: 0,
+          },
+        });
+      }
+    }
+
+    // Fallback to legacy storage for any tools not in server-based storage
+    const legacyTools = Array.from(this.toolRegistry.values()).filter(
+      (tool) =>
+        !allTools.some(
+          (t) => t.name === tool.name && t.serverId === tool.serverId,
+        ),
+    );
+
+    return [...allTools, ...legacyTools];
   }
 
   /**
    * Clear tools for a server
    */
   clearServerTools(serverId: string): void {
-    const serverToolNames = this.serverTools.get(serverId);
+    const serverTools = this.serverToolStorage.get(serverId);
+    if (serverTools) {
+      // Emit unregistered events for server-based tools
+      for (const tool of serverTools) {
+        this.emit("toolUnregistered", {
+          serverId,
+          toolName: tool.name,
+          timestamp: new Date(),
+        } satisfies ToolRegistryEvents["toolUnregistered"]);
+      }
+      this.serverToolStorage.delete(serverId);
+    }
 
+    // Legacy cleanup
+    const serverToolNames = this.serverTools.get(serverId);
     if (serverToolNames) {
       for (const toolName of serverToolNames) {
         const toolKey = this.createToolKey(serverId, toolName);
         this.toolRegistry.delete(toolKey);
 
-        // Emit tool unregistered event
-        this.emit("toolUnregistered", {
-          serverId,
-          toolName,
-          timestamp: new Date(),
-        } satisfies ToolRegistryEvents["toolUnregistered"]);
+        // Emit tool unregistered event (only if not already emitted above)
+        if (!serverTools || !serverTools.find((t) => t.name === toolName)) {
+          this.emit("toolUnregistered", {
+            serverId,
+            toolName,
+            timestamp: new Date(),
+          } satisfies ToolRegistryEvents["toolUnregistered"]);
+        }
       }
 
       this.serverTools.delete(serverId);

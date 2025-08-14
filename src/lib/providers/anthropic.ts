@@ -8,7 +8,8 @@ import type {
 } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { Unknown, UnknownRecord, JsonValue } from "../types/common.js";
-import { BaseProvider, type NeuroLinkSDK } from "../core/baseProvider.js";
+import type { NeuroLink } from "../neurolink.js";
+import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import {
   createTimeoutController,
@@ -43,7 +44,7 @@ export class AnthropicProvider extends BaseProvider {
     super(
       modelName,
       "anthropic" as AIProviderName,
-      sdk as NeuroLinkSDK | undefined,
+      sdk as NeuroLink | undefined,
     );
 
     // Initialize Anthropic model with API key validation

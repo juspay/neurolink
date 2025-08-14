@@ -672,14 +672,16 @@ export class ProviderHealthChecker {
       }
     }
 
-    // Fallback to any healthy provider
-    const anyHealthy = healthStatuses.find((h) => h.isHealthy);
-    if (anyHealthy) {
-      logger.info(`Using fallback healthy provider: ${anyHealthy.provider}`);
-      return anyHealthy.provider;
+    // Fallback to first healthy provider
+    const firstHealthyProvider = healthStatuses.find((h) => h.isHealthy);
+    if (firstHealthyProvider) {
+      logger.info(
+        `Using fallback healthy provider: ${firstHealthyProvider.provider}`,
+      );
+      return firstHealthyProvider.provider;
     }
 
-    // Last resort: any configured provider
+    // Last resort: first configured provider
     const anyConfigured = healthStatuses.find((h) => h.isConfigured);
     if (anyConfigured) {
       logger.warn(

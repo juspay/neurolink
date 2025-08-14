@@ -432,7 +432,7 @@ export class ModelResolver {
 
     // Base relevance score
     if (score === 0) {
-      score = 1; // Minimal relevance for any model
+      score = 1; // Minimal relevance for model
       matchReasons.push("Basic match");
     }
 

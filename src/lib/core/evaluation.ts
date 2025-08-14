@@ -262,7 +262,7 @@ Relevance: [score]
 Accuracy: [score]
 Completeness: [score]
 Overall: [score]
-Reasoning: [Provide a detailed explanation of your evaluation, explaining why you gave these scores. Include specific observations about the response's strengths and any areas for improvement.]
+Reasoning: [Provide a detailed explanation of your evaluation, explaining why you gave these scores. Include specific observations about the response's strengths and all possible areas for improvement.]
 `;
 
     // Generate evaluation

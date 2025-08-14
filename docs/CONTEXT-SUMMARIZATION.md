@@ -55,22 +55,27 @@ neurolink.enableContextSummarization({
 The `enableContextSummarization` method accepts an optional configuration object with the following properties:
 
 - `highWaterMarkWords: number`
+
   - **Description**: The word count at which to trigger the summarization process.
   - **Default**: `3000`
 
 - `lowWaterMarkWords: number`
+
   - **Description**: The target word count for the generated summary. The summarization prompt will instruct the AI to aim for this length.
   - **Default**: `800`
 
 - `summarizationModel: string`
+
   - **Description**: The specific AI model to use for the summarization task. It's recommended to use a fast and cost-effective model.
   - **Default**: `"gemini-2.5-flash"`
 
 - `summarizationProvider: string`
+
   - **Description**: The AI provider to use for the summarization task.
   - **Default**: `"googlevertex"`
 
 - `getSummarizationPrompt: (history: ChatMessage[], wordLimit: number) => string`
+
   - **Description**: A function that generates the prompt sent to the summarization model. You can provide your own function to customize the summarization instructions.
   - **Default**: A built-in function that creates a robust prompt asking for a concise, third-person narrative.
 

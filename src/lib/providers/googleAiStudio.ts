@@ -9,7 +9,8 @@ import type {
 import { GoogleAIModels } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { Unknown, UnknownRecord } from "../types/common.js";
-import { BaseProvider, type NeuroLinkSDK } from "../core/baseProvider.js";
+import type { NeuroLink } from "../neurolink.js";
+import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import {
   createTimeoutController,
@@ -38,7 +39,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
     super(
       modelName,
       "google-ai" as AIProviderName,
-      sdk as NeuroLinkSDK | undefined,
+      sdk as NeuroLink | undefined,
     );
     logger.debug("GoogleAIStudioProvider initialized", {
       model: this.modelName,

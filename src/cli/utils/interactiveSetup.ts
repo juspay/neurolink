@@ -162,7 +162,7 @@ export const PROVIDER_CONFIGS: ProviderConfig[] = [
       },
       {
         key: "LITELLM_API_KEY",
-        prompt: "LiteLLM API Key (or any value)",
+        prompt: "LiteLLM API Key (or random value)",
         default: "sk-anything",
         secure: false,
         optional: true,

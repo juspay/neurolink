@@ -1,6 +1,5 @@
 /**
  * Centralized type exports for NeuroLink
- * Provides type-safe alternatives to 'any' usage throughout the codebase
  */
 
 // Common utility types
@@ -60,11 +59,13 @@ export type {
 // MCP domain types
 export type {
   MCPTransportType,
+  MCPServerConnectionStatus,
+  MCPServerCategory,
   MCPServerStatus,
   MCPDiscoveredServer,
   MCPConnectedServer,
-  MCPServerConfig,
   MCPToolInfo,
+  MCPExecutableTool,
   MCPServerMetadata,
   MCPToolMetadata,
   MCPServerRegistryEntry,
@@ -72,7 +73,6 @@ export type {
 
 // External MCP types
 export type {
-  ExternalMCPServerConfig,
   ExternalMCPServerInstance,
   ExternalMCPServerStatus,
   ExternalMCPToolInfo,

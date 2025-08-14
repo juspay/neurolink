@@ -3,7 +3,7 @@ import type { ZodType, ZodTypeDef } from "zod";
 import { streamText, Output, type Schema, type LanguageModelV1 } from "ai";
 import { AIProviderName } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
-import { BaseProvider, type NeuroLinkSDK } from "../core/baseProvider.js";
+import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import {
   createTimeoutController,
@@ -12,6 +12,7 @@ import {
 } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS, DEFAULT_MAX_STEPS } from "../core/constants.js";
 import type { UnknownRecord } from "../types/common.js";
+import type { NeuroLink } from "../neurolink.js";
 import {
   validateApiKey,
   createOpenAIConfig,
@@ -36,8 +37,8 @@ const getOpenAIModel = (): string => {
 export class OpenAIProvider extends BaseProvider {
   private model: LanguageModelV1;
 
-  constructor(modelName?: string, sdk?: NeuroLinkSDK) {
-    super(modelName || getOpenAIModel(), AIProviderName.OPENAI, sdk);
+  constructor(modelName?: string, neurolink?: NeuroLink) {
+    super(modelName || getOpenAIModel(), AIProviderName.OPENAI, neurolink);
 
     // Set OpenAI API key as environment variable (required by @ai-sdk/openai)
     process.env.OPENAI_API_KEY = getOpenAIApiKey();

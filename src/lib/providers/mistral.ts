@@ -4,7 +4,8 @@ import { streamText, Output, type Schema, type LanguageModelV1 } from "ai";
 import type { AIProviderName } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { UnknownRecord } from "../types/common.js";
-import { BaseProvider, type NeuroLinkSDK } from "../core/baseProvider.js";
+import type { NeuroLink } from "../neurolink.js";
+import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import {
   createTimeoutController,
@@ -37,13 +38,17 @@ export class MistralProvider extends BaseProvider {
   private model: LanguageModelV1;
 
   constructor(modelName?: string, sdk?: unknown) {
-    // Type guard for NeuroLinkSDK parameter validation
-    const validatedSdk =
+    // Type guard for NeuroLink parameter validation
+    const validatedNeurolink =
       sdk && typeof sdk === "object" && "getInMemoryServers" in sdk
-        ? (sdk as NeuroLinkSDK)
+        ? sdk
         : undefined;
 
-    super(modelName, "mistral" as AIProviderName, validatedSdk);
+    super(
+      modelName,
+      "mistral" as AIProviderName,
+      validatedNeurolink as NeuroLink | undefined,
+    );
 
     // Initialize Mistral model with API key validation
     const apiKey = getMistralApiKey();

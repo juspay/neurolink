@@ -13,7 +13,8 @@ import {
 import type { AIProviderName } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { UnknownRecord } from "../types/common.js";
-import { BaseProvider, type NeuroLinkSDK } from "../core/baseProvider.js";
+import type { NeuroLink } from "../neurolink.js";
+import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import {
   createTimeoutController,
@@ -185,11 +186,7 @@ export class GoogleVertexProvider extends BaseProvider {
   private static maxTokensCacheTime = 0;
 
   constructor(modelName?: string, providerName?: string, sdk?: unknown) {
-    super(
-      modelName,
-      "vertex" as AIProviderName,
-      sdk as NeuroLinkSDK | undefined,
-    );
+    super(modelName, "vertex" as AIProviderName, sdk as NeuroLink | undefined);
 
     // Validate Google Cloud credentials - now using consolidated utility
     if (!hasGoogleCredentials()) {
@@ -695,6 +692,20 @@ export class GoogleVertexProvider extends BaseProvider {
    */
   getToolContext(): Record<string, unknown> {
     return { ...this.toolContext };
+  }
+
+  /**
+   * Set the tool executor function for custom tool execution
+   * This method is called by BaseProvider.setupToolExecutor()
+   * @param executor Function to execute tools by name
+   */
+  setToolExecutor(
+    executor: (toolName: string, params: unknown) => Promise<unknown>,
+  ): void {
+    this.toolExecutor = executor;
+    logger.debug("GoogleVertexProvider.setToolExecutor: Tool executor set", {
+      hasExecutor: typeof executor === "function",
+    });
   }
 
   /**

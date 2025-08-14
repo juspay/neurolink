@@ -8,7 +8,8 @@ import type {
 } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { Unknown, UnknownRecord } from "../types/common.js";
-import { BaseProvider, type NeuroLinkSDK } from "../core/baseProvider.js";
+import type { NeuroLink } from "../neurolink.js";
+import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import {
   createTimeoutController,
@@ -71,7 +72,7 @@ interface ModelsResponse {
 
 /**
  * OpenAI Compatible Provider - BaseProvider Implementation
- * Provides access to any OpenAI-compatible endpoint (OpenRouter, vLLM, LiteLLM, etc.)
+ * Provides access to one of the OpenAI-compatible endpoint (OpenRouter, vLLM, LiteLLM, etc.)
  */
 export class OpenAICompatibleProvider extends BaseProvider {
   private model?: LanguageModelV1;
@@ -83,14 +84,14 @@ export class OpenAICompatibleProvider extends BaseProvider {
     super(
       modelName,
       "openai-compatible" as AIProviderName,
-      sdk as NeuroLinkSDK | undefined,
+      sdk as NeuroLink | undefined,
     );
 
     // Initialize OpenAI Compatible configuration
     this.config = getOpenAICompatibleConfig();
 
     // Create OpenAI SDK instance configured for custom endpoint
-    // This allows us to use any OpenAI-compatible API by simply changing the baseURL
+    // This allows us to use OpenAI-compatible API by simply changing the baseURL
     this.customOpenAI = createOpenAI({
       baseURL: this.config.baseURL,
       apiKey: this.config.apiKey,

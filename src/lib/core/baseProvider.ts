@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ZodType, ZodTypeDef } from "zod";
 import type { Schema } from "ai";
 import type { Tool, LanguageModelV1 } from "ai";
@@ -21,14 +22,15 @@ import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
 
-// Interface for AI SDK generate result with steps
-interface AISDKGenerateResult {
-  text: string;
-  toolCalls?: Array<{
-    toolName?: string;
-    name?: string;
-    [key: string]: unknown;
-  }>;
+import type {
+  ToolDefinition,
+  ToolResult as ToolResultType,
+} from "../types/tools.js";
+import type { GenerateResult } from "../types/generateTypes.js";
+import type { NeuroLink } from "../neurolink.js";
+
+// Interface for AI SDK generate result with steps (extends GenerateResult)
+interface AISDKGenerateResult extends GenerateResult {
   steps?: Array<{
     toolCalls?: Array<{
       toolName?: string;
@@ -38,74 +40,6 @@ interface AISDKGenerateResult {
     [key: string]: unknown;
   }>;
   [key: string]: unknown;
-}
-// Dynamic imports to break circular dependency
-// import { evaluateResponse } from "../core/evaluation.js";
-// import { getAvailableFunctionTools } from "../mcp/functionCalling.js";
-// Analytics helper will be dynamically imported when needed
-
-/**
- * Interface for SDK with in-memory MCP servers and external MCP support
- */
-export interface NeuroLinkSDK {
-  getInMemoryServers?: () => Map<
-    string,
-    {
-      server: {
-        title?: string;
-        description?: string;
-        tools?: Map<string, ToolInfo> | Record<string, ToolInfo>;
-      };
-      category?: string;
-      metadata?: UnknownRecord;
-    }
-  >;
-  externalServerManager?: {
-    getAllTools: () => Array<{
-      name: string;
-      description: string;
-      serverId: string;
-      isAvailable: boolean;
-      inputSchema?: Record<string, unknown>;
-    }>;
-    executeTool: (
-      serverId: string,
-      toolName: string,
-      params: any,
-    ) => Promise<any>;
-  };
-}
-
-/**
- * Interface for tool information in MCP servers
- */
-interface ToolInfo {
-  description?: string;
-  inputSchema?: ZodType<JsonValue>;
-  parameters?: ZodType<JsonValue>;
-  execute: (
-    args: JsonValue,
-  ) => Promise<JsonValue | ToolResult> | JsonValue | ToolResult;
-  isImplemented?: boolean;
-  metadata?: UnknownRecord;
-}
-
-/**
- * Validates if a result contains a valid toolsObject structure
- * @param result - The result object to validate
- * @returns true if the result contains a valid toolsObject, false otherwise
- */
-function isValidToolsObject(
-  result: UnknownRecord,
-): result is UnknownRecord & { toolsObject: Record<string, unknown> } {
-  return (
-    result !== null &&
-    typeof result === "object" &&
-    "toolsObject" in result &&
-    result.toolsObject !== null &&
-    typeof result.toolsObject === "object" &&
-    Object.keys(result.toolsObject as Record<string, unknown>).length > 0
-  );
 }
 
 /**
@@ -122,18 +56,23 @@ export abstract class BaseProvider implements AIProvider {
     ? {}
     : directAgentTools;
   protected mcpTools?: Record<string, Tool>; // MCP tools loaded dynamically when available
+  protected customTools?: Map<string, unknown>; // Custom tools from registerTool()
+  protected toolExecutor?: (
+    toolName: string,
+    params: unknown,
+  ) => Promise<unknown>; // Tool executor from setupToolExecutor
   protected sessionId?: string;
   protected userId?: string;
-  protected sdk?: NeuroLinkSDK; // Reference to NeuroLink SDK instance for custom tools
+  protected neurolink?: NeuroLink; // Reference to actual NeuroLink instance for MCP tools
 
   constructor(
     modelName?: string,
     providerName?: AIProviderName,
-    sdk?: NeuroLinkSDK,
+    neurolink?: NeuroLink,
   ) {
     this.modelName = modelName || this.getDefaultModel();
     this.providerName = providerName || this.getProviderName();
-    this.sdk = sdk;
+    this.neurolink = neurolink;
   }
 
   /**
@@ -226,7 +165,7 @@ export abstract class BaseProvider implements AIProvider {
                   }
                 }
 
-                // Yield any remaining content
+                // Yield all remaining content
                 if (buffer.trim()) {
                   yield { content: buffer };
                 }
@@ -532,21 +471,102 @@ export abstract class BaseProvider implements AIProvider {
       ...this.directTools, // Always include direct tools
     };
 
-    logger.debug(
-      `[BaseProvider] getAllTools called, SDK available: ${!!this.sdk}, type: ${typeof this.sdk}`,
-    );
+    logger.debug(`[BaseProvider] getAllTools called for ${this.providerName}`, {
+      neurolinkAvailable: !!this.neurolink,
+      neurolinkType: typeof this.neurolink,
+      directToolsCount: Object.keys(this.directTools).length,
+    });
     logger.debug(
       `[BaseProvider] Direct tools: ${Object.keys(this.directTools).join(", ")}`,
     );
 
-    // Add custom tools from SDK if available
+    // Add custom tools from setupToolExecutor if available
+    if (this.customTools && this.customTools.size > 0) {
+      logger.debug(
+        `[BaseProvider] Loading ${this.customTools.size} custom tools from setupToolExecutor`,
+      );
+
+      for (const [toolName, toolDef] of this.customTools.entries()) {
+        logger.debug(`[BaseProvider] Processing custom tool: ${toolName}`, {
+          toolDef: typeof toolDef,
+          hasExecute:
+            toolDef && typeof toolDef === "object" && "execute" in toolDef,
+          hasName: toolDef && typeof toolDef === "object" && "name" in toolDef,
+        });
+
+        if (
+          toolDef &&
+          typeof toolDef === "object" &&
+          "execute" in toolDef &&
+          typeof (toolDef as any).execute === "function"
+        ) {
+          try {
+            const { tool: createAISDKTool } = await import("ai");
+
+            const typedToolDef = toolDef as {
+              name: string;
+              description?: string;
+              inputSchema?: any;
+              execute: Function;
+            };
+
+            tools[toolName] = createAISDKTool({
+              description:
+                typedToolDef.description || `Custom tool ${toolName}`,
+              parameters: z.object({}), // Use empty schema for custom tools
+              execute: async (args) => {
+                logger.debug(
+                  `[BaseProvider] Executing custom tool: ${toolName}`,
+                  { args },
+                );
+                // Use the tool executor if available (from setupToolExecutor)
+                if (this.toolExecutor) {
+                  return await this.toolExecutor(toolName, args);
+                } else {
+                  return await typedToolDef.execute(args);
+                }
+              },
+            });
+
+            logger.debug(
+              `[BaseProvider] Successfully added custom tool: ${toolName}`,
+            );
+          } catch (error) {
+            logger.error(
+              `[BaseProvider] Failed to add custom tool: ${toolName}`,
+              error,
+            );
+          }
+        } else {
+          logger.warn(
+            `[BaseProvider] Invalid custom tool format: ${toolName}`,
+            {
+              toolDef: typeof toolDef,
+              hasExecute:
+                toolDef && typeof toolDef === "object" && "execute" in toolDef,
+              executeType:
+                toolDef && typeof toolDef === "object" && "execute" in toolDef
+                  ? typeof (toolDef as any).execute
+                  : "N/A",
+            },
+          );
+        }
+      }
+    }
+
+    // Add custom tools from NeuroLink if available
     logger.debug(
-      `[BaseProvider] Checking SDK: ${!!this.sdk}, has getInMemoryServers: ${this.sdk && typeof this.sdk.getInMemoryServers}`,
+      `[BaseProvider] Checking NeuroLink: ${!!this.neurolink}, has getInMemoryServers: ${this.neurolink && typeof this.neurolink.getInMemoryServers}`,
     );
-    if (this.sdk && typeof this.sdk.getInMemoryServers === "function") {
-      logger.debug(`[BaseProvider] SDK check passed, loading custom tools`);
+    if (
+      this.neurolink &&
+      typeof this.neurolink.getInMemoryServers === "function"
+    ) {
+      logger.debug(
+        `[BaseProvider] NeuroLink check passed, loading custom tools`,
+      );
       try {
-        const inMemoryServers = this.sdk.getInMemoryServers!();
+        const inMemoryServers = this.neurolink.getInMemoryServers();
         logger.debug(`[BaseProvider] Got servers:`, inMemoryServers.size);
         logger.debug(
           `[BaseProvider] Loading custom tools from SDK, found ${inMemoryServers.size} servers`,
@@ -554,17 +574,16 @@ export abstract class BaseProvider implements AIProvider {
         if (inMemoryServers && inMemoryServers.size > 0) {
           // Convert in-memory server tools to AI SDK format
           for (const [serverId, serverConfig] of inMemoryServers) {
-            const server = serverConfig.server;
-            if (server && server.tools) {
-              // Handle both Map and object formats
-              const toolEntries =
-                server.tools instanceof Map
-                  ? Array.from(server.tools.entries())
-                  : Object.entries(server.tools || {});
+            if (serverConfig && serverConfig.tools) {
+              // Handle tools array from MCPServerInfo
+              const toolEntries = serverConfig.tools.map((tool) => [
+                tool.name,
+                tool,
+              ]);
 
               for (const [toolName, toolInfo] of toolEntries as [
                 string,
-                ToolInfo,
+                ToolDefinition,
               ][]) {
                 if (toolInfo && typeof toolInfo.execute === "function") {
                   logger.debug(
@@ -574,14 +593,13 @@ export abstract class BaseProvider implements AIProvider {
                   try {
                     // Convert to AI SDK tool format
                     const { tool: createAISDKTool } = await import("ai");
-                    const { z } = await import("zod");
 
                     tools[toolName] = createAISDKTool({
                       description: toolInfo.description || `Tool ${toolName}`,
                       parameters:
-                        toolInfo.inputSchema ||
-                        toolInfo.parameters ||
-                        z.object({}),
+                        toolInfo.parameters instanceof z.ZodType
+                          ? toolInfo.parameters
+                          : z.object({}),
                       execute: async (args) => {
                         const result = await toolInfo.execute(args);
 
@@ -624,88 +642,72 @@ export abstract class BaseProvider implements AIProvider {
       }
     }
 
-    // ✅ CRITICAL FIX: Add external MCP tools if SDK has external server manager
-
     if (
-      this.sdk &&
-      this.sdk.externalServerManager &&
-      typeof this.sdk.externalServerManager.getAllTools === "function"
+      this.neurolink &&
+      typeof this.neurolink.getExternalMCPTools === "function"
     ) {
       try {
         logger.debug(
-          `[BaseProvider] Loading external MCP tools from SDK via externalServerManager`,
+          `[BaseProvider] Loading external MCP tools from NeuroLink via direct tool access`,
         );
-        const externalTools = this.sdk.externalServerManager.getAllTools();
+
+        const externalTools = this.neurolink.getExternalMCPTools() || [];
 
         logger.debug(
           `[BaseProvider] Found ${externalTools.length} external MCP tools`,
-          {
-            tools: externalTools.map((t) => ({
-              name: t.name,
-              available: t.isAvailable,
-              server: t.serverId,
-            })),
-          },
         );
 
-        for (const externalTool of externalTools) {
-          if (externalTool.isAvailable) {
-            logger.debug(
-              `[BaseProvider] Converting external MCP tool: ${externalTool.name} from ${externalTool.serverId}`,
-            );
+        for (const tool of externalTools) {
+          logger.debug(
+            `[BaseProvider] Converting external MCP tool: ${tool.name}`,
+          );
 
+          try {
             // Convert to AI SDK tool format
             const { tool: createAISDKTool } = await import("ai");
-            const { z } = await import("zod");
 
-            tools[externalTool.name] = createAISDKTool({
-              description:
-                externalTool.description ||
-                `External MCP tool ${externalTool.name}`,
+            tools[tool.name] = createAISDKTool({
+              description: tool.description || `External MCP tool ${tool.name}`,
               parameters: await this.convertMCPSchemaToZod(
-                externalTool.inputSchema,
+                tool.inputSchema as Record<string, unknown> | undefined,
               ),
               execute: async (args) => {
                 logger.debug(
-                  `[BaseProvider] Executing external MCP tool: ${externalTool.name}`,
+                  `[BaseProvider] Executing external MCP tool: ${tool.name}`,
                   { args },
                 );
 
-                // Execute via SDK's external server manager
+                // Execute via NeuroLink's direct tool execution
                 if (
-                  this.sdk &&
-                  this.sdk.externalServerManager &&
-                  typeof this.sdk.externalServerManager.executeTool ===
-                    "function"
+                  this.neurolink &&
+                  typeof this.neurolink.executeExternalMCPTool === "function"
                 ) {
-                  return await this.sdk.externalServerManager.executeTool(
-                    externalTool.serverId,
-                    externalTool.name,
+                  return await this.neurolink.executeExternalMCPTool(
+                    tool.serverId || "unknown",
+                    tool.name,
                     args,
                   );
                 } else {
                   throw new Error(
-                    `Cannot execute external MCP tool: SDK externalServerManager.executeTool not available`,
+                    `Cannot execute external MCP tool: NeuroLink executeExternalMCPTool not available`,
                   );
                 }
               },
             });
 
             logger.debug(
-              `[BaseProvider] Successfully added external MCP tool: ${externalTool.name}`,
+              `[BaseProvider] Successfully added external MCP tool: ${tool.name}`,
             );
-          } else {
-            logger.debug(
-              `[BaseProvider] Skipping unavailable external MCP tool: ${externalTool.name}`,
+          } catch (toolCreationError) {
+            logger.error(
+              `Failed to create external MCP tool: ${tool.name}`,
+              toolCreationError,
             );
           }
         }
 
         logger.debug(`[BaseProvider] External MCP tools loading complete`, {
-          totalExternalTools: externalTools.length,
-          availableExternalTools: externalTools.filter((t) => t.isAvailable)
-            .length,
-          addedToTools: externalTools.filter((t) => t.isAvailable).length,
+          totalToolsAdded: externalTools.length,
         });
       } catch (error) {
         logger.error(
@@ -715,13 +717,11 @@ export abstract class BaseProvider implements AIProvider {
         // Not an error - external tools are optional
       }
     } else {
-      logger.debug(`[BaseProvider] No external MCP tools interface available`, {
-        hasSDK: !!this.sdk,
-        hasExternalServerManager: this.sdk && !!this.sdk.externalServerManager,
-        hasGetAllTools:
-          this.sdk &&
-          this.sdk.externalServerManager &&
-          typeof this.sdk.externalServerManager.getAllTools === "function",
+      logger.debug(`[BaseProvider] No external MCP tool interface available`, {
+        hasNeuroLink: !!this.neurolink,
+        hasGetExternalMCPTools:
+          this.neurolink &&
+          typeof this.neurolink.getExternalMCPTools === "function",
       });
     }
 
@@ -1048,6 +1048,10 @@ export abstract class BaseProvider implements AIProvider {
       );
       return;
     }
+
+    // Store custom tools for use in getAllTools()
+    this.customTools = sdk.customTools;
+    this.toolExecutor = sdk.executeTool;
 
     logger.debug(`[${functionTag}] Setting up tool executor for provider`, {
       providerType: this.constructor.name,

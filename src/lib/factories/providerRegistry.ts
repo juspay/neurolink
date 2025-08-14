@@ -5,6 +5,7 @@ import { ProviderFactory } from "./providerFactory.js";
 import { AIProviderName, GoogleAIModels, OpenAIModels } from "../core/types.js";
 import { logger } from "../utils/logger.js";
 import type { UnknownRecord } from "../types/common.js";
+import type { NeuroLink } from "../neurolink.js";
 import type { MistralProvider as MistralProviderType } from "@ai-sdk/mistral";
 
 /**
@@ -51,7 +52,10 @@ export class ProviderRegistry {
           const { GoogleAIStudioProvider } = await import(
             "../providers/googleAiStudio.js"
           );
-          return new GoogleAIStudioProvider(modelName, sdk);
+          return new GoogleAIStudioProvider(
+            modelName,
+            sdk as NeuroLink | undefined,
+          );
         },
         GoogleAIModels.GEMINI_2_5_FLASH,
         ["googleAiStudio", "google", "gemini", "google-ai"],
@@ -66,7 +70,7 @@ export class ProviderRegistry {
           sdk?: UnknownRecord,
         ) => {
           const { OpenAIProvider } = await import("../providers/openAI.js");
-          return new OpenAIProvider(modelName, sdk);
+          return new OpenAIProvider(modelName, sdk as NeuroLink | undefined);
         },
         OpenAIModels.GPT_4O_MINI,
         ["gpt", "chatgpt"],
@@ -83,7 +87,7 @@ export class ProviderRegistry {
           const { AnthropicProvider } = await import(
             "../providers/anthropic.js"
           );
-          return new AnthropicProvider(modelName, sdk);
+          return new AnthropicProvider(modelName, sdk as NeuroLink | undefined);
         },
         "claude-3-5-sonnet-20241022",
         ["claude", "anthropic"],
@@ -128,7 +132,11 @@ export class ProviderRegistry {
           const { GoogleVertexProvider } = await import(
             "../providers/googleVertex.js"
           );
-          return new GoogleVertexProvider(modelName, providerName, sdk);
+          return new GoogleVertexProvider(
+            modelName,
+            providerName,
+            sdk as NeuroLink | undefined,
+          );
         },
         "claude-sonnet-4@20250514",
         ["vertex", "googleVertex"],
@@ -185,7 +193,7 @@ export class ProviderRegistry {
           sdk?: UnknownRecord,
         ) => {
           const { LiteLLMProvider } = await import("../providers/litellm.js");
-          return new LiteLLMProvider(modelName, sdk);
+          return new LiteLLMProvider(modelName, sdk as NeuroLink | undefined);
         },
         process.env.LITELLM_MODEL || "openai/gpt-4o-mini",
         ["litellm"],
@@ -202,7 +210,10 @@ export class ProviderRegistry {
           const { OpenAICompatibleProvider } = await import(
             "../providers/openaiCompatible.js"
           );
-          return new OpenAICompatibleProvider(modelName, sdk);
+          return new OpenAICompatibleProvider(
+            modelName,
+            sdk as NeuroLink | undefined,
+          );
         },
         process.env.OPENAI_COMPATIBLE_MODEL || undefined, // Enable auto-discovery when no model specified
         ["openai-compatible", "openrouter", "vllm", "compatible"],

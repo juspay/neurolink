@@ -505,12 +505,14 @@ const dashboard = {
 ### Common Issues
 
 1. **High Latency**
+
    - Check provider response times
    - Verify network connectivity
    - Review request complexity
    - Consider request timeouts
 
 2. **Low Throughput**
+
    - Increase connection pool size
    - Enable parallel processing
    - Optimize request batching
