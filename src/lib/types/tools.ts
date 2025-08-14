@@ -1,6 +1,5 @@
 /**
  * Tool system type definitions for NeuroLink
- * Replaces 'any' types in tool registration and execution
  */
 
 import { z } from "zod";

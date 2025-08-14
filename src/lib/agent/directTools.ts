@@ -182,7 +182,7 @@ export const directAgentTools = {
             );
           }
 
-          // Remove any remaining non-safe characters except Math functions
+          // Remove remaining non-safe characters except Math functions
           const mathSafe =
             /^[0-9+\-*/().\s]|Math\.(abs|ceil|floor|round|sqrt|pow|sin|cos|tan|log|exp|PI|E)/g;
           if (

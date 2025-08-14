@@ -63,6 +63,23 @@ import {
   CircuitBreaker,
 } from "./utils/errorHandling.js";
 import { EventEmitter } from "events";
+import type { ChildProcess } from "child_process";
+
+// Type definitions for MCP server configuration
+interface MCPServerConfig {
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  name?: string;
+  transport?: string;
+}
+
+// Type definitions for MCP tool schema
+interface MCPTool {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
+}
 
 // Provider and MCP diagnostic types
 export interface ProviderStatus {
@@ -106,6 +123,9 @@ export class NeuroLink {
   // Tool registration support
   private customTools: Map<string, SimpleTool> = new Map();
   private inMemoryServers: Map<string, InMemoryMCPServerConfig> = new Map();
+
+  // MCP server process management
+  private mcpServerProcesses: Map<string, ChildProcess> = new Map();
 
   // Enhanced error handling support
   private toolCircuitBreakers: Map<string, CircuitBreaker> = new Map();
@@ -179,6 +199,19 @@ export class NeuroLink {
       // Register all providers with lazy loading support
       await ProviderRegistry.registerAllProviders();
 
+      // Load MCP configuration from .mcp-config.json
+      try {
+        await this.loadMCPConfiguration();
+        mcpLogger.debug("[NeuroLink] MCP configuration loaded successfully");
+      } catch (configError) {
+        mcpLogger.warn("[NeuroLink] MCP configuration loading failed", {
+          error:
+            configError instanceof Error
+              ? configError.message
+              : String(configError),
+        });
+      }
+
       this.mcpInitialized = true;
 
       // Monitor memory usage and provide cleanup suggestions
@@ -203,6 +236,482 @@ export class NeuroLink {
       });
       // Continue without MCP - graceful degradation
     }
+  }
+
+  /**
+   * Load MCP server configurations from .mcp-config.json
+   */
+  private async loadMCPConfiguration(): Promise<void> {
+    try {
+      const fs = await import("fs");
+      const path = await import("path");
+
+      const configPath = path.join(process.cwd(), ".mcp-config.json");
+
+      if (!fs.existsSync(configPath)) {
+        mcpLogger.debug(
+          "[NeuroLink] No .mcp-config.json found, skipping MCP server loading",
+        );
+        return;
+      }
+
+      mcpLogger.debug(
+        "[NeuroLink] Loading MCP configuration from .mcp-config.json",
+      );
+
+      const configContent = fs.readFileSync(configPath, "utf8");
+      const config = JSON.parse(configContent);
+
+      if (!config.mcpServers || typeof config.mcpServers !== "object") {
+        mcpLogger.debug("[NeuroLink] No mcpServers found in configuration");
+        return;
+      }
+
+      let serversLoaded = 0;
+      for (const [serverId, serverConfig] of Object.entries(
+        config.mcpServers,
+      )) {
+        try {
+          await this.registerExternalMCPServer(
+            serverId,
+            serverConfig as MCPServerConfig,
+          );
+          serversLoaded++;
+          mcpLogger.debug(
+            `[NeuroLink] Successfully registered MCP server: ${serverId}`,
+          );
+        } catch (error) {
+          mcpLogger.warn(
+            `[NeuroLink] Failed to register MCP server ${serverId}:`,
+            {
+              error: error instanceof Error ? error.message : String(error),
+            },
+          );
+          // Continue with other servers - don't let one failure break everything
+        }
+      }
+
+      mcpLogger.debug(
+        `[NeuroLink] MCP configuration loading complete: ${serversLoaded} servers registered`,
+      );
+    } catch (error) {
+      mcpLogger.warn("[NeuroLink] Failed to load MCP configuration:", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * Register external MCP server from configuration
+   */
+  private async registerExternalMCPServer(
+    serverId: string,
+    serverConfig: MCPServerConfig,
+  ): Promise<void> {
+    try {
+      const { spawn } = await import("child_process");
+
+      mcpLogger.debug(
+        `[NeuroLink] Starting external MCP server: ${serverId}`,
+        serverConfig,
+      );
+
+      // Extract command and args from server config
+      const command = serverConfig.command;
+      const args = serverConfig.args || [];
+      const env = { ...process.env, ...(serverConfig.env || {}) };
+
+      if (!command) {
+        throw new Error(`No command specified for MCP server ${serverId}`);
+      }
+
+      // Spawn the MCP server process
+      mcpLogger.info(
+        `[NeuroLink] Spawning MCP server ${serverId}: ${command} ${args.join(" ")}`,
+      );
+      const serverProcess = spawn(command, args, {
+        stdio: ["pipe", "pipe", "pipe"],
+        env: env,
+      });
+
+      mcpLogger.info(
+        `[NeuroLink] MCP server ${serverId} process PID: ${serverProcess.pid}`,
+      );
+
+      // Log stderr for debugging
+      serverProcess.stderr.on("data", (data) => {
+        const errorMsg = data.toString();
+        mcpLogger.debug(
+          `[NeuroLink] MCP server ${serverId} stderr: ${errorMsg}`,
+        );
+      });
+
+      // Log process errors
+      serverProcess.on("error", (error) => {
+        mcpLogger.error(
+          `[NeuroLink] MCP server ${serverId} process error:`,
+          error,
+        );
+      });
+
+      // Log process exit
+      serverProcess.on("exit", (code, signal) => {
+        mcpLogger.info(
+          `[NeuroLink] MCP server ${serverId} exited with code ${code}, signal ${signal}`,
+        );
+      });
+
+      // Log process close
+      serverProcess.on("close", (code, signal) => {
+        mcpLogger.info(
+          `[NeuroLink] MCP server ${serverId} closed with code ${code}, signal ${signal}`,
+        );
+      });
+
+      // Store server process for later tool execution
+      this.mcpServerProcesses.set(serverId, serverProcess);
+
+      // Initialize MCP protocol communication with timeout
+      const initPromise = this.initializeMCPServerConnection(
+        serverId,
+        serverProcess,
+      );
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(
+          () =>
+            reject(
+              new Error(`MCP server ${serverId} initialization timeout (10s)`),
+            ),
+          10000,
+        );
+      });
+
+      await Promise.race([initPromise, timeoutPromise]);
+
+      mcpLogger.debug(
+        `[NeuroLink] External MCP server ${serverId} registered successfully`,
+      );
+    } catch (error) {
+      mcpLogger.error(
+        `[NeuroLink] Failed to register external MCP server ${serverId}:`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Initialize MCP protocol connection with external server
+   */
+  private async initializeMCPServerConnection(
+    serverId: string,
+    serverProcess: ChildProcess,
+  ): Promise<void> {
+    try {
+      let responseData = "";
+      let initComplete = false;
+      let toolsReceived = false;
+
+      // Set up response handler
+      serverProcess.stdout?.on("data", (data: Buffer) => {
+        const chunk = data.toString();
+        responseData += chunk;
+        mcpLogger.info(
+          `[NeuroLink] MCP server ${serverId} raw stdout: ${chunk}`,
+        );
+
+        // Process complete JSON-RPC messages
+        const lines = responseData.split("\n");
+        responseData = lines.pop() || ""; // Keep incomplete line
+
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const response = JSON.parse(line.trim());
+              mcpLogger.info(
+                `[NeuroLink] MCP server ${serverId} parsed response:`,
+                response,
+              );
+
+              if (response.id === 1 && response.result) {
+                // Initialize response
+                mcpLogger.info(
+                  `[NeuroLink] MCP server ${serverId} initialized:`,
+                  response.result,
+                );
+                initComplete = true;
+              } else if (response.id === 2 && response.result?.tools) {
+                // Tools list response
+                mcpLogger.info(
+                  `[NeuroLink] MCP server ${serverId} tools count: ${response.result.tools.length}`,
+                );
+                this.registerMCPServerTools(serverId, response.result.tools);
+                toolsReceived = true;
+              }
+            } catch (parseError) {
+              mcpLogger.info(
+                `[NeuroLink] Failed to parse MCP response from ${serverId}: ${line.trim()}`,
+                parseError,
+              );
+            }
+          }
+        }
+      });
+
+      // Wait for server to be ready before sending requests
+      await new Promise((resolve) => setTimeout(resolve, 500)); // 500ms delay
+
+      // Send MCP initialize request
+      const initRequest = {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "neurolink", version: "1.0.0" },
+        },
+      };
+
+      const initRequestStr = JSON.stringify(initRequest) + "\n";
+      mcpLogger.info(
+        `[NeuroLink] Sending initialize request to ${serverId}: ${initRequestStr.trim()}`,
+      );
+      mcpLogger.info(
+        `[NeuroLink] stdin writable for ${serverId}: ${serverProcess.stdin?.writable}`,
+      );
+
+      const writeResult = serverProcess.stdin?.write(initRequestStr);
+      mcpLogger.info(
+        `[NeuroLink] Write result for ${serverId}: ${writeResult}`,
+      );
+
+      // Wait for initialize response
+      await new Promise((resolve) => {
+        const checkInit = () => {
+          if (initComplete) {
+            resolve(undefined);
+          } else {
+            setTimeout(checkInit, 100);
+          }
+        };
+        setTimeout(checkInit, 100);
+        setTimeout(() => resolve(undefined), 2000); // 2s timeout
+      });
+
+      if (!initComplete) {
+        mcpLogger.warn(
+          `[NeuroLink] MCP server ${serverId} initialization timeout`,
+        );
+      }
+
+      // Get available tools from the server
+      const toolsRequest = {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/list",
+        params: {},
+      };
+
+      const toolsRequestStr = JSON.stringify(toolsRequest) + "\n";
+      mcpLogger.debug(
+        `[NeuroLink] Sending tools/list request to ${serverId}: ${toolsRequestStr.trim()}`,
+      );
+      serverProcess.stdin?.write(toolsRequestStr);
+
+      // Wait for tools response
+      await new Promise((resolve) => {
+        const checkTools = () => {
+          if (toolsReceived) {
+            resolve(undefined);
+          } else {
+            setTimeout(checkTools, 100);
+          }
+        };
+        setTimeout(checkTools, 100);
+        setTimeout(() => resolve(undefined), 2000); // 2s timeout
+      });
+
+      if (!toolsReceived) {
+        mcpLogger.warn(
+          `[NeuroLink] MCP server ${serverId} tools discovery timeout`,
+        );
+      }
+
+      // Register server with toolRegistry
+      await toolRegistry.registerServer(serverId, {
+        description: `External MCP server: ${serverId}`,
+        category: "external-mcp",
+      });
+
+      mcpLogger.debug(
+        `[NeuroLink] MCP server ${serverId} protocol initialization complete`,
+      );
+    } catch (error) {
+      mcpLogger.error(
+        `[NeuroLink] Failed to initialize MCP server ${serverId}:`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Register tools from MCP server response
+   */
+  private async registerMCPServerTools(
+    serverId: string,
+    tools: MCPTool[],
+  ): Promise<void> {
+    try {
+      mcpLogger.debug(
+        `[NeuroLink] Registering ${tools.length} tools for MCP server ${serverId}`,
+      );
+
+      for (const tool of tools) {
+        if (tool.name) {
+          // Register each tool with toolRegistry
+          const toolInfo = {
+            name: tool.name,
+            description: tool.description || `Tool from ${serverId}`,
+            inputSchema: tool.inputSchema || {},
+            serverId: serverId,
+            category: "external-mcp",
+            execute: async (params: Record<string, unknown>) => {
+              // Execute tool via MCP server
+              return await this.executeMCPTool(serverId, tool.name, params);
+            },
+          };
+
+          // Store tool in registry (both tools and toolImpls maps)
+          const toolId = `${serverId}.${tool.name}`;
+          (
+            toolRegistry as unknown as {
+              tools: Map<string, unknown>;
+              toolImpls: Map<string, unknown>;
+            }
+          ).tools.set(toolId, toolInfo);
+          (
+            toolRegistry as unknown as {
+              tools: Map<string, unknown>;
+              toolImpls: Map<string, unknown>;
+            }
+          ).toolImpls.set(toolId, {
+            execute: async (
+              params: Record<string, unknown>,
+              context?: Record<string, unknown>,
+            ) => {
+              // Execute tool via MCP server
+              return await this.executeMCPTool(serverId, tool.name, params);
+            },
+          });
+          mcpLogger.debug(`[NeuroLink] Registered MCP tool: ${toolId}`);
+        }
+      }
+
+      mcpLogger.debug(
+        `[NeuroLink] Successfully registered ${tools.length} tools for ${serverId}`,
+      );
+    } catch (error) {
+      mcpLogger.error(
+        `[NeuroLink] Failed to register tools for MCP server ${serverId}:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Execute tool on external MCP server
+   */
+  private async executeMCPTool(
+    serverId: string,
+    toolName: string,
+    params: Record<string, unknown>,
+  ): Promise<unknown> {
+    mcpLogger.info(
+      `[NeuroLink] Executing MCP tool ${serverId}.${toolName}:`,
+      params,
+    );
+
+    const serverProcess = this.mcpServerProcesses.get(serverId);
+    if (!serverProcess) {
+      throw new Error(`MCP server ${serverId} process not found`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const requestId = Date.now(); // Simple request ID
+      let responseReceived = false;
+
+      // Set up one-time response handler
+      const responseHandler = (data: Buffer) => {
+        if (responseReceived) {
+          return;
+        }
+
+        const chunk = data.toString();
+        const lines = chunk.split("\n").filter((line) => line.trim());
+
+        for (const line of lines) {
+          try {
+            const response = JSON.parse(line.trim());
+            if (response.id === requestId) {
+              responseReceived = true;
+              serverProcess.stdout?.removeListener("data", responseHandler);
+
+              if (response.error) {
+                mcpLogger.error(
+                  `[NeuroLink] MCP tool execution error for ${serverId}.${toolName}:`,
+                  response.error,
+                );
+                reject(
+                  new Error(response.error.message || "Tool execution failed"),
+                );
+              } else {
+                mcpLogger.info(
+                  `[NeuroLink] MCP tool execution success for ${serverId}.${toolName}`,
+                );
+                resolve(response.result);
+              }
+              return;
+            }
+          } catch (parseError) {
+            // Ignore parse errors for unrelated messages
+          }
+        }
+      };
+
+      // Listen for response
+      serverProcess.stdout?.on("data", responseHandler);
+
+      // Send tool execution request
+      const toolRequest = {
+        jsonrpc: "2.0",
+        id: requestId,
+        method: "tools/call",
+        params: {
+          name: toolName,
+          arguments: params || {},
+        },
+      };
+
+      const requestStr = JSON.stringify(toolRequest) + "\n";
+      mcpLogger.info(
+        `[NeuroLink] Sending tool execution request to ${serverId}: ${requestStr.trim()}`,
+      );
+
+      serverProcess.stdin?.write(requestStr);
+
+      // Set timeout for tool execution
+      setTimeout(() => {
+        if (!responseReceived) {
+          responseReceived = true;
+          serverProcess.stdout?.removeListener("data", responseHandler);
+          reject(
+            new Error(`Tool execution timeout for ${serverId}.${toolName}`),
+          );
+        }
+      }, 30000); // 30 second timeout
+    });
   }
 
   /**
@@ -740,7 +1249,7 @@ export class NeuroLink {
       if (result && typeof result === "object") {
         enhancedPrompt += `\n\nTool Results:\n`;
 
-        // Handle any structured result generically
+        // Handle structured result generically
         try {
           const resultStr =
             typeof result === "string"

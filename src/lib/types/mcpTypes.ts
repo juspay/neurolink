@@ -130,7 +130,7 @@ export interface MCPServerStatus {
   customToolsCount: number;
   /** Number of in-memory servers */
   inMemoryServersCount: number;
-  /** Error message if any */
+  /** Error message */
   error?: string;
   /** Auto-discovered servers from various sources */
   autoDiscoveredServers?: MCPDiscoveredServer[];

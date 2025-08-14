@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ZodType, ZodTypeDef } from "zod";
 import type { Schema } from "ai";
 import type { Tool, LanguageModelV1 } from "ai";
@@ -19,6 +20,24 @@ import { directAgentTools } from "../agent/directTools.js";
 import { getSafeMaxTokens } from "../utils/tokenLimits.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
+
+// Type definition for JSON Schema objects
+interface JSONSchemaProperty {
+  type?: string;
+  description?: string;
+  enum?: unknown[];
+  items?: JSONSchemaProperty;
+  properties?: Record<string, JSONSchemaProperty>;
+  required?: string[];
+  [key: string]: unknown;
+}
+
+interface JSONSchema {
+  type?: string;
+  properties?: Record<string, JSONSchemaProperty>;
+  required?: string[];
+  [key: string]: unknown;
+}
 
 // Interface for AI SDK generate result with steps
 interface AISDKGenerateResult {
@@ -59,6 +78,17 @@ export interface NeuroLinkSDK {
       metadata?: UnknownRecord;
     }
   >;
+  getAllAvailableTools?: () => Promise<
+    Array<{
+      name: string;
+      toolName?: string;
+      description?: string;
+      inputSchema?: unknown;
+      serverId?: string;
+      category?: string;
+    }>
+  >;
+  executeTool?: (toolName: string, args: unknown) => Promise<unknown>;
 }
 
 /**
@@ -211,7 +241,7 @@ export abstract class BaseProvider implements AIProvider {
                   }
                 }
 
-                // Yield any remaining content
+                // Yield all remaining content
                 if (buffer.trim()) {
                   yield { content: buffer };
                 }
@@ -275,6 +305,12 @@ export abstract class BaseProvider implements AIProvider {
 
       // Get ALL available tools (direct + MCP when available)
       const shouldUseTools = !options.disableTools && this.supportsTools();
+
+      logger.debug(`[BaseProvider] Tools check for ${this.providerName}:`, {
+        disableTools: options.disableTools,
+        supportsTools: this.supportsTools(),
+        shouldUseTools,
+      });
 
       const tools = shouldUseTools ? await this.getAllTools() : {};
 
@@ -458,9 +494,11 @@ export abstract class BaseProvider implements AIProvider {
       ...this.directTools, // Always include direct tools
     };
 
-    logger.debug(
-      `[BaseProvider] getAllTools called, SDK available: ${!!this.sdk}, type: ${typeof this.sdk}`,
-    );
+    logger.debug(`[BaseProvider] getAllTools called for ${this.providerName}`, {
+      sdkAvailable: !!this.sdk,
+      sdkType: typeof this.sdk,
+      directToolsCount: Object.keys(this.directTools).length,
+    });
     logger.debug(
       `[BaseProvider] Direct tools: ${Object.keys(this.directTools).join(", ")}`,
     );
@@ -500,7 +538,6 @@ export abstract class BaseProvider implements AIProvider {
                   try {
                     // Convert to AI SDK tool format
                     const { tool: createAISDKTool } = await import("ai");
-                    const { z } = await import("zod");
 
                     tools[toolName] = createAISDKTool({
                       description: toolInfo.description || `Tool ${toolName}`,
@@ -550,13 +587,110 @@ export abstract class BaseProvider implements AIProvider {
       }
     }
 
-    // MCP tools loading simplified - removed functionCalling dependency
-    if (!this.mcpTools) {
-      // Set empty tools object - MCP tools are handled at a higher level
-      this.mcpTools = {};
+    // Load MCP tools from SDK if available
+    if (this.sdk && typeof this.sdk.getAllAvailableTools === "function") {
+      logger.debug(`[BaseProvider] Loading MCP tools from SDK`);
+      try {
+        const availableTools = await this.sdk.getAllAvailableTools();
+        logger.debug(`[BaseProvider] Found ${availableTools.length} MCP tools`);
+
+        // Convert MCP tools to AI SDK format
+        const { tool: createAISDKTool } = await import("ai");
+
+        for (const mcpTool of availableTools) {
+          try {
+            const toolName = mcpTool.name || mcpTool.toolName;
+            if (!toolName) {
+              continue;
+            }
+
+            logger.debug(`[BaseProvider] Converting MCP tool: ${toolName}`);
+
+            // Create proper Zod schema for tool parameters
+            let parameterSchema;
+            try {
+              if (
+                mcpTool.inputSchema &&
+                typeof mcpTool.inputSchema === "object"
+              ) {
+                // Convert MCP input schema to Zod schema
+                parameterSchema = z.object({});
+                const schema = mcpTool.inputSchema as JSONSchema;
+                if (schema.properties) {
+                  const zodProps: Record<string, z.ZodTypeAny> = {};
+                  for (const [propName, propDef] of Object.entries(
+                    schema.properties,
+                  )) {
+                    // Simple type mapping - can be enhanced
+                    if (propDef.type === "string") {
+                      zodProps[propName] = z.string().optional();
+                    } else if (propDef.type === "number") {
+                      zodProps[propName] = z.number().optional();
+                    } else if (propDef.type === "boolean") {
+                      zodProps[propName] = z.boolean().optional();
+                    } else {
+                      zodProps[propName] = z.unknown().optional();
+                    }
+                  }
+                  parameterSchema = z.object(zodProps);
+                }
+              } else {
+                parameterSchema = z.object({});
+              }
+            } catch (schemaError) {
+              logger.debug(
+                `[BaseProvider] Failed to convert schema for ${toolName}, using empty schema:`,
+                schemaError,
+              );
+              parameterSchema = z.object({});
+            }
+
+            tools[toolName] = createAISDKTool({
+              description: mcpTool.description || `MCP tool: ${toolName}`,
+              parameters: parameterSchema,
+              execute: async (args) => {
+                logger.debug(
+                  `[BaseProvider] Executing MCP tool: ${toolName}`,
+                  args,
+                );
+
+                // Execute via toolRegistry
+                if (this.sdk && typeof this.sdk.executeTool === "function") {
+                  const result = await this.sdk.executeTool(toolName, args);
+                  logger.debug(
+                    `[BaseProvider] MCP tool ${toolName} result:`,
+                    result,
+                  );
+                  return result;
+                }
+
+                throw new Error(
+                  `Cannot execute MCP tool ${toolName}: SDK not available`,
+                );
+              },
+            });
+
+            logger.debug(
+              `[BaseProvider] Successfully converted MCP tool: ${toolName}`,
+            );
+          } catch (toolConversionError) {
+            logger.error(
+              `[BaseProvider] Failed to convert MCP tool: ${mcpTool.name}`,
+              toolConversionError,
+            );
+          }
+        }
+      } catch (error) {
+        logger.debug(
+          `[BaseProvider] Failed to load MCP tools: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
 
-    // Add MCP tools if available
+    // Legacy MCP tools support (keep for compatibility)
+    if (!this.mcpTools) {
+      this.mcpTools = {};
+    }
     if (this.mcpTools) {
       Object.assign(tools, this.mcpTools);
     }

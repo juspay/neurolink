@@ -1,6 +1,5 @@
 /**
  * CLI-specific type definitions for NeuroLink
- * Replaces 'any' types in CLI commands and arguments
  */
 
 import type { UnknownRecord, JsonValue } from "./common.js";

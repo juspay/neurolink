@@ -261,7 +261,7 @@ class FactoryProcessingCache {
   }
 
   /**
-   * Hash any value to a numeric hash
+   * Hash random value to a numeric hash
    * Optimized for different value types
    */
   private hashValue(value: unknown): number {

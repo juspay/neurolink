@@ -123,7 +123,7 @@ export class DynamicModelProvider {
     );
 
     throw new Error(
-      `Failed to load model configuration from any source. Attempted: ${errors.map((e) => e.source).join(", ")}`,
+      `Failed to load model configuration from all source. Attempted: ${errors.map((e) => e.source).join(", ")}`,
     );
   }
 

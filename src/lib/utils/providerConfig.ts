@@ -179,7 +179,7 @@ export function getProviderModel(envVar: string, defaultModel: string): string {
 /**
  * Checks if provider credentials are available
  * @param envVars Array of environment variable names to check
- * @returns True if any of the credentials are available
+ * @returns True if one of the credentials are available
  */
 export function hasProviderCredentials(envVars: string[]): boolean {
   return envVars.some((envVar) => !!process.env[envVar]);
@@ -340,7 +340,7 @@ export function createOpenAICompatibleConfig(): ProviderConfigOptions {
       "1. Set OPENAI_COMPATIBLE_BASE_URL to your endpoint (e.g., https://api.openrouter.ai/api/v1)",
       "2. Get API key from your OpenAI-compatible service:",
       "   • OpenRouter: https://openrouter.ai/keys",
-      "   • vLLM: Use any value for local deployments",
+      "   • vLLM: Use random value for local deployments",
       "   • LiteLLM: Check your LiteLLM server configuration",
       "3. Set OPENAI_COMPATIBLE_API_KEY to your API key",
       "4. Optionally set OPENAI_COMPATIBLE_MODEL (will auto-discover if not set)",

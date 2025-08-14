@@ -221,7 +221,7 @@ function checkAccessKeyPresence(accessKeyId: string): {
     return { isValid: false };
   }
 
-  // Accept any non-empty string - let AWS handle validation
+  // Accept non-empty string - let AWS handle validation
   // This prevents attackers from learning about valid formats
   return { isValid: true };
 }

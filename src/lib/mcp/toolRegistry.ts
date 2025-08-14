@@ -522,7 +522,7 @@ export class MCPToolRegistry extends MCPRegistry {
    * Check if tool exists
    */
   hasTool(toolName: string): boolean {
-    // Check by fully-qualified name first, then fallback to any matching tool name
+    // Check by fully-qualified name first, then fallback to first matching tool name
     if (this.tools.has(toolName)) {
       return true;
     }
@@ -538,7 +538,7 @@ export class MCPToolRegistry extends MCPRegistry {
    * Remove a tool
    */
   removeTool(toolName: string): boolean {
-    // Remove by fully-qualified name first, then fallback to any matching tool name
+    // Remove by fully-qualified name first, then fallback to first matching tool name
     let removed = false;
     if (this.tools.has(toolName)) {
       this.tools.delete(toolName);

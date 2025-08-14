@@ -370,7 +370,7 @@ export class CLICommandFactory {
 
     // Provider and model info
     analyticsText += `   Provider: ${analytics.provider}`;
-    // Check for model in multiple locations: result.model, analytics.model, or any model property
+    // Check for model in multiple locations: result.model, analytics.model, or available model property
     const modelName =
       result.model ||
       analytics.model ||
@@ -933,6 +933,14 @@ export class CLICommandFactory {
       }
 
       const sdk = new NeuroLink();
+
+      if (options.debug) {
+        logger.debug("CLI Tools configuration:", {
+          disableTools: options.disableTools,
+          toolsEnabled: !options.disableTools,
+        });
+      }
+
       const result = await sdk.generate({
         input: { text: inputText },
         provider: options.provider,

@@ -1,6 +1,5 @@
 /**
  * Centralized type exports for NeuroLink
- * Provides type-safe alternatives to 'any' usage throughout the codebase
  */
 
 // Common utility types

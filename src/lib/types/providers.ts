@@ -1,6 +1,5 @@
 /**
  * Provider-specific type definitions for NeuroLink
- * Replaces 'any' types in provider implementations
  */
 
 import type { UnknownRecord, JsonValue } from "./common.js";

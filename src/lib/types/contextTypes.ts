@@ -507,7 +507,7 @@ export class ContextConverter {
                 projectId: legacyContext.projectId,
               }
             : {}),
-          // Include any additional custom data
+          // Include all additional custom data
           ...this.extractCustomData(legacyContext),
         },
       },
@@ -523,7 +523,7 @@ export class ContextConverter {
   }
 
   /**
-   * Create execution context for any domain
+   * Create execution context for required domain
    */
   static createDomainContext(
     domainType: string,
@@ -576,7 +576,7 @@ export class ContextConverter {
       ]);
     }
 
-    // Remove any fields that should be included despite being in the exclude list
+    // Remove filtered fields that should be included despite being in the exclude list
     if (config.includeFields) {
       config.includeFields.forEach((field) => fieldsToExclude.delete(field));
     }

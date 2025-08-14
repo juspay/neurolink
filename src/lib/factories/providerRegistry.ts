@@ -6,6 +6,7 @@ import { AIProviderName, GoogleAIModels, OpenAIModels } from "../core/types.js";
 import { logger } from "../utils/logger.js";
 import type { UnknownRecord } from "../types/common.js";
 import type { MistralProvider as MistralProviderType } from "@ai-sdk/mistral";
+import type { NeuroLinkSDK } from "../core/baseProvider.js";
 
 /**
  * Configuration options for the provider registry
@@ -66,7 +67,7 @@ export class ProviderRegistry {
           sdk?: UnknownRecord,
         ) => {
           const { OpenAIProvider } = await import("../providers/openAI.js");
-          return new OpenAIProvider(modelName, sdk);
+          return new OpenAIProvider(modelName, sdk as NeuroLinkSDK);
         },
         OpenAIModels.GPT_4O_MINI,
         ["gpt", "chatgpt"],
@@ -120,11 +121,15 @@ export class ProviderRegistry {
       // Register Google Vertex AI provider
       ProviderFactory.registerProvider(
         AIProviderName.VERTEX,
-        async (modelName?: string) => {
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+        ) => {
           const { GoogleVertexProvider } = await import(
             "../providers/googleVertex.js"
           );
-          return new GoogleVertexProvider(modelName);
+          return new GoogleVertexProvider(modelName, sdk);
         },
         "claude-sonnet-4@20250514",
         ["vertex", "googleVertex"],

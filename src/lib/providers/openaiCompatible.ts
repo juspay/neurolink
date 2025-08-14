@@ -71,7 +71,7 @@ interface ModelsResponse {
 
 /**
  * OpenAI Compatible Provider - BaseProvider Implementation
- * Provides access to any OpenAI-compatible endpoint (OpenRouter, vLLM, LiteLLM, etc.)
+ * Provides access to one of the OpenAI-compatible endpoint (OpenRouter, vLLM, LiteLLM, etc.)
  */
 export class OpenAICompatibleProvider extends BaseProvider {
   private model?: LanguageModelV1;
@@ -90,7 +90,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
     this.config = getOpenAICompatibleConfig();
 
     // Create OpenAI SDK instance configured for custom endpoint
-    // This allows us to use any OpenAI-compatible API by simply changing the baseURL
+    // This allows us to use OpenAI-compatible API by simply changing the baseURL
     this.customOpenAI = createOpenAI({
       baseURL: this.config.baseURL,
       apiKey: this.config.apiKey,

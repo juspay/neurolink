@@ -117,7 +117,7 @@ export class HuggingFaceProvider extends BaseProvider {
       "wizardcoder",
     ];
 
-    // Check if current model matches any tool-capable model patterns
+    // Check if current model matches tool-capable model patterns
     const isToolCapable = toolCapableModels.some((capableModel) =>
       modelName.includes(capableModel),
     );
