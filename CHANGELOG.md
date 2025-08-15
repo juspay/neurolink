@@ -1,3 +1,9 @@
+## [7.14.1](https://github.com/juspay/neurolink/compare/v7.14.0...v7.14.1) (2025-08-15)
+
+### Bug Fixes
+
+- **(mcp):** implement external MCP server integration with real tool execution ([9427a95](https://github.com/juspay/neurolink/commit/9427a95599a829f82e697eaf30388a8f3c899d4f))
+
 ## [7.14.0](https://github.com/juspay/neurolink/compare/v7.13.0...v7.14.0) (2025-08-14)
 
 ### Features
