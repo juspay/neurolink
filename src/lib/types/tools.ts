@@ -13,9 +13,18 @@ import type {
 } from "./common.js";
 
 /**
+ * Commonly used Zod schema type aliases for cleaner type declarations
+ */
+import type { ZodUnknownSchema } from "./typeAliases.js";
+export type { ZodUnknownSchema } from "./typeAliases.js";
+export type ZodAnySchema = z.ZodSchema<unknown>;
+export type ZodObjectSchema = z.ZodObject<z.ZodRawShape>;
+export type ZodStringSchema = z.ZodString;
+
+/**
  * Tool parameter schema types
  */
-export type ToolParameterSchema = z.ZodSchema | Record<string, JsonValue>;
+export type ToolParameterSchema = ZodUnknownSchema | Record<string, JsonValue>;
 
 /**
  * Standard tool input parameters
@@ -96,7 +105,7 @@ export interface ToolDefinition<TArgs = ToolArgs, TResult = JsonValue> {
   parameters?: ToolParameterSchema;
   metadata?: ToolMetadata;
   execute: (
-    args: TArgs,
+    params: TArgs,
     context?: ToolContext,
   ) => Promise<ToolResult<TResult>> | ToolResult<TResult>;
 }
@@ -106,9 +115,9 @@ export interface ToolDefinition<TArgs = ToolArgs, TResult = JsonValue> {
  */
 export interface SimpleTool<TArgs = ToolArgs, TResult = JsonValue> {
   description: string;
-  parameters?: z.ZodSchema;
+  parameters?: ZodUnknownSchema;
   metadata?: ToolMetadata;
-  execute: (args: TArgs, context?: ToolContext) => Promise<TResult> | TResult;
+  execute: (params: TArgs, context?: ToolContext) => Promise<TResult>;
 }
 
 /**
@@ -128,7 +137,7 @@ export interface ToolRegistryEntry {
  */
 export interface ToolExecution {
   toolName: string;
-  args: ToolArgs;
+  params: ToolArgs;
   result: ToolResult;
   executionTime: number;
   timestamp: number;
@@ -151,7 +160,7 @@ export interface AvailableTool {
 export interface ToolValidationOptions {
   customValidator?: (
     toolName: string,
-    args: ToolArgs,
+    params: ToolArgs,
   ) => boolean | Promise<boolean>;
   validateSchema?: boolean;
   allowUnknownProperties?: boolean;
@@ -173,7 +182,7 @@ export interface AiSdkToolCall {
   type: "tool-call";
   toolCallId: string;
   toolName: string;
-  args: ToolArgs;
+  params: ToolArgs;
 }
 
 /**

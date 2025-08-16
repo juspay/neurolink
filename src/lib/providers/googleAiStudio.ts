@@ -1,6 +1,6 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import type { ZodType, ZodTypeDef } from "zod";
 import { streamText, Output, type Schema, type LanguageModelV1 } from "ai";
+import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import type {
   AIProviderName,
   TextGenerationOptions,
@@ -101,7 +101,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
   // executeGenerate removed - BaseProvider handles all generation with tools
   protected async executeStream(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
     this.validateStreamOptions(options);
 

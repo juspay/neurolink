@@ -1,6 +1,6 @@
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import type { AmazonBedrockProvider as BedrockProviderType } from "@ai-sdk/amazon-bedrock";
-import type { ZodType, ZodTypeDef } from "zod";
+import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import { streamText, Output, type Schema, type LanguageModelV1 } from "ai";
 import type {
   AIProviderName,
@@ -121,7 +121,7 @@ export class AmazonBedrockProvider extends BaseProvider {
 
   protected async executeStream(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
     try {
       this.validateStreamOptions(options);

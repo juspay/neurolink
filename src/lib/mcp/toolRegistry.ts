@@ -9,7 +9,8 @@ import type {
   ToolInfo,
 } from "./contracts/mcpContract.js";
 import type { ToolResult } from "./factory.js";
-import type { JsonValue, UnknownRecord } from "../types/common.js";
+import type { UnknownRecord, JsonValue } from "../types/common.js";
+import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import type { MCPServerInfo, MCPServerCategory } from "../types/mcpTypes.js";
 import { MCPRegistry } from "./registry.js";
 import { registryLogger } from "../utils/logger.js";
@@ -286,7 +287,29 @@ export class MCPToolRegistry extends MCPRegistry {
   }
 
   /**
-   * Execute a tool with enhanced context
+   * Execute a tool with enhanced context and automatic result wrapping
+   *
+   * This method handles both raw return values and ToolResult objects:
+   * - Raw values (primitives, objects) are automatically wrapped in ToolResult format
+   * - Existing ToolResult objects are enhanced with execution metadata
+   * - All results include execution timing and context information
+   *
+   * @param toolName - Name of the tool to execute
+   * @param args - Parameters to pass to the tool execution function
+   * @param context - Execution context with session, user, and environment info
+   * @returns Promise resolving to ToolResult object with data, metadata, and usage info
+   * @throws Error if tool is not found or execution fails
+   *
+   * @example
+   * ```typescript
+   * // Tool that returns raw value
+   * const result = await toolRegistry.executeTool("calculator", { a: 5, b: 3, op: "add" });
+   * // result.data === 8, result.metadata contains execution info
+   *
+   * // Tool that returns ToolResult
+   * const result = await toolRegistry.executeTool("complexTool", { input: "test" });
+   * // result is enhanced ToolResult with additional metadata
+   * ```
    */
   async executeTool<T = unknown>(
     toolName: string,
@@ -344,22 +367,48 @@ export class MCPToolRegistry extends MCPRegistry {
       registryLogger.debug(`Executing tool '${toolName}' with args:`, args);
       const toolResult = await toolImpl.execute(args, execContext);
 
-      // Add metadata to the tool result (don't double-wrap)
-      const toolResultObj = toolResult as unknown as ToolResult;
-      const result = {
-        ...toolResultObj,
-        usage: {
-          ...(toolResultObj.usage || {}),
-          executionTime: Date.now() - startTime,
-        },
-        metadata: {
-          ...(toolResultObj.metadata || {}),
-          toolName,
-          serverId: tool.serverId,
-          sessionId: execContext.sessionId,
-          executionTime: Date.now() - startTime,
-        },
-      } as T;
+      // Properly wrap raw results in ToolResult format
+      let result: ToolResult;
+
+      // Check if result is already a ToolResult object
+      if (
+        toolResult &&
+        typeof toolResult === "object" &&
+        "success" in toolResult &&
+        typeof (toolResult as ToolResult).success === "boolean"
+      ) {
+        // Result is already a ToolResult, enhance with metadata
+        const toolResultObj = toolResult as ToolResult;
+        result = {
+          ...toolResultObj,
+          usage: {
+            ...(toolResultObj.usage || {}),
+            executionTime: Date.now() - startTime,
+          },
+          metadata: {
+            ...(toolResultObj.metadata || {}),
+            toolName,
+            serverId: tool.serverId,
+            sessionId: execContext.sessionId,
+            executionTime: Date.now() - startTime,
+          },
+        };
+      } else {
+        // Result is a raw value, wrap it in ToolResult format
+        result = {
+          success: true,
+          data: toolResult,
+          usage: {
+            executionTime: Date.now() - startTime,
+          },
+          metadata: {
+            toolName,
+            serverId: tool.serverId,
+            sessionId: execContext.sessionId,
+            executionTime: Date.now() - startTime,
+          },
+        };
+      }
 
       // Update statistics
       const duration = Date.now() - startTime;
@@ -368,7 +417,7 @@ export class MCPToolRegistry extends MCPRegistry {
       registryLogger.debug(
         `Tool '${toolName}' executed successfully in ${duration}ms`,
       );
-      return result;
+      return result as T;
     } catch (error) {
       registryLogger.error(`Tool execution failed: ${toolName}`, error);
 
@@ -605,6 +654,64 @@ export class MCPToolRegistry extends MCPRegistry {
     toolImpl: ToolImplementation,
   ): void {
     registryLogger.debug(`Registering tool: ${toolId}`);
+
+    // Import validation functions synchronously - they are pure functions
+    let validateTool: (name: string, tool: unknown) => void;
+    let isToolNameAvailable: (name: string) => boolean;
+    let suggestToolNames: (name: string) => string[];
+
+    try {
+      // Try ES module import first
+      const toolRegistrationModule = require("../sdk/toolRegistration.js");
+      ({ validateTool, isToolNameAvailable, suggestToolNames } =
+        toolRegistrationModule);
+    } catch (error) {
+      // Fallback: skip validation if import fails (graceful degradation)
+      registryLogger.warn(
+        "Tool validation module not available, skipping advanced validation",
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+      // Create minimal validation functions
+      validateTool = () => {}; // No-op
+      isToolNameAvailable = () => true; // Allow all names
+      suggestToolNames = () => ["alternative_tool"];
+    }
+
+    // Check if tool name is available (not reserved)
+    if (!isToolNameAvailable(toolId)) {
+      const suggestions = suggestToolNames(toolId);
+      registryLogger.error(
+        `Tool registration failed for ${toolId}: Name not available`,
+      );
+      throw new Error(
+        `Tool name '${toolId}' is not available (reserved or invalid format). ` +
+          `Suggested alternatives: ${suggestions.slice(0, 3).join(", ")}`,
+      );
+    }
+
+    // Create a simplified tool object for validation
+    const toolForValidation = {
+      description: toolInfo.description || "",
+      execute: async () => "" as JsonValue,
+      parameters: undefined as ZodUnknownSchema | undefined,
+      metadata: {
+        category: toolInfo.category,
+        serverId: toolInfo.serverId,
+      },
+    };
+
+    // Use comprehensive validation logic
+    try {
+      validateTool(toolId, toolForValidation);
+    } catch (error) {
+      registryLogger.error(
+        `Tool registration failed for ${toolId}:`,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
 
     this.tools.set(toolId, toolInfo);
     this.toolImpls.set(toolId, toolImpl);

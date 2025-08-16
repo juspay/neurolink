@@ -6,6 +6,11 @@
 
 import { z } from "zod";
 import type { ExecutionContext } from "./contracts/mcpContract.js";
+import {
+  validateMCPTool,
+  ValidationError,
+  createValidationSummary,
+} from "../utils/parameterValidation.js";
 
 /**
  * MCP Server Categories for organization and discovery
@@ -107,23 +112,76 @@ export interface ToolResult {
 }
 
 /**
- * MCP Tool Interface - Standard compatible with NeuroLink enhancements
+ * MCP Tool Interface - Standalone definition to avoid confusion with ToolDefinition execute signature
+ */
+/**
+ * NeuroLink MCP Tool Interface - Standardized tool definition for MCP integration
+ *
+ * This interface defines the contract for all tools in the NeuroLink ecosystem,
+ * ensuring consistent execution patterns and metadata handling across different
+ * MCP servers and tool implementations.
+ *
+ * Key features:
+ * - Promise-based execution with ToolResult return type
+ * - Rich context support for session management and permissions
+ * - Optional schema validation for input/output
+ * - Comprehensive metadata support for tool discovery
+ *
+ * @example
+ * ```typescript
+ * const calculatorTool: NeuroLinkMCPTool = {
+ *   name: "calculator",
+ *   description: "Performs basic arithmetic operations",
+ *   category: "math",
+ *   inputSchema: z.object({ a: z.number(), b: z.number(), op: z.string() }),
+ *   async execute(params, context) {
+ *     const { a, b, op } = params as { a: number; b: number; op: string };
+ *     const result = op === "add" ? a + b : a - b;
+ *     return { success: true, data: result };
+ *   }
+ * };
+ * ```
  */
 export interface NeuroLinkMCPTool {
+  /** Unique tool identifier for MCP registration and execution */
   name: string;
+
+  /** Human-readable description of tool functionality */
   description: string;
+
+  /** Optional category for tool organization and discovery */
+  category?: string;
+
+  /** Optional input schema for parameter validation (Zod or JSON Schema) */
+  inputSchema?: unknown;
+
+  /** Optional output schema for result validation */
+  outputSchema?: unknown;
+
+  /** Implementation status flag for development tracking */
+  isImplemented?: boolean;
+
+  /** Required permissions for tool execution in secured environments */
+  permissions?: string[];
+
+  /** Tool version for compatibility and update management */
+  version?: string;
+
+  /** Additional metadata for tool information and capabilities */
+  metadata?: Record<string, unknown>;
+
+  /**
+   * Tool execution function with standardized signature
+   *
+   * @param params - Input parameters for the tool (validated against inputSchema if provided)
+   * @param context - Execution context with session, user, and environment information
+   * @returns Promise resolving to ToolResult with success status, data, and metadata
+   * @throws ValidationError if parameters fail validation
+   */
   execute: (
     params: unknown,
     context: NeuroLinkExecutionContext,
   ) => Promise<ToolResult>;
-  inputSchema?: z.ZodSchema;
-  outputSchema?: z.ZodSchema;
-  isImplemented?: boolean;
-  category?: string;
-  permissions?: string[];
-  version?: string;
-  // Extension point for tool metadata
-  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -188,7 +246,7 @@ const ServerConfigSchema = z.object({
     ])
     .optional(),
   visibility: z.enum(["public", "private", "organization"]).optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.unknown()).optional(),
   dependencies: z.array(z.string()).optional(),
   capabilities: z.array(z.string()).optional(),
 });
@@ -242,10 +300,15 @@ export function createMCPServer(config: MCPServerConfig): NeuroLinkMCPServer {
 
     // Tool registration method
     registerTool(tool: NeuroLinkMCPTool): NeuroLinkMCPServer {
-      // Validate tool has required fields
-      if (!tool.name || !tool.description || !tool.execute) {
-        throw new Error(
-          `Invalid tool: name, description, and execute are required`,
+      // Comprehensive tool validation using centralized utilities
+      const validation = validateMCPTool(tool);
+      if (!validation.isValid) {
+        const summary = createValidationSummary(validation);
+        throw new ValidationError(
+          `Invalid tool '${tool.name}': ${summary}`,
+          "tool",
+          "VALIDATION_FAILED",
+          validation.suggestions,
         );
       }
 
@@ -281,30 +344,13 @@ export function createMCPServer(config: MCPServerConfig): NeuroLinkMCPServer {
 }
 
 /**
- * Utility function to validate tool interface
+ * Utility function to validate tool interface using centralized validation
+ * Ensures proper async patterns and type safety
  */
 export function validateTool(tool: NeuroLinkMCPTool): boolean {
   try {
-    // Check required fields
-    if (!tool.name || typeof tool.name !== "string") {
-      return false;
-    }
-    if (!tool.description || typeof tool.description !== "string") {
-      return false;
-    }
-    if (!tool.execute || typeof tool.execute !== "function") {
-      return false;
-    }
-
-    // Validate optional schemas if present
-    if (tool.inputSchema && !(tool.inputSchema instanceof z.ZodSchema)) {
-      return false;
-    }
-    if (tool.outputSchema && !(tool.outputSchema instanceof z.ZodSchema)) {
-      return false;
-    }
-
-    return true;
+    const validation = validateMCPTool(tool);
+    return validation.isValid;
   } catch (error) {
     return false;
   }
@@ -328,6 +374,39 @@ export function getServerInfo(server: NeuroLinkMCPServer): {
     category: server.category,
     toolCount: Object.keys(server.tools).length,
     capabilities: server.capabilities || [],
+  };
+}
+
+/**
+ * Async utility function to validate all tools in a server
+ * Ensures all registered tools follow proper async patterns
+ */
+export async function validateServerTools(server: NeuroLinkMCPServer): Promise<{
+  isValid: boolean;
+  invalidTools: string[];
+  errors: string[];
+}> {
+  const invalidTools: string[] = [];
+  const errors: string[] = [];
+
+  for (const [toolName, tool] of Object.entries(server.tools)) {
+    try {
+      if (!validateTool(tool)) {
+        invalidTools.push(toolName);
+        errors.push(`Tool '${toolName}' does not follow proper async patterns`);
+      }
+    } catch (error) {
+      invalidTools.push(toolName);
+      errors.push(
+        `Tool '${toolName}' validation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  return {
+    isValid: invalidTools.length === 0,
+    invalidTools,
+    errors,
   };
 }
 

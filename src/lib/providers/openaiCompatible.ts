@@ -1,6 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import type { ZodType, ZodTypeDef } from "zod";
 import { streamText, type Schema, type LanguageModelV1 } from "ai";
+import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import type {
   AIProviderName,
   TextGenerationOptions,
@@ -231,7 +231,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
    */
   protected async executeStream(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
     this.validateStreamOptions(options);
 

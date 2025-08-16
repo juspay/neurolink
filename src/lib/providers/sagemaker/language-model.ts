@@ -16,6 +16,7 @@ import { SageMakerRuntimeClient } from "./client.js";
 import { handleSageMakerError } from "./errors.js";
 import { estimateTokenUsage, createSageMakerStream } from "./streaming.js";
 import type { SageMakerConfig, SageMakerModelConfig } from "./types.js";
+import type { ConnectivityResult } from "../../types/typeAliases.js";
 import {
   AdaptiveSemaphore,
   createAdaptiveSemaphore,
@@ -829,7 +830,7 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
   /**
    * Test basic connectivity to the SageMaker endpoint
    */
-  async testConnectivity(): Promise<{ success: boolean; error?: string }> {
+  async testConnectivity(): Promise<ConnectivityResult> {
     try {
       // Use the same pattern as Ollama - pass messages directly
       const result = await this.doGenerate({

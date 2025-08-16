@@ -8,7 +8,9 @@ import type { GenerateOptions } from "../types/generateTypes.js";
 import type { StreamOptions } from "../types/streamTypes.js";
 import type { TextGenerationOptions } from "../core/types.js";
 import type { UnknownRecord, JsonValue } from "../types/common.js";
+import type { StandardRecord } from "../types/typeAliases.js";
 import { logger } from "./logger.js";
+import { isNonNullObject } from "./typeUtils.js";
 // Removed crypto import - using faster string-based hash instead
 
 /**
@@ -71,7 +73,7 @@ class FactoryProcessingCache {
    */
   private generateCacheKey(options: GenerateOptions | StreamOptions): string {
     // Use object identity cache if possible for performance
-    if (typeof options === "object" && options !== null) {
+    if (isNonNullObject(options)) {
       const cachedKey = this.objectKeyCache.get(options as object);
       if (cachedKey) {
         this.stats.keysCacheHits++;
@@ -91,7 +93,7 @@ class FactoryProcessingCache {
       const key = combinedHash.toString(16);
 
       // Cache the computed key for future use (WeakMap auto-cleans on GC)
-      if (typeof options === "object" && options !== null) {
+      if (isNonNullObject(options)) {
         this.objectKeyCache.set(options as object, key);
       }
 
@@ -119,7 +121,7 @@ class FactoryProcessingCache {
       }
 
       // For objects, create a stable representation by sorting keys
-      const record = obj as Record<string, unknown>;
+      const record = obj as StandardRecord;
       const sortedKeys = Object.keys(record).sort();
       const pairs = sortedKeys.map(
         (key) => `${key}:${this.stableStringify(record[key])}`,
@@ -140,7 +142,7 @@ class FactoryProcessingCache {
       return this.hashValue(obj);
     }
 
-    const record = obj as Record<string, unknown>;
+    const record = obj as StandardRecord;
     let hash = 0;
 
     // Extract only the most identifying fields - ordered by importance
@@ -186,7 +188,7 @@ class FactoryProcessingCache {
       return String(obj || "");
     }
 
-    const record = obj as Record<string, unknown>;
+    const record = obj as StandardRecord;
 
     // Pre-allocate array with known maximum size for better performance
     const keyFields: string[] = [];
@@ -437,8 +439,8 @@ function isJsonValue(value: unknown): value is JsonValue {
     return value.every((item) => isJsonValue(item));
   }
 
-  if (typeof value === "object" && value !== null) {
-    const obj = value as Record<string, unknown>;
+  if (isNonNullObject(value)) {
+    const obj = value as StandardRecord;
     return Object.values(obj).every((val) => isJsonValue(val));
   }
 
@@ -458,7 +460,7 @@ function validateAndConvertContext(
   }
 
   const validatedContext: Record<string, JsonValue> = {};
-  const obj = context as Record<string, unknown>;
+  const obj = context as StandardRecord;
 
   for (const [key, value] of Object.entries(obj)) {
     if (isJsonValue(value)) {
@@ -481,7 +483,7 @@ function processFactoryOptionsInternal(
 ): {
   hasFactoryConfig: boolean;
   domainType?: string;
-  domainConfig?: Record<string, unknown>;
+  domainConfig?: StandardRecord;
   enhancementType?: string;
   processedContext?: Record<string, JsonValue>;
 } {
@@ -567,7 +569,7 @@ export function processFactoryOptions(
 ): {
   hasFactoryConfig: boolean;
   domainType?: string;
-  domainConfig?: Record<string, unknown>;
+  domainConfig?: StandardRecord;
   enhancementType?: string;
   processedContext?: Record<string, JsonValue>;
 } {

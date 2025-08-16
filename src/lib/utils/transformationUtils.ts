@@ -1,0 +1,492 @@
+/**
+ * Object Transformation Utilities
+ * Centralizes repeated object transformation patterns to improve code reuse and maintainability
+ */
+
+import type { UnknownRecord } from "../types/common.js";
+import type {
+  StandardRecord,
+  StringArray,
+  ToolExecutionFunction,
+} from "../types/typeAliases.js";
+
+// ============================================================================
+// TOOL EXECUTION TRANSFORMATIONS
+// ============================================================================
+
+/**
+ * Transform tool execution results from AI SDK format to NeuroLink GenerateResult format
+ * Handles both single execution and array formats with robust type checking
+ *
+ * @param toolExecutions - Array of tool execution results from AI SDK (optional)
+ * @returns Array of standardized tool execution objects with name, input, output, and duration
+ *
+ * @example
+ * ```typescript
+ * const executions = transformToolExecutions([
+ *   { name: "calculator", input: { a: 5, b: 3 }, output: 8, duration: 150 }
+ * ]);
+ * // Returns: [{ name: "calculator", input: { a: 5, b: 3 }, output: 8, duration: 150 }]
+ * ```
+ */
+export function transformToolExecutions(toolExecutions?: unknown[]): Array<{
+  name: string;
+  input: StandardRecord;
+  output: unknown;
+  duration: number;
+}> {
+  if (!toolExecutions || !Array.isArray(toolExecutions)) {
+    return [];
+  }
+
+  return toolExecutions.map((te) => {
+    const teRecord = te as UnknownRecord;
+    return {
+      name: (teRecord.name as string) || "",
+      input: (teRecord.input as StandardRecord) || {},
+      output: (teRecord.output as unknown) || "success",
+      duration: (teRecord.duration as number) || 0,
+    };
+  });
+}
+
+/**
+ * Transform tool execution results from AI SDK format to internal format (for MCP generation)
+ * Used in tryMCPGeneration method
+ */
+export function transformToolExecutionsForMCP(
+  toolExecutions?: unknown[],
+): Array<{
+  toolName: string;
+  executionTime: number;
+  success: boolean;
+  serverId?: string;
+}> {
+  if (!toolExecutions || !Array.isArray(toolExecutions)) {
+    return [];
+  }
+
+  return toolExecutions.map((te) => {
+    const teRecord = te as UnknownRecord;
+    return {
+      toolName: (teRecord.name as string) || "",
+      executionTime: (teRecord.duration as number) || 0,
+      success: true, // Assume success if tool executed (AI providers handle failures differently)
+      serverId: (teRecord.serverId as string) || undefined,
+    };
+  });
+}
+
+// ============================================================================
+// AVAILABLE TOOLS TRANSFORMATIONS
+// ============================================================================
+
+/**
+ * Transform available tools from internal format to GenerateResult format
+ * Ensures consistent tool information structure across the API with schema normalization
+ *
+ * @param availableTools - Array of tool definitions from various sources (MCP servers, builtin tools, etc.)
+ * @returns Array of normalized tool descriptions with consistent schema format
+ *
+ * @example
+ * ```typescript
+ * const tools = transformAvailableTools([
+ *   { name: "calculator", description: "Math tool", server: "builtin", inputSchema: {...} }
+ * ]);
+ * // Returns: [{ name: "calculator", description: "Math tool", serverId: "builtin", schema: {...} }]
+ * ```
+ */
+export function transformAvailableTools(
+  availableTools?: Array<{
+    name: string;
+    description: string;
+    server: string;
+    category?: string;
+    inputSchema?: StandardRecord;
+    parameters?: StandardRecord;
+    schema?: StandardRecord;
+  }>,
+): Array<{
+  name: string;
+  description: string;
+  server: string;
+  parameters: StandardRecord;
+}> {
+  if (!availableTools || !Array.isArray(availableTools)) {
+    return [];
+  }
+
+  return availableTools.map((tool) => {
+    const toolRecord = tool as UnknownRecord;
+    return {
+      name: tool.name || "",
+      description: tool.description || "",
+      server: tool.server || "",
+      parameters:
+        (toolRecord.inputSchema as StandardRecord) ||
+        (toolRecord.parameters as StandardRecord) ||
+        (toolRecord.schema as StandardRecord) ||
+        {},
+    };
+  });
+}
+
+/**
+ * Transform tools for MCP generation format
+ * Simple transformation for internal MCP tool lists
+ */
+export function transformToolsForMCP(
+  availableTools: Array<{
+    name: string;
+    description: string;
+    server: string;
+    category?: string;
+  }>,
+): Array<{
+  name: string;
+  description: string;
+  server: string;
+  category?: string;
+}> {
+  return availableTools.map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    server: tool.server,
+    category: tool.category,
+  }));
+}
+
+/**
+ * Transform tools to expected format with required properties
+ * Used in getAllAvailableTools method for final output
+ */
+export function transformToolsToExpectedFormat(
+  tools: Array<{
+    name: string;
+    description?: string;
+    serverId?: string;
+    category?: string;
+    inputSchema?: StandardRecord;
+  }>,
+): Array<{
+  name: string;
+  description: string;
+  server: string;
+  category?: string;
+  inputSchema?: StandardRecord;
+}> {
+  return tools.map((tool) => ({
+    name: tool.name,
+    description: tool.description || "No description available",
+    server: tool.serverId || "unknown",
+    category: tool.category,
+    inputSchema: tool.inputSchema,
+  }));
+}
+
+// ============================================================================
+// STRING AND ARRAY TRANSFORMATIONS
+// ============================================================================
+
+/**
+ * Extract tool names from tool objects
+ * Common pattern for creating arrays of tool names
+ */
+export function extractToolNames<T extends { name: string }>(
+  tools: T[],
+): StringArray {
+  return tools.map((tool) => tool.name);
+}
+
+/**
+ * Extract object keys as a comma-separated string
+ * Common pattern for logging and debugging
+ */
+export function getKeysAsString(
+  obj: StandardRecord,
+  fallback = "none",
+): string {
+  const keys = Object.keys(obj);
+  return keys.length > 0 ? keys.join(", ") : fallback;
+}
+
+/**
+ * Count object properties
+ * Common pattern for metrics and logging
+ */
+export function getKeyCount(obj: StandardRecord): number {
+  return Object.keys(obj).length;
+}
+
+// ============================================================================
+// SCHEMA TRANSFORMATIONS
+// ============================================================================
+
+/**
+ * Transform schema properties to parameter descriptions
+ * Used in tool-aware system prompt generation
+ */
+export function transformSchemaToParameterDescription(schema: {
+  properties?: StandardRecord;
+  required?: string[];
+}): string {
+  if (!schema?.properties) {
+    return "";
+  }
+
+  const requiredParams = new Set(schema.required || []);
+  return Object.entries(schema.properties)
+    .map(([key, value]: [string, unknown]) => {
+      const typedValue = value as StandardRecord;
+      const required = requiredParams.has(key) ? " (required)" : "";
+      return `  - ${key}: ${typedValue.type || "unknown"}${required}`;
+    })
+    .join("\n");
+}
+
+/**
+ * Transform tools to tool descriptions for system prompts
+ * Consolidated pattern for creating tool-aware prompts
+ */
+export function transformToolsToDescriptions(
+  availableTools: Array<{
+    name: string;
+    description: string;
+    server: string;
+    inputSchema?: StandardRecord;
+  }>,
+): string {
+  return availableTools
+    .map((tool) => {
+      const schema = tool.inputSchema as {
+        properties?: StandardRecord;
+        required?: string[];
+      };
+
+      let params = "";
+      if (schema?.properties) {
+        params = transformSchemaToParameterDescription(schema);
+      }
+
+      return `- ${tool.name}: ${tool.description} (from ${tool.server})\n${params}`;
+    })
+    .join("\n\n");
+}
+
+// ============================================================================
+// VALIDATION TRANSFORMATIONS
+// ============================================================================
+
+/**
+ * Transform parameters for validation
+ * Common pattern when logging or checking parameter structures
+ */
+export function transformParamsForLogging(params: unknown): string {
+  if (!params || typeof params !== "object") {
+    return String(params);
+  }
+
+  const record = params as StandardRecord;
+  return `${Object.keys(record).length} params`;
+}
+
+/**
+ * Safe property extraction from unknown objects
+ * Common pattern for safely accessing properties from unknown structures
+ */
+export function safeExtractProperty<T = unknown>(
+  obj: unknown,
+  key: string,
+  fallback: T,
+): T {
+  if (!obj || typeof obj !== "object" || obj === null) {
+    return fallback;
+  }
+
+  const record = obj as StandardRecord;
+  const value = record[key];
+
+  return value !== undefined ? (value as T) : fallback;
+}
+
+/**
+ * Safe extraction of string properties
+ * Specialized version for string properties with fallback
+ */
+export function safeExtractString(
+  obj: unknown,
+  key: string,
+  fallback = "",
+): string {
+  const value = safeExtractProperty(obj, key, fallback);
+  return typeof value === "string" ? value : fallback;
+}
+
+/**
+ * Safe extraction of number properties
+ * Specialized version for number properties with fallback
+ */
+export function safeExtractNumber(
+  obj: unknown,
+  key: string,
+  fallback = 0,
+): number {
+  const value = safeExtractProperty(obj, key, fallback);
+  return typeof value === "number" ? value : fallback;
+}
+
+/**
+ * Safe extraction of boolean properties
+ * Specialized version for boolean properties with fallback
+ */
+export function safeExtractBoolean(
+  obj: unknown,
+  key: string,
+  fallback = false,
+): boolean {
+  const value = safeExtractProperty(obj, key, fallback);
+  return typeof value === "boolean" ? value : fallback;
+}
+
+// ============================================================================
+// COLLECTION TRANSFORMATIONS
+// ============================================================================
+
+/**
+ * Transform Map to array of values
+ * Common pattern for converting tool maps to arrays
+ */
+export function mapToArray<T>(map: Map<string, T>): T[] {
+  return Array.from(map.values());
+}
+
+/**
+ * Transform Map to array of key-value pairs
+ * Common pattern for processing map entries
+ */
+export function mapToEntries<T>(map: Map<string, T>): Array<[string, T]> {
+  return Array.from(map.entries());
+}
+
+/**
+ * Group array items by a key
+ * Common pattern for organizing tools or other objects by category
+ */
+export function groupBy<T>(
+  items: T[],
+  keyFn: (item: T) => string,
+): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+
+  for (const item of items) {
+    const key = keyFn(item);
+    const existing = groups.get(key) || [];
+    existing.push(item);
+    groups.set(key, existing);
+  }
+
+  return groups;
+}
+
+/**
+ * Remove undefined properties from objects
+ * Common pattern for cleaning up object structures
+ */
+export function removeUndefinedProperties<T extends StandardRecord>(obj: T): T {
+  const cleaned = {} as T;
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      (cleaned as StandardRecord)[key] = value;
+    }
+  }
+
+  return cleaned;
+}
+
+/**
+ * Merge objects with undefined handling
+ * Common pattern for combining configuration objects
+ */
+export function mergeWithUndefinedHandling<T extends StandardRecord>(
+  target: T,
+  ...sources: Partial<T>[]
+): T {
+  const result = { ...target };
+
+  for (const source of sources) {
+    for (const [key, value] of Object.entries(source)) {
+      if (value !== undefined) {
+        (result as StandardRecord)[key] = value;
+      }
+    }
+  }
+
+  return result;
+}
+
+// ============================================================================
+// TOOL OPTIMIZATION UTILITIES
+// ============================================================================
+
+/**
+ * Optimize tool information for collection with minimal object creation
+ * Consolidates repeated optimization patterns across different tool sources
+ *
+ * @param tool - Tool information to optimize
+ * @param defaults - Default values to apply if missing
+ * @returns Optimized tool with minimal object creation
+ *
+ * @example
+ * ```typescript
+ * const optimized = optimizeToolForCollection(tool, {
+ *   serverId: "builtin",
+ *   category: "math"
+ * });
+ * ```
+ */
+export function optimizeToolForCollection<T extends Record<string, unknown>>(
+  tool: T,
+  defaults: {
+    description?: string;
+    serverId?: string;
+    category?: string;
+    inputSchema?: StandardRecord;
+  },
+): T {
+  // Check what properties actually need modification
+  const needsDescription = !tool.description && defaults.description;
+  const needsServerId = !tool.serverId && defaults.serverId;
+  const needsCategory = !tool.category && defaults.category;
+  const needsInputSchema = !tool.inputSchema && defaults.inputSchema;
+  const hasParametersConflict = tool.inputSchema && "parameters" in tool;
+
+  // Only create new object if modifications are actually needed
+  if (
+    !needsDescription &&
+    !needsServerId &&
+    !needsCategory &&
+    !needsInputSchema &&
+    !hasParametersConflict
+  ) {
+    return tool; // Return original tool without modification
+  }
+
+  // Create optimized tool with only necessary changes
+  const optimizedTool = {
+    ...tool,
+    ...(needsDescription && { description: defaults.description }),
+    ...(needsServerId && { serverId: defaults.serverId }),
+    ...(needsCategory && { category: defaults.category }),
+    ...(needsInputSchema && { inputSchema: defaults.inputSchema }),
+  };
+
+  // Clean up schema conflicts if present
+  if (hasParametersConflict) {
+    const cleanedTool = { ...optimizedTool };
+    delete (cleanedTool as StandardRecord).parameters;
+    return cleanedTool;
+  }
+
+  return optimizedTool;
+}

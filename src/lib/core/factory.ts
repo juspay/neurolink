@@ -12,6 +12,7 @@ import type {
   TextGenerationOptions,
 } from "./types.js";
 import type { UnknownRecord } from "../types/common.js";
+import type { ProviderPairResult } from "../types/typeAliases.js";
 
 const componentIdentifier = "aiProviderFactory";
 
@@ -307,7 +308,7 @@ export class AIProviderFactory {
     fallbackProvider: string,
     modelName?: string | null,
     enableMCP: boolean = true,
-  ): Promise<{ primary: AIProvider; fallback: AIProvider }> {
+  ): Promise<ProviderPairResult<AIProvider>> {
     const functionTag = "AIawait ProviderFactory.createProviderWithFallback";
 
     logger.debug(`[${functionTag}] Fallback provider setup started`, {

@@ -37,12 +37,14 @@ import type {
   Unknown,
 } from "../types/common.js";
 import { detectCategory } from "../utils/mcpDefaults.js";
+import type { ServerLoadResult } from "../types/typeAliases.js";
+import { isObject, isNonNullObject } from "../utils/typeUtils.js";
 
 /**
  * Type guard to validate if an object can be safely used as Record<string, JsonValue>
  */
 function isValidJsonRecord(value: unknown): value is Record<string, JsonValue> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+  if (!isObject(value)) {
     return false;
   }
 
@@ -67,7 +69,7 @@ function isValidJsonRecord(value: unknown): value is Record<string, JsonValue> {
           item === null,
       );
     }
-    if (typeof val === "object" && val !== null) {
+    if (isNonNullObject(val)) {
       return isValidJsonRecord(val);
     }
     return false;
@@ -89,15 +91,14 @@ function safeMetadataConversion(
 function isValidExternalMCPServerConfig(
   config: unknown,
 ): config is UnknownRecord {
-  if (typeof config !== "object" || config === null) {
+  if (!isNonNullObject(config)) {
     return false;
   }
   const record = config as UnknownRecord;
   return (
     typeof record.command === "string" &&
     (record.args === undefined || Array.isArray(record.args)) &&
-    (record.env === undefined ||
-      (typeof record.env === "object" && record.env !== null)) &&
+    (record.env === undefined || isNonNullObject(record.env)) &&
     (record.transport === undefined || typeof record.transport === "string") &&
     (record.timeout === undefined || typeof record.timeout === "number") &&
     (record.retries === undefined || typeof record.retries === "number") &&
@@ -107,8 +108,7 @@ function isValidExternalMCPServerConfig(
       typeof record.autoRestart === "boolean") &&
     (record.cwd === undefined || typeof record.cwd === "string") &&
     (record.url === undefined || typeof record.url === "string") &&
-    (record.metadata === undefined ||
-      (typeof record.metadata === "object" && record.metadata !== null))
+    (record.metadata === undefined || isNonNullObject(record.metadata))
   );
 }
 
@@ -205,9 +205,7 @@ export class ExternalServerManager extends EventEmitter {
    * @param configPath Optional path to config file (defaults to .mcp-config.json in cwd)
    * @returns Promise resolving to number of servers loaded
    */
-  async loadMCPConfiguration(
-    configPath?: string,
-  ): Promise<{ serversLoaded: number; errors: string[] }> {
+  async loadMCPConfiguration(configPath?: string): Promise<ServerLoadResult> {
     const fs = await import("fs");
     const path = await import("path");
 
@@ -263,10 +261,9 @@ export class ExternalServerManager extends EventEmitter {
             args: Array.isArray(serverConfig.args)
               ? (serverConfig.args as string[])
               : [],
-            env:
-              typeof serverConfig.env === "object" && serverConfig.env !== null
-                ? (serverConfig.env as Record<string, string>)
-                : {},
+            env: isNonNullObject(serverConfig.env)
+              ? (serverConfig.env as Record<string, string>)
+              : {},
             timeout:
               typeof serverConfig.timeout === "number"
                 ? serverConfig.timeout
