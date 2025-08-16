@@ -11,9 +11,16 @@ import type {
   ToolContext as CoreToolContext,
   ToolResult,
   SimpleTool as CoreSimpleTool,
+  ZodUnknownSchema,
 } from "../types/tools.js";
 import type { JsonValue } from "../types/common.js";
 import { createMCPServerInfo } from "../utils/mcpDefaults.js";
+import {
+  validateToolName,
+  validateToolDescription,
+  ValidationError,
+  createValidationSummary,
+} from "../utils/parameterValidation.js";
 
 /**
  * Configuration constants for tool validation
@@ -112,7 +119,7 @@ export interface ToolContext extends CoreToolContext {
   /**
    * Call another tool
    */
-  callTool?: (name: string, args: ToolArgs) => Promise<ToolResult>;
+  callTool?: (name: string, params: ToolArgs) => Promise<ToolResult>;
 
   /**
    * Logger instance
@@ -134,12 +141,12 @@ export interface SimpleTool<TArgs = ToolArgs, TResult = JsonValue>
   /**
    * Parameters schema using Zod (optional)
    */
-  parameters?: z.ZodSchema;
+  parameters?: ZodUnknownSchema;
 
   /**
    * Tool execution function
    */
-  execute: (args: TArgs, context?: ToolContext) => Promise<TResult> | TResult;
+  execute: (params: TArgs, context?: ToolContext) => Promise<TResult>;
 
   /**
    * Optional metadata
@@ -281,11 +288,11 @@ function provideToolSuggestions(name: string, tool: SimpleTool): void {
 /**
  * Helper to create a tool with typed parameters
  */
-export function createTypedTool<TParams extends z.ZodSchema>(
+export function createTypedTool<TParams extends ZodUnknownSchema>(
   config: Omit<SimpleTool, "execute"> & {
     parameters: TParams;
     execute: (
-      args: z.infer<TParams>,
+      params: z.infer<TParams>,
       context?: ToolContext,
     ) => Promise<JsonValue> | JsonValue;
   },
@@ -294,56 +301,16 @@ export function createTypedTool<TParams extends z.ZodSchema>(
 }
 
 /**
- * Enhanced tool name validation
+ * Enhanced tool name validation using centralized utilities
  */
-function validateToolName(name: string): void {
-  // Basic validation
-  if (!name || typeof name !== "string" || name.trim() === "") {
-    throw new Error(
-      `Invalid tool name: must be a non-empty string. Received: ${name}`,
-    );
+function validateToolNameLegacy(name: string): void {
+  const error = validateToolName(name);
+  if (error) {
+    throw error;
   }
 
+  // Additional legacy-specific validations
   const trimmedName = name.trim();
-
-  // Length validation
-  if (trimmedName.length < VALIDATION_CONFIG.NAME_MIN_LENGTH) {
-    throw new Error(
-      `Tool name too short: '${name}' (${trimmedName.length} chars). ` +
-        `Minimum length: ${VALIDATION_CONFIG.NAME_MIN_LENGTH} characters. ` +
-        `Example: 'get_data', 'send_email'`,
-    );
-  }
-
-  // Only check name length if limit is greater than 0 (0 means unlimited)
-  if (
-    VALIDATION_CONFIG.NAME_MAX_LENGTH > 0 &&
-    trimmedName.length > VALIDATION_CONFIG.NAME_MAX_LENGTH
-  ) {
-    throw new Error(
-      `Tool name too long: '${name}' (${trimmedName.length} chars). ` +
-        `Maximum length: ${VALIDATION_CONFIG.NAME_MAX_LENGTH} characters. ` +
-        `Consider shortening: '${trimmedName.substring(0, 20)}...'`,
-    );
-  }
-
-  // Format validation (alphanumeric, hyphens, underscores only)
-  const validNamePattern = /^[a-zA-Z0-9_-]+$/;
-  if (!validNamePattern.test(trimmedName)) {
-    throw new Error(
-      `Invalid tool name format: '${name}'. Tool names must contain only alphanumeric characters, hyphens, and underscores. ` +
-        `Examples: 'calculate-tax', 'get_weather', 'sendEmail123'`,
-    );
-  }
-
-  // Reserved name validation
-  if (VALIDATION_CONFIG.RESERVED_NAMES.has(trimmedName.toLowerCase())) {
-    throw new Error(
-      `Tool name '${name}' is reserved and cannot be used. ` +
-        `Reserved names include: ${Array.from(VALIDATION_CONFIG.RESERVED_NAMES).slice(0, 5).join(", ")}... ` +
-        `Try variations like: '${trimmedName}_tool', 'custom_${trimmedName}', '${trimmedName}_helper'`,
-    );
-  }
 
   // Naming convention suggestions using pre-compiled patterns for performance
   const hasGoodPattern = VALIDATION_CONFIG.COMPILED_PATTERN_REGEXES.some(
@@ -361,44 +328,19 @@ function validateToolName(name: string): void {
 }
 
 /**
- * Enhanced description validation
+ * Enhanced description validation using centralized utilities
  */
-function validateToolDescription(name: string, description: string): void {
-  if (
-    !description ||
-    typeof description !== "string" ||
-    description.trim() === ""
-  ) {
-    throw new Error(
-      `Tool '${name}' must have a non-empty description string. ` +
-        `Example: { description: "Calculates mathematical expressions", execute: async (params) => {...} }`,
-    );
+function validateToolDescriptionLegacy(
+  name: string,
+  description: string,
+): void {
+  const error = validateToolDescription(description);
+  if (error) {
+    throw new Error(`Tool '${name}': ${error.message}`);
   }
 
+  // Additional legacy-specific validations
   const trimmedDescription = description.trim();
-
-  // Length validation
-  if (trimmedDescription.length < VALIDATION_CONFIG.DESCRIPTION_MIN_LENGTH) {
-    throw new Error(
-      `Tool '${name}' description too short: ${trimmedDescription.length} characters. ` +
-        `Minimum length: ${VALIDATION_CONFIG.DESCRIPTION_MIN_LENGTH} characters. ` +
-        `The description should clearly explain what the tool does and when to use it. ` +
-        `Example: "Fetches current weather data for a specified location using coordinates or city name"`,
-    );
-  }
-
-  // Only check description length if limit is greater than 0 (0 means unlimited)
-  if (
-    VALIDATION_CONFIG.DESCRIPTION_MAX_LENGTH > 0 &&
-    trimmedDescription.length > VALIDATION_CONFIG.DESCRIPTION_MAX_LENGTH
-  ) {
-    throw new Error(
-      `Tool '${name}' description too long: ${trimmedDescription.length} characters. ` +
-        `Maximum length: ${VALIDATION_CONFIG.DESCRIPTION_MAX_LENGTH} characters. ` +
-        `Current description: "${trimmedDescription.substring(0, 50)}..." ` +
-        `Try to be more concise while keeping the essential information.`,
-    );
-  }
 
   // Quality suggestions
   const hasActionWord =
@@ -416,8 +358,8 @@ function validateToolDescription(name: string, description: string): void {
  * Validate tool configuration with detailed error messages
  */
 export function validateTool(name: string, tool: SimpleTool): void {
-  // Enhanced tool name validation
-  validateToolName(name);
+  // Enhanced tool name validation using centralized utilities
+  validateToolNameLegacy(name);
 
   // Validate tool object
   if (!tool || typeof tool !== "object") {
@@ -427,8 +369,8 @@ export function validateTool(name: string, tool: SimpleTool): void {
     );
   }
 
-  // Enhanced description validation
-  validateToolDescription(name, tool.description);
+  // Enhanced description validation using centralized utilities
+  validateToolDescriptionLegacy(name, tool.description);
 
   // Validate execute function with signature guidance
   if (typeof tool.execute !== "function") {

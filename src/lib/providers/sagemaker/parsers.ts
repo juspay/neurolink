@@ -11,6 +11,7 @@ import type {
   SageMakerStreamingToolCall,
   SageMakerStructuredOutput,
 } from "./types.js";
+import { isNonNullObject } from "../../utils/typeUtils.js";
 import {
   createStructuredOutputParser,
   isStructuredContent,
@@ -321,7 +322,7 @@ export class HuggingFaceStreamParser extends BaseStreamingParser {
 
         // Parse JSON data
         const parsed = this.parseJSON(data);
-        if (parsed && typeof parsed === "object" && parsed !== null) {
+        if (parsed && isNonNullObject(parsed)) {
           const chunk = this.parseHuggingFaceChunk(
             parsed as Record<string, unknown>,
           );
@@ -432,7 +433,7 @@ export class LlamaStreamParser extends BaseStreamingParser {
 
       // Parse each line as JSON
       const parsed = this.parseJSON(trimmed);
-      if (parsed && typeof parsed === "object" && parsed !== null) {
+      if (parsed && isNonNullObject(parsed)) {
         const chunk = this.parseLlamaChunk(parsed as Record<string, unknown>);
         if (chunk) {
           chunks.push(chunk);
@@ -676,7 +677,7 @@ export class CustomStreamParser extends BaseStreamingParser {
         const line = this.buffer.substring(startIndex, newlineIndex);
         if (line.trim()) {
           const parsed = this.parseJSON(line.trim());
-          if (parsed && typeof parsed === "object" && parsed !== null) {
+          if (parsed && isNonNullObject(parsed)) {
             const chunk = this.parseCustomChunk(
               parsed as Record<string, unknown>,
             );
@@ -801,7 +802,7 @@ function formatErrorMessage(error: unknown): string {
 function extractApiErrorMessage(
   errorData: Record<string, unknown> | string,
 ): string {
-  if (typeof errorData === "object" && errorData !== null) {
+  if (isNonNullObject(errorData)) {
     return (errorData.message as string) || String(errorData);
   }
   return String(errorData);

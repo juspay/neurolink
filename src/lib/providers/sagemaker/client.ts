@@ -27,6 +27,7 @@ import {
   getRetryDelay,
 } from "./errors.js";
 import { logger } from "../../utils/logger.js";
+import type { ConnectionResult } from "../../types/typeAliases.js";
 
 /**
  * Enhanced SageMaker Runtime client with retry logic and error handling
@@ -555,7 +556,7 @@ export function createSageMakerRuntimeClient(
 export async function testSageMakerConnectivity(
   config: SageMakerConfig,
   endpointName: string,
-): Promise<{ connected: boolean; latency?: number; error?: string }> {
+): Promise<ConnectionResult> {
   const client = new SageMakerRuntimeClient(config);
   const startTime = Date.now();
 

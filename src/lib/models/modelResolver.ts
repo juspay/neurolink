@@ -22,6 +22,7 @@ import {
   calculateCost,
   formatModelForDisplay,
 } from "./modelRegistry.js";
+import { isNonNullObject } from "../utils/typeUtils.js";
 
 /**
  * Model recommendation context
@@ -588,7 +589,7 @@ export function formatSearchResults(results: ModelSearchResult[]): JsonValue {
   return results.map((result) => {
     const modelDisplay = formatModelForDisplay(result.model);
     return {
-      ...(typeof modelDisplay === "object" && modelDisplay !== null
+      ...(isNonNullObject(modelDisplay)
         ? (modelDisplay as Record<string, JsonValue>)
         : {}),
       relevanceScore: result.score,

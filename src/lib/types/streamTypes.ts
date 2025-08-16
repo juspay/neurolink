@@ -1,5 +1,9 @@
-import type { ZodType, ZodTypeDef } from "zod";
 import type { Tool, Schema } from "ai";
+import type {
+  ZodUnknownSchema,
+  ValidationSchema,
+  StandardRecord,
+} from "./typeAliases.js";
 import type {
   AIProviderName,
   AnalyticsData,
@@ -90,7 +94,7 @@ export interface StreamOptions {
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
-  schema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>;
+  schema?: ValidationSchema;
   tools?: Record<string, Tool>;
   timeout?: number | string;
   disableTools?: boolean;
@@ -109,7 +113,7 @@ export interface StreamOptions {
   // 🔧 FIX: Factory configuration support (matching GenerateOptions)
   factoryConfig?: {
     domainType?: string;
-    domainConfig?: Record<string, unknown>;
+    domainConfig?: StandardRecord;
     enhancementType?:
       | "domain-configuration"
       | "streaming-optimization"

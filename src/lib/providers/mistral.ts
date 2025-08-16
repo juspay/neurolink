@@ -1,6 +1,9 @@
 import { createMistral } from "@ai-sdk/mistral";
-import type { ZodType, ZodTypeDef } from "zod";
 import { streamText, Output, type Schema, type LanguageModelV1 } from "ai";
+import type {
+  ZodUnknownSchema,
+  ValidationSchema,
+} from "../types/typeAliases.js";
 import type { AIProviderName } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { UnknownRecord } from "../types/common.js";
@@ -67,7 +70,7 @@ export class MistralProvider extends BaseProvider {
 
   protected async executeStream(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ValidationSchema,
   ): Promise<StreamResult> {
     this.validateStreamOptions(options);
 

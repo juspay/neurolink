@@ -23,7 +23,11 @@ async function demonstrateUnifiedToolRegistration() {
           a: z.number(),
           b: z.number(),
         }),
-        execute: async (params: any) => {
+        execute: async (params: {
+          operation: "add" | "subtract" | "multiply" | "divide";
+          a: number;
+          b: number;
+        }) => {
           const { operation, a, b } = params;
           switch (operation) {
             case "add":
@@ -48,7 +52,10 @@ async function demonstrateUnifiedToolRegistration() {
           location: z.string(),
           units: z.enum(["celsius", "fahrenheit"]).optional(),
         }),
-        execute: async (params: any) => {
+        execute: async (params: {
+          location: string;
+          units?: "celsius" | "fahrenheit";
+        }) => {
           const { location, units = "celsius" } = params;
           // Mock weather data
           return {
@@ -68,7 +75,10 @@ async function demonstrateUnifiedToolRegistration() {
           name: z.string(),
           timeOfDay: z.enum(["morning", "afternoon", "evening"]).optional(),
         }),
-        execute: async (params: any) => {
+        execute: async (params: {
+          name: string;
+          timeOfDay?: "morning" | "afternoon" | "evening";
+        }) => {
           const { name, timeOfDay = "morning" } = params;
           const greetings = {
             morning: "Good morning",
@@ -94,7 +104,13 @@ async function demonstrateUnifiedToolRegistration() {
         text: z.string(),
         format: z.enum(["uppercase", "lowercase", "capitalize"]),
       }),
-      execute: async ({ text, format }: any) => {
+      execute: async ({
+        text,
+        format,
+      }: {
+        text: string;
+        format: "uppercase" | "lowercase" | "capitalize";
+      }) => {
         switch (format) {
           case "uppercase":
             return text.toUpperCase();

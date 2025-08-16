@@ -1,5 +1,5 @@
 import { sveltekit } from "@sveltejs/kit/vite";
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 
 export default defineConfig({
   plugins: [sveltekit()],
@@ -32,7 +32,7 @@ export default defineConfig({
     bail: 0,
 
     // Basic reporting - no complex logging that might hang
-    reporter: ["verbose", "json"],
+    reporters: ["verbose", "json"],
     outputFile: "test-results.json",
     onConsoleLog: (log: string, type: "stdout" | "stderr") => {
       if (log.includes("timeout") || log.includes("hanging")) {
@@ -40,4 +40,4 @@ export default defineConfig({
       }
     },
   },
-} as any); // Type assertion to handle vite/vitest version conflicts
+} as const satisfies UserConfig); // Properly typed configuration

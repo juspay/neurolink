@@ -3,18 +3,20 @@
  * Industry standard camelCase interfaces for maximum flexibility
  */
 
+import type { StandardRecord } from "../../types/typeAliases.js";
+
 /**
  * Generic execution context for MCP operations
  * All properties optional for maximum flexibility
  */
-export interface ExecutionContext<T = Record<string, unknown>> {
+export interface ExecutionContext<T = StandardRecord> {
   // Core identifiers (optional)
   sessionId?: string; // Session/request identifier
   userId?: string; // User identifier
 
   // Generic extensibility (industry standard)
   config?: T; // Generic configuration payload
-  metadata?: Record<string, unknown>; // Flexible metadata
+  metadata?: StandardRecord; // Flexible metadata
 
   // Performance & resilience (standard patterns)
   cacheOptions?: CacheOptions;
@@ -50,15 +52,15 @@ export interface ToolInfo {
   description?: string;
   category?: string;
   serverId?: string;
-  inputSchema?: Record<string, unknown>;
-  outputSchema?: Record<string, unknown>;
+  inputSchema?: StandardRecord;
+  outputSchema?: StandardRecord;
   [key: string]: unknown; // Generic extensibility
 }
 
 /**
  * Discovered MCP server/plugin definition
  */
-export interface DiscoveredMcp<TTools = Record<string, unknown>> {
+export interface DiscoveredMcp<TTools = StandardRecord> {
   metadata: McpMetadata;
   tools?: TTools;
   capabilities?: string[];
@@ -78,21 +80,6 @@ export interface McpMetadata {
   homepage?: string;
   repository?: string;
   category?: string; // Server category (e.g., "ai-tools", "database", "api")
-}
-
-/**
- * Tool definition schema
- */
-export interface ToolDefinition {
-  description?: string;
-  inputSchema?: Record<string, unknown>;
-  outputSchema?: Record<string, unknown>;
-  category?: string;
-  examples?: Array<{
-    input: Record<string, unknown>;
-    output: Record<string, unknown>;
-    description?: string;
-  }>;
 }
 
 /**

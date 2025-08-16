@@ -1,6 +1,6 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import type { ZodType, ZodTypeDef } from "zod";
 import { streamText, Output, type Schema, type LanguageModelV1 } from "ai";
+import type { ValidationSchema } from "../types/typeAliases.js";
 import type {
   AIProviderName,
   TextGenerationOptions,
@@ -149,7 +149,7 @@ export class AnthropicProvider extends BaseProvider {
 
   protected async executeStream(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ValidationSchema,
   ): Promise<StreamResult> {
     this.validateStreamOptions(options);
 

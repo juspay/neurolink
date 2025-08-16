@@ -15,15 +15,14 @@ import type {
 } from "@modelcontextprotocol/sdk/types.js";
 import { spawn, ChildProcess } from "child_process";
 import { mcpLogger } from "../utils/logger.js";
-import {
-  MCPCircuitBreaker,
-  globalCircuitBreakerManager,
-} from "./mcpCircuitBreaker.js";
-import type {
-  ExternalMCPServerInstance,
-  MCPTransportType,
-} from "../types/externalMcp.js";
+import { globalCircuitBreakerManager } from "./mcpCircuitBreaker.js";
+import type { MCPTransportType } from "../types/externalMcp.js";
 import type { MCPServerInfo } from "../types/mcpTypes.js";
+import type {
+  TransportResult,
+  TransportWithProcessResult,
+  NetworkTransportResult,
+} from "../types/typeAliases.js";
 
 /**
  * MCP client creation result
@@ -49,14 +48,6 @@ export interface MCPClientResult {
 
   /** Server capabilities reported during handshake */
   capabilities?: ClientCapabilities;
-}
-
-/**
- * Transport creation options
- */
-interface TransportOptions {
-  config: MCPServerInfo;
-  timeout?: number;
 }
 
 /**
@@ -147,7 +138,12 @@ export class MCPClientFactory {
     timeout: number,
   ): Promise<Omit<MCPClientResult, "success" | "duration">> {
     // Create transport
-    const { transport, process } = await this.createTransport(config);
+    const transportResult = await this.createTransport(config);
+
+    // Extract transport and process with necessary type assertions
+    // Note: Type assertions required due to TransportResult using 'unknown' to avoid circular imports
+    const transport = transportResult.transport as Transport;
+    const process = transportResult.process as ChildProcess | undefined;
 
     try {
       // Create client
@@ -204,7 +200,7 @@ export class MCPClientFactory {
    */
   private static async createTransport(
     config: MCPServerInfo,
-  ): Promise<{ transport: Transport; process?: ChildProcess }> {
+  ): Promise<TransportResult> {
     switch (config.transport) {
       case "stdio":
         return this.createStdioTransport(config);
@@ -225,7 +221,7 @@ export class MCPClientFactory {
    */
   private static async createStdioTransport(
     config: MCPServerInfo,
-  ): Promise<{ transport: Transport; process: ChildProcess }> {
+  ): Promise<TransportWithProcessResult> {
     mcpLogger.debug(
       `[MCPClientFactory] Creating stdio transport for ${config.id}`,
       {
@@ -242,20 +238,24 @@ export class MCPClientFactory {
     // Spawn the process
     const childProcess = spawn(config.command, config.args || [], {
       stdio: ["pipe", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        ...config.env,
-      },
+      env: Object.fromEntries(
+        Object.entries({
+          ...process.env,
+          ...config.env,
+        })
+          .filter(([, value]) => value !== undefined)
+          .map(([k, v]) => [k, String(v)]),
+      ) as Record<string, string>,
       cwd: config.cwd,
     });
 
     // Handle process errors
     const processErrorPromise = new Promise<never>((_, reject) => {
-      (childProcess as any).on("error", (error: Error) => {
+      childProcess.on("error", (error: Error) => {
         reject(new Error(`Process spawn error: ${error.message}`));
       });
 
-      (childProcess as any).on(
+      childProcess.on(
         "exit",
         (code: number | null, signal: NodeJS.Signals | null) => {
           if (code !== 0) {
@@ -267,17 +267,32 @@ export class MCPClientFactory {
       );
     });
 
-    // Wait for process to be ready or fail
-    await Promise.race([
-      new Promise((resolve) => setTimeout(resolve, 1000)), // Give process time to start
-      processErrorPromise,
-    ]);
+    // Wait for process to be ready or fail using AbortController for better async patterns
+    const processStartupController = new AbortController();
+    const processStartupTimeout = setTimeout(() => {
+      processStartupController.abort();
+    }, 1000);
+
+    try {
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          const checkReady = () => {
+            if (processStartupController.signal.aborted) {
+              resolve(); // Timeout reached, continue
+            } else {
+              setTimeout(checkReady, 100);
+            }
+          };
+          checkReady();
+        }),
+        processErrorPromise,
+      ]);
+    } finally {
+      clearTimeout(processStartupTimeout);
+    }
 
     // Check if process is still running
-    if (
-      (childProcess as any).killed ||
-      (childProcess as any).exitCode !== null
-    ) {
+    if (childProcess.killed || childProcess.exitCode !== null) {
       throw new Error("Process failed to start or exited immediately");
     }
 
@@ -289,8 +304,10 @@ export class MCPClientFactory {
         Object.entries({
           ...process.env,
           ...config.env,
-        }).filter(([, value]) => value !== undefined),
-      ) as Record<string, string>,
+        })
+          .filter(([, value]) => value !== undefined)
+          .map(([key, value]) => [key, String(value)]),
+      ),
       cwd: config.cwd,
     });
 
@@ -302,7 +319,7 @@ export class MCPClientFactory {
    */
   private static async createSSETransport(
     config: MCPServerInfo,
-  ): Promise<{ transport: Transport }> {
+  ): Promise<NetworkTransportResult> {
     if (!config.url) {
       throw new Error("URL is required for SSE transport");
     }
@@ -331,7 +348,7 @@ export class MCPClientFactory {
    */
   private static async createWebSocketTransport(
     config: MCPServerInfo,
-  ): Promise<{ transport: Transport }> {
+  ): Promise<NetworkTransportResult> {
     if (!config.url) {
       throw new Error("URL is required for WebSocket transport");
     }
@@ -365,9 +382,9 @@ export class MCPClientFactory {
     try {
       // The MCP SDK handles the handshake automatically during connect()
       // We can request server info to verify the connection
-      const serverInfo = await Promise.race([
+      const serverInfo = await Promise.race<Record<string, unknown>>([
         this.getServerInfo(client),
-        this.createTimeoutPromise(timeout, "Handshake timeout"),
+        this.createTimeoutPromise<never>(timeout, "Handshake timeout"),
       ]);
 
       // Extract capabilities from server info
@@ -387,7 +404,9 @@ export class MCPClientFactory {
   /**
    * Get server information
    */
-  private static async getServerInfo(client: Client): Promise<any> {
+  private static async getServerInfo(
+    client: Client,
+  ): Promise<Record<string, unknown>> {
     try {
       // Try to list tools to verify server is responding
       const toolsResult = await client.listTools();
@@ -395,7 +414,7 @@ export class MCPClientFactory {
         tools: toolsResult.tools || [],
         capabilities: this.DEFAULT_CAPABILITIES,
       };
-    } catch (error) {
+    } catch {
       // If listing tools fails, try a simpler ping
       mcpLogger.debug(
         "[MCPClientFactory] Tool listing failed, server may not support tools yet",
@@ -410,26 +429,38 @@ export class MCPClientFactory {
   /**
    * Extract capabilities from server info
    */
-  private static extractCapabilities(serverInfo: any): ClientCapabilities {
+  private static extractCapabilities(
+    serverInfo: Record<string, unknown>,
+  ): ClientCapabilities {
     // For now, return default capabilities
     // This can be enhanced when MCP servers provide more detailed capability info
     return {
       ...this.DEFAULT_CAPABILITIES,
-      tools: serverInfo.tools ? {} : undefined,
+      ...(serverInfo.tools ? { tools: {} } : {}),
     };
   }
 
   /**
-   * Create a timeout promise
+   * Create a timeout promise with AbortController support
+   * Provides consistent async timeout patterns across the factory
    */
   private static createTimeoutPromise<T>(
     timeout: number,
     message: string,
+    abortSignal?: AbortSignal,
   ): Promise<T> {
     return new Promise((_, reject) => {
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         reject(new Error(message));
       }, timeout);
+
+      // Support abortion for better async cleanup
+      if (abortSignal) {
+        abortSignal.addEventListener("abort", () => {
+          clearTimeout(timeoutId);
+          reject(new Error(`Operation aborted: ${message}`));
+        });
+      }
     });
   }
 
@@ -461,18 +492,34 @@ export class MCPClientFactory {
       );
     }
 
-    // Kill process if exists
+    // Kill process if exists with proper async cleanup
     if (process && !process.killed) {
       try {
         process.kill("SIGTERM");
 
-        // Force kill after 5 seconds
-        setTimeout(() => {
-          if (!process.killed) {
-            mcpLogger.warn("[MCPClientFactory] Force killing process");
-            process.kill("SIGKILL");
-          }
-        }, 5000);
+        // Use Promise-based approach for force kill timeout
+        await new Promise<void>((resolve) => {
+          const forceKillTimeout = setTimeout(() => {
+            if (!process.killed) {
+              mcpLogger.warn("[MCPClientFactory] Force killing process");
+              try {
+                process.kill("SIGKILL");
+              } catch (killError) {
+                mcpLogger.debug(
+                  "[MCPClientFactory] Error in force kill:",
+                  killError,
+                );
+              }
+            }
+            resolve();
+          }, 5000);
+
+          // If process exits gracefully before timeout, clear the force kill
+          process.on("exit", () => {
+            clearTimeout(forceKillTimeout);
+            resolve();
+          });
+        });
       } catch (error) {
         errors.push(
           `Process kill error: ${error instanceof Error ? error.message : String(error)}`,
@@ -518,7 +565,7 @@ export class MCPClientFactory {
       if (client) {
         try {
           await client.listTools();
-        } catch (error) {
+        } catch {
           // Tool listing failure doesn't necessarily mean connection failure
           mcpLogger.debug(
             "[MCPClientFactory] Tool listing failed during test, but connection may be valid",

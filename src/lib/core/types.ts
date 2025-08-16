@@ -1,9 +1,13 @@
-import type { ZodType, ZodTypeDef } from "zod";
-import type { Schema, Tool } from "ai";
+import type { Tool, Schema } from "ai";
+import type {
+  ZodUnknownSchema,
+  ValidationSchema,
+} from "../types/typeAliases.js";
 import type { GenerateResult } from "../types/generateTypes.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { JsonValue } from "../types/common.js";
 import type { ChatMessage } from "../types/conversationTypes.js";
+import type { AnalyticsData } from "./analytics.js";
 
 export interface TextGenerationResult {
   content: string;
@@ -166,7 +170,7 @@ export interface TextGenerationOptions {
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
-  schema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>;
+  schema?: ZodUnknownSchema | Schema<unknown>;
   tools?: Record<string, Tool>; // Enable MCP tools integration
   timeout?: number | string; // Optional timeout (e.g., 30000, '30s', '2m', '1h')
   disableTools?: boolean; // Disable tools (tools are enabled by default)
@@ -185,22 +189,7 @@ export interface TextGenerationOptions {
   conversationMessages?: ChatMessage[]; // Previous conversation as message array
 }
 
-/**
- * Analytics data for usage tracking
- */
-export interface AnalyticsData {
-  provider: string;
-  model: string;
-  tokens: {
-    input: number;
-    output: number;
-    total: number;
-  };
-  cost?: number; // Optional cost calculation
-  responseTime: number; // Milliseconds
-  timestamp: string; // ISO timestamp
-  context?: Record<string, JsonValue>; // User context
-}
+export type { AnalyticsData };
 
 /**
  * Response quality evaluation scores
@@ -355,17 +344,17 @@ export interface AIProvider {
   // NEW: Primary streaming method
   stream(
     optionsOrPrompt: StreamOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ValidationSchema,
   ): Promise<StreamResult>;
 
   generate(
     optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ValidationSchema,
   ): Promise<EnhancedGenerateResult | null>;
 
   gen(
     optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ValidationSchema,
   ): Promise<EnhancedGenerateResult | null>;
 
   // Tool execution setup - consolidated from NeuroLink SDK

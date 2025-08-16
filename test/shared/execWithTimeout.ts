@@ -14,7 +14,7 @@ export const execWithTimeout = async (
   const startTime = Date.now();
   console.log(`🕐 [${new Date().toISOString()}] Starting command: ${command}`);
 
-  let timeoutId: NodeJS.Timeout;
+  let timeoutId!: NodeJS.Timeout;
 
   try {
     return await Promise.race([

@@ -8,19 +8,24 @@ import { EventEmitter } from "events";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { mcpLogger } from "../utils/logger.js";
-import {
-  MCPCircuitBreaker,
-  globalCircuitBreakerManager,
-} from "./mcpCircuitBreaker.js";
+import { globalCircuitBreakerManager } from "./mcpCircuitBreaker.js";
 import type {
-  ExternalMCPServerInstance,
   ExternalMCPToolInfo,
-  ExternalMCPServerEvents,
   ExternalMCPToolResult,
   ExternalMCPToolContext,
 } from "../types/externalMcp.js";
 import type { MCPServerInfo } from "../types/mcpTypes.js";
 import type { JsonObject, JsonValue } from "../types/common.js";
+import {
+  isObject,
+  isString,
+  isBoolean,
+  isNullish,
+} from "../utils/typeUtils.js";
+import {
+  validateToolName,
+  validateToolDescription,
+} from "../utils/parameterValidation.js";
 
 /**
  * Tool discovery result
@@ -430,19 +435,16 @@ export class ToolDiscoveryService extends EventEmitter {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    // Basic validation
-    if (!toolInfo.name || toolInfo.name.trim().length === 0) {
-      errors.push("Tool name is required");
+    // Use centralized validation for name
+    const nameError = validateToolName(toolInfo.name);
+    if (nameError) {
+      errors.push(nameError.message);
     }
 
-    if (toolInfo.name && !/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(toolInfo.name)) {
-      errors.push(
-        "Tool name must start with a letter and contain only letters, numbers, underscores, and hyphens",
-      );
-    }
-
-    if (!toolInfo.description || toolInfo.description.trim().length === 0) {
-      warnings.push("Tool description is empty");
+    // Use centralized validation for description
+    const descriptionError = validateToolDescription(toolInfo.description);
+    if (descriptionError) {
+      warnings.push(descriptionError.message);
     }
 
     if (!toolInfo.serverId) {
@@ -729,21 +731,57 @@ export class ToolDiscoveryService extends EventEmitter {
   }
 
   /**
-   * Validate tool output
+   * Validate tool output with enhanced type safety
    */
-  private validateToolOutput(result: any): void {
-    // Basic output validation
-    if (!result) {
-      throw new Error("Tool returned no result");
+  private validateToolOutput(result: unknown): void {
+    // Check for null/undefined results
+    if (isNullish(result)) {
+      throw new Error("Tool returned null or undefined result");
     }
 
-    // Check for error indicators
-    if (result.error) {
-      throw new Error(`Tool execution error: ${result.error}`);
+    // Enhanced error detection for object results
+    if (isObject(result)) {
+      // Check for explicit error property
+      if (result.error !== undefined) {
+        const errorMessage = isString(result.error)
+          ? result.error
+          : "Tool execution failed with error";
+        throw new Error(`Tool execution error: ${errorMessage}`);
+      }
+
+      // Check for boolean error flag
+      if (isBoolean(result.isError) && result.isError === true) {
+        const errorDetail = isString(result.message)
+          ? `: ${result.message}`
+          : "";
+        throw new Error(`Tool execution failed${errorDetail}`);
+      }
+
+      // Check for common error status patterns
+      if (
+        isString(result.status) &&
+        (result.status === "error" || result.status === "failed")
+      ) {
+        const errorDetail =
+          isString(result.message) || isString(result.reason)
+            ? `: ${result.message || result.reason}`
+            : "";
+        throw new Error(`Tool execution failed${errorDetail}`);
+      }
+
+      // Check for success: false pattern
+      if (isBoolean(result.success) && result.success === false) {
+        const errorDetail =
+          isString(result.message) || isString(result.error)
+            ? `: ${result.message || result.error}`
+            : "";
+        throw new Error(`Tool execution unsuccessful${errorDetail}`);
+      }
     }
 
-    if (result.isError === true) {
-      throw new Error("Tool execution failed");
+    // Validate that string results are not empty
+    if (isString(result) && result.trim() === "") {
+      throw new Error("Tool returned empty string result");
     }
   }
 

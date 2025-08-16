@@ -1,5 +1,9 @@
-import type { ZodType, ZodTypeDef } from "zod";
 import type { Tool, Schema } from "ai";
+import type {
+  ZodUnknownSchema,
+  ValidationSchema,
+  StandardRecord,
+} from "./typeAliases.js";
 import type {
   AIProviderName,
   AnalyticsData,
@@ -21,7 +25,7 @@ export interface GenerateOptions {
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
-  schema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>;
+  schema?: ValidationSchema;
   tools?: Record<string, Tool>;
   timeout?: number | string;
   disableTools?: boolean;
@@ -29,7 +33,7 @@ export interface GenerateOptions {
   // Analytics and Evaluation
   enableEvaluation?: boolean;
   enableAnalytics?: boolean;
-  context?: Record<string, unknown>;
+  context?: StandardRecord;
 
   // Domain-aware evaluation
   evaluationDomain?: string;
@@ -39,7 +43,7 @@ export interface GenerateOptions {
   // Factory configuration support
   factoryConfig?: {
     domainType?: string;
-    domainConfig?: Record<string, unknown>;
+    domainConfig?: StandardRecord;
     enhancementType?:
       | "domain-configuration"
       | "streaming-optimization"
@@ -84,20 +88,20 @@ export interface GenerateResult {
   toolCalls?: Array<{
     toolCallId: string;
     toolName: string;
-    args: Record<string, unknown>;
+    args: StandardRecord;
   }>;
   toolResults?: unknown[]; // Results from tool execution (Vercel AI SDK)
   toolsUsed?: string[];
   toolExecutions?: Array<{
     name: string;
-    input: Record<string, unknown>;
+    input: StandardRecord;
     output: unknown;
   }>;
   enhancedWithTools?: boolean;
   availableTools?: Array<{
     name: string;
     description: string;
-    parameters: Record<string, unknown>;
+    parameters: StandardRecord;
   }>;
 
   // Analytics and evaluation
@@ -110,7 +114,7 @@ export interface GenerateResult {
     enhancementType?: string;
     domainType?: string;
     processingTime?: number;
-    configurationUsed?: Record<string, unknown>;
+    configurationUsed?: StandardRecord;
     migrationPerformed?: boolean;
     legacyFieldsPreserved?: boolean;
   };

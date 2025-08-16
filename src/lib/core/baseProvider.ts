@@ -1,33 +1,42 @@
 import { z } from "zod";
-import type { ZodType, ZodTypeDef } from "zod";
-import type { Schema } from "ai";
+import type {
+  ZodUnknownSchema,
+  ValidationSchema,
+  StandardRecord,
+} from "../types/typeAliases.js";
 import type { Tool, LanguageModelV1 } from "ai";
 import type {
   AIProvider,
   TextGenerationOptions,
+  TextGenerationResult,
   EnhancedGenerateResult,
   AnalyticsData,
   AIProviderName,
   EvaluationData,
 } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
-import type { JsonValue, UnknownRecord } from "../types/common.js";
-import type { ToolCall, ToolResult } from "../types/tools.js";
-import type { TokenUsage } from "../types/providers.js";
+import type { JsonValue, JsonObject, UnknownRecord } from "../types/common.js";
+import type { ToolDefinition, ToolResult, ToolArgs } from "../types/tools.js";
 import { logger } from "../utils/logger.js";
-import { SYSTEM_LIMITS, DEFAULT_MAX_STEPS } from "../core/constants.js";
+import { DEFAULT_MAX_STEPS, STEP_LIMITS } from "../core/constants.js";
 import { directAgentTools } from "../agent/directTools.js";
 import { getSafeMaxTokens } from "../utils/tokenLimits.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
-
-import type {
-  ToolDefinition,
-  ToolResult as ToolResultType,
-} from "../types/tools.js";
 import type { GenerateResult } from "../types/generateTypes.js";
 import type { NeuroLink } from "../neurolink.js";
+import type { ExternalMCPToolInfo } from "../types/externalMcp.js";
+import { getKeysAsString, getKeyCount } from "../utils/transformationUtils.js";
+import {
+  validateStreamOptions as validateStreamOpts,
+  validateTextGenerationOptions,
+  ValidationError,
+  createValidationSummary,
+} from "../utils/parameterValidation.js";
+
+// Union type for tools that can be either AI SDK tools or external MCP tools
+type ExtendedTool = Tool & Partial<ExternalMCPToolInfo>;
 
 // Interface for AI SDK generate result with steps (extends GenerateResult)
 interface AISDKGenerateResult extends GenerateResult {
@@ -94,7 +103,7 @@ export abstract class BaseProvider implements AIProvider {
    */
   async stream(
     optionsOrPrompt: StreamOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ValidationSchema,
   ): Promise<StreamResult> {
     const options = this.normalizeStreamOptions(optionsOrPrompt);
 
@@ -218,9 +227,13 @@ export abstract class BaseProvider implements AIProvider {
    */
   async generate(
     optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    _analysisSchema?: ValidationSchema,
   ): Promise<EnhancedGenerateResult | null> {
     const options = this.normalizeTextOptions(optionsOrPrompt);
+
+    // Validate options before proceeding
+    this.validateOptions(options);
+
     const startTime = Date.now();
 
     try {
@@ -237,9 +250,12 @@ export abstract class BaseProvider implements AIProvider {
           }
         : {};
       logger.debug(`[BaseProvider.generate] Tools for ${this.providerName}:`, {
-        directTools: Object.keys(baseTools),
-        externalTools: Object.keys(options.tools || {}),
-        totalTools: Object.keys(tools),
+        directTools: getKeyCount(baseTools),
+        directToolNames: getKeysAsString(baseTools),
+        externalTools: getKeyCount(options.tools || {}),
+        externalToolNames: getKeysAsString(options.tools || {}),
+        totalTools: getKeyCount(tools),
+        totalToolNames: getKeysAsString(tools),
       });
 
       // EVERY provider uses Vercel AI SDK - no exceptions
@@ -298,12 +314,12 @@ export abstract class BaseProvider implements AIProvider {
       // ✅ Extract tool executions from AI SDK result
       const toolExecutions: Array<{
         name: string;
-        input: Record<string, unknown>;
+        input: StandardRecord;
         output: unknown;
       }> = [];
 
       // Create a map of tool calls to their arguments for matching with results
-      const toolCallArgsMap = new Map<string, Record<string, unknown>>();
+      const toolCallArgsMap = new Map<string, StandardRecord>();
 
       // Extract tool executions from AI SDK result steps
       if (
@@ -326,13 +342,13 @@ export abstract class BaseProvider implements AIProvider {
                 toolName;
 
               // Extract arguments from tool call
-              let callArgs: Record<string, unknown> = {};
+              let callArgs: StandardRecord = {};
               if (tcRecord.args) {
-                callArgs = tcRecord.args as Record<string, unknown>;
+                callArgs = tcRecord.args as StandardRecord;
               } else if (tcRecord.arguments) {
-                callArgs = tcRecord.arguments as Record<string, unknown>;
+                callArgs = tcRecord.arguments as StandardRecord;
               } else if (tcRecord.parameters) {
-                callArgs = tcRecord.parameters as Record<string, unknown>;
+                callArgs = tcRecord.parameters as StandardRecord;
               }
 
               toolCallArgsMap.set(toolId, callArgs);
@@ -349,16 +365,16 @@ export abstract class BaseProvider implements AIProvider {
                 (trRecord.toolCallId as string) || (trRecord.id as string);
 
               // Try to get arguments from the tool result first
-              let toolArgs: Record<string, unknown> = {};
+              let toolArgs: StandardRecord = {};
 
               if (trRecord.args) {
-                toolArgs = trRecord.args as Record<string, unknown>;
+                toolArgs = trRecord.args as StandardRecord;
               } else if (trRecord.arguments) {
-                toolArgs = trRecord.arguments as Record<string, unknown>;
+                toolArgs = trRecord.arguments as StandardRecord;
               } else if (trRecord.parameters) {
-                toolArgs = trRecord.parameters as Record<string, unknown>;
+                toolArgs = trRecord.parameters as StandardRecord;
               } else if (trRecord.input) {
-                toolArgs = trRecord.input as Record<string, unknown>;
+                toolArgs = trRecord.input as StandardRecord;
               } else {
                 // Fallback: get arguments from the corresponding tool call
                 toolArgs = toolCallArgsMap.get(toolId || toolName) || {};
@@ -395,20 +411,23 @@ export abstract class BaseProvider implements AIProvider {
                 ((tc as UnknownRecord).name as string) ||
                 "unknown",
               args:
-                ((tc as UnknownRecord).args as Record<string, unknown>) ||
-                ((tc as UnknownRecord).parameters as Record<string, unknown>) ||
+                ((tc as UnknownRecord).args as StandardRecord) ||
+                ((tc as UnknownRecord).parameters as StandardRecord) ||
                 {},
             }))
           : [],
         toolResults: result.toolResults as ToolResult[],
         toolsUsed: uniqueToolsUsed,
         toolExecutions, // ✅ Add extracted tool executions
-        availableTools: Object.keys(tools).map((name) => ({
-          name,
-          description: tools[name].description || "No description available",
-          parameters: tools[name].parameters || {},
-          server: (tools[name] as any).serverId || "direct",
-        })),
+        availableTools: Object.keys(tools).map((name) => {
+          const tool = tools[name] as ExtendedTool;
+          return {
+            name,
+            description: tool.description || "No description available",
+            parameters: tool.parameters || {},
+            server: tool.serverId || "direct",
+          };
+        }),
       };
 
       // Enhanced result with analytics and evaluation
@@ -423,9 +442,53 @@ export abstract class BaseProvider implements AIProvider {
    */
   async gen(
     optionsOrPrompt: TextGenerationOptions | string,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ValidationSchema,
   ): Promise<EnhancedGenerateResult | null> {
     return this.generate(optionsOrPrompt, analysisSchema);
+  }
+
+  /**
+   * BACKWARD COMPATIBILITY: Legacy generateText method
+   * Converts EnhancedGenerateResult to TextGenerationResult format
+   * Ensures existing scripts using createAIProvider().generateText() continue to work
+   */
+  async generateText(
+    options: TextGenerationOptions,
+  ): Promise<TextGenerationResult> {
+    // Validate required parameters for backward compatibility
+    if (
+      !options.prompt ||
+      typeof options.prompt !== "string" ||
+      options.prompt.trim() === ""
+    ) {
+      throw new Error(
+        "GenerateText options must include prompt as a non-empty string",
+      );
+    }
+
+    // Call the main generate method
+    const result = await this.generate(options);
+
+    if (!result) {
+      throw new Error("Generation failed: No result returned");
+    }
+
+    // Convert EnhancedGenerateResult to TextGenerationResult format
+    return {
+      content: result.content || "",
+      provider: result.provider || this.providerName,
+      model: result.model || this.modelName,
+      usage: result.usage || {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+      },
+      responseTime: 0, // BaseProvider doesn't track response time directly
+      toolsUsed: result.toolsUsed || [],
+      enhancedWithTools: !!(result.toolsUsed && result.toolsUsed.length > 0),
+      analytics: result.analytics,
+      evaluation: result.evaluation,
+    };
   }
 
   // ===================
@@ -437,7 +500,7 @@ export abstract class BaseProvider implements AIProvider {
    */
   protected abstract executeStream(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ValidationSchema,
   ): Promise<StreamResult>;
 
   /**
@@ -474,10 +537,10 @@ export abstract class BaseProvider implements AIProvider {
     logger.debug(`[BaseProvider] getAllTools called for ${this.providerName}`, {
       neurolinkAvailable: !!this.neurolink,
       neurolinkType: typeof this.neurolink,
-      directToolsCount: Object.keys(this.directTools).length,
+      directToolsCount: getKeyCount(this.directTools),
     });
     logger.debug(
-      `[BaseProvider] Direct tools: ${Object.keys(this.directTools).join(", ")}`,
+      `[BaseProvider] Direct tools: ${getKeysAsString(this.directTools)}`,
     );
 
     // Add custom tools from setupToolExecutor if available
@@ -498,7 +561,7 @@ export abstract class BaseProvider implements AIProvider {
           toolDef &&
           typeof toolDef === "object" &&
           "execute" in toolDef &&
-          typeof (toolDef as any).execute === "function"
+          typeof (toolDef as StandardRecord).execute === "function"
         ) {
           try {
             const { tool: createAISDKTool } = await import("ai");
@@ -506,7 +569,7 @@ export abstract class BaseProvider implements AIProvider {
             const typedToolDef = toolDef as {
               name: string;
               description?: string;
-              inputSchema?: any;
+              inputSchema?: unknown;
               execute: Function;
             };
 
@@ -514,16 +577,16 @@ export abstract class BaseProvider implements AIProvider {
               description:
                 typedToolDef.description || `Custom tool ${toolName}`,
               parameters: z.object({}), // Use empty schema for custom tools
-              execute: async (args) => {
+              execute: async (params) => {
                 logger.debug(
                   `[BaseProvider] Executing custom tool: ${toolName}`,
-                  { args },
+                  { params },
                 );
                 // Use the tool executor if available (from setupToolExecutor)
                 if (this.toolExecutor) {
-                  return await this.toolExecutor(toolName, args);
+                  return await this.toolExecutor(toolName, params);
                 } else {
-                  return await typedToolDef.execute(args);
+                  return await typedToolDef.execute(params);
                 }
               },
             });
@@ -546,7 +609,7 @@ export abstract class BaseProvider implements AIProvider {
                 toolDef && typeof toolDef === "object" && "execute" in toolDef,
               executeType:
                 toolDef && typeof toolDef === "object" && "execute" in toolDef
-                  ? typeof (toolDef as any).execute
+                  ? typeof (toolDef as StandardRecord).execute
                   : "N/A",
             },
           );
@@ -573,7 +636,7 @@ export abstract class BaseProvider implements AIProvider {
         );
         if (inMemoryServers && inMemoryServers.size > 0) {
           // Convert in-memory server tools to AI SDK format
-          for (const [serverId, serverConfig] of inMemoryServers) {
+          for (const [_serverId, serverConfig] of inMemoryServers) {
             if (serverConfig && serverConfig.tools) {
               // Handle tools array from MCPServerInfo
               const toolEntries = serverConfig.tools.map((tool) => [
@@ -594,14 +657,22 @@ export abstract class BaseProvider implements AIProvider {
                     // Convert to AI SDK tool format
                     const { tool: createAISDKTool } = await import("ai");
 
+                    // Validate optional schemas if present (accept Zod or plain JSON schema objects)
+                    const isZodSchema = (s: unknown): boolean =>
+                      typeof s === "object" &&
+                      s !== null &&
+                      // Most Zod schemas have an internal _def and a parse method
+                      typeof (s as { parse?: unknown }).parse === "function";
+
                     tools[toolName] = createAISDKTool({
                       description: toolInfo.description || `Tool ${toolName}`,
-                      parameters:
-                        toolInfo.parameters instanceof z.ZodType
-                          ? toolInfo.parameters
-                          : z.object({}),
-                      execute: async (args) => {
-                        const result = await toolInfo.execute(args);
+                      parameters: isZodSchema(toolInfo.parameters)
+                        ? (toolInfo.parameters as z.ZodSchema)
+                        : z.object({}),
+                      execute: async (params) => {
+                        const result = await toolInfo.execute(
+                          params as ToolArgs,
+                        );
 
                         // Handle MCP-style results
                         if (
@@ -669,12 +740,12 @@ export abstract class BaseProvider implements AIProvider {
             tools[tool.name] = createAISDKTool({
               description: tool.description || `External MCP tool ${tool.name}`,
               parameters: await this.convertMCPSchemaToZod(
-                tool.inputSchema as Record<string, unknown> | undefined,
+                tool.inputSchema as StandardRecord | undefined,
               ),
-              execute: async (args) => {
+              execute: async (params) => {
                 logger.debug(
                   `[BaseProvider] Executing external MCP tool: ${tool.name}`,
-                  { args },
+                  { params },
                 );
 
                 // Execute via NeuroLink's direct tool execution
@@ -685,7 +756,7 @@ export abstract class BaseProvider implements AIProvider {
                   return await this.neurolink.executeExternalMCPTool(
                     tool.serverId || "unknown",
                     tool.name,
-                    args,
+                    params as JsonObject,
                   );
                 } else {
                   throw new Error(
@@ -737,7 +808,7 @@ export abstract class BaseProvider implements AIProvider {
     }
 
     logger.debug(
-      `[BaseProvider] getAllTools returning tools: ${Object.keys(tools).join(", ")}`,
+      `[BaseProvider] getAllTools returning tools: ${getKeysAsString(tools)}`,
     );
 
     return tools;
@@ -748,8 +819,8 @@ export abstract class BaseProvider implements AIProvider {
    * Handles common MCP schema patterns safely
    */
   private async convertMCPSchemaToZod(
-    inputSchema?: Record<string, unknown>,
-  ): Promise<any> {
+    inputSchema?: StandardRecord,
+  ): Promise<ZodUnknownSchema> {
     const { z } = await import("zod");
 
     if (!inputSchema || typeof inputSchema !== "object") {
@@ -757,8 +828,8 @@ export abstract class BaseProvider implements AIProvider {
     }
 
     try {
-      const schema = inputSchema as any;
-      const zodFields: Record<string, any> = {};
+      const schema = inputSchema as StandardRecord;
+      const zodFields: Record<string, ZodUnknownSchema> = {};
 
       // Handle JSON Schema properties
       if (schema.properties && typeof schema.properties === "object") {
@@ -767,46 +838,46 @@ export abstract class BaseProvider implements AIProvider {
         );
 
         for (const [propName, propDef] of Object.entries(schema.properties)) {
-          const prop = propDef as any;
-          let zodType: any;
+          const prop = propDef as StandardRecord;
+          let zodType: ZodUnknownSchema;
 
           // Convert based on JSON Schema type
           switch (prop.type) {
             case "string":
               zodType = z.string();
-              if (prop.description) {
+              if (prop.description && typeof prop.description === "string") {
                 zodType = zodType.describe(prop.description);
               }
               break;
             case "number":
             case "integer":
               zodType = z.number();
-              if (prop.description) {
+              if (prop.description && typeof prop.description === "string") {
                 zodType = zodType.describe(prop.description);
               }
               break;
             case "boolean":
               zodType = z.boolean();
-              if (prop.description) {
+              if (prop.description && typeof prop.description === "string") {
                 zodType = zodType.describe(prop.description);
               }
               break;
             case "array":
               zodType = z.array(z.unknown());
-              if (prop.description) {
+              if (prop.description && typeof prop.description === "string") {
                 zodType = zodType.describe(prop.description);
               }
               break;
             case "object":
               zodType = z.object({});
-              if (prop.description) {
+              if (prop.description && typeof prop.description === "string") {
                 zodType = zodType.describe(prop.description);
               }
               break;
             default:
               // Unknown type, use string as fallback
               zodType = z.string();
-              if (prop.description) {
+              if (prop.description && typeof prop.description === "string") {
                 zodType = zodType.describe(prop.description);
               }
           }
@@ -820,9 +891,7 @@ export abstract class BaseProvider implements AIProvider {
         }
       }
 
-      return Object.keys(zodFields).length > 0
-        ? z.object(zodFields)
-        : z.object({});
+      return getKeyCount(zodFields) > 0 ? z.object(zodFields) : z.object({});
     } catch (error) {
       logger.warn(
         `Failed to convert MCP schema to Zod, using empty schema:`,
@@ -899,19 +968,37 @@ export abstract class BaseProvider implements AIProvider {
    * Validate stream options - consolidates validation from 7/10 providers
    */
   protected validateStreamOptions(options: StreamOptions): void {
-    if (!options.input?.text || options.input.text.trim().length === 0) {
-      throw new Error("Input text is required and cannot be empty");
+    const validation = validateStreamOpts(options);
+
+    if (!validation.isValid) {
+      const summary = createValidationSummary(validation);
+      throw new ValidationError(
+        `Stream options validation failed: ${summary}`,
+        "options",
+        "VALIDATION_FAILED",
+        validation.suggestions,
+      );
     }
 
-    if (options.temperature !== undefined) {
-      if (options.temperature < 0 || options.temperature > 2) {
-        throw new Error("temperature must be between 0 and 2");
-      }
+    // Log warnings if any
+    if (validation.warnings.length > 0) {
+      logger.warn("Stream options validation warnings:", validation.warnings);
     }
 
-    if (options.maxTokens !== undefined) {
-      if (options.maxTokens < 1) {
-        throw new Error("maxTokens must be at least 1");
+    // Additional BaseProvider-specific validation
+    if (options.maxSteps !== undefined) {
+      if (
+        options.maxSteps < STEP_LIMITS.min ||
+        options.maxSteps > STEP_LIMITS.max
+      ) {
+        throw new ValidationError(
+          `maxSteps must be between ${STEP_LIMITS.min} and ${STEP_LIMITS.max}`,
+          "maxSteps",
+          "OUT_OF_RANGE",
+          [
+            `Use a value between ${STEP_LIMITS.min} and ${STEP_LIMITS.max} for optimal performance`,
+          ],
+        );
       }
     }
   }
@@ -954,7 +1041,7 @@ export abstract class BaseProvider implements AIProvider {
   ): Promise<UnknownRecord | undefined> {
     try {
       const { createAnalytics } = await import("./analytics.js");
-      const analytics = await createAnalytics(
+      const analytics = createAnalytics(
         this.providerName,
         this.modelName,
         result,
@@ -1023,32 +1110,6 @@ export abstract class BaseProvider implements AIProvider {
     },
     functionTag: string,
   ): void {
-    // Type guard to check for setToolExecutor method
-    function hasSetToolExecutor(obj: unknown): obj is {
-      setToolExecutor: (
-        executor: (toolName: string, params: unknown) => Promise<unknown>,
-      ) => void;
-    } {
-      return (
-        typeof obj === "object" &&
-        obj !== null &&
-        typeof (obj as { setToolExecutor?: unknown }).setToolExecutor ===
-          "function"
-      );
-    }
-
-    if (!hasSetToolExecutor(this)) {
-      logger.warn(
-        `[${functionTag}] Provider does not support setToolExecutor - tools will not be executed`,
-        {
-          hasProvider: true,
-          providerType: this.constructor.name,
-          availableCustomTools: sdk.customTools.size,
-        },
-      );
-      return;
-    }
-
     // Store custom tools for use in getAllTools()
     this.customTools = sdk.customTools;
     this.toolExecutor = sdk.executeTool;
@@ -1056,46 +1117,12 @@ export abstract class BaseProvider implements AIProvider {
     logger.debug(`[${functionTag}] Setting up tool executor for provider`, {
       providerType: this.constructor.name,
       availableCustomTools: sdk.customTools.size,
+      customToolsStored: !!this.customTools,
+      toolExecutorStored: !!this.toolExecutor,
     });
 
-    // Set up tool executor to handle actual tool calls
-    this.setToolExecutor(async (toolName: string, params: unknown) => {
-      logger.debug(
-        `[${functionTag}] AI provider requesting tool execution: ${toolName}`,
-        {
-          toolName,
-          params,
-          availableCustomTools: sdk.customTools.size,
-          hasRequestedTool: sdk.customTools.has(toolName),
-        },
-      );
-
-      try {
-        // Execute the tool using NeuroLink's executeTool method
-        const result = await sdk.executeTool(toolName, params);
-
-        logger.debug(
-          `[${functionTag}] Tool execution successful: ${toolName}`,
-          {
-            toolName,
-            result:
-              typeof result === "object"
-                ? JSON.stringify(result).substring(0, 200)
-                : result,
-            resultType: typeof result,
-          },
-        );
-
-        return result;
-      } catch (error) {
-        logger.error(`[${functionTag}] Tool execution failed: ${toolName}`, {
-          toolName,
-          error: error instanceof Error ? error.message : String(error),
-          params,
-        });
-        throw error;
-      }
-    });
+    // Note: Tool execution will be handled through getAllTools() -> AI SDK tools
+    // The custom tools are converted to AI SDK format in getAllTools() method
   }
 
   // ===================
@@ -1233,63 +1260,41 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   protected validateOptions(options: TextGenerationOptions): void {
-    // 🔧 EDGE CASE: Basic prompt validation
-    if (!options.prompt || options.prompt.trim().length === 0) {
-      throw new Error("Prompt is required and cannot be empty");
-    }
+    const validation = validateTextGenerationOptions(options);
 
-    // 🔧 EDGE CASE: Handle very large prompts (>1M characters)
-    if (options.prompt.length > SYSTEM_LIMITS.MAX_PROMPT_LENGTH) {
-      throw new Error(
-        `Prompt too large: ${options.prompt.length} characters (max: ${SYSTEM_LIMITS.MAX_PROMPT_LENGTH}). Consider breaking into smaller chunks. Use BaseProvider.chunkPrompt(prompt, maxSize, overlap) static method for chunking.`,
+    if (!validation.isValid) {
+      const summary = createValidationSummary(validation);
+      throw new ValidationError(
+        `Text generation options validation failed: ${summary}`,
+        "options",
+        "VALIDATION_FAILED",
+        validation.suggestions,
       );
     }
 
-    // 🔧 EDGE CASE: Validate token limits
-    if (options.maxTokens && options.maxTokens > 200000) {
-      throw new Error(
-        `Max tokens too high: ${options.maxTokens} (recommended max: 200,000). This may cause timeouts or API errors.`,
+    // Log warnings if any
+    if (validation.warnings.length > 0) {
+      logger.warn(
+        "Text generation options validation warnings:",
+        validation.warnings,
       );
     }
 
-    if (options.maxTokens && options.maxTokens < 1) {
-      throw new Error("Max tokens must be at least 1");
-    }
-
-    // 🔧 EDGE CASE: Validate temperature range
-    if (options.temperature !== undefined) {
-      if (options.temperature < 0 || options.temperature > 2) {
-        throw new Error(
-          `Temperature must be between 0 and 2, got: ${options.temperature}`,
+    // Additional BaseProvider-specific validation
+    if (options.maxSteps !== undefined) {
+      if (
+        options.maxSteps < STEP_LIMITS.min ||
+        options.maxSteps > STEP_LIMITS.max
+      ) {
+        throw new ValidationError(
+          `maxSteps must be between ${STEP_LIMITS.min} and ${STEP_LIMITS.max}`,
+          "maxSteps",
+          "OUT_OF_RANGE",
+          [
+            `Use a value between ${STEP_LIMITS.min} and ${STEP_LIMITS.max} for optimal performance`,
+          ],
         );
       }
-    }
-
-    // 🔧 EDGE CASE: Validate timeout values
-    if (options.timeout !== undefined) {
-      const timeoutMs =
-        typeof options.timeout === "string"
-          ? parseInt(options.timeout, 10)
-          : options.timeout;
-
-      if (isNaN(timeoutMs) || timeoutMs < 1000) {
-        throw new Error(
-          `Timeout must be at least 1000ms (1 second), got: ${options.timeout}`,
-        );
-      }
-
-      if (timeoutMs > SYSTEM_LIMITS.LONG_TIMEOUT_WARNING) {
-        logger.warn(
-          `⚠️ Very long timeout: ${timeoutMs}ms. This may cause the CLI to hang.`,
-        );
-      }
-    }
-
-    // 🔧 EDGE CASE: Validate maxSteps for tool execution
-    if (options.maxSteps !== undefined && options.maxSteps > 20) {
-      throw new Error(
-        `Max steps too high: ${options.maxSteps} (recommended max: 20). This may cause long execution times.`,
-      );
     }
   }
 

@@ -9,6 +9,13 @@ export const DEFAULT_TEMPERATURE = 0.7;
 export const DEFAULT_TIMEOUT = 30000;
 export const DEFAULT_MAX_STEPS = 5; // Default multi-turn tool execution steps
 
+// Step execution limits
+export const STEP_LIMITS = {
+  min: 1,
+  max: 20,
+  default: DEFAULT_MAX_STEPS,
+};
+
 // Specialized Use Case Defaults
 export const DEFAULT_EVALUATION_MAX_TOKENS = 500; // Keep evaluation fast
 export const DEFAULT_ANALYSIS_MAX_TOKENS = 800; // For analysis tools

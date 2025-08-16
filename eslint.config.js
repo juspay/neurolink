@@ -91,10 +91,12 @@ export default [
           vars: "local",
         },
       ], // Warn about unused vars but be lenient with imports and function args
-      "@typescript-eslint/no-explicit-any": "warn", // Warn about any types but don't block builds
+      "@typescript-eslint/no-explicit-any": "error", // Error on any types - enforce strict typing
       "@typescript-eslint/prefer-as-const": "error",
       "@typescript-eslint/no-non-null-assertion": "warn", // Warn about non-null assertions but don't block builds
       "@typescript-eslint/explicit-function-return-type": "off", // Too many to fix immediately
+
+      // Enhanced type safety (basic rules only)
 
       // Code quality gates (relaxed for existing codebase)
       complexity: ["warn", 25], // Warn instead of error for large functions
@@ -172,7 +174,7 @@ export default [
 
       // TypeScript-specific rules (less strict for test files)
       "@typescript-eslint/no-unused-vars": "warn", // Test files often have unused vars - warn only
-      "@typescript-eslint/no-explicit-any": "error", // Enforce strict typing - no any types allowed even in tests
+      "@typescript-eslint/no-explicit-any": "warn", // Less strict for test files - warn only
       "@typescript-eslint/prefer-as-const": "error",
       "no-console": "off", // Allow all console statements in tests
 
@@ -202,7 +204,7 @@ export default [
     files: ["src/test/**/*.ts", "test/**/*.ts"],
     rules: {
       "no-console": "off", // Allow all console statements in test files
-      "@typescript-eslint/no-explicit-any": "off", // Allow any in test files
+      "@typescript-eslint/no-explicit-any": "warn", // Consistent with test directory rules above
       "@typescript-eslint/no-unused-vars": "off", // Allow unused vars in tests
     },
   },
@@ -240,9 +242,6 @@ export default [
       // Exclude built documentation site and generated files
       "site/**",
       "_site/**",
-      // Exclude analysis files with Node.js environment issues
-      "comprehensive-gap-analysis.cjs",
-      "test-feature-gaps.cjs",
     ],
   },
 ];

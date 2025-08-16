@@ -13,6 +13,7 @@ import type {
   EnhancedGenerateResult,
 } from "../core/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import type { ConnectivityResult } from "../types/typeAliases.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 
@@ -195,7 +196,7 @@ export class AmazonSageMakerProvider extends BaseProvider {
     error?: string;
   }> {
     const model = this.sagemakerModel as unknown as {
-      testConnectivity?: () => Promise<{ success: boolean; error?: string }>;
+      testConnectivity?: () => Promise<ConnectivityResult>;
     };
     return model.testConnectivity
       ? await model.testConnectivity()

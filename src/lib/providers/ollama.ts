@@ -10,7 +10,7 @@ import type {
 } from "ai";
 import { streamText, Output } from "ai";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
-import type { ZodType, ZodTypeDef } from "zod";
+import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import type { Schema } from "ai";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
@@ -422,7 +422,7 @@ export class OllamaProvider extends BaseProvider {
 
   protected async executeStream(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
     try {
       this.validateStreamOptions(options);
@@ -450,7 +450,7 @@ export class OllamaProvider extends BaseProvider {
    */
   private async executeStreamWithTools(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
     // Convert tools to Ollama format
     const ollamaTools = this.convertToolsToOllamaFormat(options.tools);
@@ -509,7 +509,7 @@ export class OllamaProvider extends BaseProvider {
    */
   private async executeStreamWithoutTools(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
     const response = await fetch(`${this.baseUrl}/api/generate`, {
       method: "POST",
