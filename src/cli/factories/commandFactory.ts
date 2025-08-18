@@ -679,6 +679,41 @@ export class CLICommandFactory {
   }
 
   /**
+   * Create heartbeat command
+   */
+  static createHeartbeatCommand(): CommandModule {
+    return {
+      command: "heartbeat",
+      describe: "Check the status of configured AI providers",
+      builder: (yargs) => {
+        return this.buildOptions(yargs, {
+          provider: {
+            type: "string",
+            description: "Check a specific provider",
+            alias: "p",
+          },
+        });
+      },
+      handler: async (argv) => {
+        const { handler } = await import("../commands/heartbeat.js");
+        // Cast once and destructure for cleaner code
+        const cliArgs = argv as CLICommandArgs;
+        const heartbeatArgs = {
+          provider: cliArgs.provider as string | undefined,
+          dryRun: cliArgs.dryRun,
+          debug: cliArgs.debug,
+          verbose: cliArgs.debug, // verbose is an alias for debug
+          quiet: cliArgs.quiet,
+          noColor: cliArgs.noColor,
+          configFile: cliArgs.configFile,
+          format: cliArgs.format,
+        };
+        await handler(heartbeatArgs);
+      },
+    };
+  }
+
+  /**
    * Create completion command
    */
   static createCompletionCommand(): CommandModule {

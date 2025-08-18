@@ -312,7 +312,10 @@ const cli = yargs(args)
   .command(CLICommandFactory.createBestProviderCommand())
 
   // Completion Command - Using CLICommandFactory
-  .command(CLICommandFactory.createCompletionCommand());
+  .command(CLICommandFactory.createCompletionCommand())
+
+  // Heartbeat Command - Using CLICommandFactory
+  .command(CLICommandFactory.createHeartbeatCommand());
 
 // Add Ollama Commands
 addOllamaCommands(cli);
