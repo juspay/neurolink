@@ -275,18 +275,13 @@ export class LiteLLMProvider extends BaseProvider {
     }
 
     // Fallback to hardcoded list if API fetch fails
-    const fallbackModels = [
-      "openai/gpt-4o",
-      "openai/gpt-4o-mini",
-      "openai/gpt-3.5-turbo",
-      "anthropic/claude-3-5-sonnet-20241022",
-      "anthropic/claude-3-haiku-20240307",
-      "google/gemini-2.0-flash",
-      "google/gemini-1.5-pro",
-      "mistral/mistral-large-latest",
-      "mistral/mistral-medium-latest",
+    const fallbackModels = process.env.LITELLM_FALLBACK_MODELS?.split(",").map(
+      (m) => m.trim(),
+    ) || [
+      "openai/gpt-4o", // minimal safe baseline
+      "anthropic/claude-3-haiku",
       "meta-llama/llama-3.1-8b-instruct",
-      "meta-llama/llama-3.1-70b-instruct",
+      "google/gemini-2.5-flash",
     ];
 
     logger.debug(`[${functionTag}] Using fallback model list`, {
