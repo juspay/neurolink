@@ -39,6 +39,11 @@ import {
   ValidationError,
   createValidationSummary,
 } from "../utils/parameterValidation.js";
+import {
+  recordProviderPerformanceFromMetrics,
+  getPerformanceOptimizedProvider,
+} from "./evaluationProviders.js";
+import { modelConfig } from "./modelConfiguration.js";
 
 // Union type for tools that can be either AI SDK tools or external MCP tools
 type ExtendedTool = Tool & Partial<ExternalMCPToolInfo>;
@@ -278,6 +283,58 @@ export abstract class BaseProvider implements AIProvider {
         temperature: options.temperature,
         maxTokens: options.maxTokens || 8192,
       });
+
+      const responseTime = Date.now() - startTime;
+
+      try {
+        // Calculate actual cost based on token usage and provider configuration
+        const calculateActualCost = (): number => {
+          try {
+            const costInfo = modelConfig.getCostInfo(
+              this.providerName,
+              this.modelName,
+            );
+            if (!costInfo) {
+              return 0; // No cost info available
+            }
+
+            const promptTokens = result.usage?.promptTokens || 0;
+            const completionTokens = result.usage?.completionTokens || 0;
+
+            // Calculate cost per 1K tokens
+            const inputCost = (promptTokens / 1000) * costInfo.input;
+            const outputCost = (completionTokens / 1000) * costInfo.output;
+
+            return inputCost + outputCost;
+          } catch (error) {
+            logger.debug(
+              `Cost calculation failed for ${this.providerName}:`,
+              error,
+            );
+            return 0; // Fallback to 0 on any error
+          }
+        };
+
+        const actualCost = calculateActualCost();
+
+        recordProviderPerformanceFromMetrics(this.providerName, {
+          responseTime,
+          tokensGenerated: result.usage?.totalTokens || 0,
+          cost: actualCost,
+          success: true,
+        });
+
+        // Show what the system learned (updated to include cost)
+        const optimizedProvider = getPerformanceOptimizedProvider("speed");
+        logger.debug(`🚀 Performance recorded for ${this.providerName}:`, {
+          responseTime: `${responseTime}ms`,
+          tokens: result.usage?.totalTokens || 0,
+          estimatedCost: `$${actualCost.toFixed(6)}`,
+          recommendedSpeedProvider: optimizedProvider?.provider || "none",
+        });
+      } catch (perfError) {
+        logger.warn("⚠️ Performance recording failed:", perfError);
+      }
 
       // Extract tool names from tool calls for tracking
       // AI SDK puts tool calls in steps array for multi-step generation
