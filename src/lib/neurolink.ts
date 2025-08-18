@@ -1122,6 +1122,20 @@ export class NeuroLink {
         prompt: (options.input.text?.substring(0, 100) || "No text") + "...",
       });
 
+      // Initialize conversation memory if enabled (same as generate function)
+      if (this.conversationMemory) {
+        await this.conversationMemory.initialize();
+      }
+
+      // Get conversation messages for context injection (same as generate function)
+      const conversationMessages = await getConversationMessages(
+        this.conversationMemory,
+        {
+          prompt: options.input.text,
+          context: enhancedOptions.context as Record<string, unknown>,
+        } as TextGenerationOptions,
+      );
+
       // Create provider using the same factory pattern as generate
       const provider = await AIProviderFactory.createBestProvider(
         providerName,
@@ -1139,14 +1153,76 @@ export class NeuroLink {
         functionTag,
       );
 
-      // Create clean options for provider (remove factoryConfig)
+      // Create clean options for provider (remove factoryConfig) and inject conversation history
       const cleanOptions = createCleanStreamOptions(enhancedOptions);
+      const optionsWithHistory = {
+        ...cleanOptions,
+        conversationMessages, // Inject conversation history like in generate function
+      };
 
-      // Call the provider's stream method with clean options
-      const streamResult = await provider.stream(cleanOptions);
+      // Call the provider's stream method with conversation history
+      const streamResult = await provider.stream(optionsWithHistory);
 
       // Extract the stream from the result
-      const stream = streamResult.stream;
+      const originalStream = streamResult.stream;
+
+      // Create a proper tee pattern that accumulates content and stores memory after consumption
+      let accumulatedContent = "";
+
+      const processedStream = (async function* (self: NeuroLink) {
+        try {
+          for await (const chunk of originalStream) {
+            // Enhanced chunk validation and content handling
+            let processedChunk = chunk;
+
+            if (chunk && typeof chunk === "object") {
+              // Ensure chunk has content property and it's a string
+              if (typeof chunk.content === "string") {
+                accumulatedContent += chunk.content;
+              } else if (
+                chunk.content === undefined ||
+                chunk.content === null
+              ) {
+                // Handle undefined/null content gracefully - create a new chunk object
+                processedChunk = { ...chunk, content: "" };
+              } else if (typeof chunk.content !== "string") {
+                // Convert non-string content to string - create a new chunk object
+                const stringContent = String(chunk.content || "");
+                processedChunk = { ...chunk, content: stringContent };
+                accumulatedContent += stringContent;
+              }
+            } else if (chunk === null || chunk === undefined) {
+              // Create a safe empty chunk if chunk is null/undefined
+              processedChunk = { content: "" };
+            }
+            yield processedChunk; // Preserve original streaming behavior with safe content
+          }
+        } finally {
+          // Store memory after stream consumption
+          if (self.conversationMemory) {
+            try {
+              await self.conversationMemory.storeConversationTurn(
+                (enhancedOptions.context as Record<string, unknown>)
+                  ?.sessionId as string,
+                (enhancedOptions.context as Record<string, unknown>)
+                  ?.userId as string,
+                options.input.text,
+                accumulatedContent,
+              );
+              logger.debug("Stream conversation turn stored", {
+                sessionId: (enhancedOptions.context as Record<string, unknown>)
+                  ?.sessionId,
+                userInputLength: options.input.text.length,
+                responseLength: accumulatedContent.length,
+              });
+            } catch (error) {
+              logger.warn("Failed to store stream conversation turn", {
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+        }
+      })(this);
 
       const responseTime = Date.now() - startTime;
 
@@ -1163,7 +1239,7 @@ export class NeuroLink {
 
       // Convert to StreamResult format - Include analytics and evaluation from provider
       return {
-        stream,
+        stream: processedStream,
         provider: providerName,
         model: options.model,
         usage: streamResult.usage,
@@ -1197,6 +1273,20 @@ export class NeuroLink {
         },
       );
 
+      // Initialize conversation memory for fallback path (same as success path)
+      if (this.conversationMemory) {
+        await this.conversationMemory.initialize();
+      }
+
+      // Get conversation messages for fallback context injection
+      const fallbackConversationMessages = await getConversationMessages(
+        this.conversationMemory,
+        {
+          prompt: options.input.text,
+          context: enhancedOptions.context as Record<string, unknown>,
+        } as TextGenerationOptions,
+      );
+
       // Use factory to create provider without MCP
       const provider = await AIProviderFactory.createBestProvider(
         providerName,
@@ -1214,10 +1304,53 @@ export class NeuroLink {
         functionTag,
       );
 
-      // Create clean options for fallback provider (remove factoryConfig)
+      // Create clean options for fallback provider and inject conversation history
       const cleanOptions = createCleanStreamOptions(enhancedOptions);
+      const fallbackOptionsWithHistory = {
+        ...cleanOptions,
+        conversationMessages: fallbackConversationMessages, // Inject conversation history in fallback
+      };
 
-      const streamResult = await provider.stream(cleanOptions);
+      const streamResult = await provider.stream(fallbackOptionsWithHistory);
+
+      // Create a proper tee pattern for fallback that accumulates content and stores memory after consumption
+      let fallbackAccumulatedContent = "";
+
+      const fallbackProcessedStream = (async function* (self: NeuroLink) {
+        try {
+          for await (const chunk of streamResult.stream) {
+            if (chunk && typeof chunk.content === "string") {
+              fallbackAccumulatedContent += chunk.content;
+            }
+            yield chunk; // Preserve original streaming behavior
+          }
+        } finally {
+          // Store memory after fallback stream consumption
+          if (self.conversationMemory) {
+            try {
+              await self.conversationMemory.storeConversationTurn(
+                (enhancedOptions.context as Record<string, unknown>)
+                  ?.sessionId as string,
+                (enhancedOptions.context as Record<string, unknown>)
+                  ?.userId as string,
+                options.input.text,
+                fallbackAccumulatedContent,
+              );
+              logger.debug("Fallback stream conversation turn stored", {
+                sessionId: (enhancedOptions.context as Record<string, unknown>)
+                  ?.sessionId,
+                userInputLength: options.input.text.length,
+                responseLength: fallbackAccumulatedContent.length,
+              });
+            } catch (error) {
+              logger.warn("Failed to store fallback stream conversation turn", {
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+        }
+      })(this);
+
       const responseTime = Date.now() - startTime;
 
       // Emit stream completion event for fallback
@@ -1228,7 +1361,7 @@ export class NeuroLink {
       });
 
       return {
-        stream: streamResult.stream,
+        stream: fallbackProcessedStream,
         provider: providerName,
         model: options.model,
         usage: streamResult.usage,
