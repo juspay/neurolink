@@ -284,6 +284,11 @@ echo 'OPENAI_API_KEY="sk-your-openai-key"' > .env
 echo 'GOOGLE_AI_API_KEY="AIza-your-google-ai-key"' >> .env
 echo 'AWS_ACCESS_KEY_ID="your-aws-access-key"' >> .env
 
+# 🆕 NEW: Google Vertex AI for Websearch Tool
+echo 'GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"' >> .env
+echo 'GOOGLE_VERTEX_PROJECT="your-gcp-project-id"' >> .env
+echo 'GOOGLE_VERTEX_LOCATION="us-central1"' >> .env
+
 # Test configuration
 npx @juspay/neurolink status
 ```
@@ -337,12 +342,63 @@ console.log(productData.name, productData.price, productData.features);
 
 **📖 [Complete Setup Guide](./docs/CONFIGURATION.md)** - All providers with detailed instructions
 
+## 🔍 **NEW: Websearch Tool with Google Vertex AI Grounding**
+
+**NeuroLink now includes a powerful websearch tool** that uses Google's native search grounding technology for real-time web information:
+
+- **🔍 Native Google Search** - Uses Google's search grounding via Vertex AI
+- **🎯 Real-time Results** - Access current web information during AI conversations
+- **🔒 Credential Protection** - Only activates when Google Vertex AI credentials are properly configured
+
+### Quick Setup & Test
+
+```bash
+# 1. Build the project first
+pnpm run build
+
+# 2. Set up environment variables (see detailed setup below)
+cp .env.example .env
+# Edit .env with your Google Vertex AI credentials
+
+# 3. Test the websearch tool directly
+node test-websearch-grounding.j
+```
+
+### Complete Google Vertex AI Setup
+
+#### Configure Environment Variables
+
+```bash
+# Add to your .env file
+GOOGLE_APPLICATION_CREDENTIALS="/absolute/path/to/neurolink-service-account.json"
+GOOGLE_VERTEX_PROJECT="YOUR-PROJECT-ID"
+GOOGLE_VERTEX_LOCATION="us-central1"
+```
+
+#### Step 3: Test the Setup
+
+````bash
+# Build the project first
+pnpm run build
+
+# Run the dedicated test script
+node test-websearch-grounding.js
+
+### Using the Websearch Tool
+
+#### CLI Usage (Works with All Providers)
+
+# With specific providers - websearch works across all providers
+npx @juspay/neurolink generate "Weather in Tokyo now" --provider vertex
+
+**Note:** The websearch tool gracefully handles missing credentials - it only activates when valid Google Vertex AI credentials are configured. Without proper credentials, other tools continue to work normally and AI responses fall back to training data.
+
 ## ✨ Key Features
 
 - 🔗 **LiteLLM Integration** - **Access 100+ AI models** from all major providers through unified interface
 - 🔍 **Smart Model Auto-Discovery** - OpenAI Compatible provider automatically detects available models via `/v1/models` endpoint
 - 🏭 **Factory Pattern Architecture** - Unified provider management with BaseProvider inheritance
-- 🔧 **Tools-First Design** - All providers automatically include 6 direct tools (getCurrentTime, readFile, listDirectory, calculateMath, writeFile, searchFiles)
+- 🔧 **Tools-First Design** - All providers automatically include 7 direct tools (getCurrentTime, readFile, listDirectory, calculateMath, writeFile, searchFiles, websearchGrounding)
 - 🔄 **12 AI Providers** - OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure, **LiteLLM**, **OpenAI Compatible**, Hugging Face, Ollama, Mistral AI, **SageMaker**
 - 💰 **Cost Optimization** - Automatic selection of cheapest models and LiteLLM routing
 - ⚡ **Automatic Fallback** - Never fail when providers are down, intelligent provider switching
@@ -398,7 +454,7 @@ const result = await neurolink.generate({
 
 # Discover available MCP servers
 npx @juspay/neurolink mcp discover --format table
-```
+````
 
 ### 🔧 SDK Custom Tool Registration (NEW!)
 

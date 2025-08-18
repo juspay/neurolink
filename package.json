@@ -148,6 +148,7 @@
     "@aws-sdk/client-sagemaker": "^3.862.0",
     "@aws-sdk/client-sagemaker-runtime": "^3.862.0",
     "@aws-sdk/types": "^3.862.0",
+    "@google-cloud/vertexai": "^1.10.0",
     "@google/generative-ai": "^0.24.1",
     "@huggingface/inference": "^2.8.0",
     "@modelcontextprotocol/sdk": "^1.13.0",

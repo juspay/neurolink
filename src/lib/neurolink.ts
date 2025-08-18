@@ -96,6 +96,8 @@ import type {
   ExternalMCPOperationResult,
   ExternalMCPToolInfo,
 } from "./types/externalMcp.js";
+// Import direct tools server for automatic registration
+import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
 
 // Provider and MCP diagnostic types
 export interface ProviderStatus {
@@ -265,6 +267,25 @@ export class NeuroLink {
 
       // Register all providers with lazy loading support
       await ProviderRegistry.registerAllProviders();
+
+      // Register the direct tools server to make websearch and other tools available
+      try {
+        // Use the server ID string for registration instead of the server object
+        await toolRegistry.registerServer(
+          "neurolink-direct",
+          directToolsServer,
+        );
+        mcpLogger.debug(
+          "[NeuroLink] Direct tools server registered successfully",
+          {
+            serverId: "neurolink-direct",
+          },
+        );
+      } catch (error) {
+        mcpLogger.warn("[NeuroLink] Failed to register direct tools server", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
 
       // Load MCP configuration from .mcp-config.json using ExternalServerManager
       try {
