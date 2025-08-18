@@ -138,7 +138,7 @@ Start the model configuration server to enable dynamic model features:
 
 ```bash
 # Start the model server (provides REST API for model configs)
-npm run start:model-server
+pnpm run modelServer
 
 # Server provides endpoints at http://localhost:3001:
 # GET /models                     - List all models
@@ -403,7 +403,7 @@ fi
 
 # Install NeuroLink
 echo "📦 Installing NeuroLink..."
-npm install @juspay/neurolink
+pnpm install @juspay/neurolink
 
 # Create .env template
 if [ ! -f .env ]; then
