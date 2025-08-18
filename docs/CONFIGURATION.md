@@ -14,8 +14,8 @@
 
 ---
 
-**Version**: v1.8.0
-**Last Updated**: January 9, 2025
+**Version**: v7.14.3
+**Last Updated**: August 18, 2025
 
 ---
 
@@ -111,6 +111,59 @@ npx neurolink generate "Hello" --provider openai
 
 # SDK
 const provider = createAIProvider('openai');
+```
+
+### **Ollama Configuration (Local AI)**
+
+Run local models with Ollama for complete privacy and offline access.
+
+```bash
+# Ollama requires a running local service
+# Download from https://ollama.ai
+
+# No API key needed. NeuroLink auto-detects at http://localhost:11434.
+# Use a specific model:
+export OLLAMA_MODEL="llama3.2:latest"
+```
+
+### **LiteLLM Configuration (100+ Models)**
+
+Access over 100 models from various providers through a single, unified interface.
+
+```bash
+# Start the LiteLLM proxy server first
+pip install litellm && litellm --port 4000
+
+# Configure environment variables
+export LITELLM_BASE_URL="http://localhost:4000"
+export LITELLM_API_KEY="sk-anything" # Can be any string for local proxy
+```
+
+### **Amazon SageMaker Configuration (Custom Models)**
+
+Deploy and use your own custom-trained models on AWS.
+
+```bash
+# AWS Credentials
+export AWS_ACCESS_KEY_ID="your-aws-access-key-id"
+export AWS_SECRET_ACCESS_KEY="your-aws-secret-access-key"
+export AWS_REGION="us-east-1" # Or your preferred region
+
+# SageMaker Endpoint
+export SAGEMAKER_DEFAULT_ENDPOINT="your-sagemaker-endpoint-name"
+```
+
+### **OpenAI Compatible Configuration**
+
+Connect to any API endpoint that follows the OpenAI specification (e.g., OpenRouter, vLLM).
+
+```bash
+# Point to your compatible endpoint
+export OPENAI_COMPATIBLE_BASE_URL="https://api.openrouter.ai/api/v1"
+export OPENAI_COMPATIBLE_API_KEY="sk-or-v1-your-api-key"
+
+# Optional: specify a model, otherwise it will be auto-discovered
+export OPENAI_COMPATIBLE_MODEL="openai/gpt-4o-mini"
 ```
 
 ---

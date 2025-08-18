@@ -9,7 +9,7 @@
 
 > **Enterprise AI Development Platform** with universal provider support, factory pattern architecture, and **access to 100+ AI models** through LiteLLM integration. Production-ready with TypeScript support.
 
-**NeuroLink** is an Enterprise AI Development Platform that unifies **11 major AI providers** with intelligent fallback and built-in tool support. Available as both a **programmatic SDK** and **professional CLI tool**. Features LiteLLM integration for **100+ models**, plus 6 core tools working across all providers. Extracted from production use at Juspay.
+**NeuroLink** is an Enterprise AI Development Platform that unifies **12 major AI providers** with intelligent fallback and built-in tool support. Available as both a **programmatic SDK** and **professional CLI tool**. Features LiteLLM integration for **100+ models**, plus 6 core tools working across all providers. Extracted from production use at Juspay.
 
 ## 🎉 **NEW: LiteLLM Integration - Access 100+ AI Models**
 
@@ -102,7 +102,7 @@ npx @juspay/neurolink generate "Hello, AI" --provider openai-compatible
 export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
 npx @juspay/neurolink generate "Hello, AI" --provider google-ai
 
-# Option 3: Amazon SageMaker - Use your custom deployed models
+# Option 4: Amazon SageMaker - Use your custom deployed models
 export AWS_ACCESS_KEY_ID="your-access-key"
 export AWS_SECRET_ACCESS_KEY="your-secret-key"
 export SAGEMAKER_DEFAULT_ENDPOINT="your-endpoint-name"
@@ -204,10 +204,9 @@ const neurolink = new NeuroLink({
 Method aliases that match CLI command names:
 
 ```typescript
-// All three methods are equivalent:
+// The following methods are equivalent:
 const result1 = await provider.generate({ input: { text: "Hello" } }); // Original
-const result2 = await provider.generate({ input: { text: "Hello" } }); // Matches CLI 'generate'
-const result3 = await provider.gen({ input: { text: "Hello" } }); // Matches CLI 'gen'
+const result2 = await provider.gen({ input: { text: "Hello" } }); // Matches CLI 'gen'
 
 // Use whichever style you prefer:
 const provider = createBestAIProvider();
@@ -336,7 +335,7 @@ const productData = JSON.parse(result.content);
 console.log(productData.name, productData.price, productData.features);
 ```
 
-**📖 [Complete Setup Guide](./docs/PROVIDER-CONFIGURATION.md)** - All providers with detailed instructions
+**📖 [Complete Setup Guide](./docs/CONFIGURATION.md)** - All providers with detailed instructions
 
 ## ✨ Key Features
 
@@ -807,5 +806,3 @@ MIT © [Juspay Technologies](https://juspay.in)
 <p align="center">
   <strong>Built with ❤️ by <a href="https://juspay.in">Juspay Technologies</a></strong>
 </p>
-# Force fresh deployment after GitHub Pages source change
-# Trigger fresh CI run
