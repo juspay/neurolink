@@ -125,6 +125,8 @@ export class MCPCircuitBreaker extends EventEmitter {
   private lastFailureTime = 0;
   private halfOpenCalls = 0;
   private lastStateChange = new Date();
+  // Store the cleanup timer reference for proper cleanup
+  private cleanupTimer?: NodeJS.Timeout;
 
   constructor(
     private name: string,
@@ -142,8 +144,8 @@ export class MCPCircuitBreaker extends EventEmitter {
       statisticsWindowSize: config.statisticsWindowSize ?? 300000, // 5 minutes
     };
 
-    // Clean up old call records periodically
-    setInterval(() => this.cleanupCallHistory(), 60000);
+    // Clean up old call records periodically - now storing the timer reference
+    this.cleanupTimer = setInterval(() => this.cleanupCallHistory(), 60000);
   }
 
   /**
@@ -423,6 +425,28 @@ export class MCPCircuitBreaker extends EventEmitter {
   isHalfOpen(): boolean {
     return this.state === "half-open";
   }
+
+  /**
+   * Destroy the circuit breaker and clean up resources
+   * This method should be called when the circuit breaker is no longer needed
+   * to prevent memory leaks from the cleanup timer
+   */
+  destroy(): void {
+    // Clear the interval timer to prevent memory leaks
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = undefined;
+      mcpLogger.debug(`[CircuitBreaker:${this.name}] Cleanup timer cleared`);
+    }
+
+    // Clear any remaining event listeners
+    this.removeAllListeners();
+
+    // Clear call history to free memory
+    this.callHistory = [];
+
+    mcpLogger.debug(`[CircuitBreaker:${this.name}] Destroyed and cleaned up`);
+  }
 }
 
 /**
@@ -451,16 +475,21 @@ export class CircuitBreakerManager {
   }
 
   /**
-   * Remove a circuit breaker
+   * Remove a circuit breaker and clean up its resources
    */
   removeBreaker(name: string): boolean {
-    const removed = this.breakers.delete(name);
-    if (removed) {
+    const breaker = this.breakers.get(name);
+    if (breaker) {
+      // Destroy the breaker to clean up its timer and resources
+      breaker.destroy();
+      this.breakers.delete(name);
+
       mcpLogger.debug(
-        `[CircuitBreakerManager] Removed circuit breaker: ${name}`,
+        `[CircuitBreakerManager] Removed and cleaned up circuit breaker: ${name}`,
       );
+      return true;
     }
-    return removed;
+    return false;
   }
 
   /**
@@ -533,6 +562,19 @@ export class CircuitBreakerManager {
       halfOpenBreakers,
       unhealthyBreakers,
     };
+  }
+
+  /**
+   * Destroy all circuit breakers and clean up their resources
+   * This should be called during application shutdown to prevent memory leaks
+   */
+  destroyAll(): void {
+    for (const breaker of this.breakers.values()) {
+      breaker.destroy();
+    }
+    this.breakers.clear();
+
+    mcpLogger.info("[CircuitBreakerManager] Destroyed all circuit breakers");
   }
 }
 
