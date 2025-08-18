@@ -311,6 +311,9 @@ const cli = yargs(args)
   // Get Best Provider Command - Using CLICommandFactory
   .command(CLICommandFactory.createBestProviderCommand())
 
+  // Validate Command (alias for config validate)
+  .command(CLICommandFactory.createValidateCommand())
+
   // Completion Command - Using CLICommandFactory
   .command(CLICommandFactory.createCompletionCommand());
 
