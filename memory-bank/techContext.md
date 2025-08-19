@@ -519,6 +519,15 @@ export class AgentEnhancedProvider implements AIProvider {
 
 ## 🎯 **BUILD & DEPLOYMENT**
 
+### **Pre-commit Hooks**
+```bash
+# pre-commit.sh
+# Ensures code quality before committing
+# - Runs linting
+# - Runs tests
+# - Validates commit messages
+```
+
 ### **Build Configuration**
 ```json
 {
