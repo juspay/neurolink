@@ -582,11 +582,46 @@ export abstract class BaseProvider implements AIProvider {
                   `[BaseProvider] Executing custom tool: ${toolName}`,
                   { params },
                 );
-                // Use the tool executor if available (from setupToolExecutor)
-                if (this.toolExecutor) {
-                  return await this.toolExecutor(toolName, params);
-                } else {
-                  return await typedToolDef.execute(params);
+                
+                try {
+                  // Use the tool executor if available (from setupToolExecutor)
+                  let result;
+                  if (this.toolExecutor) {
+                    result = await this.toolExecutor(toolName, params);
+                  } else {
+                    result = await typedToolDef.execute(params);
+                  }
+                  
+                  // Log successful execution
+                  logger.debug(`[BaseProvider] Tool execution successful: ${toolName}`, {
+                    resultType: typeof result,
+                    hasResult: result !== null && result !== undefined,
+                    toolName,
+                  });
+                  
+                  return result;
+                } catch (error) {
+                  logger.warn(
+                    `[BaseProvider] Tool execution failed: ${toolName}`,
+                    {
+                      error: error instanceof Error ? error.message : String(error),
+                      params,
+                      toolName,
+                    }
+                  );
+                  
+                  // GENERIC ERROR HANDLING FOR ALL MCP TOOLS:
+                  // Return a generic error object that works with any MCP server
+                  // The AI can interpret this and try different approaches
+                  return {
+                    _neurolinkToolError: true,
+                    toolName: toolName,
+                    error: error instanceof Error ? error.message : String(error),
+                    timestamp: new Date().toISOString(),
+                    params: params,
+                    // Keep it simple - just indicate an error occurred
+                    message: `Error calling ${toolName}: ${error instanceof Error ? error.message : String(error)}`
+                  };
                 }
               },
             });

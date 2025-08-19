@@ -32,7 +32,6 @@
 **Investigation Plan**:
 
 1. **Test Context Data Flow**:
-
    - Trace how `--context` data flows through CLI → SDK → Provider
    - Verify if context data reaches AI generation logic
    - Check if context influences prompt construction or response processing
@@ -65,7 +64,6 @@
 **Implementation Plan**:
 
 1. **Analyze Current Code**:
-
    - Find provider status checking logic in codebase
    - Identify where sequential execution occurs
    - Map current timing and bottlenecks
@@ -124,13 +122,11 @@
 **Optimization Plan**:
 
 1. **Profile Module Loading**:
-
    - Analyze which modules take longest to load
    - Identify unnecessary imports in CLI startup path
    - Find opportunities for lazy loading
 
 2. **Bundle Optimization**:
-
    - Review TypeScript compilation output
    - Minimize initial module graph size
    - Consider dynamic imports for heavy modules
@@ -153,13 +149,11 @@
 **Investigation Plan**:
 
 1. **Find the TODO Comment**:
-
    - Locate exact TODO in `src/lib/core/factory.ts`
    - Understand the hanging initialization issue
    - Identify root cause of dynamic model problems
 
 2. **Debug Dynamic Model System**:
-
    - Test dynamic model resolution functionality
    - Check if model server integration works
    - Verify model registry and resolver systems
@@ -178,7 +172,6 @@
 ### **Phase 1: Critical Fixes (Category 1)**
 
 1. **Context Option Investigation** (Day 1)
-
    - Deep dive into context data flow
    - Document current behavior and limitations
    - Implement fixes if integration is broken
@@ -191,7 +184,6 @@
 ### **Phase 2: Minor Improvements (Category 2)**
 
 3. **Provider Edge Cases** (Day 2)
-
    - Research and implement HuggingFace improvements
    - Debug and fix Ollama integration issues
    - Clean up TODO comments

@@ -560,34 +560,86 @@ export class NeuroLink {
 
       // Try MCP-enhanced generation first (if not explicitly disabled)
       if (!options.disableTools) {
-        try {
-          logger.debug(`[${functionTag}] Attempting MCP generation...`);
-          const mcpResult = await this.tryMCPGeneration(options);
-          if (mcpResult && mcpResult.content) {
-            logger.debug(`[${functionTag}] MCP generation successful`);
+        let mcpAttempts = 0;
+        const maxMcpRetries = 2; // Allow retries for tool-related failures
 
-            // Store conversation turn
-            await storeConversationTurn(
-              this.conversationMemory,
-              options,
-              mcpResult,
-            );
-
-            return mcpResult;
-          } else {
+        while (mcpAttempts <= maxMcpRetries) {
+          try {
             logger.debug(
-              `[${functionTag}] MCP generation returned empty result:`,
+              `[${functionTag}] Attempting MCP generation (attempt ${mcpAttempts + 1}/${maxMcpRetries + 1})...`,
+            );
+            const mcpResult = await this.tryMCPGeneration(options);
+
+            if (mcpResult && mcpResult.content) {
+              logger.debug(
+                `[${functionTag}] MCP generation successful on attempt ${mcpAttempts + 1}`,
+                {
+                  contentLength: mcpResult.content.length,
+                  toolsUsed: mcpResult.toolsUsed?.length || 0,
+                  toolExecutions: mcpResult.toolExecutions?.length || 0,
+                },
+              );
+
+              // Store conversation turn
+              await storeConversationTurn(
+                this.conversationMemory,
+                options,
+                mcpResult,
+              );
+
+              return mcpResult;
+            } else {
+              logger.debug(
+                `[${functionTag}] MCP generation returned empty result on attempt ${mcpAttempts + 1}:`,
+                {
+                  hasResult: !!mcpResult,
+                  hasContent: !!(mcpResult && mcpResult.content),
+                  contentLength: mcpResult?.content?.length || 0,
+                  toolExecutions: mcpResult?.toolExecutions?.length || 0,
+                },
+              );
+
+              // If we got a result but no content, and we have tool executions, this might be a tool success case
+              if (
+                mcpResult &&
+                mcpResult.toolExecutions &&
+                mcpResult.toolExecutions.length > 0
+              ) {
+                logger.debug(
+                  `[${functionTag}] Found tool executions but no content, continuing with result`,
+                );
+                // Store conversation turn even with empty content if tools executed
+                await storeConversationTurn(
+                  this.conversationMemory,
+                  options,
+                  mcpResult,
+                );
+                return mcpResult;
+              }
+            }
+          } catch (error) {
+            mcpAttempts++;
+            logger.debug(
+              `[${functionTag}] MCP generation failed on attempt ${mcpAttempts}/${maxMcpRetries + 1}`,
               {
-                hasResult: !!mcpResult,
-                hasContent: !!(mcpResult && mcpResult.content),
-                contentLength: mcpResult?.content?.length || 0,
+                error: error instanceof Error ? error.message : String(error),
+                willRetry: mcpAttempts <= maxMcpRetries,
               },
             );
+
+            // If this was the last attempt, break and fall back
+            if (mcpAttempts > maxMcpRetries) {
+              logger.debug(
+                `[${functionTag}] All MCP attempts exhausted, falling back to direct generation`,
+              );
+              break;
+            }
+
+            // Small delay before retry to allow transient issues to resolve
+            await new Promise((resolve) => setTimeout(resolve, 500));
           }
-        } catch (error) {
-          logger.debug(`[${functionTag}] MCP generation failed, falling back`, {
-            error: error instanceof Error ? error.message : String(error),
-          });
+
+          mcpAttempts++;
         }
       }
 
@@ -676,20 +728,51 @@ export class NeuroLink {
 
       const responseTime = Date.now() - startTime;
 
-      // Check if result is meaningful
-      if (!result || !result.content || result.content.trim().length === 0) {
+      // Enhanced result validation - consider tool executions as valid results
+      const hasContent =
+        result && result.content && result.content.trim().length > 0;
+      const hasToolExecutions =
+        result && result.toolExecutions && result.toolExecutions.length > 0;
+
+      // Log detailed result analysis for debugging
+      mcpLogger.debug(`[${functionTag}] Result validation:`, {
+        hasResult: !!result,
+        hasContent,
+        hasToolExecutions,
+        contentLength: result?.content?.length || 0,
+        toolExecutionsCount: result?.toolExecutions?.length || 0,
+        toolsUsedCount: result?.toolsUsed?.length || 0,
+      });
+
+      // Accept result if it has content OR successful tool executions
+      if (!hasContent && !hasToolExecutions) {
+        mcpLogger.debug(
+          `[${functionTag}] Result rejected: no content and no tool executions`,
+        );
         return null; // Let caller fall back to direct generation
       }
 
-      // Return enhanced result with external tool information
+      // Transform tool executions with enhanced preservation
+      const transformedToolExecutions = transformToolExecutionsForMCP(
+        result.toolExecutions,
+      );
+
+      // Log transformation results
+      mcpLogger.debug(`[${functionTag}] Tool execution transformation:`, {
+        originalCount: result?.toolExecutions?.length || 0,
+        transformedCount: transformedToolExecutions.length,
+        transformedTools: transformedToolExecutions.map((te) => te.toolName),
+      });
+
+      // Return enhanced result with preserved tool information
       return {
-        content: result.content,
+        content: result.content || "", // Ensure content is never undefined
         provider: providerName,
         usage: result.usage,
         responseTime,
         toolsUsed: result.toolsUsed || [],
-        toolExecutions: transformToolExecutionsForMCP(result.toolExecutions),
-        enhancedWithTools: true,
+        toolExecutions: transformedToolExecutions,
+        enhancedWithTools: Boolean(hasToolExecutions), // Mark as enhanced if tools were actually used
         availableTools: transformToolsForMCP(availableTools),
         // Include analytics and evaluation from BaseProvider
         analytics: result.analytics,

@@ -120,13 +120,11 @@ Most tools follow a similar JSON structure:
 
 1. **Common Pattern**: Almost all tools use JSON files with an `mcpServers` object
 2. **Location Hierarchy**: Tools typically check in this order:
-
    - Project/workspace specific configs
    - User/global configs
    - Default/fallback configs
 
 3. **Platform Differences**:
-
    - macOS: Often uses `~/Library/Application Support/`
    - Linux: Typically uses `~/.config/`
    - Windows: Usually uses `%APPDATA%`

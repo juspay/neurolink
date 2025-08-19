@@ -587,21 +587,18 @@ Co-authored-by: sachin.sharma <sachin.sharma@juspay.in>
 ### 🎯 Major Feature: Dynamic Model Configuration System
 
 - **⚡ Revolutionary Model Management**: Introduced dynamic model configuration system replacing static enums
-
   - **Self-Updating Models**: New models automatically available without code updates
   - **Cost Optimization**: Automatic selection of cheapest models for tasks
   - **Smart Resolution**: Fuzzy matching, aliases, and capability-based search
   - **Multi-Source Loading**: Configuration from API → GitHub → local with fallback
 
 - **💰 Cost Intelligence**: Built-in cost optimization and model selection algorithms
-
   - **Current Leader**: Gemini 2.0 Flash at $0.000075/1K input tokens
   - **Capability Mapping**: Find models by features (functionCalling, vision, code-execution)
   - **Real-Time Pricing**: Always current model costs and performance data
   - **Budget Controls**: Maximum price filtering and cost-aware selection
 
 - **🔧 Production-Ready Infrastructure**: Complete system with validation and monitoring
-
   - **Model Configuration Server**: REST API with search capabilities (`scripts/model-server.js`)
   - **Zod Schema Validation**: Type-safe runtime configuration validation
   - **Comprehensive Testing**: Full test suite for all dynamic model functionality
@@ -653,19 +650,16 @@ Co-authored-by: sachin.sharma <sachin.sharma@juspay.in>
 ### Bug Fixes - MCP System Restoration
 
 - **🔧 Fixed Built-in Tool Loading**: Resolved critical circular dependency issues preventing default tools from loading
-
   - **Root Cause**: Circular dependency between `config.ts` and `unified-registry.ts` preventing proper initialization
   - **Solution**: Implemented dynamic imports and restructured initialization chain
   - **Result**: Built-in tools restored from 0 → 3 tools (100% recovery rate)
 
 - **⏰ Fixed Time Tool Functionality**: Time tool now properly available and returns accurate real-time data
-
   - Fixed tool registration and execution pathway
   - Proper timezone handling and formatting
   - Verified accuracy against system time
 
 - **🔍 Enhanced External Tool Discovery**: 58+ external MCP tools now discoverable via comprehensive auto-discovery
-
   - Auto-discovery across VS Code, Claude Desktop, Cursor, Windsurf
   - Proper placeholder system for lazy activation
   - Unified registry integration
@@ -720,7 +714,6 @@ Co-authored-by: sachin.sharma <sachin.sharma@juspay.in>
 ### Features
 
 - **🛠️ Enhanced CLI with Ollama Commands**: New Ollama-specific management commands
-
   - `neurolink ollama list-models` - List installed local models
   - `neurolink ollama pull <model>` - Download models locally
   - `neurolink ollama remove <model>` - Remove installed models
@@ -801,14 +794,12 @@ neurolink generate-text "test" --debug
 ### Patch Changes
 
 - **🔧 Production-Ready CLI Logging System**: Fixed critical logging system for clean production output
-
   - **Issue**: CLI showed excessive debug output during normal operation, breaking demo presentations
   - **Root Cause**: Mixed console.log statements bypassed conditional logger system
   - **Solution**: Systematic replacement of all console.log with logger.debug across codebase
   - **Impact**: **Clean CLI output by default** with conditional debug available via `NEUROLINK_DEBUG=true`
 
 - **🔄 Enhanced Provider Fallback Logic**: Fixed incomplete provider fallback coverage
-
   - **Issue**: Provider fallback only attempted 4 of 6 providers (missing Anthropic & Azure)
   - **Root Cause**: Incomplete provider array in NeuroLink class fallback logic
   - **Solution**: Updated to include all 6 providers: `['openai', 'vertex', 'bedrock', 'anthropic', 'azure', 'google-ai']`
@@ -852,7 +843,6 @@ NEUROLINK_DEBUG=true node dist/cli/cli/index.js generate-text "test" --max-token
 ### Patch Changes
 
 - **🔧 Critical CLI Dependency Fix**: Removed peer dependencies to ensure zero-friction CLI usage
-
   - **Issue**: CLI commands failed when provider-specific SDK packages were peer dependencies
   - **Root Cause**: `npx` doesn't install peer dependencies, causing missing module errors
   - **Solution**: Moved ALL AI provider SDKs to regular dependencies

@@ -39,13 +39,72 @@ export function transformToolExecutions(toolExecutions?: unknown[]): Array<{
     return [];
   }
 
-  return toolExecutions.map((te) => {
+  return toolExecutions.map((te, index) => {
     const teRecord = te as UnknownRecord;
+
+    // Enhanced tool name extraction with multiple fallback strategies
+    let toolName =
+      (teRecord.name as string) ||
+      (teRecord.toolName as string) ||
+      (teRecord.tool as string) ||
+      "";
+
+    // If still no name, try to extract from nested objects
+    if (
+      !toolName &&
+      teRecord.toolCall &&
+      typeof teRecord.toolCall === "object"
+    ) {
+      const toolCall = teRecord.toolCall as UnknownRecord;
+      toolName =
+        (toolCall.name as string) || (toolCall.toolName as string) || "";
+    }
+
+    // Last resort: use index-based fallback to avoid "Unknown Tool"
+    if (!toolName) {
+      toolName = `tool_execution_${index}`;
+    }
+
+    // Enhanced input extraction
+    let input =
+      (teRecord.input as StandardRecord) ||
+      (teRecord.parameters as StandardRecord) ||
+      (teRecord.args as StandardRecord) ||
+      {};
+
+    // Extract input from nested toolCall if available
+    if (
+      Object.keys(input).length === 0 &&
+      teRecord.toolCall &&
+      typeof teRecord.toolCall === "object"
+    ) {
+      const toolCall = teRecord.toolCall as UnknownRecord;
+      input =
+        (toolCall.input as StandardRecord) ||
+        (toolCall.parameters as StandardRecord) ||
+        (toolCall.args as StandardRecord) ||
+        {};
+    }
+
+    // Enhanced output extraction with success indication
+    let output =
+      (teRecord.output as unknown) ||
+      (teRecord.result as unknown) ||
+      (teRecord.response as unknown) ||
+      "success";
+
+    // Enhanced duration extraction
+    let duration =
+      (teRecord.duration as number) ??
+      (teRecord.executionTime as number) ??
+      (teRecord.responseTime as number) ??
+      0;
+
     return {
-      name: (teRecord.name as string) || "",
-      input: (teRecord.input as StandardRecord) || {},
-      output: (teRecord.output as unknown) || "success",
-      duration: (teRecord.duration as number) || 0,
+      name: toolName,
+      input: input,
+      output: output,
+      duration: duration,
     };
   });
 }
@@ -66,13 +125,77 @@ export function transformToolExecutionsForMCP(
     return [];
   }
 
-  return toolExecutions.map((te) => {
+  return toolExecutions.map((te, index) => {
     const teRecord = te as UnknownRecord;
+
+    // Enhanced tool name extraction matching the main function
+    let toolName =
+      (teRecord.name as string) ||
+      (teRecord.toolName as string) ||
+      (teRecord.tool as string) ||
+      "";
+
+    // Try nested toolCall extraction
+    if (
+      !toolName &&
+      teRecord.toolCall &&
+      typeof teRecord.toolCall === "object"
+    ) {
+      const toolCall = teRecord.toolCall as UnknownRecord;
+      toolName =
+        (toolCall.name as string) || (toolCall.toolName as string) || "";
+    }
+
+    // Fallback to avoid empty names
+    if (!toolName) {
+      toolName = `mcp_tool_execution_${index}`;
+    }
+
+    // Enhanced execution time extraction
+    let executionTime =
+      (teRecord.duration as number) ??
+      (teRecord.executionTime as number) ??
+      (teRecord.responseTime as number) ??
+      0;
+
+    // Enhanced success detection - check for actual success indicators
+    let success = true; // Default to true
+
+    // Check for explicit success/error indicators
+    if (teRecord.success !== undefined) {
+      success = Boolean(teRecord.success);
+    } else if (teRecord.error !== undefined) {
+      success = false;
+    } else if (teRecord.status !== undefined) {
+      const status = String(teRecord.status).toLowerCase().trim();
+      success = !["error", "failed", "failure", "fail"].includes(status);
+    }
+
+    // Enhanced server ID extraction
+    let serverId =
+      (teRecord.serverId as string) ||
+      (teRecord.server as string) ||
+      (teRecord.source as string) ||
+      undefined;
+
+    // Try to extract from nested structures
+    if (
+      !serverId &&
+      teRecord.toolCall &&
+      typeof teRecord.toolCall === "object"
+    ) {
+      const toolCall = teRecord.toolCall as UnknownRecord;
+      serverId =
+        (toolCall.serverId as string) ||
+        (toolCall.server as string) ||
+        undefined;
+    }
+
     return {
-      toolName: (teRecord.name as string) || "",
-      executionTime: (teRecord.duration as number) || 0,
-      success: true, // Assume success if tool executed (AI providers handle failures differently)
-      serverId: (teRecord.serverId as string) || undefined,
+      toolName: toolName,
+      executionTime: executionTime,
+      success: success,
+      serverId: serverId,
     };
   });
 }
