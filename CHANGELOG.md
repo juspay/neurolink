@@ -1,3 +1,9 @@
+## [7.21.0](https://github.com/juspay/neurolink/compare/v7.20.0...v7.21.0) (2025-08-19)
+
+### Features
+
+- **(provider):** add env-based fallback for available models (BZ-43348) ([4b6cee3](https://github.com/juspay/neurolink/commit/4b6cee3c19b2b2512b8d236a49b29e2091343195))
+
 ## [7.20.0](https://github.com/juspay/neurolink/compare/v7.19.0...v7.20.0) (2025-08-19)
 
 ### Features
