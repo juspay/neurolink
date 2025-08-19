@@ -1,3 +1,9 @@
+## [7.15.0](https://github.com/juspay/neurolink/compare/v7.14.8...v7.15.0) (2025-08-19)
+
+### Features
+
+- **(tools):** add websearch tool using Gemini AI for Google search integration BZ-43347 ([bcd5160](https://github.com/juspay/neurolink/commit/bcd516019db8a6b89ba6ecb39037b257fd955df0))
+
 ## [7.14.8](https://github.com/juspay/neurolink/compare/v7.14.7...v7.14.8) (2025-08-19)
 
 ### Bug Fixes
