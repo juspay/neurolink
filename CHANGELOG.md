@@ -1,3 +1,9 @@
+## [7.22.0](https://github.com/juspay/neurolink/compare/v7.21.0...v7.22.0) (2025-08-19)
+
+### Features
+
+- **(memory):** Add conversation memory test suite for NeuroLink stream functionality ([b896bef](https://github.com/juspay/neurolink/commit/b896bef43fb0d743f5d9a7196ecf5ca4e39aa8a0))
+
 ## [7.21.0](https://github.com/juspay/neurolink/compare/v7.20.0...v7.21.0) (2025-08-19)
 
 ### Features
