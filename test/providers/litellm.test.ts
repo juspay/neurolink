@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import { LiteLLMProvider } from "../../src/lib/providers/litellm.js";
-import { AIProviderName } from "../../src/lib/core/types.js";
+import { AIProviderName } from "../../src/lib/types/index.js";
 
 describe("LiteLLMProvider", () => {
   beforeAll(() => {
@@ -133,6 +133,12 @@ describe("LiteLLMProvider", () => {
 
   it("should return available models list", async () => {
     const provider = new LiteLLMProvider();
+    // Mock the fetchModelsFromAPI method to return a predictable list
+    vi.spyOn(provider as any, "fetchModelsFromAPI").mockResolvedValue([
+      "openai/gpt-4o",
+      "anthropic/claude-3-5-sonnet",
+      "google/gemini-pro",
+    ]);
     const models = await provider.getAvailableModels();
     expect(Array.isArray(models)).toBe(true);
     expect(models.length).toBeGreaterThan(0);

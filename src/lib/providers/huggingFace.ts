@@ -323,7 +323,7 @@ Available tools will be provided in the function calling format. Use them when t
   /**
    * Enhanced error handling with HuggingFace-specific guidance
    */
-  protected handleProviderError(error: unknown): Error {
+  public handleProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
       return new Error(`HuggingFace request timed out: ${error.message}`);
     }
@@ -365,18 +365,18 @@ Available tools will be provided in the function calling format. Use them when t
     return new Error(`❌ HuggingFace Provider Error: ${message}`);
   }
 
-  protected getProviderName(): AIProviderName {
+  public getProviderName(): AIProviderName {
     return "huggingface" as AIProviderName;
   }
 
-  protected getDefaultModel(): string {
+  public getDefaultModel(): string {
     return getDefaultHuggingFaceModel();
   }
 
   /**
    * Returns the Vercel AI SDK model instance for HuggingFace
    */
-  protected getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModelV1 {
     return this.model;
   }
 }

@@ -9,6 +9,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -77,9 +78,9 @@ class ProviderValidator {
     }
 
     try {
+      dotenv.config({ path: this.envFile });
       const envContent = readFileSync(this.envFile, "utf8");
       const lines = envContent.split("\n").filter((line) => line.trim());
-
       console.log(`📄 Found ${lines.length} environment variables`);
     } catch (error) {
       console.error("❌ Failed to load .env file:", error.message);
@@ -227,6 +228,7 @@ class ProviderValidator {
       openai: "@ai-sdk/openai",
       anthropic: "@ai-sdk/anthropic",
       google: "@ai-sdk/google",
+      "aws-bedrock": "@aws-sdk/client-bedrock",
       azure: "@ai-sdk/openai",
       huggingface: "@huggingface/inference",
       ollama: "ollama",

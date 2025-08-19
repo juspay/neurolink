@@ -63,22 +63,22 @@ export class OpenAIProvider extends BaseProvider {
   // ABSTRACT METHOD IMPLEMENTATIONS
   // ===================
 
-  protected getProviderName(): AIProviderName {
+  public getProviderName(): AIProviderName {
     return AIProviderName.OPENAI;
   }
 
-  protected getDefaultModel(): string {
+  public getDefaultModel(): string {
     return getOpenAIModel();
   }
 
   /**
    * Returns the Vercel AI SDK model instance for OpenAI
    */
-  protected getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModelV1 {
     return this.model;
   }
 
-  protected handleProviderError(error: unknown): Error {
+  public handleProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
       throw new NetworkError(error.message, this.providerName);
     }

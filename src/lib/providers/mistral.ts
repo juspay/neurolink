@@ -130,22 +130,22 @@ export class MistralProvider extends BaseProvider {
   // ABSTRACT METHOD IMPLEMENTATIONS
   // ===================
 
-  protected getProviderName(): AIProviderName {
+  public getProviderName(): AIProviderName {
     return this.providerName;
   }
 
-  protected getDefaultModel(): string {
+  public getDefaultModel(): string {
     return getDefaultMistralModel();
   }
 
   /**
    * Returns the Vercel AI SDK model instance for Mistral
    */
-  protected getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModelV1 {
     return this.model;
   }
 
-  protected handleProviderError(error: unknown): Error {
+  public handleProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
       return new Error(`Mistral request timed out: ${error.message}`);
     }
@@ -165,8 +165,8 @@ export class MistralProvider extends BaseProvider {
       );
     }
 
-    if (message.includes("rate limit")) {
-      return new Error("Mistral rate limit exceeded. Please try again later.");
+    if (message.includes("Rate limit exceeded")) {
+      return new Error("Mistral rate limit exceeded");
     }
 
     return new Error(`Mistral error: ${message}`);

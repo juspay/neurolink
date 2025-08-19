@@ -113,24 +113,24 @@ export class GoogleAIStudioProvider extends BaseProvider {
   // ABSTRACT METHOD IMPLEMENTATIONS
   // ===================
 
-  protected getProviderName(): AIProviderName {
+  public getProviderName(): AIProviderName {
     return "google-ai" as AIProviderName;
   }
 
-  protected getDefaultModel(): string {
+  public getDefaultModel(): string {
     return process.env.GOOGLE_AI_MODEL || GoogleAIModels.GEMINI_2_5_FLASH;
   }
 
   /**
    * 🔧 PHASE 2: Return AI SDK model instance for tool calling
    */
-  protected getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModelV1 {
     const apiKey = this.getApiKey();
     const google = createGoogleGenerativeAI({ apiKey });
     return google(this.modelName);
   }
 
-  protected handleProviderError(error: unknown): Error {
+  public handleProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
       throw new NetworkError(error.message, this.providerName);
     }

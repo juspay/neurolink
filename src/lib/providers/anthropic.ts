@@ -65,22 +65,22 @@ export class AnthropicProvider extends BaseProvider {
     });
   }
 
-  protected getProviderName(): AIProviderName {
+  public getProviderName(): AIProviderName {
     return "anthropic" as AIProviderName;
   }
 
-  protected getDefaultModel(): string {
+  public getDefaultModel(): string {
     return getDefaultAnthropicModel();
   }
 
   /**
    * Returns the Vercel AI SDK model instance for Anthropic
    */
-  protected getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModelV1 {
     return this.model;
   }
 
-  protected handleProviderError(error: unknown): Error {
+  public handleProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
       throw new NetworkError(
         `Request timed out after ${error.timeout}ms`,

@@ -90,7 +90,7 @@ export class LiteLLMProvider extends BaseProvider {
     return this.model;
   }
 
-  protected handleProviderError(error: unknown): Error {
+  public handleProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
       return new Error(`LiteLLM request timed out: ${error.message}`);
     }

@@ -152,15 +152,15 @@ export class AmazonBedrockProvider extends BaseProvider {
   }
 
   // Not using AI SDK approach in conversation management
-  protected getAISDKModel(): never {
+  public getAISDKModel(): never {
     throw new Error("AmazonBedrockProvider does not use AI SDK models");
   }
 
-  protected getProviderName(): AIProviderName {
+  public getProviderName(): AIProviderName {
     return "bedrock" as AIProviderName;
   }
 
-  protected getDefaultModel(): string {
+  public getDefaultModel(): string {
     return (
       process.env.BEDROCK_MODEL || "anthropic.claude-3-sonnet-20240229-v1:0"
     );
@@ -1371,7 +1371,7 @@ export class AmazonBedrockProvider extends BaseProvider {
     }
   }
 
-  protected handleProviderError(error: unknown): Error {
+  public handleProviderError(error: unknown): Error {
     // Handle AWS SDK specific errors
     const message = error instanceof Error ? error.message : String(error);
 

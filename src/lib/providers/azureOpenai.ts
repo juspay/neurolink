@@ -65,22 +65,22 @@ export class AzureOpenAIProvider extends BaseProvider {
     });
   }
 
-  protected getProviderName(): AIProviderName {
+  public getProviderName(): AIProviderName {
     return "azure" as AIProviderName;
   }
 
-  protected getDefaultModel(): string {
+  public getDefaultModel(): string {
     return this.deployment;
   }
 
   /**
    * Returns the Vercel AI SDK model instance for Azure OpenAI
    */
-  protected getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModelV1 {
     return this.azureProvider(this.deployment);
   }
 
-  protected handleProviderError(error: unknown): Error {
+  public handleProviderError(error: unknown): Error {
     const errorObj = error as UnknownRecord;
     if (
       errorObj?.message &&
