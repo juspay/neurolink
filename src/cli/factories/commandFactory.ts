@@ -26,6 +26,8 @@ import {
 } from "../../lib/types/contextTypes.js";
 import { ModelsCommandFactory } from "../commands/models.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
+import { OllamaCommandFactory } from "./ollamaCommandFactory.js";
+import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
 import ora from "ora";
 import chalk from "chalk";
 import { logger } from "../../lib/utils/logger.js";
@@ -694,6 +696,20 @@ export class CLICommandFactory {
       handler: async (argv) =>
         await this.executeGetBestProvider(argv as CLICommandArgs),
     };
+  }
+
+  /**
+   * Create Ollama commands
+   */
+  static createOllamaCommands(): CommandModule {
+    return OllamaCommandFactory.createOllamaCommands();
+  }
+
+  /**
+   * Create SageMaker commands
+   */
+  static createSageMakerCommands(): CommandModule {
+    return SageMakerCommandFactory.createSageMakerCommands();
   }
 
   /**

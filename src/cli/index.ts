@@ -18,8 +18,6 @@ import _fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { addOllamaCommands } from "./commands/ollama.js";
-import { addSageMakerCommands } from "./commands/sagemaker.js";
 import { CLICommandFactory } from "./factories/commandFactory.js";
 import {
   AuthenticationError,
@@ -261,13 +259,13 @@ const cli = yargs(args)
   .command(CLICommandFactory.createValidateCommand())
 
   // Completion Command - Using CLICommandFactory
-  .command(CLICommandFactory.createCompletionCommand());
+  .command(CLICommandFactory.createCompletionCommand())
 
-// Add Ollama Commands
-addOllamaCommands(cli);
+  // Ollama Command Group - Using CLICommandFactory
+  .command(CLICommandFactory.createOllamaCommands())
 
-// Add SageMaker Commands
-addSageMakerCommands(cli);
+  // SageMaker Command Group - Using CLICommandFactory
+  .command(CLICommandFactory.createSageMakerCommands());
 
 // Execute CLI
 (async () => {
