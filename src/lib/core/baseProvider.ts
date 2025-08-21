@@ -14,6 +14,11 @@ import type {
   AIProviderName,
   EvaluationData,
 } from "../core/types.js";
+import { MiddlewareFactory } from "../middleware/factory.js";
+import type {
+  MiddlewareFactoryOptions,
+  MiddlewareConfig,
+} from "../middleware/types.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { JsonValue, JsonObject, UnknownRecord } from "../types/common.js";
 import type { ToolDefinition, ToolResult, ToolArgs } from "../types/tools.js";
@@ -521,6 +526,121 @@ export abstract class BaseProvider implements AIProvider {
     | LanguageModelV1
     | Promise<LanguageModelV1>;
 
+  /**
+   * Get AI SDK model with middleware applied
+   * This method wraps the base model with any configured middleware
+   */
+  protected async getAISDKModelWithMiddleware(
+    options: TextGenerationOptions | StreamOptions = {},
+  ): Promise<LanguageModelV1> {
+    // Get the base model
+    const baseModel = await this.getAISDKModel();
+
+    // Check if middleware should be applied
+    const middlewareOptions = this.extractMiddlewareOptions(options);
+    if (!middlewareOptions || this.shouldSkipMiddleware(options)) {
+      return baseModel;
+    }
+
+    try {
+      // Create middleware context
+      const context = MiddlewareFactory.createContext(
+        this.providerName,
+        this.modelName,
+        options as Record<string, unknown>,
+        {
+          sessionId: this.sessionId,
+          userId: this.userId,
+        },
+      );
+
+      // Apply middleware to the model
+      const wrappedModel = MiddlewareFactory.applyMiddleware(
+        baseModel,
+        context,
+        middlewareOptions,
+      );
+
+      logger.debug(`Applied middleware to ${this.providerName} model`, {
+        provider: this.providerName,
+        model: this.modelName,
+        hasMiddleware: true,
+      });
+
+      return wrappedModel;
+    } catch (error) {
+      logger.warn(
+        `Failed to apply middleware to ${this.providerName}, using base model`,
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+
+      // Return base model on middleware failure to maintain functionality
+      return baseModel;
+    }
+  }
+
+  /**
+   * Extract middleware options from generation options
+   */
+  private extractMiddlewareOptions(
+    options: TextGenerationOptions | StreamOptions,
+  ): MiddlewareFactoryOptions | null {
+    // Check for middleware configuration in options
+    const optionsRecord = options as Record<string, unknown>;
+    const middlewareConfig = optionsRecord.middlewareConfig as
+      | Record<string, MiddlewareConfig>
+      | undefined;
+    const enabledMiddleware = optionsRecord.enabledMiddleware as
+      | string[]
+      | undefined;
+    const disabledMiddleware = optionsRecord.disabledMiddleware as
+      | string[]
+      | undefined;
+    const preset = optionsRecord.middlewarePreset as string | undefined;
+
+    // If no middleware configuration is present, return null
+    if (
+      !middlewareConfig &&
+      !enabledMiddleware &&
+      !disabledMiddleware &&
+      !preset
+    ) {
+      return null;
+    }
+
+    return {
+      middlewareConfig,
+      enabledMiddleware,
+      disabledMiddleware,
+      preset,
+      global: {
+        collectStats: true,
+        continueOnError: true,
+      },
+    };
+  }
+
+  /**
+   * Determine if middleware should be skipped for this request
+   */
+  private shouldSkipMiddleware(
+    options: TextGenerationOptions | StreamOptions,
+  ): boolean {
+    // Skip middleware if explicitly disabled
+    if ((options as Record<string, unknown>).disableMiddleware === true) {
+      return true;
+    }
+
+    // Skip middleware for tool-disabled requests to avoid conflicts
+    if (options.disableTools === true) {
+      return true;
+    }
+
+    return false;
+  }
+
   // ===================
   // TOOL MANAGEMENT
   // ===================
@@ -582,7 +702,7 @@ export abstract class BaseProvider implements AIProvider {
                   `[BaseProvider] Executing custom tool: ${toolName}`,
                   { params },
                 );
-                
+
                 try {
                   // Use the tool executor if available (from setupToolExecutor)
                   let result;
@@ -591,36 +711,41 @@ export abstract class BaseProvider implements AIProvider {
                   } else {
                     result = await typedToolDef.execute(params);
                   }
-                  
+
                   // Log successful execution
-                  logger.debug(`[BaseProvider] Tool execution successful: ${toolName}`, {
-                    resultType: typeof result,
-                    hasResult: result !== null && result !== undefined,
-                    toolName,
-                  });
-                  
+                  logger.debug(
+                    `[BaseProvider] Tool execution successful: ${toolName}`,
+                    {
+                      resultType: typeof result,
+                      hasResult: result !== null && result !== undefined,
+                      toolName,
+                    },
+                  );
+
                   return result;
                 } catch (error) {
                   logger.warn(
                     `[BaseProvider] Tool execution failed: ${toolName}`,
                     {
-                      error: error instanceof Error ? error.message : String(error),
+                      error:
+                        error instanceof Error ? error.message : String(error),
                       params,
                       toolName,
-                    }
+                    },
                   );
-                  
+
                   // GENERIC ERROR HANDLING FOR ALL MCP TOOLS:
                   // Return a generic error object that works with any MCP server
                   // The AI can interpret this and try different approaches
                   return {
                     _neurolinkToolError: true,
                     toolName: toolName,
-                    error: error instanceof Error ? error.message : String(error),
+                    error:
+                      error instanceof Error ? error.message : String(error),
                     timestamp: new Date().toISOString(),
                     params: params,
                     // Keep it simple - just indicate an error occurred
-                    message: `Error calling ${toolName}: ${error instanceof Error ? error.message : String(error)}`
+                    message: `Error calling ${toolName}: ${error instanceof Error ? error.message : String(error)}`,
                   };
                 }
               },

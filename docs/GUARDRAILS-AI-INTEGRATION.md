@@ -1,10 +1,10 @@
-# Guardrails AI Integration
+# Guardrails AI Integration with Middleware
 
-This document outlines the process of integrating Guardrails AI with the NeuroLink platform to enhance the safety, reliability, and security of AI-powered applications.
+This document outlines the modern approach to integrating Guardrails AI with the NeuroLink platform using a middleware-based architecture. This enhances the safety, reliability, and security of AI-powered applications in a modular and maintainable way.
 
 ## Overview
 
-Guardrails AI is an open-source library that provides a framework for creating and managing guardrails for large language models (LLMs). By integrating Guardrails AI, developers can enforce specific rules and policies on the inputs and outputs of their models, ensuring that they adhere to safety guidelines and quality standards.
+Guardrails AI is an open-source library that provides a framework for creating and managing guardrails for large language models (LLMs). By integrating Guardrails AI as middleware, developers can enforce specific rules and policies on the inputs and outputs of their models, ensuring that they adhere to safety guidelines and quality standards.
 
 ## Key Benefits
 
@@ -12,46 +12,80 @@ Guardrails AI is an open-source library that provides a framework for creating a
 - **Quality Assurance**: Ensure that model outputs are accurate, relevant, and meet predefined quality criteria.
 - **Compliance**: Enforce industry-specific regulations and compliance requirements.
 - **Customization**: Create custom guardrails tailored to specific use cases and business needs.
+- **Modularity**: Decouple guardrail logic from the core application logic, making it easier to manage and update.
 
-## Implementation Strategy
+## Middleware-based Guardrail Implementation
 
-The integration of Guardrails AI into the NeuroLink platform will follow these steps:
-
-1.  **Installation**: Add the Guardrails AI library as a dependency to the project.
-2.  **Configuration**: Define the necessary configurations to connect to the Guardrails AI service.
-3.  **Integration**: Incorporate Guardrails AI into the AI provider workflow to validate model inputs and outputs.
-4.  **Documentation**: Provide comprehensive documentation on how to use Guardrails AI with NeuroLink.
-
-## Pre- and Post-Processing with Guardrails
-
-Guardrails AI can be used to create a robust validation pipeline that acts as both a pre-filter for inputs and a post-filter for outputs. This ensures that the data sent to the LLM is valid and that the generated response meets the required quality standards.
+The integration of Guardrails AI into the NeuroLink platform is achieved by wrapping the language model with a custom middleware. This allows for intercepting and modifying the requests and responses to and from the LLM.
 
 ```mermaid
 graph TD
-    A[User Input] --> B{Input Guard};
-    B --> C[LLM];
-    C --> D{Output Guard};
-    D --> E[Final Response];
+    A[User Input] --> B(Language Model with Middleware);
+    subgraph B
+        C{Guardrail Middleware} --> D[Core LLM];
+    end
+    B --> E[Final Response];
 ```
 
-### Input Guard (Pre-processing)
+### Using `wrapLanguageModel`
 
-The Input Guard is responsible for validating the user's input before it is sent to the LLM. This can include checks for:
+The `wrapLanguageModel` function from the AI SDK is the core of this integration. It takes a language model and one or more middlewares and returns a new language model with the enhanced capabilities.
 
-- **PII Detection**: Ensure that no personally identifiable information is sent to the model.
-- **Topic-based Filtering**: Restrict the conversation to specific topics.
-- **Language Detection**: Ensure that the input is in a supported language.
+```typescript
+import { wrapLanguageModel } from "ai";
+import { yourGuardrailMiddleware } from "./middleware/guardrail-middleware";
 
-### Output Guard (Post-processing)
+const guardedModel = wrapLanguageModel({
+  model: yourOriginalModel,
+  middleware: yourGuardrailMiddleware,
+});
 
-The Output Guard is responsible for validating the LLM's response before it is sent to the user. This can include checks for:
+// This guardedModel can now be used in any generation call
+const result = await streamText({
+  model: guardedModel,
+  prompt: "What cities are in the United States?",
+});
+```
 
-- **Toxicity Detection**: Ensure that the response is not toxic or offensive.
-- **Fact-checking**: Verify that the information in the response is accurate.
-- **Format Validation**: Ensure that the response is in the correct format (e.g., JSON, XML).
+### Creating a Custom Guardrail Middleware
 
-## Structured Data Generation
+A guardrail middleware can be implemented to inspect and modify the data flowing through it. Here is a basic example of a guardrail that redacts a "bad word" from the model's output.
 
-Guardrails AI can also be used to generate structured data from LLMs. This is particularly useful when you need to extract specific information from a user's request and format it in a structured way.
+```typescript
+import type { LanguageModelV2Middleware } from "@ai-sdk/provider";
 
-For example, you can define a Pydantic model that represents the desired output structure, and Guardrails AI will use it to guide the LLM in generating the correct output.
+export const yourGuardrailMiddleware: LanguageModelV2Middleware = {
+  wrapGenerate: async ({ doGenerate }) => {
+    const { text, ...rest } = await doGenerate();
+
+    // Filtering approach, e.g., for PII or other sensitive information:
+    const cleanedText = text?.replace(/badword/g, "<REDACTED>");
+
+    return { text: cleanedText, ...rest };
+  },
+
+  // Note: Streaming guardrails are more complex to implement,
+  // as you do not have the full content of the stream until it's finished.
+  // A similar logic would be applied inside a transform stream for wrapStream.
+};
+```
+
+### Chaining Multiple Middlewares
+
+One of the powerful features of this approach is the ability to chain multiple middlewares. This allows you to combine guardrails with other functionalities like logging, caching, or analytics.
+
+The middlewares are applied in the order they are provided in the array.
+
+```typescript
+import { wrapLanguageModel } from "ai";
+import { yourGuardrailMiddleware } from "./middleware/guardrail-middleware";
+import { yourLoggingMiddleware } from "./middleware/logging-middleware";
+
+const enhancedModel = wrapLanguageModel({
+  model: yourOriginalModel,
+  middleware: [yourLoggingMiddleware, yourGuardrailMiddleware],
+});
+// Execution order: yourLoggingMiddleware(yourGuardrailMiddleware(yourOriginalModel))
+```
+
+This approach provides a clean and scalable way to add safety and other enhancements to your AI models within the NeuroLink ecosystem.

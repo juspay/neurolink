@@ -52,6 +52,15 @@ export { NeuroLink } from "./neurolink.js";
 export type { ProviderStatus, MCPStatus } from "./neurolink.js";
 export type { MCPServerInfo } from "./types/mcpTypes.js";
 
+// Middleware exports
+export type {
+  NeuroLinkMiddleware,
+  MiddlewareContext,
+  MiddlewareFactoryOptions,
+} from "./middleware/types.js";
+export { MiddlewareRegistry, MiddlewareFactory } from "./middleware/index.js";
+export { createAnalyticsMiddleware } from "./middleware/builtin/analytics.js";
+
 // Version
 export const VERSION = "1.0.0";
 
