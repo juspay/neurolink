@@ -44,7 +44,7 @@ import {VertexAIEmbeddings} from "@langchain/google-vertexai";
 const embeddings = new VertexAIEmbeddings({
 model : "text-embeddings-004"
 });
-const vector = await embeddings.
+const vector = await embeddings.embed("I like chocolates");
 console.log(vector.length);
 ￼
 
