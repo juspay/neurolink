@@ -83,7 +83,10 @@ import {
   CircuitBreaker,
 } from "./utils/errorHandling.js";
 import { EventEmitter } from "events";
-import type { ConversationMemoryConfig } from "./types/conversationTypes.js";
+import type {
+  ConversationMemoryConfig,
+  ChatMessage,
+} from "./types/conversationTypes.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
 import {
   applyConversationMemoryDefaults,
@@ -2839,6 +2842,42 @@ export class NeuroLink {
     }
 
     return await this.conversationMemory.getStats();
+  }
+
+  /**
+   * Get complete conversation history for a specific session (public API)
+   * @param sessionId - The session ID to retrieve history for
+   * @returns Array of ChatMessage objects in chronological order, or empty array if session doesn't exist
+   */
+  async getConversationHistory(sessionId: string): Promise<ChatMessage[]> {
+    if (!this.conversationMemory) {
+      throw new Error("Conversation memory is not enabled");
+    }
+
+    if (!sessionId || typeof sessionId !== "string") {
+      throw new Error("Session ID must be a non-empty string");
+    }
+
+    try {
+      // Use the existing buildContextMessages method to get the complete history
+      const messages = this.conversationMemory.buildContextMessages(sessionId);
+
+      logger.debug("Retrieved conversation history", {
+        sessionId,
+        messageCount: messages.length,
+        turnCount: messages.length / 2, // Each turn = user + assistant message
+      });
+
+      return messages;
+    } catch (error) {
+      logger.error("Failed to retrieve conversation history", {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Return empty array for graceful handling of missing sessions
+      return [];
+    }
   }
 
   /**
