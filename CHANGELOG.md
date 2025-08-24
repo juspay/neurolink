@@ -1,3 +1,9 @@
+## [7.27.0](https://github.com/juspay/neurolink/compare/v7.26.1...v7.27.0) (2025-08-24)
+
+### Features
+
+- **(History):** Added the functionality to export the conversation history for debugging purpose ([71cec7e](https://github.com/juspay/neurolink/commit/71cec7e30154d80c123cae022806dfea58edbe69))
+
 ## [7.26.1](https://github.com/juspay/neurolink/compare/v7.26.0...v7.26.1) (2025-08-21)
 
 ## [7.26.0](https://github.com/juspay/neurolink/compare/v7.25.0...v7.26.0) (2025-08-21)
