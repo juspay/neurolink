@@ -6,12 +6,12 @@ import type {
   MiddlewareRegistrationOptions,
   MiddlewareChainStats,
   MiddlewareExecutionResult,
+  MiddlewarePreset,
 } from "./types.js";
 import { logger } from "../utils/logger.js";
 
 /**
- * Global middleware registry for NeuroLink
- * Manages registration, configuration, and execution of middleware
+ * Manages the registration, configuration, and execution of middleware for a single factory instance.
  */
 export class MiddlewareRegistry {
   private middleware = new Map<string, NeuroLinkMiddleware>();
@@ -213,7 +213,9 @@ export class MiddlewareRegistry {
     };
 
     // Create wrapper that tracks execution
-    const wrappedMiddleware: LanguageModelV1Middleware = {};
+    const wrappedMiddleware: NeuroLinkMiddleware = {
+      metadata: middleware.metadata,
+    };
 
     if (middleware.transformParams) {
       wrappedMiddleware.transformParams = async (args) => {
@@ -401,6 +403,3 @@ export class MiddlewareRegistry {
     logger.debug("All middleware cleared from registry");
   }
 }
-
-// Global middleware registry instance
-export const middlewareRegistry = new MiddlewareRegistry();

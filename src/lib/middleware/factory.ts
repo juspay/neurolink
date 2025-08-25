@@ -6,18 +6,104 @@ import type {
   MiddlewareFactoryOptions,
   MiddlewareChainStats,
   MiddlewareExecutionResult,
+  MiddlewarePreset,
+  NeuroLinkMiddleware,
+  MiddlewareRegistrationOptions,
 } from "./types.js";
-import { middlewareRegistry } from "./registry.js";
+import { MiddlewareRegistry } from "./registry.js";
+import { createAnalyticsMiddleware } from "./builtin/analytics.js";
+import { createGuardrailsMiddleware } from "./builtin/guardrails.js";
 import { logger } from "../utils/logger.js";
+import { JsonValue } from "../types/common.js";
 
 /**
- * Middleware factory for creating and applying middleware chains
+ * Middleware factory for creating and applying middleware chains.
+ * Each factory instance manages its own registry and configuration.
  */
 export class MiddlewareFactory {
+  public registry: MiddlewareRegistry;
+  public presets = new Map<string, MiddlewarePreset>();
+  private options: MiddlewareFactoryOptions;
+
+  constructor(options: MiddlewareFactoryOptions = {}) {
+    this.options = options;
+    this.registry = new MiddlewareRegistry();
+    this.initialize(options);
+  }
+
+  /**
+   * Initialize the factory with built-in middleware and presets
+   */
+  private initialize(options: MiddlewareFactoryOptions): void {
+    // Register built-in middleware creators
+    const builtInMiddlewareCreators: Record<
+      string,
+      (config?: Record<string, JsonValue>) => NeuroLinkMiddleware
+    > = {
+      analytics: createAnalyticsMiddleware,
+      guardrails: createGuardrailsMiddleware,
+    };
+
+    // Register built-in presets
+    this.registerPreset({
+      name: "default",
+      description: "Default preset with analytics enabled.",
+      config: { analytics: { enabled: true } },
+    });
+    this.registerPreset({
+      name: "all",
+      description: "Enables all available middleware.",
+      config: { analytics: { enabled: true }, guardrails: { enabled: true } },
+    });
+    this.registerPreset({
+      name: "security",
+      description: "Focuses on security with guardrails.",
+      config: { guardrails: { enabled: true } },
+    });
+
+    // Register custom middleware if provided
+    if (options.middleware) {
+      for (const customMiddleware of options.middleware) {
+        this.register(customMiddleware);
+      }
+    }
+
+    // Register all built-in middleware so they are available to be configured
+    for (const middlewareId in builtInMiddlewareCreators) {
+      if (!this.registry.has(middlewareId)) {
+        const creator = builtInMiddlewareCreators[middlewareId];
+        const config = options.middlewareConfig?.[middlewareId]?.config;
+        this.registry.register(creator(config));
+      }
+    }
+  }
+
+  /**
+   * Register a custom preset
+   */
+  public registerPreset(preset: MiddlewarePreset, replace = false): void {
+    if (this.presets.has(preset.name) && !replace) {
+      throw new Error(
+        `Preset with name '${preset.name}' already exists. Use replace: true to override.`,
+      );
+    }
+    this.presets.set(preset.name, preset);
+  }
+
+  /**
+   * Register a custom middleware
+   */
+  public register(
+    middleware: NeuroLinkMiddleware,
+    options?: MiddlewareRegistrationOptions,
+  ): void {
+    this.registry.register(middleware, options);
+  }
+
   /**
    * Apply middleware to a language model
    */
-  static applyMiddleware(
+  public applyMiddleware(
     model: LanguageModelV1,
     context: MiddlewareContext,
     options: MiddlewareFactoryOptions = {},
@@ -25,11 +111,30 @@ export class MiddlewareFactory {
     const startTime = Date.now();
 
     try {
+      // Merge constructor options with call-time options
+      const mergedOptions: MiddlewareFactoryOptions = {
+        ...this.options,
+        ...options,
+        middlewareConfig: {
+          ...this.options.middlewareConfig,
+          ...options.middlewareConfig,
+        },
+      };
       // Build middleware configuration
-      const middlewareConfig = this.buildMiddlewareConfig(options);
+      const middlewareConfig = this.buildMiddlewareConfig(mergedOptions);
+
+      // Re-register middleware with the correct configuration for this call
+      for (const [id, config] of Object.entries(middlewareConfig)) {
+        if (config.enabled && this.registry.has(id)) {
+          const creator = this.getCreator(id);
+          if (creator) {
+            this.registry.register(creator(config.config), { replace: true });
+          }
+        }
+      }
 
       // Build middleware chain
-      const middlewareChain = middlewareRegistry.buildChain(
+      const middlewareChain = this.registry.buildChain(
         context,
         middlewareConfig,
       );
@@ -71,30 +176,60 @@ export class MiddlewareFactory {
     }
   }
 
+  private getCreator(id: string) {
+    const builtInMiddlewareCreators: Record<
+      string,
+      (config?: Record<string, JsonValue>) => NeuroLinkMiddleware
+    > = {
+      analytics: createAnalyticsMiddleware,
+      guardrails: createGuardrailsMiddleware,
+    };
+    return builtInMiddlewareCreators[id];
+  }
+
   /**
    * Build middleware configuration from factory options
    */
-  private static buildMiddlewareConfig(
+  private buildMiddlewareConfig(
     options: MiddlewareFactoryOptions,
   ): Record<string, MiddlewareConfig> {
     const config: Record<string, MiddlewareConfig> = {};
+    const allMiddleware = this.registry.list();
 
-    // Start with all registered middleware
-    const allMiddleware = middlewareRegistry.list();
-
+    // Initialize all middleware as disabled. Configuration will enable them.
     for (const middleware of allMiddleware) {
-      // Default configuration
       config[middleware.metadata.id] = {
-        enabled: middleware.metadata.defaultEnabled || false,
+        enabled: false,
         config: {},
       };
     }
 
-    // Apply preset configuration if specified
-    if (options.preset) {
-      const presetConfig = this.getPresetConfig(options.preset);
+    // Determine which preset to use.
+    let presetName = options.preset;
+    // If no preset is given, and no other specific middleware config is provided, use the default.
+    if (
+      !presetName &&
+      (!options.middlewareConfig ||
+        Object.keys(options.middlewareConfig).length === 0) &&
+      (!options.enabledMiddleware || options.enabledMiddleware.length === 0)
+    ) {
+      presetName = "default";
+    }
+
+    // Apply preset configuration
+    if (presetName) {
+      const presetConfig = this.getPresetConfig(presetName);
       if (presetConfig) {
-        Object.assign(config, presetConfig);
+        for (const [middlewareId, middlewareConfig] of Object.entries(
+          presetConfig,
+        )) {
+          if (config[middlewareId]) {
+            config[middlewareId] = {
+              ...config[middlewareId],
+              ...middlewareConfig,
+            };
+          }
+        }
       }
     }
 
@@ -134,71 +269,17 @@ export class MiddlewareFactory {
   /**
    * Get preset configuration
    */
-  private static getPresetConfig(
+  private getPresetConfig(
     presetName: string,
   ): Record<string, MiddlewareConfig> | null {
-    const presets = this.getBuiltInPresets();
-    return presets[presetName] || null;
-  }
-
-  /**
-   * Get built-in preset configurations
-   */
-  private static getBuiltInPresets(): Record<
-    string,
-    Record<string, MiddlewareConfig>
-  > {
-    return {
-      // Development preset - logging and basic analytics
-      development: {
-        logging: { enabled: true },
-        analytics: { enabled: true },
-      },
-
-      // Production preset - analytics, caching, rate limiting
-      production: {
-        analytics: { enabled: true },
-        caching: { enabled: true },
-        rateLimit: { enabled: true },
-        retry: { enabled: true },
-      },
-
-      // Security preset - guardrails and content filtering
-      security: {
-        guardrails: { enabled: true },
-        logging: { enabled: true },
-        rateLimit: { enabled: true },
-      },
-
-      // Performance preset - caching and optimization
-      performance: {
-        caching: { enabled: true },
-        retry: { enabled: true },
-        timeout: { enabled: true },
-      },
-
-      // Enterprise preset - all middleware enabled
-      enterprise: {
-        analytics: { enabled: true },
-        guardrails: { enabled: true },
-        logging: { enabled: true },
-        caching: { enabled: true },
-        rateLimit: { enabled: true },
-        retry: { enabled: true },
-        timeout: { enabled: true },
-      },
-
-      // Minimal preset - only essential middleware
-      minimal: {
-        analytics: { enabled: true },
-      },
-    };
+    const preset = this.presets.get(presetName);
+    return preset ? preset.config : null;
   }
 
   /**
    * Create middleware context from provider and options
    */
-  static createContext(
+  public createContext(
     provider: string,
     model: string,
     options: Record<string, unknown> = {},
@@ -219,7 +300,7 @@ export class MiddlewareFactory {
   /**
    * Validate middleware configuration
    */
-  static validateConfig(config: Record<string, MiddlewareConfig>): {
+  public validateConfig(config: Record<string, MiddlewareConfig>): {
     isValid: boolean;
     errors: string[];
     warnings: string[];
@@ -229,7 +310,7 @@ export class MiddlewareFactory {
 
     for (const [middlewareId, middlewareConfig] of Object.entries(config)) {
       // Check if middleware is registered
-      if (!middlewareRegistry.has(middlewareId)) {
+      if (!this.registry.has(middlewareId)) {
         errors.push(`Middleware '${middlewareId}' is not registered`);
         continue;
       }
@@ -274,62 +355,27 @@ export class MiddlewareFactory {
   /**
    * Get available presets
    */
-  static getAvailablePresets(): Array<{
+  public getAvailablePresets(): Array<{
     name: string;
     description: string;
     middleware: string[];
   }> {
-    return [
-      {
-        name: "development",
-        description: "Logging and basic analytics for development",
-        middleware: ["logging", "analytics"],
-      },
-      {
-        name: "production",
-        description: "Optimized for production with caching and rate limiting",
-        middleware: ["analytics", "caching", "rateLimit", "retry"],
-      },
-      {
-        name: "security",
-        description: "Enhanced security with guardrails and monitoring",
-        middleware: ["guardrails", "logging", "rateLimit"],
-      },
-      {
-        name: "performance",
-        description: "Optimized for performance with caching and retries",
-        middleware: ["caching", "retry", "timeout"],
-      },
-      {
-        name: "enterprise",
-        description: "Full enterprise feature set with all middleware",
-        middleware: [
-          "analytics",
-          "guardrails",
-          "logging",
-          "caching",
-          "rateLimit",
-          "retry",
-          "timeout",
-        ],
-      },
-      {
-        name: "minimal",
-        description: "Minimal overhead with only essential features",
-        middleware: ["analytics"],
-      },
-    ];
+    return Array.from(this.presets.values()).map((preset) => ({
+      name: preset.name,
+      description: preset.description,
+      middleware: Object.keys(preset.config),
+    }));
   }
 
   /**
    * Get middleware chain statistics
    */
-  static getChainStats(
+  public getChainStats(
     context: MiddlewareContext,
     config: Record<string, MiddlewareConfig>,
   ): MiddlewareChainStats {
-    const chain = middlewareRegistry.buildChain(context, config);
-    const stats = middlewareRegistry.getAggregatedStats();
+    const chain = this.registry.buildChain(context, config);
+    const stats = this.registry.getAggregatedStats();
 
     const results: Record<string, MiddlewareExecutionResult> = {};
     let totalExecutionTime = 0;
@@ -357,7 +403,7 @@ export class MiddlewareFactory {
   /**
    * Create a middleware-enabled model factory function
    */
-  static createModelFactory(
+  public createModelFactory(
     baseModelFactory: () => Promise<LanguageModelV1>,
     defaultOptions: MiddlewareFactoryOptions = {},
   ) {

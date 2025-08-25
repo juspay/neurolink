@@ -57,9 +57,10 @@ export type {
   NeuroLinkMiddleware,
   MiddlewareContext,
   MiddlewareFactoryOptions,
+  MiddlewarePreset,
+  MiddlewareConfig,
 } from "./middleware/types.js";
-export { MiddlewareRegistry, MiddlewareFactory } from "./middleware/index.js";
-export { createAnalyticsMiddleware } from "./middleware/builtin/analytics.js";
+export { MiddlewareFactory } from "./middleware/factory.js";
 
 // Version
 export const VERSION = "1.0.0";

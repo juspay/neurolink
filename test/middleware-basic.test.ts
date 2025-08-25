@@ -1,76 +1,197 @@
 import { describe, it, expect, vi } from "vitest";
-import { createAnalyticsMiddleware } from "../src/lib/middleware/builtin/analytics.js";
 import { MiddlewareFactory } from "../src/lib/middleware/factory.js";
-import type { MiddlewareContext } from "../src/lib/middleware/types.js";
+import type { LanguageModelV1, LanguageModelV1Middleware } from "ai";
+import type { NeuroLinkMiddleware } from "../src/lib/middleware/types.js";
 
-// Mock the AI SDK types for testing
-vi.mock("ai", () => ({
-  LanguageModelV1Middleware: {},
-}));
+// Define a type for our mock wrapped model
+interface MockWrappedModel extends LanguageModelV1 {
+  isWrapped: boolean;
+  appliedMiddleware: LanguageModelV1Middleware[];
+}
 
-describe("Basic Middleware Integration", () => {
-  it("should create analytics middleware", () => {
-    const analyticsMiddleware = createAnalyticsMiddleware();
+// Mock the AI SDK's wrapLanguageModel function
+vi.mock("ai", async () => {
+  const actual = await vi.importActual("ai");
+  return {
+    ...actual,
+    wrapLanguageModel: vi.fn(({ model, middleware }) => {
+      // Return a mock wrapped model
+      return {
+        ...model,
+        isWrapped: true,
+        appliedMiddleware: middleware,
+      };
+    }),
+  };
+});
 
-    expect(analyticsMiddleware.metadata.id).toBe("analytics");
-    expect(analyticsMiddleware.metadata.name).toBe("Analytics Tracking");
-    expect(analyticsMiddleware.metadata.priority).toBe(100);
+describe("MiddlewareFactory Basic Integration", () => {
+  it("should initialize with default preset (analytics)", () => {
+    const factory = new MiddlewareFactory();
+    const presets = factory.getAvailablePresets();
+    const defaultPreset = presets.find((p) => p.name === "default");
+
+    expect(defaultPreset).toBeDefined();
+    expect(defaultPreset?.middleware).toContain("analytics");
   });
 
-  it("should create middleware context", () => {
-    const context = MiddlewareFactory.createContext(
-      "openai",
-      "gpt-4",
-      { prompt: "test" },
-      { sessionId: "test-session" },
-    );
+  it("should initialize with a specified preset (e.g., 'all')", () => {
+    const factory = new MiddlewareFactory({ preset: "all" });
+    const presets = factory.getAvailablePresets();
+    const allPreset = presets.find((p) => p.name === "all");
 
-    expect(context.provider).toBe("openai");
-    expect(context.model).toBe("gpt-4");
-    expect(context.options).toEqual({ prompt: "test" });
-    expect(context.session?.sessionId).toBe("test-session");
+    expect(allPreset).toBeDefined();
+    expect(allPreset?.middleware).toContain("analytics");
+    expect(allPreset?.middleware).toContain("guardrails");
   });
 
-  it("should create middleware function", () => {
-    const analyticsMiddleware = createAnalyticsMiddleware();
-
-    expect(analyticsMiddleware).toBeDefined();
-    expect(typeof analyticsMiddleware.wrapGenerate).toBe("function");
-    expect(typeof analyticsMiddleware.wrapStream).toBe("function");
-  });
-
-  it("should track analytics in middleware", async () => {
-    const analyticsMiddleware = createAnalyticsMiddleware();
-
-    // Mock the doGenerate function
-    const mockResult = {
-      text: "Hello, world!",
-      usage: {
-        promptTokens: 10,
-        completionTokens: 5,
+  it("should register and apply a custom middleware", () => {
+    const customMiddleware: NeuroLinkMiddleware = {
+      metadata: {
+        id: "custom-logger",
+        name: "Custom Logger",
+        priority: 200,
+      },
+      wrapGenerate: async (args) => {
+        console.log("Custom middleware executed!");
+        return args.doGenerate();
       },
     };
 
-    const mockDoGenerate = vi.fn().mockResolvedValue(mockResult);
+    const factory = new MiddlewareFactory({
+      middleware: [customMiddleware],
+    });
 
-    // Create a mock args object that satisfies TypeScript
-    const mockArgs = {
-      doGenerate: mockDoGenerate,
-      params: { prompt: "test" },
-      // These are mocked to satisfy the type system
-      model: {} as unknown,
-      doStream: vi.fn().mockResolvedValue({
-        stream: {} as unknown,
-        rawCall: { rawPrompt: {}, rawSettings: {} },
-      }),
+    const mockModel: LanguageModelV1 = {
+      provider: "mock-provider",
+      modelId: "mock-model",
+      doGenerate: vi.fn(),
+      doStream: vi.fn(),
+      specificationVersion: "v1",
+      defaultObjectGenerationMode: "json",
     };
 
-    // Use type assertion to bypass type checking for the test
-    const result = await (analyticsMiddleware.wrapGenerate as Function)(
-      mockArgs,
-    );
+    const context = factory.createContext("test-provider", "test-model");
+    const wrappedModel = factory.applyMiddleware(mockModel, context, {
+      enabledMiddleware: ["custom-logger", "analytics"],
+    }) as MockWrappedModel;
 
-    expect(mockDoGenerate).toHaveBeenCalled();
-    expect(result.text).toBe("Hello, world!");
+    expect(wrappedModel.isWrapped).toBe(true);
+    const appliedIds = wrappedModel.appliedMiddleware.map(
+      (m: LanguageModelV1Middleware) => (m as NeuroLinkMiddleware).metadata.id,
+    );
+    expect(appliedIds).toContain("custom-logger");
+    expect(appliedIds).toContain("analytics");
+  });
+
+  it("should apply middleware and return a wrapped model", () => {
+    const factory = new MiddlewareFactory({ preset: "all" });
+    const mockModel: LanguageModelV1 = {
+      provider: "mock-provider",
+      modelId: "mock-model",
+      doGenerate: vi.fn(),
+      doStream: vi.fn(),
+      specificationVersion: "v1",
+      defaultObjectGenerationMode: "json",
+    };
+
+    const context = factory.createContext("test-provider", "test-model");
+    const wrappedModel = factory.applyMiddleware(
+      mockModel,
+      context,
+    ) as MockWrappedModel;
+
+    expect(wrappedModel.isWrapped).toBe(true);
+    expect(wrappedModel.appliedMiddleware.length).toBe(2); // analytics and guardrails
+  });
+
+  it("should correctly apply the default preset when no options are provided", () => {
+    const factory = new MiddlewareFactory(); // No options
+    const mockModel: LanguageModelV1 = {
+      provider: "mock-provider",
+      modelId: "mock-model",
+      doGenerate: vi.fn(),
+      doStream: vi.fn(),
+      specificationVersion: "v1",
+      defaultObjectGenerationMode: "json",
+    };
+
+    const context = factory.createContext("test-provider", "test-model");
+    const wrappedModel = factory.applyMiddleware(
+      mockModel,
+      context,
+    ) as MockWrappedModel;
+
+    expect(wrappedModel.isWrapped).toBe(true);
+    const appliedIds = wrappedModel.appliedMiddleware.map(
+      (m: LanguageModelV1Middleware) => (m as NeuroLinkMiddleware).metadata.id,
+    );
+    expect(appliedIds).toEqual(["analytics"]);
+  });
+
+  it("should allow overriding a preset's configuration", () => {
+    const factory = new MiddlewareFactory({
+      preset: "all", // Enable analytics and guardrails
+      middlewareConfig: {
+        analytics: { enabled: false }, // But explicitly disable analytics
+      },
+    });
+
+    const mockModel: LanguageModelV1 = {
+      provider: "mock-provider",
+      modelId: "mock-model",
+      doGenerate: vi.fn(),
+      doStream: vi.fn(),
+      specificationVersion: "v1",
+      defaultObjectGenerationMode: "json",
+    };
+
+    const context = factory.createContext("test-provider", "test-model");
+    const wrappedModel = factory.applyMiddleware(
+      mockModel,
+      context,
+    ) as MockWrappedModel;
+
+    expect(wrappedModel.isWrapped).toBe(true);
+    const appliedIds = wrappedModel.appliedMiddleware.map(
+      (m: LanguageModelV1Middleware) => (m as NeuroLinkMiddleware).metadata.id,
+    );
+    expect(appliedIds).toContain("guardrails");
+    expect(appliedIds).not.toContain("analytics");
+    expect(wrappedModel.appliedMiddleware.length).toBe(1);
+  });
+
+  it("should handle only custom middleware without a preset", () => {
+    const customMiddleware: NeuroLinkMiddleware = {
+      metadata: { id: "custom-only", name: "Custom Only" },
+      wrapGenerate: async (args) => args.doGenerate(),
+    };
+
+    const factory = new MiddlewareFactory({
+      middleware: [customMiddleware],
+      enabledMiddleware: ["custom-only"],
+    });
+
+    const mockModel: LanguageModelV1 = {
+      provider: "mock-provider",
+      modelId: "mock-model",
+      doGenerate: vi.fn(),
+      doStream: vi.fn(),
+      specificationVersion: "v1",
+      defaultObjectGenerationMode: "json",
+    };
+
+    const context = factory.createContext("test-provider", "test-model");
+    const wrappedModel = factory.applyMiddleware(
+      mockModel,
+      context,
+    ) as MockWrappedModel;
+
+    expect(wrappedModel.isWrapped).toBe(true);
+    const appliedIds = wrappedModel.appliedMiddleware.map(
+      (m: LanguageModelV1Middleware) => (m as NeuroLinkMiddleware).metadata.id,
+    );
+    expect(appliedIds).toEqual(["custom-only"]);
+    expect(wrappedModel.appliedMiddleware.length).toBe(1);
   });
 });

@@ -600,8 +600,11 @@ export abstract class BaseProvider implements AIProvider {
     }
 
     try {
+      // Create a new factory instance with the specified options
+      const factory = new MiddlewareFactory(middlewareOptions);
+
       // Create middleware context
-      const context = MiddlewareFactory.createContext(
+      const context = factory.createContext(
         this.providerName,
         this.modelName,
         options as Record<string, unknown>,
@@ -612,7 +615,7 @@ export abstract class BaseProvider implements AIProvider {
       );
 
       // Apply middleware to the model
-      const wrappedModel = MiddlewareFactory.applyMiddleware(
+      const wrappedModel = factory.applyMiddleware(
         baseModel,
         context,
         middlewareOptions,

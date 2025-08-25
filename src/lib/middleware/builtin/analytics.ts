@@ -100,20 +100,21 @@ export function createAnalyticsMiddleware(): NeuroLinkMiddleware {
 
         requestMetrics.set(requestId, streamAnalytics);
 
-        // The 'result' is a stream, so we can't directly modify it.
-        // Analytics for streams are typically handled after the stream is consumed.
-        // For this middleware, we'll log the start and rely on other mechanisms
-        // to capture the end-to-end stream metrics if needed.
-        // We will pass a new property in the `rawResponse`
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const updatedResult: any = { ...result };
-        if (!updatedResult.rawResponse) {
-          updatedResult.rawResponse = {};
-        }
-        if (!updatedResult.rawResponse.neurolink) {
-          updatedResult.rawResponse.neurolink = {};
-        }
-        updatedResult.rawResponse.neurolink.analytics = streamAnalytics;
+        // Ensure the result includes all required properties
+        const updatedResult = {
+          ...result,
+          stream: result.stream || new ReadableStream(),
+          rawCall: result.rawCall || { rawPrompt: null, rawSettings: {} },
+          rawResponse: {
+            ...(result.rawResponse || {}),
+            neurolink: {
+              ...((
+                result.rawResponse as { neurolink?: Record<string, unknown> }
+              )?.neurolink ?? {}),
+              analytics: streamAnalytics,
+            },
+          },
+        };
 
         return updatedResult;
       } catch (error) {

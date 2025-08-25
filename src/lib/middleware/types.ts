@@ -135,13 +135,15 @@ export interface MiddlewarePreset {
   /** Description of the preset */
   description: string;
   /** Middleware configurations in the preset */
-  middleware: Record<string, MiddlewareConfig>;
+  config: Record<string, MiddlewareConfig>;
 }
 
 /**
  * Factory options for middleware
  */
 export interface MiddlewareFactoryOptions {
+  /** Custom middleware to register on initialization */
+  middleware?: NeuroLinkMiddleware[];
   /** Enable specific middleware */
   enabledMiddleware?: string[];
   /** Disable specific middleware */
