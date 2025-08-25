@@ -1,3 +1,115 @@
+## [7.27.0](https://github.com/juspay/neurolink/compare/v7.26.1...v7.27.0) (2025-08-24)
+
+### Features
+
+- **(History):** Added the functionality to export the conversation history for debugging purpose ([71cec7e](https://github.com/juspay/neurolink/commit/71cec7e30154d80c123cae022806dfea58edbe69))
+
+## [7.26.1](https://github.com/juspay/neurolink/compare/v7.26.0...v7.26.1) (2025-08-21)
+
+## [7.26.0](https://github.com/juspay/neurolink/compare/v7.25.0...v7.26.0) (2025-08-21)
+
+### Features
+
+- **(core):** implement provider performance metrics and optimization system ([caa68e7](https://github.com/juspay/neurolink/commit/caa68e7fd44d5a15dd48605063b093279b6f82ae))
+
+## [7.25.0](https://github.com/juspay/neurolink/compare/v7.24.1...v7.25.0) (2025-08-21)
+
+### Features
+
+- **(middleware):** add custom middleware development guide ([ffd0343](https://github.com/juspay/neurolink/commit/ffd0343a589b267a5b8349a06cdfe2664a942e4c))
+
+## [7.24.1](https://github.com/juspay/neurolink/compare/v7.24.0...v7.24.1) (2025-08-21)
+
+## [7.24.0](https://github.com/juspay/neurolink/compare/v7.23.0...v7.24.0) (2025-08-20)
+
+### Features
+
+- **(deploy):** Added a configurable force-rebuild flag for the deploy command. ([e5a81d4](https://github.com/juspay/neurolink/commit/e5a81d4df2ff3dd6a1b81d74beb0bca50015f207))
+
+## [7.23.0](https://github.com/juspay/neurolink/compare/v7.22.0...v7.23.0) (2025-08-19)
+
+### Features
+
+- **(docs):** modernize api examples ([c77706b](https://github.com/juspay/neurolink/commit/c77706b427c2ea781269c6d0c2dc7ca2511128cb))
+
+## [7.22.0](https://github.com/juspay/neurolink/compare/v7.21.0...v7.22.0) (2025-08-19)
+
+### Features
+
+- **(memory):** Add conversation memory test suite for NeuroLink stream functionality ([b896bef](https://github.com/juspay/neurolink/commit/b896bef43fb0d743f5d9a7196ecf5ca4e39aa8a0))
+
+## [7.21.0](https://github.com/juspay/neurolink/compare/v7.20.0...v7.21.0) (2025-08-19)
+
+### Features
+
+- **(provider):** add env-based fallback for available models (BZ-43348) ([4b6cee3](https://github.com/juspay/neurolink/commit/4b6cee3c19b2b2512b8d236a49b29e2091343195))
+
+## [7.20.0](https://github.com/juspay/neurolink/compare/v7.19.0...v7.20.0) (2025-08-19)
+
+### Features
+
+- **(cli):** add --version flag to display package version ([632eb7c](https://github.com/juspay/neurolink/commit/632eb7ca93024dd055dc626951c5a05153d4eda7))
+
+## [7.19.0](https://github.com/juspay/neurolink/compare/v7.18.0...v7.19.0) (2025-08-19)
+
+### Features
+
+- **(docs):** HUMAN IN THE LOOP - User consent for some tools execution ([3f8db51](https://github.com/juspay/neurolink/commit/3f8db51d3f2ab4a35ee361cb867af5047f178178))
+
+## [7.18.0](https://github.com/juspay/neurolink/compare/v7.17.0...v7.18.0) (2025-08-19)
+
+### Features
+
+- **(dev-experience):** add pre-commit hook for automated quality checks ([7d26726](https://github.com/juspay/neurolink/commit/7d267269e3b2168f3a38c736712beab02777df5c))
+
+## [7.17.0](https://github.com/juspay/neurolink/compare/v7.16.0...v7.17.0) (2025-08-19)
+
+### Features
+
+- **(proxy):** implement comprehensive enterprise proxy support with testing ([0dd124b](https://github.com/juspay/neurolink/commit/0dd124b75826f4581a608e4d62acc05e827cbc1d))
+
+## [7.16.0](https://github.com/juspay/neurolink/compare/v7.15.0...v7.16.0) (2025-08-19)
+
+### Features
+
+- **(cli):** Add validate provider config support in CLI ([2e8d6ad](https://github.com/juspay/neurolink/commit/2e8d6ad6475bf24f67f61a76d33689f323821b70))
+
+## [7.15.0](https://github.com/juspay/neurolink/compare/v7.14.8...v7.15.0) (2025-08-19)
+
+### Features
+
+- **(tools):** add websearch tool using Gemini AI for Google search integration BZ-43347 ([bcd5160](https://github.com/juspay/neurolink/commit/bcd516019db8a6b89ba6ecb39037b257fd955df0))
+
+## [7.14.8](https://github.com/juspay/neurolink/compare/v7.14.7...v7.14.8) (2025-08-19)
+
+### Bug Fixes
+
+- **(mcp):** implement generic error handling for all MCP server response formats ([5aa707a](https://github.com/juspay/neurolink/commit/5aa707aa9874ed76ab067a1f7fb6e8301519ce7f))
+
+## [7.14.7](https://github.com/juspay/neurolink/compare/v7.14.6...v7.14.7) (2025-08-18)
+
+### Bug Fixes
+
+- **(core):** add validation for tool registration ([caed431](https://github.com/juspay/neurolink/commit/caed431ca1a025599ae8f901a4f4cb36b970379c))
+
+## [7.14.6](https://github.com/juspay/neurolink/compare/v7.14.5...v7.14.6) (2025-08-18)
+
+### Bug Fixes
+
+- **(docs):** improve and update cli guide ([4039044](https://github.com/juspay/neurolink/commit/40390444950f763f4e360783f99256b16eb9aab0))
+
+## [7.14.5](https://github.com/juspay/neurolink/compare/v7.14.4...v7.14.5) (2025-08-18)
+
+### Bug Fixes
+
+- **(mcp):** prevent memory leak from uncleared interval timer in MCPCircuitBreaker ([1f2ae47](https://github.com/juspay/neurolink/commit/1f2ae4743dc8657baac9ba28a053c4e9d199cdbc))
+
+## [7.14.4](https://github.com/juspay/neurolink/compare/v7.14.3...v7.14.4) (2025-08-18)
+
+### Bug Fixes
+
+- **(docs):** use pnpm in setup script and correct modelServer run command BZ-43341 ([fcfa465](https://github.com/juspay/neurolink/commit/fcfa465ef5af7656dc066fd5901c738588609d4e))
+
 ## [7.14.3](https://github.com/juspay/neurolink/compare/v7.14.2...v7.14.3) (2025-08-16)
 
 ### Bug Fixes

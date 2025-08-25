@@ -822,6 +822,57 @@ The best provider is selected based on the following priorities:
 
 ## Error Handling Patterns
 
+### Type-Safe Provider Error Handling (August 20, 2025)
+
+**Pattern**: A centralized, type-safe error system replaces fragile string-matching to create a more robust and maintainable application. This pattern ensures that errors are handled consistently and that users receive clear, actionable feedback.
+
+**1. Custom Error Hierarchy (`src/lib/types/errors.ts`)**
+A set of custom error classes provides a specific vocabulary for application failures.
+
+```typescript
+// src/lib/types/errors.ts
+export class BaseError extends Error { /* ... */ }
+export class ProviderError extends BaseError { /* ... */ }
+export class AuthenticationError extends ProviderError { /* ... */ }
+export class NetworkError extends ProviderError { /* ... */ }
+export class RateLimitError extends ProviderError { /* ... */ }
+export class InvalidModelError extends ProviderError { /* ... */ }
+```
+
+**2. Providers Throw Specific Errors**
+Each AI provider is responsible for interpreting low-level errors and throwing the appropriate high-level, typed error.
+
+```typescript
+// Example in a provider (e.g., openAI.ts)
+protected handleProviderError(error: unknown): Error {
+  const message = (error as Error).message;
+  if (message.includes("Invalid API key")) {
+    throw new AuthenticationError("Invalid OpenAI API key.", this.providerName);
+  }
+  // ... other checks
+  throw new ProviderError(`OpenAI error: ${message}`, this.providerName);
+}
+```
+
+**3. CLI Catches Typed Errors for User Feedback**
+The CLI's `handleError` function uses `instanceof` to catch specific error types and provide targeted advice.
+
+```typescript
+// Example in the CLI (src/cli/index.ts)
+function handleError(error: Error, context: string): void {
+  logger.error(`❌ ${context} failed: ${error.message}`);
+
+  if (error instanceof AuthenticationError) {
+    logger.error("💡 Please check your API key and environment variables.");
+  } else if (error instanceof NetworkError) {
+    logger.error("💡 Please check your internet connection.");
+  }
+  process.exit(1);
+}
+```
+
+---
+
 1. **Provider-Level Error Handling**:
 
    - Each provider handles provider-specific errors

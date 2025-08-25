@@ -8,7 +8,19 @@ import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
 import { logger } from "../utils/logger.js";
+import { VertexAI } from "@google-cloud/vertexai";
 
+// Runtime Google Search tool creation - bypasses TypeScript strict typing
+function createGoogleSearchTools() {
+  const searchTool = {};
+  // Dynamically assign google_search property at runtime
+  Object.defineProperty(searchTool, "google_search", {
+    value: {},
+    enumerable: true,
+    configurable: true,
+  });
+  return [searchTool];
+}
 /**
  * Direct tool definitions that work immediately with Gemini/AI SDK
  * These bypass MCP complexity and provide reliable agent functionality
@@ -367,6 +379,148 @@ export const directAgentTools = {
           error: error instanceof Error ? error.message : String(error),
           directory,
           pattern,
+        };
+      }
+    },
+  }),
+  websearchGrounding: tool({
+    description:
+      "Search the web for current information using Google Search grounding. Returns raw search data for AI processing.",
+    parameters: z.object({
+      query: z.string().describe("Search query to find information about"),
+      maxResults: z
+        .number()
+        .optional()
+        .default(3)
+        .describe("Maximum number of search results to return (1-5)"),
+      maxWords: z
+        .number()
+        .optional()
+        .default(50)
+        .describe("Maximum number of words in the response 50"),
+    }),
+    execute: async ({ query, maxResults = 3, maxWords = 50 }) => {
+      try {
+        const hasCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        const hasProjectId = process.env.GOOGLE_VERTEX_PROJECT;
+        const projectLocation =
+          process.env.GOOGLE_VERTEX_LOCATION || "us-central1";
+
+        if (!hasCredentials || !hasProjectId) {
+          return {
+            success: false,
+            error:
+              "Google Vertex AI credentials not configured. Please set GOOGLE_APPLICATION_CREDENTIALS and GOOGLE_VERTEX_PROJECT environment variables.",
+            requiredEnvVars: [
+              "GOOGLE_APPLICATION_CREDENTIALS",
+              "GOOGLE_VERTEX_PROJECT",
+            ],
+          };
+        }
+
+        const limitedResults = Math.min(Math.max(maxResults, 1), 5);
+        const vertex_ai = new VertexAI({
+          project: hasProjectId,
+          location: projectLocation,
+        });
+
+        const websearchModel = "gemini-2.5-flash-lite";
+
+        const model = vertex_ai.getGenerativeModel({
+          model: websearchModel,
+          tools: createGoogleSearchTools(),
+        });
+
+        // Search query with word limit constraint
+        const searchPrompt = `Search for: "${query}". Provide a concise summary in no more than ${maxWords} words.`;
+
+        const startTime = Date.now();
+        const response = await model.generateContent({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: searchPrompt }],
+            },
+          ],
+        });
+
+        const responseTime = Date.now() - startTime;
+
+        // Extract grounding metadata and search results
+        const result = response.response;
+        const candidates = result.candidates;
+
+        if (!candidates || candidates.length === 0) {
+          return {
+            success: false,
+            error: "No search results returned",
+            query,
+          };
+        }
+
+        const content = candidates[0].content;
+        if (!content || !content.parts || content.parts.length === 0) {
+          return {
+            success: false,
+            error: "No search content found",
+            query,
+          };
+        }
+
+        // Extract raw search content
+        const searchContent = content.parts[0].text || "";
+
+        // Extract grounding sources if available
+        const groundingMetadata = candidates[0]?.groundingMetadata;
+        const searchResults = [];
+
+        if (groundingMetadata?.groundingChunks) {
+          for (const chunk of groundingMetadata.groundingChunks.slice(
+            0,
+            limitedResults,
+          )) {
+            if (chunk.web) {
+              searchResults.push({
+                title: chunk.web.title || "No title",
+                url: chunk.web.uri || "",
+                snippet: searchContent, // Use full content since maxWords already limits length
+                domain: chunk.web.uri
+                  ? new URL(chunk.web.uri).hostname
+                  : "unknown",
+              });
+            }
+          }
+        }
+
+        // If no grounding metadata, create basic result structure
+        if (searchResults.length === 0) {
+          searchResults.push({
+            title: `Search results for: ${query}`,
+            url: "",
+            snippet: searchContent,
+            domain: "google-search",
+          });
+        }
+
+        return {
+          success: true,
+          query,
+          searchResults,
+          rawContent: searchContent,
+          totalResults: searchResults.length,
+          provider: "google-search-grounding",
+          model: websearchModel,
+          responseTime,
+          timestamp: startTime,
+          grounded: true,
+        };
+      } catch (error) {
+        logger.error("Web search grounding error:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          query,
+          provider: "google-search-grounding",
         };
       }
     },

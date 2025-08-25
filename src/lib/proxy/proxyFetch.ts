@@ -84,11 +84,13 @@ export function createProxyFetch(): typeof fetch {
 export function getProxyStatus() {
   const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy;
   const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy;
+  const noProxy = process.env.NO_PROXY || process.env.no_proxy;
 
   return {
     enabled: !!(httpsProxy || httpProxy),
     httpProxy: httpProxy || null,
     httpsProxy: httpsProxy || null,
+    noProxy: noProxy || null,
     method: "undici-proxy-agent",
   };
 }

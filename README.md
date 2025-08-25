@@ -9,7 +9,7 @@
 
 > **Enterprise AI Development Platform** with universal provider support, factory pattern architecture, and **access to 100+ AI models** through LiteLLM integration. Production-ready with TypeScript support.
 
-**NeuroLink** is an Enterprise AI Development Platform that unifies **11 major AI providers** with intelligent fallback and built-in tool support. Available as both a **programmatic SDK** and **professional CLI tool**. Features LiteLLM integration for **100+ models**, plus 6 core tools working across all providers. Extracted from production use at Juspay.
+**NeuroLink** is an Enterprise AI Development Platform that unifies **12 major AI providers** with intelligent fallback and built-in tool support. Available as both a **programmatic SDK** and **professional CLI tool**. Features LiteLLM integration for **100+ models**, plus 6 core tools working across all providers. Extracted from production use at Juspay.
 
 ## 🎉 **NEW: LiteLLM Integration - Access 100+ AI Models**
 
@@ -62,6 +62,7 @@ npx @juspay/neurolink sagemaker benchmark my-endpoint  # Performance testing
 - **🏭 Factory Pattern Architecture** - Unified provider management through BaseProvider inheritance
 - **🔧 Tools-First Design** - All providers include built-in tool support without additional configuration
 - **🔗 LiteLLM Integration** - **100+ models** from all major providers through unified interface
+- **🏢 Enterprise Proxy Support** - Comprehensive corporate proxy support with MCP compatibility
 - **🏗️ Enterprise Architecture** - Production-ready with clean abstractions
 - **🔄 Configuration Management** - Flexible provider configuration with automatic backups
 - **✅ Type Safety** - Industry-standard TypeScript interfaces
@@ -102,7 +103,7 @@ npx @juspay/neurolink generate "Hello, AI" --provider openai-compatible
 export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
 npx @juspay/neurolink generate "Hello, AI" --provider google-ai
 
-# Option 3: Amazon SageMaker - Use your custom deployed models
+# Option 4: Amazon SageMaker - Use your custom deployed models
 export AWS_ACCESS_KEY_ID="your-access-key"
 export AWS_SECRET_ACCESS_KEY="your-secret-key"
 export SAGEMAKER_DEFAULT_ENDPOINT="your-endpoint-name"
@@ -145,32 +146,7 @@ const { NeuroLink } = require('@juspay/neurolink');
 ### Basic Usage
 
 ```typescript
-import { NeuroLink, AIProviderFactory } from "@juspay/neurolink";
-
-// LiteLLM - Access 100+ models through unified interface
-const litellmProvider = await AIProviderFactory.createProvider(
-  "litellm",
-  "openai/gpt-4o",
-);
-const result = await litellmProvider.generate({
-  input: { text: "Write a haiku about programming" },
-});
-
-// Compare multiple models simultaneously
-const models = [
-  "openai/gpt-4o",
-  "anthropic/claude-3-5-sonnet",
-  "google/gemini-2.0-flash",
-];
-const comparisons = await Promise.all(
-  models.map(async (model) => {
-    const provider = await AIProviderFactory.createProvider("litellm", model);
-    const result = await provider.generate({
-      input: { text: "Explain quantum computing" },
-    });
-    return { model, response: result.content, provider: result.provider };
-  }),
-);
+import { NeuroLink } from "@juspay/neurolink";
 
 // Auto-select best available provider
 const neurolink = new NeuroLink();
@@ -180,8 +156,8 @@ const autoResult = await neurolink.generate({
   timeout: "30s",
 });
 
-console.log(result.content);
-console.log(`Used: ${result.provider}`);
+console.log(autoResult.content);
+console.log(`Used: ${autoResult.provider}`);
 ```
 
 ### Conversation Memory
@@ -204,10 +180,9 @@ const neurolink = new NeuroLink({
 Method aliases that match CLI command names:
 
 ```typescript
-// All three methods are equivalent:
+// The following methods are equivalent:
 const result1 = await provider.generate({ input: { text: "Hello" } }); // Original
-const result2 = await provider.generate({ input: { text: "Hello" } }); // Matches CLI 'generate'
-const result3 = await provider.gen({ input: { text: "Hello" } }); // Matches CLI 'gen'
+const result2 = await provider.gen({ input: { text: "Hello" } }); // Matches CLI 'gen'
 
 // Use whichever style you prefer:
 const provider = createBestAIProvider();
@@ -241,27 +216,10 @@ npx @juspay/neurolink generate "Write a proposal" --enable-analytics --enable-ev
 npx @juspay/neurolink stream "What time is it and write a file with the current date"
 ```
 
-#### SDK with LiteLLM and Enhancement Features
+#### SDK and Enhancement Features
 
 ```typescript
-import { NeuroLink, AIProviderFactory } from "@juspay/neurolink";
-
-// LiteLLM multi-model comparison
-const models = [
-  "openai/gpt-4o",
-  "anthropic/claude-3-5-sonnet",
-  "google/gemini-2.0-flash",
-];
-const comparisons = await Promise.all(
-  models.map(async (model) => {
-    const provider = await AIProviderFactory.createProvider("litellm", model);
-    return await provider.generate({
-      input: { text: "Explain the benefits of renewable energy" },
-      enableAnalytics: true,
-      enableEvaluation: true,
-    });
-  }),
-);
+import { NeuroLink } from "@juspay/neurolink";
 
 // Enhanced generation with analytics
 const neurolink = new NeuroLink();
@@ -284,6 +242,11 @@ console.log("Response:", result.content);
 echo 'OPENAI_API_KEY="sk-your-openai-key"' > .env
 echo 'GOOGLE_AI_API_KEY="AIza-your-google-ai-key"' >> .env
 echo 'AWS_ACCESS_KEY_ID="your-aws-access-key"' >> .env
+
+# 🆕 NEW: Google Vertex AI for Websearch Tool
+echo 'GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"' >> .env
+echo 'GOOGLE_VERTEX_PROJECT="your-gcp-project-id"' >> .env
+echo 'GOOGLE_VERTEX_LOCATION="us-central1"' >> .env
 
 # Test configuration
 npx @juspay/neurolink status
@@ -336,19 +299,71 @@ const productData = JSON.parse(result.content);
 console.log(productData.name, productData.price, productData.features);
 ```
 
-**📖 [Complete Setup Guide](./docs/PROVIDER-CONFIGURATION.md)** - All providers with detailed instructions
+**📖 [Complete Setup Guide](./docs/CONFIGURATION.md)** - All providers with detailed instructions
+
+## 🔍 **NEW: Websearch Tool with Google Vertex AI Grounding**
+
+**NeuroLink now includes a powerful websearch tool** that uses Google's native search grounding technology for real-time web information:
+
+- **🔍 Native Google Search** - Uses Google's search grounding via Vertex AI
+- **🎯 Real-time Results** - Access current web information during AI conversations
+- **🔒 Credential Protection** - Only activates when Google Vertex AI credentials are properly configured
+
+### Quick Setup & Test
+
+```bash
+# 1. Build the project first
+pnpm run build
+
+# 2. Set up environment variables (see detailed setup below)
+cp .env.example .env
+# Edit .env with your Google Vertex AI credentials
+
+# 3. Test the websearch tool directly
+node test-websearch-grounding.j
+```
+
+### Complete Google Vertex AI Setup
+
+#### Configure Environment Variables
+
+```bash
+# Add to your .env file
+GOOGLE_APPLICATION_CREDENTIALS="/absolute/path/to/neurolink-service-account.json"
+GOOGLE_VERTEX_PROJECT="YOUR-PROJECT-ID"
+GOOGLE_VERTEX_LOCATION="us-central1"
+```
+
+#### Step 3: Test the Setup
+
+````bash
+# Build the project first
+pnpm run build
+
+# Run the dedicated test script
+node test-websearch-grounding.js
+
+### Using the Websearch Tool
+
+#### CLI Usage (Works with All Providers)
+
+# With specific providers - websearch works across all providers
+npx @juspay/neurolink generate "Weather in Tokyo now" --provider vertex
+
+**Note:** The websearch tool gracefully handles missing credentials - it only activates when valid Google Vertex AI credentials are configured. Without proper credentials, other tools continue to work normally and AI responses fall back to training data.
 
 ## ✨ Key Features
 
 - 🔗 **LiteLLM Integration** - **Access 100+ AI models** from all major providers through unified interface
 - 🔍 **Smart Model Auto-Discovery** - OpenAI Compatible provider automatically detects available models via `/v1/models` endpoint
 - 🏭 **Factory Pattern Architecture** - Unified provider management with BaseProvider inheritance
-- 🔧 **Tools-First Design** - All providers automatically include 6 direct tools (getCurrentTime, readFile, listDirectory, calculateMath, writeFile, searchFiles)
+- 🔧 **Tools-First Design** - All providers automatically include 7 direct tools (getCurrentTime, readFile, listDirectory, calculateMath, writeFile, searchFiles, websearchGrounding)
 - 🔄 **12 AI Providers** - OpenAI, Bedrock, Vertex AI, Google AI Studio, Anthropic, Azure, **LiteLLM**, **OpenAI Compatible**, Hugging Face, Ollama, Mistral AI, **SageMaker**
 - 💰 **Cost Optimization** - Automatic selection of cheapest models and LiteLLM routing
 - ⚡ **Automatic Fallback** - Never fail when providers are down, intelligent provider switching
 - 🖥️ **CLI + SDK** - Use from command line or integrate programmatically with TypeScript support
 - 🛡️ **Production Ready** - Enterprise-grade error handling, performance optimization, extracted from production
+- 🏢 **Enterprise Proxy Support** - Comprehensive corporate proxy support with zero configuration
 - ✅ **External MCP Integration** - Model Context Protocol with built-in tools + full external MCP server support
 - 🔍 **Smart Model Resolution** - Fuzzy matching, aliases, and capability-based search across all providers
 - 🏠 **Local AI Support** - Run completely offline with Ollama or through LiteLLM proxy
@@ -399,7 +414,7 @@ const result = await neurolink.generate({
 
 # Discover available MCP servers
 npx @juspay/neurolink mcp discover --format table
-```
+````
 
 ### 🔧 SDK Custom Tool Registration (NEW!)
 
@@ -807,5 +822,3 @@ MIT © [Juspay Technologies](https://juspay.in)
 <p align="center">
   <strong>Built with ❤️ by <a href="https://juspay.in">Juspay Technologies</a></strong>
 </p>
-# Force fresh deployment after GitHub Pages source change
-# Trigger fresh CI run

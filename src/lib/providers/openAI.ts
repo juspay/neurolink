@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, Output, type Schema, type LanguageModelV1 } from "ai";
 import type {
   ZodUnknownSchema,
@@ -13,6 +13,13 @@ import {
   TimeoutError,
   getDefaultTimeout,
 } from "../utils/timeout.js";
+import {
+  AuthenticationError,
+  InvalidModelError,
+  NetworkError,
+  ProviderError,
+  RateLimitError,
+} from "../types/errors.js";
 import { DEFAULT_MAX_TOKENS, DEFAULT_MAX_STEPS } from "../core/constants.js";
 import type { UnknownRecord } from "../types/common.js";
 import type { NeuroLink } from "../neurolink.js";
@@ -23,6 +30,7 @@ import {
 } from "../utils/providerConfig.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 // Configuration helpers - now using consolidated utility
 const getOpenAIApiKey = (): string => {
@@ -43,8 +51,11 @@ export class OpenAIProvider extends BaseProvider {
   constructor(modelName?: string, neurolink?: NeuroLink) {
     super(modelName || getOpenAIModel(), AIProviderName.OPENAI, neurolink);
 
-    // Set OpenAI API key as environment variable (required by @ai-sdk/openai)
-    process.env.OPENAI_API_KEY = getOpenAIApiKey();
+    // Initialize OpenAI provider with proxy support
+    const openai = createOpenAI({
+      apiKey: getOpenAIApiKey(),
+      fetch: createProxyFetch(),
+    });
 
     // Initialize model
     this.model = openai(this.modelName);
@@ -76,7 +87,7 @@ export class OpenAIProvider extends BaseProvider {
 
   protected handleProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(`OpenAI request timed out: ${error.message}`);
+      throw new NetworkError(error.message, this.providerName);
     }
 
     const errorObj = error as UnknownRecord;
@@ -84,21 +95,38 @@ export class OpenAIProvider extends BaseProvider {
       errorObj?.message && typeof errorObj.message === "string"
         ? errorObj.message
         : "Unknown error";
+    const errorType =
+      errorObj?.type && typeof errorObj.type === "string"
+        ? errorObj.type
+        : undefined;
 
     if (
       message.includes("API_KEY_INVALID") ||
-      message.includes("Invalid API key")
+      message.includes("Invalid API key") ||
+      errorType === "invalid_api_key"
     ) {
-      return new Error(
+      throw new AuthenticationError(
         "Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.",
+        this.providerName,
       );
     }
 
-    if (message.includes("rate limit")) {
-      return new Error("OpenAI rate limit exceeded. Please try again later.");
+    if (message.includes("rate limit") || errorType === "rate_limit_error") {
+      throw new RateLimitError(
+        "OpenAI rate limit exceeded. Please try again later.",
+        this.providerName,
+      );
     }
 
-    return new Error(`OpenAI error: ${message}`);
+    if (message.includes("model_not_found")) {
+      throw new InvalidModelError(
+        `Model not found: ${this.modelName}`,
+        this.providerName,
+      );
+    }
+
+    // Generic provider error
+    throw new ProviderError(`OpenAI error: ${message}`, this.providerName);
   }
 
   /**

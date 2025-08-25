@@ -17,13 +17,11 @@ The dynamic model system enables:
 ### Components
 
 1. **Model Configuration Server** (`scripts/model-server.js`)
-
    - Serves model configurations via REST API
    - Provides search and filtering capabilities
    - Can be hosted anywhere (GitHub, CDN, internal server)
 
 2. **Dynamic Model Provider** (`src/lib/core/dynamicModels.ts`)
-
    - Loads configurations from multiple sources with fallback
    - Caches configurations to reduce network requests
    - Validates configurations using Zod schemas

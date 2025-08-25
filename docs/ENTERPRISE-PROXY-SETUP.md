@@ -38,13 +38,17 @@ npx @juspay/neurolink generate "Hello from behind corporate proxy"
 
 All NeuroLink providers automatically work through corporate proxies:
 
-| Provider             | Proxy Method                        | Status         |
-| -------------------- | ----------------------------------- | -------------- |
-| **Google AI Studio** | Custom fetch with undici ProxyAgent | ✅ Verified    |
-| **Anthropic Claude** | Direct fetch calls with proxy       | ✅ Verified    |
-| **Google Vertex AI** | Custom fetch with undici ProxyAgent | ✅ Implemented |
-| **OpenAI**           | Global fetch handling               | ✅ Implemented |
-| **Amazon Bedrock**   | Global fetch handling               | ✅ Implemented |
+| Provider             | Proxy Method                        | Status               |
+| -------------------- | ----------------------------------- | -------------------- |
+| **Anthropic Claude** | Direct fetch calls with proxy       | ✅ Verified + Tested |
+| **OpenAI**           | Global fetch handling               | ✅ Verified + Tested |
+| **Google Vertex AI** | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
+| **Google AI Studio** | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
+| **Mistral AI**       | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
+| **Ollama**           | Custom fetch with undici ProxyAgent | ✅ Verified + Tested |
+| **HuggingFace**      | Custom fetch with undici ProxyAgent | ✅ Implemented       |
+| **Azure OpenAI**     | Custom fetch with undici ProxyAgent | ✅ Implemented       |
+| **Amazon Bedrock**   | Global fetch handling               | ✅ Implemented       |
 
 ## 🚀 Quick Validation
 
@@ -68,6 +72,27 @@ When proxy is working correctly, you should see:
 - ✅ AI responses generated successfully
 - ✅ Proxy server logs showing intercepted connections
 - ✅ No direct internet access required
+- ✅ Enterprise MCP tools work alongside proxy
+
+### Enterprise Grade Testing
+
+NeuroLink includes comprehensive proxy validation tests:
+
+```bash
+# Run enterprise proxy tests
+npm test -- test/proxy/proxySupport.test.ts
+
+# Test all providers with proxy + MCP
+npm test -- test/proxy/proxySupport.test.ts --run
+```
+
+**Test Coverage:**
+
+- ✅ Proxy usage validation (negative/positive testing)
+- ✅ All enterprise providers (Anthropic, OpenAI, Vertex, Mistral, Ollama)
+- ✅ MCP + Proxy compatibility (enterprise grade)
+- ✅ Real-world timeout handling
+- ✅ SDK and CLI interface testing
 
 ## 🔍 Enterprise Configuration Examples
 

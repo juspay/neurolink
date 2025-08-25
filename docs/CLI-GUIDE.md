@@ -1,5 +1,17 @@
 # 🖥️ NeuroLink CLI Guide
 
+## Command-Line Philosophy
+
+The NeuroLink CLI is designed with the developer experience in mind. Our goal is to provide a tool that is not only powerful and flexible but also a pleasure to use. Here are the core principles that guide our design:
+
+- **Clear and Consistent Commands:** We use a clear and consistent command structure to make the CLI easy to learn and use. All commands follow a logical `verb-noun` structure (e.g., `neurolink generate`, `neurolink models list`).
+
+- **Human-Readable and Machine-Readable Output:** The CLI provides both human-readable text output and machine-readable JSON output. This makes it easy to use the CLI both interactively and in automated scripts.
+
+- **Smart Defaults:** We provide smart defaults for all commands, so you can get started quickly without having to configure everything upfront.
+
+- **Great Developer Experience:** We use animated spinners, colorized output, and helpful error messages to provide a great developer experience.
+
 The NeuroLink CLI provides all SDK functionality through an elegant command-line interface with professional UX features.
 
 ## Installation & Usage
@@ -215,7 +227,6 @@ npx @juspay/neurolink stream "Hello world" --quiet --timeout 10s
 
 **Available Options:**
 
-- `--provider <name>` - Choose specific provider or 'auto' (default: auto)
 - `--provider <name>` - Choose specific provider or 'auto' (default: auto)
 - `--temperature <number>` - Creativity level 0.0-1.0 (default: 0.7)
 - `--debug` - Enable debug mode with interleaved logging
@@ -1209,21 +1220,21 @@ npx @juspay/neurolink generate "Performance critical task" --provider auto
 
 ### **Command Tutorials**
 
-- **[Help & Overview](demos/videos.md)** - Complete command reference and usage examples
-- **[Provider Status](demos/videos.md)** - Connectivity testing and response time measurement
-- **[Text Generation](demos/videos.md)** - Real AI content generation with different providers
-- **[Auto Selection](demos/videos.md)** - Automatic provider selection algorithm
-- **[Streaming](demos/videos.md)** - Real-time text generation streaming
-- **[Advanced Features](demos/videos.md)** - Verbose diagnostics and advanced options
+- **[Help & Overview](visual-content/cli-videos/cli-01-cli-help.mp4)** - Complete command reference and usage examples
+- **[Provider Status](visual-content/cli-videos/cli-02-provider-status.mp4)** - Connectivity testing and response time measurement
+- **[Text Generation](visual-content/cli-videos/cli-03-text-generation.mp4)** - Real AI content generation with different providers
+- **[Auto Selection](visual-content/cli-videos/cli-04-auto-selection.mp4)** - Automatic provider selection algorithm
+- **[Streaming](visual-content/cli-videos/cli-05-streaming.mp4)** - Real-time text generation streaming
+- **[Advanced Features](visual-content/cli-videos/cli-06-advanced-features.mp4)** - Verbose diagnostics and advanced options
 
 ### **MCP Integration Demos**
 
-- **[MCP Help](demos/videos.md)** - MCP command reference and usage
-- **[MCP List](demos/videos.md)** - MCP server listing and status
+- **[MCP Help](visual-content/cli-videos/cli-advanced-features/mcp-help.mp4)** - MCP command reference and usage
+- **[MCP List](visual-content/cli-videos/cli-advanced-features/mcp-list.mp4)** - MCP server listing and status
 
 ### **AI Workflow Tools Demo**
 
-- **[AI Workflow Tools](demos/videos.md)** - Complete demonstration of AI workflow tools via CLI
+- **[AI Workflow Tools](visual-content/videos/demo/ai-workflow-full-demo.mp4)** - Complete demonstration of AI workflow tools via CLI
 
 **All videos feature:**
 

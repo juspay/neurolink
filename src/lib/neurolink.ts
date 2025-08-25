@@ -82,7 +82,10 @@ import {
   ErrorSeverity,
 } from "./utils/errorHandling.js";
 import { EventEmitter } from "events";
-import type { ConversationMemoryConfig } from "./types/conversationTypes.js";
+import type {
+  ConversationMemoryConfig,
+  ChatMessage,
+} from "./types/conversationTypes.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
 import {
   applyConversationMemoryDefaults,
@@ -95,6 +98,8 @@ import type {
   ExternalMCPOperationResult,
   ExternalMCPToolInfo,
 } from "./types/externalMcp.js";
+// Import direct tools server for automatic registration
+import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
 
 // Provider and MCP diagnostic types
 export interface ProviderStatus {
@@ -264,6 +269,25 @@ export class NeuroLink {
 
       // Register all providers with lazy loading support
       await ProviderRegistry.registerAllProviders();
+
+      // Register the direct tools server to make websearch and other tools available
+      try {
+        // Use the server ID string for registration instead of the server object
+        await toolRegistry.registerServer(
+          "neurolink-direct",
+          directToolsServer,
+        );
+        mcpLogger.debug(
+          "[NeuroLink] Direct tools server registered successfully",
+          {
+            serverId: "neurolink-direct",
+          },
+        );
+      } catch (error) {
+        mcpLogger.warn("[NeuroLink] Failed to register direct tools server", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
 
       // Load MCP configuration from .mcp-config.json using ExternalServerManager
       try {
@@ -638,27 +662,88 @@ export class NeuroLink {
 
       // Try MCP-enhanced generation first (if not explicitly disabled)
       if (!options.disableTools) {
-        try {
-          logger.debug(`[${functionTag}] Attempting MCP generation...`);
-          const mcpResult = await this.tryMCPGeneration(options);
-          if (mcpResult && mcpResult.content) {
-            logger.debug(`[${functionTag}] MCP generation successful`);
 
-            return mcpResult;
-          } else {
+        let mcpAttempts = 0;
+        const maxMcpRetries = 2; // Allow retries for tool-related failures
+
+        while (mcpAttempts <= maxMcpRetries) {
+          try {
             logger.debug(
-              `[${functionTag}] MCP generation returned empty result:`,
+              `[${functionTag}] Attempting MCP generation (attempt ${mcpAttempts + 1}/${maxMcpRetries + 1})...`,
+            );
+            const mcpResult = await this.tryMCPGeneration(options);
+
+            if (mcpResult && mcpResult.content) {
+              logger.debug(
+                `[${functionTag}] MCP generation successful on attempt ${mcpAttempts + 1}`,
+                {
+                  contentLength: mcpResult.content.length,
+                  toolsUsed: mcpResult.toolsUsed?.length || 0,
+                  toolExecutions: mcpResult.toolExecutions?.length || 0,
+                },
+              );
+
+              // Store conversation turn
+              await storeConversationTurn(
+                this.conversationMemory,
+                options,
+                mcpResult,
+              );
+
+              return mcpResult;
+            } else {
+              logger.debug(
+                `[${functionTag}] MCP generation returned empty result on attempt ${mcpAttempts + 1}:`,
+                {
+                  hasResult: !!mcpResult,
+                  hasContent: !!(mcpResult && mcpResult.content),
+                  contentLength: mcpResult?.content?.length || 0,
+                  toolExecutions: mcpResult?.toolExecutions?.length || 0,
+                },
+              );
+
+              // If we got a result but no content, and we have tool executions, this might be a tool success case
+              if (
+                mcpResult &&
+                mcpResult.toolExecutions &&
+                mcpResult.toolExecutions.length > 0
+              ) {
+                logger.debug(
+                  `[${functionTag}] Found tool executions but no content, continuing with result`,
+                );
+                // Store conversation turn even with empty content if tools executed
+                await storeConversationTurn(
+                  this.conversationMemory,
+                  options,
+                  mcpResult,
+                );
+                return mcpResult;
+              }
+            }
+          } catch (error) {
+            mcpAttempts++;
+
+            logger.debug(
+              `[${functionTag}] MCP generation failed on attempt ${mcpAttempts}/${maxMcpRetries + 1}`,
               {
-                hasResult: !!mcpResult,
-                hasContent: !!(mcpResult && mcpResult.content),
-                contentLength: mcpResult?.content?.length || 0,
+                error: error instanceof Error ? error.message : String(error),
+                willRetry: mcpAttempts <= maxMcpRetries,
               },
             );
+
+            // If this was the last attempt, break and fall back
+            if (mcpAttempts > maxMcpRetries) {
+              logger.debug(
+                `[${functionTag}] All MCP attempts exhausted, falling back to direct generation`,
+              );
+              break;
+            }
+
+            // Small delay before retry to allow transient issues to resolve
+            await new Promise((resolve) => setTimeout(resolve, 500));
           }
-        } catch (error) {
-          logger.debug(`[${functionTag}] MCP generation failed, falling back`, {
-            error: error instanceof Error ? error.message : String(error),
-          });
+
+          mcpAttempts++;
         }
       }
 
@@ -740,20 +825,51 @@ export class NeuroLink {
 
       const responseTime = Date.now() - startTime;
 
-      // Check if result is meaningful
-      if (!result || !result.content || result.content.trim().length === 0) {
+      // Enhanced result validation - consider tool executions as valid results
+      const hasContent =
+        result && result.content && result.content.trim().length > 0;
+      const hasToolExecutions =
+        result && result.toolExecutions && result.toolExecutions.length > 0;
+
+      // Log detailed result analysis for debugging
+      mcpLogger.debug(`[${functionTag}] Result validation:`, {
+        hasResult: !!result,
+        hasContent,
+        hasToolExecutions,
+        contentLength: result?.content?.length || 0,
+        toolExecutionsCount: result?.toolExecutions?.length || 0,
+        toolsUsedCount: result?.toolsUsed?.length || 0,
+      });
+
+      // Accept result if it has content OR successful tool executions
+      if (!hasContent && !hasToolExecutions) {
+        mcpLogger.debug(
+          `[${functionTag}] Result rejected: no content and no tool executions`,
+        );
         return null; // Let caller fall back to direct generation
       }
 
-      // Return enhanced result with external tool information
+      // Transform tool executions with enhanced preservation
+      const transformedToolExecutions = transformToolExecutionsForMCP(
+        result.toolExecutions,
+      );
+
+      // Log transformation results
+      mcpLogger.debug(`[${functionTag}] Tool execution transformation:`, {
+        originalCount: result?.toolExecutions?.length || 0,
+        transformedCount: transformedToolExecutions.length,
+        transformedTools: transformedToolExecutions.map((te) => te.toolName),
+      });
+
+      // Return enhanced result with preserved tool information
       return {
-        content: result.content,
+        content: result.content || "", // Ensure content is never undefined
         provider: providerName,
         usage: result.usage,
         responseTime,
         toolsUsed: result.toolsUsed || [],
-        toolExecutions: transformToolExecutionsForMCP(result.toolExecutions),
-        enhancedWithTools: true,
+        toolExecutions: transformedToolExecutions,
+        enhancedWithTools: Boolean(hasToolExecutions), // Mark as enhanced if tools were actually used
         availableTools: transformToolsForMCP(availableTools),
         // Include analytics and evaluation from BaseProvider
         analytics: result.analytics,
@@ -1075,27 +1191,114 @@ export class NeuroLink {
     }
     return { factoryResult, enhancedOptions };
   }
+    try {
+      mcpLogger.debug(`[${functionTag}] Starting MCP-enabled streaming`, {
+        provider: providerName,
+        prompt: (options.input.text?.substring(0, 100) || "No text") + "...",
+      });
 
-  private async _performMCPStream(
-    startTime: number,
-    providerName: string,
-    options: StreamOptions,
-    factoryResult: ReturnType<typeof processFactoryOptions>,
-  ): Promise<StreamResult> {
-    const provider = await AIProviderFactory.createBestProvider(
-      providerName,
-      options.model,
-      true,
-      this as unknown as UnknownRecord,
-    );
+      // Initialize conversation memory if enabled (same as generate function)
+      if (this.conversationMemory) {
+        await this.conversationMemory.initialize();
+      }
 
-    provider.setupToolExecutor(
-      {
-        customTools: this.getCustomTools(),
-        executeTool: this.executeTool.bind(this),
-      },
-      "NeuroLink.stream",
-    );
+      // Get conversation messages for context injection (same as generate function)
+      const conversationMessages = await getConversationMessages(
+        this.conversationMemory,
+        {
+          prompt: options.input.text,
+          context: enhancedOptions.context as Record<string, unknown>,
+        } as TextGenerationOptions,
+      );
+
+      // Create provider using the same factory pattern as generate
+      const provider = await AIProviderFactory.createBestProvider(
+        providerName,
+        options.model,
+        true,
+        this as unknown as UnknownRecord, // Pass SDK instance
+      );
+
+      // Enable tool execution for streaming using BaseProvider method
+      provider.setupToolExecutor(
+        {
+          customTools: this.getCustomTools(),
+          executeTool: this.executeTool.bind(this),
+        },
+        functionTag,
+      );
+
+      // Create clean options for provider (remove factoryConfig) and inject conversation history
+      const cleanOptions = createCleanStreamOptions(enhancedOptions);
+      const optionsWithHistory = {
+        ...cleanOptions,
+        conversationMessages, // Inject conversation history like in generate function
+      };
+
+      // Call the provider's stream method with conversation history
+      const streamResult = await provider.stream(optionsWithHistory);
+
+      // Extract the stream from the result
+      const originalStream = streamResult.stream;
+
+      // Create a proper tee pattern that accumulates content and stores memory after consumption
+      let accumulatedContent = "";
+
+      const processedStream = (async function* (self: NeuroLink) {
+        try {
+          for await (const chunk of originalStream) {
+            // Enhanced chunk validation and content handling
+            let processedChunk = chunk;
+
+            if (chunk && typeof chunk === "object") {
+              // Ensure chunk has content property and it's a string
+              if (typeof chunk.content === "string") {
+                accumulatedContent += chunk.content;
+              } else if (
+                chunk.content === undefined ||
+                chunk.content === null
+              ) {
+                // Handle undefined/null content gracefully - create a new chunk object
+                processedChunk = { ...chunk, content: "" };
+              } else if (typeof chunk.content !== "string") {
+                // Convert non-string content to string - create a new chunk object
+                const stringContent = String(chunk.content || "");
+                processedChunk = { ...chunk, content: stringContent };
+                accumulatedContent += stringContent;
+              }
+            } else if (chunk === null || chunk === undefined) {
+              // Create a safe empty chunk if chunk is null/undefined
+              processedChunk = { content: "" };
+            }
+            yield processedChunk; // Preserve original streaming behavior with safe content
+          }
+        } finally {
+          // Store memory after stream consumption
+          if (self.conversationMemory) {
+            try {
+              await self.conversationMemory.storeConversationTurn(
+                (enhancedOptions.context as Record<string, unknown>)
+                  ?.sessionId as string,
+                (enhancedOptions.context as Record<string, unknown>)
+                  ?.userId as string,
+                options.input.text,
+                accumulatedContent,
+              );
+              logger.debug("Stream conversation turn stored", {
+                sessionId: (enhancedOptions.context as Record<string, unknown>)
+                  ?.sessionId,
+                userInputLength: options.input.text.length,
+                responseLength: accumulatedContent.length,
+              });
+            } catch (error) {
+              logger.warn("Failed to store stream conversation turn", {
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+        }
+      })(this);
+
 
     const cleanOptions = createCleanStreamOptions(options);
     const streamResult = await provider.stream(cleanOptions);
@@ -1121,22 +1324,67 @@ export class NeuroLink {
         streamId: `neurolink-${Date.now()}`,
         startTime,
         responseTime,
-      },
-    };
-  }
 
-  private async _performFallbackStream(
-    startTime: number,
-    providerName: string,
-    options: StreamOptions,
-    factoryResult: ReturnType<typeof processFactoryOptions>,
-  ): Promise<StreamResult> {
-    const provider = await AIProviderFactory.createBestProvider(
-      providerName,
-      options.model,
-      false, // Disable MCP for fallback
-      this as unknown as UnknownRecord,
-    );
+      });
+
+      // Convert to StreamResult format - Include analytics and evaluation from provider
+      return {
+        stream: processedStream,
+        provider: providerName,
+        model: options.model,
+        usage: streamResult.usage,
+        finishReason: streamResult.finishReason,
+        toolCalls: streamResult.toolCalls,
+        toolResults: streamResult.toolResults,
+        analytics: streamResult.analytics,
+        evaluation: streamResult.evaluation
+          ? {
+              ...(streamResult.evaluation as EvaluationData),
+              // Include evaluationDomain from factory configuration
+              evaluationDomain:
+                ((streamResult.evaluation as unknown as UnknownRecord)
+                  ?.evaluationDomain as string) ??
+                enhancedOptions.evaluationDomain ??
+                factoryResult.domainType,
+            }
+          : undefined,
+        metadata: {
+          streamId: `neurolink-${Date.now()}`,
+          startTime,
+          responseTime,
+        },
+      };
+    } catch (error) {
+      // Fall back to regular streaming if MCP fails
+      mcpLogger.warn(
+        `[${functionTag}] MCP streaming failed, falling back to regular`,
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+
+      // Initialize conversation memory for fallback path (same as success path)
+      if (this.conversationMemory) {
+        await this.conversationMemory.initialize();
+      }
+
+      // Get conversation messages for fallback context injection
+      const fallbackConversationMessages = await getConversationMessages(
+        this.conversationMemory,
+        {
+          prompt: options.input.text,
+          context: enhancedOptions.context as Record<string, unknown>,
+        } as TextGenerationOptions,
+      );
+
+      // Use factory to create provider without MCP
+      const provider = await AIProviderFactory.createBestProvider(
+        providerName,
+        options.model,
+        false, // Disable MCP for fallback
+        this as unknown as UnknownRecord, // Pass SDK instance
+      );
+
 
     provider.setupToolExecutor(
       {
@@ -1145,16 +1393,55 @@ export class NeuroLink {
       },
       "NeuroLink.stream",
     );
+      // Create clean options for fallback provider and inject conversation history
+      const cleanOptions = createCleanStreamOptions(enhancedOptions);
+      const fallbackOptionsWithHistory = {
+        ...cleanOptions,
+        conversationMessages: fallbackConversationMessages, // Inject conversation history in fallback
+      };
 
-    const cleanOptions = createCleanStreamOptions(options);
-    const streamResult = await provider.stream(cleanOptions);
-    const responseTime = Date.now() - startTime;
+      const streamResult = await provider.stream(fallbackOptionsWithHistory);
 
-    this.emitter.emit("stream:end", {
-      provider: providerName,
-      responseTime,
-      fallback: true,
-    });
+      // Create a proper tee pattern for fallback that accumulates content and stores memory after consumption
+      let fallbackAccumulatedContent = "";
+
+      const fallbackProcessedStream = (async function* (self: NeuroLink) {
+        try {
+          for await (const chunk of streamResult.stream) {
+            if (chunk && typeof chunk.content === "string") {
+              fallbackAccumulatedContent += chunk.content;
+            }
+            yield chunk; // Preserve original streaming behavior
+          }
+        } finally {
+          // Store memory after fallback stream consumption
+          if (self.conversationMemory) {
+            try {
+              await self.conversationMemory.storeConversationTurn(
+                (enhancedOptions.context as Record<string, unknown>)
+                  ?.sessionId as string,
+                (enhancedOptions.context as Record<string, unknown>)
+                  ?.userId as string,
+                options.input.text,
+                fallbackAccumulatedContent,
+              );
+              logger.debug("Fallback stream conversation turn stored", {
+                sessionId: (enhancedOptions.context as Record<string, unknown>)
+                  ?.sessionId,
+                userInputLength: options.input.text.length,
+                responseLength: fallbackAccumulatedContent.length,
+              });
+            } catch (error) {
+              logger.warn("Failed to store fallback stream conversation turn", {
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+        }
+      })(this);
+
+      const responseTime = Date.now() - startTime;
+
 
     return {
       ...streamResult,
@@ -1175,8 +1462,37 @@ export class NeuroLink {
         startTime,
         responseTime,
         fallback: true,
-      },
-    };
+      });
+
+      return {
+        stream: fallbackProcessedStream,
+        provider: providerName,
+        model: options.model,
+        usage: streamResult.usage,
+        finishReason: streamResult.finishReason,
+        toolCalls: streamResult.toolCalls,
+        toolResults: streamResult.toolResults,
+        analytics: streamResult.analytics,
+        evaluation: streamResult.evaluation
+          ? {
+              ...(streamResult.evaluation as EvaluationData),
+              // Include evaluationDomain in fallback stream
+              evaluationDomain:
+                ((streamResult.evaluation as unknown as UnknownRecord)
+                  ?.evaluationDomain as string) ??
+                enhancedOptions.evaluationDomain ??
+                factoryResult.domainType,
+            }
+          : undefined,
+        metadata: {
+          streamId: `neurolink-${Date.now()}`,
+          startTime,
+          responseTime,
+          fallback: true,
+        },
+      };
+    }
+
   }
 
   /**
@@ -1204,6 +1520,18 @@ export class NeuroLink {
     });
 
     try {
+      // --- Start: Added Validation Logic ---
+      if (!name || typeof name !== "string") {
+        throw new Error("Invalid tool name");
+      }
+      if (!tool || typeof tool !== "object") {
+        throw new Error(`Invalid tool object provided for tool: ${name}`);
+      }
+      if (typeof tool.execute !== "function") {
+        throw new Error(`Tool '${name}' must have an execute method.`);
+      }
+      // --- End: Added Validation Logic ---
+
       // Import validation functions synchronously - they are pure functions
       let validateTool: (name: string, tool: unknown) => void;
       let isToolNameAvailable: (name: string) => boolean;
@@ -2637,6 +2965,42 @@ export class NeuroLink {
     }
 
     return await this.conversationMemory.getStats();
+  }
+
+  /**
+   * Get complete conversation history for a specific session (public API)
+   * @param sessionId - The session ID to retrieve history for
+   * @returns Array of ChatMessage objects in chronological order, or empty array if session doesn't exist
+   */
+  async getConversationHistory(sessionId: string): Promise<ChatMessage[]> {
+    if (!this.conversationMemory) {
+      throw new Error("Conversation memory is not enabled");
+    }
+
+    if (!sessionId || typeof sessionId !== "string") {
+      throw new Error("Session ID must be a non-empty string");
+    }
+
+    try {
+      // Use the existing buildContextMessages method to get the complete history
+      const messages = this.conversationMemory.buildContextMessages(sessionId);
+
+      logger.debug("Retrieved conversation history", {
+        sessionId,
+        messageCount: messages.length,
+        turnCount: messages.length / 2, // Each turn = user + assistant message
+      });
+
+      return messages;
+    } catch (error) {
+      logger.error("Failed to retrieve conversation history", {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Return empty array for graceful handling of missing sessions
+      return [];
+    }
   }
 
   /**

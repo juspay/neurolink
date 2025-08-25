@@ -133,6 +133,20 @@ describe("Error Handling Tests", () => {
       },
       timeout,
     );
+
+    it("should handle command timeout gracefully", async () => {
+      try {
+        await execWithTimeout(
+          `${cliPrefix} generate "Test" --provider google-ai --timeout 1`,
+          1,
+        );
+        throw new Error("Command did not time out as expected");
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        expect(errorMessage).toMatch(/command timed out/i);
+      }
+    }, 5000); // Test runner timeout
   });
 
   describe("Provider Management", () => {

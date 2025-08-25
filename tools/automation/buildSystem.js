@@ -346,7 +346,8 @@ class BuildSystem {
   async deploy(target = "staging", options = {}) {
     console.log(`\n🚀 Deploying to ${target}...`);
 
-    const deployCommands = this.getDeployCommands(target);
+    // Set the default forceRebuild value to false as build is always run with a 'complete' target before deploy.
+    const deployCommands = this.getDeployCommands(target, options.forceRebuild ?? false);
 
     for (const command of deployCommands) {
       console.log(`🔄 ${command}`);
@@ -372,17 +373,18 @@ class BuildSystem {
   /**
    * Get deployment commands for target
    */
-  getDeployCommands(target) {
+  getDeployCommands(target, forceRebuild = false) {
+    const echoSkipBuildMessage = 'echo "Skipping build as it is already completed"';
     switch (target) {
       case "staging":
         return [
-          "pnpm run build",
+          forceRebuild ? "pnpm run build" : echoSkipBuildMessage,
           "pnpm run test:ci",
           'echo "Deploy to staging would happen here"',
         ];
       case "production":
         return [
-          "pnpm run build:complete",
+          forceRebuild ? "pnpm run build:complete" : echoSkipBuildMessage,
           "pnpm run test:ci",
           "pnpm run changeset:version",
           'echo "Deploy to production would happen here"',
@@ -427,6 +429,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     dryRun: process.argv.includes("--dry-run"),
     verbose: process.argv.includes("--verbose"),
     skipOptional: process.argv.includes("--skip-optional"),
+    forceRebuild: process.argv.includes("--force-rebuild"),
   };
 
   const buildSystem = new BuildSystem();
@@ -458,7 +461,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         "Usage: node buildSystem.js [build|deploy|watch] [target] [options]",
       );
       console.log("Targets: fast, quality, content, complete");
-      console.log("Options: --dry-run, --verbose, --skip-optional");
+      console.log("Options: --dry-run, --verbose, --skip-optional, --force-rebuild");
       break;
   }
 }

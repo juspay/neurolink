@@ -20,6 +20,7 @@ import {
   getProviderModel,
 } from "../utils/providerConfig.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 // Configuration helpers - now using consolidated utility
 const getHuggingFaceApiKey = (): string => {
@@ -45,10 +46,11 @@ export class HuggingFaceProvider extends BaseProvider {
     // Get API key and validate
     const apiKey = getHuggingFaceApiKey();
 
-    // Create HuggingFace provider using unified router endpoint (2025)
+    // Create HuggingFace provider using unified router endpoint (2025) with proxy support
     const huggingface = createOpenAI({
       apiKey: apiKey,
       baseURL: "https://router.huggingface.co/v1",
+      fetch: createProxyFetch(),
     });
 
     // Initialize model

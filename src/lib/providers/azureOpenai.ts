@@ -16,6 +16,7 @@ import {
 } from "../utils/providerConfig.js";
 import { logger } from "../utils/logger.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 export class AzureOpenAIProvider extends BaseProvider {
   private apiKey: string;
@@ -48,11 +49,12 @@ export class AzureOpenAIProvider extends BaseProvider {
       validateApiKey(createAzureEndpointConfig());
     }
 
-    // Create the Azure provider instance
+    // Create the Azure provider instance with proxy support
     this.azureProvider = createAzure({
       resourceName: this.resourceName,
       apiKey: this.apiKey,
       apiVersion: this.apiVersion,
+      fetch: createProxyFetch(),
     });
 
     logger.debug("Azure Vercel Provider initialized", {

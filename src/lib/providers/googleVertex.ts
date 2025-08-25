@@ -29,6 +29,7 @@ import {
   createGoogleAuthConfig,
 } from "../utils/providerConfig.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 // Cache for anthropic module to avoid repeated imports
 let _createVertexAnthropic: unknown = null;
@@ -89,11 +90,12 @@ const hasGoogleCredentials = (): boolean => {
   );
 };
 
-// Enhanced Vertex settings creation with authentication fallback
+// Enhanced Vertex settings creation with authentication fallback and proxy support
 const createVertexSettings = (): GoogleVertexProviderSettings => {
   const baseSettings: GoogleVertexProviderSettings = {
     project: getVertexProjectId(),
     location: getVertexLocation(),
+    fetch: createProxyFetch(),
   };
 
   // Check for principal account authentication first (recommended for production)

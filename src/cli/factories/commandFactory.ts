@@ -11,6 +11,7 @@ import type {
   OutputOptions,
 } from "../../lib/types/cli.js";
 import type { TokenUsage, AnalyticsData } from "../../lib/types/providers.js";
+import { configManager } from "../commands/config.js";
 
 // Interface for tokens with simplified property names (as used in analytics)
 interface AnalyticsTokens {
@@ -25,6 +26,8 @@ import {
 } from "../../lib/types/contextTypes.js";
 import { ModelsCommandFactory } from "../commands/models.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
+import { OllamaCommandFactory } from "./ollamaCommandFactory.js";
+import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
 import ora from "ora";
 import chalk from "chalk";
 import { logger } from "../../lib/utils/logger.js";
@@ -611,7 +614,6 @@ export class CLICommandFactory {
             "Interactive configuration setup wizard",
             (y) => this.buildOptions(y),
             async (_argv) => {
-              const { configManager } = await import("../commands/config.js");
               await configManager.initInteractive();
             },
           )
@@ -620,7 +622,6 @@ export class CLICommandFactory {
             "Display current configuration",
             (y) => this.buildOptions(y),
             async (_argv) => {
-              const { configManager } = await import("../commands/config.js");
               configManager.showConfig();
             },
           )
@@ -629,7 +630,6 @@ export class CLICommandFactory {
             "Validate current configuration",
             (y) => this.buildOptions(y),
             async (_argv) => {
-              const { configManager } = await import("../commands/config.js");
               const result = configManager.validateConfig();
               if (result.valid) {
                 logger.always(chalk.green("✅ Configuration is valid"));
@@ -645,7 +645,6 @@ export class CLICommandFactory {
             "Reset configuration to defaults",
             (y) => this.buildOptions(y),
             async (_argv) => {
-              const { configManager } = await import("../commands/config.js");
               configManager.resetConfig();
             },
           )
@@ -658,6 +657,27 @@ export class CLICommandFactory {
           .demandCommand(1, "");
       },
       handler: () => {}, // No-op handler as subcommands handle everything
+    };
+  }
+
+  /**
+   * Create validate command
+   */
+  static createValidateCommand(): CommandModule {
+    return {
+      command: "validate",
+      describe: "Validate current configuration (alias for 'config validate')",
+      builder: (yargs) => this.buildOptions(yargs),
+      handler: async (_argv) => {
+        const result = configManager.validateConfig();
+        if (result.valid) {
+          logger.always(chalk.green("✅ Configuration is valid"));
+        } else {
+          logger.always(chalk.red("❌ Configuration has errors:"));
+          result.errors.forEach((error) => logger.always(`  • ${error}`));
+          throw new Error("Configuration is invalid. See errors above.");
+        }
+      },
     };
   }
 
@@ -676,6 +696,20 @@ export class CLICommandFactory {
       handler: async (argv) =>
         await this.executeGetBestProvider(argv as CLICommandArgs),
     };
+  }
+
+  /**
+   * Create Ollama commands
+   */
+  static createOllamaCommands(): CommandModule {
+    return OllamaCommandFactory.createOllamaCommands();
+  }
+
+  /**
+   * Create SageMaker commands
+   */
+  static createSageMakerCommands(): CommandModule {
+    return SageMakerCommandFactory.createSageMakerCommands();
   }
 
   /**

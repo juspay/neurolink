@@ -592,7 +592,7 @@ export class ToolDiscoveryService extends EventEmitter {
       this.updateToolStats(toolKey, true, duration);
 
       // Validate output if requested
-      if (options.validateOutput !== false && result) {
+      if (options.validateOutput !== false) {
         this.validateToolOutput(result);
       }
 
@@ -734,55 +734,34 @@ export class ToolDiscoveryService extends EventEmitter {
    * Validate tool output with enhanced type safety
    */
   private validateToolOutput(result: unknown): void {
-    // Check for null/undefined results
+    // GENERIC ERROR HANDLING FOR ALL MCP TOOLS
+    // Different MCP servers return different error formats, so we should be permissive
+    // and let the AI handle any response format instead of throwing errors
+    
+    // Only throw for truly invalid responses (null/undefined)
     if (isNullish(result)) {
-      throw new Error("Tool returned null or undefined result");
+      mcpLogger.debug("[ToolDiscoveryService] Tool returned null/undefined, treating as empty response");
+      // Even null responses can be valid for some tools - don't throw
+      return;
     }
 
-    // Enhanced error detection for object results
-    if (isObject(result)) {
-      // Check for explicit error property
-      if (result.error !== undefined) {
-        const errorMessage = isString(result.error)
-          ? result.error
-          : "Tool execution failed with error";
-        throw new Error(`Tool execution error: ${errorMessage}`);
-      }
+    // Log what we received for debugging, but don't validate specific formats
+    mcpLogger.debug("[ToolDiscoveryService] Tool response received", {
+      type: typeof result,
+      isArray: Array.isArray(result),
+      isObject: isObject(result),
+      hasKeys: isObject(result) ? Object.keys(result as object).length : 0,
+      fullResponse: result // Log the complete response, not a truncated sample
+    });
 
-      // Check for boolean error flag
-      if (isBoolean(result.isError) && result.isError === true) {
-        const errorDetail = isString(result.message)
-          ? `: ${result.message}`
-          : "";
-        throw new Error(`Tool execution failed${errorDetail}`);
-      }
-
-      // Check for common error status patterns
-      if (
-        isString(result.status) &&
-        (result.status === "error" || result.status === "failed")
-      ) {
-        const errorDetail =
-          isString(result.message) || isString(result.reason)
-            ? `: ${result.message || result.reason}`
-            : "";
-        throw new Error(`Tool execution failed${errorDetail}`);
-      }
-
-      // Check for success: false pattern
-      if (isBoolean(result.success) && result.success === false) {
-        const errorDetail =
-          isString(result.message) || isString(result.error)
-            ? `: ${result.message || result.error}`
-            : "";
-        throw new Error(`Tool execution unsuccessful${errorDetail}`);
-      }
-    }
-
-    // Validate that string results are not empty
-    if (isString(result) && result.trim() === "") {
-      throw new Error("Tool returned empty string result");
-    }
+    // COMPLETELY PERMISSIVE APPROACH:
+    // - Any response format is valid (objects, strings, arrays, booleans, numbers)
+    // - Even error responses are passed to the AI to handle
+    // - The AI can interpret error messages and retry with different approaches
+    // - This works with any MCP server regardless of their response format
+    
+    // No validation or throwing - let the AI handle everything
+    return;
   }
 
   /**

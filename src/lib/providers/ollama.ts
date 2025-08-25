@@ -17,6 +17,7 @@ import { logger } from "../utils/logger.js";
 import { getDefaultTimeout, TimeoutError } from "../utils/timeout.js";
 import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
 import { modelConfig } from "../core/modelConfiguration.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 // Model version constants (configurable via environment)
 const DEFAULT_OLLAMA_MODEL = "llama3.1:8b";
@@ -47,6 +48,9 @@ const getDefaultOllamaModel = (): string => {
 const getOllamaTimeout = (): number => {
   return parseInt(process.env.OLLAMA_TIMEOUT || "60000", 10);
 };
+
+// Create proxy-aware fetch instance
+const proxyFetch = createProxyFetch();
 
 // Custom LanguageModelV1 implementation for Ollama
 class OllamaLanguageModel implements LanguageModelV1 {
@@ -134,7 +138,7 @@ class OllamaLanguageModel implements LanguageModelV1 {
       JSON.stringify(prompt),
     );
 
-    const response = await fetch(`${this.baseUrl}/api/generate`, {
+    const response = await proxyFetch(`${this.baseUrl}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -202,7 +206,7 @@ class OllamaLanguageModel implements LanguageModelV1 {
         .messages || [];
     const prompt = this.convertMessagesToPrompt(messages);
 
-    const response = await fetch(`${this.baseUrl}/api/generate`, {
+    const response = await proxyFetch(`${this.baseUrl}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -463,7 +467,7 @@ export class OllamaProvider extends BaseProvider {
       { role: "user", content: options.input.text },
     ];
 
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    const response = await proxyFetch(`${this.baseUrl}/v1/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -511,7 +515,7 @@ export class OllamaProvider extends BaseProvider {
     options: StreamOptions,
     analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
-    const response = await fetch(`${this.baseUrl}/api/generate`, {
+    const response = await proxyFetch(`${this.baseUrl}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -789,7 +793,7 @@ export class OllamaProvider extends BaseProvider {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch(`${this.baseUrl}/api/version`, {
+      const response = await proxyFetch(`${this.baseUrl}/api/version`, {
         method: "GET",
         signal: controller.signal,
       });
@@ -814,7 +818,7 @@ export class OllamaProvider extends BaseProvider {
    */
   async getAvailableModels(): Promise<string[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/tags`);
+      const response = await proxyFetch(`${this.baseUrl}/api/tags`);
       if (!response.ok) {
         throw new Error(`Failed to fetch models: ${response.status}`);
       }

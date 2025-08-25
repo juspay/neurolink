@@ -2,6 +2,38 @@
 
 Complete reference for NeuroLink's TypeScript API.
 
+## `NeuroLink` Class
+
+The `NeuroLink` class is the main entry point for using the SDK. It provides a high-level interface for interacting with AI providers and managing advanced features like context summarization and event monitoring.
+
+### Constructor
+
+```typescript
+new NeuroLink(options?: NeuroLinkOptions)
+```
+
+**Parameters:**
+
+- `options` (optional): An object to configure the `NeuroLink` instance.
+  - `provider?: AIProviderName`: The default provider to use.
+  - `model?: string`: The default model to use.
+  - `conversationMemory?: ConversationMemoryConfig`: Configuration for conversation memory.
+
+**Examples:**
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+// Auto-select best available provider
+const neurolink = new NeuroLink();
+
+// Use a specific provider
+const googleAI = new NeuroLink({ provider: "google-ai" });
+
+// Use a specific provider and model
+const openAI = new NeuroLink({ provider: "openai", model: "gpt-4o" });
+```
+
 ## Core Functions
 
 ### `createBestAIProvider(requestedProvider?, modelName?)`
@@ -122,17 +154,19 @@ interface BuiltInTools {
 ### Example Usage
 
 ```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
 // All providers automatically have tool support
-const provider = createBestAIProvider("openai");
+const neurolink = new NeuroLink({ provider: "openai" });
 
 // Tools are used automatically when appropriate
-const result = await provider.generate({
+const result = await neurolink.generate({
   input: { text: "What time is it?" },
 });
 // Result will use getCurrentTime tool automatically
 
 // Disable tools if needed
-const resultNoTools = await provider.generate({
+const resultNoTools = await neurolink.generate({
   input: { text: "What time is it?" },
   disableTools: true,
 });
@@ -887,7 +921,10 @@ interface GenerateOptions {
 **Enhanced Usage Example:**
 
 ```typescript
-const result = await provider.generate({
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+const result = await neurolink.generate({
   input: { text: "Write a business proposal" },
   enableAnalytics: true,
   enableEvaluation: true,

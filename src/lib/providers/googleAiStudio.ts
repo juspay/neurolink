@@ -17,6 +17,12 @@ import {
   TimeoutError,
   getDefaultTimeout,
 } from "../utils/timeout.js";
+import {
+  AuthenticationError,
+  NetworkError,
+  ProviderError,
+  RateLimitError,
+} from "../types/errors.js";
 import { DEFAULT_MAX_TOKENS, DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
@@ -70,33 +76,30 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
   protected handleProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(`Google AI request timed out: ${error.message}`);
+      throw new NetworkError(error.message, this.providerName);
     }
 
     const errorRecord = error as UnknownRecord;
-    if (
-      typeof errorRecord?.message === "string" &&
-      errorRecord.message.includes("API_KEY_INVALID")
-    ) {
-      return new Error(
-        "Invalid Google AI API key. Please check your GOOGLE_AI_API_KEY environment variable.",
-      );
-    }
-
-    if (
-      typeof errorRecord?.message === "string" &&
-      errorRecord.message.includes("RATE_LIMIT_EXCEEDED")
-    ) {
-      return new Error(
-        "Google AI rate limit exceeded. Please try again later.",
-      );
-    }
-
     const message =
       typeof errorRecord?.message === "string"
         ? errorRecord.message
         : "Unknown error";
-    return new Error(`Google AI error: ${message}`);
+
+    if (message.includes("API_KEY_INVALID")) {
+      throw new AuthenticationError(
+        "Invalid Google AI API key. Please check your GOOGLE_AI_API_KEY environment variable.",
+        this.providerName,
+      );
+    }
+
+    if (message.includes("RATE_LIMIT_EXCEEDED")) {
+      throw new RateLimitError(
+        "Google AI rate limit exceeded. Please try again later.",
+        this.providerName,
+      );
+    }
+
+    throw new ProviderError(`Google AI error: ${message}`, this.providerName);
   }
   // executeGenerate removed - BaseProvider handles all generation with tools
   protected async executeStream(
@@ -184,8 +187,9 @@ export class GoogleAIStudioProvider extends BaseProvider {
       process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
     if (!apiKey) {
-      throw new Error(
+      throw new AuthenticationError(
         "GOOGLE_AI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY environment variable is not set",
+        this.providerName,
       );
     }
 

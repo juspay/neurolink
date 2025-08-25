@@ -44,6 +44,25 @@ console.log(result.content);
 console.log(`Used: ${result.provider}`);
 ```
 
+### Write Once, Run Anywhere
+
+NeuroLink's power is in its provider-agnostic design. Write your code once, and NeuroLink automatically uses the best available provider. If your primary provider fails, it seamlessly falls back to another, ensuring your application remains robust.
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+// No provider specified - NeuroLink handles it!
+const neurolink = new NeuroLink();
+
+// This code works with OpenAI, Google, Anthropic, etc. without any changes.
+const result = await neurolink.generate({
+  input: { text: "Explain quantum computing simply." },
+});
+
+console.log(result.content);
+console.log(`AI Provider Used: ${result.provider}`);
+```
+
 ## 🔑 Get API Keys
 
 ### Google AI Studio (Free Tier Available)

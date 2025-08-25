@@ -517,7 +517,6 @@ _Duration: 0.5 days | Risk: Low | Impact: Low_
 1. **Breaking Changes**: Risk of changing existing CLI behavior
    - **Mitigation**: Comprehensive regression testing, backward compatibility focus
 2. **SDK Dependencies**: Risk of SDK methods not supporting CLI needs
-
    - **Mitigation**: Verify SDK capabilities before implementation, fallback plans
 
 3. **Performance Regression**: Risk of new architecture being slower
@@ -526,7 +525,6 @@ _Duration: 0.5 days | Risk: Low | Impact: Low_
 ### **Medium Risk Items**
 
 1. **Universal Options Complexity**: Risk of options not making sense for all commands
-
    - **Mitigation**: Careful design, graceful handling of no-op options
 
 2. **Testing Coverage**: Risk of missing edge cases in testing

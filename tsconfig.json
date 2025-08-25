@@ -12,18 +12,21 @@
     "moduleResolution": "NodeNext",
     "noImplicitReturns": true,
     "target": "ES2022",
-    "lib": ["DOM", "DOM.Iterable", "ES6"],
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "allowSyntheticDefaultImports": true,
     "types": ["vite/client", "@sveltejs/kit"],
+    "baseUrl": ".",
     "paths": {
       "$lib": ["./src/lib"],
-      "$lib/*": ["./src/lib/*"]
+      "$lib/*": ["./src/lib/*"],
+      "*": ["src/types/*"]
     }
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.js",
     "src/**/*.svelte",
+    "src/types/**/*",
     "test/**/*.ts",
     "src/app.html"
   ],

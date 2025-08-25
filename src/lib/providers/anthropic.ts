@@ -1,4 +1,4 @@
-import { anthropic } from "@ai-sdk/anthropic";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { streamText, Output, type Schema, type LanguageModelV1 } from "ai";
 import type { ValidationSchema } from "../types/typeAliases.js";
 import type {
@@ -16,6 +16,12 @@ import {
   TimeoutError,
   getDefaultTimeout,
 } from "../utils/timeout.js";
+import {
+  AuthenticationError,
+  NetworkError,
+  ProviderError,
+  RateLimitError,
+} from "../types/errors.js";
 import { DEFAULT_MAX_TOKENS, DEFAULT_MAX_STEPS } from "../core/constants.js";
 import {
   validateApiKey,
@@ -23,6 +29,7 @@ import {
   getProviderModel,
 } from "../utils/providerConfig.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 // Configuration helpers - now using consolidated utility
 const getAnthropicApiKey = (): string => {
@@ -47,13 +54,16 @@ export class AnthropicProvider extends BaseProvider {
       sdk as NeuroLink | undefined,
     );
 
-    // Initialize Anthropic model with API key validation
+    // Initialize Anthropic model with API key validation and proxy support
     const apiKey = getAnthropicApiKey();
 
-    // Set Anthropic API key as environment variable (required by @ai-sdk/anthropic)
-    process.env.ANTHROPIC_API_KEY = apiKey;
+    // Create Anthropic instance with proxy fetch
+    const anthropic = createAnthropic({
+      apiKey: apiKey,
+      fetch: createProxyFetch(),
+    });
 
-    // Initialize Anthropic with proper configuration
+    // Initialize Anthropic model with proxy-aware instance
     this.model = anthropic(this.modelName || getDefaultAnthropicModel());
 
     logger.debug("Anthropic Provider v2 initialized", {
@@ -79,70 +89,60 @@ export class AnthropicProvider extends BaseProvider {
 
   protected handleProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(
-        `Anthropic request timed out after ${error.timeout}ms: ${error.message}`,
+      throw new NetworkError(
+        `Request timed out after ${error.timeout}ms`,
+        this.providerName,
       );
     }
 
     const errorRecord = error as UnknownRecord;
-
-    // Handle API key errors
-    if (
-      (typeof errorRecord?.message === "string" &&
-        errorRecord.message.includes("API_KEY_INVALID")) ||
-      (typeof errorRecord?.message === "string" &&
-        errorRecord.message.includes("Invalid API key"))
-    ) {
-      return new Error(
-        "Invalid Anthropic API key. Please check your ANTHROPIC_API_KEY environment variable.",
-      );
-    }
-
-    // Handle rate limiting errors
-    if (
-      typeof errorRecord?.message === "string" &&
-      (errorRecord.message.includes("rate limit") ||
-        errorRecord.message.includes("too_many_requests") ||
-        errorRecord.message.includes("429"))
-    ) {
-      return new Error(
-        "Anthropic rate limit exceeded. Please try again later.",
-      );
-    }
-
-    // Handle connection errors
-    if (
-      typeof errorRecord?.message === "string" &&
-      (errorRecord.message.includes("ECONNRESET") ||
-        errorRecord.message.includes("ENOTFOUND") ||
-        errorRecord.message.includes("ECONNREFUSED") ||
-        errorRecord.message.includes("network") ||
-        errorRecord.message.includes("connection"))
-    ) {
-      return new Error(
-        "Anthropic API connection error. Please check your internet connection and try again.",
-      );
-    }
-
-    // Handle server errors
-    if (
-      typeof errorRecord?.message === "string" &&
-      (errorRecord.message.includes("500") ||
-        errorRecord.message.includes("502") ||
-        errorRecord.message.includes("503") ||
-        errorRecord.message.includes("504") ||
-        errorRecord.message.includes("server error"))
-    ) {
-      return new Error(
-        "Anthropic API server error. Please try again in a few moments.",
-      );
-    }
-
     const message =
       typeof errorRecord?.message === "string"
         ? errorRecord.message
         : "Unknown error";
-    return new Error(`Anthropic error: ${message}`);
+
+    if (
+      message.includes("API_KEY_INVALID") ||
+      message.includes("Invalid API key")
+    ) {
+      throw new AuthenticationError(
+        "Invalid Anthropic API key. Please check your ANTHROPIC_API_KEY environment variable.",
+        this.providerName,
+      );
+    }
+
+    if (
+      message.includes("rate limit") ||
+      message.includes("too_many_requests") ||
+      message.includes("429")
+    ) {
+      throw new RateLimitError(
+        "Anthropic rate limit exceeded. Please try again later.",
+        this.providerName,
+      );
+    }
+
+    if (
+      message.includes("ECONNRESET") ||
+      message.includes("ENOTFOUND") ||
+      message.includes("ECONNREFUSED") ||
+      message.includes("network") ||
+      message.includes("connection")
+    ) {
+      throw new NetworkError(`Connection error: ${message}`, this.providerName);
+    }
+
+    if (
+      message.includes("500") ||
+      message.includes("502") ||
+      message.includes("503") ||
+      message.includes("504") ||
+      message.includes("server error")
+    ) {
+      throw new ProviderError(`Server error: ${message}`, this.providerName);
+    }
+
+    throw new ProviderError(`Anthropic error: ${message}`, this.providerName);
   }
 
   // executeGenerate removed - BaseProvider handles all generation with tools

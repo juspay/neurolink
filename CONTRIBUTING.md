@@ -269,15 +269,286 @@ pnpm format            # Prettier formatting
 
 ## Testing
 
-Please add tests for any new features or bug fixes. We aim for high test coverage to ensure reliability.
+NeuroLink has a comprehensive testing suite to ensure reliability across all AI providers and features. Please add tests for any new features or bug fixes.
 
-Run tests with:
+### 🚀 Quick Start Testing
 
 ```bash
+# Interactive testing (recommended for development)
 pnpm test
+
+# Non-interactive testing (CI/CD)
+pnpm test:run
 ```
 
-For mocking AI providers, use the approach in the `test/providers.test.ts` file.
+### 📋 Test Categories & Commands
+
+#### **Core Testing Commands**
+
+```bash
+# Basic testing
+pnpm test              # Interactive vitest with watch mode
+pnpm test:run          # Non-interactive vitest run
+
+# Enhanced testing suite
+pnpm test:smart        # Adaptive test runner with intelligence
+pnpm test:providers    # Validate all AI providers
+pnpm test:performance  # Performance benchmarks
+pnpm test:coverage     # Coverage analysis with reports
+pnpm test:ci           # Complete CI pipeline testing
+```
+
+#### **Specialized Testing**
+
+```bash
+# Dynamic model testing
+pnpm test:dynamicModels    # Test dynamic model configurations
+
+# Development utilities
+pnpm modelServer           # Start model validation server
+```
+
+### 📁 Test File Structure
+
+The test suite is organized into logical categories:
+
+```
+test/
+├── analyticsFeatures.ts           # Analytics functionality tests
+├── basicFunctionality.ts          # Core feature validation
+├── errorHandling.ts               # Error handling scenarios
+├── evaluationFeatures.ts          # AI evaluation system tests
+├── streamingValidation.ts         # Streaming functionality
+├── sdkComprehensive.ts            # SDK integration tests
+├── parameterValidation.ts         # Input validation tests
+├── contextIntegration.ts          # Context management tests
+├── universalProvider.ts           # Cross-provider compatibility
+├── mcp/                           # Model Context Protocol tests
+│   ├── manualConfig/              # Manual configuration tests
+│   ├── toolIntegration/           # Tool integration tests
+│   └── providers/                 # Provider-specific MCP tests
+├── providers/                     # Provider-specific tests
+│   ├── litellm.test.ts           # LiteLLM integration
+│   └── sagemaker.test.ts         # AWS SageMaker integration
+├── sdkTools/                      # SDK tool functionality
+├── streaming/                     # Streaming performance tests
+└── utils/                         # Testing utilities
+```
+
+### 🧪 Testing Best Practices
+
+#### **For New Features**
+
+1. **Add unit tests** for core functionality
+2. **Add integration tests** for provider compatibility
+3. **Test error scenarios** and edge cases
+4. **Verify performance** doesn't regress
+
+#### **For AI Provider Integration**
+
+```ts
+// Use the established mocking pattern
+import { vi } from "vitest";
+
+vi.mock("@ai-sdk/openai", () => ({
+  openai: vi.fn().mockReturnValue({
+    // Mock implementation
+  }),
+}));
+
+// Test both success and failure scenarios
+describe("YourProvider", () => {
+  it("should generate text successfully", async () => {
+    // Test implementation
+  });
+
+  it("should handle errors gracefully", async () => {
+    // Error scenario testing
+  });
+});
+```
+
+#### **For MCP (Model Context Protocol) Features**
+
+```bash
+# Test MCP tool integration
+pnpm vitest test/mcp/toolIntegration --run
+
+# Test manual configuration loading
+pnpm vitest test/mcp/manualConfig --run
+
+# Test provider MCP support
+pnpm vitest test/mcp/providers --run
+```
+
+### 🔧 Testing Environment Setup
+
+Before running tests, ensure your environment is properly configured:
+
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Build the project
+pnpm build
+
+# 3. Set up environment variables (optional for mocked tests)
+cp .env.example .env
+# Add your API keys for integration testing
+
+# 4. Verify setup
+pnpm cli --version
+```
+
+### 🎯 Test Execution Strategies
+
+#### **Development Workflow**
+
+```bash
+# Start with interactive testing
+pnpm test
+
+# Focus on specific test files
+pnpm vitest test/basicFunctionality.ts
+
+# Watch specific test categories
+pnpm vitest test/mcp --watch
+```
+
+#### **CI/CD Workflow**
+
+```bash
+# Complete validation pipeline
+pnpm test:ci
+
+# Individual validation steps
+pnpm test:run              # Core test suite
+pnpm test:providers        # Provider validation
+pnpm test:performance      # Performance benchmarks
+pnpm test:coverage         # Coverage analysis
+```
+
+### 📊 Performance Expectations
+
+| Test Category     | Expected Duration | Use Case               |
+| ----------------- | ----------------- | ---------------------- |
+| Basic Tests       | 30-60 seconds     | Quick validation       |
+| Provider Tests    | 1-2 minutes       | Provider compatibility |
+| MCP Tests         | 1-3 minutes       | Tool integration       |
+| Performance Tests | 2-5 minutes       | Benchmarking           |
+| Full Test Suite   | 5-10 minutes      | Complete validation    |
+
+### 🛠️ Troubleshooting Tests
+
+#### **Common Issues**
+
+**Tests timeout or fail:**
+
+```bash
+# Run individual test files
+pnpm vitest test/basicFunctionality.ts --run
+
+# Check environment setup
+pnpm run env:validate
+```
+
+**Provider-specific failures:**
+
+```bash
+# Test specific provider
+pnpm cli generate "test" --provider google-ai
+
+# Validate provider configuration
+pnpm test:providers
+```
+
+**Build-related test failures:**
+
+```bash
+# Clean and rebuild
+pnpm clean
+pnpm build
+pnpm test:run
+```
+
+### 📈 Test Coverage
+
+We maintain high test coverage across:
+
+- ✅ **Core functionality** - All primary features tested
+- ✅ **Provider integration** - All 9 AI providers validated
+- ✅ **Error handling** - Graceful failure scenarios
+- ✅ **Performance** - Response time and throughput benchmarks
+- ✅ **MCP integration** - Tool orchestration and configuration
+- ✅ **CLI functionality** - Command-line interface validation
+- ✅ **SDK features** - Software development kit testing
+
+Check current coverage:
+
+```bash
+pnpm test:coverage
+```
+
+> **Target:** Maintain at least **90 %** line and branch coverage across the codebase.
+
+### 🧑‍💻 Manual CLI & SDK Testing
+
+Sometimes you need a quick manual sanity-check outside the automated test-suite. Use the following examples as copy-paste snippets:
+
+#### **CLI Quick Checks**
+
+```bash
+# Basic generation with default provider
+pnpm cli generate "Hello world" --provider google-ai
+
+# Streaming
+pnpm cli stream "Count to 5" --provider google-ai
+
+# Analytics / evaluation
+pnpm cli generate "Test analytics" --provider google-ai --enable-analytics --output-format json
+
+# Loop through all built-in providers (bash)
+for p in openai google-ai anthropic bedrock vertex; do
+  pnpm cli generate "quick test" --provider "$p" || break
+done
+```
+
+#### **SDK Quick Checks**
+
+```ts
+// Run with: node -e "<snippet>"
+import { NeuroLink } from "./dist/lib/neurolink.js";
+
+const sdk = new NeuroLink();
+const res = await sdk.generate({
+  input: { text: "Hello SDK" },
+  provider: "google-ai",
+  enableAnalytics: true,
+});
+
+console.log("✅ Content:", res.content.slice(0, 50));
+console.log("✅ Analytics:", !!res.analytics);
+```
+
+#### **Debug Utilities & Visual Runner**
+
+- `test/utils/streamingDebug.ts` – analyse stream behaviour, timing and chunking.
+- `test/utils/visualRunner.ts` – colour-coded progress & markdown reports.
+
+These helpers are optional but invaluable when diagnosing flaky streaming or long-running suites.
+
+### 🎯 Writing Effective Tests
+
+When contributing tests, follow these guidelines:
+
+1. **Test real scenarios** - Use realistic inputs and expected outputs
+2. **Mock external dependencies** - Don't rely on external API calls in unit tests
+3. **Test error conditions** - Verify graceful handling of failures
+4. **Use descriptive names** - Test names should clearly describe what's being tested
+5. **Keep tests focused** - Each test should verify one specific behavior
+6. **Add performance assertions** - Include timing expectations where relevant
+
+For examples of well-structured tests, refer to existing test files in the `test/` directory.
 
 ## Documentation
 

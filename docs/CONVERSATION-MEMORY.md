@@ -11,6 +11,8 @@ The conversation memory system provides:
 - **Automatic cleanup**: Configurable limits to prevent memory bloat
 - **Session isolation**: Different sessions don't interfere with each other
 - **In-memory storage**: Fast, lightweight storage for conversation history
+- **Universal Method Support**: Works seamlessly with both `generate()` and `stream()` methods
+- **Stream Integration**: Full conversation memory support for streaming responses
 
 ## ⚙️ Configuration
 
@@ -70,6 +72,75 @@ const response2 = await neurolink.generate({
   },
 });
 // Response: "Based on what you told me, your favorite hobby is reading books!"
+```
+
+### Streaming Support
+
+The conversation memory system now fully supports streaming responses with the same memory persistence:
+
+```javascript
+import { NeuroLink } from "neurolink";
+
+const neurolink = new NeuroLink({
+  conversationMemory: { enabled: true },
+});
+
+// Stream a response - memory is AUTOMATICALLY captured in background!
+const streamResult = await neurolink.stream({
+  input: { text: "My favorite hobby is photography" },
+  provider: "vertex",
+  context: {
+    sessionId: "photo-session",
+    userId: "photographer",
+  },
+});
+
+// OPTIONAL: Consume the stream for real-time display
+// Memory is saved automatically regardless of whether you consume the stream
+let response = "";
+for await (const chunk of streamResult.stream) {
+  response += chunk.content;
+  process.stdout.write(chunk.content); // Real-time display
+}
+
+// Memory works even without consuming the stream!
+// Both user input AND AI response are automatically stored
+
+// Follow-up message will remember the streamed conversation
+const followUp = await neurolink.generate({
+  input: { text: "What hobby did I mention?" },
+  provider: "vertex",
+  context: {
+    sessionId: "photo-session", // Same session
+    userId: "photographer",
+  },
+});
+// Response: "You mentioned that your favorite hobby is photography!"
+```
+
+### Mixed Generate/Stream Conversations
+
+You can seamlessly mix `generate()` and `stream()` calls within the same conversation:
+
+```javascript
+// Start with generate
+await neurolink.generate({
+  input: { text: "I work as a software engineer" },
+  context: { sessionId: "career-chat" },
+});
+
+// Continue with stream
+const streamResult = await neurolink.stream({
+  input: { text: "I specialize in AI development" },
+  context: { sessionId: "career-chat" },
+});
+
+// Back to generate - AI remembers both previous messages
+const summary = await neurolink.generate({
+  input: { text: "Summarize what you know about my career" },
+  context: { sessionId: "career-chat" },
+});
+// Response includes both software engineering and AI development details
 ```
 
 ### Session Isolation Example

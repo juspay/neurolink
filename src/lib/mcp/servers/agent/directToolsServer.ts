@@ -141,6 +141,8 @@ function getToolCategory(toolName: string): string {
     case "listDirectory":
     case "searchFiles":
       return "filesystem";
+    case "websearchGrounding":
+      return "search";
     default:
       return "utility";
   }

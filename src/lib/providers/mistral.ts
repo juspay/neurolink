@@ -23,6 +23,7 @@ import {
 } from "../utils/providerConfig.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 // Configuration helpers - now using consolidated utility
 const getMistralApiKey = (): string => {
@@ -53,10 +54,11 @@ export class MistralProvider extends BaseProvider {
       validatedNeurolink as NeuroLink | undefined,
     );
 
-    // Initialize Mistral model with API key validation
+    // Initialize Mistral model with API key validation and proxy support
     const apiKey = getMistralApiKey();
     const mistral = createMistral({
       apiKey: apiKey,
+      fetch: createProxyFetch(),
     });
     this.model = mistral(this.modelName);
 

@@ -1251,6 +1251,7 @@ async function runAllTests(): Promise<void> {
     { name: "SDK Stream", fn: testSDKStream },
     { name: "SDK Business Tools", fn: testSDKBusinessTools },
     { name: "CLI Business Tools", fn: testCLIBusinessTools },
+    { name: "Enterprise Proxy Support", fn: testEnterpriseProxySupport },
   ];
 
   for (const test of tests) {

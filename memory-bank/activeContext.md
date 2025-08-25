@@ -1,12 +1,17 @@
 # Active Context
 
-## 🧠 **CURRENT STATUS: AUTOMATIC CONTEXT SUMMARIZATION IMPLEMENTED** (2025-08-08)
+## 🛡️ **CURRENT STATUS: TYPE-SAFE ERROR HANDLING REFACTORING COMPLETE** (2025-08-20)
 
-### **✅ SDK-Style Context Management Feature Complete**
-- **Primary Objective**: ✅ Implement automatic, stateful context summarization as a non-breaking feature.
-- **Major Discovery**: The feature was successfully integrated using a new `enableContextSummarization()` method on the `NeuroLink` class, preserving state across calls.
-- **Current Phase**: ✅ COMPLETE SUCCESS - The feature is implemented and verified with a live end-to-end test.
-- **Status**: 🎉 **FEATURE COMPLETE** - Ready for documentation and release.
+### **✅ Robust Application-Wide Error Handling Achieved**
+- **Primary Objective**: ✅ Replace the fragile, string-based error detection system with a modern, type-safe architecture.
+- **Major Discovery**: Implementing a custom error hierarchy (`AuthenticationError`, `NetworkError`, etc.) allows for reliable error identification using `instanceof`, making the system more stable and easier to maintain.
+- **Current Phase**: ✅ COMPLETE SUCCESS - The new system is implemented, documented in the memory bank, and all changes have been committed.
+- **Status**: 🎉 **FEATURE COMPLETE** - The application is now more resilient and provides a better user experience.
+
+### **🚀 CLI ENHANCEMENT: VERSION FLAG**
+- **Feature**: Added `--version` flag to the CLI.
+- **Implementation**: The CLI now reads the version from `package.json` and displays it.
+- **Status**: ✅ **COMPLETE**
 
 ---
 
@@ -232,3 +237,13 @@
 **NEXT ACTION**: Present Issue #3 plan for parallel test execution, get approval, execute to 100% completion
 
 **TARGET**: 100% completion of comprehensive test investigation before beginning factory pattern refactoring
+
+---
+
+## 🧠 **CURRENT STATUS: UPDATING MEMORY BANK WITH PRE-COMMIT HOOK** (2025-08-19)
+
+### **✅ Pre-commit Hook Documentation**
+- **Primary Objective**: ✅ Document the new `pre-commit.sh` script in the memory bank.
+- **Major Discovery**: A new `pre-commit.sh` script has been added to the repository to improve code quality.
+- **Current Phase**: ✅ IN PROGRESS - Updating memory bank files.
+- **Status**: InProgress
