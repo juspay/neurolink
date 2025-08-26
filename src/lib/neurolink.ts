@@ -181,6 +181,34 @@ export class NeuroLink {
   // Conversation memory support
   private conversationMemory?: ConversationMemoryManager;
 
+  /**
+   * Creates a new NeuroLink instance for AI text generation with MCP tool integration.
+   *
+   * @param config - Optional configuration object
+   * @param config.conversationMemory - Configuration for conversation memory features
+   * @param config.conversationMemory.enabled - Whether to enable conversation memory (default: false)
+   * @param config.conversationMemory.maxSessions - Maximum number of concurrent sessions (default: 100)
+   * @param config.conversationMemory.maxTurnsPerSession - Maximum conversation turns per session (default: 50)
+   *
+   * @example
+   * ```typescript
+   * // Basic usage
+   * const neurolink = new NeuroLink();
+   *
+   * // With conversation memory
+   * const neurolink = new NeuroLink({
+   *   conversationMemory: {
+   *     enabled: true,
+   *     maxSessions: 50,
+   *     maxTurnsPerSession: 20
+   *   }
+   * });
+   * ```
+   *
+   * @throws {Error} When provider registry setup fails
+   * @throws {Error} When conversation memory initialization fails (if enabled)
+   * @throws {Error} When external server manager initialization fails
+   */
   constructor(config?: {
     conversationMemory?: Partial<ConversationMemoryConfig>;
   }) {
@@ -1010,6 +1038,54 @@ export class NeuroLink {
     logger.info("[NeuroLink] Automatic context summarization enabled.");
   }
 
+  /**
+   * Generate AI content using the best available provider with MCP tool integration.
+   * This is the primary method for text generation with full feature support.
+   *
+   * @param optionsOrPrompt - Either a string prompt or a comprehensive GenerateOptions object
+   * @param optionsOrPrompt.input - Input configuration object
+   * @param optionsOrPrompt.input.text - The text prompt to send to the AI (required)
+   * @param optionsOrPrompt.provider - AI provider to use ('auto', 'openai', 'anthropic', etc.)
+   * @param optionsOrPrompt.model - Specific model to use (e.g., 'gpt-4', 'claude-3-opus')
+   * @param optionsOrPrompt.temperature - Randomness in response (0.0 = deterministic, 2.0 = very random)
+   * @param optionsOrPrompt.maxTokens - Maximum tokens in response
+   * @param optionsOrPrompt.systemPrompt - System message to set AI behavior
+   * @param optionsOrPrompt.disableTools - Whether to disable MCP tool usage
+   * @param optionsOrPrompt.enableAnalytics - Whether to include usage analytics
+   * @param optionsOrPrompt.enableEvaluation - Whether to include response quality evaluation
+   * @param optionsOrPrompt.context - Additional context for the request
+   * @param optionsOrPrompt.evaluationDomain - Domain for specialized evaluation
+   * @param optionsOrPrompt.toolUsageContext - Context for tool usage decisions
+   *
+   * @returns Promise resolving to GenerateResult with content, usage data, and optional analytics
+   *
+   * @example
+   * ```typescript
+   * // Simple usage with string prompt
+   * const result = await neurolink.generate("What is artificial intelligence?");
+   * console.log(result.content);
+   *
+   * // Advanced usage with options
+   * const result = await neurolink.generate({
+   *   input: { text: "Explain quantum computing" },
+   *   provider: "openai",
+   *   model: "gpt-4",
+   *   temperature: 0.7,
+   *   maxTokens: 500,
+   *   enableAnalytics: true,
+   *   enableEvaluation: true,
+   *   context: { domain: "science", level: "intermediate" }
+   * });
+   *
+   * // Access analytics and evaluation data
+   * console.log(result.analytics?.usage);
+   * console.log(result.evaluation?.relevance);
+   * ```
+   *
+   * @throws {Error} When input text is missing or invalid
+   * @throws {Error} When all providers fail to generate content
+   * @throws {Error} When conversation memory operations fail (if enabled)
+   */
   async generate(
     optionsOrPrompt: GenerateOptions | string,
   ): Promise<GenerateResult> {
@@ -1978,8 +2054,55 @@ export class NeuroLink {
   }
 
   /**
-   * PRIMARY METHOD: Stream content using AI (recommended for new code)
-   * Future-ready for multi-modal capabilities with current text focus
+   * Stream AI-generated content in real-time using the best available provider.
+   * This method provides real-time streaming of AI responses with full MCP tool integration.
+   *
+   * @param options - Stream configuration options
+   * @param options.input - Input configuration object
+   * @param options.input.text - The text prompt to send to the AI (required)
+   * @param options.provider - AI provider to use ('auto', 'openai', 'anthropic', etc.)
+   * @param options.model - Specific model to use (e.g., 'gpt-4', 'claude-3-opus')
+   * @param options.temperature - Randomness in response (0.0 = deterministic, 2.0 = very random)
+   * @param options.maxTokens - Maximum tokens in response
+   * @param options.systemPrompt - System message to set AI behavior
+   * @param options.disableTools - Whether to disable MCP tool usage
+   * @param options.enableAnalytics - Whether to include usage analytics
+   * @param options.enableEvaluation - Whether to include response quality evaluation
+   * @param options.context - Additional context for the request
+   * @param options.evaluationDomain - Domain for specialized evaluation
+   *
+   * @returns Promise resolving to StreamResult with an async iterable stream
+   *
+   * @example
+   * ```typescript
+   * // Basic streaming usage
+   * const result = await neurolink.stream({
+   *   input: { text: "Tell me a story about space exploration" }
+   * });
+   *
+   * // Consume the stream
+   * for await (const chunk of result.stream) {
+   *   process.stdout.write(chunk.content);
+   * }
+   *
+   * // Advanced streaming with options
+   * const result = await neurolink.stream({
+   *   input: { text: "Explain machine learning" },
+   *   provider: "openai",
+   *   model: "gpt-4",
+   *   temperature: 0.7,
+   *   enableAnalytics: true,
+   *   context: { domain: "education", audience: "beginners" }
+   * });
+   *
+   * // Access metadata and analytics
+   * console.log(result.provider);
+   * console.log(result.analytics?.usage);
+   * ```
+   *
+   * @throws {Error} When input text is missing or invalid
+   * @throws {Error} When all providers fail to generate content
+   * @throws {Error} When conversation memory operations fail (if enabled)
    */
   async stream(options: StreamOptions): Promise<StreamResult> {
     const startTime = Date.now();
@@ -2612,8 +2735,178 @@ export class NeuroLink {
   }
 
   /**
-   * Get the EventEmitter to listen to NeuroLink events
-   * @returns EventEmitter instance
+   * Get the EventEmitter instance to listen to NeuroLink events for real-time monitoring and debugging.
+   * This method provides access to the internal event system that emits events during AI generation,
+   * tool execution, streaming, and other operations for comprehensive observability.
+   *
+   * @returns EventEmitter instance that emits various NeuroLink operation events
+   *
+   * @example
+   * ```typescript
+   * // Basic event listening setup
+   * const neurolink = new NeuroLink();
+   * const emitter = neurolink.getEventEmitter();
+   *
+   * // Listen to generation events
+   * emitter.on('generation:start', (event) => {
+   *   console.log(`Generation started with provider: ${event.provider}`);
+   *   console.log(`Started at: ${new Date(event.timestamp)}`);
+   * });
+   *
+   * emitter.on('generation:end', (event) => {
+   *   console.log(`Generation completed in ${event.responseTime}ms`);
+   *   console.log(`Tools used: ${event.toolsUsed?.length || 0}`);
+   * });
+   *
+   * // Listen to streaming events
+   * emitter.on('stream:start', (event) => {
+   *   console.log(`Streaming started with provider: ${event.provider}`);
+   * });
+   *
+   * emitter.on('stream:end', (event) => {
+   *   console.log(`Streaming completed in ${event.responseTime}ms`);
+   *   if (event.fallback) console.log('Used fallback streaming');
+   * });
+   *
+   * // Listen to tool execution events
+   * emitter.on('tool:start', (event) => {
+   *   console.log(`Tool execution started: ${event.toolName}`);
+   * });
+   *
+   * emitter.on('tool:end', (event) => {
+   *   console.log(`Tool ${event.toolName} ${event.success ? 'succeeded' : 'failed'}`);
+   *   console.log(`Execution time: ${event.responseTime}ms`);
+   * });
+   *
+   * // Listen to tool registration events
+   * emitter.on('tools-register:start', (event) => {
+   *   console.log(`Registering tool: ${event.toolName}`);
+   * });
+   *
+   * emitter.on('tools-register:end', (event) => {
+   *   console.log(`Tool registration ${event.success ? 'succeeded' : 'failed'}: ${event.toolName}`);
+   * });
+   *
+   * // Listen to external MCP server events
+   * emitter.on('externalMCP:serverConnected', (event) => {
+   *   console.log(`External MCP server connected: ${event.serverId}`);
+   *   console.log(`Tools available: ${event.toolCount || 0}`);
+   * });
+   *
+   * emitter.on('externalMCP:serverDisconnected', (event) => {
+   *   console.log(`External MCP server disconnected: ${event.serverId}`);
+   *   console.log(`Reason: ${event.reason || 'Unknown'}`);
+   * });
+   *
+   * emitter.on('externalMCP:toolDiscovered', (event) => {
+   *   console.log(`New tool discovered: ${event.toolName} from ${event.serverId}`);
+   * });
+   *
+   * // Advanced usage with error handling
+   * emitter.on('error', (error) => {
+   *   console.error('NeuroLink error:', error);
+   * });
+   *
+   * // Clean up event listeners when done
+   * function cleanup() {
+   *   emitter.removeAllListeners();
+   * }
+   *
+   * process.on('SIGINT', cleanup);
+   * process.on('SIGTERM', cleanup);
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Advanced monitoring with metrics collection
+   * const neurolink = new NeuroLink();
+   * const emitter = neurolink.getEventEmitter();
+   * const metrics = {
+   *   generations: 0,
+   *   totalResponseTime: 0,
+   *   toolExecutions: 0,
+   *   failures: 0
+   * };
+   *
+   * // Collect performance metrics
+   * emitter.on('generation:end', (event) => {
+   *   metrics.generations++;
+   *   metrics.totalResponseTime += event.responseTime;
+   *   metrics.toolExecutions += event.toolsUsed?.length || 0;
+   * });
+   *
+   * emitter.on('tool:end', (event) => {
+   *   if (!event.success) {
+   *     metrics.failures++;
+   *   }
+   * });
+   *
+   * // Log metrics every 10 seconds
+   * setInterval(() => {
+   *   const avgResponseTime = metrics.generations > 0
+   *     ? metrics.totalResponseTime / metrics.generations
+   *     : 0;
+   *
+   *   console.log('NeuroLink Metrics:', {
+   *     totalGenerations: metrics.generations,
+   *     averageResponseTime: `${avgResponseTime.toFixed(2)}ms`,
+   *     totalToolExecutions: metrics.toolExecutions,
+   *     failureRate: `${((metrics.failures / (metrics.toolExecutions || 1)) * 100).toFixed(2)}%`
+   *   });
+   * }, 10000);
+   * ```
+   *
+   * **Available Events:**
+   *
+   * **Generation Events:**
+   * - `generation:start` - Fired when text generation begins
+   *   - `{ provider: string, timestamp: number }`
+   * - `generation:end` - Fired when text generation completes
+   *   - `{ provider: string, responseTime: number, toolsUsed?: string[], timestamp: number }`
+   *
+   * **Streaming Events:**
+   * - `stream:start` - Fired when streaming begins
+   *   - `{ provider: string, timestamp: number }`
+   * - `stream:end` - Fired when streaming completes
+   *   - `{ provider: string, responseTime: number, fallback?: boolean }`
+   *
+   * **Tool Events:**
+   * - `tool:start` - Fired when tool execution begins
+   *   - `{ toolName: string, timestamp: number }`
+   * - `tool:end` - Fired when tool execution completes
+   *   - `{ toolName: string, responseTime: number, success: boolean, timestamp: number }`
+   * - `tools-register:start` - Fired when tool registration begins
+   *   - `{ toolName: string, timestamp: number }`
+   * - `tools-register:end` - Fired when tool registration completes
+   *   - `{ toolName: string, success: boolean, timestamp: number }`
+   *
+   * **External MCP Events:**
+   * - `externalMCP:serverConnected` - Fired when external MCP server connects
+   *   - `{ serverId: string, toolCount?: number, timestamp: number }`
+   * - `externalMCP:serverDisconnected` - Fired when external MCP server disconnects
+   *   - `{ serverId: string, reason?: string, timestamp: number }`
+   * - `externalMCP:serverFailed` - Fired when external MCP server fails
+   *   - `{ serverId: string, error: string, timestamp: number }`
+   * - `externalMCP:toolDiscovered` - Fired when external MCP tool is discovered
+   *   - `{ toolName: string, serverId: string, timestamp: number }`
+   * - `externalMCP:toolRemoved` - Fired when external MCP tool is removed
+   *   - `{ toolName: string, serverId: string, timestamp: number }`
+   * - `externalMCP:serverAdded` - Fired when external MCP server is added
+   *   - `{ serverId: string, config: MCPServerInfo, toolCount: number, timestamp: number }`
+   * - `externalMCP:serverRemoved` - Fired when external MCP server is removed
+   *   - `{ serverId: string, timestamp: number }`
+   *
+   * **Error Events:**
+   * - `error` - Fired when an error occurs
+   *   - `{ error: Error, context?: object }`
+   *
+   * @throws {Error} This method does not throw errors as it returns the internal EventEmitter
+   *
+   * @since 1.0.0
+   * @see {@link https://nodejs.org/api/events.html} Node.js EventEmitter documentation
+   * @see {@link NeuroLink.generate} for events related to text generation
+   * @see {@link NeuroLink.stream} for events related to streaming
+   * @see {@link NeuroLink.executeTool} for events related to tool execution
    */
   getEventEmitter() {
     return this.emitter;
