@@ -44,6 +44,16 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: Setup Node.js for markdownlint
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 📝 Markdown Linting
+        run: |
+          echo "📝 Running markdownlint on documentation files..."
+          npx markdownlint-cli2 "docs/**/*.md" --config .markdownlint.json || echo "⚠️ Markdownlint found formatting issues - consider running 'npx markdownlint-cli2 --fix \"docs/**/*.md\"' locally"
+
       - name: Build documentation
         run: |
           mkdocs build --strict --clean --verbose

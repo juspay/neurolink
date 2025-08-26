@@ -29,11 +29,13 @@ Experience NeuroLink's capabilities without any installation:
 Step-by-step interactive tutorial covering:
 
 1. **Basic Text Generation**
+
    - Simple prompt input
    - Provider selection
    - Response analysis
 
 2. **Advanced Features**
+
    - Analytics tracking
    - Quality evaluation
    - Streaming responses
@@ -115,11 +117,13 @@ console.log(result.content);
 Interactive business use cases:
 
 1. **Executive Dashboard**
+
    - Strategic analysis
    - Performance reporting
    - Decision support
 
 2. **Marketing Workflows**
+
    - Content creation
    - Campaign analysis
    - SEO optimization
@@ -275,11 +279,13 @@ Interactive feature comparison:
 Progressive learning experience:
 
 1. **Beginner Level**
+
    - Basic concepts
    - Simple examples
    - Guided exercises
 
 2. **Intermediate Level**
+
    - Advanced features
    - Integration patterns
    - Best practices
@@ -458,11 +464,13 @@ Collaborative development:
 ### Getting Started
 
 1. **Choose Your Path**
+
    - Quick demo (5 minutes)
    - Full tutorial (30 minutes)
    - Specific use case
 
 2. **No Setup Required**
+
    - Browser-based execution
    - Pre-configured examples
    - Sample data provided

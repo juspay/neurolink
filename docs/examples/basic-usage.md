@@ -2,6 +2,8 @@
 
 Simple examples to get started with NeuroLink in different scenarios and programming languages.
 
+**Prerequisites**: Before running these examples, ensure you have configured at least one AI provider. See [Provider Configuration Guide](../getting-started/provider-setup.md) for setup instructions.
+
 ## 🚀 Quick Start Examples
 
 ### Simple Text Generation

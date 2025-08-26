@@ -72,6 +72,8 @@ npm start
 # Open http://localhost:9876
 ```
 
+**Note**: If port 9876 is already in use, the server will automatically find the next available port. Check the terminal output for the actual port number.
+
 ## 🖥️ CLI Demonstrations
 
 ### Professional CLI Screenshots _(Latest: June 10, 2025)_

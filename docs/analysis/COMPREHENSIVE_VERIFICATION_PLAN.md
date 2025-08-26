@@ -241,7 +241,7 @@ Based on the user's feedback that:
 - [x] Test `--system` with system prompts (✅ WORKING - custom system prompts functional)
 - [x] Test `--timeout` with time limits (✅ WORKING - accepts timeout values without errors)
 - [x] Test `--context` with JSON context (❌ CRITICAL BUG - completely ignored)
-- [x] Test `--output-format json` (✅ WORKING - comprehensive JSON output)
+- [x] Test `--format json` (✅ WORKING - comprehensive JSON output)
 - [x] Test `--enable-analytics` (⚠️ PARTIAL - works in JSON, ignored in text mode)
 - [x] Test `--enable-evaluation` (✅ WORKING - complete 1-10 scoring system)
 - [x] Test `--disable-tools` (✅ WORKING - tools disabled when specified)

@@ -9,8 +9,8 @@
 - ✅ Legacy `generate()` troubleshooting preserved
 - ✅ Factory pattern error handling documented
 
-> **Migration Note**: Most issues apply to both `generate()` and `generate()`.
-> Use `generate()` examples for new troubleshooting.
+> **Migration Note**: Most issues apply to both the new `generate()` API (options-based) and the legacy `generate()` API.
+> Use the new `generate()` examples for troubleshooting unless you are on the legacy API.
 
 ---
 
@@ -27,14 +27,14 @@ This guide helps diagnose and resolve common issues with NeuroLink, including AI
 
 ### **Migration Questions**
 
-**Q: Should I update my existing code to use `generate()`?**
-A: Optional. Your existing `generate()` code continues working unchanged. Use `generate()` for new projects.
+**Q: Should I update my existing code to use the new `generate()` API?**
+A: Optional. Your existing legacy `generate()` code continues working unchanged. Prefer the new `generate()` API for new projects.
 
-**Q: What's the difference between `generate()` and `generate()`?**
-A: `generate()` has a more extensible interface for future multi-modal features. Both produce identical results for text generation.
+**Q: What's the difference between the new `generate()` and the legacy `generate()`?**
+A: The new `generate()` has a more extensible interface for future multi‑modal features. Both produce identical results for text generation today.
 
-**Q: I see deprecation warnings with `generate()`**
-A: These are informational only. `generate()` remains fully supported. To remove warnings, migrate to `generate()`.
+**Q: I see deprecation warnings with the legacy `generate()`**
+A: These are informational only. The legacy API remains supported. To remove warnings, migrate to the new `generate()` API.
 
 ### **Migration Examples**
 
@@ -55,11 +55,11 @@ const result = await neurolink.generate({
 ### **CLI Migration**
 
 ```bash
-# ✅ NEW: Primary command
-npx @juspay/neurolink generate "Your prompt"
+# ✅ NEW: Options-based API
+npx @juspay/neurolink generate --prompt "Your prompt" --provider openai
 
-# 📜 LEGACY: Still works (shows deprecation warning)
-npx @juspay/neurolink generate "Your prompt"
+# 📜 LEGACY: Positional arguments (still works, shows deprecation warning)
+npx @juspay/neurolink generate "Your prompt" --provider openai
 ```
 
 ---
@@ -391,11 +391,11 @@ npx @juspay/neurolink config restore --backup neurolink-config-2025-01-07T10-30-
 
 ```bash
 # Check if discovery is working
-npx neurolink mcp discover --format table
+npx @juspay/neurolink mcp discover --format table
 # Should show 58+ discovered servers
 
 # Check discovery with debug info
-npx neurolink mcp discover --format json | jq '.servers | length'
+npx @juspay/neurolink mcp discover --format json | jq '.servers | length'
 # Should return a number > 50
 ```
 
@@ -414,7 +414,7 @@ npx neurolink mcp discover --format json | jq '.servers | length'
 
    ```bash
    # Check for configuration file issues
-   npx neurolink mcp discover --format json > discovery.json
+   npx @juspay/neurolink mcp discover --format json > discovery.json
    # Review discovery.json for parsing errors
    ```
 
@@ -422,7 +422,7 @@ npx neurolink mcp discover --format json | jq '.servers | length'
    ```bash
    # Enable debug mode
    export NEUROLINK_DEBUG=true
-   npx neurolink mcp discover --format table
+   npx @juspay/neurolink mcp discover --format table
    ```
 
 ### **🔧 External MCP Server Activation Issues**
@@ -435,7 +435,7 @@ npx neurolink mcp discover --format json | jq '.servers | length'
 
 ```bash
 # Coming Soon: Direct tool execution
-npx neurolink mcp exec filesystem read_file --params '{"path": "../index.md"}'
+npx @juspay/neurolink mcp exec filesystem read_file --params '{"path": "../index.md"}'
 ```
 
 **Current Workaround**: Use built-in tools while external activation is developed
@@ -452,7 +452,7 @@ npx neurolink mcp exec filesystem read_file --params '{"path": "../index.md"}'
 
 ```bash
 # Check provider status
-npx neurolink status --verbose
+npx @juspay/neurolink status --verbose
 ```
 
 **Solutions**:
@@ -464,7 +464,7 @@ npx neurolink status --verbose
    export OPENAI_API_KEY="sk-your-openai-api-key"
 
    # Test connection
-   npx neurolink generate "Hello" --provider openai
+   npx @juspay/neurolink generate "Hello" --provider openai
    ```
 
 2. **Google AI Studio Issues**:
@@ -474,7 +474,7 @@ npx neurolink status --verbose
    export GOOGLE_AI_API_KEY="AIza-your-google-ai-api-key"
 
    # Test connection
-   npx neurolink generate "Hello" --provider google-ai
+   npx @juspay/neurolink generate "Hello" --provider google-ai
    ```
 
 3. **Google Vertex AI Issues**:
@@ -487,10 +487,11 @@ npx neurolink status --verbose
    export GOOGLE_AUTH_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
 
    # Test Claude Sonnet 4 (recommended model)
-   npx neurolink generate "test" --provider vertex --model claude-sonnet-4@20250514
+   npx @juspay/neurolink generate "test" --provider vertex --model claude-sonnet-4@20250514
    ```
 
    **Common Vertex AI Issues**:
+
    - **"Not configured" despite valid credentials**:
      Use `GOOGLE_VERTEX_PROJECT` instead of `GOOGLE_CLOUD_PROJECT_ID`
    - **Authentication failed**:
@@ -502,13 +503,13 @@ npx neurolink status --verbose
 
    ```bash
    # Check provider status
-   npx neurolink status
+   npx @juspay/neurolink status
 
    # Test basic connectivity
-   npx neurolink generate "hello" --provider vertex --model claude-sonnet-4@20250514
+   npx @juspay/neurolink generate "hello" --provider vertex --model claude-sonnet-4@20250514
 
    # Debug with verbose output
-   npx neurolink generate "test" --provider vertex --debug
+   npx @juspay/neurolink generate "test" --provider vertex --debug
    ```
 
 4. **Multiple Provider Setup**:
@@ -522,7 +523,7 @@ npx neurolink status --verbose
    EOF
 
    # Test auto-selection
-   npx neurolink generate "Hello"
+   npx @juspay/neurolink generate "Hello"
    ```
 
 ### **Provider Selection Issues**
@@ -533,10 +534,10 @@ npx neurolink status --verbose
 
 ```bash
 # Check available providers
-npx neurolink status
+npx @juspay/neurolink status
 
 # Test specific provider
-npx neurolink generate "Hello" --provider google-ai --debug
+npx @juspay/neurolink generate "Hello" --provider google-ai --debug
 ```
 
 **Solutions**:
@@ -544,13 +545,13 @@ npx neurolink generate "Hello" --provider google-ai --debug
 1. **Force Specific Provider**:
 
    ```bash
-   npx neurolink generate "Hello" --provider openai
+   npx @juspay/neurolink generate "Hello" --provider openai
    ```
 
 2. **Check Fallback Logic**:
    ```bash
    # This should automatically select best available provider
-   npx neurolink generate "Hello" --debug
+   npx @juspay/neurolink generate "Hello" --debug
    ```
 
 ---
@@ -579,7 +580,7 @@ npx neurolink generate "Hello" --provider google-ai --debug
 3. **Local Project Usage**:
    ```bash
    npm install @juspay/neurolink
-   npx neurolink --help
+   npx @juspay/neurolink --help
    ```
 
 ### **Build Issues**
@@ -666,11 +667,11 @@ node dist/cli/index.js generate "What tools do you have access to?" --debug
 
 # 4. Test external server discovery
 echo "Testing external server discovery..."
-npx neurolink mcp discover --format table
+npx @juspay/neurolink mcp discover --format table
 
 # 5. Test AI provider
 echo "Testing AI provider..."
-npx neurolink status --verbose
+npx @juspay/neurolink status --verbose
 
 # 6. Run comprehensive tests
 echo "Running comprehensive tests..."
@@ -695,9 +696,9 @@ Enable detailed logging for troubleshooting:
 export NEUROLINK_DEBUG=true
 
 # Run commands with debug output
-npx neurolink generate "Hello" --debug
-npx neurolink mcp discover --format table
-npx neurolink status --verbose
+npx @juspay/neurolink generate "Hello" --debug
+npx @juspay/neurolink mcp discover --format table
+npx @juspay/neurolink status --verbose
 ```
 
 ---
@@ -730,14 +731,14 @@ npx tsc --version # Should be v5+
 
 ```bash
 # System status
-npx neurolink status --verbose
+npx @juspay/neurolink status --verbose
 
 # MCP status
-npx neurolink mcp discover --format table
+npx @juspay/neurolink mcp discover --format table
 
 # Debug output
 export NEUROLINK_DEBUG=true
-npx neurolink generate "Test" --debug
+npx @juspay/neurolink generate "Test" --debug
 ```
 
 ### **Report Issues**
@@ -756,7 +757,7 @@ When reporting issues, please include:
 
    ```bash
    export NEUROLINK_DEBUG=true
-   npx neurolink status --verbose
+   npx @juspay/neurolink status --verbose
    ```
 
 3. **Error Logs**: Full error messages and stack traces
@@ -819,6 +820,7 @@ curl -I --proxy $HTTPS_PROXY https://api.openai.com
 **Solutions**:
 
 1. **Contact IT team** for allowlist:
+
    - `generativelanguage.googleapis.com` (Google AI)
    - `api.anthropic.com` (Anthropic)
    - `api.openai.com` (OpenAI)

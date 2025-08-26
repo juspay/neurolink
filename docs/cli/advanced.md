@@ -244,7 +244,7 @@ analyze_codebase() {
     # Code review
     npx @juspay/neurolink gen "
     Perform comprehensive code review:
-    1. Code quality and best practices
+    1. Code quality and best-practice adherence
     2. Security vulnerabilities
     3. Performance optimizations
     4. Maintainability improvements
@@ -756,7 +756,7 @@ run_ai_quality_gate() {
   Changed files: $changed_files
 
   Evaluate:
-  - Code quality and best practices
+  - Code quality and best-practice compliance
   - Test coverage adequacy
   - Documentation completeness
   - Security considerations

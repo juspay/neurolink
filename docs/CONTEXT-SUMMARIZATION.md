@@ -55,24 +55,30 @@ neurolink.enableContextSummarization({
 The `enableContextSummarization` method accepts an optional configuration object with the following properties:
 
 - `highWaterMarkWords: number`
+
   - **Description**: The word count at which to trigger the summarization process.
   - **Default**: `3000`
 
 - `lowWaterMarkWords: number`
-  - **Description**: The target word count for the generated summary. The summarization prompt will instruct the AI to aim for this length.
+
+  - **Description**: The target word count for the conversation history after summarization. This serves dual purposes: (1) instructs the AI to create a summary targeting this length, and (2) acts as the fallback truncation limit if summarization fails.
   - **Default**: `800`
 
 - `summarizationModel: string`
+
   - **Description**: The specific AI model to use for the summarization task. It's recommended to use a fast and cost-effective model.
   - **Default**: `"gemini-2.5-flash"`
 
 - `summarizationProvider: string`
+
   - **Description**: The AI provider to use for the summarization task.
   - **Default**: `"googlevertex"`
 
 - `getSummarizationPrompt: (history: ChatMessage[], wordLimit: number) => string`
+
   - **Description**: A function that generates the prompt sent to the summarization model. You can provide your own function to customize the summarization instructions.
   - **Default**: A built-in function that creates a robust prompt asking for a concise, third-person narrative.
+  - **Important**: Custom prompt functions must be mindful of the model's context window limits. Very long conversation histories combined with verbose prompts may exceed model limits and cause API errors.
 
 - `estimateWordCount: (history: ChatMessage[]) => number`
   - **Description**: A function that estimates the word count of the conversation history.
