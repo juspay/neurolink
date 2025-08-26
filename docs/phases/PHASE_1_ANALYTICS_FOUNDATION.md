@@ -23,7 +23,7 @@
 
 ### **✅ VERIFIED SUCCESS WITH LOCAL BUILD**:
 
-- ✅ Complete analytics system working (`npm run cli -- generate "test" --enableAnalytics --output-format json`)
+- ✅ Complete analytics system working (`npm run cli -- generate "test" --enableAnalytics --format json`)
 - ✅ All CLI options implemented and functional (--enableAnalytics, --context, --enableEvaluation)
 - ✅ Tools fully functional with complete tracking integration
 - ✅ **PHASE 1 COMPLETE**: Factory pattern successfully implemented all analytics features
@@ -285,10 +285,10 @@ neurolink generate "read /tmp/test.txt" --format json
 fix(tools): restore tool usage tracking and analytics
 
 - Fix broken tool execution tracking system
-- Populate toolsUsed array with actual tool usage
-- Add detailed tool execution analytics (timing, I/O)
-- Include tool usage data in analytics object
-- Maintain tool functionality while adding visibility
+- Populate toolsUsed array with actual tool usage data
+- Add detailed tool execution analytics within the existing analytics layer (timing, I/O metrics)
+- Include tool usage data in the unified analytics object for consistent reporting
+- Maintain tool functionality while adding usage visibility at the analytics layer only
 
 Fixes: Tools work but toolsUsed tracking broken
 Closes: #[issue-number]

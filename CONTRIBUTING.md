@@ -505,7 +505,7 @@ pnpm cli generate "Hello world" --provider google-ai
 pnpm cli stream "Count to 5" --provider google-ai
 
 # Analytics / evaluation
-pnpm cli generate "Test analytics" --provider google-ai --enable-analytics --output-format json
+pnpm cli generate "Test analytics" --provider google-ai --enable-analytics --format json
 
 # Loop through all built-in providers (bash)
 for p in openai google-ai anthropic bedrock vertex; do
@@ -557,6 +557,58 @@ For any new features or changes, please update the relevant documentation:
 - README.md for general usage
 - JSDoc comments for public APIs
 - Code examples where appropriate
+
+### 📝 Documentation Quality Standards
+
+We maintain high-quality documentation with automated formatting checks:
+
+#### **Markdown Linting**
+
+All documentation is validated with markdownlint during CI/CD. To ensure your documentation meets standards:
+
+```bash
+# Check markdown formatting
+npx markdownlint-cli2 "docs/**/*.md"
+
+# Auto-fix formatting issues
+npx markdownlint-cli2 --fix "docs/**/*.md"
+
+# Check specific files
+npx markdownlint-cli2 "README.md" "CONTRIBUTING.md"
+```
+
+**Recommended markdownlint configuration (`.markdownlint.json`):**
+
+```json
+{
+  "default": true,
+  "MD003": { "style": "atx" },
+  "MD007": { "indent": 2 },
+  "MD013": { "line_length": 120 },
+  "MD024": { "allow_different_nesting": true },
+  "MD033": { "allowed_elements": ["details", "summary", "br"] },
+  "MD041": false
+}
+```
+
+This configuration ensures:
+
+- ✅ Consistent heading styles (ATX format: `# Heading`)
+- ✅ Proper list indentation (2 spaces)
+- ✅ Reasonable line length limits (120 characters)
+- ✅ Allows nested headings with same content
+- ✅ Permits essential HTML elements for documentation
+- ✅ Flexible first-line requirements for complex docs
+
+#### **Documentation CI Integration**
+
+The docs workflow automatically runs markdownlint on all documentation files. If formatting issues are found:
+
+1. **Local fixing:** Run `npx markdownlint-cli2 --fix "docs/**/*.md"` locally
+2. **Manual review:** Check the CI output for specific formatting violations
+3. **Commit fixes:** Include markdown formatting fixes in your contribution
+
+This ensures consistent, professional documentation across the entire project.
 
 ## Release Process
 

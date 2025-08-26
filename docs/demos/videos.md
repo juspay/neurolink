@@ -371,26 +371,459 @@ Extended business use cases demonstration (note: same content as other business 
 - Q&A session
 - Advanced tips and tricks
 
-## 📋 Video Specifications
+## 📋 Video Specifications & Guidelines
 
-### Technical Details
+### **Video Format Standards**
 
-**Format Standards:**
+#### **Required Technical Specifications**
 
-- **Resolution**: 1920x1080 (Full HD)
-- **Frame Rate**: 30fps
-- **Audio**: 48kHz, stereo
-- **Compression**: H.264
-- **Quality**: High bitrate for crisp visuals
+**Video Encoding:**
 
-**Accessibility Features:**
+- **Container**: MP4 (preferred) or WebM
+- **Codec**: H.264 (MP4) or VP9 (WebM)
+- **Resolution**:
+  - Desktop demos: 1920x1080 (Full HD)
+  - Mobile demos: 1080x1920 (portrait) or 1920x1080 (landscape)
+  - CLI demos: 1920x1080 or 2560x1440 for code readability
+- **Frame Rate**: 30fps (standard) or 60fps (for smooth UI interactions)
+- **Bitrate**:
+  - 1080p: 5-8 Mbps (high quality)
+  - 720p: 2-4 Mbps (web-optimized)
+  - 480p: 1-2 Mbps (mobile/low bandwidth)
 
-- Closed captions available
-- Audio descriptions provided
-- Keyboard navigation support
-- Screen reader compatibility
+**Audio Encoding:**
 
-### Viewing Options
+- **Codec**: AAC (MP4) or Opus (WebM)
+- **Sample Rate**: 48kHz (preferred) or 44.1kHz
+- **Channels**: Stereo (2.0) for most content, mono for simple narration
+- **Bitrate**: 128-192 kbps for narration, 192-320 kbps for music
+
+**Duration Guidelines:**
+
+- **Feature demos**: 2-5 minutes (optimal engagement)
+- **Tutorial videos**: 5-10 minutes (comprehensive learning)
+- **Overview videos**: 1-3 minutes (quick introduction)
+- **Workflow demos**: 3-7 minutes (end-to-end processes)
+- **Webinar recordings**: 15-60 minutes (detailed presentations)
+
+#### **File Size Management**
+
+**Size Limits by Category:**
+
+- **Short demos (1-3 min)**: Target <50MB, Max 100MB
+- **Medium demos (3-7 min)**: Target <150MB, Max 300MB
+- **Long demos (7-15 min)**: Target <500MB, Max 1GB
+- **Extended content (15+ min)**: Target <2GB, Max 5GB
+
+**Compression Guidelines:**
+
+```bash
+# High-quality compression with FFmpeg
+ffmpeg -i input.mov \
+  -c:v libx264 -preset medium -crf 23 \
+  -c:a aac -b:a 192k \
+  -movflags +faststart \
+  output.mp4
+
+# Web-optimized version
+ffmpeg -i input.mov \
+  -c:v libx264 -preset medium -crf 28 \
+  -vf scale=1280:720 \
+  -c:a aac -b:a 128k \
+  -movflags +faststart \
+  output-web.mp4
+
+# Mobile-optimized version
+ffmpeg -i input.mov \
+  -c:v libx264 -preset medium -crf 30 \
+  -vf scale=854:480 \
+  -c:a aac -b:a 96k \
+  -movflags +faststart \
+  output-mobile.mp4
+```
+
+### **Git LFS Integration (REQUIRED)**
+
+#### **Why Git LFS is Mandatory**
+
+Video files are large binary assets that should **never** be committed directly to Git repositories. Git LFS (Large File Storage) is required for all video assets.
+
+**Benefits of Git LFS:**
+
+- ✅ Faster repository cloning
+- ✅ Reduced bandwidth usage
+- ✅ Version control for large files
+- ✅ Efficient storage and sharing
+- ✅ Better collaboration workflows
+
+#### **Git LFS Setup**
+
+**1. Install Git LFS**
+
+```bash
+# macOS
+brew install git-lfs
+
+# Ubuntu/Debian
+sudo apt install git-lfs
+
+# Windows
+# Download from https://git-lfs.github.io/
+
+# Initialize in repository
+git lfs install
+```
+
+**2. Configure LFS Tracking**
+
+```bash
+# Track all video files in docs directory
+git lfs track "docs/**/*.mp4"
+git lfs track "docs/**/*.webm"
+git lfs track "docs/**/*.mov"
+git lfs track "docs/**/*.avi"
+
+# Track by file size (alternative approach)
+git lfs track "*.mp4" "*.webm" --size=50MB+
+
+# Commit tracking rules
+git add .gitattributes
+git commit -m "Configure Git LFS for video assets"
+```
+
+**3. .gitattributes Configuration**
+
+```gitattributes
+# Video files - always use LFS
+docs/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+docs/**/*.webm filter=lfs diff=lfs merge=lfs -text
+docs/**/*.mov filter=lfs diff=lfs merge=lfs -text
+docs/**/*.avi filter=lfs diff=lfs merge=lfs -text
+
+# Audio files - use LFS for large files
+docs/**/*.wav filter=lfs diff=lfs merge=lfs -text
+docs/**/*.flac filter=lfs diff=lfs merge=lfs -text
+
+# Other large assets
+docs/**/*.zip filter=lfs diff=lfs merge=lfs -text
+docs/**/*.tar.gz filter=lfs diff=lfs merge=lfs -text
+```
+
+**4. Working with LFS Files**
+
+```bash
+# Add and commit LFS files normally
+git add docs/demos/videos/new-demo.mp4
+git commit -m "Add new demo video"
+
+# Push LFS files to remote
+git push origin main
+
+# Pull LFS files on clone
+git clone --recursive <repository-url>
+
+# Check LFS status
+git lfs status
+git lfs ls-files
+
+# Track LFS bandwidth usage
+git lfs env
+```
+
+### **Video Asset Organization**
+
+#### **Directory Structure**
+
+```
+docs/
+├── demos/
+│   └── videos/
+│       ├── cli/                    # CLI demonstrations
+│       │   ├── basic/             # Basic CLI usage
+│       │   ├── advanced/          # Advanced features
+│       │   └── troubleshooting/   # Error handling
+│       ├── web/                   # Web interface demos
+│       │   ├── dashboard/         # Dashboard functionality
+│       │   ├── analytics/         # Analytics features
+│       │   └── mobile/            # Mobile/responsive demos
+│       ├── business/              # Business use cases
+│       │   ├── finance/           # Financial applications
+│       │   ├── marketing/         # Marketing use cases
+│       │   └── operations/        # Operational workflows
+│       ├── technical/             # Technical deep dives
+│       │   ├── architecture/      # System architecture
+│       │   ├── integration/       # Framework integration
+│       │   └── performance/       # Performance demos
+│       └── tutorials/             # Educational content
+│           ├── getting-started/   # Beginner tutorials
+│           ├── intermediate/      # Intermediate guides
+│           └── advanced/          # Advanced techniques
+└── visual-content/
+    └── videos/                    # Legacy video location
+        └── [migrate to demos/videos/]
+```
+
+#### **File Naming Convention**
+
+```
+{category}-{feature}-{context}[-{quality}].{extension}
+
+Examples:
+cli-help-overview.mp4                    # CLI help command overview
+cli-generate-workflow-hd.mp4            # CLI generation workflow (HD)
+web-dashboard-analytics-mobile.mp4      # Web dashboard on mobile
+business-finance-analysis-4k.mp4        # Financial analysis (4K)
+tutorial-setup-getting-started.mp4      # Setup tutorial
+technical-architecture-overview.mp4     # Architecture overview
+```
+
+### **Quality Assurance Standards**
+
+#### **Content Quality Checklist**
+
+- [ ] **Audio Quality**: Clear narration, no background noise
+- [ ] **Visual Quality**: Sharp text, readable UI elements
+- [ ] **Pacing**: Appropriate speed for comprehension
+- [ ] **Content Accuracy**: Up-to-date features and interfaces
+- [ ] **Professional Presentation**: Consistent branding and style
+
+#### **Technical Quality Validation**
+
+```bash
+#!/bin/bash
+# video-quality-check.sh
+# Validates video technical specifications
+
+check_video_specs() {
+  local file="$1"
+
+  # Get video information
+  duration=$(ffprobe -v quiet -show_entries format=duration -of csv="p=0" "$file")
+  resolution=$(ffprobe -v quiet -select_streams v:0 -show_entries stream=width,height -of csv="s=x:p=0" "$file")
+  bitrate=$(ffprobe -v quiet -show_entries format=bit_rate -of csv="p=0" "$file")
+
+  echo "File: $file"
+  echo "Duration: ${duration}s"
+  echo "Resolution: $resolution"
+  echo "Bitrate: $bitrate bps"
+
+  # Size validation
+  size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file")
+  size_mb=$((size / 1024 / 1024))
+
+  echo "File Size: ${size_mb}MB"
+
+  # Check if file should use LFS
+  if [ $size_mb -gt 50 ]; then
+    if ! git lfs ls-files | grep -q "$file"; then
+      echo "⚠️  Warning: Large file not tracked by Git LFS"
+    else
+      echo "✅ File properly tracked by Git LFS"
+    fi
+  fi
+}
+
+# Check all video files
+find docs/ -name "*.mp4" -o -name "*.webm" | while read file; do
+  check_video_specs "$file"
+  echo "---"
+done
+```
+
+### **Accessibility Standards**
+
+#### **Required Accessibility Features**
+
+- [ ] **Closed Captions**: SRT or VTT subtitle files
+- [ ] **Audio Descriptions**: Narrated descriptions of visual elements
+- [ ] **Keyboard Navigation**: Video player must be keyboard accessible
+- [ ] **Screen Reader Compatibility**: Proper ARIA labels and descriptions
+- [ ] **Transcript Files**: Text transcripts for each video
+
+#### **Caption File Standards**
+
+```vtt
+WEBVTT
+
+00:00:00.000 --> 00:00:03.000
+Welcome to NeuroLink CLI demonstration.
+
+00:00:03.000 --> 00:00:07.000
+In this video, we'll explore the help command and available options.
+
+00:00:07.000 --> 00:00:12.000
+<v Narrator>First, let's check the current status of our AI providers.
+```
+
+#### **Audio Description Example**
+
+```vtt
+WEBVTT
+
+NOTE Audio descriptions for visual elements
+
+00:00:00.000 --> 00:00:03.000
+[Terminal window opens with dark theme]
+
+00:00:03.000 --> 00:00:07.000
+[User types "neurolink help" command]
+
+00:00:07.000 --> 00:00:12.000
+[Command output displays in green text with structured formatting]
+```
+
+### **Video Embedding Guidelines**
+
+#### **Markdown Embedding**
+
+```markdown
+### Video Title
+
+**[Video Description](path/to/video.mp4)**
+_Duration: X:XX | Format: MP4 | Size: XXMb_
+
+Brief description of video content and key features demonstrated.
+
+**Key Features Shown:**
+
+- Feature 1: Description
+- Feature 2: Description
+- Feature 3: Description
+
+**Accessibility:**
+
+- [Captions](path/to/captions.vtt)
+- [Transcript](path/to/transcript.md)
+- [Audio Description](path/to/audio-description.vtt)
+```
+
+#### **HTML5 Video Element**
+
+```html
+<video controls preload="metadata" width="100%">
+  <source src="video.mp4" type="video/mp4" />
+  <source src="video.webm" type="video/webm" />
+
+  <!-- Accessibility tracks -->
+  <track
+    kind="captions"
+    src="captions.vtt"
+    srclang="en"
+    label="English Captions"
+    default
+  />
+  <track
+    kind="descriptions"
+    src="descriptions.vtt"
+    srclang="en"
+    label="Audio Descriptions"
+  />
+  <track
+    kind="subtitles"
+    src="subtitles.vtt"
+    srclang="en"
+    label="English Subtitles"
+  />
+
+  Your browser does not support the video tag.
+</video>
+```
+
+### **Performance Optimization**
+
+#### **Web Delivery Optimization**
+
+- **Progressive Download**: Use `faststart` flag for immediate playback
+- **Multiple Quality Levels**: Provide 480p, 720p, and 1080p versions
+- **Adaptive Streaming**: Consider HLS or DASH for long videos
+- **Thumbnail Generation**: Create poster images for video previews
+- **CDN Distribution**: Use content delivery networks for global access
+
+#### **Bandwidth Considerations**
+
+```bash
+# Generate multiple quality versions
+create_video_variants() {
+  local input="$1"
+  local base="${input%.*}"
+
+  # HD version (original quality)
+  ffmpeg -i "$input" -c:v libx264 -crf 23 -preset medium -c:a aac -b:a 192k "${base}-hd.mp4"
+
+  # Standard version (720p)
+  ffmpeg -i "$input" -vf scale=1280:720 -c:v libx264 -crf 25 -preset medium -c:a aac -b:a 128k "${base}-std.mp4"
+
+  # Mobile version (480p)
+  ffmpeg -i "$input" -vf scale=854:480 -c:v libx264 -crf 28 -preset medium -c:a aac -b:a 96k "${base}-mobile.mp4"
+
+  # Generate poster image
+  ffmpeg -i "$input" -ss 00:00:03 -vframes 1 "${base}-poster.jpg"
+}
+```
+
+### **Validation and Testing**
+
+#### **Pre-Commit Validation**
+
+```bash
+#!/bin/bash
+# pre-commit-video-check.sh
+
+echo "Validating video assets..."
+
+# Check for large files not in LFS
+find docs/ -name "*.mp4" -o -name "*.webm" | while read file; do
+  size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file")
+  size_mb=$((size / 1024 / 1024))
+
+  if [ $size_mb -gt 50 ] && ! git lfs ls-files | grep -q "$file"; then
+    echo "❌ Error: $file (${size_mb}MB) must be tracked by Git LFS"
+    exit 1
+  fi
+done
+
+# Check for required accessibility files
+find docs/ -name "*.mp4" | while read video; do
+  base="${video%.*}"
+
+  if [ ! -f "${base}.vtt" ] && [ ! -f "${base}-captions.vtt" ]; then
+    echo "⚠️  Warning: Missing captions for $video"
+  fi
+done
+
+echo "✅ Video asset validation complete"
+```
+
+### **Migration from Legacy Storage**
+
+#### **Moving Existing Videos to LFS**
+
+```bash
+#!/bin/bash
+# migrate-videos-to-lfs.sh
+
+# Setup LFS tracking
+git lfs track "docs/**/*.mp4"
+git lfs track "docs/**/*.webm"
+
+# Find and migrate existing videos
+find docs/ -name "*.mp4" -o -name "*.webm" | while read file; do
+  echo "Migrating $file to LFS..."
+
+  # Remove from Git history (if already committed)
+  git rm --cached "$file"
+
+  # Re-add with LFS
+  git add "$file"
+done
+
+# Commit LFS migration
+git commit -m "Migrate video assets to Git LFS"
+
+echo "Migration complete. Videos now tracked by Git LFS."
+```
+
+### **Viewing Options**
 
 **Streaming Quality:**
 

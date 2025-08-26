@@ -16,6 +16,23 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 - **Ollama** - Local AI models including Llama 2, Code Llama, Mistral, Vicuna
 - **Mistral AI** - Mistral Tiny, Small, Medium, and Large models
 
+## 💰 Model Availability & Cost Considerations
+
+**Important Notes:**
+
+- **Model Availability**: Specific models may not be available in all regions or require special access
+- **Cost Variations**: Pricing differs significantly between providers and models (e.g., Claude 3.5 Sonnet vs GPT-4o)
+- **Rate Limits**: Each provider has different rate limits and quota restrictions
+- **Local vs Cloud**: Ollama (local) has no per-request cost but requires hardware resources
+- **Enterprise Tiers**: AWS Bedrock, Google Vertex AI, and Azure typically offer enterprise pricing
+
+**Best Practices:**
+
+- Use `createBestAIProvider()` for automatic cost-optimized provider selection
+- Monitor usage through built-in analytics to track costs
+- Consider local models (Ollama) for development and testing
+- Check provider documentation for current pricing and availability
+
 ## 🏢 Enterprise Proxy Support
 
 **All providers support corporate proxy environments automatically.** Simply set environment variables:

@@ -17,11 +17,13 @@ The dynamic model system enables:
 ### Components
 
 1. **Model Configuration Server** (`scripts/model-server.js`)
+
    - Serves model configurations via REST API
    - Provides search and filtering capabilities
    - Can be hosted anywhere (GitHub, CDN, internal server)
 
 2. **Dynamic Model Provider** (`src/lib/core/dynamicModels.ts`)
+
    - Loads configurations from multiple sources with fallback
    - Caches configurations to reduce network requests
    - Validates configurations using Zod schemas
@@ -38,7 +40,7 @@ The dynamic model system enables:
 
 Before using the dynamic model system, ensure your provider configurations are set up correctly. See the [Provider Configuration Guide](../getting-started/provider-setup.md) for detailed instructions.
 
-### 1. Start the Model Server
+### 2. Start the Model Server
 
 ```bash
 # Start the configuration server
@@ -63,7 +65,10 @@ node test-dynamicModels.js
 ### 3. Use in Code
 
 ```typescript
-import { dynamicModelProvider } from "./src/lib/core/dynamicModels.js";
+// Preferred: import from the package export (no deep relative path)
+import { dynamicModelProvider } from "@juspay/neurolink/dynamic-models";
+// Or, when importing within this repo's source (TypeScript):
+// import { dynamicModelProvider } from "./src/lib/core/dynamicModels";
 
 // Initialize the provider
 await dynamicModelProvider.initialize();
@@ -197,7 +202,7 @@ export const ModelAliases = {
   CLAUDE_LATEST: () =>
     dynamicModelProvider.resolveModel("anthropic", "claude-3"),
   GPT_LATEST: () => dynamicModelProvider.resolveModel("openai", "gpt-4"),
-  BEST_CODING: () => dynamicModelProvider.getBestFor("coding"),
+  BEST_CODING: () => dynamicModelProvider.getBestModelFor("coding"),
 } as const;
 
 // Usage stays the same

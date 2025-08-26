@@ -1,11 +1,12 @@
 import type { Argv } from "yargs";
-import { spawnSync, execSync } from "child_process";
+import { spawnSync } from "child_process";
 
 import chalk from "chalk";
 import ora from "ora";
 import inquirer from "inquirer";
 
 import { logger } from "../../lib/utils/logger.js";
+import { OllamaUtils } from "../utils/ollamaUtils.js";
 
 export function addOllamaCommands(cli: Argv) {
   cli.command(
@@ -13,7 +14,12 @@ export function addOllamaCommands(cli: Argv) {
     "Manage Ollama local AI models",
     (yargs: Argv) => {
       return yargs
-        .command("list-models", "List installed Ollama models", {}, listModelsHandler)
+        .command(
+          "list-models",
+          "List installed Ollama models",
+          {},
+          listModelsHandler,
+        )
         .command(
           "pull <model>",
           "Download an Ollama model",
@@ -52,7 +58,9 @@ async function listModelsHandler() {
   const spinner = ora("Fetching installed models...").start();
   try {
     const res = spawnSync("ollama", ["list"], { encoding: "utf8" });
-    if (res.error) throw res.error;
+    if (res.error) {
+      throw res.error;
+    }
 
     spinner.succeed("Installed models:");
     const output = res.stdout?.toString().trim();
@@ -81,7 +89,9 @@ async function pullModelHandler(argv: { model: string }) {
 
   try {
     const res = spawnSync("ollama", ["pull", model], { stdio: "inherit" });
-    if (res.error) throw res.error;
+    if (res.error) {
+      throw res.error;
+    }
     if (res.status !== 0) {
       throw new Error(`ollama pull exited with code ${res.status}`);
     }
@@ -120,8 +130,12 @@ async function removeModelHandler(argv: { model: string }) {
   const spinner = ora(`Removing model ${model}...`).start();
   try {
     const res = spawnSync("ollama", ["rm", model], { encoding: "utf8" });
-    if (res.error) throw res.error;
-    if (res.status !== 0) throw new Error(`ollama rm exited with ${res.status}`);
+    if (res.error) {
+      throw res.error;
+    }
+    if (res.status !== 0) {
+      throw new Error(`ollama rm exited with ${res.status}`);
+    }
 
     spinner.succeed(`Successfully removed ${model}`);
   } catch (error: unknown) {
@@ -137,63 +151,24 @@ async function statusHandler() {
 
   try {
     const res = spawnSync("ollama", ["list"], { encoding: "utf8" });
-    if (res.error) throw res.error;
-    if (res.status !== 0) throw new Error("Ollama not running");
+    if (res.error) {
+      throw res.error;
+    }
+    if (res.status !== 0) {
+      throw new Error("Ollama not running");
+    }
 
     spinner.succeed("Ollama service is running");
   } catch (error: unknown) {
     spinner.fail("Ollama service is not running");
-    logger.debug && logger.debug("Ollama status check failed:", error);
+    logger.debug("Ollama status check failed:", error);
     logger.always(chalk.yellow("\nStart Ollama with: ollama serve"));
     process.exit(1);
   }
 }
 
 async function startHandler() {
-  logger.always(chalk.blue("Starting Ollama service..."));
-
-  try {
-    // Check if already running
-    try {
-      spawnSync("ollama", ["list"], { encoding: "utf8" });
-      logger.always(chalk.yellow("Ollama service is already running!"));
-      return;
-    } catch {
-      // Not running, continue
-    }
-
-    if (process.platform === "darwin") {
-      logger.always(chalk.gray("Starting Ollama on macOS..."));
-      try {
-        spawnSync("open", ["-a", "Ollama"], { stdio: "ignore" });
-        logger.always(chalk.green("✅ Ollama app started"));
-      } catch {
-        spawnSync("ollama", ["serve"], { stdio: "ignore", detached: true });
-        logger.always(chalk.green("✅ Ollama service started"));
-      }
-    } else if (process.platform === "linux") {
-      logger.always(chalk.gray("Starting Ollama service on Linux..."));
-      try {
-        spawnSync("systemctl", ["start", "ollama"], { encoding: "utf8" });
-        logger.always(chalk.green("✅ Ollama service started"));
-      } catch {
-        spawnSync("ollama", ["serve"], { stdio: "ignore", detached: true });
-        logger.always(chalk.green("✅ Ollama service started"));
-      }
-    } else {
-      logger.always(chalk.gray("Starting Ollama on Windows..."));
-      spawnSync("start", ["ollama", "serve"], { stdio: "ignore", shell: true });
-      logger.always(chalk.green("✅ Ollama service started"));
-    }
-
-    logger.always(chalk.blue("\nWait a few seconds for the service to initialize..."));
-  } catch (error: unknown) {
-    logger.error(chalk.red("Failed to start Ollama service"));
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(chalk.red("Error:", errorMessage));
-    logger.always(chalk.blue("\nTry starting Ollama manually or check installation"));
-    process.exit(1);
-  }
+  await OllamaUtils.startOllamaService();
 }
 
 async function stopHandler() {
@@ -249,7 +224,9 @@ async function setupHandler() {
       logger.always(chalk.gray("  # or download from https://ollama.ai"));
     } else if (process.platform === "linux") {
       logger.always("\nFor Linux:");
-      logger.always(chalk.gray("  curl -fsSL https://ollama.ai/install.sh | sh"));
+      logger.always(
+        chalk.gray("  curl -fsSL https://ollama.ai/install.sh | sh"),
+      );
     } else {
       logger.always("\nFor Windows:");
       logger.always(chalk.gray("  Download from https://ollama.ai"));
@@ -319,8 +296,14 @@ async function setupHandler() {
           name: "selectedModel",
           message: "Select a model to download:",
           choices: [
-            { name: "llama2 (7B) - Recommended for general use", value: "llama2" },
-            { name: "codellama (7B) - Best for code generation", value: "codellama" },
+            {
+              name: "llama2 (7B) - Recommended for general use",
+              value: "llama2",
+            },
+            {
+              name: "codellama (7B) - Best for code generation",
+              value: "codellama",
+            },
             { name: "mistral (7B) - Fast and efficient", value: "mistral" },
             { name: "tinyllama (1B) - Lightweight, fast", value: "tinyllama" },
             { name: "phi (2.7B) - Microsoft's compact model", value: "phi" },
@@ -350,11 +333,23 @@ async function setupHandler() {
 
   logger.always(chalk.green("\n✅ Setup complete!\n"));
   logger.always(chalk.blue("Next steps:"));
-  logger.always("1. List models: " + chalk.gray("neurolink ollama list-models"));
-  logger.always("2. Generate text: " + chalk.gray('neurolink generate "Hello!" --provider ollama'));
-  logger.always("3. Use specific model: " + chalk.gray('neurolink generate "Hello!" --provider ollama --model codellama'));
   logger.always(
-    chalk.gray("\nFor more information, see: https://docs.neurolink.ai/providers/ollama"),
+    "1. List models: " + chalk.gray("neurolink ollama list-models"),
+  );
+  logger.always(
+    "2. Generate text: " +
+      chalk.gray('neurolink generate "Hello!" --provider ollama'),
+  );
+  logger.always(
+    "3. Use specific model: " +
+      chalk.gray(
+        'neurolink generate "Hello!" --provider ollama --model codellama',
+      ),
+  );
+  logger.always(
+    chalk.gray(
+      "\nFor more information, see: https://docs.neurolink.ai/providers/ollama",
+    ),
   );
 }
 

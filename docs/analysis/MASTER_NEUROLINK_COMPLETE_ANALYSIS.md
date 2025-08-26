@@ -70,18 +70,18 @@
 
 ### 4. ✅ CLI Options - 70% WORKING **[VERIFIED]**
 
-| Option                 | Status     | Test Result | Verification Notes                                                 |
-| ---------------------- | ---------- | ----------- | ------------------------------------------------------------------ |
-| `--help`               | ✅ WORKING | ✅ VERIFIED | Comprehensive help display - confirmed                             |
-| `--version`            | ✅ WORKING | ✅ VERIFIED | Shows v5.1.0 - confirmed                                           |
-| `--output-format json` | ✅ WORKING | ✅ VERIFIED | **VERIFIED: Complete JSON with analytics/evaluation when enabled** |
-| `--provider`           | ✅ WORKING | ✅ VERIFIED | Provider selection works - confirmed                               |
-| `--temperature`        | ✅ WORKING | ✅ VERIFIED | Temperature control works - confirmed                              |
-| `--debug`              | ✅ WORKING | ✅ VERIFIED | Detailed debug output - confirmed                                  |
-| `--timeout 10s`        | ✅ WORKING | ✅ VERIFIED | Human-readable timeouts - confirmed                                |
-| `--disable-tools`      | ✅ WORKING | ✅ VERIFIED | Tool control works - confirmed                                     |
-| `--enable-analytics`   | ✅ WORKING | ✅ VERIFIED | **VERIFIED: Analytics data included in JSON output**               |
-| `--enable-evaluation`  | ✅ WORKING | ✅ VERIFIED | **VERIFIED: Evaluation data included in JSON output**              |
+| Option                | Status     | Test Result | Verification Notes                                                 |
+| --------------------- | ---------- | ----------- | ------------------------------------------------------------------ |
+| `--help`              | ✅ WORKING | ✅ VERIFIED | Comprehensive help display - confirmed                             |
+| `--version`           | ✅ WORKING | ✅ VERIFIED | Shows v5.1.0 - confirmed                                           |
+| `--format json`       | ✅ WORKING | ✅ VERIFIED | **VERIFIED: Complete JSON with analytics/evaluation when enabled** |
+| `--provider`          | ✅ WORKING | ✅ VERIFIED | Provider selection works - confirmed                               |
+| `--temperature`       | ✅ WORKING | ✅ VERIFIED | Temperature control works - confirmed                              |
+| `--debug`             | ✅ WORKING | ✅ VERIFIED | Detailed debug output - confirmed                                  |
+| `--timeout 10s`       | ✅ WORKING | ✅ VERIFIED | Human-readable timeouts - confirmed                                |
+| `--disable-tools`     | ✅ WORKING | ✅ VERIFIED | Tool control works - confirmed                                     |
+| `--enable-analytics`  | ✅ WORKING | ✅ VERIFIED | **VERIFIED: Analytics data included in JSON output**               |
+| `--enable-evaluation` | ✅ WORKING | ✅ VERIFIED | **VERIFIED: Evaluation data included in JSON output**              |
 
 ---
 
@@ -155,10 +155,10 @@
 
 ### 1. Flag Name Mismatches **[RESOLVED]**
 
-| Documentation   | Reality                | Impact                          | Status                                        |
-| --------------- | ---------------------- | ------------------------------- | --------------------------------------------- |
-| `--format json` | `--output-format json` | User confusion, script failures | **VERIFIED: --output-format works correctly** |
-| `--format text` | `--output-format text` | Examples won't work             | Need verification                             |
+| Documentation   | Reality         | Impact                          | Status                                 |
+| --------------- | --------------- | ------------------------------- | -------------------------------------- |
+| `--format json` | `--format json` | User confusion, script failures | **VERIFIED: --format works correctly** |
+| `--format text` | `--format text` | Examples won't work             | Need verification                      |
 
 ### 2. Broken Demo Scripts **[NOT VERIFIED]**
 
@@ -232,11 +232,13 @@
 **Priority**: Fix verified gaps and improve documentation accuracy
 
 1. **Implement Missing Context Option**
+
    - [ ] Add `--context` option support (VERIFIED as missing)
    - [ ] Ensure context data flows to analytics system
    - [ ] Update help documentation
 
 2. **Fix Remaining Documentation Mismatches**
+
    - [ ] Verify all remaining options (--system, --max-tokens, --quiet)
    - [ ] Test and fix any other flag mismatches
    - [ ] Update examples to use correct flags
@@ -251,6 +253,7 @@
 **Priority**: Implement most critical missing systems
 
 1. **Essential Commands**
+
    - [ ] Implement basic `models list` command (VERIFIED missing)
    - [ ] Add `discover` command for MCP integration (VERIFIED missing)
    - [ ] Complete essential `config` subcommands (setup, show, set) (VERIFIED missing)
@@ -265,6 +268,7 @@
 **Priority**: Complete missing management systems
 
 1. **Models Management System**
+
    - [ ] Implement complete models command system
    - [ ] Add model server at localhost:3001
    - [ ] Implement cost optimization features
@@ -284,7 +288,7 @@ The analytics, evaluation, and JSON output systems are actually working perfectl
 
 ### 2. Documentation Accuracy Improved
 
-Flag mismatches like `--format` vs `--output-format` were corrected, but the `--context` option is genuinely missing.
+Flag mismatches like `--format` vs `--format` were corrected, but the `--context` option is genuinely missing.
 
 ### 3. Enhancement Features Work as Designed
 

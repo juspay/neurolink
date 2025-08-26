@@ -153,11 +153,13 @@ Screenshots showing the web interface for:
 ### CLI Workflow Examples
 
 1. **Quick Start Workflow**
+
    - Initial setup and configuration
    - First generation command
    - Provider status verification
 
 2. **Batch Processing**
+
    - Multiple prompt processing
    - Performance comparison
    - Results compilation
@@ -170,11 +172,13 @@ Screenshots showing the web interface for:
 ### Integration Screenshots
 
 1. **VS Code Integration**
+
    - Extension interface
    - Code generation in editor
    - MCP server discovery
 
 2. **Terminal Workflows**
+
    - Command completion
    - Real-time streaming
    - Error handling examples
@@ -343,6 +347,245 @@ Screenshots showing:
 - Alert management
 - Performance metrics
 - Health check results
+
+---
+
+## 📋 **Screenshot Asset Naming Convention**
+
+### **File Naming Standards**
+
+All screenshot assets must follow this standardized naming convention for consistency and discoverability:
+
+#### **Format Pattern**
+
+```
+{category}-{feature}-{context}[-{variant}].{extension}
+```
+
+#### **Category Codes**
+
+- `cli-` - Command Line Interface screenshots
+- `web-` - Web interface screenshots
+- `ui-` - User interface components
+- `workflow-` - Multi-step workflow demonstrations
+- `analytics-` - Performance and analytics dashboards
+- `setup-` - Configuration and setup processes
+- `error-` - Error states and troubleshooting
+- `demo-` - General demonstration screenshots
+- `comparison-` - Before/after or side-by-side comparisons
+- `mobile-` - Mobile or responsive design screenshots
+
+#### **Feature Descriptors**
+
+- `help` - Help commands and documentation
+- `status` - Provider status and connectivity
+- `generate` - Text generation features
+- `configure` - Configuration processes
+- `monitor` - Monitoring and analytics
+- `tools` - Tool integration and MCP features
+- `auth` - Authentication and security
+- `performance` - Performance metrics and optimization
+
+#### **Context Descriptifiers**
+
+- `overview` - General overview or main view
+- `detail` - Detailed/close-up view
+- `flow` - Sequential workflow steps
+- `result` - Output or results view
+- `settings` - Settings or configuration view
+- `error` - Error state or troubleshooting
+- `success` - Successful completion state
+
+#### **Variant Modifiers** (Optional)
+
+- `dark` - Dark mode version
+- `light` - Light mode version
+- `mobile` - Mobile view variant
+- `desktop` - Desktop view variant
+- `step1`, `step2`, etc. - Sequential steps
+- `before`, `after` - Comparison states
+
+#### **File Extensions**
+
+- `.png` - Preferred format for screenshots (best quality)
+- `.jpg` - Alternative for large images when file size matters
+- `.webp` - Modern format for web optimization
+- `.svg` - Vector graphics for diagrams
+
+### **Naming Examples**
+
+#### **Good Examples**
+
+```
+cli-help-overview.png                    # CLI help command overview
+cli-generate-flow-step1.png             # First step of generation workflow
+web-dashboard-analytics-dark.png        # Analytics dashboard in dark mode
+ui-button-hover-mobile.png              # Button hover state on mobile
+workflow-setup-complete-success.png     # Successful setup completion
+error-connection-timeout-detail.png     # Connection timeout error details
+comparison-performance-before-after.png # Performance comparison
+demo-ollama-integration-overview.png    # Ollama integration demo
+```
+
+#### **Poor Examples (Avoid)**
+
+```
+screenshot1.png                    # ❌ No context
+image_final_v2.png                # ❌ Version numbers
+Screenshot 2025-01-07.png         # ❌ Date-based naming
+temp_image.png                    # ❌ Temporary naming
+really_long_descriptive_name_that_explains_everything.png  # ❌ Too verbose
+CLI Help.png                      # ❌ Spaces and unclear
+```
+
+### **Directory Structure**
+
+Organize screenshots in logical directory hierarchies:
+
+```
+docs/
+├── assets/
+│   └── images/
+│       ├── cli/                    # CLI screenshots
+│       │   ├── commands/
+│       │   ├── workflows/
+│       │   └── troubleshooting/
+│       ├── web/                    # Web interface screenshots
+│       │   ├── dashboard/
+│       │   ├── analytics/
+│       │   └── settings/
+│       ├── mobile/                 # Mobile-specific screenshots
+│       ├── workflows/              # Multi-step workflow captures
+│       └── comparisons/            # Before/after comparisons
+└── visual-content/
+    └── screenshots/
+        ├── phase-1-2-workflow/     # Project phase screenshots
+        └── demos/                  # Demo screenshots
+```
+
+### **Metadata Standards**
+
+#### **Alt Text Requirements**
+
+Every screenshot must include descriptive alt text:
+
+```markdown
+![CLI Help Command](../assets/images/cli-help-overview.png)
+_Complete CLI help output showing all available commands, options, and usage examples with color-coded syntax highlighting_
+```
+
+#### **Caption Format**
+
+Use consistent caption formatting:
+
+```markdown
+**Feature:** {Primary feature being demonstrated}
+**Context:** {When/why this screenshot is relevant}  
+**Key Elements:** {List of important UI elements visible}
+**User Action:** {What user did to reach this state}
+```
+
+### **Screenshot Quality Standards**
+
+#### **Technical Requirements**
+
+- **Resolution:** Minimum 1920x1080 for desktop, 375x812 for mobile
+- **Format:** PNG for UI screenshots, JPG for photographic content
+- **Color Depth:** 24-bit color minimum
+- **Compression:** Optimize for web without sacrificing clarity
+- **File Size:** Target <500KB per image, <1MB maximum
+
+#### **Visual Standards**
+
+- **Consistent Terminal Theme:** Use same color scheme across CLI screenshots
+- **Clean Interface:** Hide personal information, use placeholder data
+- **Clear Focus:** Highlight relevant areas, blur sensitive information
+- **Proper Cropping:** Include sufficient context without unnecessary chrome
+- **Readable Text:** Ensure all text is legible at documentation viewing sizes
+
+### **Automation and Tooling**
+
+#### **Automated Screenshot Tools**
+
+```bash
+# Use consistent screenshot naming in automation
+screenshot_cli_help="cli-help-overview.png"
+screenshot_web_dashboard="web-dashboard-analytics-light.png"
+
+# Automated screenshot capture with proper naming
+npx playwright test --headed --screenshot=cli-status-connectivity.png
+```
+
+#### **Validation Script**
+
+```bash
+#!/bin/bash
+# validate-screenshot-names.sh
+# Validates screenshot naming convention compliance
+
+for file in docs/assets/images/**/*.{png,jpg,webp}; do
+  filename=$(basename "$file")
+
+  # Check naming pattern
+  if [[ ! $filename =~ ^[a-z]+-[a-z]+-[a-z]+(-[a-z0-9]+)?\.(png|jpg|webp)$ ]]; then
+    echo "❌ Invalid naming: $filename"
+    echo "   Expected: category-feature-context[-variant].extension"
+  else
+    echo "✅ Valid naming: $filename"
+  fi
+done
+```
+
+### **Git LFS Integration**
+
+#### **Large Asset Management**
+
+For screenshots larger than 100KB, use Git LFS:
+
+```bash
+# Track screenshot files with Git LFS
+git lfs track "docs/assets/images/**/*.png"
+git lfs track "docs/assets/images/**/*.jpg"
+git lfs track "docs/visual-content/**/*.png"
+
+# Add LFS patterns to .gitattributes
+echo "docs/assets/images/**/*.png filter=lfs diff=lfs merge=lfs -text" >> .gitattributes
+echo "docs/assets/images/**/*.jpg filter=lfs diff=lfs merge=lfs -text" >> .gitattributes
+```
+
+### **Documentation Integration**
+
+#### **Reference Template**
+
+```markdown
+### Feature Name
+
+![{Descriptive Alt Text}]({file-path}/{category-feature-context.extension})
+_{Detailed caption explaining the screenshot content and context}_
+
+**Key Features Shown:**
+
+- Feature 1: Brief description
+- Feature 2: Brief description
+- Feature 3: Brief description
+
+**User Journey:** {Step-by-step description of how to reach this state}
+```
+
+### **Review Checklist**
+
+Before committing screenshot assets, verify:
+
+- [ ] **Naming Convention:** Follows `category-feature-context[-variant].extension` pattern
+- [ ] **Directory Structure:** Placed in appropriate subdirectory
+- [ ] **Alt Text:** Descriptive alternative text provided
+- [ ] **Caption:** Informative caption with context
+- [ ] **Quality:** Meets technical and visual standards
+- [ ] **File Size:** Optimized for web delivery
+- [ ] **Privacy:** No sensitive information visible
+- [ ] **Consistency:** Matches existing screenshot style
+- [ ] **Git LFS:** Large files tracked with LFS if needed
+- [ ] **Documentation:** Properly integrated into relevant docs
 
 ---
 

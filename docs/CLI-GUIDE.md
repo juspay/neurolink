@@ -445,6 +445,8 @@ neurolink provider configure vertex
 neurolink provider configure google-ai
 ```
 
+**For detailed setup instructions** → See [Provider Configuration Guide](./getting-started/provider-setup.md)
+
 **Output Example:**
 
 ```
