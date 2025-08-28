@@ -154,11 +154,11 @@ const createVertexSettings =
       }
     }
 
-    // 🎯 OPTION 1: Check for principal account authentication (existing flow with debug logs)
+    // 🎯 OPTION 1: Check for principal account authentication (Accept any valid GOOGLE_APPLICATION_CREDENTIALS file (service account OR ADC))
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
       const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
-      // 🚨 CRITICAL FIX: Check if the credentials file actually exists
+      // Check if the credentials file exists
       let fileExists = false;
       try {
         fileExists = fs.existsSync(credentialsPath);
@@ -1536,8 +1536,9 @@ export class GoogleVertexProvider extends BaseProvider {
           method: authValidation.method,
           issues: authValidation.issues,
           solutions: [
-            "Option 1: Set GOOGLE_APPLICATION_CREDENTIALS to valid service account file",
+            "Option 1: Set GOOGLE_APPLICATION_CREDENTIALS to valid service account OR ADC file",
             "Option 2: Set individual env vars: GOOGLE_AUTH_CLIENT_EMAIL, GOOGLE_AUTH_PRIVATE_KEY",
+            "Option 3: Use gcloud auth application-default login for ADC",
             "Documentation: https://cloud.google.com/docs/authentication/provide-credentials-adc",
           ],
         },
@@ -1733,9 +1734,18 @@ export class GoogleVertexProvider extends BaseProvider {
               result.isValid = true;
               result.method = "service_account_file";
               return result;
+            } else if (
+              credentials.client_id &&
+              credentials.client_secret &&
+              credentials.refresh_token &&
+              credentials.type !== "service_account"
+            ) {
+              result.isValid = true;
+              result.method = "application_default_credentials";
+              return result;
             } else {
               result.issues.push(
-                "Service account file missing required fields",
+                "Credentials file missing required fields (not service account or ADC format)",
               );
             }
           } else {
