@@ -15,10 +15,7 @@ import type {
 } from "../core/types.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
-import type {
-  MiddlewareFactoryOptions,
-  MiddlewareConfig,
-} from "../middleware/types.js";
+import type { MiddlewareFactoryOptions } from "../types/middlewareTypes.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { JsonValue, JsonObject, UnknownRecord } from "../types/common.js";
 import type { ToolResult, ToolArgs } from "../types/tools.js";
@@ -69,6 +66,7 @@ export abstract class BaseProvider implements AIProvider {
   protected readonly modelName: string;
   protected readonly providerName: AIProviderName;
   protected readonly defaultTimeout: number = 30000; // 30 seconds
+  protected middlewareOptions?: MiddlewareFactoryOptions; // TODO: Implement global level middlewares that can be used
 
   // Tools are conditionally included based on centralized configuration
   protected readonly directTools = shouldDisableBuiltinTools()
@@ -88,10 +86,12 @@ export abstract class BaseProvider implements AIProvider {
     modelName?: string,
     providerName?: AIProviderName,
     neurolink?: NeuroLink,
+    middleware?: MiddlewareFactoryOptions,
   ) {
     this.modelName = modelName || this.getDefaultModel();
     this.providerName = providerName || this.getProviderName();
     this.neurolink = neurolink;
+    this.middlewareOptions = middleware;
   }
 
   /**
@@ -268,8 +268,7 @@ export abstract class BaseProvider implements AIProvider {
         totalToolNames: getKeysAsString(tools),
       });
 
-      // EVERY provider uses Vercel AI SDK - no exceptions
-      const model = await this.getAISDKModel(); // This method is now REQUIRED
+      const model = await this.getAISDKModelWithMiddleware(options);
 
       // Build proper message array with conversation history
       const messages = buildMessagesArray(options);
@@ -586,6 +585,7 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Get AI SDK model with middleware applied
    * This method wraps the base model with any configured middleware
+   * TODO: Implement global level middlewares that can be used
    */
   protected async getAISDKModelWithMiddleware(
     options: TextGenerationOptions | StreamOptions = {},
@@ -595,7 +595,7 @@ export abstract class BaseProvider implements AIProvider {
 
     // Check if middleware should be applied
     const middlewareOptions = this.extractMiddlewareOptions(options);
-    if (!middlewareOptions || this.shouldSkipMiddleware(options)) {
+    if (!middlewareOptions) {
       return baseModel;
     }
 
@@ -642,63 +642,48 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   /**
-   * Extract middleware options from generation options
+   * Extract middleware options from generation options. This is the single
+   * source of truth for deciding if middleware should be applied.
    */
   private extractMiddlewareOptions(
     options: TextGenerationOptions | StreamOptions,
   ): MiddlewareFactoryOptions | null {
-    // Check for middleware configuration in options
-    const optionsRecord = options as Record<string, unknown>;
-    const middlewareConfig = optionsRecord.middlewareConfig as
-      | Record<string, MiddlewareConfig>
-      | undefined;
-    const enabledMiddleware = optionsRecord.enabledMiddleware as
-      | string[]
-      | undefined;
-    const disabledMiddleware = optionsRecord.disabledMiddleware as
-      | string[]
-      | undefined;
-    const preset = optionsRecord.middlewarePreset as string | undefined;
-
-    // If no middleware configuration is present, return null
-    if (
-      !middlewareConfig &&
-      !enabledMiddleware &&
-      !disabledMiddleware &&
-      !preset
-    ) {
+    // 1. Determine effective middleware config: per-request overrides global.
+    const middlewareOpts =
+      (options as { middleware?: MiddlewareFactoryOptions }).middleware ??
+      this.middlewareOptions;
+    if (!middlewareOpts) {
       return null;
     }
 
+    // 2. The middleware property must be an object with configuration.
+    if (typeof middlewareOpts !== "object" || middlewareOpts === null) {
+      return null;
+    }
+
+    // 3. Check if the middleware object has any actual configuration keys.
+    const fullOpts = middlewareOpts as MiddlewareFactoryOptions;
+    const hasArray = (arr?: unknown[]) => Array.isArray(arr) && arr.length > 0;
+    const hasConfig =
+      !!fullOpts.middlewareConfig ||
+      hasArray(fullOpts.enabledMiddleware) ||
+      hasArray(fullOpts.disabledMiddleware) ||
+      !!fullOpts.preset ||
+      hasArray(fullOpts.middleware);
+
+    if (!hasConfig) {
+      return null;
+    }
+
+    // 4. Return the formatted options if configuration is present.
     return {
-      middlewareConfig,
-      enabledMiddleware,
-      disabledMiddleware,
-      preset,
+      ...fullOpts,
       global: {
         collectStats: true,
         continueOnError: true,
+        ...(fullOpts.global || {}),
       },
     };
-  }
-
-  /**
-   * Determine if middleware should be skipped for this request
-   */
-  private shouldSkipMiddleware(
-    options: TextGenerationOptions | StreamOptions,
-  ): boolean {
-    // Skip middleware if explicitly disabled
-    if ((options as Record<string, unknown>).disableMiddleware === true) {
-      return true;
-    }
-
-    // Skip middleware for tool-disabled requests to avoid conflicts
-    if (options.disableTools === true) {
-      return true;
-    }
-
-    return false;
   }
 
   // ===================

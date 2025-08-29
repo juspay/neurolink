@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { createGuardrailsMiddleware } from "../src/lib/middleware/builtin/guardrails.js";
-import type { LanguageModelV1, GenerateTextResult } from "ai";
+import type { LanguageModelV1 } from "ai";
 import { generateText } from "ai";
 import { MiddlewareFactory } from "../src/lib/middleware/factory.js";
 

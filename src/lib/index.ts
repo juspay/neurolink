@@ -63,7 +63,7 @@ export type {
   MiddlewareFactoryOptions,
   MiddlewarePreset,
   MiddlewareConfig,
-} from "./middleware/types.js";
+} from "./types/middlewareTypes.js";
 export { MiddlewareFactory } from "./middleware/factory.js";
 
 // Version

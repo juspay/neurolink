@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { MiddlewareFactory } from "../src/lib/middleware/factory.js";
 import type { LanguageModelV1, LanguageModelV1Middleware } from "ai";
-import type { NeuroLinkMiddleware } from "../src/lib/middleware/types.js";
+import type { NeuroLinkMiddleware } from "../src/lib/types/middlewareTypes.js";
 
 // Define a type for our mock wrapped model
 interface MockWrappedModel extends LanguageModelV1 {

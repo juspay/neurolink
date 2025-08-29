@@ -21,7 +21,7 @@ export type {
   MiddlewarePreset,
   MiddlewareFactoryOptions,
   BuiltInMiddlewareType,
-} from "./types.js";
+} from "../types/middlewareTypes.js";
 
 // Export AI SDK middleware type
 export type { LanguageModelV1Middleware } from "ai";

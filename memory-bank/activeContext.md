@@ -21,7 +21,17 @@
 
 ---
 
-## 🔄 **CURRENT WORK FOCUS: FINAL DOCUMENTATION AND CLEANUP**
+## 🚀 **NEW FEATURE: GLOBAL MIDDLEWARE SUPPORT** (2025-08-29)
+
+### **Architectural Enhancement**
+- **Objective**: Implement a mechanism for applying middleware globally across all providers.
+- **Implementation**: Added `middlewareOptions` to the `BaseProvider` class. This allows for a centralized middleware configuration that can be passed down to the `MiddlewareFactory`.
+- **Status**: ✅ **Initial implementation complete**. The `middlewareOptions` property has been added, and the type has been updated.
+- **Next Steps**: Implement the logic to consume these options within the `MiddlewareFactory` and apply the middleware.
+
+---
+
+## 🔄 **CURRENT WORK FOCUS: DOCUMENTATION AND RELEASE PREPARATION**
 
 ### **🔍 IMPLEMENTATION VALIDATED (2025-08-18)**
 - **Tools Used**: Architectural Refactoring, End-to-End Testing, Memory Bank Update.

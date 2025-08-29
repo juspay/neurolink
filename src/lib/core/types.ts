@@ -15,6 +15,7 @@ import type { EvaluationData } from "../index.js";
 
 // Re-export EvaluationData for use in other modules
 export type { EvaluationData };
+import type { MiddlewareFactoryOptions } from "../types/middlewareTypes.js";
 
 export interface TextGenerationResult {
   content: string;
@@ -203,6 +204,9 @@ export interface TextGenerationOptions {
   // NEW: Conversation Memory Configuration
   conversationMemoryConfig?: Partial<ConversationMemoryConfig>;
   originalPrompt?: string; // Original prompt for context summarization
+
+  // NEW: Middleware related configs
+  middleware?: MiddlewareFactoryOptions;
 
   // NEW: Evaluation Context Parameters
   expectedOutcome?: string; // Expected outcome for evaluation

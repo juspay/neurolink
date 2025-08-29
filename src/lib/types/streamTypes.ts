@@ -5,6 +5,7 @@ import type { EvaluationData } from "../index.js";
 import type { TokenUsage } from "./providers.js";
 import type { UnknownRecord, JsonValue } from "./common.js";
 import type { ChatMessage } from "./conversationTypes.js";
+import type { MiddlewareFactoryOptions } from "../types/middlewareTypes.js";
 
 /**
  * Interface for tool execution calls (AI SDK compatible)
@@ -129,6 +130,9 @@ export interface StreamOptions {
 
   // NEW: Message Array Support for Conversation Memory
   conversationMessages?: ChatMessage[]; // Previous conversation as message array
+
+  // NEW: Middleware related config
+  middleware?: MiddlewareFactoryOptions;
 }
 
 /**
