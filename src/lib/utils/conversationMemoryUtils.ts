@@ -12,9 +12,7 @@ import type {
   TextGenerationOptions,
   TextGenerationResult,
 } from "../core/types.js";
-import {
-  getConversationMemoryDefaults,
-} from "../config/conversationMemoryConfig.js";
+import { getConversationMemoryDefaults } from "../config/conversationMemoryConfig.js";
 import { logger } from "./logger.js";
 
 /**
@@ -65,7 +63,6 @@ export async function getConversationMessages(
     return [];
   }
 }
-
 
 /**
  * Store conversation turn for future context

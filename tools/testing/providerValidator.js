@@ -227,7 +227,6 @@ class ProviderValidator {
       openai: "@ai-sdk/openai",
       anthropic: "@ai-sdk/anthropic",
       google: "@ai-sdk/google",
-      "aws-bedrock": "@ai-sdk/amazon-bedrock",
       azure: "@ai-sdk/openai",
       huggingface: "@huggingface/inference",
       ollama: "ollama",

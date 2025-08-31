@@ -47,6 +47,10 @@ export {
   isValidProvider,
 } from "./utils/providerUtils.js";
 
+// Dynamic Models exports
+export { dynamicModelProvider } from "./core/dynamicModels.js";
+export type { ModelConfig, ModelRegistry } from "./core/dynamicModels.js";
+
 // Main NeuroLink wrapper class and diagnostic types
 export { NeuroLink } from "./neurolink.js";
 export type { ProviderStatus, MCPStatus } from "./neurolink.js";

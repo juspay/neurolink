@@ -106,7 +106,6 @@ export class ProviderRegistry {
           );
           return new AmazonBedrockProvider(
             modelName,
-            undefined,
             sdk as NeuroLink | undefined,
           );
         },

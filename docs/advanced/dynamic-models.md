@@ -16,12 +16,14 @@ The dynamic model system enables:
 
 ### Components
 
-1. **Model Configuration Server** (`scripts/model-server.js`)
+1. **Model Configuration Server** (`scripts/modelServer.js`)
+
    - Serves model configurations via REST API
    - Provides search and filtering capabilities
    - Can be hosted anywhere (GitHub, CDN, internal server)
 
 2. **Dynamic Model Provider** (`src/lib/core/dynamicModels.ts`)
+
    - Loads configurations from multiple sources with fallback
    - Caches configurations to reduce network requests
    - Validates configurations using Zod schemas
@@ -45,7 +47,7 @@ Before using the dynamic model system, ensure your provider configurations are s
 npm run model-server
 
 # Or manually
-node scripts/model-server.js
+node scripts/modelServer.js
 ```
 
 Server runs on `http://localhost:3001` by default.
@@ -64,7 +66,7 @@ node test-dynamicModels.js
 
 ```typescript
 // Preferred: import from the package export (no deep relative path)
-import { dynamicModelProvider } from "@juspay/neurolink/dynamic-models";
+import { dynamicModelProvider } from "@juspay/neurolink";
 // Or, when importing within this repo's source (TypeScript):
 // import { dynamicModelProvider } from "./src/lib/core/dynamicModels";
 

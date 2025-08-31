@@ -16,7 +16,6 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "@ai-sdk/amazon-bedrock": "^2.2.10",
     "@ai-sdk/google-vertex": "^2.2.0",
     "@ai-sdk/openai": "^0.0.66",
     "@juspay/neurolink": "^1.2.3",

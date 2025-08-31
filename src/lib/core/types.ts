@@ -6,7 +6,10 @@ import type {
 import type { GenerateResult } from "../types/generateTypes.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { JsonValue } from "../types/common.js";
-import type { ChatMessage, ConversationMemoryConfig } from "../types/conversationTypes.js";
+import type {
+  ChatMessage,
+  ConversationMemoryConfig,
+} from "../types/conversationTypes.js";
 import type { TokenUsage, AnalyticsData } from "../types/providers.js";
 import type { EvaluationData } from "../index.js";
 

@@ -76,6 +76,7 @@ The `conversationMemory` configuration object accepts the following properties r
   - **Default**: `10`
 
 - `summarizationModel: string`
+
   - **Description**: The specific AI model to use for the summarization task. It's recommended to use a fast and cost-effective model.
   - **Default**: `"gemini-2.5-flash"`
 

@@ -408,10 +408,10 @@ export function setGlobalMCPLogLevel(level: LogLevel): void {
  * Example usage:
  * ```
  * import { logger, LogLevels } from './logger';  // Import from your project's path
- * 
+ *
  * // Using the LogLevels constants (recommended for type safety):
  * logger.setLogLevel(LogLevels.debug);
- * 
+ *
  * // Or directly using string values:
  * logger.setLogLevel('debug');
  * ```

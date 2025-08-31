@@ -1,8 +1,5 @@
 import type { Tool } from "ai";
-import type {
-  ValidationSchema,
-  StandardRecord,
-} from "./typeAliases.js";
+import type { ValidationSchema, StandardRecord } from "./typeAliases.js";
 import type {
   AIProviderName,
   AnalyticsData,

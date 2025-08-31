@@ -19,7 +19,13 @@ export async function getBestProvider(
 ): Promise<string> {
   // Check requested provider FIRST - explicit user choice overrides defaults
   if (requestedProvider && requestedProvider !== "auto") {
-    // For explicit provider requests, check health first
+    // For explicit provider requests, ALWAYS honor the request
+    // Never override explicit provider selection with health-based fallbacks
+    logger.debug(
+      `[getBestProvider] Using explicitly requested provider: ${requestedProvider}`,
+    );
+
+    // Optional health check for logging purposes only
     try {
       const health = await ProviderHealthChecker.checkProviderHealth(
         requestedProvider as AIProviderName,
@@ -28,22 +34,23 @@ export async function getBestProvider(
 
       if (health.isHealthy) {
         logger.debug(
-          `[getBestProvider] Using healthy explicitly requested provider: ${requestedProvider}`,
+          `[getBestProvider] Explicitly requested provider ${requestedProvider} is healthy`,
         );
-        return requestedProvider;
       } else {
         logger.warn(
-          `[getBestProvider] Requested provider ${requestedProvider} is unhealthy, finding alternative`,
+          `[getBestProvider] Explicitly requested provider ${requestedProvider} may have issues, but using anyway`,
           { error: health.error },
         );
       }
     } catch (error) {
       logger.warn(
-        `[getBestProvider] Health check failed for ${requestedProvider}, using anyway`,
+        `[getBestProvider] Health check failed for explicitly requested provider ${requestedProvider}, using anyway`,
         { error: error instanceof Error ? error.message : String(error) },
       );
-      return requestedProvider; // Return anyway for explicit requests
     }
+
+    // ALWAYS return the explicitly requested provider
+    return requestedProvider;
   }
 
   // Use health checker to get best available provider

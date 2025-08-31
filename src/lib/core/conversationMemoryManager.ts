@@ -10,7 +10,11 @@ import type {
   ChatMessage,
 } from "../types/conversationTypes.js";
 import { ConversationMemoryError } from "../types/conversationTypes.js";
-import { DEFAULT_MAX_TURNS_PER_SESSION, DEFAULT_MAX_SESSIONS, MESSAGES_PER_TURN } from "../config/conversationMemoryConfig.js";
+import {
+  DEFAULT_MAX_TURNS_PER_SESSION,
+  DEFAULT_MAX_SESSIONS,
+  MESSAGES_PER_TURN,
+} from "../config/conversationMemoryConfig.js";
 import { logger } from "../utils/logger.js";
 import { NeuroLink } from "../neurolink.js";
 
@@ -74,12 +78,21 @@ export class ConversationMemoryManager {
       session.lastActivity = Date.now();
 
       if (this.config.enableSummarization) {
-        const currentTurnCount = session.messages.length / MESSAGES_PER_TURN;
-        if (currentTurnCount > (this.config.summarizationThresholdTurns || 20)) {
+        const userAssistantCount = session.messages.filter(
+          (msg) => msg.role === "user" || msg.role === "assistant",
+        ).length;
+        const currentTurnCount = Math.floor(
+          userAssistantCount / MESSAGES_PER_TURN,
+        );
+        if (
+          currentTurnCount >= (this.config.summarizationThresholdTurns || 20)
+        ) {
           await this._summarizeSession(session);
         }
       } else {
-        const maxMessages = (this.config.maxTurnsPerSession || DEFAULT_MAX_TURNS_PER_SESSION) * MESSAGES_PER_TURN;
+        const maxMessages =
+          (this.config.maxTurnsPerSession || DEFAULT_MAX_TURNS_PER_SESSION) *
+          MESSAGES_PER_TURN;
         if (session.messages.length > maxMessages) {
           session.messages = session.messages.slice(-maxMessages);
         }
@@ -110,7 +123,7 @@ export class ConversationMemoryManager {
   public getSession(sessionId: string): SessionMemory | undefined {
     return this.sessions.get(sessionId);
   }
-  
+
   public createSummarySystemMessage(content: string): ChatMessage {
     return {
       role: "system",
@@ -119,9 +132,14 @@ export class ConversationMemoryManager {
   }
 
   private async _summarizeSession(session: SessionMemory): Promise<void> {
-    logger.info(`[ConversationMemory] Summarizing session ${session.sessionId}...`);
+    logger.info(
+      `[ConversationMemory] Summarizing session ${session.sessionId}...`,
+    );
     const targetTurns = this.config.summarizationTargetTurns || 10;
-    const splitIndex = Math.max(0, session.messages.length - targetTurns * MESSAGES_PER_TURN);
+    const splitIndex = Math.max(
+      0,
+      session.messages.length - targetTurns * MESSAGES_PER_TURN,
+    );
     const messagesToSummarize = session.messages.slice(0, splitIndex);
     const recentMessages = session.messages.slice(splitIndex);
 
@@ -129,24 +147,29 @@ export class ConversationMemoryManager {
       return;
     }
 
-    const summarizationPrompt = this._createSummarizationPrompt(messagesToSummarize);
-    
-    const summarizer = new NeuroLink({ conversationMemory: { enabled: false } });
+    const summarizationPrompt =
+      this._createSummarizationPrompt(messagesToSummarize);
+
+    const summarizer = new NeuroLink({
+      conversationMemory: { enabled: false },
+    });
     try {
       const providerName = this.config.summarizationProvider;
-      
+
       // Map provider names to correct format
       let mappedProvider = providerName;
-      if (providerName === 'vertex') {
-        mappedProvider = 'googlevertex';
+      if (providerName === "vertex") {
+        mappedProvider = "googlevertex";
       }
-      
+
       if (!mappedProvider) {
         logger.error(`[ConversationMemory] Missing summarization provider`);
         return;
       }
 
-      logger.debug(`[ConversationMemory] Using provider: ${mappedProvider} for summarization`);
+      logger.debug(
+        `[ConversationMemory] Using provider: ${mappedProvider} for summarization`,
+      );
 
       const summaryResult = await summarizer.generate({
         input: { text: summarizationPrompt },
@@ -158,19 +181,28 @@ export class ConversationMemoryManager {
       if (summaryResult.content) {
         session.messages = [
           this.createSummarySystemMessage(summaryResult.content),
-          ...recentMessages
+          ...recentMessages,
         ];
-        logger.info(`[ConversationMemory] Summarization complete for session ${session.sessionId}.`);
+        logger.info(
+          `[ConversationMemory] Summarization complete for session ${session.sessionId}.`,
+        );
       } else {
-        logger.warn(`[ConversationMemory] Summarization failed for session ${session.sessionId}. History not modified.`);
+        logger.warn(
+          `[ConversationMemory] Summarization failed for session ${session.sessionId}. History not modified.`,
+        );
       }
     } catch (error) {
-      logger.error(`[ConversationMemory] Error during summarization for session ${session.sessionId}`, { error });
+      logger.error(
+        `[ConversationMemory] Error during summarization for session ${session.sessionId}`,
+        { error },
+      );
     }
   }
 
   private _createSummarizationPrompt(history: ChatMessage[]): string {
-    const formattedHistory = history.map(msg => `${msg.role}: ${msg.content}`).join('\n\n');
+    const formattedHistory = history
+      .map((msg) => `${msg.role}: ${msg.content}`)
+      .join("\n\n");
     return `
 You are a context summarization AI. Your task is to condense the following conversation history for another AI assistant.
 The summary must be a concise, third-person narrative that retains all critical information, including key entities, technical details, decisions made, and any specific dates or times mentioned.
@@ -205,8 +237,13 @@ ${formattedHistory}
       return;
     }
 
-    const sessions = Array.from(this.sessions.entries()).sort(([, a], [, b]) => a.lastActivity - b.lastActivity);
-    const sessionsToRemove = sessions.slice(0, this.sessions.size - maxSessions);
+    const sessions = Array.from(this.sessions.entries()).sort(
+      ([, a], [, b]) => a.lastActivity - b.lastActivity,
+    );
+    const sessionsToRemove = sessions.slice(
+      0,
+      this.sessions.size - maxSessions,
+    );
 
     for (const [sessionId] of sessionsToRemove) {
       this.sessions.delete(sessionId);
