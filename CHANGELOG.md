@@ -1,3 +1,9 @@
+## [7.30.1](https://github.com/juspay/neurolink/compare/v7.30.0...v7.30.1) (2025-08-31)
+
+### Bug Fixes
+
+- **(bedrock):** migrate from ai-sdk to native AWS SDK implementation ([e5d8a4c](https://github.com/juspay/neurolink/commit/e5d8a4c85144ed558167f5083abd89d125576ab0))
+
 ## [7.30.0](https://github.com/juspay/neurolink/compare/v7.29.3...v7.30.0) (2025-08-29)
 
 ### Features
