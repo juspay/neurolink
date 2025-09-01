@@ -61,7 +61,7 @@ export function convertStreamToGenerateOptions(
 ): GenerateOptions {
   const generateOptions: GenerateOptions = {
     // Core input mapping
-    input: streamOptions.input,
+    input: { text: (streamOptions.input && streamOptions.input.text) || "" },
 
     // Provider and model settings
     provider: streamOptions.provider,

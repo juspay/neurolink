@@ -1187,6 +1187,7 @@ export class GoogleVertexProvider extends BaseProvider {
     );
   }
 
+  /* eslint-disable-next-line max-lines-per-function */
   protected async executeStream(
     options: StreamOptions,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
@@ -1270,7 +1271,10 @@ export class GoogleVertexProvider extends BaseProvider {
           streamExecutionId,
           streamRequestDetails: {
             modelName: this.modelName,
-            promptLength: options.input.text.length,
+            promptLength:
+              typeof options.input?.text === "string"
+                ? options.input.text.length
+                : 0,
             hasSchema: !!analysisSchema,
             messagesCount: Array.isArray(messages) ? messages.length : 0,
             temperature: options?.temperature,

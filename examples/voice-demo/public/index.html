@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeuroLink Voice Demo</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 24px; background: #0b1020; color: #e5e7eb; }
+      .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 16px; max-width: 840px; margin: 0 auto; }
+      h1 { font-size: 20px; margin: 0 0 12px; }
+      .controls { display: flex; gap: 8px; margin: 12px 0; }
+      button { padding: 8px 12px; border-radius: 8px; border: 1px solid #374151; background: #1f2937; color: #e5e7eb; cursor: pointer; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .row { display: flex; gap: 16px; }
+      .panel { flex: 1; background: #0f172a; border: 1px solid #1f2937; border-radius: 8px; padding: 12px; }
+      .log { height: 160px; overflow: auto; white-space: pre-line; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      footer { opacity: 0.7; margin-top: 12px; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>NeuroLink Voice Demo (Gemini Live Studio)</h1>
+      <div class="controls">
+        <button id="startBtn">Start</button>
+        <button id="stopBtn" disabled>Stop</button>
+        <button id="flushBtn" disabled>Flush</button>
+      </div>
+      <div class="row">
+        <div class="panel">
+          <strong>Input Level</strong>
+          <canvas id="inMeter" width="300" height="60"></canvas>
+        </div>
+        <div class="panel">
+          <strong>Output Level</strong>
+          <canvas id="outMeter" width="300" height="60"></canvas>
+        </div>
+      </div>
+      <div class="panel" style="margin-top: 12px">
+        <strong>Status</strong>
+        <div id="status" class="log"></div>
+      </div>
+      <footer>Tip: set GOOGLE_AI_API_KEY in the server environment before starting.</footer>
+    </div>
+
+    <script type="module" src="/client.js"></script>
+  </body>
+  </html>
+

@@ -37,6 +37,7 @@ import type {
   StreamResult,
   ToolCall,
   ToolResult,
+  AudioChunk,
 } from "./types/streamTypes.js";
 import type { TokenUsage, EvaluationData } from "./types/providers.js";
 import type {
@@ -1885,8 +1886,10 @@ export class NeuroLink {
         message: "Checking MCP initialization status before generation",
       });
 
-      // Initialize MCP if needed
-      await this.initializeMCP();
+      // Initialize MCP only when tools are enabled
+      if (!options.disableTools) {
+        await this.initializeMCP();
+      }
 
       const mcpInitCheckEndTime = process.hrtime.bigint();
       const mcpInitCheckDurationNs =
@@ -2258,10 +2261,16 @@ export class NeuroLink {
     // Call the new stream method
     const result = await this.stream(streamOptions);
 
-    // Convert StreamResult to simple string async iterable
+    // Convert StreamResult to simple string async iterable (filter text events only)
     async function* stringStream() {
-      for await (const chunk of result.stream) {
-        yield chunk.content;
+      for await (const evt of result.stream as AsyncIterable<unknown>) {
+        const anyEvt = evt as Record<string, unknown>;
+        if (anyEvt && typeof anyEvt === "object" && "content" in anyEvt) {
+          const content = anyEvt.content as string;
+          if (typeof content === "string") {
+            yield content;
+          }
+        }
       }
     }
 
@@ -2347,15 +2356,14 @@ export class NeuroLink {
 
     try {
       await this.initializeMCP();
-      const _originalPrompt = options.input.text;
-
       factoryResult = processStreamingFactoryOptions(options);
       enhancedOptions = createCleanStreamOptions(options);
-      const { toolResults: _toolResults, enhancedPrompt } =
-        await this.detectAndExecuteTools(options.input.text, undefined);
-
-      if (enhancedPrompt !== options.input.text) {
-        enhancedOptions.input.text = enhancedPrompt;
+      if (options.input?.text) {
+        const { toolResults: _toolResults, enhancedPrompt } =
+          await this.detectAndExecuteTools(options.input.text, undefined);
+        if (enhancedPrompt !== options.input.text) {
+          enhancedOptions.input.text = enhancedPrompt;
+        }
       }
 
       const { stream: mcpStream, provider: providerName } =
@@ -2494,11 +2502,19 @@ export class NeuroLink {
       message: "Starting comprehensive input validation process",
     });
 
-    if (
-      !options?.input?.text ||
-      typeof options.input.text !== "string" ||
-      options.input.text.trim() === ""
-    ) {
+    const hasText =
+      typeof options?.input?.text === "string" &&
+      options.input!.text!.trim().length > 0;
+    // Accept audio when frames are present; sampleRateHz is optional (defaults applied later)
+    const hasAudio = !!(
+      options?.input?.audio &&
+      options.input.audio.frames &&
+      typeof (options.input.audio.frames as unknown as Record<string, unknown>)[
+        Symbol.asyncIterator as unknown as string
+      ] !== "undefined"
+    );
+
+    if (!hasText && !hasAudio) {
       const validationFailTime = process.hrtime.bigint();
       const validationDurationNs = validationFailTime - validationStartTime;
 
@@ -2511,13 +2527,13 @@ export class NeuroLink {
         validationDurationNs: validationDurationNs.toString(),
         validationDurationMs: Number(validationDurationNs) / 1000000,
         validationError:
-          "Stream options must include input.text as a non-empty string",
+          "Stream options must include either input.text or input.audio",
         message:
           "EXHAUSTIVE validation failure analysis with character-level debugging",
       });
 
       throw new Error(
-        "Stream options must include input.text as a non-empty string",
+        "Stream options must include either input.text or input.audio",
       );
     }
 
@@ -2532,10 +2548,11 @@ export class NeuroLink {
       elapsedNs: (process.hrtime.bigint() - hrTimeStart).toString(),
       validationDurationNs: validationDurationNs.toString(),
       validationDurationMs: Number(validationDurationNs) / 1000000,
-      inputTextValid: true,
-      inputTextLength: options.input.text.length,
-      inputTextTrimmedLength: options.input.text.trim().length,
-      inputTextPreview: options.input.text.substring(0, 100),
+      inputTextValid: hasText,
+      inputAudioPresent: hasAudio,
+      inputTextLength: hasText ? options.input!.text!.length : 0,
+      inputTextTrimmedLength: hasText ? options.input!.text!.trim().length : 0,
+      inputTextPreview: hasText ? options.input!.text!.substring(0, 100) : "",
       message:
         "EXHAUSTIVE validation success - proceeding with stream processing",
     });
@@ -2562,9 +2579,12 @@ export class NeuroLink {
   /**
    * Create MCP stream
    */
-  private async createMCPStream(
-    options: StreamOptions,
-  ): Promise<{ stream: AsyncIterable<{ content: string }>; provider: string }> {
+  private async createMCPStream(options: StreamOptions): Promise<{
+    stream: AsyncIterable<
+      { content: string } | { type: "audio"; audio: AudioChunk }
+    >;
+    provider: string;
+  }> {
     // Simplified placeholder - in the actual implementation this would contain the complex MCP stream logic
     const providerName = await getBestProvider(options.provider);
     const provider = await AIProviderFactory.createProvider(
@@ -2591,7 +2611,9 @@ export class NeuroLink {
    * Process stream result
    */
   private async processStreamResult(
-    _stream: AsyncIterable<{ content: string }>,
+    _stream: AsyncIterable<
+      { content: string } | { type: "audio"; audio: AudioChunk }
+    >,
     _options: StreamOptions,
     _factoryResult: unknown,
   ): Promise<{
@@ -2639,7 +2661,9 @@ export class NeuroLink {
       analytics?: AnalyticsData;
       evaluation?: EvaluationData;
     },
-    stream: AsyncIterable<{ content: string }>,
+    stream: AsyncIterable<
+      { content: string } | { type: "audio"; audio: AudioChunk }
+    >,
     config: {
       providerName: string;
       options: StreamOptions;

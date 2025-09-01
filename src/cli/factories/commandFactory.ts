@@ -1320,8 +1320,24 @@ export class CLICommandFactory {
             await new Promise((resolve) => setTimeout(resolve, options.delay));
           }
 
-          process.stdout.write(nextResult.value.content);
-          fullContent += nextResult.value.content;
+          const evt: unknown = nextResult.value;
+          const isText = (o: unknown): o is { content: string } =>
+            !!o &&
+            typeof o === "object" &&
+            typeof (o as Record<string, unknown>).content === "string";
+          const isAudio = (o: unknown): o is { type: "audio" } =>
+            !!o &&
+            typeof o === "object" &&
+            (o as Record<string, unknown>).type === "audio";
+
+          if (isText(evt)) {
+            process.stdout.write(evt.content);
+            fullContent += evt.content;
+          } else if (isAudio(evt)) {
+            if (options.debug && !options.quiet) {
+              process.stdout.write("[audio-chunk]");
+            }
+          }
         }
       } catch (error) {
         abortController.abort(); // Clean up timeout

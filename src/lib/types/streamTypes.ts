@@ -72,8 +72,24 @@ export interface StreamAnalyticsData {
  * Stream function options interface - Primary method for streaming content
  * Future-ready for multi-modal capabilities while maintaining text focus
  */
+export type PCMEncoding = "PCM16LE";
+
+export interface AudioInputSpec {
+  frames: AsyncIterable<Buffer>; // PCM16LE mono frames (20–60ms recommended)
+  sampleRateHz?: number; // default: 16000
+  encoding?: PCMEncoding; // default: 'PCM16LE'
+  channels?: 1; // Phase 1: mono
+}
+
+export interface AudioChunk {
+  data: Buffer;
+  sampleRateHz: number; // Gemini typically 24000 on output
+  channels: number; // 1
+  encoding: PCMEncoding; // 'PCM16LE'
+}
+
 export interface StreamOptions {
-  input: { text: string }; // Current scope: text input
+  input: { text?: string; audio?: AudioInputSpec }; // text and/or audio input
   output?: {
     format?: "text" | "structured" | "json";
     streaming?: {
@@ -140,7 +156,9 @@ export interface StreamOptions {
  * Future-ready for multi-modal outputs while maintaining text focus
  */
 export interface StreamResult {
-  stream: AsyncIterable<{ content: string }>; // Primary streaming output
+  stream: AsyncIterable<
+    { content: string } | { type: "audio"; audio: AudioChunk }
+  >; // text chunks or audio events
 
   // Provider information
   provider?: string;
