@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { logger } from "../utils/logger.js";
+import type {
+  DynamicModelConfig as ModelConfig,
+  ModelRegistry,
+} from "../types/index.js";
 
 /**
  * Model configuration schema for validation
@@ -24,9 +28,6 @@ const ModelRegistrySchema = z.object({
   aliases: z.record(z.string()).optional(),
   defaults: z.record(z.string()).optional(),
 });
-
-export type ModelConfig = z.infer<typeof ModelConfigSchema>;
-export type ModelRegistry = z.infer<typeof ModelRegistrySchema>;
 
 /**
  * Dynamic Model Provider
@@ -250,14 +251,6 @@ export class DynamicModelProvider {
         },
       );
     }
-  }
-
-  /**
-   * Load configuration from a source (URL or file path) - Legacy method for compatibility
-   * @deprecated Use loadFromSourceWithTimeout instead
-   */
-  private async loadFromSource(source: string): Promise<ModelRegistry> {
-    return this.loadFromSourceWithTimeout(source, 10000); // 10s default timeout
   }
 
   /**

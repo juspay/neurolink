@@ -4,7 +4,7 @@
  */
 
 import type { ChatMessage } from "../types/conversationTypes.js";
-import type { TextGenerationOptions } from "../core/types.js";
+import type { TextGenerationOptions } from "../types/index.js";
 import type { StreamOptions } from "../types/streamTypes.js";
 import { CONVERSATION_INSTRUCTIONS } from "../config/conversationMemoryConfig.js";
 

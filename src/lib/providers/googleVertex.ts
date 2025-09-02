@@ -14,7 +14,7 @@ import {
   type LanguageModelV1,
   type LanguageModel,
 } from "ai";
-import type { AIProviderName } from "../core/types.js";
+import type { AIProviderName } from "../types/index.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { UnknownRecord } from "../types/common.js";
 import type { NeuroLink } from "../neurolink.js";
@@ -1636,7 +1636,7 @@ export class GoogleVertexProvider extends BaseProvider {
       // Cache expired, refresh it with memory management
       GoogleVertexProvider.modelConfigCache.clear();
       const config = ModelConfigurationManager.getInstance();
-      const vertexConfig = config.getProviderConfig("google-vertex");
+      const vertexConfig = config.getProviderConfiguration("google-vertex");
       GoogleVertexProvider.modelConfigCache.set(cacheKey, vertexConfig);
       GoogleVertexProvider.modelConfigCacheTime = now;
     }

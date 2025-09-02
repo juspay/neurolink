@@ -11,7 +11,7 @@ import type { ConversationMemoryManager } from "../core/conversationMemoryManage
 import type {
   TextGenerationOptions,
   TextGenerationResult,
-} from "../core/types.js";
+} from "../types/index.js";
 import { getConversationMemoryDefaults } from "../config/conversationMemoryConfig.js";
 import { logger } from "./logger.js";
 

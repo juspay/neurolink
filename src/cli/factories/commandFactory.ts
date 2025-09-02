@@ -8,7 +8,7 @@ import type {
   BatchCommandArgs,
   GenerateResult,
 } from "../../lib/types/cli.js";
-import type { TokenUsage, AnalyticsData } from "../../lib/types/providers.js";
+import type { TokenUsage, AnalyticsData } from "../../lib/types/index.js";
 import { configManager } from "../commands/config.js";
 import { handleError } from "../index.js";
 import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";

@@ -12,7 +12,9 @@ import type {
   EnhancedGenerateResult,
   AnalyticsData,
   AIProviderName,
-} from "../core/types.js";
+  ExtendedTool,
+  AISDKGenerateResult,
+} from "../types/index.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
 import type { MiddlewareFactoryOptions } from "../types/middlewareTypes.js";
@@ -26,9 +28,7 @@ import { getSafeMaxTokens } from "../utils/tokenLimits.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
-import type { GenerateResult } from "../types/generateTypes.js";
 import type { NeuroLink } from "../neurolink.js";
-import type { ExternalMCPToolInfo } from "../types/externalMcp.js";
 import { getKeysAsString, getKeyCount } from "../utils/transformationUtils.js";
 import {
   validateStreamOptions as validateStreamOpts,
@@ -42,21 +42,7 @@ import {
 } from "./evaluationProviders.js";
 import { modelConfig } from "./modelConfiguration.js";
 
-// Union type for tools that can be either AI SDK tools or external MCP tools
-type ExtendedTool = Tool & Partial<ExternalMCPToolInfo>;
-
-// Interface for AI SDK generate result with steps (extends GenerateResult)
-interface AISDKGenerateResult extends GenerateResult {
-  steps?: Array<{
-    toolCalls?: Array<{
-      toolName?: string;
-      name?: string;
-      [key: string]: unknown;
-    }>;
-    [key: string]: unknown;
-  }>;
-  [key: string]: unknown;
-}
+// Provider types moved to ../types/providers.js
 
 /**
  * Abstract base class for all AI providers

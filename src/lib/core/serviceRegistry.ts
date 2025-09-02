@@ -4,16 +4,10 @@
  */
 
 import { logger } from "../utils/logger.js";
-
-export interface ServiceFactory<T = unknown> {
-  (): T | Promise<T>;
-}
-
-export interface ServiceRegistration<T = unknown> {
-  factory: ServiceFactory<T>;
-  singleton: boolean;
-  instance?: T;
-}
+import type {
+  ServiceFactory,
+  ServiceRegistration,
+} from "../types/serviceTypes.js";
 
 export class ServiceRegistry {
   private static services = new Map<string, ServiceRegistration<unknown>>();

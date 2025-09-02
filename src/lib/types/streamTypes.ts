@@ -1,28 +1,73 @@
 import type { Tool } from "ai";
 import type { ValidationSchema, StandardRecord } from "./typeAliases.js";
-import type { AIProviderName, AnalyticsData } from "../core/types.js";
-import type { EvaluationData } from "../index.js";
-import type { TokenUsage } from "./providers.js";
+import type { AIProviderName, ProviderConfig } from "./providers.js";
+import type { AnalyticsData, TokenUsage } from "./analytics.js";
+import type { EvaluationData } from "./evaluation.js";
 import type { UnknownRecord, JsonValue } from "./common.js";
 import type { ChatMessage } from "./conversationTypes.js";
-import type { MiddlewareFactoryOptions } from "../types/middlewareTypes.js";
+import type { MiddlewareFactoryOptions } from "./middlewareTypes.js";
 
 /**
- * Interface for tool execution calls (AI SDK compatible)
+ * Progress tracking and metadata for streaming operations
  */
-export interface ToolCall {
+export type StreamingProgressData = {
+  chunkCount: number;
+  totalBytes: number;
+  chunkSize: number;
+  elapsedTime: number;
+  estimatedRemaining?: number;
+  streamId?: string;
+  phase: "initializing" | "streaming" | "processing" | "complete" | "error";
+};
+
+/**
+ * Streaming metadata for performance tracking
+ */
+export type StreamingMetadata = {
+  startTime: number;
+  endTime?: number;
+  totalDuration?: number;
+  averageChunkSize: number;
+  maxChunkSize: number;
+  minChunkSize: number;
+  throughputBytesPerSecond?: number;
+  streamingProvider: string;
+  modelUsed: string;
+};
+
+/**
+ * Options for AI requests with unified provider configuration
+ */
+export type StreamingOptions = {
+  providers: ProviderConfig[];
+  temperature?: number;
+  maxTokens?: number;
+  systemPrompt?: string;
+};
+
+/**
+ * Progress callback for streaming operations
+ */
+export type ProgressCallback = (
+  progress: StreamingProgressData,
+) => void | Promise<void>;
+
+/**
+ * Type for tool execution calls (AI SDK compatible)
+ */
+export type ToolCall = {
   type?: "tool-call";
   toolCallId?: string;
   toolName: string; // Name of the tool being called
   parameters?: UnknownRecord; // Parameters passed to the tool (NeuroLink format)
   args?: UnknownRecord; // Arguments passed to the tool (AI SDK format)
   id?: string; // Optional unique identifier for the call
-}
+};
 
 /**
- * Interface for tool execution results - Enhanced for type safety
+ * Type for tool execution results - Enhanced for type safety
  */
-export interface ToolResult {
+export type ToolResult = {
   toolName: string; // Name of the tool that was executed
   status: "success" | "failure"; // Execution status
   output?: JsonValue; // Output from the tool (JSON-serializable)
@@ -36,7 +81,7 @@ export interface ToolResult {
     toolCategory?: string;
     isExternal?: boolean;
   };
-}
+};
 
 /**
  * Tool Call Results Array - High Reusability
@@ -51,7 +96,7 @@ export type ToolCalls = Array<ToolCall>;
 /**
  * Stream Analytics Data - Enhanced for performance tracking
  */
-export interface StreamAnalyticsData {
+export type StreamAnalyticsData = {
   /** Tool execution results with timing */
   toolResults?: Promise<ToolCallResults>;
   /** Tool calls made during stream */
@@ -66,10 +111,10 @@ export interface StreamAnalyticsData {
   };
   /** Provider analytics */
   providerAnalytics?: AnalyticsData;
-}
+};
 
 /**
- * Stream function options interface - Primary method for streaming content
+ * Stream function options type - Primary method for streaming content
  * Future-ready for multi-modal capabilities while maintaining text focus
  */
 export type PCMEncoding = "PCM16LE";
@@ -88,7 +133,7 @@ export interface AudioChunk {
   encoding: PCMEncoding; // 'PCM16LE'
 }
 
-export interface StreamOptions {
+export type StreamOptions = {
   input: { text?: string; audio?: AudioInputSpec }; // text and/or audio input
   output?: {
     format?: "text" | "structured" | "json";
@@ -149,13 +194,13 @@ export interface StreamOptions {
 
   // NEW: Middleware related config
   middleware?: MiddlewareFactoryOptions;
-}
+};
 
 /**
- * Stream function result interface - Primary output format for streaming
+ * Stream function result type - Primary output format for streaming
  * Future-ready for multi-modal outputs while maintaining text focus
  */
-export interface StreamResult {
+export type StreamResult = {
   stream: AsyncIterable<
     { content: string } | { type: "audio"; audio: AudioChunk }
   >; // text chunks or audio events
@@ -187,13 +232,75 @@ export interface StreamResult {
   // Analytics and evaluation (available after stream completion)
   analytics?: AnalyticsData | Promise<AnalyticsData>;
   evaluation?: EvaluationData | Promise<EvaluationData>;
-}
+};
 
 /**
- * Enhanced provider interface with stream method
+ * Enhanced provider type with stream method
  */
-export interface EnhancedStreamProvider {
+export type EnhancedStreamProvider = {
   stream(options: StreamOptions): Promise<StreamResult>;
   getName(): string;
   isAvailable(): Promise<boolean>;
-}
+};
+
+/**
+ * Stream text result from AI SDK
+ */
+export type StreamTextResult = {
+  textStream: AsyncIterable<string>;
+  text: Promise<string>;
+  usage: Promise<AISDKUsage | undefined>;
+  response: Promise<
+    | {
+        id?: string;
+        model?: string;
+        timestamp?: number | Date;
+      }
+    | undefined
+  >;
+  finishReason: Promise<
+    | "stop"
+    | "length"
+    | "content-filter"
+    | "tool-calls"
+    | "error"
+    | "other"
+    | "unknown"
+  >;
+  toolResults?: Promise<ToolResult[]>;
+  toolCalls?: Promise<ToolCall[]>;
+};
+
+/**
+ * Raw usage data from Vercel AI SDK
+ */
+export type AISDKUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+};
+
+/**
+ * Stream analytics collector type
+ */
+export type StreamAnalyticsCollector = {
+  collectUsage(result: StreamTextResult): Promise<TokenUsage>;
+  collectMetadata(result: StreamTextResult): Promise<ResponseMetadata>;
+  createAnalytics(
+    provider: string,
+    model: string,
+    result: StreamTextResult,
+    startTime: number,
+    context?: Record<string, unknown>,
+  ): Promise<AnalyticsData>;
+};
+
+/**
+ * Response metadata from stream
+ */
+export type ResponseMetadata = {
+  id?: string;
+  model?: string;
+  timestamp?: number | Date;
+  finishReason?: string;
+};

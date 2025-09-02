@@ -9,7 +9,7 @@ import type {
   AIProvider,
   AIProviderName,
   SupportedModelName,
-} from "./types.js";
+} from "../types/index.js";
 import type { UnknownRecord } from "../types/common.js";
 import type { ProviderPairResult } from "../types/typeAliases.js";
 
@@ -450,5 +450,3 @@ export class AIProviderFactory {
     }
   }
 }
-
-export { componentIdentifier };

@@ -6,7 +6,7 @@
 
 import type { GenerateOptions } from "../types/generateTypes.js";
 import type { StreamOptions } from "../types/streamTypes.js";
-import type { TextGenerationOptions } from "../core/types.js";
+import type { TextGenerationOptions } from "../types/index.js";
 import type { UnknownRecord, JsonValue } from "../types/common.js";
 import type { StandardRecord } from "../types/typeAliases.js";
 import { logger } from "./logger.js";

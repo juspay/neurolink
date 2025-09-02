@@ -1,8 +1,8 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import type { ZodType, ZodTypeDef } from "zod";
 import { streamText, type Schema, type LanguageModelV1 } from "ai";
-import type { AIProviderName } from "../core/types.js";
-import { AnthropicModels } from "../core/types.js";
+import type { AIProviderName } from "../types/index.js";
+import { AnthropicModels } from "../types/index.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";

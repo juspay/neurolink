@@ -9,6 +9,11 @@ import type { JsonValue } from "../types/common.js";
 import { logger } from "../utils/logger.js";
 import fs from "fs";
 import path from "path";
+import type {
+  ModelTier,
+  ProviderConfiguration,
+  ConfigSource,
+} from "../types/modelTypes.js";
 
 /**
  * Model name constants - extracted from hardcoded values for better maintainability
@@ -87,76 +92,11 @@ export const MODEL_NAMES = {
 } as const;
 
 /**
- * Model performance tier definition
- */
-export type ModelTier = "fast" | "balanced" | "quality";
-
-/**
- * Model configuration for a specific provider
- */
-export interface ModelConfig {
-  /** Model identifier */
-  id: string;
-  /** Display name */
-  name: string;
-  /** Performance tier */
-  tier: ModelTier;
-  /** Cost per 1K tokens */
-  cost: {
-    input: number;
-    output: number;
-  };
-  /** Model capabilities */
-  capabilities: string[];
-  /** Model-specific options */
-  options?: Record<string, JsonValue>;
-}
-
-/**
- * Provider configuration with models
- */
-export interface ProviderConfig {
-  /** Provider name */
-  provider: string;
-  /** Available models by tier */
-  models: Record<ModelTier, string>;
-  /** Default cost per token (fallback) */
-  defaultCost: {
-    input: number;
-    output: number;
-  };
-  /** Required environment variables */
-  requiredEnvVars: string[];
-  /** Provider-specific performance metrics */
-  performance: {
-    speed: number; // 1-3 scale
-    quality: number; // 1-3 scale
-    cost: number; // 1-3 scale
-  };
-  /** Provider-specific model configurations */
-  modelConfigs?: Record<string, ModelConfig>;
-  /** Provider-specific model behavior configurations */
-  modelBehavior?: {
-    /** Models that have issues with maxTokens parameter */
-    maxTokensIssues?: string[];
-    /** Models that require special handling */
-    specialHandling?: Record<string, JsonValue>;
-    /** Models that support tool calling (Ollama-specific) */
-    toolCapableModels?: string[];
-  };
-}
-
-/**
- * Configuration source type
- */
-export type ConfigSource = "default" | "environment" | "file" | "dynamic";
-
-/**
  * Model configuration manager
  */
 export class ModelConfigurationManager {
   private static instance: ModelConfigurationManager;
-  private configurations = new Map<string, ProviderConfig>();
+  private configurations = new Map<string, ProviderConfiguration>();
   private configSource: ConfigSource = "default";
   private lastUpdated: number = Date.now();
 
@@ -174,7 +114,7 @@ export class ModelConfigurationManager {
   /**
    * Create Google AI provider configuration
    */
-  private createGoogleAIConfig(): ProviderConfig {
+  private createGoogleAIConfig(): ProviderConfiguration {
     return {
       provider: "google-ai",
       models: {
@@ -219,7 +159,7 @@ export class ModelConfigurationManager {
   /**
    * Create Google Vertex AI provider configuration
    */
-  private createVertexConfig(): ProviderConfig {
+  private createVertexConfig(): ProviderConfiguration {
     return {
       provider: "google-vertex",
       models: {
@@ -264,7 +204,7 @@ export class ModelConfigurationManager {
   /**
    * Create OpenAI provider configuration
    */
-  private createOpenAIConfig(): ProviderConfig {
+  private createOpenAIConfig(): ProviderConfiguration {
     return {
       provider: "openai",
       models: {
@@ -298,7 +238,10 @@ export class ModelConfigurationManager {
   /**
    * Create all provider configurations - centralized approach
    */
-  private createAllProviderConfigs(): Record<string, ProviderConfig> {
+  private createAllProviderConfigurations(): Record<
+    string,
+    ProviderConfiguration
+  > {
     return {
       "google-ai": this.createGoogleAIConfig(),
       "google-vertex": this.createVertexConfig(),
@@ -316,7 +259,7 @@ export class ModelConfigurationManager {
   /**
    * Create Anthropic provider configuration
    */
-  private createAnthropicConfig(): ProviderConfig {
+  private createAnthropicConfig(): ProviderConfiguration {
     return {
       provider: "anthropic",
       models: {
@@ -358,7 +301,7 @@ export class ModelConfigurationManager {
   /**
    * Create Vertex alternative provider configuration
    */
-  private createVertexAlternativeConfig(): ProviderConfig {
+  private createVertexAlternativeConfig(): ProviderConfiguration {
     return {
       provider: "vertex",
       models: {
@@ -391,7 +334,7 @@ export class ModelConfigurationManager {
   /**
    * Create Bedrock provider configuration
    */
-  private createBedrockConfig(): ProviderConfig {
+  private createBedrockConfig(): ProviderConfiguration {
     return {
       provider: "bedrock",
       models: {
@@ -430,7 +373,7 @@ export class ModelConfigurationManager {
   /**
    * Create Azure provider configuration
    */
-  private createAzureConfig(): ProviderConfig {
+  private createAzureConfig(): ProviderConfiguration {
     return {
       provider: "azure",
       models: {
@@ -463,7 +406,7 @@ export class ModelConfigurationManager {
   /**
    * Create Ollama provider configuration
    */
-  private createOllamaConfig(): ProviderConfig {
+  private createOllamaConfig(): ProviderConfiguration {
     return {
       provider: "ollama",
       models: {
@@ -506,7 +449,7 @@ export class ModelConfigurationManager {
   /**
    * Create HuggingFace provider configuration
    */
-  private createHuggingFaceConfig(): ProviderConfig {
+  private createHuggingFaceConfig(): ProviderConfiguration {
     return {
       provider: "huggingface",
       models: {
@@ -551,7 +494,7 @@ export class ModelConfigurationManager {
   /**
    * Create Mistral provider configuration
    */
-  private createMistralConfig(): ProviderConfig {
+  private createMistralConfig(): ProviderConfiguration {
     return {
       provider: "mistral",
       models: {
@@ -592,7 +535,7 @@ export class ModelConfigurationManager {
    */
   private loadDefaultConfigurations(): void {
     // Load all provider configurations using centralized method
-    const defaultConfigs = this.createAllProviderConfigs();
+    const defaultConfigs = this.createAllProviderConfigurations();
 
     // Load configurations
     for (const [provider, config] of Object.entries(defaultConfigs)) {
@@ -717,21 +660,24 @@ export class ModelConfigurationManager {
   /**
    * Get provider configuration
    */
-  getProviderConfig(provider: string): ProviderConfig | null {
+  getProviderConfiguration(provider: string): ProviderConfiguration | null {
     return this.configurations.get(provider) || null;
   }
 
   /**
    * Get all provider configurations
    */
-  getAllConfigurations(): Map<string, ProviderConfig> {
+  getAllConfigurations(): Map<string, ProviderConfiguration> {
     return new Map(this.configurations);
   }
 
   /**
    * Update provider configuration (runtime updates)
    */
-  updateProviderConfig(provider: string, config: ProviderConfig): void {
+  updateProviderConfiguration(
+    provider: string,
+    config: ProviderConfiguration,
+  ): void {
     this.configurations.set(provider, config);
     this.lastUpdated = Date.now();
     this.configSource = "dynamic";
@@ -854,10 +800,10 @@ export class ModelConfigurationManager {
         for (const [providerName, providerConfig] of Object.entries(
           providers,
         )) {
-          if (this.isValidProviderConfig(providerConfig)) {
+          if (this.isValidProviderConfiguration(providerConfig)) {
             this.configurations.set(
               providerName,
-              providerConfig as ProviderConfig,
+              providerConfig as ProviderConfiguration,
             );
             logger.debug(`Loaded configuration for provider: ${providerName}`);
           } else {
@@ -900,7 +846,7 @@ export class ModelConfigurationManager {
   /**
    * Validate provider configuration structure
    */
-  private isValidProviderConfig(config: unknown): boolean {
+  private isValidProviderConfiguration(config: unknown): boolean {
     if (!config || typeof config !== "object") {
       return false;
     }
@@ -1074,7 +1020,7 @@ export class ModelConfigurationManager {
    * Get model for specific tier and provider
    */
   getModelForTier(provider: string, tier: ModelTier): string | null {
-    const config = this.getProviderConfig(provider);
+    const config = this.getProviderConfiguration(provider);
     return config?.models[tier] || null;
   }
 
@@ -1085,7 +1031,7 @@ export class ModelConfigurationManager {
     provider: string,
     model?: string,
   ): { input: number; output: number } | null {
-    const config = this.getProviderConfig(provider);
+    const config = this.getProviderConfiguration(provider);
     if (!config) {
       return null;
     }
@@ -1102,7 +1048,7 @@ export class ModelConfigurationManager {
    * Check if provider is available (has required environment variables)
    */
   isProviderAvailable(provider: string): boolean {
-    const config = this.getProviderConfig(provider);
+    const config = this.getProviderConfiguration(provider);
     if (!config) {
       return false;
     }
@@ -1119,7 +1065,7 @@ export class ModelConfigurationManager {
   /**
    * Get available providers
    */
-  getAvailableProviders(): ProviderConfig[] {
+  getAvailableProviders(): ProviderConfiguration[] {
     return Array.from(this.configurations.values()).filter((config) =>
       this.isProviderAvailable(config.provider),
     );
@@ -1138,8 +1084,10 @@ export const modelConfig = ModelConfigurationManager.getInstance();
 /**
  * Get provider configuration (backwards compatible)
  */
-export function getProviderConfig(provider: string): ProviderConfig | null {
-  return modelConfig.getProviderConfig(provider);
+export function getProviderConfiguration(
+  provider: string,
+): ProviderConfiguration | null {
+  return modelConfig.getProviderConfiguration(provider);
 }
 
 /**

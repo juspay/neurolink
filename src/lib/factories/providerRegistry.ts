@@ -2,7 +2,11 @@ import { ProviderFactory } from "./providerFactory.js";
 // Lazy loading all providers to avoid circular dependencies
 // Removed all static imports - providers loaded dynamically when needed
 // This breaks the circular dependency chain completely
-import { AIProviderName, GoogleAIModels, OpenAIModels } from "../core/types.js";
+import {
+  AIProviderName,
+  GoogleAIModels,
+  OpenAIModels,
+} from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import type { UnknownRecord } from "../types/common.js";
 import type { NeuroLink } from "../neurolink.js";

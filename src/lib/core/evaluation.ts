@@ -4,54 +4,14 @@
 
 import { logger } from "../utils/logger.js";
 import { AIProviderFactory } from "./factory.js";
-import type { EvaluationData } from "../index.js";
 import { z } from "zod";
 import { ProviderRegistry } from "../factories/providerRegistry.js";
 import { modelConfig } from "./modelConfiguration.js";
 import { normalizeEvaluationData } from "../utils/evaluationUtils.js";
-
-// Enhanced evaluation result interface
-export interface EvaluationResult extends EvaluationData {
-  domainAlignment?: number;
-  terminologyAccuracy?: number;
-  toolEffectiveness?: number;
-  contextUtilization?: {
-    conversationUsed: boolean;
-    toolsUsed: boolean;
-    domainKnowledgeUsed: boolean;
-  };
-  evaluationContext?: {
-    domain: string;
-    toolsEvaluated: string[];
-    conversationTurns: number;
-  };
-  // Required for legacy compatibility
-  isOffTopic: boolean;
-  alertSeverity: "low" | "medium" | "high" | "none";
-  reasoning: string;
-}
-
-// Enhanced evaluation context
-export interface EvaluationContext {
-  userQuery: string;
-  aiResponse: string;
-  context?: Record<string, unknown>;
-  primaryDomain?: string;
-  assistantRole?: string;
-  conversationHistory?: Array<{
-    role: "user" | "assistant";
-    content: string;
-    timestamp?: string;
-  }>;
-  toolUsage?: Array<{
-    toolName: string;
-    input: unknown;
-    output: unknown;
-    executionTime: number;
-  }>;
-  expectedOutcome?: string;
-  evaluationCriteria?: string[];
-}
+import type {
+  EnhancedEvaluationResult as EvaluationResult,
+  EvaluationContext,
+} from "../types/index.js";
 
 // Zod schema for validation
 const EvaluationSchema = z.object({

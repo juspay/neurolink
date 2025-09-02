@@ -5,7 +5,7 @@
  */
 
 import type { CommandModule, Argv } from "yargs";
-import type { AIProviderName } from "../../lib/core/types.js";
+import type { AIProviderName } from "../../lib/types/index.js";
 import type { ModelsCommandArgs } from "../../lib/types/cli.js";
 import type { ModelPricing } from "../../lib/types/providers.js";
 import {

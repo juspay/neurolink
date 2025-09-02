@@ -5,7 +5,7 @@
 import { AIProviderFactory } from "../core/factory.js";
 import { logger } from "./logger.js";
 import type { UnknownRecord } from "../types/common.js";
-import type { AIProviderName } from "../core/types.js";
+import type { AIProviderName, ProviderError } from "../types/index.js";
 import { ProviderHealthChecker } from "./providerHealth.js";
 
 /**
@@ -557,4 +557,11 @@ export function getAvailableProviders(): string[] {
  */
 export function isValidProvider(provider: string): boolean {
   return getAvailableProviders().includes(provider.toLowerCase());
+}
+
+/**
+ * Type guard for provider error
+ */
+export function isProviderError(error: unknown): error is ProviderError {
+  return error instanceof Error && "provider" in error;
 }

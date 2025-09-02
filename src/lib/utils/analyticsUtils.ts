@@ -3,7 +3,7 @@
  * Provides helper functions to avoid manual field access patterns
  */
 
-import type { TokenUsage, AnalyticsData } from "../types/providers.js";
+import type { TokenUsage, AnalyticsData } from "../types/index.js";
 
 /**
  * Format token usage as a human-readable string
@@ -103,4 +103,20 @@ export function getAnalyticsSummary(analytics: AnalyticsData): {
     costPerToken,
     requestsPerSecond,
   };
+}
+
+/**
+ * Type guard for token usage
+ */
+export function isTokenUsage(value: unknown): value is TokenUsage {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "input" in value &&
+    "output" in value &&
+    "total" in value &&
+    typeof (value as TokenUsage).input === "number" &&
+    typeof (value as TokenUsage).output === "number" &&
+    typeof (value as TokenUsage).total === "number"
+  );
 }

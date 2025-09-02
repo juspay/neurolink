@@ -16,8 +16,8 @@ export { OllamaProvider as Ollama } from "./ollama.js";
 export { MistralProvider as MistralAI } from "./mistral.js";
 export { LiteLLMProvider as LiteLLM } from "./litellm.js";
 
-// Re-export the AIProvider interface for convenience
-export type { AIProvider } from "../core/types.js";
+// Re-export the AIProvider type for convenience
+export type { AIProvider } from "../types/index.js";
 
 /**
  * Provider registry for dynamic provider instantiation

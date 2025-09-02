@@ -5,12 +5,12 @@
  * credential collection, testing, and environment file management.
  */
 
-import { AIProviderName } from "../../lib/core/types.js";
+import { AIProviderName } from "../../lib/types/index.js";
 import { NeuroLink } from "../../lib/neurolink.js";
 import chalk from "chalk";
 import ora from "ora";
-
 import { logger } from "../../lib/utils/logger.js";
+
 // Provider configuration definitions
 export interface ProviderConfig {
   id: AIProviderName;

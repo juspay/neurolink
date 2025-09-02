@@ -8,7 +8,7 @@ import type {
   ValidationSchema,
   StringArray,
 } from "../types/typeAliases.js";
-import type { TextGenerationOptions } from "../core/types.js";
+import type { TextGenerationOptions } from "../types/index.js";
 import type { StreamOptions } from "../types/streamTypes.js";
 import type { GenerateOptions } from "../types/generateTypes.js";
 import type {

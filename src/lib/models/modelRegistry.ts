@@ -4,7 +4,7 @@
  * Part of Phase 4.1 - Models Command System
  */
 
-import { AIProviderName } from "../core/types.js";
+import { AIProviderName } from "../types/index.js";
 import type { JsonValue } from "../types/common.js";
 
 /**

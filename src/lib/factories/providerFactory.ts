@@ -1,4 +1,4 @@
-import type { AIProvider, AIProviderName } from "../core/types.js";
+import type { AIProvider, AIProviderName } from "../types/index.js";
 import type { UnknownRecord } from "../types/common.js";
 import { logger } from "../utils/logger.js";
 

@@ -7,7 +7,7 @@
 
 import type { ZodType, ZodTypeDef } from "zod";
 import type { Schema, LanguageModelV1 } from "ai";
-import type { AIProviderName } from "../core/types.js";
+import type { AIProviderName } from "../types/index.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { ConnectivityResult } from "../types/typeAliases.js";
 import { BaseProvider } from "../core/baseProvider.js";

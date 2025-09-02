@@ -11,7 +11,7 @@ import type {
   ToolResult,
 } from "../../factory.js";
 import { AIProviderFactory } from "../../../core/factory.js";
-import type { AIProvider } from "../../../core/types.js";
+import type { AIProvider } from "../../../types/index.js";
 import {
   getBestProvider,
   getAvailableProviders,

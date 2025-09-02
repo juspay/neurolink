@@ -1,44 +1,25 @@
-// Legacy types for evaluation providers - simplified interface
-interface ProviderModelConfig {
-  provider: string;
-  models: string[];
-  costPerToken?: number | { input: number; output: number };
-  requiresApiKey?: string[];
-  performance?: {
-    averageLatency?: number;
-    reliability?: number;
-    speed?: number;
-    quality?: number;
-    cost?: number;
-  };
-}
-import { modelConfig, type ProviderConfig } from "./modelConfiguration.js";
+import { modelConfig } from "./modelConfiguration.js";
+import type {
+  ProviderModelConfig,
+  ProviderPerformanceMetrics,
+  ProviderConfiguration,
+} from "../types/index.js";
 
 const PERFORMANCE_THRESHOLDS = {
   EXCELLENT_SUCCESS_RATE: 0.95,
   EXCELLENT_RESPONSE_TIME_MS: 2000,
   GOOD_SUCCESS_RATE: 0.9,
   FAIR_SUCCESS_RATE: 0.8,
-} as const;
-
-/**
- * Real-time provider performance tracking interface
- */
-interface ProviderPerformanceMetrics {
-  responseTime: number[];
-  successRate: number;
-  tokenThroughput: number;
-  costEfficiency: number;
-  lastUpdated: Date;
-  sampleCount: number;
-}
+};
 
 const providerMetrics = new Map<string, ProviderPerformanceMetrics>();
 
 /**
  * Convert new configuration format to legacy format for backwards compatibility
  */
-function convertToLegacyFormat(config: ProviderConfig): ProviderModelConfig {
+function convertToLegacyFormat(
+  config: ProviderConfiguration,
+): ProviderModelConfig {
   return {
     provider: config.provider as string,
     models: Object.keys(config.models || {}),
@@ -77,7 +58,7 @@ export const EVALUATION_PROVIDER_CONFIGS: Record<string, ProviderModelConfig> =
 export function getProviderConfig(
   providerName: string,
 ): ProviderModelConfig | null {
-  const config = modelConfig.getProviderConfig(providerName);
+  const config = modelConfig.getProviderConfiguration(providerName);
   return config ? convertToLegacyFormat(config) : null;
 }
 

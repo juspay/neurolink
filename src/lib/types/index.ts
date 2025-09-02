@@ -37,14 +37,7 @@ export type {
   ToolExecution,
 } from "./tools.js";
 
-export type {
-  AISDKModel,
-  ProviderError,
-  TokenUsage,
-  AnalyticsData,
-  EvaluationData,
-  ProviderConfig,
-} from "./providers.js";
+export type { AISDKModel, ProviderError, ProviderConfig } from "./providers.js";
 
 export type {
   BaseCommandArgs,
@@ -95,12 +88,7 @@ export type {
   ModelPricing,
 } from "./providers.js";
 
-// Stream/Tool domain types
-export type {
-  ToolCallResults,
-  ToolCalls,
-  StreamAnalyticsData,
-} from "./streamTypes.js";
+// Stream/Tool domain types are exported via wildcard from ./streamTypes.js
 
 // Domain factory types
 export type {
@@ -111,3 +99,36 @@ export type {
   DomainEvaluationCriteria,
   DomainValidationRule,
 } from "./domainTypes.js";
+
+// Generate types - NEW
+export * from "./generateTypes.js";
+
+// Stream types - NEW (selective export to avoid conflicts)
+export type {
+  StreamingProgressData,
+  StreamingMetadata,
+  ProgressCallback,
+  ToolCall as StreamToolCall, // Renamed to avoid conflict with tools.js ToolCall
+  ToolResult as StreamToolResult, // Renamed to avoid conflict with tools.js ToolResult
+  ToolCallResults,
+  ToolCalls,
+  StreamOptions,
+  StreamingOptions,
+  StreamResult,
+  EnhancedStreamProvider,
+} from "./streamTypes.js";
+
+// Analytics types - NEW
+export * from "./analytics.js";
+
+// Evaluation types - NEW
+export * from "./evaluation.js";
+
+// Model types - NEW
+export * from "./modelTypes.js";
+
+// Service types - NEW
+export * from "./serviceTypes.js";
+
+// Evaluation provider types - NEW
+export * from "./evaluationProviders.js";

@@ -7,7 +7,7 @@ import {
   type ToolSet,
   type ToolChoice,
 } from "ai";
-import type { AIProviderName } from "../core/types.js";
+import type { AIProviderName } from "../types/index.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";

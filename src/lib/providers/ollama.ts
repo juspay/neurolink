@@ -1,4 +1,4 @@
-import type { AIProviderName } from "../core/types.js";
+import type { AIProviderName } from "../types/index.js";
 import type {
   LanguageModelV1,
   LanguageModelV1CallOptions,
@@ -388,7 +388,7 @@ export class OllamaProvider extends BaseProvider {
     const modelName = this.modelName.toLowerCase();
 
     // Get tool-capable models from configuration
-    const ollamaConfig = modelConfig.getProviderConfig("ollama");
+    const ollamaConfig = modelConfig.getProviderConfiguration("ollama");
     const toolCapableModels =
       (ollamaConfig?.modelBehavior?.toolCapableModels as string[]) || [];
 

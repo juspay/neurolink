@@ -20,7 +20,7 @@ import type {
   TextGenerationOptions,
   TextGenerationResult,
   AnalyticsData,
-} from "./core/types.js";
+} from "./types/index.js";
 import { AIProviderFactory } from "./core/factory.js";
 
 import { mcpLogger } from "./utils/logger.js";
@@ -39,7 +39,7 @@ import type {
   ToolResult,
   AudioChunk,
 } from "./types/streamTypes.js";
-import type { TokenUsage, EvaluationData } from "./types/providers.js";
+import type { TokenUsage, EvaluationData } from "./types/index.js";
 import type {
   MCPServerInfo,
   MCPExecutableTool,
@@ -136,7 +136,7 @@ export interface MCPStatus {
 
 import { isNonNullObject } from "./utils/typeUtils.js";
 
-// Core types imported from core/types.js
+// Core types imported from "./types/index.js"
 
 export class NeuroLink {
   private mcpInitialized = false;

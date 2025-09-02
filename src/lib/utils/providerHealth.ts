@@ -4,7 +4,7 @@
  */
 
 import { logger } from "./logger.js";
-import { AIProviderName } from "../core/types.js";
+import { AIProviderName } from "../types/index.js";
 import { basename } from "path";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 

@@ -19,9 +19,12 @@ import {
 } from "@aws-sdk/client-bedrock";
 
 import { BaseProvider } from "../core/baseProvider.js";
-import type { AIProviderName, EnhancedGenerateResult } from "../core/types.js";
+import type {
+  AIProviderName,
+  EnhancedGenerateResult,
+  TextGenerationOptions,
+} from "../types/index.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
-import type { TextGenerationOptions } from "../core/types.js";
 import type { ToolDefinition, ToolArgs } from "../types/tools.js";
 import type { JsonValue } from "../types/common.js";
 import type { NeuroLink } from "../neurolink.js";

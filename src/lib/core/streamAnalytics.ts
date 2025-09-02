@@ -1,70 +1,11 @@
-import type { AnalyticsData } from "./types.js";
-import type { TokenUsage } from "../types/providers.js";
-import type { ToolCall, ToolResult } from "../types/streamTypes.js";
+import type { AnalyticsData, TokenUsage } from "../types/analytics.js";
 import { createAnalytics } from "./analytics.js";
 import { logger } from "../utils/logger.js";
-
-/**
- * Raw usage data from Vercel AI SDK (uses different field names)
- */
-interface AISDKUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
-
-/**
- * Stream analytics result from Vercel AI SDK streamText
- */
-export interface StreamTextResult {
-  textStream: AsyncIterable<string>;
-  text: Promise<string>;
-  usage: Promise<AISDKUsage | undefined>;
-  response: Promise<
-    | {
-        id?: string;
-        model?: string;
-        timestamp?: number | Date;
-      }
-    | undefined
-  >;
-  finishReason: Promise<
-    | "stop"
-    | "length"
-    | "content-filter"
-    | "tool-calls"
-    | "error"
-    | "other"
-    | "unknown"
-  >;
-  toolResults?: Promise<ToolResult[]>;
-  toolCalls?: Promise<ToolCall[]>;
-}
-
-/**
- * Interface for collecting analytics from streaming results
- */
-export interface StreamAnalyticsCollector {
-  collectUsage(result: StreamTextResult): Promise<TokenUsage>;
-  collectMetadata(result: StreamTextResult): Promise<ResponseMetadata>;
-  createAnalytics(
-    provider: string,
-    model: string,
-    result: StreamTextResult,
-    responseTime: number,
-    metadata?: Record<string, unknown>,
-  ): Promise<AnalyticsData>;
-}
-
-/**
- * Response metadata from stream result
- */
-export interface ResponseMetadata {
-  id?: string;
-  model?: string;
-  timestamp?: number;
-  finishReason?: string;
-}
+import type {
+  StreamTextResult,
+  StreamAnalyticsCollector,
+  ResponseMetadata,
+} from "../types/streamTypes.js";
 
 /**
  * Base implementation for collecting analytics from Vercel AI SDK stream results

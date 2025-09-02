@@ -1,8 +1,8 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText, type Schema, type LanguageModelV1 } from "ai";
 import type { ZodUnknownSchema } from "../types/typeAliases.js";
-import type { AIProviderName } from "../core/types.js";
-import { GoogleAIModels } from "../core/types.js";
+import type { AIProviderName } from "../types/index.js";
+import { GoogleAIModels } from "../types/index.js";
 import type {
   StreamOptions,
   StreamResult,

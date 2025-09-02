@@ -3,51 +3,155 @@
  */
 
 import type { UnknownRecord, JsonValue } from "./common.js";
+import type { Tool } from "ai";
+import type { ValidationSchema } from "./typeAliases.js";
+import type {
+  EnhancedGenerateResult,
+  GenerateResult,
+  TextGenerationOptions,
+} from "./generateTypes.js";
+import type { StreamOptions, StreamResult } from "./streamTypes.js";
+import type { ExternalMCPToolInfo } from "./externalMcp.js";
 
 /**
  * Generic AI SDK model interface
  */
-export interface AISDKModel {
+export type AISDKModel = {
   // This will be refined based on actual AI SDK types
   [key: string]: unknown;
+};
+
+/**
+ * Supported AI Provider Names
+ */
+export enum AIProviderName {
+  BEDROCK = "bedrock",
+  OPENAI = "openai",
+  OPENAI_COMPATIBLE = "openai-compatible",
+  VERTEX = "vertex",
+  ANTHROPIC = "anthropic",
+  AZURE = "azure",
+  GOOGLE_AI = "google-ai",
+  HUGGINGFACE = "huggingface",
+  OLLAMA = "ollama",
+  MISTRAL = "mistral",
+  LITELLM = "litellm",
+  SAGEMAKER = "sagemaker",
+  AUTO = "auto",
 }
+
+/**
+ * Supported Models for Amazon Bedrock
+ */
+export enum BedrockModels {
+  CLAUDE_3_SONNET = "anthropic.claude-3-sonnet-20240229-v1:0",
+  CLAUDE_3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0",
+  CLAUDE_3_5_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0",
+  CLAUDE_3_7_SONNET = "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+}
+
+/**
+ * Supported Models for OpenAI
+ */
+export enum OpenAIModels {
+  GPT_4 = "gpt-4",
+  GPT_4_TURBO = "gpt-4-turbo",
+  GPT_4O = "gpt-4o",
+  GPT_4O_MINI = "gpt-4o-mini",
+  GPT_3_5_TURBO = "gpt-3.5-turbo",
+}
+
+/**
+ * Supported Models for Google Vertex AI
+ */
+export enum VertexModels {
+  // Claude 4 Series (Latest - May 2025)
+  CLAUDE_4_0_SONNET = "claude-sonnet-4@20250514",
+  CLAUDE_4_0_OPUS = "claude-opus-4@20250514",
+
+  // Claude 3.5 Series (Still supported)
+  CLAUDE_3_5_SONNET = "claude-3-5-sonnet-20241022",
+  CLAUDE_3_5_HAIKU = "claude-3-5-haiku-20241022",
+
+  // Claude 3 Series (Legacy support)
+  CLAUDE_3_SONNET = "claude-3-sonnet-20240229",
+  CLAUDE_3_OPUS = "claude-3-opus-20240229",
+  CLAUDE_3_HAIKU = "claude-3-haiku-20240307",
+
+  // Gemini 2.5 Series (Latest - 2025)
+  GEMINI_2_5_PRO = "gemini-2.5-pro",
+  GEMINI_2_5_FLASH = "gemini-2.5-flash",
+  GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite",
+
+  // Gemini 2.0 Series
+  GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001",
+
+  // Gemini 1.5 Series (Legacy support)
+  GEMINI_1_5_PRO = "gemini-1.5-pro",
+  GEMINI_1_5_FLASH = "gemini-1.5-flash",
+}
+
+/**
+ * Supported Models for Google AI Studio
+ */
+export enum GoogleAIModels {
+  // Gemini 2.5 Series (Latest - 2025)
+  GEMINI_2_5_PRO = "gemini-2.5-pro",
+  GEMINI_2_5_FLASH = "gemini-2.5-flash",
+  GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite",
+
+  // Gemini 2.0 Series
+  GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001",
+
+  // Gemini 1.5 Series (Legacy support)
+  GEMINI_1_5_PRO = "gemini-1.5-pro",
+  GEMINI_1_5_FLASH = "gemini-1.5-flash",
+  GEMINI_1_5_FLASH_LITE = "gemini-1.5-flash-lite",
+}
+
+/**
+ * Supported Models for Anthropic (Direct API)
+ */
+export enum AnthropicModels {
+  // Claude 3.5 Series (Latest)
+  CLAUDE_3_5_SONNET = "claude-3-5-sonnet-20241022",
+  CLAUDE_3_5_HAIKU = "claude-3-5-haiku-20241022",
+
+  // Claude 3 Series (Legacy support)
+  CLAUDE_3_SONNET = "claude-3-sonnet-20240229",
+  CLAUDE_3_OPUS = "claude-3-opus-20240229",
+  CLAUDE_3_HAIKU = "claude-3-haiku-20240307",
+}
+
+/**
+ * Union type of all supported model names
+ */
+export type SupportedModelName =
+  | BedrockModels
+  | OpenAIModels
+  | VertexModels
+  | GoogleAIModels
+  | AnthropicModels;
+
+/**
+ * Extract provider names from enum
+ */
+export type ProviderName = keyof typeof AIProviderName;
 
 /**
  * Provider error information
  */
-export interface ProviderError extends Error {
+export type ProviderError = Error & {
   code?: string | number;
   statusCode?: number;
   provider?: string;
   originalError?: unknown;
-}
-
-/**
- * Token usage information
- */
-export interface TokenUsage {
-  input: number;
-  output: number;
-  total: number;
-}
-
-/**
- * Analytics data structure
- */
-export interface AnalyticsData {
-  provider: string;
-  model?: string;
-  tokenUsage: TokenUsage;
-  requestDuration: number;
-  timestamp: string;
-  cost?: number;
-  context?: JsonValue;
-}
+};
 
 /**
  * AWS Credential Configuration for Bedrock provider
  */
-export interface AWSCredentialConfig {
+export type AWSCredentialConfig = {
   region?: string;
   profile?: string;
   roleArn?: string;
@@ -60,12 +164,12 @@ export interface AWSCredentialConfig {
   enableDebugLogging?: boolean;
   /** Optional service endpoint override (e.g., VPC/Gov endpoints) */
   endpoint?: string;
-}
+};
 
 /**
  * AWS Credential Validation Result
  */
-export interface CredentialValidationResult {
+export type CredentialValidationResult = {
   isValid: boolean;
   credentialSource: string;
   region: string;
@@ -77,18 +181,18 @@ export interface CredentialValidationResult {
     hasSessionToken: boolean;
     providerConfig: Readonly<Required<AWSCredentialConfig>>;
   };
-}
+};
 
 /**
  * Service Connectivity Test Result
  */
-export interface ServiceConnectivityResult {
+export type ServiceConnectivityResult = {
   bedrockAccessible: boolean;
   availableModels: number;
   responseTimeMs: number;
   error?: string;
   sampleModels: string[];
-}
+};
 
 /**
  * Model Capabilities - Maximally Reusable
@@ -119,9 +223,28 @@ export type ModelUseCase =
   | "classification";
 
 /**
+ * Provider health status
+ */
+export type ProviderHealthStatus =
+  | "healthy"
+  | "degraded"
+  | "unhealthy"
+  | "unknown";
+
+/**
+ * Stream processing phases
+ */
+export type StreamPhase =
+  | "initializing"
+  | "streaming"
+  | "processing"
+  | "complete"
+  | "error";
+
+/**
  * Model Filter Configuration - High Reusability
  */
-export interface ModelFilter {
+export type ModelFilter = {
   provider?: string;
   capability?: ModelCapability;
   useCase?: ModelUseCase;
@@ -129,12 +252,12 @@ export interface ModelFilter {
   requireFunctionCalling?: boolean;
   maxTokens?: number;
   costLimit?: number;
-}
+};
 
 /**
  * Model Resolution Context - High Reusability
  */
-export interface ModelResolutionContext {
+export type ModelResolutionContext = {
   requireCapabilities?: ModelCapability[];
   preferredProviders?: string[];
   useCase?: ModelUseCase;
@@ -146,12 +269,12 @@ export interface ModelResolutionContext {
     maxLatency?: number;
     minQuality?: number;
   };
-}
+};
 
 /**
  * Model Statistics Object - High Reusability
  */
-export interface ModelStats {
+export type ModelStats = {
   name: string;
   provider: string;
   capabilities: ModelCapability[];
@@ -168,12 +291,12 @@ export interface ModelStats {
     version?: string;
     lastUpdated?: Date;
   };
-}
+};
 
 /**
  * Model Pricing Information - High Reusability
  */
-export interface ModelPricing {
+export type ModelPricing = {
   inputTokens?: {
     price: number;
     currency: string;
@@ -194,123 +317,90 @@ export interface ModelPricing {
   min?: number;
   max?: number;
   free?: boolean;
-}
-
-/**
- * Response quality evaluation scores - Comprehensive evaluation interface
- */
-export interface EvaluationData {
-  // Core scores (1-10 scale) - Compatible with GenerateResult format
-  relevance: number; // How well response addresses query intent and domain alignment
-  accuracy: number; // Factual correctness and terminological accuracy
-  completeness: number; // How completely the response addresses the query
-  overall: number; // Overall quality (derived from above scores)
-  domainAlignment?: number;
-  terminologyAccuracy?: number;
-  toolEffectiveness?: number;
-
-  // Advanced insights
-  isOffTopic: boolean; // True if response significantly deviates from query/domain
-  alertSeverity: "low" | "medium" | "high" | "none"; // Quality alert level
-  reasoning: string; // Brief justification for scores (max 150 words)
-  suggestedImprovements?: string; // How to improve the response (max 100 words)
-
-  // Metadata
-  evaluationModel: string; // Model used for evaluation
-  evaluationTime: number; // Time taken for evaluation (ms)
-  evaluationDomain?: string; // Domain for evaluation (e.g., "healthcare", "analytics")
-
-  // Enhanced metadata
-  evaluationProvider?: string; // Provider used for evaluation
-  evaluationAttempt?: number; // Attempt number (for retry logic)
-  evaluationConfig?: {
-    mode: string;
-    fallbackUsed: boolean;
-    costEstimate: number;
-  };
-
-  // Domain configuration support
-  domainConfig?: {
-    domainName: string;
-    domainDescription: string;
-    keyTerms: string[];
-    failurePatterns: string[];
-    successPatterns: string[];
-    evaluationCriteria?: Record<string, unknown>;
-  };
-
-  // Domain-specific evaluation metadata
-  domainEvaluation?: {
-    domainRelevance: number;
-    terminologyAccuracy: number;
-    domainExpertise: number;
-    domainSpecificInsights: string[];
-  };
-}
-
-/**
- * Enhanced evaluation context for comprehensive response assessment
- */
-export interface EvaluationContext {
-  userQuery: string;
-  aiResponse: string;
-  context?: Record<string, unknown>;
-  primaryDomain?: string;
-  assistantRole?: string;
-  conversationHistory?: Array<{
-    role: "user" | "assistant";
-    content: string;
-    timestamp?: string;
-  }>;
-  toolUsage?: Array<{
-    toolName: string;
-    input: unknown;
-    output: unknown;
-    executionTime: number;
-  }>;
-  expectedOutcome?: string;
-  evaluationCriteria?: string[];
-}
-
-/**
- * Evaluation result interface that extends EvaluationData with additional context
- */
-export interface EvaluationResult extends EvaluationData {
-  contextUtilization?: {
-    conversationUsed: boolean;
-    toolsUsed: boolean;
-    domainKnowledgeUsed: boolean;
-  };
-  evaluationContext?: {
-    domain: string;
-    toolsEvaluated: string[];
-    conversationTurns: number;
-  };
-}
+};
 
 /**
  * Provider capabilities
  */
-export interface ProviderCapabilities {
+export type ProviderCapabilities = {
   supportsStreaming: boolean;
   supportsTools: boolean;
   supportsImages: boolean;
   supportsAudio: boolean;
   maxTokens?: number;
   supportedModels: string[];
-}
+};
 
 /**
- * Provider configuration
+ * Provider configuration specifying provider and its available models (from core types)
  */
-export interface ProviderConfig {
+export type ProviderConfig = {
+  provider: AIProviderName;
+  models: SupportedModelName[];
+};
+
+/**
+ * Provider configuration for individual providers
+ */
+export type IndividualProviderConfig = {
   apiKey?: string;
   baseURL?: string;
   timeout?: number;
   retries?: number;
   model?: string;
   [key: string]: unknown;
-}
+};
+
+/**
+ * AI Provider interface with flexible parameter support (converted from interface)
+ */
+export type AIProvider = {
+  // Primary streaming method
+  stream(
+    optionsOrPrompt: StreamOptions | string,
+    analysisSchema?: ValidationSchema,
+  ): Promise<StreamResult>;
+
+  generate(
+    optionsOrPrompt: TextGenerationOptions | string,
+    analysisSchema?: ValidationSchema,
+  ): Promise<EnhancedGenerateResult | null>;
+
+  gen(
+    optionsOrPrompt: TextGenerationOptions | string,
+    analysisSchema?: ValidationSchema,
+  ): Promise<EnhancedGenerateResult | null>;
+
+  // Tool execution setup - consolidated from NeuroLink SDK
+  setupToolExecutor(
+    sdk: {
+      customTools: Map<string, unknown>;
+      executeTool: (toolName: string, params: unknown) => Promise<unknown>;
+    },
+    functionTag: string,
+  ): void;
+};
+
+/**
+ * Provider attempt result for iteration tracking (converted from interface)
+ */
+export type ProviderAttempt = {
+  provider: AIProviderName;
+  model: SupportedModelName;
+  success: boolean;
+  error?: string;
+  stack?: string;
+};
+
+/**
+ * Error types for provider creation
+ */
+export type ProviderCreationError = {
+  code: "INVALID_PROVIDER" | "CONFIGURATION_ERROR" | "INSTANTIATION_ERROR";
+  message: string;
+  provider: string;
+  details?: Record<string, unknown>;
+};
 
 /**
  * Amazon Bedrock specific types
@@ -388,39 +478,75 @@ export type ProviderFactory = (
 /**
  * Provider constructor type
  */
-export interface ProviderConstructor {
+export type ProviderConstructor = {
   new (modelName?: string, providerName?: string, sdk?: unknown): unknown;
-}
+};
 
 /**
  * Provider registration entry
  */
-export interface ProviderRegistration {
+export type ProviderRegistration = {
   name: string;
   constructor: ProviderConstructor | ProviderFactory;
   capabilities?: ProviderCapabilities;
-  defaultConfig?: ProviderConfig;
-}
+  defaultConfig?: IndividualProviderConfig;
+};
 
 /**
- * Type guard for provider error
+ * Provider metadata type
  */
-export function isProviderError(error: unknown): error is ProviderError {
-  return error instanceof Error && "provider" in error;
-}
+export type ProviderMetadata = {
+  name: string;
+  version: string;
+  capabilities: ProviderCapability[];
+  models: string[];
+  healthStatus: ProviderHealthStatus;
+};
 
 /**
- * Type guard for token usage
+ * Provider capability type
  */
-export function isTokenUsage(value: unknown): value is TokenUsage {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "input" in value &&
-    "output" in value &&
-    "total" in value &&
-    typeof (value as TokenUsage).input === "number" &&
-    typeof (value as TokenUsage).output === "number" &&
-    typeof (value as TokenUsage).total === "number"
-  );
-}
+export type ProviderCapability =
+  | "text-generation"
+  | "streaming"
+  | "tool-calling"
+  | "image-generation"
+  | "embeddings";
+
+/**
+ * Extended tool type that combines AI SDK tools with external MCP tool info
+ */
+export type ExtendedTool = Tool & Partial<ExternalMCPToolInfo>;
+
+/**
+ * AI SDK generate result with steps support (extends GenerateResult)
+ */
+export type AISDKGenerateResult = GenerateResult & {
+  steps?: Array<{
+    toolCalls?: Array<{
+      toolName?: string;
+      name?: string;
+      [key: string]: unknown;
+    }>;
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+};
+
+/**
+ * Default provider configurations
+ */
+export const DEFAULT_PROVIDER_CONFIGS: ProviderConfig[] = [
+  {
+    provider: AIProviderName.BEDROCK,
+    models: [BedrockModels.CLAUDE_3_7_SONNET, BedrockModels.CLAUDE_3_5_SONNET],
+  },
+  {
+    provider: AIProviderName.VERTEX,
+    models: [VertexModels.CLAUDE_4_0_SONNET, VertexModels.GEMINI_2_5_FLASH],
+  },
+  {
+    provider: AIProviderName.OPENAI,
+    models: [OpenAIModels.GPT_4O, OpenAIModels.GPT_4O_MINI],
+  },
+];

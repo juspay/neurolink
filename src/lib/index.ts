@@ -17,7 +17,7 @@ export type {
   StreamingOptions,
   ProviderAttempt,
   SupportedModelName,
-} from "./core/types.js";
+} from "./types/index.js";
 
 // NEW: Generate function exports
 export type {
@@ -38,7 +38,7 @@ export {
   OpenAIModels,
   VertexModels,
   DEFAULT_PROVIDER_CONFIGS,
-} from "./core/types.js";
+} from "./types/index.js";
 
 // Utility exports
 export {
@@ -49,7 +49,7 @@ export {
 
 // Dynamic Models exports
 export { dynamicModelProvider } from "./core/dynamicModels.js";
-export type { ModelConfig, ModelRegistry } from "./core/dynamicModels.js";
+export type { DynamicModelConfig, ModelRegistry } from "./types/modelTypes.js";
 
 // Main NeuroLink wrapper class and diagnostic types
 export { NeuroLink } from "./neurolink.js";
@@ -213,8 +213,8 @@ export type {
   TextGenerationOptions,
   TextGenerationResult,
   AnalyticsData,
-} from "./core/types.js";
-export type { EvaluationData } from "./types/providers.js";
+  EvaluationData,
+} from "./types/index.js";
 
 /**
  * BACKWARD COMPATIBILITY: Legacy generateText function
@@ -233,8 +233,8 @@ export type { EvaluationData } from "./types/providers.js";
  * ```
  */
 export async function generateText(
-  options: import("./core/types.js").TextGenerationOptions,
-): Promise<import("./core/types.js").TextGenerationResult> {
+  options: import("./types/index.js").TextGenerationOptions,
+): Promise<import("./types/index.js").TextGenerationResult> {
   // Import neurolink instance to avoid circular dependencies
   const { neurolink } = await import("./neurolink.js");
   return await neurolink.generateText(options);

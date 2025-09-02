@@ -1,7 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, type LanguageModelV1 } from "ai";
 import type { ValidationSchema } from "../types/typeAliases.js";
-import { AIProviderName } from "../core/types.js";
+import { AIProviderName } from "../types/index.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";

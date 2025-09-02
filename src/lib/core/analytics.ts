@@ -8,10 +8,7 @@
 import { logger } from "../utils/logger.js";
 import type { JsonValue, UnknownRecord } from "../types/common.js";
 import { modelConfig } from "./modelConfiguration.js";
-import type { AnalyticsData, TokenUsage } from "../types/providers.js";
-
-// Re-export AnalyticsData and TokenUsage from the standard location
-export type { AnalyticsData, TokenUsage } from "../types/providers.js";
+import type { TokenUsage, AnalyticsData } from "../types/analytics.js";
 
 /**
  * Create analytics data structure from AI response

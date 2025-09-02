@@ -4,7 +4,7 @@
  * complete EvaluationData objects with safe defaults
  */
 
-import type { EvaluationData } from "../types/providers.js";
+import type { EvaluationData } from "../types/evaluation.js";
 
 /**
  * Default values for required EvaluationData fields

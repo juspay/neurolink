@@ -3,7 +3,7 @@
  */
 
 import type { UnknownRecord, JsonValue } from "./common.js";
-import type { AnalyticsData, TokenUsage } from "./providers.js";
+import type { AnalyticsData, TokenUsage } from "./analytics.js";
 import type { EvaluationData } from "../index.js";
 import type { ToolCall, ToolResult } from "./tools.js";
 
