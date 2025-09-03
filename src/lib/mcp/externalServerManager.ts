@@ -195,12 +195,177 @@ export class ExternalServerManager extends EventEmitter {
   }
 
   /**
-   * Load MCP server configurations from .mcp-config.json file
+   * Load MCP server configurations from .mcp-config.json file with parallel loading support
    * Automatically registers servers found in the configuration
    * @param configPath Optional path to config file (defaults to .mcp-config.json in cwd)
-   * @returns Promise resolving to number of servers loaded
+   * @param options Loading options including parallel support
+   * @returns Promise resolving to { serversLoaded, errors }
    */
-  async loadMCPConfiguration(configPath?: string): Promise<ServerLoadResult> {
+  async loadMCPConfiguration(
+    configPath?: string,
+    options: { parallel?: boolean } = {},
+  ): Promise<ServerLoadResult> {
+    if (options.parallel) {
+      return this.loadMCPConfigurationParallel(configPath);
+    }
+    return this.loadMCPConfigurationSequential(configPath);
+  }
+
+  /**
+   * Load MCP servers in parallel for improved performance
+   * @param configPath Optional path to config file (defaults to .mcp-config.json in cwd)
+   * @returns Promise resolving to batch operation result
+   */
+  async loadMCPConfigurationParallel(
+    configPath?: string | null,
+  ): Promise<ServerLoadResult> {
+    const fs = await import("fs");
+    const path = await import("path");
+
+    const finalConfigPath =
+      configPath || path.join(process.cwd(), ".mcp-config.json");
+
+    if (!fs.existsSync(finalConfigPath)) {
+      mcpLogger.debug(
+        `[ExternalServerManager] No MCP config found at ${finalConfigPath}`,
+      );
+      return { serversLoaded: 0, errors: [] };
+    }
+
+    mcpLogger.debug(
+      `[ExternalServerManager] Loading MCP configuration in PARALLEL mode from ${finalConfigPath}`,
+    );
+
+    try {
+      const configContent = fs.readFileSync(finalConfigPath, "utf8");
+      const config = JSON.parse(configContent);
+
+      if (!config.mcpServers || typeof config.mcpServers !== "object") {
+        mcpLogger.debug(
+          "[ExternalServerManager] No mcpServers found in configuration",
+        );
+        return { serversLoaded: 0, errors: [] };
+      }
+
+      // Create promises for all servers to start them concurrently
+      const serverPromises = Object.entries(config.mcpServers).map(
+        async ([serverId, serverConfig]) => {
+          try {
+            // Validate and convert config format to MCPServerInfo
+            if (!isValidExternalMCPServerConfig(serverConfig)) {
+              throw new Error(
+                `Invalid server config for ${serverId}: missing required properties or wrong types`,
+              );
+            }
+
+            const externalConfig: MCPServerInfo = {
+              id: serverId,
+              name: serverId,
+              description: `External MCP server: ${serverId}`,
+              transport:
+                typeof serverConfig.transport === "string"
+                  ? (serverConfig.transport as MCPTransportType)
+                  : "stdio",
+              status: "initializing" as const,
+              tools: [],
+              command: serverConfig.command as string,
+              args: Array.isArray(serverConfig.args)
+                ? (serverConfig.args as string[])
+                : [],
+              env: isNonNullObject(serverConfig.env)
+                ? (serverConfig.env as Record<string, string>)
+                : {},
+              timeout:
+                typeof serverConfig.timeout === "number"
+                  ? serverConfig.timeout
+                  : undefined,
+              retries:
+                typeof serverConfig.retries === "number"
+                  ? serverConfig.retries
+                  : undefined,
+              healthCheckInterval:
+                typeof serverConfig.healthCheckInterval === "number"
+                  ? serverConfig.healthCheckInterval
+                  : undefined,
+              autoRestart:
+                typeof serverConfig.autoRestart === "boolean"
+                  ? serverConfig.autoRestart
+                  : undefined,
+              cwd:
+                typeof serverConfig.cwd === "string"
+                  ? serverConfig.cwd
+                  : undefined,
+              url:
+                typeof serverConfig.url === "string"
+                  ? serverConfig.url
+                  : undefined,
+              metadata: safeMetadataConversion(serverConfig.metadata),
+            };
+
+            const result = await this.addServer(serverId, externalConfig);
+            return { serverId, result };
+          } catch (error) {
+            const errorMsg = `Failed to load MCP server ${serverId}: ${
+              error instanceof Error ? error.message : String(error)
+            }`;
+            mcpLogger.warn(`[ExternalServerManager] ${errorMsg}`);
+            return { serverId, error: errorMsg };
+          }
+        },
+      );
+
+      // Start all servers concurrently and wait for completion
+      const results = await Promise.allSettled(serverPromises);
+
+      // Process results to count successes and collect errors
+      let serversLoaded = 0;
+      const errors: string[] = [];
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          const { serverId, result: serverResult, error } = result.value;
+          if (serverResult && serverResult.success) {
+            serversLoaded++;
+            mcpLogger.debug(
+              `[ExternalServerManager] Successfully loaded MCP server in parallel: ${serverId}`,
+            );
+          } else if (error) {
+            errors.push(error);
+          } else if (serverResult && !serverResult.success) {
+            const errorMsg = `Failed to load server ${serverId}: ${serverResult.error}`;
+            errors.push(errorMsg);
+            mcpLogger.warn(`[ExternalServerManager] ${errorMsg}`);
+          }
+        } else {
+          // Promise.allSettled rejected - this shouldn't happen with our error handling
+          const errorMsg = `Unexpected error during parallel loading: ${result.reason}`;
+          errors.push(errorMsg);
+          mcpLogger.error(`[ExternalServerManager] ${errorMsg}`);
+        }
+      }
+
+      mcpLogger.info(
+        `[ExternalServerManager] PARALLEL MCP configuration loading complete: ${serversLoaded} servers loaded, ${errors.length} errors`,
+      );
+
+      return { serversLoaded, errors };
+    } catch (error) {
+      const errorMsg = `Failed to load MCP configuration in parallel mode: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
+      mcpLogger.error(`[ExternalServerManager] ${errorMsg}`);
+      return { serversLoaded: 0, errors: [errorMsg] };
+    }
+  }
+
+  /**
+   * Load MCP servers sequentially (original implementation for backward compatibility)
+   * @param configPath Optional path to config file (defaults to .mcp-config.json in cwd)
+   * @returns Promise resolving to batch operation result
+   */
+  async loadMCPConfigurationSequential(
+    configPath?: string,
+  ): Promise<ServerLoadResult> {
     const fs = await import("fs");
     const path = await import("path");
 

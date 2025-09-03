@@ -1063,7 +1063,7 @@ export class NeuroLink {
   }
 
   /**
-   * Load MCP configuration from .mcp-config.json
+   * Load MCP configuration from .mcp-config.json with parallel loading for improved performance
    */
   private async loadMCPConfigurationInternal(
     mcpInitId: string,
@@ -1084,7 +1084,10 @@ export class NeuroLink {
 
     try {
       const configResult =
-        await this.externalServerManager.loadMCPConfiguration();
+        await this.externalServerManager.loadMCPConfiguration(
+          undefined, // Use default config path
+          { parallel: true }, // Enable parallel loading
+        );
 
       const mcpConfigSuccessTime = process.hrtime.bigint();
       const mcpConfigDurationNs = mcpConfigSuccessTime - mcpConfigStartTime;
