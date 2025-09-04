@@ -21,7 +21,7 @@ import type { NeuroLink } from "../neurolink.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
-import { DEFAULT_MAX_TOKENS, DEFAULT_MAX_STEPS } from "../core/constants.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { ModelConfigurationManager } from "../core/modelConfiguration.js";
 import {
   validateApiKey,
@@ -1388,7 +1388,7 @@ export class GoogleVertexProvider extends BaseProvider {
       // This avoids hardcoded model-specific logic and repeated config lookups
       const shouldSetMaxTokens = this.shouldSetMaxTokensCached(modelName);
       const maxTokens = shouldSetMaxTokens
-        ? options.maxTokens || DEFAULT_MAX_TOKENS
+        ? options.maxTokens // No default limit
         : undefined;
 
       // Build complete stream options with proper typing

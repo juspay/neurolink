@@ -4,7 +4,7 @@
  */
 
 // Core AI Generation Defaults
-export const DEFAULT_MAX_TOKENS = 8192; // Changed from 10000 to fix Anthropic error
+export const DEFAULT_MAX_TOKENS = undefined; // Unlimited by default - let providers decide their own limits
 export const DEFAULT_TEMPERATURE = 0.7;
 export const DEFAULT_TIMEOUT = 30000;
 export const DEFAULT_MAX_STEPS = 5; // Default multi-turn tool execution steps
@@ -77,6 +77,15 @@ export const PROVIDER_MAX_TOKENS = {
     "anthropic.claude-3-5-sonnet-20240620-v1:0": 4096,
     default: 4096,
   },
+  azure: {
+    "gpt-4o": 16384,
+    "gpt-4o-mini": 16384,
+    "gpt-4.1": 16384,
+    "gpt-3.5-turbo": 4096,
+    "gpt-4": 8192,
+    "gpt-4-turbo": 4096,
+    default: 8192, // Azure OpenAI generally supports similar limits to OpenAI
+  },
   ollama: {
     default: 8192, // Ollama typically supports higher limits
   },
@@ -91,7 +100,7 @@ export const CLI_LIMITS = {
   maxTokens: {
     min: 1,
     max: 50000,
-    default: DEFAULT_MAX_TOKENS,
+    default: undefined, // No default limit - unlimited by default
   },
   temperature: {
     min: 0,
@@ -124,10 +133,19 @@ export const SYSTEM_LIMITS = {
 
 // Environment Variable Support (for future use)
 export const ENV_DEFAULTS = {
-  maxTokens: process.env.NEUROLINK_DEFAULT_MAX_TOKENS
-    ? parseInt(process.env.NEUROLINK_DEFAULT_MAX_TOKENS, 10)
-    : DEFAULT_MAX_TOKENS,
+  maxTokens: (() => {
+    if (!process.env.NEUROLINK_DEFAULT_MAX_TOKENS) {
+      return undefined;
+    }
+    const n = parseInt(process.env.NEUROLINK_DEFAULT_MAX_TOKENS, 10);
+    return Number.isFinite(n) ? n : undefined;
+  })(),
   temperature: process.env.NEUROLINK_DEFAULT_TEMPERATURE
-    ? parseFloat(process.env.NEUROLINK_DEFAULT_TEMPERATURE)
+    ? (() => {
+        const t = parseFloat(
+          process.env.NEUROLINK_DEFAULT_TEMPERATURE as string,
+        );
+        return Number.isFinite(t) ? t : DEFAULT_TEMPERATURE;
+      })()
     : DEFAULT_TEMPERATURE,
 };

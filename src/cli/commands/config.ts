@@ -114,7 +114,7 @@ const ConfigSchema = z.object({
         .number()
         .min(CLI_LIMITS.maxTokens.min)
         .max(CLI_LIMITS.maxTokens.max)
-        .default(CLI_LIMITS.maxTokens.default),
+        .optional(), // No default limit
       enableLogging: z.boolean().default(false),
       enableCaching: z.boolean().default(true),
       cacheStrategy: z.enum(["memory", "file", "redis"]).default("memory"),
@@ -796,7 +796,6 @@ export class ConfigManager {
   }
 
   /**
-  /**
    * Get current configuration
    */
   getConfig(): NeuroLinkConfig {
@@ -828,7 +827,9 @@ export class ConfigManager {
       `  Temperature: ${chalk.white(this.config.preferences.temperature)}`,
     );
     logger.always(
-      `  Max Tokens: ${chalk.white(this.config.preferences.maxTokens)}`,
+      `  Max Tokens: ${chalk.white(
+        this.config.preferences.maxTokens ?? "Provider default (no cap)",
+      )}`,
     );
     logger.always(
       `  Default Evaluation Domain: ${chalk.white(this.config.preferences.defaultEvaluationDomain || "None")}`,

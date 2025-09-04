@@ -889,12 +889,16 @@ export class ProviderHealthChecker {
       );
     }
 
-    if (!process.env.AZURE_OPENAI_DEPLOYMENT_NAME) {
-      healthStatus.configurationIssues.push(
-        "AZURE_OPENAI_DEPLOYMENT_NAME not set",
-      );
+    // Check for deployment name using the SAME logic as the Azure provider
+    const deploymentName =
+      process.env.AZURE_OPENAI_MODEL ||
+      process.env.AZURE_OPENAI_DEPLOYMENT ||
+      process.env.AZURE_OPENAI_DEPLOYMENT_ID;
+
+    if (!deploymentName) {
+      healthStatus.configurationIssues.push("No Azure deployment specified");
       healthStatus.recommendations.push(
-        "Set AZURE_OPENAI_DEPLOYMENT_NAME to your deployment name",
+        "Set one of: AZURE_OPENAI_MODEL, AZURE_OPENAI_DEPLOYMENT, or AZURE_OPENAI_DEPLOYMENT_ID",
       );
     }
   }

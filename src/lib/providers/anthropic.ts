@@ -15,7 +15,7 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/errors.js";
-import { DEFAULT_MAX_TOKENS, DEFAULT_MAX_STEPS } from "../core/constants.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import {
   validateApiKey,
   createAnthropicConfig,
@@ -165,7 +165,7 @@ export class AnthropicProvider extends BaseProvider {
         model: this.model,
         messages: messages,
         temperature: options.temperature,
-        maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools,
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         toolChoice: shouldUseTools ? "auto" : "none",
@@ -192,23 +192,13 @@ export class AnthropicProvider extends BaseProvider {
         id: string;
       }> = [];
 
-      const usage = await result.usage;
-      const finishReason = await result.finishReason;
-
       return {
         stream: transformedStream,
         provider: this.providerName,
         model: this.modelName,
         toolCalls, // ✅ Include tool calls in stream result
         toolResults, // ✅ Include tool results in stream result
-        usage: usage
-          ? {
-              input: usage.promptTokens || 0,
-              output: usage.completionTokens || 0,
-              total: usage.totalTokens || 0,
-            }
-          : undefined,
-        finishReason: finishReason || undefined,
+        // Note: omit usage/finishReason to avoid blocking streaming; compute asynchronously if needed.
       };
     } catch (error: unknown) {
       timeoutController?.cleanup();

@@ -248,6 +248,33 @@ export abstract class BaseProvider implements AIProvider {
             ...(options.tools || {}), // Include external tools passed from NeuroLink
           }
         : {};
+
+      // DEBUG: Log detailed tool information for generate
+      logger.debug("BaseProvider Generate - Tool Loading Debug", {
+        provider: this.providerName,
+        shouldUseTools,
+        baseToolsProvided: !!baseTools,
+        baseToolCount: baseTools ? Object.keys(baseTools).length : 0,
+        finalToolCount: tools ? Object.keys(tools).length : 0,
+        toolNames: tools ? Object.keys(tools).slice(0, 10) : [],
+        disableTools: options.disableTools,
+        supportsTools: this.supportsTools(),
+        externalToolsCount: options.tools
+          ? Object.keys(options.tools).length
+          : 0,
+      });
+
+      if (tools && Object.keys(tools).length > 0) {
+        logger.debug("BaseProvider Generate - First 5 Tools Detail", {
+          provider: this.providerName,
+          tools: Object.keys(tools)
+            .slice(0, 5)
+            .map((name) => ({
+              name,
+              description: tools[name]?.description?.substring(0, 100),
+            })),
+        });
+      }
       logger.debug(`[BaseProvider.generate] Tools for ${this.providerName}:`, {
         directTools: getKeyCount(baseTools),
         directToolNames: getKeysAsString(baseTools),
@@ -270,7 +297,7 @@ export abstract class BaseProvider implements AIProvider {
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         toolChoice: shouldUseTools ? "auto" : "none",
         temperature: options.temperature,
-        maxTokens: options.maxTokens || 8192,
+        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
       });
 
       // Accumulate the streamed content

@@ -8,7 +8,6 @@ import type { NeuroLink } from "../neurolink.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
-import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
 import { getProviderModel } from "../utils/providerConfig.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
@@ -182,7 +181,7 @@ export class LiteLLMProvider extends BaseProvider {
         model: this.model,
         messages: messages,
         temperature: options.temperature,
-        maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools: options.tools,
         toolChoice: "auto",
         abortSignal: timeoutController?.controller.signal,

@@ -8,7 +8,7 @@ import type { NeuroLink } from "../neurolink.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
-import { DEFAULT_MAX_TOKENS, DEFAULT_MAX_STEPS } from "../core/constants.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import {
   validateApiKey,
   createMistralConfig,
@@ -86,7 +86,7 @@ export class MistralProvider extends BaseProvider {
         model: this.model,
         messages: messages,
         temperature: options.temperature,
-        maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools,
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         toolChoice: shouldUseTools ? "auto" : "none",

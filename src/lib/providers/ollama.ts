@@ -9,7 +9,6 @@ import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import type { Schema } from "ai";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
-import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
 import { modelConfig } from "../core/modelConfiguration.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import { TimeoutError } from "../utils/timeout.js";
@@ -168,11 +167,12 @@ class OllamaLanguageModel implements LanguageModelV1 {
     return {
       text: data.response,
       usage: {
-        promptTokens: data.prompt_eval_count || this.estimateTokens(prompt),
-        completionTokens: data.eval_count || this.estimateTokens(data.response),
+        promptTokens: data.prompt_eval_count ?? this.estimateTokens(prompt),
+        completionTokens:
+          data.eval_count ?? this.estimateTokens(String(data.response ?? "")),
         totalTokens:
-          (data.prompt_eval_count || this.estimateTokens(prompt)) +
-          (data.eval_count || this.estimateTokens(data.response)),
+          (data.prompt_eval_count ?? this.estimateTokens(prompt)) +
+          (data.eval_count ?? this.estimateTokens(String(data.response ?? ""))),
       },
       finishReason: "stop",
       rawCall: {
@@ -385,7 +385,7 @@ export class OllamaProvider extends BaseProvider {
    * @returns true for supported models, false for unsupported models
    */
   supportsTools(): boolean {
-    const modelName = this.modelName.toLowerCase();
+    const modelName = (this.modelName ?? getDefaultOllamaModel()).toLowerCase();
 
     // Get tool-capable models from configuration
     const ollamaConfig = modelConfig.getProviderConfiguration("ollama");
@@ -474,7 +474,7 @@ export class OllamaProvider extends BaseProvider {
         tool_choice: "auto",
         stream: true,
         temperature: options.temperature,
-        max_tokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        max_tokens: options.maxTokens,
       }),
       signal: createAbortSignalWithTimeout(this.timeout),
     });
@@ -522,7 +522,7 @@ export class OllamaProvider extends BaseProvider {
         stream: true,
         options: {
           temperature: options.temperature,
-          num_predict: options.maxTokens || DEFAULT_MAX_TOKENS,
+          num_predict: options.maxTokens,
         },
       }),
       signal: createAbortSignalWithTimeout(this.timeout),

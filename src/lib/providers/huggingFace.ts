@@ -12,7 +12,6 @@ import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
-import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
 import type { UnknownRecord } from "../types/common.js";
 import {
   validateApiKey,
@@ -170,7 +169,7 @@ export class HuggingFaceProvider extends BaseProvider {
         model: this.model,
         messages: messages,
         temperature: options.temperature,
-        maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools: streamOptions.tools as ToolSet, // Tools format conversion handled by prepareStreamOptions
         toolChoice: streamOptions.toolChoice as ToolChoice<ToolSet>, // Tool choice handled by prepareStreamOptions
         abortSignal: timeoutController?.controller.signal,

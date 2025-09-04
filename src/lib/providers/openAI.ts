@@ -13,7 +13,7 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/errors.js";
-import { DEFAULT_MAX_TOKENS, DEFAULT_MAX_STEPS } from "../core/constants.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import type { UnknownRecord } from "../types/common.js";
 import type { NeuroLink } from "../neurolink.js";
 import {
@@ -154,7 +154,7 @@ export class OpenAIProvider extends BaseProvider {
         model: this.model,
         messages: messages,
         temperature: options.temperature,
-        maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools,
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         toolChoice: shouldUseTools ? "auto" : "none",

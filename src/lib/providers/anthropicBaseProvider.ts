@@ -7,7 +7,6 @@ import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
-import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
 import {
   validateApiKey,
   createAnthropicBaseConfig,
@@ -108,7 +107,7 @@ export class AnthropicProviderV2 extends BaseProvider {
         prompt: options.input.text,
         system: options.systemPrompt,
         temperature: options.temperature,
-        maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools: options.tools,
         toolChoice: "auto",
         abortSignal: timeoutController?.controller.signal,

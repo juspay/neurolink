@@ -127,6 +127,8 @@ export class ProviderRegistry {
           return new AzureOpenAIProvider(modelName);
         },
         process.env.AZURE_MODEL ||
+          process.env.AZURE_OPENAI_MODEL ||
+          process.env.AZURE_OPENAI_DEPLOYMENT ||
           process.env.AZURE_OPENAI_DEPLOYMENT_ID ||
           "gpt-4o-mini",
         ["azure", "azureOpenai"],

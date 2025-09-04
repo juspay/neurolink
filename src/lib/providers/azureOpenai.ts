@@ -14,6 +14,7 @@ import {
 import { logger } from "../utils/logger.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 
 export class AzureOpenAIProvider extends BaseProvider {
   private apiKey: string;
@@ -30,9 +31,11 @@ export class AzureOpenAIProvider extends BaseProvider {
     this.resourceName = endpoint
       .replace("https://", "")
       .replace(/\/+$/, "") // Remove trailing slashes
-      .replace(".openai.azure.com", "");
+      .replace(".openai.azure.com", "")
+      .replace(".cognitiveservices.azure.com", "");
     this.deployment =
       modelName ||
+      process.env.AZURE_OPENAI_MODEL ||
       process.env.AZURE_OPENAI_DEPLOYMENT ||
       process.env.AZURE_OPENAI_DEPLOYMENT_ID ||
       "gpt-4o";
@@ -47,6 +50,7 @@ export class AzureOpenAIProvider extends BaseProvider {
     }
 
     // Create the Azure provider instance with proxy support
+    // Let the Azure SDK handle all URL construction automatically
     this.azureProvider = createAzure({
       resourceName: this.resourceName,
       apiKey: this.apiKey,
@@ -99,22 +103,63 @@ export class AzureOpenAIProvider extends BaseProvider {
     _analysisSchema?: unknown,
   ): Promise<StreamResult> {
     try {
+      // Get ALL available tools (direct + MCP + external from options) - EXACTLY like BaseProvider
+      const shouldUseTools = !options.disableTools && this.supportsTools();
+      const baseTools = shouldUseTools ? await this.getAllTools() : {};
+      const tools = shouldUseTools
+        ? {
+            ...baseTools,
+            ...(options.tools || {}), // Include external tools passed from NeuroLink
+          }
+        : undefined;
+
+      // DEBUG: Log detailed tool information
+      logger.debug("Azure Stream - Tool Loading Debug", {
+        shouldUseTools,
+        baseToolsProvided: !!baseTools,
+        baseToolCount: baseTools ? Object.keys(baseTools).length : 0,
+        finalToolCount: tools ? Object.keys(tools).length : 0,
+        toolNames: tools ? Object.keys(tools).slice(0, 10) : [],
+        disableTools: options.disableTools,
+        supportsTools: this.supportsTools(),
+        externalToolsCount: options.tools
+          ? Object.keys(options.tools).length
+          : 0,
+      });
+
+      if (tools && Object.keys(tools).length > 0) {
+        logger.debug("Azure Stream - First 5 Tools Detail", {
+          tools: Object.keys(tools)
+            .slice(0, 5)
+            .map((name) => ({
+              name,
+              description: tools[name]?.description?.substring(0, 100),
+            })),
+        });
+      }
+
       // Build message array from options
       const messages = buildMessagesArray(options);
 
       const stream = await streamText({
         model: this.azureProvider(this.deployment),
         messages: messages,
-        maxTokens: options.maxTokens || 1000,
-        temperature: options.temperature || 0.7,
+        ...(options.maxTokens !== null && options.maxTokens !== undefined
+          ? { maxTokens: options.maxTokens }
+          : {}),
+        ...(options.temperature !== null && options.temperature !== undefined
+          ? { temperature: options.temperature }
+          : {}),
+        tools,
+        toolChoice: shouldUseTools ? "auto" : "none",
+        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
       });
 
+      // Transform string stream to content object stream using BaseProvider method
+      const transformedStream = this.createTextStream(stream);
+
       return {
-        stream: (async function* () {
-          for await (const chunk of stream.textStream) {
-            yield { content: chunk };
-          }
-        })(),
+        stream: transformedStream,
         provider: "azure",
         model: this.deployment,
         metadata: {

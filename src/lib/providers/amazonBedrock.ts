@@ -289,7 +289,7 @@ export class AmazonBedrockProvider extends BaseProvider {
           },
         ],
         inferenceConfig: {
-          maxTokens: options.maxTokens || 4096,
+          maxTokens: options.maxTokens, // No default limit - unlimited unless specified
           temperature: options.temperature || 0.7,
         },
       };
@@ -1039,7 +1039,7 @@ export class AmazonBedrockProvider extends BaseProvider {
         },
       ],
       inferenceConfig: {
-        maxTokens: options.maxTokens || 4096,
+        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         temperature: options.temperature || 0.7,
       },
     };

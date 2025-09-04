@@ -218,7 +218,7 @@ Generate 3-5 comprehensive test cases covering the requested types.`;
 
       const result = await provider.generate({
         prompt: prompt,
-        maxTokens: Math.floor(DEFAULT_MAX_TOKENS * 1.2),
+        maxTokens: 10000, // High limit for complex analysis
         temperature: 0.3, // Lower temperature for more consistent structured output
       });
 
@@ -475,7 +475,7 @@ Focus on creating accurate, useful documentation that explains the code's purpos
 
       const result = await provider.generate({
         prompt: prompt,
-        maxTokens: Math.floor(DEFAULT_MAX_TOKENS * 1.2),
+        maxTokens: 10000, // High limit for complex analysis
         temperature: 0.3, // Moderate temperature for creative but structured documentation
       });
 

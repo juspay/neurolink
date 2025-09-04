@@ -1,14 +1,14 @@
-import express from 'express';
-import http from 'http';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { WebSocketServer } from 'ws';
-import { spawn } from 'child_process';
+import express from "express";
+import http from "http";
+import path from "path";
+import { fileURLToPath } from "url";
+import { WebSocketServer } from "ws";
+import { spawn } from "child_process";
 
 // Use built output of the SDK to avoid ts-node. Ensure build before running.
 // Disable MCP in demo to avoid starting external MCP servers
-process.env.NEUROLINK_DISABLE_MCP = process.env.NEUROLINK_DISABLE_MCP || 'true';
-import { NeuroLink } from '../../dist/index.js';
+process.env.NEUROLINK_DISABLE_MCP = process.env.NEUROLINK_DISABLE_MCP || "true";
+import { NeuroLink } from "../../dist/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,11 +20,11 @@ async function start() {
   const server = http.createServer(app);
 
   // Static files
-  const publicDir = path.resolve(__dirname, 'public');
+  const publicDir = path.resolve(__dirname, "public");
   app.use(express.static(publicDir));
 
   // Health
-  app.get('/health', (_req, res) => res.json({ ok: true }));
+  app.get("/health", (_req, res) => res.json({ ok: true }));
 
   // Helper to handle a connected WS client
   function handleConnection(ws) {
@@ -44,12 +44,12 @@ async function start() {
         }
       };
 
-      ws.on('message', async (data, isBinary) => {
+      ws.on("message", async (data, isBinary) => {
         try {
-          if (!isBinary && typeof data === 'string') {
+          if (!isBinary && typeof data === "string") {
             try {
               const msg = JSON.parse(data);
-              if (msg && msg.type === 'flush') {
+              if (msg && msg.type === "flush") {
                 // Push a zero-length buffer that the provider treats as a flush signal
                 frameQueue.push(Buffer.alloc(0));
                 dequeue();
@@ -68,7 +68,7 @@ async function start() {
         }
       });
 
-      ws.on('close', () => {
+      ws.on("close", () => {
         closed = true;
         if (frameResolve) {
           const resolve = frameResolve;
@@ -81,9 +81,13 @@ async function start() {
         [Symbol.asyncIterator]() {
           return {
             next() {
-              if (closed) return Promise.resolve({ value: undefined, done: true });
+              if (closed)
+                return Promise.resolve({ value: undefined, done: true });
               if (frameQueue.length > 0) {
-                return Promise.resolve({ value: frameQueue.shift(), done: false });
+                return Promise.resolve({
+                  value: frameQueue.shift(),
+                  done: false,
+                });
               }
               return new Promise((resolve) => {
                 frameResolve = resolve;
@@ -93,11 +97,13 @@ async function start() {
         },
       };
 
-      const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash-preview-native-audio-dialog';
+      const modelName =
+        process.env.GEMINI_MODEL ||
+        "gemini-2.5-flash-preview-native-audio-dialog";
       let streamResult;
       try {
         streamResult = await neurolink.stream({
-          provider: 'google-ai',
+          provider: "google-ai",
           model: modelName,
           input: {
             audio: {
@@ -109,7 +115,12 @@ async function start() {
           disableTools: true,
         });
       } catch (e) {
-        ws.send(JSON.stringify({ type: 'error', message: (e && e.message) || String(e) }));
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            message: (e && e.message) || String(e),
+          }),
+        );
         ws.close();
         return;
       }
@@ -118,7 +129,12 @@ async function start() {
         for await (const ev of streamResult.stream) {
           // Only forward audio chunks in Phase 1
           const anyEv = ev;
-          if (anyEv && typeof anyEv === 'object' && 'type' in anyEv && anyEv.type === 'audio') {
+          if (
+            anyEv &&
+            typeof anyEv === "object" &&
+            "type" in anyEv &&
+            anyEv.type === "audio"
+          ) {
             // Send raw PCM16LE bytes back to the client
             ws.send(anyEv.audio.data, { binary: true });
           }
@@ -130,7 +146,9 @@ async function start() {
         if (ws.readyState === ws.OPEN) ws.close();
       }
     })().catch(() => {
-      try { ws.close(); } catch {}
+      try {
+        ws.close();
+      } catch {}
     });
   }
 
@@ -138,29 +156,37 @@ async function start() {
   function setupShutdown(closeables) {
     const shutdown = (code = 0) => {
       for (const c of closeables) {
-        try { c(); } catch {}
+        try {
+          c();
+        } catch {}
       }
-      try { process.exit(code); } catch {}
+      try {
+        process.exit(code);
+      } catch {}
     };
-    process.on('SIGINT', () => shutdown(0));
-    process.on('SIGTERM', () => shutdown(0));
-    process.on('SIGHUP', () => shutdown(0));
-    process.on('uncaughtException', (err) => {
-      console.error('Uncaught exception:', err);
+    process.on("SIGINT", () => shutdown(0));
+    process.on("SIGTERM", () => shutdown(0));
+    process.on("SIGHUP", () => shutdown(0));
+    process.on("uncaughtException", (err) => {
+      console.error("Uncaught exception:", err);
       shutdown(1);
     });
-    process.on('unhandledRejection', (reason) => {
-      console.error('Unhandled rejection:', reason);
+    process.on("unhandledRejection", (reason) => {
+      console.error("Unhandled rejection:", reason);
       shutdown(1);
     });
-    process.on('beforeExit', () => {
+    process.on("beforeExit", () => {
       for (const c of closeables) {
-        try { c(); } catch {}
+        try {
+          c();
+        } catch {}
       }
     });
-    process.on('exit', () => {
+    process.on("exit", () => {
       for (const c of closeables) {
-        try { c(); } catch {}
+        try {
+          c();
+        } catch {}
       }
     });
   }
@@ -172,8 +198,8 @@ async function start() {
       const tryPort = i === 0 ? prefPort : prefPort + i;
       try {
         await new Promise((resolve, reject) => {
-          server.once('error', (err) => {
-            if (err && err.code === 'EADDRINUSE') return reject(err);
+          server.once("error", (err) => {
+            if (err && err.code === "EADDRINUSE") return reject(err);
             // Unexpected error
             reject(err);
           });
@@ -187,52 +213,62 @@ async function start() {
     }
     // Last resort: use ephemeral port 0
     await new Promise((resolve, reject) => {
-      server.once('error', reject);
+      server.once("error", reject);
       server.listen(0, resolve);
     });
     const addr = server.address();
-    return typeof addr === 'object' && addr ? addr.port : prefPort;
+    return typeof addr === "object" && addr ? addr.port : prefPort;
   }
 
   const boundPort = await listenWithFallback(PORT);
 
   // Now that the server is listening, attach WebSocketServer
-  const wss = new WebSocketServer({ server, path: '/ws' });
-  wss.on('connection', handleConnection);
-  wss.on('error', (e) => {
-    console.error('WebSocket error:', e?.message || e);
+  const wss = new WebSocketServer({ server, path: "/ws" });
+  wss.on("connection", handleConnection);
+  wss.on("error", (e) => {
+    console.error("WebSocket error:", e?.message || e);
   });
 
   // Setup graceful shutdown
   setupShutdown([
     () => {
-      try { for (const client of wss.clients) client.close(); } catch {}
-      try { wss.close(); } catch {}
+      try {
+        for (const client of wss.clients) client.close();
+      } catch {}
+      try {
+        wss.close();
+      } catch {}
     },
-    () => { try { server.close(); } catch {} },
+    () => {
+      try {
+        server.close();
+      } catch {}
+    },
   ]);
 
   const url = `http://localhost:${boundPort}`;
   console.log(`\n🗣️  Voice demo running at ${url}`);
   console.log(`   WS endpoint: ws://localhost:${boundPort}/ws`);
-  console.log(`\nNote: set GOOGLE_AI_API_KEY (or GEMINI_API_KEY) before running.`);
+  console.log(
+    `\nNote: set GOOGLE_AI_API_KEY (or GEMINI_API_KEY) before running.`,
+  );
   openBrowser(url);
 }
 
 function openBrowser(url) {
   const platform = process.platform;
   let cmd;
-  if (platform === 'darwin') cmd = 'open';
-  else if (platform === 'win32') cmd = 'start';
-  else cmd = 'xdg-open';
+  if (platform === "darwin") cmd = "open";
+  else if (platform === "win32") cmd = "start";
+  else cmd = "xdg-open";
   try {
-    spawn(cmd, [url], { stdio: 'ignore', detached: true }).unref();
+    spawn(cmd, [url], { stdio: "ignore", detached: true }).unref();
   } catch {
     console.log(`Please open your browser to ${url}`);
   }
 }
 
 start().catch((e) => {
-  console.error('Failed to start demo server:', e);
+  console.error("Failed to start demo server:", e);
   process.exit(1);
 });

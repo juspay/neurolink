@@ -8,7 +8,6 @@ import type { NeuroLink } from "../neurolink.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
-import { DEFAULT_MAX_TOKENS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 
@@ -243,7 +242,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
         prompt: options.input.text,
         system: options.systemPrompt,
         temperature: options.temperature,
-        maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools: options.tools,
         toolChoice: "auto",
         abortSignal: timeoutController?.controller.signal,
@@ -298,12 +297,16 @@ export class OpenAICompatibleProvider extends BaseProvider {
       logger.debug(`Fetching available models from: ${modelsUrl}`);
 
       const proxyFetch = createProxyFetch();
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 5000);
       const response = await proxyFetch(modelsUrl, {
         headers: {
           Authorization: `Bearer ${this.config.apiKey}`,
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
       });
+      clearTimeout(t);
 
       if (!response.ok) {
         logger.warn(

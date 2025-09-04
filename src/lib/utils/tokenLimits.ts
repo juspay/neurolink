@@ -3,7 +3,7 @@
  * Provides safe maxTokens values based on provider and model capabilities
  */
 
-import { PROVIDER_MAX_TOKENS, DEFAULT_MAX_TOKENS } from "../core/constants.js";
+import { PROVIDER_MAX_TOKENS } from "../core/constants.js";
 import { logger } from "./logger.js";
 
 /**
@@ -13,17 +13,14 @@ export function getSafeMaxTokens(
   provider: keyof typeof PROVIDER_MAX_TOKENS | string,
   model?: string,
   requestedMaxTokens?: number,
-): number {
+): number | undefined {
   // Get provider-specific limits
   const providerLimits =
     PROVIDER_MAX_TOKENS[provider as keyof typeof PROVIDER_MAX_TOKENS];
 
   if (!providerLimits) {
-    logger.warn(`Unknown provider ${provider}, using default maxTokens limit`);
-    return Math.min(
-      requestedMaxTokens || DEFAULT_MAX_TOKENS,
-      PROVIDER_MAX_TOKENS.default,
-    );
+    logger.warn(`Unknown provider ${provider}, no token limits enforced`);
+    return requestedMaxTokens || undefined; // No default limit for unknown providers
   }
 
   // Get model-specific limit or provider default
@@ -69,13 +66,21 @@ export function validateMaxTokens(
   provider: keyof typeof PROVIDER_MAX_TOKENS | string,
   model?: string,
   maxTokens?: number,
-): { isValid: boolean; recommendedMaxTokens: number; warning?: string } {
+): { isValid: boolean; recommendedMaxTokens?: number; warning?: string } {
   const safeMaxTokens = getSafeMaxTokens(provider, model, maxTokens);
 
   if (!maxTokens) {
     return {
       isValid: true,
       recommendedMaxTokens: safeMaxTokens,
+    };
+  }
+
+  // If no limits are defined, validation always passes
+  if (safeMaxTokens === undefined) {
+    return {
+      isValid: true,
+      recommendedMaxTokens: maxTokens,
     };
   }
 

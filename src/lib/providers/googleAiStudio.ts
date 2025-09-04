@@ -19,7 +19,7 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/errors.js";
-import { DEFAULT_MAX_TOKENS, DEFAULT_MAX_STEPS } from "../core/constants.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
 
@@ -75,7 +75,7 @@ type GoogleGenAIClass = new (cfg: { apiKey: string }) => GenAIClient;
 
 // Create Google GenAI client
 async function createGoogleGenAIClient(apiKey: string): Promise<GenAIClient> {
-  const mod: unknown = await import("@google/genai");
+  const mod: unknown = await import("@google/generative-ai");
   const ctor = (mod as Record<string, unknown>).GoogleGenAI as unknown;
   if (!ctor) {
     throw new Error("@google/genai does not export GoogleGenAI");
@@ -198,7 +198,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
         model,
         messages: messages,
         temperature: options.temperature,
-        maxTokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools,
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         toolChoice: shouldUseTools ? "auto" : "none",

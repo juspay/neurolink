@@ -117,6 +117,11 @@ const DEFAULT_MIN_CONCURRENCY = 1;
 
 /**
  * SageMaker Language Model implementing LanguageModelV1 interface
+ *
+ * Token Limit Behavior:
+ * - When maxTokens is undefined, SageMaker uses the model's default token limits
+ * - When maxTokens is specified, it sets max_new_tokens parameter explicitly
+ * - This aligns with the unlimited-by-default token policy across all providers
  */
 export class SageMakerLanguageModel implements LanguageModelV1 {
   readonly specificationVersion = "v1";
@@ -534,7 +539,10 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
     const request: UnknownRecord = {
       inputs: promptText,
       parameters: {
-        max_new_tokens: options.maxTokens || 512,
+        // Only include max_new_tokens if explicitly specified; let SageMaker use model defaults otherwise
+        ...(options.maxTokens !== undefined
+          ? { max_new_tokens: options.maxTokens }
+          : {}),
         temperature: options.temperature || 0.7,
         top_p: options.topP || 0.9,
         stop: options.stopSequences || [],

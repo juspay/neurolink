@@ -156,6 +156,29 @@ export class AIProviderFactory {
               `[${functionTag}] No Vertex environment variables found (VERTEX_MODEL)`,
             );
           }
+        } else if (providerName.toLowerCase().includes("azure")) {
+          const envModel =
+            process.env.AZURE_OPENAI_MODEL ||
+            process.env.AZURE_OPENAI_DEPLOYMENT ||
+            process.env.AZURE_OPENAI_DEPLOYMENT_ID;
+          if (envModel) {
+            resolvedModelName = envModel;
+            logger.debug(
+              `[${functionTag}] Environment variable found for Azure`,
+              {
+                envVariable: process.env.AZURE_OPENAI_MODEL
+                  ? "AZURE_OPENAI_MODEL"
+                  : process.env.AZURE_OPENAI_DEPLOYMENT
+                    ? "AZURE_OPENAI_DEPLOYMENT"
+                    : "AZURE_OPENAI_DEPLOYMENT_ID",
+                resolvedModel: envModel,
+              },
+            );
+          } else {
+            logger.debug(
+              `[${functionTag}] No Azure environment variables found (AZURE_OPENAI_MODEL, AZURE_OPENAI_DEPLOYMENT, AZURE_OPENAI_DEPLOYMENT_ID)`,
+            );
+          }
         } else {
           logger.debug(
             `[${functionTag}] Provider ${providerName} - no environment variable check implemented`,
