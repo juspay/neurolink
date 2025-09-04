@@ -17,7 +17,6 @@ import {
   BedrockClient,
   ListFoundationModelsCommand,
 } from "@aws-sdk/client-bedrock";
-
 import { BaseProvider } from "../core/baseProvider.js";
 import type {
   AIProviderName,
@@ -27,34 +26,17 @@ import type {
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { ToolDefinition, ToolArgs } from "../types/tools.js";
 import type { JsonValue } from "../types/common.js";
+import type {
+  BedrockContentBlock,
+  BedrockMessage,
+} from "../types/providers.js";
 import type { NeuroLink } from "../neurolink.js";
 import { logger } from "../utils/logger.js";
 import type { DocumentType } from "@smithy/types";
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
 import type { ZodUnknownSchema } from "../types/typeAliases.js";
 
-interface BedrockToolUse {
-  toolUseId: string;
-  name: string;
-  input: Record<string, unknown>;
-}
-
-interface BedrockToolResult {
-  toolUseId: string;
-  content: Array<{ text: string }>;
-  status: string;
-}
-
-interface BedrockContentBlock {
-  text?: string;
-  toolUse?: BedrockToolUse;
-  toolResult?: BedrockToolResult;
-}
-
-interface BedrockMessage {
-  role: "user" | "assistant";
-  content: BedrockContentBlock[];
-}
+// Bedrock-specific types now imported from ../types/providerSpecific.js
 
 export class AmazonBedrockProvider extends BaseProvider {
   private bedrockClient: BedrockRuntimeClient;

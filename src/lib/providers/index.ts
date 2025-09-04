@@ -18,33 +18,3 @@ export { LiteLLMProvider as LiteLLM } from "./litellm.js";
 
 // Re-export the AIProvider type for convenience
 export type { AIProvider } from "../types/index.js";
-
-/**
- * Provider registry for dynamic provider instantiation
- */
-export const PROVIDERS = {
-  vertex: "GoogleVertexAI",
-  bedrock: "AmazonBedrock",
-  sagemaker: "AmazonSageMaker",
-  openai: "OpenAI",
-  "openai-compatible": "OpenAICompatible",
-  anthropic: "AnthropicProvider",
-  azure: "AzureOpenAIProvider",
-  "google-ai": "GoogleAIStudio",
-  huggingface: "HuggingFace",
-  ollama: "Ollama",
-  mistral: "MistralAI",
-  litellm: "LiteLLM",
-} as const;
-
-/**
- * Type for valid provider names
- */
-export type ProviderName = keyof typeof PROVIDERS;
-
-/**
- * List of all available provider names
- */
-export const AVAILABLE_PROVIDERS: ProviderName[] = Object.keys(
-  PROVIDERS,
-) as ProviderName[];

@@ -9,6 +9,11 @@ import type {
   AudioChunk,
 } from "../types/streamTypes.js";
 import type { UnknownRecord } from "../types/common.js";
+import type {
+  LiveServerMessage,
+  GenAIClient,
+  GoogleGenAIClass,
+} from "../types/providers.js";
 import type { NeuroLink } from "../neurolink.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
@@ -23,55 +28,7 @@ import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import { buildMessagesArray } from "../utils/messageBuilder.js";
 
-// Interfaces setup
-interface GenAILiveMedia {
-  data: string;
-  mimeType: string;
-}
-interface LiveServerMessagePartInlineData {
-  data?: string;
-}
-interface LiveServerMessageModelTurn {
-  parts?: Array<{ inlineData?: LiveServerMessagePartInlineData }>;
-}
-interface LiveServerContent {
-  modelTurn?: LiveServerMessageModelTurn;
-  interrupted?: boolean;
-}
-interface LiveServerMessage {
-  serverContent?: LiveServerContent;
-}
-interface LiveConnectCallbacks {
-  onopen?: () => void;
-  onmessage?: (message: LiveServerMessage) => void;
-  onerror?: (e: { message?: string }) => void;
-  onclose?: (e: { code?: number; reason?: string }) => void;
-}
-interface LiveConnectConfig {
-  model: string;
-  callbacks: LiveConnectCallbacks;
-  config: {
-    responseModalities: string[];
-    speechConfig: {
-      voiceConfig: { prebuiltVoiceConfig: { voiceName: string } };
-    };
-  };
-}
-interface GenAILiveSession {
-  sendRealtimeInput?: (payload: {
-    media?: GenAILiveMedia;
-    event?: string;
-  }) => Promise<void> | void;
-  sendInput?: (payload: {
-    event?: string;
-    media?: GenAILiveMedia;
-  }) => Promise<void> | void;
-  close?: (code?: number, reason?: string) => Promise<void> | void;
-}
-interface GenAIClient {
-  live: { connect: (config: LiveConnectConfig) => Promise<GenAILiveSession> };
-}
-type GoogleGenAIClass = new (cfg: { apiKey: string }) => GenAIClient;
+// Google AI Live API types now imported from ../types/providerSpecific.js
 
 // Create Google GenAI client
 async function createGoogleGenAIClient(apiKey: string): Promise<GenAIClient> {

@@ -20,20 +20,7 @@ import {
   runQuickDiagnostics,
   formatDiagnosticReport,
 } from "../../lib/providers/sagemaker/diagnostics.js";
-
-/**
- * Secure configuration container that avoids process.env exposure
- */
-interface SecureConfiguration {
-  accessKeyId: string;
-  secretAccessKey: string;
-  region: string;
-  endpointName: string;
-  timeout: number;
-  maxRetries: number;
-  sessionId: string;
-  createdAt: number;
-}
+import type { SecureConfiguration } from "../../lib/types/cli.js";
 
 /**
  * Factory for creating SageMaker CLI commands using the Factory Pattern

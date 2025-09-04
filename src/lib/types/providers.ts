@@ -558,6 +558,157 @@ export type AISDKGenerateResult = GenerateResult & {
   [key: string]: unknown;
 };
 
+// ============================================================================
+// Provider-Specific Type Definitions
+// ============================================================================
+
+// ============================================================================
+// Amazon Bedrock Provider Types
+// ============================================================================
+
+/**
+ * Bedrock tool usage structure
+ */
+export type BedrockToolUse = {
+  toolUseId: string;
+  name: string;
+  input: Record<string, unknown>;
+};
+
+/**
+ * Bedrock tool result structure
+ */
+export type BedrockToolResult = {
+  toolUseId: string;
+  content: Array<{ text: string }>;
+  status: string;
+};
+
+/**
+ * Bedrock content block structure
+ */
+export type BedrockContentBlock = {
+  text?: string;
+  toolUse?: BedrockToolUse;
+  toolResult?: BedrockToolResult;
+};
+
+/**
+ * Bedrock message structure
+ */
+export type BedrockMessage = {
+  role: "user" | "assistant";
+  content: BedrockContentBlock[];
+};
+
+// ============================================================================
+// Google AI Studio Provider Types (Live API)
+// ============================================================================
+
+/**
+ * Google AI Live media configuration
+ */
+export type GenAILiveMedia = {
+  data: string;
+  mimeType: string;
+};
+
+/**
+ * Live server message inline data
+ */
+export type LiveServerMessagePartInlineData = {
+  data?: string;
+};
+
+/**
+ * Live server message model turn
+ */
+export type LiveServerMessageModelTurn = {
+  parts?: Array<{ inlineData?: LiveServerMessagePartInlineData }>;
+};
+
+/**
+ * Live server content structure
+ */
+export type LiveServerContent = {
+  modelTurn?: LiveServerMessageModelTurn;
+  interrupted?: boolean;
+};
+
+/**
+ * Live server message structure
+ */
+export type LiveServerMessage = {
+  serverContent?: LiveServerContent;
+};
+
+/**
+ * Live connection callbacks
+ */
+export type LiveConnectCallbacks = {
+  onopen?: () => void;
+  onmessage?: (message: LiveServerMessage) => void;
+  onerror?: (e: { message?: string }) => void;
+  onclose?: (e: { code?: number; reason?: string }) => void;
+};
+
+/**
+ * Live connection configuration
+ */
+export type LiveConnectConfig = {
+  model: string;
+  callbacks: LiveConnectCallbacks;
+  config: {
+    responseModalities: string[];
+    speechConfig: {
+      voiceConfig: { prebuiltVoiceConfig: { voiceName: string } };
+    };
+  };
+};
+
+/**
+ * Google AI Live session interface
+ */
+export type GenAILiveSession = {
+  sendRealtimeInput?: (payload: {
+    media?: GenAILiveMedia;
+    event?: string;
+  }) => Promise<void> | void;
+  sendInput?: (payload: {
+    event?: string;
+    media?: GenAILiveMedia;
+  }) => Promise<void> | void;
+  close?: (code?: number, reason?: string) => Promise<void> | void;
+};
+
+/**
+ * Google AI client interface
+ */
+export type GenAIClient = {
+  live: { connect: (config: LiveConnectConfig) => Promise<GenAILiveSession> };
+};
+
+/**
+ * Google GenAI constructor type
+ */
+export type GoogleGenAIClass = new (cfg: { apiKey: string }) => GenAIClient;
+
+// ============================================================================
+// OpenAI Compatible Provider Types
+// ============================================================================
+
+/**
+ * OpenAI-compatible models endpoint response structure
+ */
+export type ModelsResponse = {
+  data: Array<{
+    id: string;
+    object: string;
+    created?: number;
+    owned_by?: string;
+  }>;
+};
+
 /**
  * Default model aliases for easy reference
  */

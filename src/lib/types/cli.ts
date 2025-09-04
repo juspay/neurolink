@@ -8,9 +8,9 @@ import type { EvaluationData } from "../index.js";
 import type { ToolCall, ToolResult } from "./tools.js";
 
 /**
- * Base command arguments interface
+ * Base command arguments type
  */
-export interface BaseCommandArgs {
+export type BaseCommandArgs = {
   /** Enable debug output */
   debug?: boolean;
   /** Output format */
@@ -21,12 +21,12 @@ export interface BaseCommandArgs {
   quiet?: boolean;
   /** Index signature to allow additional properties */
   [key: string]: unknown;
-}
+};
 
 /**
  * Generate command arguments
  */
-export interface GenerateCommandArgs extends BaseCommandArgs {
+export type GenerateCommandArgs = BaseCommandArgs & {
   /** Input text or prompt */
   input?: string;
   /** AI provider to use */
@@ -51,12 +51,12 @@ export interface GenerateCommandArgs extends BaseCommandArgs {
   maxSteps?: number;
   /** Output file */
   output?: string;
-}
+};
 
 /**
  * Stream command arguments
  */
-export interface StreamCommandArgs extends BaseCommandArgs {
+export type StreamCommandArgs = BaseCommandArgs & {
   /** Input text or prompt */
   input?: string;
   /** AI provider to use */
@@ -71,12 +71,12 @@ export interface StreamCommandArgs extends BaseCommandArgs {
   maxTokens?: number;
   /** Disable tools */
   disableTools?: boolean;
-}
+};
 
 /**
  * Batch command arguments
  */
-export interface BatchCommandArgs extends BaseCommandArgs {
+export type BatchCommandArgs = BaseCommandArgs & {
   /** Input file path */
   file?: string;
   /** AI provider to use */
@@ -95,12 +95,12 @@ export interface BatchCommandArgs extends BaseCommandArgs {
   output?: string;
   /** Disable tools */
   disableTools?: boolean;
-}
+};
 
 /**
  * MCP command arguments - Enhanced with transport and server management
  */
-export interface MCPCommandArgs extends BaseCommandArgs {
+export type MCPCommandArgs = BaseCommandArgs & {
   /** MCP server name */
   server?: string;
   /** MCP server name (alias for server) */
@@ -141,12 +141,12 @@ export interface MCPCommandArgs extends BaseCommandArgs {
   source?: string;
   /** Connection timeout */
   timeout?: number;
-}
+};
 
 /**
  * Models command arguments - Enhanced for model management
  */
-export interface ModelsCommandArgs extends Omit<BaseCommandArgs, "format"> {
+export type ModelsCommandArgs = Omit<BaseCommandArgs, "format"> & {
   // List command options
   /** AI provider to query (single or array) */
   provider?: string | string[];
@@ -230,12 +230,12 @@ export interface ModelsCommandArgs extends Omit<BaseCommandArgs, "format"> {
   resolve?: boolean;
   /** Maximum tokens filter */
   maxTokens?: number;
-}
+};
 
 /**
  * Ollama command arguments
  */
-export interface OllamaCommandArgs extends BaseCommandArgs {
+export type OllamaCommandArgs = BaseCommandArgs & {
   /** Ollama model name */
   model?: string;
   /** List available models */
@@ -246,12 +246,12 @@ export interface OllamaCommandArgs extends BaseCommandArgs {
   remove?: boolean;
   /** Show model information */
   show?: boolean;
-}
+};
 
 /**
  * SageMaker command arguments
  */
-export interface SageMakerCommandArgs extends BaseCommandArgs {
+export type SageMakerCommandArgs = BaseCommandArgs & {
   /** SageMaker endpoint name */
   endpoint?: string;
   /** Model name for the endpoint */
@@ -282,22 +282,36 @@ export interface SageMakerCommandArgs extends BaseCommandArgs {
   region?: string;
   /** Force operation without confirmation */
   force?: boolean;
-}
+};
+
+/**
+ * Secure configuration container that avoids process.env exposure
+ */
+export type SecureConfiguration = {
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+  endpointName: string;
+  timeout: number;
+  maxRetries: number;
+  sessionId: string;
+  createdAt: number;
+};
 
 /**
  * Provider status command arguments
  */
-export interface ProviderStatusArgs extends BaseCommandArgs {
+export type ProviderStatusArgs = BaseCommandArgs & {
   /** Specific provider to check */
   provider?: string;
   /** Check all providers */
   all?: boolean;
-}
+};
 
 /**
  * CLI command result
  */
-export interface CommandResult {
+export type CommandResult = {
   /** Command success status */
   success: boolean;
   /** Result data */
@@ -312,12 +326,12 @@ export interface CommandResult {
     timestamp?: number;
     command?: string;
   };
-}
+};
 
 /**
  * Generate command result
  */
-export interface GenerateResult extends CommandResult {
+export type GenerateResult = CommandResult & {
   content: string;
   provider?: string;
   model?: string;
@@ -339,27 +353,27 @@ export interface GenerateResult extends CommandResult {
     name: string;
     description: string;
   }>;
-}
+};
 
 /**
  * Stream result chunk
  */
-export interface StreamChunk {
+export type StreamChunk = {
   content?: string;
   delta?: string;
   done?: boolean;
   metadata?: UnknownRecord;
-}
+};
 
 /**
  * CLI output formatting options
  */
-export interface OutputOptions {
-  format: "text" | "json" | "table";
+export type OutputOptions = {
+  format: "text" | "json" | "table" | "yaml";
   pretty?: boolean;
   color?: boolean;
   compact?: boolean;
-}
+};
 
 /**
  * Command handler function type
@@ -371,7 +385,7 @@ export type CommandHandler<TArgs = BaseCommandArgs, TResult = CommandResult> = (
 /**
  * Command definition
  */
-export interface CommandDefinition<TArgs = BaseCommandArgs> {
+export type CommandDefinition<TArgs = BaseCommandArgs> = {
   name: string;
   description: string;
   aliases?: string[];
@@ -384,42 +398,42 @@ export interface CommandDefinition<TArgs = BaseCommandArgs> {
     };
   };
   handler: CommandHandler<TArgs>;
-}
+};
 
 /**
  * CLI context
  */
-export interface CLIContext {
+export type CLIContext = {
   cwd: string;
   args: string[];
   env: NodeJS.ProcessEnv;
   exitCode?: number;
-}
+};
 
 /**
  * Color mapping for CLI output
  */
-export interface ColorMap {
+export type ColorMap = {
   [severity: string]: {
     color: string;
     symbol?: string;
   };
-}
+};
 
 /**
  * Display severity colors (for evaluation display)
  */
-export interface SeverityColors {
+export type SeverityColors = {
   [key: string]: {
     color: string;
     symbol: string;
   };
-}
+};
 
 /**
  * JSON output structure
  */
-export interface JSONOutput {
+export type JSONOutput = {
   success: boolean;
   data?: JsonValue;
   error?: string;
@@ -428,14 +442,14 @@ export interface JSONOutput {
     command: string;
     version?: string;
   };
-}
+};
 
 /**
  * Console override for quiet mode
  */
-export interface ConsoleOverride {
+export type ConsoleOverride = {
   [method: string]: (() => void) | undefined;
-}
+};
 
 /**
  * Type guard for generate result
