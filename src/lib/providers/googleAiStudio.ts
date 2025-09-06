@@ -75,7 +75,7 @@ type GoogleGenAIClass = new (cfg: { apiKey: string }) => GenAIClient;
 
 // Create Google GenAI client
 async function createGoogleGenAIClient(apiKey: string): Promise<GenAIClient> {
-  const mod: unknown = await import("@google/generative-ai");
+  const mod: unknown = await import("@google/genai");
   const ctor = (mod as Record<string, unknown>).GoogleGenAI as unknown;
   if (!ctor) {
     throw new Error("@google/genai does not export GoogleGenAI");

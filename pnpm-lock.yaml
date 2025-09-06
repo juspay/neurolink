@@ -128,6 +128,9 @@ importers:
       mathjs:
         specifier: ^14.5.3
         version: 14.5.3
+      nanoid:
+        specifier: ^5.1.5
+        version: 5.1.5
       ollama-ai-provider:
         specifier: ^1.2.0
         version: 1.2.0(zod@3.25.62)
@@ -3798,6 +3801,11 @@ packages:
   nanoid@3.3.11:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
+    hasBin: true
+
+  nanoid@5.1.5:
+    resolution: {integrity: sha512-Ir/+ZpE9fDsNH0hQ3C68uyThDXzYcim2EqcZ8zn8Chtt1iylPT9xXJB0kPCnqzgcEGikO9RxSrh63MsmVCU7Fw==}
+    engines: {node: ^18 || >=20}
     hasBin: true
 
   natural-compare@1.4.0:
@@ -9877,6 +9885,8 @@ snapshots:
   nano-spawn@1.0.2: {}
 
   nanoid@3.3.11: {}
+
+  nanoid@5.1.5: {}
 
   natural-compare@1.4.0: {}
 

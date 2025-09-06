@@ -537,6 +537,232 @@ await neurolink.generate({
 
 ---
 
+## 💬 **INTERACTIVE LOOP MODE ARCHITECTURE** (2025-09-06) - PRODUCTION READY
+
+### **Core Loop Session Architecture**
+```typescript
+// Persistent interactive CLI session with state management
+export class LoopSession {
+  private initializeCliParser: () => Argv;
+  private isRunning = false;
+  private sessionId?: string;
+  private sessionVariablesSchema: Record<string, OptionSchema>;
+
+  async start(): Promise<void> {
+    // Initialize global session state with nanoid-based session ID
+    this.sessionId = globalSession.setLoopSession(this.conversationMemoryConfig);
+    
+    // Display ASCII banner and session info
+    logger.always(chalk.bold.green(NEUROLINK_BANNER));
+    
+    // Enter interactive prompt loop
+    while (this.isRunning) {
+      const answers = await inquirer.prompt([{
+        type: "input",
+        name: "command",
+        message: chalk.blue.bold("neurolink"),
+        prefix: chalk.blue.green("⎔"),
+        suffix: chalk.blue.green(" »"),
+      }]);
+    }
+  }
+}
+```
+
+### **Global Session Management Pattern**
+```typescript
+// Singleton session manager with persistent state
+export class GlobalSessionManager {
+  private static instance: GlobalSessionManager;
+  private loopSession: LoopSessionState | null = null;
+
+  setLoopSession(config?: ConversationMemoryConfig): string {
+    const sessionId = `NL_${nanoid()}`;  // Unique session identifier
+    
+    this.loopSession = {
+      neurolinkInstance: new NeuroLink(neurolinkOptions),
+      sessionId,
+      isActive: true,
+      conversationMemoryConfig: config,
+      sessionVariables: {},  // Persistent session variables
+    };
+    
+    return sessionId;
+  }
+}
+```
+
+### **Session Variable Management**
+```typescript
+// Typed session variable system
+type SessionVariableValue = string | number | boolean;
+
+interface LoopSessionState {
+  neurolinkInstance: NeuroLink;
+  sessionId: string;
+  isActive: boolean;
+  conversationMemoryConfig?: ConversationMemoryConfig;
+  sessionVariables: Record<string, SessionVariableValue>;
+}
+
+// Session commands: set, get, unset, show, clear
+// Example: set provider openai
+//          set model gpt-4
+//          get provider
+//          show  # Shows all variables
+```
+
+### **Interactive Command Processing Pattern**
+```typescript
+// Command classification and routing
+private async handleSessionCommands(command: string): Promise<boolean> {
+  const parts = command.split(" ");
+  const cmd = parts[0].toLowerCase();
+
+  switch (cmd) {
+    case "help":    // Show available commands
+    case "set":     // Set session variable with validation
+    case "get":     // Get session variable value
+    case "unset":   // Remove session variable
+    case "show":    // Display all session variables
+    case "clear":   // Clear all session variables
+    case "exit":    // Exit loop mode
+      // Handle session-specific commands
+      return true;
+    
+    default:
+      // Pass through to standard CLI command processing
+      return false;
+  }
+}
+```
+
+### **Session-Aware Error Handling Pattern**
+```typescript
+// Error handling that preserves session state
+try {
+  const yargsInstance = this.initializeCliParser();
+  await yargsInstance
+    .scriptName("")
+    .fail((msg, err) => {
+      throw err || new Error(msg);  // Re-throw for loop handling
+    })
+    .exitProcess(false)             // Prevent process exit
+    .parse(command);
+} catch (error) {
+  handleError(error as Error, "An unexpected error occurred");
+  // Continue loop instead of exiting
+}
+```
+
+### **Conversation Memory Integration**
+```typescript
+// Automatic session-based conversation memory
+const neurolinkOptions: NeuroLinkInitOptions = {};
+
+if (config?.enabled) {
+  neurolinkOptions.conversationMemory = {
+    enabled: true,
+    maxSessions: config.maxSessions,
+    maxTurnsPerSession: config.maxTurnsPerSession,
+  };
+}
+
+// Each loop session gets its own NeuroLink instance with memory
+this.loopSession = {
+  neurolinkInstance: new NeuroLink(neurolinkOptions),
+  sessionId,
+  // ... other session state
+};
+```
+
+### **Professional UX Patterns**
+```typescript
+// ASCII Banner Display
+const NEUROLINK_BANNER = `
+▗▖  ▗▖▗▄▄▄▖▗▖ ▗▖▗▄▄▖  ▗▄▖ ▗▖   ▗▄▄▄▖▗▖  ▗▖▗▖ ▗▖
+▐▛▚▖▐▌▐▌   ▐▌ ▐▌▐▌ ▐▌▐▌ ▐▌▐▌     █  ▐▛▚▖▐▌▐▌▗▞▘
+▐▌ ▝▜▌▐▛▀▀▘▐▌ ▐▌▐▛▀▚▖▐▌ ▐▌▐▌     █  ▐▌ ▝▜▌▐▛▚▖ 
+▐▌  ▐▌▐▙▄▄▖▝▚▄▞▘▐▌ ▐▌▝▚▄▞▘▐▙▄▄▖▗▄█▄▖▐▌  ▐▌▐▌ ▐▌
+`;
+
+// Colored prompt with visual indicators
+message: chalk.blue.bold("neurolink"),
+prefix: chalk.blue.green("⎔"),
+suffix: chalk.blue.green(" »"),
+
+// Status information display
+logger.always(chalk.gray(`Session ID: ${this.sessionId}`));
+logger.always(chalk.gray("Conversation memory enabled"));
+```
+
+### **CLI Integration Architecture**
+```typescript
+// Loop mode integration in main CLI
+if (argv.loop) {
+  const loopSession = new LoopSession(
+    initializeCliParser,
+    argv.conversationMemory ? {
+      enabled: true,
+      maxSessions: argv.conversationMemory.maxSessions || 100,
+      maxTurnsPerSession: argv.conversationMemory.maxTurnsPerSession || 50,
+    } : undefined
+  );
+  
+  await loopSession.start();
+  return;  // Exit after loop ends
+}
+```
+
+### **Session Lifecycle Management**
+```typescript
+// Complete session lifecycle
+1. Session Initialization:
+   - Generate unique nanoid-based session ID
+   - Create dedicated NeuroLink instance
+   - Initialize session variables storage
+   - Display welcome banner and session info
+
+2. Interactive Loop:
+   - Present inquirer prompt
+   - Parse and classify commands
+   - Handle session commands (set/get/show/clear)
+   - Pass through CLI commands to yargs parser
+   - Maintain session state across commands
+
+3. Session Cleanup:
+   - Clear session state on exit
+   - Cleanup global session manager
+   - Display exit message
+```
+
+### **Session Variable Schema Pattern**
+```typescript
+// Type-safe session variable validation
+private sessionVariablesSchema: Record<string, OptionSchema> = textGenerationOptionsSchema;
+
+// Validation during variable setting
+const schema = this.sessionVariablesSchema[key];
+if (!schema) {
+  logger.always(chalk.red(`Error: Unknown session variable "${key}".`));
+  return;
+}
+
+// Type checking
+if (schema.type === "boolean" && typeof value !== "boolean") {
+  logger.always(chalk.red(`Error: Invalid value for "${key}". Expected a boolean.`));
+  return;
+}
+
+// Allowed values validation
+if (schema.allowedValues && !schema.allowedValues.includes(String(value))) {
+  logger.always(chalk.red(`Error: Invalid value for "${key}".`));
+  return;
+}
+```
+
+---
+
 ## 🧪 **TESTING PATTERNS**
 
 ### **Comprehensive Test Coverage**

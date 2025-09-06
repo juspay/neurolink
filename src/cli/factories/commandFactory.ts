@@ -1,6 +1,7 @@
 import type { CommandModule, Argv } from "yargs";
-import { NeuroLink } from "../../lib/neurolink.js";
+import { globalSession } from "../../lib/session/globalSessionState.js";
 import type { UnknownRecord, JsonValue } from "../../lib/types/common.js";
+import type { ConversationMemoryConfig } from "../../lib/types/conversationTypes.js";
 import type {
   BaseCommandArgs,
   GenerateCommandArgs,
@@ -10,8 +11,10 @@ import type {
 } from "../../lib/types/cli.js";
 import type { TokenUsage, AnalyticsData } from "../../lib/types/index.js";
 import { configManager } from "../commands/config.js";
-import { handleError } from "../index.js";
+import { handleError } from "../errorHandler.js";
 import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";
+import { LoopSession } from "../loop/session.js";
+import { initializeCliParser } from "../parser.js";
 
 // Use TokenUsage from standard types - no local interface needed
 import {
@@ -219,10 +222,12 @@ export class CLICommandFactory {
             contextStr.length > 100
               ? `${contextStr.slice(0, 100)}...`
               : contextStr;
-          logger.error(
-            `Invalid JSON in --context parameter: ${(err as Error).message}. Received: ${truncatedJson}`,
+          handleError(
+            new Error(
+              `Invalid JSON in --context parameter: ${(err as Error).message}. Received: ${truncatedJson}`,
+            ),
+            "Context parsing",
           );
-          process.exit(1);
         }
       } else {
         rawContext = argv.context;
@@ -659,9 +664,11 @@ export class CLICommandFactory {
               if (result.valid) {
                 logger.always(chalk.green("✅ Configuration is valid"));
               } else {
-                logger.always(chalk.red("❌ Configuration has errors:"));
-                result.errors.forEach((error) => logger.always(`  • ${error}`));
-                process.exit(1);
+                const errorMessages = result.errors.join("\n  • ");
+                handleError(
+                  new Error(`Configuration has errors:\n  • ${errorMessages}`),
+                  "Configuration validation",
+                );
               }
             },
           )
@@ -698,9 +705,11 @@ export class CLICommandFactory {
         if (result.valid) {
           logger.always(chalk.green("✅ Configuration is valid"));
         } else {
-          logger.always(chalk.red("❌ Configuration has errors:"));
-          result.errors.forEach((error) => logger.always(`  • ${error}`));
-          throw new Error("Configuration is invalid. See errors above.");
+          const errorMessages = result.errors.join("\n  • ");
+          handleError(
+            new Error(`Configuration has errors:\n  • ${errorMessages}`),
+            "Configuration validation",
+          );
         }
       },
     };
@@ -735,6 +744,68 @@ export class CLICommandFactory {
    */
   static createSageMakerCommands(): CommandModule {
     return SageMakerCommandFactory.createSageMakerCommands();
+  }
+
+  /**
+   * Create completion command
+   */
+  /**
+   * Create loop command
+   */
+  static createLoopCommand(): CommandModule {
+    return {
+      command: "loop",
+      describe: "Start an interactive loop session",
+      builder: (yargs) =>
+        yargs
+          .option("enable-conversation-memory", {
+            type: "boolean",
+            description: "Enable conversation memory for the loop session",
+            default: false,
+          })
+          .option("max-sessions", {
+            type: "number",
+            description: "Maximum number of conversation sessions to keep",
+            default: 50,
+          })
+          .option("max-turns-per-session", {
+            type: "number",
+            description: "Maximum turns per conversation session",
+            default: 20,
+          })
+          .example("$0 loop", "Start interactive session")
+          .example(
+            "$0 loop --enable-conversation-memory",
+            "Start loop with memory",
+          ),
+      handler: async (argv) => {
+        if (globalSession.getCurrentSessionId()) {
+          logger.error(
+            "A loop session is already active. Cannot start a new one.",
+          );
+          return;
+        }
+
+        let conversationMemoryConfig: ConversationMemoryConfig | undefined;
+
+        const { enableConversationMemory, maxSessions, maxTurnsPerSession } =
+          argv;
+
+        if (enableConversationMemory) {
+          conversationMemoryConfig = {
+            enabled: true,
+            maxSessions: maxSessions as number,
+            maxTurnsPerSession: maxTurnsPerSession as number,
+          };
+        }
+
+        const session = new LoopSession(
+          initializeCliParser,
+          conversationMemoryConfig,
+        );
+        await session.start();
+      },
+    };
   }
 
   /**
@@ -775,6 +846,7 @@ export class CLICommandFactory {
     const spinner = argv.quiet
       ? null
       : ora("🔍 Checking AI provider status...\n").start();
+    const sdk = globalSession.getOrCreateNeuroLink();
 
     try {
       // Handle dry-run mode for provider status
@@ -836,7 +908,6 @@ export class CLICommandFactory {
       }
 
       // Use SDK's provider diagnostic method instead of manual testing
-      const sdk = new NeuroLink();
       const results = await sdk.getProviderStatus({ quiet: !!argv.quiet });
 
       if (spinner) {
@@ -873,8 +944,13 @@ export class CLICommandFactory {
       if (spinner) {
         spinner.fail("Provider status check failed");
       }
-      logger.error(chalk.red("Error checking provider status:"), error);
-      process.exit(1);
+      handleError(error as Error, "Provider status check");
+    } finally {
+      // Ensure all background processes are terminated
+      await sdk.shutdownExternalMCPServers();
+      if (!globalSession.getCurrentSessionId()) {
+        process.exit();
+      }
     }
   }
 
@@ -987,10 +1063,18 @@ export class CLICommandFactory {
           logger.debug("Mode: DRY-RUN (no actual API calls made)");
         }
 
-        process.exit(0);
+        if (!globalSession.getCurrentSessionId()) {
+          process.exit(0);
+        }
       }
 
-      const sdk = new NeuroLink();
+      const sdk = globalSession.getOrCreateNeuroLink();
+      const sessionVariables = globalSession.getSessionVariables();
+      const enhancedOptions = { ...options, ...sessionVariables };
+      const sessionId = globalSession.getCurrentSessionId();
+      const context = sessionId
+        ? { ...options.context, sessionId }
+        : options.context;
 
       if (options.debug) {
         logger.debug("CLI Tools configuration:", {
@@ -1001,21 +1085,25 @@ export class CLICommandFactory {
 
       const result = await sdk.generate({
         input: { text: inputText },
-        provider: options.provider,
-        model: options.model,
-        temperature: options.temperature,
-        maxTokens: options.maxTokens,
-        systemPrompt: options.systemPrompt,
-        timeout: options.timeout,
-        disableTools: options.disableTools,
-        enableAnalytics: options.enableAnalytics,
-        enableEvaluation: options.enableEvaluation,
-        evaluationDomain: options.evaluationDomain as string | undefined,
-        toolUsageContext: options.toolUsageContext as string | undefined,
-        context: contextMetadata,
-        factoryConfig: options.domain
+        provider: enhancedOptions.provider,
+        model: enhancedOptions.model,
+        temperature: enhancedOptions.temperature,
+        maxTokens: enhancedOptions.maxTokens,
+        systemPrompt: enhancedOptions.systemPrompt,
+        timeout: enhancedOptions.timeout,
+        disableTools: enhancedOptions.disableTools,
+        enableAnalytics: enhancedOptions.enableAnalytics,
+        enableEvaluation: enhancedOptions.enableEvaluation,
+        evaluationDomain: enhancedOptions.evaluationDomain as
+          | string
+          | undefined,
+        toolUsageContext: enhancedOptions.toolUsageContext as
+          | string
+          | undefined,
+        context: context,
+        factoryConfig: enhancedOptions.domain
           ? {
-              domainType: options.domain,
+              domainType: enhancedOptions.domain,
               enhancementType: "domain-configuration",
               validateDomainData: true,
             }
@@ -1024,6 +1112,15 @@ export class CLICommandFactory {
 
       if (spinner) {
         spinner.succeed(chalk.green("✅ Text generated successfully!"));
+      }
+
+      // Display provider and model info by default (unless quiet mode)
+      if (!options.quiet) {
+        const providerInfo = result.provider || "auto";
+        const modelInfo = result.model || "default";
+        logger.always(
+          chalk.gray(`🔧 Provider: ${providerInfo} | Model: ${modelInfo}`),
+        );
       }
 
       // Handle output with universal formatting
@@ -1044,7 +1141,9 @@ export class CLICommandFactory {
         }
       }
 
-      process.exit(0);
+      if (!globalSession.getCurrentSessionId()) {
+        process.exit(0);
+      }
     } catch (error) {
       if (spinner) {
         spinner.fail();
@@ -1235,25 +1334,40 @@ export class CLICommandFactory {
           logger.debug("Mode: DRY-RUN (no actual API calls made)");
         }
 
-        process.exit(0);
+        if (!globalSession.getCurrentSessionId()) {
+          process.exit(0);
+        }
       }
 
-      const sdk = new NeuroLink();
+      const sdk = globalSession.getOrCreateNeuroLink();
+      const sessionVariables = globalSession.getSessionVariables();
+      const enhancedOptions = { ...options, ...sessionVariables };
+      const sessionId = globalSession.getCurrentSessionId();
+      const context = sessionId
+        ? { ...contextMetadata, sessionId }
+        : contextMetadata;
+
       const stream = await sdk.stream({
         input: { text: inputText },
-        provider: options.provider,
-        model: options.model,
-        temperature: options.temperature,
-        maxTokens: options.maxTokens,
-        systemPrompt: options.systemPrompt,
-        timeout: options.timeout,
-        disableTools: options.disableTools,
-        enableAnalytics: options.enableAnalytics,
-        enableEvaluation: options.enableEvaluation,
-        context: contextMetadata,
-        factoryConfig: options.domain
+        provider: enhancedOptions.provider,
+        model: enhancedOptions.model,
+        temperature: enhancedOptions.temperature,
+        maxTokens: enhancedOptions.maxTokens,
+        systemPrompt: enhancedOptions.systemPrompt,
+        timeout: enhancedOptions.timeout,
+        disableTools: enhancedOptions.disableTools,
+        enableAnalytics: enhancedOptions.enableAnalytics,
+        enableEvaluation: enhancedOptions.enableEvaluation,
+        evaluationDomain: enhancedOptions.evaluationDomain as
+          | string
+          | undefined,
+        toolUsageContext: enhancedOptions.toolUsageContext as
+          | string
+          | undefined,
+        context: context,
+        factoryConfig: enhancedOptions.domain
           ? {
-              domainType: options.domain,
+              domainType: enhancedOptions.domain,
               enhancementType: "domain-configuration",
               validateDomainData: true,
             }
@@ -1401,7 +1515,9 @@ export class CLICommandFactory {
         await this.logStreamDebugInfo(stream);
       }
 
-      process.exit(0);
+      if (!globalSession.getCurrentSessionId()) {
+        process.exit(0);
+      }
     } catch (error) {
       handleError(error as Error, "Streaming");
     }
@@ -1448,7 +1564,10 @@ export class CLICommandFactory {
         error?: string;
       }> = [];
 
-      const sdk = new NeuroLink();
+      const sdk = globalSession.getOrCreateNeuroLink();
+      const sessionVariables = globalSession.getSessionVariables();
+      const enhancedOptions = { ...options, ...sessionVariables };
+      const sessionId = globalSession.getCurrentSessionId();
 
       for (let i = 0; i < prompts.length; i++) {
         if (spinner) {
@@ -1491,21 +1610,29 @@ export class CLICommandFactory {
             };
           }
 
+          const context = sessionId
+            ? { ...contextMetadata, sessionId }
+            : contextMetadata;
+
           const result = await sdk.generate({
             input: { text: inputText },
-            provider: options.provider,
-            model: options.model,
-            temperature: options.temperature,
-            maxTokens: options.maxTokens,
-            systemPrompt: options.systemPrompt,
-            timeout: options.timeout,
-            disableTools: options.disableTools,
-            enableAnalytics: options.enableAnalytics,
-            enableEvaluation: options.enableEvaluation,
-            context: contextMetadata,
-            factoryConfig: options.domain
+            provider: enhancedOptions.provider,
+            model: enhancedOptions.model,
+            temperature: enhancedOptions.temperature,
+            maxTokens: enhancedOptions.maxTokens,
+            systemPrompt: enhancedOptions.systemPrompt,
+            timeout: enhancedOptions.timeout,
+            disableTools: enhancedOptions.disableTools,
+            evaluationDomain: enhancedOptions.evaluationDomain as
+              | string
+              | undefined,
+            toolUsageContext: enhancedOptions.toolUsageContext as
+              | string
+              | undefined,
+            context: context,
+            factoryConfig: enhancedOptions.domain
               ? {
-                  domainType: options.domain as string,
+                  domainType: enhancedOptions.domain as string,
                   enhancementType: "domain-configuration",
                   validateDomainData: true,
                 }
@@ -1543,7 +1670,9 @@ export class CLICommandFactory {
       // Handle output with universal formatting
       this.handleOutput(results, options);
 
-      process.exit(0);
+      if (!globalSession.getCurrentSessionId()) {
+        process.exit(0);
+      }
     } catch (error) {
       if (spinner) {
         spinner.fail();

@@ -508,6 +508,43 @@ npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "an
 npx @juspay/neurolink generate "Write code" # Automatically chooses optimal provider
 ```
 
+## ✨ Interactive Loop Mode
+
+NeuroLink features a powerful **interactive loop mode** that transforms the CLI into a persistent, stateful session. This allows you to run multiple commands, set session-wide variables, and maintain conversation history without restarting.
+
+### Start the Loop
+
+```bash
+npx @juspay/neurolink loop
+```
+
+### Example Session
+
+```bash
+# Start the interactive session
+$ npx @juspay/neurolink loop
+
+neurolink » set provider google-ai
+✓ provider set to google-ai
+
+neurolink » set temperature 0.8
+✓ temperature set to 0.8
+
+neurolink » generate "Tell me a fun fact about space"
+The quietest place on Earth is an anechoic chamber at Microsoft's headquarters in Redmond, Washington. The background noise is so low that it's measured in negative decibels, and you can hear your own heartbeat.
+
+# Exit the session
+neurolink » exit
+```
+
+### Conversation Memory in Loop Mode
+
+Start the loop with conversation memory to have the AI remember the context of your previous commands.
+
+```bash
+npx @juspay/neurolink loop --enable-conversation-memory
+```
+
 ## 💻 Essential Examples
 
 ### CLI Commands
