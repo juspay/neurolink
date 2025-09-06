@@ -10,13 +10,18 @@ import type {
   EvaluationData,
 } from "../core/types.js";
 import type { ContextManagerConfig } from "../context/types.js";
+import type { TextContent, ImageContent } from "./content.js";
 
 /**
  * Generate function options interface - Primary method for content generation
- * Future-ready for multi-modal capabilities while maintaining text focus
+ * Supports multimodal content while maintaining backward compatibility
  */
 export interface GenerateOptions {
-  input: { text: string }; // Current scope: text input
+  input: {
+    text: string;
+    images?: Array<Buffer | string>; // Simple image support
+    content?: Array<TextContent | ImageContent>; // Advanced multimodal content
+  };
   output?: { format?: "text" | "structured" | "json" }; // Future extensible
 
   // Core options (inherited from TextGenerationOptions)

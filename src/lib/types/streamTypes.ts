@@ -11,6 +11,7 @@ import type {
 } from "../core/types.js";
 import type { UnknownRecord, Unknown, JsonValue } from "./common.js";
 import type { ChatMessage } from "./conversationTypes.js";
+import type { TextContent, ImageContent } from "./content.js";
 
 /**
  * Interface for tool execution calls (AI SDK compatible)
@@ -78,7 +79,11 @@ export interface StreamAnalyticsData {
  * Future-ready for multi-modal capabilities while maintaining text focus
  */
 export interface StreamOptions {
-  input: { text: string }; // Current scope: text input
+  input: {
+    text: string;
+    images?: Array<Buffer | string>; // Simple image support
+    content?: Array<TextContent | ImageContent>; // Advanced multimodal content
+  };
   output?: {
     format?: "text" | "structured" | "json";
     streaming?: {

@@ -23,7 +23,10 @@ import { directAgentTools } from "../agent/directTools.js";
 import { getSafeMaxTokens } from "../utils/tokenLimits.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
-import { buildMessagesArray } from "../utils/messageBuilder.js";
+import {
+  buildMessagesArray,
+  buildMultimodalMessagesArray,
+} from "../utils/messageBuilder.js";
 import type { GenerateResult } from "../types/generateTypes.js";
 import type { NeuroLink } from "../neurolink.js";
 import type { ExternalMCPToolInfo } from "../types/externalMcp.js";
@@ -262,11 +265,88 @@ export abstract class BaseProvider implements AIProvider {
       const model = await this.getAISDKModel(); // This method is now REQUIRED
 
       // Build proper message array with conversation history
-      const messages = buildMessagesArray(options);
+      // Check if this is a multimodal request (images or content present)
+      let messages;
+
+      // Type guard to check if options has multimodal input
+      const hasMultimodalInput = (opts: TextGenerationOptions): boolean => {
+        const hasImages = !!opts.input?.images?.length;
+        const hasContent = !!opts.input?.content?.length;
+
+        return hasImages || hasContent;
+      };
+
+      if (hasMultimodalInput(options)) {
+        if (process.env.NEUROLINK_DEBUG === "true") {
+          logger.info(
+            "🖼️ [MULTIMODAL-REQUEST] Detected multimodal input, using multimodal message builder",
+          );
+        }
+
+        // This is a multimodal request - use multimodal message builder
+        // Convert TextGenerationOptions to GenerateOptions format for multimodal processing
+        const multimodalOptions = {
+          input: {
+            text: options.prompt || options.input?.text || "",
+            images: options.input?.images,
+            content: options.input?.content,
+          },
+          provider: options.provider,
+          model: options.model,
+          temperature: options.temperature,
+          maxTokens: options.maxTokens,
+          systemPrompt: options.systemPrompt,
+          enableAnalytics: options.enableAnalytics,
+          enableEvaluation: options.enableEvaluation,
+          context: options.context,
+        };
+
+        messages = await buildMultimodalMessagesArray(
+          multimodalOptions,
+          this.providerName,
+          this.modelName,
+        );
+      } else {
+        if (process.env.NEUROLINK_DEBUG === "true") {
+          logger.info(
+            "📝 [TEXT-ONLY-REQUEST] No multimodal input detected, using standard message builder",
+          );
+        }
+
+        // Standard text-only request
+        messages = buildMessagesArray(options);
+      }
+
+      // Convert messages to Vercel AI SDK format
+      const aiSDKMessages = messages.map((msg) => {
+        if (typeof msg.content === "string") {
+          // Simple text content
+          return {
+            role: msg.role,
+            content: msg.content,
+          };
+        } else {
+          // Multimodal content array - convert to Vercel AI SDK format
+          // The Vercel AI SDK expects content to be in a specific format
+          return {
+            role: msg.role,
+            content: msg.content.map((item) => {
+              if (item.type === "text") {
+                return { type: "text", text: item.text || "" };
+              } else if (item.type === "image") {
+                return { type: "image", image: item.image || "" };
+              }
+              return item;
+            }),
+          };
+        }
+      });
 
       const result = await generateText({
         model,
-        messages: messages,
+        messages: aiSDKMessages as Parameters<
+          typeof generateText
+        >[0]["messages"],
         tools,
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         toolChoice: shouldUseTools ? "auto" : "none",
@@ -1154,13 +1234,25 @@ export abstract class BaseProvider implements AIProvider {
       optionsOrPrompt.maxTokens,
     );
 
-    return {
+    // CRITICAL FIX: Preserve the entire input object for multimodal support
+    // This ensures images and content arrays are not lost during normalization
+    const normalizedOptions: TextGenerationOptions = {
       ...optionsOrPrompt,
       prompt,
       provider: providerName,
       model: modelName,
       maxTokens: safeMaxTokens,
     };
+
+    // Ensure input object is preserved if it exists (for multimodal support)
+    if (optionsOrPrompt.input) {
+      normalizedOptions.input = {
+        ...optionsOrPrompt.input,
+        text: prompt, // Ensure text is consistent
+      };
+    }
+
+    return normalizedOptions;
   }
 
   protected normalizeStreamOptions(

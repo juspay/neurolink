@@ -72,6 +72,28 @@ export interface ChatMessage {
 }
 
 /**
+ * Content format for multimodal messages (used internally)
+ */
+export interface MessageContent {
+  type: string;
+  text?: string;
+  image?: string;
+  mimeType?: string;
+  [key: string]: unknown; // Index signature for compatibility with Vercel AI SDK
+}
+
+/**
+ * Extended chat message for multimodal support (internal use)
+ */
+export interface MultimodalChatMessage {
+  /** Role of the message sender */
+  role: "user" | "assistant" | "system";
+
+  /** Content of the message - can be text or multimodal content array */
+  content: string | MessageContent[];
+}
+
+/**
  * Events emitted by conversation memory system
  */
 export interface ConversationMemoryEvents {

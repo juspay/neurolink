@@ -161,10 +161,19 @@ export interface StreamingOptions {
 
 /**
  * Text generation options interface
+ * Extended to support multimodal content with zero breaking changes
  */
 export interface TextGenerationOptions {
   prompt?: string;
-  input?: { text: string }; // Alternative to prompt for SDK compatibility
+  input?: {
+    text: string;
+    // NEW: Multimodal support - zero breaking changes
+    images?: Array<Buffer | string>; // Simple image support
+    content?: Array<
+      | import("../types/content.js").TextContent
+      | import("../types/content.js").ImageContent
+    >; // Advanced multimodal content
+  }; // Alternative to prompt for SDK compatibility
   provider?: AIProviderName;
   model?: string;
   temperature?: number;

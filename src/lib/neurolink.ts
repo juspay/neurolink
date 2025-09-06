@@ -401,7 +401,7 @@ export class NeuroLink {
       }
     }
 
-    // Convert to TextGenerationOptions using factory utilities
+    // 🔧 CRITICAL FIX: Convert to TextGenerationOptions while preserving the input object for multimodal support
     const baseOptions: TextGenerationOptions = {
       prompt: options.input.text,
       provider: options.provider as AIProviderName,
@@ -415,6 +415,7 @@ export class NeuroLink {
       context: options.context as Record<string, JsonValue> | undefined,
       evaluationDomain: options.evaluationDomain,
       toolUsageContext: options.toolUsageContext,
+      input: options.input, // This includes text, images, and content arrays
     };
 
     // Apply factory enhancement using centralized utilities
