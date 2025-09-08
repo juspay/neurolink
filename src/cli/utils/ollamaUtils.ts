@@ -163,6 +163,9 @@ export class OllamaUtils {
             stdio: "ignore",
             detached: true,
           });
+          child.on("error", (err) => {
+            logger.error("Error starting Ollama serve process:", err);
+          });
           child.unref();
           logger.always(chalk.green("✅ Ollama service started"));
         }
@@ -175,6 +178,9 @@ export class OllamaUtils {
           const child = spawn("ollama", ["serve"], {
             stdio: "ignore",
             detached: true,
+          });
+          child.on("error", (err) => {
+            logger.error("Error starting Ollama serve process:", err);
           });
           child.unref();
           logger.always(chalk.green("✅ Ollama service started"));

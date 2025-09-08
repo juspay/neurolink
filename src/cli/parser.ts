@@ -5,6 +5,7 @@ import packageJson from "../../package.json" with { type: "json" };
 import { CLICommandFactory } from "./factories/commandFactory.js";
 import { globalSession } from "../lib/session/globalSessionState.js";
 import { handleError } from "./errorHandler.js";
+import { logger } from "../lib/utils/logger.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -54,7 +55,7 @@ export function initializeCliParser() {
         // Instead, we just want to display the error and help text.
         if (globalSession.getCurrentSessionId()) {
           if (msg) {
-            console.error(chalk.red(msg)); // This is a yargs validation error (e.g., missing argument)
+            logger.error(chalk.red(msg)); // This is a yargs validation error (e.g., missing argument)
             yargsInstance.showHelp("log");
           } else if (err) {
             // This is an error thrown from a command handler
@@ -168,6 +169,9 @@ export function initializeCliParser() {
 
       // Configuration Command Group - Using CLICommandFactory
       .command(CLICommandFactory.createConfigCommands())
+
+      // Memory Command Group - Using CLICommandFactory
+      .command(CLICommandFactory.createMemoryCommands())
 
       // Get Best Provider Command - Using CLICommandFactory
       .command(CLICommandFactory.createBestProviderCommand())

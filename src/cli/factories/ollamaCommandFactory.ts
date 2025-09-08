@@ -270,7 +270,12 @@ export class OllamaCommandFactory {
    * Handler for starting Ollama service
    */
   private static async startHandler() {
-    await OllamaUtils.startOllamaService();
+    try {
+      await OllamaUtils.startOllamaService();
+    } catch (error) {
+      logger.error("Failed to start Ollama service:", error);
+      throw error;
+    }
   }
 
   /**

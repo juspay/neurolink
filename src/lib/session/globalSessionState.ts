@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { NeuroLink } from "../neurolink.js";
-import type { ConversationMemoryConfig } from "../types/conversationTypes.js";
+import type { ConversationMemoryConfig } from "../types/conversation.js";
 
 // Define a specific type for session variable values
 type SessionVariableValue = string | number | boolean;

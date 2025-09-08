@@ -3,7 +3,7 @@ import type { Argv } from "yargs";
 import chalk from "chalk";
 import { logger } from "../../lib/utils/logger.js";
 import { globalSession } from "../../lib/session/globalSessionState.js";
-import type { ConversationMemoryConfig } from "../../lib/types/conversationTypes.js";
+import type { ConversationMemoryConfig } from "../../lib/types/conversation.js";
 import { textGenerationOptionsSchema } from "./optionsSchema.js";
 import type { OptionSchema } from "./optionsSchema.js";
 import { handleError } from "../errorHandler.js";

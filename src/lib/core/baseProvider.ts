@@ -164,9 +164,18 @@ export abstract class BaseProvider implements AIProvider {
                     buffer = "";
 
                     // Small delay to simulate streaming (1-10ms)
-                    await new Promise((resolve) =>
-                      setTimeout(resolve, Math.random() * 9 + 1),
-                    );
+                    await new Promise((resolve, reject) => {
+                      const timeoutId = setTimeout(
+                        resolve,
+                        Math.random() * 9 + 1,
+                      );
+                      // Handle potential timeout issues
+                      if (!timeoutId) {
+                        reject(new Error("Failed to create timeout"));
+                      }
+                    }).catch((err) => {
+                      logger.error("Error in streaming delay:", err);
+                    });
                   }
                 }
 
@@ -304,8 +313,16 @@ export abstract class BaseProvider implements AIProvider {
       let accumulatedContent = "";
 
       // Wait for the stream to complete and accumulate content
-      for await (const chunk of streamResult.textStream) {
-        accumulatedContent += chunk;
+      try {
+        for await (const chunk of streamResult.textStream) {
+          accumulatedContent += chunk;
+        }
+      } catch (streamError) {
+        logger.error(
+          `Error reading text stream for ${this.providerName}:`,
+          streamError,
+        );
+        throw streamError;
       }
       // Get the final result - this should include usage, toolCalls, etc.
       const usage = await streamResult.usage;

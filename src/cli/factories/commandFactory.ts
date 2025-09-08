@@ -1,7 +1,7 @@
 import type { CommandModule, Argv } from "yargs";
 import { globalSession } from "../../lib/session/globalSessionState.js";
 import type { UnknownRecord, JsonValue } from "../../lib/types/common.js";
-import type { ConversationMemoryConfig } from "../../lib/types/conversationTypes.js";
+import type { ConversationMemoryConfig } from "../../lib/types/conversation.js";
 import type {
   BaseCommandArgs,
   GenerateCommandArgs,
@@ -631,6 +631,78 @@ export class CLICommandFactory {
   }
 
   /**
+   * Create memory commands
+   */
+  static createMemoryCommands(): CommandModule {
+    return {
+      command: "memory <subcommand>",
+      describe: "Manage conversation memory",
+      builder: (yargs) => {
+        return yargs
+          .command(
+            "stats",
+            "Show conversation memory statistics",
+            (y) =>
+              this.buildOptions(y)
+                .example("$0 memory stats", "Show memory usage statistics")
+                .example(
+                  "$0 memory stats --format json",
+                  "Export stats as JSON",
+                ),
+            async (argv) =>
+              await this.executeMemoryStats(argv as BaseCommandArgs),
+          )
+          .command(
+            "history <sessionId>",
+            "Show conversation history for a session",
+            (y) =>
+              this.buildOptions(y)
+                .positional("sessionId", {
+                  type: "string" as const,
+                  description: "Session ID to retrieve history for",
+                  demandOption: true,
+                })
+                .example(
+                  "$0 memory history session-123",
+                  "Show conversation history",
+                )
+                .example(
+                  "$0 memory history session-123 --format json",
+                  "Export history as JSON",
+                ),
+            async (argv) =>
+              await this.executeMemoryHistory(
+                argv as BaseCommandArgs & { sessionId: string },
+              ),
+          )
+          .command(
+            "clear [sessionId]",
+            "Clear conversation history",
+            (y) =>
+              this.buildOptions(y)
+                .positional("sessionId", {
+                  type: "string" as const,
+                  description:
+                    "Session ID to clear (omit to clear all sessions)",
+                  demandOption: false,
+                })
+                .example("$0 memory clear", "Clear all conversation history")
+                .example(
+                  "$0 memory clear session-123",
+                  "Clear specific session",
+                ),
+            async (argv) =>
+              await this.executeMemoryClear(
+                argv as BaseCommandArgs & { sessionId?: string },
+              ),
+          )
+          .demandCommand(1, "Please specify a memory subcommand");
+      },
+      handler: () => {}, // No-op handler as subcommands handle everything
+    };
+  }
+
+  /**
    * Create config commands
    */
   static createConfigCommands(): CommandModule {
@@ -947,7 +1019,11 @@ export class CLICommandFactory {
       handleError(error as Error, "Provider status check");
     } finally {
       // Ensure all background processes are terminated
-      await sdk.shutdownExternalMCPServers();
+      try {
+        await sdk.shutdownExternalMCPServers();
+      } catch (shutdownError) {
+        logger.error("Error during SDK shutdown:", shutdownError);
+      }
       if (!globalSession.getCurrentSessionId()) {
         process.exit();
       }
@@ -1747,6 +1823,247 @@ export class CLICommandFactory {
   }
 
   /**
+   * Execute memory stats command
+   */
+  private static async executeMemoryStats(argv: BaseCommandArgs) {
+    const options = this.processOptions(argv);
+    const spinner = options.quiet
+      ? null
+      : ora("🧠 Getting memory stats...").start();
+
+    try {
+      const sdk = globalSession.getOrCreateNeuroLink();
+
+      // Handle dry-run mode
+      if (options.dryRun) {
+        const mockStats = {
+          totalSessions: 5,
+          totalTurns: 47,
+          memoryUsage: "Active",
+        };
+
+        if (spinner) {
+          spinner.succeed(chalk.green("✅ Memory stats retrieved (dry-run)"));
+        }
+
+        this.handleOutput(mockStats, options);
+        return;
+      }
+
+      const stats = await sdk.getConversationStats();
+
+      if (spinner) {
+        spinner.succeed(chalk.green("✅ Memory stats retrieved"));
+      }
+
+      if (options.format === "json") {
+        this.handleOutput(stats, options);
+      } else {
+        logger.always(chalk.blue("📊 Conversation Memory Stats:"));
+        logger.always(`   Total Sessions: ${stats.totalSessions}`);
+        logger.always(`   Total Turns: ${stats.totalTurns}`);
+        logger.always(
+          `   Memory Status: ${stats.totalSessions > 0 ? "Active" : "Empty"}`,
+        );
+      }
+    } catch (error) {
+      if (spinner) {
+        spinner.fail("Memory stats failed");
+      }
+
+      if ((error as Error).message.includes("not enabled")) {
+        logger.always(chalk.yellow("⚠️ Conversation memory is not enabled"));
+        logger.always(
+          "Enable it by using --enable-conversation-memory with loop mode",
+        );
+      } else {
+        handleError(error as Error, "Memory stats");
+      }
+    }
+  }
+
+  /**
+   * Execute memory history command
+   */
+  private static async executeMemoryHistory(
+    argv: BaseCommandArgs & { sessionId: string },
+  ) {
+    const options = this.processOptions(argv);
+    const spinner = options.quiet
+      ? null
+      : ora(`🧠 Getting history for ${argv.sessionId}...`).start();
+
+    try {
+      const sdk = globalSession.getOrCreateNeuroLink();
+
+      // Handle dry-run mode
+      if (options.dryRun) {
+        const mockHistory = [
+          { role: "user", content: "Hello, how are you?" },
+          {
+            role: "assistant",
+            content: "I'm doing well, thank you! How can I help you today?",
+          },
+          { role: "user", content: "Can you explain quantum computing?" },
+          {
+            role: "assistant",
+            content: "Quantum computing is a revolutionary technology...",
+          },
+        ];
+
+        if (spinner) {
+          spinner.succeed(
+            chalk.green(`✅ History retrieved for ${argv.sessionId} (dry-run)`),
+          );
+        }
+
+        this.handleOutput(mockHistory, options);
+        return;
+      }
+
+      const history = await sdk.getConversationHistory(argv.sessionId);
+
+      if (spinner) {
+        spinner.succeed(
+          chalk.green(`✅ History retrieved for ${argv.sessionId}`),
+        );
+      }
+
+      if (history.length === 0) {
+        logger.always(
+          chalk.yellow(
+            `⚠️ No conversation history found for session: ${argv.sessionId}`,
+          ),
+        );
+        return;
+      }
+
+      if (options.format === "json") {
+        this.handleOutput(history, options);
+      } else {
+        logger.always(
+          chalk.blue(`💬 Conversation History (${argv.sessionId}):`),
+        );
+        for (const message of history) {
+          const roleColor = message.role === "user" ? chalk.cyan : chalk.green;
+          const roleLabel = message.role === "user" ? "User" : "Assistant";
+          logger.always(`   [${roleColor(roleLabel)}]: ${message.content}`);
+        }
+      }
+    } catch (error) {
+      if (spinner) {
+        spinner.fail("Memory history failed");
+      }
+
+      if ((error as Error).message.includes("not enabled")) {
+        logger.always(chalk.yellow("⚠️ Conversation memory is not enabled"));
+        logger.always(
+          "Enable it by using --enable-conversation-memory with loop mode",
+        );
+      } else {
+        handleError(error as Error, "Memory history");
+      }
+    }
+  }
+
+  /**
+   * Execute memory clear command
+   */
+  private static async executeMemoryClear(
+    argv: BaseCommandArgs & { sessionId?: string },
+  ) {
+    const options = this.processOptions(argv);
+    const isAllSessions = !argv.sessionId;
+    const target = isAllSessions ? "all sessions" : `session ${argv.sessionId}`;
+    const spinner = options.quiet
+      ? null
+      : ora(`🧠 Clearing ${target}...`).start();
+
+    try {
+      const sdk = globalSession.getOrCreateNeuroLink();
+
+      // Handle dry-run mode
+      if (options.dryRun) {
+        if (spinner) {
+          spinner.succeed(
+            chalk.green(
+              `✅ ${isAllSessions ? "All sessions" : "Session"} cleared (dry-run)`,
+            ),
+          );
+        }
+
+        const result = {
+          success: true,
+          action: isAllSessions ? "clear_all" : "clear_session",
+          sessionId: argv.sessionId || null,
+          message: `${isAllSessions ? "All sessions" : "Session"} would be cleared`,
+        };
+
+        this.handleOutput(result, options);
+        return;
+      }
+
+      let success: boolean;
+      if (isAllSessions) {
+        await sdk.clearAllConversations();
+        success = true;
+      } else {
+        success = await sdk.clearConversationSession(argv.sessionId!);
+      }
+
+      if (spinner) {
+        if (success) {
+          spinner.succeed(
+            chalk.green(
+              `✅ ${isAllSessions ? "All sessions" : "Session"} cleared successfully`,
+            ),
+          );
+        } else {
+          spinner.warn(
+            chalk.yellow(
+              `⚠️ Session ${argv.sessionId} not found or already empty`,
+            ),
+          );
+        }
+      }
+
+      if (options.format === "json") {
+        const result = {
+          success,
+          action: isAllSessions ? "clear_all" : "clear_session",
+          sessionId: argv.sessionId || null,
+        };
+        this.handleOutput(result, options);
+      } else if (!success && !isAllSessions) {
+        logger.always(
+          chalk.yellow(
+            `⚠️ Session ${argv.sessionId} not found or already empty`,
+          ),
+        );
+      } else if (!options.quiet) {
+        logger.always(
+          chalk.green(
+            `✅ ${isAllSessions ? "All conversation history" : `Session ${argv.sessionId}`} cleared`,
+          ),
+        );
+      }
+    } catch (error) {
+      if (spinner) {
+        spinner.fail("Memory clear failed");
+      }
+
+      if ((error as Error).message.includes("not enabled")) {
+        logger.always(chalk.yellow("⚠️ Conversation memory is not enabled"));
+        logger.always(
+          "Enable it by using --enable-conversation-memory with loop mode",
+        );
+      } else {
+        handleError(error as Error, "Memory clear");
+      }
+    }
+  }
+
+  /**
    * Execute completion command
    */
   private static async executeCompletion(
@@ -1770,7 +2087,7 @@ export class CLICommandFactory {
         '    prev="${COMP_WORDS[COMP_CWORD - 1]}"\n\n' +
         "    # Main commands\n" +
         "    if [[ ${COMP_CWORD} -eq 1 ]]; then\n" +
-        '        opts="generate gen stream batch provider status models mcp discover config get-best-provider completion"\n' +
+        '        opts="generate gen stream batch provider status models mcp discover memory config get-best-provider completion"\n' +
         '        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )\n' +
         "        return 0\n" +
         "    fi\n\n" +
@@ -1829,6 +2146,12 @@ export class CLICommandFactory {
         "        config)\n" +
         "            if [[ ${COMP_CWORD} -eq 2 ]]; then\n" +
         '                COMPREPLY=( $(compgen -W "init show validate reset export" -- ${cur}) )\n' +
+        "                return 0\n" +
+        "            fi\n" +
+        "            ;;\n" +
+        "        memory)\n" +
+        "            if [[ ${COMP_CWORD} -eq 2 ]]; then\n" +
+        '                COMPREPLY=( $(compgen -W "stats history clear" -- ${cur}) )\n' +
         "                return 0\n" +
         "            fi\n" +
         "            ;;\n" +
