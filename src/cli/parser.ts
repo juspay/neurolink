@@ -6,6 +6,7 @@ import { CLICommandFactory } from "./factories/commandFactory.js";
 import { globalSession } from "../lib/session/globalSessionState.js";
 import { handleError } from "./errorHandler.js";
 import { logger } from "../lib/utils/logger.js";
+import { SetupCommandFactory } from "./factories/setupCommandFactory.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -190,5 +191,8 @@ export function initializeCliParser() {
 
       // Loop Command - Using CLICommandFactory
       .command(CLICommandFactory.createLoopCommand())
-  );
+
+      // Setup Commands - Using SetupCommandFactory
+      .command(SetupCommandFactory.createSetupCommands())
+  ); // Close the main return statement
 }

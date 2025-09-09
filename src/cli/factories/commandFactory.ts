@@ -30,6 +30,7 @@ import ora from "ora";
 import chalk from "chalk";
 import { logger } from "../../lib/utils/logger.js";
 import fs from "fs";
+import { handleSetup } from "../commands/setup.js";
 
 // Use specific command interfaces from cli.ts instead of universal interface
 
@@ -809,6 +810,56 @@ export class CLICommandFactory {
    */
   static createOllamaCommands(): CommandModule {
     return OllamaCommandFactory.createOllamaCommands();
+  }
+
+  /**
+   * Create setup command
+   */
+  static createSetupCommand(): CommandModule {
+    return {
+      command: ["setup [provider]", "s [provider]"],
+      describe: "Interactive AI provider setup wizard",
+      builder: (yargs) => {
+        return this.buildOptions(
+          yargs
+            .positional("provider", {
+              type: "string" as const,
+              description: "Specific provider to set up",
+              choices: [
+                "google-ai",
+                "openai",
+                "anthropic",
+                "azure",
+                "bedrock",
+                "vertex",
+                "huggingface",
+                "mistral",
+              ],
+            })
+            .option("list", {
+              type: "boolean" as const,
+              description: "List all available providers",
+              alias: "l",
+            })
+            .option("status", {
+              type: "boolean" as const,
+              description: "Show provider configuration status",
+            })
+            .example("$0 setup", "Interactive setup wizard")
+            .example("$0 setup --provider openai", "Setup specific provider")
+            .example("$0 setup --list", "List all providers")
+            .example("$0 setup --status", "Check provider status"),
+        );
+      },
+      handler: async (argv) =>
+        await handleSetup(
+          argv as BaseCommandArgs & {
+            provider?: string;
+            list?: boolean;
+            status?: boolean;
+          },
+        ),
+    };
   }
 
   /**
