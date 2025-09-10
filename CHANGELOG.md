@@ -1,3 +1,9 @@
+## [7.36.0](https://github.com/juspay/neurolink/compare/v7.35.0...v7.36.0) (2025-09-10)
+
+### Features
+
+- **(image):** added support for multimodality(image) in cli and sdk ([678b61b](https://github.com/juspay/neurolink/commit/678b61bfef3d0622029d40b8ab06dca9836bcb6c))
+
 ## [7.35.0](https://github.com/juspay/neurolink/compare/v7.34.0...v7.35.0) (2025-09-09)
 
 ### Features
