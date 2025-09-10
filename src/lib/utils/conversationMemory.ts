@@ -62,8 +62,16 @@ export async function getConversationMessages(
   }
 
   try {
+    // Extract userId from context
+    const userId = (options.context as Record<string, unknown>)?.userId as
+      | string
+      | undefined;
+
     // Remove duplicate summarization logic - it should be handled in ConversationMemoryManager
-    const messages = await conversationMemory.buildContextMessages(sessionId);
+    const messages = await conversationMemory.buildContextMessages(
+      sessionId,
+      userId,
+    );
     logger.debug(
       "[conversationMemoryUtils] Conversation messages retrieved successfully",
       {

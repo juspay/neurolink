@@ -152,6 +152,21 @@ export class AzureOpenAIProvider extends BaseProvider {
           : {}),
         tools,
         toolChoice: shouldUseTools ? "auto" : "none",
+        onStepFinish: ({ toolCalls, toolResults }) => {
+          this.handleToolExecutionStorage(
+            toolCalls,
+            toolResults,
+            options,
+          ).catch((error: unknown) => {
+            logger.warn(
+              "[AzureOpenaiProvider] Failed to store tool executions",
+              {
+                provider: this.providerName,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+          });
+        },
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
       });
 

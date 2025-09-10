@@ -6,7 +6,11 @@
 import { createClient, type RedisClientOptions } from "redis";
 type RedisClient = ReturnType<typeof createClient>;
 import { logger } from "./logger.js";
-import type { ChatMessage, RedisStorageConfig } from "../types/conversation.js";
+import type {
+  ChatMessage,
+  RedisStorageConfig,
+  RedisConversationObject,
+} from "../types/conversation.js";
 
 // Redis client type
 
@@ -78,11 +82,13 @@ export async function createRedisClient(
 export function getSessionKey(
   config: Required<RedisStorageConfig>,
   sessionId: string,
+  userId?: string,
 ): string {
-  const key = `${config.keyPrefix}${sessionId}`;
+  const key = `${config.keyPrefix}${userId || "randomUser"}:${sessionId}`;
 
   logger.debug("[redisUtils] Generated session key", {
     sessionId,
+    userId,
     keyPrefix: config.keyPrefix,
     fullKey: key,
   });
@@ -91,63 +97,50 @@ export function getSessionKey(
 }
 
 /**
- * Serializes messages for Redis storage
+ * Generates a Redis key for user sessions mapping
  */
-export function serializeMessages(messages: ChatMessage[]): string {
+export function getUserSessionsKey(
+  config: Required<RedisStorageConfig>,
+  userId: string,
+): string {
+  return `${config.userSessionsKeyPrefix}${userId}`;
+}
+
+/**
+ * Serializes conversation object for Redis storage
+ */
+export function serializeConversation(
+  conversation: RedisConversationObject,
+): string {
   try {
-    logger.debug("[redisUtils] Serializing messages", {
-      messageCount: messages.length,
-      messageTypes: messages.map((m) => m.role),
-      firstMessage:
-        messages.length > 0
-          ? {
-              role: messages[0].role,
-              contentLength: messages[0].content.length,
-              contentPreview: messages[0].content.substring(0, 50),
-            }
-          : null,
-      lastMessage:
-        messages.length > 0
-          ? {
-              role: messages[messages.length - 1].role,
-              contentLength: messages[messages.length - 1].content.length,
-              contentPreview: messages[messages.length - 1].content.substring(
-                0,
-                50,
-              ),
-            }
-          : null,
-    });
-
-    const serialized = JSON.stringify(messages);
-
-    logger.debug("[redisUtils] Messages serialized successfully", {
-      serializedLength: serialized.length,
-      messageCount: messages.length,
-    });
-
+    const serialized = JSON.stringify(conversation);
     return serialized;
   } catch (error) {
-    logger.error("[redisUtils] Failed to serialize messages", {
+    logger.error("[redisUtils] Failed to serialize conversation", {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      messageCount: messages.length,
+      sessionId: conversation?.sessionId,
+      userId: conversation?.userId,
     });
     throw error;
   }
 }
 
 /**
- * Deserializes messages from Redis storage
+ * Deserializes conversation object from Redis storage
  */
-export function deserializeMessages(data: string | null): ChatMessage[] {
+export function deserializeConversation(
+  data: string | null,
+): RedisConversationObject | null {
   if (!data) {
-    logger.debug("[redisUtils] No data to deserialize, returning empty array");
-    return [];
+    logger.debug(
+      "[redisUtils] No conversation data to deserialize, returning null",
+    );
+    return null;
   }
 
   try {
-    logger.debug("[redisUtils] Deserializing messages", {
+    logger.debug("[redisUtils] Deserializing conversation", {
       dataLength: data.length,
       dataPreview: data.substring(0, 100) + (data.length > 100 ? "..." : ""),
     });
@@ -155,17 +148,43 @@ export function deserializeMessages(data: string | null): ChatMessage[] {
     // Parse as unknown first, then validate before casting
     const parsedData = JSON.parse(data) as unknown;
 
-    // Check if the parsed data is an array
-    if (!Array.isArray(parsedData)) {
-      logger.warn("[redisUtils] Deserialized data is not an array", {
-        type: typeof parsedData,
-        preview: JSON.stringify(parsedData).substring(0, 100),
-      });
-      return [];
+    // Check if the parsed data is an object with required properties
+    if (
+      typeof parsedData !== "object" ||
+      parsedData === null ||
+      !("title" in parsedData) ||
+      !("sessionId" in parsedData) ||
+      !("userId" in parsedData) ||
+      !("createdAt" in parsedData) ||
+      !("updatedAt" in parsedData) ||
+      !("messages" in parsedData)
+    ) {
+      logger.warn(
+        "[redisUtils] Deserialized data is not a valid conversation object",
+        {
+          type: typeof parsedData,
+          hasRequiredFields:
+            parsedData && typeof parsedData === "object"
+              ? Object.keys(parsedData).join(", ")
+              : "none",
+          preview: JSON.stringify(parsedData).substring(0, 100),
+        },
+      );
+      return null;
     }
 
-    // Validate each item in the array has the correct ChatMessage structure
-    const isValid = parsedData.every(
+    const conversation = parsedData as RedisConversationObject;
+
+    // Validate messages is an array
+    if (!Array.isArray(conversation.messages)) {
+      logger.warn("[redisUtils] messages is not an array", {
+        type: typeof conversation.messages,
+      });
+      return null;
+    }
+
+    // Validate each message in the messages array
+    const isValidHistory = conversation.messages.every(
       (m): m is ChatMessage =>
         typeof m === "object" &&
         m !== null &&
@@ -173,54 +192,42 @@ export function deserializeMessages(data: string | null): ChatMessage[] {
         "content" in m &&
         typeof m.role === "string" &&
         typeof m.content === "string" &&
-        (m.role === "user" || m.role === "assistant" || m.role === "system"),
+        (m.role === "user" ||
+          m.role === "assistant" ||
+          m.role === "system" ||
+          m.role === "tool_call" ||
+          m.role === "tool_result"),
     );
 
-    if (!isValid) {
-      logger.warn("[redisUtils] Deserialized data has unexpected structure", {
-        isArray: true,
-        firstItem: parsedData.length > 0 ? JSON.stringify(parsedData[0]) : null,
+    if (!isValidHistory) {
+      logger.warn("[redisUtils] Invalid messages structure", {
+        messageCount: conversation.messages.length,
+        firstMessage:
+          conversation.messages.length > 0
+            ? JSON.stringify(conversation.messages[0])
+            : null,
       });
-      return [];
+      return null;
     }
 
-    // Now that we've validated, we can safely cast
-    const messages = parsedData as ChatMessage[];
-
-    logger.debug("[redisUtils] Messages deserialized successfully", {
-      messageCount: messages.length,
-      messageTypes: messages.map((m) => m.role),
-      firstMessage:
-        messages.length > 0
-          ? {
-              role: messages[0].role,
-              contentLength: messages[0].content.length,
-              contentPreview: messages[0].content.substring(0, 50),
-            }
-          : null,
-      lastMessage:
-        messages.length > 0
-          ? {
-              role: messages[messages.length - 1].role,
-              contentLength: messages[messages.length - 1].content.length,
-              contentPreview: messages[messages.length - 1].content.substring(
-                0,
-                50,
-              ),
-            }
-          : null,
+    logger.debug("[redisUtils] Conversation deserialized successfully", {
+      sessionId: conversation.sessionId,
+      userId: conversation.userId,
+      title: conversation.title,
+      messageCount: conversation.messages.length,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
     });
 
-    logger.debug("[deserializeMessages] completed");
-    return messages;
+    return conversation;
   } catch (error) {
-    logger.error("[redisUtils] Failed to deserialize messages", {
+    logger.error("[redisUtils] Failed to deserialize conversation", {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       dataLength: data.length,
       dataPreview: "[REDACTED]", // Prevent exposure of potentially sensitive data
     });
-    return [];
+    return null;
   }
 }
 
@@ -310,12 +317,22 @@ export async function scanKeys(
 export function getNormalizedConfig(
   config: RedisStorageConfig,
 ): Required<RedisStorageConfig> {
+  const keyPrefix = config.keyPrefix || "neurolink:conversation:";
+
+  // Intelligent default: derive user sessions prefix from conversation prefix
+  const defaultUserSessionsPrefix = keyPrefix.replace(
+    /conversation:?$/,
+    "user:sessions:",
+  );
+
   return {
     host: config.host || "localhost",
     port: config.port || 6379,
     password: config.password || "",
     db: config.db || 0,
-    keyPrefix: config.keyPrefix || "neurolink:conversation:",
+    keyPrefix,
+    userSessionsKeyPrefix:
+      config.userSessionsKeyPrefix || defaultUserSessionsPrefix,
     ttl: config.ttl || 86400,
     connectionOptions: {
       connectTimeout: 30000,

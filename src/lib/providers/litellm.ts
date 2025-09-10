@@ -185,6 +185,18 @@ export class LiteLLMProvider extends BaseProvider {
         tools: options.tools,
         toolChoice: "auto",
         abortSignal: timeoutController?.controller.signal,
+        onStepFinish: ({ toolCalls, toolResults }) => {
+          this.handleToolExecutionStorage(
+            toolCalls,
+            toolResults,
+            options,
+          ).catch((error: unknown) => {
+            logger.warn("LiteLLMProvider] Failed to store tool executions", {
+              provider: this.providerName,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
+        },
       });
 
       timeoutController?.cleanup();

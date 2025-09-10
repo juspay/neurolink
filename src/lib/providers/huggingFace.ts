@@ -173,6 +173,21 @@ export class HuggingFaceProvider extends BaseProvider {
         tools: streamOptions.tools as ToolSet, // Tools format conversion handled by prepareStreamOptions
         toolChoice: streamOptions.toolChoice as ToolChoice<ToolSet>, // Tool choice handled by prepareStreamOptions
         abortSignal: timeoutController?.controller.signal,
+        onStepFinish: ({ toolCalls, toolResults }) => {
+          this.handleToolExecutionStorage(
+            toolCalls,
+            toolResults,
+            options,
+          ).catch((error: unknown) => {
+            logger.warn(
+              "[HuggingFaceProvider] Failed to store tool executions",
+              {
+                provider: this.providerName,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+          });
+        },
       });
 
       timeoutController?.cleanup();

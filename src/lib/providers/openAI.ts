@@ -374,6 +374,21 @@ export class OpenAIProvider extends BaseProvider {
         toolChoice:
           shouldUseTools && Object.keys(tools).length > 0 ? "auto" : "none",
         abortSignal: timeoutController?.controller.signal,
+        onStepFinish: ({ toolCalls, toolResults }) => {
+          logger.info("Tool execution completed", { toolResults, toolCalls });
+
+          // Handle tool execution storage
+          this.handleToolExecutionStorage(
+            toolCalls,
+            toolResults,
+            options,
+          ).catch((error: unknown) => {
+            logger.warn("[OpenAIProvider] Failed to store tool executions", {
+              provider: this.providerName,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
+        },
       });
 
       timeoutController?.cleanup();

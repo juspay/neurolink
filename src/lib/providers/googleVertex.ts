@@ -895,6 +895,25 @@ export class GoogleVertexProvider extends BaseProvider {
         onChunk: () => {
           chunkCount++;
         },
+
+        onStepFinish: ({ toolCalls, toolResults }) => {
+          logger.info("Tool execution completed", { toolResults, toolCalls });
+
+          // Handle tool execution storage
+          this.handleToolExecutionStorage(
+            toolCalls,
+            toolResults,
+            options,
+          ).catch((error: unknown) => {
+            logger.warn(
+              "[GoogleVertexProvider] Failed to store tool executions",
+              {
+                provider: this.providerName,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+          });
+        },
       };
 
       if (analysisSchema) {

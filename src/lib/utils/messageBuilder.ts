@@ -23,14 +23,40 @@ import { request } from "undici";
 import { readFileSync, existsSync } from "fs";
 
 /**
+ * Core message type compatible with AI SDK
+ */
+type CoreMessage = {
+  role: "user" | "assistant" | "system";
+  content: string;
+};
+
+/**
+ * Convert ChatMessage to CoreMessage for AI SDK compatibility
+ */
+function toCoreMessage(message: ChatMessage): CoreMessage | null {
+  // Only include messages with roles supported by AI SDK
+  if (
+    message.role === "user" ||
+    message.role === "assistant" ||
+    message.role === "system"
+  ) {
+    return {
+      role: message.role,
+      content: message.content,
+    };
+  }
+  return null; // Filter out tool_call and tool_result messages
+}
+
+/**
  * Build a properly formatted message array for AI providers
  * Combines system prompt, conversation history, and current user prompt
  * Supports both TextGenerationOptions and StreamOptions
  */
 export function buildMessagesArray(
   options: TextGenerationOptions | StreamOptions,
-): ChatMessage[] {
-  const messages: ChatMessage[] = [];
+): CoreMessage[] {
+  const messages: CoreMessage[] = [];
 
   // Check if conversation history exists
   const hasConversationHistory =
@@ -53,8 +79,14 @@ export function buildMessagesArray(
   }
 
   // Add conversation history if available
+  // Convert ChatMessages to CoreMessages and filter out tool messages
   if (hasConversationHistory && options.conversationMessages) {
-    messages.push(...options.conversationMessages);
+    for (const chatMessage of options.conversationMessages) {
+      const coreMessage = toCoreMessage(chatMessage);
+      if (coreMessage) {
+        messages.push(coreMessage);
+      }
+    }
   }
 
   // Add current user prompt (required)

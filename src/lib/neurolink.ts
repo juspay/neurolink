@@ -222,7 +222,7 @@ export class NeuroLink {
     this.emitter.emit("tool:end", toolName, success ? result : error);
   }
   // Conversation memory support
-  private conversationMemory?:
+  public conversationMemory?:
     | ConversationMemoryManager
     | RedisConversationMemoryManager
     | null;
@@ -4539,6 +4539,28 @@ export class NeuroLink {
   // ============================================================================
 
   /**
+   * Initialize conversation memory if enabled (public method for explicit initialization)
+   * This is useful for testing or when you want to ensure conversation memory is ready
+   * @returns Promise resolving to true if initialization was successful, false otherwise
+   */
+  async ensureConversationMemoryInitialized(): Promise<boolean> {
+    try {
+      const initId = `manual-init-${Date.now()}`;
+      await this.initializeConversationMemoryForGeneration(
+        initId,
+        Date.now(),
+        process.hrtime.bigint(),
+      );
+      return !!this.conversationMemory;
+    } catch (error) {
+      logger.error("Failed to initialize conversation memory", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
    * Get conversation memory statistics (public API)
    */
   async getConversationStats() {
@@ -4638,6 +4660,78 @@ export class NeuroLink {
     }
 
     await this.conversationMemory.clearAllSessions();
+  }
+  /**
+   * Store tool executions in conversation memory if enabled and Redis is configured
+   * @param sessionId - Session identifier
+   * @param userId - User identifier (optional)
+   * @param toolCalls - Array of tool calls
+   * @param toolResults - Array of tool results
+   * @returns Promise resolving when storage is complete
+   */
+  async storeToolExecutions(
+    sessionId: string,
+    userId: string | undefined,
+    toolCalls: Array<{
+      toolCallId?: string;
+      toolName?: string;
+      args?: Record<string, unknown>;
+      [key: string]: unknown;
+    }>,
+    toolResults: Array<{
+      toolCallId?: string;
+      result?: unknown;
+      error?: string;
+      [key: string]: unknown;
+    }>,
+  ): Promise<void> {
+    // Check if tools are not empty
+    const hasToolData =
+      (toolCalls && toolCalls.length > 0) ||
+      (toolResults && toolResults.length > 0);
+
+    if (!hasToolData) {
+      logger.debug("Tool execution storage skipped", {
+        hasToolData,
+        toolCallsCount: toolCalls?.length || 0,
+        toolResultsCount: toolResults?.length || 0,
+      });
+      return;
+    }
+
+    // Type guard to ensure it's Redis conversation memory manager
+    const redisMemory = this
+      .conversationMemory as RedisConversationMemoryManager;
+
+    try {
+      await redisMemory.storeToolExecution(
+        sessionId,
+        userId,
+        toolCalls,
+        toolResults,
+      );
+    } catch (error) {
+      logger.warn("Failed to store tool executions", {
+        sessionId,
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Don't throw - tool storage failures shouldn't break generation
+    }
+  }
+
+  /**
+   * Check if tool execution storage is available
+   * @returns boolean indicating if Redis storage is configured and available
+   */
+  isToolExecutionStorageAvailable(): boolean {
+    const isRedisStorage = process.env.STORAGE_TYPE === "redis";
+    const hasRedisConversationMemory =
+      this.conversationMemory &&
+      this.conversationMemory.constructor.name ===
+        "RedisConversationMemoryManager";
+
+    return !!(isRedisStorage && hasRedisConversationMemory);
   }
 
   // ===== EXTERNAL MCP SERVER METHODS =====

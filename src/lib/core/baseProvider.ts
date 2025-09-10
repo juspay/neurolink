@@ -430,6 +430,19 @@ export abstract class BaseProvider implements AIProvider {
       toolChoice: shouldUseTools ? "auto" : "none",
       temperature: options.temperature,
       maxTokens: options.maxTokens,
+      onStepFinish: ({ toolCalls, toolResults }) => {
+        logger.info("Tool execution completed", { toolResults, toolCalls });
+
+        // Handle tool execution storage
+        this.handleToolExecutionStorage(toolCalls, toolResults, options).catch(
+          (error: unknown) => {
+            logger.warn("[BaseProvider] Failed to store tool executions", {
+              provider: this.providerName,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          },
+        );
+      },
     });
   }
 
@@ -2092,6 +2105,63 @@ export abstract class BaseProvider implements AIProvider {
     }
 
     return this.defaultTimeout;
+  }
+
+  /**
+   * Check if tool executions should be stored and handle storage
+   */
+  protected async handleToolExecutionStorage(
+    toolCalls: unknown[],
+    toolResults: unknown[],
+    options: TextGenerationOptions | StreamOptions,
+  ): Promise<void> {
+    // Check if tools are not empty
+    const hasToolData =
+      (toolCalls && toolCalls.length > 0) ||
+      (toolResults && toolResults.length > 0);
+
+    // Check if NeuroLink instance is available and has tool execution storage
+    const hasStorageAvailable =
+      this.neurolink?.isToolExecutionStorageAvailable();
+
+    // Early return if storage is not available or no tool data
+    if (!hasStorageAvailable || !hasToolData || !this.neurolink) {
+      return;
+    }
+
+    const sessionId =
+      (options.context?.sessionId as string) ||
+      (options as unknown as { sessionId?: string }).sessionId ||
+      `session-${Date.now()}`;
+    const userId =
+      (options.context?.userId as string) ||
+      (options as unknown as { userId?: string }).userId;
+
+    try {
+      await this.neurolink.storeToolExecutions(
+        sessionId,
+        userId,
+        toolCalls as Array<{
+          toolCallId?: string;
+          toolName?: string;
+          args?: Record<string, unknown>;
+          [key: string]: unknown;
+        }>,
+        toolResults as Array<{
+          toolCallId?: string;
+          result?: unknown;
+          error?: string;
+          [key: string]: unknown;
+        }>,
+      );
+    } catch (error) {
+      logger.warn("[BaseProvider] Failed to store tool executions", {
+        provider: this.providerName,
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Don't throw - tool storage failures shouldn't break generation
+    }
   }
 
   /**

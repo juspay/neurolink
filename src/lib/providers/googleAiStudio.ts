@@ -203,6 +203,21 @@ export class GoogleAIStudioProvider extends BaseProvider {
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         toolChoice: shouldUseTools ? "auto" : "none",
         abortSignal: timeoutController?.controller.signal,
+        onStepFinish: ({ toolCalls, toolResults }) => {
+          this.handleToolExecutionStorage(
+            toolCalls,
+            toolResults,
+            options,
+          ).catch((error: unknown) => {
+            logger.warn(
+              "[GoogleAiStudioProvider] Failed to store tool executions",
+              {
+                provider: this.providerName,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+          });
+        },
       });
 
       timeoutController?.cleanup();

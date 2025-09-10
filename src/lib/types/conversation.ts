@@ -42,6 +42,9 @@ export interface SessionMemory {
   /** User identifier (optional) */
   userId?: string;
 
+  /** Auto-generated conversation title (created on first user message) */
+  title?: string;
+
   /** Direct message storage - ready for immediate AI consumption */
   messages: ChatMessage[];
 
@@ -79,11 +82,32 @@ export interface ConversationMemoryStats {
  * Chat message format for conversation history
  */
 export interface ChatMessage {
-  /** Role of the message sender */
-  role: "user" | "assistant" | "system";
+  /** Role/type of the message */
+  role: "user" | "assistant" | "system" | "tool_call" | "tool_result";
 
   /** Content of the message */
   content: string;
+
+  /** Message ID (optional) - for new format */
+  id?: string;
+
+  /** Timestamp (optional) - for new format */
+  timestamp?: string;
+
+  /** Tool name (optional) - for tool_call/tool_result messages */
+  tool?: string;
+
+  /** Tool arguments (optional) - for tool_call messages */
+  args?: Record<string, unknown>;
+
+  /** Tool result (optional) - for tool_result messages */
+  result?: {
+    success?: boolean;
+    expression?: string;
+    result?: unknown;
+    type?: string;
+    error?: string;
+  };
 }
 
 /**
@@ -168,6 +192,44 @@ export type SessionIdentifier = {
 };
 
 /**
+ * Lightweight session metadata for efficient session listing
+ * Contains only essential information without heavy message arrays
+ */
+export interface SessionMetadata {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * New Redis conversation storage object format
+ * Contains conversation metadata and history in a single object
+ */
+export type RedisConversationObject = {
+  /** Unique conversation identifier (UUID v4) */
+  id: string;
+
+  /** Auto-generated conversation title */
+  title: string;
+
+  /** Session identifier */
+  sessionId: string;
+
+  /** User identifier */
+  userId: string;
+
+  /** When this conversation was first created */
+  createdAt: string;
+
+  /** When this conversation was last updated */
+  updatedAt: string;
+
+  /** Array of conversation messages */
+  messages: ChatMessage[];
+};
+
+/**
  * Redis storage configuration
  */
 export type RedisStorageConfig = {
@@ -185,6 +247,9 @@ export type RedisStorageConfig = {
 
   /** Key prefix for Redis keys (default: 'neurolink:conversation:') */
   keyPrefix?: string;
+
+  /** Key prefix for user sessions mapping (default: derived from keyPrefix) */
+  userSessionsKeyPrefix?: string;
 
   /** Time-to-live in seconds (default: 86400, 24 hours) */
   ttl?: number;
