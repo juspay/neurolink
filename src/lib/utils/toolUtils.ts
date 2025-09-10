@@ -4,7 +4,7 @@
  * Consolidates environment variable access to avoid scattered process.env calls
  */
 
-import type { ToolConfig } from "../config/types.js";
+import type { ToolConfig } from "../types/configTypes.js";
 
 /**
  * Check if built-in tools should be disabled

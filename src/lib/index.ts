@@ -13,7 +13,7 @@ export { AIProviderFactory };
 export type {
   AIProvider,
   AIProviderName,
-  ProviderConfig,
+  AIModelProviderConfig,
   StreamingOptions,
   ProviderAttempt,
   SupportedModelName,

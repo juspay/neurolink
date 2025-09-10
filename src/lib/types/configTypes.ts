@@ -1,12 +1,12 @@
 /**
  * NeuroLink Configuration Types
- * Industry standard camelCase interfaces for config management
+ * Centralized configuration type definitions following the established architecture pattern
  */
 
 /**
- * Main NeuroLink configuration interface
+ * Main NeuroLink configuration type
  */
-export interface NeuroLinkConfig {
+export type NeuroLinkConfig = {
   providers?: Record<string, ProviderConfig>;
   performance?: PerformanceConfig;
   analytics?: AnalyticsConfig;
@@ -14,12 +14,12 @@ export interface NeuroLinkConfig {
   lastUpdated?: number;
   configVersion?: string;
   [key: string]: unknown; // Extensibility for existing config
-}
+};
 
 /**
  * Provider-specific configuration
  */
-export interface ProviderConfig {
+export type ProviderConfig = {
   model?: string;
   available?: boolean;
   lastCheck?: number;
@@ -32,35 +32,35 @@ export interface ProviderConfig {
   costPerToken?: number;
   features?: string[]; // ['streaming', 'functionCalling', 'vision']
   [key: string]: unknown; // Provider-specific extensions
-}
+};
 
 /**
  * Performance and caching configuration
  */
-export interface PerformanceConfig {
+export type PerformanceConfig = {
   cache?: CacheConfig;
   fallback?: FallbackConfig;
   timeoutMs?: number;
   maxConcurrency?: number;
   retryConfig?: RetryConfig;
-}
+};
 
 /**
  * Cache configuration
  */
-export interface CacheConfig {
+export type CacheConfig = {
   enabled?: boolean;
   ttlMs?: number; // Time to live (milliseconds)
   strategy?: "memory" | "writeThrough" | "cacheAside";
   maxSize?: number; // Maximum cache entries
   persistToDisk?: boolean;
   diskPath?: string;
-}
+};
 
 /**
  * Fallback configuration
  */
-export interface FallbackConfig {
+export type FallbackConfig = {
   enabled?: boolean;
   maxAttempts?: number;
   delayMs?: number;
@@ -68,24 +68,24 @@ export interface FallbackConfig {
   commonResponses?: Record<string, string>; // Common fallback responses
   localFallbackPath?: string; // Path to local fallback file
   degradedMode?: boolean; // Allow degraded functionality
-}
+};
 
 /**
  * Retry configuration
  */
-export interface RetryConfig {
+export type RetryConfig = {
   enabled?: boolean;
   maxAttempts?: number;
   baseDelayMs?: number;
   maxDelayMs?: number;
   exponentialBackoff?: boolean;
   retryConditions?: string[]; // Error types to retry on
-}
+};
 
 /**
  * Analytics configuration
  */
-export interface AnalyticsConfig {
+export type AnalyticsConfig = {
   enabled?: boolean;
   trackTokens?: boolean;
   trackCosts?: boolean;
@@ -97,12 +97,12 @@ export interface AnalyticsConfig {
     days?: number;
     maxEntries?: number;
   };
-}
+};
 
 /**
  * Tool configuration
  */
-export interface ToolConfig {
+export type ToolConfig = {
   /** Whether built-in tools should be disabled */
   disableBuiltinTools?: boolean;
   /** Whether custom tools are allowed */
@@ -111,22 +111,22 @@ export interface ToolConfig {
   maxToolsPerProvider?: number;
   /** Whether MCP tools should be enabled */
   enableMCPTools?: boolean;
-}
+};
 
 /**
  * Backup metadata information
  */
-export interface BackupInfo {
+export type BackupInfo = {
   filename: string;
   path: string;
   metadata: BackupMetadata;
   config: NeuroLinkConfig;
-}
+};
 
 /**
  * Backup metadata
  */
-export interface BackupMetadata {
+export type BackupMetadata = {
   reason: string;
   timestamp: number;
   version: string;
@@ -134,28 +134,28 @@ export interface BackupMetadata {
   hash?: string; // Config hash for verification
   size?: number; // File size in bytes
   createdBy?: string; // Who/what created the backup
-}
+};
 
 /**
  * Configuration validation result
  */
-export interface ConfigValidationResult {
+export type ConfigValidationResult = {
   valid: boolean;
   errors: string[];
   warnings: string[];
   suggestions: string[];
-}
+};
 
 /**
  * Configuration update options
  */
-export interface ConfigUpdateOptions {
+export type ConfigUpdateOptions = {
   createBackup?: boolean;
   validate?: boolean;
   merge?: boolean; // Merge with existing vs replace
   reason?: string; // Reason for the update
   silent?: boolean; // Skip console output
-}
+};
 
 /**
  * Default configuration values

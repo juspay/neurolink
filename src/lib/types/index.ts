@@ -17,6 +17,21 @@ export * from "./cli.js";
 // Task classification types
 export * from "./taskClassificationTypes.js";
 
+// Configuration types
+export type {
+  NeuroLinkConfig,
+  PerformanceConfig,
+  CacheConfig,
+  FallbackConfig,
+  RetryConfig,
+  AnalyticsConfig,
+  ToolConfig,
+  BackupInfo,
+  BackupMetadata,
+  ConfigValidationResult,
+  ConfigUpdateOptions,
+} from "./configTypes.js";
+
 // Re-export commonly used types for convenience
 export type {
   Unknown,
@@ -40,7 +55,11 @@ export type {
   ToolExecution,
 } from "./tools.js";
 
-export type { AISDKModel, ProviderError, ProviderConfig } from "./providers.js";
+export type {
+  AISDKModel,
+  ProviderError,
+  AIModelProviderConfig,
+} from "./providers.js";
 
 export type {
   BaseCommandArgs,

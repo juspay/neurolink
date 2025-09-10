@@ -4,8 +4,8 @@
  */
 
 import { promises as fs } from "fs";
-import path from "path";
-import crypto from "crypto";
+import { join } from "path";
+import { createHash } from "crypto";
 import { logger } from "../utils/logger.js";
 import type {
   NeuroLinkConfig,
@@ -14,8 +14,8 @@ import type {
   BackupMetadata,
   ConfigValidationResult,
   ConfigUpdateOptions,
-} from "./types.js";
-import { DEFAULT_CONFIG } from "./types.js";
+} from "../types/configTypes.js";
+import { DEFAULT_CONFIG } from "../types/configTypes.js";
 
 const { readFile, writeFile, readdir, mkdir, unlink, access } = fs;
 
@@ -108,7 +108,7 @@ export class NeuroLinkConfigManager {
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const backupFilename = `neurolink-config-${timestamp}.js`;
-    const backupPath = path.join(this.backupDir, backupFilename);
+    const backupPath = join(this.backupDir, backupFilename);
 
     const currentConfig = await this.loadConfig();
     const configHash = this.generateConfigHash(currentConfig);
@@ -150,7 +150,7 @@ export default ${JSON.stringify(currentConfig, null, 2)};`;
 
       for (const file of backupFiles) {
         try {
-          const filePath = path.join(this.backupDir, file);
+          const filePath = join(this.backupDir, file);
           const content = await readFile(filePath, "utf-8");
           const metadata = this.extractMetadataFromBackup(content);
           const config = this.extractConfigFromBackup(content);
@@ -182,7 +182,7 @@ export default ${JSON.stringify(currentConfig, null, 2)};`;
    * Restore from specific backup
    */
   async restoreFromBackup(backupFilename: string): Promise<void> {
-    const backupPath = path.join(this.backupDir, backupFilename);
+    const backupPath = join(this.backupDir, backupFilename);
 
     // Create backup of current config before restore
     await this.createBackup("pre-restore");
@@ -374,8 +374,7 @@ export default ${JSON.stringify(currentConfig, null, 2)};`;
 
   private generateConfigHash(config: NeuroLinkConfig): string {
     const configString = JSON.stringify(config, Object.keys(config).sort());
-    return crypto
-      .createHash("sha256")
+    return createHash("sha256")
       .update(configString)
       .digest("hex")
       .substring(0, 8);

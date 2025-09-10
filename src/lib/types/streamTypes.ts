@@ -1,6 +1,6 @@
 import type { Tool } from "ai";
 import type { ValidationSchema, StandardRecord } from "./typeAliases.js";
-import type { AIProviderName, ProviderConfig } from "./providers.js";
+import type { AIProviderName, AIModelProviderConfig } from "./providers.js";
 import type { AnalyticsData, TokenUsage } from "./analytics.js";
 import type { EvaluationData } from "./evaluation.js";
 import type { UnknownRecord, JsonValue } from "./common.js";
@@ -40,7 +40,7 @@ export type StreamingMetadata = {
  * Options for AI requests with unified provider configuration
  */
 export type StreamingOptions = {
-  providers: ProviderConfig[];
+  providers: AIModelProviderConfig[];
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;

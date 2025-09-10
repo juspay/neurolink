@@ -334,7 +334,7 @@ export type ProviderCapabilities = {
 /**
  * Provider configuration specifying provider and its available models (from core types)
  */
-export type ProviderConfig = {
+export type AIModelProviderConfig = {
   provider: AIProviderName;
   models: SupportedModelName[];
 };
@@ -536,7 +536,7 @@ export type AISDKGenerateResult = GenerateResult & {
 /**
  * Default provider configurations
  */
-export const DEFAULT_PROVIDER_CONFIGS: ProviderConfig[] = [
+export const DEFAULT_PROVIDER_CONFIGS: AIModelProviderConfig[] = [
   {
     provider: AIProviderName.BEDROCK,
     models: [BedrockModels.CLAUDE_3_7_SONNET, BedrockModels.CLAUDE_3_5_SONNET],
