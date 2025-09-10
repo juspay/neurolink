@@ -6,112 +6,13 @@
 
 import { EventEmitter } from "events";
 import { mcpLogger } from "../utils/logger.js";
-
-/**
- * Circuit breaker states
- */
-export type CircuitBreakerState = "closed" | "open" | "half-open";
-
-/**
- * Circuit breaker configuration
- */
-export interface CircuitBreakerConfig {
-  /** Number of failures before opening the circuit */
-  failureThreshold: number;
-
-  /** Time to wait before attempting reset (milliseconds) */
-  resetTimeout: number;
-
-  /** Maximum calls allowed in half-open state */
-  halfOpenMaxCalls: number;
-
-  /** Timeout for individual operations (milliseconds) */
-  operationTimeout: number;
-
-  /** Minimum number of calls before calculating failure rate */
-  minimumCallsBeforeCalculation: number;
-
-  /** Window size for calculating failure rate (milliseconds) */
-  statisticsWindowSize: number;
-}
-
-/**
- * Circuit breaker statistics
- */
-export interface CircuitBreakerStats {
-  /** Current state */
-  state: CircuitBreakerState;
-
-  /** Total number of calls */
-  totalCalls: number;
-
-  /** Number of successful calls */
-  successfulCalls: number;
-
-  /** Number of failed calls */
-  failedCalls: number;
-
-  /** Current failure rate (0-1) */
-  failureRate: number;
-
-  /** Calls in current time window */
-  windowCalls: number;
-
-  /** Last state change timestamp */
-  lastStateChange: Date;
-
-  /** Next retry time (for open state) */
-  nextRetryTime?: Date;
-
-  /** Half-open call count */
-  halfOpenCalls: number;
-}
-
-/**
- * Call record for statistics tracking
- */
-interface CallRecord {
-  timestamp: number;
-  success: boolean;
-  duration: number;
-}
-
-/**
- * Circuit breaker events
- */
-export interface CircuitBreakerEvents {
-  stateChange: {
-    oldState: CircuitBreakerState;
-    newState: CircuitBreakerState;
-    reason: string;
-    timestamp: Date;
-  };
-
-  callSuccess: {
-    duration: number;
-    timestamp: Date;
-  };
-
-  callFailure: {
-    error: string;
-    duration: number;
-    timestamp: Date;
-  };
-
-  circuitOpen: {
-    failureRate: number;
-    totalCalls: number;
-    timestamp: Date;
-  };
-
-  circuitHalfOpen: {
-    timestamp: Date;
-  };
-
-  circuitClosed: {
-    timestamp: Date;
-  };
-}
+import type {
+  CallRecord,
+  CircuitBreakerState,
+  CircuitBreakerConfig,
+  CircuitBreakerStats,
+  CircuitBreakerEvents,
+} from "../types/mcpTypes.js";
 
 /**
  * MCPCircuitBreaker

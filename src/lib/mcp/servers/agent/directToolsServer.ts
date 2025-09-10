@@ -6,7 +6,10 @@
 import type { Unknown, UnknownRecord } from "../../../types/common.js";
 import { z } from "zod";
 import { createMCPServer } from "../../factory.js";
-import type { NeuroLinkExecutionContext, ToolResult } from "../../factory.js";
+import type {
+  NeuroLinkExecutionContext,
+  ToolResult,
+} from "../../../types/mcpTypes.js";
 import { directAgentTools } from "../../../agent/directTools.js";
 import { logger } from "../../../utils/logger.js";
 import { shouldDisableBuiltinTools } from "../../../utils/toolUtils.js";

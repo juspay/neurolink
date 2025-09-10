@@ -4,6 +4,7 @@
  */
 
 import type { JsonValue, JsonObject } from "./common.js";
+import type { ExecutionContext } from "../types/tools.js";
 
 /**
  * Base context interface for all AI operations
@@ -447,8 +448,6 @@ function _isValidContext(value: unknown): value is BaseContext {
  * Context conversion utilities for domain-specific data
  * Replaces hardcoded business context with generic domain context
  */
-
-import type { ExecutionContext } from "../mcp/contracts/mcpContract.js";
 
 interface ContextConversionOptions {
   preserveLegacyFields?: boolean;

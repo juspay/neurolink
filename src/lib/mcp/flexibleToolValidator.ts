@@ -11,12 +11,7 @@
  */
 
 import { registryLogger } from "../utils/logger.js";
-
-export interface FlexibleValidationResult {
-  isValid: boolean;
-  error?: string;
-  warnings?: string[];
-}
+import type { FlexibleValidationResult } from "../types/mcpTypes.js";
 
 export class FlexibleToolValidator {
   // Universal safety limits (generous to support all legitimate tools)

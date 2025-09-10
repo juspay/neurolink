@@ -56,7 +56,7 @@ import type {
   MCPExecutableTool,
   MCPServerCategory,
 } from "./types/mcpTypes.js";
-import type { ToolInfo } from "./mcp/contracts/mcpContract.js";
+import type { ToolInfo } from "./types/tools.js";
 import type {
   NeuroLinkEvents,
   TypedEventEmitter,

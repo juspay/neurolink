@@ -52,7 +52,13 @@ export type {
   ToolDefinition,
   SimpleTool,
   AvailableTool,
+  ToolInfo,
   ToolExecution,
+  ToolExecutionResult,
+  ValidationResult,
+  ExecutionContext,
+  CacheOptions,
+  FallbackOptions,
 } from "./tools.js";
 
 export type {
@@ -92,6 +98,25 @@ export type {
   MCPServerMetadata,
   MCPToolMetadata,
   MCPServerRegistryEntry,
+  // Additional MCP types (moved from individual MCP files)
+  NeuroLinkMCPTool,
+  NeuroLinkMCPServer,
+  NeuroLinkExecutionContext,
+  MCPServerConfig,
+  DiscoveredMcp,
+  McpMetadata,
+  ProviderStatus,
+  ToolDiscoveryResult,
+  ExternalToolExecutionOptions,
+  ToolValidationResult,
+  ToolRegistryEvents,
+  CircuitBreakerState,
+  CircuitBreakerConfig,
+  CircuitBreakerStats,
+  CircuitBreakerEvents,
+  McpRegistry,
+  MCPClientResult,
+  FlexibleValidationResult,
 } from "./mcpTypes.js";
 
 // External MCP types

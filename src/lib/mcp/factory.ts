@@ -5,223 +5,17 @@
  */
 
 import { z } from "zod";
-import type { ExecutionContext } from "./contracts/mcpContract.js";
+import type {
+  MCPServerDomainCategory,
+  NeuroLinkMCPTool,
+  NeuroLinkMCPServer,
+  MCPServerConfig,
+} from "../types/mcpTypes.js";
 import {
   validateMCPTool,
   ValidationError,
   createValidationSummary,
 } from "../utils/parameterValidation.js";
-
-/**
- * MCP Server Categories for organization and discovery
- */
-export type MCPServerCategory =
-  | "aiProviders"
-  | "frameworks"
-  | "development"
-  | "business"
-  | "content"
-  | "data"
-  | "integrations"
-  | "automation"
-  | "analysis"
-  | "custom";
-
-/**
- * Tool execution context - Rich context passed to every tool execution
- * Following standard patterns for rich tool context
- * Extends ExecutionContext for compatibility
- */
-export interface NeuroLinkExecutionContext extends ExecutionContext {
-  // Core identifiers (sessionId and userId already in ExecutionContext)
-
-  // AI context
-  aiProvider?: string;
-  modelId?: string;
-  temperature?: number;
-  maxTokens?: number;
-
-  // Application context
-  appId?: string;
-  clientId?: string;
-  clientVersion?: string;
-  organizationId?: string;
-  projectId?: string;
-
-  // Environment context
-  environment?: string;
-  environmentType?: "development" | "staging" | "production";
-  platform?: string;
-  device?: string;
-  browser?: string;
-  userAgent?: string;
-
-  // Framework Context (new)
-  frameworkType?: "react" | "vue" | "svelte" | "next" | "nuxt" | "sveltekit";
-
-  // Tool Execution Context
-  toolChain?: string[];
-  parentToolId?: string;
-
-  // Location context
-  locale?: string;
-  timezone?: string;
-  ipAddress?: string;
-
-  // Request context
-  requestId?: string;
-  timestamp?: number;
-
-  // Security context
-  permissions?: string[];
-  features?: string[];
-  enableDemoMode?: boolean;
-  securityLevel?: "public" | "private" | "organization";
-
-  // Extensible metadata
-  metadata?: Record<string, unknown>;
-
-  // Extension points for custom context
-  [key: string]: unknown;
-}
-
-/**
- * Tool execution result - Standardized result format
- */
-export interface ToolResult {
-  success: boolean;
-  data?: unknown;
-  error?: string | Error;
-  usage?: {
-    tokens?: number;
-    cost?: number;
-    provider?: string;
-    model?: string;
-    executionTime?: number;
-  };
-  metadata?: {
-    toolName?: string;
-    serverId?: string;
-    serverTitle?: string;
-    sessionId?: string;
-    timestamp?: number;
-    executionTime?: number;
-    executionId?: string;
-    [key: string]: unknown;
-  };
-}
-
-/**
- * MCP Tool Interface - Standalone definition to avoid confusion with ToolDefinition execute signature
- */
-/**
- * NeuroLink MCP Tool Interface - Standardized tool definition for MCP integration
- *
- * This interface defines the contract for all tools in the NeuroLink ecosystem,
- * ensuring consistent execution patterns and metadata handling across different
- * MCP servers and tool implementations.
- *
- * Key features:
- * - Promise-based execution with ToolResult return type
- * - Rich context support for session management and permissions
- * - Optional schema validation for input/output
- * - Comprehensive metadata support for tool discovery
- *
- * @example
- * ```typescript
- * const calculatorTool: NeuroLinkMCPTool = {
- *   name: "calculator",
- *   description: "Performs basic arithmetic operations",
- *   category: "math",
- *   inputSchema: z.object({ a: z.number(), b: z.number(), op: z.string() }),
- *   async execute(params, context) {
- *     const { a, b, op } = params as { a: number; b: number; op: string };
- *     const result = op === "add" ? a + b : a - b;
- *     return { success: true, data: result };
- *   }
- * };
- * ```
- */
-export interface NeuroLinkMCPTool {
-  /** Unique tool identifier for MCP registration and execution */
-  name: string;
-
-  /** Human-readable description of tool functionality */
-  description: string;
-
-  /** Optional category for tool organization and discovery */
-  category?: string;
-
-  /** Optional input schema for parameter validation (Zod or JSON Schema) */
-  inputSchema?: unknown;
-
-  /** Optional output schema for result validation */
-  outputSchema?: unknown;
-
-  /** Implementation status flag for development tracking */
-  isImplemented?: boolean;
-
-  /** Required permissions for tool execution in secured environments */
-  permissions?: string[];
-
-  /** Tool version for compatibility and update management */
-  version?: string;
-
-  /** Additional metadata for tool information and capabilities */
-  metadata?: Record<string, unknown>;
-
-  /**
-   * Tool execution function with standardized signature
-   *
-   * @param params - Input parameters for the tool (validated against inputSchema if provided)
-   * @param context - Execution context with session, user, and environment information
-   * @returns Promise resolving to ToolResult with success status, data, and metadata
-   * @throws ValidationError if parameters fail validation
-   */
-  execute: (
-    params: unknown,
-    context: NeuroLinkExecutionContext,
-  ) => Promise<ToolResult>;
-}
-
-/**
- * MCP Server Interface - Standard compatible
- */
-export interface NeuroLinkMCPServer {
-  // Server identification
-  id: string;
-  title: string;
-  description?: string;
-  version?: string;
-  category?: MCPServerCategory;
-  visibility?: "public" | "private" | "organization";
-
-  // Tool management
-  tools: Record<string, NeuroLinkMCPTool>;
-
-  // Tool registration method
-  registerTool(tool: NeuroLinkMCPTool): NeuroLinkMCPServer;
-
-  // Extension points
-  metadata?: Record<string, unknown>;
-  dependencies?: string[];
-  capabilities?: string[];
-}
-
-/**
- * MCP Server Configuration for creation
- */
-export interface MCPServerConfig {
-  id: string;
-  title: string;
-  description?: string;
-  version?: string;
-  category?: MCPServerCategory;
-  visibility?: "public" | "private" | "organization";
-  metadata?: Record<string, unknown>;
-  dependencies?: string[];
-  capabilities?: string[];
-}
 
 /**
  * Input validation schemas
@@ -363,7 +157,7 @@ export function getServerInfo(server: NeuroLinkMCPServer): {
   id: string;
   title: string;
   description?: string;
-  category?: MCPServerCategory;
+  category?: MCPServerDomainCategory;
   toolCount: number;
   capabilities: string[];
 } {

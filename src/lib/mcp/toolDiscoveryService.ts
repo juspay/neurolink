@@ -12,116 +12,20 @@ import { globalCircuitBreakerManager } from "./mcpCircuitBreaker.js";
 import type {
   ExternalMCPToolInfo,
   ExternalMCPToolResult,
-  ExternalMCPToolContext,
 } from "../types/externalMcp.js";
-import type { MCPServerInfo } from "../types/mcpTypes.js";
+import type {
+  MCPServerInfo,
+  ToolDiscoveryResult,
+  ExternalToolExecutionOptions,
+  ToolValidationResult,
+  ToolRegistryEvents,
+} from "../types/mcpTypes.js";
 import type { JsonObject, JsonValue } from "../types/common.js";
 import { isObject, isNullish } from "../utils/typeUtils.js";
 import {
   validateToolName,
   validateToolDescription,
 } from "../utils/parameterValidation.js";
-
-/**
- * Tool discovery result
- */
-export interface ToolDiscoveryResult {
-  /** Whether discovery was successful */
-  success: boolean;
-
-  /** Number of tools discovered */
-  toolCount: number;
-
-  /** Discovered tools */
-  tools: ExternalMCPToolInfo[];
-
-  /** Error message if failed */
-  error?: string;
-
-  /** Discovery duration in milliseconds */
-  duration: number;
-
-  /** Server ID */
-  serverId: string;
-}
-
-/**
- * Tool execution options
- */
-export interface ToolExecutionOptions {
-  /** Execution timeout in milliseconds */
-  timeout?: number;
-
-  /** Additional context for execution */
-  context?: Partial<ExternalMCPToolContext>;
-
-  /** Whether to validate input parameters */
-  validateInput?: boolean;
-
-  /** Whether to validate output */
-  validateOutput?: boolean;
-}
-
-/**
- * Tool validation result
- */
-export interface ToolValidationResult {
-  /** Whether the tool is valid */
-  isValid: boolean;
-
-  /** Validation errors */
-  errors: string[];
-
-  /** Validation warnings */
-  warnings: string[];
-
-  /** Tool metadata */
-  metadata?: {
-    category?: string;
-    complexity?: "simple" | "moderate" | "complex";
-    requiresAuth?: boolean;
-    isDeprecated?: boolean;
-  };
-}
-
-/**
- * Tool registry events
- */
-export interface ToolRegistryEvents {
-  toolRegistered: {
-    serverId: string;
-    toolName: string;
-    toolInfo: ExternalMCPToolInfo;
-    timestamp: Date;
-  };
-
-  toolUnregistered: {
-    serverId: string;
-    toolName: string;
-    timestamp: Date;
-  };
-
-  toolUpdated: {
-    serverId: string;
-    toolName: string;
-    oldInfo: ExternalMCPToolInfo;
-    newInfo: ExternalMCPToolInfo;
-    timestamp: Date;
-  };
-
-  discoveryCompleted: {
-    serverId: string;
-    toolCount: number;
-    duration: number;
-    timestamp: Date;
-  };
-
-  discoveryFailed: {
-    serverId: string;
-    error: string;
-    timestamp: Date;
-  };
-}
 
 /**
  * ToolDiscoveryService
@@ -531,7 +435,7 @@ export class ToolDiscoveryService extends EventEmitter {
     serverId: string,
     client: Client,
     parameters: JsonObject,
-    options: ToolExecutionOptions = {},
+    options: ExternalToolExecutionOptions = {},
   ): Promise<ExternalMCPToolResult> {
     const startTime = Date.now();
 

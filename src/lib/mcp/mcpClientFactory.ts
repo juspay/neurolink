@@ -17,38 +17,12 @@ import { spawn, ChildProcess } from "child_process";
 import { mcpLogger } from "../utils/logger.js";
 import { globalCircuitBreakerManager } from "./mcpCircuitBreaker.js";
 import type { MCPTransportType } from "../types/externalMcp.js";
-import type { MCPServerInfo } from "../types/mcpTypes.js";
+import type { MCPServerInfo, MCPClientResult } from "../types/mcpTypes.js";
 import type {
   TransportResult,
   TransportWithProcessResult,
   NetworkTransportResult,
 } from "../types/typeAliases.js";
-
-/**
- * MCP client creation result
- */
-export interface MCPClientResult {
-  /** Whether client creation was successful */
-  success: boolean;
-
-  /** Created client instance */
-  client?: Client;
-
-  /** Created transport instance */
-  transport?: Transport;
-
-  /** Created process (for stdio transport) */
-  process?: ChildProcess;
-
-  /** Error message if failed */
-  error?: string;
-
-  /** Creation duration in milliseconds */
-  duration: number;
-
-  /** Server capabilities reported during handshake */
-  capabilities?: ClientCapabilities;
-}
 
 /**
  * MCPClientFactory

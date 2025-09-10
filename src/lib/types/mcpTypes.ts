@@ -4,6 +4,7 @@
  */
 
 import type { JsonValue, JsonObject } from "./common.js";
+import type { ExecutionContext, ToolInfo } from "./tools.js";
 
 /**
  * In-memory MCP server configuration
@@ -42,7 +43,7 @@ export type MCPServerConnectionStatus =
   | "stopped"; // Server has been stopped
 
 /**
- * MCP Server Category Types - Organizational classification
+ * MCP Server Category Types - Deployment and server type classification
  */
 export type MCPServerCategory =
   | "external" // External process-based MCP servers
@@ -53,11 +54,26 @@ export type MCPServerCategory =
   | "uncategorized"; // Fallback category
 
 /**
+ * MCP Server Domain Categories - Functional domain classification
+ */
+export type MCPServerDomainCategory =
+  | "aiProviders"
+  | "frameworks"
+  | "development"
+  | "business"
+  | "content"
+  | "data"
+  | "integrations"
+  | "automation"
+  | "analysis"
+  | "custom";
+
+/**
  * Universal MCP Server - Unified configuration and runtime state
  * MCP 2024-11-05 specification compliant
  * Replaces both MCPServerInfo and MCPServerConfig
  */
-export interface MCPServerInfo {
+export type MCPServerInfo = {
   // Core MCP-compliant fields (always required)
   id: string;
   name: string;
@@ -102,12 +118,12 @@ export interface MCPServerInfo {
     tags?: string[];
     [key: string]: unknown;
   };
-}
+};
 
 /**
  * MCP Server Status for CLI Operations - High Reusability
  */
-export interface MCPServerStatus {
+export type MCPServerStatus = {
   /** Whether MCP is initialized */
   mcpInitialized: boolean;
   /** Total number of servers */
@@ -132,12 +148,12 @@ export interface MCPServerStatus {
   availableTools: MCPToolInfo[];
   /** Server registry entries */
   serverRegistry?: Record<string, MCPServerInfo>;
-}
+};
 
 /**
  * Auto-discovered MCP Server - High Reusability
  */
-export interface MCPDiscoveredServer {
+export type MCPDiscoveredServer = {
   name: string;
   status: MCPServerConnectionStatus;
   source: string;
@@ -147,12 +163,12 @@ export interface MCPDiscoveredServer {
   args?: string[];
   env?: Record<string, string>;
   metadata?: MCPServerMetadata;
-}
+};
 
 /**
  * Connected MCP Server - High Reusability
  */
-export interface MCPConnectedServer {
+export type MCPConnectedServer = {
   name: string;
   transport: MCPTransportType;
   connected: boolean;
@@ -161,12 +177,12 @@ export interface MCPConnectedServer {
   lastSeen?: Date;
   connectionTime?: Date;
   metadata?: MCPServerMetadata;
-}
+};
 
 /**
  * MCP Tool Information - High Reusability
  */
-export interface MCPToolInfo {
+export type MCPToolInfo = {
   name: string;
   description: string;
   serverId: string;
@@ -175,7 +191,7 @@ export interface MCPToolInfo {
   inputSchema?: JsonObject;
   outputSchema?: JsonObject;
   metadata?: MCPToolMetadata;
-}
+};
 
 /**
  * MCP Executable Tool - Tool with execution capability
@@ -214,9 +230,105 @@ export type MCPToolMetadata = {
 export type MCPServerRegistryEntry = [string, MCPServerInfo];
 
 /**
- * Unified MCP Registry interface
+ * Call record for circuit breaker statistics tracking
+ * Extracted from mcpCircuitBreaker.ts for centralized type management
  */
-export interface UnifiedMCPRegistry {
+export type CallRecord = {
+  timestamp: number;
+  success: boolean;
+  duration: number;
+};
+
+/**
+ * Tool execution context - Rich context passed to every tool execution
+ * Extracted from factory.ts for centralized type management
+ * Following standard patterns for rich tool context
+ */
+export type NeuroLinkExecutionContext = {
+  // Core identifiers
+  sessionId?: string;
+  userId?: string;
+
+  // AI context
+  aiProvider?: string;
+  modelId?: string;
+  temperature?: number;
+  maxTokens?: number;
+
+  // Application context
+  appId?: string;
+  clientId?: string;
+  clientVersion?: string;
+  organizationId?: string;
+  projectId?: string;
+
+  // Environment context
+  environment?: string;
+  environmentType?: "development" | "staging" | "production";
+  platform?: string;
+  device?: string;
+  browser?: string;
+  userAgent?: string;
+
+  // Framework Context
+  frameworkType?: "react" | "vue" | "svelte" | "next" | "nuxt" | "sveltekit";
+
+  // Tool Execution Context
+  toolChain?: string[];
+  parentToolId?: string;
+
+  // Location context
+  locale?: string;
+  timezone?: string;
+  ipAddress?: string;
+
+  // Request context
+  requestId?: string;
+  timestamp?: number;
+
+  // Security context
+  permissions?: string[];
+  features?: string[];
+  enableDemoMode?: boolean;
+  securityLevel?: "public" | "private" | "organization";
+
+  // Extensible metadata
+  metadata?: Record<string, unknown>;
+
+  // Extension points for custom context
+  [key: string]: unknown;
+};
+
+/**
+ * Tool execution result - Standardized result format
+ */
+export type ToolResult = {
+  success: boolean;
+  data?: unknown;
+  error?: string | Error;
+  usage?: {
+    tokens?: number;
+    cost?: number;
+    provider?: string;
+    model?: string;
+    executionTime?: number;
+  };
+  metadata?: {
+    toolName?: string;
+    serverId?: string;
+    serverTitle?: string;
+    sessionId?: string;
+    timestamp?: number;
+    executionTime?: number;
+    executionId?: string;
+    [key: string]: unknown;
+  };
+};
+
+/**
+ * Unified MCP Registry type
+ */
+export type UnifiedMCPRegistry = {
   /**
    * Register an in-memory server
    */
@@ -243,4 +355,414 @@ export interface UnifiedMCPRegistry {
    * Check if connected to a server
    */
   isConnected(serverId: string): boolean;
-}
+};
+
+// =============================================================================
+// ADDITIONAL MCP INTERFACES (moved from individual MCP files for centralization)
+// =============================================================================
+
+import type { StandardRecord } from "./typeAliases.js";
+
+/**
+ * NeuroLink MCP Tool Type - Standardized tool definition for MCP integration
+ * Moved from src/lib/mcp/factory.ts
+ */
+export type NeuroLinkMCPTool = {
+  /** Unique tool identifier for MCP registration and execution */
+  name: string;
+
+  /** Human-readable description of tool functionality */
+  description: string;
+
+  /** Optional category for tool organization and discovery */
+  category?: string;
+
+  /** Optional input schema for parameter validation (Zod or JSON Schema) */
+  inputSchema?: unknown;
+
+  /** Optional output schema for result validation */
+  outputSchema?: unknown;
+
+  /** Implementation status flag for development tracking */
+  isImplemented?: boolean;
+
+  /** Required permissions for tool execution in secured environments */
+  permissions?: string[];
+
+  /** Tool version for compatibility and update management */
+  version?: string;
+
+  /** Additional metadata for tool information and capabilities */
+  metadata?: Record<string, unknown>;
+
+  /**
+   * Tool execution function with standardized signature
+   */
+  execute: (
+    params: unknown,
+    context: NeuroLinkExecutionContext,
+  ) => Promise<ToolResult>;
+};
+
+/**
+ * NeuroLink MCP Server Type - Standard compatible
+ * Moved from src/lib/mcp/factory.ts
+ */
+export type NeuroLinkMCPServer = {
+  // Server identification
+  id: string;
+  title: string;
+  description?: string;
+  version?: string;
+  category?: MCPServerDomainCategory;
+  visibility?: "public" | "private" | "organization";
+
+  // Tool management
+  tools: Record<string, NeuroLinkMCPTool>;
+
+  // Tool registration method
+  registerTool(tool: NeuroLinkMCPTool): NeuroLinkMCPServer;
+
+  // Extension points
+  metadata?: Record<string, unknown>;
+  dependencies?: string[];
+  capabilities?: string[];
+};
+
+/**
+ * MCP Server Configuration for creation
+ * Moved from src/lib/mcp/factory.ts
+ */
+export type MCPServerConfig = {
+  id: string;
+  title: string;
+  description?: string;
+  version?: string;
+  category?: MCPServerDomainCategory;
+  visibility?: "public" | "private" | "organization";
+  metadata?: Record<string, unknown>;
+  dependencies?: string[];
+  capabilities?: string[];
+};
+
+/**
+ * Discovered MCP server/plugin definition
+ * Moved from src/lib/mcp/contracts/mcpContract.ts
+ */
+export type DiscoveredMcp<TTools = StandardRecord> = {
+  metadata: McpMetadata;
+  tools?: TTools;
+  capabilities?: string[];
+  version?: string;
+  configuration?: Record<string, string | number | boolean>;
+  [key: string]: unknown; // Generic extensibility
+};
+
+/**
+ * MCP server metadata
+ * Moved from src/lib/mcp/contracts/mcpContract.ts
+ */
+export type McpMetadata = {
+  name: string;
+  description?: string;
+  version?: string;
+  author?: string;
+  homepage?: string;
+  repository?: string;
+  category?: string; // Server category (e.g., "ai-tools", "database", "api")
+};
+
+/**
+ * Provider status information
+ * Moved from src/lib/mcp/contracts/mcpContract.ts
+ */
+export type ProviderStatus = {
+  available: boolean;
+  lastCheck: number;
+  reason?: string;
+  model?: string;
+  cost?: number;
+  latencyMs?: number;
+};
+
+/**
+ * Tool discovery result
+ * Moved from src/lib/mcp/toolDiscoveryService.ts
+ */
+export type ToolDiscoveryResult = {
+  /** Whether discovery was successful */
+  success: boolean;
+
+  /** Number of tools discovered */
+  toolCount: number;
+
+  /** Discovered tools */
+  tools: import("./externalMcp.js").ExternalMCPToolInfo[];
+
+  /** Error message if failed */
+  error?: string;
+
+  /** Discovery duration in milliseconds */
+  duration: number;
+
+  /** Server ID */
+  serverId: string;
+};
+
+/**
+ * External MCP tool execution options
+ * Moved from src/lib/mcp/toolDiscoveryService.ts
+ */
+export type ExternalToolExecutionOptions = {
+  /** Execution timeout in milliseconds */
+  timeout?: number;
+
+  /** Additional context for execution */
+  context?: Partial<import("./externalMcp.js").ExternalMCPToolContext>;
+
+  /** Whether to validate input parameters */
+  validateInput?: boolean;
+
+  /** Whether to validate output */
+  validateOutput?: boolean;
+};
+
+/**
+ * Tool validation result
+ * Moved from src/lib/mcp/toolDiscoveryService.ts
+ */
+export type ToolValidationResult = {
+  /** Whether the tool is valid */
+  isValid: boolean;
+
+  /** Validation errors */
+  errors: string[];
+
+  /** Validation warnings */
+  warnings: string[];
+
+  /** Tool metadata */
+  metadata?: {
+    category?: string;
+    complexity?: "simple" | "moderate" | "complex";
+    requiresAuth?: boolean;
+    isDeprecated?: boolean;
+  };
+};
+
+/**
+ * Tool registry events
+ * Moved from src/lib/mcp/toolDiscoveryService.ts
+ */
+export type ToolRegistryEvents = {
+  toolRegistered: {
+    serverId: string;
+    toolName: string;
+    toolInfo: import("./externalMcp.js").ExternalMCPToolInfo;
+    timestamp: Date;
+  };
+
+  toolUnregistered: {
+    serverId: string;
+    toolName: string;
+    timestamp: Date;
+  };
+
+  toolExecuted: {
+    serverId: string;
+    toolName: string;
+    success: boolean;
+    duration: number;
+    timestamp: Date;
+  };
+
+  discoveryStarted: {
+    serverId: string;
+    timestamp: Date;
+  };
+
+  discoveryCompleted: {
+    serverId: string;
+    toolCount: number;
+    duration: number;
+    timestamp: Date;
+  };
+
+  discoveryFailed: {
+    serverId: string;
+    error: string;
+    timestamp: Date;
+  };
+};
+
+/**
+ * Circuit breaker states
+ * Moved from src/lib/mcp/mcpCircuitBreaker.ts
+ */
+export type CircuitBreakerState = "closed" | "open" | "half-open";
+
+/**
+ * Circuit breaker configuration
+ * Moved from src/lib/mcp/mcpCircuitBreaker.ts
+ */
+export type CircuitBreakerConfig = {
+  /** Number of failures before opening the circuit */
+  failureThreshold: number;
+
+  /** Time to wait before attempting reset (milliseconds) */
+  resetTimeout: number;
+
+  /** Maximum calls allowed in half-open state */
+  halfOpenMaxCalls: number;
+
+  /** Timeout for individual operations (milliseconds) */
+  operationTimeout: number;
+
+  /** Minimum number of calls before calculating failure rate */
+  minimumCallsBeforeCalculation: number;
+
+  /** Window size for calculating failure rate (milliseconds) */
+  statisticsWindowSize: number;
+};
+
+/**
+ * Circuit breaker statistics
+ * Moved from src/lib/mcp/mcpCircuitBreaker.ts
+ */
+export type CircuitBreakerStats = {
+  /** Current state */
+  state: CircuitBreakerState;
+
+  /** Total number of calls */
+  totalCalls: number;
+
+  /** Number of successful calls */
+  successfulCalls: number;
+
+  /** Number of failed calls */
+  failedCalls: number;
+
+  /** Current failure rate (0-1) */
+  failureRate: number;
+
+  /** Calls in current time window */
+  windowCalls: number;
+
+  /** Last state change timestamp */
+  lastStateChange: Date;
+
+  /** Next retry time (for open state) */
+  nextRetryTime?: Date;
+
+  /** Half-open call count */
+  halfOpenCalls: number;
+};
+
+/**
+ * Circuit breaker events
+ * Moved from src/lib/mcp/mcpCircuitBreaker.ts
+ */
+export type CircuitBreakerEvents = {
+  stateChange: {
+    oldState: CircuitBreakerState;
+    newState: CircuitBreakerState;
+    reason: string;
+    timestamp: Date;
+  };
+
+  callSuccess: {
+    duration: number;
+    timestamp: Date;
+  };
+
+  callFailure: {
+    error: string;
+    duration: number;
+    timestamp: Date;
+  };
+
+  circuitOpen: {
+    failureRate: number;
+    totalCalls: number;
+    timestamp: Date;
+  };
+
+  circuitHalfOpen: {
+    timestamp: Date;
+  };
+
+  circuitClosed: {
+    timestamp: Date;
+  };
+};
+
+/**
+ * MCP Registry type with optional methods for maximum flexibility
+ * Moved from src/lib/mcp/registry.ts
+ */
+export type McpRegistry = {
+  // All methods optional (maximum flexibility)
+  registerServer?(
+    serverId: string,
+    serverConfig?: unknown,
+    context?: ExecutionContext,
+  ): Promise<void>;
+  executeTool?<T = unknown>(
+    toolName: string,
+    args?: unknown,
+    context?: ExecutionContext,
+  ): Promise<T>;
+  listTools?(context?: ExecutionContext): Promise<ToolInfo[]>;
+};
+
+/**
+ * MCP client creation result
+ * Moved from src/lib/mcp/mcpClientFactory.ts
+ */
+export type MCPClientResult = {
+  /** Whether client creation was successful */
+  success: boolean;
+
+  /** Created client instance */
+  client?: import("@modelcontextprotocol/sdk/client/index.js").Client;
+
+  /** Created transport instance */
+  transport?: import("@modelcontextprotocol/sdk/shared/transport.js").Transport;
+
+  /** Created process (for stdio transport) */
+  process?: import("child_process").ChildProcess;
+
+  /** Error message if failed */
+  error?: string;
+
+  /** Creation duration in milliseconds */
+  duration: number;
+
+  /** Server capabilities reported during handshake */
+  capabilities?: import("@modelcontextprotocol/sdk/types.js").ClientCapabilities;
+};
+
+/**
+ * Flexible validation result
+ * Moved from src/lib/mcp/flexibleToolValidator.ts
+ */
+export type FlexibleValidationResult = {
+  /** Whether validation passed */
+  isValid: boolean;
+
+  /** Validation error message (for simple cases) */
+  error?: string;
+
+  /** Validation warnings */
+  warnings?: string[];
+
+  /** Normalized parameters (if valid) */
+  normalizedParams?: Record<string, unknown>;
+
+  /** Validation metadata */
+  metadata?: {
+    validationTime?: number;
+    validator?: string;
+    schema?: string;
+  };
+};

@@ -5,20 +5,20 @@
  */
 
 // Core contracts and types - using camelCase standard
+export type { McpMetadata, DiscoveredMcp } from "../types/mcpTypes.js";
+
 export type {
-  McpMetadata,
   ExecutionContext,
-  DiscoveredMcp,
   ToolInfo,
   ToolExecutionResult,
-} from "./contracts/mcpContract.js";
+} from "../types/tools.js";
 
 // Core functionality exports
 export { mcpLogger } from "../utils/logger.js";
 export type { LogLevel } from "../utils/logger.js";
 
 // Core contracts and types remain
-import type { McpMetadata } from "./contracts/mcpContract.js";
+import type { McpMetadata } from "../types/mcpTypes.js";
 
 /**
  * Initialize the MCP ecosystem - simplified

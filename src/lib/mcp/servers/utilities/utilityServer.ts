@@ -5,8 +5,11 @@
 
 import { z } from "zod";
 import type { Unknown } from "../../../types/common.js";
+import type {
+  NeuroLinkExecutionContext,
+  ToolResult,
+} from "../../../types/mcpTypes.js";
 import { createMCPServer } from "../../factory.js";
-import type { NeuroLinkExecutionContext, ToolResult } from "../../factory.js";
 import { logger } from "../../../utils/logger.js";
 
 /**

@@ -5,11 +5,11 @@
 
 import { z } from "zod";
 import type { Result, JsonValue, ErrorInfo } from "./common.js";
+import type { StandardRecord, ZodUnknownSchema } from "./typeAliases.js";
 
 /**
  * Commonly used Zod schema type aliases for cleaner type declarations
  */
-import type { ZodUnknownSchema } from "./typeAliases.js";
 export type { ZodUnknownSchema } from "./typeAliases.js";
 export type ZodAnySchema = z.ZodSchema<unknown>;
 export type ZodObjectSchema = z.ZodObject<z.ZodRawShape>;
@@ -23,78 +23,191 @@ export type ToolParameterSchema = ZodUnknownSchema | Record<string, JsonValue>;
 /**
  * Standard tool input parameters
  */
-export interface BaseToolArgs {
+export type BaseToolArgs = {
   [key: string]: JsonValue | undefined;
-}
+};
 
 /**
  * Tool execution arguments with specific common patterns
  */
-export interface ToolArgs extends BaseToolArgs {
+export type ToolArgs = BaseToolArgs & {
   // Common parameter patterns
   input?: JsonValue;
   data?: JsonValue;
   options?: JsonValue;
-}
+};
+
+/**
+ * Generic execution context for MCP operations
+ * Moved from src/lib/mcp/contracts/mcpContract.ts
+ */
+export type ExecutionContext<T = StandardRecord> = {
+  // Core identifiers (optional)
+  sessionId?: string; // Session/request identifier
+  userId?: string; // User identifier
+
+  // Generic extensibility (industry standard)
+  config?: T; // Generic configuration payload
+  metadata?: StandardRecord; // Flexible metadata
+
+  // Performance & resilience (standard patterns)
+  cacheOptions?: CacheOptions;
+  fallbackOptions?: FallbackOptions;
+  timeoutMs?: number;
+  startTime?: number;
+};
+
+/**
+ * Cache configuration options
+ * Moved from src/lib/mcp/contracts/mcpContract.ts
+ */
+export type CacheOptions = {
+  enabled?: boolean;
+  ttlMs?: number; // Time to live (milliseconds)
+  strategy?: "memory" | "writeThrough" | "cacheAside";
+};
+
+/**
+ * Fallback configuration options
+ * Moved from src/lib/mcp/contracts/mcpContract.ts
+ */
+export type FallbackOptions = {
+  enabled?: boolean;
+  maxAttempts?: number;
+  delayMs?: number;
+  circuitBreaker?: boolean;
+};
+
+/**
+ * Tool information with extensibility
+ * Moved from src/lib/mcp/contracts/mcpContract.ts
+ */
+export type ToolInfo = {
+  name: string;
+  description?: string;
+  category?: string;
+  serverId?: string;
+  inputSchema?: StandardRecord;
+  outputSchema?: StandardRecord;
+  [key: string]: unknown; // Generic extensibility
+};
+
+/**
+ * Tool Implementation type for MCP tool registry
+ * Extracted from toolRegistry.ts for centralized type management
+ */
+export type ToolImplementation = {
+  execute: (
+    params: unknown,
+    context?: ExecutionContext,
+  ) => Promise<unknown> | unknown;
+  description?: string;
+  inputSchema?: unknown;
+  outputSchema?: unknown;
+  category?: string;
+  permissions?: string[];
+};
+
+/**
+ * Tool execution options for enhanced control
+ * Extracted from toolRegistry.ts for centralized type management
+ */
+export type ToolExecutionOptions = {
+  timeout?: number;
+  retries?: number;
+  context?: unknown;
+  preferredSource?: string;
+  fallbackEnabled?: boolean;
+  validateBeforeExecution?: boolean;
+  timeoutMs?: number;
+};
+
+/**
+ * Tool execution result
+ * Moved from src/lib/mcp/contracts/mcpContract.ts
+ */
+export type ToolExecutionResult<T = unknown> = {
+  result: T;
+  context?: ExecutionContext; // Updated context after execution
+  performance?: {
+    duration: number;
+    tokensUsed?: number;
+    cost?: number;
+  };
+  validation?: ValidationResult; // Runtime validation results
+  cached?: boolean; // Whether result came from cache
+  fallback?: boolean; // Whether result came from fallback
+};
+
+/**
+ * Validation result for runtime checks
+ * Moved from src/lib/mcp/contracts/mcpContract.ts
+ */
+export type ValidationResult = {
+  valid: boolean;
+  missing: string[];
+  warnings: string[];
+  recommendations: string[];
+};
 
 /**
  * Tool execution metadata
  */
-export interface ToolExecutionMetadata {
+export type ToolExecutionMetadata = {
   requestId?: string;
   startTime?: number;
   version?: string;
   [key: string]: JsonValue | undefined;
-}
+};
 
 /**
  * Tool execution context
  */
-export interface ToolContext {
+export type ToolContext = {
   sessionId?: string;
   userId?: string;
   aiProvider?: string;
   metadata?: ToolExecutionMetadata;
-}
+};
 
 /**
  * Tool execution result metadata
  */
-export interface ToolResultMetadata {
+export type ToolResultMetadata = {
   toolName?: string;
   executionTime?: number;
   timestamp?: number;
   source?: string;
   version?: string;
   serverId?: string;
-}
+};
 
 /**
  * Tool execution result
  */
-export interface ToolResult<T = JsonValue> extends Result<T, ErrorInfo> {
+export type ToolResult<T = JsonValue> = Result<T, ErrorInfo> & {
   success: boolean;
   data?: T;
   error?: ErrorInfo;
   metadata?: ToolResultMetadata;
-}
+};
 
 /**
  * Tool metadata for registration
  */
-export interface ToolMetadata {
+export type ToolMetadata = {
   category?: string;
   version?: string;
   author?: string;
   tags?: string[];
   documentation?: string;
   [key: string]: JsonValue | undefined;
-}
+};
 
 /**
- * Tool definition interface
+ * Tool definition type
  */
-export interface ToolDefinition<TArgs = ToolArgs, TResult = JsonValue> {
+export type ToolDefinition<TArgs = ToolArgs, TResult = JsonValue> = {
   description: string;
   parameters?: ToolParameterSchema;
   metadata?: ToolMetadata;
@@ -102,91 +215,91 @@ export interface ToolDefinition<TArgs = ToolArgs, TResult = JsonValue> {
     params: TArgs,
     context?: ToolContext,
   ) => Promise<ToolResult<TResult>> | ToolResult<TResult>;
-}
+};
 
 /**
- * Simple tool interface (for SDK)
+ * Simple tool type (for SDK)
  */
-export interface SimpleTool<TArgs = ToolArgs, TResult = JsonValue> {
+export type SimpleTool<TArgs = ToolArgs, TResult = JsonValue> = {
   description: string;
   parameters?: ZodUnknownSchema;
   metadata?: ToolMetadata;
   execute: (params: TArgs, context?: ToolContext) => Promise<TResult>;
-}
+};
 
 /**
  * Tool registry entry
  */
-export interface ToolRegistryEntry {
+export type ToolRegistryEntry = {
   name: string;
   description: string;
   serverId?: string;
   isImplemented?: boolean;
   parameters?: ToolParameterSchema;
   execute?: ToolDefinition["execute"];
-}
+};
 
 /**
  * Tool execution information
  */
-export interface ToolExecution {
+export type ToolExecution = {
   toolName: string;
   params: ToolArgs;
   result: ToolResult;
   executionTime: number;
   timestamp: number;
-}
+};
 
 /**
  * Available tool information
  */
-export interface AvailableTool {
+export type AvailableTool = {
   name: string;
   description: string;
   serverId?: string;
   toolName?: string;
   parameters?: ToolParameterSchema;
-}
+};
 
 /**
  * Tool validation options
  */
-export interface ToolValidationOptions {
+export type ToolValidationOptions = {
   customValidator?: (
     toolName: string,
     params: ToolArgs,
   ) => boolean | Promise<boolean>;
   validateSchema?: boolean;
   allowUnknownProperties?: boolean;
-}
+};
 
 /**
  * Tool call information (for AI SDK integration)
  */
-export interface ToolCall {
+export type ToolCall = {
   toolName: string;
   parameters: ToolArgs;
   id?: string;
-}
+};
 
 /**
  * AI SDK Tool Call format (from Vercel AI SDK)
  */
-export interface AiSdkToolCall {
+export type AiSdkToolCall = {
   type: "tool-call";
   toolCallId: string;
   toolName: string;
   params: ToolArgs;
-}
+};
 
 /**
  * Tool call result (for AI SDK integration)
  */
-export interface ToolCallResult {
+export type ToolCallResult = {
   id?: string;
   result: ToolResult;
   formattedForAI: string;
-}
+};
 
 /**
  * Type guard for tool result

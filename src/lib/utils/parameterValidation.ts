@@ -11,7 +11,7 @@ import type {
 import type { TextGenerationOptions } from "../types/index.js";
 import type { StreamOptions } from "../types/streamTypes.js";
 import type { GenerateOptions } from "../types/generateTypes.js";
-import type { NeuroLinkMCPTool } from "../mcp/factory.js";
+import type { NeuroLinkMCPTool } from "../types/mcpTypes.js";
 import { SYSTEM_LIMITS } from "../core/constants.js";
 import { isNonNullObject } from "./typeUtils.js";
 

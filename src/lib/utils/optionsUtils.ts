@@ -9,7 +9,7 @@ import type {
   UnifiedGenerationOptions,
 } from "../types/generateTypes.js";
 import type { StreamOptions } from "../types/streamTypes.js";
-import type { ExecutionContext } from "../mcp/contracts/mcpContract.js";
+import type { ExecutionContext } from "../types/tools.js";
 import { ContextConverter } from "../types/contextTypes.js";
 import { logger } from "./logger.js";
 

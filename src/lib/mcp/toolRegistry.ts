@@ -5,12 +5,16 @@
 
 import type {
   DiscoveredMcp,
-  ExecutionContext,
+  ToolResult,
+  MCPServerInfo,
+  MCPServerCategory,
+} from "../types/mcpTypes.js";
+import type {
+  ToolImplementation,
   ToolInfo,
-} from "./contracts/mcpContract.js";
-import type { ToolResult } from "./factory.js";
+  ExecutionContext,
+} from "../types/tools.js";
 import type { UnknownRecord } from "../types/common.js";
-import type { MCPServerInfo, MCPServerCategory } from "../types/mcpTypes.js";
 import { MCPRegistry } from "./registry.js";
 import { registryLogger } from "../utils/logger.js";
 import { randomUUID } from "crypto";
@@ -20,34 +24,6 @@ import { detectCategory, createMCPServerInfo } from "../utils/mcpDefaults.js";
 import { FlexibleToolValidator } from "./flexibleToolValidator.js";
 import type { HITLManager } from "../hitl/hitlManager.js";
 import { HITLUserRejectedError, HITLTimeoutError } from "../hitl/hitlErrors.js";
-
-interface ToolImplementation {
-  execute: (
-    params: unknown,
-    context?: ExecutionContext,
-  ) => Promise<unknown> | unknown;
-  description?: string;
-  inputSchema?: unknown;
-  outputSchema?: unknown;
-  category?: string;
-  permissions?: string[];
-}
-
-// Use the compatible ToolResult from factory.ts
-export type ToolExecutionResult = ToolResult;
-
-/**
- * Tool execution options
- */
-export interface ToolExecutionOptions {
-  timeout?: number;
-  retries?: number;
-  context?: ExecutionContext;
-  preferredSource?: string;
-  fallbackEnabled?: boolean;
-  validateBeforeExecution?: boolean;
-  timeoutMs?: number;
-}
 
 export class MCPToolRegistry extends MCPRegistry {
   private tools: Map<string, ToolInfo> = new Map();
@@ -889,4 +865,4 @@ export const toolRegistry = new MCPToolRegistry();
 export const defaultToolRegistry = toolRegistry;
 
 // Export ToolInfo for other modules
-export type { ToolInfo } from "./contracts/mcpContract.js";
+export type { ToolInfo } from "../types/tools.js";
