@@ -1,3 +1,9 @@
+## [7.37.1](https://github.com/juspay/neurolink/compare/v7.37.0...v7.37.1) (2025-09-13)
+
+### Bug Fixes
+
+- **(tools):** resolve MCP tool execution and parameter validation failures ([2aa2ef7](https://github.com/juspay/neurolink/commit/2aa2ef7db1293e158e5dd34f63050a87aa302ddf))
+
 ## [7.37.0](https://github.com/juspay/neurolink/compare/v7.36.0...v7.37.0) (2025-09-10)
 
 ### Features
