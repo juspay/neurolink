@@ -115,11 +115,14 @@ import {
   storeConversationTurn,
 } from "./utils/conversationMemory.js";
 import { ExternalServerManager } from "./mcp/externalServerManager.js";
+import type { HITLConfig } from "./hitl/types.js";
+import { HITLManager } from "./hitl/hitlManager.js";
 import type {
   ExternalMCPServerInstance,
   ExternalMCPOperationResult,
   ExternalMCPToolInfo,
 } from "./types/externalMcp.js";
+import type { ConfirmationResponseEvent } from "./hitl/types.js";
 // Import direct tools server for automatic registration
 import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
 // Import orchestration components
@@ -234,6 +237,9 @@ export class NeuroLink {
   // Add orchestration property
   private enableOrchestration: boolean;
 
+  // HITL (Human-in-the-Loop) support
+  private hitlManager?: HITLManager;
+
   /**
    * Context storage for tool execution
    * This context will be merged with any runtime context passed by the AI model
@@ -249,6 +255,11 @@ export class NeuroLink {
    * @param config.conversationMemory.maxSessions - Maximum number of concurrent sessions (default: 100)
    * @param config.conversationMemory.maxTurnsPerSession - Maximum conversation turns per session (default: 50)
    * @param config.enableOrchestration - Whether to enable smart model orchestration (default: false)
+   * @param config.hitl - Configuration for Human-in-the-Loop safety features
+   * @param config.hitl.enabled - Whether to enable HITL tool confirmation (default: false)
+   * @param config.hitl.dangerousActions - Keywords that trigger confirmation (default: ['delete', 'remove', 'drop'])
+   * @param config.hitl.timeout - Confirmation timeout in milliseconds (default: 30000)
+   * @param config.hitl.allowArgumentModification - Allow users to modify tool parameters (default: true)
    *
    * @example
    * ```typescript
@@ -268,15 +279,27 @@ export class NeuroLink {
    * const neurolink = new NeuroLink({
    *   enableOrchestration: true
    * });
+   *
+   * // With HITL safety features
+   * const neurolink = new NeuroLink({
+   *   hitl: {
+   *     enabled: true,
+   *     dangerousActions: ['delete', 'remove', 'drop', 'truncate'],
+   *     timeout: 30000,
+   *     allowArgumentModification: true
+   *   }
+   * });
    * ```
    *
    * @throws {Error} When provider registry setup fails
    * @throws {Error} When conversation memory initialization fails (if enabled)
    * @throws {Error} When external server manager initialization fails
+   * @throws {Error} When HITL configuration is invalid (if enabled)
    */
   constructor(config?: {
     conversationMemory?: Partial<ConversationMemoryConfig>;
     enableOrchestration?: boolean;
+    hitl?: HITLConfig;
   }) {
     // Initialize orchestration setting
     this.enableOrchestration = config?.enableOrchestration ?? false;
@@ -303,6 +326,12 @@ export class NeuroLink {
       constructorHrTimeStart,
     );
     this.initializeExternalServerManager(
+      constructorId,
+      constructorStartTime,
+      constructorHrTimeStart,
+    );
+    this.initializeHITL(
+      config,
       constructorId,
       constructorStartTime,
       constructorHrTimeStart,
@@ -400,6 +429,168 @@ export class NeuroLink {
         message: "Conversation memory not enabled - skipping initialization",
       });
     }
+  }
+
+  /**
+   * Initialize HITL (Human-in-the-Loop) if enabled
+   */
+  private initializeHITL(
+    config:
+      | {
+          conversationMemory?: Partial<ConversationMemoryConfig>;
+          enableOrchestration?: boolean;
+          hitl?: HITLConfig;
+        }
+      | undefined,
+    constructorId: string,
+    constructorStartTime: number,
+    constructorHrTimeStart: bigint,
+  ): void {
+    if (config?.hitl?.enabled) {
+      const hitlInitStartTime = process.hrtime.bigint();
+      logger.debug(`[NeuroLink] 🛡️ LOG_POINT_C015_HITL_INIT_START`, {
+        logPoint: "C015_HITL_INIT_START",
+        constructorId,
+        timestamp: new Date().toISOString(),
+        elapsedMs: Date.now() - constructorStartTime,
+        elapsedNs: (
+          process.hrtime.bigint() - constructorHrTimeStart
+        ).toString(),
+        hitlInitStartTimeNs: hitlInitStartTime.toString(),
+        hitlConfig: {
+          enabled: config.hitl.enabled,
+          dangerousActions: config.hitl.dangerousActions || [],
+          timeout: config.hitl.timeout || 30000,
+          allowArgumentModification:
+            config.hitl.allowArgumentModification ?? true,
+          auditLogging: config.hitl.auditLogging ?? false,
+        },
+        message: "Starting HITL (Human-in-the-Loop) initialization",
+      });
+
+      try {
+        // Initialize HITL manager
+        this.hitlManager = new HITLManager(config.hitl);
+
+        // Inject HITL manager into tool registry
+        toolRegistry.setHITLManager(this.hitlManager);
+
+        // Inject HITL manager into external server manager
+        this.externalServerManager.setHITLManager(this.hitlManager);
+
+        // Set up HITL event forwarding to main emitter
+        this.setupHITLEventForwarding();
+
+        const hitlInitEndTime = process.hrtime.bigint();
+        const hitlInitDurationNs = hitlInitEndTime - hitlInitStartTime;
+
+        logger.debug(`[NeuroLink] ✅ LOG_POINT_C016_HITL_INIT_SUCCESS`, {
+          logPoint: "C016_HITL_INIT_SUCCESS",
+          constructorId,
+          timestamp: new Date().toISOString(),
+          elapsedMs: Date.now() - constructorStartTime,
+          elapsedNs: (
+            process.hrtime.bigint() - constructorHrTimeStart
+          ).toString(),
+          hitlInitDurationNs: hitlInitDurationNs.toString(),
+          hitlInitDurationMs:
+            Number(hitlInitDurationNs) / NANOSECOND_TO_MS_DIVISOR,
+          hasHitlManager: !!this.hitlManager,
+          message: "HITL (Human-in-the-Loop) initialized successfully",
+        });
+
+        logger.info(`[NeuroLink] HITL safety features enabled`, {
+          dangerousActions: config.hitl.dangerousActions?.length || 0,
+          timeout: config.hitl.timeout || 30000,
+          allowArgumentModification:
+            config.hitl.allowArgumentModification ?? true,
+          auditLogging: config.hitl.auditLogging ?? false,
+        });
+      } catch (error) {
+        const hitlInitErrorTime = process.hrtime.bigint();
+        const hitlInitDurationNs = hitlInitErrorTime - hitlInitStartTime;
+
+        logger.error(`[NeuroLink] ❌ LOG_POINT_C017_HITL_INIT_ERROR`, {
+          logPoint: "C017_HITL_INIT_ERROR",
+          constructorId,
+          timestamp: new Date().toISOString(),
+          elapsedMs: Date.now() - constructorStartTime,
+          elapsedNs: (
+            process.hrtime.bigint() - constructorHrTimeStart
+          ).toString(),
+          hitlInitDurationNs: hitlInitDurationNs.toString(),
+          hitlInitDurationMs:
+            Number(hitlInitDurationNs) / NANOSECOND_TO_MS_DIVISOR,
+          error: error instanceof Error ? error.message : String(error),
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          errorStack: error instanceof Error ? error.stack : undefined,
+          message: "HITL (Human-in-the-Loop) initialization failed",
+        });
+        throw error;
+      }
+    } else {
+      logger.debug(`[NeuroLink] 🚫 LOG_POINT_C018_HITL_DISABLED`, {
+        logPoint: "C018_HITL_DISABLED",
+        constructorId,
+        timestamp: new Date().toISOString(),
+        elapsedMs: Date.now() - constructorStartTime,
+        elapsedNs: (
+          process.hrtime.bigint() - constructorHrTimeStart
+        ).toString(),
+        hasConfig: !!config,
+        hasHitlConfig: !!config?.hitl,
+        hitlEnabled: config?.hitl?.enabled || false,
+        reason: !config
+          ? "NO_CONFIG"
+          : !config.hitl
+            ? "NO_HITL_CONFIG"
+            : !config.hitl.enabled
+              ? "HITL_DISABLED"
+              : "UNKNOWN",
+        message:
+          "HITL (Human-in-the-Loop) not enabled - skipping initialization",
+      });
+    }
+  }
+
+  /**
+   * Set up HITL event forwarding to main emitter
+   */
+  private setupHITLEventForwarding(): void {
+    if (!this.hitlManager) {
+      return;
+    }
+
+    // Forward HITL confirmation requests to main emitter
+    this.hitlManager.on("hitl:confirmation-request", (event) => {
+      logger.debug("Forwarding HITL confirmation request", {
+        confirmationId: event.payload?.confirmationId,
+        toolName: event.payload?.toolName,
+      });
+      this.emitter.emit("hitl:confirmation-request", event);
+    });
+
+    // Forward HITL timeout events to main emitter
+    this.hitlManager.on("hitl:timeout", (event) => {
+      logger.debug("Forwarding HITL timeout event", {
+        confirmationId: event.payload?.confirmationId,
+        toolName: event.payload?.toolName,
+      });
+      this.emitter.emit("hitl:timeout", event);
+    });
+
+    // Listen for confirmation responses from main emitter and forward to HITL manager
+    this.emitter.on("hitl:confirmation-response", (event) => {
+      const typedEvent = event as ConfirmationResponseEvent;
+      logger.debug("Received HITL confirmation response", {
+        confirmationId: typedEvent.payload?.confirmationId,
+        approved: typedEvent.payload?.approved,
+      });
+      // Forward to HITL manager
+      this.hitlManager?.emit("hitl:confirmation-response", typedEvent);
+    });
+
+    logger.debug("HITL event forwarding configured successfully");
   }
 
   /**
