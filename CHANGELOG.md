@@ -1,3 +1,9 @@
+## [7.38.1](https://github.com/juspay/neurolink/compare/v7.38.0...v7.38.1) (2025-09-16)
+
+### Bug Fixes
+
+- **(tool):** Openai provider's no of tool to pass ([8804d56](https://github.com/juspay/neurolink/commit/8804d5643672823d8e4684ecc622684935c3bdfe))
+
 ## [7.38.0](https://github.com/juspay/neurolink/compare/v7.37.1...v7.38.0) (2025-09-14)
 
 ### Features
