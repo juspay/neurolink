@@ -887,16 +887,17 @@ export class RedisConversationMemoryManager {
         conversationMemory: { enabled: false },
       });
 
-      const titlePrompt = `Generate a short, descriptive title (5-8 words maximum) for a conversation that starts with this user message. The title should capture the main topic or intent. Only return the title, nothing else.
+      const titlePrompt = `Generate a clear, concise, and descriptive title (5–8 words maximum) for a conversation based on the following user message. 
+The title must meaningfully reflect the topic or intent of the message. 
+Do not output anything unrelated, vague, or generic. 
+Do not say you cannot create a title. Always return a valid title.
 
-User message: "${userMessage}"
-
-Title:`;
+User message: "${userMessage}`;
 
       const result = await titleGenerator.generate({
         input: { text: titlePrompt },
         provider: this.config.summarizationProvider || "vertex",
-        model: this.config.summarizationModel || "gemini-2.5-flashb",
+        model: this.config.summarizationModel || "gemini-2.5-flash",
         disableTools: false,
       });
 
