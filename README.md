@@ -307,6 +307,18 @@ echo 'GOOGLE_VERTEX_LOCATION="us-central1"' >> .env
 
 # Test configuration
 npx @juspay/neurolink status
+
+# SDK Env Provider Check - Advanced provider testing with fallback detection
+pnpm run test:providers
+```
+
+#### 🔍 SDK Env Provider Check Output
+
+```bash
+# Example output:
+✅ Google AI: Working (197 tokens)
+⚠️  OpenAI: Failed (Fallback to google-ai)
+⚠️  AWS Bedrock: Failed (Fallback to google-ai)
 ```
 
 ### JSON Format Support (Complete)

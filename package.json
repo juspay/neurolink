@@ -62,7 +62,7 @@
     "convert:specific": "node tools/automation/shellConverter.js --specific",
     "// Testing (Enhanced & Adaptive)": "",
     "test:smart": "node tools/testing/adaptiveTestRunner.js",
-    "test:providers": "node tools/testing/providerValidator.js",
+    "test:providers": "node test/environment-setup.js",
     "test:performance": "node tools/testing/performanceMonitor.js",
     "test:coverage": "vitest run --coverage",
     "test:ci": "pnpm run test:smart && pnpm run test:coverage",
