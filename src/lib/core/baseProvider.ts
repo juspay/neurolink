@@ -889,13 +889,32 @@ export abstract class BaseProvider implements AIProvider {
     // Get the base model
     const baseModel = await this.getAISDKModel();
 
+    logger.debug(`Retrieved base model for ${this.providerName}`, {
+      provider: this.providerName,
+      model: this.modelName,
+      hasMiddlewareConfig: !!this.middlewareOptions,
+      timestamp: Date.now(),
+    });
+
     // Check if middleware should be applied
     const middlewareOptions = this.extractMiddlewareOptions(options);
+
+    logger.debug(`Middleware extraction result`, {
+      provider: this.providerName,
+      model: this.modelName,
+      middlewareOptions,
+    });
+
     if (!middlewareOptions) {
       return baseModel;
     }
 
     try {
+      logger.debug(`Applying middleware to ${this.providerName} model`, {
+        provider: this.providerName,
+        model: this.modelName,
+        middlewareOptions,
+      });
       // Create a new factory instance with the specified options
       const factory = new MiddlewareFactory(middlewareOptions);
 

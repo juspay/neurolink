@@ -89,10 +89,7 @@ export class AnthropicProviderV2 extends BaseProvider {
     _analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
   ): Promise<StreamResult> {
     // Note: StreamOptions validation handled differently than TextGenerationOptions
-
-    const apiKey = this.getApiKey();
-    const anthropicClient = createAnthropic({ apiKey });
-    const model = anthropicClient(this.modelName);
+    const model = await this.getAISDKModelWithMiddleware(options);
 
     const timeout = this.getTimeout(options);
     const timeoutController = createTimeoutController(

@@ -227,7 +227,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
     );
 
     try {
-      const model = await this.getAISDKModel();
+      const model = await this.getAISDKModelWithMiddleware(options); // This is where network connection happens!
       const result = streamText({
         model,
         prompt: options.input.text,

@@ -364,8 +364,9 @@ export class OpenAIProvider extends BaseProvider {
             : "no-tools",
       });
 
+      const model = await this.getAISDKModelWithMiddleware(options); // This is where network connection happens!
       const result = await streamText({
-        model: this.model,
+        model,
         messages: messages,
         temperature: options.temperature,
         maxTokens: options.maxTokens, // No default limit - unlimited unless specified

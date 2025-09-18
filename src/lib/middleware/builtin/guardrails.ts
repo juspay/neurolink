@@ -88,22 +88,30 @@ export function createGuardrailsMiddleware(
       logger.debug(`[GuardrailsMiddleware] Applying to stream call.`, {
         badWordsEnabled: !!config.badWords?.enabled,
       });
-
       const { stream, ...rest } = await doStream();
 
-      // Note: Model-based filtering is not applied to streams in this version
-      // as it requires the full text for analysis.
+      // Helper to escape regex special characters
+      function escapeRegExp(string: string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }
+
       const transformStream = new TransformStream({
         transform(chunk, controller) {
           let filteredChunk = chunk;
           if (config.badWords?.enabled && config.badWords.list) {
             for (const term of config.badWords.list) {
-              const regex = new RegExp(term, "gi");
-              if (typeof filteredChunk === "string") {
-                filteredChunk = filteredChunk.replace(
-                  regex,
-                  "*".repeat(term.length),
-                );
+              const regex = new RegExp(escapeRegExp(term), "gi");
+              if (
+                typeof filteredChunk === "object" &&
+                "textDelta" in filteredChunk
+              ) {
+                filteredChunk = {
+                  ...filteredChunk,
+                  textDelta: filteredChunk.textDelta.replace(
+                    regex,
+                    "*".repeat(term.length),
+                  ),
+                };
               }
             }
           }

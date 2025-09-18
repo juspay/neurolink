@@ -62,7 +62,9 @@ export class MiddlewareFactory {
     });
 
     // Register custom middleware if provided
+    logger.debug("Initializing MiddlewareFactory", { options });
     if (options.middleware) {
+      logger.debug(`Registering custom middleware`);
       for (const customMiddleware of options.middleware) {
         this.register(customMiddleware);
       }

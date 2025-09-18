@@ -24,6 +24,7 @@ export class MiddlewareRegistry {
     options: MiddlewareRegistrationOptions = {},
   ): void {
     const { replace = false, defaultEnabled = false, globalConfig } = options;
+    logger.debug(`Registering middleware: ${middleware.metadata.id}`);
 
     // Check if middleware already exists
     if (this.middleware.has(middleware.metadata.id) && !replace) {
@@ -100,8 +101,10 @@ export class MiddlewareRegistry {
     const chain: LanguageModelV1Middleware[] = [];
     const sortedIds = this.getSortedIds();
 
+    logger.debug("Building middleware chain", { config, sortedIds });
     for (const middlewareId of sortedIds) {
       const middleware = this.middleware.get(middlewareId);
+      logger.debug(`Evaluating middleware: ${middlewareId}`, { middleware });
       if (!middleware) {
         continue;
       }

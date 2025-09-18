@@ -160,9 +160,9 @@ export class AnthropicProvider extends BaseProvider {
 
       // Build message array from options
       const messages = buildMessagesArray(options);
-
+      const model = await this.getAISDKModelWithMiddleware(options);
       const result = await streamText({
-        model: this.model,
+        model: model,
         messages: messages,
         temperature: options.temperature,
         maxTokens: options.maxTokens, // No default limit - unlimited unless specified

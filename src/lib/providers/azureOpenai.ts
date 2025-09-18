@@ -141,8 +141,9 @@ export class AzureOpenAIProvider extends BaseProvider {
       // Build message array from options
       const messages = buildMessagesArray(options);
 
+      const model = await this.getAISDKModelWithMiddleware(options);
       const stream = await streamText({
-        model: this.azureProvider(this.deployment),
+        model,
         messages: messages,
         ...(options.maxTokens !== null && options.maxTokens !== undefined
           ? { maxTokens: options.maxTokens }

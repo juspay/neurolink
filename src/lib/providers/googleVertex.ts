@@ -833,7 +833,7 @@ export class GoogleVertexProvider extends BaseProvider {
       // Build message array from options
       const messages = buildMessagesArray(options);
 
-      const model = await this.getModel(); // This is where network connection happens!
+      const model = await this.getAISDKModelWithMiddleware(options); // This is where network connection happens!
 
       // Get all available tools (direct + MCP + external) for streaming
       const shouldUseTools = !options.disableTools && this.supportsTools();

@@ -176,9 +176,10 @@ export class LiteLLMProvider extends BaseProvider {
     try {
       // Build message array from options
       const messages = buildMessagesArray(options);
+      const model = await this.getAISDKModelWithMiddleware(options); // This is where network connection happens!
 
       const result = streamText({
-        model: this.model,
+        model: model,
         messages: messages,
         temperature: options.temperature,
         maxTokens: options.maxTokens, // No default limit - unlimited unless specified

@@ -82,8 +82,9 @@ export class MistralProvider extends BaseProvider {
       const shouldUseTools = !options.disableTools && this.supportsTools();
       const tools = shouldUseTools ? await this.getAllTools() : {};
       const messages = buildMessagesArray(options);
+      const model = await this.getAISDKModelWithMiddleware(options); // This is where network connection happens!
       const result = await streamText({
-        model: this.model,
+        model,
         messages: messages,
         temperature: options.temperature,
         maxTokens: options.maxTokens, // No default limit - unlimited unless specified

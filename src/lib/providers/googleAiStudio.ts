@@ -133,8 +133,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
     }
 
-    const google = createGoogleGenerativeAI({ apiKey });
-    const model = google(this.modelName);
+    const model = await this.getAISDKModelWithMiddleware(options);
 
     const timeout = this.getTimeout(options);
     const timeoutController = createTimeoutController(
