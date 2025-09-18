@@ -1,6 +1,9 @@
-import inquirer from "inquirer";
 import type { Argv } from "yargs";
 import chalk from "chalk";
+import readline from "readline";
+import fs from "fs/promises";
+import path from "path";
+import os from "os";
 import { logger } from "../../lib/utils/logger.js";
 import { globalSession } from "../../lib/session/globalSessionState.js";
 import type { ConversationMemoryConfig } from "../../lib/types/conversation.js";
@@ -16,10 +19,14 @@ const NEUROLINK_BANNER = `
 ▐▌  ▐▌▐▙▄▄▖▝▚▄▞▘▐▌ ▐▌▝▚▄▞▘▐▙▄▄▖▗▄█▄▖▐▌  ▐▌▐▌ ▐▌
 `;
 
+// Global command history file
+const HISTORY_FILE = path.join(os.homedir(), ".neurolink_history");
+
 export class LoopSession {
   private initializeCliParser: () => Argv;
   private isRunning = false;
   private sessionId?: string;
+  private commandHistory: string[] = [];
 
   private sessionVariablesSchema: Record<string, OptionSchema> =
     textGenerationOptionsSchema;
@@ -36,6 +43,9 @@ export class LoopSession {
     this.sessionId = globalSession.setLoopSession(
       this.conversationMemoryConfig,
     );
+
+    // Load command history from global file, reverse once for most recent first
+    this.commandHistory = (await this.loadHistory()).reverse();
 
     this.isRunning = true;
     logger.always(chalk.bold.green(NEUROLINK_BANNER));
@@ -63,22 +73,8 @@ export class LoopSession {
 
     while (this.isRunning) {
       try {
-        const answers = await inquirer
-          .prompt([
-            {
-              type: "input",
-              name: "command",
-              message: chalk.blue.bold("neurolink"),
-              prefix: chalk.blue.green("⎔"),
-              suffix: chalk.blue.green(" »"),
-            },
-          ])
-          .catch(() => {
-            // This catch block handles the interruption of inquirer
-            return { command: "" };
-          });
-
-        const command = answers.command.trim();
+        // Use readline with history support instead of inquirer
+        const command = await this.getCommandWithHistory();
 
         if (
           command.toLowerCase() === "exit" ||
@@ -94,6 +90,11 @@ export class LoopSession {
 
         // Handle session variable commands first
         if (await this.handleSessionCommands(command)) {
+          // Save session commands to history (both memory and file)
+          if (command && command.trim()) {
+            this.commandHistory.unshift(command);
+            await this.saveCommand(command);
+          }
           continue;
         }
 
@@ -110,8 +111,14 @@ export class LoopSession {
           })
           .exitProcess(false)
           .parse(command);
+
+        // Save command to history (both memory and file)
+        if (command && command.trim()) {
+          this.commandHistory.unshift(command);
+          await this.saveCommand(command);
+        }
       } catch (error) {
-        // Catch errors from the main loop (e.g., inquirer prompt itself failing)
+        // Catch errors from the main loop (e.g., readline prompt itself failing)
         handleError(error as Error, "An unexpected error occurred");
       }
     }
@@ -317,5 +324,68 @@ export class LoopSession {
         logger.always(chalk.gray(`    Type: ${schema.type}`));
       }
     }
+  }
+
+  /**
+   * Load command history from the global history file
+   */
+  private async loadHistory(): Promise<string[]> {
+    try {
+      const content = await fs.readFile(HISTORY_FILE, "utf8");
+      return content.split("\n").filter((line) => line.trim());
+    } catch {
+      // File doesn't exist yet or can't be read
+      return [];
+    }
+  }
+
+  /**
+   * Save a command to the global history file
+   */
+  private async saveCommand(command: string): Promise<void> {
+    try {
+      // Skip potentially sensitive commands
+      const sensitivePattern = /\b(api[-_]?key|token|password|secret|authorization)\b/i;
+      if (sensitivePattern.test(command)) {
+        return;
+      }
+
+      // Use writeFile with flag 'a' and mode 0o600 to ensure permissions on creation
+      await fs.writeFile(HISTORY_FILE, command + "\n", { flag: "a", mode: 0o600 });
+      // Ensure existing file remains private (best-effort)
+      await fs.chmod(HISTORY_FILE, 0o600);
+    } catch (error) {
+      // Log file write errors as warnings, but do not interrupt CLI flow
+      logger.warn(
+        "Warning: Could not save command to history:",
+        error as Error,
+      );
+    }
+  }
+
+  /**
+   * Get command input with history support using readline
+   */
+  private async getCommandWithHistory(): Promise<string> {
+    return new Promise((resolve) => {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        history: [...this.commandHistory], // most recent first
+        prompt: `${chalk.blue.green("⎔")} ${chalk.blue.bold("neurolink")} ${chalk.blue.green("»")} `,
+      });
+
+      rl.prompt();
+      rl.on("line", (input) => {
+        rl.close();
+        resolve(input.trim());
+      });
+
+      rl.on("SIGINT", () => {
+        rl.close();
+        this.isRunning = false;
+        resolve("exit");
+      });
+    });
   }
 }
