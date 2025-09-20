@@ -1,3 +1,9 @@
+## [7.41.0](https://github.com/juspay/neurolink/compare/v7.40.1...v7.41.0) (2025-09-20)
+
+### Features
+
+- **(test):** Added tests for hitl ([5ab1885](https://github.com/juspay/neurolink/commit/5ab1885eb8788dd499cda94c67d1791e7dd9b90f))
+
 ## [7.40.1](https://github.com/juspay/neurolink/compare/v7.40.0...v7.40.1) (2025-09-17)
 
 ### Bug Fixes
