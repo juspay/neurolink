@@ -1,3 +1,5 @@
+## [7.41.2](https://github.com/juspay/neurolink/compare/v7.41.1...v7.41.2) (2025-09-20)
+
 ## [7.41.1](https://github.com/juspay/neurolink/compare/v7.41.0...v7.41.1) (2025-09-20)
 
 ## [7.41.0](https://github.com/juspay/neurolink/compare/v7.40.1...v7.41.0) (2025-09-20)
