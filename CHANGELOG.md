@@ -1,3 +1,9 @@
+## [7.41.4](https://github.com/juspay/neurolink/compare/v7.41.3...v7.41.4) (2025-09-21)
+
+### Bug Fixes
+
+- **(types):** expose core SDK types for external developer integration ([66199c9](https://github.com/juspay/neurolink/commit/66199c9fb579f1aaab929ca987ac028eafa61a46))
+
 ## [7.41.3](https://github.com/juspay/neurolink/compare/v7.41.2...v7.41.3) (2025-09-20)
 
 ## [7.41.2](https://github.com/juspay/neurolink/compare/v7.41.1...v7.41.2) (2025-09-20)
