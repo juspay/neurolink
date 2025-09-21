@@ -49,7 +49,7 @@ async function environmentSetupExample() {
     },
   ];
 
-  let availableProviders = [];
+  const availableProviders = [];
 
   for (const provider of providers) {
     let isAvailable;

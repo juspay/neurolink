@@ -40,8 +40,9 @@
 ### Provider Count Updated (12 exported providers)
 
 **Exported Providers (from `src/lib/providers/index.ts`):**
+
 - `GoogleVertexAI` (from `googleVertex.ts`) - Google Vertex AI
-- `AmazonBedrock` (from `amazonBedrock.ts`) - AWS Bedrock  
+- `AmazonBedrock` (from `amazonBedrock.ts`) - AWS Bedrock
 - `AmazonSageMaker` (from `amazonSagemaker.ts`) - AWS SageMaker (exported class, with implementation helpers in `src/lib/providers/sagemaker/*`)
 - `OpenAI` (from `openAI.ts`) - OpenAI
 - `OpenAICompatible` (from `openaiCompatible.ts`) - OpenAI Compatible
@@ -54,6 +55,7 @@
 - `LiteLLM` (from `litellm.ts`) - LiteLLM
 
 **Implementation Files (not directly exported):**
+
 - `src/lib/providers/anthropicBaseProvider.ts` - Anthropic base implementation
 - `src/lib/providers/sagemaker/*` - SageMaker implementation helpers
 
@@ -363,11 +365,13 @@ private getModelConfig(modelName: string): ModelConfig {
 **File**: `src/lib/types/providers.ts` (already exists and consolidated)
 
 ✅ **Provider-specific types successfully consolidated into existing providers.ts:**
+
 - Bedrock types: `BedrockToolUse`, `BedrockToolResult`, `BedrockContentBlock`, `BedrockMessage`
 - Google AI Studio Live API types: `GenAILiveMedia`, `LiveConnectCallbacks`, etc.
 - OpenAI Compatible types: `ModelsResponse`
 
 ✅ **Provider files updated to import from centralized location:**
+
 ```typescript
 // Provider files now import from the single, consolidated location
 import type {
@@ -378,6 +382,7 @@ import type {
 ```
 
 **Benefits achieved:**
+
 - **No duplication** - Single source of truth for all provider types
 - **Centralized management** - All types in one location
 - **Type consistency** - Shared types available across providers

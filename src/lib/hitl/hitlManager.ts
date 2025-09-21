@@ -64,7 +64,8 @@ export class HITLManager extends EventEmitter {
       dangerousActions: config.dangerousActions,
       timeout: config.timeout ?? DEFAULT_TIMEOUT, // Default: 30 seconds
       confirmationMethod: config.confirmationMethod ?? "event", // Default: "event"
-      allowArgumentModification: config.allowArgumentModification ?? DEFAULT_ALLOW_MODIFICATION, // Default: true
+      allowArgumentModification:
+        config.allowArgumentModification ?? DEFAULT_ALLOW_MODIFICATION, // Default: true
       autoApproveOnTimeout: config.autoApproveOnTimeout ?? false, // Default: false (safe)
       auditLogging: config.auditLogging ?? false, // Default: false
       customRules: config.customRules ?? [], // Default: empty array
@@ -197,7 +198,8 @@ export class HITLManager extends EventEmitter {
             dangerousKeywords: this.getTriggeredKeywords(toolName, arguments_),
           },
           timeoutMs: this.config.timeout ?? DEFAULT_TIMEOUT,
-          allowModification: this.config.allowArgumentModification ?? DEFAULT_ALLOW_MODIFICATION,
+          allowModification:
+            this.config.allowArgumentModification ?? DEFAULT_ALLOW_MODIFICATION,
         },
       };
 

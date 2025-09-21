@@ -162,3 +162,6 @@ export * from "./serviceTypes.js";
 
 // Evaluation provider types - NEW
 export * from "./evaluationProviders.js";
+
+// SDK Types - Core types for external developers
+export * from "./sdkTypes.js";

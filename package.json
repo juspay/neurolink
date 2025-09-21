@@ -129,6 +129,11 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./types": {
+      "types": "./dist/types/sdkTypes.d.ts",
+      "import": "./dist/types/sdkTypes.js",
+      "default": "./dist/types/sdkTypes.js"
+    },
     "./package.json": "./package.json",
     "./cli": {
       "types": "./dist/cli/index.d.ts",
