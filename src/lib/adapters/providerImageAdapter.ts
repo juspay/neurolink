@@ -38,6 +38,14 @@ const VISION_CAPABILITIES = {
     "claude-3-sonnet",
     "claude-3-haiku",
   ],
+  azure: [
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4-turbo",
+    "gpt-4-vision-preview",
+    "gpt-4.1",
+    "gpt-4",
+  ],
   vertex: [
     // Gemini models on Vertex AI
     "gemini-2.5-pro",
@@ -88,6 +96,10 @@ export class ProviderImageAdapter {
       // Process images based on provider requirements
       switch (provider.toLowerCase()) {
         case "openai":
+          adaptedPayload = this.formatForOpenAI(text, images);
+          break;
+        case "azure":
+        case "azure-openai":
           adaptedPayload = this.formatForOpenAI(text, images);
           break;
         case "google-ai":

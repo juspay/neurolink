@@ -32,7 +32,7 @@ const middlewareOptions = {
 async function getStreamText(streamResult) {
   for await (const chunk of streamResult.stream) {
     if ("content" in chunk) {
-        console.log(chunk.content);
+      console.log(chunk.content);
     }
   }
 }

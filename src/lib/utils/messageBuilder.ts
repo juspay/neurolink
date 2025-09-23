@@ -21,14 +21,186 @@ import {
 import { logger } from "./logger.js";
 import { request } from "undici";
 import { readFileSync, existsSync } from "fs";
+import type {
+  CoreMessage,
+  CoreUserMessage,
+  CoreAssistantMessage,
+  CoreSystemMessage,
+  TextPart,
+  ImagePart,
+} from "ai";
 
 /**
- * Core message type compatible with AI SDK
+ * Type guard for validating message roles
  */
-type CoreMessage = {
-  role: "user" | "assistant" | "system";
-  content: string;
-};
+function isValidRole(role: unknown): role is "user" | "assistant" | "system" {
+  return (
+    typeof role === "string" &&
+    (role === "user" || role === "assistant" || role === "system")
+  );
+}
+
+/**
+ * Type guard for validating content items
+ */
+function isValidContentItem(
+  item: unknown,
+): item is
+  | { type: "text"; text: string }
+  | { type: "image"; image: string; mimeType?: string } {
+  if (!item || typeof item !== "object") {
+    return false;
+  }
+
+  const contentItem = item as Record<string, unknown>;
+
+  if (contentItem.type === "text") {
+    return typeof contentItem.text === "string";
+  }
+
+  if (contentItem.type === "image") {
+    return (
+      typeof contentItem.image === "string" &&
+      (contentItem.mimeType === undefined ||
+        typeof contentItem.mimeType === "string")
+    );
+  }
+
+  return false;
+}
+
+/**
+ * Safely convert content item to AI SDK content format
+ */
+function convertContentItem(item: unknown): TextPart | ImagePart | null {
+  if (!isValidContentItem(item)) {
+    return null;
+  }
+
+  const contentItem = item as {
+    type: string;
+    text?: string;
+    image?: string;
+    mimeType?: string;
+  };
+
+  if (contentItem.type === "text" && typeof contentItem.text === "string") {
+    return { type: "text", text: contentItem.text } satisfies TextPart;
+  }
+
+  if (contentItem.type === "image" && typeof contentItem.image === "string") {
+    return {
+      type: "image",
+      image: contentItem.image,
+      ...(contentItem.mimeType && { mimeType: contentItem.mimeType }),
+    } satisfies ImagePart;
+  }
+
+  return null;
+}
+
+/**
+ * Type-safe conversion from MultimodalChatMessage[] to CoreMessage[]
+ * Filters out invalid content and ensures strict CoreMessage contract compliance
+ */
+export function convertToCoreMessages(
+  messages: MultimodalChatMessage[],
+): CoreMessage[] {
+  return messages
+    .map((msg): CoreMessage | null => {
+      // Validate role
+      if (!isValidRole(msg.role)) {
+        logger.warn("Invalid message role found, skipping", { role: msg.role });
+        return null;
+      }
+
+      // Handle string content
+      if (typeof msg.content === "string") {
+        // Create properly typed discriminated union messages
+        if (msg.role === "system") {
+          return {
+            role: "system",
+            content: msg.content,
+          } satisfies CoreSystemMessage;
+        } else if (msg.role === "user") {
+          return {
+            role: "user",
+            content: msg.content,
+          } satisfies CoreUserMessage;
+        } else if (msg.role === "assistant") {
+          return {
+            role: "assistant",
+            content: msg.content,
+          } satisfies CoreAssistantMessage;
+        }
+      }
+
+      // Handle array content (multimodal) - only user messages support full multimodal content
+      if (Array.isArray(msg.content)) {
+        const validContent = msg.content
+          .map(convertContentItem)
+          .filter((item): item is NonNullable<typeof item> => item !== null);
+
+        // If no valid content items, skip the message
+        if (validContent.length === 0) {
+          logger.warn(
+            "No valid content items found in multimodal message, skipping",
+          );
+          return null;
+        }
+
+        if (msg.role === "user") {
+          // User messages support both text and image content
+          return {
+            role: "user",
+            content: validContent,
+          } satisfies CoreUserMessage;
+        } else if (msg.role === "assistant") {
+          // Assistant messages only support text content, filter out images
+          const textOnlyContent = validContent.filter(
+            (item) => item.type === "text",
+          );
+          if (textOnlyContent.length === 0) {
+            // If no text content, convert to empty string
+            return {
+              role: "assistant",
+              content: "",
+            } satisfies CoreAssistantMessage;
+          } else if (textOnlyContent.length === 1) {
+            // Single text item, use string content
+            return {
+              role: "assistant",
+              content: textOnlyContent[0].text,
+            } satisfies CoreAssistantMessage;
+          } else {
+            // Multiple text items, concatenate them
+            const combinedText = textOnlyContent
+              .map((item) => item.text)
+              .join(" ");
+            return {
+              role: "assistant",
+              content: combinedText,
+            } satisfies CoreAssistantMessage;
+          }
+        } else {
+          // System messages cannot have multimodal content, convert to text
+          const textContent =
+            validContent.find((item) => item.type === "text")?.text || "";
+          return {
+            role: "system",
+            content: textContent,
+          } satisfies CoreSystemMessage;
+        }
+      }
+
+      // Invalid content type
+      logger.warn("Invalid message content type found, skipping", {
+        contentType: typeof msg.content,
+      });
+      return null;
+    })
+    .filter((msg): msg is CoreMessage => msg !== null);
+}
 
 /**
  * Convert ChatMessage to CoreMessage for AI SDK compatibility
@@ -129,7 +301,13 @@ export async function buildMultimodalMessagesArray(
     const standardMessages = buildMessagesArray(
       options as TextGenerationOptions,
     );
-    return standardMessages.map((msg) => ({ ...msg, content: msg.content }));
+    return standardMessages.map(
+      (msg) =>
+        ({
+          role: msg.role,
+          content: typeof msg.content === "string" ? msg.content : msg.content,
+        }) as MultimodalChatMessage,
+    );
   }
 
   // Validate provider supports vision

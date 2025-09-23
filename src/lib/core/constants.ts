@@ -56,7 +56,7 @@ export const PROVIDER_MAX_TOKENS = {
     default: 64000,
   },
   azure: {
-    default: 64000,
+    default: 32000,
   },
   ollama: {
     default: 64000,
