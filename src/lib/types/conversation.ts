@@ -3,6 +3,12 @@
  * Provides type-safe conversation storage and context management
  */
 
+import type { MemoryConfig } from "mem0ai/oss";
+
+/**
+ * Mem0 configuration interface matching mem0ai/oss MemoryConfig structure
+ */
+
 /**
  * Configuration for conversation memory feature
  */
@@ -30,6 +36,12 @@ export interface ConversationMemoryConfig {
 
   /** Model to use for summarization */
   summarizationModel?: string;
+
+  /** Enable mem0 integration for conversation memory */
+  mem0Enabled?: boolean;
+
+  /** Configuration for mem0 integration */
+  mem0Config?: MemoryConfig;
 }
 /**
  * Complete memory for a conversation session

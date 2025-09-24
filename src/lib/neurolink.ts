@@ -128,6 +128,7 @@ import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
 // Import orchestration components
 import { ModelRouter } from "./utils/modelRouter.js";
 import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
+import type { MemoryConfig } from "mem0ai/oss";
 
 // Provider and MCP diagnostic types
 export interface ProviderStatus {
@@ -240,6 +241,53 @@ export class NeuroLink {
   // HITL (Human-in-the-Loop) support
   private hitlManager?: HITLManager;
 
+  // Mem0 memory instance and config for conversation context
+  private mem0Instance?:
+    | import("./memory/mem0Initializer.js").Mem0Memory
+    | null;
+  private mem0Config?: MemoryConfig;
+
+  /**
+   * Simple sync config setup for mem0
+   */
+  private initializeMem0Config(): boolean {
+    const config = this.conversationMemoryConfig?.conversationMemory;
+    if (!config?.mem0Enabled) {
+      return false;
+    }
+
+    this.mem0Config = config.mem0Config;
+    return true;
+  }
+
+  /**
+   * Async initialization called during generate/stream
+   */
+  private async ensureMem0Ready(): Promise<
+    import("./memory/mem0Initializer.js").Mem0Memory | null
+  > {
+    if (this.mem0Instance !== undefined) {
+      return this.mem0Instance;
+    }
+
+    if (!this.initializeMem0Config()) {
+      this.mem0Instance = null;
+      return null;
+    }
+
+    // Import and initialize from separate file
+    const { initializeMem0 } = await import("./memory/mem0Initializer.js");
+
+    if (!this.mem0Config) {
+      this.mem0Instance = null;
+      return null;
+    }
+
+    this.mem0Instance = await initializeMem0(
+      this.mem0Config,
+    );
+    return this.mem0Instance;
+  }
   /**
    * Context storage for tool execution
    * This context will be merged with any runtime context passed by the AI model
@@ -551,6 +599,14 @@ export class NeuroLink {
           "HITL (Human-in-the-Loop) not enabled - skipping initialization",
       });
     }
+  }
+
+  /** Format memory context for prompt inclusion */
+  private formatMemoryContext(memoryContext: string, currentInput: string): string {
+    return `Context from previous conversations:
+  ${memoryContext}
+
+  Current user's request: ${currentInput}`;
   }
 
   /**
@@ -1377,6 +1433,39 @@ export class NeuroLink {
       throw new Error("Input text is required and must be a non-empty string");
     }
 
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
+      options.context?.userId
+    ) {
+      try {
+        const mem0 = await this.ensureMem0Ready();
+        if (!mem0) {
+          logger.debug(
+            "Mem0 not available, continuing without memory retrieval",
+          );
+        } else {
+          const memories = await mem0.search(options.input.text, {
+            userId: options.context.userId as string,
+            limit: 5,
+          });
+
+          if (memories?.results?.length > 0) {
+            // Enhance the input with memory context
+            const memoryContext = memories.results
+              .map((m) => m.memory)
+              .join("\n");
+
+            options.input.text = this.formatMemoryContext(
+              memoryContext,
+              options.input.text,
+            );
+          }
+        }
+      } catch (error) {
+        logger.warn("Mem0 memory retrieval failed:", error);
+      }
+    }
+
     const startTime = Date.now();
 
     // Apply orchestration if enabled and no specific provider/model requested
@@ -1543,6 +1632,40 @@ export class NeuroLink {
           }
         : undefined,
     };
+
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
+      options.context?.userId &&
+      generateResult.content
+    ) {
+      // Non-blocking memory storage - run in background
+      setImmediate(async () => {
+        try {
+          const mem0 = await this.ensureMem0Ready();
+          if (mem0) {
+            // Store complete conversation turn (user + AI messages)
+            const conversationTurn = [
+              { role: "user", content: options.input.text },
+              { role: "system", content: generateResult.content },
+            ];
+
+            await mem0.add(JSON.stringify(conversationTurn), {
+              userId: options.context?.userId as string,
+              metadata: {
+                timestamp: new Date().toISOString(),
+                provider: generateResult.provider,
+                model: generateResult.model,
+                type: "conversation_turn",
+                async_mode: true,
+              },
+            });
+          }
+        } catch (error) {
+          // Non-blocking: Log error but don't fail the generation
+          logger.warn("Mem0 memory storage failed:", error);
+        }
+      });
+    }
 
     return generateResult;
   }
@@ -2331,6 +2454,41 @@ export class NeuroLink {
       await this.initializeMCP();
       const _originalPrompt = options.input.text;
 
+      if (
+        this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
+        options.context?.userId
+      ) {
+        try {
+          const mem0 = await this.ensureMem0Ready();
+          if (!mem0) {
+            // Continue without memories if mem0 is not available
+            logger.debug(
+              "Mem0 not available, continuing without memory retrieval",
+            );
+          } else {
+            const memories = await mem0.search(options.input.text, {
+              userId: options.context.userId as string,
+              limit: 5,
+            });
+
+            if (memories?.results?.length > 0) {
+              // Enhance the input with memory context
+              const memoryContext = memories.results
+                .map((m) => m.memory)
+                .join("\n");
+
+              options.input.text = this.formatMemoryContext(
+                memoryContext,
+                options.input.text,
+              );
+            }
+          }
+        } catch (error) {
+          // Non-blocking: Log error but continue with streaming
+          logger.warn("Mem0 memory retrieval failed:", error);
+        }
+      }
+
       // Apply orchestration if enabled and no specific provider/model requested
       if (this.enableOrchestration && !options.provider && !options.model) {
         try {
@@ -2410,6 +2568,39 @@ export class NeuroLink {
                 error: error instanceof Error ? error.message : String(error),
               });
             }
+          }
+
+          if (
+            self.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
+            enhancedOptions.context?.userId &&
+            accumulatedContent.trim()
+          ) {
+            // Non-blocking memory storage - run in background
+            setImmediate(async () => {
+              try {
+                const mem0 = await self.ensureMem0Ready();
+                if (mem0) {
+                  // Store complete conversation turn (user + AI messages)
+                  const conversationTurn = [
+                    { role: "user", content: originalPrompt },
+                    { role: "system", content: accumulatedContent.trim() },
+                  ];
+
+                  await mem0.add(JSON.stringify(conversationTurn), {
+                    userId: enhancedOptions.context?.userId as string,
+                    metadata: {
+                      timestamp: new Date().toISOString(),
+                      type: "conversation_turn_stream",
+                      userMessage: originalPrompt,
+                      async_mode: true,
+                      aiResponse: accumulatedContent.trim(),
+                    },
+                  });
+                }
+              } catch (error) {
+                logger.warn("Mem0 memory storage failed:", error);
+              }
+            });
           }
         }
       })(this);
