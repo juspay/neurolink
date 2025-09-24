@@ -14,12 +14,14 @@ type ProviderConstructor =
         modelName?: string,
         providerName?: string,
         sdk?: UnknownRecord,
+        region?: string,
       ): AIProvider;
     }
   | ((
       modelName?: string,
       providerName?: string,
       sdk?: UnknownRecord,
+      region?: string,
     ) => Promise<AIProvider>);
 
 /**
@@ -74,6 +76,7 @@ export class ProviderFactory {
     providerName: AIProviderName | string,
     modelName?: string,
     sdk?: UnknownRecord,
+    region?: string,
   ): Promise<AIProvider> {
     // Note: Providers are registered explicitly by ProviderRegistry to avoid circular dependencies
 
@@ -114,8 +117,9 @@ export class ProviderFactory {
             modelName?: string,
             providerName?: string,
             sdk?: UnknownRecord,
+            region?: string,
           ) => Promise<AIProvider> | AIProvider
-        )(model, providerName, sdk);
+        )(model, providerName, sdk, region);
 
         // Handle both sync and async results
         result =
@@ -133,7 +137,8 @@ export class ProviderFactory {
               modelName?: string,
               providerName?: string,
               sdk?: UnknownRecord,
-            ) => AIProvider)(model, providerName, sdk);
+              region?: string,
+            ) => AIProvider)(model, providerName, sdk, region);
           } catch (constructorError) {
             throw new Error(
               `Both factory function and constructor failed. Factory error: ${factoryError}. Constructor error: ${constructorError}`,

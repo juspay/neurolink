@@ -77,6 +77,8 @@ export class AIProviderFactory {
    * @param providerName - Name of the provider ('vertex', 'bedrock', 'openai')
    * @param modelName - Optional model name override
    * @param enableMCP - Optional flag to enable MCP integration (default: true)
+   * @param sdk - SDK instance
+   * @param region - Optional region override for cloud providers
    * @returns AIProvider instance
    */
   static async createProvider(
@@ -84,6 +86,7 @@ export class AIProviderFactory {
     modelName?: string | null,
     enableMCP: boolean = true,
     sdk?: UnknownRecord,
+    region?: string,
   ): Promise<AIProvider> {
     const functionTag = "AIProviderFactory.createProvider";
 
@@ -273,11 +276,12 @@ export class AIProviderFactory {
         finalModelName: finalModelName || "using provider default",
       });
 
-      // Create provider with enhanced SDK
+      // Create provider with enhanced SDK and region support
       const provider = await ProviderFactory.createProvider(
         normalizedName,
         finalModelName,
         sdk,
+        region,
       );
 
       // Summary logging in format expected by debugging tools

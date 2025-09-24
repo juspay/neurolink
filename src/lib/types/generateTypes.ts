@@ -27,6 +27,7 @@ export type GenerateOptions = {
   // Core options (inherited from TextGenerationOptions)
   provider?: AIProviderName | string;
   model?: string;
+  region?: string;
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
@@ -174,6 +175,7 @@ export type TextGenerationOptions = {
   input?: { text: string }; // Alternative to prompt for SDK compatibility
   provider?: AIProviderName;
   model?: string;
+  region?: string;
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;

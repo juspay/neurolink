@@ -159,6 +159,7 @@ export interface StreamOptions {
   // Core streaming options
   provider?: AIProviderName | string;
   model?: string;
+  region?: string;
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;

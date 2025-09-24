@@ -41,9 +41,11 @@ import type { ZodUnknownSchema } from "../types/typeAliases.js";
 export class AmazonBedrockProvider extends BaseProvider {
   private bedrockClient: BedrockRuntimeClient;
   private conversationHistory: BedrockMessage[] = [];
+  private region: string;
 
-  constructor(modelName?: string, neurolink?: NeuroLink) {
+  constructor(modelName?: string, neurolink?: NeuroLink, region?: string) {
     super(modelName, "bedrock" as AIProviderName, neurolink);
+    this.region = region || process.env.AWS_REGION || "us-east-1";
 
     logger.debug(
       "[AmazonBedrockProvider] Starting constructor with extensive logging for debugging",
@@ -62,7 +64,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       );
 
       this.bedrockClient = new BedrockRuntimeClient({
-        region: process.env.AWS_REGION || "us-east-1",
+        region: this.region,
         // Clean configuration - AWS SDK will handle credentials via:
         // 1. IAM roles (preferred in production)
         // 2. Environment variables
@@ -71,7 +73,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       });
 
       logger.debug(
-        `[AmazonBedrockProvider] Successfully created BedrockRuntimeClient with model: ${this.modelName}, region: ${process.env.AWS_REGION || "us-east-1"}`,
+        `[AmazonBedrockProvider] Successfully created BedrockRuntimeClient with model: ${this.modelName}, region: ${this.region}`,
       );
 
       // Immediate health check to catch credential issues early
@@ -91,7 +93,7 @@ export class AmazonBedrockProvider extends BaseProvider {
    */
   private async performInitialHealthCheck(): Promise<void> {
     const bedrockClient = new BedrockClient({
-      region: process.env.AWS_REGION || "us-east-1",
+      region: this.region,
     });
 
     try {

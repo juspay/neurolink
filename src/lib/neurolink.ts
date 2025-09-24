@@ -1534,6 +1534,7 @@ export class NeuroLink {
       evaluationDomain: options.evaluationDomain,
       toolUsageContext: options.toolUsageContext,
       input: options.input, // This includes text, images, and content arrays
+      region: options.region,
     };
 
     // Apply factory enhancement using centralized utilities
@@ -2036,6 +2037,7 @@ export class NeuroLink {
         options.model,
         !options.disableTools, // Pass disableTools as inverse of enableMCP
         this as unknown as UnknownRecord, // Pass SDK instance
+        options.region, // Pass region parameter
       );
 
       // ADD: Emit connection events for all providers (Bedrock-compatible)
@@ -2190,6 +2192,7 @@ export class NeuroLink {
           options.model,
           !options.disableTools, // Pass disableTools as inverse of enableMCP
           this as unknown as UnknownRecord, // Pass SDK instance
+          options.region,
         );
 
         // ADD: Emit connection events for successful provider creation (Bedrock-compatible)
@@ -2697,6 +2700,7 @@ export class NeuroLink {
       options.model,
       !options.disableTools, // Pass disableTools as inverse of enableMCP
       this as unknown as UnknownRecord, // Pass SDK instance
+      options.region, // Pass region parameter
     );
 
     // Enable tool execution for the provider using BaseProvider method

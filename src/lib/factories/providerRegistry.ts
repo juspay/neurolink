@@ -104,6 +104,7 @@ export class ProviderRegistry {
           modelName?: string,
           _providerName?: string,
           sdk?: UnknownRecord,
+          region?: string,
         ) => {
           const { AmazonBedrockProvider } = await import(
             "../providers/amazonBedrock.js"
@@ -111,6 +112,7 @@ export class ProviderRegistry {
           return new AmazonBedrockProvider(
             modelName,
             sdk as NeuroLink | undefined,
+            region,
           );
         },
         undefined, // Let provider read BEDROCK_MODEL from .env
@@ -141,6 +143,7 @@ export class ProviderRegistry {
           modelName?: string,
           providerName?: string,
           sdk?: UnknownRecord,
+          region?: string,
         ) => {
           const { GoogleVertexProvider } = await import(
             "../providers/googleVertex.js"
@@ -149,6 +152,7 @@ export class ProviderRegistry {
             modelName,
             providerName,
             sdk as NeuroLink | undefined,
+            region,
           );
         },
         "claude-sonnet-4@20250514",
@@ -239,11 +243,12 @@ export class ProviderRegistry {
           modelName?: string,
           _providerName?: string,
           _sdk?: UnknownRecord,
+          region?: string,
         ) => {
           const { AmazonSageMakerProvider } = await import(
             "../providers/amazonSagemaker.js"
           );
-          return new AmazonSageMakerProvider(modelName);
+          return new AmazonSageMakerProvider(modelName, region);
         },
         process.env.SAGEMAKER_MODEL || "sagemaker-model",
         ["sagemaker", "aws-sagemaker"],

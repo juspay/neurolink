@@ -35,12 +35,12 @@ export class AmazonSageMakerProvider extends BaseProvider {
   private sagemakerConfig: SageMakerConfig;
   private modelConfig: SageMakerModelConfig;
 
-  constructor(modelName?: string, endpointName?: string) {
+  constructor(modelName?: string, endpointName?: string, region?: string) {
     super(modelName, "sagemaker" as AIProviderName);
 
     try {
       // Load and validate configuration
-      this.sagemakerConfig = getSageMakerConfig();
+      this.sagemakerConfig = getSageMakerConfig(region);
       this.modelConfig = getSageMakerModelConfig(
         endpointName || getDefaultSageMakerEndpoint(),
       );

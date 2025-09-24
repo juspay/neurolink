@@ -31,6 +31,7 @@ export const textGenerationOptionsSchema: Record<
     | "middleware"
     | "expectedOutcome"
     | "evaluationCriteria"
+    | "region"
   >,
   OptionSchema
 > = {

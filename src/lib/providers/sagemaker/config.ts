@@ -51,15 +51,17 @@ const modelConfigCache: Map<string, SageMakerModelConfig> = new Map();
 /**
  * Load and validate SageMaker configuration from environment variables
  *
- * Environment variable priority:
- * 1. SAGEMAKER_* variables (highest priority)
- * 2. AWS_* variables (standard AWS SDK variables)
- * 3. Default values (lowest priority)
+ * Region priority:
+ * 1. region parameter (highest priority)
+ * 2. SAGEMAKER_REGION environment variable
+ * 3. AWS_REGION environment variable
+ * 4. Default value "us-east-1" (lowest priority)
  *
+ * @param region - Optional region parameter override
  * @returns Validated SageMaker configuration
  * @throws {Error} When required configuration is missing or invalid
  */
-export function getSageMakerConfig(): SageMakerConfig {
+export function getSageMakerConfig(region?: string): SageMakerConfig {
   // Return cached config if available
   if (configCache) {
     return configCache;
@@ -67,7 +69,10 @@ export function getSageMakerConfig(): SageMakerConfig {
 
   const config: SageMakerConfig = {
     region:
-      process.env.SAGEMAKER_REGION || process.env.AWS_REGION || "us-east-1",
+      region ||
+      process.env.SAGEMAKER_REGION ||
+      process.env.AWS_REGION ||
+      "us-east-1",
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
     sessionToken: process.env.AWS_SESSION_TOKEN,

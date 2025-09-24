@@ -76,207 +76,202 @@ const hasGoogleCredentials = (): boolean => {
 };
 
 // Enhanced Vertex settings creation with authentication fallback and proxy support
-const createVertexSettings =
-  async (): Promise<GoogleVertexProviderSettings> => {
-    const baseSettings: GoogleVertexProviderSettings = {
-      project: getVertexProjectId(),
-      location: getVertexLocation(),
-      fetch: createProxyFetch(),
-    };
+const createVertexSettings = async (
+  region?: string,
+): Promise<GoogleVertexProviderSettings> => {
+  const baseSettings: GoogleVertexProviderSettings = {
+    project: getVertexProjectId(),
+    location: region || getVertexLocation(),
+    fetch: createProxyFetch(),
+  };
 
-    // 🎯 OPTION 2: Create credentials file from environment variables at runtime
-    // This solves the problem where GOOGLE_APPLICATION_CREDENTIALS exists in ZSHRC locally
-    // but the file doesn't exist on production servers
+  // 🎯 OPTION 2: Create credentials file from environment variables at runtime
+  // This solves the problem where GOOGLE_APPLICATION_CREDENTIALS exists in ZSHRC locally
+  // but the file doesn't exist on production servers
 
-    // First, try to create credentials file from individual environment variables
-    const requiredEnvVarsForFile = {
-      type: process.env.GOOGLE_AUTH_TYPE,
-      project_id: process.env.GOOGLE_AUTH_BREEZE_PROJECT_ID,
-      private_key: process.env.GOOGLE_AUTH_PRIVATE_KEY,
-      client_email: process.env.GOOGLE_AUTH_CLIENT_EMAIL,
-      client_id: process.env.GOOGLE_AUTH_CLIENT_ID,
-      auth_uri: process.env.GOOGLE_AUTH_AUTH_URI,
-      token_uri: process.env.GOOGLE_AUTH_TOKEN_URI,
-      auth_provider_x509_cert_url:
-        process.env.GOOGLE_AUTH_AUTH_PROVIDER_CERT_URL,
-      client_x509_cert_url: process.env.GOOGLE_AUTH_CLIENT_CERT_URL,
-      universe_domain: process.env.GOOGLE_AUTH_UNIVERSE_DOMAIN,
-    };
+  // First, try to create credentials file from individual environment variables
+  const requiredEnvVarsForFile = {
+    type: process.env.GOOGLE_AUTH_TYPE,
+    project_id: process.env.GOOGLE_AUTH_BREEZE_PROJECT_ID,
+    private_key: process.env.GOOGLE_AUTH_PRIVATE_KEY,
+    client_email: process.env.GOOGLE_AUTH_CLIENT_EMAIL,
+    client_id: process.env.GOOGLE_AUTH_CLIENT_ID,
+    auth_uri: process.env.GOOGLE_AUTH_AUTH_URI,
+    token_uri: process.env.GOOGLE_AUTH_TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_AUTH_PROVIDER_CERT_URL,
+    client_x509_cert_url: process.env.GOOGLE_AUTH_CLIENT_CERT_URL,
+    universe_domain: process.env.GOOGLE_AUTH_UNIVERSE_DOMAIN,
+  };
 
-    // If we have the essential fields, create a runtime credentials file
-    if (
-      requiredEnvVarsForFile.client_email &&
-      requiredEnvVarsForFile.private_key
-    ) {
-      try {
-        // Build complete service account credentials object
-        const serviceAccountCredentials = {
-          type: requiredEnvVarsForFile.type || "service_account",
-          project_id: requiredEnvVarsForFile.project_id || getVertexProjectId(),
-          private_key: requiredEnvVarsForFile.private_key.replace(/\\n/g, "\n"),
-          client_email: requiredEnvVarsForFile.client_email,
-          client_id: requiredEnvVarsForFile.client_id || "",
-          auth_uri:
-            requiredEnvVarsForFile.auth_uri ||
-            "https://accounts.google.com/o/oauth2/auth",
-          token_uri:
-            requiredEnvVarsForFile.token_uri ||
-            "https://oauth2.googleapis.com/token",
-          auth_provider_x509_cert_url:
-            requiredEnvVarsForFile.auth_provider_x509_cert_url ||
-            "https://www.googleapis.com/oauth2/v1/certs",
-          client_x509_cert_url:
-            requiredEnvVarsForFile.client_x509_cert_url || "",
-          universe_domain:
-            requiredEnvVarsForFile.universe_domain || "googleapis.com",
-        };
+  // If we have the essential fields, create a runtime credentials file
+  if (
+    requiredEnvVarsForFile.client_email &&
+    requiredEnvVarsForFile.private_key
+  ) {
+    try {
+      // Build complete service account credentials object
+      const serviceAccountCredentials = {
+        type: requiredEnvVarsForFile.type || "service_account",
+        project_id: requiredEnvVarsForFile.project_id || getVertexProjectId(),
+        private_key: requiredEnvVarsForFile.private_key.replace(/\\n/g, "\n"),
+        client_email: requiredEnvVarsForFile.client_email,
+        client_id: requiredEnvVarsForFile.client_id || "",
+        auth_uri:
+          requiredEnvVarsForFile.auth_uri ||
+          "https://accounts.google.com/o/oauth2/auth",
+        token_uri:
+          requiredEnvVarsForFile.token_uri ||
+          "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url:
+          requiredEnvVarsForFile.auth_provider_x509_cert_url ||
+          "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url: requiredEnvVarsForFile.client_x509_cert_url || "",
+        universe_domain:
+          requiredEnvVarsForFile.universe_domain || "googleapis.com",
+      };
 
-        // Create temporary credentials file
-        const tmpDir = os.tmpdir();
-        const credentialsFileName = `google-credentials-${Date.now()}-${Math.random().toString(36).substring(2, 11)}.json`;
-        const credentialsFilePath = path.join(tmpDir, credentialsFileName);
+      // Create temporary credentials file
+      const tmpDir = os.tmpdir();
+      const credentialsFileName = `google-credentials-${Date.now()}-${Math.random().toString(36).substring(2, 11)}.json`;
+      const credentialsFilePath = path.join(tmpDir, credentialsFileName);
 
-        fs.writeFileSync(
-          credentialsFilePath,
-          JSON.stringify(serviceAccountCredentials, null, 2),
-        );
+      fs.writeFileSync(
+        credentialsFilePath,
+        JSON.stringify(serviceAccountCredentials, null, 2),
+      );
 
-        // Set the environment variable to point to our runtime-created file
-        process.env.GOOGLE_APPLICATION_CREDENTIALS = credentialsFilePath;
+      // Set the environment variable to point to our runtime-created file
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = credentialsFilePath;
 
-        // Now continue with the normal flow - check if the file exists
-        const fileExists = fs.existsSync(credentialsFilePath);
-        if (fileExists) {
-          return baseSettings;
-        }
-      } catch {
-        // Silent error handling for runtime credentials file creation
-      }
-    }
-
-    // 🎯 OPTION 1: Check for principal account authentication (Accept any valid GOOGLE_APPLICATION_CREDENTIALS file (service account OR ADC))
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-      // Check if the credentials file exists
-      let fileExists = false;
-      try {
-        fileExists = fs.existsSync(credentialsPath);
-      } catch {
-        fileExists = false;
-      }
-
+      // Now continue with the normal flow - check if the file exists
+      const fileExists = fs.existsSync(credentialsFilePath);
       if (fileExists) {
         return baseSettings;
       }
+    } catch {
+      // Silent error handling for runtime credentials file creation
+    }
+  }
+
+  // 🎯 OPTION 1: Check for principal account authentication (Accept any valid GOOGLE_APPLICATION_CREDENTIALS file (service account OR ADC))
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+    // Check if the credentials file exists
+    let fileExists = false;
+    try {
+      fileExists = fs.existsSync(credentialsPath);
+    } catch {
+      fileExists = false;
     }
 
-    // Fallback to explicit credentials for development and production
-    // Enhanced to check ALL required fields from the .env file configuration
-    const requiredEnvVars = {
-      type: process.env.GOOGLE_AUTH_TYPE,
-      project_id: process.env.GOOGLE_AUTH_BREEZE_PROJECT_ID,
-      private_key: process.env.GOOGLE_AUTH_PRIVATE_KEY,
-      client_email: process.env.GOOGLE_AUTH_CLIENT_EMAIL,
-      client_id: process.env.GOOGLE_AUTH_CLIENT_ID,
-      auth_uri: process.env.GOOGLE_AUTH_AUTH_URI,
-      token_uri: process.env.GOOGLE_AUTH_TOKEN_URI,
+    if (fileExists) {
+      return baseSettings;
+    }
+  }
+
+  // Fallback to explicit credentials for development and production
+  // Enhanced to check ALL required fields from the .env file configuration
+  const requiredEnvVars = {
+    type: process.env.GOOGLE_AUTH_TYPE,
+    project_id: process.env.GOOGLE_AUTH_BREEZE_PROJECT_ID,
+    private_key: process.env.GOOGLE_AUTH_PRIVATE_KEY,
+    client_email: process.env.GOOGLE_AUTH_CLIENT_EMAIL,
+    client_id: process.env.GOOGLE_AUTH_CLIENT_ID,
+    auth_uri: process.env.GOOGLE_AUTH_AUTH_URI,
+    token_uri: process.env.GOOGLE_AUTH_TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_AUTH_PROVIDER_CERT_URL,
+    client_x509_cert_url: process.env.GOOGLE_AUTH_CLIENT_CERT_URL,
+    universe_domain: process.env.GOOGLE_AUTH_UNIVERSE_DOMAIN,
+  };
+
+  // Check if we have the minimal required fields (client_email and private_key are essential)
+  if (requiredEnvVars.client_email && requiredEnvVars.private_key) {
+    logger.debug("Using explicit service account credentials authentication", {
+      authMethod: "explicit_service_account_credentials",
+      hasType: !!requiredEnvVars.type,
+      hasProjectId: !!requiredEnvVars.project_id,
+      hasClientEmail: !!requiredEnvVars.client_email,
+      hasPrivateKey: !!requiredEnvVars.private_key,
+      hasClientId: !!requiredEnvVars.client_id,
+      hasAuthUri: !!requiredEnvVars.auth_uri,
+      hasTokenUri: !!requiredEnvVars.token_uri,
+      hasAuthProviderCertUrl: !!requiredEnvVars.auth_provider_x509_cert_url,
+      hasClientCertUrl: !!requiredEnvVars.client_x509_cert_url,
+      hasUniverseDomain: !!requiredEnvVars.universe_domain,
+      credentialsCompleteness: "using_individual_env_vars_as_fallback",
+    });
+
+    // Build complete service account credentials object
+    const serviceAccountCredentials = {
+      type: requiredEnvVars.type || "service_account",
+      project_id: requiredEnvVars.project_id || getVertexProjectId(),
+      private_key: requiredEnvVars.private_key.replace(/\\n/g, "\n"),
+      client_email: requiredEnvVars.client_email,
+      client_id: requiredEnvVars.client_id || "",
+      auth_uri:
+        requiredEnvVars.auth_uri || "https://accounts.google.com/o/oauth2/auth",
+      token_uri:
+        requiredEnvVars.token_uri || "https://oauth2.googleapis.com/token",
       auth_provider_x509_cert_url:
-        process.env.GOOGLE_AUTH_AUTH_PROVIDER_CERT_URL,
-      client_x509_cert_url: process.env.GOOGLE_AUTH_CLIENT_CERT_URL,
-      universe_domain: process.env.GOOGLE_AUTH_UNIVERSE_DOMAIN,
+        requiredEnvVars.auth_provider_x509_cert_url ||
+        "https://www.googleapis.com/oauth2/v1/certs",
+      client_x509_cert_url: requiredEnvVars.client_x509_cert_url || "",
+      universe_domain: requiredEnvVars.universe_domain || "googleapis.com",
     };
 
-    // Check if we have the minimal required fields (client_email and private_key are essential)
-    if (requiredEnvVars.client_email && requiredEnvVars.private_key) {
-      logger.debug(
-        "Using explicit service account credentials authentication",
-        {
-          authMethod: "explicit_service_account_credentials",
-          hasType: !!requiredEnvVars.type,
-          hasProjectId: !!requiredEnvVars.project_id,
-          hasClientEmail: !!requiredEnvVars.client_email,
-          hasPrivateKey: !!requiredEnvVars.private_key,
-          hasClientId: !!requiredEnvVars.client_id,
-          hasAuthUri: !!requiredEnvVars.auth_uri,
-          hasTokenUri: !!requiredEnvVars.token_uri,
-          hasAuthProviderCertUrl: !!requiredEnvVars.auth_provider_x509_cert_url,
-          hasClientCertUrl: !!requiredEnvVars.client_x509_cert_url,
-          hasUniverseDomain: !!requiredEnvVars.universe_domain,
-          credentialsCompleteness: "using_individual_env_vars_as_fallback",
-        },
-      );
-
-      // Build complete service account credentials object
-      const serviceAccountCredentials = {
-        type: requiredEnvVars.type || "service_account",
-        project_id: requiredEnvVars.project_id || getVertexProjectId(),
-        private_key: requiredEnvVars.private_key.replace(/\\n/g, "\n"),
-        client_email: requiredEnvVars.client_email,
-        client_id: requiredEnvVars.client_id || "",
-        auth_uri:
-          requiredEnvVars.auth_uri ||
-          "https://accounts.google.com/o/oauth2/auth",
-        token_uri:
-          requiredEnvVars.token_uri || "https://oauth2.googleapis.com/token",
-        auth_provider_x509_cert_url:
-          requiredEnvVars.auth_provider_x509_cert_url ||
-          "https://www.googleapis.com/oauth2/v1/certs",
-        client_x509_cert_url: requiredEnvVars.client_x509_cert_url || "",
-        universe_domain: requiredEnvVars.universe_domain || "googleapis.com",
-      };
-
-      return {
-        ...baseSettings,
-        googleAuthOptions: {
-          credentials: serviceAccountCredentials,
-        },
-      };
-    }
-
-    // Log comprehensive warning if no valid authentication is available
-    logger.warn("No valid authentication found for Google Vertex AI", {
-      authMethod: "none",
-      authenticationAttempts: {
-        principalAccountFile: {
-          envVarSet: !!process.env.GOOGLE_APPLICATION_CREDENTIALS,
-          filePath: process.env.GOOGLE_APPLICATION_CREDENTIALS || "NOT_SET",
-          fileExists: false, // We already checked above
-        },
-        explicitCredentials: {
-          hasClientEmail: !!requiredEnvVars.client_email,
-          hasPrivateKey: !!requiredEnvVars.private_key,
-          hasProjectId: !!requiredEnvVars.project_id,
-          hasType: !!requiredEnvVars.type,
-          missingFields: Object.entries(requiredEnvVars)
-            .filter(([_key, value]) => !value)
-            .map(([key]) => key),
-        },
+    return {
+      ...baseSettings,
+      googleAuthOptions: {
+        credentials: serviceAccountCredentials,
       },
-      troubleshooting: [
-        "1. Ensure GOOGLE_APPLICATION_CREDENTIALS points to an existing file, OR",
-        "2. Set individual environment variables: GOOGLE_AUTH_CLIENT_EMAIL and GOOGLE_AUTH_PRIVATE_KEY",
-      ],
-    });
-    return baseSettings;
-  };
+    };
+  }
+
+  // Log comprehensive warning if no valid authentication is available
+  logger.warn("No valid authentication found for Google Vertex AI", {
+    authMethod: "none",
+    authenticationAttempts: {
+      principalAccountFile: {
+        envVarSet: !!process.env.GOOGLE_APPLICATION_CREDENTIALS,
+        filePath: process.env.GOOGLE_APPLICATION_CREDENTIALS || "NOT_SET",
+        fileExists: false, // We already checked above
+      },
+      explicitCredentials: {
+        hasClientEmail: !!requiredEnvVars.client_email,
+        hasPrivateKey: !!requiredEnvVars.private_key,
+        hasProjectId: !!requiredEnvVars.project_id,
+        hasType: !!requiredEnvVars.type,
+        missingFields: Object.entries(requiredEnvVars)
+          .filter(([_key, value]) => !value)
+          .map(([key]) => key),
+      },
+    },
+    troubleshooting: [
+      "1. Ensure GOOGLE_APPLICATION_CREDENTIALS points to an existing file, OR",
+      "2. Set individual environment variables: GOOGLE_AUTH_CLIENT_EMAIL and GOOGLE_AUTH_PRIVATE_KEY",
+    ],
+  });
+  return baseSettings;
+};
 
 // Create Anthropic-specific Vertex settings with the same authentication and proxy support
-const createVertexAnthropicSettings =
-  async (): Promise<GoogleVertexAnthropicProviderSettings> => {
-    const baseVertexSettings = await createVertexSettings();
+const createVertexAnthropicSettings = async (
+  region?: string,
+): Promise<GoogleVertexAnthropicProviderSettings> => {
+  const baseVertexSettings = await createVertexSettings(region);
 
-    // GoogleVertexAnthropicProviderSettings extends GoogleVertexProviderSettings
-    // so we can use the same settings with proper typing
-    return {
-      project: baseVertexSettings.project,
-      location: baseVertexSettings.location,
-      fetch: baseVertexSettings.fetch,
-      ...(baseVertexSettings.googleAuthOptions && {
-        googleAuthOptions: baseVertexSettings.googleAuthOptions,
-      }),
-    } as GoogleVertexAnthropicProviderSettings;
-  };
+  // GoogleVertexAnthropicProviderSettings extends GoogleVertexProviderSettings
+  // so we can use the same settings with proper typing
+  return {
+    project: baseVertexSettings.project,
+    location: baseVertexSettings.location,
+    fetch: baseVertexSettings.fetch,
+    ...(baseVertexSettings.googleAuthOptions && {
+      googleAuthOptions: baseVertexSettings.googleAuthOptions,
+    }),
+  } as GoogleVertexAnthropicProviderSettings;
+};
 
 // Helper function to determine if a model is an Anthropic model
 const isAnthropicModel = (modelName: string): boolean => {
@@ -318,7 +313,12 @@ export class GoogleVertexProvider extends BaseProvider {
   private static maxTokensCache: Map<string, boolean> = new Map();
   private static maxTokensCacheTime = 0;
 
-  constructor(modelName?: string, _providerName?: string, sdk?: unknown) {
+  constructor(
+    modelName?: string,
+    _providerName?: string,
+    sdk?: unknown,
+    region?: string,
+  ) {
     super(modelName, "vertex" as AIProviderName, sdk as NeuroLink | undefined);
 
     // Validate Google Cloud credentials - now using consolidated utility
@@ -328,8 +328,7 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Initialize Google Cloud configuration
     this.projectId = getVertexProjectId();
-    this.location = getVertexLocation();
-
+    this.location = region || getVertexLocation();
     logger.debug("Google Vertex AI BaseProvider v2 initialized", {
       modelName: this.modelName,
       projectId: this.projectId,
@@ -490,7 +489,7 @@ export class GoogleVertexProvider extends BaseProvider {
     );
 
     try {
-      const vertexSettings = await createVertexSettings();
+      const vertexSettings = await createVertexSettings(this.location);
 
       const vertexSettingsEndTime = process.hrtime.bigint();
       const vertexSettingsDurationNs =
@@ -1276,7 +1275,9 @@ export class GoogleVertexProvider extends BaseProvider {
         },
       );
 
-      const vertexAnthropicSettings = await createVertexAnthropicSettings();
+      const vertexAnthropicSettings = await createVertexAnthropicSettings(
+        this.location,
+      );
 
       // 7. Settings Validation
       if (
