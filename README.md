@@ -17,11 +17,11 @@
 
 **What's New:**
 
-- **Auto-Evaluation**: Intelligent quality scoring for AI responses
-- **Enhanced Analytics**: Comprehensive usage tracking and cost optimization
-- **Mem0 Integration**: Advanced context management and memory capabilities
-- **Redis Support**: Auto-detection and enablement for conversation memory
-- **Guardrails Enhancement**: Robust content filtering and safety measures
+- **[Auto-Evaluation](./docs/AI-ENHANCEMENTS.md#auto-evaluation)**: Intelligent quality scoring for AI responses
+- **[Enhanced Analytics](./docs/AI-ANALYSIS-TOOLS.md)**: Comprehensive usage tracking and cost optimization
+- **[Mem0 Integration](./docs/MEM0_INTEGRATION.md)**: Advanced context management and memory capabilities
+- **[Redis Support](./docs/CONVERSATION-MEMORY.md#redis-support)**: Auto-detection and enablement for conversation memory
+- **[Guardrails Enhancement](./docs/GUARDRAILS-AI-INTEGRATION.md)**: Robust content filtering and safety measures
 
 **[📋 View Complete Changelog](./CHANGELOG.md)** | **[📖 Release Notes](https://github.com/juspay/neurolink/releases/tag/v7.46.0)**
 
@@ -29,45 +29,43 @@
 
 ## ✨ Core Operations
 
-## ✨ Core Operations
-
 NeuroLink provides unified access to AI capabilities through four key operational areas:
 
 ### 🤖 **AI Provider Integration**
 
-- **12 Major Providers**: OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, LiteLLM, Ollama, Hugging Face, and more
+- **12 Major Providers**: [OpenAI](./docs/CONFIGURATION.md#ai-provider-configuration), [Anthropic](./docs/CONFIGURATION.md#ai-provider-configuration), [Google AI](./docs/CONFIGURATION.md#minimal-setup-google-ai), [AWS Bedrock](./docs/CONFIGURATION.md#ai-provider-configuration), [Azure](./docs/CONFIGURATION.md#ai-provider-configuration), [LiteLLM](./docs/LITELLM-INTEGRATION.md), [Ollama](./docs/OLLAMA-SETUP.md), [Hugging Face](./docs/CONFIGURATION.md#ai-provider-configuration), and more
 - **Intelligent Fallback**: Automatic provider switching when services are unavailable
 - **Cost Optimization**: Smart model selection based on task complexity and budget
-- **100+ Models**: Access through LiteLLM proxy integration
+- **100+ Models**: Access through [LiteLLM proxy integration](./docs/LITELLM-INTEGRATION.md)
 
-**[📖 Provider Setup Guide](./docs/PROVIDER-CONFIGURATION.md)**
+**[📖 Provider Setup Guide](./docs/CONFIGURATION.md#ai-provider-configuration)** | **[📖 Provider Comparison](./docs/PROVIDER-COMPARISON.md)** | **[📖 Provider Monitoring](./docs/PROVIDER-STATUS-MONITORING.md)**
 
 ### 🔧 **Built-in Tools & MCP Integration**
 
-- **6 Core Tools**: File operations, time, math, search, web grounding
-- **External MCP Servers**: Connect to 58+ discoverable MCP servers (GitHub, databases, filesystems)
-- **Custom Tools**: Register your own tools programmatically
-- **Tool Auto-Discovery**: Automatic detection and registration of available tools
+- **6 Core Tools**: [File operations, time, math, search, web grounding](./docs/API-REFERENCE.md#built-in-tools)
+- **External MCP Servers**: Connect to [58+ discoverable MCP servers](./docs/MCP-INTEGRATION.md#external-mcp-servers) (GitHub, databases, filesystems)
+- **Custom Tools**: [Register your own tools programmatically](./docs/SDK-CUSTOM-TOOLS.md)
+- **Tool Auto-Discovery**: [Automatic detection and registration](./docs/MCP-INTEGRATION.md#tool-discovery) of available tools
 
-**[📖 MCP Integration Guide](./docs/MCP-INTEGRATION.md)** | **[📖 MCP Testing Guide](./docs/MCP-TESTING-GUIDE.md)**
+**[📖 MCP Integration Guide](./docs/MCP-INTEGRATION.md)** | **[📖 MCP Testing Guide](./docs/MCP-TESTING-GUIDE.md)** | **[📖 Custom Tools](./docs/SDK-CUSTOM-TOOLS.md)**
 
 ### 🖥️ **CLI & SDK Interface**
 
-- **Professional CLI**: 72+ commands for development, testing, and deployment
-- **TypeScript SDK**: Full type safety with IntelliSense support
-- **Interactive Mode**: Persistent sessions with conversation memory
-- **Streaming Support**: Real-time AI responses with tool integration
+- **Professional CLI**: [72+ commands](./docs/CLI-GUIDE.md) for development, testing, and deployment
+- **TypeScript SDK**: [Full type safety](./docs/API-REFERENCE.md) with IntelliSense support
+- **Interactive Mode**: [Persistent sessions](./docs/CLI-GUIDE.md#interactive-loop-mode) with [conversation memory](./docs/CONVERSATION-MEMORY.md)
+- **Streaming Support**: [Real-time AI responses](./docs/API-REFERENCE.md#streaming-support) with tool integration
 
-**[📖 CLI Command Reference](./docs/CLI-GUIDE.md)** | **[📖 SDK API Reference](./docs/API-REFERENCE.md)**
+**[📖 CLI Command Reference](./docs/CLI-GUIDE.md)** | **[📖 SDK API Reference](./docs/API-REFERENCE.md)** | **[📖 Framework Integration](./docs/FRAMEWORK-INTEGRATION.md)**
 
 ### 🏢 **Enterprise Features**
 
-- **Production Ready**: Extracted from Juspay's production systems
-- **Analytics & Evaluation**: Built-in usage tracking and quality assessment
-- **Enterprise Proxy**: Corporate network compatibility
-- **Framework Integration**: SvelteKit, Next.js, Express.js support
+- **Production Ready**: Extracted from Juspay's production systems - [Health Monitoring](./docs/HEALTH-MONITORING-GUIDE.md)
+- **Analytics & Evaluation**: [Built-in usage tracking](./docs/AI-ENHANCEMENTS.md) and [quality assessment](./docs/AI-ANALYSIS-TOOLS.md)
+- **Enterprise Proxy**: [Corporate network compatibility](./docs/ENTERPRISE-PROXY-SETUP.md)
+- **Framework Integration**: [SvelteKit, Next.js, Express.js support](./docs/FRAMEWORK-INTEGRATION.md)
 
-**[📖 Framework Integration](./docs/FRAMEWORK-INTEGRATION.md)** | **[📖 Enterprise Setup](./docs/CONFIGURATION.md)**
+**[📖 Framework Integration](./docs/FRAMEWORK-INTEGRATION.md)** | **[📖 Enterprise Setup](./docs/CONFIGURATION.md)** | **[📖 Performance Optimization](./docs/PERFORMANCE-OPTIMIZATION.md)**
 
 ---
 
@@ -79,26 +77,28 @@ NeuroLink provides unified access to AI capabilities through four key operationa
 # Install NeuroLink
 npm install @juspay/neurolink
 
-# Quick setup with interactive wizard
+# Quick setup with interactive wizard - see all options in CLI Guide
 npx @juspay/neurolink setup
 
-# Test your configuration
+# Test your configuration - monitor provider status
 npx @juspay/neurolink status
 ```
+
+**Setup Help**: [📖 Installation Guide](./docs/CONFIGURATION.md#installation) | [📖 Provider Setup](./docs/CONFIGURATION.md#ai-provider-configuration) | [📖 Environment Variables](./docs/getting-started/environment-variables.md)
 
 ### Basic Usage
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 
-// Initialize with auto-provider selection
+// Initialize with auto-provider selection - see provider configuration
 const neurolink = new NeuroLink();
 
-// Generate content with built-in tools
+// Generate content with built-in tools - see analytics and evaluation docs
 const result = await neurolink.generate({
   input: { text: "What time is it and what files are in my project?" },
-  enableAnalytics: true,
-  enableEvaluation: true,
+  enableAnalytics: true,    // See AI-ENHANCEMENTS.md
+  enableEvaluation: true,   // See AI-ANALYSIS-TOOLS.md
 });
 
 console.log(result.content);
@@ -106,15 +106,17 @@ console.log("Quality Score:", result.evaluation?.overallScore);
 ```
 
 ```bash
-# CLI usage with automatic tool detection
+# CLI usage with automatic tool detection - see all CLI commands
 npx @juspay/neurolink generate "Analyze the current project structure"
 
-# Interactive mode with conversation memory
+# Interactive mode with conversation memory - see loop mode guide
 npx @juspay/neurolink loop --enable-conversation-memory
 
-# Stream responses in real-time
+# Stream responses in real-time - see streaming documentation
 npx @juspay/neurolink stream "Write a technical document"
 ```
+
+**More Examples**: [📖 CLI Commands](./docs/CLI-GUIDE.md) | [📖 SDK Examples](./docs/API-REFERENCE.md#examples) | [📖 Framework Integration](./docs/FRAMEWORK-INTEGRATION.md)
 
 **[📖 Complete Setup Guide](./docs/getting-started/environment-variables.md)** | **[📖 Usage Examples](./docs/FRAMEWORK-INTEGRATION.md)**
 
@@ -172,18 +174,18 @@ npx @juspay/neurolink stream "Write a technical document"
 
 | Provider                    | Models                             | Auth Method        | Free Tier | Tool Support | Key Benefit                      |
 | --------------------------- | ---------------------------------- | ------------------ | --------- | ------------ | -------------------------------- |
-| **🔗 LiteLLM** 🆕           | **100+ Models** (All Providers)    | Proxy Server       | Varies    | ✅ Full      | **Universal Access**             |
-| **🔗 OpenAI Compatible** 🆕 | **Any OpenAI-compatible endpoint** | API Key + Base URL | Varies    | ✅ Full      | **Auto-Discovery + Flexibility** |
-| **Google AI Studio**        | Gemini 2.5 Flash/Pro               | API Key            | ✅        | ✅ Full      | Free Tier Available              |
-| **OpenAI**                  | GPT-4o, GPT-4o-mini                | API Key            | ❌        | ✅ Full      | Industry Standard                |
-| **Anthropic**               | Claude 3.5 Sonnet                  | API Key            | ❌        | ✅ Full      | Advanced Reasoning               |
-| **Amazon Bedrock**          | Claude 3.5/3.7 Sonnet              | AWS Credentials    | ❌        | ✅ Full\*    | Enterprise Scale                 |
-| **Google Vertex AI**        | Gemini 2.5 Flash                   | Service Account    | ❌        | ✅ Full      | Enterprise Google                |
-| **Azure OpenAI**            | GPT-4, GPT-3.5                     | API Key + Endpoint | ❌        | ✅ Full      | Microsoft Ecosystem              |
-| **Ollama** 🆕               | Llama 3.2, Gemma, Mistral (Local)  | None (Local)       | ✅        | ⚠️ Partial   | Complete Privacy                 |
-| **Hugging Face** 🆕         | 100,000+ open source models        | API Key            | ✅        | ⚠️ Partial   | Open Source                      |
-| **Mistral AI** 🆕           | Tiny, Small, Medium, Large         | API Key            | ✅        | ✅ Full      | European/GDPR                    |
-| **Amazon SageMaker** 🆕     | Custom Models (Your Endpoints)     | AWS Credentials    | ❌        | ✅ Full      | Custom Model Hosting             |
+| **[🔗 LiteLLM](./docs/LITELLM-INTEGRATION.md)** 🆕 | **100+ Models** (All Providers) | Proxy Server | Varies | ✅ Full | **Universal Access** |
+| **[🔗 OpenAI Compatible](./docs/CONFIGURATION.md#openai-compatible-configuration)** 🆕 | **Any OpenAI-compatible endpoint** | API Key + Base URL | Varies | ✅ Full | **Auto-Discovery + Flexibility** |
+| **[Google AI Studio](./docs/CONFIGURATION.md#minimal-setup-google-ai)** | [Gemini 2.5 Flash/Pro](./docs/API-REFERENCE.md#google-ai-studio-models) | API Key | ✅ | ✅ Full | Free Tier Available |
+| **[OpenAI](./docs/CONFIGURATION.md#ai-provider-configuration)** | [GPT-4o, GPT-4o-mini](./docs/API-REFERENCE.md#openai-models) | API Key | ❌ | ✅ Full | Industry Standard |
+| **[Anthropic](./docs/CONFIGURATION.md#ai-provider-configuration)** | [Claude 3.5 Sonnet](./docs/API-REFERENCE.md#amazon-bedrock-models) | API Key | ❌ | ✅ Full | Advanced Reasoning |
+| **[Amazon Bedrock](./docs/CONFIGURATION.md#ai-provider-configuration)** | [Claude 3.5/3.7 Sonnet](./docs/API-REFERENCE.md#amazon-bedrock-models) | AWS Credentials | ❌ | ✅ Full\* | Enterprise Scale |
+| **[Google Vertex AI](./docs/CONFIGURATION.md#ai-provider-configuration)** | [Gemini 2.5 Flash](./docs/API-REFERENCE.md#google-vertex-ai-models) | Service Account | ❌ | ✅ Full | Enterprise Google |
+| **[Azure OpenAI](./docs/CONFIGURATION.md#ai-provider-configuration)** | [GPT-4, GPT-3.5](./docs/API-REFERENCE.md#azure-openai-models) | API Key + Endpoint | ❌ | ✅ Full | Microsoft Ecosystem |
+| **[Ollama](./docs/OLLAMA-SETUP.md)** 🆕 | [Llama 3.2, Gemma, Mistral (Local)](./docs/API-REFERENCE.md#ollama-models) | None (Local) | ✅ | ⚠️ Partial | Complete Privacy |
+| **[Hugging Face](./docs/CONFIGURATION.md#ai-provider-configuration)** | [100,000+ open source models](./docs/API-REFERENCE.md#hugging-face-models) | API Key | ✅ | ⚠️ Partial | Open Source |
+| **[Mistral AI](./docs/CONFIGURATION.md#ai-provider-configuration)** | [Tiny, Small, Medium, Large](./docs/API-REFERENCE.md#mistral-ai-models) | API Key | ✅ | ✅ Full | European/GDPR |
+| **[Amazon SageMaker](./docs/SAGEMAKER-INTEGRATION.md)** 🆕 | [Custom Models (Your Endpoints)](./docs/CONFIGURATION.md#amazon-sagemaker-configuration-custom-models) | AWS Credentials | ❌ | ✅ Full | Custom Model Hosting |
 
 **Tool Support Legend:**
 
