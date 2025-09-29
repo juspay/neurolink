@@ -3,6 +3,8 @@
  * Provides type-safe conversation storage and context management
  */
 
+import type { RedisClient } from "../utils/redis.js";
+
 import type { MemoryConfig } from "mem0ai/oss";
 
 /**
@@ -36,6 +38,10 @@ export interface ConversationMemoryConfig {
 
   /** Model to use for summarization */
   summarizationModel?: string;
+
+  /** External Redis client instance (bypasses environment 
+  configuration) */
+  redisClient?: RedisClient;
 
   /** Enable mem0 integration for conversation memory */
   mem0Enabled?: boolean;
@@ -323,6 +329,9 @@ export type RedisStorageConfig = {
 
   /** Time-to-live in seconds (default: 86400, 24 hours) */
   ttl?: number;
+
+  /** Enable Redis cluster mode (default: false for standalone) */
+  isCluster?: boolean;
 
   /** Additional Redis connection options */
   connectionOptions?: {

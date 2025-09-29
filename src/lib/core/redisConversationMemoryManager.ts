@@ -60,6 +60,7 @@ export class RedisConversationMemoryManager {
   private redisConfig: Required<RedisStorageConfig>;
   private redisClient: Awaited<ReturnType<typeof createRedisClient>> | null =
     null;
+  private ownsClient: boolean = false;
 
   /**
    * Temporary storage for tool execution data to prevent race conditions
@@ -93,17 +94,53 @@ export class RedisConversationMemoryManager {
     }
 
     try {
+      // Check if external Redis client is provided
+      if (this.config.redisClient) {
+        logger.info(
+          "[RedisConversationMemoryManager] Using external Redis client",
+          {
+            clientType: this.config.redisClient.constructor.name,
+            skipEnvironmentConfig: true,
+          },
+        );
+
+        this.redisClient = this.config.redisClient;
+        this.ownsClient = false; // External client, we don't own it
+        this.isInitialized = true;
+
+        logger.info(
+          "RedisConversationMemoryManager initialized with external client",
+          {
+            storage: "redis",
+            clientType: this.redisClient.constructor.name,
+            maxSessions: this.config.maxSessions,
+            maxTurnsPerSession: this.config.maxTurnsPerSession,
+          },
+        );
+
+        logger.debug(
+          "[RedisConversationMemoryManager] External Redis client configured successfully",
+          {
+            clientType: this.redisClient?.constructor?.name || "unknown",
+            isConnected: !!this.redisClient,
+          },
+        );
+        return;
+      }
+
+      // Fallback to internal Redis client creation (existing logic)
       logger.debug(
-        "[RedisConversationMemoryManager] Initializing with config",
+        "[RedisConversationMemoryManager] No external client provided, creating internal client",
         {
           host: this.redisConfig.host,
           port: this.redisConfig.port,
           keyPrefix: this.redisConfig.keyPrefix,
           ttl: this.redisConfig.ttl,
+          isCluster: this.redisConfig.isCluster,
         },
       );
-
       this.redisClient = await createRedisClient(this.redisConfig);
+      this.ownsClient = true; // Internal client, we own it
       this.isInitialized = true;
 
       logger.info("RedisConversationMemoryManager initialized", {
@@ -125,6 +162,7 @@ export class RedisConversationMemoryManager {
       logger.error("[RedisConversationMemoryManager] Failed to initialize", {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
+        hasExternalClient: !!this.config.redisClient,
         config: {
           host: this.redisConfig.host,
           port: this.redisConfig.port,
@@ -156,7 +194,7 @@ export class RedisConversationMemoryManager {
 
     try {
       const userSessionsKey = getUserSessionsKey(this.redisConfig, userId);
-      const sessions = await this.redisClient.sMembers(userSessionsKey);
+      const sessions = await this.redisClient.smembers(userSessionsKey);
       return sessions;
     } catch (error) {
       logger.error(
@@ -183,7 +221,7 @@ export class RedisConversationMemoryManager {
 
     try {
       const userSessionsKey = getUserSessionsKey(this.redisConfig, userId);
-      await this.redisClient.sAdd(userSessionsKey, sessionId);
+      await this.redisClient.sadd(userSessionsKey, sessionId);
 
       if (this.redisConfig.ttl > 0) {
         await this.redisClient.expire(userSessionsKey, this.redisConfig.ttl);
@@ -214,7 +252,7 @@ export class RedisConversationMemoryManager {
     try {
       const userSessionsKey = getUserSessionsKey(this.redisConfig, userId);
 
-      const result = await this.redisClient.sRem(userSessionsKey, sessionId);
+      const result = await this.redisClient.srem(userSessionsKey, sessionId);
 
       return result > 0;
     } catch (error) {
@@ -971,10 +1009,16 @@ User message: "${userMessage}`;
    */
   public async close(): Promise<void> {
     if (this.redisClient) {
-      await this.redisClient.quit();
+      // Only close the client if we own it (created internally)
+      if (this.ownsClient) {
+        await this.redisClient.quit();
+        logger.info("Redis connection closed (internal client)");
+      } else {
+        logger.info("Redis connection not closed (external client, not owned by manager)");
+      }
       this.redisClient = null;
+      this.ownsClient = false;
       this.isInitialized = false;
-      logger.info("Redis connection closed");
     }
   }
 

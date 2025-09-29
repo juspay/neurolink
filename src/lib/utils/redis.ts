@@ -3,8 +3,7 @@
  * Helper functions for Redis storage operations
  */
 
-import { createClient, type RedisClientOptions } from "redis";
-type RedisClient = ReturnType<typeof createClient>;
+import { Redis, Cluster, type RedisOptions, type ClusterNode } from "ioredis";
 import { logger } from "./logger.js";
 import type {
   ChatMessage,
@@ -13,65 +12,62 @@ import type {
 } from "../types/conversation.js";
 
 // Redis client type
+export type RedisClient = Redis | Cluster;
 
 /**
- * Creates a Redis client with the provided configuration
+ * Creates a Redis client (standalone or cluster) with the provided configuration
  */
 export async function createRedisClient(
   config: Required<RedisStorageConfig>,
 ): Promise<RedisClient> {
-  const url = `redis://${config.host}:${config.port}/${config.db}`;
-
-  // Create client options
-  const clientOptions: RedisClientOptions = {
-    url,
-    socket: {
-      connectTimeout: config.connectionOptions?.connectTimeout,
-      reconnectStrategy: (retries: number) => {
-        if (retries > (config.connectionOptions?.maxRetriesPerRequest || 3)) {
-          logger.error("Redis connection retries exhausted");
-          return new Error("Redis connection retries exhausted");
-        }
-        const delay = Math.min(
-          (config.connectionOptions?.retryDelayOnFailover || 100) *
-            Math.pow(2, retries),
-          10000,
-        );
-        return delay;
-      },
-    },
+  const isCluster = config.isCluster ?? false;
+  const baseOptions: RedisOptions = {
+    // Do not send AUTH when password is absent
+    password: config.password && config.password.length > 0 ? config.password : undefined,
+    db: config.db,
+    connectTimeout: config.connectionOptions?.connectTimeout ?? 30000,
+    maxRetriesPerRequest: config.connectionOptions?.maxRetriesPerRequest ?? 3,
+    // Add more options as needed
   };
 
-  if (config.password) {
-    clientOptions.password = config.password;
-  }
+  let client: RedisClient;
 
-  // Create client with secured options
-  const client = createClient(clientOptions);
+  if (isCluster) {
+    // Cluster mode
+    const startupNodes: ClusterNode[] = [
+      { host: config.host, port: config.port },
+      // Add more nodes if needed
+    ];
+    client = new Cluster(startupNodes, { redisOptions: baseOptions });
 
-  client.on("error", (err: Error) => {
-    const sanitizedMessage = err.message.replace(
-      /redis:\/\/.*?@/g,
-      "redis://[redacted]@",
-    );
-    logger.error("Redis client error", { error: sanitizedMessage });
-  });
-
-  client.on("connect", () => {
-    logger.debug("Redis client connected", {
+    client.on("error", (err: Error) => {
+      logger.error("[RedisCluster] Error", { error: err.message });
+    });
+    client.on("connect", () => {
+      logger.debug("[RedisCluster] Connected");
+    });
+  } else {
+    // Standalone mode
+    client = new Redis({
+      ...baseOptions,
       host: config.host,
       port: config.port,
-      db: config.db,
     });
-  });
 
-  client.on("reconnecting", () => {
-    logger.debug("Redis client reconnecting");
-  });
-
-  if (!client.isOpen) {
-    await client.connect();
+    client.on("error", (err: Error) => {
+      logger.error("[Redis] Error", { error: err.message });
+    });
+    client.on("connect", () => {
+      logger.debug("[Redis] Connected", {
+        host: config.host,
+        port: config.port,
+        db: config.db,
+      });
+    });
   }
+
+  // ioredis connects automatically, but you can wait for ready if needed
+  // await client.connect(); // Not required for ioredis
 
   return client;
 }
@@ -258,57 +254,72 @@ export async function scanKeys(
   pattern: string,
   batchSize: number = 100,
 ): Promise<string[]> {
-  logger.debug("[redisUtils] Starting SCAN operation", {
-    pattern,
-    batchSize,
-  });
+  logger.debug("[redisUtils] Starting SCAN operation", { pattern, batchSize });
 
-  const allKeys: string[] = [];
-  let cursor = "0";
-  let iterations = 0;
-  let totalScanned = 0;
+  const allKeys: Set<string> = new Set();
 
-  try {
+  if (client instanceof Cluster) {
+    // Cluster mode: scan all master nodes
+    const masters = client.nodes("master");
+    logger.debug(
+      "[redisUtils] Cluster mode detected, scanning all master nodes",
+      {
+        masterCount: masters.length,
+      },
+    );
+    for (const node of masters) {
+      let cursor = "0";
+      let nodeIterations = 0;
+      do {
+        nodeIterations++;
+        const [nextCursor, keys] = await node.scan(
+          cursor,
+          "MATCH",
+          pattern,
+          "COUNT",
+          batchSize,
+        );
+        cursor = nextCursor;
+        keys.forEach((k: string) => allKeys.add(k));
+        logger.debug("[redisUtils] SCAN iteration (cluster node)", {
+          node: node.options?.host + ":" + node.options?.port,
+          nodeIterations,
+          currentCursor: cursor,
+          keysInBatch: keys.length,
+          totalKeysFound: allKeys.size,
+        });
+      } while (cursor !== "0");
+    }
+  } else {
+    // Standalone mode
+    let cursor = "0";
+    let iterations = 0;
     do {
       iterations++;
-      // Use SCAN instead of KEYS to avoid blocking the server
-      const result = await client.scan(cursor, {
-        MATCH: pattern,
-        COUNT: batchSize,
-      });
-
-      // Extract cursor and keys from result
-      cursor = result.cursor;
-      const keys = result.keys || [];
-
-      // Add keys to result array
-      allKeys.push(...keys);
-      totalScanned += keys.length;
-
-      logger.debug("[redisUtils] SCAN iteration completed", {
+      const [nextCursor, keys] = await client.scan(
+        cursor,
+        "MATCH",
+        pattern,
+        "COUNT",
+        batchSize,
+      );
+      cursor = nextCursor;
+      keys.forEach((k: string) => allKeys.add(k));
+      logger.debug("[redisUtils] SCAN iteration (standalone)", {
         iteration: iterations,
         currentCursor: cursor,
         keysInBatch: keys.length,
-        totalKeysFound: allKeys.length,
+        totalKeysFound: allKeys.size,
       });
-    } while (cursor !== "0"); // Continue until cursor is 0
-
-    logger.info("[redisUtils] SCAN operation completed", {
-      pattern,
-      totalIterations: iterations,
-      totalKeysFound: allKeys.length,
-      totalScanned,
-    });
-
-    return allKeys;
-  } catch (error) {
-    logger.error("[redisUtils] Error during SCAN operation", {
-      pattern,
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    throw error;
+    } while (cursor !== "0");
   }
+
+  logger.info("[redisUtils] SCAN operation completed", {
+    pattern,
+    totalKeysFound: allKeys.size,
+  });
+
+  return Array.from(allKeys);
 }
 
 /**
@@ -334,11 +345,13 @@ export function getNormalizedConfig(
     userSessionsKeyPrefix:
       config.userSessionsKeyPrefix || defaultUserSessionsPrefix,
     ttl: config.ttl || 86400,
+    isCluster: config.isCluster ?? false,
     connectionOptions: {
       connectTimeout: 30000,
       lazyConnect: true,
       retryDelayOnFailover: 100,
       maxRetriesPerRequest: 3,
+      // clusterMode: false by default, set to true for cluster
       ...config.connectionOptions,
     },
   };

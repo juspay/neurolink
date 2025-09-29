@@ -58,9 +58,40 @@ export function createConversationMemoryManager(
   }
 
   // Redis storage
-  if (storageType === "redis") {
+  if (storageType === "redis" || config.redisClient) {
+    // If external Redis client provided, force Redis storage
+    if (config.redisClient) {
+      logger.debug(
+        "[conversationMemoryFactory] External Redis client detected, using Redis storage",
+        {
+          clientType: config.redisClient.constructor.name,
+          skipEnvironmentConfig: true,
+        },
+      );
+
+      const redisManager = new RedisConversationMemoryManager(
+        config,
+        redisConfig
+      );
+
+      logger.debug(
+        "[conversationMemoryFactory] Redis conversation manager created with external client",
+        {
+          managerType: redisManager.constructor.name,
+          clientType: config.redisClient.constructor.name,
+          config: {
+            maxSessions: config.maxSessions,
+            maxTurnsPerSession: config.maxTurnsPerSession,
+          },
+        },
+      );
+
+      return redisManager;
+    }
+
+    // Fallback to environment-based Redis configuration
     logger.debug(
-      "[conversationMemoryFactory] Creating Redis conversation manager",
+      "[conversationMemoryFactory] Creating Redis conversation manager from environment",
       {
         host: redisConfig?.host || "localhost",
         port: redisConfig?.port || 6379,
@@ -167,6 +198,7 @@ export function getRedisConfigFromEnv(): RedisStorageConfig {
       REDIS_CONNECT_TIMEOUT: process.env.REDIS_CONNECT_TIMEOUT || "(not set)",
       REDIS_MAX_RETRIES: process.env.REDIS_MAX_RETRIES || "(not set)",
       REDIS_RETRY_DELAY: process.env.REDIS_RETRY_DELAY || "(not set)",
+      REDIS_MODE: process.env.REDIS_MODE || "standalone",
     },
   );
 
@@ -177,6 +209,7 @@ export function getRedisConfigFromEnv(): RedisStorageConfig {
     db: process.env.REDIS_DB ? Number(process.env.REDIS_DB) : undefined,
     keyPrefix: process.env.REDIS_KEY_PREFIX,
     ttl: process.env.REDIS_TTL ? Number(process.env.REDIS_TTL) : undefined,
+    isCluster: process.env.REDIS_MODE === "cluster",
     connectionOptions: {
       connectTimeout: process.env.REDIS_CONNECT_TIMEOUT
         ? Number(process.env.REDIS_CONNECT_TIMEOUT)
@@ -197,6 +230,7 @@ export function getRedisConfigFromEnv(): RedisStorageConfig {
     db: config.db || 0,
     keyPrefix: config.keyPrefix || "neurolink:conversation:",
     ttl: config.ttl || 86400,
+    isCluster: config.isCluster,
     hasConnectionOptions: !!config.connectionOptions,
   });
 

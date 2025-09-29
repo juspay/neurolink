@@ -56,10 +56,24 @@ export async function initializeConversationMemory(config?: {
       },
     );
 
-    // Determine storage type from environment
-    const storageType = getStorageType();
+    // Determine storage type (external client takes priority)
+    const hasExternalRedisClient = !!config?.conversationMemory?.redisClient;
+    const envStorageType = getStorageType();
+    const storageType = hasExternalRedisClient ? "redis" : envStorageType;
+
+    if (hasExternalRedisClient) {
+      logger.debug(
+        "[conversationMemoryInitializer] External Redis client detected",
+        {
+          clientType: config.conversationMemory?.redisClient?.constructor.name,
+          forcingRedisStorage: true,
+        },
+      );
+    }
+
     logger.debug("[conversationMemoryInitializer] Storage type determined", {
       storageType,
+      hasExternalClient: hasExternalRedisClient,
       fromEnv: !!process.env.STORAGE_TYPE,
     });
 
@@ -82,6 +96,7 @@ export async function initializeConversationMemory(config?: {
           db: redisConfig.db || 0,
           keyPrefix: redisConfig.keyPrefix || "neurolink:conversation:",
           ttl: redisConfig.ttl || 86400,
+          isCluster: redisConfig.isCluster || false,
         },
       );
 
