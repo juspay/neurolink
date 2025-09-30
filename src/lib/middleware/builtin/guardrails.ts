@@ -1,28 +1,24 @@
 import { generateText } from "ai";
-import type { LanguageModelV1, LanguageModelV1Middleware } from "ai";
+import type { LanguageModelV1Middleware } from "ai";
 import type {
   NeuroLinkMiddleware,
   NeuroLinkMiddlewareMetadata,
 } from "../../types/middlewareTypes.js";
+import type { GuardrailsMiddlewareConfig } from "../../types/guardrails.js";
+import {
+  createBlockedResponse,
+  createBlockedStream,
+  applyContentFiltering,
+  handlePrecallGuardrails,
+} from "../utils/guardrailsUtils.js";
 import { logger } from "../../utils/logger.js";
 
-/**
- * Configuration for the Guardrails middleware.
- */
-export interface GuardrailsMiddlewareConfig {
-  badWords?: {
-    enabled?: boolean;
-    list?: string[];
-  };
-  modelFilter?: {
-    enabled?: boolean;
-    filterModel?: LanguageModelV1;
-  };
-}
+export type { GuardrailsMiddlewareConfig } from "../../types/guardrails.js";
 
 /**
- * Create Guardrails AI middleware for content filtering and policy enforcement.
- * @param config - Configuration for the guardrails middleware.
+ * Create Guardrails AI middleware for content filtering and policy enforcement
+ * @param config Configuration for the guardrails middleware
+ * @returns NeuroLink middleware instance
  */
 export function createGuardrailsMiddleware(
   config: GuardrailsMiddlewareConfig = {},
@@ -31,40 +27,50 @@ export function createGuardrailsMiddleware(
     id: "guardrails",
     name: "Guardrails AI",
     description:
-      "Provides content filtering and policy enforcement using custom rules and AI models.",
+      "Provides comprehensive content filtering and policy enforcement using custom rules, AI models, and precall evaluation to filter inappropriate content before it reaches the LLM.",
     priority: 90,
     defaultEnabled: true,
   };
 
+  // WeakMap to store blocking state from transformParams to wrap methods
+  const blockingState = new WeakMap<object, boolean>();
+
   const middleware: LanguageModelV1Middleware = {
-    wrapGenerate: async ({ doGenerate, params: _params }) => {
-      logger.debug(`[GuardrailsMiddleware] Applying to generate call.`, {
-        badWordsEnabled: !!config.badWords?.enabled,
-        modelFilterEnabled: !!config.modelFilter?.enabled,
-      });
+    transformParams: async ({ params }) => {
+      if (config.precallEvaluation?.enabled) {
+        const { shouldBlock, transformedParams } =
+          await handlePrecallGuardrails(params, config.precallEvaluation);
+        // Store the blocking state for use in wrap methods
+        blockingState.set(transformedParams, shouldBlock);
+        return transformedParams;
+      }
+      return params;
+    },
+
+    wrapGenerate: async ({ doGenerate, params }) => {
+      logger.debug(`[GuardrailsMiddleware] Applying to generate call.`);
+      // Check if this request should be blocked (set by transformParams)
+      if (config.precallEvaluation?.enabled && blockingState.get(params)) {
+        return createBlockedResponse();
+      }
 
       let result = await doGenerate();
 
-      // 1. Bad Word Filtering
-      if (config.badWords?.enabled && config.badWords.list) {
-        let filteredText = result.text;
-        for (const term of config.badWords.list) {
-          const regex = new RegExp(term, "gi");
-          filteredText = filteredText?.replace(regex, "*".repeat(term.length));
-        }
-        if (result.text !== filteredText) {
-          logger.debug(`[GuardrailsMiddleware] Redacted bad words from text.`);
-          result = { ...result, text: filteredText ?? "" };
-        }
+      const filterResult = applyContentFiltering(
+        result.text || "",
+        config.badWords,
+        "generate",
+      );
+      if (filterResult.hasChanges) {
+        result = { ...result, text: filterResult.filteredText };
       }
 
-      // 2. Model-based Filtering
       if (config.modelFilter?.enabled && config.modelFilter.filterModel) {
         logger.debug(`[GuardrailsMiddleware] Invoking model-based filter.`);
         try {
           const filterPrompt = `Is the following text safe? Respond with only "safe" or "unsafe".\n\nText: "${result.text}"`;
           const { text: filterResponse } = await generateText({
-            model: config.modelFilter.filterModel, // Cast as any to satisfy type, will be resolved in integration
+            model: config.modelFilter.filterModel,
             prompt: filterPrompt,
           });
 
@@ -84,35 +90,37 @@ export function createGuardrailsMiddleware(
       return result;
     },
 
-    wrapStream: async ({ doStream, params: _params }) => {
-      logger.debug(`[GuardrailsMiddleware] Applying to stream call.`, {
-        badWordsEnabled: !!config.badWords?.enabled,
-      });
-      const { stream, ...rest } = await doStream();
+    wrapStream: async ({ doStream, params }) => {
+      logger.debug(`[GuardrailsMiddleware] Applying to stream call.`);
 
-      // Helper to escape regex special characters
-      function escapeRegExp(string: string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // Check if this request should be blocked (set by transformParams)
+      if (config.precallEvaluation?.enabled && blockingState.get(params)) {
+        return {
+          stream: createBlockedStream(),
+          rawCall: { rawPrompt: null, rawSettings: {} },
+          warnings: [],
+        };
       }
+
+      const { stream, ...rest } = await doStream();
 
       const transformStream = new TransformStream({
         transform(chunk, controller) {
           let filteredChunk = chunk;
-          if (config.badWords?.enabled && config.badWords.list) {
-            for (const term of config.badWords.list) {
-              const regex = new RegExp(escapeRegExp(term), "gi");
-              if (
-                typeof filteredChunk === "object" &&
-                "textDelta" in filteredChunk
-              ) {
-                filteredChunk = {
-                  ...filteredChunk,
-                  textDelta: filteredChunk.textDelta.replace(
-                    regex,
-                    "*".repeat(term.length),
-                  ),
-                };
-              }
+          if (
+            typeof filteredChunk === "object" &&
+            "textDelta" in filteredChunk
+          ) {
+            const filterResult = applyContentFiltering(
+              filteredChunk.textDelta,
+              config.badWords,
+              "stream",
+            );
+            if (filterResult.hasChanges) {
+              filteredChunk = {
+                ...filteredChunk,
+                textDelta: filterResult.filteredText,
+              };
             }
           }
           controller.enqueue(filteredChunk);
