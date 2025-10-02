@@ -196,6 +196,18 @@ export class ConversationMemoryError extends Error {
 }
 
 /**
+ * NeuroLink initialization options
+ * Configuration for creating NeuroLink instances with conversation memory
+ */
+export interface NeurolinkOptions {
+  /** Conversation memory configuration */
+  conversationMemory?: ConversationMemoryConfig;
+
+  /** Session identifier for conversation context */
+  sessionId?: string;
+}
+
+/**
  * Session identifier for Redis storage operations
  */
 export type SessionIdentifier = {
@@ -215,10 +227,10 @@ export interface SessionMetadata {
 }
 
 /**
- * New Redis conversation storage object format
- * Contains conversation metadata and history in a single object
+ * Base conversation metadata (shared fields across all conversation types)
+ * Contains essential conversation information without heavy data arrays
  */
-export type RedisConversationObject = {
+export interface ConversationBase {
   /** Unique conversation identifier (UUID v4) */
   id: string;
 
@@ -236,10 +248,56 @@ export type RedisConversationObject = {
 
   /** When this conversation was last updated */
   updatedAt: string;
+}
 
+/**
+ * Redis conversation storage object format
+ * Contains conversation metadata and full message history
+ */
+export interface RedisConversationObject extends ConversationBase {
   /** Array of conversation messages */
   messages: ChatMessage[];
-};
+}
+
+/**
+ * Full conversation data for session restoration and manipulation
+ * Extends Redis storage object with additional loop mode metadata
+ */
+export interface ConversationData extends RedisConversationObject {
+  /** Optional metadata for session variables and other loop mode data */
+  metadata?: {
+    /** Session variables set during loop mode */
+    sessionVariables?: Record<string, string | number | boolean>;
+    /** Message count (for compatibility) */
+    messageCount?: number;
+    /** Additional metadata can be added here */
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Conversation summary for listing and selection
+ * Contains conversation preview information without heavy message arrays
+ */
+export interface ConversationSummary extends ConversationBase {
+  /** First message preview (for conversation preview) */
+  firstMessage: {
+    content: string;
+    timestamp: string;
+  };
+
+  /** Last message preview (for conversation preview) */
+  lastMessage: {
+    content: string;
+    timestamp: string;
+  };
+
+  /** Total number of messages in conversation */
+  messageCount: number;
+
+  /** Human-readable time since last update (e.g., "2 hours ago") */
+  duration: string;
+}
 
 /**
  * Redis storage configuration

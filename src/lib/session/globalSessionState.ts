@@ -1,14 +1,12 @@
 import { nanoid } from "nanoid";
 import { NeuroLink } from "../neurolink.js";
-import type { ConversationMemoryConfig } from "../types/conversation.js";
+import type {
+  ConversationMemoryConfig,
+  NeurolinkOptions,
+} from "../types/conversation.js";
 
 // Define a specific type for session variable values
 type SessionVariableValue = string | number | boolean;
-
-// Define a type for the options passed to the NeuroLink constructor
-interface NeuroLinkInitOptions {
-  conversationMemory?: ConversationMemoryConfig;
-}
 
 interface LoopSessionState {
   neurolinkInstance: NeuroLink;
@@ -31,7 +29,7 @@ export class GlobalSessionManager {
 
   setLoopSession(config?: ConversationMemoryConfig): string {
     const sessionId = `NL_${nanoid()}`;
-    const neurolinkOptions: NeuroLinkInitOptions = {};
+    const neurolinkOptions: NeurolinkOptions = {};
 
     if (config?.enabled) {
       neurolinkOptions.conversationMemory = {
@@ -50,6 +48,72 @@ export class GlobalSessionManager {
     };
 
     return sessionId;
+  }
+
+  /**
+   * Restore a loop session with an existing sessionId and NeuroLink instance
+   * Used for conversation restoration
+   */
+  restoreLoopSession(
+    sessionId: string,
+    neurolinkInstance: NeuroLink,
+    config?: ConversationMemoryConfig,
+    sessionVariables?: Record<string, SessionVariableValue>,
+  ): void {
+    this.loopSession = {
+      neurolinkInstance,
+      sessionId,
+      isActive: true,
+      conversationMemoryConfig: config,
+      sessionVariables: sessionVariables || {},
+    };
+  }
+
+  /**
+   * Update session variables during restoration
+   */
+  restoreSessionVariables(
+    variables: Record<string, SessionVariableValue>,
+  ): void {
+    const session = this.getLoopSession();
+    if (session) {
+      session.sessionVariables = { ...session.sessionVariables, ...variables };
+    }
+  }
+
+  /**
+   * Check if a session is currently active
+   */
+  hasActiveSession(): boolean {
+    return this.loopSession?.isActive ?? false;
+  }
+
+  /**
+   * Get current session metadata for restoration purposes
+   */
+  getSessionMetadata(): {
+    sessionId?: string;
+    conversationMemoryConfig?: ConversationMemoryConfig;
+    sessionVariables: Record<string, SessionVariableValue>;
+    isActive: boolean;
+  } {
+    const session = this.getLoopSession();
+    return {
+      sessionId: session?.sessionId,
+      conversationMemoryConfig: session?.conversationMemoryConfig,
+      sessionVariables: session?.sessionVariables || {},
+      isActive: session?.isActive ?? false,
+    };
+  }
+
+  /**
+   * Update the sessionId of the current session (used during restoration)
+   */
+  updateSessionId(newSessionId: string): void {
+    const session = this.getLoopSession();
+    if (session) {
+      session.sessionId = newSessionId;
+    }
   }
 
   getLoopSession(): LoopSessionState | null {

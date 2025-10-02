@@ -83,6 +83,12 @@ class CommitValidator {
         return process.argv[2];
       }
 
+      // Try to get from environment variable (for pre-commit context)
+      if (process.env.COMMIT_MSG_FILE && fs.existsSync(process.env.COMMIT_MSG_FILE)) {
+        const commitMsg = fs.readFileSync(process.env.COMMIT_MSG_FILE, 'utf8').trim();
+        return commitMsg.split('\n')[0].trim();
+      }
+
       // Try to get from git commit message file
       const gitDir = execSync('git rev-parse --git-dir', { encoding: 'utf8' }).trim();
       const commitMsgFile = path.join(gitDir, 'COMMIT_EDITMSG');

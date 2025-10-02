@@ -1,7 +1,10 @@
 import type { CommandModule, Argv } from "yargs";
 import { globalSession } from "../../lib/session/globalSessionState.js";
 import type { JsonValue } from "../../lib/types/common.js";
-import type { ConversationMemoryConfig } from "../../lib/types/conversation.js";
+import type {
+  ConversationMemoryConfig,
+  ConversationSummary,
+} from "../../lib/types/conversation.js";
 import type {
   BaseCommandArgs,
   GenerateCommandArgs,
@@ -899,7 +902,8 @@ export class CLICommandFactory {
   static createLoopCommand(): CommandModule {
     return {
       command: "loop",
-      describe: "Start an interactive loop session",
+      describe:
+        "Start an interactive loop session with conversation management",
       builder: (yargs) =>
         this.buildOptions(yargs, {
           "enable-conversation-memory": {
@@ -922,12 +926,34 @@ export class CLICommandFactory {
             description: "Automatically use Redis if available",
             default: true,
           },
+          resume: {
+            type: "string",
+            description:
+              "Directly resume a specific conversation by session ID",
+            alias: "r",
+          },
+          new: {
+            type: "boolean",
+            description: "Force start a new conversation (skip selection menu)",
+            alias: "n",
+          },
+          "list-conversations": {
+            type: "boolean",
+            description: "List available conversations and exit",
+            alias: "l",
+          },
         })
           .example(
-            "$0 loop --no-auto-redis",
-            "Start loop with memory storage only",
+            "$0 loop",
+            "Start interactive session with conversation selection",
           )
-          .example("$0 loop", "Start interactive session")
+          .example("$0 loop --new", "Force start new conversation")
+          .example("$0 loop --resume abc123", "Resume specific conversation")
+          .example(
+            "$0 loop --list-conversations",
+            "List available conversations",
+          )
+          .example("$0 loop --no-auto-redis", "Use in-memory storage only")
           .example(
             "$0 loop --enable-conversation-memory",
             "Start loop with memory",
@@ -947,6 +973,7 @@ export class CLICommandFactory {
           maxSessions,
           maxTurnsPerSession,
           autoRedis,
+          listConversations,
         } = argv;
 
         if (enableConversationMemory) {
@@ -979,10 +1006,77 @@ export class CLICommandFactory {
           };
         }
 
+        // Handle --list-conversations option
+        if (listConversations) {
+          const { ConversationSelector } = await import(
+            "../loop/conversationSelector.js"
+          );
+          const conversationSelector = new ConversationSelector();
+
+          try {
+            const hasConversations =
+              await conversationSelector.hasStoredConversations();
+            if (!hasConversations) {
+              logger.always(chalk.yellow("📝 No stored conversations found"));
+              return;
+            }
+
+            const conversations =
+              await conversationSelector.getAvailableConversations();
+            logger.always(chalk.blue("📋 Available Conversations:"));
+
+            conversations.forEach(
+              (conv: ConversationSummary, index: number) => {
+                const sessionId = conv.sessionId.slice(0, 12) + "...";
+                const title = conv.title || "Untitled Conversation";
+                const messageCount = conv.messageCount || 0;
+                const lastActivity = conv.updatedAt
+                  ? new Date(conv.updatedAt).toLocaleDateString()
+                  : "Unknown";
+
+                logger.always(
+                  `${index + 1}. ${chalk.cyan(sessionId)} - ${title}`,
+                );
+                logger.always(
+                  `   ${chalk.gray(`${messageCount} messages | Last: ${lastActivity}`)}`,
+                );
+              },
+            );
+
+            logger.always(
+              chalk.gray(
+                `\nUse: neurolink loop --resume <session-id> to resume a conversation`,
+              ),
+            );
+          } catch (error) {
+            logger.error("Failed to list conversations:", error);
+          } finally {
+            await conversationSelector.close();
+          }
+          return;
+        }
+
+        // Create enhanced session with direct session management options
+        const sessionOptions: {
+          directResumeSessionId?: string;
+          forceNewSession?: boolean;
+        } = {};
+
+        // Pass CLI options to session for direct session management
+        if (argv.resume && typeof argv.resume === "string") {
+          sessionOptions.directResumeSessionId = argv.resume;
+        }
+
+        if (argv.new) {
+          sessionOptions.forceNewSession = true;
+        }
+
         const session = new LoopSession(
           initializeCliParser,
           conversationMemoryConfig,
+          sessionOptions,
         );
+
         await session.start();
       },
     };

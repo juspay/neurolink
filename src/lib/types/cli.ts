@@ -452,6 +452,37 @@ export type ConsoleOverride = {
 };
 
 /**
+ * Conversation choice for inquirer prompt
+ */
+export type ConversationChoice = {
+  name: string;
+  value: string | "NEW_CONVERSATION";
+  short: string;
+};
+
+/**
+ * Session restore result
+ */
+export type SessionRestoreResult = {
+  success: boolean;
+  sessionId: string;
+  messageCount: number;
+  error?: string;
+  lastActivity?: string;
+};
+
+/**
+ * Tool context for restored sessions
+ */
+export type RestorationToolContext = Record<string, unknown> & {
+  sessionId: string;
+  userId: string;
+  source: string;
+  restored: boolean;
+  timestamp: string;
+};
+
+/**
  * Type guard for generate result
  */
 export function isGenerateResult(value: unknown): value is GenerateResult {

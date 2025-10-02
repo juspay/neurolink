@@ -313,6 +313,7 @@ export class MCPClientFactory {
           .map(([key, value]) => [key, String(value)]),
       ),
       cwd: config.cwd,
+      stderr: "ignore", // Suppress MCP server startup messages
     });
 
     return { transport, process: childProcess };

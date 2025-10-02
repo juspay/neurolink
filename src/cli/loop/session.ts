@@ -1,15 +1,32 @@
 import type { Argv } from "yargs";
 import chalk from "chalk";
 import readline from "readline";
-import fs from "fs/promises";
-import path from "path";
-import os from "os";
 import { logger } from "../../lib/utils/logger.js";
 import { globalSession } from "../../lib/session/globalSessionState.js";
-import type { ConversationMemoryConfig } from "../../lib/types/conversation.js";
+import type {
+  ConversationMemoryConfig,
+  ConversationData,
+  NeurolinkOptions,
+} from "../../lib/types/conversation.js";
 import { textGenerationOptionsSchema } from "./optionsSchema.js";
 import type { OptionSchema } from "./optionsSchema.js";
 import { handleError } from "../errorHandler.js";
+import { ConversationSelector } from "./conversationSelector.js";
+import { NeuroLink } from "../../lib/neurolink.js";
+import type {
+  SessionRestoreResult,
+  RestorationToolContext,
+} from "../../lib/types/cli.js";
+import {
+  displaySessionMessage,
+  verifyConversationContext,
+  getConversationPreview,
+  loadCommandHistory,
+  saveCommandToHistory,
+  displayConversationPreview,
+  parseValue,
+  restoreSessionVariables,
+} from "../../lib/utils/loopUtils.js";
 
 // Banner Art
 const NEUROLINK_BANNER = `
@@ -18,9 +35,6 @@ const NEUROLINK_BANNER = `
 ▐▌ ▝▜▌▐▛▀▀▘▐▌ ▐▌▐▛▀▚▖▐▌ ▐▌▐▌     █  ▐▌ ▝▜▌▐▛▚▖ 
 ▐▌  ▐▌▐▙▄▄▖▝▚▄▞▘▐▌ ▐▌▝▚▄▞▘▐▙▄▄▖▗▄█▄▖▐▌  ▐▌▐▌ ▐▌
 `;
-
-// Global command history file
-const HISTORY_FILE = path.join(os.homedir(), ".neurolink_history");
 
 export class LoopSession {
   private initializeCliParser: () => Argv;
@@ -34,6 +48,10 @@ export class LoopSession {
   constructor(
     initializeCliParser: () => Argv,
     private conversationMemoryConfig?: ConversationMemoryConfig,
+    private options?: {
+      directResumeSessionId?: string;
+      forceNewSession?: boolean;
+    },
   ) {
     this.initializeCliParser = initializeCliParser;
   }
@@ -45,15 +63,38 @@ export class LoopSession {
     );
 
     // Load command history from global file, reverse once for most recent first
-    this.commandHistory = (await this.loadHistory()).reverse();
+    this.commandHistory = (await loadCommandHistory()).reverse();
 
     this.isRunning = true;
     logger.always(chalk.bold.green(NEUROLINK_BANNER));
     logger.always(chalk.bold.green("Welcome to NeuroLink Loop Mode!"));
 
+    // Check for direct CLI options
+    const directResumeSessionId = this.options?.directResumeSessionId;
+    const forceNewSession = this.options?.forceNewSession;
+
+    // Handle conversation discovery and selection if memory is enabled
     if (this.conversationMemoryConfig?.enabled) {
-      logger.always(chalk.gray(`Session ID: ${this.sessionId}`));
       logger.always(chalk.gray("Conversation memory enabled"));
+
+      // Handle direct resume option
+      if (directResumeSessionId) {
+        await this.handleDirectSessionResume(directResumeSessionId);
+      }
+      // Handle force new session option
+      else if (forceNewSession) {
+        logger.always(chalk.blue("Force starting new conversation..."));
+        this.sessionId = globalSession.setLoopSession(
+          this.conversationMemoryConfig,
+        );
+      }
+      // Default behavior: check for existing conversations
+      else {
+        await this.handleConversationSelection();
+      }
+
+      // Display session information
+      logger.always(chalk.gray(`Session ID: ${this.sessionId}`));
       logger.always(
         chalk.gray(
           `Max sessions: ${this.conversationMemoryConfig.maxSessions}`,
@@ -64,7 +105,16 @@ export class LoopSession {
           `Max turns per session: ${this.conversationMemoryConfig.maxTurnsPerSession}\n`,
         ),
       );
+    } else {
+      // No conversation memory - just create a new session
+      this.sessionId = globalSession.setLoopSession(
+        this.conversationMemoryConfig,
+      );
+      logger.always(chalk.gray(`Session ID: ${this.sessionId}`));
     }
+
+    // Load command history from global file
+    this.commandHistory = (await loadCommandHistory()).reverse();
 
     logger.always(chalk.gray('Type "help" for a list of commands.'));
     logger.always(
@@ -93,7 +143,7 @@ export class LoopSession {
           // Save session commands to history (both memory and file)
           if (command && command.trim()) {
             this.commandHistory.unshift(command);
-            await this.saveCommand(command);
+            await saveCommandToHistory(command);
           }
           continue;
         }
@@ -115,7 +165,7 @@ export class LoopSession {
         // Save command to history (both memory and file)
         if (command && command.trim()) {
           this.commandHistory.unshift(command);
-          await this.saveCommand(command);
+          await saveCommandToHistory(command);
         }
       } catch (error) {
         // Catch errors from the main loop (e.g., readline prompt itself failing)
@@ -124,8 +174,123 @@ export class LoopSession {
     }
 
     // Cleanup on exit
-    globalSession.clearLoopSession();
-    logger.always(chalk.yellow("Loop session ended."));
+    this.cleanup();
+  }
+
+  /**
+   * Handle direct session resume from CLI option
+   */
+  private async handleDirectSessionResume(
+    directResumeSessionId: string,
+  ): Promise<void> {
+    logger.always(
+      chalk.blue(
+        `Attempting to resume session: ${directResumeSessionId.slice(0, 12)}...`,
+      ),
+    );
+
+    try {
+      const restoreResult = await this.restoreSession(directResumeSessionId);
+
+      if (restoreResult.success) {
+        displaySessionMessage(restoreResult);
+        this.sessionId = directResumeSessionId;
+
+        // Display conversation preview
+        const preview = await getConversationPreview(directResumeSessionId, 2);
+        displayConversationPreview(preview, 2);
+      } else {
+        displaySessionMessage(restoreResult);
+        logger.always(chalk.yellow("Starting new conversation instead..."));
+        this.sessionId = globalSession.setLoopSession(
+          this.conversationMemoryConfig,
+        );
+      }
+    } catch (error) {
+      logger.error(`Failed to resume session ${directResumeSessionId}:`, error);
+      logger.always(chalk.yellow("Starting new conversation instead..."));
+      this.sessionId = globalSession.setLoopSession(
+        this.conversationMemoryConfig,
+      );
+    }
+  }
+
+  /**
+   * Handle conversation selection logic when no direct resume is specified
+   */
+  private async handleConversationSelection(): Promise<void> {
+    logger.always(chalk.gray("Checking for existing conversations...\n"));
+
+    try {
+      const conversationSelector = new ConversationSelector();
+
+      // Check if there are any stored conversations
+      const hasStoredConversations =
+        await conversationSelector.hasStoredConversations();
+
+      if (hasStoredConversations) {
+        // Show conversation selection menu
+        const selectedSessionId =
+          await conversationSelector.displayConversationMenu();
+
+        if (selectedSessionId !== "NEW_CONVERSATION") {
+          // Restore the selected conversation
+          logger.always(chalk.blue("Restoring conversation..."));
+
+          const restoreResult = await this.restoreSession(selectedSessionId);
+
+          if (restoreResult.success) {
+            displaySessionMessage(restoreResult);
+            this.sessionId = selectedSessionId;
+
+            // Display conversation preview
+            const preview = await getConversationPreview(selectedSessionId, 2);
+            displayConversationPreview(preview, 2);
+          } else {
+            displaySessionMessage(restoreResult);
+            logger.always(chalk.yellow("Starting new conversation instead..."));
+            this.sessionId = globalSession.setLoopSession(
+              this.conversationMemoryConfig,
+            );
+          }
+        } else {
+          // User chose to start new conversation
+          logger.always(chalk.blue("Starting new conversation..."));
+          this.sessionId = globalSession.setLoopSession(
+            this.conversationMemoryConfig,
+          );
+        }
+      } else {
+        // No existing conversations found
+        logger.always(chalk.gray("No existing conversations found."));
+        logger.always(chalk.blue("Starting new conversation..."));
+        this.sessionId = globalSession.setLoopSession(
+          this.conversationMemoryConfig,
+        );
+      }
+
+      // Close the conversation selector
+      await conversationSelector.close();
+    } catch (error) {
+      logger.warn("Failed to check for existing conversations:", error);
+      logger.always(chalk.yellow("Starting new conversation..."));
+      this.sessionId = globalSession.setLoopSession(
+        this.conversationMemoryConfig,
+      );
+    }
+  }
+
+  /**
+   * Clean up session resources and connections
+   */
+  private cleanup(): void {
+    try {
+      globalSession.clearLoopSession();
+      logger.always(chalk.yellow("Loop session ended."));
+    } catch (error) {
+      // Silently handle cleanup errors to avoid hanging
+      logger.error("Error during cleanup:", error);
+    }
   }
 
   private async handleSessionCommands(command: string): Promise<boolean> {
@@ -158,7 +323,7 @@ export class LoopSession {
           }
 
           const valueStr = parts.slice(2).join(" ");
-          let value = this.parseValue(valueStr);
+          let value = parseValue(valueStr);
 
           // Validate type
           if (schema.type === "boolean" && typeof value !== "boolean") {
@@ -261,22 +426,6 @@ export class LoopSession {
     }
   }
 
-  private parseValue(value: string): string | number | boolean {
-    // Try to parse as number
-    if (!isNaN(Number(value))) {
-      return Number(value);
-    }
-    // Try to parse as boolean
-    if (value.toLowerCase() === "true") {
-      return true;
-    }
-    if (value.toLowerCase() === "false") {
-      return false;
-    }
-    // Return as string
-    return value;
-  }
-
   private showHelp(): void {
     logger.always(chalk.cyan("Available Loop Mode Commands:"));
     const commands = [
@@ -327,43 +476,6 @@ export class LoopSession {
   }
 
   /**
-   * Load command history from the global history file
-   */
-  private async loadHistory(): Promise<string[]> {
-    try {
-      const content = await fs.readFile(HISTORY_FILE, "utf8");
-      return content.split("\n").filter((line) => line.trim());
-    } catch {
-      // File doesn't exist yet or can't be read
-      return [];
-    }
-  }
-
-  /**
-   * Save a command to the global history file
-   */
-  private async saveCommand(command: string): Promise<void> {
-    try {
-      // Skip potentially sensitive commands
-      const sensitivePattern = /\b(api[-_]?key|token|password|secret|authorization)\b/i;
-      if (sensitivePattern.test(command)) {
-        return;
-      }
-
-      // Use writeFile with flag 'a' and mode 0o600 to ensure permissions on creation
-      await fs.writeFile(HISTORY_FILE, command + "\n", { flag: "a", mode: 0o600 });
-      // Ensure existing file remains private (best-effort)
-      await fs.chmod(HISTORY_FILE, 0o600);
-    } catch (error) {
-      // Log file write errors as warnings, but do not interrupt CLI flow
-      logger.warn(
-        "Warning: Could not save command to history:",
-        error as Error,
-      );
-    }
-  }
-
-  /**
    * Get command input with history support using readline
    */
   private async getCommandWithHistory(): Promise<string> {
@@ -387,5 +499,209 @@ export class LoopSession {
         resolve("exit");
       });
     });
+  }
+
+  // === SESSION RESTORATION METHODS ===
+
+  /**
+   * Restore a conversation session and set up the global session state
+   */
+  private async restoreSession(
+    sessionId: string,
+    userId?: string,
+  ): Promise<SessionRestoreResult> {
+    // Local helper for creating failure results with bound sessionId
+    const createFailure = (error: string): SessionRestoreResult => ({
+      success: false,
+      sessionId,
+      messageCount: 0,
+      error,
+    });
+
+    try {
+      logger.debug(`Attempting to restore session: ${sessionId}`);
+
+      // 1. Create NeuroLink instance and validate conversation in one step
+      const { neurolinkInstance, conversationData } =
+        await this.createAndValidateNeurolinkInstance(sessionId, userId);
+
+      if (!conversationData) {
+        return createFailure(
+          `Conversation ${sessionId} not found or inaccessible`,
+        );
+      }
+
+      // 2. Set up tool execution context
+      await this.configureToolContext(neurolinkInstance, sessionId, userId);
+
+      // 3. Restore global session state
+      this.restoreGlobalSessionState(
+        sessionId,
+        neurolinkInstance,
+        conversationData,
+      );
+
+      // 4. Verify conversation context accessibility
+      await verifyConversationContext(sessionId);
+
+      const result: SessionRestoreResult = {
+        success: true,
+        sessionId,
+        messageCount: conversationData.messages?.length || 0,
+        lastActivity: conversationData.updatedAt,
+      };
+
+      logger.info(`Session restored successfully: ${sessionId}`, {
+        messageCount: result.messageCount,
+        lastActivity: result.lastActivity,
+      });
+
+      return result;
+    } catch (error) {
+      logger.error(`Failed to restore session ${sessionId}:`, error);
+      return createFailure(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  /**
+   * Create NeuroLink instance and validate conversation in one step
+   * Eliminates redundant instance creation and initialization
+   */
+  private async createAndValidateNeurolinkInstance(
+    sessionId: string,
+    userId?: string,
+  ): Promise<{
+    neurolinkInstance: NeuroLink;
+    conversationData: ConversationData | null;
+  }> {
+    // Create NeuroLink instance with proper configuration
+    const neurolinkOptions: NeurolinkOptions = {};
+
+    if (this.conversationMemoryConfig?.enabled) {
+      neurolinkOptions.conversationMemory = {
+        enabled: true,
+        maxSessions: this.conversationMemoryConfig.maxSessions,
+        maxTurnsPerSession: this.conversationMemoryConfig.maxTurnsPerSession,
+      };
+      neurolinkOptions.sessionId = sessionId;
+    }
+
+    const neurolinkInstance = new NeuroLink(neurolinkOptions);
+    await neurolinkInstance.ensureConversationMemoryInitialized();
+
+    // Use the same instance to validate conversation exists
+    try {
+      const messages =
+        await neurolinkInstance.getConversationHistory(sessionId);
+
+      if (!messages || messages.length === 0) {
+        logger.debug(`No conversation messages found for session ${sessionId}`);
+        return { neurolinkInstance, conversationData: null };
+      }
+
+      // Create conversation object with available data
+      const conversationData: ConversationData = {
+        id: sessionId,
+        sessionId,
+        userId: userId || "unknown",
+        messages,
+        createdAt: new Date().toISOString(), // Fallback
+        updatedAt: new Date().toISOString(), // Fallback
+        title:
+          messages[0]?.content?.slice(0, 50) + "..." || "Untitled Conversation",
+      };
+
+      return { neurolinkInstance, conversationData };
+    } catch (error) {
+      logger.debug(
+        `Error accessing conversation for session ${sessionId}:`,
+        error,
+      );
+      return { neurolinkInstance, conversationData: null };
+    }
+  }
+
+  /**
+   * Configure tool execution context for the restored session
+   */
+  private async configureToolContext(
+    neurolinkInstance: NeuroLink,
+    sessionId: string,
+    userId?: string,
+  ): Promise<void> {
+    const toolContext: RestorationToolContext = {
+      sessionId,
+      userId: userId || "loop-user",
+      source: "loop-mode",
+      restored: true,
+      timestamp: new Date().toISOString(),
+    };
+
+    neurolinkInstance.setToolContext(toolContext);
+    logger.debug("Tool execution context configured for restored session", {
+      sessionId,
+      userId,
+      hasToolContext: true,
+    });
+
+    await this.verifyToolAvailability(neurolinkInstance);
+  }
+
+  /**
+   * Verify that tools are available and working in the restored session
+   */
+  private async verifyToolAvailability(
+    neurolinkInstance: NeuroLink,
+  ): Promise<void> {
+    try {
+      const availableTools = await neurolinkInstance.getAllAvailableTools();
+      logger.debug(
+        `Tools available in restored session: ${availableTools.length} tools`,
+        {
+          toolNames: availableTools.slice(0, 5).map((t) => t.name),
+          hasFileTools: availableTools.some(
+            (t) => t.name.includes("file") || t.name.includes("File"),
+          ),
+          hasDirectoryTools: availableTools.some(
+            (t) => t.name.includes("directory") || t.name.includes("Directory"),
+          ),
+        },
+      );
+
+      if (availableTools.length === 0) {
+        logger.warn(
+          "No tools available in restored session - this may affect AI capabilities",
+        );
+      }
+    } catch (error) {
+      logger.warn(
+        "Could not verify tool availability in restored session:",
+        error,
+      );
+    }
+  }
+
+  /**
+   * Restore global session state and session variables
+   */
+  private restoreGlobalSessionState(
+    sessionId: string,
+    neurolinkInstance: NeuroLink,
+    conversationData?: ConversationData,
+  ): void {
+    globalSession.clearLoopSession();
+
+    globalSession.restoreLoopSession(
+      sessionId,
+      neurolinkInstance,
+      this.conversationMemoryConfig,
+      {},
+    );
+
+    if (conversationData) {
+      restoreSessionVariables(conversationData);
+    }
   }
 }

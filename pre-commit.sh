@@ -26,11 +26,14 @@ if [[ "$BRANCH_NAME" != "HEAD" ]]; then
   npm run check
   
   echo "🎨 Running format..."
-  npm run format
+  npm run format:staged
   
   echo "🔧 Running lint..."
   npm run lint
   
+  echo "🔐 Running validate..."
+  npm run validate:all
+
   echo "🏗️  Running build..."
   npm run build
   
@@ -44,12 +47,5 @@ if [[ "$BRANCH_NAME" != "HEAD" ]]; then
     git add -- $files
   fi
 
-  # Adding commit linter. Validates commit messages are according to format.
-  # Runs before commit is created.
-  # To try and fail VSCode and other editor commits if not properly formatted.
-  echo "✅ Running commit message validation..."
-  # Prefer commit-msg hook; if kept here, fallback to default COMMIT_EDITMSG path.
-  pnpm exec commitlint --edit "${1:-$(git rev-parse --git-path COMMIT_EDITMSG)}"
-  
   echo "🎉 All pre-commit checks passed!"
 fi
