@@ -460,7 +460,7 @@ npx @juspay/neurolink env check
 
 ### **Support & Resources**
 
-- **Documentation**: See `docs/API-REFERENCE.md` for interface details
+- **Documentation**: See [API Reference](sdk/api-reference.md) for interface details
 - **Migration Guide**: See `docs/INTERFACE-MIGRATION-GUIDE.md`
 - **Troubleshooting**: See `docs/TROUBLESHOOTING.md`
 - **GitHub Issues**: Report bugs and feature requests

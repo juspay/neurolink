@@ -1581,14 +1581,232 @@ await neurolink.addInMemoryMCPServer("server-id", {
 });
 ```
 
+## 🔧 Built-in Tools Reference
+
+NeuroLink provides **6 core tools** that work across all AI providers with zero configuration:
+
+### getCurrentTime {#getCurrentTime}
+
+Get the current date and time in ISO 8601 format.
+
+**Parameters:** None
+
+**Returns:** Current date/time string
+
+**Usage:**
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "What time is it?" },
+});
+// AI can call getCurrentTime() automatically
+```
+
+**Use Cases:**
+
+- Timestamping operations
+- Time-based logic
+- Scheduling and reminders
+- Log entries
+
+---
+
+### readFile {#readFile}
+
+Read file contents from the filesystem.
+
+**Parameters:**
+
+- `path` (string): Absolute or relative file path
+
+**Returns:** File contents as string
+
+**Usage:**
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "Read the contents of config.json" },
+});
+// AI can call readFile({ path: "config.json" })
+```
+
+**Use Cases:**
+
+- Configuration file reading
+- Data file processing
+- Log file analysis
+- Code file inspection
+
+**Security:** Path traversal protection built-in
+
+---
+
+### writeFile {#writeFile}
+
+Write content to a file on the filesystem.
+
+**Parameters:**
+
+- `path` (string): File path to write to
+- `content` (string): Content to write
+
+**Returns:** Success confirmation
+
+**Usage:**
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "Create a file called output.txt with 'Hello World'" },
+});
+// AI can call writeFile({ path: "output.txt", content: "Hello World" })
+```
+
+**Use Cases:**
+
+- Report generation
+- Configuration file creation
+- Data export
+- Log file writing
+
+**Security:** Directory creation automatic, overwrites existing files
+
+---
+
+### listDirectory {#listDirectory}
+
+List files and directories in a specified path.
+
+**Parameters:**
+
+- `path` (string): Directory path to list
+
+**Returns:** Array of file/directory names
+
+**Usage:**
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "What files are in the current directory?" },
+});
+// AI can call listDirectory({ path: "." })
+```
+
+**Use Cases:**
+
+- File system exploration
+- Directory traversal
+- File discovery
+- Project structure analysis
+
+**Returns:** File names only (not full paths)
+
+---
+
+### calculateMath {#calculateMath}
+
+Perform mathematical calculations and expressions.
+
+**Parameters:**
+
+- `expression` (string): Math expression to evaluate
+
+**Returns:** Calculation result (number)
+
+**Usage:**
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "What is 15% of 240?" },
+});
+// AI can call calculateMath({ expression: "240 * 0.15" })
+```
+
+**Supported Operations:**
+
+- Basic arithmetic: `+`, `-`, `*`, `/`
+- Exponentiation: `^`, `**`
+- Parentheses: `(`, `)`
+- Functions: `sqrt()`, `sin()`, `cos()`, `log()`, etc.
+- Constants: `pi`, `e`
+
+**Powered by:** [math.js](https://mathjs.org)
+
+---
+
+### websearch / websearchGrounding {#websearch}
+
+Search the web using Google Vertex AI's grounding feature.
+
+**Parameters:**
+
+- `query` (string): Search query
+
+**Returns:** Search results with citations
+
+**Requirements:**
+
+- ✅ Google Vertex AI configured
+- ✅ Grounding API enabled
+- ⚠️ Only works with Vertex AI provider
+
+**Usage:**
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "Search for latest AI developments" },
+  provider: "vertex", // Must use Vertex AI
+});
+// AI can call websearchGrounding({ query: "latest AI developments" })
+```
+
+**Use Cases:**
+
+- Real-time information retrieval
+- Fact verification
+- Current events
+- Research assistance
+
+**Limitations:** Requires Google Vertex AI credentials and enabled API
+
+---
+
+### Enabling/Disabling Built-in Tools
+
+**Disable all tools:**
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "Pure text generation" },
+  disableTools: true,
+});
+```
+
+**CLI usage:**
+
+```bash
+# With tools (default)
+neurolink generate "What time is it?"
+
+# Without tools
+neurolink generate "Pure text" --disable-tools
+```
+
+**Note:** Built-in tools are automatically available unless explicitly disabled.
+
+---
+
 ## 📚 Additional Resources
 
-- [API Reference - NeuroLink Class](../API-REFERENCE.md#neurolink-class-api)
-- [MCP Integration Guide](../MCP-INTEGRATION.md)
-- [Provider Tool Support](../index.md#provider-tool-support-status)
-- [Test Examples](../test/mcp/toolIntegration/)
-- [MCP Commands Test Report](../test-reports/mcp-commands-test-report.md)
-- [Real AI-MCP Integration Testing](../development/testing.md)
+- [API Reference](../sdk/api-reference.md)
+  **Feature Guides:**
+
+- [Human-in-the-Loop (HITL)](../features/hitl.md) - Add user approval checkpoints to custom tools
+- [Guardrails Middleware](../features/guardrails.md) - Filter tool outputs for safety
+
+**MCP Integration:**
+
+- [MCP Integration Guide](../advanced/mcp-integration.md)
+- [MCP Server Catalog](../guides/mcp/server-catalog.md)
 - [Advanced MCP Testing Guide](../advanced/MCP-TESTING-GUIDE.md)
 
 ---

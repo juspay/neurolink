@@ -1,3 +1,9 @@
+---
+title: Guardrails Middleware
+description: Block PII, profanity, and unsafe content with built-in content filtering and safety checks
+keywords: guardrails, content filtering, PII detection, safety, middleware, bad words, profanity
+---
+
 # Guardrails Middleware
 
 > **Since**: v7.42.0 | **Status**: Stable | **Availability**: SDK (CLI + SDK)
@@ -18,6 +24,9 @@
 
 ## Quick Start
 
+!!! success "Zero Configuration"
+Guardrails work out of the box with the `security` preset. No custom configuration required for basic content filtering.
+
 ### SDK Example with Security Preset
 
 ```typescript
@@ -25,17 +34,22 @@ import { NeuroLink } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink({
   middleware: {
-    preset: "security", // Enables guardrails automatically
+    preset: "security", // (1)!
   },
 });
 
 const result = await neurolink.generate({
+  // (2)!
   prompt: "Tell me about security best practices",
 });
 
 // Output is automatically filtered for bad words and unsafe content
-console.log(result.content);
+console.log(result.content); // (3)!
 ```
+
+1. Enables guardrails middleware with default configuration
+2. All generate/stream calls automatically apply filtering
+3. Content is already filtered - safe to display to users
 
 ### Custom Guardrails Configuration
 
@@ -47,15 +61,15 @@ const neurolink = new NeuroLink({
     preset: "security",
     middlewareConfig: {
       guardrails: {
-        enabled: true,
+        enabled: true, // (1)!
         config: {
           badWords: {
-            enabled: true,
-            list: ["spam", "scam", "inappropriate-term"],
+            enabled: true, // (2)!
+            list: ["spam", "scam", "inappropriate-term"], // (3)!
           },
           modelFilter: {
-            enabled: true, // Use AI to detect unsafe content
-            filterModel: "gpt-4o-mini", // Lightweight model for filtering
+            enabled: true, // (4)!
+            filterModel: "gpt-4o-mini", // (5)!
           },
         },
       },
@@ -63,6 +77,12 @@ const neurolink = new NeuroLink({
   },
 });
 ```
+
+1. Master switch for guardrails middleware
+2. Enable keyword-based filtering (fast, regex-based)
+3. Custom terms to filter/redact from outputs
+4. Enable AI-powered content safety check (slower, more accurate)
+5. Use fast, cheap model for safety evaluation
 
 ### CLI Usage
 
@@ -153,6 +173,9 @@ Simple regex-based replacement:
 - Works in both `generate` and `stream` modes
 
 ### Model-Based Filtering
+
+!!! danger "PII Detection Accuracy"
+While guardrails filter common PII patterns, always review critical outputs manually. False negatives can occur with obfuscated data or uncommon PII formats. For high-stakes compliance, combine with dedicated PII detection services.
 
 AI-powered safety check:
 

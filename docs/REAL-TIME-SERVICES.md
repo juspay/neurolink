@@ -706,9 +706,9 @@ node server.js
 
 ## 📚 Additional Resources
 
-- **[API Reference](./API-REFERENCE.md)** - Complete TypeScript API
-- **[Telemetry Guide](./TELEMETRY-GUIDE.md)** - Enterprise monitoring setup
-- **[Performance Optimization](./PERFORMANCE-OPTIMIZATION.md)** - Optimization strategies
+- **[API Reference](API-REFERENCE.md)** - Complete TypeScript API
+- **[Telemetry Guide](TELEMETRY-GUIDE.md)** - Enterprise monitoring setup
+- **[Performance Optimization](PERFORMANCE-OPTIMIZATION.md)** - Optimization strategies
 - **[Examples Repository](examples/index.md)** - Working example applications
 
 **Ready to build enterprise-grade real-time AI applications with NeuroLink! 🚀**

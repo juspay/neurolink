@@ -1,5 +1,7 @@
 # 📚 API Reference
 
+> **📌 Note**: This is a legacy API reference location. For the most up-to-date and comprehensive API documentation, please visit the **[📚 Complete SDK API Reference](../sdk/api-reference.md)**.
+
 Complete reference for NeuroLink's TypeScript API.
 
 ## Core Functions

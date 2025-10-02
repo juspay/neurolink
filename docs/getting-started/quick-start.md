@@ -96,9 +96,16 @@ npx @juspay/neurolink generate "Write a poem" --disable-tools
 ## 🎯 Next Steps
 
 1. **[Provider Setup](provider-setup.md)** - Configure multiple AI providers
-2. **[CLI Commands](../cli/commands.md)** - Learn all available commands
-3. **[SDK Reference](../sdk/api-reference.md)** - Integrate into your applications
-4. **[Examples](../examples/basic-usage.md)** - See practical implementations
+2. **[CLI Loop Sessions](../features/cli-loop-sessions.md)** - Try persistent interactive mode with memory
+3. **[CLI Commands](../cli/commands.md)** - Learn all available commands
+4. **[SDK Reference](../sdk/api-reference.md)** - Integrate into your applications
+5. **[Examples](../examples/basic-usage.md)** - See practical implementations
+
+**Latest Features:**
+
+- [Multimodal Chat](../features/multimodal-chat.md) - Add images to your prompts
+- [Auto Evaluation](../features/auto-evaluation.md) - Quality scoring for responses
+- [Guardrails](../features/guardrails.md) - Content filtering and safety
 
 ## 🆘 Need Help?
 

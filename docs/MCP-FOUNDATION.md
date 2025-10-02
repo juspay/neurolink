@@ -339,7 +339,7 @@ const result = await neurolink.generate({
 - **Minimal Maintenance**: Lighthouse team maintains tool implementations
 - **Rich Context**: Full business context (shopId, merchantId, etc.)
 
-**📄 Complete Integration Guide**: [docs/LIGHTHOUSE-UNIFIED-INTEGRATION.md](./LIGHTHOUSE-UNIFIED-INTEGRATION.md)
+**📄 Complete Integration Guide**: [docs/LIGHTHOUSE-UNIFIED-INTEGRATION.md](LIGHTHOUSE-UNIFIED-INTEGRATION.md)
 
 ## 🔧 Technical Implementation Details
 
@@ -377,7 +377,7 @@ src/lib/mcp/
 - **[AI Analysis Tools](./AI-ANALYSIS-TOOLS.md)** - AI optimization and analysis tools
 - **[AI Workflow Tools](./AI-WORKFLOW-TOOLS.md)** - Development lifecycle tools
 - **[MCP Integration Guide](./MCP-INTEGRATION.md)** - Complete MCP setup and usage
-- **[API Reference](./API-REFERENCE.md)** - Complete TypeScript API
+- **[API Reference](sdk/api-reference.md)** - Complete TypeScript API
 
 ---
 

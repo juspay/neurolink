@@ -1,3 +1,9 @@
+---
+title: Redis Conversation History Export
+description: Export complete session history as JSON for analytics, debugging, and compliance auditing
+keywords: redis, conversation export, session history, analytics, debugging, audit trail, compliance
+---
+
 # Redis Conversation History Export
 
 > **Since**: v7.38.0 | **Status**: Stable | **Availability**: SDK + CLI
@@ -17,6 +23,9 @@
 - Training data collection for fine-tuning
 
 ## Quick Start
+
+!!! warning "Redis Required"
+Conversation history export **only works with Redis storage**. In-memory storage does not support export functionality. Configure Redis before enabling conversation memory.
 
 ### SDK Example
 
@@ -214,6 +223,9 @@ const history = await neurolink.exportConversationHistory({
 ```
 
 ### Integration with Analytics Pipeline
+
+!!! tip "Analytics Integration"
+Pipe exported conversation data directly to your analytics dashboards for user behavior insights, quality metrics, and model performance tracking. Combine with [Auto Evaluation](auto-evaluation.md) for comprehensive quality monitoring.
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";

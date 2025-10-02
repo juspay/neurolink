@@ -1,3 +1,9 @@
+---
+title: Regional Streaming Controls
+description: Region-specific model deployment and routing for compliance and latency optimization
+keywords: regional routing, compliance, latency, data residency, aws region, multi-region
+---
+
 # Regional Streaming Controls
 
 Latency, compliance, and model availability often depend on which region you call. NeuroLink 7.45.0 threads the `region` parameter through the generate/stream stack so you can target specific data centres when working with providers that expose regional endpoints.
@@ -61,6 +67,12 @@ const stream = await neurolink.stream({
 ```
 
 ## Operational Tips
+
+!!! tip "Compliance & Data Residency"
+Use regional routing to comply with data sovereignty requirements (GDPR, HIPAA, etc.). Pin the `region` parameter to ensure AI processing stays within approved geographical boundaries for sensitive workloads.
+
+!!! tip "Latency Optimization"
+Co-locate your NeuroLink deployment with your application servers. For example, if your API runs in `eu-west-1`, set `region: "eu-west-1"` for Bedrock/Vertex calls to minimize cross-region latency penalties.
 
 - **Compliance** – ensure the requested region is enabled for the model (e.g., Anthropic via Vertex only supports `us` regions).
 - **Latency** – co-locate with your application servers to avoid cross-region penalties.

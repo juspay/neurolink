@@ -9,12 +9,28 @@
 
 Enterprise AI development platform with unified provider access, production-ready tooling, and an opinionated factory architecture. NeuroLink ships as both a TypeScript SDK and a professional CLI so teams can build, operate, and iterate on AI features quickly.
 
+## 🧠 What is NeuroLink?
+
+**NeuroLink is the universal AI integration platform that unifies 12 major AI providers and 100+ models under one consistent API.**
+
+Extracted from production systems at Juspay and battle-tested at enterprise scale, NeuroLink provides a production-ready solution for integrating AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 12 supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
+
+**Why NeuroLink?** Switch providers with a single parameter change, leverage 64+ built-in tools and MCP servers, deploy with confidence using enterprise features like Redis memory and multi-provider failover, and optimize costs automatically with intelligent routing. Use it via our professional CLI or TypeScript SDK—whichever fits your workflow.
+
+**Where we're headed:** We're building for the future of AI—edge-first execution and continuous streaming architectures that make AI practically free and universally available. **[Read our vision →](docs/about/vision.md)**
+
+**[Get Started in <5 Minutes →](docs/getting-started/quick-start.md)**
+
+---
+
 ## What's New (Q4 2025)
 
-- **Human-in-the-loop workflows** – Pause generation for user approval/input before tool execution or continuing. → [`docs/features/hitl.md`](docs/features/hitl.md)
-- **Guardrails middleware** – Block PII, profanity, and unsafe content with built-in content filtering. → [`docs/features/guardrails.md`](docs/features/guardrails.md)
-- **Context summarization** – Automatic conversation compression for long-running sessions with memory. → [`docs/features/context-summarization.md`](docs/features/context-summarization.md)
-- **Redis conversation export** – Export full session history as JSON for analytics and debugging. → [`docs/features/conversation-history.md`](docs/features/conversation-history.md)
+- **LiteLLM Integration** – Access 100+ AI models from all major providers through unified interface. → [Setup Guide](docs/LITELLM-INTEGRATION.md)
+- **SageMaker Integration** – Deploy and use custom trained models on AWS infrastructure. → [Setup Guide](docs/SAGEMAKER-INTEGRATION.md)
+- **Human-in-the-loop workflows** – Pause generation for user approval/input before tool execution. → [HITL Guide](docs/features/hitl.md)
+- **Guardrails middleware** – Block PII, profanity, and unsafe content with built-in filtering. → [Guardrails Guide](docs/features/guardrails.md)
+- **Context summarization** – Automatic conversation compression for long-running sessions. → [Summarization Guide](docs/CONTEXT-SUMMARIZATION.md)
+- **Redis conversation export** – Export full session history as JSON for analytics and debugging. → [History Guide](docs/features/conversation-history.md)
 
 > **Q3 highlights** (multimodal chat, auto-evaluation, loop sessions, orchestration) are now in [Platform Capabilities](#platform-capabilities-at-a-glance) below.
 
@@ -28,7 +44,186 @@ pnpm dlx @juspay/neurolink setup
 npx @juspay/neurolink generate "Write a launch plan for multimodal chat"
 ```
 
-Need a persistent workspace? Launch loop mode:
+Need a persistent workspace? Launch loop mode with `npx @juspay/neurolink loop` - [Learn more →](docs/features/cli-loop-sessions.md)
+
+## 🌟 Complete Feature Set
+
+NeuroLink is a comprehensive AI development platform. Every feature below is production-ready and fully documented.
+
+### 🤖 AI Provider Integration
+
+**12 providers unified under one API** - Switch providers with a single parameter change.
+
+| Provider              | Models                         | Free Tier       | Tool Support | Status        | Documentation                                                           |
+| --------------------- | ------------------------------ | --------------- | ------------ | ------------- | ----------------------------------------------------------------------- |
+| **OpenAI**            | GPT-4o, GPT-4o-mini, o1        | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai)            |
+| **Anthropic**         | Claude 3.5/3.7 Sonnet, Opus    | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#anthropic)         |
+| **Google AI Studio**  | Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#google-ai)         |
+| **AWS Bedrock**       | Claude, Titan, Llama, Nova     | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)           |
+| **Google Vertex**     | Gemini via GCP                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)            |
+| **Azure OpenAI**      | GPT-4, GPT-4o, o1              | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)             |
+| **LiteLLM**           | 100+ models unified            | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/LITELLM-INTEGRATION.md)                              |
+| **AWS SageMaker**     | Custom deployed models         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/SAGEMAKER-INTEGRATION.md)                            |
+| **Mistral AI**        | Mistral Large, Small           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)           |
+| **Hugging Face**      | 100,000+ models                | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)       |
+| **Ollama**            | Local models (Llama, Mistral)  | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)            |
+| **OpenAI Compatible** | Any OpenAI-compatible endpoint | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible) |
+
+**[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
+
+---
+
+### 🔧 Built-in Tools & MCP Integration
+
+**6 Core Tools** (work across all providers, zero configuration):
+
+| Tool                 | Purpose                  | Auto-Available          | Documentation                                             |
+| -------------------- | ------------------------ | ----------------------- | --------------------------------------------------------- |
+| `getCurrentTime`     | Real-time clock access   | ✅                      | [Tool Reference](docs/sdk/custom-tools.md#getCurrentTime) |
+| `readFile`           | File system reading      | ✅                      | [Tool Reference](docs/sdk/custom-tools.md#readFile)       |
+| `writeFile`          | File system writing      | ✅                      | [Tool Reference](docs/sdk/custom-tools.md#writeFile)      |
+| `listDirectory`      | Directory listing        | ✅                      | [Tool Reference](docs/sdk/custom-tools.md#listDirectory)  |
+| `calculateMath`      | Mathematical operations  | ✅                      | [Tool Reference](docs/sdk/custom-tools.md#calculateMath)  |
+| `websearchGrounding` | Google Vertex web search | ⚠️ Requires credentials | [Tool Reference](docs/sdk/custom-tools.md#websearch)      |
+
+**58+ External MCP Servers** supported (GitHub, PostgreSQL, Google Drive, Slack, and more):
+
+```typescript
+// Add any MCP server dynamically
+await neurolink.addExternalMCPServer("github", {
+  command: "npx",
+  args: ["-y", "@modelcontextprotocol/server-github"],
+  transport: "stdio",
+  env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN },
+});
+
+// Tools automatically available to AI
+const result = await neurolink.generate({
+  input: { text: 'Create a GitHub issue titled "Bug in auth flow"' },
+});
+```
+
+**[📖 MCP Integration Guide](docs/advanced/mcp-integration.md)** - Setup external servers
+
+---
+
+### 💻 Developer Experience Features
+
+**SDK-First Design** with TypeScript, IntelliSense, and type safety:
+
+| Feature                     | Description                    | Documentation                                         |
+| --------------------------- | ------------------------------ | ----------------------------------------------------- |
+| **Auto Provider Selection** | Intelligent provider fallback  | [SDK Guide](docs/sdk/index.md#auto-selection)         |
+| **Streaming Responses**     | Real-time token streaming      | [Streaming Guide](docs/advanced/streaming.md)         |
+| **Conversation Memory**     | Automatic context management   | [Memory Guide](docs/sdk/index.md#memory)              |
+| **Full Type Safety**        | Complete TypeScript types      | [Type Reference](docs/sdk/api-reference.md)           |
+| **Error Handling**          | Graceful provider fallback     | [Error Guide](docs/reference/troubleshooting.md)      |
+| **Analytics & Evaluation**  | Usage tracking, quality scores | [Analytics Guide](docs/advanced/analytics.md)         |
+| **Middleware System**       | Request/response hooks         | [Middleware Guide](docs/CUSTOM-MIDDLEWARE-GUIDE.md)   |
+| **Framework Integration**   | Next.js, SvelteKit, Express    | [Framework Guides](docs/sdk/framework-integration.md) |
+
+---
+
+### 🏢 Enterprise & Production Features
+
+**Production-ready capabilities for regulated industries:**
+
+| Feature                     | Description                        | Use Case                  | Documentation                                               |
+| --------------------------- | ---------------------------------- | ------------------------- | ----------------------------------------------------------- |
+| **Enterprise Proxy**        | Corporate proxy support            | Behind firewalls          | [Proxy Setup](docs/ENTERPRISE-PROXY-SETUP.md)               |
+| **Redis Memory**            | Distributed conversation state     | Multi-instance deployment | [Redis Guide](docs/getting-started/provider-setup.md#redis) |
+| **Cost Optimization**       | Automatic cheapest model selection | Budget control            | [Cost Guide](docs/advanced/index.md)                        |
+| **Multi-Provider Failover** | Automatic provider switching       | High availability         | [Failover Guide](docs/advanced/index.md)                    |
+| **Telemetry & Monitoring**  | OpenTelemetry integration          | Observability             | [Telemetry Guide](docs/TELEMETRY-GUIDE.md)                  |
+| **Security Hardening**      | Credential management, auditing    | Compliance                | [Security Guide](docs/advanced/enterprise.md)               |
+| **Custom Model Hosting**    | SageMaker integration              | Private models            | [SageMaker Guide](docs/SAGEMAKER-INTEGRATION.md)            |
+| **Load Balancing**          | LiteLLM proxy integration          | Scale & routing           | [Load Balancing](docs/LITELLM-INTEGRATION.md)               |
+
+**Security & Compliance:**
+
+- ✅ SOC2 Type II compliant deployments
+- ✅ ISO 27001 certified infrastructure compatible
+- ✅ GDPR-compliant data handling (EU providers available)
+- ✅ HIPAA compatible (with proper configuration)
+- ✅ Hardened OS verified (SELinux, AppArmor)
+- ✅ Zero credential logging
+- ✅ Encrypted configuration storage
+
+**[📖 Enterprise Deployment Guide](docs/advanced/enterprise.md)** - Complete production checklist
+
+---
+
+### 🎨 Professional CLI
+
+**15+ commands** for every workflow:
+
+| Command    | Purpose                            | Example                    | Documentation                             |
+| ---------- | ---------------------------------- | -------------------------- | ----------------------------------------- |
+| `setup`    | Interactive provider configuration | `neurolink setup`          | [Setup Guide](docs/cli/index.md)          |
+| `generate` | Text generation                    | `neurolink gen "Hello"`    | [Generate](docs/cli/commands.md#generate) |
+| `stream`   | Streaming generation               | `neurolink stream "Story"` | [Stream](docs/cli/commands.md#stream)     |
+| `status`   | Provider health check              | `neurolink status`         | [Status](docs/cli/commands.md#status)     |
+| `loop`     | Interactive session                | `neurolink loop`           | [Loop](docs/cli/commands.md#loop)         |
+| `mcp`      | MCP server management              | `neurolink mcp discover`   | [MCP CLI](docs/cli/commands.md#mcp)       |
+| `models`   | Model listing                      | `neurolink models`         | [Models](docs/cli/commands.md#models)     |
+| `eval`     | Model evaluation                   | `neurolink eval`           | [Eval](docs/cli/commands.md#eval)         |
+
+**[📖 Complete CLI Reference](docs/cli/commands.md)** - All commands and options
+
+## 💰 Smart Model Selection
+
+NeuroLink features intelligent model selection and cost optimization:
+
+### Cost Optimization Features
+
+- **💰 Automatic Cost Optimization**: Selects cheapest models for simple tasks
+- **🔄 LiteLLM Model Routing**: Access 100+ models with automatic load balancing
+- **🔍 Capability-Based Selection**: Find models with specific features (vision, function calling)
+- **⚡ Intelligent Fallback**: Seamless switching when providers fail
+
+```bash
+# Cost optimization - automatically use cheapest model
+npx @juspay/neurolink generate "Hello" --optimize-cost
+
+# LiteLLM specific model selection
+npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "anthropic/claude-3-5-sonnet"
+
+# Auto-select best available provider
+npx @juspay/neurolink generate "Write code" # Automatically chooses optimal provider
+```
+
+## ✨ Interactive Loop Mode
+
+NeuroLink features a powerful **interactive loop mode** that transforms the CLI into a persistent, stateful session. This allows you to run multiple commands, set session-wide variables, and maintain conversation history without restarting.
+
+### Start the Loop
+
+```bash
+npx @juspay/neurolink loop
+```
+
+### Example Session
+
+```bash
+# Start the interactive session
+$ npx @juspay/neurolink loop
+
+neurolink » set provider google-ai
+✓ provider set to google-ai
+
+neurolink » set temperature 0.8
+✓ temperature set to 0.8
+
+neurolink » generate "Tell me a fun fact about space"
+The quietest place on Earth is an anechoic chamber at Microsoft's headquarters in Redmond, Washington. The background noise is so low that it's measured in negative decibels, and you can hear your own heartbeat.
+
+# Exit the session
+neurolink » exit
+```
+
+### Conversation Memory in Loop Mode
+
+Start the loop with conversation memory to have the AI remember the context of your previous commands.
 
 ```bash
 npx @juspay/neurolink loop --enable-conversation-memory

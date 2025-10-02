@@ -783,7 +783,7 @@ npx @juspay/neurolink sagemaker status --verbose
 ## 📚 **Related Documentation**
 
 - **[Provider Setup Guide](./getting-started/provider-setup.md#amazon-sagemaker-configuration)** - Complete SageMaker setup
-- **[Environment Variables](./getting-started/environment-variables.md#11-amazon-sagemaker-)** - Configuration options
+- **[Environment Variables](./getting-started/environment-variables.md)** - Configuration options
 - **[API Reference](./getting-started/API-REFERENCE.md)** - SDK usage examples
 - **[Basic Usage Examples](./examples/basic-usage.md#custom-model-access-with-sagemaker)** - Code examples
 - **[CLI Reference](./CLI-GUIDE.md)** - Command-line usage
@@ -819,4 +819,4 @@ npx @juspay/neurolink sagemaker status --verbose
 
 ---
 
-**🚀 Ready to deploy your custom models?** Follow the [Quick Start](#-quick-start) guide above to begin using your own AI models through NeuroLink's SageMaker integration today!
+**🚀 Ready to deploy your custom models?** Follow the [Quick Start](#quick-start) guide above to begin using your own AI models through NeuroLink's SageMaker integration today!

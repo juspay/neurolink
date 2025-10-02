@@ -44,9 +44,9 @@ export HTTP_PROXY=http://your-corporate-proxy:port
 
 **No code changes required** - NeuroLink automatically detects and uses proxy settings.
 
-**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](ENTERPRISE-PROXY-SETUP.md)
+**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](../ENTERPRISE-PROXY-SETUP.md)
 
-## OpenAI Configuration
+## OpenAI Configuration {#openai}
 
 ### Basic Setup
 
@@ -86,7 +86,7 @@ const result = await openai.generate({
 - **Supported Formats**: Milliseconds (`30000`), human-readable (`'30s'`, `'1m'`, `'5m'`)
 - **Environment Variable**: `OPENAI_TIMEOUT='45s'` (optional)
 
-## Amazon Bedrock Configuration
+## Amazon Bedrock Configuration {#bedrock}
 
 ### 🚨 Critical Setup Requirements
 
@@ -348,7 +348,7 @@ For comprehensive SageMaker setup, advanced features, and production deployment:
 - Performance testing and monitoring
 - Troubleshooting and debugging
 
-## Google Vertex AI Configuration
+## Google Vertex AI Configuration {#vertex}
 
 NeuroLink supports **three authentication methods** for Google Vertex AI to accommodate different deployment environments:
 
@@ -510,7 +510,7 @@ Your service account needs these IAM roles:
 - `Vertex AI User` or `Vertex AI Admin`
 - `Service Account Token Creator` (if using impersonation)
 
-## Google AI Studio Configuration
+## Google AI Studio Configuration {#google-ai}
 
 Google AI Studio provides direct access to Google's Gemini models with a simple API key authentication.
 
@@ -739,7 +739,7 @@ console.log(result.content);
 - **Scaling**: Use Docker/Kubernetes for high-availability deployments
 - **Monitoring**: Enable logging and metrics collection
 
-## Hugging Face Configuration
+## Hugging Face Configuration {#huggingface}
 
 ### Basic Setup
 
@@ -803,7 +803,7 @@ const result = await huggingface.generate({
 3. **Create Token**: Click "New token" with "read" scope
 4. **Set Environment**: Export token as `HUGGINGFACE_API_KEY`
 
-## Ollama Configuration
+## Ollama Configuration {#ollama}
 
 ### Local Installation Required
 
@@ -894,7 +894,7 @@ OLLAMA_MAX_MEMORY=8GB ollama serve
 OLLAMA_CUDA_DEVICE=0 ollama serve
 ```
 
-## Mistral AI Configuration
+## Mistral AI Configuration {#mistral}
 
 ### Basic Setup
 
@@ -969,6 +969,265 @@ Mistral models excel at multilingual tasks:
 - English, French, Spanish, German, Italian
 - Code generation in multiple programming languages
 - Translation between supported languages
+
+## Anthropic Configuration {#anthropic}
+
+Direct access to Anthropic's Claude models without going through AWS Bedrock.
+
+### Basic Setup
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-api03-your-key-here"
+```
+
+### Optional Configuration
+
+```bash
+export ANTHROPIC_MODEL="claude-3-5-sonnet-20241022"  # Default model
+```
+
+### Supported Models
+
+- `claude-3-7-sonnet-20250219` - Latest Claude 3.7 Sonnet
+- `claude-3-5-sonnet-20241022` (default) - Claude 3.5 Sonnet v2
+- `claude-3-opus-20240229` - Most capable model
+- `claude-3-haiku-20240307` - Fastest, most cost-effective
+
+### Usage Example
+
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const anthropic = AIProviderFactory.createProvider(
+  "anthropic",
+  "claude-3-5-sonnet-20241022",
+);
+const result = await anthropic.generate({
+  input: { text: "Explain quantum computing" },
+  temperature: 0.7,
+  maxTokens: 1000,
+  timeout: "30s",
+});
+```
+
+### Timeout Configuration
+
+- **Default Timeout**: 30 seconds
+- **Supported Formats**: Milliseconds (`30000`), human-readable (`'30s'`, `'1m'`, `'5m'`)
+- **Environment Variable**: `ANTHROPIC_TIMEOUT='45s'` (optional)
+
+### Getting Started with Anthropic
+
+1. **Create Account**: Visit [anthropic.com](https://www.anthropic.com)
+2. **Get API Key**: Navigate to API Keys section
+3. **Generate Key**: Create new API key
+4. **Set Environment**: Export key as `ANTHROPIC_API_KEY`
+
+## Azure OpenAI Configuration {#azure}
+
+Azure OpenAI provides enterprise-grade access to OpenAI models through Microsoft Azure.
+
+### Basic Setup
+
+```bash
+export AZURE_OPENAI_API_KEY="your-azure-openai-key"
+export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
+export AZURE_OPENAI_DEPLOYMENT_ID="your-deployment-name"
+```
+
+### Optional Configuration
+
+```bash
+export AZURE_OPENAI_API_VERSION="2024-02-15-preview"  # API version
+```
+
+### Supported Models
+
+Azure OpenAI supports deployment of:
+
+- `gpt-4o` - Latest multimodal model
+- `gpt-4` - Advanced reasoning
+- `gpt-4-turbo` - Optimized performance
+- `gpt-3.5-turbo` - Cost-effective
+
+### Usage Example
+
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const azure = AIProviderFactory.createProvider("azure");
+const result = await azure.generate({
+  input: { text: "Explain machine learning" },
+  temperature: 0.7,
+  maxTokens: 500,
+  timeout: "30s",
+});
+```
+
+### Timeout Configuration
+
+- **Default Timeout**: 30 seconds
+- **Supported Formats**: Milliseconds (`30000`), human-readable (`'30s'`, `'1m'`, `'5m'`)
+- **Environment Variable**: `AZURE_TIMEOUT='45s'` (optional)
+
+### Azure Setup Requirements
+
+1. **Azure Subscription**: Active Azure subscription
+2. **Azure OpenAI Resource**: Create Azure OpenAI resource in Azure Portal
+3. **Model Deployment**: Deploy a model to get deployment ID
+4. **API Key**: Get API key from resource's Keys and Endpoint section
+
+### Environment Variables Reference
+
+| Variable                     | Required | Description                   |
+| ---------------------------- | -------- | ----------------------------- |
+| `AZURE_OPENAI_API_KEY`       | ✅       | Azure OpenAI API key          |
+| `AZURE_OPENAI_ENDPOINT`      | ✅       | Resource endpoint URL         |
+| `AZURE_OPENAI_DEPLOYMENT_ID` | ✅       | Model deployment name         |
+| `AZURE_OPENAI_API_VERSION`   | ❌       | API version (default: latest) |
+
+## OpenAI Compatible Configuration {#openai-compatible}
+
+Connect to any OpenAI-compatible API endpoint (LocalAI, vLLM, Ollama with OpenAI compatibility, etc.)
+
+### Basic Setup
+
+```bash
+export OPENAI_COMPATIBLE_BASE_URL="http://localhost:8080/v1"
+export OPENAI_COMPATIBLE_API_KEY="optional-api-key"  # Some servers don't require this
+```
+
+### Optional Configuration
+
+```bash
+export OPENAI_COMPATIBLE_MODEL="your-model-name"
+```
+
+### Usage Example
+
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const compatible = AIProviderFactory.createProvider(
+  "openai-compatible",
+  "your-model",
+);
+const result = await compatible.generate({
+  input: { text: "Hello from custom endpoint" },
+  temperature: 0.7,
+  maxTokens: 500,
+});
+```
+
+### Compatible Servers
+
+This works with any server implementing the OpenAI API:
+
+- **LocalAI** - Local AI server
+- **vLLM** - High-performance inference server
+- **Ollama** (with `OLLAMA_OPENAI_COMPAT=1`)
+- **Text Generation WebUI**
+- **Custom inference servers**
+
+### Environment Variables
+
+```bash
+# Required: Base URL of your OpenAI-compatible server
+export OPENAI_COMPATIBLE_BASE_URL="http://localhost:8080/v1"
+
+# Optional: API key (if your server requires one)
+export OPENAI_COMPATIBLE_API_KEY="your-api-key-if-needed"
+
+# Optional: Default model name
+export OPENAI_COMPATIBLE_MODEL="your-model-name"
+```
+
+## Redis Configuration {#redis}
+
+Redis integration for distributed conversation memory and session state.
+
+### Basic Setup
+
+```bash
+export REDIS_URL="redis://localhost:6379"
+```
+
+### Optional Configuration
+
+```bash
+export REDIS_PASSWORD="your-redis-password"  # If authentication enabled
+export REDIS_DB="0"  # Database number (default: 0)
+export REDIS_KEY_PREFIX="neurolink:"  # Key prefix for namespacing
+```
+
+### Advanced Configuration
+
+```bash
+# Connection settings
+export REDIS_HOST="localhost"
+export REDIS_PORT="6379"
+export REDIS_TLS="false"  # Set to "true" for TLS connections
+
+# Pool settings
+export REDIS_MAX_RETRIES="3"
+export REDIS_RETRY_DELAY="1000"  # milliseconds
+export REDIS_CONNECTION_TIMEOUT="5000"  # milliseconds
+```
+
+### Usage Example
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  memory: {
+    type: "redis",
+    url: process.env.REDIS_URL,
+  },
+});
+
+const result = await neurolink.generate({
+  input: { text: "Remember this conversation" },
+  sessionId: "user-123", // Session stored in Redis
+});
+```
+
+### Redis Cloud Setup
+
+For managed Redis (Redis Cloud, AWS ElastiCache, etc.):
+
+```bash
+export REDIS_URL="rediss://username:password@your-redis-host:6380"
+```
+
+### Docker Redis (Development)
+
+```bash
+# Start Redis in Docker
+docker run -d -p 6379:6379 redis:latest
+
+# Set environment
+export REDIS_URL="redis://localhost:6379"
+```
+
+### Features Enabled by Redis
+
+- **Distributed Memory**: Share conversation state across instances
+- **Session Persistence**: Conversations survive application restarts
+- **Export/Import**: Export full session history as JSON
+- **Multi-tenant**: Isolate conversations by session ID
+- **Scalability**: Handle thousands of concurrent conversations
+
+### Environment Variables Reference
+
+| Variable           | Required        | Default    | Description               |
+| ------------------ | --------------- | ---------- | ------------------------- |
+| `REDIS_URL`        | Recommended     | -          | Full Redis connection URL |
+| `REDIS_HOST`       | Alternative     | localhost  | Redis host                |
+| `REDIS_PORT`       | Alternative     | 6379       | Redis port                |
+| `REDIS_PASSWORD`   | If auth enabled | -          | Redis password            |
+| `REDIS_DB`         | ❌              | 0          | Database number           |
+| `REDIS_KEY_PREFIX` | ❌              | neurolink: | Key prefix                |
 
 ## Environment File Template
 

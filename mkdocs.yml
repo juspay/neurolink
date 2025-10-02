@@ -123,12 +123,24 @@ markdown_extensions:
 # Page navigation
 nav:
   - Home: index.md
+  - About:
+      - Vision & Roadmap: about/vision.md
   - Getting Started:
       - getting-started/index.md
       - Quick Start: getting-started/quick-start.md
       - Installation: getting-started/installation.md
       - Provider Setup: getting-started/provider-setup.md
       - Environment Variables: getting-started/environment-variables.md
+      - Providers:
+          - getting-started/providers/index.md
+          - Hugging Face: getting-started/providers/huggingface.md
+          - Mistral AI: getting-started/providers/mistral.md
+          - OpenAI Compatible: getting-started/providers/openai-compatible.md
+          - Google AI Studio: getting-started/providers/google-ai.md
+          - LiteLLM: getting-started/providers/litellm.md
+          - Azure OpenAI: getting-started/providers/azure-openai.md
+          - Google Vertex AI: getting-started/providers/google-vertex.md
+          - AWS Bedrock: getting-started/providers/aws-bedrock.md
   - Feature Guides:
       - features/index.md
       - Human-in-the-Loop (HITL): features/hitl.md
@@ -164,8 +176,31 @@ nav:
       - Dynamic Models: advanced/dynamic-models.md
       - Factory Pattern Architecture: FACTORY-PATTERN-ARCHITECTURE.md
       - Conversation Memory Deep Dive: CONVERSATION-MEMORY.md
-      - Streaming Pipeline: advanced/streaming.md
+      - Streaming: advanced/streaming.md
       - Error Handling: ERROR-HANDLING.md
+  - Guides:
+      - guides/index.md
+      - Enterprise:
+          - Multi-Provider Failover: guides/enterprise/multi-provider-failover.md
+          - Load Balancing: guides/enterprise/load-balancing.md
+          - Cost Optimization: guides/enterprise/cost-optimization.md
+          - Compliance & Security: guides/enterprise/compliance.md
+          - Multi-Region Deployment: guides/enterprise/multi-region.md
+          - Monitoring & Observability: guides/enterprise/monitoring.md
+          - Audit Trails: guides/enterprise/audit-trails.md
+      - MCP:
+          - Server Catalog: guides/mcp/server-catalog.md
+      - Frameworks:
+          - Next.js: guides/frameworks/nextjs.md
+          - Express.js: guides/frameworks/express.md
+          - SvelteKit: guides/frameworks/sveltekit.md
+      - Examples:
+          - Use Cases: guides/examples/use-cases.md
+          - Code Patterns: guides/examples/code-patterns.md
+  - Tutorials:
+      - tutorials/index.md
+      - Chat Application: tutorials/chat-app.md
+      - RAG System: tutorials/rag.md
   - Examples & Tutorials:
       - examples/index.md
       - Basic Usage: examples/basic-usage.md
@@ -191,6 +226,14 @@ nav:
       - Testing: development/testing.md
       - Architecture Notes: development/architecture.md
       - Factory Pattern Migration: development/factory-migration.md
+      - Documentation Versioning: development/versioning.md
+      - Automated Link Checking: development/link-checking.md
+  - Reference:
+      - reference/index.md
+      - Troubleshooting: reference/troubleshooting.md
+      - Configuration: reference/configuration.md
+      - Provider Comparison: reference/provider-comparison.md
+      - FAQ: reference/faq.md
 
 # Social links and extras
 extra:

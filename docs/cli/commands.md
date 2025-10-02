@@ -32,7 +32,7 @@ npm install @juspay/neurolink
 
 ## Primary Commands
 
-### `generate <input>`
+### `generate <input>` {#generate}
 
 ```bash
 npx @juspay/neurolink generate "Summarise design doc" \
@@ -60,7 +60,7 @@ Key flags:
 
 `gen` is a short alias with the same options.
 
-### `stream <input>`
+### `stream <input>` {#stream}
 
 ```bash
 npx @juspay/neurolink stream "Walk through the timeline" \
@@ -68,6 +68,58 @@ npx @juspay/neurolink stream "Walk through the timeline" \
 ```
 
 `stream` shares the same flags as `generate` and adds chunked output for live UIs. Evaluation results are emitted after the stream completes when `--enableEvaluation` is set.
+
+### Model Evaluation {#eval}
+
+Evaluate AI model outputs for quality, accuracy, and safety using NeuroLink's built-in evaluation engine.
+
+**Via generate/stream commands:**
+
+```bash
+# Enable evaluation on any command
+npx @juspay/neurolink generate "Write a product description" \
+  --enableEvaluation \
+  --evaluationDomain "e-commerce"
+```
+
+**Evaluation Output:**
+
+```json
+{
+  "response": "...",
+  "evaluation": {
+    "score": 0.85,
+    "metrics": {
+      "accuracy": 0.9,
+      "safety": 1.0,
+      "relevance": 0.8
+    },
+    "judge_model": "gpt-4o",
+    "feedback": "High quality response with clear structure"
+  }
+}
+```
+
+**Key Evaluation Flags:**
+
+- `--enableEvaluation` – Activate quality scoring
+- `--evaluationDomain <domain>` – Context hint for the judge (e.g., "medical", "legal", "technical")
+- `--context <json>` – Additional context for evaluation
+
+**Judge Models:**
+
+NeuroLink uses GPT-4o by default as the judge model, but you can configure different models for evaluation in your SDK configuration.
+
+**Use Cases:**
+
+- Quality assurance for production outputs
+- A/B testing different prompts
+- Safety validation before deployment
+- Compliance checking for regulated industries
+
+**Learn more:** [Auto Evaluation Guide](../features/auto-evaluation.md)
+
+---
 
 ### `loop`
 

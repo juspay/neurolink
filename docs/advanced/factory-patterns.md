@@ -171,7 +171,7 @@ export OLLAMA_MODEL="aliafshar/gemma3-it-qat-tools:latest"
 
 If you encounter any issues with the migration:
 
-1. Check the [provider status documentation](./UPDATED_PROVIDER_TEST_RESULTS.md)
+1. Check the [provider status documentation](UPDATED_PROVIDER_TEST_RESULTS.md)
 2. Review the [provider configuration guide](../getting-started/provider-setup.md)
 3. Open an issue on GitHub with details about your use case
 

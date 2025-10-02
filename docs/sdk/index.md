@@ -119,6 +119,92 @@ const neurolink = new NeuroLink({
 
 ## 🔧 Advanced Features
 
+### Auto Provider Selection {#auto-selection}
+
+NeuroLink automatically selects the best available AI provider based on your configuration:
+
+```typescript
+import { createBestAIProvider } from "@juspay/neurolink";
+
+// Automatically selects best available provider
+const provider = createBestAIProvider();
+
+const result = await provider.generate({
+  input: { text: "Explain quantum computing" },
+  maxTokens: 500,
+  temperature: 0.7,
+});
+```
+
+**Selection Priority:**
+
+1. OpenAI (most reliable)
+2. Anthropic (high quality)
+3. Google AI Studio (free tier)
+4. Other configured providers
+
+**Custom Priority:**
+
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+// Create with fallback
+const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
+  "bedrock", // Prefer Bedrock
+  "openai", // Fall back to OpenAI
+);
+```
+
+**Learn more:** [Provider Orchestration Guide](../features/provider-orchestration.md)
+
+---
+
+### Conversation Memory {#memory}
+
+Automatic context management for multi-turn conversations:
+
+```typescript
+const neurolink = new NeuroLink({
+  memory: {
+    type: "redis", // or "in-memory"
+    url: process.env.REDIS_URL,
+  },
+});
+
+// Session-based conversations
+const result1 = await neurolink.generate({
+  input: { text: "My name is Alice" },
+  sessionId: "user-123",
+});
+
+const result2 = await neurolink.generate({
+  input: { text: "What's my name?" },
+  sessionId: "user-123", // Remembers previous context
+});
+// AI responds: "Your name is Alice"
+```
+
+**Memory Types:**
+
+- **In-Memory**: Fast, single-instance only
+- **Redis**: Distributed, persistent across restarts
+- **Mem0**: Advanced semantic memory with vector storage
+
+**Features:**
+
+- Automatic context window management
+- Session isolation by ID
+- Export/import conversation history
+- Context summarization for long sessions
+
+**Learn more:**
+
+- [Conversation Memory Deep Dive](../CONVERSATION-MEMORY.md)
+- [Redis Configuration](../getting-started/provider-setup.md#redis)
+- [Context Summarization](../CONTEXT-SUMMARIZATION.md)
+
+---
+
 ### Analytics & Evaluation
 
 ```typescript

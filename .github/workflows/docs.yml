@@ -8,6 +8,7 @@ on:
       - "**/*.md"
       - "mkdocs.yml"
       - "requirements.txt"
+      - "scripts/sync-readme.sh"
       - ".github/workflows/docs.yml"
   pull_request:
     branches: [release]
@@ -15,6 +16,7 @@ on:
       - "**/*.md"
       - "mkdocs.yml"
       - "requirements.txt"
+      - "scripts/sync-readme.sh"
       - ".github/workflows/docs.yml"
 
 permissions:
@@ -54,6 +56,11 @@ jobs:
         run: |
           echo "📝 Running markdownlint on documentation files..."
           npx markdownlint-cli2 "docs/**/*.md" --config .markdownlint.json || echo "⚠️ Markdownlint found formatting issues - consider running 'npx markdownlint-cli2 --fix \"docs/**/*.md\"' locally"
+
+      - name: 🔄 Sync README to docs
+        run: |
+          echo "🔄 Syncing README.md to docs/index.md..."
+          bash scripts/sync-readme.sh
 
       - name: Build documentation
         run: |

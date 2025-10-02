@@ -543,7 +543,6 @@ OLLAMA_MODEL="llama2"                        # Default model
 #### How to Set Up Ollama
 
 1. **Install Ollama**:
-
    - macOS: `brew install ollama` or download from [ollama.ai](https://ollama.ai)
    - Linux: `curl -fsSL https://ollama.ai/install.sh | sh`
    - Windows: Download installer from [ollama.ai](https://ollama.ai)
@@ -555,7 +554,6 @@ OLLAMA_MODEL="llama2"                        # Default model
    ```
 
    **Tip: To keep Ollama running in the background:**
-
    - macOS: `brew services start ollama`
    - Linux (user): `systemctl --user enable --now ollama`
    - Linux (system): `sudo systemctl enable --now ollama`
@@ -678,13 +676,11 @@ SAGEMAKER_ACCEPT="application/json"         # Response accept type (default: app
 Amazon SageMaker allows you to deploy and use your own custom trained models:
 
 1. **Deploy Your Model to SageMaker**:
-
    - Train your model using SageMaker Training Jobs
    - Deploy model to a SageMaker Real-time Endpoint
    - Note the endpoint name for configuration
 
 2. **Set Up AWS Credentials**:
-
    - Use IAM user with `sagemaker:InvokeEndpoint` permission
    - Or use IAM role for EC2/Lambda/ECS deployments
    - Configure AWS CLI: `aws configure`
@@ -707,7 +703,6 @@ Amazon SageMaker allows you to deploy and use your own custom trained models:
 #### How to Get AWS Credentials for SageMaker
 
 1. **Create IAM User**:
-
    - Go to [AWS IAM Console](https://console.aws.amazon.com/iam)
    - Create new user with **Programmatic access**
    - Attach the following policy:
@@ -997,7 +992,7 @@ node -e "require('dotenv').config(); console.log(process.env.OPENAI_API_KEY)"
 
 - **[Provider Configuration Guide](./provider-setup.md)** - Detailed provider setup
 - **[CLI Guide](../CLI-GUIDE.md)** - Complete CLI command reference
-- **[API Reference](./API-REFERENCE.md)** - Programmatic usage examples
+- **[API Reference](../sdk/api-reference.md)** - Programmatic usage examples
 - **[Framework Integration](../FRAMEWORK-INTEGRATION.md)** - Next.js, SvelteKit, React
 
 ---

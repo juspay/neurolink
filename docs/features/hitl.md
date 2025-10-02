@@ -1,3 +1,9 @@
+---
+title: Human-in-the-Loop (HITL) Workflows
+description: Pause AI tool execution for user approval before risky operations like file deletion or API calls
+keywords: hitl, human in the loop, tool confirmation, safety, approval workflow, user consent
+---
+
 # Human-in-the-Loop (HITL) Workflows
 
 > **Since**: v7.39.0 | **Status**: Stable | **Availability**: SDK
@@ -7,6 +13,9 @@
 **What it does**: HITL pauses AI tool execution to request explicit user approval before performing risky operations like deleting files, modifying databases, or making expensive API calls.
 
 **Why use it**: Prevent costly mistakes and give users control over potentially dangerous AI actions. Think of it as an "Are you sure?" dialog for AI assistant operations.
+
+!!! warning "Security Best Practice"
+Only use HITL for truly risky operations. Overusing confirmation prompts degrades user experience and can lead to "confirmation fatigue" where users approve actions without reading them.
 
 **Common use cases**:
 
@@ -26,10 +35,11 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink({
   tools: [
     {
-      name: "deleteFile",
-      description: "Deletes a file from the filesystem",
-      requiresConfirmation: true, // ← Enable HITL for this tool
+      name: "deleteFile", // (1)!
+      description: "Deletes a file from the filesystem", // (2)!
+      requiresConfirmation: true, // (3)!
       execute: async (args) => {
+        // (4)!
         // Your deletion logic
       },
     },
@@ -43,29 +53,41 @@ const neurolink = new NeuroLink({
 // 4. On approval, tool executes with confirmation_received = true
 ```
 
+1. Tool identifier used by the AI to invoke this function
+2. Describes tool purpose to the LLM for proper selection
+3. Triggers HITL checkpoint before execution
+4. Actual implementation only runs after user approval
+
 ### Handling Confirmation in Your UI
 
 ```typescript
 // When tool requires confirmation
 if (error.code === "USER_CONFIRMATION_REQUIRED") {
+  // (1)!
   const approved = await showConfirmationDialog({
+    // (2)!
     action: tool.name,
     details: tool.args,
     message: "AI wants to perform this action. Allow?",
   });
 
   if (approved) {
-    // Grant one-time permission and retry
-    setUserConfirmation(true);
-    const result = await executeTool(tool);
-    setUserConfirmation(false); // Reset immediately
+    setUserConfirmation(true); // (3)!
+    const result = await executeTool(tool); // (4)!
+    setUserConfirmation(false); // (5)!
     return result;
   } else {
-    // User denied - inform the AI
-    return { cancelled: true, reason: "User denied permission" };
+    return { cancelled: true, reason: "User denied permission" }; // (6)!
   }
 }
 ```
+
+1. Catch the special error code when tool needs user approval
+2. Show your app's confirmation UI with action details
+3. Grant one-time permission flag
+4. Retry tool execution now that permission is granted
+5. **Critical**: Reset flag immediately to prevent reuse
+6. Return cancellation message to inform the AI
 
 ## Configuration
 
@@ -128,10 +150,12 @@ See [HUMAN-IN-THE-LOOP.md](../HUMAN-IN-THE-LOOP.md) for complete technical docum
 // Add confirmation flag to tool definition
 const tool = {
   name: "deleteTool",
-  requiresConfirmation: true, // ← Add this
+  requiresConfirmation: true, // (1)!
   // ...
 };
 ```
+
+1. Add this boolean flag to any tool that performs risky operations
 
 ### Problem: AI keeps asking for confirmation repeatedly
 
@@ -140,10 +164,14 @@ const tool = {
 
 ```typescript
 // Always reset the flag after tool execution
-setUserConfirmation(true);
-await executeTool();
-setUserConfirmation(false); // ← Don't forget this
+setUserConfirmation(true); // (1)!
+await executeTool(); // (2)!
+setUserConfirmation(false); // (3)!
 ```
+
+1. Grant temporary permission
+2. Execute the tool while permission is active
+3. **Immediately** revoke permission to prevent AI reuse
 
 ### Problem: Confirmation dialog doesn't show
 
@@ -163,6 +191,9 @@ try {
 ```
 
 ## Best Practices
+
+!!! tip "Production Recommendation"
+Store user confirmation preferences to avoid repeated prompts for the same action type. For example, if a user approves "delete temporary files" once, cache that preference for similar low-risk deletions in the same session.
 
 ### For Developers
 

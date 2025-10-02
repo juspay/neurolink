@@ -1,3 +1,9 @@
+---
+title: Multimodal Chat Experiences
+description: Stream text and images together with automatic provider fallbacks and format conversion
+keywords: multimodal, images, vision, chat, streaming, text and images, visual AI
+---
+
 # Multimodal Chat Experiences
 
 NeuroLink 7.47.0 introduces full multimodal pipelines so you can mix text, URLs, and local images in a single interaction. The CLI, SDK, and loop sessions all use the same message builder, ensuring parity across workflows.
@@ -9,7 +15,13 @@ NeuroLink 7.47.0 introduces full multimodal pipelines so you can mix text, URLs,
 - **Provider fallbacks** – orchestration automatically retries compatible multimodal models.
 - **Streaming support** – `neurolink stream` renders partial responses while images upload in the background.
 
+!!! tip "Format Support"
+The image input accepts three formats: **Buffer objects** (from `readFileSync`), **local file paths** (relative or absolute), or **HTTPS URLs**. All formats are automatically converted to the provider's required encoding.
+
 ## Supported Providers & Models
+
+!!! warning "Provider Compatibility"
+Not all providers support multimodal inputs. Verify your chosen model has the `vision` capability using `npx @juspay/neurolink models list --capability vision`. Unsupported providers will return an error or ignore image inputs.
 
 | Provider               | Recommended Models                       | Notes                                                     |
 | ---------------------- | ---------------------------------------- | --------------------------------------------------------- |
@@ -63,18 +75,19 @@ npx @juspay/neurolink loop --enable-conversation-memory
 import { readFileSync } from "node:fs";
 import { NeuroLink } from "@juspay/neurolink";
 
-const neurolink = new NeuroLink({ enableOrchestration: true });
+const neurolink = new NeuroLink({ enableOrchestration: true }); // (1)!
 
 const result = await neurolink.generate({
   input: {
-    text: "Provide a marketing summary of these screenshots",
+    text: "Provide a marketing summary of these screenshots", // (2)!
     images: [
-      readFileSync("./assets/homepage.png"),
-      "https://example.com/reports/nps-chart.png",
+      // (3)!
+      readFileSync("./assets/homepage.png"), // (4)!
+      "https://example.com/reports/nps-chart.png", // (5)!
     ],
   },
-  provider: "google-ai",
-  enableEvaluation: true,
+  provider: "google-ai", // (6)!
+  enableEvaluation: true, // (7)!
   region: "us-east-1",
 });
 
@@ -82,21 +95,34 @@ console.log(result.content);
 console.log(result.evaluation?.overallScore);
 ```
 
+1. Enable provider orchestration for automatic multimodal fallbacks
+2. Text prompt describing what you want from the images
+3. Array of images in multiple formats
+4. Local file as Buffer (auto-converted to base64)
+5. Remote URL (downloaded and encoded automatically)
+6. Choose a vision-capable provider
+7. Optionally evaluate the quality of multimodal responses
+
 Use `stream()` with the same structure when you need incremental tokens:
 
 ```typescript
 const stream = await neurolink.stream({
   input: {
     text: "Walk through the attached floor plan",
-    images: ["./plans/level1.jpg"],
+    images: ["./plans/level1.jpg"], // (1)!
   },
-  provider: "openai",
+  provider: "openai", // (2)!
 });
 
 for await (const chunk of stream) {
+  // (3)!
   process.stdout.write(chunk.text ?? "");
 }
 ```
+
+1. Accepts file path, Buffer, or HTTPS URL
+2. OpenAI's GPT-4o and GPT-4o-mini support vision
+3. Stream text responses while image uploads in background
 
 ## Configuration & Tuning
 

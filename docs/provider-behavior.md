@@ -162,13 +162,13 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 ### For Automated Tests
 
 1. **Use Provider-Neutral Inputs**: Choose prompts that work consistently across all providers
-   - See [CLI Guide](CLI-GUIDE.md#basic-usage) for example commands
+   - See [CLI Guide](CLI-GUIDE.md) for example commands
 2. **Avoid Domain Keywords**: Use generic prompts for functionality testing
    - Reference [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md) for domain-specific usage
 3. **Test Provider-Specific Features**: Separate tests for provider-specific capabilities
-   - Check [API Reference](API-REFERENCE.md#provider-configuration) for provider options
+   - Check [API Reference](API-REFERENCE.md) for provider options
 4. **Implement Fallback Strategies**: Design tests to handle provider variations gracefully
-   - See [Streaming Guide](advanced/streaming.md#error-handling) for robust patterns
+   - See [Streaming Guide](advanced/streaming.md) for robust patterns
 
 ### For Development
 
@@ -179,7 +179,7 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 3. **Error Handling**: Implement robust error handling for provider-specific failures
    - See [Troubleshooting](#troubleshooting-common-issues) section for common patterns
 4. **Performance Monitoring**: Track provider performance and adjust accordingly
-   - Reference [API Reference](API-REFERENCE.md#analytics-integration) for monitoring setup
+   - Reference [API Reference](API-REFERENCE.md) for monitoring setup
 
 ## Provider Selection Guidelines
 
@@ -208,7 +208,7 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 
 - Try alternative provider from [Provider Selection Guidelines](#provider-selection-guidelines)
 - Rephrase input using [Testing Recommendations](#testing-recommendations) patterns
-- Check provider status using [CLI Guide](CLI-GUIDE.md#provider-testing)
+- Check provider status using [CLI Guide](CLI-GUIDE.md)
 
 ### Inconsistent Tool Execution
 
@@ -217,8 +217,8 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 **Solutions**:
 
 - Use providers with full tool support (OpenAI, Anthropic, Google AI)
-- Configure tools using [CLI Guide](CLI-GUIDE.md#mcp-tools)
-- Debug with [API Reference](API-REFERENCE.md#tool-configuration)
+- Configure tools using [CLI Guide](CLI-GUIDE.md)
+- Debug with [API Reference](API-REFERENCE.md)
 
 ### Streaming Interruptions
 
@@ -226,9 +226,9 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 **Likely Causes**: Provider rate limits, network issues, input filtering
 **Solutions**:
 
-- Implement retry logic from [Streaming Guide](advanced/streaming.md#retry-strategies)
+- Implement retry logic from [Streaming Guide](advanced/streaming.md)
 - Check provider status and validate inputs
-- Use error handling patterns from [Streaming Guide](advanced/streaming.md#error-handling)
+- Use error handling patterns from [Streaming Guide](advanced/streaming.md)
 
 ### Performance Variations
 
@@ -236,8 +236,8 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 **Likely Causes**: Provider load, geographic location, model selection
 **Solutions**:
 
-- Implement provider rotation using [API Reference](API-REFERENCE.md#provider-fallback)
-- Monitor performance metrics with [Analytics Integration](API-REFERENCE.md#analytics-integration)
+- Implement provider rotation using [API Reference](API-REFERENCE.md)
+- Monitor performance metrics with [Analytics Integration](API-REFERENCE.md)
 - Optimize based on [Provider Selection Guidelines](#provider-selection-guidelines)
 
 ## Factory Pattern Integration
@@ -247,41 +247,41 @@ When using NeuroLink's factory patterns with specific providers:
 ### Domain Configuration
 
 - **Provider Sensitivity**: Some providers may filter domain-specific keywords
-- **Configuration Guide**: See [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md#domain-configuration) for setup
+- **Configuration Guide**: See [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md) for setup
 - **Testing Strategies**: Reference [Testing Recommendations](#testing-recommendations) above
 
 ### Context Processing
 
 - **Validation**: Ensure context data compatibility across providers
-- **Implementation**: Follow patterns in [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md#context-integration)
-- **Debugging**: Use [API Reference](API-REFERENCE.md#context-validation) for validation tools
+- **Implementation**: Follow patterns in [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md)
+- **Debugging**: Use [API Reference](API-REFERENCE.md) for validation tools
 
 ### Evaluation Integration
 
 - **Provider Variation**: Different providers may have varying evaluation accuracy
-- **Setup Guide**: See [API Reference](API-REFERENCE.md#evaluation-configuration) for configuration
-- **Best Practices**: Reference [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md#evaluation-setup)
+- **Setup Guide**: See [API Reference](API-REFERENCE.md) for configuration
+- **Best Practices**: Reference [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md)
 
 ### Tool Integration
 
 - **Compatibility Testing**: Test tool execution with each target provider
-- **Configuration**: Use [CLI Guide](CLI-GUIDE.md#mcp-tools) for MCP tool setup
-- **Advanced Usage**: See [Streaming Guide](advanced/streaming.md#tool-streaming) for streaming with tools
+- **Configuration**: Use [CLI Guide](CLI-GUIDE.md) for MCP tool setup
+- **Advanced Usage**: See [Streaming Guide](advanced/streaming.md) for streaming with tools
 
 ## Best Practices
 
 ### General Guidelines
 
 1. **Provider Rotation**: Use multiple providers for resilience
-   - Implementation guide: [API Reference](API-REFERENCE.md#provider-fallback)
+   - Implementation guide: [API Reference](API-REFERENCE.md)
 2. **Input Validation**: Validate inputs for provider compatibility
    - See provider-specific sections above for validation patterns
 3. **Error Handling**: Implement graceful fallbacks
-   - Follow [Streaming Guide](advanced/streaming.md#error-handling) patterns
+   - Follow [Streaming Guide](advanced/streaming.md) patterns
 4. **Performance Monitoring**: Track provider metrics
-   - Setup: [API Reference](API-REFERENCE.md#analytics-integration)
+   - Setup: [API Reference](API-REFERENCE.md)
 5. **Cost Management**: Monitor token usage across providers
-   - Tools: [CLI Guide](CLI-GUIDE.md#cost-tracking)
+   - Tools: [CLI Guide](CLI-GUIDE.md)
 6. **Testing Strategy**: Use provider-appropriate test cases
    - Reference [Testing Recommendations](#testing-recommendations) above
 

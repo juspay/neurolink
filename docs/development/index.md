@@ -38,6 +38,18 @@ This section covers everything needed for contributing to NeuroLink, understandi
 
   Documentation for package version overrides, security vulnerabilities, and maintenance procedures.
 
+- :material-tag-multiple: **[Documentation Versioning](versioning.md)**
+
+  ***
+
+  Managing documentation versions across releases using mike for version control and deployment.
+
+- :material-link-variant: **[Automated Link Checking](link-checking.md)**
+
+  ***
+
+  Automated validation of documentation links with CI/CD integration to prevent broken references.
+
 </div>
 
 ## 🚀 Quick Development Setup

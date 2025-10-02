@@ -2,7 +2,7 @@
 
 <!-- TOC -->
 
-- [**Test Results Documentation:**](#[object Object])
+- [**Test Results Documentation:**](#test-results-documentation)
 - [**Updated Documentation:**](#updated-documentation)
 <!-- /TOC -->
 

@@ -1239,10 +1239,10 @@ npx @juspay/neurolink sagemaker list-endpoints
 
 ## 📚 **Additional Resources**
 
-- **[MCP Integration Guide](./MCP-INTEGRATION.md)** - Complete MCP setup and usage
-- **[CLI Guide](./CLI-GUIDE.md)** - Comprehensive CLI documentation
-- **[API Reference](./API-REFERENCE.md)** - Complete API documentation
-- **[Configuration Guide](./CONFIGURATION.md)** - Environment and setup guide
+- **[MCP Integration Guide](MCP-INTEGRATION.md)** - Complete MCP setup and usage
+- **[CLI Guide](CLI-GUIDE.md)** - Comprehensive CLI documentation
+- **[API Reference](API-REFERENCE.md)** - Complete API documentation
+- **[Configuration Guide](CONFIGURATION.md)** - Environment and setup guide
 
 ---
 

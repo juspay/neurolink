@@ -397,16 +397,16 @@ const litellmProvider = await AIProviderFactory.createProvider(
 
 ## 📚 **Related Documentation**
 
-- **[Provider Setup Guide](./getting-started/provider-setup.md#litellm-configuration)** - Complete LiteLLM setup
-- **[Environment Variables](./getting-started/environment-variables.md#10-litellm-)** - Configuration options
-- **[API Reference](./getting-started/API-REFERENCE.md)** - SDK usage examples
-- **[Troubleshooting](./TROUBLESHOOTING.md#litellm-provider-issues)** - Problem solving guide
-- **[Basic Usage Examples](./examples/basic-usage.md#multi-model-access-with-litellm)** - Code examples
+- **[Provider Setup Guide](getting-started/provider-setup.md#litellm-configuration)** - Complete LiteLLM setup
+- **[Environment Variables](getting-started/environment-variables.md)** - Configuration options
+- **[API Reference](sdk/api-reference.md)** - SDK usage examples
+- **[Troubleshooting](TROUBLESHOOTING.md#litellm-provider-issues)** - Problem solving guide
+- **[Basic Usage Examples](examples/basic-usage.md#multi-model-access-with-litellm)** - Code examples
 
 ### **🔗 Other Provider Integrations**
 
-- **[🚀 SageMaker Integration](./SAGEMAKER-INTEGRATION.md)** - Deploy your custom AI models
-- **[🔧 MCP Integration](./MCP-INTEGRATION.md)** - Model Context Protocol support
+- **[🚀 SageMaker Integration](SAGEMAKER-INTEGRATION.md)** - Deploy your custom AI models
+- **[🔧 MCP Integration](MCP-INTEGRATION.md)** - Model Context Protocol support
 - **[🏗️ Framework Integration](./FRAMEWORK-INTEGRATION.md)** - Next.js, React, and more
 
 ## 🌟 **Why Choose LiteLLM Integration?**
@@ -434,4 +434,4 @@ const litellmProvider = await AIProviderFactory.createProvider(
 
 ---
 
-**🚀 Ready to get started?** Follow the [Quick Start](#-quick-start) guide above to begin using 100+ AI models through NeuroLink's LiteLLM integration today!
+**🚀 Ready to get started?** Follow the [Quick Start](#quick-start) guide above to begin using 100+ AI models through NeuroLink's LiteLLM integration today!

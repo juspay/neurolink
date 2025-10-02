@@ -1,3 +1,9 @@
+---
+title: Auto Evaluation Engine
+description: Automated quality scoring and metrics export for AI response validation using LLM-as-judge
+keywords: auto evaluation, quality scoring, llm as judge, ragas, metrics, quality gate
+---
+
 # Auto Evaluation Engine
 
 NeuroLink 7.46.0 adds an automated quality gate that scores every response using an LLM-as-judge pipeline. Scores, rationales, and severity flags are surfaced in both CLI and SDK workflows so you can monitor drift and enforce minimum quality thresholds.
@@ -9,72 +15,90 @@ NeuroLink 7.46.0 adds an automated quality gate that scores every response using
 - Supports retry loops: re-ask the provider when the score falls below your threshold.
 - Emits analytics-friendly JSON so you can pipe results into dashboards.
 
-## CLI Usage
+!!! warning "LLM Costs"
+Evaluation uses additional AI calls to the judge model (default: `gemini-2.5-flash`). Each evaluated response incurs extra API costs. For high-volume production workloads, consider sampling (e.g., evaluate 10% of requests) or disabling evaluation after quality stabilizes.
 
-```bash
-# Baseline quality check
-npx @juspay/neurolink generate "Draft onboarding email" --enableEvaluation
+## Usage Examples
 
-# Combine with analytics for observability dashboards
-npx @juspay/neurolink generate "Summarise release notes" \
-  --enableEvaluation --enableAnalytics --format json
+=== "SDK"
 
-# Domain-aware evaluations shape the rubric
-npx @juspay/neurolink generate "Refactor this API" \
-  --enableEvaluation --evaluationDomain "Principal Engineer"
+    ```typescript
+    import { NeuroLink } from "@juspay/neurolink";
 
-# Fail the command if the score dips below 7 (set env variable first)
-NEUROLINK_EVALUATION_THRESHOLD=7 npx @juspay/neurolink generate "Write compliance summary" \
-  --enableEvaluation
-```
+    const neurolink = new NeuroLink({ enableOrchestration: true });  // (1)!
 
-CLI output (text mode):
+    const result = await neurolink.generate({
+      input: { text: "Create quarterly performance summary" },  // (2)!
+      enableEvaluation: true,  // (3)!
+      evaluationDomain: "Enterprise Finance",  // (4)!
+      factoryConfig: {
+        enhancementType: "domain-configuration",  // (5)!
+        domainType: "finance",
+      },
+    });
 
-```
-📊 Evaluation Summary
-• Overall: 8.6/10 (Passing threshold: 7)
-• Relevance: 9.0  • Accuracy: 8.5  • Completeness: 8.0
-• Reasoning: Response covers all requested sections with correct policy references.
-```
+    if (result.evaluation && !result.evaluation.isPassing) {  // (6)!
+      console.warn("Quality gate failed", result.evaluation.details?.message);
+    }
+    ```
 
-## SDK Usage
+    1. Enable orchestration for automatic provider/model selection
+    2. Task classifier analyzes prompt to determine best provider
+    3. Enable LLM-as-judge quality scoring
+    4. Provide domain context to shape evaluation rubric
+    5. Apply domain-specific prompt enhancements
+    6. Check if response passes the configured quality threshold
 
-```typescript
-import { NeuroLink } from "@juspay/neurolink";
+=== "CLI"
 
-const neurolink = new NeuroLink({ enableOrchestration: true });
+    ```bash
+    # Baseline quality check
+    npx @juspay/neurolink generate "Draft onboarding email" --enableEvaluation
 
-const result = await neurolink.generate({
-  input: { text: "Create quarterly performance summary" },
-  enableEvaluation: true,
-  evaluationDomain: "Enterprise Finance",
-  factoryConfig: {
-    enhancementType: "domain-configuration",
-    domainType: "finance",
-  },
-});
+    # Combine with analytics for observability dashboards
+    npx @juspay/neurolink generate "Summarise release notes" \
+      --enableEvaluation --enableAnalytics --format json
 
-if (result.evaluation && !result.evaluation.isPassing) {
-  console.warn("Quality gate failed", result.evaluation.details?.message);
-}
-```
+    # Domain-aware evaluations shape the rubric
+    npx @juspay/neurolink generate "Refactor this API" \
+      --enableEvaluation --evaluationDomain "Principal Engineer"
 
-### Streaming
+    # Fail the command if the score dips below 7 (set env variable first)
+    NEUROLINK_EVALUATION_THRESHOLD=7 npx @juspay/neurolink generate "Write compliance summary" \
+      --enableEvaluation
+    ```
+
+    **CLI output (text mode):**
+
+    ```
+    📊 Evaluation Summary
+    • Overall: 8.6/10 (Passing threshold: 7)
+    • Relevance: 9.0  • Accuracy: 8.5  • Completeness: 8.0
+    • Reasoning: Response covers all requested sections with correct policy references.
+    ```
+
+## Streaming with Evaluation
 
 ```typescript
 const stream = await neurolink.stream({
   input: { text: "Walk through the incident postmortem" },
-  enableEvaluation: true,
+  enableEvaluation: true, // (1)!
 });
 
 let final;
 for await (const chunk of stream) {
   if (chunk.evaluation) {
-    final = chunk.evaluation;
+    // (2)!
+    final = chunk.evaluation; // (3)!
   }
 }
-console.log(final?.overallScore);
+console.log(final?.overallScore); // (4)!
 ```
+
+1. Evaluation works in streaming mode
+2. Evaluation payload arrives in final chunks
+3. Capture the evaluation object
+4. Access overall score (1-10) and sub-scores
 
 ## Configuration Options
 
@@ -103,6 +127,9 @@ NEUROLINK_EVALUATION_TIMEOUT=15000
 > Loop sessions respect these values. Inside `neurolink loop`, use `set NEUROLINK_EVALUATION_THRESHOLD 8` or `unset NEUROLINK_EVALUATION_THRESHOLD` to adjust the gate on the fly.
 
 ## Best Practices
+
+!!! tip "Cost Optimization"
+Only enable evaluation when needed: during prompt engineering, quality regression testing, or high-stakes production calls. For routine operations, disable evaluation and rely on [Analytics](../advanced/analytics.md) for zero-cost observability.
 
 - Pair evaluation with analytics to track cost vs. quality trends.
 - Lower the threshold during experimentation, then tighten once prompts stabilise.

@@ -199,7 +199,7 @@ neurolink_websocket_connections_active
 
 ## 📚 Additional Resources
 
-- **[API Reference](./API-REFERENCE.md)** - Complete telemetry API documentation
+- **[API Reference](sdk/api-reference.md)** - Complete telemetry API documentation
 - **[Real-time Services](./REAL-TIME-SERVICES.md)** - WebSocket infrastructure guide
 - **[Performance Optimization](./PERFORMANCE-OPTIMIZATION.md)** - Optimization strategies
 

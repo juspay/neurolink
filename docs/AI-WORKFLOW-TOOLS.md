@@ -412,7 +412,7 @@ neurolink debug-output --file ai-response.json --format json
 - **[Main README](./index.md)** - Project overview and quick start
 - **[AI Analysis Tools](./AI-ANALYSIS-TOOLS.md)** - AI optimization and analysis tools
 - **[MCP Foundation](./MCP-FOUNDATION.md)** - Technical architecture details
-- **[API Reference](./API-REFERENCE.md)** - Complete TypeScript API
+- **[API Reference](sdk/api-reference.md)** - Complete TypeScript API
 - **[CLI Guide](./CLI-GUIDE.md)** - Command-line interface documentation
 - **[Visual Demos](./VISUAL-DEMOS.md)** - Screenshots and videos
 

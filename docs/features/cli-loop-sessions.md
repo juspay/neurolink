@@ -1,3 +1,9 @@
+---
+title: CLI Loop Sessions
+description: Persistent interactive mode with conversation memory and session state for prompt engineering
+keywords: cli loop, interactive mode, session state, conversation memory, prompt engineering, repl
+---
+
 # CLI Loop Sessions
 
 `neurolink loop` delivers a persistent CLI workspace so you can explore prompts, tweak parameters, and inspect state without restarting the CLI. Session variables, Redis-backed history, and built-in help turn the CLI into a playground for prompt engineering and operator runbooks.
@@ -9,23 +15,69 @@
 - **Fast iteration** – reuse the entire command surface (`generate`, `stream`, `memory`, etc.) without leaving the loop.
 - **Guided UX** – ASCII banner, inline help, and validation for every session variable.
 
+!!! tip "Keyboard Shortcuts"
+Loop mode supports **tab completion** for commands and session variables, **arrow key history** for navigating previous commands, and **Ctrl+C** to cancel the current operation without exiting the loop.
+
 ## Starting a Session
 
-```bash
-# Default: in-memory session variables, Redis auto-detected when available
-npx @juspay/neurolink loop
+=== "CLI"
 
-# Disable Redis auto-detection and stay in-memory
-npx @juspay/neurolink loop --no-auto-redis
+    ```bash
+    # Default: in-memory session variables, Redis auto-detected when available
+    npx @juspay/neurolink loop
 
-# Turn off memory entirely (prompt-by-prompt mode)
-npx @juspay/neurolink loop --enable-conversation-memory=false
+    # Disable Redis auto-detection and stay in-memory
+    npx @juspay/neurolink loop --no-auto-redis
 
-# Custom retention limits
-npx @juspay/neurolink loop --max-sessions 100 --max-turns-per-session 50
-```
+    # Turn off memory entirely (prompt-by-prompt mode)
+    npx @juspay/neurolink loop --enable-conversation-memory=false
 
-When conversation memory is enabled, the CLI prints the generated session ID so you can export transcripts later via `neurolink memory history <id>`.
+    # Custom retention limits
+    npx @juspay/neurolink loop --max-sessions 100 --max-turns-per-session 50
+    ```
+
+    When conversation memory is enabled, the CLI prints the generated session ID so you can export transcripts later via `neurolink memory history <id>`.
+
+=== "SDK (Programmatic Loop)"
+
+    ```typescript
+    import { NeuroLink } from "@juspay/neurolink";
+
+    // Create a NeuroLink instance with session state
+    const neurolink = new NeuroLink({
+      conversationMemory: {
+        enabled: true,  // (1)!
+        store: "redis",  // (2)!
+        maxTurnsPerSession: 50,
+      },
+    });
+
+    // Simulate loop-like behavior with persistent context
+    const sessionId = "my-session-123";  // (3)!
+
+    // First interaction
+    const result1 = await neurolink.generate({
+      input: { text: "What is NeuroLink?" },
+      context: { sessionId },  // (4)!
+      provider: "google-ai",
+      enableEvaluation: true,
+    });
+
+    // Second interaction - memory preserved
+    const result2 = await neurolink.generate({
+      input: { text: "How do I enable HITL?" },
+      context: { sessionId },  // (5)!
+      provider: "google-ai",
+    });
+
+    console.log(result2.content);  // AI remembers previous context
+    ```
+
+    1. Enable conversation memory for stateful sessions
+    2. Use Redis for persistence across restarts
+    3. Create a session identifier
+    4. Attach session ID to track conversation
+    5. Reuse same session ID to maintain context
 
 ## Session Commands
 
@@ -66,6 +118,9 @@ Anything you can run outside the loop works inside it:
 Errors are handled gracefully; parsing issues surface inline without closing the loop.
 
 ## Conversation Memory & Redis Auto-Detect
+
+!!! success "Redis Persistence"
+When Redis is detected, loop sessions survive restarts. Exit the loop, close your terminal, and resume later with the same session ID to continue where you left off. Perfect for long-running prompt engineering workflows.
 
 - By default the loop enables conversation memory (`--enable-conversation-memory=true`).
 - `--auto-redis` probes for a reachable Redis instance using existing environment variables (`REDIS_URL`, etc.).
