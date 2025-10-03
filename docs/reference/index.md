@@ -32,6 +32,12 @@ This section provides comprehensive reference materials for advanced usage, conf
 
   Frequently asked questions about NeuroLink features, limitations, and best practices.
 
+- :material-chart-box: **[Competitive Analysis](../MASA-EXECUTIVE-SUMMARY.md)**
+
+  ***
+
+  Comparison with Masa AI SDK and other platforms in the AI ecosystem.
+
 </div>
 
 ## 🔧 Quick Reference

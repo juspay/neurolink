@@ -298,6 +298,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](cli/commands.md
 | Integrations    | LiteLLM, SageMaker, MCP, Mem0                   | [`docs/LITELLM-INTEGRATION.md`](LITELLM-INTEGRATION.md)     |
 | Operations      | Configuration, troubleshooting, provider matrix | [`docs/reference/index.md`](reference/index.md)             |
 | Visual demos    | Screens, GIFs, interactive tours                | [`docs/demos/index.md`](demos/index.md)                     |
+| Competitive analysis | Masa AI SDK and market positioning         | [`docs/MASA-EXECUTIVE-SUMMARY.md`](MASA-EXECUTIVE-SUMMARY.md) |
 
 ## Integrations
 
