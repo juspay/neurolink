@@ -335,7 +335,6 @@ The subsystem follows the project’s dotenv loading pattern. No hard dependency
 4. Telemetry (OTEL)
    - Add optional spans and metrics; health endpoints.
 5. NeuroLink Client SDK (WS bridge — new package)
-
    - Build a brand-new client SDK as a separate npm package `@juspay/neurolink-client`.
    - Connects to your server’s WS endpoint; no audio capture/playback included.
    - Responsibilities: send upstream audio frames and control messages to server; receive downstream audio/status/text events from server.

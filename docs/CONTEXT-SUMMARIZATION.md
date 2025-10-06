@@ -61,22 +61,18 @@ const neurolink = new NeuroLink({
 The `conversationMemory` configuration object accepts the following properties related to summarization:
 
 - `enableSummarization: boolean`
-
   - **Description**: Set to `true` to enable the automatic summarization feature. `enabled` must also be `true`.
   - **Default**: `false`
 
 - `summarizationThresholdTurns: number`
-
   - **Description**: The number of turns after which summarization should be triggered.
   - **Default**: `20`
 
 - `summarizationTargetTurns: number`
-
   - **Description**: The number of recent turns to _keep_ when a summary is created. The older turns will be replaced by the summary.
   - **Default**: `10`
 
 - `summarizationModel: string`
-
   - **Description**: The specific AI model to use for the summarization task. It's recommended to use a fast and cost-effective model.
   - **Default**: `"gemini-2.5-flash"`
 

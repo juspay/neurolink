@@ -54,8 +54,8 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 **12 providers unified under one API** - Switch providers with a single parameter change.
 
-| Provider              | Models                         | Free Tier       | Tool Support | Status        | Documentation                                                           |
-| --------------------- | ------------------------------ | --------------- | ------------ | ------------- | ----------------------------------------------------------------------- |
+| Provider              | Models                         | Free Tier       | Tool Support | Status        | Documentation                                                      |
+| --------------------- | ------------------------------ | --------------- | ------------ | ------------- | ------------------------------------------------------------------ |
 | **OpenAI**            | GPT-4o, GPT-4o-mini, o1        | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openai)            |
 | **Anthropic**         | Claude 3.5/3.7 Sonnet, Opus    | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#anthropic)         |
 | **Google AI Studio**  | Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#google-ai)         |
@@ -77,8 +77,8 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 **6 Core Tools** (work across all providers, zero configuration):
 
-| Tool                 | Purpose                  | Auto-Available          | Documentation                                             |
-| -------------------- | ------------------------ | ----------------------- | --------------------------------------------------------- |
+| Tool                 | Purpose                  | Auto-Available          | Documentation                                        |
+| -------------------- | ------------------------ | ----------------------- | ---------------------------------------------------- |
 | `getCurrentTime`     | Real-time clock access   | ✅                      | [Tool Reference](sdk/custom-tools.md#getCurrentTime) |
 | `readFile`           | File system reading      | ✅                      | [Tool Reference](sdk/custom-tools.md#readFile)       |
 | `writeFile`          | File system writing      | ✅                      | [Tool Reference](sdk/custom-tools.md#writeFile)      |
@@ -111,8 +111,8 @@ const result = await neurolink.generate({
 
 **SDK-First Design** with TypeScript, IntelliSense, and type safety:
 
-| Feature                     | Description                    | Documentation                                         |
-| --------------------------- | ------------------------------ | ----------------------------------------------------- |
+| Feature                     | Description                    | Documentation                                    |
+| --------------------------- | ------------------------------ | ------------------------------------------------ |
 | **Auto Provider Selection** | Intelligent provider fallback  | [SDK Guide](sdk/index.md#auto-selection)         |
 | **Streaming Responses**     | Real-time token streaming      | [Streaming Guide](advanced/streaming.md)         |
 | **Conversation Memory**     | Automatic context management   | [Memory Guide](sdk/index.md#memory)              |
@@ -128,8 +128,8 @@ const result = await neurolink.generate({
 
 **Production-ready capabilities for regulated industries:**
 
-| Feature                     | Description                        | Use Case                  | Documentation                                               |
-| --------------------------- | ---------------------------------- | ------------------------- | ----------------------------------------------------------- |
+| Feature                     | Description                        | Use Case                  | Documentation                                          |
+| --------------------------- | ---------------------------------- | ------------------------- | ------------------------------------------------------ |
 | **Enterprise Proxy**        | Corporate proxy support            | Behind firewalls          | [Proxy Setup](ENTERPRISE-PROXY-SETUP.md)               |
 | **Redis Memory**            | Distributed conversation state     | Multi-instance deployment | [Redis Guide](getting-started/provider-setup.md#redis) |
 | **Cost Optimization**       | Automatic cheapest model selection | Budget control            | [Cost Guide](advanced/index.md)                        |
@@ -157,8 +157,8 @@ const result = await neurolink.generate({
 
 **15+ commands** for every workflow:
 
-| Command    | Purpose                            | Example                    | Documentation                             |
-| ---------- | ---------------------------------- | -------------------------- | ----------------------------------------- |
+| Command    | Purpose                            | Example                    | Documentation                        |
+| ---------- | ---------------------------------- | -------------------------- | ------------------------------------ |
 | `setup`    | Interactive provider configuration | `neurolink setup`          | [Setup Guide](cli/index.md)          |
 | `generate` | Text generation                    | `neurolink gen "Hello"`    | [Generate](cli/commands.md#generate) |
 | `stream`   | Streaming generation               | `neurolink stream "Story"` | [Stream](cli/commands.md#stream)     |
@@ -289,8 +289,8 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](cli/commands.md
 
 ## Documentation Map
 
-| Area            | When to Use                                     | Link                                                             |
-| --------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
+| Area            | When to Use                                     | Link                                                        |
+| --------------- | ----------------------------------------------- | ----------------------------------------------------------- |
 | Getting started | Install, configure, run first prompt            | [`docs/getting-started/index.md`](getting-started/index.md) |
 | Feature guides  | Understand new functionality front-to-back      | [`docs/features/index.md`](features/index.md)               |
 | CLI reference   | Command syntax, flags, loop sessions            | [`docs/cli/index.md`](cli/index.md)                         |

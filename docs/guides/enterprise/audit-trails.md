@@ -1139,7 +1139,13 @@ function encryptPII(data: string): string {
   const authTag = cipher.getAuthTag();
 
   // Return IV + AuthTag + Encrypted data (all hex encoded)
-  return iv.toString("hex") + ":" + authTag.toString("hex") + ":" + encrypted.toString("hex");
+  return (
+    iv.toString("hex") +
+    ":" +
+    authTag.toString("hex") +
+    ":" +
+    encrypted.toString("hex")
+  );
 }
 
 auditLog: {

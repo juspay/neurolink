@@ -43,7 +43,6 @@
 ### Videos Available
 
 - **CLI Videos**:
-
   - cli-01-cli-help.mp4
   - cli-02-provider-status.mp4
   - cli-03-text-generation.mp4

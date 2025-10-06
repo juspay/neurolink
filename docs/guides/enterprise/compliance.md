@@ -575,12 +575,17 @@ Protect Protected Health Information.
 ```typescript
 // Identify and redact PHI before sending to AI
 function redactPHI(text: string): string {
-  return text
-    .replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[SSN-REDACTED]") // SSN
-    // Phone: match (xxx) xxx-xxxx, xxx-xxx-xxxx, xxx.xxx.xxxx, +1-xxx-xxx-xxxx
-    .replace(/(\+1[-.\s]?)?(\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/g, "[PHONE-REDACTED]")
-    .replace(/\b[\w.-]+@[\w.-]+\.\w+\b/g, "[EMAIL-REDACTED]") // Email
-    .replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, "[DATE-REDACTED]"); // DOB
+  return (
+    text
+      .replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[SSN-REDACTED]") // SSN
+      // Phone: match (xxx) xxx-xxxx, xxx-xxx-xxxx, xxx.xxx.xxxx, +1-xxx-xxx-xxxx
+      .replace(
+        /(\+1[-.\s]?)?(\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/g,
+        "[PHONE-REDACTED]",
+      )
+      .replace(/\b[\w.-]+@[\w.-]+\.\w+\b/g, "[EMAIL-REDACTED]") // Email
+      .replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, "[DATE-REDACTED]")
+  ); // DOB
 }
 
 // HIPAA-compliant AI request

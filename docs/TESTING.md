@@ -244,19 +244,16 @@ node ./dist/cli/index.js generate "Help with task" --context '{"userId":"123","d
 ### Common Issues
 
 1. **Empty Responses from Google AI**
-
    - Check model name in .env file
    - Use `gemini-2.5-pro` instead of deprecated models
    - Verify API key is valid
 
 2. **NaN Token Counts**
-
    - Usually indicates provider API failure
    - Check model configuration and API keys
    - Test with `--debug` flag for detailed logs
 
 3. **Enhancement Data Missing**
-
    - Ensure using `--debug` flag to see enhancement output
    - Verify enhancement flags are correctly specified
    - Check that provider is working (not falling back)

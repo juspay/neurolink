@@ -30,7 +30,7 @@ export interface Mem0Memory {
  * Initialize mem0 memory instance with configuration
  */
 export async function initializeMem0(
-  mem0Config: MemoryConfig
+  mem0Config: MemoryConfig,
 ): Promise<Mem0Memory | null> {
   logger.debug("[mem0Initializer] Starting mem0 initialization");
 

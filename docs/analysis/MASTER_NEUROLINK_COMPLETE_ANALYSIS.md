@@ -232,13 +232,11 @@
 **Priority**: Fix verified gaps and improve documentation accuracy
 
 1. **Implement Missing Context Option**
-
    - [ ] Add `--context` option support (VERIFIED as missing)
    - [ ] Ensure context data flows to analytics system
    - [ ] Update help documentation
 
 2. **Fix Remaining Documentation Mismatches**
-
    - [ ] Verify all remaining options (--system, --max-tokens, --quiet)
    - [ ] Test and fix any other flag mismatches
    - [ ] Update examples to use correct flags
@@ -253,7 +251,6 @@
 **Priority**: Implement most critical missing systems
 
 1. **Essential Commands**
-
    - [ ] Implement basic `models list` command (VERIFIED missing)
    - [ ] Add `discover` command for MCP integration (VERIFIED missing)
    - [ ] Complete essential `config` subcommands (setup, show, set) (VERIFIED missing)
@@ -268,7 +265,6 @@
 **Priority**: Complete missing management systems
 
 1. **Models Management System**
-
    - [ ] Implement complete models command system
    - [ ] Add model server at localhost:3001
    - [ ] Implement cost optimization features

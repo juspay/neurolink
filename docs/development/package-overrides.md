@@ -9,13 +9,11 @@ This document explains the package version overrides in `package.json` and why t
 The following overrides address known security vulnerabilities:
 
 - **esbuild@<=0.24.2 → >=0.25.0**
-
   - Addresses build process vulnerabilities in older esbuild versions
   - **Security Advisory**: CVE-2024-43788 (potential code injection during build)
   - Should be removed when dependencies update to safer versions
 
 - **cookie@<0.7.0 → >=0.7.0**
-
   - Fixes session management security issues in cookie handling
   - **Security Advisory**: GHSA-pxg6-pf52-xh8x (prototype pollution vulnerability)
   - Critical for web application security

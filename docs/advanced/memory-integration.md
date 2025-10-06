@@ -34,6 +34,7 @@ graph LR
 ```
 
 The memory system operates in three phases:
+
 1. **Memory Retrieval**: Relevant memories are fetched before generating responses
 2. **Context Enhancement**: Retrieved memories are seamlessly injected into prompts
 3. **Memory Storage**: New conversation turns are stored asynchronously in the background
@@ -80,16 +81,16 @@ const neurolink = new NeuroLink({
         config: {
           baseURL: "https://generativelanguage.googleapis.com",
           apiKey: process.env.GEMINI_API_KEY,
-          model: "gemini-2.0-flash-exp"
+          model: "gemini-2.0-flash-exp",
         },
-      }
-    }
+      },
+    },
   },
   providers: {
     google: {
-      apiKey: process.env.GEMINI_API_KEY
-    }
-  }
+      apiKey: process.env.GEMINI_API_KEY,
+    },
+  },
 });
 ```
 
@@ -99,14 +100,14 @@ const neurolink = new NeuroLink({
 // Store user context
 const response1 = await neurolink.generate({
   input: {
-    text: "Hi! I'm Sarah, a frontend developer at TechCorp. I love React and TypeScript."
+    text: "Hi! I'm Sarah, a frontend developer at TechCorp. I love React and TypeScript.",
   },
   context: {
-    userId: 'user_sarah_123',      // Required for memory isolation
-    sessionId: 'onboarding_session' // Optional session identifier
+    userId: "user_sarah_123", // Required for memory isolation
+    sessionId: "onboarding_session", // Optional session identifier
   },
-  provider: 'google-ai',
-  model: 'gemini-2.0-flash-exp'
+  provider: "google-ai",
+  model: "gemini-2.0-flash-exp",
 });
 
 console.log(response1.content);
@@ -115,13 +116,13 @@ console.log(response1.content);
 // Later conversation - memory retrieval
 const response2 = await neurolink.generate({
   input: {
-    text: "What programming languages do I work with? And remind me where I work?"
+    text: "What programming languages do I work with? And remind me where I work?",
   },
   context: {
-    userId: 'user_sarah_123',      // Same user ID
-    sessionId: 'help_session'      // Different session
+    userId: "user_sarah_123", // Same user ID
+    sessionId: "help_session", // Different session
   },
-  provider: 'google-ai'
+  provider: "google-ai",
 });
 
 console.log(response2.content);
@@ -281,33 +282,33 @@ llm: {
 // User Alice's conversation
 const aliceResponse = await neurolink.generate({
   input: {
-    text: "I prefer dark mode and use VSCode for development."
+    text: "I prefer dark mode and use VSCode for development.",
   },
   context: {
-    userId: 'tenant_1_alice_123',
-    sessionId: 'preferences_session'
-  }
+    userId: "tenant_1_alice_123",
+    sessionId: "preferences_session",
+  },
 });
 
 // User Bob's conversation (different tenant)
 const bobResponse = await neurolink.generate({
   input: {
-    text: "I love light themes and use WebStorm IDE."
+    text: "I love light themes and use WebStorm IDE.",
   },
   context: {
-    userId: 'tenant_2_bob_456',
-    sessionId: 'setup_session'
-  }
+    userId: "tenant_2_bob_456",
+    sessionId: "setup_session",
+  },
 });
 
 // Later: Alice queries her preferences
 const aliceQuery = await neurolink.generate({
   input: {
-    text: "What IDE do I use and what theme do I prefer?"
+    text: "What IDE do I use and what theme do I prefer?",
   },
   context: {
-    userId: 'tenant_1_alice_123'
-  }
+    userId: "tenant_1_alice_123",
+  },
 });
 // Returns: "You use VSCode with dark mode" (not Bob's preferences)
 ```
@@ -318,21 +319,21 @@ const aliceQuery = await neurolink.generate({
 // Memory-enhanced streaming
 const stream = await neurolink.stream({
   input: {
-    text: "Write me a personalized coding tutorial based on my experience level."
+    text: "Write me a personalized coding tutorial based on my experience level.",
   },
   context: {
-    userId: 'developer_sarah',
-    sessionId: 'tutorial_session'
+    userId: "developer_sarah",
+    sessionId: "tutorial_session",
   },
-  provider: 'anthropic',
-  model: 'claude-3-sonnet-20240229',
+  provider: "anthropic",
+  model: "claude-3-sonnet-20240229",
   streaming: {
     enabled: true,
-    enableProgress: true
-  }
+    enableProgress: true,
+  },
 });
 
-let fullContent = '';
+let fullContent = "";
 for await (const chunk of stream.stream) {
   if (chunk.content) {
     fullContent += chunk.content;
@@ -365,7 +366,7 @@ The actual storage format used by NeuroLink:
 // Conversation turn stored as JSON string
 const conversationTurn = [
   { role: "user", content: "User's input text" },
-  { role: "system", content: "AI's response" }
+  { role: "system", content: "AI's response" },
 ];
 
 // Stored with metadata
@@ -409,6 +410,7 @@ Current user's request: ${currentInput}`;
 ### Complete Working Example
 
 The repository includes a comprehensive working example at:
+
 ```
 scripts/examples/real-memory-test.js
 ```
@@ -416,6 +418,7 @@ scripts/examples/real-memory-test.js
 📁 **[View Example on GitHub](https://github.com/juspay/neurolink/blob/release/scripts/examples/real-memory-test.js)**
 
 This example demonstrates:
+
 - Complete end-to-end memory integration
 - User isolation testing with Alice and Bob
 - Cross-session memory continuity
@@ -458,52 +461,52 @@ async function testMemoryFlow() {
             dimension: 1536,
             url: "http://localhost:6333",
             checkCompatibility: false,
-          }
+          },
         },
         embedder: {
           provider: "openai",
           config: {
             apiKey: process.env.OPENAI_API_KEY,
-            model: "text-embedding-3-small"
-          }
+            model: "text-embedding-3-small",
+          },
         },
         llm: {
           provider: "google",
           config: {
             apiKey: process.env.GEMINI_API_KEY,
-            model: "gemini-2.0-flash-exp"
-          }
-        }
-      }
-    }
+            model: "gemini-2.0-flash-exp",
+          },
+        },
+      },
+    },
   });
 
   // Step 1: Store context
   console.log("📝 Storing user context...");
   await neurolink.generate({
     input: {
-      text: "I'm a Python developer working on machine learning projects with PyTorch."
+      text: "I'm a Python developer working on machine learning projects with PyTorch.",
     },
     context: {
-      userId: 'test_user_123',
-      sessionId: 'context_session'
-    }
+      userId: "test_user_123",
+      sessionId: "context_session",
+    },
   });
 
   // Wait for memory indexing
   console.log("⏳ Waiting for memory indexing...");
-  await new Promise(resolve => setTimeout(resolve, 30000));
+  await new Promise((resolve) => setTimeout(resolve, 30000));
 
   // Step 2: Test recall
   console.log("🔍 Testing memory recall...");
   const response = await neurolink.generate({
     input: {
-      text: "What programming language do I use for my ML projects?"
+      text: "What programming language do I use for my ML projects?",
     },
     context: {
-      userId: 'test_user_123',
-      sessionId: 'recall_session'
-    }
+      userId: "test_user_123",
+      sessionId: "recall_session",
+    },
   });
 
   console.log("🤖 AI Response:", response.content);
@@ -598,6 +601,7 @@ logger.warn("Mem0 memory storage failed:", error);
 ```
 
 **Common causes:**
+
 - Vector store not accessible
 - API key issues
 - Dimension mismatches
@@ -627,8 +631,8 @@ const getTenantMemoryConfig = (tenantId: string) => ({
     config: {
       collectionName: `memories_${tenantId}`,
       // Ensures complete data isolation
-    }
-  }
+    },
+  },
 });
 ```
 
@@ -668,8 +672,8 @@ const mem0Config = {
       collectionName: `memories_${process.env.NODE_ENV}`,
       url: process.env.QDRANT_URL || "http://localhost:6333",
       apiKey: process.env.QDRANT_API_KEY, // For Qdrant Cloud
-    }
-  }
+    },
+  },
 };
 ```
 

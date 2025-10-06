@@ -153,13 +153,11 @@ Screenshots showing the web interface for:
 ### CLI Workflow Examples
 
 1. **Quick Start Workflow**
-
    - Initial setup and configuration
    - First generation command
    - Provider status verification
 
 2. **Batch Processing**
-
    - Multiple prompt processing
    - Performance comparison
    - Results compilation
@@ -172,13 +170,11 @@ Screenshots showing the web interface for:
 ### Integration Screenshots
 
 1. **VS Code Integration**
-
    - Extension interface
    - Code generation in editor
    - MCP server discovery
 
 2. **Terminal Workflows**
-
    - Command completion
    - Real-time streaming
    - Error handling examples

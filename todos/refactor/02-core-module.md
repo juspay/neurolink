@@ -26,7 +26,6 @@ Reorganize the type system to move all types from the monolithic `src/lib/core/t
 ### Created New Type Files
 
 - **`src/lib/types/evaluation.ts`** - All evaluation-related types (NEW)
-
   - `EvaluationData`, `EvaluationContext`, `EvaluationResult`
   - `EvaluationRequest`, `EvaluationCriteria`, `EvaluationProvider`
   - `EvaluationMode`, `AlertSeverity`

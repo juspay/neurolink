@@ -491,7 +491,6 @@ npx @juspay/neurolink status --verbose
    ```
 
    **Common Vertex AI Issues**:
-
    - **"Not configured" despite valid credentials**:
      Use `GOOGLE_VERTEX_PROJECT` instead of `GOOGLE_CLOUD_PROJECT_ID`
    - **Authentication failed**:
@@ -820,7 +819,6 @@ curl -I --proxy $HTTPS_PROXY https://api.openai.com
 **Solutions**:
 
 1. **Contact IT team** for allowlist:
-
    - `generativelanguage.googleapis.com` (Google AI)
    - `api.anthropic.com` (Anthropic)
    - `api.openai.com` (OpenAI)
