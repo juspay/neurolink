@@ -41,7 +41,7 @@
 
 **Technical Excellence**:
 - **Zero Configuration**: Works out of the box with default Redis setup (localhost:6379)
-- **Environment Respect**: Uses Redis environment variables when configured (REDIS_HOST, REDIS_PORT, etc.)
+- **Environment Respect**: Uses Redis environment variables when configured (REDIS_HOST_AUTOMATIC, REDIS_PORT, etc.)
 - **Short Timeout**: 5-second detection timeout prevents blocking startup
 - **Smart Default Behavior**: CLI defaults to quiet mode for cleaner user experience
 - **Proper Error Handling**: Utility function throws errors, CLI handles them with appropriate user feedback

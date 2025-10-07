@@ -1164,7 +1164,7 @@ export REDIS_KEY_PREFIX="neurolink:"  # Key prefix for namespacing
 
 ```bash
 # Connection settings
-export REDIS_HOST="localhost"
+export REDIS_HOST_AUTOMATIC="localhost"
 export REDIS_PORT="6379"
 export REDIS_TLS="false"  # Set to "true" for TLS connections
 
@@ -1223,7 +1223,7 @@ export REDIS_URL="redis://localhost:6379"
 | Variable           | Required        | Default    | Description               |
 | ------------------ | --------------- | ---------- | ------------------------- |
 | `REDIS_URL`        | Recommended     | -          | Full Redis connection URL |
-| `REDIS_HOST`       | Alternative     | localhost  | Redis host                |
+| `REDIS_HOST_AUTOMATIC`       | Alternative     | localhost  | Redis host                |
 | `REDIS_PORT`       | Alternative     | 6379       | Redis port                |
 | `REDIS_PASSWORD`   | If auth enabled | -          | Redis password            |
 | `REDIS_DB`         | ❌              | 0          | Database number           |

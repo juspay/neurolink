@@ -177,7 +177,7 @@ export async function initializeConversationMemory(config?: {
           maxTurnsPerSession: config?.conversationMemory?.maxTurnsPerSession,
         },
         redisConfig: {
-          host: process.env.REDIS_HOST || "(not set)",
+          host: process.env.REDIS_HOST_AUTOMATIC || "(not set)",
           port: process.env.REDIS_PORT || "(not set)",
           hasPassword: !!process.env.REDIS_PASSWORD,
           keyPrefix: process.env.REDIS_KEY_PREFIX || "(not set)",
@@ -190,7 +190,7 @@ export async function initializeConversationMemory(config?: {
       logger.error(
         "[conversationMemoryInitializer] Redis configuration error details",
         {
-          REDIS_HOST: process.env.REDIS_HOST || "(not set)",
+          REDIS_HOST_AUTOMATIC: process.env.REDIS_HOST_AUTOMATIC || "(not set)",
           REDIS_PORT: process.env.REDIS_PORT || "(not set)",
           REDIS_PASSWORD: process.env.REDIS_PASSWORD ? "******" : "(not set)",
           REDIS_DB: process.env.REDIS_DB || "(not set)",

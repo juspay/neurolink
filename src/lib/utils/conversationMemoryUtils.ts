@@ -120,7 +120,7 @@ export async function checkRedisAvailability(): Promise<boolean> {
 
   try {
     const testConfig = getNormalizedConfig({
-      host: process.env.REDIS_HOST,
+      host: process.env.REDIS_HOST_AUTOMATIC ?? process.env.REDIS_HOST,
       port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : undefined,
       password: process.env.REDIS_PASSWORD,
       db: process.env.REDIS_DB ? Number(process.env.REDIS_DB) : undefined,

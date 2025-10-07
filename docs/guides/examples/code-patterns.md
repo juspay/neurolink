@@ -639,7 +639,7 @@ class RedisCachedAIService {
 
   constructor() {
     this.redis = new Redis({
-      host: process.env.REDIS_HOST,
+      host: process.env.REDIS_HOST_AUTOMATIC,
       port: parseInt(process.env.REDIS_PORT),
       password: process.env.REDIS_PASSWORD,
     });
