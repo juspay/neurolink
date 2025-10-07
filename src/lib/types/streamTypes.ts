@@ -145,6 +145,8 @@ export interface StreamOptions {
     text: string;
     audio?: AudioInputSpec;
     images?: Array<Buffer | string>; // Simple image support
+    csvFiles?: Array<Buffer | string>; // Explicit CSV files
+    files?: Array<Buffer | string>; // Auto-detect file types
     content?: Array<TextContent | ImageContent>; // Advanced multimodal content
   };
   output?: {
@@ -155,6 +157,13 @@ export interface StreamOptions {
       enableProgress?: boolean;
     };
   }; // Future extensible
+
+  // CSV processing options
+  csvOptions?: {
+    maxRows?: number;
+    formatStyle?: "raw" | "markdown" | "json";
+    includeHeaders?: boolean;
+  };
 
   // Core streaming options
   provider?: AIProviderName | string;

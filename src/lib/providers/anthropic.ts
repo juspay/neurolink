@@ -21,7 +21,11 @@ import {
   createAnthropicConfig,
   getProviderModel,
 } from "../utils/providerConfig.js";
-import { buildMessagesArray } from "../utils/messageBuilder.js";
+import {
+  buildMessagesArray,
+  buildMultimodalMessagesArray,
+  convertToCoreMessages,
+} from "../utils/messageBuilder.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 // Configuration helpers - now using consolidated utility
@@ -158,8 +162,64 @@ export class AnthropicProvider extends BaseProvider {
       const shouldUseTools = !options.disableTools && this.supportsTools();
       const tools = shouldUseTools ? await this.getAllTools() : {};
 
-      // Build message array from options
-      const messages = buildMessagesArray(options);
+      // Build message array from options with multimodal support
+      const hasMultimodalInput = !!(
+        options.input?.images?.length ||
+        options.input?.content?.length ||
+        options.input?.files?.length ||
+        options.input?.csvFiles?.length
+      );
+
+      let messages;
+      if (hasMultimodalInput) {
+        logger.debug(
+          `Anthropic: Detected multimodal input, using multimodal message builder`,
+          {
+            hasImages: !!options.input?.images?.length,
+            imageCount: options.input?.images?.length || 0,
+            hasContent: !!options.input?.content?.length,
+            contentCount: options.input?.content?.length || 0,
+            hasFiles: !!options.input?.files?.length,
+            fileCount: options.input?.files?.length || 0,
+            hasCSVFiles: !!options.input?.csvFiles?.length,
+            csvFileCount: options.input?.csvFiles?.length || 0,
+          },
+        );
+
+        // Create multimodal options for buildMultimodalMessagesArray
+        const multimodalOptions = {
+          input: {
+            text: options.input?.text || "",
+            images: options.input?.images,
+            content: options.input?.content,
+            files: options.input?.files,
+            csvFiles: options.input?.csvFiles,
+          },
+          csvOptions: options.csvOptions,
+          systemPrompt: options.systemPrompt,
+          conversationHistory: options.conversationMessages,
+          provider: this.providerName,
+          model: this.modelName,
+          temperature: options.temperature,
+          maxTokens: options.maxTokens,
+          enableAnalytics: options.enableAnalytics,
+          enableEvaluation: options.enableEvaluation,
+          context: options.context,
+        };
+
+        const mm = await buildMultimodalMessagesArray(
+          multimodalOptions,
+          this.providerName,
+          this.modelName,
+        );
+        // Convert multimodal messages to Vercel AI SDK format (CoreMessage[])
+        messages = convertToCoreMessages(mm);
+      } else {
+        logger.debug(
+          `Anthropic: Text-only input, using standard message builder`,
+        );
+        messages = await buildMessagesArray(options);
+      }
       const model = await this.getAISDKModelWithMiddleware(options);
       const result = await streamText({
         model: model,

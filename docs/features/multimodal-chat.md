@@ -134,10 +134,64 @@ for await (const chunk of stream) {
 
 ## Best Practices
 
-- Provide short captions in the prompt describing each image (e.g., “see `before.png` on the left”).
+- Provide short captions in the prompt describing each image (e.g., "see `before.png` on the left").
 - Combine analytics + evaluation to benchmark multimodal quality before rolling out widely.
 - Cache remote assets locally if you reuse them frequently to avoid repeated downloads.
 - Stream when presenting content to end-users; use `generate` when you need structured JSON output.
+
+## CSV File Support
+
+### Quick Start
+
+```bash
+# Auto-detect CSV files
+npx @juspay/neurolink generate "Analyze sales trends" \
+  --file ./sales_2024.csv
+
+# Explicit CSV with options
+npx @juspay/neurolink generate "Summarize data" \
+  --csv ./data.csv \
+  --csv-max-rows 500 \
+  --csv-format raw
+```
+
+### SDK Usage
+
+```typescript
+// Auto-detect (recommended)
+await neurolink.generate({
+  input: {
+    text: "Analyze this data",
+    files: ["./data.csv", "./chart.png"],
+  },
+});
+
+// Explicit CSV
+await neurolink.generate({
+  input: {
+    text: "Compare quarters",
+    csvFiles: ["./q1.csv", "./q2.csv"],
+  },
+  csvOptions: {
+    maxRows: 1000,
+    formatStyle: "raw",
+  },
+});
+```
+
+### Format Options
+
+- **raw** (default) - Best for large files, minimal token usage
+- **json** - Structured data, easier parsing, higher token usage
+- **markdown** - Readable tables, good for small datasets (<100 rows)
+
+### Best Practices
+
+- Use raw format for large files to minimize token usage
+- Use JSON format for structured data processing
+- Limit to 1000 rows by default (configurable up to 10K)
+- Combine CSV with visualization images for comprehensive analysis
+- Works with ALL providers (not just vision-capable models)
 
 ## Troubleshooting
 

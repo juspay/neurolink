@@ -22,7 +22,11 @@ import {
   getProviderModel,
 } from "../utils/providerConfig.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
-import { buildMessagesArray } from "../utils/messageBuilder.js";
+import {
+  buildMessagesArray,
+  buildMultimodalMessagesArray,
+  convertToCoreMessages,
+} from "../utils/messageBuilder.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import { isZodSchema } from "../utils/schemaConversion.js";
 
@@ -341,8 +345,62 @@ export class OpenAIProvider extends BaseProvider {
         filteredOutTools: Object.keys(allTools).filter((name) => !tools[name]),
       });
 
-      // Build message array from options
-      const messages = buildMessagesArray(options);
+      // Build message array from options with multimodal support
+      const hasMultimodalInput = !!(
+        options.input?.images?.length ||
+        options.input?.content?.length ||
+        options.input?.files?.length ||
+        options.input?.csvFiles?.length
+      );
+
+      let messages;
+      if (hasMultimodalInput) {
+        logger.debug(
+          `OpenAI: Detected multimodal input, using multimodal message builder`,
+          {
+            hasImages: !!options.input?.images?.length,
+            imageCount: options.input?.images?.length || 0,
+            hasContent: !!options.input?.content?.length,
+            contentCount: options.input?.content?.length || 0,
+            hasFiles: !!options.input?.files?.length,
+            fileCount: options.input?.files?.length || 0,
+            hasCSVFiles: !!options.input?.csvFiles?.length,
+            csvFileCount: options.input?.csvFiles?.length || 0,
+          },
+        );
+
+        // Create multimodal options for buildMultimodalMessagesArray
+        const multimodalOptions = {
+          input: {
+            text: options.input?.text || "",
+            images: options.input?.images,
+            content: options.input?.content,
+            files: options.input?.files,
+            csvFiles: options.input?.csvFiles,
+          },
+          csvOptions: options.csvOptions,
+          systemPrompt: options.systemPrompt,
+          conversationHistory: options.conversationMessages,
+          provider: this.providerName,
+          model: this.modelName,
+          temperature: options.temperature,
+          maxTokens: options.maxTokens,
+          enableAnalytics: options.enableAnalytics,
+          enableEvaluation: options.enableEvaluation,
+          context: options.context,
+        };
+
+        const mm = await buildMultimodalMessagesArray(
+          multimodalOptions,
+          this.providerName,
+          this.modelName,
+        );
+        // Convert multimodal messages to Vercel AI SDK format (CoreMessage[])
+        messages = convertToCoreMessages(mm);
+      } else {
+        logger.debug(`OpenAI: Text-only input, using standard message builder`);
+        messages = await buildMessagesArray(options);
+      }
 
       // Debug the actual request being sent to OpenAI
       logger.debug(`OpenAI: streamText request parameters:`, {

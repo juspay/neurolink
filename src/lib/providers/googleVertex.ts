@@ -837,7 +837,10 @@ export class GoogleVertexProvider extends BaseProvider {
 
       // Build message array from options with multimodal support
       const hasMultimodalInput = !!(
-        options.input?.images?.length || options.input?.content?.length
+        options.input?.images?.length ||
+        options.input?.content?.length ||
+        options.input?.files?.length ||
+        options.input?.csvFiles?.length
       );
 
       let messages;
@@ -858,7 +861,10 @@ export class GoogleVertexProvider extends BaseProvider {
             text: options.input?.text || "",
             images: options.input?.images,
             content: options.input?.content,
+            files: options.input?.files,
+            csvFiles: options.input?.csvFiles,
           },
+          csvOptions: options.csvOptions,
           systemPrompt: options.systemPrompt,
           conversationHistory: options.conversationMessages,
           provider: this.providerName,
@@ -881,7 +887,7 @@ export class GoogleVertexProvider extends BaseProvider {
         logger.debug(
           `${functionTag}: Text-only input, using standard message builder`,
         );
-        messages = buildMessagesArray(options);
+        messages = await buildMessagesArray(options);
       }
 
       const model = await this.getAISDKModelWithMiddleware(options); // This is where network connection happens!
@@ -1307,6 +1313,7 @@ export class GoogleVertexProvider extends BaseProvider {
         modelName,
         issue: modelValidation.issue,
         recommendedModels: [
+          "claude-sonnet-4-5@20250929",
           "claude-sonnet-4@20250514",
           "claude-opus-4@20250514",
           "claude-3-5-sonnet-20241022",
@@ -1609,6 +1616,7 @@ export class GoogleVertexProvider extends BaseProvider {
     // Validate against known Claude model patterns
     const validPatterns = [
       /^claude-sonnet-4@\d{8}$/,
+      /^claude-sonnet-4-5@\d{8}$/,
       /^claude-opus-4@\d{8}$/,
       /^claude-3-5-sonnet-\d{8}$/,
       /^claude-3-5-haiku-\d{8}$/,
@@ -1932,6 +1940,7 @@ export class GoogleVertexProvider extends BaseProvider {
         "gemini-1.5-flash",
       ],
       claude: [
+        "claude-sonnet-4-5@20250929",
         "claude-sonnet-4@20250514",
         "claude-opus-4@20250514",
         "claude-3-5-sonnet-20241022",

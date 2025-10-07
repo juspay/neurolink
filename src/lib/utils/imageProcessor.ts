@@ -5,11 +5,39 @@
 
 import { logger } from "./logger.js";
 import type { ProcessedImage } from "../types/content.js";
+import type { FileProcessingResult } from "../types/fileTypes.js";
 
 /**
  * Image processor class for handling provider-specific image formatting
  */
 export class ImageProcessor {
+  /**
+   * Process image Buffer (unified interface)
+   * Matches CSVProcessor.process() signature for consistency
+   *
+   * @param content - Image file as Buffer
+   * @param options - Processing options (unused for now)
+   * @returns Processed image as data URI
+   */
+  static async process(
+    content: Buffer,
+    _options?: unknown,
+  ): Promise<FileProcessingResult> {
+    const mediaType = this.detectImageType(content);
+    const base64 = content.toString("base64");
+    const dataUri = `data:${mediaType};base64,${base64}`;
+
+    return {
+      type: "image",
+      content: dataUri,
+      mimeType: mediaType,
+      metadata: {
+        confidence: 100,
+        size: content.length,
+      },
+    } satisfies FileProcessingResult;
+  }
+
   /**
    * Process image for OpenAI (requires data URI format)
    */

@@ -272,8 +272,11 @@ Overall: [score]
 Reasoning: [Provide a detailed explanation of your evaluation, explaining why you gave these scores. Include specific observations about the response's strengths and all possible areas for improvement.]
 `;
 
-    // Generate evaluation
-    const result = await provider.generate(prompt);
+    // Generate evaluation (simple text prompt only - no file processing)
+    const result = await provider.generate({
+      input: { text: prompt },
+      disableTools: true, // Evaluation doesn't need tools
+    });
 
     if (!result) {
       logger.debug(`[${functionTag}] No response from provider`);

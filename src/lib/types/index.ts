@@ -190,3 +190,9 @@ export * from "./evaluationProviders.js";
 
 // SDK Types - Core types for external developers
 export * from "./sdkTypes.js";
+
+// File detection and processing types
+export * from "./fileTypes.js";
+
+// Content types for multimodal support
+export * from "./content.js";

@@ -20,9 +20,18 @@ export type GenerateOptions = {
   input: {
     text: string;
     images?: Array<Buffer | string>; // Simple image support
+    csvFiles?: Array<Buffer | string>; // Explicit CSV files
+    files?: Array<Buffer | string>; // Auto-detect file types
     content?: Array<TextContent | ImageContent>; // Advanced multimodal content
   };
   output?: { format?: "text" | "structured" | "json" }; // Future extensible
+
+  // CSV processing options
+  csvOptions?: {
+    maxRows?: number;
+    formatStyle?: "raw" | "markdown" | "json";
+    includeHeaders?: boolean;
+  };
 
   // Core options (inherited from TextGenerationOptions)
   provider?: AIProviderName | string;
@@ -207,6 +216,13 @@ export type TextGenerationOptions = {
   // NEW: Evaluation Context Parameters
   expectedOutcome?: string; // Expected outcome for evaluation
   evaluationCriteria?: string[]; // Criteria for evaluation
+
+  // NEW: CSV Processing Options
+  csvOptions?: {
+    maxRows?: number;
+    formatStyle?: "raw" | "markdown" | "json";
+    includeHeaders?: boolean;
+  };
 };
 
 /**

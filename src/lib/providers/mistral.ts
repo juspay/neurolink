@@ -81,7 +81,7 @@ export class MistralProvider extends BaseProvider {
       // Get tools consistently with generate method
       const shouldUseTools = !options.disableTools && this.supportsTools();
       const tools = shouldUseTools ? await this.getAllTools() : {};
-      const messages = buildMessagesArray(options);
+      const messages = await buildMessagesArray(options);
       const model = await this.getAISDKModelWithMiddleware(options); // This is where network connection happens!
       const result = await streamText({
         model,

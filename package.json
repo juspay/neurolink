@@ -182,6 +182,7 @@
     "@opentelemetry/semantic-conventions": "^1.37.0",
     "ai": "4.3.16",
     "chalk": "^5.6.2",
+    "csv-parser": "^3.2.0",
     "dotenv": "^16.6.1",
     "inquirer": "^9.3.7",
     "json-schema-to-zod": "^2.6.1",

@@ -19,6 +19,7 @@ import {
   MultimodalLogger,
 } from "../adapters/providerImageAdapter.js";
 import { logger } from "./logger.js";
+import { FileDetector } from "./fileDetector.js";
 import { request } from "undici";
 import { readFileSync, existsSync } from "fs";
 import type {
@@ -221,13 +222,45 @@ function toCoreMessage(message: ChatMessage): CoreMessage | null {
 }
 
 /**
+ * Format CSV metadata for LLM consumption
+ */
+function formatCSVMetadata(metadata: {
+  rowCount?: number;
+  columnCount?: number;
+  columnNames?: string[];
+  hasEmptyColumns?: boolean;
+}): string {
+  const parts: string[] = [];
+
+  if (metadata.rowCount !== undefined) {
+    parts.push(`${metadata.rowCount} data rows`);
+  }
+
+  if (metadata.columnCount !== undefined) {
+    parts.push(`${metadata.columnCount} columns`);
+  }
+
+  if (metadata.columnNames && metadata.columnNames.length > 0) {
+    const columns = metadata.columnNames.join(", ");
+    parts.push(`Columns: [${columns}]`);
+  }
+
+  if (metadata.hasEmptyColumns) {
+    parts.push(`⚠️ Contains empty column names`);
+  }
+
+  return parts.length > 0 ? `**Metadata**: ${parts.join(" | ")}` : "";
+}
+
+/**
  * Build a properly formatted message array for AI providers
  * Combines system prompt, conversation history, and current user prompt
  * Supports both TextGenerationOptions and StreamOptions
+ * Enhanced with CSV file processing support
  */
-export function buildMessagesArray(
+export async function buildMessagesArray(
   options: TextGenerationOptions | StreamOptions,
-): CoreMessage[] {
+): Promise<CoreMessage[]> {
   const messages: CoreMessage[] = [];
 
   // Check if conversation history exists
@@ -271,6 +304,92 @@ export function buildMessagesArray(
     currentPrompt = options.input.text;
   }
 
+  // Process CSV files if present and inject into prompt using proper CSV parser
+  if ("input" in options && options.input) {
+    const input = options.input as {
+      text?: string;
+      csvFiles?: Array<Buffer | string>;
+      files?: Array<Buffer | string>;
+    };
+
+    let csvContent = "";
+    const csvOptions = "csvOptions" in options ? options.csvOptions : undefined;
+
+    // Process explicit csvFiles array
+    if (input.csvFiles && input.csvFiles.length > 0) {
+      for (let i = 0; i < input.csvFiles.length; i++) {
+        const csvFile = input.csvFiles[i];
+        const filename = extractFilename(csvFile, i);
+        const filePath = typeof csvFile === "string" ? csvFile : filename;
+        try {
+          const result = await FileDetector.detectAndProcess(csvFile, {
+            allowedTypes: ["csv"],
+            csvOptions: csvOptions,
+          });
+
+          let csvSection = `\n\n## CSV Data from "${filename}":\n`;
+
+          // Add metadata from csv-parser library
+          if (result.metadata) {
+            const metadataText = formatCSVMetadata(result.metadata);
+            if (metadataText) {
+              csvSection += metadataText + `\n\n`;
+            }
+          }
+
+          csvSection += buildCSVToolInstructions(filePath);
+
+          csvSection += result.content;
+          csvContent += csvSection;
+          logger.info(`[CSV] ✅ Processed: ${filename}`, result.metadata);
+        } catch (error) {
+          logger.error(`[CSV] ❌ Failed to process ${filename}:`, error);
+          csvContent += `\n\n## CSV Data Error: Failed to process "${filename}"\nReason: ${error instanceof Error ? error.message : "Unknown error"}`;
+        }
+      }
+    }
+
+    // Process unified files array (auto-detect CSV)
+    if (input.files && input.files.length > 0) {
+      for (const file of input.files) {
+        const filename = extractFilename(file);
+        try {
+          const result = await FileDetector.detectAndProcess(file, {
+            maxSize: 10 * 1024 * 1024,
+            allowedTypes: ["csv"],
+            csvOptions: csvOptions,
+          });
+
+          if (result.type === "csv") {
+            let csvSection = `\n\n## CSV Data from "${filename}":\n`;
+
+            // Add metadata from csv-parser library
+            if (result.metadata) {
+              const metadataText = formatCSVMetadata(result.metadata);
+              if (metadataText) {
+                csvSection += metadataText + `\n\n`;
+              }
+            }
+
+            csvSection += result.content;
+            csvContent += csvSection;
+            logger.info(`[FileDetector] ✅ CSV: ${filename}`, result.metadata);
+          }
+        } catch (error) {
+          // Silently skip non-CSV files in auto-detect mode
+          logger.debug(
+            `[FileDetector] Skipped ${filename}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+    }
+
+    // Prepend CSV content to current prompt
+    if (csvContent) {
+      currentPrompt = csvContent + (currentPrompt || "");
+    }
+  }
+
   if (currentPrompt?.trim()) {
     messages.push({
       role: "user",
@@ -290,6 +409,96 @@ export async function buildMultimodalMessagesArray(
   provider: string,
   model: string,
 ): Promise<MultimodalChatMessage[]> {
+  // Process unified files array (auto-detect)
+  if (options.input.files && options.input.files.length > 0) {
+    logger.info(
+      `[FileDetector] Processing ${options.input.files.length} file(s) with auto-detection`,
+    );
+
+    options.input.text = options.input.text || "";
+
+    for (const file of options.input.files) {
+      try {
+        const result = await FileDetector.detectAndProcess(file, {
+          maxSize: 10 * 1024 * 1024,
+          allowedTypes: ["csv", "image"],
+          csvOptions: options.csvOptions,
+        });
+
+        if (result.type === "csv") {
+          const filename = extractFilename(file);
+          const filePath = typeof file === "string" ? file : filename;
+          let csvSection = `\n\n## CSV Data from "${filename}":\n`;
+
+          // Add metadata from csv-parser library
+          if (result.metadata) {
+            const metadataText = formatCSVMetadata(result.metadata);
+            if (metadataText) {
+              csvSection += metadataText + `\n\n`;
+            }
+          }
+
+          csvSection += buildCSVToolInstructions(filePath);
+
+          csvSection += result.content;
+          options.input.text += csvSection;
+          logger.info(`[FileDetector] ✅ CSV: ${filename}`);
+        } else if (result.type === "image") {
+          options.input.images = [
+            ...(options.input.images || []),
+            result.content,
+          ];
+          logger.info(`[FileDetector] ✅ Image: ${result.mimeType}`);
+        }
+      } catch (error) {
+        logger.error(`[FileDetector] ❌ Failed to process file:`, error);
+      }
+    }
+  }
+
+  // Process explicit CSV files array
+  if (options.input.csvFiles && options.input.csvFiles.length > 0) {
+    logger.info(
+      `[CSV] Processing ${options.input.csvFiles.length} explicit CSV file(s)`,
+    );
+
+    options.input.text = options.input.text || "";
+
+    for (let i = 0; i < options.input.csvFiles.length; i++) {
+      const csvFile = options.input.csvFiles[i];
+
+      try {
+        const result = await FileDetector.detectAndProcess(csvFile, {
+          allowedTypes: ["csv"],
+          csvOptions: options.csvOptions,
+        });
+
+        const filename = extractFilename(csvFile, i);
+        const filePath = typeof csvFile === "string" ? csvFile : filename;
+        let csvSection = `\n\n## CSV Data from "${filename}":\n`;
+
+        // Add metadata from csv-parser library
+        if (result.metadata) {
+          const metadataText = formatCSVMetadata(result.metadata);
+          if (metadataText) {
+            csvSection += metadataText + `\n\n`;
+          }
+        }
+
+        csvSection += buildCSVToolInstructions(filePath);
+
+        csvSection += result.content;
+        options.input.text += csvSection;
+        logger.info(`[CSV] ✅ Processed: ${filename}`);
+      } catch (error) {
+        logger.error(`[CSV] ❌ Failed:`, error);
+        const filename = extractFilename(csvFile, i);
+        options.input.text += `\n\n## CSV Data Error: Failed to process "${filename}"`;
+        options.input.text += `\nReason: ${error instanceof Error ? error.message : "Unknown error"}`;
+      }
+    }
+  }
+
   // Check if this is a multimodal request
   const hasImages =
     (options.input.images && options.input.images.length > 0) ||
@@ -298,7 +507,16 @@ export async function buildMultimodalMessagesArray(
 
   // If no images, use standard message building and convert to MultimodalChatMessage[]
   if (!hasImages) {
-    const standardMessages = buildMessagesArray(
+    // Clear csvFiles and files arrays to prevent duplication
+    // (already processed and added to options.input.text above)
+    if (options.input.csvFiles) {
+      options.input.csvFiles = [];
+    }
+    if (options.input.files) {
+      options.input.files = [];
+    }
+
+    const standardMessages = await buildMessagesArray(
       options as TextGenerationOptions,
     );
     return standardMessages.map(
@@ -639,4 +857,28 @@ async function convertSimpleImagesToProviderFormat(
   });
 
   return content;
+}
+
+/**
+ * Extract filename from file input
+ */
+function extractFilename(file: Buffer | string, index: number = 0): string {
+  if (typeof file === "string") {
+    if (file.startsWith("http")) {
+      try {
+        const url = new URL(file);
+        return url.pathname.split("/").pop() || `file-${index + 1}`;
+      } catch {
+        return `file-${index + 1}`;
+      }
+    }
+    return (
+      file.split("/").pop() || file.split("\\").pop() || `file-${index + 1}`
+    );
+  }
+  return `file-${index + 1}`;
+}
+
+function buildCSVToolInstructions(filePath: string): string {
+  return `\n**IMPORTANT**: For counting, aggregation, or statistical operations, use the analyzeCSV tool with filePath="${filePath}". The tool reads the file directly - do NOT pass CSV content.\n\nExample: analyzeCSV(filePath="${filePath}", operation="count_by_column", column="merchant_id")\n\n`;
 }

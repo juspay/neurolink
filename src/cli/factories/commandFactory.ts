@@ -70,6 +70,28 @@ export class CLICommandFactory {
         "Add image file for multimodal analysis (can be used multiple times)",
       alias: "i",
     },
+    csv: {
+      type: "string" as const,
+      description:
+        "Add CSV file for data analysis (can be used multiple times)",
+      alias: "c",
+    },
+    file: {
+      type: "string" as const,
+      description:
+        "Add file with auto-detection (CSV, image, etc. - can be used multiple times)",
+    },
+    csvMaxRows: {
+      type: "number" as const,
+      default: 1000,
+      description: "Maximum number of CSV rows to process",
+    },
+    csvFormat: {
+      type: "string" as const,
+      choices: ["raw", "markdown", "json"],
+      default: "raw",
+      description: "CSV output format (raw recommended for large files)",
+    },
     model: {
       type: "string" as const,
       description:
@@ -221,6 +243,26 @@ export class CLICommandFactory {
     // URLs will be detected and appended to prompt text
     // File paths will be converted to base64 by the message builder
     return imagePaths;
+  }
+
+  // Helper method to process CLI CSV files
+  private static processCliCSVFiles(
+    csvFiles?: string | string[],
+  ): Array<Buffer | string> | undefined {
+    if (!csvFiles) {
+      return undefined;
+    }
+    return Array.isArray(csvFiles) ? csvFiles : [csvFiles];
+  }
+
+  // Helper method to process CLI files with auto-detection
+  private static processCliFiles(
+    files?: string | string[],
+  ): Array<Buffer | string> | undefined {
+    if (!files) {
+      return undefined;
+    }
+    return Array.isArray(files) ? files : [files];
   }
 
   // Helper method to process common options
@@ -1363,15 +1405,32 @@ export class CLICommandFactory {
         });
       }
 
-      // Process CLI images if provided
+      // Process CLI multimodal inputs
       const imageBuffers = CLICommandFactory.processCliImages(
         argv.image as string | string[] | undefined,
       );
+      const csvFiles = CLICommandFactory.processCliCSVFiles(
+        argv.csv as string | string[] | undefined,
+      );
+      const files = CLICommandFactory.processCliFiles(
+        argv.file as string | string[] | undefined,
+      );
 
       const result = await sdk.generate({
-        input: imageBuffers
-          ? { text: inputText, images: imageBuffers }
-          : { text: inputText },
+        input: {
+          text: inputText,
+          ...(imageBuffers && { images: imageBuffers }),
+          ...(csvFiles && { csvFiles }),
+          ...(files && { files }),
+        },
+        csvOptions: {
+          maxRows: argv.csvMaxRows as number | undefined,
+          formatStyle: argv.csvFormat as
+            | "raw"
+            | "markdown"
+            | "json"
+            | undefined,
+        },
         provider: enhancedOptions.provider,
         model: enhancedOptions.model,
         temperature: enhancedOptions.temperature,
@@ -1593,15 +1652,28 @@ export class CLICommandFactory {
       ? { ...contextMetadata, sessionId }
       : contextMetadata;
 
-    // Process CLI images if provided
+    // Process CLI multimodal inputs
     const imageBuffers = CLICommandFactory.processCliImages(
       argv.image as string | string[] | undefined,
     );
+    const csvFiles = CLICommandFactory.processCliCSVFiles(
+      argv.csv as string | string[] | undefined,
+    );
+    const files = CLICommandFactory.processCliFiles(
+      argv.file as string | string[] | undefined,
+    );
 
     const stream = await sdk.stream({
-      input: imageBuffers
-        ? { text: inputText, images: imageBuffers }
-        : { text: inputText },
+      input: {
+        text: inputText,
+        ...(imageBuffers && { images: imageBuffers }),
+        ...(csvFiles && { csvFiles }),
+        ...(files && { files }),
+      },
+      csvOptions: {
+        maxRows: argv.csvMaxRows as number | undefined,
+        formatStyle: argv.csvFormat as "raw" | "markdown" | "json" | undefined,
+      },
       provider: enhancedOptions.provider as string | undefined,
       model: enhancedOptions.model as string | undefined,
       temperature: enhancedOptions.temperature as number | undefined,
@@ -1643,12 +1715,16 @@ export class CLICommandFactory {
     let contentReceived = false;
     const abortController = new AbortController();
 
-    // Create timeout promise for stream consumption (30 seconds)
+    // Create timeout promise for stream consumption (default: 30 seconds, respects user-provided timeout)
+    const streamTimeout =
+      options.timeout && typeof options.timeout === "number"
+        ? options.timeout * 1000
+        : 30000;
     const timeoutPromise = new Promise<never>((_, reject) => {
       const timeoutId = setTimeout(() => {
         if (!contentReceived) {
           const timeoutError = new Error(
-            "\n❌ Stream timeout - no content received within 30 seconds\n" +
+            `\n❌ Stream timeout - no content received within ${streamTimeout / 1000} seconds\n` +
               "This usually indicates authentication or network issues\n\n" +
               "🔧 Try these steps:\n" +
               "1. Check your provider credentials are configured correctly\n" +
@@ -1657,7 +1733,7 @@ export class CLICommandFactory {
           );
           reject(timeoutError);
         }
-      }, 30000);
+      }, streamTimeout);
 
       // Clean up timeout when aborted
       abortController.signal.addEventListener("abort", () => {

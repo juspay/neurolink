@@ -25,6 +25,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q4 2025)
 
+- **CSV File Support** – Attach CSV files to prompts for AI-powered data analysis with auto-detection. → [CSV Guide](features/multimodal-chat.md#csv-file-support)
 - **LiteLLM Integration** – Access 100+ AI models from all major providers through unified interface. → [Setup Guide](LITELLM-INTEGRATION.md)
 - **SageMaker Integration** – Deploy and use custom trained models on AWS infrastructure. → [Setup Guide](SAGEMAKER-INTEGRATION.md)
 - **Human-in-the-loop workflows** – Pause generation for user approval/input before tool execution. → [HITL Guide](features/hitl.md)
@@ -262,8 +263,11 @@ const neurolink = new NeuroLink({
 
 const result = await neurolink.generate({
   input: {
-    text: "Create a multimodal onboarding script",
-    images: ["./diagrams/architecture.png"],
+    text: "Create a comprehensive analysis",
+    files: [
+      "./sales_data.csv", // Auto-detected as CSV
+      "./diagrams/architecture.png", // Auto-detected as image
+    ],
   },
   enableEvaluation: true,
   region: "us-east-1",
@@ -277,15 +281,15 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](cli/commands.md
 
 ## Platform Capabilities at a Glance
 
-| Capability               | Highlights                                                                                    |
-| ------------------------ | --------------------------------------------------------------------------------------------- |
-| **Provider unification** | 12+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).       |
-| **Multimodal pipeline**  | Stream images + text across providers with local/remote assets (Q3 2025).                     |
-| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.  |
-| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4). |
-| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.          |
-| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.              |
-| **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search.              |
+| Capability               | Highlights                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| **Provider unification** | 12+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                  |
+| **Multimodal pipeline**  | Stream images + CSV data across providers with local/remote assets. Auto-detection for mixed file types. |
+| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.             |
+| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4).            |
+| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                     |
+| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.                         |
+| **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search.                         |
 
 ## Documentation Map
 

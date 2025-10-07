@@ -6,15 +6,15 @@
 /**
  * Text content type for multimodal messages
  */
-export interface TextContent {
+export type TextContent = {
   type: "text";
   text: string;
-}
+};
 
 /**
  * Image content type for multimodal messages
  */
-export interface ImageContent {
+export type ImageContent = {
   type: "image";
   data: Buffer | string; // Buffer, base64, URL, or data URI
   mediaType?:
@@ -30,12 +30,26 @@ export interface ImageContent {
     dimensions?: { width: number; height: number };
     filename?: string;
   };
-}
+};
+
+/**
+ * CSV content type for multimodal messages
+ */
+export type CSVContent = {
+  type: "csv";
+  data: Buffer | string;
+  metadata?: {
+    filename?: string;
+    maxRows?: number;
+    formatStyle?: "raw" | "markdown" | "json";
+    description?: string;
+  };
+};
 
 /**
  * Union type for all content types
  */
-export type Content = TextContent | ImageContent;
+export type Content = TextContent | ImageContent | CSVContent;
 
 /**
  * Vision capability information for providers

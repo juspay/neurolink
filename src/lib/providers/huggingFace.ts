@@ -163,7 +163,7 @@ export class HuggingFaceProvider extends BaseProvider {
       const streamOptions = this.prepareStreamOptions(options, analysisSchema);
 
       // Build message array from options
-      const messages = buildMessagesArray(options);
+      const messages = await buildMessagesArray(options);
 
       const result = await streamText({
         model: this.model,

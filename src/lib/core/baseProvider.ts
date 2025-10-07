@@ -51,12 +51,14 @@ import { modelConfig } from "./modelConfiguration.js";
 // Provider types moved to ../types/providers.js
 
 /**
- * Multimodal input type for options that may contain images or content arrays
+ * Multimodal input type for options that may contain images, CSV files, or content arrays
  */
 type MultimodalInput = {
   text: string;
   images?: Array<Buffer | string>;
   content?: Array<TextContent | ImageContent>;
+  csvFiles?: Array<Buffer | string>;
+  files?: Array<Buffer | string>;
 };
 
 /**
@@ -186,6 +188,7 @@ export abstract class BaseProvider implements AIProvider {
           // Convert stream options to text generation options
           const textOptions: TextGenerationOptions = {
             prompt: options.input?.text || "",
+            input: options.input,
             systemPrompt: options.systemPrompt,
             temperature: options.temperature,
             maxTokens: options.maxTokens,
@@ -199,6 +202,7 @@ export abstract class BaseProvider implements AIProvider {
             evaluationDomain: options.evaluationDomain,
             toolUsageContext: options.toolUsageContext,
             context: options.context as Record<string, JsonValue> | undefined,
+            csvOptions: options.csvOptions,
           };
 
           logger.debug(`Calling generate for fake streaming`, {
@@ -346,7 +350,9 @@ export abstract class BaseProvider implements AIProvider {
       const input = opts.input as MultimodalInput | undefined;
       const hasImages = !!input?.images?.length;
       const hasContent = !!input?.content?.length;
-      return hasImages || hasContent;
+      const hasCSVFiles = !!input?.csvFiles?.length;
+      const hasFiles = !!input?.files?.length;
+      return hasImages || hasContent || hasCSVFiles || hasFiles;
     };
 
     let messages;
@@ -363,7 +369,10 @@ export abstract class BaseProvider implements AIProvider {
           text: options.prompt || options.input?.text || "",
           images: input?.images,
           content: input?.content,
+          csvFiles: input?.csvFiles,
+          files: input?.files,
         },
+        csvOptions: options.csvOptions,
         provider: options.provider,
         model: options.model,
         temperature: options.temperature,
@@ -385,7 +394,7 @@ export abstract class BaseProvider implements AIProvider {
           "No multimodal input detected, using standard message builder",
         );
       }
-      messages = buildMessagesArray(options);
+      messages = await buildMessagesArray(options);
     }
 
     // Convert messages to Vercel AI SDK format

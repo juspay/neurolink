@@ -32,6 +32,7 @@ export const textGenerationOptionsSchema: Record<
     | "expectedOutcome"
     | "evaluationCriteria"
     | "region"
+    | "csvOptions"
   >,
   OptionSchema
 > = {

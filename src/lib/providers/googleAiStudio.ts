@@ -155,7 +155,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
       // Build message array from options with multimodal support
       const hasMultimodalInput = !!(
-        options.input?.images?.length || options.input?.content?.length
+        options.input?.images?.length ||
+        options.input?.content?.length ||
+        options.input?.files?.length ||
+        options.input?.csvFiles?.length
       );
 
       let messages;
@@ -176,7 +179,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
             text: options.input?.text || "",
             images: options.input?.images,
             content: options.input?.content,
+            files: options.input?.files,
+            csvFiles: options.input?.csvFiles,
           },
+          csvOptions: options.csvOptions,
           systemPrompt: options.systemPrompt,
           conversationHistory: options.conversationMessages,
           provider: this.providerName,
@@ -199,7 +205,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
         logger.debug(
           `Google AI Studio: Text-only input, using standard message builder`,
         );
-        messages = buildMessagesArray(options);
+        messages = await buildMessagesArray(options);
       }
 
       const result = await streamText({
