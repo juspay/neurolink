@@ -209,6 +209,7 @@ export class AzureOpenAIProvider extends BaseProvider {
           : {}),
         tools,
         toolChoice: shouldUseTools ? "auto" : "none",
+        experimental_telemetry: this.getStreamTelemetryConfig(options),
         onStepFinish: ({ toolCalls, toolResults }) => {
           this.handleToolExecutionStorage(
             toolCalls,

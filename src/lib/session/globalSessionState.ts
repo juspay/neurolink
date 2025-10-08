@@ -4,6 +4,40 @@ import type {
   ConversationMemoryConfig,
   NeurolinkOptions,
 } from "../types/conversation.js";
+import type { ObservabilityConfig } from "../types/observability.js";
+
+/**
+ * Build observability config from environment variables
+ * Used by CLI to configure NeuroLink instances
+ */
+function buildObservabilityConfigFromEnv(): ObservabilityConfig | undefined {
+  const langfuseEnabled =
+    process.env.LANGFUSE_ENABLED?.trim().toLowerCase() === "true";
+  const publicKey = process.env.LANGFUSE_PUBLIC_KEY?.trim();
+  const secretKey = process.env.LANGFUSE_SECRET_KEY?.trim();
+
+  if (!langfuseEnabled || !publicKey || !secretKey) {
+    return undefined;
+  }
+
+  return {
+    langfuse: {
+      enabled: langfuseEnabled,
+      publicKey,
+      secretKey,
+      baseUrl:
+        process.env.LANGFUSE_BASE_URL?.trim() || "https://cloud.langfuse.com",
+      environment:
+        process.env.LANGFUSE_ENVIRONMENT?.trim() ||
+        process.env.PUBLIC_APP_ENVIRONMENT?.trim() ||
+        "dev",
+      release:
+        process.env.PUBLIC_APP_VERSION?.trim() ||
+        process.env.npm_package_version?.trim() ||
+        "v1.0.0",
+    },
+  };
+}
 
 // Define a specific type for session variable values
 type SessionVariableValue = string | number | boolean;
@@ -37,6 +71,12 @@ export class GlobalSessionManager {
         maxSessions: config.maxSessions,
         maxTurnsPerSession: config.maxTurnsPerSession,
       };
+    }
+
+    // Add observability config from environment variables (CLI usage)
+    const observabilityConfig = buildObservabilityConfigFromEnv();
+    if (observabilityConfig) {
+      neurolinkOptions.observability = observabilityConfig;
     }
 
     this.loopSession = {
@@ -129,7 +169,15 @@ export class GlobalSessionManager {
 
   getOrCreateNeuroLink(): NeuroLink {
     const session = this.getLoopSession();
-    return session ? session.neurolinkInstance : new NeuroLink();
+    if (session) {
+      return session.neurolinkInstance;
+    }
+
+    // Create new NeuroLink with observability config from environment (CLI usage)
+    const observabilityConfig = buildObservabilityConfigFromEnv();
+    return new NeuroLink(
+      observabilityConfig ? { observability: observabilityConfig } : undefined,
+    );
   }
 
   getCurrentSessionId(): string | undefined {

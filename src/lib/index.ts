@@ -57,6 +57,31 @@ export { NeuroLink };
 export type { ProviderStatus, MCPStatus } from "./neurolink.js";
 export type { MCPServerInfo } from "./types/mcpTypes.js";
 
+// Observability configuration types
+export type {
+  ObservabilityConfig,
+  LangfuseConfig,
+  OpenTelemetryConfig,
+} from "./types/observability.js";
+
+import {
+  initializeOpenTelemetry,
+  shutdownOpenTelemetry,
+  flushOpenTelemetry,
+  getLangfuseHealthStatus,
+} from "./services/server/ai/observability/instrumentation.js";
+import {
+  initializeTelemetry as init,
+  getTelemetryStatus as getStatus,
+} from "./telemetry/index.js";
+
+export {
+  initializeOpenTelemetry,
+  shutdownOpenTelemetry,
+  flushOpenTelemetry,
+  getLangfuseHealthStatus,
+};
+
 // Middleware exports
 export type {
   NeuroLinkMiddleware,
@@ -185,24 +210,24 @@ export type {
 // export { createEnhancedChatService } from './chat/index.js';
 // export type * from './services/types.js';
 
-// Optional Telemetry (Phase 2) - Conditional export based on feature flag
+// Optional Telemetry (Phase 2) - Telemetry service initialization
 export async function initializeTelemetry(): Promise<boolean> {
-  if (process.env.NEUROLINK_TELEMETRY_ENABLED === "true") {
-    const { initializeTelemetry: init } = await import("./telemetry/index.js");
+  try {
     const result = await init();
-    return !!result; // Convert TelemetryService to boolean
+    return !!result;
+  } catch {
+    return false;
   }
-  return Promise.resolve(false);
 }
 
-export function getTelemetryStatus(): {
+export async function getTelemetryStatus(): Promise<{
   enabled: boolean;
   initialized: boolean;
-} {
-  if (process.env.NEUROLINK_TELEMETRY_ENABLED === "true") {
-    return { enabled: true, initialized: false };
-  }
-  return { enabled: false, initialized: false };
+  endpoint?: string;
+  service?: string;
+  version?: string;
+}> {
+  return getStatus();
 }
 
 // ============================================================================

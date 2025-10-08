@@ -1386,6 +1386,7 @@ export class CLICommandFactory {
         }
 
         if (!globalSession.getCurrentSessionId()) {
+          await this.flushLangfuseTraces();
           process.exit(0);
         }
       }
@@ -1490,6 +1491,7 @@ export class CLICommandFactory {
       }
 
       if (!globalSession.getCurrentSessionId()) {
+        await this.flushLangfuseTraces();
         process.exit(0);
       }
     } catch (error) {
@@ -1631,6 +1633,7 @@ export class CLICommandFactory {
     }
 
     if (!globalSession.getCurrentSessionId()) {
+      await this.flushLangfuseTraces();
       process.exit(0);
     }
   }
@@ -1978,6 +1981,7 @@ export class CLICommandFactory {
       await this.handleStreamOutput(options, fullContent);
 
       if (!globalSession.getCurrentSessionId()) {
+        await this.flushLangfuseTraces();
         process.exit(0);
       }
     } catch (error) {
@@ -2137,6 +2141,7 @@ export class CLICommandFactory {
       this.handleOutput(results, options);
 
       if (!globalSession.getCurrentSessionId()) {
+        await this.flushLangfuseTraces();
         process.exit(0);
       }
     } catch (error) {
@@ -2609,6 +2614,22 @@ export class CLICommandFactory {
       }
     } catch (error) {
       handleError(error as Error, "Completion generation");
+    }
+  }
+
+  /**
+   * Flush Langfuse traces before exit
+   */
+  private static async flushLangfuseTraces(): Promise<void> {
+    try {
+      logger.debug("[CLI] Flushing Langfuse traces before exit...");
+      const { flushOpenTelemetry } = await import(
+        "../../lib/services/server/ai/observability/instrumentation.js"
+      );
+      await flushOpenTelemetry();
+      logger.debug("[CLI] Langfuse traces flushed successfully");
+    } catch (error) {
+      logger.error("[CLI] Error flushing Langfuse traces", { error });
     }
   }
 }

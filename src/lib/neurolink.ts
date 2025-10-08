@@ -129,6 +129,24 @@ import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
 import { ModelRouter } from "./utils/modelRouter.js";
 import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
 import type { MemoryConfig } from "mem0ai/oss";
+import {
+  initializeOpenTelemetry,
+  shutdownOpenTelemetry,
+  flushOpenTelemetry,
+  getLangfuseHealthStatus,
+} from "./services/server/ai/observability/instrumentation.js";
+import type { ObservabilityConfig } from "./types/observability.js";
+
+/**
+ * Configuration object for NeuroLink constructor.
+ */
+export interface NeurolinkConstructorConfig {
+  conversationMemory?: Partial<ConversationMemoryConfig>;
+  enableOrchestration?: boolean;
+  hitl?: HITLConfig;
+  toolRegistry?: MCPToolRegistry;
+  observability?: ObservabilityConfig;
+}
 
 // Provider and MCP diagnostic types
 export interface ProviderStatus {
@@ -345,13 +363,11 @@ export class NeuroLink {
    * @throws {Error} When external server manager initialization fails
    * @throws {Error} When HITL configuration is invalid (if enabled)
    */
-  constructor(config?: {
-    conversationMemory?: Partial<ConversationMemoryConfig>;
-    enableOrchestration?: boolean;
-    hitl?: HITLConfig;
-    toolRegistry?: MCPToolRegistry;
-  }) {
+  private observabilityConfig?: ObservabilityConfig;
+
+  constructor(config?: NeurolinkConstructorConfig) {
     this.toolRegistry = config?.toolRegistry || new MCPToolRegistry();
+    this.observabilityConfig = config?.observability;
 
     // Initialize orchestration setting
     this.enableOrchestration = config?.enableOrchestration ?? false;
@@ -384,6 +400,11 @@ export class NeuroLink {
     );
     this.initializeHITL(
       config,
+      constructorId,
+      constructorStartTime,
+      constructorHrTimeStart,
+    );
+    this.initializeLangfuse(
       constructorId,
       constructorStartTime,
       constructorHrTimeStart,
@@ -788,6 +809,104 @@ export class NeuroLink {
       this.emitter.emit("externalMCP:toolRemoved", event);
       this.unregisterExternalMCPToolFromRegistry(event.toolName);
     });
+  }
+
+  /**
+   * Initialize Langfuse observability for AI operations tracking
+   */
+  private initializeLangfuse(
+    constructorId: string,
+    constructorStartTime: number,
+    constructorHrTimeStart: bigint,
+  ): void {
+    const langfuseInitStartTime = process.hrtime.bigint();
+
+    try {
+      const langfuseConfig = this.observabilityConfig?.langfuse;
+
+      if (langfuseConfig?.enabled) {
+        logger.debug(`[NeuroLink] 📊 LOG_POINT_C019_LANGFUSE_INIT_START`, {
+          logPoint: "C019_LANGFUSE_INIT_START",
+          constructorId,
+          timestamp: new Date().toISOString(),
+          elapsedMs: Date.now() - constructorStartTime,
+          elapsedNs: (
+            process.hrtime.bigint() - constructorHrTimeStart
+          ).toString(),
+          langfuseInitStartTimeNs: langfuseInitStartTime.toString(),
+          message: "Starting Langfuse observability initialization",
+        });
+
+        // Initialize OpenTelemetry FIRST (required for Langfuse v4)
+        initializeOpenTelemetry(langfuseConfig);
+
+        const healthStatus = getLangfuseHealthStatus();
+        const langfuseInitDurationNs =
+          process.hrtime.bigint() - langfuseInitStartTime;
+
+        if (
+          healthStatus.initialized &&
+          healthStatus.hasProcessor &&
+          healthStatus.isHealthy
+        ) {
+          logger.debug(`[NeuroLink] ✅ LOG_POINT_C020_LANGFUSE_INIT_SUCCESS`, {
+            logPoint: "C020_LANGFUSE_INIT_SUCCESS",
+            constructorId,
+            timestamp: new Date().toISOString(),
+            elapsedMs: Date.now() - constructorStartTime,
+            elapsedNs: (
+              process.hrtime.bigint() - constructorHrTimeStart
+            ).toString(),
+            langfuseInitDurationNs: langfuseInitDurationNs.toString(),
+            langfuseInitDurationMs: Number(langfuseInitDurationNs) / 1_000_000,
+            healthStatus,
+            message: "Langfuse observability initialized successfully",
+          });
+        } else {
+          logger.warn(`[NeuroLink] ⚠️ LOG_POINT_C021_LANGFUSE_INIT_WARNING`, {
+            logPoint: "C021_LANGFUSE_INIT_WARNING",
+            constructorId,
+            timestamp: new Date().toISOString(),
+            elapsedMs: Date.now() - constructorStartTime,
+            elapsedNs: (
+              process.hrtime.bigint() - constructorHrTimeStart
+            ).toString(),
+            langfuseInitDurationNs: langfuseInitDurationNs.toString(),
+            healthStatus,
+            message: "Langfuse initialized but not healthy",
+          });
+        }
+      } else {
+        logger.debug(`[NeuroLink] 🚫 LOG_POINT_C022_LANGFUSE_DISABLED`, {
+          logPoint: "C022_LANGFUSE_DISABLED",
+          constructorId,
+          timestamp: new Date().toISOString(),
+          elapsedMs: Date.now() - constructorStartTime,
+          elapsedNs: (
+            process.hrtime.bigint() - constructorHrTimeStart
+          ).toString(),
+          message:
+            "Langfuse observability not enabled - skipping initialization",
+        });
+      }
+    } catch (error) {
+      const langfuseInitErrorDurationNs =
+        process.hrtime.bigint() - langfuseInitStartTime;
+
+      logger.error(`[NeuroLink] ❌ LOG_POINT_C023_LANGFUSE_INIT_ERROR`, {
+        logPoint: "C023_LANGFUSE_INIT_ERROR",
+        constructorId,
+        timestamp: new Date().toISOString(),
+        elapsedMs: Date.now() - constructorStartTime,
+        elapsedNs: (
+          process.hrtime.bigint() - constructorHrTimeStart
+        ).toString(),
+        langfuseInitDurationNs: langfuseInitErrorDurationNs.toString(),
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        message: "Langfuse observability initialization failed",
+      });
+    }
   }
 
   /**
@@ -1425,6 +1544,80 @@ export class NeuroLink {
    * @throws {Error} When all providers fail to generate content
    * @throws {Error} When conversation memory operations fail (if enabled)
    */
+
+  /**
+   * Get observability configuration
+   */
+  getObservabilityConfig(): ObservabilityConfig | undefined {
+    return this.observabilityConfig;
+  }
+
+  /**
+   * Check if Langfuse telemetry is enabled
+   * Centralized utility to avoid duplication across providers
+   */
+  isTelemetryEnabled(): boolean {
+    return this.observabilityConfig?.langfuse?.enabled || false;
+  }
+
+  /**
+   * Public method to initialize Langfuse observability
+   * This method can be called externally to ensure Langfuse is properly initialized
+   */
+  async initializeLangfuseObservability(): Promise<void> {
+    try {
+      const langfuseConfig = this.observabilityConfig?.langfuse;
+
+      if (langfuseConfig?.enabled) {
+        initializeOpenTelemetry(langfuseConfig);
+
+        logger.debug(
+          "[NeuroLink] Langfuse observability initialized via public method",
+        );
+      } else {
+        logger.debug(
+          "[NeuroLink] Langfuse not enabled, skipping initialization",
+        );
+      }
+    } catch (error) {
+      logger.warn(
+        "[NeuroLink] Failed to initialize Langfuse observability:",
+        error,
+      );
+    }
+  }
+
+  /**
+   * Gracefully shutdown NeuroLink and all MCP connections
+   */
+  async shutdown(): Promise<void> {
+    try {
+      logger.debug("[NeuroLink] Starting graceful shutdown");
+
+      try {
+        await flushOpenTelemetry();
+        await shutdownOpenTelemetry();
+        logger.debug("[NeuroLink] OpenTelemetry shutdown completed");
+      } catch (error) {
+        logger.warn("[NeuroLink] OpenTelemetry shutdown failed:", error);
+      }
+
+      if (this.externalServerManager) {
+        try {
+          await this.externalServerManager.shutdown();
+          logger.debug("[NeuroLink] MCP servers shutdown completed");
+        } catch (error) {
+          logger.warn("[NeuroLink] MCP servers shutdown failed:", error);
+        }
+      }
+
+      logger.debug("[NeuroLink] Graceful shutdown completed");
+    } catch (error) {
+      logger.error("[NeuroLink] Shutdown failed:", error);
+      throw error;
+    }
+  }
+
   async generate(
     optionsOrPrompt: GenerateOptions | string,
   ): Promise<GenerateResult> {

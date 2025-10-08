@@ -925,6 +925,7 @@ export class GoogleVertexProvider extends BaseProvider {
             maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
           }),
         abortSignal: timeoutController?.controller.signal,
+        experimental_telemetry: this.getStreamTelemetryConfig(options),
 
         onError: (event: { error: unknown }) => {
           const error = event.error;

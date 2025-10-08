@@ -28,6 +28,8 @@ import { DEFAULT_MAX_STEPS, STEP_LIMITS } from "../core/constants.js";
 import { directAgentTools } from "../agent/directTools.js";
 import { getSafeMaxTokens } from "../utils/tokenLimits.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import { nanoid } from "nanoid";
+import { createAnalytics } from "./analytics.js";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
 import {
   buildMessagesArray,
@@ -439,6 +441,10 @@ export abstract class BaseProvider implements AIProvider {
       toolChoice: shouldUseTools ? "auto" : "none",
       temperature: options.temperature,
       maxTokens: options.maxTokens,
+      experimental_telemetry: this.getStreamTelemetryConfig(
+        options,
+        "generate",
+      ),
       onStepFinish: ({ toolCalls, toolResults }) => {
         logger.info("Tool execution completed", { toolResults, toolCalls });
 
@@ -1812,14 +1818,13 @@ export abstract class BaseProvider implements AIProvider {
     options: StreamOptions,
   ): Promise<UnknownRecord | undefined> {
     try {
-      const { createAnalytics } = await import("./analytics.js");
       const analytics = createAnalytics(
         this.providerName,
         this.modelName,
         result,
         Date.now() - startTime,
         {
-          requestId: `${this.providerName}-stream-${Date.now()}`,
+          requestId: `${this.providerName}-stream-${nanoid()}`,
           streamingMode: true,
           ...options.context,
         },
@@ -2164,7 +2169,7 @@ export abstract class BaseProvider implements AIProvider {
     const sessionId =
       (options.context?.sessionId as string) ||
       (options as unknown as { sessionId?: string }).sessionId ||
-      `session-${Date.now()}`;
+      `session-${nanoid()}`;
     const userId =
       (options.context?.userId as string) ||
       (options as unknown as { userId?: string }).userId;
@@ -2237,5 +2242,51 @@ export abstract class BaseProvider implements AIProvider {
     }
 
     return chunks;
+  }
+
+  /**
+   * Create telemetry configuration for Vercel AI SDK experimental_telemetry
+   * This enables automatic OpenTelemetry tracing when telemetry is enabled
+   */
+  protected getStreamTelemetryConfig(
+    options: StreamOptions | TextGenerationOptions,
+    operationType: "stream" | "generate" = "stream",
+  ):
+    | {
+        isEnabled: boolean;
+        functionId?: string;
+        metadata?: Record<string, string | number | boolean>;
+      }
+    | undefined {
+    // Check if telemetry is enabled via NeuroLink observability config
+    if (!this.neurolink?.isTelemetryEnabled()) {
+      return undefined;
+    }
+
+    const functionId = `${this.providerName}-${operationType}-${nanoid()}`;
+    const metadata: Record<string, string | number | boolean> = {
+      provider: this.providerName,
+      model: this.modelName,
+      toolsEnabled: !options.disableTools,
+      neurolink: true,
+    };
+
+    // Add sessionId if available
+    if ("sessionId" in options && options.sessionId) {
+      const sessionId = options.sessionId;
+      if (
+        typeof sessionId === "string" ||
+        typeof sessionId === "number" ||
+        typeof sessionId === "boolean"
+      ) {
+        metadata.sessionId = sessionId;
+      }
+    }
+
+    return {
+      isEnabled: true,
+      functionId,
+      metadata,
+    };
   }
 }

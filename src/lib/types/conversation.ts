@@ -205,6 +205,9 @@ export interface NeurolinkOptions {
 
   /** Session identifier for conversation context */
   sessionId?: string;
+
+  /** Observability configuration */
+  observability?: import("./observability.js").ObservabilityConfig;
 }
 
 /**

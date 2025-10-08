@@ -8,8 +8,7 @@ import {
   type Histogram,
 } from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { Resource } from "@opentelemetry/resources";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
@@ -29,6 +28,7 @@ export class TelemetryService {
   private static instance: TelemetryService;
   private sdk?: NodeSDK;
   private enabled: boolean = false;
+  private initialized: boolean = false;
   private meter?: Meter;
   private tracer?: Tracer;
 
@@ -77,18 +77,13 @@ export class TelemetryService {
 
   private initializeTelemetry(): void {
     try {
-      const resource = new Resource({
+      const resource = resourceFromAttributes({
         [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || "neurolink-ai",
         [ATTR_SERVICE_VERSION]: process.env.OTEL_SERVICE_VERSION || "3.0.1",
       });
 
       this.sdk = new NodeSDK({
         resource,
-        traceExporter: new OTLPTraceExporter({
-          url:
-            process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
-            `${process.env.OTEL_EXPORTER_OTLP_ENDPOINT}/v1/traces`,
-        }),
         // Note: Metric reader configured separately
         instrumentations: [getNodeAutoInstrumentations()],
       });
@@ -158,10 +153,12 @@ export class TelemetryService {
 
     try {
       await this.sdk?.start();
+      this.initialized = true;
       logger.debug("[Telemetry] SDK started successfully");
     } catch (error) {
       logger.error("[Telemetry] Failed to start SDK:", error);
       this.enabled = false;
+      this.initialized = false;
     }
   }
 
@@ -357,12 +354,14 @@ export class TelemetryService {
 
   getStatus(): {
     enabled: boolean;
+    initialized: boolean;
     endpoint?: string;
     service?: string;
     version?: string;
   } {
     return {
       enabled: this.enabled,
+      initialized: this.initialized,
       endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
       service: process.env.OTEL_SERVICE_NAME || "neurolink-ai",
       version: process.env.OTEL_SERVICE_VERSION || "3.0.1",
@@ -401,6 +400,7 @@ export class TelemetryService {
     if (this.enabled && this.sdk) {
       try {
         await this.sdk.shutdown();
+        this.initialized = false;
         logger.debug("[Telemetry] SDK shutdown completed");
       } catch (error) {
         logger.error("[Telemetry] Error during shutdown:", error);

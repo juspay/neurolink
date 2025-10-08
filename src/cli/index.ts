@@ -37,20 +37,35 @@ const cli = initializeCliParser();
   try {
     // Parse and execute commands
     await cli.parse();
+    await cleanup();
   } catch (error) {
     // Global error handler - should not reach here due to fail() handler
     process.stderr.write(
       chalk.red(`Unexpected CLI _error: ${(error as Error).message}\n`),
     );
+    await cleanup();
     process.exit(1);
   }
 })();
 
 // Cleanup on exit
-process.on("SIGINT", () => {
+process.on("SIGINT", async () => {
+  await cleanup();
   process.exit(0);
 });
 
-process.on("SIGTERM", () => {
+process.on("SIGTERM", async () => {
+  await cleanup();
   process.exit(0);
 });
+
+process.on("beforeExit", async () => {
+  await cleanup();
+});
+
+async function cleanup() {
+  const { flushOpenTelemetry } = await import(
+    "../lib/services/server/ai/observability/instrumentation.js"
+  );
+  await flushOpenTelemetry();
+}
