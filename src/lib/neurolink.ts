@@ -2915,7 +2915,7 @@ export class NeuroLink {
       "NeuroLink.createMCPStream",
     );
 
-    // Get conversation messages for context by creating a minimal TextGenerationOptions object
+    // Get conversation messages for context
     const conversationMessages = await getConversationMessages(
       this.conversationMemory,
       {
@@ -2924,10 +2924,11 @@ export class NeuroLink {
       } as TextGenerationOptions,
     );
 
-    // Pass conversation history to stream just like in generate method
+    // Let provider handle tools and system prompt automatically via Vercel AI SDK
+    // This ensures proper tool integration in stream mode
     const streamResult = await provider.stream({
       ...options,
-      conversationMessages, // Inject conversation history
+      conversationMessages,
     });
     return { stream: streamResult.stream, provider: providerName };
   }
@@ -3038,7 +3039,6 @@ export class NeuroLink {
     const provider = await AIProviderFactory.createProvider(
       providerName,
       options.model,
-      false,
     );
     const fallbackStreamResult = await provider.stream({
       input: { text: options.input.text },
@@ -4569,7 +4569,6 @@ export class NeuroLink {
     const provider = await AIProviderFactory.createProvider(
       providerName as AIProviderName,
       null,
-      false, // Disable MCP for testing
     );
 
     await provider.generate({
@@ -5786,6 +5785,155 @@ export class NeuroLink {
         "[NeuroLink] Failed to unregister all external MCP tools from registry:",
         error,
       );
+    }
+  }
+
+  /**
+   * Dispose of all resources and cleanup connections
+   * Call this method when done using the NeuroLink instance to prevent resource leaks
+   * Especially important in test environments where multiple instances are created
+   */
+  async dispose(): Promise<void> {
+    logger.debug("[NeuroLink] Starting disposal of resources...");
+
+    const cleanupErrors: Error[] = [];
+
+    try {
+      // 1. Flush and shutdown OpenTelemetry
+      try {
+        logger.debug("[NeuroLink] Flushing and shutting down OpenTelemetry...");
+        await flushOpenTelemetry();
+        await shutdownOpenTelemetry();
+        logger.debug("[NeuroLink] OpenTelemetry shutdown successfully");
+      } catch (error) {
+        const err =
+          error instanceof Error
+            ? error
+            : new Error(`OpenTelemetry shutdown error: ${String(error)}`);
+        cleanupErrors.push(err);
+        logger.warn("[NeuroLink] Error shutting down OpenTelemetry:", error);
+      }
+
+      // 2. Shutdown external MCP server connections
+      if (this.externalServerManager) {
+        try {
+          logger.debug("[NeuroLink] Shutting down external MCP servers...");
+          await this.externalServerManager.shutdown();
+          logger.debug(
+            "[NeuroLink] External MCP servers shutdown successfully",
+          );
+        } catch (error) {
+          const err =
+            error instanceof Error
+              ? error
+              : new Error(`External server shutdown error: ${String(error)}`);
+          cleanupErrors.push(err);
+          logger.warn(
+            "[NeuroLink] Error shutting down external MCP servers:",
+            error,
+          );
+        }
+      }
+
+      // 3. Clear all event listeners to prevent memory leaks
+      if (this.emitter) {
+        try {
+          logger.debug("[NeuroLink] Removing all event listeners...");
+          this.emitter.removeAllListeners();
+          logger.debug("[NeuroLink] Event listeners removed successfully");
+        } catch (error) {
+          const err =
+            error instanceof Error
+              ? error
+              : new Error(`Event emitter cleanup error: ${String(error)}`);
+          cleanupErrors.push(err);
+          logger.warn("[NeuroLink] Error removing event listeners:", error);
+        }
+      }
+
+      // 4. Clear all circuit breakers
+      if (this.toolCircuitBreakers && this.toolCircuitBreakers.size > 0) {
+        try {
+          logger.debug(
+            `[NeuroLink] Clearing ${this.toolCircuitBreakers.size} circuit breakers...`,
+          );
+          this.toolCircuitBreakers.clear();
+          logger.debug("[NeuroLink] Circuit breakers cleared successfully");
+        } catch (error) {
+          const err =
+            error instanceof Error
+              ? error
+              : new Error(`Circuit breaker cleanup error: ${String(error)}`);
+          cleanupErrors.push(err);
+          logger.warn("[NeuroLink] Error clearing circuit breakers:", error);
+        }
+      }
+
+      // 5. Clear all Maps and caches
+      try {
+        logger.debug("[NeuroLink] Clearing maps and caches...");
+
+        if (this.toolExecutionMetrics) {
+          this.toolExecutionMetrics.clear();
+        }
+
+        if (this.activeToolExecutions) {
+          this.activeToolExecutions.clear();
+        }
+
+        if (this.currentStreamToolExecutions) {
+          this.currentStreamToolExecutions.length = 0;
+        }
+
+        if (this.toolExecutionHistory) {
+          this.toolExecutionHistory.length = 0;
+        }
+
+        // Clear tool cache
+        if (this.toolCache) {
+          this.toolCache.tools = [];
+          this.toolCache.timestamp = 0;
+        }
+
+        logger.debug("[NeuroLink] Maps and caches cleared successfully");
+      } catch (error) {
+        const err =
+          error instanceof Error
+            ? error
+            : new Error(`Cache cleanup error: ${String(error)}`);
+        cleanupErrors.push(err);
+        logger.warn("[NeuroLink] Error clearing caches:", error);
+      }
+
+      // 6. Reset initialization flags
+      try {
+        logger.debug("[NeuroLink] Resetting initialization state...");
+        this.mcpInitialized = false;
+        this.conversationMemoryNeedsInit = false;
+        logger.debug("[NeuroLink] Initialization state reset successfully");
+      } catch (error) {
+        const err =
+          error instanceof Error
+            ? error
+            : new Error(`State reset error: ${String(error)}`);
+        cleanupErrors.push(err);
+        logger.warn("[NeuroLink] Error resetting state:", error);
+      }
+
+      // 6. Log completion
+      if (cleanupErrors.length === 0) {
+        logger.debug("[NeuroLink] ✅ Resource disposal completed successfully");
+      } else {
+        logger.warn(
+          `[NeuroLink] ⚠️ Resource disposal completed with ${cleanupErrors.length} errors`,
+          {
+            errors: cleanupErrors.map((e) => e.message),
+          },
+        );
+      }
+    } catch (error) {
+      logger.error("[NeuroLink] Critical error during disposal:", error);
+      throw error;
     }
   }
 }

@@ -17,6 +17,7 @@ import {
   buildMultimodalMessagesArray,
   convertToCoreMessages,
 } from "../utils/messageBuilder.js";
+import { buildMultimodalOptions } from "../utils/multimodalOptionsBuilder.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 
@@ -147,7 +148,8 @@ export class AzureOpenAIProvider extends BaseProvider {
         options.input?.images?.length ||
         options.input?.content?.length ||
         options.input?.files?.length ||
-        options.input?.csvFiles?.length
+        options.input?.csvFiles?.length ||
+        options.input?.pdfFiles?.length
       );
 
       let messages;
@@ -162,26 +164,11 @@ export class AzureOpenAIProvider extends BaseProvider {
           },
         );
 
-        // Create multimodal options for buildMultimodalMessagesArray
-        const multimodalOptions = {
-          input: {
-            text: options.input?.text || "",
-            images: options.input?.images,
-            content: options.input?.content,
-            files: options.input?.files,
-            csvFiles: options.input?.csvFiles,
-          },
-          csvOptions: options.csvOptions,
-          systemPrompt: options.systemPrompt,
-          conversationHistory: options.conversationMessages,
-          provider: this.providerName,
-          model: this.modelName,
-          temperature: options.temperature,
-          maxTokens: options.maxTokens,
-          enableAnalytics: options.enableAnalytics,
-          enableEvaluation: options.enableEvaluation,
-          context: options.context,
-        };
+        const multimodalOptions = buildMultimodalOptions(
+          options,
+          this.providerName,
+          this.modelName,
+        );
 
         const mm = await buildMultimodalMessagesArray(
           multimodalOptions,

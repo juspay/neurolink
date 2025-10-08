@@ -47,9 +47,23 @@ export type CSVContent = {
 };
 
 /**
+ * PDF document content type for multimodal messages
+ */
+export type PDFContent = {
+  type: "pdf";
+  data: Buffer | string;
+  metadata?: {
+    filename?: string;
+    pages?: number;
+    version?: string;
+    description?: string;
+  };
+};
+
+/**
  * Union type for all content types
  */
-export type Content = TextContent | ImageContent | CSVContent;
+export type Content = TextContent | ImageContent | CSVContent | PDFContent;
 
 /**
  * Vision capability information for providers

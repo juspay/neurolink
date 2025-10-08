@@ -5,7 +5,7 @@ import type {
   StandardRecord,
 } from "../types/typeAliases.js";
 import type { Tool, LanguageModelV1, CoreMessage } from "ai";
-import { generateText } from "ai";
+import { generateText, tool as createAISDKTool, jsonSchema } from "ai";
 import type {
   AIProvider,
   TextGenerationOptions,
@@ -53,13 +53,14 @@ import { modelConfig } from "./modelConfiguration.js";
 // Provider types moved to ../types/providers.js
 
 /**
- * Multimodal input type for options that may contain images, CSV files, or content arrays
+ * Multimodal input type for options that may contain images, CSV files, PDF files, or content arrays
  */
 type MultimodalInput = {
   text: string;
   images?: Array<Buffer | string>;
   content?: Array<TextContent | ImageContent>;
   csvFiles?: Array<Buffer | string>;
+  pdfFiles?: Array<Buffer | string>;
   files?: Array<Buffer | string>;
 };
 
@@ -353,8 +354,9 @@ export abstract class BaseProvider implements AIProvider {
       const hasImages = !!input?.images?.length;
       const hasContent = !!input?.content?.length;
       const hasCSVFiles = !!input?.csvFiles?.length;
+      const hasPdfFiles = !!input?.pdfFiles?.length;
       const hasFiles = !!input?.files?.length;
-      return hasImages || hasContent || hasCSVFiles || hasFiles;
+      return hasImages || hasContent || hasCSVFiles || hasPdfFiles || hasFiles;
     };
 
     let messages;
@@ -372,6 +374,7 @@ export abstract class BaseProvider implements AIProvider {
           images: input?.images,
           content: input?.content,
           csvFiles: input?.csvFiles,
+          pdfFiles: input?.pdfFiles,
           files: input?.files,
         },
         csvOptions: options.csvOptions,
@@ -1091,30 +1094,28 @@ export abstract class BaseProvider implements AIProvider {
     try {
       logger.debug(`[BaseProvider] Converting custom tool: ${toolName}`);
 
-      // Convert to AI SDK tool format
-      const { tool: createAISDKTool } = await import("ai");
-      const { z } = await import("zod");
+      let finalSchema: z.ZodSchema | ReturnType<typeof jsonSchema>;
+      let originalInputSchema: Record<string, unknown> | undefined;
 
-      let finalSchema: z.ZodSchema;
-      const schemaSource = toolInfo.parameters || toolInfo.inputSchema;
-
-      if (this.isZodSchema(schemaSource)) {
-        finalSchema = schemaSource as z.ZodSchema;
-        logger.debug(
-          `[BaseProvider] ${toolName}: Using existing Zod schema from ${toolInfo.parameters ? "parameters" : "inputSchema"} field`,
-        );
-      } else if (schemaSource && typeof schemaSource === "object") {
-        logger.debug(
-          `[BaseProvider] ${toolName}: Converting JSON Schema to Zod from ${toolInfo.parameters ? "parameters" : "inputSchema"} field`,
-        );
+      // Prioritize parameters (Zod), then inputSchema (JSON Schema)
+      if (toolInfo.parameters && this.isZodSchema(toolInfo.parameters)) {
+        finalSchema = toolInfo.parameters as z.ZodSchema;
+      } else if (
+        toolInfo.inputSchema &&
+        typeof toolInfo.inputSchema === "object"
+      ) {
+        // Use original JSON Schema with jsonSchema() wrapper - NO CONVERSION!
+        originalInputSchema = toolInfo.inputSchema as Record<string, unknown>;
+        finalSchema = jsonSchema(originalInputSchema);
+      } else if (
+        toolInfo.parameters &&
+        typeof toolInfo.parameters === "object"
+      ) {
         finalSchema = convertJsonSchemaToZod(
-          schemaSource as Record<string, unknown>,
+          toolInfo.parameters as Record<string, unknown>,
         );
       } else {
         finalSchema = z.object({});
-        logger.debug(
-          `[BaseProvider] ${toolName}: No schema found, using empty object`,
-        );
       }
 
       return createAISDKTool({
@@ -1384,7 +1385,7 @@ export abstract class BaseProvider implements AIProvider {
             inputSchema?: unknown; // Support MCPExecutableTool format
           },
         );
-        if (tool) {
+        if (tool && !tools[toolName]) {
           tools[toolName] = tool;
         }
       }
@@ -1393,6 +1394,51 @@ export abstract class BaseProvider implements AIProvider {
     logger.debug(`[BaseProvider] Custom tools processing complete`, {
       customToolsProcessed: this.customTools.size,
     });
+  }
+
+  /**
+   * Recursively fix JSON Schema for OpenAI strict mode compatibility
+   * OpenAI requires additionalProperties: false at ALL levels and preserves required array
+   */
+  private fixSchemaForOpenAIStrictMode(
+    schema: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const fixedSchema = JSON.parse(JSON.stringify(schema));
+
+    if (
+      fixedSchema.type === "object" &&
+      fixedSchema.properties &&
+      typeof fixedSchema.properties === "object"
+    ) {
+      const allPropertyNames = Object.keys(fixedSchema.properties);
+      if (!fixedSchema.required || !Array.isArray(fixedSchema.required)) {
+        fixedSchema.required = [];
+      }
+      fixedSchema.additionalProperties = false;
+
+      for (const propName of allPropertyNames) {
+        const propValue = fixedSchema.properties[propName];
+        if (propValue && typeof propValue === "object") {
+          if (propValue.type === "object") {
+            fixedSchema.properties[propName] =
+              this.fixSchemaForOpenAIStrictMode(
+                propValue as Record<string, unknown>,
+              );
+          } else if (
+            propValue.type === "array" &&
+            propValue.items &&
+            typeof propValue.items === "object"
+          ) {
+            fixedSchema.properties[propName].items =
+              this.fixSchemaForOpenAIStrictMode(
+                propValue.items as Record<string, unknown>,
+              );
+          }
+        }
+      }
+    }
+
+    return fixedSchema;
   }
 
   /**
@@ -1407,12 +1453,20 @@ export abstract class BaseProvider implements AIProvider {
     try {
       logger.debug(`[BaseProvider] Converting external MCP tool: ${tool.name}`);
 
-      // Convert to AI SDK tool format
-      const { tool: createAISDKTool } = await import("ai");
+      // Use original JSON Schema from MCP tool if available, otherwise use permissive schema
+      let finalSchema;
+      if (tool.inputSchema && typeof tool.inputSchema === "object") {
+        // Clone and fix the schema for OpenAI strict mode compatibility
+        const originalSchema = tool.inputSchema as Record<string, unknown>;
+        const fixedSchema = this.fixSchemaForOpenAIStrictMode(originalSchema);
+        finalSchema = jsonSchema(fixedSchema);
+      } else {
+        finalSchema = this.createPermissiveZodSchema();
+      }
 
       return createAISDKTool({
         description: tool.description || `External MCP tool ${tool.name}`,
-        parameters: this.createPermissiveZodSchema(),
+        parameters: finalSchema,
         execute: async (params) => {
           logger.debug(`Executing external MCP tool: ${tool.name}`, {
             toolName: tool.name,
@@ -1568,7 +1622,7 @@ export abstract class BaseProvider implements AIProvider {
 
       for (const tool of externalTools) {
         const mcpTool = await this.createExternalMCPTool(tool);
-        if (mcpTool) {
+        if (mcpTool && !tools[tool.name]) {
           tools[tool.name] = mcpTool;
           logger.debug(
             `[BaseProvider] Successfully added external MCP tool: ${tool.name}`,
@@ -1598,9 +1652,14 @@ export abstract class BaseProvider implements AIProvider {
       this.mcpTools = {};
     }
 
-    // Add MCP tools if available
+    // Add MCP tools if available, but don't overwrite existing direct tools
+    // Direct tools (Zod-based) take precedence over MCP tools (JSON Schema)
     if (this.mcpTools) {
-      Object.assign(tools, this.mcpTools);
+      for (const [name, tool] of Object.entries(this.mcpTools)) {
+        if (!tools[name]) {
+          tools[name] = tool;
+        }
+      }
     }
   }
 

@@ -589,6 +589,28 @@ export type BedrockToolResult = {
  */
 export type BedrockContentBlock = {
   text?: string;
+  image?: {
+    format: "png" | "jpeg" | "gif" | "webp";
+    source: {
+      bytes?: Uint8Array | Buffer;
+    };
+  };
+  document?: {
+    format:
+      | "pdf"
+      | "csv"
+      | "doc"
+      | "docx"
+      | "xls"
+      | "xlsx"
+      | "html"
+      | "txt"
+      | "md";
+    name: string;
+    source: {
+      bytes?: Uint8Array | Buffer;
+    };
+  };
   toolUse?: BedrockToolUse;
   toolResult?: BedrockToolResult;
 };
@@ -707,6 +729,42 @@ export type ModelsResponse = {
     created?: number;
     owned_by?: string;
   }>;
+};
+
+// ============================================================================
+// Ollama Provider Types
+// ============================================================================
+
+/**
+ * Ollama tool call structure
+ */
+export type OllamaToolCall = {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
+
+/**
+ * Ollama tool result structure
+ */
+export type OllamaToolResult = {
+  tool_call_id: string;
+  content: string;
+};
+
+/**
+ * Ollama message structure for conversation and tool execution
+ */
+export type OllamaMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content:
+    | string
+    | Array<{ type: string; text?: string; [key: string]: unknown }>;
+  tool_calls?: OllamaToolCall[];
+  images?: string[];
 };
 
 /**

@@ -840,7 +840,8 @@ export class GoogleVertexProvider extends BaseProvider {
         options.input?.images?.length ||
         options.input?.content?.length ||
         options.input?.files?.length ||
-        options.input?.csvFiles?.length
+        options.input?.csvFiles?.length ||
+        options.input?.pdfFiles?.length
       );
 
       let messages;
@@ -852,6 +853,8 @@ export class GoogleVertexProvider extends BaseProvider {
             imageCount: options.input?.images?.length || 0,
             hasContent: !!options.input?.content?.length,
             contentCount: options.input?.content?.length || 0,
+            hasPDFs: !!options.input?.pdfFiles?.length,
+            pdfCount: options.input?.pdfFiles?.length || 0,
           },
         );
 
@@ -863,6 +866,7 @@ export class GoogleVertexProvider extends BaseProvider {
             content: options.input?.content,
             files: options.input?.files,
             csvFiles: options.input?.csvFiles,
+            pdfFiles: options.input?.pdfFiles,
           },
           csvOptions: options.csvOptions,
           systemPrompt: options.systemPrompt,
@@ -881,6 +885,7 @@ export class GoogleVertexProvider extends BaseProvider {
           this.providerName,
           this.modelName,
         );
+
         // Convert multimodal messages to Vercel AI SDK format (CoreMessage[])
         messages = convertToCoreMessages(mm);
       } else {
@@ -1619,6 +1624,8 @@ export class GoogleVertexProvider extends BaseProvider {
       /^claude-sonnet-4@\d{8}$/,
       /^claude-sonnet-4-5@\d{8}$/,
       /^claude-opus-4@\d{8}$/,
+      /^claude-opus-4-1@\d{8}$/,
+      /^claude-3-7-sonnet@\d{8}$/,
       /^claude-3-5-sonnet-\d{8}$/,
       /^claude-3-5-haiku-\d{8}$/,
       /^claude-3-sonnet-\d{8}$/,

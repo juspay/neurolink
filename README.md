@@ -26,6 +26,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 ## What's New (Q4 2025)
 
 - **CSV File Support** – Attach CSV files to prompts for AI-powered data analysis with auto-detection. → [CSV Guide](docs/features/multimodal-chat.md#csv-file-support)
+- **PDF File Support** – Process PDF documents with native visual analysis for Vertex AI, Anthropic, Bedrock, AI Studio. → [PDF Guide](docs/features/pdf-support.md)
 - **LiteLLM Integration** – Access 100+ AI models from all major providers through unified interface. → [Setup Guide](docs/LITELLM-INTEGRATION.md)
 - **SageMaker Integration** – Deploy and use custom trained models on AWS infrastructure. → [Setup Guide](docs/SAGEMAKER-INTEGRATION.md)
 - **Human-in-the-loop workflows** – Pause generation for user approval/input before tool execution. → [HITL Guide](docs/features/hitl.md)
@@ -266,9 +267,11 @@ const result = await neurolink.generate({
     text: "Create a comprehensive analysis",
     files: [
       "./sales_data.csv", // Auto-detected as CSV
+      "examples/data/invoice.pdf", // Auto-detected as PDF
       "./diagrams/architecture.png", // Auto-detected as image
     ],
   },
+  provider: "vertex", // PDF-capable provider (see docs/features/pdf-support.md)
   enableEvaluation: true,
   region: "us-east-1",
 });
@@ -281,15 +284,15 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 ## Platform Capabilities at a Glance
 
-| Capability               | Highlights                                                                                               |
-| ------------------------ | -------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | 12+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                  |
-| **Multimodal pipeline**  | Stream images + CSV data across providers with local/remote assets. Auto-detection for mixed file types. |
-| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.             |
-| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4).            |
-| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                     |
-| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.                         |
-| **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search.                         |
+| Capability               | Highlights                                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| **Provider unification** | 12+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                                  |
+| **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types. |
+| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.                             |
+| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4).                            |
+| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                                     |
+| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.                                         |
+| **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search.                                         |
 
 ## Documentation Map
 

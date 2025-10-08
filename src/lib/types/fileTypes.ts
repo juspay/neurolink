@@ -43,12 +43,17 @@ export type FileProcessingResult = {
     confidence: number;
     size?: number;
     filename?: string;
-    // CSV-specific metadata (extracted from csv-parser)
+    // CSV-specific metadata
     rowCount?: number;
     columnCount?: number;
     columnNames?: string[];
     sampleData?: string;
     hasEmptyColumns?: boolean;
+    // PDF-specific metadata
+    version?: string;
+    estimatedPages?: number | null;
+    provider?: string;
+    apiType?: PDFAPIType;
   };
 };
 
@@ -62,6 +67,32 @@ export type CSVProcessorOptions = {
 };
 
 /**
+ * PDF API types for different providers
+ */
+export type PDFAPIType = "document" | "files-api" | "unsupported";
+
+/**
+ * PDF provider configuration
+ */
+export interface PDFProviderConfig {
+  maxSizeMB: number;
+  maxPages: number;
+  supportsNative: boolean;
+  requiresCitations: boolean | "auto";
+  apiType: PDFAPIType;
+}
+
+/**
+ * PDF processor options
+ */
+export type PDFProcessorOptions = {
+  provider?: string;
+  model?: string;
+  maxSizeMB?: number;
+  bedrockApiMode?: "converse" | "invokeModel";
+};
+
+/**
  * File detector options
  */
 export type FileDetectorOptions = {
@@ -70,4 +101,22 @@ export type FileDetectorOptions = {
   allowedTypes?: FileType[];
   csvOptions?: CSVProcessorOptions;
   confidenceThreshold?: number;
+  provider?: string;
 };
+
+/**
+ * Google AI Studio Files API types
+ */
+export interface GoogleFilesAPIUploadResult {
+  file: {
+    name: string;
+    displayName: string;
+    mimeType: string;
+    sizeBytes: string;
+    createTime: string;
+    updateTime: string;
+    expirationTime: string;
+    sha256Hash: string;
+    uri: string;
+  };
+}

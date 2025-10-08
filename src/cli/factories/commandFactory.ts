@@ -76,6 +76,10 @@ export class CLICommandFactory {
         "Add CSV file for data analysis (can be used multiple times)",
       alias: "c",
     },
+    pdf: {
+      type: "string" as const,
+      description: "Add PDF file for analysis (can be used multiple times)",
+    },
     file: {
       type: "string" as const,
       description:
@@ -253,6 +257,16 @@ export class CLICommandFactory {
       return undefined;
     }
     return Array.isArray(csvFiles) ? csvFiles : [csvFiles];
+  }
+
+  // Helper method to process CLI PDF files
+  private static processCliPDFFiles(
+    pdfFiles?: string | string[],
+  ): Array<Buffer | string> | undefined {
+    if (!pdfFiles) {
+      return undefined;
+    }
+    return Array.isArray(pdfFiles) ? pdfFiles : [pdfFiles];
   }
 
   // Helper method to process CLI files with auto-detection
@@ -1413,17 +1427,23 @@ export class CLICommandFactory {
       const csvFiles = CLICommandFactory.processCliCSVFiles(
         argv.csv as string | string[] | undefined,
       );
+      const pdfFiles = CLICommandFactory.processCliPDFFiles(
+        argv.pdf as string | string[] | undefined,
+      );
       const files = CLICommandFactory.processCliFiles(
         argv.file as string | string[] | undefined,
       );
 
+      const generateInput = {
+        text: inputText,
+        ...(imageBuffers && { images: imageBuffers }),
+        ...(csvFiles && { csvFiles }),
+        ...(pdfFiles && { pdfFiles }),
+        ...(files && { files }),
+      };
+
       const result = await sdk.generate({
-        input: {
-          text: inputText,
-          ...(imageBuffers && { images: imageBuffers }),
-          ...(csvFiles && { csvFiles }),
-          ...(files && { files }),
-        },
+        input: generateInput,
         csvOptions: {
           maxRows: argv.csvMaxRows as number | undefined,
           formatStyle: argv.csvFormat as
@@ -1662,6 +1682,9 @@ export class CLICommandFactory {
     const csvFiles = CLICommandFactory.processCliCSVFiles(
       argv.csv as string | string[] | undefined,
     );
+    const pdfFiles = CLICommandFactory.processCliPDFFiles(
+      argv.pdf as string | string[] | undefined,
+    );
     const files = CLICommandFactory.processCliFiles(
       argv.file as string | string[] | undefined,
     );
@@ -1671,6 +1694,7 @@ export class CLICommandFactory {
         text: inputText,
         ...(imageBuffers && { images: imageBuffers }),
         ...(csvFiles && { csvFiles }),
+        ...(pdfFiles && { pdfFiles }),
         ...(files && { files }),
       },
       csvOptions: {

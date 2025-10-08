@@ -193,6 +193,93 @@ await neurolink.generate({
 - Combine CSV with visualization images for comprehensive analysis
 - Works with ALL providers (not just vision-capable models)
 
+## PDF File Support
+
+### Quick Start
+
+```bash
+# Auto-detect PDF files
+npx @juspay/neurolink generate "Summarize this report" \
+  --file ./financial-report.pdf \
+  --provider vertex
+
+# Explicit PDF processing
+npx @juspay/neurolink generate "Extract key terms" \
+  --pdf ./contract.pdf \
+  --provider anthropic
+
+# Multiple PDFs
+npx @juspay/neurolink generate "Compare these documents" \
+  --pdf ./version1.pdf \
+  --pdf ./version2.pdf \
+  --provider vertex
+```
+
+### SDK Usage
+
+```typescript
+// Auto-detect (recommended)
+await neurolink.generate({
+  input: {
+    text: "Analyze this document",
+    files: ["./report.pdf", "./data.csv"],
+  },
+  provider: "vertex",
+});
+
+// Explicit PDF
+await neurolink.generate({
+  input: {
+    text: "Compare Q1 and Q2 reports",
+    pdfFiles: ["./q1-report.pdf", "./q2-report.pdf"],
+  },
+  provider: "anthropic",
+});
+
+// Streaming with PDF
+const stream = await neurolink.stream({
+  input: {
+    text: "Summarize this contract",
+    pdfFiles: ["./contract.pdf"],
+  },
+  provider: "vertex",
+});
+```
+
+### Supported Providers
+
+| Provider              | Max Size | Max Pages | Notes                           |
+| --------------------- | -------- | --------- | ------------------------------- |
+| **Google Vertex AI**  | 5 MB     | 100       | `gemini-1.5-pro` recommended    |
+| **Anthropic**         | 5 MB     | 100       | `claude-3-5-sonnet` recommended |
+| **AWS Bedrock**       | 5 MB     | 100       | Requires AWS credentials        |
+| **Google AI Studio**  | 2000 MB  | 100       | Best for large files            |
+| **OpenAI**            | 10 MB    | 100       | `gpt-4o`, `gpt-4o-mini`, `o1`   |
+| **Azure OpenAI**      | 10 MB    | 100       | Uses OpenAI Files API           |
+| **LiteLLM**           | 10 MB    | 100       | Depends on upstream model       |
+| **OpenAI Compatible** | 10 MB    | 100       | Depends on upstream model       |
+| **Mistral**           | 10 MB    | 100       | Native PDF support              |
+| **Hugging Face**      | 10 MB    | 100       | Native PDF support              |
+
+**Not supported:** Ollama
+
+### Best Practices
+
+- **Choose the right provider**: Use Vertex AI or Anthropic for best results
+- **Check file size**: Most providers limit to 5MB, AI Studio supports up to 2GB
+- **Use streaming**: For large documents, streaming gives faster initial results
+- **Combine with other files**: Mix PDF with CSV data and images for comprehensive analysis
+- **Be specific in prompts**: "Extract all monetary values" vs "Tell me about this PDF"
+
+### Token Usage
+
+PDFs consume significant tokens:
+
+- **Text-only mode**: ~1,000 tokens per 3 pages
+- **Visual mode**: ~7,000 tokens per 3 pages
+
+Set appropriate `maxTokens` for PDF analysis (recommended: 2000-8000 tokens).
+
 ## Troubleshooting
 
 | Symptom                            | Action                                                                            |

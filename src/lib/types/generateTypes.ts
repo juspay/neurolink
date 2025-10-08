@@ -21,6 +21,7 @@ export type GenerateOptions = {
     text: string;
     images?: Array<Buffer | string>; // Simple image support
     csvFiles?: Array<Buffer | string>; // Explicit CSV files
+    pdfFiles?: Array<Buffer | string>; // Explicit PDF files
     files?: Array<Buffer | string>; // Auto-detect file types
     content?: Array<TextContent | ImageContent>; // Advanced multimodal content
   };

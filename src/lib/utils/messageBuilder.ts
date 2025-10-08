@@ -20,6 +20,7 @@ import {
 } from "../adapters/providerImageAdapter.js";
 import { logger } from "./logger.js";
 import { FileDetector } from "./fileDetector.js";
+import { PDFProcessor } from "./pdfProcessor.js";
 import { request } from "undici";
 import { readFileSync, existsSync } from "fs";
 import type {
@@ -29,6 +30,7 @@ import type {
   CoreSystemMessage,
   TextPart,
   ImagePart,
+  FilePart,
 } from "ai";
 
 /**
@@ -48,7 +50,8 @@ function isValidContentItem(
   item: unknown,
 ): item is
   | { type: "text"; text: string }
-  | { type: "image"; image: string; mimeType?: string } {
+  | { type: "image"; image: string; mimeType?: string }
+  | { type: "file"; data: Buffer; mimeType: string } {
   if (!item || typeof item !== "object") {
     return false;
   }
@@ -67,13 +70,26 @@ function isValidContentItem(
     );
   }
 
+  if (contentItem.type === "file") {
+    return (
+      Buffer.isBuffer(contentItem.data) &&
+      typeof contentItem.mimeType === "string"
+    );
+  }
+
   return false;
 }
 
 /**
  * Safely convert content item to AI SDK content format
  */
-function convertContentItem(item: unknown): TextPart | ImagePart | null {
+function convertContentItem(
+  item: unknown,
+):
+  | TextPart
+  | ImagePart
+  | { type: "file"; data: Buffer; mimeType: string }
+  | null {
   if (!isValidContentItem(item)) {
     return null;
   }
@@ -82,6 +98,7 @@ function convertContentItem(item: unknown): TextPart | ImagePart | null {
     type: string;
     text?: string;
     image?: string;
+    data?: Buffer;
     mimeType?: string;
   };
 
@@ -95,6 +112,18 @@ function convertContentItem(item: unknown): TextPart | ImagePart | null {
       image: contentItem.image,
       ...(contentItem.mimeType && { mimeType: contentItem.mimeType }),
     } satisfies ImagePart;
+  }
+
+  if (
+    contentItem.type === "file" &&
+    Buffer.isBuffer(contentItem.data) &&
+    contentItem.mimeType
+  ) {
+    return {
+      type: "file",
+      data: contentItem.data,
+      mimeType: contentItem.mimeType,
+    };
   }
 
   return null;
@@ -355,7 +384,7 @@ export async function buildMessagesArray(
         const filename = extractFilename(file);
         try {
           const result = await FileDetector.detectAndProcess(file, {
-            maxSize: 10 * 1024 * 1024,
+            maxSize: 50 * 1024 * 1024,
             allowedTypes: ["csv"],
             csvOptions: csvOptions,
           });
@@ -409,6 +438,12 @@ export async function buildMultimodalMessagesArray(
   provider: string,
   model: string,
 ): Promise<MultimodalChatMessage[]> {
+  // Compute provider-specific max PDF size once for consistent validation
+  const pdfConfig = PDFProcessor.getProviderConfig(provider);
+  const maxSize = pdfConfig
+    ? pdfConfig.maxSizeMB * 1024 * 1024
+    : 10 * 1024 * 1024;
+
   // Process unified files array (auto-detect)
   if (options.input.files && options.input.files.length > 0) {
     logger.info(
@@ -420,9 +455,10 @@ export async function buildMultimodalMessagesArray(
     for (const file of options.input.files) {
       try {
         const result = await FileDetector.detectAndProcess(file, {
-          maxSize: 10 * 1024 * 1024,
-          allowedTypes: ["csv", "image"],
+          maxSize,
+          allowedTypes: ["csv", "image", "pdf"],
           csvOptions: options.csvOptions,
+          provider: provider,
         });
 
         if (result.type === "csv") {
@@ -449,6 +485,12 @@ export async function buildMultimodalMessagesArray(
             result.content,
           ];
           logger.info(`[FileDetector] ✅ Image: ${result.mimeType}`);
+        } else if (result.type === "pdf") {
+          options.input.pdfFiles = [
+            ...(options.input.pdfFiles || []),
+            result.content,
+          ];
+          logger.info(`[FileDetector] ✅ PDF: ${extractFilename(file)}`);
         }
       } catch (error) {
         logger.error(`[FileDetector] ❌ Failed to process file:`, error);
@@ -499,18 +541,54 @@ export async function buildMultimodalMessagesArray(
     }
   }
 
+  // Track PDF files for multimodal processing (NOT text conversion)
+  const pdfFiles: Array<{ buffer: Buffer; filename: string }> = [];
+
+  // Process explicit PDF files array
+  if (options.input.pdfFiles && options.input.pdfFiles.length > 0) {
+    logger.info(
+      `[PDF] Processing ${options.input.pdfFiles.length} explicit PDF file(s) for ${provider}`,
+    );
+
+    for (let i = 0; i < options.input.pdfFiles.length; i++) {
+      const pdfFile = options.input.pdfFiles[i];
+      const filename = extractFilename(pdfFile, i);
+
+      try {
+        const result = await FileDetector.detectAndProcess(pdfFile, {
+          maxSize,
+          allowedTypes: ["pdf"],
+          provider: provider,
+        });
+
+        if (Buffer.isBuffer(result.content)) {
+          pdfFiles.push({ buffer: result.content, filename });
+          logger.info(`[PDF] ✅ Queued for multimodal: ${filename}`);
+        }
+      } catch (error) {
+        logger.error(`[PDF] ❌ Failed to process ${filename}:`, error);
+        throw error;
+      }
+    }
+  }
+
   // Check if this is a multimodal request
   const hasImages =
     (options.input.images && options.input.images.length > 0) ||
     (options.input.content &&
       options.input.content.some((c) => c.type === "image"));
 
-  // If no images, use standard message building and convert to MultimodalChatMessage[]
-  if (!hasImages) {
-    // Clear csvFiles and files arrays to prevent duplication
+  const hasPDFs = pdfFiles.length > 0;
+
+  // If no images or PDFs, use standard message building and convert to MultimodalChatMessage[]
+  if (!hasImages && !hasPDFs) {
+    // Clear csvFiles, pdfFiles, and files arrays to prevent duplication
     // (already processed and added to options.input.text above)
     if (options.input.csvFiles) {
       options.input.csvFiles = [];
+    }
+    if (options.input.pdfFiles) {
+      options.input.pdfFiles = [];
     }
     if (options.input.files) {
       options.input.files = [];
@@ -578,11 +656,15 @@ export async function buildMultimodalMessagesArray(
         provider,
         model,
       );
-    } else if (options.input.images && options.input.images.length > 0) {
-      // Simple images format - convert to provider-specific format
-      userContent = await convertSimpleImagesToProviderFormat(
+    } else if (
+      (options.input.images && options.input.images.length > 0) ||
+      pdfFiles.length > 0
+    ) {
+      // Simple images/PDFs format - convert to provider-specific format
+      userContent = await convertMultimodalToProviderFormat(
         options.input.text,
-        options.input.images,
+        options.input.images || [],
+        pdfFiles,
         provider,
         model,
       );
@@ -726,7 +808,7 @@ async function convertSimpleImagesToProviderFormat(
   images: Array<Buffer | string>,
   provider: string,
   _model: string,
-): Promise<unknown> {
+): Promise<Array<TextPart | ImagePart>> {
   // For Vercel AI SDK, we need to return the content in the standard format
   // The Vercel AI SDK will handle provider-specific formatting internally
 
@@ -762,12 +844,7 @@ async function convertSimpleImagesToProviderFormat(
     }
   }
 
-  const content: Array<{
-    type: string;
-    text?: string;
-    image?: string;
-    mimeType?: string;
-  }> = [{ type: "text", text }];
+  const content: Array<TextPart | ImagePart> = [{ type: "text", text }];
 
   // Process all images (including downloaded URLs) for Vercel AI SDK
   actualImages.forEach((image, index) => {
@@ -843,10 +920,10 @@ async function convertSimpleImagesToProviderFormat(
       }
 
       content.push({
-        type: "image",
+        type: "image" as const,
         image: imageData,
         mimeType: mimeType, // Add mimeType for Vertex AI compatibility
-      });
+      } as ImagePart);
     } catch (error) {
       MultimodalLogger.logError("ADD_IMAGE_TO_CONTENT", error as Error, {
         index,
@@ -855,6 +932,54 @@ async function convertSimpleImagesToProviderFormat(
       throw error;
     }
   });
+
+  return content;
+}
+
+/**
+ * Convert multimodal content (images + PDFs) to provider format
+ */
+async function convertMultimodalToProviderFormat(
+  text: string,
+  images: Array<Buffer | string>,
+  pdfFiles: Array<{ buffer: Buffer; filename: string }>,
+  provider: string,
+  model: string,
+): Promise<Array<TextPart | ImagePart | FilePart>> {
+  const content: Array<TextPart | ImagePart | FilePart> = [
+    { type: "text", text },
+  ];
+
+  // Add images if present
+  if (images.length > 0) {
+    const imageContent = await convertSimpleImagesToProviderFormat(
+      "",
+      images,
+      provider,
+      model,
+    );
+    if (Array.isArray(imageContent)) {
+      imageContent.forEach((item) => {
+        if (item.type !== "text") {
+          content.push(item);
+        }
+      });
+    }
+  }
+
+  // Add PDFs using Vercel AI SDK standard format (works for all providers)
+  content.push(
+    ...pdfFiles.map((pdf): FilePart => {
+      logger.info(
+        `[PDF] ✅ Added to content (Vercel AI SDK format): ${pdf.filename}`,
+      );
+      return {
+        type: "file" as const,
+        data: pdf.buffer,
+        mimeType: "application/pdf",
+      };
+    }),
+  );
 
   return content;
 }

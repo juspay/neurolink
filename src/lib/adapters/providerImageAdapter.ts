@@ -24,7 +24,29 @@ export class MultimodalLogger {
  * Vision capability definitions for each provider
  */
 const VISION_CAPABILITIES = {
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4-vision-preview"],
+  openai: [
+    // GPT-5 family (released Aug 2025)
+    "gpt-5",
+    "gpt-5-2025-08-07",
+    "gpt-5-pro",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    // GPT-4.1 family (released Apr 2025)
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    // o-series reasoning models (released Apr 2025)
+    "o3",
+    "o3-mini",
+    "o4",
+    "o4-mini",
+    "o4-mini-deep-research",
+    // Existing GPT-4 models
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4-turbo",
+    "gpt-4-vision-preview",
+  ],
   "google-ai": [
     "gemini-2.5-pro",
     "gemini-2.5-flash",
@@ -33,44 +55,91 @@ const VISION_CAPABILITIES = {
     "gemini-pro-vision",
   ],
   anthropic: [
+    "claude-3-7-sonnet",
     "claude-3-5-sonnet",
     "claude-3-opus",
     "claude-3-sonnet",
     "claude-3-haiku",
   ],
   azure: [
+    // GPT-5 family
+    "gpt-5",
+    "gpt-5-pro",
+    "gpt-5-mini",
+    // GPT-4.1 family
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    // Existing GPT-4
     "gpt-4o",
     "gpt-4o-mini",
     "gpt-4-turbo",
     "gpt-4-vision-preview",
-    "gpt-4.1",
     "gpt-4",
   ],
   vertex: [
     // Gemini models on Vertex AI
     "gemini-2.5-pro",
     "gemini-2.5-flash",
+    "gemini-2.0-flash",
     "gemini-1.5-pro",
     "gemini-1.5-flash",
-    // Claude models on Vertex AI (with actual Vertex naming patterns)
+    // Claude 4.x models (versioned format)
+    "claude-sonnet-4-5@",
+    "claude-sonnet-4@",
+    "claude-opus-4-1@",
+    "claude-opus-4@",
+    // Claude 3.x models (versioned format)
+    "claude-3-7-sonnet@",
+    "claude-3-5-sonnet@",
+    "claude-opus-3@",
+    "claude-haiku-3@",
+    // Claude models (non-versioned format)
+    "claude-3-7-sonnet",
     "claude-3-5-sonnet",
     "claude-3-opus",
     "claude-3-sonnet",
     "claude-3-haiku",
-    "claude-sonnet-3",
     "claude-sonnet-4",
+    "claude-sonnet-3",
     "claude-opus-3",
     "claude-haiku-3",
-    // Additional Vertex AI Claude model patterns
+    // Additional patterns for compatibility
     "claude-3.5-sonnet",
     "claude-3.5-haiku",
     "claude-3.0-sonnet",
     "claude-3.0-opus",
-    // Versioned model names (e.g., claude-sonnet-4@20250514)
-    "claude-sonnet-4@",
-    "claude-opus-3@",
-    "claude-haiku-3@",
-    "claude-3-5-sonnet@",
+  ],
+  litellm: [
+    // LiteLLM proxies to underlying providers
+    // List models that support vision when going through the proxy
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "claude-sonnet-4",
+    "claude-sonnet-4-5",
+    "claude-opus-4-1",
+    "gpt-4o",
+    "gpt-4.1",
+    "gpt-5",
+  ],
+  ollama: [
+    // Llama 4 family (May 2025 - Best vision + tool calling)
+    "llama4:scout",
+    "llama4:maverick",
+    // Llama 3.2 vision
+    "llama3.2-vision",
+    // Gemma 3 family (SigLIP vision encoder - supports tool calling + vision)
+    "gemma3:4b",
+    "gemma3:12b",
+    "gemma3:27b",
+    "gemma3:latest",
+    // Mistral Small family (vision + tool calling)
+    "mistral-small3.1",
+    "mistral-small3.1:large",
+    "mistral-small3.1:medium",
+    "mistral-small3.1:small",
+    // LLaVA (vision-focused)
+    "llava",
   ],
 } as const;
 
@@ -111,6 +180,9 @@ export class ProviderImageAdapter {
           break;
         case "vertex":
           adaptedPayload = this.formatForVertex(text, images, model);
+          break;
+        case "ollama":
+          adaptedPayload = this.formatForOpenAI(text, images);
           break;
         default:
           throw new Error(`Vision not supported for provider: ${provider}`);

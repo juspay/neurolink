@@ -26,6 +26,7 @@ import {
   buildMultimodalMessagesArray,
   convertToCoreMessages,
 } from "../utils/messageBuilder.js";
+import { buildMultimodalOptions } from "../utils/multimodalOptionsBuilder.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 // Configuration helpers - now using consolidated utility
@@ -167,7 +168,8 @@ export class AnthropicProvider extends BaseProvider {
         options.input?.images?.length ||
         options.input?.content?.length ||
         options.input?.files?.length ||
-        options.input?.csvFiles?.length
+        options.input?.csvFiles?.length ||
+        options.input?.pdfFiles?.length
       );
 
       let messages;
@@ -183,29 +185,16 @@ export class AnthropicProvider extends BaseProvider {
             fileCount: options.input?.files?.length || 0,
             hasCSVFiles: !!options.input?.csvFiles?.length,
             csvFileCount: options.input?.csvFiles?.length || 0,
+            hasPDFFiles: !!options.input?.pdfFiles?.length,
+            pdfFileCount: options.input?.pdfFiles?.length || 0,
           },
         );
 
-        // Create multimodal options for buildMultimodalMessagesArray
-        const multimodalOptions = {
-          input: {
-            text: options.input?.text || "",
-            images: options.input?.images,
-            content: options.input?.content,
-            files: options.input?.files,
-            csvFiles: options.input?.csvFiles,
-          },
-          csvOptions: options.csvOptions,
-          systemPrompt: options.systemPrompt,
-          conversationHistory: options.conversationMessages,
-          provider: this.providerName,
-          model: this.modelName,
-          temperature: options.temperature,
-          maxTokens: options.maxTokens,
-          enableAnalytics: options.enableAnalytics,
-          enableEvaluation: options.enableEvaluation,
-          context: options.context,
-        };
+        const multimodalOptions = buildMultimodalOptions(
+          options,
+          this.providerName,
+          this.modelName,
+        );
 
         const mm = await buildMultimodalMessagesArray(
           multimodalOptions,

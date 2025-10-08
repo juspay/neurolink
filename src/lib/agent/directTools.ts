@@ -34,7 +34,7 @@ export const directAgentTools = {
         .string()
         .optional()
         .describe(
-          'Timezone (e.g., "America/New_York", "Asia/Kolkata"). Defaults to local time.',
+          'Timezone (e.g., "America/New_York", "Asia/Kolkata"). Defaults to system local time.',
         ),
     }),
     execute: async ({ timezone }) => {
@@ -110,8 +110,8 @@ export const directAgentTools = {
       includeHidden: z
         .boolean()
         .optional()
-        .describe("Include hidden files (starting with .)")
-        .default(false),
+        .default(false)
+        .describe("Include hidden files (starting with .)"),
     }),
     execute: async ({ path: dirPath, includeHidden }) => {
       try {
@@ -435,12 +435,14 @@ export const directAgentTools = {
       column: z
         .string()
         .optional()
+        .default("")
         .describe(
           "Column name for the operation (required for most operations)",
         ),
       maxRows: z
         .number()
         .optional()
+        .default(1000)
         .describe("Maximum rows to process (default: 1000)"),
     }),
     execute: async ({ filePath, operation, column, maxRows = 1000 }) => {

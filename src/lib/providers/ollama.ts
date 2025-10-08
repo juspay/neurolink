@@ -12,6 +12,21 @@ import { logger } from "../utils/logger.js";
 import { modelConfig } from "../core/modelConfiguration.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import { TimeoutError } from "../utils/timeout.js";
+import { buildMultimodalMessagesArray } from "../utils/messageBuilder.js";
+import { buildMultimodalOptions } from "../utils/multimodalOptionsBuilder.js";
+import type {
+  MultimodalChatMessage,
+  MessageContent,
+} from "../types/conversation.js";
+import type {
+  OllamaMessage,
+  OllamaToolCall,
+  OllamaToolResult,
+} from "../types/providers.js";
+import type { ToolArgs } from "../types/tools.js";
+import type { JsonValue } from "../types/common.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
+import { createAnalytics } from "../core/analytics.js";
 
 // Model version constants (configurable via environment)
 const DEFAULT_OLLAMA_MODEL = "llama3.1:8b";
@@ -419,6 +434,78 @@ export class OllamaProvider extends BaseProvider {
     return false;
   }
 
+  /**
+   * Extract images from multimodal messages for Ollama API
+   * Returns array of base64-encoded images
+   */
+  private extractImagesFromMessages(
+    messages: MultimodalChatMessage[],
+  ): string[] {
+    const images: string[] = [];
+
+    for (const msg of messages) {
+      if (Array.isArray(msg.content)) {
+        for (const content of msg.content) {
+          const typedContent = content as MessageContent;
+          if (typedContent.type === "image" && typedContent.image) {
+            const imageData =
+              typeof typedContent.image === "string"
+                ? typedContent.image.replace(/^data:image\/\w+;base64,/, "")
+                : Buffer.from(typedContent.image).toString("base64");
+            images.push(imageData);
+          }
+        }
+      }
+    }
+
+    return images;
+  }
+
+  /**
+   * Convert multimodal messages to Ollama chat format
+   * Extracts text content and handles images separately
+   */
+  private convertToOllamaMessages(
+    messages: MultimodalChatMessage[],
+  ): OllamaMessage[] {
+    return messages.map((msg) => {
+      let textContent = "";
+      const images: string[] = [];
+
+      if (typeof msg.content === "string") {
+        textContent = msg.content;
+      } else if (Array.isArray(msg.content)) {
+        for (const content of msg.content) {
+          const typedContent = content as MessageContent;
+          if (typedContent.type === "text" && typedContent.text) {
+            textContent += typedContent.text;
+          } else if (typedContent.type === "image" && typedContent.image) {
+            const imageData =
+              typeof typedContent.image === "string"
+                ? typedContent.image.replace(/^data:image\/\w+;base64,/, "")
+                : Buffer.from(typedContent.image).toString("base64");
+            images.push(imageData);
+          }
+        }
+      }
+
+      const ollamaMsg: OllamaMessage = {
+        role: (msg.role === "system" ? "system" : msg.role) as
+          | "system"
+          | "user"
+          | "assistant"
+          | "tool",
+        content: textContent,
+      };
+
+      if (images.length > 0) {
+        ollamaMsg.images = images;
+      }
+
+      return ollamaMsg;
+    });
+  }
+
   // executeGenerate removed - BaseProvider handles all generation with tools
 
   protected async executeStream(
@@ -447,60 +534,212 @@ export class OllamaProvider extends BaseProvider {
 
   /**
    * Execute streaming with Ollama's function calling support
-   * Uses the /v1/chat/completions endpoint with tools parameter
+   * Uses conversation loop to handle multi-step tool execution
    */
   private async executeStreamWithTools(
     options: StreamOptions,
-    analysisSchema?: ZodUnknownSchema | Schema<unknown>,
+    _analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
+    const startTime = Date.now();
+    const maxIterations = options.maxSteps || DEFAULT_MAX_STEPS;
+    let iteration = 0;
+
+    // Get all available tools (direct + MCP + external)
+    const allTools = await this.getAllTools();
     // Convert tools to Ollama format
-    const ollamaTools = this.convertToolsToOllamaFormat(options.tools);
+    const ollamaTools = this.convertToolsToOllamaFormat(allTools);
 
-    // Prepare messages in Ollama chat format
-    const messages = [
-      ...(options.systemPrompt
-        ? [{ role: "system", content: options.systemPrompt }]
-        : []),
-      { role: "user", content: options.input.text },
-    ];
-
-    const response = await proxyFetch(`${this.baseUrl}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: this.modelName || FALLBACK_OLLAMA_MODEL,
-        messages,
-        tools: ollamaTools,
-        tool_choice: "auto",
-        stream: true,
-        temperature: options.temperature,
-        max_tokens: options.maxTokens,
-      }),
-      signal: createAbortSignalWithTimeout(this.timeout),
-    });
-
-    if (!response.ok) {
-      // Fallback to non-tool mode if chat API fails
-      logger.warn("Ollama chat API failed, falling back to generate API", {
-        status: response.status,
-        statusText: response.statusText,
-      });
-      return this.executeStreamWithoutTools(options, analysisSchema);
+    // Validate that PDFs are not provided
+    if (options.input?.pdfFiles && options.input.pdfFiles.length > 0) {
+      throw new Error(
+        "PDF inputs are not supported by OllamaProvider. " +
+          "Please remove PDFs or use a supported provider (OpenAI, Anthropic, Google Vertex AI, etc.).",
+      );
     }
 
-    // Transform to async generator with tool call handling
-    const self = this;
-    const transformedStream = async function* () {
-      const generator = self.createOllamaChatStream(response, options.tools);
-      for await (const chunk of generator) {
-        yield chunk;
+    // Initialize conversation history
+    const conversationHistory: OllamaMessage[] = [];
+
+    // Build initial messages
+    const hasMultimodalInput = !!(
+      options.input?.images?.length ||
+      options.input?.content?.length ||
+      options.input?.files?.length ||
+      options.input?.csvFiles?.length
+    );
+
+    if (hasMultimodalInput) {
+      logger.debug(
+        `Ollama: Detected multimodal input, using multimodal message builder`,
+        {
+          hasImages: !!options.input?.images?.length,
+          imageCount: options.input?.images?.length || 0,
+        },
+      );
+
+      const multimodalOptions = buildMultimodalOptions(
+        options,
+        this.providerName,
+        this.modelName,
+      );
+
+      const multimodalMessages = await buildMultimodalMessagesArray(
+        multimodalOptions,
+        this.providerName,
+        this.modelName,
+      );
+
+      conversationHistory.push(
+        ...this.convertToOllamaMessages(multimodalMessages),
+      );
+    } else {
+      if (options.systemPrompt) {
+        conversationHistory.push({
+          role: "system",
+          content: options.systemPrompt,
+        });
       }
-    };
+      conversationHistory.push({
+        role: "user",
+        content: options.input.text,
+      });
+    }
+
+    // Conversation loop for multi-step tool execution
+    const stream = new ReadableStream({
+      start: async (controller) => {
+        try {
+          while (iteration < maxIterations) {
+            logger.debug(
+              `[OllamaProvider] Conversation iteration ${iteration + 1}/${maxIterations}`,
+            );
+
+            // Make API request
+            const response = await proxyFetch(
+              `${this.baseUrl}/v1/chat/completions`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  model: this.modelName || FALLBACK_OLLAMA_MODEL,
+                  messages: conversationHistory,
+                  tools: ollamaTools,
+                  tool_choice: "auto",
+                  stream: true,
+                  temperature: options.temperature,
+                  max_tokens: options.maxTokens,
+                }),
+                signal: createAbortSignalWithTimeout(this.timeout),
+              },
+            );
+
+            if (!response.ok) {
+              throw new Error(
+                `Ollama API error: ${response.status} ${response.statusText}`,
+              );
+            }
+
+            // Process response stream
+            const { content, toolCalls, finishReason } =
+              await this.processOllamaResponse(response, controller);
+
+            // Add assistant message to history
+            const assistantMessage: OllamaMessage = {
+              role: "assistant",
+              content: content || "",
+            };
+
+            if (toolCalls && toolCalls.length > 0) {
+              assistantMessage.tool_calls = toolCalls;
+            }
+
+            conversationHistory.push(assistantMessage);
+
+            // Check finish reason
+            if (finishReason === "stop" || !finishReason) {
+              // Conversation complete
+              controller.close();
+              break;
+            } else if (
+              finishReason === "tool_calls" &&
+              toolCalls &&
+              toolCalls.length > 0
+            ) {
+              // Execute tools
+              logger.debug(
+                `[OllamaProvider] Executing ${toolCalls.length} tools`,
+              );
+              const toolResults = await this.executeOllamaTools(
+                toolCalls,
+                options,
+              );
+
+              // Add tool results to conversation
+              const toolMessage: OllamaMessage = {
+                role: "tool",
+                content: JSON.stringify(toolResults),
+              };
+              conversationHistory.push(toolMessage);
+
+              iteration++;
+              continue; // Next iteration
+            } else if (finishReason === "length") {
+              // Max tokens reached, continue conversation
+              logger.debug(`[OllamaProvider] Max tokens reached, continuing`);
+              conversationHistory.push({
+                role: "user",
+                content: "Please continue.",
+              });
+              iteration++;
+              continue;
+            } else {
+              // Unknown finish reason, end conversation
+              logger.warn(
+                `[OllamaProvider] Unknown finish reason: ${finishReason}`,
+              );
+              controller.close();
+              break;
+            }
+          }
+
+          if (iteration >= maxIterations) {
+            controller.error(
+              new Error(
+                `Ollama conversation exceeded maximum iterations (${maxIterations})`,
+              ),
+            );
+          }
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    });
+
+    // Create analytics promise
+    const analyticsPromise = Promise.resolve(
+      createAnalytics(
+        this.providerName,
+        this.modelName || FALLBACK_OLLAMA_MODEL,
+        { usage: { input: 0, output: 0, total: 0 } },
+        Date.now() - startTime,
+        {
+          requestId: `ollama-stream-${Date.now()}`,
+          streamingMode: true,
+          iterations: iteration,
+          note: "Token usage not available from Ollama streaming responses",
+        },
+      ),
+    );
 
     return {
-      stream: transformedStream(),
-      provider: self.providerName,
-      model: self.modelName,
+      stream: this.convertToAsyncIterable(stream),
+      provider: this.providerName,
+      model: this.modelName || FALLBACK_OLLAMA_MODEL,
+      analytics: analyticsPromise,
+      metadata: {
+        startTime,
+        streamId: `ollama-${Date.now()}`,
+      },
     };
   }
 
@@ -512,19 +751,71 @@ export class OllamaProvider extends BaseProvider {
     options: StreamOptions,
     _analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
+    // Validate that PDFs are not provided
+    if (options.input?.pdfFiles && options.input.pdfFiles.length > 0) {
+      throw new Error(
+        "PDF inputs are not supported by OllamaProvider. " +
+          "Please remove PDFs or use a supported provider (OpenAI, Anthropic, Google Vertex AI, etc.).",
+      );
+    }
+
+    // Check for multimodal input
+    const hasMultimodalInput = !!(
+      options.input?.images?.length ||
+      options.input?.content?.length ||
+      options.input?.files?.length ||
+      options.input?.csvFiles?.length
+    );
+
+    let prompt = options.input.text;
+    let images: string[] | undefined;
+
+    if (hasMultimodalInput) {
+      logger.debug(`Ollama (generate API): Detected multimodal input`, {
+        hasImages: !!options.input?.images?.length,
+        imageCount: options.input?.images?.length || 0,
+      });
+
+      const multimodalOptions = buildMultimodalOptions(
+        options,
+        this.providerName,
+        this.modelName,
+      );
+
+      const multimodalMessages = await buildMultimodalMessagesArray(
+        multimodalOptions,
+        this.providerName,
+        this.modelName,
+      );
+
+      // Extract text from messages for prompt
+      prompt = multimodalMessages
+        .map((msg) => (typeof msg.content === "string" ? msg.content : ""))
+        .join("\n");
+
+      // Extract images
+      images = this.extractImagesFromMessages(multimodalMessages);
+    }
+
+    const requestBody: Record<string, unknown> = {
+      model: this.modelName || FALLBACK_OLLAMA_MODEL,
+      prompt,
+      system: options.systemPrompt,
+      stream: true,
+      options: {
+        temperature: options.temperature,
+        num_predict: options.maxTokens,
+      },
+    };
+
+    if (images && images.length > 0) {
+      requestBody.images = images;
+    }
+
     const response = await proxyFetch(`${this.baseUrl}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: this.modelName || FALLBACK_OLLAMA_MODEL,
-        prompt: options.input.text,
-        system: options.systemPrompt,
-        stream: true,
-        options: {
-          temperature: options.temperature,
-          num_predict: options.maxTokens,
-        },
-      }),
+      body: JSON.stringify(requestBody),
       signal: createAbortSignalWithTimeout(this.timeout),
     });
 
@@ -587,41 +878,182 @@ export class OllamaProvider extends BaseProvider {
   }
 
   /**
+   * Parse tool calls from Ollama API response
+   */
+  private parseToolCalls(rawToolCalls: unknown): OllamaToolCall[] {
+    if (!Array.isArray(rawToolCalls)) {
+      return [];
+    }
+
+    return rawToolCalls
+      .map((call: unknown) => {
+        const callObj = call as {
+          id?: string;
+          type?: string;
+          function?: {
+            name?: string;
+            arguments?: string;
+          };
+        };
+
+        if (!callObj.function?.name) {
+          return null;
+        }
+
+        return {
+          id:
+            callObj.id ||
+            `tool_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+          type: "function" as const,
+          function: {
+            name: callObj.function.name,
+            arguments: callObj.function.arguments || "{}",
+          },
+        };
+      })
+      .filter((call): call is OllamaToolCall => call !== null);
+  }
+
+  /**
+   * Process Ollama streaming response and stream content to controller
+   * Returns aggregated content, tool calls, and finish reason
+   */
+  private async processOllamaResponse(
+    response: Response,
+    controller: ReadableStreamDefaultController,
+  ): Promise<{
+    content?: string;
+    toolCalls?: OllamaToolCall[];
+    finishReason?: string;
+  }> {
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("No response body from Ollama");
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let aggregatedContent = "";
+    let aggregatedToolCalls: OllamaToolCall[] = [];
+    let finalFinishReason: string | undefined;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.trim() && line.startsWith("data: ")) {
+            const dataLine = line.slice(6); // Remove "data: " prefix
+            if (dataLine === "[DONE]") {
+              break;
+            }
+
+            try {
+              const parsed = JSON.parse(dataLine);
+              const processed = this.processOllamaStreamData(parsed);
+
+              if (!processed) {
+                continue;
+              }
+
+              // Stream content to controller
+              if (processed.content) {
+                aggregatedContent += processed.content;
+                controller.enqueue({
+                  content: processed.content,
+                });
+              }
+
+              // Collect tool calls
+              if (processed.toolCalls && processed.toolCalls.length > 0) {
+                aggregatedToolCalls = [
+                  ...aggregatedToolCalls,
+                  ...processed.toolCalls,
+                ];
+              }
+
+              // Update finish reason
+              if (processed.finishReason) {
+                finalFinishReason = processed.finishReason;
+              }
+            } catch (parseError) {
+              logger.warn(
+                `[OllamaProvider] Failed to parse stream chunk: ${dataLine}`,
+                { error: parseError },
+              );
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return {
+      content: aggregatedContent || undefined,
+      toolCalls:
+        aggregatedToolCalls.length > 0 ? aggregatedToolCalls : undefined,
+      finishReason: finalFinishReason,
+    };
+  }
+
+  /**
    * Process individual stream data chunk from Ollama
    */
-  private processOllamaStreamData(
-    data: unknown,
-  ): { content?: string; shouldReturn?: boolean } | null {
+  private processOllamaStreamData(data: unknown): {
+    content?: string;
+    toolCalls?: OllamaToolCall[];
+    finishReason?: string;
+    shouldReturn?: boolean;
+  } | null {
     const dataRecord = data as Record<string, unknown>;
     const choices = dataRecord.choices as
-      | Array<{ delta?: Record<string, unknown>; finish_reason?: string }>
+      | Array<{
+          delta?: Record<string, unknown>;
+          finish_reason?: string;
+          message?: { tool_calls?: unknown[] };
+        }>
       | undefined;
     const delta = choices?.[0]?.delta;
+    const finishReason = choices?.[0]?.finish_reason;
     let content = "";
 
     if (delta?.content && typeof delta.content === "string") {
       content += delta.content;
     }
 
+    // Return tool calls for execution instead of formatting as text
     if (delta?.tool_calls) {
-      // Handle tool calls - for now, we'll include them as content
-      // Future enhancement: Execute tools and return results
-      const toolCallDescription = this.formatToolCallForDisplay(
-        delta.tool_calls as Array<{
-          function?: {
-            name?: string;
-            arguments?: string;
-          };
-        }>,
-      );
-      if (toolCallDescription) {
-        content += toolCallDescription;
-      }
+      const toolCalls = this.parseToolCalls(delta.tool_calls);
+      return {
+        toolCalls,
+        finishReason,
+        shouldReturn: !!finishReason,
+      };
     }
 
-    const shouldReturn = !!choices?.[0]?.finish_reason;
+    // Also check for tool calls in the message field (some responses include it there)
+    if (choices?.[0]?.message?.tool_calls) {
+      const toolCalls = this.parseToolCalls(choices[0].message.tool_calls);
+      return {
+        toolCalls,
+        finishReason,
+        shouldReturn: !!finishReason,
+      };
+    }
 
-    return content ? { content, shouldReturn } : { shouldReturn };
+    const shouldReturn = !!finishReason;
+
+    return content
+      ? { content, finishReason, shouldReturn }
+      : { finishReason, shouldReturn };
   }
 
   /**
@@ -725,6 +1157,263 @@ export class OllamaProvider extends BaseProvider {
     );
 
     return descriptions.join("");
+  }
+
+  /**
+   * Convert AI SDK tools to ToolDefinition format
+   */
+  private convertAISDKToolsToToolDefinitions(
+    aiTools: Record<string, import("ai").Tool>,
+  ): Record<
+    string,
+    import("../types/tools.js").ToolDefinition<ToolArgs, JsonValue>
+  > {
+    const result: Record<
+      string,
+      import("../types/tools.js").ToolDefinition<ToolArgs, JsonValue>
+    > = {};
+
+    for (const [name, tool] of Object.entries(aiTools)) {
+      if ("description" in tool && tool.description) {
+        result[name] = {
+          description: tool.description,
+          parameters: "parameters" in tool ? tool.parameters : undefined,
+          execute: async (params: ToolArgs) => {
+            if ("execute" in tool && tool.execute) {
+              const result = await tool.execute(params as ToolArgs, {
+                toolCallId: `tool_${Date.now()}`,
+                messages: [],
+              });
+              return {
+                success: true,
+                data: result,
+              };
+            }
+            throw new Error(`Tool ${name} has no execute method`);
+          },
+        };
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Execute a single tool and return the result
+   */
+  private async executeSingleTool(
+    toolName: string,
+    args: Record<string, unknown>,
+    _toolCallId?: string,
+  ): Promise<string> {
+    logger.debug(`[OllamaProvider] Executing single tool: ${toolName}`, {
+      args,
+    });
+
+    try {
+      // Use BaseProvider's tool execution mechanism
+      const aiTools = await this.getAllTools();
+      const tools = this.convertAISDKToolsToToolDefinitions(aiTools);
+
+      if (!tools[toolName]) {
+        throw new Error(`Tool not found: ${toolName}`);
+      }
+
+      const tool = tools[toolName];
+      if (!tool || !tool.execute) {
+        throw new Error(`Tool ${toolName} does not have execute method`);
+      }
+
+      const toolInput = args || {};
+
+      // Convert Record<string, unknown> to ToolArgs by filtering out non-JsonValue types
+      const toolArgs: ToolArgs = {};
+      for (const [key, value] of Object.entries(toolInput)) {
+        // Only include values that are JsonValue compatible
+        if (
+          value === null ||
+          typeof value === "string" ||
+          typeof value === "number" ||
+          typeof value === "boolean" ||
+          (typeof value === "object" && value !== null)
+        ) {
+          toolArgs[key] = value as JsonValue;
+        }
+      }
+
+      const result = await tool.execute(toolArgs);
+      logger.debug(`[OllamaProvider] Tool execution result:`, {
+        toolName,
+        result,
+      });
+
+      // Handle ToolResult type
+      if (result && typeof result === "object" && "success" in result) {
+        if (result.success && result.data !== undefined) {
+          if (typeof result.data === "string") {
+            return result.data;
+          } else if (typeof result.data === "object") {
+            return JSON.stringify(result.data, null, 2);
+          } else {
+            return String(result.data);
+          }
+        } else if (result.error) {
+          throw new Error(result.error.message || "Tool execution failed");
+        }
+      }
+
+      // Fallback for non-ToolResult return types
+      if (typeof result === "string") {
+        return result;
+      } else if (typeof result === "object") {
+        return JSON.stringify(result, null, 2);
+      } else {
+        return String(result);
+      }
+    } catch (error) {
+      logger.error(`[OllamaProvider] Tool execution error:`, {
+        toolName,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Execute tools and format results for Ollama API
+   * Similar to Bedrock's executeStreamTools but for Ollama format
+   */
+  private async executeOllamaTools(
+    toolCalls: OllamaToolCall[],
+    options: StreamOptions,
+  ): Promise<OllamaToolResult[]> {
+    const toolResults: OllamaToolResult[] = [];
+    const toolCallsForStorage: Array<{
+      type: string;
+      toolCallId: string;
+      toolName: string;
+      args: unknown;
+    }> = [];
+    const toolResultsForStorage: Array<{
+      type: string;
+      toolCallId: string;
+      toolName: string;
+      result: unknown;
+    }> = [];
+
+    logger.debug(`[OllamaProvider] Executing ${toolCalls.length} tool calls`);
+
+    for (const call of toolCalls) {
+      logger.debug(`[OllamaProvider] Executing tool: ${call.function.name}`);
+
+      // Parse arguments
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(call.function.arguments);
+      } catch (error) {
+        logger.error(
+          `[OllamaProvider] Failed to parse tool arguments: ${call.function.arguments}`,
+          { error },
+        );
+        args = {};
+      }
+
+      // Track tool call for storage
+      toolCallsForStorage.push({
+        type: "tool-call",
+        toolCallId: call.id,
+        toolName: call.function.name,
+        args,
+      });
+
+      try {
+        // Execute tool using existing tool framework
+        const result = await this.executeSingleTool(
+          call.function.name,
+          args,
+          call.id,
+        );
+
+        logger.debug(
+          `[OllamaProvider] Tool execution successful: ${call.function.name}`,
+        );
+
+        // Track result for storage
+        toolResultsForStorage.push({
+          type: "tool-result",
+          toolCallId: call.id,
+          toolName: call.function.name,
+          result,
+        });
+
+        // Format for Ollama API
+        toolResults.push({
+          tool_call_id: call.id,
+          content: JSON.stringify(result),
+        });
+      } catch (error) {
+        logger.error(
+          `[OllamaProvider] Tool execution failed: ${call.function.name}`,
+          { error },
+        );
+
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        // Track failed result
+        toolResultsForStorage.push({
+          type: "tool-result",
+          toolCallId: call.id,
+          toolName: call.function.name,
+          result: { error: errorMessage },
+        });
+
+        // Format error for Ollama API
+        toolResults.push({
+          tool_call_id: call.id,
+          content: JSON.stringify({ error: errorMessage }),
+        });
+      }
+    }
+
+    // Store tool executions (similar to Bedrock)
+    this.handleToolExecutionStorage(
+      toolCallsForStorage,
+      toolResultsForStorage,
+      options,
+      new Date(),
+    ).catch((error: unknown) => {
+      logger.warn("[OllamaProvider] Failed to store tool executions", {
+        provider: this.providerName,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+
+    return toolResults;
+  }
+
+  /**
+   * Convert ReadableStream to AsyncIterable for compatibility with StreamResult interface
+   */
+  private convertToAsyncIterable(
+    stream: ReadableStream,
+  ): AsyncIterable<{ content: string }> {
+    return {
+      async *[Symbol.asyncIterator]() {
+        const reader = stream.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break;
+            }
+            yield value;
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      },
+    };
   }
 
   /**

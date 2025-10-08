@@ -11,6 +11,13 @@ import { logger } from "../utils/logger.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
+import {
+  buildMessagesArray,
+  buildMultimodalMessagesArray,
+  convertToCoreMessages,
+} from "../utils/messageBuilder.js";
+import { buildMultimodalOptions } from "../utils/multimodalOptionsBuilder.js";
 
 // Constants
 const FALLBACK_OPENAI_COMPATIBLE_MODEL = "gpt-3.5-turbo";
@@ -227,13 +234,65 @@ export class OpenAICompatibleProvider extends BaseProvider {
     );
 
     try {
+      // Check for multimodal input (images, PDFs, CSVs, files)
+      const hasMultimodalInput = !!(
+        options.input?.images?.length ||
+        options.input?.content?.length ||
+        options.input?.files?.length ||
+        options.input?.csvFiles?.length ||
+        options.input?.pdfFiles?.length
+      );
+
+      let messages;
+      if (hasMultimodalInput) {
+        logger.debug(
+          `OpenAI Compatible: Detected multimodal input, using multimodal message builder`,
+          {
+            hasImages: !!options.input?.images?.length,
+            imageCount: options.input?.images?.length || 0,
+            hasContent: !!options.input?.content?.length,
+            contentCount: options.input?.content?.length || 0,
+            hasFiles: !!options.input?.files?.length,
+            fileCount: options.input?.files?.length || 0,
+            hasCSVFiles: !!options.input?.csvFiles?.length,
+            csvFileCount: options.input?.csvFiles?.length || 0,
+            hasPDFFiles: !!options.input?.pdfFiles?.length,
+            pdfFileCount: options.input?.pdfFiles?.length || 0,
+          },
+        );
+
+        const multimodalOptions = buildMultimodalOptions(
+          options,
+          this.providerName,
+          this.modelName,
+        );
+
+        const mm = await buildMultimodalMessagesArray(
+          multimodalOptions,
+          this.providerName,
+          this.modelName,
+        );
+
+        // Convert multimodal messages to Vercel AI SDK format (CoreMessage[])
+        messages = convertToCoreMessages(mm);
+      } else {
+        logger.debug(
+          `OpenAI Compatible: Text-only input, using standard message builder`,
+        );
+        messages = await buildMessagesArray(options);
+      }
+
       const model = await this.getAISDKModelWithMiddleware(options); // This is where network connection happens!
       const result = streamText({
         model,
-        prompt: options.input.text,
-        system: options.systemPrompt,
-        temperature: options.temperature,
-        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
+        messages: messages,
+        ...(options.maxTokens !== null && options.maxTokens !== undefined
+          ? { maxTokens: options.maxTokens }
+          : {}),
+        ...(options.temperature !== null && options.temperature !== undefined
+          ? { temperature: options.temperature }
+          : {}),
+        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         tools: options.tools,
         toolChoice: "auto",
         abortSignal: timeoutController?.controller.signal,

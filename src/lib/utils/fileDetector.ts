@@ -18,6 +18,7 @@ import type {
 import { logger } from "./logger.js";
 import { CSVProcessor } from "./csvProcessor.js";
 import { ImageProcessor } from "./imageProcessor.js";
+import { PDFProcessor } from "./pdfProcessor.js";
 
 /**
  * Format file size in human-readable units
@@ -86,7 +87,12 @@ export class FileDetector {
     // Extract CSV-specific options from FileDetectorOptions
     const csvOptions: CSVProcessorOptions | undefined = options?.csvOptions;
 
-    return await this.processFile(content, detection, csvOptions);
+    return await this.processFile(
+      content,
+      detection,
+      csvOptions,
+      options?.provider,
+    );
   }
 
   /**
@@ -171,12 +177,15 @@ export class FileDetector {
     content: Buffer,
     detection: FileDetectionResult,
     options?: CSVProcessorOptions,
+    provider?: string,
   ): Promise<FileProcessingResult> {
     switch (detection.type) {
       case "csv":
         return await CSVProcessor.process(content, options);
       case "image":
         return await ImageProcessor.process(content);
+      case "pdf":
+        return await PDFProcessor.process(content, { provider });
       case "text":
         return {
           type: "text",
@@ -459,7 +468,7 @@ class ExtensionStrategy implements DetectionStrategy {
       mimeType: this.getMimeType(ext),
       extension: ext,
       source: this.detectSource(input),
-      metadata: { confidence: type ? 70 : 0 },
+      metadata: { confidence: type ? 85 : 0 },
     };
   }
 

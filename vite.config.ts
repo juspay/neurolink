@@ -1,5 +1,5 @@
 import { sveltekit } from "@sveltejs/kit/vite";
-import { defineConfig, type UserConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [sveltekit()],
@@ -7,6 +7,7 @@ export default defineConfig({
   // FIXED test configuration - prevents hanging with execAsync
   test: {
     include: ["test/**/*.ts"], // Include all .ts files in test/ directory
+    exclude: ["**/node_modules/**"],
     testTimeout: 30000, // 30 seconds max per test (reduce if possible)
     hookTimeout: 10000, // Reduced to detect hangs faster
     globals: true, // Enable describe, it, expect globally
@@ -40,4 +41,4 @@ export default defineConfig({
       }
     },
   },
-} as const satisfies UserConfig); // Properly typed configuration
+});
