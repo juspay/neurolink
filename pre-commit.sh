@@ -47,7 +47,7 @@ if [[ "$BRANCH_NAME" != "HEAD" ]]; then
   else
     # Local development - tests still run
     echo "🧪 Running tests..."
-    npm run test
+    npm run test:run
   fi
 
   # Adding formatted files to git stage.

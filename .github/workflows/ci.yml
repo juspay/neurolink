@@ -31,6 +31,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: 🔄 SvelteKit Sync
+        run: |
+          echo "🔄 Running SvelteKit sync to generate TypeScript configs..."
+          pnpm exec svelte-kit sync
+
       - name: Auto-format code
         run: pnpm run format
 
@@ -73,6 +78,11 @@ jobs:
       - name: Install dependencies
         run: pnpm i
 
+      - name: 🔄 SvelteKit Sync
+        run: |
+          echo "🔄 Running SvelteKit sync to generate TypeScript configs..."
+          pnpm exec svelte-kit sync
+
       - name: Check package build
         run: pnpm run prepack
 
@@ -101,6 +111,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: 🔄 SvelteKit Sync
+        run: |
+          echo "🔄 Running SvelteKit sync to generate TypeScript configs..."
+          pnpm exec svelte-kit sync
 
       - name: 🔍 Build Validation
         run: |
@@ -135,7 +150,7 @@ jobs:
       - name: 📈 TypeScript Compiler Check
         run: |
           echo "📈 Running TypeScript compiler strict checks on source files..."
-          npx tsc --noEmit --strict --project tsconfig.ci.json
+          npx tsc --noEmit --strict --project tsconfig.json
 
       - name: 🎯 Code Coverage Analysis
         run: |

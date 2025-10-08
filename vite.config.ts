@@ -1,7 +1,28 @@
 import { sveltekit } from "@sveltejs/kit/vite";
-import { defineConfig } from "vitest/config";
+import type { UserConfig } from "vite";
 
-export default defineConfig({
+// Extend Vite config to support Vitest's test property
+interface VitestConfig extends Omit<UserConfig, "plugins"> {
+  // Use 'unknown' to avoid Plugin type conflicts from multiple Vite versions in pnpm
+  plugins?: unknown;
+  test?: {
+    include?: string[];
+    exclude?: string[];
+    testTimeout?: number;
+    hookTimeout?: number;
+    globals?: boolean;
+    pool?: "threads" | "forks";
+    poolOptions?: Record<string, unknown>;
+    isolate?: boolean;
+    maxConcurrency?: number;
+    bail?: number;
+    reporters?: string[];
+    outputFile?: string;
+    onConsoleLog?: (log: string, type: "stdout" | "stderr") => void;
+  };
+}
+
+const config: VitestConfig = {
   plugins: [sveltekit()],
 
   // FIXED test configuration - prevents hanging with execAsync
@@ -35,10 +56,12 @@ export default defineConfig({
     // Basic reporting - no complex logging that might hang
     reporters: ["verbose", "json"],
     outputFile: "test-results.json",
-    onConsoleLog: (log: string, type: "stdout" | "stderr") => {
+    onConsoleLog: (log: string, _type: "stdout" | "stderr") => {
       if (log.includes("timeout") || log.includes("hanging")) {
         console.error(`🚨 Potential hanging test: ${log}`);
       }
     },
   },
-});
+};
+
+export default config;
