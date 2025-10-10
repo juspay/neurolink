@@ -199,7 +199,7 @@ export default [
   },
   {
     // Test files override - allow console statements and relaxed rules
-    files: ["src/test/**/*.ts", "test/**/*.ts"],
+    files: ["test/**/*.ts"],
     rules: {
       "no-console": "off", // Allow all console statements in test files
       "@typescript-eslint/no-explicit-any": "warn", // Consistent with test directory rules above

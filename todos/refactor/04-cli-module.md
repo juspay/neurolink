@@ -882,7 +882,7 @@ pnpm run build:cli
 ./dist/cli/index.js config --list
 
 # Run CLI tests
-pnpm test src/test/cli/
+pnpm test test/cli/
 ```
 
 ## Common Issues and Solutions
@@ -956,30 +956,30 @@ git checkout HEAD~1 -- src/cli/commands/config.ts
 
 ```bash
 # Test individual commands
-pnpm test src/test/cli/commands/
+pnpm test test/cli/commands/
 
 # Test command factory
-pnpm test src/test/cli/factory/
+pnpm test test/cli/factory/
 
 # Test utilities
-pnpm test src/test/cli/utils/
+pnpm test test/cli/utils/
 ```
 
 ### Integration Tests
 
 ```bash
 # Test CLI with providers
-pnpm test src/test/integration/cli-providers.test.ts
+pnpm test test/integration/cli-providers.test.ts
 
 # Test CLI with configuration
-pnpm test src/test/integration/cli-config.test.ts
+pnpm test test/integration/cli-config.test.ts
 ```
 
 ### End-to-End Tests
 
 ```bash
 # Test complete CLI workflows
-pnpm test src/test/e2e/cli.test.ts
+pnpm test test/e2e/cli.test.ts
 ```
 
 ## Success Criteria

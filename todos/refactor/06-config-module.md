@@ -917,7 +917,7 @@ export class NeuroLinkConfigManager {
 npx tsc --noEmit src/lib/config/*.ts
 
 # Test configuration module
-pnpm test src/test/config/
+pnpm test test/config/
 
 # Test configuration validation
 node -e "

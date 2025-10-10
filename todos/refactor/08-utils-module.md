@@ -1212,7 +1212,7 @@ export function setLogLevel(level: LogLevel): void {
 npx tsc --noEmit src/lib/utils/*.ts
 
 # Test utilities
-pnpm test src/test/utils/
+pnpm test test/utils/
 
 # Test async utilities
 node -e "

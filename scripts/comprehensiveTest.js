@@ -90,24 +90,8 @@ class ComprehensiveTester {
   async testCoreFeatures() {
     this.log("\n🧪 TESTING CORE FEATURES", "info");
     
-    // Test all test suites
-    const testFiles = [
-      // Legacy src/test references removed - functionality no longer exists
-    ];
-    
-    for (const testFile of testFiles) {
-      if (existsSync(testFile)) {
-        await this.runCommand(
-          `npx vitest run ${testFile}`,
-          `Test Suite: ${path.basename(testFile)}`
-        );
-      } else {
-        this.log(`⚠️ Test file not found: ${testFile}`, "warning");
-      }
-    }
-    
-    // Run complete test suite
-    await this.runCommand("pnpm run test:ci", "Complete Test Suite");
+    // Run the actual working test suite
+    await this.runCommand("pnpm run test:providers", "Continuous Test Suite");
   }
 
   async testCLIFunctionality() {

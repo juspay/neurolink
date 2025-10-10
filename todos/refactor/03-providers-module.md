@@ -663,9 +663,9 @@ git checkout HEAD~1 -- src/lib/providers/openAI.ts
 
 ```bash
 # Test each provider individually
-pnpm test src/test/providers/bedrock.test.ts
-pnpm test src/test/providers/openai.test.ts
-pnpm test src/test/providers/vertex.test.ts
+pnpm test test/providers/bedrock.test.ts
+pnpm test test/providers/openai.test.ts
+pnpm test test/providers/vertex.test.ts
 # ... for all providers
 ```
 
@@ -673,23 +673,23 @@ pnpm test src/test/providers/vertex.test.ts
 
 ```bash
 # Test provider factory
-pnpm test src/test/factory/
+pnpm test test/factory/
 
 # Test provider switching
-pnpm test src/test/fallback/
+pnpm test test/fallback/
 
 # Test provider configurations
-pnpm test src/test/config/
+pnpm test test/config/
 ```
 
 ### Error Handling Tests
 
 ```bash
 # Test error scenarios
-pnpm test src/test/errors/
+pnpm test test/errors/
 
 # Test network failures
-pnpm test src/test/network/
+pnpm test test/network/
 ```
 
 ## Success Criteria

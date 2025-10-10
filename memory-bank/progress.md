@@ -614,12 +614,12 @@ await neurolink.addMCPServer('bitbucket', {
 2. `test/ directory (legacy src/test refs removed).ts` - Integration with orchestrator
 3. `test/ directory (legacy src/test refs removed)ing
 4. `test/ directory (legacy src/test refs removed).ts` - Chain execution validation
-5. `src/test/session-manager.test.ts` - Session management functionality
-6. `src/test/session-persistence.test.ts` - Persistence across restarts
-7. `src/test/health-monitor.test.ts` - Health monitoring functionality
-8. `src/test/health-monitoring.test.ts` - Integration testing
-9. `src/test/error-manager.test.ts` - Error categorization and management
-10. `src/test/error-handling.test.ts` - Error recovery scenarios
+5. `test/session-manager.test.ts` - Session management functionality
+6. `test/session-persistence.test.ts` - Persistence across restarts
+7. `test/health-monitor.test.ts` - Health monitoring functionality
+8. `test/health-monitoring.test.ts` - Integration testing
+9. `test/error-manager.test.ts` - Error categorization and management
+10. `test/error-handling.test.ts` - Error recovery scenarios
 11. `test/ directory (legacy src/test refs removed).ts` - Multi-transport functionality
 
 ### **Testing Coverage Achievements**

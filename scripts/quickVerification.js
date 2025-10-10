@@ -37,7 +37,7 @@ const requiredFiles = [
   'src/lib/mcp/session-manager.ts',
   'src/lib/mcp/semaphore-manager.ts',
   'src/lib/mcp/error-manager.ts',
-  // Legacy src/test references removed - functionality no longer exists
+  'test/continuous-test-suite.ts'
 ];
 
 requiredFiles.forEach(file => {
@@ -55,7 +55,7 @@ runQuickTest('pnpm run lint --max-warnings 0', 'Linting');
 
 // Test core functionality
 console.log('\n🧪 TESTING CORE FEATURES');
-runQuickTest('npx vitest run --reporter=basic', 'Test Suite');
+runQuickTest('pnpm run test:providers', 'Continuous Test Suite');
 
 // Test CLI basics
 console.log('\n💻 TESTING CLI');

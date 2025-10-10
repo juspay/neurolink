@@ -128,7 +128,7 @@ pnpm run test:ci                # Complete CI testing suite
 
 # SPECIFIC TESTING
 vitest                          # Interactive development testing
-vitest run src/test/providers-fixed.test.ts  # Main test suite (26/29 passing)
+vitest run test/continuous-test-suite.ts  # Main test suite
 ```
 
 #### **Build & Deploy (7-Phase Pipeline)**
@@ -291,7 +291,7 @@ Layer 3: Real-World Scenarios → System Tests (Performance, concurrency)
 ```bash
 # DEVELOPMENT TESTING (Interactive)
 vitest                          # Watch mode with hot reload
-vitest run src/test/providers-fixed.test.ts  # Main test suite (26/29 passing)
+vitest run test/continuous-test-suite.ts  # Main test suite
 
 # AUTOMATED TESTING (CI/CD)
 pnpm run test:run               # Non-interactive full suite
@@ -460,7 +460,7 @@ memory-bank/development/new-workflow-guide.md
 scripts/examples/new-demo.js
 
 # ✅ Test files
-src/test/new-feature.test.ts
+test/continuous-test-suite.ts
 
 # ✅ Tools and automation
 tools/automation/new-automation.js
@@ -726,7 +726,7 @@ YOUR_PROVIDER_MODEL=default-model-name
 
 #### **Phase 5: Test Integration**
 ```typescript
-// Add to src/test/providers-fixed.test.ts
+// Add to test/continuous-test-suite.ts
 describe('YourProvider', () => {
   it('should generate text successfully', async () => {
     // Mock implementation
@@ -972,7 +972,7 @@ scripts/
 
 ### **File Organization Rules**
 - **Provider Files**: `src/lib/providers/{providerName}.ts`
-- **Test Files**: `src/test/{feature}.test.ts`
+- **Test Files**: `test/{feature}.test.ts`
 - **Demo Scripts**: `scripts/examples/{demo}.js`
 - **Research Docs**: `memory-bank/research/{TOPIC}-ANALYSIS.md`
 - **Development Guides**: `memory-bank/development/{guide}.md`

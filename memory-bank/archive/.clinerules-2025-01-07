@@ -1385,7 +1385,7 @@ function isProviderConfigured(provider) {
 
 ### **Integration Completeness Validation (PRODUCTION-READY)**
 - **Core Files**: `src/lib/providers/googleAIStudio.ts` - Complete implementation
-- **Test Files**: `src/test/providers.test.ts`, `src/test/cli.test.ts` - Google AI Studio test cases
+- **Test Files**: `test/providers.test.ts`, `test/cli.test.ts` - Google AI Studio test cases
 - **CLI Files**: `src/cli/commands/config.ts` - Full CLI support
 - **MCP Files**: All MCP servers support Google AI Studio provider
 - **Documentation**: All 6 documentation files updated
@@ -1457,7 +1457,7 @@ node debug-multi-turn.js  # Tests pure AI SDK function calling
 node dist/cli/index.js generate-text "What time is it?" --debug
 
 # MCP foundation validation
-npm run test:run -- src/test/mcp-comprehensive.test.ts  # 27/27 tests passing
+npm run test:run -- test/mcp-comprehensive.test.ts  # 27/27 tests passing
 ```
 
 ### **Production Implementation Pattern (CRITICAL)**

@@ -315,11 +315,11 @@ export interface GenerateOptions {
 
 ## 7. Testing Strategy
 
-1.  **Unit Tests (`src/test/textUtils.test.ts`)**:
+1.  **Unit Tests (`test/textUtils.test.ts`)**:
     - Test `chunkText` with empty, short, and long strings.
     - Verify that `overlap` is handled correctly.
     - Ensure splitting prioritizes sentence boundaries.
-2.  **Integration Tests (`src/test/largeContext.test.ts`)**:
+2.  **Integration Tests (`test/largeContext.test.ts`)**:
     - Test the main `generate()` method with a string larger than the `chunkSize` threshold.
     - Mock the `_summarizeLargeText` method to confirm it's called when `mode` is `'summarize'`.
     - Mock the internal `generate` calls to verify the map-reduce logic is working as expected (i.e., multiple parallel calls followed by one final call).

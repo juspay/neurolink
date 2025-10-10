@@ -47,7 +47,6 @@
 /CONTRIBUTING.md @juspay/neurolink-docs
 
 # Tests
-/src/test/ @juspay/neurolink-testing
 /test/ @juspay/neurolink-testing
 
 # Examples and demos
