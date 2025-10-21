@@ -154,34 +154,34 @@ export function getRedisConfigFromEnv(): RedisStorageConfig {
   logger.debug(
     "[conversationMemoryFactory] Reading Redis configuration from environment",
     {
-      REDIS_HOST: process.env.REDIS_HOST || "(not set)",
-      REDIS_PORT: process.env.REDIS_PORT || "(not set)",
-      REDIS_PASSWORD: process.env.REDIS_PASSWORD ? "******" : "(not set)",
-      REDIS_DB: process.env.REDIS_DB || "(not set)",
-      REDIS_KEY_PREFIX: process.env.REDIS_KEY_PREFIX || "(not set)",
-      REDIS_TTL: process.env.REDIS_TTL || "(not set)",
-      REDIS_CONNECT_TIMEOUT: process.env.REDIS_CONNECT_TIMEOUT || "(not set)",
-      REDIS_MAX_RETRIES: process.env.REDIS_MAX_RETRIES || "(not set)",
-      REDIS_RETRY_DELAY: process.env.REDIS_RETRY_DELAY || "(not set)",
+      REDIS_HOST: process.env.AUTOMATIC_REDIS_HOST || "(not set)",
+      REDIS_PORT: process.env.AUTOMATIC_REDIS_PORT || "(not set)",
+      REDIS_PASSWORD: process.env.AUTOMATIC_REDIS_PASSWORD ? "******" : "(not set)",
+      REDIS_DB: process.env.AUTOMATIC_REDIS_DB || "(not set)",
+      REDIS_KEY_PREFIX: process.env.AUTOMATIC_REDIS_KEY_PREFIX || "(not set)",
+      REDIS_TTL: process.env.AUTOMATIC_REDIS_TTL || "(not set)",
+      REDIS_CONNECT_TIMEOUT: process.env.AUTOMATIC_REDIS_CONNECT_TIMEOUT || "(not set)",
+      REDIS_MAX_RETRIES: process.env.AUTOMATIC_REDIS_MAX_RETRIES || "(not set)",
+      REDIS_RETRY_DELAY: process.env.AUTOMATIC_REDIS_RETRY_DELAY || "(not set)",
     },
   );
 
   const config = {
-    host: process.env.REDIS_HOST,
-    port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : undefined,
-    password: process.env.REDIS_PASSWORD,
-    db: process.env.REDIS_DB ? Number(process.env.REDIS_DB) : undefined,
-    keyPrefix: process.env.REDIS_KEY_PREFIX,
-    ttl: process.env.REDIS_TTL ? Number(process.env.REDIS_TTL) : undefined,
+    host: process.env.AUTOMATIC_REDIS_HOST,
+    port: process.env.AUTOMATIC_REDIS_PORT ? Number(process.env.AUTOMATIC_REDIS_PORT) : undefined,
+    password: process.env.AUTOMATIC_REDIS_PASSWORD,
+    db: process.env.AUTOMATIC_REDIS_DB ? Number(process.env.AUTOMATIC_REDIS_DB) : undefined,
+    keyPrefix: process.env.AUTOMATIC_REDIS_KEY_PREFIX,
+    ttl: process.env.AUTOMATIC_REDIS_TTL ? Number(process.env.AUTOMATIC_REDIS_TTL) : undefined,
     connectionOptions: {
-      connectTimeout: process.env.REDIS_CONNECT_TIMEOUT
-        ? Number(process.env.REDIS_CONNECT_TIMEOUT)
+      connectTimeout: process.env.AUTOMATIC_REDIS_CONNECT_TIMEOUT
+        ? Number(process.env.AUTOMATIC_REDIS_CONNECT_TIMEOUT)
         : undefined,
-      maxRetriesPerRequest: process.env.REDIS_MAX_RETRIES
-        ? Number(process.env.REDIS_MAX_RETRIES)
+      maxRetriesPerRequest: process.env.AUTOMATIC_REDIS_MAX_RETRIES
+        ? Number(process.env.AUTOMATIC_REDIS_MAX_RETRIES)
         : undefined,
-      retryDelayOnFailover: process.env.REDIS_RETRY_DELAY
-        ? Number(process.env.REDIS_RETRY_DELAY)
+      retryDelayOnFailover: process.env.AUTOMATIC_REDIS_RETRY_DELAY
+        ? Number(process.env.AUTOMATIC_REDIS_RETRY_DELAY)
         : undefined,
     },
   };

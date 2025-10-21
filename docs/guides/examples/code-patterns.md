@@ -639,9 +639,9 @@ class RedisCachedAIService {
 
   constructor() {
     this.redis = new Redis({
-      host: process.env.REDIS_HOST,
-      port: parseInt(process.env.REDIS_PORT),
-      password: process.env.REDIS_PASSWORD,
+      host: process.env.AUTOMATIC_REDIS_HOST,
+      port: parseInt(process.env.AUTOMATIC_REDIS_PORT),
+      password: process.env.AUTOMATIC_REDIS_PASSWORD,
     });
 
     this.ai = new NeuroLink({

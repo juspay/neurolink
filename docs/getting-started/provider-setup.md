@@ -1149,29 +1149,29 @@ Redis integration for distributed conversation memory and session state.
 ### Basic Setup
 
 ```bash
-export REDIS_URL="redis://localhost:6379"
+export AUTOMATIC_REDIS_URL="redis://your-redis-host:6379"
 ```
 
 ### Optional Configuration
 
 ```bash
-export REDIS_PASSWORD="your-redis-password"  # If authentication enabled
-export REDIS_DB="0"  # Database number (default: 0)
-export REDIS_KEY_PREFIX="neurolink:"  # Key prefix for namespacing
+export AUTOMATIC_REDIS_PASSWORD="your-redis-password"  # If authentication enabled
+export AUTOMATIC_REDIS_DB="0"  # Database number (default: 0)
+export AUTOMATIC_REDIS_KEY_PREFIX="neurolink:"  # Key prefix for namespacing
 ```
 
 ### Advanced Configuration
 
 ```bash
 # Connection settings
-export REDIS_HOST="localhost"
-export REDIS_PORT="6379"
-export REDIS_TLS="false"  # Set to "true" for TLS connections
+export AUTOMATIC_REDIS_HOST="your-redis-host"
+export AUTOMATIC_REDIS_PORT="6379"
+export AUTOMATIC_REDIS_TLS="false"  # Set to "true" for TLS connections
 
 # Pool settings
-export REDIS_MAX_RETRIES="3"
-export REDIS_RETRY_DELAY="1000"  # milliseconds
-export REDIS_CONNECTION_TIMEOUT="5000"  # milliseconds
+export AUTOMATIC_REDIS_MAX_RETRIES="3"
+export AUTOMATIC_REDIS_RETRY_DELAY="1000"  # milliseconds
+export AUTOMATIC_REDIS_CONNECT_TIMEOUT="5000"  # milliseconds
 ```
 
 ### Usage Example
@@ -1182,7 +1182,7 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink({
   memory: {
     type: "redis",
-    url: process.env.REDIS_URL,
+    url: process.env.AUTOMATIC_REDIS_URL,
   },
 });
 
@@ -1197,7 +1197,7 @@ const result = await neurolink.generate({
 For managed Redis (Redis Cloud, AWS ElastiCache, etc.):
 
 ```bash
-export REDIS_URL="rediss://username:password@your-redis-host:6380"
+export AUTOMATIC_REDIS_URL="rediss://username:password@your-redis-host:6380"
 ```
 
 ### Docker Redis (Development)
@@ -1207,7 +1207,7 @@ export REDIS_URL="rediss://username:password@your-redis-host:6380"
 docker run -d -p 6379:6379 redis:latest
 
 # Set environment
-export REDIS_URL="redis://localhost:6379"
+export AUTOMATIC_REDIS_URL="redis://your-redis-host:6379"
 ```
 
 ### Features Enabled by Redis
@@ -1220,14 +1220,14 @@ export REDIS_URL="redis://localhost:6379"
 
 ### Environment Variables Reference
 
-| Variable           | Required        | Default    | Description               |
-| ------------------ | --------------- | ---------- | ------------------------- |
-| `REDIS_URL`        | Recommended     | -          | Full Redis connection URL |
-| `REDIS_HOST`       | Alternative     | localhost  | Redis host                |
-| `REDIS_PORT`       | Alternative     | 6379       | Redis port                |
-| `REDIS_PASSWORD`   | If auth enabled | -          | Redis password            |
-| `REDIS_DB`         | ❌              | 0          | Database number           |
-| `REDIS_KEY_PREFIX` | ❌              | neurolink: | Key prefix                |
+| Variable                      | Required        | Default          | Description               |
+| ----------------------------- | --------------- | ----------       | ------------------------- |
+| `AUTOMATIC_REDIS_URL`         | Recommended     | -                | Full Redis connection URL |
+| `AUTOMATIC_REDIS_HOST`        | Alternative     | your-redis-host  | Redis host                |
+| `AUTOMATIC_REDIS_PORT`        | Alternative     | 6379             | Redis port                |
+| `AUTOMATIC_REDIS_PASSWORD`    | If auth enabled | -                | Redis password            |
+| `AUTOMATIC_REDIS_DB`          | ❌              | 0                | Database number           |
+| `AUTOMATIC_REDIS_KEY_PREFIX`  | ❌              | neurolink:       | Key prefix                |
 
 ## Environment File Template
 

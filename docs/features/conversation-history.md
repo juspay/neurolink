@@ -93,11 +93,11 @@ npx @juspay/neurolink memory export-all --output ./exports/
 
 ```bash
 # Redis connection (required for export)
-export REDIS_URL="redis://localhost:6379"
+export AUTOMATIC_REDIS_URL="redis://your-redis-host:6379"
 # or
-export REDIS_HOST="localhost"
-export REDIS_PORT="6379"
-export REDIS_PASSWORD="your-password"  # if needed
+export AUTOMATIC_REDIS_HOST="your-redis-host"
+export AUTOMATIC_REDIS_PORT="6379"
+export AUTOMATIC_REDIS_PASSWORD="your-password"  # if needed
 
 # Conversation memory settings
 export NEUROLINK_MEMORY_ENABLED="true"
@@ -114,9 +114,9 @@ export default {
     enabled: true,
     store: "redis", // Required for persistent history
     redis: {
-      host: process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDIS_PORT || "6379"),
-      password: process.env.REDIS_PASSWORD,
+      host: process.env.AUTOMATIC_REDIS_HOST || "your-redis-host",
+      port: parseInt(process.env.AUTOMATIC_REDIS_PORT || "6379"),
+      password: process.env.AUTOMATIC_REDIS_PASSWORD,
     },
     maxTurnsPerSession: 100,
   },
