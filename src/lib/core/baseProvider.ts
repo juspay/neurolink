@@ -1070,9 +1070,14 @@ export abstract class BaseProvider implements AIProvider {
       let finalSchema: z.ZodSchema | ReturnType<typeof jsonSchema>;
       let originalInputSchema: Record<string, unknown> | undefined;
 
-      // Prioritize parameters (Zod), then inputSchema (JSON Schema)
+      // Prioritize parameters (Zod), then inputSchema (Zod or JSON Schema)
       if (toolInfo.parameters && this.isZodSchema(toolInfo.parameters)) {
         finalSchema = toolInfo.parameters as z.ZodSchema;
+      } else if (
+        toolInfo.inputSchema &&
+        this.isZodSchema(toolInfo.inputSchema)
+      ) {
+        finalSchema = toolInfo.inputSchema as z.ZodSchema;
       } else if (
         toolInfo.inputSchema &&
         typeof toolInfo.inputSchema === "object"
