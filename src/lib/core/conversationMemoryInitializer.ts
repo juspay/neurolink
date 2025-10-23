@@ -68,14 +68,19 @@ export async function initializeConversationMemory(config?: {
         "[conversationMemoryInitializer] Initializing Redis-based conversation memory manager",
       );
 
-      // Get Redis configuration from environment
+      // Get Redis configuration - prioritize passed config, fallback to environment
       logger.debug(
-        "[conversationMemoryInitializer] Getting Redis configuration from environment",
+        "[conversationMemoryInitializer] Getting Redis configuration",
       );
-      const redisConfig = getRedisConfigFromEnv();
+      const redisConfig =
+        config.conversationMemory?.redisConfig || getRedisConfigFromEnv();
+      const configSource = config.conversationMemory?.redisConfig
+        ? "SDK input (from Lighthouse)"
+        : "environment variables (NeuroLink)";
       logger.debug(
         "[conversationMemoryInitializer] Redis configuration retrieved",
         {
+          configSource,
           host: redisConfig.host || "localhost",
           port: redisConfig.port || 6379,
           hasPassword: !!redisConfig.password,
@@ -109,8 +114,10 @@ export async function initializeConversationMemory(config?: {
       logger.info(
         "[conversationMemoryInitializer] Redis conversation memory manager created successfully",
         {
+          configSource,
           host: redisConfig.host || "localhost",
           port: redisConfig.port || 6379,
+          keyPrefix: redisConfig.keyPrefix || "neurolink:conversation:",
           maxSessions: memoryConfig.maxSessions,
           maxTurnsPerSession: memoryConfig.maxTurnsPerSession,
           managerType: redisMemoryManager?.constructor?.name,

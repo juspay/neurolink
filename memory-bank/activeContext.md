@@ -1,4 +1,58 @@
-## 🚀 **CURRENT STATUS: AZURE OPENAI PROVIDER SDK PARAMETER SUPPORT** (2025-10-06)
+## 🚀 **CURRENT STATUS: SEPARATE REDIS CONFIGURATION FOR CONVERSATION HISTORY** (2025-10-23)
+
+### **🏆 MULTI-TENANCY ENHANCEMENT: LIGHTHOUSE REDIS SEPARATION**
+- **Primary Objective**: ✅ Enable Lighthouse to use separate Redis instance for conversation history
+- **Implementation**: Added SDK-level Redis configuration override in conversation memory system
+- **Multi-Tenancy Impact**:
+  - **Separation of Concerns**: Lighthouse can use dedicated Redis, NeuroLink uses separate instance
+  - **Configuration Priority**: SDK-passed config overrides environment variables
+  - **Source Tracking**: Enhanced logging shows config origin ("SDK input" vs "environment variables")
+  - **Key Prefix Support**: Different tenants can use isolated namespaces
+- **Status**: ✅ **PRODUCTION READY** - Multi-tenancy Redis configuration operational
+
+### **✅ Redis Configuration Hierarchy Complete**
+**Changes Made:**
+- **Type Definition**: Added `redisConfig?: RedisStorageConfig` to `ConversationMemoryConfig` interface
+- **Initializer Logic**: Updated to prioritize SDK config: `config.conversationMemory?.redisConfig || getRedisConfigFromEnv()`
+- **Source Tracking**: Added `configSource` field to all Redis-related logs for debugging
+- **Enhanced Logging**: Added `keyPrefix` to success logs for namespace visibility
+
+### **🎯 Configuration Priority System**
+**Hierarchical Resolution (Highest to Lowest):**
+1. **SDK Input** (Lighthouse): Config passed through `conversationMemory.redisConfig`
+2. **Environment Variables** (NeuroLink): `.env` configuration as fallback
+
+### **Technical Implementation Details**
+- **Files Modified**: 
+  - `src/lib/core/conversationMemoryInitializer.ts` - Redis config override logic
+  - `src/lib/types/conversation.ts` - Type definition enhancement
+- **Pattern**: Configuration cascade with explicit source attribution
+- **Backward Compatibility**: 100% - All existing environment-based configs continue working
+- **Zero Breaking Changes**: Optional field, existing code unaffected
+
+### **Usage Example: Multi-Tenant Deployment**
+```typescript
+// Lighthouse passes its own Redis configuration
+const neurolink = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    redisConfig: {
+      host: 'lighthouse-redis.internal',
+      port: 6380,
+      password: 'lighthouse-secret',
+      keyPrefix: 'lighthouse:conv:',
+      db: 1  // Separate database
+    }
+  }
+});
+
+// Logs will show: configSource: "SDK input (from Lighthouse)"
+// Uses Lighthouse's Redis instead of NeuroLink's environment variables
+```
+
+---
+
+## 🚀 **PREVIOUS STATUS: AZURE OPENAI PROVIDER SDK PARAMETER SUPPORT** (2025-10-06)
 
 ### **🏆 TECHNICAL IMPROVEMENT: ENHANCED PROVIDER FACTORY PATTERN**
 - **Primary Objective**: ✅ Add SDK parameter support to Azure OpenAI provider registration for consistency with other providers

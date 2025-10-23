@@ -1,8 +1,52 @@
 # Project Progress
 
+## 🚀 **SEPARATE REDIS CONFIGURATION FOR CONVERSATION HISTORY** (2025-10-23)
+
+### **🏆 LATEST ENHANCEMENT: MULTI-TENANCY REDIS SUPPORT**
+
+**Objective**: Enable Lighthouse to use separate Redis instance for conversation history while NeuroLink maintains its own.
+**Achievement**: Implemented SDK-level Redis configuration override in conversation memory system with hierarchical resolution.
+**Impact**: Enables true multi-tenancy deployments where different applications (Lighthouse, NeuroLink) can use isolated Redis instances with separate namespaces, improving data isolation and operational flexibility.
+
+**Technical Changes**:
+- ✅ **Type Enhancement**: Added `redisConfig?: RedisStorageConfig` to `ConversationMemoryConfig` interface
+- ✅ **Configuration Priority**: SDK config now overrides environment variables with clear precedence
+- ✅ **Source Tracking**: Enhanced logging with `configSource` field for debugging multi-tenant setups
+- ✅ **Namespace Visibility**: Added `keyPrefix` to success logs for Redis key namespace awareness
+- ✅ **Backward Compatibility**: 100% - Existing environment-based configs continue working unchanged
+
+**Configuration Hierarchy**:
+```typescript
+// 1. SDK Input (Highest Priority) - Lighthouse's Redis
+redisConfig: {
+  host: 'lighthouse-redis.internal',
+  port: 6380,
+  password: 'lighthouse-secret',
+  keyPrefix: 'lighthouse:conv:',
+  db: 1
+}
+
+// 2. Environment Variables (Fallback) - NeuroLink's Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=neurolink-secret
+```
+
+**Strategic Value**:
+- **Data Isolation**: Different applications can maintain separate conversation histories
+- **Operational Flexibility**: Each tenant can manage their own Redis infrastructure
+- **Debugging Support**: Clear logging shows config origin for troubleshooting
+- **Zero Migration**: Existing deployments work without changes
+
+**Files Modified**:
+- `src/lib/core/conversationMemoryInitializer.ts` - Redis config override logic with source tracking
+- `src/lib/types/conversation.ts` - Type definition for optional redisConfig field
+
+---
+
 ## 🚀 **AZURE OPENAI PROVIDER SDK PARAMETER SUPPORT** (2025-10-06)
 
-### **🏆 LATEST ENHANCEMENT: PROVIDER FACTORY CONSISTENCY**
+### **🏆 PREVIOUS ENHANCEMENT: PROVIDER FACTORY CONSISTENCY**
 
 **Objective**: Align Azure OpenAI provider registration with standardized factory pattern across all providers.
 **Achievement**: Updated Azure provider factory to accept optional SDK parameter, maintaining consistency with provider registry architecture.

@@ -42,6 +42,9 @@ export type ConversationMemoryConfig = {
 
   /** Configuration for mem0 integration */
   mem0Config?: MemoryConfig;
+
+  /** Redis configuration (optional) - overrides environment variables */
+  redisConfig?: RedisStorageConfig;
 };
 /**
  * Complete memory for a conversation session
