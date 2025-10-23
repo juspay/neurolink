@@ -1,0 +1,18 @@
+/**
+ * Global type definitions for test environment
+ * Provides proper typing for global test utilities and configuration
+ */
+
+export type TestConfigType = {
+  timeout: number;
+  providers: string[];
+  mockResponses: boolean;
+};
+
+declare global {
+  // eslint-disable-next-line no-var
+  var TestConfig: TestConfigType;
+}
+
+// Re-export for convenience
+export {};
