@@ -1,3 +1,9 @@
+## [7.52.0](https://github.com/juspay/neurolink/compare/v7.51.3...v7.52.0) (2025-10-24)
+
+### Features
+
+- **(redis):** Enable SDK-level Redis configuration for multi-tenancy ([6c68883](https://github.com/juspay/neurolink/commit/6c688833ab48608e47402c7ee3c904c6986734ae))
+
 ## [7.51.3](https://github.com/juspay/neurolink/compare/v7.51.2...v7.51.3) (2025-10-23)
 
 ### Bug Fixes
