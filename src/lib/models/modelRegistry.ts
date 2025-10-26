@@ -4,111 +4,15 @@
  * Part of Phase 4.1 - Models Command System
  */
 
+import { DEFAULT_MODEL_ALIASES } from "../types/providers.js";
 import {
   AIProviderName,
   OpenAIModels,
   GoogleAIModels,
   AnthropicModels,
-  DEFAULT_MODEL_ALIASES,
-} from "../types/providers.js";
+} from "../constants/enums.js";
 import type { JsonValue } from "../types/common.js";
-
-/**
- * Model capabilities interface
- */
-export interface ModelCapabilities {
-  vision: boolean;
-  functionCalling: boolean;
-  codeGeneration: boolean;
-  reasoning: boolean;
-  multimodal: boolean;
-  streaming: boolean;
-  jsonMode: boolean;
-}
-
-/**
- * Model pricing information
- */
-export interface ModelPricing {
-  inputCostPer1K: number; // Cost per 1K input tokens in USD
-  outputCostPer1K: number; // Cost per 1K output tokens in USD
-  currency: string; // Always USD for now
-}
-
-/**
- * Model performance characteristics
- */
-export interface ModelPerformance {
-  speed: "fast" | "medium" | "slow"; // Response speed
-  quality: "high" | "medium" | "low"; // Output quality
-  accuracy: "high" | "medium" | "low"; // Factual accuracy
-}
-
-/**
- * Model limitations and constraints
- */
-export interface ModelLimits {
-  maxContextTokens: number;
-  maxOutputTokens: number;
-  maxRequestsPerMinute?: number;
-  maxRequestsPerDay?: number;
-}
-
-/**
- * Use case suitability scores (1-10 scale)
- */
-export interface UseCaseSuitability {
-  coding: number;
-  creative: number;
-  analysis: number;
-  conversation: number;
-  reasoning: number;
-  translation: number;
-  summarization: number;
-}
-
-/**
- * Complete model information
- */
-export interface ModelInfo {
-  id: string;
-  name: string;
-  provider: AIProviderName;
-  description: string;
-  capabilities: ModelCapabilities;
-  pricing: ModelPricing;
-  performance: ModelPerformance;
-  limits: ModelLimits;
-  useCases: UseCaseSuitability;
-  aliases: string[];
-  deprecated: boolean;
-  isLocal: boolean; // Whether the model runs locally (e.g., Ollama)
-  releaseDate?: string;
-  category: "general" | "coding" | "creative" | "vision" | "reasoning";
-}
-
-/**
- * Model search filters
- */
-export interface ModelSearchFilters {
-  provider?: AIProviderName | AIProviderName[];
-  capability?: keyof ModelCapabilities | (keyof ModelCapabilities)[];
-  useCase?: keyof UseCaseSuitability;
-  maxCost?: number; // Max cost per 1K tokens
-  minContextSize?: number;
-  maxContextSize?: number;
-  performance?: ModelPerformance["speed"] | ModelPerformance["quality"];
-  category?: ModelInfo["category"] | ModelInfo["category"][];
-}
-
-/**
- * Model search result with ranking
- */
-export interface ModelSearchResult {
-  model: ModelInfo;
-  score: number; // Relevance score 0-1
-  matchReasons: string[];
-}
+import type { ModelInfo } from "../types/modelTypes.js";
 
 /**
  * Comprehensive model registry

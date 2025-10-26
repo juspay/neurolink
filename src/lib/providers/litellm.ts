@@ -1,7 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import type { ZodType, ZodTypeDef } from "zod";
 import { streamText, type Schema, type LanguageModelV1 } from "ai";
-import type { AIProviderName } from "../types/index.js";
+import { AIProviderName } from "../constants/enums.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { UnknownRecord } from "../types/common.js";
 import type { NeuroLink } from "../neurolink.js";

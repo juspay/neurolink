@@ -7,7 +7,7 @@
 /**
  * Langfuse observability configuration
  */
-export interface LangfuseConfig {
+export type LangfuseConfig = {
   /** Whether Langfuse is enabled */
   enabled: boolean;
   /** Langfuse public key */
@@ -25,12 +25,12 @@ export interface LangfuseConfig {
   environment?: string;
   /** Release/version identifier */
   release?: string;
-}
+};
 
 /**
  * OpenTelemetry configuration
  */
-export interface OpenTelemetryConfig {
+export type OpenTelemetryConfig = {
   /** Whether OpenTelemetry is enabled */
   enabled: boolean;
   /** OTLP endpoint URL */
@@ -39,14 +39,14 @@ export interface OpenTelemetryConfig {
   serviceName?: string;
   /** Service version */
   serviceVersion?: string;
-}
+};
 
 /**
  * Complete observability configuration for Neurolink SDK
  */
-export interface ObservabilityConfig {
+export type ObservabilityConfig = {
   /** Langfuse configuration */
   langfuse?: LangfuseConfig;
   /** OpenTelemetry configuration */
   openTelemetry?: OpenTelemetryConfig;
-}
+};

@@ -7,6 +7,7 @@
 import { logger } from "../utils/logger.js";
 import type { ProxyAgent } from "undici";
 import { shouldBypassProxy } from "./utils/noProxyUtils.js";
+import type { ParsedProxyConfig } from "../types/utilities.js";
 
 /**
  * Mask credentials in proxy URLs for secure logging
@@ -50,19 +51,7 @@ function maskProxyEnvVars(
 
 // ==================== LIGHTWEIGHT PROXY IMPLEMENTATIONS ====================
 
-/**
- * Parsed proxy configuration
- */
-interface ParsedProxyConfig {
-  protocol: string;
-  hostname: string;
-  port: number;
-  auth?: {
-    username: string;
-    password: string;
-  };
-  cleanUrl: string;
-}
+// ParsedProxyConfig interface moved to ../types/utilities.js
 
 /**
  * Parse proxy URL with authentication support

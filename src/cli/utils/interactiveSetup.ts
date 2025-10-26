@@ -5,7 +5,7 @@
  * credential collection, testing, and environment file management.
  */
 
-import { AIProviderName } from "../../lib/types/index.js";
+import { AIProviderName } from "../../lib/constants/enums.js";
 import { NeuroLink } from "../../lib/neurolink.js";
 import chalk from "chalk";
 import ora from "ora";

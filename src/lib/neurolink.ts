@@ -16,13 +16,16 @@ try {
 }
 
 import type {
-  AIProviderName,
   TextGenerationOptions,
   TextGenerationResult,
   AnalyticsData,
+  ProviderStatus,
 } from "./types/index.js";
 import { AIProviderFactory } from "./core/factory.js";
-
+import { isNonNullObject } from "./utils/typeUtils.js";
+import { isZodSchema } from "./utils/schemaConversion.js";
+import type { Mem0Memory } from "./types/utilities.js";
+import { AIProviderName } from "./constants/enums.js";
 import { mcpLogger } from "./utils/logger.js";
 import { SYSTEM_LIMITS } from "./core/constants.js";
 import {
@@ -52,9 +55,10 @@ import type {
 } from "./types/streamTypes.js";
 import type { TokenUsage, EvaluationData } from "./types/index.js";
 import type {
-  MCPServerInfo,
   MCPExecutableTool,
   MCPServerCategory,
+  MCPServerInfo,
+  MCPStatus,
 } from "./types/mcpTypes.js";
 import type { ToolInfo } from "./types/tools.js";
 import type { NeuroLinkEvents, TypedEventEmitter } from "./types/common.js";
@@ -114,14 +118,16 @@ import {
   storeConversationTurn,
 } from "./utils/conversationMemory.js";
 import { ExternalServerManager } from "./mcp/externalServerManager.js";
-import type { HITLConfig } from "./hitl/types.js";
+import type {
+  HITLConfig,
+  ConfirmationResponseEvent,
+} from "./types/hitlTypes.js";
 import { HITLManager } from "./hitl/hitlManager.js";
 import type {
   ExternalMCPServerInstance,
   ExternalMCPOperationResult,
   ExternalMCPToolInfo,
 } from "./types/externalMcp.js";
-import type { ConfirmationResponseEvent } from "./hitl/types.js";
 // Import direct tools server for automatic registration
 import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
 // Import orchestration components
@@ -135,50 +141,7 @@ import {
   getLangfuseHealthStatus,
 } from "./services/server/ai/observability/instrumentation.js";
 import type { ObservabilityConfig } from "./types/observability.js";
-
-/**
- * Configuration object for NeuroLink constructor.
- */
-export interface NeurolinkConstructorConfig {
-  conversationMemory?: Partial<ConversationMemoryConfig>;
-  enableOrchestration?: boolean;
-  hitl?: HITLConfig;
-  toolRegistry?: MCPToolRegistry;
-  observability?: ObservabilityConfig;
-}
-
-// Provider and MCP diagnostic types
-export interface ProviderStatus {
-  provider: string;
-  status: "working" | "failed" | "not-configured";
-  configured: boolean;
-  authenticated: boolean;
-  error?: string;
-  responseTime?: number;
-  model?: string;
-}
-
-export interface MCPStatus {
-  mcpInitialized: boolean;
-  totalServers: number;
-  availableServers: number;
-  autoDiscoveredCount: number;
-  totalTools: number;
-  autoDiscoveredServers: MCPServerInfo[];
-  customToolsCount: number;
-  inMemoryServersCount: number;
-  externalMCPServersCount?: number;
-  externalMCPConnectedCount?: number;
-  externalMCPFailedCount?: number;
-  externalMCPServers?: MCPServerInfo[];
-  error?: string;
-  [key: string]: unknown; // Add index signature for flexible object access
-}
-
-import { isNonNullObject } from "./utils/typeUtils.js";
-import { isZodSchema } from "./utils/schemaConversion.js";
-
-// Core types imported from "./types/index.js"
+import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
 
 export class NeuroLink {
   private mcpInitialized = false;
@@ -261,9 +224,7 @@ export class NeuroLink {
   private hitlManager?: HITLManager;
 
   // Mem0 memory instance and config for conversation context
-  private mem0Instance?:
-    | import("./memory/mem0Initializer.js").Mem0Memory
-    | null;
+  private mem0Instance?: Mem0Memory | null;
   private mem0Config?: MemoryConfig;
 
   /**
@@ -282,9 +243,7 @@ export class NeuroLink {
   /**
    * Async initialization called during generate/stream
    */
-  private async ensureMem0Ready(): Promise<
-    import("./memory/mem0Initializer.js").Mem0Memory | null
-  > {
+  private async ensureMem0Ready(): Promise<Mem0Memory | null> {
     if (this.mem0Instance !== undefined) {
       return this.mem0Instance;
     }

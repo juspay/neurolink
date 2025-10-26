@@ -80,7 +80,6 @@ export type {
   AISDKModel,
   ProviderError,
   AIModelProviderConfig,
-  AIProviderName,
   ProviderName,
   ModelCapability,
   ModelUseCase,

@@ -3,6 +3,11 @@
  * Centralized configuration type definitions following the established architecture pattern
  */
 
+import { MCPToolRegistry } from "../mcp/toolRegistry.js";
+import type { HITLConfig } from "../types/hitlTypes.js";
+import type { ConversationMemoryConfig } from "./conversation.js";
+import type { ObservabilityConfig } from "./observability.js";
+
 /**
  * Main NeuroLink configuration type
  */
@@ -14,6 +19,17 @@ export type NeuroLinkConfig = {
   lastUpdated?: number;
   configVersion?: string;
   [key: string]: unknown; // Extensibility for existing config
+};
+
+/**
+ * Configuration object for NeuroLink constructor.
+ */
+export type NeurolinkConstructorConfig = {
+  conversationMemory?: Partial<ConversationMemoryConfig>;
+  enableOrchestration?: boolean;
+  hitl?: HITLConfig;
+  toolRegistry?: MCPToolRegistry;
+  observability?: ObservabilityConfig;
 };
 
 /**

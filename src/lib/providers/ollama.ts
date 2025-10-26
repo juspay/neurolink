@@ -1,4 +1,4 @@
-import type { AIProviderName } from "../types/index.js";
+import { AIProviderName } from "../constants/enums.js";
 import type {
   LanguageModelV1,
   LanguageModelV1CallOptions,

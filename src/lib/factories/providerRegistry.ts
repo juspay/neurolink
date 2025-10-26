@@ -2,26 +2,16 @@ import { ProviderFactory } from "./providerFactory.js";
 // Lazy loading all providers to avoid circular dependencies
 // Removed all static imports - providers loaded dynamically when needed
 // This breaks the circular dependency chain completely
-import {
-  AIProviderName,
-  GoogleAIModels,
-  OpenAIModels,
-} from "../types/index.js";
+import type { ProviderRegistryOptions } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import type { UnknownRecord } from "../types/common.js";
 import type { NeuroLink } from "../neurolink.js";
 import type { MistralProvider as MistralProviderType } from "@ai-sdk/mistral";
-
-/**
- * Configuration options for the provider registry
- */
-export interface ProviderRegistryOptions {
-  /**
-   * Enable loading of manual MCP configurations from .mcp-config.json
-   * Should only be true for CLI mode, false for SDK mode
-   */
-  enableManualMCP?: boolean;
-}
+import {
+  AIProviderName,
+  GoogleAIModels,
+  OpenAIModels,
+} from "../constants/enums.js";
 
 /**
  * Provider Registry - registers all providers with the factory

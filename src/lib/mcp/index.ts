@@ -3,22 +3,9 @@
  * Universal AI Development Platform with Extensible Plugin Architecture
  * Implementation based on research blueprint
  */
-
-// Core contracts and types - using camelCase standard
-export type { McpMetadata, DiscoveredMcp } from "../types/mcpTypes.js";
-
-export type {
-  ExecutionContext,
-  ToolInfo,
-  ToolExecutionResult,
-} from "../types/tools.js";
-
-// Core functionality exports
-export { mcpLogger } from "../utils/logger.js";
-export type { LogLevel } from "../utils/logger.js";
-
-// Core contracts and types remain
 import type { McpMetadata } from "../types/mcpTypes.js";
+
+export { mcpLogger } from "../utils/logger.js";
 
 /**
  * Initialize the MCP ecosystem - simplified

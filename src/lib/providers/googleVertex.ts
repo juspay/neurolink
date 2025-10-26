@@ -14,7 +14,7 @@ import {
   type LanguageModelV1,
   type LanguageModel,
 } from "ai";
-import type { AIProviderName } from "../types/index.js";
+import { AIProviderName } from "../constants/enums.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { UnknownRecord } from "../types/common.js";
 import type { NeuroLink } from "../neurolink.js";

@@ -9,7 +9,7 @@ import type { BaseContext, ContextConfig } from "./contextTypes.js";
  * Base configuration interface for all AI providers
  * Uses Parameter Object Pattern for flexible, extensible configuration
  */
-export interface UniversalProviderOptions {
+export type UniversalProviderOptions = {
   // Core parameters (common across all providers)
   prompt?: string;
   model?: string;
@@ -28,7 +28,7 @@ export interface UniversalProviderOptions {
 
   // Provider-specific extensions (type-safe extensibility)
   extensionOptions?: Record<string, unknown>;
-}
+};
 
 /**
  * Generic provider options (without providerType)
@@ -42,31 +42,31 @@ export type GenericProviderOptions = Omit<
  * Provider-specific configuration extensions
  * Discriminated union pattern for type-safe provider configs
  */
-export interface OpenAIProviderOptions extends UniversalProviderOptions {
+export type OpenAIProviderOptions = UniversalProviderOptions & {
   providerType: "openai";
   organization?: string;
   seed?: number;
   topP?: number;
-}
+};
 
-export interface GoogleAIProviderOptions extends UniversalProviderOptions {
+export type GoogleAIProviderOptions = UniversalProviderOptions & {
   providerType: "google-ai";
   topK?: number;
   candidateCount?: number;
   stopSequences?: string[];
-}
+};
 
-export interface AnthropicProviderOptions extends UniversalProviderOptions {
+export type AnthropicProviderOptions = UniversalProviderOptions & {
   providerType: "anthropic";
   topK?: number;
   stopSequences?: string[];
-}
+};
 
-export interface BedrockProviderOptions extends UniversalProviderOptions {
+export type BedrockProviderOptions = UniversalProviderOptions & {
   providerType: "bedrock";
   inferenceProfileArn?: string;
   region?: string;
-}
+};
 
 /**
  * Discriminated union for type-safe provider configuration
@@ -82,12 +82,12 @@ export type ProviderSpecificOptions =
  * Factory configuration interface
  * Supports both universal and provider-specific parameters
  */
-export interface ProviderFactoryConfig {
+export type ProviderFactoryConfig = {
   providerName: string;
   modelName?: string;
   options?: UniversalProviderOptions | ProviderSpecificOptions;
   enableMCP?: boolean;
-}
+};
 
 /**
  * Parameter normalization utilities

@@ -8,7 +8,7 @@ import {
   GoogleAIModels,
   AnthropicModels,
   APIVersions,
-} from "../types/providers.js";
+} from "../constants/enums.js";
 
 /**
  * Generate enhanced error message with setup instructions

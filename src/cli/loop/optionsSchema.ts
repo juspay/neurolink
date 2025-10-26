@@ -1,14 +1,6 @@
-import { AIProviderName } from "../../lib/types/providers.js";
+import { AIProviderName } from "../../lib/constants/enums.js";
 import type { TextGenerationOptions } from "../../lib/types/generateTypes.js";
-
-/**
- * Defines the schema for a session variable or a generation option.
- */
-export interface OptionSchema {
-  type: "string" | "boolean" | "number";
-  description: string;
-  allowedValues?: string[];
-}
+import type { OptionSchema } from "../../lib/types/cli.js";
 
 /**
  * Master schema for all text generation options.

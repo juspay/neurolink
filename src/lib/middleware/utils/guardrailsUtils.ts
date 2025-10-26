@@ -1,10 +1,11 @@
 import { AIProviderFactory } from "../../core/factory.js";
 import { logger } from "../../utils/logger.js";
 import type {
-  PrecallEvaluationResult,
-  PrecallEvaluationConfig,
-  EvaluationActionResult,
   BadWordsConfig,
+  ContentFilteringResult,
+  EvaluationActionResult,
+  PrecallEvaluationConfig,
+  PrecallEvaluationResult,
 } from "../../types/guardrails.js";
 import type { LanguageModelV1CallOptions } from "ai";
 
@@ -355,20 +356,6 @@ export function createBlockedStream() {
       controller.close();
     },
   });
-}
-
-/**
- * Result from content filtering operation
- */
-export interface ContentFilteringResult {
-  filteredText: string;
-  hasChanges: boolean;
-  appliedFilters: string[];
-  filteringStats: {
-    regexPatternsApplied: number;
-    stringFiltersApplied: number;
-    totalMatches: number;
-  };
 }
 
 /**

@@ -13,8 +13,6 @@ import {
 } from "../utils/guardrailsUtils.js";
 import { logger } from "../../utils/logger.js";
 
-export type { GuardrailsMiddlewareConfig } from "../../types/guardrails.js";
-
 /**
  * Create Guardrails AI middleware for content filtering and policy enforcement
  * @param config Configuration for the guardrails middleware

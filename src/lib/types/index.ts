@@ -105,7 +105,6 @@ export type {
   MCPServerConfig,
   DiscoveredMcp,
   McpMetadata,
-  ProviderStatus,
   ToolDiscoveryResult,
   ExternalToolExecutionOptions,
   ToolValidationResult,
@@ -190,6 +189,12 @@ export * from "./evaluationProviders.js";
 
 // SDK Types - Core types for external developers
 export * from "./sdkTypes.js";
+
+// Utilities Types - Utility module types (selective export to avoid conflicts)
+export * from "./utilities.js";
+
+// Middleware Types - Middleware system types
+export * from "./middlewareTypes.js";
 
 // File detection and processing types
 export * from "./fileTypes.js";

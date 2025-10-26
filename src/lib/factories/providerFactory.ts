@@ -1,6 +1,7 @@
-import type { AIProvider, AIProviderName } from "../types/index.js";
+import type { AIProvider } from "../types/index.js";
 import type { UnknownRecord } from "../types/common.js";
 import { logger } from "../utils/logger.js";
+import { AIProviderName } from "../constants/enums.js";
 
 // Pure factory pattern with no hardcoded imports
 // All providers loaded dynamically via registry to avoid circular dependencies

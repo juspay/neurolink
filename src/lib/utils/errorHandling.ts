@@ -26,7 +26,7 @@ export enum ErrorSeverity {
 }
 
 // Structured error interface
-export interface StructuredError {
+export type StructuredError = {
   code: string;
   message: string;
   category: ErrorCategory;
@@ -37,7 +37,7 @@ export interface StructuredError {
   timestamp: Date;
   toolName?: string;
   serverId?: string;
-}
+};
 
 // Error codes for different scenarios
 export const ERROR_CODES = {

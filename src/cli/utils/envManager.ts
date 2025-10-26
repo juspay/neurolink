@@ -7,19 +7,7 @@
 import fs from "fs";
 import chalk from "chalk";
 import { logger } from "../../lib/utils/logger.js";
-
-export interface EnvBackupResult {
-  backupPath?: string;
-  existed: boolean;
-}
-
-export interface EnvUpdateResult {
-  backup: EnvBackupResult;
-  updated: string[];
-  added: string[];
-  unchanged: string[];
-  deleted: string[];
-}
+import type { EnvBackupResult, EnvUpdateResult } from "../../lib/types/cli.js";
 
 /**
  * Create a timestamped backup of the existing .env file

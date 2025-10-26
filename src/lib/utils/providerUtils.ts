@@ -5,7 +5,8 @@
 import { AIProviderFactory } from "../core/factory.js";
 import { logger } from "./logger.js";
 import type { UnknownRecord } from "../types/common.js";
-import type { AIProviderName, ProviderError } from "../types/index.js";
+import type { ProviderError } from "../types/index.js";
+import { AIProviderName } from "../constants/enums.js";
 import { ProviderHealthChecker } from "./providerHealth.js";
 import {
   API_KEY_FORMATS,

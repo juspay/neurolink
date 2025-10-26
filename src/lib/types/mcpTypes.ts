@@ -229,6 +229,23 @@ export type MCPToolMetadata = {
  */
 export type MCPServerRegistryEntry = [string, MCPServerInfo];
 
+export type MCPStatus = {
+  mcpInitialized: boolean;
+  totalServers: number;
+  availableServers: number;
+  autoDiscoveredCount: number;
+  totalTools: number;
+  autoDiscoveredServers: MCPServerInfo[];
+  customToolsCount: number;
+  inMemoryServersCount: number;
+  externalMCPServersCount?: number;
+  externalMCPConnectedCount?: number;
+  externalMCPFailedCount?: number;
+  externalMCPServers?: MCPServerInfo[];
+  error?: string;
+  [key: string]: unknown; // Allows runtime-added status fields from plugins/extensions
+};
+
 /**
  * Call record for circuit breaker statistics tracking
  * Extracted from mcpCircuitBreaker.ts for centralized type management
@@ -470,19 +487,6 @@ export type McpMetadata = {
   homepage?: string;
   repository?: string;
   category?: string; // Server category (e.g., "ai-tools", "database", "api")
-};
-
-/**
- * Provider status information
- * Moved from src/lib/mcp/contracts/mcpContract.ts
- */
-export type ProviderStatus = {
-  available: boolean;
-  lastCheck: number;
-  reason?: string;
-  model?: string;
-  cost?: number;
-  latencyMs?: number;
 };
 
 /**

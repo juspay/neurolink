@@ -126,3 +126,17 @@ export type EvaluationIssue = {
   severity: IssueSeverity;
   description: string;
 };
+
+/**
+ * Result from content filtering operation
+ */
+export type ContentFilteringResult = {
+  filteredText: string;
+  hasChanges: boolean;
+  appliedFilters: string[];
+  filteringStats: {
+    regexPatternsApplied: number;
+    stringFiltersApplied: number;
+    totalMatches: number;
+  };
+};

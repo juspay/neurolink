@@ -15,7 +15,7 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
-import { GoogleAIModels } from "../../lib/types/providers.js";
+import { GoogleAIModels } from "../../lib/constants/enums.js";
 import {
   updateEnvFile as updateEnvFileManager,
   displayEnvUpdateSummary,

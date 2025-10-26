@@ -12,7 +12,6 @@ import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
 export type {
   AIProvider,
-  AIProviderName,
   AIModelProviderConfig,
   StreamingOptions,
   ProviderAttempt,
@@ -33,12 +32,14 @@ export { validateTool } from "./sdk/toolRegistration.js";
 export type { ToolResult, ToolDefinition } from "./types/tools.js";
 
 // Model enums
+export { DEFAULT_PROVIDER_CONFIGS } from "./types/index.js";
+
 export {
+  AIProviderName,
   BedrockModels,
   OpenAIModels,
   VertexModels,
-  DEFAULT_PROVIDER_CONFIGS,
-} from "./types/index.js";
+} from "./constants/enums.js";
 
 // Utility exports
 export {
@@ -54,7 +55,6 @@ export type { DynamicModelConfig, ModelRegistry } from "./types/modelTypes.js";
 // Main NeuroLink wrapper class and diagnostic types
 import { NeuroLink } from "./neurolink.js";
 export { NeuroLink };
-export type { ProviderStatus, MCPStatus } from "./neurolink.js";
 export type { MCPServerInfo } from "./types/mcpTypes.js";
 
 // Observability configuration types
@@ -195,14 +195,15 @@ export {
   mcpLogger,
 } from "./mcp/index.js";
 
+export type { McpMetadata, DiscoveredMcp } from "./types/mcpTypes.js";
+
 export type {
-  McpMetadata,
   ExecutionContext,
-  DiscoveredMcp,
   ToolInfo,
   ToolExecutionResult,
-  LogLevel,
-} from "./mcp/index.js";
+} from "./types/tools.js";
+
+export type { LogLevel } from "./utils/logger.js";
 
 // ============================================================================
 // REAL-TIME SERVICES & TELEMETRY - Enterprise Platform Features

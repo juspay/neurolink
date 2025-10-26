@@ -9,7 +9,7 @@ import type {
   NeurolinkOptions,
 } from "../../lib/types/conversation.js";
 import { textGenerationOptionsSchema } from "./optionsSchema.js";
-import type { OptionSchema } from "./optionsSchema.js";
+import type { OptionSchema } from "../../lib/types/cli.js";
 import { handleError } from "../errorHandler.js";
 import { ConversationSelector } from "./conversationSelector.js";
 import { NeuroLink } from "../../lib/neurolink.js";

@@ -4,17 +4,11 @@
  * Part of Phase 4.1 - Models Command System
  */
 
-import { AIProviderName } from "../types/index.js";
 import type { JsonValue } from "../types/common.js";
 import {
   MODEL_REGISTRY,
   MODEL_ALIASES,
   USE_CASE_RECOMMENDATIONS,
-  type ModelInfo,
-  type ModelSearchFilters,
-  type ModelSearchResult,
-  type ModelCapabilities,
-  type UseCaseSuitability,
   getAllModels,
   getModelById,
   getModelsByProvider,
@@ -23,42 +17,15 @@ import {
   formatModelForDisplay,
 } from "./modelRegistry.js";
 import { isNonNullObject } from "../utils/typeUtils.js";
-
-/**
- * Model recommendation context
- */
-export interface RecommendationContext {
-  useCase?: keyof UseCaseSuitability;
-  maxCost?: number;
-  minQuality?: "low" | "medium" | "high";
-  requireCapabilities?: (keyof ModelCapabilities)[];
-  excludeProviders?: AIProviderName[];
-  contextSize?: number;
-  preferLocal?: boolean;
-}
-
-/**
- * Model recommendation result
- */
-export interface ModelRecommendation {
-  model: ModelInfo;
-  score: number;
-  reasoning: string[];
-  alternatives: ModelInfo[];
-}
-
-/**
- * Model comparison result
- */
-export interface ModelComparison {
-  models: ModelInfo[];
-  comparison: {
-    capabilities: Record<keyof ModelCapabilities, ModelInfo[]>;
-    pricing: { cheapest: ModelInfo; mostExpensive: ModelInfo };
-    performance: Record<string, ModelInfo[]>;
-    contextSize: { largest: ModelInfo; smallest: ModelInfo };
-  };
-}
+import type {
+  ModelCapabilities,
+  ModelComparison,
+  ModelInfo,
+  ModelRecommendation,
+  ModelSearchFilters,
+  ModelSearchResult,
+  RecommendationContext,
+} from "../types/modelTypes.js";
 
 /**
  * Model resolver class with advanced search and recommendation functionality

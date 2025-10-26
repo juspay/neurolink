@@ -1,8 +1,7 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { streamText, type LanguageModelV1 } from "ai";
 import type { ValidationSchema } from "../types/typeAliases.js";
-import type { AIProviderName } from "../types/index.js";
-import { AnthropicModels } from "../types/index.js";
+import { AIProviderName, AnthropicModels } from "../constants/enums.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { UnknownRecord, JsonValue } from "../types/common.js";
 import type { NeuroLink } from "../neurolink.js";

@@ -5,11 +5,8 @@ import { ProviderRegistry } from "../factories/providerRegistry.js";
 import { getBestProvider } from "../utils/providerUtils.js";
 import { logger } from "../utils/logger.js";
 import { dynamicModelProvider } from "./dynamicModels.js";
-import type {
-  AIProvider,
-  AIProviderName,
-  SupportedModelName,
-} from "../types/index.js";
+import type { AIProvider, SupportedModelName } from "../types/index.js";
+import { AIProviderName } from "../constants/enums.js";
 import type { UnknownRecord } from "../types/common.js";
 import type { ProviderPairResult } from "../types/typeAliases.js";
 

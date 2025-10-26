@@ -8,6 +8,28 @@ import type { EvaluationData } from "../index.js";
 import type { ToolCall, ToolResult } from "./tools.js";
 
 /**
+ * Ollama command utilities type
+ */
+export type AllowedCommand =
+  | "ollama"
+  | "curl"
+  | "systemctl"
+  | "pkill"
+  | "killall"
+  | "open"
+  | "taskkill"
+  | "start";
+
+/**
+ * Defines the schema for a session variable or a generation option.
+ */
+export type OptionSchema = {
+  type: "string" | "boolean" | "number";
+  description: string;
+  allowedValues?: string[];
+};
+
+/**
  * Base command arguments type
  */
 export type BaseCommandArgs = {
@@ -504,4 +526,282 @@ export function isCommandResult(value: unknown): value is CommandResult {
     "success" in value &&
     typeof (value as CommandResult).success === "boolean"
   );
+}
+
+// ============================================================================
+// CLI Setup and Utility Types (moved from CLI modules)
+// ============================================================================
+
+/**
+ * Environment file backup result
+ */
+export type EnvBackupResult = {
+  backupPath?: string;
+  existed: boolean;
+};
+
+/**
+ * Environment file update result
+ */
+export type EnvUpdateResult = {
+  backup: EnvBackupResult;
+  updated: string[];
+  added: string[];
+  unchanged: string[];
+  deleted: string[];
+};
+
+/**
+ * Provider configuration for interactive setup
+ */
+export type CLIProviderConfig = {
+  id: string;
+  name: string;
+  description: string;
+  envVars: Array<{
+    key: string;
+    prompt: string;
+    secure?: boolean;
+    default?: string;
+    optional?: boolean;
+  }>;
+};
+
+/**
+ * Interactive setup result
+ */
+export type CLISetupResult = {
+  selectedProviders: string[];
+  credentials: Record<string, string>;
+  envFileBackup?: string;
+  testResults: Array<{
+    provider: string;
+    status: "working" | "failed";
+    error?: string;
+    responseTime?: number;
+  }>;
+};
+
+/**
+ * Main setup command arguments
+ */
+export type SetupArgs = {
+  provider?: string;
+  list?: boolean;
+  status?: boolean;
+  interactive?: boolean;
+  help?: boolean;
+};
+
+/**
+ * Provider information for setup display
+ */
+export type ProviderInfo = {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  setupTime: string;
+  cost: string;
+  difficulty?: "Easy" | "Medium" | "Hard";
+  features?: string[];
+  bestFor?: string;
+  models?: string;
+  strengths?: string;
+  pricing?: string;
+  setupCommand?: string;
+  handler?: (argv: {
+    check?: boolean;
+    nonInteractive?: boolean;
+  }) => Promise<void>;
+};
+
+/**
+ * Setup command factory arguments
+ */
+export type SetupCommandArgs = BaseCommandArgs & {
+  provider?: string;
+  check?: boolean;
+  list?: boolean;
+  status?: boolean;
+  interactive?: boolean;
+  nonInteractive?: boolean;
+};
+
+/**
+ * MCP server configuration for CLI
+ */
+export type CLIMCPServerConfig = {
+  name: string;
+  transport: "stdio" | "websocket" | "tcp" | "unix";
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string;
+  description?: string;
+};
+
+// ============================================================================
+// Provider-Specific Setup Types
+// ============================================================================
+
+/**
+ * OpenAI setup configuration types
+ */
+export namespace OpenAISetup {
+  export interface SetupOptions {
+    checkOnly?: boolean;
+    interactive?: boolean;
+  }
+
+  export interface SetupArgv {
+    check?: boolean;
+    nonInteractive?: boolean;
+  }
+
+  export interface Config {
+    apiKey?: string;
+    organization?: string;
+    model?: string;
+    isReconfiguring?: boolean;
+  }
+}
+
+/**
+ * Anthropic setup configuration types
+ */
+export namespace AnthropicSetup {
+  export interface SetupOptions {
+    checkOnly?: boolean;
+    interactive?: boolean;
+  }
+
+  export interface SetupArgv {
+    check?: boolean;
+    nonInteractive?: boolean;
+  }
+
+  export interface Config {
+    apiKey?: string;
+    model?: string;
+    isReconfiguring?: boolean;
+  }
+}
+
+/**
+ * Google AI setup configuration types
+ */
+export namespace GoogleAISetup {
+  export interface SetupOptions {
+    checkOnly?: boolean;
+    interactive?: boolean;
+  }
+
+  export interface SetupArgv {
+    check?: boolean;
+    nonInteractive?: boolean;
+  }
+
+  export interface Config {
+    apiKey?: string;
+    model?: string;
+    isReconfiguring?: boolean;
+  }
+}
+
+/**
+ * Azure setup configuration types
+ */
+export namespace AzureSetup {
+  export interface SetupOptions {
+    checkOnly?: boolean;
+    interactive?: boolean;
+  }
+
+  export interface SetupArgv {
+    check?: boolean;
+    nonInteractive?: boolean;
+  }
+
+  export interface Config {
+    apiKey?: string;
+    endpoint?: string;
+    deploymentName?: string;
+    apiVersion?: string;
+    model?: string;
+    isReconfiguring?: boolean;
+  }
+}
+
+/**
+ * AWS Bedrock setup configuration types
+ */
+export namespace BedrockSetup {
+  export interface SetupOptions {
+    checkOnly?: boolean;
+    interactive?: boolean;
+  }
+
+  export interface SetupArgv {
+    check?: boolean;
+    nonInteractive?: boolean;
+  }
+
+  export interface ConfigData {
+    region?: string;
+    accessKeyId?: string;
+    secretAccessKey?: string;
+    model?: string;
+  }
+
+  export interface ConfigStatus {
+    hasCredentials: boolean;
+    hasRegion: boolean;
+    hasModel: boolean;
+    isReconfiguring?: boolean;
+  }
+}
+
+/**
+ * GCP/Vertex AI setup configuration types
+ */
+export namespace GCPSetup {
+  export interface SetupOptions {
+    checkOnly?: boolean;
+    interactive?: boolean;
+  }
+
+  export interface SetupArgv {
+    check?: boolean;
+    nonInteractive?: boolean;
+  }
+
+  export interface AuthMethodStatus {
+    hasServiceAccount: boolean;
+    hasGcloudAuth: boolean;
+    hasApplicationDefault: boolean;
+    preferredMethod?: "service-account" | "gcloud" | "adc";
+  }
+}
+
+/**
+ * Hugging Face setup configuration types
+ */
+export namespace HuggingFaceSetup {
+  export interface SetupArgs {
+    check?: boolean;
+    nonInteractive?: boolean;
+    help?: boolean;
+  }
+}
+
+/**
+ * Mistral setup configuration types
+ */
+export namespace MistralSetup {
+  export interface SetupArgs {
+    check?: boolean;
+    nonInteractive?: boolean;
+    help?: boolean;
+  }
 }

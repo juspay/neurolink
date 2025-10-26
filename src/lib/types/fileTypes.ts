@@ -74,13 +74,13 @@ export type PDFAPIType = "document" | "files-api" | "unsupported";
 /**
  * PDF provider configuration
  */
-export interface PDFProviderConfig {
+export type PDFProviderConfig = {
   maxSizeMB: number;
   maxPages: number;
   supportsNative: boolean;
   requiresCitations: boolean | "auto";
   apiType: PDFAPIType;
-}
+};
 
 /**
  * PDF processor options
@@ -107,7 +107,7 @@ export type FileDetectorOptions = {
 /**
  * Google AI Studio Files API types
  */
-export interface GoogleFilesAPIUploadResult {
+export type GoogleFilesAPIUploadResult = {
   file: {
     name: string;
     displayName: string;
@@ -119,4 +119,4 @@ export interface GoogleFilesAPIUploadResult {
     sha256Hash: string;
     uri: string;
   };
-}
+};

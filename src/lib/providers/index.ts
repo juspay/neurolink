@@ -15,6 +15,3 @@ export { HuggingFaceProvider as HuggingFace } from "./huggingFace.js";
 export { OllamaProvider as Ollama } from "./ollama.js";
 export { MistralProvider as MistralAI } from "./mistral.js";
 export { LiteLLMProvider as LiteLLM } from "./litellm.js";
-
-// Re-export the AIProvider type for convenience
-export type { AIProvider } from "../types/index.js";

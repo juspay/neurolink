@@ -12,10 +12,10 @@ import type {
   TextGenerationResult,
   EnhancedGenerateResult,
   AnalyticsData,
-  AIProviderName,
   ExtendedTool,
   AISDKGenerateResult,
 } from "../types/index.js";
+import { AIProviderName } from "../constants/enums.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
 import type { MiddlewareFactoryOptions } from "../types/middlewareTypes.js";

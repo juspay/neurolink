@@ -17,7 +17,7 @@ import type {
   ConfirmationTimeoutEvent,
   HITLStatistics,
   HITLAuditLog,
-} from "./types.js";
+} from "../types/hitlTypes.js";
 import { HITLTimeoutError, HITLConfigurationError } from "./hitlErrors.js";
 import { logger } from "../utils/logger.js";
 

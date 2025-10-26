@@ -3,11 +3,11 @@ import type { ValidationSchema, StandardRecord } from "./typeAliases.js";
 import type { AIModelProviderConfig } from "./providers.js";
 import type { TextContent, ImageContent } from "./content.js";
 import type {
-  AIProviderName,
   AnalyticsData,
   ToolExecutionEvent,
   ToolExecutionSummary,
 } from "../types/index.js";
+import { AIProviderName } from "../constants/enums.js";
 import type { TokenUsage } from "./analytics.js";
 import type { EvaluationData } from "../index.js";
 import type { UnknownRecord, JsonValue } from "./common.js";

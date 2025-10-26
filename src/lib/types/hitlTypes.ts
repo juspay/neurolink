@@ -10,7 +10,7 @@
  * Core HITL configuration interface
  * Controls how the HITL system behaves and what tools require confirmation
  */
-export interface HITLConfig {
+export type HITLConfig = {
   /** Master enable/disable switch for HITL functionality */
   enabled: boolean;
 
@@ -34,13 +34,13 @@ export interface HITLConfig {
 
   /** Advanced custom rules for complex tool scenarios (default: []) */
   customRules?: HITLRule[];
-}
+};
 
 /**
  * Custom rule for advanced HITL scenarios
  * Allows enterprises to define complex conditions for when tools require confirmation
  */
-export interface HITLRule {
+export type HITLRule = {
   /** Human-readable name for the rule */
   name: string;
 
@@ -52,13 +52,13 @@ export interface HITLRule {
 
   /** Custom message to show users when this rule is triggered */
   customMessage?: string;
-}
+};
 
 /**
  * Internal confirmation request tracking
  * Used by HITLManager to track pending confirmations
  */
-export interface ConfirmationRequest {
+export type ConfirmationRequest = {
   /** Unique identifier for this confirmation request */
   confirmationId: string;
 
@@ -79,13 +79,13 @@ export interface ConfirmationRequest {
 
   /** Promise reject function */
   reject: (error: Error) => void;
-}
+};
 
 /**
  * Result of a confirmation request
  * Contains user decision and potentially modified arguments
  */
-export interface ConfirmationResult {
+export type ConfirmationResult = {
   /** Whether the user approved the tool execution */
   approved: boolean;
 
@@ -97,13 +97,13 @@ export interface ConfirmationResult {
 
   /** Time taken for user to respond in milliseconds */
   responseTime: number;
-}
+};
 
 /**
  * Event payload for confirmation requests
  * Sent to frontends via EventEmitter when tool needs approval
  */
-export interface ConfirmationRequestEvent {
+export type ConfirmationRequestEvent = {
   type: "hitl:confirmation-request";
   payload: {
     /** Unique ID for tracking this request */
@@ -142,13 +142,13 @@ export interface ConfirmationRequestEvent {
     /** Whether user can modify arguments */
     allowModification: boolean;
   };
-}
+};
 
 /**
  * Event payload for confirmation responses
  * Sent from frontends back to HITLManager with user decision
  */
-export interface ConfirmationResponseEvent {
+export type ConfirmationResponseEvent = {
   type: "hitl:confirmation-response";
   payload: {
     /** Matching confirmation ID from the request */
@@ -175,13 +175,13 @@ export interface ConfirmationResponseEvent {
       userId?: string;
     };
   };
-}
+};
 
 /**
  * Event payload for confirmation timeouts
  * Emitted when user doesn't respond within timeout period
  */
-export interface ConfirmationTimeoutEvent {
+export type ConfirmationTimeoutEvent = {
   type: "hitl:timeout";
   payload: {
     /** Confirmation ID that timed out */
@@ -193,13 +193,13 @@ export interface ConfirmationTimeoutEvent {
     /** Timeout duration in milliseconds */
     timeout: number;
   };
-}
+};
 
 /**
  * HITL audit log entry
  * Used for compliance and debugging purposes
  */
-export interface HITLAuditLog {
+export type HITLAuditLog = {
   /** ISO timestamp of the event */
   timestamp: string;
 
@@ -234,13 +234,13 @@ export interface HITLAuditLog {
 
   /** Response time in milliseconds (if applicable) */
   responseTime?: number;
-}
+};
 
 /**
  * HITL statistics interface
  * Provides metrics about HITL usage for monitoring
  */
-export interface HITLStatistics {
+export type HITLStatistics = {
   /** Total number of confirmation requests made */
   totalRequests: number;
 
@@ -258,4 +258,4 @@ export interface HITLStatistics {
 
   /** Number of timed out requests */
   timedOutRequests: number;
-}
+};

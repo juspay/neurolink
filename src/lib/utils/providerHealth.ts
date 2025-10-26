@@ -10,37 +10,20 @@ import {
   GoogleAIModels,
   AnthropicModels,
   BedrockModels,
-} from "../types/providers.js";
+} from "../constants/enums.js";
 import { API_KEY_LENGTHS, PROJECT_ID_FORMAT } from "./providerConfig.js";
 import { basename } from "path";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
-
-export interface ProviderHealthStatus {
-  provider: AIProviderName;
-  isHealthy: boolean;
-  isConfigured: boolean;
-  hasApiKey: boolean;
-  lastChecked: Date;
-  error?: string;
-  warning?: string;
-  responseTime?: number;
-  configurationIssues: string[];
-  recommendations: string[];
-}
-
-export interface ProviderHealthCheckOptions {
-  timeout?: number;
-  includeConnectivityTest?: boolean;
-  includeModelValidation?: boolean;
-  cacheResults?: boolean;
-  maxCacheAge?: number;
-}
+import type {
+  ProviderHealthCheckOptions,
+  ProviderHealthStatusOptions,
+} from "$lib/types/providers.js";
 
 export class ProviderHealthChecker {
   private static healthCache = new Map<
     string,
     {
-      status: ProviderHealthStatus;
+      status: ProviderHealthStatusOptions;
       timestamp: number;
     }
   >();
@@ -77,7 +60,7 @@ export class ProviderHealthChecker {
   static async checkProviderHealth(
     providerName: AIProviderName,
     options: ProviderHealthCheckOptions = {},
-  ): Promise<ProviderHealthStatus> {
+  ): Promise<ProviderHealthStatusOptions> {
     const {
       timeout = this.DEFAULT_TIMEOUT,
       includeConnectivityTest = false,
@@ -98,7 +81,7 @@ export class ProviderHealthChecker {
     // Check if provider has consecutive failures (blacklisting)
     const failureCount = this.consecutiveFailures.get(providerName) || 0;
     if (failureCount >= this.CONSECUTIVE_FAILURE_THRESHOLD) {
-      const healthStatus: ProviderHealthStatus = {
+      const healthStatus: ProviderHealthStatusOptions = {
         provider: providerName,
         isHealthy: false,
         isConfigured: false,
@@ -119,7 +102,7 @@ export class ProviderHealthChecker {
     }
 
     const startTime = Date.now();
-    const healthStatus: ProviderHealthStatus = {
+    const healthStatus: ProviderHealthStatusOptions = {
       provider: providerName,
       isHealthy: false,
       isConfigured: false,
@@ -203,7 +186,7 @@ export class ProviderHealthChecker {
    */
   private static async checkEnvironmentConfiguration(
     providerName: AIProviderName,
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): Promise<void> {
     const requiredEnvVars = this.getRequiredEnvironmentVariables(providerName);
 
@@ -262,7 +245,7 @@ export class ProviderHealthChecker {
    */
   private static async checkApiKeyValidity(
     providerName: AIProviderName,
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): Promise<void> {
     // 🎯 SPECIAL HANDLING FOR VERTEX AI: Check both auth methods
     if (providerName === AIProviderName.VERTEX) {
@@ -376,7 +359,7 @@ export class ProviderHealthChecker {
    */
   private static async checkConnectivity(
     providerName: AIProviderName,
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
     timeout: number,
   ): Promise<void> {
     const endpoint = this.getProviderHealthEndpoint(providerName);
@@ -473,7 +456,7 @@ export class ProviderHealthChecker {
    */
   private static async checkModelAvailability(
     providerName: AIProviderName,
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): Promise<void> {
     // Basic model name validation and recommendations
     const commonModels = this.getCommonModelsForProvider(providerName);
@@ -622,7 +605,7 @@ export class ProviderHealthChecker {
    */
   private static async checkProviderSpecificConfig(
     providerName: AIProviderName,
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): Promise<void> {
     switch (providerName) {
       case AIProviderName.VERTEX:
@@ -644,7 +627,7 @@ export class ProviderHealthChecker {
    * Check Vertex AI configuration
    */
   private static async checkVertexAIConfig(
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): Promise<void> {
     logger.debug("Starting Vertex AI health check");
 
@@ -683,7 +666,7 @@ export class ProviderHealthChecker {
    * Check Vertex AI authentication
    */
   private static async checkVertexAuthentication(
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): Promise<boolean> {
     let hasValidAuth = false;
 
@@ -711,7 +694,7 @@ export class ProviderHealthChecker {
    * Check Google Application Credentials file
    */
   private static async checkGoogleApplicationCredentials(
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): Promise<boolean> {
     const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
     if (!credentialsPath) {
@@ -743,7 +726,7 @@ export class ProviderHealthChecker {
    * Check individual Google credentials
    */
   private static checkIndividualGoogleCredentials(
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): boolean {
     const hasServiceAccountKey = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
     const hasIndividualCredentials = !!(
@@ -763,7 +746,7 @@ export class ProviderHealthChecker {
    * Check AWS Bedrock configuration
    */
   private static async checkBedrockConfig(
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): Promise<void> {
     logger.debug("Starting AWS Bedrock comprehensive health check");
 
@@ -781,7 +764,9 @@ export class ProviderHealthChecker {
   /**
    * Check AWS region configuration
    */
-  private static checkAWSRegion(healthStatus: ProviderHealthStatus): void {
+  private static checkAWSRegion(
+    healthStatus: ProviderHealthStatusOptions,
+  ): void {
     const awsRegion = process.env.AWS_REGION;
     const validBedrockRegions = [
       "us-east-1",
@@ -811,7 +796,9 @@ export class ProviderHealthChecker {
   /**
    * Check AWS credentials
    */
-  private static checkAWSCredentials(healthStatus: ProviderHealthStatus): void {
+  private static checkAWSCredentials(
+    healthStatus: ProviderHealthStatusOptions,
+  ): void {
     const awsAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
     const awsSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
     const awsProfile = process.env.AWS_PROFILE;
@@ -834,7 +821,9 @@ export class ProviderHealthChecker {
   /**
    * Check Bedrock models
    */
-  private static checkBedrockModels(healthStatus: ProviderHealthStatus): void {
+  private static checkBedrockModels(
+    healthStatus: ProviderHealthStatusOptions,
+  ): void {
     const bedrockModel =
       process.env.BEDROCK_MODEL || process.env.BEDROCK_MODEL_ID;
     const supportedModels = [
@@ -860,7 +849,7 @@ export class ProviderHealthChecker {
    * Check Bedrock endpoint
    */
   private static checkBedrockEndpoint(
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): void {
     const bedrockEndpoint = process.env.BEDROCK_ENDPOINT_URL;
     if (bedrockEndpoint && !bedrockEndpoint.startsWith("https://")) {
@@ -877,7 +866,7 @@ export class ProviderHealthChecker {
    * Check Azure OpenAI configuration
    */
   private static async checkAzureConfig(
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): Promise<void> {
     const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
     if (azureEndpoint && !azureEndpoint.startsWith("https://")) {
@@ -907,7 +896,7 @@ export class ProviderHealthChecker {
    * Check Ollama configuration
    */
   private static async checkOllamaConfig(
-    healthStatus: ProviderHealthStatus,
+    healthStatus: ProviderHealthStatusOptions,
   ): Promise<void> {
     const ollamaBase = process.env.OLLAMA_API_BASE || "http://localhost:11434";
     if (!ollamaBase.startsWith("http")) {
@@ -978,7 +967,7 @@ export class ProviderHealthChecker {
   private static getCachedHealth(
     providerName: AIProviderName,
     maxAge: number,
-  ): ProviderHealthStatus | null {
+  ): ProviderHealthStatusOptions | null {
     const cached = this.healthCache.get(providerName);
 
     if (!cached) {
@@ -1658,7 +1647,7 @@ export class ProviderHealthChecker {
    */
   static async checkAllProvidersHealth(
     options: ProviderHealthCheckOptions = {},
-  ): Promise<ProviderHealthStatus[]> {
+  ): Promise<ProviderHealthStatusOptions[]> {
     const providers: AIProviderName[] = [
       AIProviderName.VERTEX,
       AIProviderName.GOOGLE_AI,
@@ -1699,7 +1688,7 @@ export class ProviderHealthChecker {
   /**
    * Get a summary of provider health
    */
-  static getHealthSummary(healthStatuses: ProviderHealthStatus[]): {
+  static getHealthSummary(healthStatuses: ProviderHealthStatusOptions[]): {
     total: number;
     healthy: number;
     configured: number;

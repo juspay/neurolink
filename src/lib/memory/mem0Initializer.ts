@@ -6,25 +6,7 @@
 import type { MemoryConfig } from "mem0ai/oss";
 import { Memory } from "mem0ai/oss";
 import { logger } from "../utils/logger.js";
-
-/**
- * Interface for mem0 Memory instance methods based on actual mem0ai/oss API
- */
-export interface Mem0Memory {
-  search(
-    query: string,
-    config: { userId?: string; limit?: number },
-  ): Promise<{ results: Array<{ memory: string; id: string }> }>;
-  add(
-    messages: string,
-    config: { userId?: string; metadata?: Record<string, unknown> },
-  ): Promise<{ results: Array<{ id: string; memory: string }> }>;
-  get(memoryId: string): Promise<{ id: string; memory: string } | null>;
-  update(memoryId: string, data: string): Promise<{ message: string }>;
-  delete(memoryId: string): Promise<{ message: string }>;
-  history(memoryId: string): Promise<unknown[]>;
-  reset(): Promise<void>;
-}
+import type { Mem0Memory } from "../types/utilities.js";
 
 /**
  * Initialize mem0 memory instance with configuration

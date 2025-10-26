@@ -8,11 +8,12 @@ import type { CommandModule, Argv } from "yargs";
 import type { UnknownRecord } from "../../lib/types/common.js";
 import type {
   MCPServerInfo,
+  MCPStatus,
   MCPTransportType,
 } from "../../lib/types/mcpTypes.js";
 import { createExternalServerInfo } from "../../lib/utils/mcpDefaults.js";
 import type { MCPCommandArgs } from "../../lib/types/cli.js";
-import { NeuroLink, type MCPStatus } from "../../lib/neurolink.js";
+import { NeuroLink } from "../../lib/neurolink.js";
 import { logger } from "../../lib/utils/logger.js";
 import chalk from "chalk";
 import ora from "ora";
