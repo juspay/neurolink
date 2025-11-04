@@ -190,6 +190,7 @@ export type TextGenerationOptions = {
   maxTokens?: number;
   systemPrompt?: string;
   schema?: ZodUnknownSchema | Schema<unknown>;
+  output?: { format?: "text" | "structured" | "json" }; // Output format preference
   tools?: Record<string, Tool>; // Enable MCP tools integration
   timeout?: number | string; // Optional timeout (e.g., 30000, '30s', '2m', '1h')
   disableTools?: boolean; // Disable tools (tools are enabled by default)

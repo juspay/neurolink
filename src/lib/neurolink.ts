@@ -1685,6 +1685,8 @@ export class NeuroLink {
       temperature: options.temperature,
       maxTokens: options.maxTokens,
       systemPrompt: options.systemPrompt,
+      schema: options.schema,
+      output: options.output,
       disableTools: options.disableTools,
       enableAnalytics: options.enableAnalytics,
       enableEvaluation: options.enableEvaluation,

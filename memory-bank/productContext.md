@@ -116,6 +116,39 @@ try {
 }
 ```
 
+### Scenario 5: Structured Output with Schema Validation
+
+A developer wants type-safe JSON responses with automatic validation (available in `generate()` only, not `stream()`):
+
+```typescript
+import { z } from "zod";
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// Define output structure with Zod
+const UserSchema = z.object({
+  name: z.string(),
+  age: z.number(),
+  email: z.string(),
+  occupation: z.string(),
+});
+
+// Generate with schema validation
+const result = await neurolink.generate({
+  input: { text: "Create a user profile for John Doe, 30 years old" },
+  schema: UserSchema,
+  output: { format: "json" }, // Required: must be "json" or "structured"
+  provider: "vertex",
+});
+
+// result.content is validated JSON string
+const user = JSON.parse(result.content);
+// TypeScript knows: { name: string, age: number, email: string, occupation: string }
+```
+
+**Note**: Structured output requires both `schema` and `output.format: "json" | "structured"`. Works with all provider tools and MCP integrations.
+
 ## Competitive Landscape
 
 - **Vercel AI SDK**: Low-level SDK for AI providers

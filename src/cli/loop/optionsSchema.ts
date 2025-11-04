@@ -47,6 +47,12 @@ export const textGenerationOptionsSchema: Record<
     type: "number",
     description: "The maximum number of tokens to generate.",
   },
+  output: {
+    type: "string",
+    description:
+      "AI response format - specify just the format value (e.g., 'json', 'structured'). Note: This is automatically transformed to { format: value } for the API.",
+    allowedValues: ["text", "json", "structured", "none"],
+  },
   systemPrompt: {
     type: "string",
     description: "The system prompt to guide the AI's behavior.",

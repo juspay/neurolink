@@ -5,7 +5,7 @@ import type {
   StandardRecord,
 } from "../types/typeAliases.js";
 import type { Tool, LanguageModelV1, CoreMessage } from "ai";
-import { generateText, tool as createAISDKTool, jsonSchema } from "ai";
+import { generateText, tool as createAISDKTool, jsonSchema, Output } from "ai";
 import type {
   AIProvider,
   TextGenerationOptions,
@@ -409,6 +409,11 @@ export abstract class BaseProvider implements AIProvider {
   ): Promise<Awaited<ReturnType<typeof generateText>>> {
     const shouldUseTools = !options.disableTools && this.supportsTools();
 
+    const useStructuredOutput =
+      !!options.schema &&
+      (options.output?.format === "json" ||
+        options.output?.format === "structured");
+
     return await generateText({
       model,
       messages,
@@ -417,6 +422,10 @@ export abstract class BaseProvider implements AIProvider {
       toolChoice: shouldUseTools ? "auto" : "none",
       temperature: options.temperature,
       maxTokens: options.maxTokens,
+      ...(useStructuredOutput &&
+        options.schema && {
+          experimental_output: Output.object({ schema: options.schema }),
+        }),
       experimental_telemetry: this.getStreamTelemetryConfig(
         options,
         "generate",
@@ -603,9 +612,20 @@ export abstract class BaseProvider implements AIProvider {
       input: StandardRecord;
       output: unknown;
     }>,
+    options: TextGenerationOptions,
   ): EnhancedGenerateResult {
+    // Only access experimental_output if we set a schema
+    // (accessing it when not set throws an error)
+    const useStructuredOutput =
+      !!options.schema &&
+      (options.output?.format === "json" ||
+        options.output?.format === "structured");
+
+    const content: string = useStructuredOutput
+      ? JSON.stringify(generateResult.experimental_output)
+      : generateResult.text;
     return {
-      content: generateResult.text,
+      content,
       usage: {
         input: generateResult.usage?.promptTokens || 0,
         output: generateResult.usage?.completionTokens || 0,
@@ -779,6 +799,7 @@ export abstract class BaseProvider implements AIProvider {
         tools,
         toolsUsed,
         toolExecutions,
+        options,
       );
 
       return await this.enhanceResult(enhancedResult, options, startTime);
