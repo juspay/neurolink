@@ -1,6 +1,6 @@
 {
   "name": "@juspay/neurolink",
-  "version": "7.53.4",
+  "version": "7.53.5",
   "description": "Universal AI Development Platform with working MCP integration, multi-provider support, and professional CLI. Built-in tools operational, 58+ external MCP servers discoverable. Connect to filesystem, GitHub, database operations, and more. Build, test, and deploy AI applications with 9 major providers: OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, Hugging Face, Ollama, and Mistral AI.",
   "author": {
     "name": "Juspay Technologies",
