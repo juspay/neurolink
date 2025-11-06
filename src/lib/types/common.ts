@@ -193,6 +193,9 @@ export type NeuroLinkEvents = {
   error: unknown;
   log: unknown;
 
+  // Log events
+  "log-event": unknown;
+
   // Allow any additional event for flexibility
   [key: string]: unknown;
 };
