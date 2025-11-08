@@ -1,3 +1,9 @@
+## [7.54.0](https://github.com/juspay/neurolink/compare/v7.53.5...v7.54.0) (2025-11-08)
+
+### Features
+
+- **(logs):** enable neurolink logs to be pushed into lighthouse ([9a752c4](https://github.com/juspay/neurolink/commit/9a752c4de4d300512027b7d405dda633701fae15))
+
 ## [7.53.5](https://github.com/juspay/neurolink/compare/v7.53.4...v7.53.5) (2025-11-06)
 
 ## [7.53.4](https://github.com/juspay/neurolink/compare/v7.53.3...v7.53.4) (2025-11-05)
