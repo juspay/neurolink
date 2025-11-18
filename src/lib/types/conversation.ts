@@ -3,11 +3,7 @@
  * Provides type-safe conversation storage and context management
  */
 
-import type { MemoryConfig } from "mem0ai/oss";
-
-/**
- * Mem0 configuration type matching mem0ai/oss MemoryConfig structure
- */
+import type { Mem0Config } from "../memory/mem0Initializer.js";
 
 /**
  * Configuration for conversation memory feature
@@ -40,8 +36,8 @@ export type ConversationMemoryConfig = {
   /** Enable mem0 integration for conversation memory */
   mem0Enabled?: boolean;
 
-  /** Configuration for mem0 integration */
-  mem0Config?: MemoryConfig;
+  /** Configuration for mem0 cloud API integration */
+  mem0Config?: Mem0Config;
 
   /** Redis configuration (optional) - overrides environment variables */
   redisConfig?: RedisStorageConfig;

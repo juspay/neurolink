@@ -207,22 +207,3 @@ export type EnvVarValidationResult = {
   invalidVars: string[];
   warnings: string[];
 };
-
-/**
- * Interface for mem0 Memory instance methods based on actual mem0ai/oss API
- */
-export type Mem0Memory = {
-  search(
-    query: string,
-    config: { userId?: string; limit?: number },
-  ): Promise<{ results: Array<{ memory: string; id: string }> }>;
-  add(
-    messages: string,
-    config: { userId?: string; metadata?: Record<string, unknown> },
-  ): Promise<{ results: Array<{ id: string; memory: string }> }>;
-  get(memoryId: string): Promise<{ id: string; memory: string } | null>;
-  update(memoryId: string, data: string): Promise<{ message: string }>;
-  delete(memoryId: string): Promise<{ message: string }>;
-  history(memoryId: string): Promise<unknown[]>;
-  reset(): Promise<void>;
-};

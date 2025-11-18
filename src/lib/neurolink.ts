@@ -24,7 +24,7 @@ import type {
 import { AIProviderFactory } from "./core/factory.js";
 import { isNonNullObject } from "./utils/typeUtils.js";
 import { isZodSchema } from "./utils/schemaConversion.js";
-import type { Mem0Memory } from "./types/utilities.js";
+import type { MemoryClient } from "mem0ai";
 import { AIProviderName } from "./constants/enums.js";
 import { mcpLogger } from "./utils/logger.js";
 import { SYSTEM_LIMITS } from "./core/constants.js";
@@ -133,7 +133,6 @@ import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
 // Import orchestration components
 import { ModelRouter } from "./utils/modelRouter.js";
 import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
-import type { MemoryConfig } from "mem0ai/oss";
 import {
   initializeOpenTelemetry,
   shutdownOpenTelemetry,
@@ -143,6 +142,8 @@ import {
 } from "./services/server/ai/observability/instrumentation.js";
 import type { ObservabilityConfig } from "./types/observability.js";
 import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
+
+import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
 
 export class NeuroLink {
   private mcpInitialized = false;
@@ -225,8 +226,8 @@ export class NeuroLink {
   private hitlManager?: HITLManager;
 
   // Mem0 memory instance and config for conversation context
-  private mem0Instance?: Mem0Memory | null;
-  private mem0Config?: MemoryConfig;
+  private mem0Instance?: MemoryClient | null;
+  private mem0Config?: Mem0Config;
 
   /**
    * Extract and set Langfuse context from options with proper async scoping
@@ -286,7 +287,7 @@ export class NeuroLink {
   /**
    * Async initialization called during generate/stream
    */
-  private async ensureMem0Ready(): Promise<Mem0Memory | null> {
+  private async ensureMem0Ready(): Promise<MemoryClient | null> {
     if (this.mem0Instance !== undefined) {
       return this.mem0Instance;
     }
@@ -295,9 +296,6 @@ export class NeuroLink {
       this.mem0Instance = null;
       return null;
     }
-
-    // Import and initialize from separate file
-    const { initializeMem0 } = await import("./memory/mem0Initializer.js");
 
     if (!this.mem0Config) {
       this.mem0Instance = null;
@@ -635,9 +633,36 @@ export class NeuroLink {
     currentInput: string,
   ): string {
     return `Context from previous conversations:
-  ${memoryContext}
 
-  Current user's request: ${currentInput}`;
+${memoryContext}
+
+Current user's request: ${currentInput}`;
+  }
+
+  /** Extract memory context from search results */
+  private extractMemoryContext(memories: Array<{ memory?: string }>): string {
+    return memories
+      .map((m) => m.memory || "")
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  /** Store conversation turn in mem0 */
+  private async storeConversationTurn(
+    mem0: MemoryClient,
+    userContent: string,
+    userId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    // Store user message only, reducing latency in mem0
+    const conversationTurn = [{ role: "user" as const, content: userContent }];
+
+    await mem0.add(conversationTurn, {
+      user_id: userId,
+      metadata,
+      infer: true,
+      async_mode: true,
+    });
   }
 
   /**
@@ -1650,15 +1675,13 @@ export class NeuroLink {
             );
           } else {
             const memories = await mem0.search(options.input.text, {
-              userId: options.context.userId as string,
+              user_id: options.context.userId as string,
               limit: 5,
             });
 
-            if (memories?.results?.length > 0) {
-              // Enhance the input with memory context
-              const memoryContext = memories.results
-                .map((m) => m.memory)
-                .join("\n");
+          if (memories && memories.length > 0) {
+            // Enhance the input with memory context
+            const memoryContext = this.extractMemoryContext(memories);
 
               options.input.text = this.formatMemoryContext(
                 memoryContext,
@@ -1844,41 +1867,36 @@ export class NeuroLink {
           : undefined,
       };
 
-      if (
-        this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
-        options.context?.userId &&
-        generateResult.content
-      ) {
-        // Non-blocking memory storage - run in background
-        setImmediate(async () => {
-          try {
-            const mem0 = await this.ensureMem0Ready();
-            if (mem0) {
-              // Store complete conversation turn (user + AI messages)
-              const conversationTurn = [
-                { role: "user", content: options.input.text },
-                { role: "system", content: generateResult.content },
-              ];
-
-              await mem0.add(JSON.stringify(conversationTurn), {
-                userId: options.context?.userId as string,
-                metadata: {
-                  timestamp: new Date().toISOString(),
-                  provider: generateResult.provider,
-                  model: generateResult.model,
-                  type: "conversation_turn",
-                  async_mode: true,
-                },
-              });
-            }
-          } catch (error) {
-            // Non-blocking: Log error but don't fail the generation
-            logger.warn("Mem0 memory storage failed:", error);
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
+      options.context?.userId &&
+      generateResult.content
+    ) {
+      // Non-blocking memory storage - run in background
+      setImmediate(async () => {
+        try {
+          const mem0 = await this.ensureMem0Ready();
+          if (mem0) {
+            await this.storeConversationTurn(
+              mem0,
+              originalPrompt,
+              options.context?.userId as string,
+              {
+                timestamp: new Date().toISOString(),
+                provider: generateResult.provider,
+                model: generateResult.model,
+                type: "conversation_turn",
+              },
+            );
           }
-        });
-      }
+        } catch (error) {
+          // Non-blocking: Log error but don't fail the generation
+          logger.warn("Mem0 memory storage failed:", error);
+        }
+      });
+    }
 
-      return generateResult;
+    return generateResult;
     });
   }
 
@@ -2672,28 +2690,26 @@ export class NeuroLink {
         await this.initializeMCP();
         const _originalPrompt = options.input.text;
 
-        if (
-          this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
-          options.context?.userId
-        ) {
-          try {
-            const mem0 = await this.ensureMem0Ready();
-            if (!mem0) {
-              // Continue without memories if mem0 is not available
-              logger.debug(
-                "Mem0 not available, continuing without memory retrieval",
-              );
-            } else {
-              const memories = await mem0.search(options.input.text, {
-                userId: options.context.userId as string,
-                limit: 5,
-              });
+      if (
+        this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
+        options.context?.userId
+      ) {
+        try {
+          const mem0 = await this.ensureMem0Ready();
+          if (!mem0) {
+            // Continue without memories if mem0 is not available
+            logger.debug(
+              "Mem0 not available, continuing without memory retrieval",
+            );
+          } else {
+            const memories = await mem0.search(options.input.text, {
+              user_id: options.context.userId as string,
+              limit: 5,
+            });
 
-              if (memories?.results?.length > 0) {
-                // Enhance the input with memory context
-                const memoryContext = memories.results
-                  .map((m) => m.memory)
-                  .join("\n");
+            if (memories && memories.length > 0) {
+              // Enhance the input with memory context
+              const memoryContext = this.extractMemoryContext(memories);
 
                 options.input.text = this.formatMemoryContext(
                   memoryContext,
@@ -2794,46 +2810,41 @@ export class NeuroLink {
               }
             }
 
-            if (
-              self.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
-              enhancedOptions.context?.userId &&
-              accumulatedContent.trim()
-            ) {
-              // Non-blocking memory storage - run in background
-              setImmediate(async () => {
-                try {
-                  const mem0 = await self.ensureMem0Ready();
-                  if (mem0) {
-                    // Store complete conversation turn (user + AI messages)
-                    const conversationTurn = [
-                      { role: "user", content: originalPrompt },
-                      { role: "system", content: accumulatedContent.trim() },
-                    ];
-
-                    await mem0.add(JSON.stringify(conversationTurn), {
-                      userId: enhancedOptions.context?.userId as string,
-                      metadata: {
-                        timestamp: new Date().toISOString(),
-                        type: "conversation_turn_stream",
-                        userMessage: originalPrompt,
-                        async_mode: true,
-                        aiResponse: accumulatedContent.trim(),
-                      },
-                    });
-                  }
-                } catch (error) {
-                  logger.warn("Mem0 memory storage failed:", error);
+          if (
+            self.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
+            enhancedOptions.context?.userId &&
+            accumulatedContent.trim()
+          ) {
+            // Non-blocking memory storage - run in background
+            setImmediate(async () => {
+              try {
+                const mem0 = await self.ensureMem0Ready();
+                if (mem0) {
+                  await self.storeConversationTurn(
+                    mem0,
+                    originalPrompt,
+                    enhancedOptions.context?.userId as string,
+                    {
+                      timestamp: new Date().toISOString(),
+                      type: "conversation_turn_stream",
+                      userMessage: originalPrompt,
+                      aiResponse: accumulatedContent.trim(),
+                    },
+                  );
                 }
-              });
-            }
+              } catch (error) {
+                logger.warn("Mem0 memory storage failed:", error);
+              }
+            });
           }
-        })(this);
-        const streamResult = await this.processStreamResult(
-          mcpStream,
-          enhancedOptions,
-          factoryResult,
-        );
-        const responseTime = Date.now() - startTime;
+        }
+      })(this);
+      const streamResult = await this.processStreamResult(
+        mcpStream,
+        enhancedOptions,
+        factoryResult,
+      );
+      const responseTime = Date.now() - startTime;
 
         this.emitStreamEndEvents(streamResult);
 
