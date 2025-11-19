@@ -173,6 +173,10 @@ export class ConversationSelector {
         conversation.messages &&
         conversation.messages.length > 0
       ) {
+        // Only include conversations with session IDs prefixed with "NL_"
+        if (!conversation.sessionId?.startsWith("NL_")) {
+          return null;
+        }
         return this.createConversationSummary(conversation);
       }
       return null;

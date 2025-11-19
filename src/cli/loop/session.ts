@@ -138,14 +138,30 @@ export class LoopSession {
           continue;
         }
 
-        // Handle session variable commands first
-        if (await this.handleSessionCommands(command)) {
-          // Save session commands to history (both memory and file)
-          if (command && command.trim()) {
-            this.commandHistory.unshift(command);
-            await saveCommandToHistory(command);
+        // Save command to history
+        if (command && command.trim()) {
+          this.commandHistory.unshift(command);
+          await saveCommandToHistory(command);
+        }
+
+        let processedCommand: string | string[];
+        if (command.startsWith("//")) {
+          // Escape sequence - treat as stream with single /
+          processedCommand = ["stream", command.slice(1)];
+        } else if (command.startsWith("/")) {
+          // Explicit CLI command: remove "/" prefix
+          processedCommand = command.slice(1).trim();
+          if (!processedCommand) {
+            logger.always(chalk.red("Type 'help' for available commands."));
+            continue;
           }
-          continue;
+          // Handle session variable commands and skip further processing
+          if (await this.handleSessionCommands(processedCommand)) {
+            continue;
+          }
+        } else {
+          // Default: treat as stream command with array format
+          processedCommand = ["stream", command];
         }
 
         // Execute the command
@@ -160,16 +176,10 @@ export class LoopSession {
             throw err || new Error(msg);
           })
           .exitProcess(false)
-          .parse(command);
-
-        // Save command to history (both memory and file)
-        if (command && command.trim()) {
-          this.commandHistory.unshift(command);
-          await saveCommandToHistory(command);
-        }
+          .parse(processedCommand);
       } catch (error) {
-        // Catch errors from the main loop (e.g., readline prompt itself failing)
-        handleError(error as Error, "An unexpected error occurred");
+        // Handle command execution errors gracefully
+        handleError(error as Error, "Command execution failed");
       }
     }
 

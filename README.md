@@ -211,14 +211,23 @@ npx @juspay/neurolink loop
 # Start the interactive session
 $ npx @juspay/neurolink loop
 
-neurolink » set provider google-ai
+neurolink » /set provider google-ai
 ✓ provider set to google-ai
 
-neurolink » set temperature 0.8
+neurolink » /set temperature 0.8
 ✓ temperature set to 0.8
 
-neurolink » generate "Tell me a fun fact about space"
+neurolink » Tell me a fun fact about space
+
 The quietest place on Earth is an anechoic chamber at Microsoft's headquarters in Redmond, Washington. The background noise is so low that it's measured in negative decibels, and you can hear your own heartbeat.
+
+# Use "/" for CLI commands
+neurolink » /generate "Draft a haiku"
+...
+
+# Use "//" to escape prompts starting with "/"
+neurolink » //what is /usr/bin used for?
+...
 
 # Exit the session
 neurolink » exit

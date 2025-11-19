@@ -83,37 +83,52 @@ Loop mode supports **tab completion** for commands and session variables, **arro
 
 Inside the loop prompt (`⎔ neurolink »`) you can manage context without leaving the session:
 
-| Command                | Purpose                                                 | Example                  |
-| ---------------------- | ------------------------------------------------------- | ------------------------ |
-| `help`                 | Show loop-specific commands plus full CLI help.         | `help`                   |
-| `set <key> <value>`    | Persist a generation option (validated against schema). | `set provider google-ai` |
-| `get <key>`            | Inspect the current value.                              | `get provider`           |
-| `unset <key>`          | Remove a single session variable.                       | `unset temperature`      |
-| `show`                 | List all session variables.                             | `show`                   |
-| `clear`                | Reset every session variable.                           | `clear`                  |
-| `exit` / `quit` / `:q` | Leave loop mode.                                        | `exit`                   |
+| Command                | Purpose                                                 | Example                   |
+| ---------------------- | ------------------------------------------------------- | ------------------------- |
+| `/help`                | Show loop-specific commands plus full CLI help.         | `/help`                   |
+| `/set <key> <value>`   | Persist a generation option (validated against schema). | `/set provider google-ai` |
+| `/get <key>`           | Inspect the current value.                              | `/get provider`           |
+| `/unset <key>`         | Remove a single session variable.                       | `/unset temperature`      |
+| `/show`                | List all session variables.                             | `/show`                   |
+| `/clear`               | Reset every session variable.                           | `/clear`                  |
+| `exit` / `quit` / `:q` | Leave loop mode.                                        | `exit`                    |
 
 ### Common Variables
 
-- `provider` – any provider except `auto` (set `set provider google-ai`).
-- `model` – model slug from `models list` (`set model gemini-2.5-pro`).
-- `temperature` – floating point number (`set temperature 0.6`).
-- `enableEvaluation` / `enableAnalytics` – toggles for observability (`set enableEvaluation true`).
-- `context` – JSON-encoded metadata (`set context {"userId":"42"}`).
-- `NEUROLINK_EVALUATION_THRESHOLD` – dynamic quality gate (`set NEUROLINK_EVALUATION_THRESHOLD 8`).
+- `provider` – any provider except `auto` (`/set provider google-ai`).
+- `model` – model slug from `models list` (`/set model gemini-2.5-pro`).
+- `temperature` – floating point number (`/set temperature 0.6`).
+- `enableEvaluation` / `enableAnalytics` – toggles for observability (`/set enableEvaluation true`).
+- `context` – JSON-encoded metadata (`/set context {"userId":"42"}`).
+- `NEUROLINK_EVALUATION_THRESHOLD` – dynamic quality gate (`/set NEUROLINK_EVALUATION_THRESHOLD 8`).
 
-> Type `set help` in the loop to view every available key and its validation rules.
+> Type `/set help` in the loop to view every available key and its validation rules.
 
 ## Using CLI Commands in Loop Mode
 
-Anything you can run outside the loop works inside it:
+In loop mode, you can interact with the AI naturally by typing your prompts directly:
 
 ```
-⎔ neurolink » generate Draft changelog from sprint notes --enableEvaluation
-⎔ neurolink » stream Walk through the attached design --image ./ui.png
-⎔ neurolink » status --verbose
-⎔ neurolink » models list --capability vision
+⎔ neurolink » what are the seven wonders?
+⎔ neurolink » explain quantum physics
+⎔ neurolink » tell me a story about space exploration
 ```
+
+To use other CLI commands explicitly, prefix them with a forward slash `/`:
+
+```
+⎔ neurolink » /generate "Draft changelog from sprint notes" --enableEvaluation
+⎔ neurolink » /batch file.txt
+⎔ neurolink » /status --verbose
+⎔ neurolink » /models list --capability vision
+```
+
+!!! tip "Quick Reference"
+
+- **No prefix**: Streams a response to your prompt
+- **`/` prefix**: Executes CLI commands or session commands (e.g., `/help`, `/set`, `/generate`, `/batch`)
+- **`//` prefix**: Escape to stream prompts starting with `/` (e.g., `//what is /usr/bin?`)
+- **Exit commands**: `exit`, `quit`, or `:q` work without prefix to leave loop mode
 
 Errors are handled gracefully; parsing issues surface inline without closing the loop.
 
@@ -142,10 +157,10 @@ npx @juspay/neurolink memory clear NL_r1bd2
 
 ## Best Practices
 
-- Commit to a provider/model via `set` at the start of a session to avoid noisy auto-routing during experiments.
-- Use `set enableAnalytics true` and `set enableEvaluation true` to apply observability globally.
+- Commit to a provider/model via `/set` at the start of a session to avoid noisy auto-routing during experiments.
+- Use `/set enableAnalytics true` and `/set enableEvaluation true` to apply observability globally.
 - Combine with the interactive setup wizard (`neurolink setup --list`) to configure credentials mid-session.
-- If you switch projects, run `clear` or start a new loop to avoid leaking context.
+- If you switch projects, run `/clear` or start a new loop to avoid leaking context.
 
 ## Troubleshooting
 
@@ -153,7 +168,7 @@ npx @juspay/neurolink memory clear NL_r1bd2
 | ---------------------------------- | --------------------------------------------------------------------------------------- |
 | `A loop session is already active` | Use `exit` in the existing session or close the terminal tab before starting a new one. |
 | Redis warning but memory disabled  | Ensure Redis credentials are valid or run with `--no-auto-redis`.                       |
-| Session variable rejected          | Run `set help` to check allowed values; booleans must be `true`/`false`.                |
+| Session variable rejected          | Run `/set help` to check allowed values; booleans must be `true`/`false`.               |
 | Commands exit unexpectedly         | Upgrade to CLI `>=7.47.0` so the session-aware error handler is included.               |
 
 ## Related Features
