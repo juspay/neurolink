@@ -1,3 +1,10 @@
+## [8.0.1](https://github.com/juspay/neurolink/compare/v8.0.0...v8.0.1) (2025-11-20)
+
+### Bug Fixes
+
+- **(lint):** prettier and lint errors ([810475c](https://github.com/juspay/neurolink/commit/810475ce5bf997e389b4ee2c769cee0c03da7dfb))
+- **(memory):** migrate to cloud-hosted mem0 API [BZ-45257] ([3a53a0c](https://github.com/juspay/neurolink/commit/3a53a0c792102fe5cd232f8b8c0ac59e73581497))
+
 ## [8.0.0](https://github.com/juspay/neurolink/compare/v7.54.0...v8.0.0) (2025-11-19)
 
 ### ⚠ BREAKING CHANGES
