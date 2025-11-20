@@ -61,6 +61,9 @@ export enum VertexModels {
   CLAUDE_3_OPUS = "claude-3-opus-20240229",
   CLAUDE_3_HAIKU = "claude-3-haiku-20240307",
 
+  // Gemini 3 Series (Preview)
+  GEMINI_3_PRO_PREVIEW = "gemini-3-pro-preview",
+
   // Gemini 2.5 Series (Latest - 2025)
   GEMINI_2_5_PRO = "gemini-2.5-pro",
   GEMINI_2_5_FLASH = "gemini-2.5-flash",
