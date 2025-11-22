@@ -125,7 +125,7 @@ node dist/cli/index.js generate "What time is it?" --debug
 
 **Status**: ⚠️ **VERSION INCOMPATIBILITY ISSUE**
 
-**Symptom**: When using older NeuroLink versions (e.g., `^7.43.0`), you may encounter the following error in logs when connecting to modern MCP servers:
+**Symptom**: When using older NeuroLink versions (such as `^7.43.0`), you may encounter the following error in logs when connecting to modern MCP servers:
 
 ```
 Failed to request initial roots from client: MCP error -32601: Method not found
@@ -199,8 +199,7 @@ npx @juspay/neurolink --version
 
 **Additional Information**:
 
-- This issue affects all projects using versions prior to `7.53.5`
-- The fix was implemented in version `7.53.5`
+- This issue affects all projects using versions prior to 7.53.5, where the fix was implemented
 - No configuration changes are needed after upgrading - just update the package version
 - If you see this error in production, upgrade immediately to restore MCP functionality
 

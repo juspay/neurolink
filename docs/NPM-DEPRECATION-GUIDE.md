@@ -39,7 +39,7 @@ When deprecating versions, use this message template:
 This version is incompatible with modern MCP servers (MCP error -32601: Method not found). Please upgrade to version 7.53.5 or later. See https://github.com/juspay/neurolink/blob/main/docs/TROUBLESHOOTING.md#-mcp-error--32601-method-not-found for details.
 ```
 
-> **Note**: Update the branch name in the URL (e.g., `main`, `master`, or `release`) to match your repository's default branch.
+> **Note**: If adapting this template for other repositories or branches, update the branch name in the URL (e.g., `main`, `master`, or `release`) as appropriate.
 
 ### Verify Deprecation
 
