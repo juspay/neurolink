@@ -25,13 +25,14 @@ This guide helps diagnose and resolve common issues with NeuroLink, including AI
 
 ## 🚀 New in v7.47 – Quick Fixes
 
-| Symptom                                | Resolution                                                                                                                     |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `Image not found` when using `--image` | Provide an absolute path or run the command from the directory containing the asset. URLs must be HTTPS.                       |
-| `Evaluation model not configured`      | Set `NEUROLINK_EVALUATION_PROVIDER`/`NEUROLINK_EVALUATION_MODEL`, or disable `--enableEvaluation` until credentials are added. |
-| `Redis connection failed` in loop mode | Export `REDIS_URL` before running `neurolink loop` or start the session with `--no-auto-redis`.                                |
-| `Model not available in region`        | Confirm the model supports the requested region and update `AWS_REGION` / `GOOGLE_VERTEX_LOCATION` accordingly.                |
-| CLI exits after error inside loop      | Upgrade to `@juspay/neurolink@>=7.47.0` and restart the loop; new builds catch errors without exiting.                         |
+| Symptom                                | Resolution                                                                                                                        |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `MCP error -32601: Method not found`   | Upgrade to `@juspay/neurolink@^7.53.5` or later. See [MCP Error -32601 section](#-mcp-error--32601-method-not-found) for details. |
+| `Image not found` when using `--image` | Provide an absolute path or run the command from the directory containing the asset. URLs must be HTTPS.                          |
+| `Evaluation model not configured`      | Set `NEUROLINK_EVALUATION_PROVIDER`/`NEUROLINK_EVALUATION_MODEL`, or disable `--enableEvaluation` until credentials are added.    |
+| `Redis connection failed` in loop mode | Export `REDIS_URL` before running `neurolink loop` or start the session with `--no-auto-redis`.                                   |
+| `Model not available in region`        | Confirm the model supports the requested region and update `AWS_REGION` / `GOOGLE_VERTEX_LOCATION` accordingly.                   |
+| CLI exits after error inside loop      | Upgrade to `@juspay/neurolink@>=7.47.0` and restart the loop; new builds catch errors without exiting.                            |
 
 ## 🆕 Q4 2025 Features – Common Issues
 
@@ -117,6 +118,97 @@ node dist/cli/index.js generate "What time is it?" --debug
 ```
 
 **If still having issues**:
+
+---
+
+### **🚨 MCP Error -32601: Method Not Found**
+
+**Status**: ⚠️ **VERSION INCOMPATIBILITY ISSUE**
+
+**Symptom**: When using older NeuroLink versions (e.g., `^7.43.0`), you may encounter the following error in logs when connecting to modern MCP servers:
+
+```
+Failed to request initial roots from client: MCP error -32601: Method not found
+```
+
+**Root Cause**: This is a version incompatibility issue between older NeuroLink clients and modern MCP servers:
+
+- **Old Client (`^7.43.0`)**: Uses an outdated MCP protocol method (e.g., `request initial roots`)
+- **New MCP Servers**: No longer support this legacy method, resulting in the `-32601` JSON-RPC error
+
+**Diagnosis**:
+
+```bash
+# Check your current NeuroLink version
+npm list @juspay/neurolink
+
+# Or with npx
+npx @juspay/neurolink --version
+```
+
+**Solutions**:
+
+1. **Upgrade to Compatible Version** (Recommended):
+
+   ```bash
+   # Update to version 7.53.5 or later
+   npm install @juspay/neurolink@^7.53.5
+
+   # Or with yarn
+   yarn add @juspay/neurolink@^7.53.5
+
+   # Or with pnpm
+   pnpm add @juspay/neurolink@^7.53.5
+   ```
+
+2. **Verify Installation**:
+
+   ```bash
+   # Confirm you're running a compatible version
+   npm list @juspay/neurolink
+   # Should show version 7.53.5 or later
+
+   # Test MCP connectivity
+   npx @juspay/neurolink status --verbose
+   npx @juspay/neurolink mcp discover --format table
+   ```
+
+3. **Update package.json**:
+
+   ```json
+   {
+     "dependencies": {
+       "@juspay/neurolink": "^7.53.5"
+     }
+   }
+   ```
+
+   Then run:
+
+   ```bash
+   npm install
+   ```
+
+**Version Compatibility**:
+
+| NeuroLink Version | MCP Protocol Support | Status     |
+| ----------------- | -------------------- | ---------- |
+| `< 7.53.5`        | Legacy protocol      | ❌ Broken  |
+| `>= 7.53.5`       | Modern protocol      | ✅ Working |
+| `>= 8.0.0`        | Modern protocol      | ✅ Working |
+
+**Additional Information**:
+
+- This issue affects all projects using versions prior to `7.53.5`
+- The fix was implemented between versions `7.43.0` and `7.53.5`
+- No configuration changes are needed after upgrading - just update the package version
+- If you see this error in production, upgrade immediately to restore MCP functionality
+
+**Related Documentation**:
+
+- [MCP Integration Guide](MCP-INTEGRATION.md) - Complete MCP setup and usage
+- [Configuration Guide](CONFIGURATION.md) - Environment and setup guide
+- [Changelog](../CHANGELOG.md) - Version history and changes
 
 ---
 

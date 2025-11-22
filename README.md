@@ -319,8 +319,11 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 ## Contributing & Support
 
 - Bug reports and feature requests → [GitHub Issues](https://github.com/juspay/neurolink/issues)
+- Troubleshooting and common issues → [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
 - Development workflow, testing, and pull request guidelines → [`docs/development/contributing.md`](docs/development/contributing.md)
 - Documentation improvements → open a PR referencing the [documentation matrix](docs/tracking/FEATURE-DOC-MATRIX.md).
+
+> **Note:** If you encounter `MCP error -32601: Method not found`, upgrade to version 7.53.5+ to resolve compatibility issues with modern MCP servers. See [Troubleshooting Guide](docs/TROUBLESHOOTING.md#-mcp-error--32601-method-not-found) for details.
 
 ---
 

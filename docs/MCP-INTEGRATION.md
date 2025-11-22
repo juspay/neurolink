@@ -436,6 +436,24 @@ neurolink mcp add project-server "python local-server.py" --cwd "/path/to/projec
 
 ### **Common Issues**
 
+#### **MCP Error -32601: Method Not Found**
+
+```
+Failed to request initial roots from client: MCP error -32601: Method not found
+```
+
+**Cause**: Version incompatibility between old NeuroLink clients (< 7.53.5) and modern MCP servers.
+
+**Solution**: Upgrade to NeuroLink version 7.53.5 or later:
+
+```bash
+npm install @juspay/neurolink@^7.53.5
+```
+
+**For detailed troubleshooting**, see [MCP Error -32601 section in Troubleshooting Guide](TROUBLESHOOTING.md#-mcp-error--32601-method-not-found).
+
+---
+
 #### **Server Not Available**
 
 ```
