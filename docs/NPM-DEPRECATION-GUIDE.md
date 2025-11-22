@@ -36,8 +36,10 @@ npm deprecate @juspay/neurolink@">=7.40.0 <7.53.5" "These versions are incompati
 When deprecating versions, use this message template:
 
 ```
-This version is incompatible with modern MCP servers (MCP error -32601: Method not found). Please upgrade to version 7.53.5 or later. See https://github.com/juspay/neurolink/blob/release/docs/TROUBLESHOOTING.md#-mcp-error--32601-method-not-found for details.
+This version is incompatible with modern MCP servers (MCP error -32601: Method not found). Please upgrade to version 7.53.5 or later. See https://github.com/juspay/neurolink/blob/main/docs/TROUBLESHOOTING.md#-mcp-error--32601-method-not-found for details.
 ```
+
+> **Note**: Update the branch name in the URL (e.g., `main`, `master`, or `release`) to match your repository's default branch.
 
 ### Verify Deprecation
 

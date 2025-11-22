@@ -133,8 +133,8 @@ Failed to request initial roots from client: MCP error -32601: Method not found
 
 **Root Cause**: This is a version incompatibility issue between older NeuroLink clients and modern MCP servers:
 
-- **Old Client (`^7.43.0`)**: Uses an outdated MCP protocol method (e.g., `request initial roots`)
-- **New MCP Servers**: No longer support this legacy method, resulting in the `-32601` JSON-RPC error
+- **Old Client (`^7.43.0`)**: Uses outdated MCP protocol methods that are no longer supported
+- **New MCP Servers**: No longer support these legacy methods, resulting in the `-32601` JSON-RPC error
 
 **Diagnosis**:
 
@@ -200,7 +200,7 @@ npx @juspay/neurolink --version
 **Additional Information**:
 
 - This issue affects all projects using versions prior to `7.53.5`
-- The fix was implemented between versions `7.43.0` and `7.53.5`
+- The fix was implemented in version `7.53.5`
 - No configuration changes are needed after upgrading - just update the package version
 - If you see this error in production, upgrade immediately to restore MCP functionality
 
