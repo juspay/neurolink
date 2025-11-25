@@ -76,6 +76,7 @@ export const USE_CASE_TOKENS = {
 export const PROVIDER_TOKEN_LIMITS = {
   /** Anthropic model limits */
   ANTHROPIC: {
+    "claude-opus-4-5-20251101": 8192,
     "claude-3-haiku-20240307": 4096,
     "claude-3-5-sonnet-20241022": 4096,
     "claude-3-opus-20240229": 4096,
@@ -116,6 +117,7 @@ export const PROVIDER_TOKEN_LIMITS = {
     "gemini-2.5-flash": 8192,
     "gemini-2.5-flash-lite": 8192,
     "gemini-2.0-flash-001": 8192,
+    "claude-opus-4-5-20251101": 8192,
     "claude-sonnet-4@20250514": 4096,
     "claude-opus-4@20250514": 4096,
     "claude-3-5-sonnet-20241022": 4096,
@@ -128,6 +130,7 @@ export const PROVIDER_TOKEN_LIMITS = {
 
   /** AWS Bedrock model limits */
   BEDROCK: {
+    "anthropic.claude-opus-4-5-20251101-v1:0": 8192,
     "anthropic.claude-3-sonnet-20240229-v1:0": 4096,
     "anthropic.claude-3-haiku-20240307-v1:0": 4096,
     "anthropic.claude-3-5-sonnet-20240620-v1:0": 4096,

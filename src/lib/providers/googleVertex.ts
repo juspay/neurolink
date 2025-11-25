@@ -1319,6 +1319,7 @@ export class GoogleVertexProvider extends BaseProvider {
         modelName,
         issue: modelValidation.issue,
         recommendedModels: [
+          "claude-opus-4-5-20251101",
           "claude-sonnet-4-5@20250929",
           "claude-sonnet-4@20250514",
           "claude-opus-4@20250514",
@@ -1623,6 +1624,7 @@ export class GoogleVertexProvider extends BaseProvider {
     const validPatterns = [
       /^claude-sonnet-4@\d{8}$/,
       /^claude-sonnet-4-5@\d{8}$/,
+      /^claude-opus-4-5-\d{8}$/,
       /^claude-opus-4@\d{8}$/,
       /^claude-opus-4-1@\d{8}$/,
       /^claude-3-7-sonnet@\d{8}$/,
@@ -1949,6 +1951,7 @@ export class GoogleVertexProvider extends BaseProvider {
         "gemini-1.5-flash",
       ],
       claude: [
+        "claude-opus-4-5-20251101",
         "claude-sonnet-4-5@20250929",
         "claude-sonnet-4@20250514",
         "claude-opus-4@20250514",

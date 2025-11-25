@@ -61,7 +61,7 @@ const MODEL_CONFIGS = {
     },
     fallback: {
       provider: "vertex",
-      model: "claude-opus-4@20250514",
+      model: "claude-opus-4-5-20251101",
       capabilities: [
         "reasoning",
         "analysis",
@@ -72,7 +72,8 @@ const MODEL_CONFIGS = {
       ],
       avgResponseTime: 4000,
       costPerToken: 0.005,
-      reasoning: "Claude Opus 4 fallback on Vertex AI for most complex tasks",
+      reasoning:
+        "Claude Opus 4.5 fallback on Vertex AI for most complex tasks - latest flagship model",
     },
   },
 } as const;

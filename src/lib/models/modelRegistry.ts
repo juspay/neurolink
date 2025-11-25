@@ -202,6 +202,59 @@ export const MODEL_REGISTRY: Record<string, ModelInfo> = {
   },
 
   // Anthropic Models
+  [AnthropicModels.CLAUDE_4_5_OPUS]: {
+    id: AnthropicModels.CLAUDE_4_5_OPUS,
+    name: "Claude Opus 4.5",
+    provider: AIProviderName.ANTHROPIC,
+    description:
+      "Anthropic's most intelligent and capable flagship for advanced coding, agentic workflows, and enterprise automation",
+    capabilities: {
+      vision: true,
+      functionCalling: true,
+      codeGeneration: true,
+      reasoning: true,
+      multimodal: true,
+      streaming: true,
+      jsonMode: false,
+    },
+    pricing: {
+      inputCostPer1K: 0.005,
+      outputCostPer1K: 0.025,
+      currency: "USD",
+    },
+    performance: {
+      speed: "medium",
+      quality: "high",
+      accuracy: "high",
+    },
+    limits: {
+      maxContextTokens: 200000,
+      maxOutputTokens: 8192,
+      maxRequestsPerMinute: 50,
+    },
+    useCases: {
+      coding: 10,
+      creative: 9,
+      analysis: 10,
+      conversation: 9,
+      reasoning: 10,
+      translation: 8,
+      summarization: 8,
+    },
+    aliases: [
+      "claude-opus-4.5",
+      "claude-opus-4-5",
+      "opus-4.5",
+      "opus-4-5",
+      "claude-flagship",
+      "anthropic-flagship",
+    ],
+    deprecated: false,
+    isLocal: false,
+    releaseDate: "2025-11-24",
+    category: "coding",
+  },
+
   [AnthropicModels.CLAUDE_3_5_SONNET]: {
     id: AnthropicModels.CLAUDE_3_5_SONNET,
     name: "Claude 3.5 Sonnet",
@@ -415,26 +468,31 @@ MODEL_ALIASES.local = "llama3.2:latest";
  */
 export const USE_CASE_RECOMMENDATIONS: Record<string, string[]> = {
   coding: [
+    AnthropicModels.CLAUDE_4_5_OPUS,
     AnthropicModels.CLAUDE_3_5_SONNET,
     OpenAIModels.GPT_4O,
     GoogleAIModels.GEMINI_2_5_PRO,
   ],
   creative: [
+    AnthropicModels.CLAUDE_4_5_OPUS,
     AnthropicModels.CLAUDE_3_5_SONNET,
     OpenAIModels.GPT_4O,
     GoogleAIModels.GEMINI_2_5_PRO,
   ],
   analysis: [
     GoogleAIModels.GEMINI_2_5_PRO,
+    AnthropicModels.CLAUDE_4_5_OPUS,
     AnthropicModels.CLAUDE_3_5_SONNET,
     OpenAIModels.GPT_4O,
   ],
   conversation: [
     OpenAIModels.GPT_4O,
+    AnthropicModels.CLAUDE_4_5_OPUS,
     AnthropicModels.CLAUDE_3_5_SONNET,
     AnthropicModels.CLAUDE_3_5_HAIKU,
   ],
   reasoning: [
+    AnthropicModels.CLAUDE_4_5_OPUS,
     AnthropicModels.CLAUDE_3_5_SONNET,
     GoogleAIModels.GEMINI_2_5_PRO,
     OpenAIModels.GPT_4O,
@@ -455,6 +513,7 @@ export const USE_CASE_RECOMMENDATIONS: Record<string, string[]> = {
     "mistral-small-latest",
   ],
   "high-quality": [
+    AnthropicModels.CLAUDE_4_5_OPUS,
     AnthropicModels.CLAUDE_3_5_SONNET,
     OpenAIModels.GPT_4O,
     GoogleAIModels.GEMINI_2_5_PRO,

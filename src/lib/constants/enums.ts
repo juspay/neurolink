@@ -25,6 +25,7 @@ export enum AIProviderName {
  * Supported Models for Amazon Bedrock
  */
 export enum BedrockModels {
+  CLAUDE_4_5_OPUS = "anthropic.claude-opus-4-5-20251101-v1:0",
   CLAUDE_3_SONNET = "anthropic.claude-3-sonnet-20240229-v1:0",
   CLAUDE_3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0",
   CLAUDE_3_5_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0",
@@ -48,7 +49,10 @@ export enum OpenAIModels {
  * Supported Models for Google Vertex AI
  */
 export enum VertexModels {
-  // Claude 4 Series (Latest - May 2025)
+  // Claude 4.5 Series (Latest - November 2025)
+  CLAUDE_4_5_OPUS = "claude-opus-4-5-20251101",
+
+  // Claude 4 Series (May 2025)
   CLAUDE_4_0_SONNET = "claude-sonnet-4@20250514",
   CLAUDE_4_0_OPUS = "claude-opus-4@20250514",
 
@@ -99,7 +103,10 @@ export enum GoogleAIModels {
  * Supported Models for Anthropic (Direct API)
  */
 export enum AnthropicModels {
-  // Claude 3.5 Series (Latest)
+  // Claude 4.5 Series (Latest - November 2025)
+  CLAUDE_4_5_OPUS = "claude-opus-4-5-20251101",
+
+  // Claude 3.5 Series
   CLAUDE_3_5_SONNET = "claude-3-5-sonnet-20241022",
   CLAUDE_3_5_HAIKU = "claude-3-5-haiku-20241022",
 

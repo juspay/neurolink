@@ -55,6 +55,8 @@ const VISION_CAPABILITIES = {
     "gemini-pro-vision",
   ],
   anthropic: [
+    "claude-opus-4.5",
+    "claude-opus-4-5",
     "claude-3-7-sonnet",
     "claude-3-5-sonnet",
     "claude-3-opus",
@@ -84,6 +86,9 @@ const VISION_CAPABILITIES = {
     "gemini-2.0-flash",
     "gemini-1.5-pro",
     "gemini-1.5-flash",
+    // Claude 4.5 models (versioned format)
+    "claude-opus-4-5@",
+    "claude-opus-4-5-20251101",
     // Claude 4.x models (versioned format)
     "claude-sonnet-4-5@",
     "claude-sonnet-4@",
@@ -95,6 +100,8 @@ const VISION_CAPABILITIES = {
     "claude-opus-3@",
     "claude-haiku-3@",
     // Claude models (non-versioned format)
+    "claude-opus-4.5",
+    "claude-opus-4-5",
     "claude-3-7-sonnet",
     "claude-3-5-sonnet",
     "claude-3-opus",
@@ -115,6 +122,8 @@ const VISION_CAPABILITIES = {
     // List models that support vision when going through the proxy
     "gemini-2.5-pro",
     "gemini-2.5-flash",
+    "claude-opus-4.5",
+    "claude-opus-4-5",
     "claude-sonnet-4",
     "claude-sonnet-4-5",
     "claude-opus-4-1",

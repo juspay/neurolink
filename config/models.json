@@ -3,6 +3,28 @@
   "lastUpdated": "2025-06-18T15:00:00Z",
   "models": {
     "anthropic": {
+      "claude-opus-4.5": {
+        "id": "claude-opus-4-5-20251101",
+        "displayName": "Claude Opus 4.5",
+        "capabilities": [
+          "function-calling",
+          "vision",
+          "analysis",
+          "code",
+          "reasoning",
+          "agentic"
+        ],
+        "deprecated": false,
+        "pricing": { "input": 0.005, "output": 0.025 },
+        "contextWindow": 200000,
+        "releaseDate": "2025-11-24",
+        "metadata": {
+          "description": "Most intelligent and capable Claude flagship for advanced coding and agentic workflows",
+          "useCase": "coding",
+          "speed": "medium",
+          "quality": "highest"
+        }
+      },
       "claude-3.5-sonnet": {
         "id": "claude-3-5-sonnet-20241022",
         "displayName": "Claude 3.5 Sonnet",

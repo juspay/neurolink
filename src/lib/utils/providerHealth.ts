@@ -470,6 +470,7 @@ export class ProviderHealthChecker {
             `    • gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite\n` +
             `    • gemini-2.0-flash-001, gemini-1.5-pro, gemini-1.5-flash\n` +
             `  Anthropic Models (via vertexAnthropic provider):\n` +
+            `    • claude-opus-4-5-20251101 (Latest flagship)\n` +
             `    • claude-sonnet-4@20250514, claude-opus-4@20250514\n` +
             `    • claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022\n` +
             `    • claude-3-sonnet-20240229, claude-3-haiku-20240307, claude-3-opus-20240229\n` +
@@ -827,16 +828,17 @@ export class ProviderHealthChecker {
     const bedrockModel =
       process.env.BEDROCK_MODEL || process.env.BEDROCK_MODEL_ID;
     const supportedModels = [
+      BedrockModels.CLAUDE_4_5_OPUS,
+      BedrockModels.CLAUDE_3_5_SONNET,
       BedrockModels.CLAUDE_3_SONNET,
       BedrockModels.CLAUDE_3_HAIKU,
-      BedrockModels.CLAUDE_3_5_SONNET,
       "anthropic.claude-v2:1",
       "amazon.titan-text-express-v1",
     ];
 
     if (!bedrockModel) {
       healthStatus.recommendations.push(
-        `Set BEDROCK_MODEL or BEDROCK_MODEL_ID for faster startup (e.g., ${BedrockModels.CLAUDE_3_SONNET})`,
+        `Set BEDROCK_MODEL or BEDROCK_MODEL_ID for faster startup (e.g., ${BedrockModels.CLAUDE_4_5_OPUS})`,
       );
     } else if (!supportedModels.includes(bedrockModel)) {
       healthStatus.recommendations.push(
@@ -916,8 +918,9 @@ export class ProviderHealthChecker {
     switch (providerName) {
       case AIProviderName.ANTHROPIC:
         return [
+          AnthropicModels.CLAUDE_4_5_OPUS,
           AnthropicModels.CLAUDE_3_5_SONNET,
-          AnthropicModels.CLAUDE_3_HAIKU,
+          AnthropicModels.CLAUDE_3_5_HAIKU,
           AnthropicModels.CLAUDE_3_OPUS,
         ];
       case AIProviderName.OPENAI:
@@ -942,6 +945,7 @@ export class ProviderHealthChecker {
           GoogleAIModels.GEMINI_1_5_PRO,
           GoogleAIModels.GEMINI_1_5_FLASH,
           // Anthropic models (via vertexAnthropic provider)
+          "claude-opus-4-5-20251101",
           "claude-sonnet-4@20250514",
           "claude-opus-4@20250514",
           AnthropicModels.CLAUDE_3_5_SONNET,
@@ -951,7 +955,12 @@ export class ProviderHealthChecker {
           AnthropicModels.CLAUDE_3_OPUS,
         ];
       case AIProviderName.BEDROCK:
-        return [BedrockModels.CLAUDE_3_SONNET, BedrockModels.CLAUDE_3_HAIKU];
+        return [
+          BedrockModels.CLAUDE_4_5_OPUS,
+          BedrockModels.CLAUDE_3_5_SONNET,
+          BedrockModels.CLAUDE_3_SONNET,
+          BedrockModels.CLAUDE_3_HAIKU,
+        ];
       case AIProviderName.AZURE:
         return [OpenAIModels.GPT_4O, OpenAIModels.GPT_4O_MINI, "gpt-35-turbo"];
       case AIProviderName.OLLAMA:
@@ -1036,6 +1045,7 @@ export class ProviderHealthChecker {
       modelSupport: {
         availableModels: [] as string[],
         recommendedModels: [
+          "claude-opus-4-5-20251101",
           "claude-sonnet-4@20250514",
           "claude-opus-4@20250514",
           "claude-3-5-sonnet-20241022",
