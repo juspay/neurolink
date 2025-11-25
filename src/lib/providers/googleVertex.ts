@@ -85,11 +85,21 @@ const hasGoogleCredentials = (): boolean => {
 const createVertexSettings = async (
   region?: string,
 ): Promise<GoogleVertexProviderSettings> => {
+  const location = region || getVertexLocation();
+  const project = getVertexProjectId();
+
   const baseSettings: GoogleVertexProviderSettings = {
-    project: getVertexProjectId(),
-    location: region || getVertexLocation(),
+    project,
+    location,
     fetch: createProxyFetch(),
   };
+
+  // Special handling for global endpoint
+  // Google's global endpoint uses aiplatform.googleapis.com (no region prefix)
+  // instead of {region}-aiplatform.googleapis.com
+  if (location === "global") {
+    baseSettings.baseURL = `https://aiplatform.googleapis.com/v1/projects/${project}/locations/global/publishers/google`;
+  }
 
   // 🎯 OPTION 2: Create credentials file from environment variables at runtime
   // This solves the problem where GOOGLE_APPLICATION_CREDENTIALS exists in ZSHRC locally
@@ -1565,10 +1575,12 @@ export class GoogleVertexProvider extends BaseProvider {
 
     result.region = region;
 
-    // Validate region format
-    const regionPattern = /^[a-z]+-[a-z]+\d+$/;
+    // Validate region format (regional format like us-central1 or global endpoint)
+    const regionPattern = /^([a-z]+-[a-z]+\d+|global)$/;
     if (!regionPattern.test(region)) {
-      result.issues.push(`Invalid region format: ${region}`);
+      result.issues.push(
+        `Invalid region format: ${region} (expected format: 'us-central1' or 'global')`,
+      );
       result.isValid = false;
     }
 

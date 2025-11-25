@@ -9,7 +9,7 @@
  * - Method 3: Individual Vars (GOOGLE_AUTH_CLIENT_EMAIL + GOOGLE_AUTH_PRIVATE_KEY)
  *
  * All methods require GOOGLE_VERTEX_PROJECT
- * Optional: GOOGLE_VERTEX_LOCATION (defaults to 'us-east5')
+ * Optional: GOOGLE_VERTEX_LOCATION (defaults to 'us-central1')
  */
 
 import fs from "fs";
@@ -97,7 +97,7 @@ export async function handleGCPSetup(argv: GCPSetupArgv): Promise<void> {
         if (status.common.hasLocation) {
           logger.always(`   Location: ${process.env.GOOGLE_VERTEX_LOCATION}`);
         } else {
-          logger.always(`   Location: us-east5 (default)`);
+          logger.always(`   Location: us-central1 (default)`);
         }
       }
       return;
@@ -119,7 +119,7 @@ export async function handleGCPSetup(argv: GCPSetupArgv): Promise<void> {
       if (status.common.hasLocation) {
         logger.always(`   Location: ${process.env.GOOGLE_VERTEX_LOCATION}`);
       } else {
-        logger.always(`   Location: us-east5 (default)`);
+        logger.always(`   Location: us-central1 (default)`);
       }
 
       const { reconfigure } = await inquirer.prompt([
@@ -166,7 +166,7 @@ export async function handleGCPSetup(argv: GCPSetupArgv): Promise<void> {
       ),
     );
     logger.always(`   Project: ${config.project}`);
-    logger.always(`   Location: ${config.location || "us-east5"}`);
+    logger.always(`   Location: ${config.location || "us-central1"}`);
   } catch (error) {
     logger.error(chalk.red("❌ GCP setup failed:"));
     logger.error(
@@ -560,8 +560,9 @@ async function promptForMissingValues(
       {
         type: "input",
         name: "location",
-        message: "Enter your Google Vertex AI location:",
-        default: "us-east5",
+        message:
+          "Enter your Google Vertex AI location (or 'global' for global endpoint):",
+        default: "us-central1",
         validate: (input: string) => {
           if (!input.trim()) {
             return "Location is required";
