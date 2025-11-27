@@ -156,7 +156,6 @@ function getToolCategory(toolName: string): string {
     case "readFile":
     case "writeFile":
     case "listDirectory":
-    case "searchFiles":
       return "filesystem";
     case "websearchGrounding":
       return "search";

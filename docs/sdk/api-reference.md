@@ -1725,7 +1725,6 @@ DEFAULT_PROVIDER?: 'auto' | 'openai' | 'bedrock' | 'vertex' | 'anthropic' | 'azu
 FALLBACK_PROVIDER?: 'openai' | 'bedrock' | 'vertex' | 'anthropic' | 'azure' | 'google-ai' | 'huggingface' | 'ollama' | 'mistral' | 'litellm'
 
 // Feature toggles
-ENABLE_STREAMING?: 'true' | 'false'
 ENABLE_FALLBACK?: 'true' | 'false'
 
 // Debugging

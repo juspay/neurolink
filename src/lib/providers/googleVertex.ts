@@ -32,11 +32,6 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import dns from "dns";
-import {
-  buildMessagesArray,
-  buildMultimodalMessagesArray,
-  convertToCoreMessages,
-} from "../utils/messageBuilder.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 // Import proper types for multimodal message handling
@@ -846,64 +841,8 @@ export class GoogleVertexProvider extends BaseProvider {
       this.validateStreamOptionsOnly(options);
 
       // Build message array from options with multimodal support
-      const hasMultimodalInput = !!(
-        options.input?.images?.length ||
-        options.input?.content?.length ||
-        options.input?.files?.length ||
-        options.input?.csvFiles?.length ||
-        options.input?.pdfFiles?.length
-      );
-
-      let messages;
-      if (hasMultimodalInput) {
-        logger.debug(
-          `${functionTag}: Detected multimodal input, using multimodal message builder`,
-          {
-            hasImages: !!options.input?.images?.length,
-            imageCount: options.input?.images?.length || 0,
-            hasContent: !!options.input?.content?.length,
-            contentCount: options.input?.content?.length || 0,
-            hasPDFs: !!options.input?.pdfFiles?.length,
-            pdfCount: options.input?.pdfFiles?.length || 0,
-          },
-        );
-
-        // Create multimodal options for buildMultimodalMessagesArray
-        const multimodalOptions = {
-          input: {
-            text: options.input?.text || "",
-            images: options.input?.images,
-            content: options.input?.content,
-            files: options.input?.files,
-            csvFiles: options.input?.csvFiles,
-            pdfFiles: options.input?.pdfFiles,
-          },
-          csvOptions: options.csvOptions,
-          systemPrompt: options.systemPrompt,
-          conversationHistory: options.conversationMessages,
-          provider: this.providerName,
-          model: this.modelName,
-          temperature: options.temperature,
-          maxTokens: options.maxTokens,
-          enableAnalytics: options.enableAnalytics,
-          enableEvaluation: options.enableEvaluation,
-          context: options.context,
-        };
-
-        const mm = await buildMultimodalMessagesArray(
-          multimodalOptions,
-          this.providerName,
-          this.modelName,
-        );
-
-        // Convert multimodal messages to Vercel AI SDK format (CoreMessage[])
-        messages = convertToCoreMessages(mm);
-      } else {
-        logger.debug(
-          `${functionTag}: Text-only input, using standard message builder`,
-        );
-        messages = await buildMessagesArray(options);
-      }
+      // Using protected helper from BaseProvider to eliminate code duplication
+      const messages = await this.buildMessagesForStream(options);
 
       const model = await this.getAISDKModelWithMiddleware(options); // This is where network connection happens!
 

@@ -99,7 +99,10 @@ export enum GoogleAIModels {
  * Supported Models for Anthropic (Direct API)
  */
 export enum AnthropicModels {
-  // Claude 3.5 Series (Latest)
+  // Claude 4.5 Series (Latest - October 2025)
+  CLAUDE_4_5_HAIKU = "claude-haiku-4-5-20251001",
+
+  // Claude 3.5 Series
   CLAUDE_3_5_SONNET = "claude-3-5-sonnet-20241022",
   CLAUDE_3_5_HAIKU = "claude-3-5-haiku-20241022",
 

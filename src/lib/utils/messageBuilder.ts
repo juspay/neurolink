@@ -12,7 +12,7 @@ import type {
 import type { TextGenerationOptions } from "../types/index.js";
 import type { StreamOptions } from "../types/streamTypes.js";
 import type { GenerateOptions } from "../types/generateTypes.js";
-import type { Content } from "../types/content.js";
+import type { Content } from "../types/multimodal.js";
 import { CONVERSATION_INSTRUCTIONS } from "../config/conversationMemory.js";
 import {
   ProviderImageAdapter,
@@ -626,6 +626,32 @@ export async function buildMultimodalMessagesArray(
     systemPrompt = `${systemPrompt.trim()}${CONVERSATION_INSTRUCTIONS}`;
   }
 
+  // Add file handling guidance when multimodal files are present
+  const hasCSVFiles =
+    (options.input.csvFiles && options.input.csvFiles.length > 0) ||
+    (options.input.files &&
+      options.input.files.some((f) =>
+        typeof f === "string" ? f.toLowerCase().endsWith(".csv") : false,
+      ));
+  const hasPDFFiles = pdfFiles.length > 0;
+
+  if (hasCSVFiles || hasPDFFiles) {
+    const fileTypes = [];
+    if (hasPDFFiles) {
+      fileTypes.push("PDFs");
+    }
+    if (hasCSVFiles) {
+      fileTypes.push("CSVs");
+    }
+
+    systemPrompt += `\n\nIMPORTANT FILE HANDLING INSTRUCTIONS:
+- File content (${fileTypes.join(", ")}, images) is already processed and included in this message
+- DO NOT use GitHub tools (get_file_contents, search_code, etc.) for local files - they only work for remote repository files
+- Analyze the provided file content directly without attempting to fetch or read files using tools
+- GitHub MCP tools are ONLY for remote repository operations, not local filesystem access
+- Use the file content shown in this message for your analysis`;
+  }
+
   // Add system message if we have one
   if (systemPrompt.trim()) {
     messages.push({
@@ -969,7 +995,10 @@ async function convertMultimodalToProviderFormat(
     }
   }
 
-  // Add PDFs using Vercel AI SDK standard format (works for all providers)
+  // Add PDFs using Vercel AI SDK standard format (works for all providers except Mistral)
+  // NOTE: Mistral API has a fundamental limitation - it does NOT support PDFs in any form.
+  // The API strictly requires image content to start with data:image/, rejecting data:application/pdf
+  // See: MISTRAL_PDF_FIX_SUMMARY.md for full investigation details
   content.push(
     ...pdfFiles.map((pdf): FilePart => {
       logger.info(
@@ -1007,5 +1036,5 @@ function extractFilename(file: Buffer | string, index: number = 0): string {
 }
 
 function buildCSVToolInstructions(filePath: string): string {
-  return `\n**IMPORTANT**: For counting, aggregation, or statistical operations, use the analyzeCSV tool with filePath="${filePath}". The tool reads the file directly - do NOT pass CSV content.\n\nExample: analyzeCSV(filePath="${filePath}", operation="count_by_column", column="merchant_id")\n\n`;
+  return `\n**NOTE**: You can perform calculations directly on the CSV data shown above. For advanced operations on the full file (counting by column, grouping, etc.), you may optionally use the analyzeCSV tool with filePath="${filePath}".\n\nExample: analyzeCSV(filePath="${filePath}", operation="count_by_column", column="merchant_id")\n\n`;
 }

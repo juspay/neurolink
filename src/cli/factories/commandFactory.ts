@@ -54,6 +54,7 @@ export class CLICommandFactory {
         "anthropic",
         "azure",
         "google-ai",
+        "google-ai-studio",
         "huggingface",
         "ollama",
         "mistral",

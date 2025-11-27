@@ -44,6 +44,7 @@ import type {
 } from "../types/conversation.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { createAnalytics } from "../core/analytics.js";
+import path from "path";
 
 // Bedrock-specific types now imported from ../types/providerSpecific.js
 
@@ -175,15 +176,66 @@ export class AmazonBedrockProvider extends BaseProvider {
     // Clear conversation history for new generation
     this.conversationHistory = [];
 
-    // Add user message to conversation
-    const userMessage: BedrockMessage = {
-      role: "user",
-      content: [{ text: options.prompt }],
-    };
-    this.conversationHistory.push(userMessage);
+    // Check for multimodal input (images, PDFs, CSVs, files)
+    // Cast to any to access multimodal properties (runtime check is safe)
+    const input = options.input as unknown as StreamOptions["input"];
+    const hasMultimodalInput = !!(
+      input?.images?.length ||
+      input?.content?.length ||
+      input?.files?.length ||
+      input?.csvFiles?.length ||
+      input?.pdfFiles?.length
+    );
+
+    if (hasMultimodalInput) {
+      logger.debug(
+        `[AmazonBedrockProvider] Detected multimodal input in generate(), using multimodal message builder`,
+        {
+          hasImages: !!input?.images?.length,
+          imageCount: input?.images?.length || 0,
+          hasContent: !!input?.content?.length,
+          contentCount: input?.content?.length || 0,
+          hasFiles: !!input?.files?.length,
+          fileCount: input?.files?.length || 0,
+          hasCSVFiles: !!input?.csvFiles?.length,
+          csvFileCount: input?.csvFiles?.length || 0,
+          hasPDFFiles: !!input?.pdfFiles?.length,
+          pdfFileCount: input?.pdfFiles?.length || 0,
+        },
+      );
+
+      // Cast options to StreamOptions for multimodal processing
+      const streamOptions = options as unknown as StreamOptions;
+      const multimodalOptions = buildMultimodalOptions(
+        streamOptions,
+        this.providerName,
+        this.modelName,
+      );
+
+      const multimodalMessages = await buildMultimodalMessagesArray(
+        multimodalOptions,
+        this.providerName,
+        this.modelName,
+      );
+
+      // Convert to Bedrock format
+      this.conversationHistory =
+        this.convertToBedrockMessages(multimodalMessages);
+    } else {
+      logger.debug(
+        `[AmazonBedrockProvider] Text-only input in generate(), using simple message builder`,
+      );
+
+      // Add user message to conversation - simple text-only case
+      const userMessage: BedrockMessage = {
+        role: "user",
+        content: [{ text: options.prompt }],
+      };
+      this.conversationHistory.push(userMessage);
+    }
 
     logger.debug(
-      `[AmazonBedrockProvider] Starting conversation with prompt: ${options.prompt}`,
+      `[AmazonBedrockProvider] Starting conversation with ${this.conversationHistory.length} message(s)`,
     );
 
     // Start conversation loop and return enhanced result
@@ -820,13 +872,34 @@ export class AmazonBedrockProvider extends BaseProvider {
               docData = contentItem.data as Buffer;
             }
 
+            // Extract basename and sanitize for Bedrock's filename requirements
+            // Bedrock only allows: alphanumeric, whitespace, hyphens, parentheses, brackets
+            // NOTE: Periods (.) are NOT allowed, so we remove the extension
+            let filename =
+              typeof contentItem.name === "string" && contentItem.name
+                ? path.basename(contentItem.name)
+                : "document-pdf";
+
+            // Remove file extension
+            filename = filename.replace(/\.[^.]+$/, "");
+
+            // Replace all disallowed characters with hyphens
+            // Bedrock constraint: only alphanumeric, whitespace, hyphens, parentheses, brackets allowed
+            filename = filename.replace(/[^a-zA-Z0-9\s\-()[\]]/g, "-");
+
+            // Clean up: remove multiple consecutive hyphens and trim
+            filename = filename
+              .replace(/-+/g, "-")
+              .trim()
+              .replace(/^-+|-+$/g, "");
+
+            // Fallback if filename becomes empty after sanitization
+            filename = filename || "document";
+
             bedrockMessage.content.push({
               document: {
                 format: "pdf" as const,
-                name:
-                  typeof contentItem.name === "string" && contentItem.name
-                    ? contentItem.name
-                    : "document.pdf",
+                name: filename,
                 source: {
                   bytes: docData,
                 },

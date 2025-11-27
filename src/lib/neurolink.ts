@@ -719,7 +719,7 @@ Current user's request: ${currentInput}`;
       this.externalServerManager = new ExternalServerManager(
         {
           maxServers: 20,
-          defaultTimeout: 15000,
+          defaultTimeout: 30000, // Increased from 15s to 30s for proxy latency (e.g., LiteLLM)
           enableAutoRestart: true,
           enablePerformanceMonitoring: true,
         },
@@ -2749,6 +2749,41 @@ Current user's request: ${currentInput}`;
           }
         }
 
+        // 🔧 AUTO-DISABLE TOOLS: For Ollama models that don't support tools (same logic as generate())
+        // This prevents overwhelming smaller models with massive tool descriptions in the system message
+        if (
+          (options.provider === "ollama" ||
+            options.provider?.toLowerCase().includes("ollama")) &&
+          !options.disableTools
+        ) {
+          const { ModelConfigurationManager } = await import(
+            "./core/modelConfiguration.js"
+          );
+          const modelConfig = ModelConfigurationManager.getInstance();
+          const ollamaConfig = modelConfig.getProviderConfiguration("ollama");
+          const toolCapableModels =
+            (ollamaConfig?.modelBehavior?.toolCapableModels as string[]) || [];
+
+          // Only disable tools if we have explicit evidence the model doesn't support them
+          // If toolCapableModels is empty or model is not specified, don't make assumptions
+          const modelName = options.model;
+          if (toolCapableModels.length > 0 && modelName) {
+            const modelSupportsTools = toolCapableModels.some((capableModel) =>
+              modelName.toLowerCase().includes(capableModel.toLowerCase()),
+            );
+            if (!modelSupportsTools) {
+              options.disableTools = true;
+              logger.debug(
+                "Auto-disabled tools for Ollama model that doesn't support them (stream)",
+                {
+                  model: options.model,
+                  toolCapableModels: toolCapableModels.slice(0, 3), // Show first 3 for brevity
+                },
+              );
+            }
+          }
+        }
+
         factoryResult = processStreamingFactoryOptions(options);
         enhancedOptions = createCleanStreamOptions(options);
         if (options.input?.text) {
@@ -2945,6 +2980,14 @@ Current user's request: ${currentInput}`;
       "NeuroLink.createMCPStream",
     );
 
+    // 🔧 FIX: Get available tools and create tool-aware system prompt
+    // Use SAME pattern as tryMCPGeneration (generate mode)
+    const availableTools = await this.getAllAvailableTools();
+    const enhancedSystemPrompt = this.createToolAwareSystemPrompt(
+      options.systemPrompt,
+      availableTools,
+    );
+
     // Get conversation messages for context
     const conversationMessages = await getConversationMessages(
       this.conversationMemory,
@@ -2954,12 +2997,19 @@ Current user's request: ${currentInput}`;
       } as TextGenerationOptions,
     );
 
-    // Let provider handle tools and system prompt automatically via Vercel AI SDK
-    // This ensures proper tool integration in stream mode
+    // 🔧 FIX: Pass enhanced system prompt to real streaming
+    // Tools will be accessed through the streamText call in executeStream
     const streamResult = await provider.stream({
       ...options,
+      systemPrompt: enhancedSystemPrompt, // Use enhanced prompt with tool descriptions
       conversationMessages,
     });
+
+    logger.debug("[createMCPStream] Stream created successfully", {
+      provider: providerName,
+      systemPromptPassedLength: enhancedSystemPrompt.length,
+    });
+
     return { stream: streamResult.stream, provider: providerName };
   }
 

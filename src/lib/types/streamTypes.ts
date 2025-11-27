@@ -1,7 +1,7 @@
 import type { Tool } from "ai";
 import type { ValidationSchema, StandardRecord } from "./typeAliases.js";
 import type { AIModelProviderConfig } from "./providers.js";
-import type { TextContent, ImageContent } from "./content.js";
+import type { Content } from "./content.js";
 import type {
   AnalyticsData,
   ToolExecutionEvent,
@@ -124,6 +124,19 @@ export type StreamAnalyticsData = {
  * Stream function options type - Primary method for streaming content
  * Future-ready for multi-modal capabilities while maintaining text focus
  */
+
+// ============================================
+// STREAMING AUDIO TYPES
+// ============================================
+//
+// NOTE: These types are for STREAMING audio (live transcription, real-time audio).
+// For FILE-BASED audio content (audio files as multimodal input), see AudioContent in multimodal.ts
+//
+// Distinction:
+// - AudioInputSpec/AudioChunk: Streaming audio frames (Gemini Live API, real-time transcription)
+// - AudioContent (multimodal.ts): File-based audio input (audio files uploaded with messages)
+//
+
 export type PCMEncoding = "PCM16LE";
 
 export type AudioInputSpec = {
@@ -148,7 +161,7 @@ export type StreamOptions = {
     csvFiles?: Array<Buffer | string>; // Explicit CSV files (converted to text)
     pdfFiles?: Array<Buffer | string>; // Explicit PDF files (processed as binary documents, not converted to text)
     files?: Array<Buffer | string>; // Auto-detect file types
-    content?: Array<TextContent | ImageContent>; // Advanced multimodal content
+    content?: Content[]; // Advanced multimodal content
   };
   output?: {
     format?: "text" | "structured" | "json";

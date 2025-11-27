@@ -5,7 +5,7 @@
 
 import { logger } from "../utils/logger.js";
 import { ImageProcessor } from "../utils/imageProcessor.js";
-import type { Content } from "../types/content.js";
+import type { Content } from "../types/multimodal.js";
 
 /**
  * Simplified logger for essential error reporting only
@@ -57,6 +57,7 @@ const VISION_CAPABILITIES = {
   anthropic: [
     "claude-3-7-sonnet",
     "claude-3-5-sonnet",
+    "claude-haiku-4-5",
     "claude-3-opus",
     "claude-3-sonnet",
     "claude-3-haiku",
@@ -86,6 +87,7 @@ const VISION_CAPABILITIES = {
     "gemini-1.5-flash",
     // Claude 4.x models (versioned format)
     "claude-sonnet-4-5@",
+    "claude-haiku-4-5",
     "claude-sonnet-4@",
     "claude-opus-4-1@",
     "claude-opus-4@",
@@ -104,9 +106,12 @@ const VISION_CAPABILITIES = {
     "claude-sonnet-3",
     "claude-opus-3",
     "claude-haiku-3",
+    "claude-haiku-4",
     // Additional patterns for compatibility
     "claude-3.5-sonnet",
     "claude-3.5-haiku",
+    "claude-4.5-haiku",
+    "claude-haiku-4-5",
     "claude-3.0-sonnet",
     "claude-3.0-opus",
   ],
@@ -121,6 +126,25 @@ const VISION_CAPABILITIES = {
     "gpt-4o",
     "gpt-4.1",
     "gpt-5",
+  ],
+  mistral: [
+    // Mistral Small 3.2 (vision support for images: PNG, JPEG, WEBP, GIF)
+    "mistral-small",
+    "mistral-small-latest",
+    "mistral-small-3.2",
+    "mistral-small-2506",
+    // Mistral Medium 3.1 (vision support)
+    "mistral-medium",
+    "mistral-medium-latest",
+    "mistral-medium-3.1",
+    // Magistral models (vision support)
+    "magistral-small",
+    "magistral-medium",
+    // Pixtral models (specialized vision models)
+    "pixtral-12b",
+    "pixtral-12b-latest",
+    "pixtral-large",
+    "pixtral-large-latest",
   ],
   ollama: [
     // Llama 4 family (May 2025 - Best vision + tool calling)
@@ -140,6 +164,44 @@ const VISION_CAPABILITIES = {
     "mistral-small3.1:small",
     // LLaVA (vision-focused)
     "llava",
+  ],
+  bedrock: [
+    // Claude Sonnet 4.5 family (supports vision, PDFs, images)
+    "claude-sonnet-4-5",
+    "claude-sonnet-4.5",
+    "anthropic.claude-sonnet-4-5",
+    // Claude Haiku 4.5 family (supports vision, PDFs, images)
+    "claude-haiku-4-5",
+    "claude-haiku-4.5",
+    "anthropic.claude-haiku-4-5",
+    // Claude Sonnet 4 family
+    "claude-sonnet-4",
+    "claude-sonnet-4@",
+    "anthropic.claude-sonnet-4",
+    // Claude Opus 4 family
+    "claude-opus-4",
+    "claude-opus-4-1",
+    "claude-opus-4@",
+    "anthropic.claude-opus-4",
+    // Claude 3.7 Sonnet
+    "claude-3-7-sonnet",
+    "claude-3.7-sonnet",
+    "anthropic.claude-3-7-sonnet",
+    // Claude 3.5 Sonnet
+    "claude-3-5-sonnet",
+    "claude-3.5-sonnet",
+    "anthropic.claude-3-5-sonnet",
+    // Claude 3 Opus
+    "claude-3-opus",
+    "anthropic.claude-3-opus",
+    // Claude 3 Sonnet
+    "claude-3-sonnet",
+    "anthropic.claude-3-sonnet",
+    // Claude 3 Haiku
+    "claude-3-haiku",
+    "anthropic.claude-3-haiku",
+    // Generic anthropic.claude prefix (catches all Claude models)
+    "anthropic.claude",
   ],
 } as const;
 
