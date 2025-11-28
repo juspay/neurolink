@@ -1,3 +1,9 @@
+## [8.3.0](https://github.com/juspay/neurolink/compare/v8.2.0...v8.3.0) (2025-11-28)
+
+### Features
+
+- **(cli):** make stream the default command in loop mode ([7aeb1d7](https://github.com/juspay/neurolink/commit/7aeb1d790e1b103b5fc1889e21431e9c7b9dcf5f))
+
 ## [8.2.0](https://github.com/juspay/neurolink/compare/v8.1.0...v8.2.0) (2025-11-25)
 
 ### Features
