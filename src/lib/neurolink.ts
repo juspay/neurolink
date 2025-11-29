@@ -113,6 +113,7 @@ import type {
 } from "./types/conversation.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
 import { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
+import { DiskConversationMemoryManager } from "./core/diskConversationMemoryManager.js";
 import {
   getConversationMessages,
   storeConversationTurn,
@@ -213,6 +214,7 @@ export class NeuroLink {
   public conversationMemory?:
     | ConversationMemoryManager
     | RedisConversationMemoryManager
+    | DiskConversationMemoryManager
     | null;
   private conversationMemoryNeedsInit = false;
   private conversationMemoryConfig?: {
@@ -1866,6 +1868,22 @@ Current user's request: ${currentInput}`;
             }
           : undefined,
       };
+
+      if (this.conversationMemory instanceof DiskConversationMemoryManager) {
+        const diskManager = this.conversationMemory;
+        const filePath = await diskManager.getConversationFilePath(
+          options.context?.sessionId as string,
+          options.context?.userId as string,
+        );
+        const stats = await diskManager.getStorageInfo();
+        generateResult.storage = {
+          type: "disk",
+          filePath: filePath,
+          totalSize: stats.totalSize,
+          fileCount: stats.fileCount,
+          lastCleanup: stats.lastCleanup,
+        };
+      }
 
       if (
         this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&

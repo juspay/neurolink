@@ -335,3 +335,38 @@ export type RedisStorageConfig = {
     [key: string]: string | number | boolean | undefined;
   };
 };
+
+/**
+ * Disk storage configuration
+ */
+export type DiskStorageConfig = {
+  /** Storage path for conversation files (required) */
+  storagePath: string;
+
+  /** File format (default: 'json') */
+  format?: "json" | "jsonl";
+
+  /** Compression type (default: 'none') */
+  compression?: "none" | "gzip";
+
+  /** Time-to-live in seconds (default: 0, no TTL) */
+  ttl?: number;
+
+  /** Maximum file size before rotation (default: '10MB') */
+  maxFileSize?: string;
+
+  /** Enable backup functionality (default: false) */
+  enableBackup?: boolean;
+
+  /** Backup retention in days (default: 7) */
+  backupRetention?: number;
+
+  /** Enable encryption for local storage (default: false) */
+  enableEncryption?: boolean;
+
+  /** Encryption key for local storage */
+  encryptionKey?: string;
+
+  /** File permissions (default: '0600') */
+  filePermissions?: string;
+};

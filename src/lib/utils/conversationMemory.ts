@@ -15,6 +15,7 @@ import type {
 } from "../types/generateTypes.js";
 import { getConversationMemoryDefaults } from "../config/conversationMemory.js";
 import { logger } from "./logger.js";
+import { DiskConversationMemoryManager } from "../core/diskConversationMemoryManager.js";
 
 /**
  * Apply conversation memory defaults to user configuration
@@ -38,6 +39,7 @@ export async function getConversationMessages(
   conversationMemory:
     | ConversationMemoryManager
     | RedisConversationMemoryManager
+    | DiskConversationMemoryManager
     | null
     | undefined,
   options: TextGenerationOptions,
@@ -123,6 +125,7 @@ export async function storeConversationTurn(
   conversationMemory:
     | ConversationMemoryManager
     | RedisConversationMemoryManager
+    | DiskConversationMemoryManager
     | null
     | undefined,
   originalOptions: TextGenerationOptions,

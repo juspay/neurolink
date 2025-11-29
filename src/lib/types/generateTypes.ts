@@ -140,6 +140,15 @@ export type GenerateResult = {
     streamId?: string;
     bufferOptimization?: boolean;
   };
+
+  // Disk storage information
+  storage?: {
+    type: "disk";
+    filePath: string;
+    totalSize: string;
+    fileCount: number;
+    lastCleanup: string;
+  };
 };
 
 /**

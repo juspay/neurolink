@@ -6,20 +6,26 @@
 import type {
   ConversationMemoryConfig,
   RedisStorageConfig,
+  DiskStorageConfig,
 } from "../types/conversation.js";
 import type { StorageType } from "../types/common.js";
 import { ConversationMemoryManager } from "./conversationMemoryManager.js";
 import { RedisConversationMemoryManager } from "./redisConversationMemoryManager.js";
+import { DiskConversationMemoryManager } from "./diskConversationMemoryManager.js";
 import { logger } from "../utils/logger.js";
 
 /**
  * Creates a conversation memory manager based on configuration
+ * BACKWARD COMPATIBLE: Supports both old and new calling patterns
  */
 export function createConversationMemoryManager(
   config: ConversationMemoryConfig,
-  storageType: StorageType = "memory",
+  storageType?: StorageType,
   redisConfig?: RedisStorageConfig,
-): ConversationMemoryManager | RedisConversationMemoryManager {
+):
+  | ConversationMemoryManager
+  | RedisConversationMemoryManager
+  | DiskConversationMemoryManager {
   logger.debug(
     "[conversationMemoryFactory] Creating conversation memory manager",
     {
@@ -85,6 +91,17 @@ export function createConversationMemoryManager(
     return redisManager;
   }
 
+  // Disk storage
+  if (storageType === "disk") {
+    const diskConfig = getDiskConfigFromEnv();
+    if (!diskConfig.storagePath) {
+      throw new Error(
+        "Disk storage requires a storagePath in the configuration.",
+      );
+    }
+    return new DiskConversationMemoryManager(config, diskConfig);
+  }
+
   // Fallback to memory storage for unknown types
   logger.warn(
     `[conversationMemoryFactory] Unknown storage type: ${storageType}, falling back to memory storage`,
@@ -122,9 +139,9 @@ export function getStorageType(): StorageType {
   const normalizedStorageType = rawStorageType.trim().toLowerCase();
 
   // Validate against allowed StorageType values
-  const validStorageTypes: StorageType[] = ["memory", "redis"];
+  const validStorageTypes: StorageType[] = ["memory", "redis", "disk"];
 
-  if (validStorageTypes.includes(normalizedStorageType as StorageType)) {
+  if (validStorageTypes.indexOf(normalizedStorageType as StorageType) > -1) {
     logger.debug("[conversationMemoryFactory] Determined storage type", {
       storageType: normalizedStorageType,
       fromEnv: true,
@@ -151,21 +168,6 @@ export function getStorageType(): StorageType {
  * Get Redis configuration from environment variables
  */
 export function getRedisConfigFromEnv(): RedisStorageConfig {
-  logger.debug(
-    "[conversationMemoryFactory] Reading Redis configuration from environment",
-    {
-      REDIS_HOST: process.env.REDIS_HOST || "(not set)",
-      REDIS_PORT: process.env.REDIS_PORT || "(not set)",
-      REDIS_PASSWORD: process.env.REDIS_PASSWORD ? "******" : "(not set)",
-      REDIS_DB: process.env.REDIS_DB || "(not set)",
-      REDIS_KEY_PREFIX: process.env.REDIS_KEY_PREFIX || "(not set)",
-      REDIS_TTL: process.env.REDIS_TTL || "(not set)",
-      REDIS_CONNECT_TIMEOUT: process.env.REDIS_CONNECT_TIMEOUT || "(not set)",
-      REDIS_MAX_RETRIES: process.env.REDIS_MAX_RETRIES || "(not set)",
-      REDIS_RETRY_DELAY: process.env.REDIS_RETRY_DELAY || "(not set)",
-    },
-  );
-
   const config = {
     host: process.env.REDIS_HOST,
     port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : undefined,
@@ -185,16 +187,33 @@ export function getRedisConfigFromEnv(): RedisStorageConfig {
         : undefined,
     },
   };
-
-  logger.debug("[conversationMemoryFactory] Redis configuration normalized", {
-    host: config.host || "localhost",
-    port: config.port || 6379,
-    hasPassword: !!config.password,
-    db: config.db || 0,
-    keyPrefix: config.keyPrefix || "neurolink:conversation:",
-    ttl: config.ttl || 86400,
-    hasConnectionOptions: !!config.connectionOptions,
-  });
-
   return config;
+}
+
+/**
+ * Get Disk configuration from environment variables
+ */
+export function getDiskConfigFromEnv(): DiskStorageConfig {
+  const config = {
+    storagePath: process.env.DISK_STORAGE_PATH,
+    format: process.env.DISK_STORAGE_FORMAT as "json" | "jsonl" | undefined,
+    compression: process.env.DISK_STORAGE_COMPRESSION as
+      | "none"
+      | "gzip"
+      | undefined,
+    ttl: process.env.DISK_STORAGE_TTL
+      ? Number(process.env.DISK_STORAGE_TTL)
+      : undefined,
+    maxFileSize: process.env.DISK_STORAGE_MAX_FILE_SIZE,
+    enableBackup: process.env.DISK_STORAGE_ENABLE_BACKUP === "true",
+    backupRetention: process.env.DISK_STORAGE_BACKUP_RETENTION
+      ? Number(process.env.DISK_STORAGE_BACKUP_RETENTION)
+      : undefined,
+    enableEncryption: process.env.DISK_ENABLE_ENCRYPTION === "true",
+    encryptionKey: process.env.DISK_ENCRYPTION_KEY,
+    filePermissions: process.env.DISK_FILE_PERMISSIONS,
+  };
+  // We only return a partial config, the manager will fill in defaults
+  // But storagePath is essential.
+  return config as DiskStorageConfig;
 }

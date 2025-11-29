@@ -3,13 +3,15 @@
  * Provides integration with Redis storage for conversation memory
  */
 
-import type { ConversationMemoryConfig } from "../types/conversation.js";
+import type {
+  ConversationMemoryConfig,
+  RedisStorageConfig,
+} from "../types/conversation.js";
 import type { ConversationMemoryManager } from "./conversationMemoryManager.js";
 import type { RedisConversationMemoryManager } from "./redisConversationMemoryManager.js";
 import {
   createConversationMemoryManager,
   getStorageType,
-  getRedisConfigFromEnv,
 } from "./conversationMemoryFactory.js";
 import { applyConversationMemoryDefaults } from "../utils/conversationMemory.js";
 import { logger } from "../utils/logger.js";
@@ -18,9 +20,16 @@ import { logger } from "../utils/logger.js";
  * Initialize conversation memory for NeuroLink
  * This function decides whether to use in-memory or Redis storage
  */
+import { DiskConversationMemoryManager } from "./diskConversationMemoryManager.js";
+
 export async function initializeConversationMemory(config?: {
   conversationMemory?: Partial<ConversationMemoryConfig>;
-}): Promise<ConversationMemoryManager | RedisConversationMemoryManager | null> {
+}): Promise<
+  | ConversationMemoryManager
+  | RedisConversationMemoryManager
+  | DiskConversationMemoryManager
+  | null
+> {
   logger.debug(
     "[conversationMemoryInitializer] Initialize conversation memory called",
     {
@@ -63,113 +72,27 @@ export async function initializeConversationMemory(config?: {
       fromEnv: !!process.env.STORAGE_TYPE,
     });
 
-    if (storageType === "redis") {
-      logger.info(
-        "[conversationMemoryInitializer] Initializing Redis-based conversation memory manager",
-      );
+    // The factory now handles all the logic, so we just call it with the config.
+    const manager = createConversationMemoryManager(
+      memoryConfig,
+      storageType,
+      (memoryConfig as Record<string, unknown>).redisConfig as
+        | RedisStorageConfig
+        | undefined,
+    );
 
-      // Get Redis configuration - prioritize passed config, fallback to environment
-      logger.debug(
-        "[conversationMemoryInitializer] Getting Redis configuration",
-      );
-      const redisConfig =
-        config.conversationMemory?.redisConfig || getRedisConfigFromEnv();
-      const configSource = config.conversationMemory?.redisConfig
-        ? "SDK input (from Lighthouse)"
-        : "environment variables (NeuroLink)";
-      logger.debug(
-        "[conversationMemoryInitializer] Redis configuration retrieved",
-        {
-          configSource,
-          host: redisConfig.host || "localhost",
-          port: redisConfig.port || 6379,
-          hasPassword: !!redisConfig.password,
-          db: redisConfig.db || 0,
-          keyPrefix: redisConfig.keyPrefix || "neurolink:conversation:",
-          ttl: redisConfig.ttl || 86400,
-        },
-      );
+    logger.info(
+      "[conversationMemoryInitializer] Conversation memory manager created successfully",
+      {
+        storageType:
+          manager.constructor.name
+            .replace("ConversationMemoryManager", "")
+            .toLowerCase() || "memory",
+        managerType: manager.constructor.name,
+      },
+    );
 
-      // Create Redis-based conversation memory manager
-      logger.debug(
-        "[conversationMemoryInitializer] Creating Redis conversation memory manager",
-      );
-      const redisMemoryManager = createConversationMemoryManager(
-        memoryConfig,
-        "redis",
-        redisConfig,
-      );
-
-      logger.debug(
-        "[conversationMemoryInitializer] Checking Redis manager creation result",
-        {
-          managerType: redisMemoryManager?.constructor?.name || "unknown",
-          isRedisType:
-            redisMemoryManager?.constructor?.name ===
-            "RedisConversationMemoryManager",
-          hasConfig: !!redisMemoryManager?.config,
-        },
-      );
-
-      logger.info(
-        "[conversationMemoryInitializer] Redis conversation memory manager created successfully",
-        {
-          configSource,
-          host: redisConfig.host || "localhost",
-          port: redisConfig.port || 6379,
-          keyPrefix: redisConfig.keyPrefix || "neurolink:conversation:",
-          maxSessions: memoryConfig.maxSessions,
-          maxTurnsPerSession: memoryConfig.maxTurnsPerSession,
-          managerType: redisMemoryManager?.constructor?.name,
-        },
-      );
-
-      // Perform basic validation
-      if (
-        redisMemoryManager?.constructor?.name !==
-        "RedisConversationMemoryManager"
-      ) {
-        logger.warn(
-          "[conversationMemoryInitializer] Created manager is not of RedisConversationMemoryManager type",
-          {
-            actualType: redisMemoryManager?.constructor?.name,
-          },
-        );
-      }
-
-      return redisMemoryManager;
-    } else {
-      logger.info(
-        "[conversationMemoryInitializer] Initializing in-memory conversation memory manager",
-      );
-
-      // Create in-memory conversation memory manager
-      logger.debug(
-        "[conversationMemoryInitializer] Creating in-memory conversation memory manager",
-      );
-      const memoryManager = createConversationMemoryManager(memoryConfig);
-
-      logger.debug(
-        "[conversationMemoryInitializer] Checking memory manager creation result",
-        {
-          managerType: memoryManager?.constructor?.name || "unknown",
-          isInMemoryType:
-            memoryManager?.constructor?.name === "ConversationMemoryManager",
-          hasConfig: !!memoryManager?.config,
-        },
-      );
-
-      logger.info(
-        "[conversationMemoryInitializer] In-memory conversation memory manager created successfully",
-        {
-          maxSessions: memoryConfig.maxSessions,
-          maxTurnsPerSession: memoryConfig.maxTurnsPerSession,
-          managerType: memoryManager?.constructor?.name,
-        },
-      );
-
-      return memoryManager;
-    }
+    return manager;
   } catch (error) {
     logger.error(
       "[conversationMemoryInitializer] Failed to initialize conversation memory",

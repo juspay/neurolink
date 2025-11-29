@@ -20,7 +20,7 @@ export type UnknownArray = unknown[];
 /**
  * Storage type for conversation memory factory
  */
-export type StorageType = "memory" | "redis";
+export type StorageType = "memory" | "redis" | "disk";
 
 /**
  * JSON-serializable value type
