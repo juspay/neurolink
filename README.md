@@ -37,6 +37,28 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 > **Q3 highlights** (multimodal chat, auto-evaluation, loop sessions, orchestration) are now in [Platform Capabilities](#platform-capabilities-at-a-glance) below.
 
+## System Requirements
+
+### FFmpeg (for video support)
+
+NeuroLink uses FFmpeg for video processing capabilities. Install FFmpeg on your system:
+
+**macOS:**
+
+```bash
+brew install ffmpeg
+```
+
+**Ubuntu/Debian:**
+
+```bash
+sudo apt-get install ffmpeg
+```
+
+**Windows:**
+
+Download from https://ffmpeg.org/download.html
+
 ## Get Started in Two Steps
 
 ```bash
