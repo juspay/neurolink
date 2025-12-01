@@ -45,19 +45,65 @@
 // ============================================
 
 /**
- * Text content type for multimodal messages
+ * Text content type for multimodal messages.
+ *
+ * This is the most common content type, used for plain text messages.
+ * The `type` field acts as a discriminator in the {@link Content} union type.
+ *
+ * @example
+ * ```typescript
+ * const textContent: TextContent = {
+ *   type: "text",
+ *   text: "Hello, analyze this document for me."
+ * };
+ * ```
+ *
+ * @see {@link Content} - The union type containing all content types
+ * @see {@link isTextContent} - Type guard for TextContent
+ * @public
  */
+
 export type TextContent = {
+  /** Discriminator field. Always `"text"` for TextContent. */
   type: "text";
+  /** The text content of the message. */
   text: string;
 };
-
 /**
- * Image content type for multimodal messages
+ * Image content type for multimodal messages.
+ *
+ * Used for including images in AI conversations. Supports multiple input formats
+ * including raw buffers, base64-encoded strings, URLs, and data URIs.
+ * The `type` field acts as a discriminator in the {@link Content} union type.
+ *
+ * @example
+ * ```typescript
+ * // Using a file buffer
+ * const imageFromBuffer: ImageContent = {
+ *   type: "image",
+ *   data: fs.readFileSync("./photo.jpg"),
+ *   mediaType: "image/jpeg",
+ *   metadata: { filename: "photo.jpg" }
+ * };
+ *
+ * // Using a URL
+ * const imageFromUrl: ImageContent = {
+ *   type: "image",
+ *   data: "https://example.com/image.png",
+ *   mediaType: "image/png"
+ * };
+ * ```
+ *
+ * @see {@link Content} - The union type containing all content types
+ * @see {@link isImageContent} - Type guard for ImageContent
+ * @public
  */
 export type ImageContent = {
+  /** Discriminator field. Always `"image"` for ImageContent. */
   type: "image";
-  data: Buffer | string; // Buffer, base64, URL, or data URI
+  /** Image data as Buffer, base64 string, URL, or data URI. */
+  data: Buffer | string;
+  /** MIME type of the image. Auto-detected if not provided. */
   mediaType?:
     | "image/jpeg"
     | "image/png"
@@ -65,6 +111,7 @@ export type ImageContent = {
     | "image/webp"
     | "image/bmp"
     | "image/tiff";
+  /** Optional metadata about the image. */
   metadata?: {
     description?: string;
     quality?: "low" | "high" | "auto";
@@ -74,11 +121,36 @@ export type ImageContent = {
 };
 
 /**
- * CSV content type for multimodal messages
+ * CSV content type for multimodal messages.
+ *
+ * Used for including tabular data in AI conversations. The data can be provided
+ * as a raw buffer or string content. Format style controls how the data is
+ * presented to the AI model.
+ * The `type` field acts as a discriminator in the {@link Content} union type.
+ *
+ * @example
+ * ```typescript
+ * const csvContent: CSVContent = {
+ *   type: "csv",
+ *   data: fs.readFileSync("./data.csv"),
+ *   metadata: {
+ *     filename: "sales_q4.csv",
+ *     maxRows: 500,
+ *     formatStyle: "markdown"
+ *   }
+ * };
+ * ```
+ *
+ * @see {@link Content} - The union type containing all content types
+ * @see {@link isCSVContent} - Type guard for CSVContent
+ * @public
  */
 export type CSVContent = {
+  /** Discriminator field. Always `"csv"` for CSVContent. */
   type: "csv";
+  /** CSV data as Buffer or string content. */
   data: Buffer | string;
+  /** Optional metadata about the CSV file. */
   metadata?: {
     filename?: string;
     maxRows?: number;
@@ -88,11 +160,36 @@ export type CSVContent = {
 };
 
 /**
- * PDF document content type for multimodal messages
+ * PDF document content type for multimodal messages.
+ *
+ * Used for including PDF documents in AI conversations for analysis,
+ * summarization, or extraction. Supported by most major providers including
+ * Google Vertex AI, Anthropic, AWS Bedrock, and Google AI Studio.
+ * The `type` field acts as a discriminator in the {@link Content} union type.
+ *
+ * @example
+ * ```typescript
+ * const pdfContent: PDFContent = {
+ *   type: "pdf",
+ *   data: fs.readFileSync("./report.pdf"),
+ *   metadata: {
+ *     filename: "quarterly_report.pdf",
+ *     pages: 15,
+ *     description: "Q4 2024 Financial Report"
+ *   }
+ * };
+ * ```
+ *
+ * @see {@link Content} - The union type containing all content types
+ * @see {@link isPDFContent} - Type guard for PDFContent
+ * @public
  */
 export type PDFContent = {
+  /** Discriminator field. Always `"pdf"` for PDFContent. */
   type: "pdf";
+  /** PDF data as Buffer or file path string. */
   data: Buffer | string;
+  /** Optional metadata about the PDF document. */
   metadata?: {
     filename?: string;
     pages?: number;
@@ -102,10 +199,14 @@ export type PDFContent = {
 };
 
 /**
- * Audio content type for multimodal messages
+ * Audio content type for multimodal messages.
+ *
+ * Used for including audio files in AI conversations for transcription,
+ * analysis, or speech-to-text processing. Supports multiple audio formats.
+ * The `type` field acts as a discriminator in the {@link Content} union type.
  *
  * NOTE: This is for FILE-BASED audio input (not streaming).
- * For streaming audio (live transcription), use AudioInputSpec from streamTypes.ts
+ * For streaming audio (live transcription), use AudioInputSpec from streamTypes.ts.
  *
  * @example
  * ```typescript
@@ -120,10 +221,17 @@ export type PDFContent = {
  *   }
  * };
  * ```
+ *
+ * @see {@link Content} - The union type containing all content types
+ * @see {@link isAudioContent} - Type guard for AudioContent
+ * @public
  */
 export type AudioContent = {
+  /** Discriminator field. Always `"audio"` for AudioContent. */
   type: "audio";
-  data: Buffer | string; // Buffer, base64, URL, or file path
+  /** Audio data as Buffer, base64 string, URL, or file path. */
+  data: Buffer | string;
+  /** MIME type of the audio. Auto-detected if not provided. */
   mediaType?:
     | "audio/mpeg" // MP3
     | "audio/wav" // WAV
@@ -132,18 +240,26 @@ export type AudioContent = {
     | "audio/aac" // AAC
     | "audio/flac" // FLAC
     | "audio/mp4"; // M4A
+  /** Optional metadata about the audio file. */
   metadata?: {
     filename?: string;
-    duration?: number; // in seconds
+    /** Duration in seconds. */
+    duration?: number;
     sampleRate?: number;
     channels?: number;
-    transcription?: string; // Optional pre-computed transcription
-    language?: string; // ISO 639-1 code (e.g., "en", "es")
+    /** Optional pre-computed transcription. */
+    transcription?: string;
+    /** ISO 639-1 language code (e.g., "en", "es"). */
+    language?: string;
   };
 };
 
 /**
- * Video content type for multimodal messages
+ * Video content type for multimodal messages.
+ *
+ * Used for including video files in AI conversations for analysis,
+ * frame extraction, or content understanding. Supports multiple video formats.
+ * The `type` field acts as a discriminator in the {@link Content} union type.
  *
  * NOTE: This is for FILE-BASED video input.
  * For streaming video, this type may be extended in future.
@@ -161,10 +277,17 @@ export type AudioContent = {
  *   }
  * };
  * ```
+ *
+ * @see {@link Content} - The union type containing all content types
+ * @see {@link isVideoContent} - Type guard for VideoContent
+ * @public
  */
 export type VideoContent = {
+  /** Discriminator field. Always `"video"` for VideoContent. */
   type: "video";
-  data: Buffer | string; // Buffer, base64, URL, or file path
+  /** Video data as Buffer, base64 string, URL, or file path. */
+  data: Buffer | string;
+  /** MIME type of the video. Auto-detected if not provided. */
   mediaType?:
     | "video/mp4" // MP4
     | "video/webm" // WebM
@@ -172,23 +295,163 @@ export type VideoContent = {
     | "video/quicktime" // MOV
     | "video/x-msvideo" // AVI
     | "video/x-matroska"; // MKV
+  /** Optional metadata about the video file. */
   metadata?: {
     filename?: string;
-    duration?: number; // in seconds
+    /** Duration in seconds. */
+    duration?: number;
     dimensions?: {
       width: number;
       height: number;
     };
     frameRate?: number;
     codec?: string;
-    extractedFrames?: string[]; // Base64 or URLs of extracted frames
-    transcription?: string; // Optional transcription of audio track
+    /** Base64 strings or URLs of extracted frames. */
+    extractedFrames?: string[];
+    /** Optional transcription of audio track. */
+    transcription?: string;
   };
 };
 
 /**
- * Union type for all content types
- * Covers text, images, documents, and multimedia
+ * Union type for all content types in multimodal messages.
+ *
+ * This is a **discriminated union** where each member has a unique `type` field
+ * that serves as the discriminator. TypeScript can use this field to narrow
+ * the type in conditional statements.
+ *
+ * ## Supported Content Types
+ *
+ * | Type | Description | Discriminator Value | Supported Media Types |
+ * |------|-------------|---------------------|----------------------|
+ * | {@link TextContent} | Plain text messages | `"text"` | N/A |
+ * | {@link ImageContent} | Images (JPEG, PNG, GIF, WebP, BMP, TIFF) | `"image"` | `image/*` |
+ * | {@link CSVContent} | Tabular data files | `"csv"` | `text/csv` |
+ * | {@link PDFContent} | PDF documents | `"pdf"` | `application/pdf` |
+ * | {@link AudioContent} | Audio files (MP3, WAV, OGG, etc.) | `"audio"` | `audio/*` |
+ * | {@link VideoContent} | Video files (MP4, WebM, MOV, etc.) | `"video"` | `video/*` |
+ *
+ * ## Type Narrowing
+ *
+ * ### Using the `type` field (manual narrowing)
+ *
+ * TypeScript automatically narrows the type when you check the `type` field:
+ *
+ * ```typescript
+ * function processContent(content: Content): string {
+ *   if (content.type === "text") {
+ *     // TypeScript knows content is TextContent here
+ *     return content.text;
+ *   } else if (content.type === "image") {
+ *     // TypeScript knows content is ImageContent here
+ *     return `Image: ${content.metadata?.filename ?? "unnamed"}`;
+ *   } else if (content.type === "pdf") {
+ *     // TypeScript knows content is PDFContent here
+ *     return `PDF with ${content.metadata?.pages ?? "unknown"} pages`;
+ *   }
+ *   return "Other content type";
+ * }
+ * ```
+ *
+ * ### Using type guards (recommended)
+ *
+ * NeuroLink provides type guard functions for cleaner, reusable type checking:
+ *
+ * ```typescript
+ * import {
+ *   isTextContent,
+ *   isImageContent,
+ *   isPDFContent,
+ *   isCSVContent,
+ *   isAudioContent,
+ *   isVideoContent
+ * } from "@juspay/neurolink";
+ *
+ * function processContent(content: Content): void {
+ *   if (isTextContent(content)) {
+ *     console.log("Text:", content.text);
+ *   } else if (isImageContent(content)) {
+ *     console.log("Image format:", content.mediaType);
+ *   } else if (isPDFContent(content)) {
+ *     console.log("PDF pages:", content.metadata?.pages);
+ *   }
+ * }
+ * ```
+ *
+ * ## Exhaustive Checking
+ *
+ * Use the `never` type to ensure all content types are handled:
+ *
+ * ```typescript
+ * function handleContent(content: Content): string {
+ *   switch (content.type) {
+ *     case "text":
+ *       return content.text;
+ *     case "image":
+ *       return `Image: ${content.mediaType ?? "unknown format"}`;
+ *     case "csv":
+ *       return `CSV: ${content.metadata?.filename ?? "data"}`;
+ *     case "pdf":
+ *       return `PDF: ${content.metadata?.filename ?? "document"}`;
+ *     case "audio":
+ *       return `Audio: ${content.metadata?.duration ?? 0}s`;
+ *     case "video":
+ *       return `Video: ${content.metadata?.duration ?? 0}s`;
+ *     default:
+ *       // TypeScript error if any case is missing
+ *       const _exhaustive: never = content;
+ *       throw new Error(`Unhandled content type: ${(content as { type: string }).type}`);
+ *   }
+ * }
+ * ```
+ *
+ * ## Creating Content
+ *
+ * Examples of creating each content type:
+ *
+ * ```typescript
+ * import type { Content, TextContent, ImageContent, PDFContent } from "@juspay/neurolink";
+ *
+ * // TextContent
+ * const text: TextContent = {
+ *   type: "text",
+ *   text: "Analyze this document"
+ * };
+ *
+ * // ImageContent
+ * const image: ImageContent = {
+ *   type: "image",
+ *   data: fs.readFileSync("./photo.jpg"),
+ *   mediaType: "image/jpeg"
+ * };
+ *
+ * // PDFContent
+ * const pdf: PDFContent = {
+ *   type: "pdf",
+ *   data: fs.readFileSync("./report.pdf"),
+ *   metadata: { filename: "report.pdf", pages: 10 }
+ * };
+ *
+ * // Use in MultimodalInput
+ * const input: MultimodalInput = {
+ *   text: "Process these files",
+ *   content: [text, image, pdf]
+ * };
+ * ```
+ *
+ * @see {@link TextContent} - Plain text content
+ * @see {@link ImageContent} - Image content with various formats
+ * @see {@link CSVContent} - CSV tabular data content
+ * @see {@link PDFContent} - PDF document content
+ * @see {@link AudioContent} - Audio file content
+ * @see {@link VideoContent} - Video file content
+ * @see {@link isTextContent} - Type guard for TextContent
+ * @see {@link isImageContent} - Type guard for ImageContent
+ * @see {@link isCSVContent} - Type guard for CSVContent
+ * @see {@link isPDFContent} - Type guard for PDFContent
+ * @see {@link isAudioContent} - Type guard for AudioContent
+ * @see {@link isVideoContent} - Type guard for VideoContent
+ * @public
  */
 export type Content =
   | TextContent
@@ -309,42 +572,114 @@ export type ProviderMultimodalPayload = {
 // ============================================
 
 /**
- * Type guard to check if content is TextContent
+ * Type guard to check if content is {@link TextContent}.
+ *
+ * @example
+ * ```typescript
+ * if (isTextContent(content)) {
+ *   console.log(content.text); // TypeScript knows content.text exists
+ * }
+ * ```
+ *
+ * @param content - The content to check
+ * @returns `true` if the content is TextContent, `false` otherwise
+ * @see {@link Content} - The union type this guards against
+ * @public
  */
 export function isTextContent(content: Content): content is TextContent {
   return content.type === "text";
 }
 
 /**
- * Type guard to check if content is ImageContent
+ * Type guard to check if content is {@link ImageContent}.
+ *
+ * @example
+ * ```typescript
+ * if (isImageContent(content)) {
+ *   console.log(content.mediaType); // TypeScript knows this is ImageContent
+ * }
+ * ```
+ *
+ * @param content - The content to check
+ * @returns `true` if the content is ImageContent, `false` otherwise
+ * @see {@link Content} - The union type this guards against
+ * @public
  */
 export function isImageContent(content: Content): content is ImageContent {
   return content.type === "image";
 }
 
 /**
- * Type guard to check if content is CSVContent
+ * Type guard to check if content is {@link CSVContent}.
+ *
+ * @example
+ * ```typescript
+ * if (isCSVContent(content)) {
+ *   console.log(content.metadata?.filename); // TypeScript knows this is CSVContent
+ * }
+ * ```
+ *
+ * @param content - The content to check
+ * @returns `true` if the content is CSVContent, `false` otherwise
+ * @see {@link Content} - The union type this guards against
+ * @public
  */
 export function isCSVContent(content: Content): content is CSVContent {
   return content.type === "csv";
 }
 
 /**
- * Type guard to check if content is PDFContent
+ * Type guard to check if content is {@link PDFContent}.
+ *
+ * @example
+ * ```typescript
+ * if (isPDFContent(content)) {
+ *   console.log(content.metadata?.pages); // TypeScript knows this is PDFContent
+ * }
+ * ```
+ *
+ * @param content - The content to check
+ * @returns `true` if the content is PDFContent, `false` otherwise
+ * @see {@link Content} - The union type this guards against
+ * @public
  */
 export function isPDFContent(content: Content): content is PDFContent {
   return content.type === "pdf";
 }
 
 /**
- * Type guard to check if content is AudioContent
+ * Type guard to check if content is {@link AudioContent}.
+ *
+ * @example
+ * ```typescript
+ * if (isAudioContent(content)) {
+ *   console.log(content.metadata?.duration); // TypeScript knows this is AudioContent
+ * }
+ * ```
+ *
+ * @param content - The content to check
+ * @returns `true` if the content is AudioContent, `false` otherwise
+ * @see {@link Content} - The union type this guards against
+ * @public
  */
 export function isAudioContent(content: Content): content is AudioContent {
   return content.type === "audio";
 }
 
 /**
- * Type guard to check if content is VideoContent
+ * Type guard to check if content is {@link VideoContent}.
+ *
+ * @example
+ * ```typescript
+ * if (isVideoContent(content)) {
+ *   console.log(content.metadata?.dimensions); // TypeScript knows this is VideoContent
+ * }
+ * ```
+ *
+ * @param content - The content to check
+ * @returns `true` if the content is VideoContent, `false` otherwise
+ * @see {@link Content} - The union type this guards against
+ * @public
  */
 export function isVideoContent(content: Content): content is VideoContent {
   return content.type === "video";

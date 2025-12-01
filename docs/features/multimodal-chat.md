@@ -280,6 +280,107 @@ PDFs consume significant tokens:
 
 Set appropriate `maxTokens` for PDF analysis (recommended: 2000-8000 tokens).
 
+## Content Type System
+
+NeuroLink provides a comprehensive type system for multimodal content through the `Content` discriminated union type. This enables type-safe handling of different content types in TypeScript.
+
+### Supported Content Types
+
+| Type           | Description         | Discriminator | Example Media Types  |
+| -------------- | ------------------- | ------------- | -------------------- |
+| `TextContent`  | Plain text messages | `"text"`      | N/A                  |
+| `ImageContent` | Images              | `"image"`     | JPEG, PNG, GIF, WebP |
+| `CSVContent`   | Tabular data        | `"csv"`       | CSV files            |
+| `PDFContent`   | PDF documents       | `"pdf"`       | PDF files            |
+| `AudioContent` | Audio files         | `"audio"`     | MP3, WAV, OGG        |
+| `VideoContent` | Video files         | `"video"`     | MP4, WebM, MOV       |
+
+### Using Type Guards
+
+NeuroLink provides type guard functions for safe type narrowing:
+
+```typescript
+import {
+  isTextContent,
+  isImageContent,
+  isPDFContent,
+  isCSVContent,
+  type Content,
+} from "@juspay/neurolink";
+
+function processContent(content: Content): void {
+  if (isTextContent(content)) {
+    console.log("Text:", content.text);
+  } else if (isImageContent(content)) {
+    console.log("Image format:", content.mediaType);
+  } else if (isPDFContent(content)) {
+    console.log("PDF pages:", content.metadata?.pages);
+  }
+}
+```
+
+### Exhaustive Type Checking
+
+Use a switch statement with the `never` type to ensure all content types are handled:
+
+```typescript
+import type { Content } from "@juspay/neurolink";
+
+function handleContent(content: Content): string {
+  switch (content.type) {
+    case "text":
+      return content.text;
+    case "image":
+      return `Image: ${content.mediaType ?? "unknown"}`;
+    case "csv":
+      return `CSV: ${content.metadata?.filename ?? "data"}`;
+    case "pdf":
+      return `PDF: ${content.metadata?.filename ?? "document"}`;
+    case "audio":
+      return `Audio: ${content.metadata?.duration ?? 0}s`;
+    case "video":
+      return `Video: ${content.metadata?.duration ?? 0}s`;
+    default:
+      // TypeScript error if any case is missing
+      const _exhaustive: never = content;
+      throw new Error(
+        `Unhandled content type: ${(content as { type: string }).type}`,
+      );
+  }
+}
+```
+
+### Creating Content Objects
+
+```typescript
+import type {
+  TextContent,
+  ImageContent,
+  PDFContent,
+  MultimodalInput,
+} from "@juspay/neurolink";
+import { readFileSync } from "node:fs";
+
+// Create individual content objects
+const text: TextContent = { type: "text", text: "Analyze this" };
+const image: ImageContent = {
+  type: "image",
+  data: readFileSync("./photo.jpg"),
+  mediaType: "image/jpeg",
+};
+const pdf: PDFContent = {
+  type: "pdf",
+  data: readFileSync("./report.pdf"),
+  metadata: { filename: "report.pdf" },
+};
+
+// Combine in MultimodalInput
+const input: MultimodalInput = {
+  text: "Process these files",
+  content: [text, image, pdf],
+};
+```
+
 ## Troubleshooting
 
 | Symptom                            | Action                                                                            |
