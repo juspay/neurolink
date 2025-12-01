@@ -85,13 +85,9 @@ interface LiveServerMessagePartInlineData {
 }
 
 // ✅ Convert to types
-type GenAILiveMedia = {
-  // ...
-};
+type GenAILiveMedia = { // ... };
 
-type LiveServerMessagePartInlineData = {
-  // ...
-};
+type LiveServerMessagePartInlineData = { // ... };
 ```
 
 #### 2.2 Amazon Bedrock Provider - Convert 4 Local Interfaces
@@ -109,13 +105,9 @@ interface BedrockToolResult {
 }
 
 // ✅ Convert to types
-type BedrockToolUse = {
-  // ...
-};
+type BedrockToolUse = { // ... };
 
-type BedrockToolResult = {
-  // ...
-};
+type BedrockToolResult = { // ... };
 ```
 
 #### 2.3 OpenAI Compatible Provider - Convert 1 Interface
@@ -129,9 +121,7 @@ interface ModelsResponse {
 }
 
 // ✅ Convert to type
-type ModelsResponse = {
-  // ...
-};
+type ModelsResponse = { // ... };
 ```
 
 ### Step 3: Enhance Provider Registry Type Safety

@@ -168,6 +168,9 @@ export function initializeCliParser() {
       // Discover Command - Using CLICommandFactory
       .command(CLICommandFactory.createDiscoverCommand())
 
+      // Voices Command - Using CLICommandFactory
+      .command(CLICommandFactory.createVoicesCommand())
+
       // Configuration Command Group - Using CLICommandFactory
       .command(CLICommandFactory.createConfigCommands())
 

@@ -27,6 +27,7 @@ import {
 } from "../../lib/types/contextTypes.js";
 import { ModelsCommandFactory } from "../commands/models.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
+import { VoicesCommandFactory } from "../commands/voices.js";
 import { OllamaCommandFactory } from "./ollamaCommandFactory.js";
 import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
 import ora from "ora";
@@ -856,6 +857,13 @@ export class CLICommandFactory {
    */
   static createDiscoverCommand(): CommandModule {
     return MCPCommandFactory.createDiscoverCommand();
+  }
+
+  /**
+   * Create voices command
+   */
+  static createVoicesCommand(): CommandModule {
+    return VoicesCommandFactory.createVoicesCommand();
   }
 
   /**
