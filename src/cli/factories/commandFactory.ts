@@ -80,6 +80,26 @@ export class CLICommandFactory {
       type: "string" as const,
       description: "Add PDF file for analysis (can be used multiple times)",
     },
+    video: {
+      type: "string" as const,
+      description:
+        "Add video file for multimodal analysis (MP4, WebM, MOV supported)",
+    },
+    videoFrames: {
+      type: "number" as const,
+      default: 8,
+      description: "Number of frames to extract from video for analysis",
+    },
+    transcribeAudio: {
+      type: "boolean" as const,
+      default: false,
+      description: "Enable audio transcription for video files",
+    },
+    videoQuality: {
+      type: "number" as const,
+      default: 85,
+      description: "Quality of extracted video frames (1-100)",
+    },
     file: {
       type: "string" as const,
       description:
@@ -566,6 +586,26 @@ export class CLICommandFactory {
             .example(
               '$0 generate "Analyze data" --enable-analytics',
               "Enable usage analytics",
+            )
+            .example(
+              '$0 generate "Describe this video" --video demo.mp4',
+              "Analyze a video with default settings (8 frames)",
+            )
+            .example(
+              '$0 generate "What happens in this video?" --video training.mp4 --video-frames 16',
+              "Extract more frames for detailed analysis",
+            )
+            .example(
+              '$0 generate "Summarize this video" --video presentation.mp4 --transcribe-audio',
+              "Analyze video with audio transcription",
+            )
+            .example(
+              '$0 generate "Analyze this video" --video security-footage.mp4 --provider google-ai',
+              "Use Google AI for native video support",
+            )
+            .example(
+              '$0 generate "Describe each scene" --video movie.mp4 --video-frames 20 --video-quality 95',
+              "High quality frame extraction",
             ),
         );
       },
@@ -1064,9 +1104,8 @@ export class CLICommandFactory {
 
         // Handle --list-conversations option
         if (listConversations) {
-          const { ConversationSelector } = await import(
-            "../loop/conversationSelector.js"
-          );
+          const { ConversationSelector } =
+            await import("../loop/conversationSelector.js");
           const conversationSelector = new ConversationSelector();
 
           try {
@@ -2220,9 +2259,8 @@ export class CLICommandFactory {
     const options = this.processOptions(argv);
 
     try {
-      const { getBestProvider } = await import(
-        "../../lib/utils/providerUtils.js"
-      );
+      const { getBestProvider } =
+        await import("../../lib/utils/providerUtils.js");
       const bestProvider = await getBestProvider();
 
       if (options.format === "json") {
@@ -2647,9 +2685,8 @@ export class CLICommandFactory {
   private static async flushLangfuseTraces(): Promise<void> {
     try {
       logger.debug("[CLI] Flushing Langfuse traces before exit...");
-      const { flushOpenTelemetry } = await import(
-        "../../lib/services/server/ai/observability/instrumentation.js"
-      );
+      const { flushOpenTelemetry } =
+        await import("../../lib/services/server/ai/observability/instrumentation.js");
       await flushOpenTelemetry();
       logger.debug("[CLI] Langfuse traces flushed successfully");
     } catch (error) {
