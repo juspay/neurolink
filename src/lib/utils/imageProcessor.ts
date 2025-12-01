@@ -500,7 +500,6 @@ export const imageUtils = {
    * Returns null if:
    * - No extension found
    * - Extension contains special characters
-   * - Extension is not a valid image extension
    */
   getFileExtension: (filename: string): string | null => {
     const match = filename.match(/\.([^.]+)$/);
