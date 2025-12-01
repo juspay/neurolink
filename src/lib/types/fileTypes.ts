@@ -120,3 +120,28 @@ export type GoogleFilesAPIUploadResult = {
     uri: string;
   };
 };
+
+/**
+ * Image format conversion output format
+ */
+export type ImageOutputFormat = "jpeg" | "png" | "webp";
+
+/**
+ * Image conversion options
+ */
+export type ImageConversionOptions = {
+  /** Target output format (default: 'jpeg' for HEIC, 'png' for TIFF) */
+  outputFormat?: ImageOutputFormat;
+  /** JPEG/WebP quality (1-100, default: 90) */
+  quality?: number;
+  /** Whether to convert unsupported formats automatically (default: true) */
+  autoConvert?: boolean;
+};
+
+/**
+ * Image processor options (combines detection and conversion)
+ */
+export type ImageProcessorOptions = {
+  /** Conversion options for unsupported formats */
+  conversion?: ImageConversionOptions;
+};

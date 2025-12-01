@@ -5,7 +5,148 @@
 
 import { logger } from "./logger.js";
 import type { ProcessedImage } from "../types/multimodal.js";
-import type { FileProcessingResult } from "../types/fileTypes.js";
+import type {
+  FileProcessingResult,
+  ImageProcessorOptions,
+  ImageOutputFormat,
+  ImageConversionOptions,
+} from "../types/fileTypes.js";
+
+/**
+ * Formats that require conversion to be compatible with AI providers
+ */
+const UNSUPPORTED_FORMATS = ["image/heic", "image/heif", "image/tiff"] as const;
+
+/**
+ * Default conversion targets for unsupported formats
+ */
+const DEFAULT_CONVERSION_TARGETS: Record<string, ImageOutputFormat> = {
+  "image/heic": "jpeg",
+  "image/heif": "jpeg",
+  "image/tiff": "png",
+};
+
+/**
+ * Image Format Converter - Converts unsupported formats using sharp
+ */
+export class ImageFormatConverter {
+  private static sharpInstance: typeof import("sharp") | null = null;
+  private static sharpLoadAttempted = false;
+
+  /**
+   * Lazy load sharp library to avoid initialization errors
+   * when sharp is not needed or not available
+   */
+  private static async getSharp(): Promise<typeof import("sharp") | null> {
+    if (this.sharpLoadAttempted) {
+      return this.sharpInstance;
+    }
+
+    this.sharpLoadAttempted = true;
+
+    try {
+      const sharp = await import("sharp");
+      this.sharpInstance = sharp.default || sharp;
+      logger.info("[ImageFormatConverter] Sharp library loaded successfully");
+      return this.sharpInstance;
+    } catch (error) {
+      logger.warn(
+        "[ImageFormatConverter] Sharp library not available. Format conversion will be disabled.",
+        error instanceof Error ? error.message : error,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Check if a format requires conversion
+   */
+  static requiresConversion(mimeType: string): boolean {
+    return UNSUPPORTED_FORMATS.includes(
+      mimeType.toLowerCase() as (typeof UNSUPPORTED_FORMATS)[number],
+    );
+  }
+
+  /**
+   * Get the default output format for a given input format
+   */
+  static getDefaultOutputFormat(inputMimeType: string): ImageOutputFormat {
+    return DEFAULT_CONVERSION_TARGETS[inputMimeType.toLowerCase()] || "jpeg";
+  }
+
+  /**
+   * Convert an image buffer from one format to another
+   *
+   * @param input - Source image buffer
+   * @param inputMimeType - Source MIME type (e.g., 'image/heic')
+   * @param options - Conversion options
+   * @returns Converted image buffer and new MIME type
+   */
+  static async convert(
+    input: Buffer,
+    inputMimeType: string,
+    options?: ImageConversionOptions,
+  ): Promise<{ buffer: Buffer; mimeType: string }> {
+    const sharp = await this.getSharp();
+
+    if (!sharp) {
+      throw new Error(
+        `Cannot convert ${inputMimeType}: sharp library is not available. ` +
+          "Install sharp with 'npm install sharp' to enable format conversion.",
+      );
+    }
+
+    const outputFormat =
+      options?.outputFormat || this.getDefaultOutputFormat(inputMimeType);
+    const quality = options?.quality ?? 90;
+
+    try {
+      let sharpInstance = sharp(input);
+
+      // Configure output format
+      switch (outputFormat) {
+        case "jpeg":
+          sharpInstance = sharpInstance.jpeg({ quality });
+          break;
+        case "png":
+          sharpInstance = sharpInstance.png({ compressionLevel: 6 });
+          break;
+        case "webp":
+          sharpInstance = sharpInstance.webp({ quality });
+          break;
+        default:
+          sharpInstance = sharpInstance.jpeg({ quality });
+      }
+
+      const buffer = await sharpInstance.toBuffer();
+      const mimeType = `image/${outputFormat}`;
+
+      logger.info(
+        `[ImageFormatConverter] Converted ${inputMimeType} → ${mimeType} (${input.length} → ${buffer.length} bytes)`,
+      );
+
+      return { buffer, mimeType };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      logger.error(
+        `[ImageFormatConverter] Failed to convert ${inputMimeType} to ${outputFormat}:`,
+        errorMessage,
+      );
+      throw new Error(
+        `Image format conversion failed: ${inputMimeType} → ${outputFormat}. ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
+   * Check if format conversion is available (sharp is installed)
+   */
+  static async isAvailable(): Promise<boolean> {
+    const sharp = await this.getSharp();
+    return sharp !== null;
+  }
+}
 
 /**
  * Image processor class for handling provider-specific image formatting
@@ -14,17 +155,42 @@ export class ImageProcessor {
   /**
    * Process image Buffer (unified interface)
    * Matches CSVProcessor.process() signature for consistency
+   * Automatically converts unsupported formats (HEIC, TIFF) to compatible formats
    *
    * @param content - Image file as Buffer
-   * @param options - Processing options (unused for now)
+   * @param options - Processing options including conversion settings
    * @returns Processed image as data URI
    */
   static async process(
     content: Buffer,
-    _options?: unknown,
+    options?: ImageProcessorOptions,
   ): Promise<FileProcessingResult> {
-    const mediaType = this.detectImageType(content);
-    const base64 = content.toString("base64");
+    let processedContent = content;
+    let mediaType = this.detectImageType(content);
+    let wasConverted = false;
+
+    // Check if format requires conversion
+    const autoConvert = options?.conversion?.autoConvert !== false;
+    if (autoConvert && ImageFormatConverter.requiresConversion(mediaType)) {
+      try {
+        const converted = await ImageFormatConverter.convert(
+          content,
+          mediaType,
+          options?.conversion,
+        );
+        processedContent = converted.buffer;
+        mediaType = converted.mimeType;
+        wasConverted = true;
+      } catch (error) {
+        // Log warning but don't fail - let the provider handle the unsupported format
+        logger.warn(
+          `[ImageProcessor] Format conversion failed for ${mediaType}, proceeding with original:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+
+    const base64 = processedContent.toString("base64");
     const dataUri = `data:${mediaType};base64,${base64}`;
 
     return {
@@ -33,7 +199,8 @@ export class ImageProcessor {
       mimeType: mediaType,
       metadata: {
         confidence: 100,
-        size: content.length,
+        size: processedContent.length,
+        ...(wasConverted && { originalSize: content.length }),
       },
     } satisfies FileProcessingResult;
   }
@@ -199,6 +366,8 @@ export class ImageProcessor {
           tif: "image/tiff",
           svg: "image/svg+xml",
           avif: "image/avif",
+          heic: "image/heic",
+          heif: "image/heif",
         };
         return imageTypes[extension || ""] || "image/jpeg";
       }
@@ -232,6 +401,20 @@ export class ImageProcessor {
           return "image/gif";
         }
 
+        // TIFF: 49 49 2A 00 (little-endian) or 4D 4D 00 2A (big-endian)
+        if (
+          (header[0] === 0x49 &&
+            header[1] === 0x49 &&
+            header[2] === 0x2a &&
+            header[3] === 0x00) ||
+          (header[0] === 0x4d &&
+            header[1] === 0x4d &&
+            header[2] === 0x00 &&
+            header[3] === 0x2a)
+        ) {
+          return "image/tiff";
+        }
+
         // WebP: check for RIFF and WEBP
         if (input.length >= 12) {
           const riff = input.subarray(0, 4);
@@ -249,12 +432,28 @@ export class ImageProcessor {
           }
         }
 
-        // AVIF: check for "ftypavif" signature at bytes 4-11
+        // HEIC/HEIF/AVIF: check for ftyp box (all are based on ISOBMFF container)
         if (input.length >= 12) {
           const ftyp = input.subarray(4, 8).toString();
-          const brand = input.subarray(8, 12).toString();
-          if (ftyp === "ftyp" && brand === "avif") {
-            return "image/avif";
+          if (ftyp === "ftyp") {
+            const brand = input.subarray(8, 12).toString();
+            // HEIC: heic, heix, heim, heis
+            if (
+              brand === "heic" ||
+              brand === "heix" ||
+              brand === "heim" ||
+              brand === "heis"
+            ) {
+              return "image/heic";
+            }
+            // HEIF: mif1, msf1
+            if (brand === "mif1" || brand === "msf1") {
+              return "image/heif";
+            }
+            // AVIF: avif
+            if (brand === "avif") {
+              return "image/avif";
+            }
           }
         }
       }

@@ -194,6 +194,7 @@
     "pdfjs-dist": "^5.4.296",
     "reconnecting-eventsource": "^1.6.4",
     "redis": "^5.8.2",
+    "sharp": "^0.34.5",
     "undici": "^7.5.0",
     "uuid": "^11.1.0",
     "ws": "^8.18.3",
@@ -285,11 +286,11 @@
   ],
   "pnpm": {
     "onlyBuiltDependencies": [
+      "canvas",
       "esbuild",
       "protobufjs",
       "puppeteer",
-      "sqlite3",
-      "canvas"
+      "sqlite3"
     ],
     "overrides": {
       "esbuild@<=0.24.2": ">=0.25.0",

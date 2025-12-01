@@ -294,6 +294,12 @@ class MagicBytesStrategy implements DetectionStrategy {
     if (this.isWebP(input)) {
       return this.result("image", "image/webp", 95);
     }
+    if (this.isTIFF(input)) {
+      return this.result("image", "image/tiff", 95);
+    }
+    if (this.isHEIC(input)) {
+      return this.result("image", "image/heic", 95);
+    }
     if (this.isPDF(input)) {
       return this.result("pdf", "application/pdf", 95);
     }
@@ -332,6 +338,41 @@ class MagicBytesStrategy implements DetectionStrategy {
       buf.length >= 12 &&
       buf.slice(0, 4).toString() === "RIFF" &&
       buf.slice(8, 12).toString() === "WEBP"
+    );
+  }
+
+  private isTIFF(buf: Buffer): boolean {
+    // TIFF: 49 49 2A 00 (little-endian) or 4D 4D 00 2A (big-endian)
+    return (
+      buf.length >= 4 &&
+      ((buf[0] === 0x49 &&
+        buf[1] === 0x49 &&
+        buf[2] === 0x2a &&
+        buf[3] === 0x00) ||
+        (buf[0] === 0x4d &&
+          buf[1] === 0x4d &&
+          buf[2] === 0x00 &&
+          buf[3] === 0x2a))
+    );
+  }
+
+  private isHEIC(buf: Buffer): boolean {
+    // HEIC/HEIF: ftyp box with heic, heix, mif1, msf1 brands
+    if (buf.length < 12) {
+      return false;
+    }
+    const ftyp = buf.slice(4, 8).toString();
+    if (ftyp !== "ftyp") {
+      return false;
+    }
+    const brand = buf.slice(8, 12).toString();
+    return (
+      brand === "heic" ||
+      brand === "heix" ||
+      brand === "heim" ||
+      brand === "heis" ||
+      brand === "mif1" ||
+      brand === "msf1"
     );
   }
 
@@ -460,6 +501,8 @@ class ExtensionStrategy implements DetectionStrategy {
       tif: "image",
       svg: "image",
       avif: "image",
+      heic: "image",
+      heif: "image",
       pdf: "pdf",
       txt: "text",
       md: "text",
@@ -514,6 +557,8 @@ class ExtensionStrategy implements DetectionStrategy {
       tif: "image/tiff",
       svg: "image/svg+xml",
       avif: "image/avif",
+      heic: "image/heic",
+      heif: "image/heif",
       pdf: "application/pdf",
       txt: "text/plain",
       md: "text/markdown",
