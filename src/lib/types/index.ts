@@ -201,3 +201,6 @@ export * from "./fileTypes.js";
 
 // Content types for multimodal support
 export * from "./content.js";
+
+// Video error types for VideoProcessor
+export * from "./videoErrors.js";
