@@ -195,11 +195,10 @@ describe("Image Extension Validation (IMG-021)", () => {
     });
 
     describe("malicious extensions", () => {
-      it("should reject double extensions", () => {
+      it("should accept last extension in double extension files", () => {
         // getFileExtension returns last extension, getValidatedImageExtension validates it
         const result = imageUtils.getValidatedImageExtension("malware.exe.jpg");
-        // This should return 'jpg' since the last extension is valid
-        // If we want to reject this pattern, we'd need additional logic
+        // Returns 'jpg' since the last extension is valid
         expect(result).toBe("jpg");
       });
 
