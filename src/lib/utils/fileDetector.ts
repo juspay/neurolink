@@ -14,6 +14,7 @@ import type {
   FileDetectorOptions,
   FileSource,
   CSVProcessorOptions,
+  SVGSanitizationOptions,
 } from "../types/fileTypes.js";
 import { logger } from "./logger.js";
 import { CSVProcessor } from "./csvProcessor.js";
@@ -92,6 +93,7 @@ export class FileDetector {
       detection,
       csvOptions,
       options?.provider,
+      options?.svgOptions,
     );
   }
 
@@ -176,14 +178,15 @@ export class FileDetector {
   private static async processFile(
     content: Buffer,
     detection: FileDetectionResult,
-    options?: CSVProcessorOptions,
+    csvOptions?: CSVProcessorOptions,
     provider?: string,
+    svgOptions?: SVGSanitizationOptions,
   ): Promise<FileProcessingResult> {
     switch (detection.type) {
       case "csv":
-        return await CSVProcessor.process(content, options);
+        return await CSVProcessor.process(content, csvOptions);
       case "image":
-        return await ImageProcessor.process(content);
+        return await ImageProcessor.process(content, { svgOptions });
       case "pdf":
         return await PDFProcessor.process(content, { provider });
       case "text":

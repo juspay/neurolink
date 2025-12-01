@@ -54,6 +54,9 @@ export type FileProcessingResult = {
     estimatedPages?: number | null;
     provider?: string;
     apiType?: PDFAPIType;
+    // SVG-specific metadata
+    svgSanitized?: boolean;
+    svgRemovedElements?: number;
   };
 };
 
@@ -93,6 +96,22 @@ export type PDFProcessorOptions = {
 };
 
 /**
+ * SVG sanitization options for security
+ */
+export type SVGSanitizationOptions = {
+  /** Allow SVG files to be processed (default: true with sanitization) */
+  allowSvg?: boolean;
+  /** Sanitize SVG content to remove potentially dangerous elements (default: true) */
+  sanitize?: boolean;
+  /** Remove script tags (default: true) */
+  removeScripts?: boolean;
+  /** Remove event handlers like onclick, onload, etc. (default: true) */
+  removeEventHandlers?: boolean;
+  /** Remove javascript: URLs (default: true) */
+  removeJavaScriptUrls?: boolean;
+};
+
+/**
  * File detector options
  */
 export type FileDetectorOptions = {
@@ -102,6 +121,8 @@ export type FileDetectorOptions = {
   csvOptions?: CSVProcessorOptions;
   confidenceThreshold?: number;
   provider?: string;
+  /** SVG-specific security options */
+  svgOptions?: SVGSanitizationOptions;
 };
 
 /**

@@ -5,7 +5,18 @@
 
 import { logger } from "./logger.js";
 import type { ProcessedImage } from "../types/multimodal.js";
-import type { FileProcessingResult } from "../types/fileTypes.js";
+import type {
+  FileProcessingResult,
+  SVGSanitizationOptions,
+} from "../types/fileTypes.js";
+import { SVGSanitizer } from "./svgSanitizer.js";
+
+/**
+ * Image processing options
+ */
+export type ImageProcessorOptions = {
+  svgOptions?: SVGSanitizationOptions;
+};
 
 /**
  * Image processor class for handling provider-specific image formatting
@@ -16,14 +27,20 @@ export class ImageProcessor {
    * Matches CSVProcessor.process() signature for consistency
    *
    * @param content - Image file as Buffer
-   * @param options - Processing options (unused for now)
+   * @param options - Processing options including SVG sanitization
    * @returns Processed image as data URI
    */
   static async process(
     content: Buffer,
-    _options?: unknown,
+    options?: ImageProcessorOptions,
   ): Promise<FileProcessingResult> {
     const mediaType = this.detectImageType(content);
+
+    // Handle SVG sanitization
+    if (mediaType === "image/svg+xml") {
+      return this.processSVG(content, options?.svgOptions);
+    }
+
     const base64 = content.toString("base64");
     const dataUri = `data:${mediaType};base64,${base64}`;
 
@@ -36,6 +53,32 @@ export class ImageProcessor {
         size: content.length,
       },
     } satisfies FileProcessingResult;
+  }
+
+  /**
+   * Process SVG with sanitization
+   */
+  private static processSVG(
+    content: Buffer,
+    options?: SVGSanitizationOptions,
+  ): FileProcessingResult {
+    const result = SVGSanitizer.sanitize(content, options);
+
+    // Convert sanitized SVG to data URI
+    const base64 = Buffer.from(result.content).toString("base64");
+    const dataUri = `data:image/svg+xml;base64,${base64}`;
+
+    return {
+      type: "image",
+      content: dataUri,
+      mimeType: "image/svg+xml",
+      metadata: {
+        confidence: 100,
+        size: content.length,
+        svgSanitized: result.sanitized,
+        svgRemovedElements: result.removedElements.length,
+      },
+    } as FileProcessingResult;
   }
 
   /**
