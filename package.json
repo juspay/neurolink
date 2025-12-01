@@ -290,6 +290,7 @@
       "esbuild",
       "protobufjs",
       "puppeteer",
+      "sharp",
       "sqlite3"
     ],
     "overrides": {

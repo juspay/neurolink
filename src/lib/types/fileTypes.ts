@@ -43,6 +43,8 @@ export type FileProcessingResult = {
     confidence: number;
     size?: number;
     filename?: string;
+    // Image-specific metadata (format conversion)
+    originalSize?: number;
     // CSV-specific metadata
     rowCount?: number;
     columnCount?: number;

@@ -193,15 +193,21 @@ export class ImageProcessor {
     const base64 = processedContent.toString("base64");
     const dataUri = `data:${mediaType};base64,${base64}`;
 
+    const metadata: FileProcessingResult["metadata"] = {
+      confidence: 100,
+      size: processedContent.length,
+    };
+
+    // Track original size when format conversion occurred
+    if (wasConverted) {
+      metadata.originalSize = content.length;
+    }
+
     return {
       type: "image",
       content: dataUri,
       mimeType: mediaType,
-      metadata: {
-        confidence: 100,
-        size: processedContent.length,
-        ...(wasConverted && { originalSize: content.length }),
-      },
+      metadata,
     } satisfies FileProcessingResult;
   }
 
