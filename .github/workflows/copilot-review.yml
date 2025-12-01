@@ -25,10 +25,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install FFmpeg
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+      - name: Setup FFmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v3
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
