@@ -42,6 +42,10 @@ By participating in this project, you agree to abide by our Code of Conduct (to 
 
 - Node.js (version 18 or higher)
 - pnpm (preferred package manager)
+- FFmpeg (for video processing features)
+  - **macOS:** `brew install ffmpeg`
+  - **Ubuntu/Debian:** `sudo apt-get install ffmpeg`
+  - **Windows:** Download from https://ffmpeg.org/download.html
 
 ### Installation
 

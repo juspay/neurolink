@@ -46,6 +46,10 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md). We are committ
 
 - Node.js 18+ and npm 9+
 - Git
+- FFmpeg (for video processing features)
+  - **macOS:** `brew install ffmpeg`
+  - **Ubuntu/Debian:** `sudo apt-get install ffmpeg`
+  - **Windows:** Download from https://ffmpeg.org/download.html
 - At least one AI provider API key (OpenAI, Google AI, etc.)
 
 ### Local Development
