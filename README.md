@@ -25,6 +25,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q4 2025)
 
+- **Video File Support** – Analyze video files with automatic frame extraction for vision-capable providers and native video upload for Gemini (up to 1 hour, 2GB). → [Video Guide](docs/features/multimodal-chat.md#video-file-support)
 - **Structured Output with Zod Schemas** – Type-safe JSON generation with automatic validation using `schema` + `output.format: "json"` in `generate()`. → [Structured Output Guide](docs/features/structured-output.md)
 - **CSV File Support** – Attach CSV files to prompts for AI-powered data analysis with auto-detection. → [CSV Guide](docs/features/multimodal-chat.md#csv-file-support)
 - **PDF File Support** – Process PDF documents with native visual analysis for Vertex AI, Anthropic, Bedrock, AI Studio. → [PDF Guide](docs/features/pdf-support.md)
@@ -57,20 +58,20 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 **12 providers unified under one API** - Switch providers with a single parameter change.
 
-| Provider              | Models                         | Free Tier       | Tool Support | Status        | Documentation                                                           |
-| --------------------- | ------------------------------ | --------------- | ------------ | ------------- | ----------------------------------------------------------------------- |
-| **OpenAI**            | GPT-4o, GPT-4o-mini, o1        | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai)            |
-| **Anthropic**         | Claude 3.5/3.7 Sonnet, Opus    | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#anthropic)         |
-| **Google AI Studio**  | Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#google-ai)         |
-| **AWS Bedrock**       | Claude, Titan, Llama, Nova     | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)           |
-| **Google Vertex**     | Gemini via GCP                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)            |
-| **Azure OpenAI**      | GPT-4, GPT-4o, o1              | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)             |
-| **LiteLLM**           | 100+ models unified            | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/LITELLM-INTEGRATION.md)                              |
-| **AWS SageMaker**     | Custom deployed models         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/SAGEMAKER-INTEGRATION.md)                            |
-| **Mistral AI**        | Mistral Large, Small           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)           |
-| **Hugging Face**      | 100,000+ models                | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)       |
-| **Ollama**            | Local models (Llama, Mistral)  | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)            |
-| **OpenAI Compatible** | Any OpenAI-compatible endpoint | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible) |
+| Provider              | Models                         | Free Tier       | Tool Support | Video Support           | Status        | Documentation                                                           |
+| --------------------- | ------------------------------ | --------------- | ------------ | ----------------------- | ------------- | ----------------------------------------------------------------------- |
+| **OpenAI**            | GPT-4o, GPT-4o-mini, o1        | ❌              | ✅ Full      | ⚠️ Frame Extraction     | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai)            |
+| **Anthropic**         | Claude 3.5/3.7 Sonnet, Opus    | ❌              | ✅ Full      | ⚠️ Frame Extraction     | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#anthropic)         |
+| **Google AI Studio**  | Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Native (1hr, 2GB)    | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#google-ai)         |
+| **AWS Bedrock**       | Claude, Titan, Llama, Nova     | ❌              | ✅ Full      | ⚠️ Frame Extraction     | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)           |
+| **Google Vertex**     | Gemini via GCP                 | ❌              | ✅ Full      | ✅ Native (1hr, 2GB)    | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)            |
+| **Azure OpenAI**      | GPT-4, GPT-4o, o1              | ❌              | ✅ Full      | ⚠️ Frame Extraction     | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)             |
+| **LiteLLM**           | 100+ models unified            | Varies          | ✅ Full      | ⚠️ Depends on upstream  | ✅ Production | [Setup Guide](docs/LITELLM-INTEGRATION.md)                              |
+| **AWS SageMaker**     | Custom deployed models         | ❌              | ✅ Full      | ❌                      | ✅ Production | [Setup Guide](docs/SAGEMAKER-INTEGRATION.md)                            |
+| **Mistral AI**        | Mistral Large, Small           | ✅ Free Tier    | ✅ Full      | ⚠️ Frame Extraction     | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)           |
+| **Hugging Face**      | 100,000+ models                | ✅ Free         | ⚠️ Partial   | ❌                      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)       |
+| **Ollama**            | Local models (Llama, Mistral)  | ✅ Free (Local) | ⚠️ Partial   | ❌                      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)            |
+| **OpenAI Compatible** | Any OpenAI-compatible endpoint | Varies          | ✅ Full      | ⚠️ Depends on upstream  | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible) |
 
 **[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
 
@@ -107,6 +108,42 @@ const result = await neurolink.generate({
 ```
 
 **[📖 MCP Integration Guide](docs/advanced/mcp-integration.md)** - Setup external servers
+
+---
+
+### 🎬 Video File Support
+
+**Analyze video content** with automatic frame extraction and native upload support for Gemini models.
+
+| Feature                    | Description                                            | Provider Support                              |
+| -------------------------- | ------------------------------------------------------ | --------------------------------------------- |
+| **Supported Formats**      | MP4, WebM, MOV, AVI, MKV                               | All vision-capable providers                  |
+| **Frame Extraction**       | Automatic frame extraction for non-Gemini providers    | OpenAI, Anthropic, Azure, Bedrock, Mistral    |
+| **Native Video Upload**    | Direct video upload (up to 1 hour, 2GB)                | Gemini (AI Studio, Vertex)                    |
+| **Audio Transcription**    | Optional audio extraction and transcription            | All vision-capable providers                  |
+| **Flexible Frame Control** | Customize frame count, quality, and format             | All vision-capable providers                  |
+
+```typescript
+// Analyze a video file
+const result = await neurolink.generate({
+  input: {
+    text: "Describe what happens in this video",
+    files: ["demo.mp4"], // Auto-detected as video
+  },
+  provider: "google-ai", // Native video support
+});
+
+// With frame extraction for other providers
+const result = await neurolink.generate({
+  input: {
+    text: "Analyze the key moments in this video",
+    files: ["presentation.mp4"],
+  },
+  provider: "openai", // Uses automatic frame extraction
+});
+```
+
+**[📖 Multimodal Guide](docs/features/multimodal-chat.md)** - Complete video and multimodal documentation
 
 ---
 
@@ -279,9 +316,10 @@ const result = await neurolink.generate({
       "./sales_data.csv", // Auto-detected as CSV
       "examples/data/invoice.pdf", // Auto-detected as PDF
       "./diagrams/architecture.png", // Auto-detected as image
+      "./demo.mp4", // Auto-detected as video
     ],
   },
-  provider: "vertex", // PDF-capable provider (see docs/features/pdf-support.md)
+  provider: "vertex", // Supports video, PDF, and all multimodal types
   enableEvaluation: true,
   region: "us-east-1",
 });
@@ -294,15 +332,15 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 ## Platform Capabilities at a Glance
 
-| Capability               | Highlights                                                                                                               |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| **Provider unification** | 12+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                                  |
-| **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types. |
-| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.                             |
-| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4).                            |
-| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                                     |
-| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.                                         |
-| **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search.                                         |
+| Capability               | Highlights                                                                                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Provider unification** | 12+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                                                         |
+| **Multimodal pipeline**  | Stream images + CSV data + PDF documents + video files across providers with local/remote assets. Auto-detection for mixed file types.          |
+| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.                                                    |
+| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4).                                                   |
+| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                                                            |
+| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.                                                                |
+| **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search.                                                                |
 
 ## Documentation Map
 
