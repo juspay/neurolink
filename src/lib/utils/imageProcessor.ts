@@ -411,6 +411,31 @@ export class ImageProcessor {
 }
 
 /**
+ * Whitelist of valid image file extensions (lowercase, no dots)
+ * Used to validate file extensions against a known set of image formats
+ */
+export const VALID_IMAGE_EXTENSIONS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "webp",
+  "bmp",
+  "tiff",
+  "tif",
+  "svg",
+  "avif",
+  "ico",
+  "heic",
+  "heif",
+] as const;
+
+/**
+ * Type for valid image extensions
+ */
+export type ValidImageExtension = (typeof VALID_IMAGE_EXTENSIONS)[number];
+
+/**
  * Utility functions for image handling
  */
 export const imageUtils = {
@@ -443,11 +468,66 @@ export const imageUtils = {
   isBase64: (str: string): boolean => imageUtils.isValidBase64(str),
 
   /**
+   * Validate that an extension is a valid image extension
+   * - Case-insensitive matching
+   * - Rejects extensions with special characters
+   * - Validates against whitelist of known image formats
+   *
+   * @param extension - File extension to validate (without leading dot)
+   * @returns true if valid image extension, false otherwise
+   */
+  isValidImageExtension: (extension: string): boolean => {
+    if (!extension || typeof extension !== "string") {
+      return false;
+    }
+
+    // Normalize to lowercase for case-insensitive matching
+    const normalizedExt = extension.toLowerCase();
+
+    // Reject extensions with special characters (only alphanumeric allowed)
+    if (!/^[a-z0-9]+$/.test(normalizedExt)) {
+      return false;
+    }
+
+    // Validate against whitelist
+    return VALID_IMAGE_EXTENSIONS.includes(
+      normalizedExt as ValidImageExtension,
+    );
+  },
+
+  /**
    * Extract file extension from filename or URL
+   * Returns null if:
+   * - No extension found
+   * - Extension contains special characters
    */
   getFileExtension: (filename: string): string | null => {
     const match = filename.match(/\.([^.]+)$/);
-    return match ? match[1].toLowerCase() : null;
+    if (!match) {
+      return null;
+    }
+
+    const extension = match[1].toLowerCase();
+
+    // Reject extensions with special characters (only alphanumeric allowed)
+    if (!/^[a-z0-9]+$/.test(extension)) {
+      return null;
+    }
+
+    return extension;
+  },
+
+  /**
+   * Extract and validate image file extension from filename or URL
+   * Returns null if extension is not a valid image format
+   */
+  getValidatedImageExtension: (filename: string): string | null => {
+    const extension = imageUtils.getFileExtension(filename);
+    if (!extension) {
+      return null;
+    }
+
+    return imageUtils.isValidImageExtension(extension) ? extension : null;
   },
 
   /**
