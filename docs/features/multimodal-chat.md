@@ -280,6 +280,393 @@ PDFs consume significant tokens:
 
 Set appropriate `maxTokens` for PDF analysis (recommended: 2000-8000 tokens).
 
+## Video Support
+
+NeuroLink provides comprehensive video analysis capabilities, enabling you to analyze video content directly with AI. The platform supports both **native video processing** (for Google Gemini) and **frame extraction** (for all other providers).
+
+### Overview
+
+Video support in NeuroLink works as a multimodal input type:
+
+1. **Native video** (Gemini only): Upload full video files for analysis with audio transcription
+2. **Frame extraction** (all providers): Extract key frames from videos for vision-capable models
+3. **Audio transcription**: Optionally transcribe audio tracks for enhanced context
+
+!!! tip "Provider Selection"
+Use **Google AI Studio** or **Vertex AI** for native video support with videos up to 1 hour. For other providers, NeuroLink automatically extracts frames for analysis.
+
+### Supported Formats
+
+| Format | Extension | MIME Type          | Notes                          |
+| ------ | --------- | ------------------ | ------------------------------ |
+| MP4    | `.mp4`    | `video/mp4`        | Most widely supported          |
+| WebM   | `.webm`   | `video/webm`       | Open format, good for web      |
+| MOV    | `.mov`    | `video/quicktime`  | Apple QuickTime format         |
+| AVI    | `.avi`    | `video/x-msvideo`  | Windows standard format        |
+| MKV    | `.mkv`    | `video/x-matroska` | Container format, feature-rich |
+
+### SDK Usage
+
+#### Basic Video Analysis
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// Basic video analysis (auto-selects best method for provider)
+const result = await neurolink.generate({
+  input: {
+    text: "Describe what happens in this video",
+    videoFiles: ["./demo-video.mp4"],
+  },
+  provider: "google-ai", // Native video support
+});
+
+console.log(result.content);
+```
+
+#### Custom Frame Extraction
+
+For non-Gemini providers, control frame extraction:
+
+```typescript
+const result = await neurolink.generate({
+  input: {
+    text: "Analyze the key moments in this product demo",
+    videoFiles: ["./product-demo.mp4"],
+  },
+  provider: "openai", // Uses frame extraction
+  videoOptions: {
+    frameCount: 10, // Extract 10 frames (default: 8)
+    quality: "high", // Frame quality: low, medium, high
+    format: "jpeg", // Output format: jpeg, png
+    extractInterval: "uniform", // uniform, scene-based
+  },
+});
+```
+
+#### Native Video with Gemini
+
+For the best video analysis experience, use Google AI Studio or Vertex AI:
+
+```typescript
+// Native video upload (Gemini only)
+const result = await neurolink.generate({
+  input: {
+    text: "Provide a detailed summary of this tutorial video",
+    videoFiles: ["./tutorial.mp4"],
+  },
+  provider: "google-ai",
+  videoOptions: {
+    native: true, // Force native video processing
+    transcribe: true, // Include audio transcription
+  },
+});
+
+// Access transcription if available
+console.log("Summary:", result.content);
+```
+
+#### Audio Transcription
+
+Enable audio transcription for enhanced video understanding:
+
+```typescript
+const result = await neurolink.generate({
+  input: {
+    text: "Summarize what is being discussed in this meeting recording",
+    videoFiles: ["./meeting.mp4"],
+  },
+  provider: "google-ai",
+  videoOptions: {
+    transcribe: true, // Extract and transcribe audio
+    language: "en", // Language hint for transcription
+  },
+});
+```
+
+#### Streaming with Video
+
+```typescript
+const stream = await neurolink.stream({
+  input: {
+    text: "Walk me through what's happening in this video step by step",
+    videoFiles: ["./process.mp4"],
+  },
+  provider: "google-ai",
+});
+
+for await (const chunk of stream) {
+  process.stdout.write(chunk.text ?? "");
+}
+```
+
+### CLI Usage
+
+#### Basic Video Analysis
+
+```bash
+# Analyze a video with auto-detected provider method
+npx @juspay/neurolink generate "Describe this video" \
+  --video ./demo.mp4 --provider google-ai
+
+# Use explicit frame extraction
+npx @juspay/neurolink generate "Analyze key moments" \
+  --video ./clip.mp4 --provider openai --video-frames 8
+```
+
+#### Frame Extraction Options
+
+```bash
+# Custom frame count
+npx @juspay/neurolink generate "Summarize this presentation" \
+  --video ./presentation.mp4 \
+  --video-frames 12 \
+  --provider anthropic
+
+# High quality frames
+npx @juspay/neurolink generate "Analyze visual details" \
+  --video ./product.mp4 \
+  --video-quality high \
+  --provider openai
+```
+
+#### Native Video Processing
+
+```bash
+# Native video with Gemini (recommended for long videos)
+npx @juspay/neurolink generate "Full video analysis" \
+  --video ./long-video.mp4 \
+  --video-native \
+  --provider google-ai
+
+# Include audio transcription
+npx @juspay/neurolink generate "Summarize this podcast video" \
+  --video ./podcast.mp4 \
+  --video-transcribe \
+  --provider vertex
+```
+
+#### Multiple Videos
+
+```bash
+# Compare two videos
+npx @juspay/neurolink generate "Compare these product demos" \
+  --video ./demo-v1.mp4 \
+  --video ./demo-v2.mp4 \
+  --provider google-ai
+```
+
+#### Streaming Mode
+
+```bash
+# Stream video analysis results
+npx @juspay/neurolink stream "Explain this tutorial step by step" \
+  --video ./tutorial.mp4 --provider google-ai
+```
+
+### Provider Comparison
+
+| Feature                  | Google AI Studio / Vertex | OpenAI / Anthropic   | Other Providers      |
+| ------------------------ | ------------------------- | -------------------- | -------------------- |
+| **Processing Method**    | Native video              | Frame extraction     | Frame extraction     |
+| **Max Duration**         | Up to 1 hour              | ~10 minutes          | ~10 minutes          |
+| **Max File Size**        | 2 GB                      | 100 MB               | 100 MB               |
+| **Audio Transcription**  | ✅ Native support         | ❌ Not available     | ❌ Not available     |
+| **Frame-level Analysis** | ✅ Automatic              | ✅ Via extraction    | ✅ Via extraction    |
+| **Real-time Processing** | ✅ Streaming support      | ✅ Streaming support | ✅ Streaming support |
+| **Token Efficiency**     | High (native)             | Medium (frames)      | Medium (frames)      |
+
+!!! info "Native vs Frame Extraction"
+**Native video** (Gemini) processes the video file directly, preserving temporal information and audio. **Frame extraction** samples key frames from the video and sends them as images, which works with any vision-capable model but loses temporal context.
+
+### Configuration Options
+
+#### Video Processing Options
+
+| Option            | Type    | Default     | Description                                             |
+| ----------------- | ------- | ----------- | ------------------------------------------------------- |
+| `frameCount`      | number  | `8`         | Number of frames to extract (frame extraction mode)     |
+| `quality`         | string  | `"medium"`  | Frame quality: `"low"`, `"medium"`, `"high"`            |
+| `format`          | string  | `"jpeg"`    | Frame output format: `"jpeg"`, `"png"`                  |
+| `native`          | boolean | `auto`      | Force native video processing (Gemini only)             |
+| `transcribe`      | boolean | `false`     | Enable audio transcription                              |
+| `language`        | string  | `"en"`      | Language hint for transcription (ISO 639-1)             |
+| `extractInterval` | string  | `"uniform"` | Frame extraction strategy: `"uniform"`, `"scene-based"` |
+
+#### Quality Settings
+
+| Quality  | Resolution | File Size | Tokens per Frame | Use Case                 |
+| -------- | ---------- | --------- | ---------------- | ------------------------ |
+| `low`    | 256×256    | ~10 KB    | ~85 tokens       | Quick analysis, low cost |
+| `medium` | 512×512    | ~40 KB    | ~256 tokens      | Balanced (default)       |
+| `high`   | 1024×1024  | ~150 KB   | ~765 tokens      | Detailed visual analysis |
+
+### Best Practices
+
+#### Frame Count Selection
+
+- **4-6 frames**: Short clips (<30 seconds), simple actions
+- **8-10 frames**: Standard videos (1-5 minutes), presentations
+- **12-16 frames**: Complex videos, tutorials, multi-step processes
+- **20+ frames**: Long videos requiring detailed temporal coverage
+
+```typescript
+// Short clip - fewer frames sufficient
+videoOptions: {
+  frameCount: 4,
+}
+
+// Tutorial - more frames for step coverage
+videoOptions: {
+  frameCount: 12,
+}
+```
+
+#### Quality vs Token Cost
+
+- Use `"low"` quality for initial screening or when token budget is limited
+- Use `"medium"` (default) for most use cases
+- Use `"high"` only when visual details are critical (product inspection, medical imaging)
+
+```typescript
+// Cost-conscious analysis
+videoOptions: { quality: "low", frameCount: 6 }
+
+// Detailed inspection
+videoOptions: { quality: "high", frameCount: 8 }
+```
+
+#### When to Use Native vs Frames
+
+**Use Native Video (Gemini) when:**
+
+- Video is longer than 5 minutes
+- Audio context is important
+- Temporal sequence matters (cause-effect relationships)
+- File size is large (>100 MB)
+
+**Use Frame Extraction when:**
+
+- Using non-Gemini providers
+- Quick visual analysis is sufficient
+- Token cost optimization is priority
+- Only specific moments need analysis
+
+```typescript
+// Long meeting recording - use native
+await neurolink.generate({
+  input: {
+    text: "Summarize key discussion points",
+    videoFiles: ["./meeting.mp4"],
+  },
+  provider: "google-ai",
+  videoOptions: { native: true, transcribe: true },
+});
+
+// Quick product check - use frames
+await neurolink.generate({
+  input: {
+    text: "Is the product packaging intact?",
+    videoFiles: ["./package-check.mp4"],
+  },
+  provider: "openai",
+  videoOptions: { frameCount: 4, quality: "medium" },
+});
+```
+
+### Troubleshooting
+
+| Symptom                           | Cause                                   | Solution                                                 |
+| --------------------------------- | --------------------------------------- | -------------------------------------------------------- |
+| `Video format not supported`      | Unsupported video codec or container    | Convert to MP4 with H.264 codec                          |
+| `File too large`                  | Video exceeds provider limits           | Use Gemini for large files or compress video             |
+| `No frames extracted`             | Video too short or corrupted            | Verify video plays correctly, ensure minimum 1s duration |
+| `Transcription not available`     | Non-Gemini provider or transcribe=false | Use `--provider google-ai --video-transcribe`            |
+| `Provider does not support video` | Model lacks vision capability           | Switch to vision-capable model or enable orchestration   |
+| `Timeout during upload`           | Large file + slow connection            | Increase timeout or reduce file size                     |
+| `Poor analysis quality`           | Too few frames or low quality           | Increase `frameCount` and use `quality: "high"`          |
+
+### Performance Considerations
+
+#### Token Cost Estimation
+
+**Frame Extraction Mode:**
+
+| Video Length | Frame Count | Quality | Estimated Tokens | Approx. Cost (GPT-4o) |
+| ------------ | ----------- | ------- | ---------------- | --------------------- |
+| 30 seconds   | 4           | low     | ~340 tokens      | ~$0.0017              |
+| 1 minute     | 8           | medium  | ~2,048 tokens    | ~$0.01                |
+| 5 minutes    | 12          | medium  | ~3,072 tokens    | ~$0.015               |
+| 10 minutes   | 16          | high    | ~12,240 tokens   | ~$0.06                |
+
+**Native Video (Gemini):**
+
+| Video Length | Estimated Tokens | Approx. Cost (Gemini 1.5) |
+| ------------ | ---------------- | ------------------------- |
+| 1 minute     | ~1,000 tokens    | ~$0.001                   |
+| 10 minutes   | ~10,000 tokens   | ~$0.01                    |
+| 30 minutes   | ~30,000 tokens   | ~$0.03                    |
+| 1 hour       | ~60,000 tokens   | ~$0.06                    |
+
+!!! note "Cost Comparison"
+Native video processing with Gemini is typically 2-5x more token-efficient than frame extraction for videos longer than 2 minutes.
+
+#### Processing Time
+
+| Operation              | File Size | Typical Time  |
+| ---------------------- | --------- | ------------- |
+| Frame extraction       | 10 MB     | 2-5 seconds   |
+| Frame extraction       | 100 MB    | 10-30 seconds |
+| Native upload (Gemini) | 100 MB    | 5-15 seconds  |
+| Native upload (Gemini) | 1 GB      | 30-90 seconds |
+| Audio transcription    | 10 min    | 5-10 seconds  |
+
+### Example Use Cases
+
+#### Product Demo Analysis
+
+```typescript
+const result = await neurolink.generate({
+  input: {
+    text: `Analyze this product demo video and provide:
+    1. Key features demonstrated
+    2. Target audience insights
+    3. Suggestions for improvement`,
+    videoFiles: ["./product-demo.mp4"],
+  },
+  provider: "google-ai",
+  videoOptions: { frameCount: 12, transcribe: true },
+});
+```
+
+#### Security Footage Review
+
+```typescript
+const result = await neurolink.generate({
+  input: {
+    text: "Identify any unusual activities or persons in this security footage",
+    videoFiles: ["./security-cam.mp4"],
+  },
+  provider: "vertex",
+  videoOptions: { frameCount: 20, quality: "high" },
+});
+```
+
+#### Tutorial Content Extraction
+
+```typescript
+const result = await neurolink.generate({
+  input: {
+    text: "Create step-by-step instructions from this tutorial video",
+    videoFiles: ["./tutorial.mp4"],
+  },
+  provider: "google-ai",
+  videoOptions: { native: true, transcribe: true },
+});
+```
+
 ## Troubleshooting
 
 | Symptom                            | Action                                                                            |
@@ -289,6 +676,9 @@ Set appropriate `maxTokens` for PDF analysis (recommended: 2000-8000 tokens).
 | `Error downloading image`          | Ensure the URL responds with status 200 and does not require auth.                |
 | `Large response latency`           | Pre-compress images and reduce resolution to under 2 MP when possible.            |
 | `Streaming ends early`             | Disable tools (`--disableTools`) to avoid tool calls that may not support vision. |
+| `Video format not supported`       | Convert video to MP4 with H.264 codec using FFmpeg.                               |
+| `Video file too large`             | Use Gemini for large files (up to 2GB) or compress the video.                     |
+| `Video transcription unavailable`  | Ensure you're using Google AI/Vertex and `--video-transcribe` is set.             |
 
 ## Related Features
 
@@ -296,6 +686,11 @@ Set appropriate `maxTokens` for PDF analysis (recommended: 2000-8000 tokens).
 
 - [Guardrails Middleware](guardrails.md) – Content filtering for multimodal outputs
 - [Auto Evaluation](auto-evaluation.md) – Quality scoring for vision-based responses
+
+**Multimodal Support:**
+
+- [PDF Support](pdf-support.md) – PDF document analysis
+- [CSV Support](csv-support.md) – CSV data analysis
 
 **Documentation:**
 
