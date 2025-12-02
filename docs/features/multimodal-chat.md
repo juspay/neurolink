@@ -280,6 +280,68 @@ PDFs consume significant tokens:
 
 Set appropriate `maxTokens` for PDF analysis (recommended: 2000-8000 tokens).
 
+## Office Document Support
+
+NeuroLink supports Microsoft Office documents (Word, PowerPoint, Excel) with intelligent content extraction.
+
+### Quick Start
+
+```bash
+# Analyze a Word document
+npx @juspay/neurolink generate "Summarize this contract" \
+  --file ./contract.docx \
+  --provider openai
+
+# Extract data from Excel spreadsheet
+npx @juspay/neurolink generate "What are the key metrics?" \
+  --file ./sales-data.xlsx \
+  --provider anthropic
+
+# Summarize PowerPoint presentation
+npx @juspay/neurolink generate "Create executive summary" \
+  --file ./quarterly-review.pptx \
+  --provider google-ai
+```
+
+### SDK Usage
+
+```typescript
+// Auto-detect Office files (recommended)
+await neurolink.generate({
+  input: {
+    text: "Analyze all these documents",
+    files: ["./report.docx", "./data.xlsx", "./slides.pptx"],
+  },
+  provider: "openai",
+});
+
+// Mixed file types (Office + PDF + Images)
+await neurolink.generate({
+  input: {
+    text: "Compare the Word report with Excel data and PDF summary",
+    files: ["./report.docx", "./data.xlsx", "./summary.pdf"],
+  },
+  provider: "anthropic",
+});
+```
+
+### Supported Formats
+
+| Format   | Extension | Description              | Use Cases                    |
+| -------- | --------- | ------------------------ | ---------------------------- |
+| **DOCX** | `.docx`   | Word Document            | Reports, contracts, articles |
+| **PPTX** | `.pptx`   | PowerPoint Presentation  | Slide decks, presentations   |
+| **XLSX** | `.xlsx`   | Excel Spreadsheet        | Data analysis, financials    |
+
+### Best Practices
+
+- **Be specific in prompts**: "Extract all action items" vs "Tell me about this document"
+- **Use for document analysis**: Contracts, reports, presentations, spreadsheets
+- **Combine with other files**: Mix Office docs with PDF and images for comprehensive analysis
+- **Works with all providers**: Office document support is available across all providers
+
+For detailed documentation, see the [Office Document Support Guide](office-support.md).
+
 ## Troubleshooting
 
 | Symptom                            | Action                                                                            |
@@ -294,8 +356,15 @@ Set appropriate `maxTokens` for PDF analysis (recommended: 2000-8000 tokens).
 
 **Q4 2025 Features:**
 
+- [Office Document Support](office-support.md) – DOCX, PPTX, XLSX processing
 - [Guardrails Middleware](guardrails.md) – Content filtering for multimodal outputs
 - [Auto Evaluation](auto-evaluation.md) – Quality scoring for vision-based responses
+
+**File Support Guides:**
+
+- [CSV Support](csv-support.md) – CSV file processing
+- [PDF Support](pdf-support.md) – PDF document processing
+- [Office Support](office-support.md) – Word, PowerPoint, Excel processing
 
 **Documentation:**
 

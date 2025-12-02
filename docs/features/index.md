@@ -14,6 +14,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 | Feature                                                                             | Description                                                                                        |
 | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| :material-file-word: **[Office Document Support](office-support.md)**               | Process Word, PowerPoint, and Excel files with intelligent content extraction and analysis.        |
 | :material-hand-pointing-up: **[Human-in-the-Loop (HITL)](hitl.md)**                 | Pause AI tool execution for user approval before risky operations like file deletion or API calls. |
 | :material-shield-check: **[Guardrails Middleware](guardrails.md)**                  | Content filtering, PII detection, and safety checks for AI outputs with zero configuration.        |
 | :material-database-export: **[Redis Conversation Export](conversation-history.md)** | Export complete session history as JSON for analytics, debugging, and compliance auditing.         |
@@ -39,15 +40,15 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 ## Platform Capabilities at a Glance
 
-| Category                 | Features                                                                                                                 | Documentation                                                                                        |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| **Provider unification** | 12+ providers with automatic failover, cost-aware routing, provider orchestration (Q3)                                   | [Provider Setup](../getting-started/provider-setup.md)                                               |
-| **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types. | [Multimodal Guide](multimodal-chat.md), [CSV Support](csv-support.md), [PDF Support](pdf-support.md) |
-| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging                              | [Auto Evaluation](auto-evaluation.md), [Guardrails](guardrails.md), [HITL](hitl.md)                  |
-| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4)                             | [Conversation Memory](../CONVERSATION-MEMORY.md), [Redis Export](conversation-history.md)            |
-| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output                                      | [CLI Loop](cli-loop-sessions.md), [CLI Commands](../cli/commands.md)                                 |
-| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management                                          | [Enterprise Proxy](../ENTERPRISE-PROXY-SETUP.md), [Telemetry](../TELEMETRY-GUIDE.md)                 |
-| **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search                                          | [MCP Integration](../advanced/mcp-integration.md), [MCP Catalog](../guides/mcp/server-catalog.md)    |
+| Category                 | Features                                                                                                                                                      | Documentation                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Provider unification** | 12+ providers with automatic failover, cost-aware routing, provider orchestration (Q3)                                                                        | [Provider Setup](../getting-started/provider-setup.md)                                                                            |
+| **Multimodal pipeline**  | Stream images + CSV data + PDF documents + Office files (DOCX, PPTX, XLSX) across providers with local/remote assets. Auto-detection for mixed file types.   | [Multimodal Guide](multimodal-chat.md), [CSV](csv-support.md), [PDF](pdf-support.md), [Office](office-support.md)                 |
+| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging                                                                   | [Auto Evaluation](auto-evaluation.md), [Guardrails](guardrails.md), [HITL](hitl.md)                                               |
+| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4)                                                                  | [Conversation Memory](../CONVERSATION-MEMORY.md), [Redis Export](conversation-history.md)                                         |
+| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output                                                                           | [CLI Loop](cli-loop-sessions.md), [CLI Commands](../cli/commands.md)                                                              |
+| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management                                                                               | [Enterprise Proxy](../ENTERPRISE-PROXY-SETUP.md), [Telemetry](../TELEMETRY-GUIDE.md)                                              |
+| **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search                                                                               | [MCP Integration](../advanced/mcp-integration.md), [MCP Catalog](../guides/mcp/server-catalog.md)                                 |
 
 ---
 
