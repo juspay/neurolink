@@ -81,6 +81,12 @@ The CLI is designed for:
 
   Advanced features like batch processing, streaming, analytics, and custom configurations.
 
+- :material-file-document: **[Office Documents](office-files.md)**
+
+  ***
+
+  Process Word, PowerPoint, and Excel files with `--docx`, `--pptx`, and `--xlsx` flags.
+
 </div>
 
 ## 🔧 Installation

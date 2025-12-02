@@ -45,6 +45,12 @@ Key flags:
 - `--provider`, `-p` – provider slug (default `auto`).
 - `--model`, `-m` – model name for the chosen provider.
 - `--image`, `-i` – attach one or more files/URLs for multimodal prompts.
+- `--pdf` – attach PDF file(s) for document analysis.
+- `--csv`, `-c` – attach CSV file(s) for data analysis.
+- `--docx`, `-d` – attach Word document(s) for analysis.
+- `--pptx` – attach PowerPoint presentation(s) for analysis.
+- `--xlsx` – attach Excel spreadsheet(s) for analysis.
+- `--file` – attach file with auto-detection (CSV, image, PDF, office docs).
 - `--temperature`, `-t` – creativity (default `0.7`).
 - `--maxTokens` – response limit (default `1000`).
 - `--system`, `-s` – system prompt.
@@ -296,6 +302,12 @@ For advanced workflows (batching, tooling, configuration management) see the rel
 - [Multimodal Chat](../features/multimodal-chat.md) – Use `--image` flag with `generate` or `stream`
 - [Auto Evaluation](../features/auto-evaluation.md) – Enable with `--enableEvaluation`
 - [Provider Orchestration](../features/provider-orchestration.md) – Automatic fallback and routing
+
+**Multimodal File Support:**
+
+- [Office Documents](office-files.md) – Use `--docx`, `--pptx`, `--xlsx` flags for office files
+- [PDF Support](../features/pdf-support.md) – Use `--pdf` flag for PDF documents
+- [CSV Support](../features/csv-support.md) – Use `--csv` flag for spreadsheet data
 
 **Documentation:**
 
