@@ -14,6 +14,8 @@ if ! command -v npx &> /dev/null; then
     exit 1
 fi
 
+
+
 echo ""
 echo "1. 📊 System Status"
 echo "-------------------"

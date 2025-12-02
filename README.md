@@ -72,6 +72,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 | **Ollama**            | Local models (Llama, Mistral)  | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)            |
 | **OpenAI Compatible** | Any OpenAI-compatible endpoint | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible) |
 
+**[📊 Provider Capability Matrix](docs/providers/capability-matrix.md)** - Comprehensive capabilities, models, limitations, and configuration for all providers
 **[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
 **[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 11 providers
 
@@ -307,15 +308,16 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 ## Documentation Map
 
-| Area            | When to Use                                     | Link                                                             |
-| --------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
-| Getting started | Install, configure, run first prompt            | [`docs/getting-started/index.md`](docs/getting-started/index.md) |
-| Feature guides  | Understand new functionality front-to-back      | [`docs/features/index.md`](docs/features/index.md)               |
-| CLI reference   | Command syntax, flags, loop sessions            | [`docs/cli/index.md`](docs/cli/index.md)                         |
-| SDK reference   | Classes, methods, options                       | [`docs/sdk/index.md`](docs/sdk/index.md)                         |
-| Integrations    | LiteLLM, SageMaker, MCP, Mem0                   | [`docs/LITELLM-INTEGRATION.md`](docs/LITELLM-INTEGRATION.md)     |
-| Operations      | Configuration, troubleshooting, provider matrix | [`docs/reference/index.md`](docs/reference/index.md)             |
-| Visual demos    | Screens, GIFs, interactive tours                | [`docs/demos/index.md`](docs/demos/index.md)                     |
+| Area            | When to Use                                      | Link                                                             |
+| --------------- | ------------------------------------------------ | ---------------------------------------------------------------- |
+| Getting started | Install, configure, run first prompt             | [`docs/getting-started/index.md`](docs/getting-started/index.md) |
+| Feature guides  | Understand new functionality front-to-back       | [`docs/features/index.md`](docs/features/index.md)               |
+| Providers       | Capabilities, models, limitations, configuration | [`docs/providers/index.md`](docs/providers/index.md)             |
+| CLI reference   | Command syntax, flags, loop sessions             | [`docs/cli/index.md`](docs/cli/index.md)                         |
+| SDK reference   | Classes, methods, options                        | [`docs/sdk/index.md`](docs/sdk/index.md)                         |
+| Integrations    | LiteLLM, SageMaker, MCP, Mem0                    | [`docs/LITELLM-INTEGRATION.md`](docs/LITELLM-INTEGRATION.md)     |
+| Operations      | Configuration, troubleshooting, provider matrix  | [`docs/reference/index.md`](docs/reference/index.md)             |
+| Visual demos    | Screens, GIFs, interactive tours                 | [`docs/demos/index.md`](docs/demos/index.md)                     |
 
 ## Integrations
 
