@@ -267,8 +267,8 @@ const multimodalMessage: MultimodalChatMessage = {
 
 #### Timeline
 
-- **v8.4.0** (December 2025): Type deprecated with migration guide
-- **v8.x** (December 2025 - Q1 2026): Grace period for migration
+- **v8.4.0** (December 1, 2025): Type deprecated with migration guide
+- **v8.x** (Q1 2026): Grace period for migration
 - **v9.0.0** (Q2 2026): Type removed completely
 
 #### Need Help?
