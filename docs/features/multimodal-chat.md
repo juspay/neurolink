@@ -301,6 +301,7 @@ Use **Google AI Studio** or **Vertex AI** for native video support with videos u
 | ------ | --------- | ------------------ | ------------------------------ |
 | MP4    | `.mp4`    | `video/mp4`        | Most widely supported          |
 | WebM   | `.webm`   | `video/webm`       | Open format, good for web      |
+| OGG    | `.ogv`    | `video/ogg`        | Theora video codec             |
 | MOV    | `.mov`    | `video/quicktime`  | Apple QuickTime format         |
 | AVI    | `.avi`    | `video/x-msvideo`  | Windows standard format        |
 | MKV    | `.mkv`    | `video/x-matroska` | Container format, feature-rich |
@@ -485,15 +486,15 @@ npx @juspay/neurolink stream "Explain this tutorial step by step" \
 
 #### Video Processing Options
 
-| Option            | Type    | Default     | Description                                             |
-| ----------------- | ------- | ----------- | ------------------------------------------------------- |
-| `frameCount`      | number  | `8`         | Number of frames to extract (frame extraction mode)     |
-| `quality`         | string  | `"medium"`  | Frame quality: `"low"`, `"medium"`, `"high"`            |
-| `format`          | string  | `"jpeg"`    | Frame output format: `"jpeg"`, `"png"`                  |
-| `native`          | boolean | `auto`      | Force native video processing (Gemini only)             |
-| `transcribe`      | boolean | `false`     | Enable audio transcription                              |
-| `language`        | string  | `"en"`      | Language hint for transcription (ISO 639-1)             |
-| `extractInterval` | string  | `"uniform"` | Frame extraction strategy: `"uniform"`, `"scene-based"` |
+| Option            | Type    | Default     | Description                                                                       |
+| ----------------- | ------- | ----------- | --------------------------------------------------------------------------------- |
+| `frameCount`      | number  | `8`         | Number of frames to extract (frame extraction mode)                               |
+| `quality`         | string  | `"medium"`  | Frame quality: `"low"`, `"medium"`, `"high"`                                      |
+| `format`          | string  | `"jpeg"`    | Frame output format: `"jpeg"`, `"png"`                                            |
+| `native`          | boolean | auto-detect | Native if Gemini provider, false otherwise. Set `true` to force native processing |
+| `transcribe`      | boolean | `false`     | Enable audio transcription                                                        |
+| `language`        | string  | `"en"`      | Language hint for transcription (ISO 639-1)                                       |
+| `extractInterval` | string  | `"uniform"` | Frame extraction strategy: `"uniform"`, `"scene-based"`                           |
 
 #### Quality Settings
 
@@ -592,14 +593,16 @@ await neurolink.generate({
 
 #### Token Cost Estimation
 
-**Frame Extraction Mode:**
+**Frame Extraction Mode (medium quality):**
 
 | Video Length | Frame Count | Quality | Estimated Tokens | Approx. Cost (GPT-4o) |
 | ------------ | ----------- | ------- | ---------------- | --------------------- |
-| 30 seconds   | 4           | low     | ~340 tokens      | ~$0.0017              |
+| 30 seconds   | 4           | medium  | ~1,024 tokens    | ~$0.005               |
 | 1 minute     | 8           | medium  | ~2,048 tokens    | ~$0.01                |
 | 5 minutes    | 12          | medium  | ~3,072 tokens    | ~$0.015               |
-| 10 minutes   | 16          | high    | ~12,240 tokens   | ~$0.06                |
+| 10 minutes   | 16          | medium  | ~4,096 tokens    | ~$0.02                |
+
+!!! tip "Quality Impact on Tokens" - **Low quality**: ~85 tokens per frame (good for quick analysis) - **Medium quality**: ~256 tokens per frame (balanced) - **High quality**: ~765 tokens per frame (detailed analysis, 3x medium cost)
 
 **Native Video (Gemini):**
 
