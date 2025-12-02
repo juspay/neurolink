@@ -295,6 +295,71 @@ export type ProcessedImage = {
 
 /**
  * Provider-specific multimodal payload
+ *
+ * @deprecated This generic type is not actively used by NeuroLink providers.
+ * It will be removed in v9.0.0. Use provider-specific SDK types instead.
+ *
+ * ## Migration Guide
+ *
+ * Instead of using this generic type, use the native types from each provider's SDK:
+ *
+ * ### OpenAI
+ * ```typescript
+ * import type { ChatCompletionMessageParam } from 'openai';
+ * // For images: ChatCompletionContentPart
+ * ```
+ *
+ * ### Anthropic
+ * ```typescript
+ * import type { MessageParam, ContentBlock } from '@anthropic-ai/sdk';
+ * // For images: ImageBlockParam
+ * ```
+ *
+ * ### Google AI Studio (Gemini)
+ * ```typescript
+ * import type { Content, Part } from '@google/generative-ai';
+ * // For multimodal: InlineDataPart
+ * ```
+ *
+ * ### Google Vertex AI
+ * ```typescript
+ * import type { Content, Part } from '@google-cloud/vertexai';
+ * // For images and PDFs: InlineDataPart
+ * ```
+ *
+ * ### AWS Bedrock
+ * ```typescript
+ * import type { Message, ContentBlock } from '@aws-sdk/client-bedrock-runtime';
+ * // For images: ImageBlock
+ * ```
+ *
+ * ### Azure OpenAI
+ * ```typescript
+ * // Uses same types as OpenAI
+ * import type { ChatCompletionMessageParam } from 'openai';
+ * ```
+ *
+ * ### Mistral AI
+ * ```typescript
+ * // Use via @ai-sdk/mistral (Vercel AI SDK)
+ * import type { CoreMessage } from 'ai';
+ * ```
+ *
+ * ### Ollama
+ * ```typescript
+ * // Use via ollama-ai-provider
+ * import type { Message } from 'ollama-ai-provider';
+ * ```
+ *
+ * ### Hugging Face
+ * ```typescript
+ * import type { TextGenerationInput } from '@huggingface/inference';
+ * ```
+ *
+ * For internal NeuroLink usage, use the concrete types from `./conversation.js`:
+ * - `ChatMessage` - Standard message format
+ * - `MessageContent` - Content with type information
+ * - `MultimodalChatMessage` - Messages with multimodal content
  */
 export type ProviderMultimodalPayload = {
   provider: string;

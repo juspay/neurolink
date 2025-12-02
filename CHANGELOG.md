@@ -4,6 +4,10 @@
 
 - **(core):** comprehensive multimodal architecture with modular refactoring and enhanced testing ([fd8d207](https://github.com/juspay/neurolink/commit/fd8d207a2f9be61e65fd00d697a0456511ece30f))
 
+### Deprecations
+
+- **(types):** `ProviderMultimodalPayload` type deprecated in favor of provider-specific SDK types. This generic type is not actively used by any provider implementations. Will be removed in v9.0.0. See [Migration Guide](./docs/MIGRATION.md#providermultimodalpayload-deprecation) for detailed migration instructions covering 9+ providers (OpenAI, Anthropic, Google AI, Vertex AI, AWS Bedrock, Azure, Mistral, Ollama, Hugging Face).
+
 ## [8.3.0](https://github.com/juspay/neurolink/compare/v8.2.0...v8.3.0) (2025-11-28)
 
 ### Features
