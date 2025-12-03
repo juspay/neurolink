@@ -648,14 +648,18 @@ Current user's request: ${currentInput}`;
   }
 
   /** Store conversation turn in mem0 */
-  private async storeConversationTurn(
+  private async storeMem0ConversationTurn(
     mem0: MemoryClient,
     userContent: string,
+    aiResponse: string,
     userId: string,
     metadata: Record<string, unknown>,
   ): Promise<void> {
-    // Store user message only, reducing latency in mem0
-    const conversationTurn = [{ role: "user" as const, content: userContent }];
+    // Store both user message and AI response for better context extraction
+    const conversationTurn = [
+      { role: "user" as const, content: userContent },
+      { role: "assistant" as const, content: aiResponse },
+    ];
 
     await mem0.add(conversationTurn, {
       user_id: userId,
@@ -1877,9 +1881,10 @@ Current user's request: ${currentInput}`;
           try {
             const mem0 = await this.ensureMem0Ready();
             if (mem0) {
-              await this.storeConversationTurn(
+              await this.storeMem0ConversationTurn(
                 mem0,
                 originalPrompt,
+                generateResult.content,
                 options.context?.userId as string,
                 {
                   timestamp: new Date().toISOString(),
@@ -2855,15 +2860,14 @@ Current user's request: ${currentInput}`;
                 try {
                   const mem0 = await self.ensureMem0Ready();
                   if (mem0) {
-                    await self.storeConversationTurn(
+                    await self.storeMem0ConversationTurn(
                       mem0,
                       originalPrompt,
+                      accumulatedContent.trim(),
                       enhancedOptions.context?.userId as string,
                       {
                         timestamp: new Date().toISOString(),
                         type: "conversation_turn_stream",
-                        userMessage: originalPrompt,
-                        aiResponse: accumulatedContent.trim(),
                       },
                     );
                   }
