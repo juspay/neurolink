@@ -206,6 +206,28 @@ const VISION_CAPABILITIES = {
 } as const;
 
 /**
+ * Provider alias mappings - maps aliases to their canonical provider names
+ * This allows validation to work with provider aliases
+ */
+const PROVIDER_ALIASES: Record<string, keyof typeof VISION_CAPABILITIES> = {
+  // Azure aliases
+  "azure-openai": "azure",
+  azureopenai: "azure",
+  // Google AI aliases
+  google: "google-ai",
+  gemini: "google-ai",
+  googleaistudio: "google-ai",
+  "google-ai-studio": "google-ai",
+  // Vertex aliases
+  "google-vertex": "vertex",
+  googlevertex: "vertex",
+  // OpenAI-compatible aliases
+  // (Removed: "openai-compatible", "openrouter", "vllm", "compatible" as these are handled separately)
+  // Bedrock aliases
+  aws: "bedrock",
+};
+
+/**
  * Provider Image Adapter - Smart routing and formatting
  */
 export class ProviderImageAdapter {
@@ -231,23 +253,55 @@ export class ProviderImageAdapter {
           break;
         case "azure":
         case "azure-openai":
+        case "azureopenai":
           adaptedPayload = this.formatForOpenAI(text, images);
           break;
         case "google-ai":
         case "google":
+        case "gemini":
+        case "googleaistudio":
+        case "google-ai-studio":
           adaptedPayload = this.formatForGoogleAI(text, images);
           break;
         case "anthropic":
           adaptedPayload = this.formatForAnthropic(text, images);
           break;
+        case "bedrock":
+        case "aws":
+          // Bedrock uses Claude models, so use Anthropic format
+          adaptedPayload = this.formatForAnthropic(text, images);
+          break;
         case "vertex":
+        case "google-vertex":
+        case "googlevertex":
           adaptedPayload = this.formatForVertex(text, images, model);
+          break;
+        case "litellm":
+          // LiteLLM uses OpenAI-compatible format
+          adaptedPayload = this.formatForOpenAI(text, images);
+          break;
+        case "openai-compatible":
+        case "openrouter":
+        case "vllm":
+        case "compatible":
+          // OpenAI-compatible providers use OpenAI format
+          adaptedPayload = this.formatForOpenAI(text, images);
+          break;
+        case "mistral":
+          // Mistral uses OpenAI-compatible format
+          adaptedPayload = this.formatForOpenAI(text, images);
           break;
         case "ollama":
           adaptedPayload = this.formatForOpenAI(text, images);
           break;
-        default:
-          throw new Error(`Vision not supported for provider: ${provider}`);
+        default: {
+          // Dynamically list all supported providers from VISION_CAPABILITIES
+          const supportedProviders =
+            Object.keys(VISION_CAPABILITIES).join(", ");
+          throw new Error(
+            `Vision not supported for provider: ${provider}. Supported providers: ${supportedProviders}`,
+          );
+        }
       }
 
       return adaptedPayload;
@@ -372,9 +426,14 @@ export class ProviderImageAdapter {
    */
   private static validateVisionSupport(provider: string, model: string): void {
     const normalizedProvider = provider.toLowerCase();
+
+    // Check if provider is an alias and resolve to canonical name
+    const canonicalProvider =
+      PROVIDER_ALIASES[normalizedProvider] || normalizedProvider;
+
     const supportedModels =
       VISION_CAPABILITIES[
-        normalizedProvider as keyof typeof VISION_CAPABILITIES
+        canonicalProvider as keyof typeof VISION_CAPABILITIES
       ];
 
     if (!supportedModels) {
@@ -430,9 +489,14 @@ export class ProviderImageAdapter {
   static supportsVision(provider: string, model?: string): boolean {
     try {
       const normalizedProvider = provider.toLowerCase();
+
+      // Check if provider is an alias and resolve to canonical name
+      const canonicalProvider =
+        PROVIDER_ALIASES[normalizedProvider] || normalizedProvider;
+
       const supportedModels =
         VISION_CAPABILITIES[
-          normalizedProvider as keyof typeof VISION_CAPABILITIES
+          canonicalProvider as keyof typeof VISION_CAPABILITIES
         ];
 
       if (!supportedModels) {
@@ -456,9 +520,14 @@ export class ProviderImageAdapter {
    */
   static getSupportedModels(provider: string): string[] {
     const normalizedProvider = provider.toLowerCase();
+
+    // Check if provider is an alias and resolve to canonical name
+    const canonicalProvider =
+      PROVIDER_ALIASES[normalizedProvider] || normalizedProvider;
+
     const models =
       VISION_CAPABILITIES[
-        normalizedProvider as keyof typeof VISION_CAPABILITIES
+        canonicalProvider as keyof typeof VISION_CAPABILITIES
       ];
     return models ? [...models] : [];
   }

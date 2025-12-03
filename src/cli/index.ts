@@ -64,8 +64,7 @@ process.on("beforeExit", async () => {
 });
 
 async function cleanup() {
-  const { flushOpenTelemetry } = await import(
-    "../lib/services/server/ai/observability/instrumentation.js"
-  );
+  const { flushOpenTelemetry } =
+    await import("../lib/services/server/ai/observability/instrumentation.js");
   await flushOpenTelemetry();
 }

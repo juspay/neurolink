@@ -309,6 +309,7 @@ general_settings:
   master_key: sk-1234
   database_url: "postgresql://..." # Required for budgets
 
+
 # Create virtual keys with budgets
 # litellm --config config.yaml --create_key \
 #   --key_name "team-frontend" \
