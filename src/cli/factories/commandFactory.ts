@@ -82,6 +82,32 @@ export class CLICommandFactory {
       type: "string" as const,
       description: "Add PDF file for analysis (can be used multiple times)",
     },
+    video: {
+      type: "string" as const,
+      description:
+        "Add video file for analysis (can be used multiple times) (MP4, WebM, MOV, AVI, MKV)",
+    },
+    "video-frames": {
+      type: "number" as const,
+      default: 8,
+      description: "Number of frames to extract (default: 8)",
+    },
+    "video-quality": {
+      type: "number" as const,
+      default: 85,
+      description: "Frame quality 0-100 (default: 85)",
+    },
+    "video-format": {
+      type: "string" as const,
+      choices: ["jpeg", "png"],
+      default: "jpeg",
+      description: "Frame format (default: jpeg)",
+    },
+    "transcribe-audio": {
+      type: "boolean" as const,
+      default: false,
+      description: "Extract and transcribe audio from video",
+    },
     file: {
       type: "string" as const,
       description:
@@ -317,6 +343,16 @@ export class CLICommandFactory {
       return undefined;
     }
     return Array.isArray(files) ? files : [files];
+  }
+
+  // Helper method to process CLI video files
+  private static processCliVideoFiles(
+    videoFiles?: string | string[],
+  ): Array<Buffer | string> | undefined {
+    if (!videoFiles) {
+      return undefined;
+    }
+    return Array.isArray(videoFiles) ? videoFiles : [videoFiles];
   }
 
   // Helper method to process common options
@@ -669,6 +705,10 @@ export class CLICommandFactory {
             .example(
               '$0 generate "Analyze data" --enable-analytics',
               "Enable usage analytics",
+            )
+            .example(
+              '$0 generate "Describe this video" --video path/to/video.mp4',
+              "Analyze video content",
             ),
         );
       },
@@ -703,7 +743,11 @@ export class CLICommandFactory {
               '$0 stream "Code walkthrough" --output story.txt',
               "Stream to file",
             )
-            .example('echo "Live demo" | $0 stream', "Stream from stdin"),
+            .example('echo "Live demo" | $0 stream', "Stream from stdin")
+            .example(
+              '$0 stream "Narrate this video" --video path/to/video.mp4',
+              "Stream video analysis",
+            ),
         );
       },
       handler: async (argv) =>
@@ -1533,6 +1577,9 @@ export class CLICommandFactory {
       const pdfFiles = CLICommandFactory.processCliPDFFiles(
         argv.pdf as string | string[] | undefined,
       );
+      const videoFiles = CLICommandFactory.processCliVideoFiles(
+        argv.video as string | string[] | undefined,
+      );
       const files = CLICommandFactory.processCliFiles(
         argv.file as string | string[] | undefined,
       );
@@ -1542,6 +1589,7 @@ export class CLICommandFactory {
         ...(imageBuffers && { images: imageBuffers }),
         ...(csvFiles && { csvFiles }),
         ...(pdfFiles && { pdfFiles }),
+        ...(videoFiles && { videoFiles }),
         ...(files && { files }),
       };
 
@@ -1554,6 +1602,12 @@ export class CLICommandFactory {
             | "markdown"
             | "json"
             | undefined,
+        },
+        videoOptions: {
+          frames: argv.videoFrames as number | undefined,
+          quality: argv.videoQuality as number | undefined,
+          format: argv.videoFormat as "jpeg" | "png" | undefined,
+          transcribeAudio: argv.transcribeAudio as boolean | undefined,
         },
         provider: enhancedOptions.provider,
         model: enhancedOptions.model,
@@ -1791,6 +1845,9 @@ export class CLICommandFactory {
     const pdfFiles = CLICommandFactory.processCliPDFFiles(
       argv.pdf as string | string[] | undefined,
     );
+    const videoFiles = CLICommandFactory.processCliVideoFiles(
+      argv.video as string | string[] | undefined,
+    );
     const files = CLICommandFactory.processCliFiles(
       argv.file as string | string[] | undefined,
     );
@@ -1801,11 +1858,18 @@ export class CLICommandFactory {
         ...(imageBuffers && { images: imageBuffers }),
         ...(csvFiles && { csvFiles }),
         ...(pdfFiles && { pdfFiles }),
+        ...(videoFiles && { videoFiles }),
         ...(files && { files }),
       },
       csvOptions: {
         maxRows: argv.csvMaxRows as number | undefined,
         formatStyle: argv.csvFormat as "raw" | "markdown" | "json" | undefined,
+      },
+      videoOptions: {
+        frames: argv.videoFrames as number | undefined,
+        quality: argv.videoQuality as number | undefined,
+        format: argv.videoFormat as "jpeg" | "png" | undefined,
+        transcribeAudio: argv.transcribeAudio as boolean | undefined,
       },
       provider: enhancedOptions.provider as string | undefined,
       model: enhancedOptions.model as string | undefined,

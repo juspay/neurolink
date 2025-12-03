@@ -177,6 +177,7 @@ export type StreamOptions = {
     images?: Array<Buffer | string | ImageWithAltText>;
     csvFiles?: Array<Buffer | string>; // Explicit CSV files (converted to text)
     pdfFiles?: Array<Buffer | string>; // Explicit PDF files (processed as binary documents, not converted to text)
+    videoFiles?: Array<Buffer | string>; // Explicit video files
     files?: Array<Buffer | string>; // Auto-detect file types
     content?: Content[]; // Advanced multimodal content
   };
@@ -194,6 +195,14 @@ export type StreamOptions = {
     maxRows?: number;
     formatStyle?: "raw" | "markdown" | "json";
     includeHeaders?: boolean;
+  };
+
+  // Video processing options
+  videoOptions?: {
+    frames?: number; // Number of frames to extract (default: 8)
+    quality?: number; // Frame quality 0-100 (default: 85)
+    format?: "jpeg" | "png"; // Frame format (default: jpeg)
+    transcribeAudio?: boolean; // Extract and transcribe audio (default: false)
   };
 
   // Core streaming options
