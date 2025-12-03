@@ -1,0 +1,58 @@
+# CODEOWNERS file for NeuroLink
+# Each line is a file pattern followed by one or more owners.
+# These owners will be the default assignees for pull requests.
+
+# Global owners
+* @juspay/neurolink-maintainers
+
+# Core library and SDK
+/src/lib/ @juspay/neurolink-core
+/src/lib/core/ @juspay/neurolink-core
+/src/lib/neurolink.ts @juspay/neurolink-core
+
+# AI Providers
+/src/lib/providers/ @juspay/neurolink-providers
+/src/lib/providers/openAI.ts @juspay/neurolink-providers
+/src/lib/providers/anthropic.ts @juspay/neurolink-providers
+/src/lib/providers/google-*.ts @juspay/neurolink-providers
+/src/lib/providers/amazon-bedrock.ts @juspay/neurolink-providers
+/src/lib/providers/azure-openai.ts @juspay/neurolink-providers
+/src/lib/providers/ollama.ts @juspay/neurolink-providers
+/src/lib/providers/mistral.ts @juspay/neurolink-providers
+/src/lib/providers/huggingFace.ts @juspay/neurolink-providers
+
+# MCP Integration
+/src/lib/mcp/ @juspay/neurolink-mcp
+/src/lib/mcp/servers/ @juspay/neurolink-mcp
+/src/lib/mcp/unified-registry.ts @juspay/neurolink-mcp
+
+# CLI
+/src/cli/ @juspay/neurolink-cli
+/src/cli/commands/ @juspay/neurolink-cli
+
+# Configuration and build
+/package.json @juspay/neurolink-maintainers
+/tsconfig*.json @juspay/neurolink-maintainers
+/vite.config.ts @juspay/neurolink-maintainers
+/.changeset/ @juspay/neurolink-maintainers
+
+# GitHub workflows and settings
+/.github/ @juspay/neurolink-maintainers
+/.github/workflows/ @juspay/neurolink-devops
+
+# Documentation
+/docs/ @juspay/neurolink-docs
+/README.md @juspay/neurolink-docs
+/CHANGELOG.md @juspay/neurolink-docs
+/CONTRIBUTING.md @juspay/neurolink-docs
+
+# Tests
+/test/ @juspay/neurolink-testing
+
+# Examples and demos
+/examples/ @juspay/neurolink-docs
+/neurolink-demo/ @juspay/neurolink-docs
+
+# Scripts and tools
+/scripts/ @juspay/neurolink-devops
+/tools/ @juspay/neurolink-devops

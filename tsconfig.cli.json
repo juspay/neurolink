@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "$lib": ["./src/lib"],
+      "$lib/*": ["./src/lib/*"],
+      "*": ["src/types/*"]
+    }
+  },
+  "include": ["src/cli/**/*.ts", "src/lib/**/*.ts"],
+  "exclude": ["test", "**/*.test.ts", "**/*.spec.ts", "node_modules", "dist"]
+}

@@ -1,0 +1,204 @@
+# Repository settings for NeuroLink
+# See https://github.com/repository-settings/app for details
+
+repository:
+  name: neurolink
+  description: "Universal AI Development Platform with working MCP integration, multi-provider support, and professional CLI. Built-in tools operational, 58+ external MCP servers discoverable."
+  homepage: https://juspay.github.io/neurolink
+  topics:
+    - ai
+    - llm
+    - mcp
+    - model-context-protocol
+    - typescript
+    - cli
+    - sdk
+    - openai
+    - anthropic
+    - google-ai
+    - aws-bedrock
+    - azure
+    - huggingface
+    - ollama
+    - mistral
+    - streaming
+    - tools
+    - ai-agents
+    - developer-tools
+    - machine-learning
+    - ai-platform
+    - juspay
+
+  private: false
+  has_issues: true
+  has_projects: true
+  has_wiki: false
+  has_downloads: true
+  default_branch: release
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: true
+  delete_branch_on_merge: true
+  enable_automated_security_fixes: true
+  enable_vulnerability_alerts: true
+
+# Labels for issue and PR management
+labels:
+  # Type labels
+  - name: "type: bug"
+    color: "d73a4a"
+    description: "Something isn't working"
+
+  - name: "type: feature"
+    color: "0075ca"
+    description: "New feature or request"
+
+  - name: "type: enhancement"
+    color: "a2eeef"
+    description: "Enhancement to existing functionality"
+
+  - name: "type: documentation"
+    color: "0052cc"
+    description: "Improvements or additions to documentation"
+
+  - name: "type: refactor"
+    color: "5319e7"
+    description: "Code refactoring"
+
+  - name: "type: performance"
+    color: "fbca04"
+    description: "Performance improvements"
+
+  # Priority labels
+  - name: "priority: critical"
+    color: "b60205"
+    description: "Critical priority"
+
+  - name: "priority: high"
+    color: "d93f0b"
+    description: "High priority"
+
+  - name: "priority: medium"
+    color: "fbca04"
+    description: "Medium priority"
+
+  - name: "priority: low"
+    color: "0e8a16"
+    description: "Low priority"
+
+  # Status labels
+  - name: "status: triage"
+    color: "ededed"
+    description: "Needs triage"
+
+  - name: "status: in-progress"
+    color: "c5def5"
+    description: "Currently being worked on"
+
+  - name: "status: blocked"
+    color: "b60205"
+    description: "Blocked by external dependency"
+
+  - name: "status: needs-review"
+    color: "fbca04"
+    description: "Needs code review"
+
+  # Component labels
+  - name: "component: cli"
+    color: "1d76db"
+    description: "Related to CLI functionality"
+
+  - name: "component: sdk"
+    color: "1d76db"
+    description: "Related to SDK functionality"
+
+  - name: "component: mcp"
+    color: "1d76db"
+    description: "Related to MCP integration"
+
+  - name: "component: providers"
+    color: "1d76db"
+    description: "Related to AI providers"
+
+  - name: "component: streaming"
+    color: "1d76db"
+    description: "Related to streaming functionality"
+
+  - name: "component: tools"
+    color: "1d76db"
+    description: "Related to tool integration"
+
+  - name: "component: config"
+    color: "1d76db"
+    description: "Related to configuration"
+
+  - name: "component: docs"
+    color: "1d76db"
+    description: "Related to documentation"
+
+  # Provider-specific labels
+  - name: "provider: openai"
+    color: "0e8a16"
+    description: "OpenAI provider specific"
+
+  - name: "provider: anthropic"
+    color: "0e8a16"
+    description: "Anthropic provider specific"
+
+  - name: "provider: google"
+    color: "0e8a16"
+    description: "Google AI/Vertex provider specific"
+
+  - name: "provider: bedrock"
+    color: "0e8a16"
+    description: "AWS Bedrock provider specific"
+
+  - name: "provider: azure"
+    color: "0e8a16"
+    description: "Azure OpenAI provider specific"
+
+  - name: "provider: ollama"
+    color: "0e8a16"
+    description: "Ollama provider specific"
+
+  - name: "good first issue"
+    color: "7057ff"
+    description: "Good for newcomers"
+
+  - name: "help wanted"
+    color: "008672"
+    description: "Extra attention is needed"
+
+# Branch protection rules
+branches:
+  - name: release
+    protection:
+      required_status_checks:
+        strict: true
+        contexts:
+          - "test"
+          - "build"
+      enforce_admins: false
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+      restrictions: null
+      allow_force_pushes: false
+      allow_deletions: false
+
+  - name: release
+    protection:
+      required_status_checks:
+        strict: true
+        contexts:
+          - "test"
+          - "build"
+      enforce_admins: false
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+      restrictions: null
+      allow_force_pushes: false
+      allow_deletions: false

@@ -1,0 +1,2 @@
+{"version": 2, "width": 89, "height": 29, "timestamp": 1749696401, "env": {"SHELL": "/bin/zsh", "TERM": "xterm-256color"}}
+[0.157055, "o", "Available providers: openai, bedrock, vertex, anthropic, azure, google-ai\r\n"]

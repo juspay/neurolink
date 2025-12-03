@@ -1,0 +1,34 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "name": "filesystem",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "transport": "stdio"
+    },
+    "github": {
+      "name": "github",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "transport": "stdio"
+    },
+    "bitbucket": {
+      "name": "bitbucket",
+      "command": "npx",
+      "args": ["-y", "@nexus2520/bitbucket-mcp-server"],
+      "transport": "stdio",
+      "env": {
+        "BITBUCKET_USERNAME": "your-bitbucket-username",
+        "BITBUCKET_APP_PASSWORD": "your-app-password"
+      }
+    }
+  },
+  "autoDiscovery": {
+    "enabled": true,
+    "autoRegister": true
+  },
+  "defaultRegistry": {
+    "enabled": true,
+    "includeBuiltInTools": true
+  }
+}

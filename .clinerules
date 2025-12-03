@@ -1,0 +1,1071 @@
+# NeuroLink Project Rules
+
+
+### **MIGRATION PATTERNS**
+- **Factory Pattern Integration**: ProviderGenerateFactory enhances all 9 providers
+- **Interface Future-Readiness**: GenerateOptions designed for multi-modal expansion
+- **Enhanced Error Handling**: Better provider management and graceful fallbacks
+
+> **📚 Historical Learning Archive**: See `memory-bank/archive/.clinerules-2025-01-07`
+> **🎯 Current Focus**: Complete operational guide for enterprise AI development
+
+---
+
+## 🏗️ FACTORY-FIRST MCP ARCHITECTURE
+### **MCP Foundation Pattern (CRITICAL)**
+```typescript
+// Factory-First MCP Architecture
+src/lib/mcp/
+├── factory.ts                  # createMCPServer() - Lighthouse compatible
+├── context-manager.ts          # Rich context (15+ fields) + tool chain tracking
+├── registry.ts                 # Tool discovery, registration, execution + statistics
+├── orchestrator.ts             # Single tools + sequential pipelines + error handling
+└── servers/ai-providers/       # AI Core Server with 3 tools integrated
+    └── ai-core-server.ts       # generate, select-provider, check-provider-status
+```
+
+### **Key Implementation Principles**
+- **INTERNAL TOOLS**: MCP tools work behind factory methods - users never see complexity
+- **LIGHTHOUSE COMPATIBLE**: 99% compatible - just change import statements
+- **RICH CONTEXT**: sessionId, userId, aiProvider, permissions flow through all tools
+- **PERFORMANCE**: Tool execution <1ms, pipeline execution ~22ms for 2-step sequence
+- **ERROR HANDLING**: Graceful failures with comprehensive logging and recovery
+
+---
+
+## 🏗️ ENTERPRISE CONFIGURATION PATTERNS (NEW)
+
+### **Automatic Backup System (CRITICAL)**
+```typescript
+// Every config change creates timestamped backups
+const configManager = new ConfigManager();
+await configManager.updateConfig(newConfig);
+// ✅ Backup created: .neurolink.backups/neurolink-config-2025-01-07T10-30-00.js
+```
+
+### **Configuration Management Architecture**
+- **Auto-Backup**: Timestamped backups before every config change
+- **Hash Verification**: Integrity checking with SHA-256 hashes
+- **Auto-Restore**: Automatic restore on config update failures
+- **Validation**: Comprehensive validation with suggestions and warnings
+- **Cleanup**: Automatic cleanup of old backups (configurable retention)
+- **Provider Status**: Real-time provider availability monitoring
+
+### **Interface Standardization Patterns**
+```typescript
+// Industry-standard camelCase interfaces
+interface ExecutionContext {
+  sessionId?: string;
+  userId?: string;
+  aiProvider?: string;
+  permissions?: string[];
+  cacheOptions?: CacheOptions;
+  fallbackOptions?: FallbackOptions;
+  metadata?: Record<string, unknown>;
+  // 15+ rich context fields for enterprise usage
+}
+
+// Optional methods for maximum flexibility
+interface McpRegistry {
+  registerServer?(serverId: string, config?: unknown, context?: ExecutionContext): Promise<void>;
+  executeTool?<T>(toolName: string, args?: unknown, context?: ExecutionContext): Promise<T>;
+  listTools?(context?: ExecutionContext): Promise<ToolInfo[]>;
+}
+```
+
+### **TypeScript Error Resolution Strategies**
+- **Type Casting**: Use `as ToolResult` for unknown return types
+- **String Conversion**: `String(value || 'unknown')` for safe string conversion
+- **Optional Properties**: Use `?.` for safe property access
+- **Interface Compatibility**: Override parent methods when signature changes
+- **Generic Support**: `<T = unknown>` for flexible return types
+
+---
+
+## 🛠️ ENTERPRISE DEVELOPMENT WORKFLOW
+
+### **Complete Command Arsenal (70+ Commands)**
+
+#### **Environment & Setup (PNPM-First)**
+```bash
+# Complete project setup with validation
+pnpm run setup:complete
+
+# Environment management
+pnpm run env:validate
+pnpm run env:backup
+pnpm run env:list-backups
+
+# Initial setup
+pnpm run setup  # Core setup only
+```
+
+#### **Project Management & Analysis**
+```bash
+# Analyze project for duplicates and optimization
+pnpm run project:analyze
+
+# Execute cleanup (removes duplicates safely)
+pnpm run project:cleanup
+
+# Organize project structure
+pnpm run project:organize
+
+# Check overall project health
+pnpm run project:health
+```
+
+#### **Testing (Enhanced & Adaptive)**
+```bash
+# MAIN TESTING COMMANDS
+pnpm run test:run              # Non-interactive test suite
+pnpm run test:smart             # Intelligent adaptive testing
+pnpm run test:providers         # Validate all AI providers
+pnpm run test:performance       # Performance benchmarking
+pnpm run test:coverage          # Coverage analysis
+pnpm run test:ci                # Complete CI testing suite
+
+# SPECIFIC TESTING
+vitest                          # Interactive development testing
+vitest run test/continuous-test-suite.ts  # Main test suite
+```
+
+#### **Build & Deploy (7-Phase Pipeline)**
+```bash
+# Unified build system
+pnpm run build:complete        # Complete pipeline
+pnpm run build                 # Main build
+pnpm run build:cli             # CLI build
+pnpm run build:analyze         # Dependency analysis
+
+# Alternative direct automation (if needed)
+node tools/automation/build-system.js build complete
+node tools/automation/build-system.js build fast
+node tools/automation/build-system.js build quality
+node tools/automation/build-system.js deploy staging
+node tools/automation/build-system.js watch
+```
+
+#### **Documentation Automation**
+```bash
+# Synchronize documentation across files
+pnpm run docs:sync
+
+# Validate documentation links
+pnpm run docs:validate
+
+# Generate complete documentation
+pnpm run docs:generate
+```
+
+#### **Content Generation**
+```bash
+# Generate screenshots automatically
+pnpm run content:screenshots
+
+# Generate videos
+pnpm run content:videos
+
+# Cleanup hash-named content
+pnpm run content:cleanup
+
+# Generate all content
+pnpm run content:all
+```
+
+#### **Quality & Maintenance**
+```bash
+# Complete quality check
+pnpm run quality:all           # lint + format + test:ci
+
+# Individual quality commands
+pnpm run lint                   # ESLint check
+pnpm run format                 # Prettier formatting
+pnpm run check                  # SvelteKit type checking
+
+# Maintenance
+pnpm run clean                  # Clean build artifacts
+pnpm run reset                  # Full reset
+pnpm run audit                  # Security audit
+```
+
+#### **Development & Monitoring**
+```bash
+# Development servers
+pnpm run dev                    # Standard dev server
+pnpm run dev:full               # Enhanced dev server
+pnpm run dev:demo               # Dev + demo server
+pnpm run dev:health             # Health monitoring
+
+# Specialized servers
+pnpm run model-server           # Model validation server
+pnpm run preview                # Production preview
+```
+
+---
+
+## 🔧 COMPLETE SDLC CYCLE
+
+### **Phase 1: Development Setup**
+```bash
+# 1. Environment preparation
+pnpm run setup:complete
+pnpm run env:validate
+
+# 2. Verify all systems
+pnpm run project:health
+pnpm run test:providers
+```
+
+### **Phase 2: Feature Development**
+```bash
+# 1. Start development
+pnpm run dev                    # Start dev server
+
+# 2. Continuous testing during development
+vitest                          # Interactive testing
+pnpm run test:smart             # Adaptive testing
+
+# 3. Code quality checks
+pnpm run lint                   # Check linting
+pnpm run format                 # Format code
+```
+
+### **Phase 3: Pre-Commit Validation**
+```bash
+# 1. Complete quality check
+pnpm run quality:all
+
+# 2. Documentation sync
+pnpm run docs:sync
+
+# 3. Build validation
+pnpm run build:complete
+```
+
+### **Phase 4: Testing & Validation**
+```bash
+# 1. Comprehensive testing
+pnpm run test:ci
+pnpm run test:performance
+
+# 2. Provider validation
+pnpm run test:providers
+
+# 3. Coverage analysis
+pnpm run test:coverage
+```
+
+### **Phase 5: Pre-Release**
+```bash
+# 1. Final build
+pnpm run build:complete
+
+# 2. Content generation
+pnpm run content:all
+
+# 3. Documentation generation
+pnpm run docs:generate
+```
+
+### **Phase 6: Release & Deploy**
+```bash
+# 1. Release preparation
+pnpm run release
+
+# 2. Deployment (if applicable)
+node tools/automation/build-system.js deploy staging
+```
+
+---## 🧪 COMPREHENSIVE TESTING & DEBUGGING STRATEGY
+
+### **Testing Architecture (3-Layer System)**
+```
+Layer 1: Core Provider Tests → Unit Tests (Mock-based, <500ms)
+Layer 2: Error Handling & Edge Cases → Integration Tests (Graceful degradation)
+Layer 3: Real-World Scenarios → System Tests (Performance, concurrency)
+```
+
+### **Testing Commands by Category**
+```bash
+# DEVELOPMENT TESTING (Interactive)
+vitest                          # Watch mode with hot reload
+vitest run test/continuous-test-suite.ts  # Main test suite
+
+# AUTOMATED TESTING (CI/CD)
+pnpm run test:run               # Non-interactive full suite
+pnpm run test:ci                # Complete CI pipeline
+pnpm run test:smart             # Adaptive testing with intelligence
+
+# SPECIALIZED TESTING
+pnpm run test:providers         # Validate all 9 AI providers
+pnpm run test:performance       # Benchmark response times & throughput
+pnpm run test:coverage          # Coverage analysis with reports
+pnpm run test:dynamic-models    # Dynamic model validation
+```
+
+### **Debugging Methodology (ESSENTIAL)**
+
+#### **Step 1: Diagnostic Logging**
+```typescript
+// ALWAYS add diagnostic logging first
+if (argv.debug) {
+  console.log("🔍 DEBUG: Result object keys:", Object.keys(result));
+  console.log("🔍 DEBUG: Has analytics:", !!result.analytics);
+  console.log("🔍 DEBUG: Has evaluation:", !!result.evaluation);
+  console.log("🔍 DEBUG: Provider response:", JSON.stringify(result, null, 2));
+}
+```
+
+#### **Step 2: Provider Validation**
+```bash
+# Test specific provider with debug output
+pnpm cli generate "test" --provider google-ai --enable-analytics --debug
+
+# Validate model configuration
+pnpm run model-server
+
+# Check provider health
+pnpm run test:providers
+```
+
+#### **Step 3: Environment Validation**
+```bash
+# Validate environment setup
+pnpm run env:validate
+
+# Check project health
+pnpm run project:health
+
+# Analyze dependencies
+pnpm run build:analyze
+```
+
+### **Mock-First Testing Strategy**
+```typescript
+// Standard mock configuration
+vi.mock("ai", () => ({
+  stream: vi.fn(),
+  generate: vi.fn(),
+  Output: { object: vi.fn() },
+}));
+
+// Provider-specific mocks
+vi.mock("@ai-sdk/openai", () => ({ openai: vi.fn() }));
+vi.mock("@ai-sdk/amazon-bedrock", () => ({
+  amazonBedrock: vi.fn(),
+  createAmazonBedrock: vi.fn(),
+}));
+```
+
+### **Testing Success Criteria**
+- ✅ **Zero Failures**: All executed tests must pass (26/29 currently passing)
+- ✅ **Graceful Degradation**: Skip tests when credentials unavailable
+- ✅ **Fast Execution**: Full test suite < 500ms
+- ✅ **Environment Independence**: No external service dependencies in CI
+- ✅ **Provider Coverage**: All 9 providers tested with mocks
+
+---
+
+## 📁 DOCUMENTATION & RESEARCH WORKFLOWS
+
+### **Documentation Creation Hierarchy**
+
+```
+docs/                           # Public API documentation
+├── API-REFERENCE.md           # TypeScript interfaces, method signatures
+├── ENVIRONMENT-VARIABLES.md   # Configuration guide with examples
+├── TROUBLESHOOTING.md         # Common issues and solutions
+└── PROVIDER-CONFIGURATION.md  # Provider-specific setup
+
+memory-bank/                   # Internal knowledge management
+├── activeContext.md           # Current development focus
+├── progress.md               # Completed work tracking
+├── systemPatterns.md         # Architecture decisions
+├── techContext.md            # Technical implementation details
+├── productContext.md         # Business requirements
+├── projectbrief.md           # Project overview
+└── roadmap.md               # Future planning
+
+memory-bank/development/       # Developer guides
+├── local-dev.md              # Development workflow
+├── how-to-add-new-ai-provider.md  # Provider integration
+├── testing-strategy.md       # Testing approaches
+└── github-workflow-automation.md  # CI/CD processes
+
+memory-bank/research/          # Research & analysis
+├── LIGHTHOUSE-MCP-ANALYSIS.md     # Lighthouse project analysis
+├── NEUROLINK-ANALYSIS-REPORT.md  # Project status reports
+└── mcp-comprehensive-analysis.md  # MCP implementation research
+```
+
+### **Documentation Creation Workflow**
+
+#### **For API Documentation (docs/)**
+<!-- TODO: ADD this -->
+
+#### **For Internal Knowledge (memory-bank/)**
+```bash
+# 1. Identify correct location
+# - activeContext.md: Current work status
+# - progress.md: Completed features
+# - systemPatterns.md: Architecture patterns
+# - techContext.md: Technical decisions
+
+# 2. Update relevant file
+# Use desktop commander or file editor
+
+# 3. Cross-reference in other files
+# Update activeContext.md with current status
+# Update progress.md if work completed
+```
+
+#### **For Research Documents (memory-bank/research/)**
+```bash
+# 1. Create research document
+# Location: memory-bank/research/{TOPIC}-ANALYSIS.md
+# Naming: ALL-CAPS-WITH-HYPHENS.md
+
+# 2. Research structure
+# - Executive Summary
+# - Detailed Analysis
+# - Technical Implementation
+# - Business Impact
+# - Recommendations
+
+# 3. Reference in activeContext.md
+# Add research status to current work
+```
+
+### **File Creation Anti-Clutter Patterns**
+
+#### **AVOID: Root Directory Clutter**
+```bash
+# ❌ DON'T CREATE IN ROOT
+./new-research-doc.md
+./temp-analysis.md
+./test-script.js
+```
+
+#### **✅ USE: Organized Structure**
+```bash
+# ✅ Research documents
+memory-bank/research/NEW-FEATURE-ANALYSIS.md
+
+# ✅ Development guides
+memory-bank/development/new-workflow-guide.md
+
+# ✅ Demo scripts
+scripts/examples/new-demo.js
+
+# ✅ Test files
+test/continuous-test-suite.ts
+
+# ✅ Tools and automation
+tools/automation/new-automation.js
+```
+
+#### **File Creation Checklist**
+1. **Identify Purpose**: Research, development, demo, test, or documentation?
+2. **Choose Correct Directory**: Follow established hierarchy
+3. **Use Naming Convention**:
+   - Research: ALL-CAPS-WITH-HYPHENS.md
+   - Development: kebab-case.md
+   - Scripts: kebab-case.js
+   - Tests: feature-name.test.ts
+4. **Reference in activeContext.md**: Update current work status
+5. **Cross-reference**: Update related memory bank files
+
+---
+
+## 🔐 AUTHENTICATION & PROVIDER PATTERNS
+
+### **Google Vertex AI Authentication (Hierarchical)**
+```typescript
+// Hierarchical authentication detection
+const hasPrincipalAccountAuth = () => !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
+const hasServiceAccountKeyAuth = () => !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+const hasServiceAccountEnvAuth = () => !!(process.env.GOOGLE_AUTH_CLIENT_EMAIL && process.env.GOOGLE_AUTH_PRIVATE_KEY);
+```
+
+### **AWS Bedrock Model Configuration**
+```typescript
+// Always use full inference profile ARN for Anthropic models
+const getBedrockModelId = (): string => {
+  return process.env.BEDROCK_MODEL ||
+         'arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0';
+};
+```
+
+### **Google AI Studio Integration**
+```bash
+# WORKING CONFIGURATIONS
+GOOGLE_AI_MODEL=gemini-2.5-pro                    # ✅ Main model
+NEUROLINK_EVALUATION_MODEL=gemini-2.5-flash      # ✅ Fast evaluation
+
+# AVOID DEPRECATED
+# gemini-2.5-pro-preview-05-06                   # ❌ Empty responses
+```
+
+### **Local Service Status Patterns (Ollama)**
+```typescript
+// Two-step verification pattern
+// Step 1: Check if Ollama service running
+// Step 2: Check if required model available
+
+// Error message pattern:
+"Model 'llama3.2:latest' not found. Please run 'ollama pull llama3.2:latest'"
+
+// Prevents confusing fallback behavior, provides clear guidance
+```
+
+### **Provider Interface Design (CRITICAL)**
+```typescript
+// Always support flexible parameter formats
+const options = typeof optionsOrPrompt === 'string'
+  ? { prompt: optionsOrPrompt }
+  : optionsOrPrompt;
+
+// Implementation pattern for all providers
+export class YourProvider implements AIProvider {
+  async generate(
+    optionsOrPrompt: TextGenerationOptions | string,
+  ): Promise<string> {
+    const options = typeof optionsOrPrompt === 'string'
+      ? { prompt: optionsOrPrompt }
+      : optionsOrPrompt;
+
+    // Provider-specific implementation
+  }
+}
+```
+
+---## 🔄 GITHUB WORKFLOW & SDLC
+
+### **Actual Release Process**
+```bash
+# Single release branch workflow
+1. feature/fix branch → CI (format/lint/build/test on Node 18/20)
+2. PR to 'release' branch (single branch)
+3. Push to release → semantic-release → NPM + GitHub Packages
+```
+
+### **Branch Naming (NO JIRA)**
+```bash
+feature/add-voice-ai-integration
+fix/resolve-provider-fallback-issue
+hotfix/critical-security-patch
+release  # ← Single release branch
+```
+
+### **Semantic Commits (UPDATED)**
+```bash
+feat(providers): add Google AI Studio integration
+fix(cli): resolve environment loading (closes #123)
+docs(api): update TypeScript interfaces
+feat(core)!: breaking change with migration guide
+```
+
+### **⚠️ CRITICAL: Accidental Major Version Prevention**
+```bash
+# ❌ NEVER write this (triggers major version bump)
+BREAKING CHANGE: None - all functionality preserved
+
+# ✅ ALWAYS use this instead
+Note: No breaking changes - all functionality preserved
+All existing functionality preserved
+Internal changes only - no public API impact
+```
+
+**Real Incident:** v7.0.0 was accidentally released due to "BREAKING CHANGE:" in commit message.
+**Prevention:** See `memory-bank/development/semantic-commit-guidelines.md` for complete guide.
+
+### **GitHub Actions Integration**
+```yaml
+# ci.yml - Continuous Integration
+Triggers: push [release] + PR [release]
+Jobs: Node 18/20 matrix → format → lint → build → CLI test
+
+# release.yml - Automated Release & Publishing
+Trigger: push to 'release' branch
+Flow: semantic-release → NPM publish → GitHub Packages
+Permissions: contents, packages, issues, pull-requests (write)
+```
+
+### **Automated Release Process (ACTUAL)**
+```bash
+# 1. Developer pushes to feature branch
+git push origin feature/my-feature
+
+# 2. CI runs automatically (format, lint, build, test)
+# ✅ All checks pass
+
+# 3. Create PR to release branch
+gh pr create --base release --title "feat: my feature"
+
+# 4. Merge PR to release branch
+gh pr merge --rebase
+
+# 5. Automated release workflow triggers
+# → semantic-release analyzes commits
+# → generates version number
+# → creates GitHub release
+# → publishes to NPM
+# → publishes to GitHub Packages
+```
+
+---
+
+## 📊 AI ENHANCEMENT SUCCESS PATTERNS
+
+### **Analytics Integration (PRODUCTION-READY)**
+- **Real Token Counting**: 299-768 tokens, cost estimation
+- **Response Time Tracking**: 2-10s processing
+- **Factory-Level Integration**: Not bolted on, built-in
+- **Optional by Default**: Zero breaking changes
+
+### **Evaluation System (PRODUCTION-READY)**
+- **AI Quality Scoring**: 8-10/10 scale
+- **Detailed Feedback**: Relevance, accuracy, completeness
+- **Sub-6s Processing**: Fast evaluation with gemini-2.5-flash
+- **Context-Aware**: Project-specific evaluation criteria
+
+### **Enhanced Evaluation System (LIGHTHOUSE-INSPIRED)**
+- **Domain-Aware Assessment**: Context-specific evaluation with domain expertise validation
+- **6-Dimensional Scoring**: relevanceScore, accuracyScore, completenessScore, domainAlignment, terminologyAccuracy, toolEffectiveness
+- **Tool Context Integration**: MCP tool usage tracking and effectiveness scoring
+- **Conversation History**: Multi-turn conversation context for better evaluation
+- **Advanced Alerting**: Domain failure detection with sophisticated severity assessment
+- **Enterprise Telemetry**: Structured logging with OpenTelemetry patterns
+- **Backward Compatibility**: Full compatibility with Universal Evaluation System
+
+### **CLI Enhancement Display**
+```bash
+# Enhanced CLI output
+pnpm cli generate "prompt" --enable-analytics --enable-evaluation --debug
+
+# Displays:
+# 📊 Analytics: {provider, tokens, responseTime, context}
+# ⭐ Response Evaluation: {relevance, accuracy, completeness, overall}
+```
+
+### **SDK Enhancement Integration**
+```typescript
+// Enhanced SDK response structure
+interface GenerateResult {
+  text: string;
+  analytics?: {
+    provider: string;
+    model: string;
+    tokens: { input: number; output: number; total: number };
+    cost?: number;
+    responseTime: number;
+    context?: Record<string, any>;
+  };
+  evaluation?: {
+    relevance: number;    // 1-10 scale
+    accuracy: number;     // 1-10 scale
+    completeness: number; // 1-10 scale
+    overall: number;      // 1-10 scale
+  };
+}
+```
+
+---
+
+## 🚀 PROVIDER INTEGRATION PATTERNS
+
+### **6-Phase Provider Integration Checklist**
+
+#### **Phase 1: Core Functionality (ESSENTIAL)**
+```typescript
+// Location: src/lib/providers/{providerName}.ts
+// Pattern: YourProvider implements AIProvider
+
+export class YourProvider implements AIProvider {
+  constructor(modelName?: string) {
+    // Initialize with model configuration
+  }
+
+  async generate(
+    optionsOrPrompt: TextGenerationOptions | string,
+  ): Promise<string> {
+    // Support both string and options parameter formats
+    const options = typeof optionsOrPrompt === 'string'
+      ? { prompt: optionsOrPrompt }
+      : optionsOrPrompt;
+
+    // Implementation with analytics integration
+  }
+}
+```
+
+#### **Phase 2: Factory Integration**
+```typescript
+// Add to src/lib/providers/ai-provider-factory.ts
+case 'your-provider':
+  return new YourProvider(model);
+```
+
+#### **Phase 3: Environment Configuration**
+```bash
+# Add to .env.example
+YOUR_PROVIDER_API_KEY=your_api_key_here
+YOUR_PROVIDER_MODEL=default-model-name
+```
+
+#### **Phase 4: Documentation Updates**
+```bash
+# Update these files:
+- docs/API-REFERENCE.md          # Add provider interfaces
+- docs/PROVIDER-CONFIGURATION.md # Setup instructions
+- docs/ENVIRONMENT-VARIABLES.md  # Environment config
+- README.md                      # Working examples
+```
+
+#### **Phase 5: Test Integration**
+```typescript
+// Add to test/continuous-test-suite.ts
+describe('YourProvider', () => {
+  it('should generate text successfully', async () => {
+    // Mock implementation
+    // Test core functionality
+  });
+});
+```
+
+#### **Phase 6: CLI Integration**
+```bash
+# Test CLI integration
+pnpm cli generate "test" --provider your-provider --enable-analytics
+```
+
+---
+
+## 📖 MEMORY BANK MANAGEMENT PATTERNS
+
+### **Memory Bank File Hierarchy**
+```
+memory-bank/
+├── projectbrief.md           # Foundation document - shapes all others
+├── productContext.md         # Why project exists, problems solved
+├── activeContext.md          # Current work focus, recent changes
+├── systemPatterns.md         # Architecture, technical decisions
+├── techContext.md           # Technologies, setup, constraints
+├── progress.md              # What works, what's left, status
+├── roadmap.md              # Future planning
+└── archive/                 # Historical preservation
+    └── .clinerules-2025-01-07
+```
+
+### **When to Update Memory Bank**
+1. **Discovering new project patterns**
+2. **After implementing significant changes**
+3. **When user requests with "update memory bank"** (MUST review ALL files)
+4. **When context needs clarification**
+
+### **Memory Bank Update Process**
+```bash
+# 1. Review ALL files (when triggered by "update memory bank")
+# 2. Document current state
+# 3. Clarify next steps
+# 4. Document insights & patterns
+
+# Focus particularly on:
+# - activeContext.md (current state)
+# - progress.md (completion status)
+```
+
+### **File Size Management**
+- **Maximum**: 300 lines per file
+- **Split Condition**: When file approaches 300 lines
+- **Split Strategy**: Logical sub-files in dedicated subdirectory
+- **Index Creation**: Summary file for split contents
+
+---
+
+## 💻 DEVELOPMENT STANDARDS
+
+### **TypeScript Type System Standards (MANDATORY)**
+
+**⚠️ CRITICAL: ALL CODING AGENTS MUST FOLLOW THESE RULES**
+
+#### **Rule 1: ALWAYS Use `type`, NEVER `interface`**
+
+```typescript
+// ✅ CORRECT - Use type aliases
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type Config = {
+  timeout: number;
+  retries: number;
+};
+
+// ❌ FORBIDDEN - Never use interface
+export interface User {      // ❌ WILL BE REJECTED
+  id: string;
+  name: string;
+}
+
+export interface Config {    // ❌ WILL BE REJECTED
+  timeout: number;
+}
+```
+
+**Why type over interface?**
+- Consistent pattern across entire codebase
+- Better composability with unions and intersections
+- Clearer intent (type descriptions, not extensible contracts)
+- Simpler mental model for developers
+
+#### **Rule 2: All Types MUST Live in `src/lib/types/`**
+
+```
+src/lib/types/
+├── analytics.ts           # Analytics & performance types
+├── common.ts              # Shared common types
+├── providers.ts           # Provider-specific types
+├── tools.ts               # Tool & MCP types
+├── utilities.ts           # Utility function types
+├── generateTypes.ts       # Generation options types
+├── streamTypes.ts         # Streaming types
+└── modelTypes.ts          # Model configuration types
+```
+
+**Absolute rules:**
+- ✅ **Define types in:** `src/lib/types/`
+- ❌ **NEVER define types in:** `src/lib/core/`, `src/lib/utils/`, `src/lib/providers/`
+- ✅ **Implementation files:** ONLY import types, never define them
+- ✅ **Use relative imports:** `import type { X } from "../types/common.js"`
+- ❌ **NEVER use `$lib` aliases:** `import type { X } from "$lib/types/common.js"` is FORBIDDEN
+
+#### **Rule 3: Proper Import Patterns**
+
+```typescript
+// ✅ CORRECT - Relative imports with .js extension
+import type { TokenUsage } from "../types/analytics.js";
+import type { ProviderConfiguration } from "../types/providers.js";
+import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
+
+// ❌ WRONG - $lib aliases forbidden in implementations
+import type { TokenUsage } from "$lib/types/analytics.js";      // ❌ REJECTED
+import type { ProviderConfiguration } from "$lib/types/providers";  // ❌ Missing .js
+```
+
+#### **Rule 4: Pre-Commit Checklist**
+
+Before committing ANY code, verify:
+
+- [ ] **Zero `interface` declarations** (search for `export interface`)
+- [ ] **All types in `src/lib/types/`** (no types in core/utils/providers)
+- [ ] **Relative imports only** (no `$lib` in import paths)
+- [ ] **`.js` extensions** on all imports
+- [ ] **TypeScript compiles** (`pnpm run check`)
+- [ ] **Tests pass** (`pnpm run test`)
+
+**Enforcement:** PRs violating these rules will be automatically rejected.
+
+### **TypeScript Conventions (General)**
+- **Strict Checking**: Enabled throughout codebase
+- **Import Extensions**: Use `.js` extension (ES modules)
+- **Documentation**: JSDoc for all public functions
+- **Naming**: PascalCase for types, camelCase for functions
+
+### **CLI Design Principles**
+- **Professional UX**: yargs + ora + chalk for spinners and colors
+- **Environment Loading**: `dotenv.config()` at startup
+- **Output Formats**: Human-readable text and JSON support
+- **Enhancement Flags**: --enable-analytics, --enable-evaluation, --debug
+
+### **Enhanced Debugging Patterns**
+```typescript
+// ESSENTIAL: Always add diagnostic logging
+if (argv.debug) {
+  console.log("🔍 DEBUG: Result object keys:", Object.keys(result));
+  console.log("🔍 DEBUG: Has analytics:", !!result.analytics);
+  console.log("🔍 DEBUG: Has evaluation:", !!result.evaluation);
+  console.log("🔍 DEBUG: Provider response:", JSON.stringify(result, null, 2));
+}
+```
+
+### **Error Handling Standards**
+- **Graceful Degradation**: Skip tests when credentials unavailable
+- **Clear Error Messages**: User-friendly guidance (e.g., "Please run 'ollama pull model'")
+- **Provider Fallbacks**: Implement backup strategies
+- **Validation**: Input/output type checking
+
+---
+
+## ⚡ CRITICAL SUCCESS FACTORS
+
+### **Model Configuration (ESSENTIAL)**
+```bash
+# WORKING CONFIGURATIONS
+GOOGLE_AI_MODEL=gemini-2.5-pro                    # ✅ Main model
+NEUROLINK_EVALUATION_MODEL=gemini-2.5-flash      # ✅ Fast evaluation
+
+# AVOID DEPRECATED
+# gemini-2.5-pro-preview-05-06                   # ❌ Empty responses
+```
+
+### **Provider Integration Validation**
+- **All 9 Providers**: Analytics helper integrated across OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, Hugging Face, Ollama, Mistral
+- **Backward Compatibility**: 100% maintained - existing functionality preserved
+- **Token Counting**: Real values, no NaN in production
+- **Error Handling**: Graceful provider fallbacks with clear messaging
+
+### **Testing Validation**
+```bash
+# Complete testing suite
+pnpm run test:ci                # Full CI pipeline
+pnpm run test:providers         # Provider validation
+pnpm run test:performance       # Performance benchmarks
+pnpm run test:coverage          # Coverage analysis
+```
+
+### **Development Workflow Validation**
+```bash
+# Environment validation
+pnpm run env:validate
+
+# Project health check
+pnpm run project:health
+
+# Build validation
+pnpm run build:complete
+
+# Quality check
+pnpm run quality:all
+```
+
+---
+
+## 🎯 WORKING EXAMPLES (VERIFIED)
+
+### **Basic CLI Usage (Unchanged)**
+```bash
+# Standard text generation
+pnpm cli generate "What is AI?"
+
+# Provider-specific
+pnpm cli generate "What is AI?" --provider google-ai
+
+# Model selection
+pnpm cli generate "What is AI?" --provider google-ai --model gemini-2.5-flash
+```
+
+### **Enhanced CLI Usage**
+```bash
+# Analytics tracking
+pnpm cli generate "What is AI?" --enable-analytics --debug
+
+# Response evaluation
+pnpm cli generate "What is AI?" --enable-evaluation --debug
+
+# Full enhancement suite
+pnpm cli generate "What is AI?" --enable-analytics --enable-evaluation --debug
+
+# Custom context
+pnpm cli generate "What is AI?" --context '{"project":"demo"}' --debug
+```
+
+### **SDK Usage Patterns**
+```typescript
+// Basic usage (unchanged)
+const result = await neurolink.generate("What is AI?");
+
+// Enhanced usage with analytics
+const result = await neurolink.generate({
+  prompt: "What is AI?",
+  enableAnalytics: true,
+  enableEvaluation: true,
+  context: { department: "research" }
+});
+
+// Access enhancement data
+console.log(result.analytics);   // Token usage, cost, timing
+console.log(result.evaluation);  // Quality scores
+```
+
+---
+
+## 🗃️ ARCHIVE & REFERENCE SYSTEM
+
+### **Historical Archive Access**
+```
+To access complete implementation history:
+1. Read `memory-bank/archive/.clinerules-2025-01-07` for breakthrough patterns
+2. Current operational rules remain in this file
+3. Cross-reference memory bank files for comprehensive context
+4. Use MCP tools for project analysis and sequential thinking
+```
+
+### **For AI Context System**
+- **Archive Location**: `memory-bank/archive/.clinerules-2025-01-07`
+- **Content**: All breakthrough stories, implementation histories, debugging patterns
+- **Usage**: Reference for "why" decisions were made, debugging complex issues
+- **Maintenance**: Preserve learning context while keeping current rules focused
+
+### **Project Status Reference**
+**Enterprise AI Development Platform Status:**
+- ✅ **Usage Analytics**: Cost tracking, performance monitoring, token analysis
+- ✅ **Quality Assessment**: AI-powered response evaluation and scoring
+- ✅ **Business Logic**: Quality gates, cost optimization, performance insights
+- ✅ **Professional CLI**: Enterprise-grade command-line interface
+- ✅ **9 Provider Support**: Universal analytics across all AI providers
+- ✅ **Factory-First MCP**: Lighthouse-compatible architecture
+- ✅ **100% Test Coverage**: 26/29 tests passing, comprehensive validation
+- ✅ **Zero Breaking Changes**: Full backward compatibility maintained
+
+---
+
+## 🔧 PROJECT STRUCTURE PATTERNS
+
+### **Core Architecture**
+```
+src/
+├── lib/
+│   ├── providers/              # AI provider implementations
+│   ├── mcp/                   # Factory-first MCP architecture
+│   ├── types/                 # TypeScript interfaces
+│   └── utils/                 # Shared utilities
+├── cli/                       # Command-line interface
+└── test/                      # Testing infrastructure
+
+tools/
+├── automation/                # Build & deployment automation
+├── content/                   # Documentation & media generation
+├── development/               # Developer experience tools
+└── testing/                   # Testing utilities
+
+memory-bank/                   # Knowledge management
+├── development/               # Developer guides
+├── research/                  # Analysis & research
+├── reports/                   # Status reports
+└── archive/                   # Historical preservation
+
+scripts/
+└── examples/                  # Demo & example scripts
+```
+
+### **File Organization Rules**
+- **Provider Files**: `src/lib/providers/{providerName}.ts`
+- **Test Files**: `test/{feature}.test.ts`
+- **Demo Scripts**: `scripts/examples/{demo}.js`
+- **Research Docs**: `memory-bank/research/{TOPIC}-ANALYSIS.md`
+- **Development Guides**: `memory-bank/development/{guide}.md`
+
+### **Naming Conventions**
+- **TypeScript**: PascalCase for classes, camelCase for functions
+- **Files**: kebab-case.ts for implementations
+- **Research**: ALL-CAPS-WITH-HYPHENS.md
+- **Guides**: kebab-case.md
+- **Scripts**: kebab-case.js
+
+---
+
+**🎯 OPERATIONAL EXCELLENCE**: This .clinerules file provides the complete operational knowledge for NeuroLink development. All patterns, workflows, and standards are battle-tested and production-ready. Use the archive system for historical context while following these current operational guidelines.

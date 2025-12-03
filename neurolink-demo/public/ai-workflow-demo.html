@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeuroLink AI Development Workflow Tools - Phase 1.2 Demo</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f0f4f8;
+        line-height: 1.6;
+        color: #2c3e50;
+      }
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 40px;
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .header h1 {
+        color: #3498db;
+        margin-bottom: 10px;
+        font-size: 2.5em;
+      }
+      .header p {
+        color: #7f8c8d;
+        font-size: 1.2em;
+      }
+      .status-badge {
+        display: inline-block;
+        background: #27ae60;
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.9em;
+        margin-top: 10px;
+      }
+      .tools-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+        gap: 30px;
+        margin-bottom: 40px;
+      }
+      .tool-card {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border: 2px solid transparent;
+        transition: all 0.3s;
+      }
+      .tool-card:hover {
+        border-color: #3498db;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      }
+      .tool-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+      .tool-icon {
+        font-size: 2em;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #e8f4fd;
+        border-radius: 10px;
+      }
+      .tool-title h3 {
+        margin: 0;
+        color: #2c3e50;
+        font-size: 1.5em;
+      }
+      .tool-title p {
+        margin: 5px 0 0 0;
+        color: #7f8c8d;
+        font-size: 0.9em;
+      }
+      .form-group {
+        margin: 20px 0;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #34495e;
+      }
+      textarea,
+      select,
+      input {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #ecf0f1;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: inherit;
+        transition: border-color 0.3s;
+        background: #f8f9fa;
+      }
+      textarea:focus,
+      select:focus,
+      input:focus {
+        outline: none;
+        border-color: #3498db;
+        background: white;
+      }
+      .btn {
+        background: #3498db;
+        color: white;
+        border: none;
+        padding: 12px 28px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 600;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .btn:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+      }
+      .btn:active {
+        transform: translateY(0);
+      }
+      .btn.secondary {
+        background: #95a5a6;
+      }
+      .btn.secondary:hover {
+        background: #7f8c8d;
+      }
+      .output {
+        background: #f8f9fa;
+        border: 2px solid #ecf0f1;
+        padding: 20px;
+        border-radius: 8px;
+        margin-top: 20px;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+        font-family: "Monaco", "Menlo", monospace;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .status {
+        padding: 12px 16px;
+        margin: 15px 0;
+        border-radius: 8px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .status.success {
+        background: #d5f4e6;
+        color: #27ae60;
+        border: 1px solid #27ae60;
+      }
+      .status.error {
+        background: #fadbd8;
+        color: #e74c3c;
+        border: 1px solid #e74c3c;
+      }
+      .status.loading {
+        background: #fff3cd;
+        color: #f39c12;
+        border: 1px solid #f39c12;
+      }
+      .workflow-demo {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-top: 40px;
+      }
+      .workflow-demo h2 {
+        color: #2c3e50;
+        margin-bottom: 20px;
+      }
+      .code-sample {
+        background: #2c3e50;
+        color: #ecf0f1;
+        padding: 20px;
+        border-radius: 8px;
+        font-family: "Monaco", "Menlo", monospace;
+        font-size: 14px;
+        overflow-x: auto;
+        margin: 15px 0;
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+      }
+      .metric {
+        background: #ecf0f1;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid #bdc3c7;
+      }
+      .metric-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #3498db;
+      }
+      .metric-label {
+        font-size: 12px;
+        color: #7f8c8d;
+        text-transform: uppercase;
+        margin-top: 5px;
+      }
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+      .tab {
+        padding: 10px 20px;
+        background: #ecf0f1;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 500;
+      }
+      .tab:hover {
+        background: #3498db;
+        color: white;
+      }
+      .tab.active {
+        background: #3498db;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🚀 NeuroLink AI Development Workflow Tools</h1>
+        <p>Phase 1.2 - Comprehensive AI Development Platform</p>
+        <div class="status-badge">✅ 10 MCP Tools Available</div>
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-value">4</div>
+            <div class="metric-label">Workflow Tools</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">100%</div>
+            <div class="metric-label">Test Coverage</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">&lt;1ms</div>
+            <div class="metric-label">Tool Execution</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">26/26</div>
+            <div class="metric-label">Tests Passing</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tools-grid">
+        <!-- Generate Test Cases Tool -->
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-icon">🧪</div>
+            <div class="tool-title">
+              <h3>Generate Test Cases</h3>
+              <p>AI-powered test case generation for multiple frameworks</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Code to Test:</label>
+            <textarea id="test-code" rows="6">
+function calculateDiscount(price, discountPercent) {
+  if (price <= 0 || discountPercent < 0 || discountPercent > 100) {
+    throw new Error('Invalid input parameters');
+  }
+  return price * (1 - discountPercent / 100);
+}</textarea
+            >
+          </div>
+
+          <div class="form-group">
+            <label>Test Framework:</label>
+            <select id="test-framework">
+              <option value="jest">Jest</option>
+              <option value="mocha">Mocha</option>
+              <option value="vitest">Vitest</option>
+              <option value="pytest">Pytest</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Coverage Type:</label>
+            <select id="test-coverage">
+              <option value="comprehensive">Comprehensive</option>
+              <option value="edge-cases">Edge Cases Only</option>
+              <option value="happy-path">Happy Path Only</option>
+            </select>
+          </div>
+
+          <button class="btn" onclick="generateTestCases()">
+            <span>🧪</span> Generate Test Cases
+          </button>
+          <div id="test-status"></div>
+          <div id="test-output" class="output"></div>
+        </div>
+
+        <!-- Refactor Code Tool -->
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-icon">🔧</div>
+            <div class="tool-title">
+              <h3>Refactor Code</h3>
+              <p>AI-powered code refactoring with best practices</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Code to Refactor:</label>
+            <textarea id="refactor-code" rows="6">
+function processData(d) {
+  let r = [];
+  for (let i = 0; i < d.length; i++) {
+    if (d[i] > 0) {
+      r.push(d[i] * 2);
+    }
+  }
+  return r;
+}</textarea
+            >
+          </div>
+
+          <div class="form-group">
+            <label>Refactor Goals:</label>
+            <select id="refactor-goals" multiple style="height: 100px">
+              <option value="readability" selected>Readability</option>
+              <option value="maintainability" selected>Maintainability</option>
+              <option value="performance">Performance</option>
+              <option value="testability">Testability</option>
+              <option value="dry-principle">DRY Principle</option>
+            </select>
+          </div>
+
+          <button class="btn" onclick="refactorCode()">
+            <span>🔧</span> Refactor Code
+          </button>
+          <div id="refactor-status"></div>
+          <div id="refactor-output" class="output"></div>
+        </div>
+
+        <!-- Generate Documentation Tool -->
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-icon">📝</div>
+            <div class="tool-title">
+              <h3>Generate Documentation</h3>
+              <p>Automatic documentation generation from code</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Code to Document:</label>
+            <textarea id="doc-code" rows="6">
+class UserAuthentication {
+  constructor(database) {
+    this.db = database;
+    this.sessionTimeout = 3600000; // 1 hour
+  }
+
+  async login(email, password) {
+    const user = await this.db.findUser(email);
+    if (!user || !this.verifyPassword(password, user.hashedPassword)) {
+      throw new Error('Invalid credentials');
+    }
+    return this.createSession(user);
+  }
+}</textarea
+            >
+          </div>
+
+          <div class="form-group">
+            <label>Documentation Type:</label>
+            <select id="doc-type">
+              <option value="comprehensive">Comprehensive</option>
+              <option value="api-reference">API Reference</option>
+              <option value="usage-guide">Usage Guide</option>
+              <option value="inline-comments">Inline Comments</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Format:</label>
+            <select id="doc-format">
+              <option value="markdown">Markdown</option>
+              <option value="jsdoc">JSDoc</option>
+              <option value="sphinx">Sphinx</option>
+              <option value="docstring">Docstring</option>
+            </select>
+          </div>
+
+          <button class="btn" onclick="generateDocumentation()">
+            <span>📝</span> Generate Documentation
+          </button>
+          <div id="doc-status"></div>
+          <div id="doc-output" class="output"></div>
+        </div>
+
+        <!-- Debug AI Output Tool -->
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-icon">🐛</div>
+            <div class="tool-title">
+              <h3>Debug AI Output</h3>
+              <p>Analyze and debug AI-generated content</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Original Prompt:</label>
+            <textarea id="debug-prompt" rows="3">
+Create a React component that fetches user data and displays it in a table</textarea
+            >
+          </div>
+
+          <div class="form-group">
+            <label>AI Output to Debug:</label>
+            <textarea id="debug-output" rows="6">
+function UserTable() {
+  const [users, setUsers] = useState([]);
+
+  fetch('/api/users')
+    .then(res => res.json())
+    .then(data => setUsers(data));
+
+  return <table>{users.map(u => <tr><td>{u.name}</td></tr>)}</table>;
+}</textarea
+            >
+          </div>
+
+          <div class="form-group">
+            <label>Analysis Depth:</label>
+            <select id="debug-depth">
+              <option value="detailed">Detailed</option>
+              <option value="quick">Quick Check</option>
+              <option value="comprehensive">Comprehensive</option>
+            </select>
+          </div>
+
+          <button class="btn" onclick="debugAIOutput()">
+            <span>🐛</span> Debug AI Output
+          </button>
+          <div id="debug-status"></div>
+          <div id="debug-analysis" class="output"></div>
+        </div>
+      </div>
+
+      <!-- Workflow Integration Demo -->
+      <div class="workflow-demo">
+        <h2>🔄 Complete Workflow Integration Demo</h2>
+        <p>
+          See how all 4 tools work together in a complete development workflow:
+        </p>
+
+        <div class="tabs">
+          <div class="tab active" onclick="showWorkflowTab('code')">
+            1. Original Code
+          </div>
+          <div class="tab" onclick="showWorkflowTab('refactor')">
+            2. Refactor
+          </div>
+          <div class="tab" onclick="showWorkflowTab('document')">
+            3. Document
+          </div>
+          <div class="tab" onclick="showWorkflowTab('test')">4. Test</div>
+          <div class="tab" onclick="showWorkflowTab('debug')">5. Debug</div>
+        </div>
+
+        <div id="workflow-code" class="workflow-content">
+          <h3>Step 1: Original Code</h3>
+          <div class="code-sample">
+            // Original user validation function function validate(u) { if (!u.e
+            || !u.p) return false; if (u.e.indexOf('@') === -1) return false; if
+            (u.p.length < 8) return false; return true; }
+          </div>
+          <button class="btn" onclick="runCompleteWorkflow()">
+            <span>🚀</span> Run Complete Workflow
+          </button>
+        </div>
+
+        <div
+          id="workflow-refactor"
+          class="workflow-content"
+          style="display: none"
+        >
+          <h3>Step 2: Refactored Code</h3>
+          <div id="workflow-refactor-output" class="output">
+            Click "Run Complete Workflow" to see refactored code
+          </div>
+        </div>
+
+        <div
+          id="workflow-document"
+          class="workflow-content"
+          style="display: none"
+        >
+          <h3>Step 3: Generated Documentation</h3>
+          <div id="workflow-document-output" class="output">
+            Click "Run Complete Workflow" to see documentation
+          </div>
+        </div>
+
+        <div id="workflow-test" class="workflow-content" style="display: none">
+          <h3>Step 4: Generated Test Cases</h3>
+          <div id="workflow-test-output" class="output">
+            Click "Run Complete Workflow" to see test cases
+          </div>
+        </div>
+
+        <div id="workflow-debug" class="workflow-content" style="display: none">
+          <h3>Step 5: Debug Analysis</h3>
+          <div id="workflow-debug-output" class="output">
+            Click "Run Complete Workflow" to see debug analysis
+          </div>
+        </div>
+
+        <div id="workflow-status" style="margin-top: 20px"></div>
+      </div>
+    </div>
+
+    <script>
+      // Utility functions
+      function setStatus(elementId, message, type = "info") {
+        const status = document.getElementById(elementId);
+        if (status) {
+          status.className = "status " + type;
+          status.textContent = message;
+        }
+      }
+
+      function setOutput(elementId, content) {
+        const output = document.getElementById(elementId);
+        if (output) {
+          if (typeof content === "object") {
+            output.textContent = JSON.stringify(content, null, 2);
+          } else {
+            output.textContent = content;
+          }
+        }
+      }
+
+      async function apiCall(endpoint, data = {}) {
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+          return await response.json();
+        } catch (error) {
+          throw new Error("Network error: " + error.message);
+        }
+      }
+
+      // Tool functions
+      async function generateTestCases() {
+        const code = document.getElementById("test-code").value;
+        const framework = document.getElementById("test-framework").value;
+        const coverage = document.getElementById("test-coverage").value;
+
+        setStatus("test-status", "Generating test cases...", "loading");
+        setOutput("test-output", "");
+
+        try {
+          const result = await apiCall("/api/ai/generate-test-cases", {
+            codeSnippet: code,
+            testFramework: framework,
+            coverage: coverage,
+            language: "javascript",
+          });
+
+          if (result.success) {
+            const testSuite = result.data.testSuite;
+            const output = `Framework: ${testSuite.framework}
+Coverage: ${testSuite.coverage}
+Generated ${testSuite.totalTestCases} test cases
+
+${testSuite.testCases[0].testCode}`;
+            setOutput("test-output", output);
+            setStatus(
+              "test-status",
+              "✅ Test cases generated successfully",
+              "success",
+            );
+          } else {
+            setStatus("test-status", "Error: " + result.error, "error");
+          }
+        } catch (error) {
+          setStatus("test-status", "Request failed: " + error.message, "error");
+        }
+      }
+
+      async function refactorCode() {
+        const code = document.getElementById("refactor-code").value;
+        const goals = Array.from(
+          document.getElementById("refactor-goals").selectedOptions,
+        ).map((option) => option.value);
+
+        setStatus("refactor-status", "Refactoring code...", "loading");
+        setOutput("refactor-output", "");
+
+        try {
+          const result = await apiCall("/api/ai/refactor-code", {
+            codeSnippet: code,
+            refactorGoals: goals,
+            language: "javascript",
+          });
+
+          if (result.success) {
+            setOutput("refactor-output", result.data.refactoredCode);
+            setStatus(
+              "refactor-status",
+              "✅ Code refactored successfully",
+              "success",
+            );
+          } else {
+            setStatus("refactor-status", "Error: " + result.error, "error");
+          }
+        } catch (error) {
+          setStatus(
+            "refactor-status",
+            "Request failed: " + error.message,
+            "error",
+          );
+        }
+      }
+
+      async function generateDocumentation() {
+        const code = document.getElementById("doc-code").value;
+        const docType = document.getElementById("doc-type").value;
+        const format = document.getElementById("doc-format").value;
+
+        setStatus("doc-status", "Generating documentation...", "loading");
+        setOutput("doc-output", "");
+
+        try {
+          const result = await apiCall("/api/ai/generate-documentation", {
+            codeSnippet: code,
+            docType: docType,
+            format: format,
+            language: "javascript",
+          });
+
+          if (result.success) {
+            const doc = result.data.documentation;
+            setOutput("doc-output", doc.sections[0].content);
+            setStatus(
+              "doc-status",
+              "✅ Documentation generated successfully",
+              "success",
+            );
+          } else {
+            setStatus("doc-status", "Error: " + result.error, "error");
+          }
+        } catch (error) {
+          setStatus("doc-status", "Request failed: " + error.message, "error");
+        }
+      }
+
+      async function debugAIOutput() {
+        const prompt = document.getElementById("debug-prompt").value;
+        const output = document.getElementById("debug-output").value;
+        const depth = document.getElementById("debug-depth").value;
+
+        setStatus("debug-status", "Analyzing AI output...", "loading");
+        setOutput("debug-analysis", "");
+
+        try {
+          const result = await apiCall("/api/ai/debug-ai-output", {
+            originalPrompt: prompt,
+            aiOutput: output,
+            analysisDepth: depth,
+            issueType: "code-quality",
+          });
+
+          if (result.success) {
+            const analysis = result.data;
+            const output = `Analysis Depth: ${analysis.analysis.analysisDepth}
+
+Issues Found:
+${analysis.issues.map((issue) => `- ${issue.type}: ${issue.description}`).join("\n")}
+
+Recommendations:
+${analysis.recommendations.join("\n")}`;
+            setOutput("debug-analysis", output);
+            setStatus("debug-status", "✅ Analysis completed", "success");
+          } else {
+            setStatus("debug-status", "Error: " + result.error, "error");
+          }
+        } catch (error) {
+          setStatus(
+            "debug-status",
+            "Request failed: " + error.message,
+            "error",
+          );
+        }
+      }
+
+      // Workflow demo functions
+      function showWorkflowTab(tab) {
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
+        document
+          .querySelectorAll(".workflow-content")
+          .forEach((c) => (c.style.display = "none"));
+
+        event.target.classList.add("active");
+        document.getElementById("workflow-" + tab).style.display = "block";
+      }
+
+      async function runCompleteWorkflow() {
+        const originalCode = `function validate(u) {
+  if (!u.e || !u.p) return false;
+  if (u.e.indexOf('@') === -1) return false;
+  if (u.p.length < 8) return false;
+  return true;
+}`;
+
+        setStatus("workflow-status", "Running complete workflow...", "loading");
+
+        try {
+          // Step 1: Refactor
+          const refactorResult = await apiCall("/api/ai/refactor-code", {
+            codeSnippet: originalCode,
+            refactorGoals: ["readability", "maintainability"],
+            language: "javascript",
+          });
+
+          if (refactorResult.success) {
+            setOutput(
+              "workflow-refactor-output",
+              refactorResult.data.refactoredCode,
+            );
+          }
+
+          // Step 2: Generate documentation
+          const docResult = await apiCall("/api/ai/generate-documentation", {
+            codeSnippet: refactorResult.data.refactoredCode || originalCode,
+            docType: "comprehensive",
+            format: "jsdoc",
+            language: "javascript",
+          });
+
+          if (docResult.success) {
+            setOutput(
+              "workflow-document-output",
+              docResult.data.documentation.sections[0].content,
+            );
+          }
+
+          // Step 3: Generate test cases
+          const testResult = await apiCall("/api/ai/generate-test-cases", {
+            codeSnippet: refactorResult.data.refactoredCode || originalCode,
+            testFramework: "jest",
+            coverage: "comprehensive",
+            language: "javascript",
+          });
+
+          if (testResult.success) {
+            setOutput(
+              "workflow-test-output",
+              testResult.data.testSuite.testCases[0].testCode,
+            );
+          }
+
+          // Step 4: Debug analysis
+          const debugResult = await apiCall("/api/ai/debug-ai-output", {
+            originalPrompt: "Create a user validation function",
+            aiOutput: refactorResult.data.refactoredCode || originalCode,
+            analysisDepth: "detailed",
+          });
+
+          if (debugResult.success) {
+            const analysis = `Issues: ${debugResult.data.issues.length}
+Recommendations:
+${debugResult.data.recommendations.join("\n")}`;
+            setOutput("workflow-debug-output", analysis);
+          }
+
+          setStatus(
+            "workflow-status",
+            "✅ Complete workflow executed successfully!",
+            "success",
+          );
+        } catch (error) {
+          setStatus(
+            "workflow-status",
+            "Workflow error: " + error.message,
+            "error",
+          );
+        }
+      }
+    </script>
+  </body>
+</html>

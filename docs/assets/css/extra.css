@@ -1,0 +1,209 @@
+/* NeuroLink Documentation Custom Styles */
+
+:root {
+  --neurolink-primary: #2563eb;
+  --neurolink-secondary: #f97316;
+  --neurolink-accent: #8b5cf6;
+  --neurolink-success: #059669;
+  --neurolink-warning: #d97706;
+  --neurolink-error: #dc2626;
+}
+
+/* Custom card grid for features */
+.grid.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.grid.cards > div {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.grid.cards > div:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Video container for responsive videos */
+.video-container {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  margin: 1rem 0;
+}
+
+.video-container video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0.5rem;
+}
+
+/* Enhanced code blocks */
+.highlight pre {
+  border-left: 4px solid var(--neurolink-primary);
+  padding-left: 1rem;
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0.125rem;
+}
+
+.status-working {
+  background-color: var(--neurolink-success);
+  color: white;
+}
+
+.status-development {
+  background-color: var(--neurolink-warning);
+  color: white;
+}
+
+.status-discovery {
+  background-color: var(--neurolink-accent);
+  color: white;
+}
+
+/* Enhanced tables */
+.md-typeset table:not([class]) {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--md-default-fg-color--lightest);
+  font-weight: 600;
+}
+
+/* Command examples */
+.command-example {
+  background-color: var(--md-code-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.command-example::before {
+  content: "$ ";
+  color: var(--neurolink-primary);
+  font-weight: bold;
+}
+
+/* Feature highlights */
+.feature-highlight {
+  border-left: 4px solid var(--neurolink-primary);
+  background-color: var(--md-primary-fg-color--lightest);
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+/* Quick start section */
+.quick-start {
+  background: linear-gradient(
+    135deg,
+    var(--neurolink-primary),
+    var(--neurolink-accent)
+  );
+  color: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  margin: 2rem 0;
+}
+
+.quick-start h3 {
+  color: white;
+  margin-top: 0;
+}
+
+.quick-start code {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Provider comparison table enhancements */
+.provider-table {
+  font-size: 0.9rem;
+}
+
+.provider-table td:first-child {
+  font-weight: 600;
+}
+
+.provider-table .checkmark {
+  color: var(--neurolink-success);
+  font-size: 1.2rem;
+}
+
+.provider-table .crossmark {
+  color: var(--neurolink-error);
+  font-size: 1.2rem;
+}
+
+.provider-table .warning {
+  color: var(--neurolink-warning);
+  font-size: 1.2rem;
+}
+
+/* Dark mode adjustments */
+[data-md-color-scheme="slate"] {
+  --neurolink-primary: #60a5fa;
+  --neurolink-secondary: #fb923c;
+  --neurolink-accent: #a78bfa;
+}
+
+[data-md-color-scheme="slate"] .grid.cards > div {
+  border-color: var(--md-default-fg-color--lightest);
+  background-color: var(--md-default-bg-color);
+}
+
+[data-md-color-scheme="slate"] .feature-highlight {
+  background-color: rgba(96, 165, 250, 0.1);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .grid.cards {
+    grid-template-columns: 1fr;
+  }
+
+  .video-container {
+    margin: 0.5rem 0;
+  }
+
+  .quick-start {
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+}
+
+/* Print styles */
+@media print {
+  .grid.cards {
+    break-inside: avoid;
+  }
+
+  .video-container {
+    display: none;
+  }
+
+  .feature-highlight {
+    break-inside: avoid;
+  }
+}

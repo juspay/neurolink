@@ -1,0 +1,288 @@
+{
+  "version": "2.0.0",
+  "lastUpdated": "2025-06-18T15:00:00Z",
+  "models": {
+    "anthropic": {
+      "claude-3.5-sonnet": {
+        "id": "claude-3-5-sonnet-20241022",
+        "displayName": "Claude 3.5 Sonnet",
+        "capabilities": ["function-calling", "vision", "analysis", "code"],
+        "deprecated": false,
+        "pricing": { "input": 0.003, "output": 0.015 },
+        "contextWindow": 200000,
+        "releaseDate": "2024-10-22",
+        "metadata": {
+          "description": "Most balanced Claude model for coding and analysis",
+          "useCase": "general",
+          "speed": "medium",
+          "quality": "high"
+        }
+      },
+      "claude-3-opus": {
+        "id": "claude-3-opus-20240229",
+        "displayName": "Claude 3 Opus",
+        "capabilities": ["function-calling", "vision", "analysis", "research"],
+        "deprecated": false,
+        "pricing": { "input": 0.015, "output": 0.075 },
+        "contextWindow": 200000,
+        "releaseDate": "2024-02-29",
+        "metadata": {
+          "description": "Most capable Claude model for complex reasoning",
+          "useCase": "research",
+          "speed": "slow",
+          "quality": "highest"
+        }
+      },
+      "claude-3-haiku": {
+        "id": "claude-3-haiku-20240307",
+        "displayName": "Claude 3 Haiku",
+        "capabilities": ["function-calling"],
+        "deprecated": false,
+        "pricing": { "input": 0.00025, "output": 0.00125 },
+        "contextWindow": 200000,
+        "releaseDate": "2024-03-07",
+        "metadata": {
+          "description": "Fastest and most cost-effective Claude model",
+          "useCase": "simple",
+          "speed": "fast",
+          "quality": "medium"
+        }
+      }
+    },
+    "openai": {
+      "gpt-4o": {
+        "id": "gpt-4o",
+        "displayName": "GPT-4o",
+        "capabilities": [
+          "function-calling",
+          "vision",
+          "json-mode",
+          "multimodal"
+        ],
+        "deprecated": false,
+        "pricing": { "input": 0.03, "output": 0.06 },
+        "contextWindow": 128000,
+        "releaseDate": "2024-05-13",
+        "metadata": {
+          "description": "Advanced multimodal model with vision and voice",
+          "useCase": "multimodal",
+          "speed": "medium",
+          "quality": "high"
+        }
+      },
+      "gpt-4o-mini": {
+        "id": "gpt-4o-mini",
+        "displayName": "GPT-4o Mini",
+        "capabilities": ["function-calling", "json-mode", "vision"],
+        "deprecated": false,
+        "pricing": { "input": 0.0005, "output": 0.0015 },
+        "contextWindow": 128000,
+        "releaseDate": "2024-07-18",
+        "metadata": {
+          "description": "Cost-effective GPT-4o variant for high-volume tasks",
+          "useCase": "volume",
+          "speed": "fast",
+          "quality": "medium"
+        }
+      },
+      "gpt-4-turbo": {
+        "id": "gpt-4-turbo",
+        "displayName": "GPT-4 Turbo",
+        "capabilities": ["function-calling", "vision", "json-mode"],
+        "deprecated": true,
+        "pricing": { "input": 0.01, "output": 0.03 },
+        "contextWindow": 128000,
+        "releaseDate": "2024-04-09",
+        "metadata": {
+          "description": "Deprecated: Use GPT-4o instead",
+          "useCase": "deprecated",
+          "speed": "medium",
+          "quality": "high"
+        }
+      }
+    },
+    "google": {
+      "gemini-2.5-pro": {
+        "id": "gemini-2.5-pro",
+        "displayName": "Gemini 2.5 Pro",
+        "capabilities": [
+          "function-calling",
+          "vision",
+          "code-execution",
+          "multimodal",
+          "advanced-reasoning"
+        ],
+        "deprecated": false,
+        "pricing": { "input": 0.00125, "output": 0.005 },
+        "contextWindow": 1000000,
+        "releaseDate": "2025-06-17",
+        "metadata": {
+          "description": "Most advanced Google AI model with multimodal capabilities and 1M token context",
+          "useCase": "advanced",
+          "speed": "medium",
+          "quality": "highest"
+        }
+      },
+      "gemini-2.5-flash": {
+        "id": "gemini-2.5-flash",
+        "displayName": "Gemini 2.5 Flash",
+        "capabilities": ["function-calling", "vision", "code-execution"],
+        "deprecated": false,
+        "pricing": { "input": 0.000075, "output": 0.0003 },
+        "contextWindow": 1000000,
+        "releaseDate": "2024-12-11",
+        "metadata": {
+          "description": "Fastest and most cost-effective Google AI model",
+          "useCase": "speed",
+          "speed": "fastest",
+          "quality": "medium"
+        }
+      }
+    },
+    "bedrock": {
+      "claude-3.5-sonnet": {
+        "id": "anthropic.claude-3-5-sonnet-20241022-v1:0",
+        "displayName": "Claude 3.5 Sonnet (Bedrock)",
+        "capabilities": ["function-calling", "vision", "code"],
+        "deprecated": false,
+        "pricing": { "input": 0.003, "output": 0.015 },
+        "contextWindow": 200000,
+        "releaseDate": "2024-10-22",
+        "metadata": {
+          "description": "Claude 3.5 Sonnet via AWS Bedrock",
+          "useCase": "enterprise",
+          "speed": "medium",
+          "quality": "high"
+        }
+      },
+      "claude-3.7-sonnet": {
+        "id": "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        "displayName": "Claude 3.7 Sonnet (Bedrock)",
+        "capabilities": ["function-calling", "vision", "advanced-reasoning"],
+        "deprecated": false,
+        "pricing": { "input": 0.004, "output": 0.02 },
+        "contextWindow": 200000,
+        "releaseDate": "2025-02-19",
+        "metadata": {
+          "description": "Latest Claude model via AWS Bedrock inference profile",
+          "useCase": "enterprise",
+          "speed": "medium",
+          "quality": "highest"
+        }
+      },
+      "claude-3.5-haiku": {
+        "id": "anthropic.claude-3-5-haiku-20241022-v1:0",
+        "displayName": "Claude 3.5 Haiku (Bedrock)",
+        "capabilities": ["function-calling"],
+        "deprecated": false,
+        "pricing": { "input": 0.001, "output": 0.005 },
+        "contextWindow": 200000,
+        "releaseDate": "2024-10-22",
+        "metadata": {
+          "description": "Fast and cost-effective Claude 3.5 via Bedrock",
+          "useCase": "volume",
+          "speed": "fast",
+          "quality": "medium"
+        }
+      }
+    },
+    "azure": {
+      "gpt-4o": {
+        "id": "gpt-4o",
+        "displayName": "GPT-4o (Azure)",
+        "capabilities": ["function-calling", "vision", "json-mode"],
+        "deprecated": false,
+        "pricing": { "input": 0.03, "output": 0.06 },
+        "contextWindow": 128000,
+        "releaseDate": "2024-05-13",
+        "metadata": {
+          "description": "GPT-4o via Azure OpenAI Service",
+          "useCase": "enterprise",
+          "speed": "medium",
+          "quality": "high"
+        }
+      },
+      "gpt-4o-mini": {
+        "id": "gpt-4o-mini",
+        "displayName": "GPT-4o Mini (Azure)",
+        "capabilities": ["function-calling", "json-mode", "vision"],
+        "deprecated": false,
+        "pricing": { "input": 0.0005, "output": 0.0015 },
+        "contextWindow": 128000,
+        "releaseDate": "2024-07-18",
+        "metadata": {
+          "description": "Cost-effective GPT-4o via Azure",
+          "useCase": "volume",
+          "speed": "fast",
+          "quality": "medium"
+        }
+      }
+    },
+    "mistral": {
+      "codestral-25.01": {
+        "id": "codestral-25.01",
+        "displayName": "Codestral 25.01",
+        "capabilities": ["code", "function-calling", "completion"],
+        "deprecated": false,
+        "pricing": { "input": 0.002, "output": 0.006 },
+        "contextWindow": 32000,
+        "releaseDate": "2025-01-15",
+        "metadata": {
+          "description": "Latest code-specialized model, 2.5x faster than predecessor",
+          "useCase": "coding",
+          "speed": "fast",
+          "quality": "high"
+        }
+      },
+      "mistral-large-24.11": {
+        "id": "mistral-large-24.11",
+        "displayName": "Mistral Large 24.11",
+        "capabilities": ["function-calling", "analysis", "reasoning"],
+        "deprecated": false,
+        "pricing": { "input": 0.008, "output": 0.024 },
+        "contextWindow": 128000,
+        "releaseDate": "2024-11-15",
+        "metadata": {
+          "description": "High-complexity reasoning and analysis model",
+          "useCase": "analysis",
+          "speed": "medium",
+          "quality": "high"
+        }
+      },
+      "mistral-small": {
+        "id": "mistral-small",
+        "displayName": "Mistral Small",
+        "capabilities": ["function-calling"],
+        "deprecated": false,
+        "pricing": { "input": 0.001, "output": 0.003 },
+        "contextWindow": 32000,
+        "releaseDate": "2024-06-15",
+        "metadata": {
+          "description": "Cost-effective model for simple tasks",
+          "useCase": "simple",
+          "speed": "fast",
+          "quality": "medium"
+        }
+      }
+    }
+  },
+  "aliases": {
+    "claude-latest": "anthropic/claude-3.5-sonnet",
+    "gpt-latest": "openai/gpt-4o",
+    "gemini-latest": "google/gemini-2.5-pro",
+    "best-coding": "mistral/codestral-25.01",
+    "best-reasoning": "anthropic/claude-3-opus",
+    "best-multimodal": "google/gemini-2.5-pro",
+    "fastest": "google/gemini-2.0-flash",
+    "cheapest": "google/gemini-2.0-flash",
+    "best-enterprise": "bedrock/claude-3.7-sonnet"
+  },
+  "defaults": {
+    "anthropic": "claude-3.5-sonnet",
+    "openai": "gpt-4o-mini",
+    "google": "gemini-2.5-pro",
+    "bedrock": "claude-3.5-sonnet",
+    "azure": "gpt-4o-mini",
+    "mistral": "mistral-small"
+  }
+}

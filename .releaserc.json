@@ -1,0 +1,52 @@
+{
+  "branches": ["release"],
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          { "type": "feat", "release": "minor" },
+          { "type": "fix", "release": "patch" },
+          { "type": "perf", "release": "patch" },
+          { "type": "revert", "release": "patch" },
+          { "type": "docs", "release": false },
+          { "type": "style", "release": false },
+          { "type": "refactor", "release": "patch" },
+          { "type": "test", "release": false },
+          { "type": "build", "release": "patch" },
+          { "type": "ci", "release": false },
+          { "type": "chore", "release": false },
+          { "breaking": true, "release": "major" }
+        ],
+        "parserOpts": {
+          "headerPattern": "^(?:\\w+-\\d+:\\s*)?(\\w+!?)(\\([\\w\\$\\.\\-\\*\\s]*\\))?\\s*:(.*)$",
+          "headerCorrespondence": ["type", "scope", "subject"],
+          "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES", "BREAKING"]
+        }
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "parserOpts": {
+          "headerPattern": "^(?:\\w+-\\d+:\\s*)?(\\w+!?)(\\([\\w\\$\\.\\-\\*\\s]*\\))?\\s*:(.*)$",
+          "headerCorrespondence": ["type", "scope", "subject"],
+          "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES", "BREAKING"]
+        }
+      }
+    ],
+    "@semantic-release/changelog",
+    "./scripts/semantic-release-format-plugin.cjs",
+    "@semantic-release/npm",
+    "@semantic-release/github",
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["CHANGELOG.md", "package.json"],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ]
+  ]
+}

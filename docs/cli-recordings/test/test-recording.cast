@@ -1,0 +1,2 @@
+{"version": 2, "width": 205, "height": 18, "timestamp": 1749138194, "idle_time_limit": 2.0, "env": {"SHELL": "/bin/zsh", "TERM": "xterm-256color"}, "title": "Test Recording"}
+[0.026443, "o", "Hello NeuroLink CLI\r\n"]

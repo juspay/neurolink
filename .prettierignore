@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.svelte-kit/
+.output/
+.vercel/
+.netlify/
+.wrangler/
+package/
+
+# Git directories (including renamed ones)
+.git/
+.git_disabled/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+test-output.json
+test-output.txt
+debug-output.txt
+demo-results.json
+batch-results.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Archives and generated content
+docs/cli-recordings/
+docs/visual-content/cli-videos/
+docs/visual-content/screenshots/
+docs/visual-content/videos/
+neurolink-demo/videos/
+neurolink-demo/screenshots/
+scripts/
+memory-bank/
+archive/
+
+# Package files
+*.tgz
+package-lock.json
+pnpm-lock.yaml
+
+# Generated files
+*.d.ts
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*

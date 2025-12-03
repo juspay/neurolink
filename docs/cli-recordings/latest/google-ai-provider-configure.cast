@@ -1,0 +1,2 @@
+{"version": 2, "width": 89, "height": 29, "timestamp": 1749696409, "env": {"SHELL": "/bin/zsh", "TERM": "xterm-256color"}}
+[0.245332, "o", "\u001b[34m\u001b[39m\r\n\u001b[34m🔧 Configuration guidance for \u001b[1mgoogle-ai\u001b[22m:\u001b[39m\r\n\u001b[33m💡 Set relevant environment variables for API keys and other settings.\u001b[39m\r\n\u001b[90m   Refer to the documentation for details: https://github.com/juspay/neurolink#configuration\u001b[39m\r\n"]
