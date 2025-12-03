@@ -520,6 +520,12 @@ export const imageUtils = {
   /**
    * Extract and validate image file extension from filename or URL
    * Returns null if extension is not a valid image format
+   *
+   * Security Note: This function extracts the LAST extension from the filename.
+   * Files with double extensions (e.g., "malware.exe.jpg") will return "jpg" if valid.
+   * Callers should implement additional security checks based on their use case,
+   * such as validating the full filename or checking file content, to prevent
+   * potential security issues related to double extension attacks.
    */
   getValidatedImageExtension: (filename: string): string | null => {
     const extension = imageUtils.getFileExtension(filename);
