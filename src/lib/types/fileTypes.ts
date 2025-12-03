@@ -5,7 +5,7 @@
 /**
  * Supported file types for multimodal input
  */
-export type FileType = "csv" | "image" | "pdf" | "text" | "unknown";
+export type FileType = "csv" | "image" | "pdf" | "audio" | "text" | "unknown";
 
 /**
  * File input can be Buffer or string (path/URL/data URI)
@@ -102,6 +102,24 @@ export type FileDetectorOptions = {
   csvOptions?: CSVProcessorOptions;
   confidenceThreshold?: number;
   provider?: string;
+};
+
+/**
+ * Audio processor options for transcription configuration
+ */
+export type AudioProcessorOptions = {
+  /** AI provider to use for transcription (e.g., 'openai', 'google', 'azure') */
+  provider?: string;
+  /** Transcription model to use (e.g., 'whisper-1', 'chirp-3') */
+  transcriptionModel?: string;
+  /** Language code for transcription (e.g., 'en', 'es', 'fr') */
+  language?: string;
+  /** Context or prompt to guide transcription accuracy */
+  prompt?: string;
+  /** Maximum audio duration in seconds (default: 600) */
+  maxDurationSeconds?: number;
+  /** Maximum file size in megabytes */
+  maxSizeMB?: number;
 };
 
 /**
