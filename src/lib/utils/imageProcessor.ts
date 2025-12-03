@@ -532,7 +532,12 @@ export const imageUtils = {
       }
 
       const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), timeoutMs);
+      let completed = false;
+      const t = setTimeout(() => {
+        if (!completed) {
+          controller.abort();
+        }
+      }, timeoutMs);
 
       try {
         const response = await fetch(url, { signal: controller.signal });
@@ -561,6 +566,7 @@ export const imageUtils = {
         }
 
         const base64 = Buffer.from(buffer).toString("base64");
+        completed = true;
         return `data:${contentType || "image/jpeg"};base64,${base64}`;
       } finally {
         clearTimeout(t);
