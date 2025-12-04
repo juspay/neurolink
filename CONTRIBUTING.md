@@ -267,6 +267,187 @@ pnpm format            # Prettier formatting
 
 **Note:** The build rule enforcement system will automatically prevent commits that don't meet quality standards. See the "Build Rule Enforcement & Quality Standards" section above for complete details.
 
+## Type System Guidelines
+
+NeuroLink has a comprehensive TypeScript type system with clear organization principles. Follow these guidelines when working with types:
+
+### 📋 Quick Rules
+
+1. **Always import from canonical sources** - Each type has one primary definition
+2. **Use the public API for external code** - Import from `@juspay/neurolink/types`
+3. **Prefer type-only imports** - Use `import type` for better tree-shaking
+4. **Document type sources** - Add comments in complex files
+5. **Never duplicate type definitions** - Re-export instead
+
+### 📚 Type System Organization
+
+```
+src/lib/types/
+├── index.ts              # Public API - Main entry point
+├── sdkTypes.ts          # SDK consumer interface
+├── multimodal.ts        # ✅ Canonical: All multimodal content types
+├── content.ts           # ⚠️ DEPRECATED: Re-exports from multimodal.ts
+├── tools.ts             # ✅ Canonical: Tool system types
+├── streamTypes.ts       # ✅ Canonical: Streaming operations
+├── providers.ts         # ✅ Canonical: Provider configuration
+├── generateTypes.ts     # ✅ Canonical: Generation operations
+├── conversation.ts      # ✅ Canonical: Chat and memory types
+├── mcpTypes.ts          # ✅ Canonical: MCP integration
+└── ... (other modules)
+```
+
+### ✅ Correct Import Patterns
+
+```typescript
+// ✅ BEST: Public API (for external/user-facing code)
+import type {
+  Content,
+  ToolDefinition,
+  StreamResult,
+} from "@juspay/neurolink/types";
+
+// ✅ GOOD: Canonical source (for internal code)
+import type { Content, ImageContent } from "../types/multimodal.js";
+import type { ToolDefinition } from "../types/tools.js";
+
+// ✅ CORRECT: Runtime type guards need regular import
+import { isImageContent, type Content } from "../types/multimodal.js";
+```
+
+### ❌ Incorrect Import Patterns
+
+```typescript
+// ❌ BAD: Importing from deprecated re-export
+import type { Content } from "../types/content.js";
+
+// ❌ BAD: Mixed import when you only need types
+import { Content } from "../types/multimodal.js";
+
+// ❌ BAD: Importing internal types for external code
+import type { ProcessedImage } from "@juspay/neurolink/types/multimodal";
+```
+
+### 🔄 Handling Type Name Conflicts
+
+Some types exist in multiple modules with different purposes (e.g., `ToolResult`):
+
+```typescript
+// ✅ CORRECT: Use aliased names from index.ts
+import type {
+  ToolResult, // From tools.js (tool metadata)
+  StreamToolResult, // From streamTypes.js (streaming execution)
+} from "@juspay/neurolink/types";
+
+// ⚠️ OR: Import directly and alias yourself
+import type { ToolResult as ToolMetadata } from "../types/tools.js";
+import type { ToolResult as StreamToolResult } from "../types/streamTypes.js";
+```
+
+### 📝 Adding New Types
+
+When contributing new types:
+
+1. **Choose the correct canonical file:**
+   - Content/multimodal types → `multimodal.ts`
+   - Tool-related types → `tools.ts`
+   - Streaming types → `streamTypes.ts`
+   - Provider types → `providers.ts`
+   - Configuration types → `configTypes.ts`
+
+2. **Add to the canonical file:**
+
+   ````typescript
+   /**
+    * Your new type with JSDoc documentation
+    *
+    * @example
+    * ```typescript
+    * const example: MyNewType = {
+    *   field: "value"
+    * };
+    * ```
+    */
+   export type MyNewType = {
+     field: string;
+   };
+   ````
+
+3. **Export from public API if needed:**
+
+   ```typescript
+   // In index.ts
+   export type { MyNewType } from "./myModule.js";
+   ```
+
+4. **Update SDK types if needed:**
+
+   ```typescript
+   // In sdkTypes.ts (if type is essential for SDK consumers)
+   export type { MyNewType } from "./myModule.js";
+   ```
+
+5. **Document in README:**
+   - Add to canonical source table in `src/lib/types/README.md`
+   - Add usage examples if complex
+
+### 🗑️ Deprecating Types
+
+When deprecating a type or import path:
+
+1. **Add JSDoc deprecation notice:**
+
+   ````typescript
+   /**
+    * @deprecated Use MyNewType from './newModule.js' instead
+    *
+    * Migration guide:
+    * ```typescript
+    * // Old (deprecated)
+    * import type { OldType } from './oldModule.js';
+    *
+    * // New (preferred)
+    * import type { MyNewType } from './newModule.js';
+    * ```
+    */
+   export type OldType = MyNewType;
+   ````
+
+2. **Maintain backward compatibility:**
+   - Keep deprecated exports for at least one major version
+   - Provide re-exports for smooth migration
+
+3. **Update documentation:**
+   - Add to "Deprecated Paths and Migration" section in `src/lib/types/README.md`
+   - Specify migration timeline
+
+### 📖 Type System Documentation
+
+Complete type system documentation is available in:
+
+**[src/lib/types/README.md](src/lib/types/README.md)**
+
+This includes:
+
+- Canonical source table for all types
+- Import hierarchy explanation
+- Deprecated paths and migration guides
+- Common import patterns
+- Troubleshooting guide
+
+**Please read this documentation before making type-related changes.**
+
+### 🧪 Testing Type Imports
+
+When adding or modifying types, verify correct imports:
+
+```bash
+# Type checking
+pnpm run check
+
+# Run import guideline tests
+pnpm test test/types/import-guidelines.test.ts
+```
+
 ## Testing
 
 NeuroLink has a comprehensive testing suite to ensure reliability across all AI providers and features. Please add tests for any new features or bug fixes.
