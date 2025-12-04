@@ -436,6 +436,16 @@ export class ModelConfigurationManager {
           MODEL_NAMES.OLLAMA.BALANCED,
           MODEL_NAMES.OLLAMA.QUALITY,
         ]),
+        toolCapableModels: this.getConfigArray("OLLAMA_TOOL_CAPABLE_MODELS", [
+          "llama3.1",
+          "mistral",
+          "hermes3",
+          "qwen2.5",
+          "codellama",
+          "dolphin",
+          "openchat",
+          "solar",
+        ]),
         specialHandling: this.getConfigObject("OLLAMA_SPECIAL_HANDLING", {
           baseUrl: this.getConfigValue(
             "OLLAMA_BASE_URL",

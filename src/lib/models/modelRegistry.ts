@@ -202,6 +202,51 @@ export const MODEL_REGISTRY: Record<string, ModelInfo> = {
   },
 
   // Anthropic Models
+  [AnthropicModels.CLAUDE_4_5_HAIKU]: {
+    id: AnthropicModels.CLAUDE_4_5_HAIKU,
+    name: "Claude 4.5 Haiku",
+    provider: AIProviderName.ANTHROPIC,
+    description: "Latest fast and efficient Claude model with vision support",
+    capabilities: {
+      vision: true,
+      functionCalling: true,
+      codeGeneration: true,
+      reasoning: true,
+      multimodal: true,
+      streaming: true,
+      jsonMode: false,
+    },
+    pricing: {
+      inputCostPer1K: 0.001,
+      outputCostPer1K: 0.005,
+      currency: "USD",
+    },
+    performance: {
+      speed: "fast",
+      quality: "high",
+      accuracy: "high",
+    },
+    limits: {
+      maxContextTokens: 200000,
+      maxOutputTokens: 64000,
+      maxRequestsPerMinute: 100,
+    },
+    useCases: {
+      coding: 8,
+      creative: 8,
+      analysis: 8,
+      conversation: 9,
+      reasoning: 8,
+      translation: 8,
+      summarization: 9,
+    },
+    aliases: ["claude-4.5-haiku", "claude-haiku-latest", "haiku-4.5"],
+    deprecated: false,
+    isLocal: false,
+    releaseDate: "2025-10-15",
+    category: "general",
+  },
+
   [AnthropicModels.CLAUDE_3_5_SONNET]: {
     id: AnthropicModels.CLAUDE_3_5_SONNET,
     name: "Claude 3.5 Sonnet",

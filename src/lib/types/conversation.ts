@@ -122,26 +122,10 @@ export type ChatMessage = {
 };
 
 /**
- * Content format for multimodal messages (used internally)
+ * Multimodal message types - Re-exported from multimodal.ts
+ * @deprecated Import from './multimodal.js' instead for better organization
  */
-export type MessageContent = {
-  type: string;
-  text?: string;
-  image?: string;
-  mimeType?: string;
-  [key: string]: unknown; // Index signature for compatibility with Vercel AI SDK
-};
-
-/**
- * Extended chat message for multimodal support (internal use)
- */
-export type MultimodalChatMessage = {
-  /** Role of the message sender */
-  role: "user" | "assistant" | "system";
-
-  /** Content of the message - can be text or multimodal content array */
-  content: string | MessageContent[];
-};
+export type { MessageContent, MultimodalChatMessage } from "./multimodal.js";
 
 /**
  * Events emitted by conversation memory system

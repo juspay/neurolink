@@ -297,93 +297,10 @@ export const directAgentTools = {
     },
   }),
 
-  searchFiles: tool({
-    description: "Search for files by name pattern in a directory",
-    parameters: z.object({
-      directory: z.string().describe("Directory to search in"),
-      pattern: z
-        .string()
-        .describe(
-          "File name pattern to search for (supports wildcards like *.js)",
-        ),
-      recursive: z
-        .boolean()
-        .optional()
-        .default(true)
-        .describe("Search recursively in subdirectories"),
-    }),
-    execute: async ({ directory, pattern, recursive }) => {
-      try {
-        const resolvedDir = path.resolve(directory);
+  // NOTE: searchFiles was removed to avoid naming conflict with external MCP 'search_files' tool
+  // from @modelcontextprotocol/server-filesystem which provides the same functionality
+  // with parameters {path, pattern, excludePatterns}
 
-        if (!fs.existsSync(resolvedDir)) {
-          return {
-            success: false,
-            error: `Directory does not exist: ${resolvedDir}`,
-          };
-        }
-
-        const matches: Array<{
-          name: string;
-          path: string;
-          size: number;
-          lastModified: string;
-        }> = [];
-
-        const searchDir = (dir: string, depth = 0) => {
-          if (!recursive && depth > 0) {
-            return;
-          }
-
-          const items = fs.readdirSync(dir);
-
-          for (const item of items) {
-            const itemPath = path.join(dir, item);
-            const stats = fs.statSync(itemPath);
-
-            if (stats.isDirectory()) {
-              if (recursive && depth < 10) {
-                // Prevent infinite recursion
-                searchDir(itemPath, depth + 1);
-              }
-            } else if (stats.isFile()) {
-              // Simple pattern matching (convert * to regex)
-              const regexPattern = pattern
-                .replace(/\*/g, ".*")
-                .replace(/\?/g, ".");
-              const regex = new RegExp(`^${regexPattern}$`, "i");
-
-              if (regex.test(item)) {
-                matches.push({
-                  name: item,
-                  path: itemPath,
-                  size: stats.size,
-                  lastModified: stats.mtime.toISOString(),
-                });
-              }
-            }
-          }
-        };
-
-        searchDir(resolvedDir);
-
-        return {
-          success: true,
-          directory: resolvedDir,
-          pattern,
-          matches,
-          count: matches.length,
-        };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-          directory,
-          pattern,
-        };
-      }
-    },
-  }),
   analyzeCSV: tool({
     description:
       "Analyze CSV file for accurate counting, aggregation, and statistical analysis. Use this for precise data operations like counting rows by column, calculating sums/averages, finding min/max values, etc. The tool reads the file directly - do NOT pass CSV content.",
@@ -897,7 +814,6 @@ export type FilesystemToolsMap = {
   readFile: typeof directAgentTools.readFile;
   listDirectory: typeof directAgentTools.listDirectory;
   writeFile: typeof directAgentTools.writeFile;
-  searchFiles: typeof directAgentTools.searchFiles;
 };
 
 export type UtilityToolsMap = {
@@ -934,7 +850,6 @@ export function getToolsForCategory(
         readFile: directAgentTools.readFile,
         listDirectory: directAgentTools.listDirectory,
         writeFile: directAgentTools.writeFile,
-        searchFiles: directAgentTools.searchFiles,
       };
     case "utility":
       return {

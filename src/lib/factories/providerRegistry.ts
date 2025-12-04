@@ -52,7 +52,7 @@ export class ProviderRegistry {
           );
         },
         GoogleAIModels.GEMINI_2_5_FLASH,
-        ["googleAiStudio", "google", "gemini", "google-ai"],
+        ["googleAiStudio", "google", "gemini", "google-ai", "google-ai-studio"],
       );
 
       // Register OpenAI provider

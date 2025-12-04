@@ -1,3 +1,9 @@
+## [8.4.0](https://github.com/juspay/neurolink/compare/v8.3.0...v8.4.0) (2025-12-01)
+
+### Features
+
+- **(core):** comprehensive multimodal architecture with modular refactoring and enhanced testing ([fd8d207](https://github.com/juspay/neurolink/commit/fd8d207a2f9be61e65fd00d697a0456511ece30f))
+
 ## [8.3.0](https://github.com/juspay/neurolink/compare/v8.2.0...v8.3.0) (2025-11-28)
 
 ### Features

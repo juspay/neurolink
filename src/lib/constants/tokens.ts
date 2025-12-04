@@ -80,6 +80,7 @@ export const PROVIDER_TOKEN_LIMITS = {
     "claude-3-5-sonnet-20241022": 4096,
     "claude-3-opus-20240229": 4096,
     "claude-3-5-haiku-20241022": 4096,
+    "claude-haiku-4-5-20251001": 8192,
     "claude-3-sonnet-20240229": 4096,
     default: 4096, // Conservative default for Anthropic
   },
@@ -120,6 +121,7 @@ export const PROVIDER_TOKEN_LIMITS = {
     "claude-opus-4@20250514": 4096,
     "claude-3-5-sonnet-20241022": 4096,
     "claude-3-5-haiku-20241022": 4096,
+    "claude-haiku-4-5-20251001": 8192,
     "claude-3-sonnet-20240229": 4096,
     "claude-3-haiku-20240307": 4096,
     "claude-3-opus-20240229": 4096,
@@ -132,6 +134,7 @@ export const PROVIDER_TOKEN_LIMITS = {
     "anthropic.claude-3-haiku-20240307-v1:0": 4096,
     "anthropic.claude-3-5-sonnet-20240620-v1:0": 4096,
     "anthropic.claude-3-opus-20240229-v1:0": 4096,
+    "anthropic.claude-haiku-4-5-20251001-v1:0": 8192,
     "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0": 4096,
     default: 4096,
   },

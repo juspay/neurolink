@@ -4,7 +4,7 @@
  */
 
 import { logger } from "./logger.js";
-import type { ProcessedImage } from "../types/content.js";
+import type { ProcessedImage } from "../types/multimodal.js";
 import type { FileProcessingResult } from "../types/fileTypes.js";
 
 /**

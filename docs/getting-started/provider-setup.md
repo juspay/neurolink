@@ -1289,8 +1289,6 @@ MISTRAL_MODEL=mistral-small  # Optional
 
 # Application Settings
 DEFAULT_PROVIDER=auto
-ENABLE_STREAMING=true
-ENABLE_FALLBACK=true
 NEUROLINK_DEBUG=false
 ```
 

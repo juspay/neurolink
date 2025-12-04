@@ -44,7 +44,7 @@ export const PROVIDER_MAX_TOKENS = {
     default: 64000,
   },
   openai: {
-    default: 500000,
+    default: 128000,
   },
   "google-ai": {
     default: 64000,
@@ -56,13 +56,16 @@ export const PROVIDER_MAX_TOKENS = {
     default: 64000,
   },
   azure: {
-    default: 32000,
+    default: 128000,
+  },
+  mistral: {
+    default: 128000,
   },
   ollama: {
     default: 64000,
   },
   litellm: {
-    default: 500000,
+    default: 128000,
   },
   default: 64000,
 };

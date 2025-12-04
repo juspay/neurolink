@@ -10,7 +10,7 @@ import type { EvaluationData } from "./evaluation.js";
 import type { ChatMessage, ConversationMemoryConfig } from "./conversation.js";
 import type { MiddlewareFactoryOptions } from "./middlewareTypes.js";
 import type { JsonValue } from "./common.js";
-import type { TextContent, ImageContent } from "./content.js";
+import type { Content } from "./content.js";
 
 /**
  * Generate function options type - Primary method for content generation
@@ -23,7 +23,7 @@ export type GenerateOptions = {
     csvFiles?: Array<Buffer | string>; // Explicit CSV files
     pdfFiles?: Array<Buffer | string>; // Explicit PDF files
     files?: Array<Buffer | string>; // Auto-detect file types
-    content?: Array<TextContent | ImageContent>; // Advanced multimodal content
+    content?: Content[]; // Advanced multimodal content
   };
   output?: { format?: "text" | "structured" | "json" }; // Future extensible
 
