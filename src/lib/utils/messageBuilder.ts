@@ -22,7 +22,7 @@ import { logger } from "./logger.js";
 import { FileDetector } from "./fileDetector.js";
 import { PDFProcessor } from "./pdfProcessor.js";
 import { request, getGlobalDispatcher, interceptors } from "undici";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, statSync } from "fs";
 import type {
   CoreMessage,
   CoreUserMessage,
@@ -32,6 +32,116 @@ import type {
   ImagePart,
   FilePart,
 } from "ai";
+
+/**
+ * Default maximum file size for processing (50MB)
+ */
+const DEFAULT_MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+/**
+ * Format file size in human-readable units
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} bytes`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(2)} KB`;
+  }
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/**
+ * Get the size of a file input without fully loading it
+ * For Buffers, returns the buffer length
+ * For file paths, uses stat to get size without reading
+ * For URLs, returns undefined (size checked during download)
+ * For data URIs, calculates size from base64 content
+ */
+function getFileSize(file: Buffer | string): number | undefined {
+  if (Buffer.isBuffer(file)) {
+    return file.length;
+  }
+
+  if (typeof file === "string") {
+    // Data URI - calculate size from base64 content
+    if (file.startsWith("data:")) {
+      const match = file.match(/^data:[^;]+;base64,(.+)$/);
+      if (match) {
+        // Base64 decodes to approximately 3/4 of the encoded length
+        return Math.floor((match[1].length * 3) / 4);
+      }
+      return undefined;
+    }
+
+    // URL - size will be checked during download
+    if (file.startsWith("http://") || file.startsWith("https://")) {
+      return undefined;
+    }
+
+    // File path - use stat to get size without reading
+    try {
+      if (existsSync(file)) {
+        const stats = statSync(file);
+        return stats.size;
+      }
+    } catch {
+      // File doesn't exist or can't be accessed, will fail during processing
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Validate file size before processing
+ * Throws an error if the file exceeds the maximum allowed size
+ *
+ * @param file - File input (Buffer or string path/URL/data URI)
+ * @param maxSize - Maximum allowed size in bytes
+ * @param filename - Optional filename for error messages
+ * @throws Error if file size exceeds maximum
+ */
+export function validateFileSize(
+  file: Buffer | string,
+  maxSize: number = DEFAULT_MAX_FILE_SIZE,
+  filename?: string,
+): void {
+  const size = getFileSize(file);
+
+  if (size !== undefined && size > maxSize) {
+    const fileLabel = filename ? `File "${filename}"` : "File";
+    throw new Error(
+      `${fileLabel} size (${formatFileSize(size)}) exceeds maximum allowed size (${formatFileSize(maxSize)})`,
+    );
+  }
+}
+
+/**
+ * Validate multiple files for size before processing
+ * Fails fast on first oversized file
+ *
+ * @param files - Array of file inputs
+ * @param maxSize - Maximum allowed size in bytes
+ * @throws Error if any file exceeds maximum size
+ */
+export function validateFileSizes(
+  files: Array<Buffer | string>,
+  maxSize: number = DEFAULT_MAX_FILE_SIZE,
+): void {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const filename =
+      typeof file === "string" && !file.startsWith("data:")
+        ? file.split("/").pop() || file.split("\\").pop() || `file-${i + 1}`
+        : `file-${i + 1}`;
+    validateFileSize(file, maxSize, filename);
+  }
+}
 
 /**
  * Type guard for validating message roles
@@ -341,6 +451,15 @@ export async function buildMessagesArray(
       files?: Array<Buffer | string>;
     };
 
+    // Early file size validation - fail fast before any processing
+    const maxSize = 50 * 1024 * 1024; // 50MB default
+    if (input.csvFiles && input.csvFiles.length > 0) {
+      validateFileSizes(input.csvFiles, maxSize);
+    }
+    if (input.files && input.files.length > 0) {
+      validateFileSizes(input.files, maxSize);
+    }
+
     let csvContent = "";
     const csvOptions = "csvOptions" in options ? options.csvOptions : undefined;
 
@@ -443,6 +562,22 @@ export async function buildMultimodalMessagesArray(
   const maxSize = pdfConfig
     ? pdfConfig.maxSizeMB * 1024 * 1024
     : 10 * 1024 * 1024;
+
+  // Early file size validation - fail fast before any processing
+  if (options.input.files && options.input.files.length > 0) {
+    validateFileSizes(options.input.files, maxSize);
+  }
+  if (options.input.csvFiles && options.input.csvFiles.length > 0) {
+    validateFileSizes(options.input.csvFiles, maxSize);
+  }
+  if (options.input.pdfFiles && options.input.pdfFiles.length > 0) {
+    validateFileSizes(options.input.pdfFiles, maxSize);
+  }
+  if (options.input.images && options.input.images.length > 0) {
+    // Use 10MB max for images (common limit for vision APIs)
+    const imageMaxSize = 10 * 1024 * 1024;
+    validateFileSizes(options.input.images, imageMaxSize);
+  }
 
   // Process unified files array (auto-detect)
   if (options.input.files && options.input.files.length > 0) {
