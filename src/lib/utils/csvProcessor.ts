@@ -88,6 +88,13 @@ export class CSVProcessor {
 
     const maxRows = Math.max(1, Math.min(10000, rawMaxRows));
 
+    logger.debug("[CSVProcessor] Starting CSV processing", {
+      contentSize: content.length,
+      formatStyle,
+      maxRows,
+      includeHeaders,
+    });
+
     const csvString = content.toString("utf-8");
 
     // For raw format, return original CSV with row limit (no parsing needed)
@@ -95,6 +102,12 @@ export class CSVProcessor {
     if (formatStyle === "raw") {
       const lines = csvString.split("\n");
       const hasMetadataLine = isMetadataLine(lines);
+
+      if (hasMetadataLine) {
+        logger.debug(
+          "[CSVProcessor] Detected metadata line, skipping first line",
+        );
+      }
 
       // Skip metadata line if present, then take header + maxRows data rows
       const csvLines = hasMetadataLine
@@ -107,6 +120,13 @@ export class CSVProcessor {
 
       const rowCount = limitedLines.length - 1; // Subtract header
       const originalRowCount = csvLines.length - 1; // Subtract header from original
+      const wasTruncated = rowCount < originalRowCount;
+
+      if (wasTruncated) {
+        logger.warn(
+          `[CSVProcessor] CSV data truncated: showing ${rowCount} of ${originalRowCount} rows (limit: ${maxRows})`,
+        );
+      }
 
       logger.debug(
         `[CSVProcessor] raw format: ${rowCount} rows (original: ${originalRowCount}) → ${limitedCSV.length} chars`,
@@ -116,6 +136,13 @@ export class CSVProcessor {
           limitedSize: limitedCSV.length,
         },
       );
+
+      logger.info("[CSVProcessor] ✅ Processed CSV file", {
+        formatStyle: "raw",
+        rowCount,
+        columnCount: (limitedLines[0] || "").split(",").length,
+        truncated: wasTruncated,
+      });
 
       return {
         type: "csv",
@@ -131,6 +158,14 @@ export class CSVProcessor {
     }
 
     // Parse CSV for JSON and Markdown formats only
+    logger.debug(
+      "[CSVProcessor] Parsing CSV for structured format conversion",
+      {
+        formatStyle,
+        maxRows,
+      },
+    );
+
     const rows = await this.parseCSVString(csvString, maxRows);
 
     // Extract metadata from parsed results
@@ -148,13 +183,29 @@ export class CSVProcessor {
       includeHeaders,
     );
 
+    if (hasEmptyColumns) {
+      logger.warn("[CSVProcessor] CSV contains empty or blank column headers", {
+        columnNames,
+      });
+    }
+
+    if (rowCount === 0) {
+      logger.warn("[CSVProcessor] CSV file contains no data rows");
+    }
+
     // Format parsed data
+    logger.debug(
+      `[CSVProcessor] Converting ${rowCount} rows to ${formatStyle} format`,
+    );
     const formatted = this.formatForLLM(rows, formatStyle, includeHeaders);
 
-    logger.info(
-      `[CSVProcessor] ${formatStyle} format: ${rowCount} rows × ${columnCount} columns → ${formatted.length} chars`,
-      { rowCount, columnCount, columns: columnNames, hasEmptyColumns },
-    );
+    logger.info("[CSVProcessor] ✅ Processed CSV file", {
+      formatStyle,
+      rowCount,
+      columnCount,
+      outputLength: formatted.length,
+      hasEmptyColumns,
+    });
 
     return {
       type: "csv",
@@ -190,6 +241,11 @@ export class CSVProcessor {
     const clampedMaxRows = Math.max(1, Math.min(10000, maxRows));
     const fs = await import("fs");
 
+    logger.debug("[CSVProcessor] Starting file parsing", {
+      filePath,
+      maxRows: clampedMaxRows,
+    });
+
     // Read first 2 lines to detect metadata
     const fileHandle = await fs.promises.open(filePath, "r");
     const firstLines: string[] = [];
@@ -213,6 +269,12 @@ export class CSVProcessor {
 
     const hasMetadataLine = isMetadataLine(firstLines);
     const skipLines = hasMetadataLine ? 1 : 0;
+
+    if (hasMetadataLine) {
+      logger.debug(
+        "[CSVProcessor] Detected metadata line in file, will skip first line",
+      );
+    }
 
     return new Promise((resolve, reject) => {
       const rows: unknown[] = [];
@@ -247,6 +309,9 @@ export class CSVProcessor {
           }
         })
         .on("end", () => {
+          logger.debug(
+            `[CSVProcessor] File parsing complete: ${rows.length} rows parsed`,
+          );
           resolve(rows);
         })
         .on("error", (error: Error) => {
@@ -270,10 +335,19 @@ export class CSVProcessor {
   ): Promise<unknown[]> {
     const clampedMaxRows = Math.max(1, Math.min(10000, maxRows));
 
+    logger.debug("[CSVProcessor] Starting string parsing", {
+      inputLength: csvString.length,
+      maxRows: clampedMaxRows,
+    });
+
     // Detect and skip metadata line
     const lines = csvString.split("\n");
     const hasMetadataLine = isMetadataLine(lines);
     const csvData = hasMetadataLine ? lines.slice(1).join("\n") : csvString;
+
+    if (hasMetadataLine) {
+      logger.debug("[CSVProcessor] Detected metadata line in string, skipping");
+    }
 
     return new Promise((resolve, reject) => {
       const rows: unknown[] = [];
@@ -302,6 +376,9 @@ export class CSVProcessor {
           }
         })
         .on("end", () => {
+          logger.debug(
+            `[CSVProcessor] String parsing complete: ${rows.length} rows parsed`,
+          );
           resolve(rows);
         })
         .on("error", (error: Error) => {

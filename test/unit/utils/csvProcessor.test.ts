@@ -1,11 +1,250 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CSVProcessor } from "../../../src/lib/utils/csvProcessor.js";
+import { logger } from "../../../src/lib/utils/logger.js";
+import { writeFile, unlink } from "node:fs/promises";
+
+// Mock the logger
+vi.mock("../../../src/lib/utils/logger.js", () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 describe("CSVProcessor", () => {
   const sampleCSV = `name,age,city
 Alice,30,New York
 Bob,25,Los Angeles
 Charlie,35,Chicago`;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("Logging behavior", () => {
+    it("should log debug when starting CSV processing", async () => {
+      const csvData = Buffer.from("name,age\nAlice,30\nBob,25");
+      await CSVProcessor.process(csvData, { formatStyle: "raw" });
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        "[CSVProcessor] Starting CSV processing",
+        expect.objectContaining({
+          contentSize: expect.any(Number),
+          formatStyle: "raw",
+          maxRows: expect.any(Number),
+        }),
+      );
+    });
+
+    it("should log info on successful processing", async () => {
+      const csvData = Buffer.from("name,age\nAlice,30\nBob,25");
+      await CSVProcessor.process(csvData, { formatStyle: "raw" });
+
+      expect(logger.info).toHaveBeenCalledWith(
+        "[CSVProcessor] ✅ Processed CSV file",
+        expect.objectContaining({
+          formatStyle: "raw",
+          rowCount: 2,
+        }),
+      );
+    });
+
+    it("should log warn when CSV data is truncated", async () => {
+      const csvData = Buffer.from(
+        "name,age\nAlice,30\nBob,25\nCharlie,35\nDiana,40",
+      );
+      await CSVProcessor.process(csvData, { formatStyle: "raw", maxRows: 2 });
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("CSV data truncated"),
+      );
+    });
+
+    it("should log debug when metadata line is detected", async () => {
+      const csvData = Buffer.from("SEP=,\nname,age\nAlice,30\nBob,25");
+      await CSVProcessor.process(csvData, { formatStyle: "raw" });
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        "[CSVProcessor] Detected metadata line, skipping first line",
+      );
+    });
+
+    it("should not warn when CSV is not truncated", async () => {
+      const csvData = Buffer.from("name,age\nAlice,30\nBob,25");
+      await CSVProcessor.process(csvData, { formatStyle: "raw", maxRows: 100 });
+
+      expect(logger.warn).not.toHaveBeenCalledWith(
+        expect.stringContaining("truncated"),
+      );
+    });
+
+    it("should log debug with raw format processing details", async () => {
+      const csvData = Buffer.from("name,age\nAlice,30\nBob,25");
+      await CSVProcessor.process(csvData, { formatStyle: "raw" });
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        expect.stringContaining("raw format:"),
+        expect.objectContaining({
+          formatStyle: "raw",
+          limitedSize: expect.any(Number),
+          originalSize: expect.any(Number),
+        }),
+      );
+    });
+
+    describe("JSON/Markdown format logging", () => {
+      it("should log debug when converting to JSON format", async () => {
+        const csvData = Buffer.from("name,age\nAlice,30\nBob,25");
+        await CSVProcessor.process(csvData, { formatStyle: "json" });
+
+        expect(logger.debug).toHaveBeenCalledWith(
+          "[CSVProcessor] Parsing CSV for structured format conversion",
+          expect.objectContaining({
+            formatStyle: "json",
+          }),
+        );
+      });
+
+      it("should log warn when CSV has empty column headers", async () => {
+        const csvData = Buffer.from("name,,city\nAlice,30,NYC\nBob,25,LA");
+        await CSVProcessor.process(csvData, { formatStyle: "json" });
+
+        expect(logger.warn).toHaveBeenCalledWith(
+          "[CSVProcessor] CSV contains empty or blank column headers",
+          expect.objectContaining({
+            columnNames: expect.any(Array),
+          }),
+        );
+      });
+
+      it("should log warn when CSV has no data rows", async () => {
+        const csvData = Buffer.from("name,age,city");
+        await CSVProcessor.process(csvData, { formatStyle: "json" });
+
+        expect(logger.warn).toHaveBeenCalledWith(
+          "[CSVProcessor] CSV file contains no data rows",
+        );
+      });
+
+      it("should log info with format details on completion", async () => {
+        const csvData = Buffer.from("name,age\nAlice,30\nBob,25");
+        await CSVProcessor.process(csvData, { formatStyle: "json" });
+
+        expect(logger.info).toHaveBeenCalledWith(
+          "[CSVProcessor] ✅ Processed CSV file",
+          expect.objectContaining({
+            formatStyle: "json",
+            rowCount: 2,
+            columnCount: 2,
+          }),
+        );
+      });
+
+      it("should log debug when converting rows to format", async () => {
+        const csvData = Buffer.from("name,age\nAlice,30\nBob,25");
+        await CSVProcessor.process(csvData, { formatStyle: "json" });
+
+        expect(logger.debug).toHaveBeenCalledWith(
+          expect.stringContaining("Converting"),
+        );
+      });
+    });
+
+    describe("parseCSVString logging", () => {
+      it("should log debug when starting string parsing", async () => {
+        const csvString = "name,age\nAlice,30\nBob,25";
+        await CSVProcessor.parseCSVString(csvString);
+
+        expect(logger.debug).toHaveBeenCalledWith(
+          "[CSVProcessor] Starting string parsing",
+          expect.objectContaining({
+            inputLength: csvString.length,
+            maxRows: expect.any(Number),
+          }),
+        );
+      });
+
+      it("should log debug when parsing is complete", async () => {
+        const csvString = "name,age\nAlice,30\nBob,25";
+        await CSVProcessor.parseCSVString(csvString);
+
+        expect(logger.debug).toHaveBeenCalledWith(
+          expect.stringContaining("String parsing complete"),
+        );
+      });
+
+      it("should log debug when row limit is reached", async () => {
+        const csvString = "name,age\nAlice,30\nBob,25\nCharlie,35\nDiana,40";
+        await CSVProcessor.parseCSVString(csvString, 2);
+
+        expect(logger.debug).toHaveBeenCalledWith(
+          expect.stringContaining("Reached row limit"),
+        );
+      });
+
+      it("should log debug when metadata line is detected in string", async () => {
+        const csvString = "SEP=,\nname,age\nAlice,30\nBob,25";
+        await CSVProcessor.parseCSVString(csvString);
+
+        expect(logger.debug).toHaveBeenCalledWith(
+          "[CSVProcessor] Detected metadata line in string, skipping",
+        );
+      });
+    });
+
+    describe("parseCSVFile", () => {
+      const testFilePath = "/tmp/test-csv-processor.csv";
+
+      beforeEach(async () => {
+        // Create a test CSV file
+        await writeFile(testFilePath, "name,age\nAlice,30\nBob,25", "utf-8");
+      });
+
+      afterEach(async () => {
+        // Clean up test file
+        try {
+          await unlink(testFilePath);
+        } catch {
+          // Ignore errors if file doesn't exist
+        }
+      });
+
+      it("should log debug when starting file parsing", async () => {
+        await CSVProcessor.parseCSVFile(testFilePath);
+
+        expect(logger.debug).toHaveBeenCalledWith(
+          "[CSVProcessor] Starting file parsing",
+          expect.objectContaining({
+            filePath: testFilePath,
+            maxRows: expect.any(Number),
+          }),
+        );
+      });
+
+      it("should log debug when file parsing is complete", async () => {
+        await CSVProcessor.parseCSVFile(testFilePath);
+
+        expect(logger.debug).toHaveBeenCalledWith(
+          expect.stringContaining("File parsing complete"),
+        );
+      });
+
+      it("should log debug when metadata line is detected in file", async () => {
+        await writeFile(
+          testFilePath,
+          "SEP=,\nname,age\nAlice,30\nBob,25",
+          "utf-8",
+        );
+        await CSVProcessor.parseCSVFile(testFilePath);
+
+        expect(logger.debug).toHaveBeenCalledWith(
+          expect.stringContaining("Detected metadata line in file"),
+        );
+      });
+    });
+  });
 
   describe("sampleDataFormat option", () => {
     it("should return sample data as JSON string by default (backward compatible)", async () => {
