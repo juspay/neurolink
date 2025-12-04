@@ -47,7 +47,7 @@ export type FileProcessingResult = {
     rowCount?: number;
     columnCount?: number;
     columnNames?: string[];
-    sampleData?: string;
+    sampleData?: string | unknown[];
     hasEmptyColumns?: boolean;
     // PDF-specific metadata
     version?: string;
@@ -58,12 +58,22 @@ export type FileProcessingResult = {
 };
 
 /**
+ * Sample data format options for CSV metadata
+ * - 'json': JSON string representation (default, backward compatible)
+ * - 'object': Structured array of row objects (best for programmatic use)
+ * - 'csv': CSV formatted string preview
+ * - 'markdown': Markdown table format
+ */
+export type SampleDataFormat = "object" | "json" | "csv" | "markdown";
+
+/**
  * CSV processor options
  */
 export type CSVProcessorOptions = {
   maxRows?: number;
   formatStyle?: "raw" | "markdown" | "json";
   includeHeaders?: boolean;
+  sampleDataFormat?: SampleDataFormat;
 };
 
 /**
