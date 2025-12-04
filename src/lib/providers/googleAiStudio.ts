@@ -52,6 +52,33 @@ if (
 /**
  * Google AI Studio provider implementation using BaseProvider
  * Migrated from original GoogleAIStudio class to new factory pattern
+ *
+ * @important Structured Output Limitation
+ * Google Gemini models cannot combine function calling (tools) with structured
+ * output (JSON schema). When using schemas with output.format: "json", you MUST
+ * set disableTools: true.
+ *
+ * Error without disableTools:
+ * "Function calling with a response mime type: 'application/json' is unsupported"
+ *
+ * This is a Google API limitation documented at:
+ * https://ai.google.dev/gemini-api/docs/function-calling
+ *
+ * @example
+ * ```typescript
+ * // ✅ Correct usage with schemas
+ * const provider = new GoogleAIStudioProvider("gemini-2.5-flash");
+ * const result = await provider.generate({
+ *   input: { text: "Analyze data" },
+ *   schema: MySchema,
+ *   output: { format: "json" },
+ *   disableTools: true  // Required
+ * });
+ * ```
+ *
+ * @note Gemini 3 Pro Preview (November 2025) will support combining tools + schemas
+ * @note "Too many states for serving" errors can occur with complex schemas + tools.
+ *       Solution: Simplify schema or use disableTools: true
  */
 export class GoogleAIStudioProvider extends BaseProvider {
   constructor(modelName?: string, sdk?: unknown) {

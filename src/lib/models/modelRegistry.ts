@@ -202,6 +202,103 @@ export const MODEL_REGISTRY: Record<string, ModelInfo> = {
   },
 
   // Anthropic Models
+  [AnthropicModels.CLAUDE_OPUS_4_5]: {
+    id: AnthropicModels.CLAUDE_OPUS_4_5,
+    name: "Claude Opus 4.5",
+    provider: AIProviderName.ANTHROPIC,
+    description:
+      "Anthropic's most capable model with exceptional reasoning, coding, and multimodal capabilities",
+    capabilities: {
+      vision: true,
+      functionCalling: true,
+      codeGeneration: true,
+      reasoning: true,
+      multimodal: true,
+      streaming: true,
+      jsonMode: false,
+    },
+    pricing: {
+      inputCostPer1K: 0.015,
+      outputCostPer1K: 0.075,
+      currency: "USD",
+    },
+    performance: {
+      speed: "medium",
+      quality: "high",
+      accuracy: "high",
+    },
+    limits: {
+      maxContextTokens: 200000,
+      maxOutputTokens: 64000,
+      maxRequestsPerMinute: 50,
+    },
+    useCases: {
+      coding: 10,
+      creative: 10,
+      analysis: 10,
+      conversation: 9,
+      reasoning: 10,
+      translation: 9,
+      summarization: 9,
+    },
+    aliases: [
+      "claude-4.5-opus",
+      "claude-opus-latest",
+      "opus-4.5",
+      "anthropic-flagship",
+    ],
+    deprecated: false,
+    isLocal: false,
+    releaseDate: "2025-11-24",
+    category: "reasoning",
+  },
+
+  [AnthropicModels.CLAUDE_SONNET_4_5]: {
+    id: AnthropicModels.CLAUDE_SONNET_4_5,
+    name: "Claude Sonnet 4.5",
+    provider: AIProviderName.ANTHROPIC,
+    description:
+      "Balanced Claude model with excellent performance across all tasks including vision and reasoning",
+    capabilities: {
+      vision: true,
+      functionCalling: true,
+      codeGeneration: true,
+      reasoning: true,
+      multimodal: true,
+      streaming: true,
+      jsonMode: false,
+    },
+    pricing: {
+      inputCostPer1K: 0.003,
+      outputCostPer1K: 0.015,
+      currency: "USD",
+    },
+    performance: {
+      speed: "medium",
+      quality: "high",
+      accuracy: "high",
+    },
+    limits: {
+      maxContextTokens: 200000,
+      maxOutputTokens: 64000,
+      maxRequestsPerMinute: 100,
+    },
+    useCases: {
+      coding: 10,
+      creative: 9,
+      analysis: 9,
+      conversation: 9,
+      reasoning: 10,
+      translation: 8,
+      summarization: 8,
+    },
+    aliases: ["claude-4.5-sonnet", "claude-sonnet-latest", "sonnet-4.5"],
+    deprecated: false,
+    isLocal: false,
+    releaseDate: "2025-09-29",
+    category: "coding",
+  },
+
   [AnthropicModels.CLAUDE_4_5_HAIKU]: {
     id: AnthropicModels.CLAUDE_4_5_HAIKU,
     name: "Claude 4.5 Haiku",

@@ -48,16 +48,34 @@ const VISION_CAPABILITIES = {
     "gpt-4-vision-preview",
   ],
   "google-ai": [
+    // Gemini 3 Series (Preview - November 2025)
+    "gemini-3-pro-preview",
+    "gemini-3-pro-preview-11-2025",
+    "gemini-3-pro-latest",
+    // Gemini 2.5 Series
     "gemini-2.5-pro",
     "gemini-2.5-flash",
+    // Gemini 2.0 Series
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    // Gemini 1.5 Series (Legacy)
     "gemini-1.5-pro",
     "gemini-1.5-flash",
     "gemini-pro-vision",
   ],
   anthropic: [
-    "claude-3-7-sonnet",
-    "claude-3-5-sonnet",
+    // Claude 4.5 Series (September-November 2025)
+    "claude-sonnet-4-5",
+    "claude-sonnet-4-5-20250929",
+    "claude-opus-4-5",
+    "claude-opus-4-5-20251101",
     "claude-haiku-4-5",
+    "claude-haiku-4-5-20251001",
+    // Claude 3.7 Series
+    "claude-3-7-sonnet",
+    // Claude 3.5 Series
+    "claude-3-5-sonnet",
+    // Claude 3 Series
     "claude-3-opus",
     "claude-3-sonnet",
     "claude-3-haiku",
@@ -79,18 +97,30 @@ const VISION_CAPABILITIES = {
     "gpt-4",
   ],
   vertex: [
-    // Gemini models on Vertex AI
+    // Gemini 3.x models on Vertex AI (Preview)
+    "gemini-3-pro-preview-11-2025",
+    "gemini-3-pro-latest",
+    "gemini-3-pro-preview",
+    // Gemini 2.5 models on Vertex AI
     "gemini-2.5-pro",
     "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    // Gemini 2.0 models on Vertex AI
+    "gemini-2.0-flash-001",
+    "gemini-2.0-flash-lite",
     "gemini-2.0-flash",
+    // Gemini 1.5 models on Vertex AI
     "gemini-1.5-pro",
     "gemini-1.5-flash",
-    // Claude 4.x models (versioned format)
+    // Claude 4.5 models (versioned format - September-November 2025)
     "claude-sonnet-4-5@",
+    "claude-opus-4-5@",
+    "claude-haiku-4-5@",
     "claude-haiku-4-5",
+    // Claude 4 models (versioned format - May 2025)
     "claude-sonnet-4@",
-    "claude-opus-4-1@",
     "claude-opus-4@",
+    "claude-opus-4-1@",
     // Claude 3.x models (versioned format)
     "claude-3-7-sonnet@",
     "claude-3-5-sonnet@",
@@ -110,6 +140,8 @@ const VISION_CAPABILITIES = {
     // Additional patterns for compatibility
     "claude-3.5-sonnet",
     "claude-3.5-haiku",
+    "claude-4.5-sonnet",
+    "claude-4.5-opus",
     "claude-4.5-haiku",
     "claude-haiku-4-5",
     "claude-3.0-sonnet",
@@ -118,11 +150,22 @@ const VISION_CAPABILITIES = {
   litellm: [
     // LiteLLM proxies to underlying providers
     // List models that support vision when going through the proxy
+    // Gemini models
+    "gemini-3-pro-preview",
+    "gemini-3-pro-latest",
     "gemini-2.5-pro",
     "gemini-2.5-flash",
-    "claude-sonnet-4",
+    "gemini-2.0-flash-lite",
+    // Claude 4.5 models
     "claude-sonnet-4-5",
+    "claude-sonnet-4-5-20250929",
+    "claude-opus-4-5",
+    "claude-opus-4-5-20251101",
+    "claude-haiku-4-5-20251001",
+    // Claude 4 models
+    "claude-sonnet-4",
     "claude-opus-4-1",
+    // OpenAI models
     "gpt-4o",
     "gpt-4.1",
     "gpt-5",
@@ -166,19 +209,23 @@ const VISION_CAPABILITIES = {
     "llava",
   ],
   bedrock: [
-    // Claude Sonnet 4.5 family (supports vision, PDFs, images)
+    // Claude 4.5 family (supports vision, PDFs, images - September-November 2025)
     "claude-sonnet-4-5",
     "claude-sonnet-4.5",
     "anthropic.claude-sonnet-4-5",
-    // Claude Haiku 4.5 family (supports vision, PDFs, images)
+    "anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "claude-opus-4-5",
+    "claude-opus-4.5",
+    "anthropic.claude-opus-4-5",
+    "anthropic.claude-opus-4-5-20251101-v1:0",
     "claude-haiku-4-5",
     "claude-haiku-4.5",
     "anthropic.claude-haiku-4-5",
-    // Claude Sonnet 4 family
+    "anthropic.claude-haiku-4-5-20251001-v1:0",
+    // Claude 4 family (May 2025)
     "claude-sonnet-4",
     "claude-sonnet-4@",
     "anthropic.claude-sonnet-4",
-    // Claude Opus 4 family
     "claude-opus-4",
     "claude-opus-4-1",
     "claude-opus-4@",

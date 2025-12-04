@@ -727,6 +727,74 @@ GOOGLE_VERTEX_LOCATION=europe-west1
 
 ---
 
+## Known Limitations
+
+### Structured Output + Function Calling (Gemini Models Only)
+
+**Google API Limitation:** Google Gemini models on Vertex AI cannot combine function calling with structured output (JSON schema). This is a fundamental Google API constraint.
+
+**Note:** This limitation ONLY affects Gemini models. Anthropic Claude models via Vertex AI do NOT have this limitation.
+
+**Error:**
+
+```
+Function calling with a response mime type: 'application/json' is unsupported
+```
+
+**Solution for Gemini models:**
+
+```typescript
+// ✅ Correct approach with Gemini
+const result = await neurolink.generate({
+  input: { text: "Analyze this data" },
+  schema: MyZodSchema,
+  output: { format: "json" },
+  provider: "vertex",
+  model: "gemini-2.5-flash",
+  disableTools: true, // Required for Gemini models
+});
+```
+
+**Claude models work without restriction:**
+
+```typescript
+// ✅ Claude via Vertex AI supports both
+const result = await neurolink.generate({
+  input: { text: "Analyze this data" },
+  schema: MyZodSchema,
+  output: { format: "json" },
+  provider: "vertex",
+  model: "claude-3-5-sonnet-20241022",
+  // No disableTools needed - Claude supports both
+});
+```
+
+**Industry Context:**
+
+- This limitation affects ALL frameworks using Gemini (LangChain, Vercel AI SDK, Agno, Instructor)
+- All use the same workaround: disable tools when using schemas
+- Future Gemini versions may support both - check official Google Cloud documentation for updates
+
+### Complex Schema Limitations
+
+**"Too many states for serving" Error:**
+
+When using complex Zod schemas with Gemini, you may encounter:
+
+```
+Error: 9 FAILED_PRECONDITION: Too many states for serving
+```
+
+**Solutions:**
+
+1. Simplify schema (reduce nesting, array sizes)
+2. Use `disableTools: true` (reduces state count)
+3. Use Claude models via Vertex AI (no such limitation)
+
+See [Troubleshooting Guide](../../TROUBLESHOOTING.md#google-gemini-too-many-states-for-serving-error) for details.
+
+---
+
 ## Related Documentation
 
 - **[Provider Setup Guide](../provider-setup.md)** - General configuration

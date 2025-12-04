@@ -592,6 +592,50 @@ interface GenerateOptions {
 }
 ```
 
+### Schema Limitations by Provider
+
+**Google Gemini Limitation (Vertex AI & Google AI Studio):**
+
+- ❌ Cannot combine `schema` + `tools` (including built-in tools)
+- ✅ Solution: Use `disableTools: true` when using schemas
+- 🔄 Industry Standard: All frameworks use this approach
+- 📅 Future: Gemini 3 Pro Preview (Nov 2025) supports both
+
+**Example:**
+
+```typescript
+// ❌ Will fail with Google providers
+const result = await neurolink.generate({
+  schema: MySchema,
+  provider: "vertex", // Error: Function calling with JSON mime type unsupported
+});
+
+// ✅ Correct for Google providers
+const result = await neurolink.generate({
+  schema: MySchema,
+  provider: "vertex",
+  disableTools: true, // Required
+});
+
+// ✅ Works without disableTools
+const result = await neurolink.generate({
+  schema: MySchema,
+  provider: "openai", // OpenAI supports both
+});
+```
+
+**Provider Support Matrix:**
+
+| Provider           | Tools + Schema              | Notes                 |
+| ------------------ | --------------------------- | --------------------- |
+| OpenAI             | ✅ Full Support             | No limitations        |
+| Anthropic          | ✅ Full Support             | No limitations        |
+| Vertex AI (Gemini) | ❌ Use `disableTools: true` | Google API limitation |
+| Google AI Studio   | ❌ Use `disableTools: true` | Google API limitation |
+| Vertex AI (Claude) | ✅ Full Support             | Uses Anthropic models |
+| Azure OpenAI       | ✅ Full Support             | No limitations        |
+| Bedrock            | ✅ Full Support             | No limitations        |
+
 **Returns:**
 
 ```typescript

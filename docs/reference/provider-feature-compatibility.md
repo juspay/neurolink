@@ -31,19 +31,21 @@ After comprehensive testing across 11 AI providers, we have identified **4 produ
 
 ## Complete Feature Support Matrix
 
-| Provider             | CSV    | PDF    | MCP Tools | Business Tools | Enterprise | Score     | Status       |
-| -------------------- | ------ | ------ | --------- | -------------- | ---------- | --------- | ------------ |
-| **Google AI Studio** | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ✅ 1/1     | **19/19** | Production   |
-| **Vertex AI**        | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ✅ 1/1     | **19/19** | Production   |
-| **LiteLLM**          | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ✅ 1/1     | **19/19** | Production   |
-| **OpenAI**           | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ✅ 1/1     | **19/19** | Production   |
-| **Azure OpenAI**     | ✅ 6/6 | ❌ 0/6 | ✅ 4/4    | ✅ 2/2         | ✅ 1/1     | 13/19     | Production\* |
-| **Mistral**          | ✅ 6/6 | ❌ 0/6 | ⚠️ 2/4    | ❌ 0/2         | ✅ 1/1     | 9/19      | Development  |
-| **Ollama**           | ⚠️ 3/6 | ⚠️ 1/6 | ❌ 0/4    | ❌ 0/2         | ✅ 1/1     | 7/19      | Development  |
-| **Anthropic**        | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ✅ 1/1     | 2/19\*\*  | Config       |
-| **Bedrock**          | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ✅ 1/1     | 2/19\*\*  | Config       |
-| **Hugging Face**     | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ✅ 1/1     | 2/19\*\*  | Config       |
-| **SageMaker**        | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ✅ 1/1     | 2/19\*\*  | Config       |
+| Provider             | CSV    | PDF    | MCP Tools | Business Tools | Structured Output | Enterprise | Score     | Status       |
+| -------------------- | ------ | ------ | --------- | -------------- | ----------------- | ---------- | --------- | ------------ |
+| **Google AI Studio** | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ⚠️ Partial\*      | ✅ 1/1     | **19/19** | Production   |
+| **Vertex AI**        | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ⚠️ Partial\*      | ✅ 1/1     | **19/19** | Production   |
+| **LiteLLM**          | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ✅ Full           | ✅ 1/1     | **19/19** | Production   |
+| **OpenAI**           | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ✅ Full           | ✅ 1/1     | **19/19** | Production   |
+| **Azure OpenAI**     | ✅ 6/6 | ❌ 0/6 | ✅ 4/4    | ✅ 2/2         | ✅ Full           | ✅ 1/1     | 13/19     | Production\* |
+| **Mistral**          | ✅ 6/6 | ❌ 0/6 | ⚠️ 2/4    | ❌ 0/2         | ✅ Full           | ✅ 1/1     | 9/19      | Development  |
+| **Ollama**           | ⚠️ 3/6 | ⚠️ 1/6 | ❌ 0/4    | ❌ 0/2         | ⚠️ Limited        | ✅ 1/1     | 7/19      | Development  |
+| **Anthropic**        | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ✅ Full           | ✅ 1/1     | 2/19\*\*  | Config       |
+| **Bedrock**          | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ✅ Full           | ✅ 1/1     | 2/19\*\*  | Config       |
+| **Hugging Face**     | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ⚠️ Limited        | ✅ 1/1     | 2/19\*\*  | Config       |
+| **SageMaker**        | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ⚠️ Limited        | ✅ 1/1     | 2/19\*\*  | Config       |
+
+\*Google providers: Cannot combine tools + schemas (use `disableTools: true`). Google API limitation, not NeuroLink bug.
 
 **Legend:**
 
@@ -109,6 +111,39 @@ After comprehensive testing across 11 AI providers, we have identified **4 produ
   - Cost optimization across providers
   - Load balancing and caching
 - **Setup:** LiteLLM proxy server + provider credentials
+
+### Structured Output Support Details
+
+**Full Support (✅):**
+
+- OpenAI, Anthropic, Azure OpenAI, Bedrock, Mistral, LiteLLM
+- Can use tools and schemas simultaneously
+- No configuration required
+
+**Partial Support (⚠️):**
+
+- **Google AI Studio** and **Vertex AI (Gemini models)**
+- **Limitation:** Cannot combine tools with schemas
+- **Solution:** Use `disableTools: true` when using schemas
+- **Reason:** Google API limitation (documented by Google)
+- **Future:** Future Gemini versions may support both - check official documentation for updates
+
+**Example:**
+
+```typescript
+// Google providers require disableTools
+await neurolink.generate({
+  schema: MySchema,
+  provider: "vertex",
+  disableTools: true, // Required for Google
+});
+
+// Other providers work without restriction
+await neurolink.generate({
+  schema: MySchema,
+  provider: "openai", // No restriction
+});
+```
 
 ---
 

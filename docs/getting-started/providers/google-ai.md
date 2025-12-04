@@ -872,6 +872,63 @@ class CachedGoogleAI {
 
 ---
 
+## Known Limitations
+
+### Structured Output + Function Calling
+
+**Google API Limitation:** Google AI Studio (Gemini models) cannot combine function calling with structured output (JSON schema). This is a fundamental Google API constraint documented in the [Gemini API documentation](https://ai.google.dev/gemini-api/docs/).
+
+**Error:**
+
+```
+Function calling with a response mime type: 'application/json' is unsupported
+```
+
+**Solution:**
+
+```typescript
+// ✅ Correct approach
+const result = await neurolink.generate({
+  input: { text: "Analyze this data" },
+  schema: MyZodSchema,
+  output: { format: "json" },
+  provider: "google-ai",
+  disableTools: true, // Required for schemas
+});
+```
+
+**Industry Context:**
+
+- This limitation affects ALL frameworks using Gemini (LangChain, Vercel AI SDK, Agno, Instructor)
+- All use the same workaround: disable tools when using schemas
+- Future Gemini versions may support both - check official Google AI Studio documentation for updates
+
+**Alternative Approaches:**
+
+1. Use OpenAI or Anthropic providers (support both simultaneously)
+2. Use Vertex AI with Claude models (via Anthropic integration)
+3. Choose between tools OR schemas for Gemini models
+
+### Complex Schema Limitations
+
+**"Too many states for serving" Error:**
+
+When using complex Zod schemas, you may encounter:
+
+```
+Error: 9 FAILED_PRECONDITION: Too many states for serving
+```
+
+**Solutions:**
+
+1. Simplify schema (reduce nesting, array sizes)
+2. Use `disableTools: true` (reduces state count)
+3. Split complex operations into multiple simpler calls
+
+See [Troubleshooting Guide](../../TROUBLESHOOTING.md#google-gemini-too-many-states-for-serving-error) for details.
+
+---
+
 ## Related Documentation
 
 - **[Provider Setup Guide](../provider-setup.md)** - General provider configuration

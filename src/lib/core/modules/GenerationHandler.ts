@@ -73,9 +73,9 @@ export class GenerationHandler {
     return await generateText({
       model,
       messages,
-      tools,
+      ...(shouldUseTools && Object.keys(tools).length > 0 && { tools }),
       maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-      toolChoice: shouldUseTools ? "auto" : "none",
+      ...(shouldUseTools && { toolChoice: "auto" }),
       temperature: options.temperature,
       maxTokens: options.maxTokens,
       ...(useStructuredOutput &&
@@ -240,9 +240,24 @@ export class GenerationHandler {
       (options.output?.format === "json" ||
         options.output?.format === "structured");
 
-    const content: string = useStructuredOutput
-      ? JSON.stringify(generateResult.experimental_output)
-      : generateResult.text;
+    let content: string;
+    if (useStructuredOutput) {
+      if (generateResult.experimental_output !== undefined) {
+        content = JSON.stringify(generateResult.experimental_output);
+      } else {
+        logger.debug(
+          "[GenerationHandler] experimental_output not available, falling back to text parsing",
+        );
+        const rawText = generateResult.text || "";
+        const strippedText = rawText
+          .replace(/^```(?:json)?\s*\n?/i, "")
+          .replace(/\n?```\s*$/i, "")
+          .trim();
+        content = strippedText;
+      }
+    } else {
+      content = generateResult.text;
+    }
 
     return {
       content,

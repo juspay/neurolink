@@ -84,12 +84,45 @@ const result = await neurolink.generate({
 // Tools execute first, then response is formatted as JSON
 ```
 
+### Important: Google Gemini Providers Limitation
+
+**Google API Constraint:** Google Gemini (both Vertex AI and Google AI Studio) **cannot combine function calling with structured output**. This is a documented Google API limitation, not a NeuroLink issue.
+
+**Error Message:**
+
+```
+Function calling with a response mime type: 'application/json' is unsupported
+```
+
+**Solution:** Use `disableTools: true` when using schemas with Google providers:
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "Analyze TechCorp company" },
+  schema: CompanySchema,
+  output: { format: "json" },
+  provider: "vertex", // or "google-ai"
+  disableTools: true, // ✅ REQUIRED for Google providers with schemas
+});
+```
+
+**This is Industry Standard:** All major AI frameworks (LangChain, Vercel AI SDK, Agno, Instructor) use the same approach - disabling tools when using response schemas with Google models.
+
+**Future Support:** Future Gemini versions may support both features - check official Google documentation for updates.
+
+**Related Limitation:** Complex schemas may trigger "Too many states for serving" errors. Solutions:
+
+1. Simplify schema structure
+2. Reduce nested objects
+3. Use `disableTools: true` to reduce state complexity
+
 ## Important Notes
 
 - **Only available in `generate()`** - Not supported in `stream()` function
 - **Requires both `schema` and `output.format`** - If `output.format` is not "json" or "structured", regular text is returned even with a schema
 - **Auto-validated** - Invalid responses throw `NoObjectGeneratedError` with validation details
 - **Provider support** - Works with OpenAI, Anthropic, Google AI Studio, Vertex AI
+- **Google Gemini Limitation** - Cannot combine tools with schemas - use `disableTools: true`
 
 ## See Also
 

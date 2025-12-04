@@ -41,9 +41,58 @@ export type GenerateOptions = {
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
+  /**
+   * Zod schema for structured output validation
+   *
+   * @important Google Gemini Limitation
+   * Google Vertex AI and Google AI Studio cannot combine function calling with
+   * structured output. You MUST use `disableTools: true` when using schemas with
+   * Google providers.
+   *
+   * Error without disableTools: "Function calling with a response mime type:
+   * 'application/json' is unsupported"
+   *
+   * This is a documented Google API limitation, not a NeuroLink bug.
+   * All frameworks (LangChain, Vercel AI SDK, Agno, Instructor) use this approach.
+   *
+   * @example
+   * ```typescript
+   * // ✅ Correct for Google providers
+   * const result = await neurolink.generate({
+   *   schema: MySchema,
+   *   provider: "vertex",
+   *   disableTools: true  // Required for Google
+   * });
+   *
+   * // ✅ No restriction for other providers
+   * const result = await neurolink.generate({
+   *   schema: MySchema,
+   *   provider: "openai"  // Works without disableTools
+   * });
+   * ```
+   *
+   * @see https://ai.google.dev/gemini-api/docs/function-calling
+   */
   schema?: ValidationSchema;
   tools?: Record<string, Tool>;
   timeout?: number | string;
+  /**
+   * Disable tool execution (including built-in tools)
+   *
+   * @required For Google Gemini providers when using schemas
+   * Google Vertex AI and Google AI Studio require this flag when using
+   * structured output (schemas) due to Google API limitations.
+   *
+   * @example
+   * ```typescript
+   * // Required for Google providers with schemas
+   * await neurolink.generate({
+   *   schema: MySchema,
+   *   provider: "vertex",
+   *   disableTools: true
+   * });
+   * ```
+   */
   disableTools?: boolean;
 
   // Analytics and Evaluation
