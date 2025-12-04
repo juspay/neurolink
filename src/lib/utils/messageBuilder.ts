@@ -34,6 +34,59 @@ import type {
 } from "ai";
 
 /**
+ * Valid image MIME types supported by AI providers
+ * Common formats supported across OpenAI, Anthropic, Google, etc.
+ */
+export const VALID_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+  "image/tiff",
+  "image/svg+xml",
+  "image/avif",
+  "image/heic",
+  "image/heif",
+] as const;
+
+export type ValidImageMimeType = (typeof VALID_IMAGE_MIME_TYPES)[number];
+
+/**
+ * Check if a MIME type is a valid image MIME type
+ */
+export function isValidImageMimeType(
+  mimeType: string,
+): mimeType is ValidImageMimeType {
+  return (VALID_IMAGE_MIME_TYPES as readonly string[]).includes(mimeType);
+}
+
+/**
+ * Get validated MIME type with fallback
+ * Validates the extracted MIME type and falls back to default if invalid
+ * Logs a warning when an invalid MIME type is encountered
+ *
+ * @param mimeType - The MIME type to validate
+ * @param fallback - The fallback MIME type to use if invalid (default: 'image/jpeg')
+ * @returns A valid image MIME type
+ */
+export function getValidatedMimeType(
+  mimeType: string,
+  fallback: ValidImageMimeType = "image/jpeg",
+): ValidImageMimeType {
+  if (isValidImageMimeType(mimeType)) {
+    return mimeType;
+  }
+
+  logger.warn(
+    `Invalid image MIME type "${mimeType}" detected. Falling back to "${fallback}". ` +
+      `Supported formats: ${VALID_IMAGE_MIME_TYPES.join(", ")}`,
+  );
+
+  return fallback;
+}
+
+/**
  * Type guard for validating message roles
  */
 function isValidRole(role: unknown): role is "user" | "assistant" | "system" {
@@ -887,7 +940,7 @@ async function convertSimpleImagesToProviderFormat(
           // Data URI (including downloaded URLs) - extract mime type and use directly
           const match = image.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
-            mimeType = match[1];
+            mimeType = getValidatedMimeType(match[1]);
             imageData = image; // Keep as data URI for Vercel AI SDK
           } else {
             imageData = image;
