@@ -1,3 +1,9 @@
+## [8.5.0](https://github.com/juspay/neurolink/compare/v8.4.1...v8.5.0) (2025-12-04)
+
+### Features
+
+- **(audio):** add AudioProcessorOptions type for audio transcription configuration ([b969ba9](https://github.com/juspay/neurolink/commit/b969ba95daf6cbcc63d94f10d632a1e977726d52))
+
 ## [8.4.1](https://github.com/juspay/neurolink/compare/v8.4.0...v8.4.1) (2025-12-04)
 
 ### Bug Fixes
