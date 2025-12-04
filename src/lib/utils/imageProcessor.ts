@@ -414,7 +414,7 @@ export class ImageProcessor {
  * Whitelist of valid image file extensions (lowercase, no dots)
  * Used to validate file extensions against a known set of image formats
  */
-export const VALID_IMAGE_EXTENSIONS = [
+export const VALID_IMAGE_EXTENSIONS: readonly string[] = [
   "jpg",
   "jpeg",
   "png",
@@ -428,12 +428,12 @@ export const VALID_IMAGE_EXTENSIONS = [
   "ico",
   "heic",
   "heif",
-] as const;
+];
 
 /**
  * Type for valid image extensions
  */
-export type ValidImageExtension = (typeof VALID_IMAGE_EXTENSIONS)[number];
+export type ValidImageExtension = string;
 
 /**
  * Set of valid image extensions for efficient lookup.
