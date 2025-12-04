@@ -4,6 +4,7 @@
  */
 
 import { logger } from "./logger.js";
+import { getImageCache } from "./imageCache.js";
 import type { ProcessedImage } from "../types/multimodal.js";
 import type { FileProcessingResult } from "../types/fileTypes.js";
 
@@ -520,11 +521,20 @@ export const imageUtils = {
 
   /**
    * Convert URL to base64 data URI by downloading the image
+   * Uses LRU cache to avoid redundant downloads of the same URL
    */
   urlToBase64DataUri: async (
     url: string,
     { timeoutMs = 15000, maxBytes = 10 * 1024 * 1024 } = {},
   ): Promise<string> => {
+    // Check cache first
+    const cache = getImageCache();
+    const cached = cache.get(url);
+    if (cached) {
+      logger.debug("Using cached image for URL", { url: url.substring(0, 50) });
+      return cached.dataUri;
+    }
+
     try {
       // Basic protocol whitelist
       if (!/^https?:\/\//i.test(url)) {
@@ -560,8 +570,14 @@ export const imageUtils = {
           );
         }
 
-        const base64 = Buffer.from(buffer).toString("base64");
-        return `data:${contentType || "image/jpeg"};base64,${base64}`;
+        const imageBuffer = Buffer.from(buffer);
+        const base64 = imageBuffer.toString("base64");
+        const dataUri = `data:${contentType || "image/jpeg"};base64,${base64}`;
+
+        // Store in cache for future use
+        cache.set(url, dataUri, contentType || "image/jpeg", imageBuffer);
+
+        return dataUri;
       } finally {
         clearTimeout(t);
       }

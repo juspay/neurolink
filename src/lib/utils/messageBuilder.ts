@@ -22,6 +22,7 @@ import { logger } from "./logger.js";
 import { FileDetector } from "./fileDetector.js";
 import { PDFProcessor } from "./pdfProcessor.js";
 import { request, getGlobalDispatcher, interceptors } from "undici";
+import { getImageCache } from "./imageCache.js";
 import { readFileSync, existsSync } from "fs";
 import type {
   CoreMessage,
@@ -768,8 +769,17 @@ function isInternetUrl(input: string): boolean {
 
 /**
  * Download image from URL and convert to base64 data URI
+ * Uses LRU cache to avoid redundant downloads of the same URL
  */
 async function downloadImageFromUrl(url: string): Promise<string> {
+  // Check cache first
+  const cache = getImageCache();
+  const cached = cache.get(url);
+  if (cached) {
+    logger.debug("Using cached image for URL", { url: url.substring(0, 50) });
+    return cached.dataUri;
+  }
+
   try {
     const response = await request(url, {
       dispatcher: getGlobalDispatcher().compose(
@@ -815,6 +825,9 @@ async function downloadImageFromUrl(url: string): Promise<string> {
     // Convert to base64 data URI
     const base64 = buffer.toString("base64");
     const dataUri = `data:${contentType};base64,${base64}`;
+
+    // Store in cache for future use
+    cache.set(url, dataUri, contentType, buffer);
 
     return dataUri;
   } catch (error) {
