@@ -39,12 +39,14 @@ npx vitest run test/unit/telemetry/imageProcessingTelemetry.test.ts
 ### Quick Demo
 
 1. **Build the project:**
+
    ```bash
    npm run build
    npx tsc --project tsconfig.cli.json
    ```
 
 2. **Run the demo script:**
+
    ```bash
    node examples/telemetry-demo.js
    ```
@@ -65,7 +67,7 @@ npx vitest run test/unit/telemetry/imageProcessingTelemetry.test.ts
 #### Basic Usage
 
 ```javascript
-import { ImageProcessingTelemetry } from '@juspay/neurolink';
+import { ImageProcessingTelemetry } from "@juspay/neurolink";
 
 // Get the singleton instance
 const telemetry = ImageProcessingTelemetry.getInstance();
@@ -86,24 +88,24 @@ console.log(`Total Processed: ${stats.totalProcessed}`);
 const stats = telemetry.getStats();
 
 // Overall metrics
-console.log('Total:', stats.totalProcessed);
-console.log('Successes:', stats.successCount);
-console.log('Failures:', stats.failureCount);
-console.log('Success Rate:', stats.successRate + '%');
+console.log("Total:", stats.totalProcessed);
+console.log("Successes:", stats.successCount);
+console.log("Failures:", stats.failureCount);
+console.log("Success Rate:", stats.successRate + "%");
 
 // Performance metrics
-console.log('Avg Time:', stats.averageProcessingTimeMs + 'ms');
-console.log('Avg Size:', stats.averageSizeBytes + ' bytes');
+console.log("Avg Time:", stats.averageProcessingTimeMs + "ms");
+console.log("Avg Size:", stats.averageSizeBytes + " bytes");
 
 // Distribution breakdowns
-console.log('Size Distribution:', stats.sizeDistribution);
-console.log('Duration Distribution:', stats.durationDistribution);
-console.log('Operations:', stats.operationBreakdown);
-console.log('Providers:', stats.providerBreakdown);
+console.log("Size Distribution:", stats.sizeDistribution);
+console.log("Duration Distribution:", stats.durationDistribution);
+console.log("Operations:", stats.operationBreakdown);
+console.log("Providers:", stats.providerBreakdown);
 
 // Error tracking
 if (Object.keys(stats.errorBreakdown).length > 0) {
-  console.log('Errors:', stats.errorBreakdown);
+  console.log("Errors:", stats.errorBreakdown);
 }
 ```
 
@@ -119,6 +121,7 @@ telemetry.reset();
 ### Unit Tests (24 tests)
 
 The unit tests cover:
+
 - Singleton pattern verification
 - Recording successful operations
 - Recording failed operations with error types
@@ -134,6 +137,7 @@ The unit tests cover:
 ### Integration Tests (15 tests)
 
 The integration tests verify:
+
 - Telemetry integration with `ImageProcessor.process()`
 - OpenAI processing with different input types (Buffer, URL, data URI)
 - Google AI processing with mime type extraction
@@ -174,19 +178,23 @@ When telemetry is enabled (via `NEUROLINK_TELEMETRY_ENABLED=true` or `OTEL_EXPOR
 ## What the Tests Verify
 
 ✅ **Processing Time Metrics**
+
 - Tracks duration of each image processing operation
 - Categorizes into performance buckets (instant, fast, normal, slow, very slow)
 
 ✅ **Success/Failure Counters**
+
 - Counts successful operations
 - Counts failed operations
 - Tracks error types for failures
 
 ✅ **Size Distribution Tracking**
+
 - Tracks image sizes
 - Categorizes into size buckets (tiny, small, medium, large, very large, huge)
 
 ✅ **Integration with Existing Telemetry System**
+
 - Integrates with `TelemetryService` singleton
 - Exports metrics to OpenTelemetry when enabled
 - No impact when telemetry is disabled
@@ -205,6 +213,7 @@ When telemetry is enabled (via `NEUROLINK_TELEMETRY_ENABLED=true` or `OTEL_EXPOR
 
 **Issue:** Module not found errors
 **Solution:** Build the project first:
+
 ```bash
 npm run build
 npx tsc --project tsconfig.cli.json
@@ -218,6 +227,7 @@ npx tsc --project tsconfig.cli.json
 ## Performance Impact
 
 The telemetry tracking has minimal performance impact:
+
 - Uses `performance.now()` for sub-millisecond precision
 - In-memory counters with O(1) operations
 - No I/O operations in the hot path
