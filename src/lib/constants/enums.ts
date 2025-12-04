@@ -25,10 +25,20 @@ export enum AIProviderName {
  * Supported Models for Amazon Bedrock
  */
 export enum BedrockModels {
+  // Claude 4.5 Series (Latest - September-November 2025)
+  CLAUDE_4_5_SONNET = "anthropic.claude-sonnet-4-5-20250929-v1:0",
+  CLAUDE_4_5_OPUS = "anthropic.claude-opus-4-5-20251124-v1:0",
+  CLAUDE_4_5_HAIKU = "anthropic.claude-haiku-4-5-20251001-v1:0",
+
+  // Claude 3.7 Series
+  CLAUDE_3_7_SONNET = "anthropic.claude-3-7-sonnet-20250219-v1:0",
+
+  // Claude 3.5 Series
+  CLAUDE_3_5_SONNET = "anthropic.claude-3-5-sonnet-20241022-v1:0",
+
+  // Claude 3 Series (Legacy support)
   CLAUDE_3_SONNET = "anthropic.claude-3-sonnet-20240229-v1:0",
   CLAUDE_3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0",
-  CLAUDE_3_5_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0",
-  CLAUDE_3_7_SONNET = "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
 }
 
 /**
@@ -48,7 +58,11 @@ export enum OpenAIModels {
  * Supported Models for Google Vertex AI
  */
 export enum VertexModels {
-  // Claude 4 Series (Latest - May 2025)
+  // Claude 4.5 Series (Latest - December 2025)
+  CLAUDE_4_5_SONNET = "claude-sonnet-4-5@20250929",
+  CLAUDE_4_5_OPUS = "claude-opus-4-5@20251124",
+
+  // Claude 4 Series (May 2025)
   CLAUDE_4_0_SONNET = "claude-sonnet-4@20250514",
   CLAUDE_4_0_OPUS = "claude-opus-4@20250514",
 
@@ -62,6 +76,11 @@ export enum VertexModels {
   CLAUDE_3_HAIKU = "claude-3-haiku-20240307",
 
   // Gemini 3 Series (Preview)
+  /** Gemini 3 Pro Preview - Versioned preview (November 2025) */
+  GEMINI_3_PRO_PREVIEW_11_2025 = "gemini-3-pro-preview-11-2025",
+  /** Gemini 3 Pro Latest - Auto-updated alias (always points to latest preview) */
+  GEMINI_3_PRO_LATEST = "gemini-3-pro-latest",
+  /** Gemini 3 Pro Preview - Generic preview (legacy) */
   GEMINI_3_PRO_PREVIEW = "gemini-3-pro-preview",
 
   // Gemini 2.5 Series (Latest - 2025)
@@ -71,6 +90,8 @@ export enum VertexModels {
 
   // Gemini 2.0 Series
   GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001",
+  /** Gemini 2.0 Flash Lite - GA, production-ready, cost-optimized */
+  GEMINI_2_0_FLASH_LITE = "gemini-2.0-flash-lite",
 
   // Gemini 1.5 Series (Legacy support)
   GEMINI_1_5_PRO = "gemini-1.5-pro",
@@ -81,6 +102,12 @@ export enum VertexModels {
  * Supported Models for Google AI Studio
  */
 export enum GoogleAIModels {
+  // Gemini 3 Series (Preview)
+  /** Gemini 3 Pro Preview - Versioned preview (November 2025) */
+  GEMINI_3_PRO_PREVIEW_11_2025 = "gemini-3-pro-preview-11-2025",
+  /** Gemini 3 Pro Latest - Auto-updated alias (always points to latest preview) */
+  GEMINI_3_PRO_LATEST = "gemini-3-pro-latest",
+
   // Gemini 2.5 Series (Latest - 2025)
   GEMINI_2_5_PRO = "gemini-2.5-pro",
   GEMINI_2_5_FLASH = "gemini-2.5-flash",
@@ -88,6 +115,8 @@ export enum GoogleAIModels {
 
   // Gemini 2.0 Series
   GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001",
+  /** Gemini 2.0 Flash Lite - GA, production-ready, cost-optimized */
+  GEMINI_2_0_FLASH_LITE = "gemini-2.0-flash-lite",
 
   // Gemini 1.5 Series (Legacy support)
   GEMINI_1_5_PRO = "gemini-1.5-pro",
@@ -99,7 +128,9 @@ export enum GoogleAIModels {
  * Supported Models for Anthropic (Direct API)
  */
 export enum AnthropicModels {
-  // Claude 4.5 Series (Latest - October 2025)
+  // Claude 4.5 Series (Latest - September-November 2025)
+  CLAUDE_SONNET_4_5 = "claude-sonnet-4-5-20250929",
+  CLAUDE_OPUS_4_5 = "claude-opus-4-5-20251124",
   CLAUDE_4_5_HAIKU = "claude-haiku-4-5-20251001",
 
   // Claude 3.5 Series

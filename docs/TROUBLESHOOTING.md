@@ -927,6 +927,111 @@ node dist/cli/index.js generate "what is deepest you can think?" --provider goog
 
 ---
 
+## 🤖 **Structured Output Issues**
+
+### **Google Gemini: Function Calling + Schema Conflict**
+
+**Symptom**: Error when using schema with Google Vertex AI or Google AI Studio
+
+```
+Error: Function calling with a response mime type: 'application/json' is unsupported
+```
+
+**Root Cause**: Google's Gemini API **fundamentally cannot combine function calling (tools) with structured output (JSON schema)**. This is a documented Google API limitation, not a NeuroLink bug.
+
+**Solutions**:
+
+1. **Disable Tools (Recommended)**:
+
+   ```typescript
+   const result = await neurolink.generate({
+     input: { text: "Your prompt" },
+     schema: YourSchema,
+     output: { format: "json" },
+     provider: "vertex", // or "google-ai"
+     disableTools: true, // ✅ Required for Google with schemas
+   });
+   ```
+
+2. **Use Different Provider**:
+
+   ```typescript
+   // OpenAI, Anthropic, and others support both simultaneously
+   const result = await neurolink.generate({
+     input: { text: "Your prompt" },
+     schema: YourSchema,
+     output: { format: "json" },
+     provider: "openai", // ✅ Supports tools + schemas together
+   });
+   ```
+
+3. **Use Future Gemini Versions**:
+   - Future Gemini versions may support both - check official documentation for updates
+
+**This is Industry Standard**: All frameworks (LangChain, Vercel AI SDK, Agno, Instructor) use the same workaround.
+
+**Historical Context**:
+
+- Gemini 2.0 and earlier: Cannot combine tools + schemas
+- Gemini 2.5: **Worsened** - even fails with tool calls in conversation history
+- Gemini 3 Pro Preview: Finally supports both
+
+---
+
+### **Google Gemini: "Too many states for serving" Error**
+
+**Symptom**: Error with complex Zod schemas on Google providers
+
+```
+Error: 9 FAILED_PRECONDITION: Too many states for serving
+```
+
+**Root Cause**: Google Gemini has internal state limits. Complex schemas + many tools exceed these limits.
+
+**Solutions**:
+
+1. **Simplify Schema**:
+
+   ```typescript
+   // ❌ Too complex
+   const ComplexSchema = z.object({
+     level1: z.object({
+       level2: z.object({
+         level3: z.object({
+           level4: z.object({
+             level5: z.string()
+           })
+         })
+       })
+     }),
+     largeArray: z.array(z.object({...})).max(1000)
+   });
+
+   // ✅ Simplified
+   const SimpleSchema = z.object({
+     summary: z.string(),
+     details: z.object({
+       key1: z.string(),
+       key2: z.number()
+     })
+   });
+   ```
+
+2. **Disable Tools** (reduces state complexity):
+
+   ```typescript
+   const result = await neurolink.generate({
+     schema: YourSchema,
+     disableTools: true, // ✅ Significantly reduces state count
+   });
+   ```
+
+3. **Use Different Provider**:
+   - OpenAI: No known schema complexity limits
+   - Anthropic: Handles deep nested schemas well
+
+---
+
 ## 🧪 **Testing and Validation**
 
 ### **Comprehensive System Test**

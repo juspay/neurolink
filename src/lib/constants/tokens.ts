@@ -76,11 +76,16 @@ export const USE_CASE_TOKENS = {
 export const PROVIDER_TOKEN_LIMITS = {
   /** Anthropic model limits */
   ANTHROPIC: {
-    "claude-3-haiku-20240307": 4096,
-    "claude-3-5-sonnet-20241022": 4096,
-    "claude-3-opus-20240229": 4096,
-    "claude-3-5-haiku-20241022": 4096,
+    // Claude 4.5 Series (September-November 2025)
+    "claude-sonnet-4-5-20250929": 8192,
+    "claude-opus-4-5-20251101": 8192,
     "claude-haiku-4-5-20251001": 8192,
+    // Claude 3.5 Series
+    "claude-3-5-sonnet-20241022": 4096,
+    "claude-3-5-haiku-20241022": 4096,
+    // Claude 3 Series
+    "claude-3-haiku-20240307": 4096,
+    "claude-3-opus-20240229": 4096,
     "claude-3-sonnet-20240229": 4096,
     default: 4096, // Conservative default for Anthropic
   },
@@ -99,29 +104,51 @@ export const PROVIDER_TOKEN_LIMITS = {
 
   /** Google AI model limits */
   GOOGLE_AI: {
-    "gemini-1.5-pro": 8192,
-    "gemini-1.5-flash": 8192,
-    "gemini-1.5-flash-lite": 8192,
+    // Gemini 3 Series (Preview - November 2025)
+    "gemini-3-pro-preview": 8192,
+    "gemini-3-pro-preview-11-2025": 8192,
+    "gemini-3-pro-latest": 8192,
+    // Gemini 2.5 Series
     "gemini-2.5-pro": 8192,
     "gemini-2.5-flash": 8192,
     "gemini-2.5-flash-lite": 8192,
+    // Gemini 2.0 Series
     "gemini-2.0-flash-001": 8192,
+    "gemini-2.0-flash-lite": 8192,
+    // Gemini 1.5 Series (Legacy)
+    "gemini-1.5-pro": 8192,
+    "gemini-1.5-flash": 8192,
+    "gemini-1.5-flash-lite": 8192,
     default: 4096, // Conservative default due to 500 errors at high limits
   },
 
   /** Google Vertex AI model limits */
   VERTEX: {
-    "gemini-1.5-pro": 8192,
-    "gemini-1.5-flash": 8192,
+    // Gemini 3 Series (Preview - November 2025)
+    "gemini-3-pro-preview": 8192,
+    "gemini-3-pro-preview-11-2025": 8192,
+    "gemini-3-pro-latest": 8192,
+    // Gemini 2.5 Series
     "gemini-2.5-pro": 8192,
     "gemini-2.5-flash": 8192,
     "gemini-2.5-flash-lite": 8192,
+    // Gemini 2.0 Series
     "gemini-2.0-flash-001": 8192,
+    "gemini-2.0-flash-lite": 8192,
+    // Gemini 1.5 Series (Legacy)
+    "gemini-1.5-pro": 8192,
+    "gemini-1.5-flash": 8192,
+    // Claude 4.5 Series (September-November 2025)
+    "claude-sonnet-4-5@20250929": 8192,
+    "claude-opus-4-5@20251124": 8192,
+    "claude-haiku-4-5@20251001": 8192,
+    // Claude 4 Series (May 2025)
     "claude-sonnet-4@20250514": 4096,
     "claude-opus-4@20250514": 4096,
+    // Claude 3.5 Series
     "claude-3-5-sonnet-20241022": 4096,
     "claude-3-5-haiku-20241022": 4096,
-    "claude-haiku-4-5-20251001": 8192,
+    // Claude 3 Series
     "claude-3-sonnet-20240229": 4096,
     "claude-3-haiku-20240307": 4096,
     "claude-3-opus-20240229": 4096,
@@ -130,12 +157,19 @@ export const PROVIDER_TOKEN_LIMITS = {
 
   /** AWS Bedrock model limits */
   BEDROCK: {
+    // Claude 4.5 Series (September-November 2025)
+    "anthropic.claude-sonnet-4-5-20250929-v1:0": 8192,
+    "anthropic.claude-opus-4-5-20251101-v1:0": 8192,
+    "anthropic.claude-haiku-4-5-20251001-v1:0": 8192,
+    // Claude 3.7 Series
+    "us.anthropic.claude-3-7-sonnet-20250219-v1:0": 4096,
+    // Claude 3.5 Series
+    "anthropic.claude-3-5-sonnet-20241022-v1:0": 4096,
+    "anthropic.claude-3-5-haiku-20241022-v1:0": 4096,
+    // Claude 3 Series
     "anthropic.claude-3-sonnet-20240229-v1:0": 4096,
     "anthropic.claude-3-haiku-20240307-v1:0": 4096,
-    "anthropic.claude-3-5-sonnet-20240620-v1:0": 4096,
     "anthropic.claude-3-opus-20240229-v1:0": 4096,
-    "anthropic.claude-haiku-4-5-20251001-v1:0": 8192,
-    "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0": 4096,
     default: 4096,
   },
 

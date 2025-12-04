@@ -13,7 +13,10 @@ import type { TextGenerationOptions } from "../types/index.js";
 import type { StreamOptions } from "../types/streamTypes.js";
 import type { GenerateOptions } from "../types/generateTypes.js";
 import type { Content } from "../types/multimodal.js";
-import { CONVERSATION_INSTRUCTIONS } from "../config/conversationMemory.js";
+import {
+  CONVERSATION_INSTRUCTIONS,
+  STRUCTURED_OUTPUT_INSTRUCTIONS,
+} from "../config/conversationMemory.js";
 import {
   ProviderImageAdapter,
   MultimodalLogger,
@@ -282,6 +285,21 @@ function formatCSVMetadata(metadata: {
 }
 
 /**
+ * Check if structured output mode should be enabled
+ * Structured output is used when a schema is provided with json/structured format
+ */
+function shouldUseStructuredOutput(options: {
+  schema?: unknown;
+  output?: { format?: string };
+}): boolean {
+  return (
+    !!options.schema &&
+    (options.output?.format === "json" ||
+      options.output?.format === "structured")
+  );
+}
+
+/**
  * Build a properly formatted message array for AI providers
  * Combines system prompt, conversation history, and current user prompt
  * Supports both TextGenerationOptions and StreamOptions
@@ -302,6 +320,11 @@ export async function buildMessagesArray(
   // Add conversation-aware instructions when history exists
   if (hasConversationHistory) {
     systemPrompt = `${systemPrompt.trim()}${CONVERSATION_INSTRUCTIONS}`;
+  }
+
+  // Add structured output instructions when schema is provided with json/structured format
+  if (shouldUseStructuredOutput(options)) {
+    systemPrompt = `${systemPrompt.trim()}${STRUCTURED_OUTPUT_INSTRUCTIONS}`;
   }
 
   // Add system message if we have one
@@ -624,6 +647,11 @@ export async function buildMultimodalMessagesArray(
     options.conversationHistory && options.conversationHistory.length > 0;
   if (hasConversationHistory) {
     systemPrompt = `${systemPrompt.trim()}${CONVERSATION_INSTRUCTIONS}`;
+  }
+
+  // Add structured output instructions when schema is provided with json/structured format
+  if (shouldUseStructuredOutput(options)) {
+    systemPrompt = `${systemPrompt.trim()}${STRUCTURED_OUTPUT_INSTRUCTIONS}`;
   }
 
   // Add file handling guidance when multimodal files are present

@@ -2,16 +2,19 @@
 
 ## Overview Matrix
 
-| Feature           | OpenAI   | Bedrock    | Vertex     | Google AI | Anthropic | Azure      | Hugging Face | Ollama  | Mistral |
-| ----------------- | -------- | ---------- | ---------- | --------- | --------- | ---------- | ------------ | ------- | ------- |
-| **Setup Time**    | 2 min    | 10 min     | 15 min     | 2 min     | 2 min     | 20 min     | 2 min        | 5 min   | 2 min   |
-| **Free Tier**     | ❌       | ❌         | ❌         | ✅        | ❌        | ❌         | ✅           | ✅      | ✅      |
-| **Local/Cloud**   | Cloud    | Cloud      | Cloud      | Cloud     | Cloud     | Cloud      | Cloud        | Local   | Cloud   |
-| **Privacy**       | Standard | Enterprise | Enterprise | Standard  | Standard  | Enterprise | Standard     | Maximum | GDPR    |
-| **Model Variety** | Limited  | Good       | Good       | Limited   | Limited   | Limited    | Excellent    | Good    | Limited |
-| **Cost**          | $$$      | $$$        | $$$        | $$        | $$$       | $$$        | Free/$$      | Free    | $$      |
-| **Speed**         | Fast     | Medium     | Medium     | Fast      | Fast      | Fast       | Variable     | Fast    | Fast    |
-| **Rate Limits**   | Medium   | High       | High       | Low       | Medium    | High       | Low          | None    | Medium  |
+| Feature            | OpenAI   | Bedrock    | Vertex     | Google AI | Anthropic | Azure      | Hugging Face | Ollama  | Mistral |
+| ------------------ | -------- | ---------- | ---------- | --------- | --------- | ---------- | ------------ | ------- | ------- |
+| **Setup Time**     | 2 min    | 10 min     | 15 min     | 2 min     | 2 min     | 20 min     | 2 min        | 5 min   | 2 min   |
+| **Free Tier**      | ❌       | ❌         | ❌         | ✅        | ❌        | ❌         | ✅           | ✅      | ✅      |
+| **Tools + Schema** | ✅       | ✅         | ❌\*       | ❌\*      | ✅        | ✅         | ❌           | ❌      | ✅      |
+| **Local/Cloud**    | Cloud    | Cloud      | Cloud      | Cloud     | Cloud     | Cloud      | Cloud        | Local   | Cloud   |
+| **Privacy**        | Standard | Enterprise | Enterprise | Standard  | Standard  | Enterprise | Standard     | Maximum | GDPR    |
+| **Model Variety**  | Limited  | Good       | Good       | Limited   | Limited   | Limited    | Excellent    | Good    | Limited |
+| **Cost**           | $$$      | $$$        | $$$        | $$        | $$$       | $$$        | Free/$$      | Free    | $$      |
+| **Speed**          | Fast     | Medium     | Medium     | Fast      | Fast      | Fast       | Variable     | Fast    | Fast    |
+| **Rate Limits**    | Medium   | High       | High       | Low       | Medium    | High       | Low          | None    | Medium  |
+
+\*Google providers require `disableTools: true` when using schemas (Google API limitation)
 
 ## Detailed Comparison
 
@@ -145,6 +148,36 @@
 1. **Ollama** (local) - Fastest
 2. **GPT-3.5 Turbo** (OpenAI)
 3. **Mistral Tiny** (Mistral AI)
+
+### Structured Output Support
+
+#### Full Support (Tools + Schemas Together)
+
+- **OpenAI** - Native support
+- **Anthropic** - Native support
+- **Azure OpenAI** - Native support
+- **Bedrock** - Full support (all models)
+- **Mistral** - Full support
+
+#### Limited Support (Tools OR Schemas)
+
+- **Google AI Studio** - ❌ Cannot combine, use `disableTools: true`
+- **Vertex AI (Gemini)** - ❌ Cannot combine, use `disableTools: true`
+
+**Workaround for Google Providers:**
+
+```typescript
+// Use disableTools: true when using schemas
+const result = await neurolink.generate({
+  schema: MySchema,
+  provider: "vertex",
+  disableTools: true, // Required
+});
+```
+
+**Future Support:**
+
+- Gemini 3 Pro Preview (November 2025) will support both
 
 ## Provider Deep Dive
 

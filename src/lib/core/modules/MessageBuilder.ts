@@ -78,6 +78,8 @@ export class MessageBuilder {
         enableEvaluation: options.enableEvaluation,
         context: options.context,
         conversationHistory: options.conversationMessages,
+        schema: options.schema,
+        output: options.output,
       };
 
       messages = await buildMultimodalMessagesArray(
@@ -173,6 +175,8 @@ export class MessageBuilder {
         context: options.context,
         conversationHistory: (options as TextGenerationOptions)
           .conversationMessages,
+        schema: options.schema,
+        output: options.output,
       };
 
       messages = await buildMultimodalMessagesArray(

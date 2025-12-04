@@ -3,6 +3,63 @@
   "lastUpdated": "2025-06-18T15:00:00Z",
   "models": {
     "anthropic": {
+      "claude-4.5-sonnet": {
+        "id": "claude-sonnet-4-5-20250929",
+        "displayName": "Claude 4.5 Sonnet",
+        "capabilities": [
+          "function-calling",
+          "vision",
+          "analysis",
+          "code",
+          "advanced-reasoning"
+        ],
+        "deprecated": false,
+        "pricing": { "input": 0.003, "output": 0.015 },
+        "contextWindow": 200000,
+        "releaseDate": "2025-09-29",
+        "metadata": {
+          "description": "Latest Claude 4.5 model with enhanced reasoning and vision capabilities",
+          "useCase": "general",
+          "speed": "medium",
+          "quality": "highest"
+        }
+      },
+      "claude-4.5-opus": {
+        "id": "claude-opus-4-5-20251124",
+        "displayName": "Claude 4.5 Opus",
+        "capabilities": [
+          "function-calling",
+          "vision",
+          "analysis",
+          "research",
+          "advanced-reasoning"
+        ],
+        "deprecated": false,
+        "pricing": { "input": 0.015, "output": 0.075 },
+        "contextWindow": 200000,
+        "releaseDate": "2025-11-24",
+        "metadata": {
+          "description": "Most powerful Claude 4.5 model for complex reasoning and research",
+          "useCase": "research",
+          "speed": "slow",
+          "quality": "highest"
+        }
+      },
+      "claude-4.5-haiku": {
+        "id": "claude-haiku-4-5-20251001",
+        "displayName": "Claude 4.5 Haiku",
+        "capabilities": ["function-calling", "vision"],
+        "deprecated": false,
+        "pricing": { "input": 0.00025, "output": 0.00125 },
+        "contextWindow": 200000,
+        "releaseDate": "2025-10-01",
+        "metadata": {
+          "description": "Fast and cost-effective Claude 4.5 model with vision support",
+          "useCase": "simple",
+          "speed": "fastest",
+          "quality": "high"
+        }
+      },
       "claude-3.5-sonnet": {
         "id": "claude-3-5-sonnet-20241022",
         "displayName": "Claude 3.5 Sonnet",
@@ -102,6 +159,27 @@
       }
     },
     "google": {
+      "gemini-3-pro-preview": {
+        "id": "gemini-3-pro-preview-11-2025",
+        "displayName": "Gemini 3 Pro Preview",
+        "capabilities": [
+          "function-calling",
+          "vision",
+          "code-execution",
+          "multimodal",
+          "advanced-reasoning"
+        ],
+        "deprecated": false,
+        "pricing": { "input": 0.00125, "output": 0.005 },
+        "contextWindow": 1000000,
+        "releaseDate": "2025-11-15",
+        "metadata": {
+          "description": "Next-generation Gemini 3 model with 1M token context and enhanced capabilities",
+          "useCase": "advanced",
+          "speed": "medium",
+          "quality": "highest"
+        }
+      },
       "gemini-2.5-pro": {
         "id": "gemini-2.5-pro",
         "displayName": "Gemini 2.5 Pro",
@@ -137,9 +215,80 @@
           "speed": "fastest",
           "quality": "medium"
         }
+      },
+      "gemini-2.0-flash-lite": {
+        "id": "gemini-2.0-flash-lite",
+        "displayName": "Gemini 2.0 Flash Lite",
+        "capabilities": ["function-calling", "vision"],
+        "deprecated": false,
+        "pricing": { "input": 0.00004, "output": 0.00015 },
+        "contextWindow": 1000000,
+        "releaseDate": "2025-01-15",
+        "metadata": {
+          "description": "Ultra-fast and cost-optimized Gemini model for high-volume tasks",
+          "useCase": "volume",
+          "speed": "ultra-fast",
+          "quality": "good"
+        }
       }
     },
     "bedrock": {
+      "claude-4.5-sonnet": {
+        "id": "anthropic.claude-sonnet-4-5-20250929-v1:0",
+        "displayName": "Claude 4.5 Sonnet (Bedrock)",
+        "capabilities": [
+          "function-calling",
+          "vision",
+          "code",
+          "advanced-reasoning"
+        ],
+        "deprecated": false,
+        "pricing": { "input": 0.003, "output": 0.015 },
+        "contextWindow": 200000,
+        "releaseDate": "2025-09-29",
+        "metadata": {
+          "description": "Latest Claude 4.5 Sonnet via AWS Bedrock with enhanced capabilities",
+          "useCase": "enterprise",
+          "speed": "medium",
+          "quality": "highest"
+        }
+      },
+      "claude-4.5-opus": {
+        "id": "anthropic.claude-opus-4-5-20251124-v1:0",
+        "displayName": "Claude 4.5 Opus (Bedrock)",
+        "capabilities": [
+          "function-calling",
+          "vision",
+          "analysis",
+          "research",
+          "advanced-reasoning"
+        ],
+        "deprecated": false,
+        "pricing": { "input": 0.015, "output": 0.075 },
+        "contextWindow": 200000,
+        "releaseDate": "2025-11-24",
+        "metadata": {
+          "description": "Most powerful Claude 4.5 Opus via AWS Bedrock for complex reasoning",
+          "useCase": "enterprise",
+          "speed": "slow",
+          "quality": "highest"
+        }
+      },
+      "claude-4.5-haiku": {
+        "id": "anthropic.claude-haiku-4-5-20251001-v1:0",
+        "displayName": "Claude 4.5 Haiku (Bedrock)",
+        "capabilities": ["function-calling", "vision"],
+        "deprecated": false,
+        "pricing": { "input": 0.00025, "output": 0.00125 },
+        "contextWindow": 200000,
+        "releaseDate": "2025-10-01",
+        "metadata": {
+          "description": "Fast and cost-effective Claude 4.5 Haiku via AWS Bedrock",
+          "useCase": "volume",
+          "speed": "fastest",
+          "quality": "high"
+        }
+      },
       "claude-3.5-sonnet": {
         "id": "anthropic.claude-3-5-sonnet-20241022-v1:0",
         "displayName": "Claude 3.5 Sonnet (Bedrock)",
@@ -156,7 +305,7 @@
         }
       },
       "claude-3.7-sonnet": {
-        "id": "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        "id": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         "displayName": "Claude 3.7 Sonnet (Bedrock)",
         "capabilities": ["function-calling", "vision", "advanced-reasoning"],
         "deprecated": false,
@@ -267,21 +416,21 @@
     }
   },
   "aliases": {
-    "claude-latest": "anthropic/claude-3.5-sonnet",
+    "claude-latest": "anthropic/claude-4.5-sonnet",
     "gpt-latest": "openai/gpt-4o",
-    "gemini-latest": "google/gemini-2.5-pro",
+    "gemini-latest": "google/gemini-3-pro-preview",
     "best-coding": "mistral/codestral-25.01",
-    "best-reasoning": "anthropic/claude-3-opus",
-    "best-multimodal": "google/gemini-2.5-pro",
-    "fastest": "google/gemini-2.0-flash",
-    "cheapest": "google/gemini-2.0-flash",
-    "best-enterprise": "bedrock/claude-3.7-sonnet"
+    "best-reasoning": "anthropic/claude-4.5-opus",
+    "best-multimodal": "google/gemini-3-pro-preview",
+    "fastest": "google/gemini-2.0-flash-lite",
+    "cheapest": "google/gemini-2.0-flash-lite",
+    "best-enterprise": "bedrock/claude-4.5-sonnet"
   },
   "defaults": {
-    "anthropic": "claude-3.5-sonnet",
+    "anthropic": "claude-4.5-sonnet",
     "openai": "gpt-4o-mini",
     "google": "gemini-2.5-pro",
-    "bedrock": "claude-3.5-sonnet",
+    "bedrock": "claude-4.5-sonnet",
     "azure": "gpt-4o-mini",
     "mistral": "mistral-small"
   }

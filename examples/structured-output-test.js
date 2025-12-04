@@ -101,7 +101,7 @@ async function testStructuredOutputWithoutTools() {
       schema: UserProfileSchema,
       output: { format: "json" },
       provider: "vertex",
-      model: "gemini-2.5-flash",
+      model: "claude-sonnet-4-5@20250929",
     });
 
     console.log("✅ Generation completed");
@@ -136,7 +136,7 @@ async function testStructuredOutputWithTools() {
       schema: WeatherSchema,
       output: { format: "json" },
       provider: "vertex",
-      model: "gemini-2.5-flash",
+      model: "claude-sonnet-4-5@20250929",
       tools: {
         getWeather: getWeatherTool,
       },
@@ -184,7 +184,7 @@ async function testLargeComplexObject() {
       output: { format: "json" },
       schema: CompanyAnalysisSchema,
       provider: "vertex",
-      model: "gemini-2.5-flash",
+      model: "claude-sonnet-4-5@20250929",
     });
 
     console.log("✅ Generation completed");
@@ -222,7 +222,7 @@ async function testRegularTextGeneration() {
     const result = await neurolink.generate({
       input: { text: "Say hello in one sentence" },
       provider: "vertex",
-      model: "gemini-2.5-flash",
+      model: "claude-sonnet-4-5@20250929",
     });
 
     console.log("✅ Generation completed");

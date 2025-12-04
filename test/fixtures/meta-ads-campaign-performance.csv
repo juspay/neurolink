@@ -1,0 +1,6 @@
+campaign_id,campaign_name,campaign_type,spend,reach,impressions,clicks,ctr,cpc,conversions,roas,frequency
+camp_001,Summer Sale - US,conversion,8000.00,450000,2800000,31500,1.13,0.25,1344,4.2,6.22
+camp_002,Brand Awareness Q1,awareness,6000.00,520000,3100000,28000,0.90,0.21,1064,3.8,5.96
+camp_003,Product Launch EU,conversion,5000.00,180000,900000,8100,0.90,0.62,216,1.2,5.00
+camp_004,Retargeting Campaign,conversion,4000.00,95000,550000,6050,1.10,0.66,300,1.5,5.79
+camp_005,Holiday Special,conversion,2000.00,280000,1400000,19600,1.40,0.10,686,4.5,5.00

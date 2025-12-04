@@ -30,6 +30,7 @@ try {
   packageData = { version: "unknown", main: "dist/index.js" };
 }
 import { NeuroLink } from "../dist/index.js";
+import { testComplexZodSchemaMultiProvider } from "./zod-schema-test-function.js";
 
 type PurgeQuarterlyDataParams = {
   quarter: string;
@@ -2814,6 +2815,10 @@ async function runAllTests(): Promise<void> {
     // { name: "SDK HITL Generate", fn: testSDKHITLGenerate },
     // { name: "SDK HITL Stream", fn: testSDKHITLStream },
     { name: "Enterprise Proxy Support", fn: testEnterpriseProxySupport },
+    {
+      name: "Complex Zod Schema Multi-Provider",
+      fn: testComplexZodSchemaMultiProvider,
+    },
   ];
 
   for (const test of tests) {
