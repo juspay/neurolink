@@ -436,7 +436,8 @@ export const VALID_IMAGE_EXTENSIONS = [
 export type ValidImageExtension = (typeof VALID_IMAGE_EXTENSIONS)[number];
 
 /**
- * Set of valid image extensions for efficient lookup
+ * Set of valid image extensions for efficient lookup.
+ * Using Set provides O(1) lookup time vs O(n) for Array.includes().
  * @internal
  */
 const VALID_IMAGE_EXTENSIONS_SET = new Set<string>(VALID_IMAGE_EXTENSIONS);
