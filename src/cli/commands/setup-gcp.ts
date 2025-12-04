@@ -427,7 +427,9 @@ async function promptForMissingValues(
         );
 
         if (fs.existsSync(adcPath)) {
-          logger.always(chalk.green("✔ Found Application Default Credentials"));
+          logger.always(
+            chalk.green("✔ Found Application Default Credentials"),
+          );
           logger.always(chalk.blue(`   Location: ${adcPath}`));
           config.credentialsPath = adcPath;
         } else {

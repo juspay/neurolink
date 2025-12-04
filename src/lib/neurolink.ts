@@ -2756,8 +2756,9 @@ Current user's request: ${currentInput}`;
             options.provider?.toLowerCase().includes("ollama")) &&
           !options.disableTools
         ) {
-          const { ModelConfigurationManager } =
-            await import("./core/modelConfiguration.js");
+          const { ModelConfigurationManager } = await import(
+            "./core/modelConfiguration.js"
+          );
           const modelConfig = ModelConfigurationManager.getInstance();
           const ollamaConfig = modelConfig.getProviderConfiguration("ollama");
           const toolCapableModels =
@@ -5794,8 +5795,9 @@ Current user's request: ${currentInput}`;
   ): Promise<void> {
     try {
       // Import the integration module
-      const { initializeConversationMemory } =
-        await import("./core/conversationMemoryInitializer.js");
+      const { initializeConversationMemory } = await import(
+        "./core/conversationMemoryInitializer.js"
+      );
 
       // Use the integration module to create the appropriate memory manager
       const memoryManagerCreateStartTime = process.hrtime.bigint();

@@ -133,10 +133,8 @@ export interface ToolContext extends CoreToolContext {
  * Simple tool interface for SDK users
  * Extends the core SimpleTool with specific types
  */
-export interface SimpleTool<TArgs = ToolArgs, TResult = JsonValue> extends Omit<
-  CoreSimpleTool<TArgs, TResult>,
-  "execute"
-> {
+export interface SimpleTool<TArgs = ToolArgs, TResult = JsonValue>
+  extends Omit<CoreSimpleTool<TArgs, TResult>, "execute"> {
   /**
    * Tool description that helps AI understand when to use it
    */

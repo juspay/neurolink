@@ -436,6 +436,12 @@ export const VALID_IMAGE_EXTENSIONS = [
 export type ValidImageExtension = (typeof VALID_IMAGE_EXTENSIONS)[number];
 
 /**
+ * Set of valid image extensions for efficient lookup
+ * @internal
+ */
+const VALID_IMAGE_EXTENSIONS_SET = new Set<string>(VALID_IMAGE_EXTENSIONS);
+
+/**
  * Utility functions for image handling
  */
 export const imageUtils = {
@@ -489,10 +495,8 @@ export const imageUtils = {
       return false;
     }
 
-    // Validate against whitelist
-    return VALID_IMAGE_EXTENSIONS.includes(
-      normalizedExt as ValidImageExtension,
-    );
+    // Validate against whitelist using Set for efficient lookup
+    return VALID_IMAGE_EXTENSIONS_SET.has(normalizedExt);
   },
 
   /**

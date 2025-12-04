@@ -149,8 +149,9 @@ dist/                      # Build output (generated)
 ProviderFactory.registerProvider(
   AIProviderName.GOOGLE_AI,
   async (modelName?, _providerName?, sdk?) => {
-    const { GoogleAIStudioProvider } =
-      await import("../providers/googleAiStudio.js");
+    const { GoogleAIStudioProvider } = await import(
+      "../providers/googleAiStudio.js"
+    );
     return new GoogleAIStudioProvider(modelName, sdk as NeuroLink | undefined);
   },
   GoogleAIModels.GEMINI_2_5_FLASH,
