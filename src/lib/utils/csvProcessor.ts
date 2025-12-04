@@ -14,6 +14,13 @@ import type {
 
 /**
  * Detect if first line is CSV metadata (not actual data/headers)
+ *
+ * Note: This function runs BEFORE delimiter detection and uses heuristics
+ * to identify metadata lines. It specifically checks for commas because:
+ * 1. Excel "SEP=" lines typically use comma (e.g., "SEP=,")
+ * 2. We're looking for structural inconsistencies, not parsing the CSV
+ * 3. Metadata lines often have different structure than data lines
+ *
  * Common patterns:
  * - Excel separator line: "SEP=,"
  * - Lines with significantly different delimiter count than line 2
@@ -68,8 +75,10 @@ function detectDelimiter(lines: string[]): string {
   const delimiterScores: Record<string, number[]> = {};
 
   for (const delimiter of delimiters) {
+    // Escape special regex characters properly
+    const escapedDelimiter = delimiter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     delimiterScores[delimiter] = dataLines.map(
-      (line) => (line.match(new RegExp(`\\${delimiter}`, "g")) || []).length,
+      (line) => (line.match(new RegExp(escapedDelimiter, "g")) || []).length,
     );
   }
 
