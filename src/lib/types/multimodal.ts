@@ -351,6 +351,66 @@ export function isVideoContent(content: Content): content is VideoContent {
 }
 
 /**
+ * Helper to validate if data is a valid content data (string or Buffer)
+ */
+function isValidContentData(data: unknown): boolean {
+  return typeof data === "string" || Buffer.isBuffer(data);
+}
+
+/**
+ * Type guard to validate if an unknown value is a valid Content item.
+ * This validates the structure of the content, not just the type property.
+ * Useful for runtime validation of content from unknown sources.
+ * Uses existing type guards internally for type discrimination.
+ */
+export function isContent(item: unknown): item is Content {
+  if (!item || typeof item !== "object") {
+    return false;
+  }
+
+  const obj = item as Record<string, unknown>;
+
+  // First validate that 'type' property exists and is a string
+  if (typeof obj.type !== "string") {
+    return false;
+  }
+
+  // Cast to Content for type guard checks (safe now that we've validated type exists)
+  const content = item as Content;
+
+  // Use existing type guards for type discrimination, then validate structure
+  // Type guards narrow 'content' to the specific content type
+  if (isTextContent(content)) {
+    return typeof content.text === "string";
+  }
+
+  if (isImageContent(content)) {
+    return (
+      isValidContentData(content.data) &&
+      (content.mediaType === undefined || typeof content.mediaType === "string")
+    );
+  }
+
+  if (isCSVContent(content)) {
+    return isValidContentData(content.data);
+  }
+
+  if (isPDFContent(content)) {
+    return isValidContentData(content.data);
+  }
+
+  if (isAudioContent(content)) {
+    return isValidContentData(content.data);
+  }
+
+  if (isVideoContent(content)) {
+    return isValidContentData(content.data);
+  }
+
+  return false;
+}
+
+/**
  * Type guard to check if input contains multimodal content
  * Now includes audio and video detection
  */

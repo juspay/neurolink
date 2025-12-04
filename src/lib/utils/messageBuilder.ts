@@ -44,7 +44,11 @@ function isValidRole(role: unknown): role is "user" | "assistant" | "system" {
 }
 
 /**
- * Type guard for validating content items
+ * Type guard for validating content items in AI SDK format.
+ * Validates text, image (with 'image' property), and file content items.
+ *
+ * Note: This validates AI SDK format, not NeuroLink Content format.
+ * AI SDK ImagePart uses 'image' property while Content ImageContent uses 'data'.
  */
 function isValidContentItem(
   item: unknown,
@@ -58,10 +62,12 @@ function isValidContentItem(
 
   const contentItem = item as Record<string, unknown>;
 
+  // Validate text content - same structure as TextContent
   if (contentItem.type === "text") {
     return typeof contentItem.text === "string";
   }
 
+  // Validate AI SDK image format (uses 'image' property, not 'data')
   if (contentItem.type === "image") {
     return (
       typeof contentItem.image === "string" &&
@@ -70,6 +76,7 @@ function isValidContentItem(
     );
   }
 
+  // Validate file content (AI SDK FilePart format)
   if (contentItem.type === "file") {
     return (
       Buffer.isBuffer(contentItem.data) &&
