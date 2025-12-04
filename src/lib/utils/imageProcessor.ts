@@ -601,19 +601,102 @@ export const imageUtils = {
 
   /**
    * Validate base64 string format
+   * Uses sampling for large strings (>100KB) to improve performance
    */
   isValidBase64: (str: string): boolean => {
     try {
       // Remove data URI prefix if present
       const cleanBase64 = str.includes(",") ? str.split(",")[1] : str;
 
-      // Check if it's valid base64
-      const decoded = Buffer.from(cleanBase64, "base64");
+      // Base64 charset validation regex (allows whitespace for formatted base64)
+      const base64CharsetRegex = /^[A-Za-z0-9+/\s]*={0,2}$/;
+
+      // Check basic format first (fast fail)
+      if (!base64CharsetRegex.test(cleanBase64)) {
+        return false;
+      }
+
+      // Remove whitespace for length calculations
+      const strippedBase64 = cleanBase64.replace(/\s/g, "");
+
+      // Empty string is valid base64
+      if (strippedBase64.length === 0) {
+        return true;
+      }
+
+      // Threshold for using sampling (100KB = ~133KB base64 due to encoding overhead)
+      const SAMPLING_THRESHOLD = 100 * 1024;
+      const CHUNK_SIZE = 1024; // Must be multiple of 4 for valid base64 chunks
+
+      if (strippedBase64.length > SAMPLING_THRESHOLD) {
+        // For large strings, validate using sampling: first, middle, and last chunks
+        return imageUtils.validateBase64Chunks(strippedBase64, CHUNK_SIZE);
+      }
+
+      // For smaller strings, do full validation
+      const decoded = Buffer.from(strippedBase64, "base64");
       const reencoded = decoded.toString("base64");
 
       // Remove padding for comparison (base64 can have different padding)
       const normalizeBase64 = (b64: string) => b64.replace(/=+$/, "");
-      return normalizeBase64(cleanBase64) === normalizeBase64(reencoded);
+      return normalizeBase64(strippedBase64) === normalizeBase64(reencoded);
+    } catch {
+      return false;
+    }
+  },
+
+  /**
+   * Validate base64 chunks (first, middle, last) for large strings
+   * Each chunk must decode and re-encode correctly
+   */
+  validateBase64Chunks: (base64: string, chunkSize: number): boolean => {
+    try {
+      const len = base64.length;
+
+      // Ensure chunk size is multiple of 4 for valid base64
+      const alignedChunkSize = Math.floor(chunkSize / 4) * 4;
+      if (alignedChunkSize === 0) {
+        return false;
+      }
+
+      // First chunk
+      const firstChunk = base64.substring(0, alignedChunkSize);
+      if (!imageUtils.validateSingleChunk(firstChunk)) {
+        return false;
+      }
+
+      // Middle chunk (aligned to 4-char boundary)
+      const middleStart = Math.floor((len - alignedChunkSize) / 2 / 4) * 4;
+      const middleChunk = base64.substring(
+        middleStart,
+        middleStart + alignedChunkSize,
+      );
+      if (!imageUtils.validateSingleChunk(middleChunk)) {
+        return false;
+      }
+
+      // Last chunk (handle padding)
+      const lastChunk = base64.substring(len - alignedChunkSize);
+      if (!imageUtils.validateSingleChunk(lastChunk)) {
+        return false;
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  /**
+   * Validate a single base64 chunk by decoding and re-encoding
+   */
+  validateSingleChunk: (chunk: string): boolean => {
+    try {
+      const decoded = Buffer.from(chunk, "base64");
+      const reencoded = decoded.toString("base64");
+      // Remove padding for comparison
+      const normalizeBase64 = (b64: string) => b64.replace(/=+$/, "");
+      return normalizeBase64(chunk) === normalizeBase64(reencoded);
     } catch {
       return false;
     }
