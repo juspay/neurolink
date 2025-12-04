@@ -49,6 +49,7 @@ export type FileProcessingResult = {
     columnNames?: string[];
     sampleData?: string;
     hasEmptyColumns?: boolean;
+    delimiter?: string; // Detected delimiter character (e.g., ",", "\\t", ";", "|")
     // PDF-specific metadata
     version?: string;
     estimatedPages?: number | null;

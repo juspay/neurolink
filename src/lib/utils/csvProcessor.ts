@@ -46,6 +46,82 @@ function isMetadataLine(lines: string[]): boolean {
 }
 
 /**
+ * Detect the delimiter used in a CSV file
+ * Analyzes the first few non-empty lines to determine the most likely delimiter
+ * Supports common delimiters: comma (,), tab (\t), semicolon (;), pipe (|)
+ *
+ * @param lines - Array of lines from the CSV file
+ * @returns Detected delimiter character, or "," as default
+ */
+function detectDelimiter(lines: string[]): string {
+  // Common delimiters to check
+  const delimiters = [",", "\t", ";", "|"];
+
+  // Skip empty lines and get first few data lines
+  const dataLines = lines.filter((line) => line.trim().length > 0).slice(0, 5); // Check first 5 non-empty lines
+
+  if (dataLines.length < 2) {
+    return ","; // Default to comma if not enough data
+  }
+
+  // Count occurrences of each delimiter across all lines
+  const delimiterScores: Record<string, number[]> = {};
+
+  for (const delimiter of delimiters) {
+    delimiterScores[delimiter] = dataLines.map(
+      (line) => (line.match(new RegExp(`\\${delimiter}`, "g")) || []).length,
+    );
+  }
+
+  // Find delimiter with:
+  // 1. Consistent count across lines (same count in each line)
+  // 2. At least one occurrence
+  // 3. Highest count
+  let bestDelimiter = ",";
+  let bestScore = -1;
+
+  for (const delimiter of delimiters) {
+    const counts = delimiterScores[delimiter];
+    const firstCount = counts[0] || 0;
+
+    // Check if delimiter appears at all
+    if (firstCount === 0) {
+      continue;
+    }
+
+    // Check if count is consistent across lines
+    const isConsistent = counts.every((count) => count === firstCount);
+
+    if (isConsistent && firstCount > bestScore) {
+      bestScore = firstCount;
+      bestDelimiter = delimiter;
+    }
+  }
+
+  return bestDelimiter;
+}
+
+/**
+ * Escape special characters in delimiter for display
+ * Converts non-printable characters to their escape sequences
+ *
+ * @param delimiter - The delimiter character
+ * @returns Escaped delimiter string
+ */
+function escapeDelimiter(delimiter: string): string {
+  switch (delimiter) {
+    case "\t":
+      return "\\t";
+    case "\r":
+      return "\\r";
+    case "\n":
+      return "\\n";
+    default:
+      return delimiter;
+  }
+}
+
+/**
  * CSV processor for converting CSV data to LLM-optimized formats
  *
  * Supports three output formats:
@@ -106,12 +182,17 @@ export class CSVProcessor {
       const rowCount = limitedLines.length - 1; // Subtract header
       const originalRowCount = csvLines.length - 1; // Subtract header from original
 
+      // Detect delimiter for metadata
+      const detectedDelimiter = detectDelimiter(csvLines);
+      const escapedDelimiter = escapeDelimiter(detectedDelimiter);
+
       logger.debug(
-        `[CSVProcessor] raw format: ${rowCount} rows (original: ${originalRowCount}) → ${limitedCSV.length} chars`,
+        `[CSVProcessor] raw format: ${rowCount} rows (original: ${originalRowCount}) → ${limitedCSV.length} chars, delimiter: ${escapedDelimiter}`,
         {
           formatStyle: "raw",
           originalSize: csvString.length,
           limitedSize: limitedCSV.length,
+          delimiter: escapedDelimiter,
         },
       );
 
@@ -123,7 +204,8 @@ export class CSVProcessor {
           confidence: 100,
           size: content.length,
           rowCount,
-          columnCount: (limitedLines[0] || "").split(",").length,
+          columnCount: (limitedLines[0] || "").split(detectedDelimiter).length,
+          delimiter: escapedDelimiter,
         },
       };
     }
@@ -145,12 +227,23 @@ export class CSVProcessor {
         ? JSON.stringify(sampleRows, null, 2)
         : "No data rows";
 
+    // Detect delimiter for metadata
+    const lines = csvString.split("\n");
+    const detectedDelimiter = detectDelimiter(lines);
+    const escapedDelimiter = escapeDelimiter(detectedDelimiter);
+
     // Format parsed data
     const formatted = this.formatForLLM(rows, formatStyle, includeHeaders);
 
     logger.info(
-      `[CSVProcessor] ${formatStyle} format: ${rowCount} rows × ${columnCount} columns → ${formatted.length} chars`,
-      { rowCount, columnCount, columns: columnNames, hasEmptyColumns },
+      `[CSVProcessor] ${formatStyle} format: ${rowCount} rows × ${columnCount} columns → ${formatted.length} chars, delimiter: ${escapedDelimiter}`,
+      {
+        rowCount,
+        columnCount,
+        columns: columnNames,
+        hasEmptyColumns,
+        delimiter: escapedDelimiter,
+      },
     );
 
     return {
@@ -165,6 +258,7 @@ export class CSVProcessor {
         columnNames,
         sampleData,
         hasEmptyColumns,
+        delimiter: escapedDelimiter,
       },
     };
   }
@@ -211,13 +305,16 @@ export class CSVProcessor {
     const hasMetadataLine = isMetadataLine(firstLines);
     const skipLines = hasMetadataLine ? 1 : 0;
 
+    // Detect delimiter to use with csv-parser
+    const delimiter = detectDelimiter(firstLines);
+
     return new Promise((resolve, reject) => {
       const rows: unknown[] = [];
       let count = 0;
       let lineCount = 0;
 
       const source = fs.createReadStream(filePath, { encoding: "utf-8" });
-      const parser = csvParser();
+      const parser = csvParser({ separator: delimiter });
 
       const abort = () => {
         source.destroy();
@@ -272,12 +369,15 @@ export class CSVProcessor {
     const hasMetadataLine = isMetadataLine(lines);
     const csvData = hasMetadataLine ? lines.slice(1).join("\n") : csvString;
 
+    // Detect delimiter to use with csv-parser
+    const delimiter = detectDelimiter(lines);
+
     return new Promise((resolve, reject) => {
       const rows: unknown[] = [];
       let count = 0;
 
       const source = Readable.from([csvData]);
-      const parser = csvParser();
+      const parser = csvParser({ separator: delimiter });
 
       const abort = () => {
         source.destroy();
