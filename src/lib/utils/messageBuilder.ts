@@ -575,7 +575,7 @@ export async function buildMultimodalMessagesArray(
 
     for (let i = 0; i < options.input.pdfFiles.length; i++) {
       const pdfFile = options.input.pdfFiles[i];
-      const filename = extractFilename(pdfFile, i);
+      const filename = extractFilename(pdfFile, i, `document-${i + 1}.pdf`);
 
       try {
         const result = await FileDetector.detectAndProcess(pdfFile, {
@@ -1045,22 +1045,28 @@ async function convertMultimodalToProviderFormat(
 
 /**
  * Extract filename from file input
+ * @param file - Buffer or string path/URL
+ * @param index - Index for generating unique fallback names
+ * @param defaultName - Optional custom fallback name (defaults to `file-{index+1}`)
  */
-function extractFilename(file: Buffer | string, index: number = 0): string {
+function extractFilename(
+  file: Buffer | string,
+  index: number = 0,
+  defaultName?: string,
+): string {
+  const fallback = defaultName || `file-${index + 1}`;
   if (typeof file === "string") {
     if (file.startsWith("http")) {
       try {
         const url = new URL(file);
-        return url.pathname.split("/").pop() || `file-${index + 1}`;
+        return url.pathname.split("/").pop() || fallback;
       } catch {
-        return `file-${index + 1}`;
+        return fallback;
       }
     }
-    return (
-      file.split("/").pop() || file.split("\\").pop() || `file-${index + 1}`
-    );
+    return file.split("/").pop() || file.split("\\").pop() || fallback;
   }
-  return `file-${index + 1}`;
+  return fallback;
 }
 
 function buildCSVToolInstructions(filePath: string): string {
