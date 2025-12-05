@@ -2828,7 +2828,8 @@ Current user's request: ${currentInput}`;
 
             if (chunkCount === 0 && !metadata.fallbackAttempted) {
               metadata.fallbackAttempted = true;
-              const errorMsg = "Stream completed with 0 chunks (possible guardrails block)";
+              const errorMsg =
+                "Stream completed with 0 chunks (possible guardrails block)";
               metadata.error = errorMsg;
 
               const fallbackRoute = ModelRouter.getFallbackRoute(
@@ -2893,13 +2894,18 @@ Current user's request: ${currentInput}`;
                 }
 
                 if (fallbackChunkCount === 0) {
-                  throw new Error(`Fallback provider ${fallbackRoute.provider} also returned 0 chunks`);
+                  throw new Error(
+                    `Fallback provider ${fallbackRoute.provider} also returned 0 chunks`,
+                  );
                 }
 
                 // Fallback succeeded - likely guardrails blocked primary
                 metadata.guardrailsBlocked = true;
               } catch (fallbackError) {
-                const fallbackErrorMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+                const fallbackErrorMsg =
+                  fallbackError instanceof Error
+                    ? fallbackError.message
+                    : String(fallbackError);
                 metadata.error = `${errorMsg}; Fallback failed: ${fallbackErrorMsg}`;
                 logger.error("Fallback provider failed", {
                   fallbackProvider: fallbackRoute.provider,

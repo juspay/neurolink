@@ -20,6 +20,7 @@ import type {
   TextGenerationOptions,
   AnalyticsData,
 } from "../../types/index.js";
+import type { Context } from "../../types/common.js";
 import type { EvaluationData } from "../../types/index.js";
 import type { StreamOptions } from "../../types/streamTypes.js";
 import { logger } from "../../utils/logger.js";
@@ -176,12 +177,18 @@ export class TelemetryHandler {
       return undefined;
     }
 
-    const functionId = `${this.providerName}-${operationType}-${nanoid()}`;
+    const context = options.context as Context;
+    const traceName = context?.traceName;
+    const userId = context?.userId;
+    const functionId = traceName ? traceName : userId ? userId : "guest";
+
     const metadata: Record<string, string | number | boolean> = {
       provider: this.providerName,
       model: this.modelName,
       toolsEnabled: !options.disableTools,
       neurolink: true,
+      operationType,
+      originalProvider: this.providerName,
     };
 
     // Add sessionId if available

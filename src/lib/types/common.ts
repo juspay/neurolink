@@ -222,3 +222,9 @@ export type TypedEventEmitter<TEvents extends Record<string, unknown>> = {
     event: K,
   ): Array<(...args: unknown[]) => void>;
 };
+
+export type Context = {
+  traceName?: string;
+  userId?: string;
+  sessionId?: string;
+};

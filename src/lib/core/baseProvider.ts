@@ -12,6 +12,7 @@ import type {
   EnhancedGenerateResult,
   AnalyticsData,
 } from "../types/index.js";
+import type { Context } from "../types/common.js";
 import { AIProviderName } from "../constants/enums.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
@@ -21,7 +22,6 @@ import type { JsonValue, UnknownRecord } from "../types/common.js";
 import { logger } from "../utils/logger.js";
 import { directAgentTools } from "../agent/directTools.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
-import { nanoid } from "nanoid";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
 import type { NeuroLink } from "../neurolink.js";
 import { getKeysAsString, getKeyCount } from "../utils/transformationUtils.js";
@@ -1040,12 +1040,18 @@ export abstract class BaseProvider implements AIProvider {
       return undefined;
     }
 
-    const functionId = `${this.providerName}-${operationType}-${nanoid()}`;
+    const context = options.context as Context;
+    const traceName = context?.traceName;
+    const userId = context?.userId;
+    const functionId = traceName ? traceName : userId ? userId : "guest";
+
     const metadata: Record<string, string | number | boolean> = {
       provider: this.providerName,
       model: this.modelName,
       toolsEnabled: !options.disableTools,
       neurolink: true,
+      operationType,
+      originalProvider: this.providerName,
     };
 
     // Add sessionId if available

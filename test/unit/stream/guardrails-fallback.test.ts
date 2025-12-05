@@ -98,7 +98,9 @@ describe("Guardrails Fallback - ModelRouter Integration", () => {
       };
 
       expect(mockMetadata.guardrailsBlocked).toBe(true);
-      expect(mockMetadata.error).toBe("Stream completed with 0 chunks (possible guardrails block)");
+      expect(mockMetadata.error).toBe(
+        "Stream completed with 0 chunks (possible guardrails block)",
+      );
       expect(mockMetadata.fallback).toBe(true);
     });
   });
@@ -115,7 +117,8 @@ describe("Guardrails Fallback - ModelRouter Integration", () => {
       }
 
       // Simulate the condition check from neurolink.ts:2773
-      const shouldTriggerFallback = chunkCount === 0 && !metadata.fallbackAttempted;
+      const shouldTriggerFallback =
+        chunkCount === 0 && !metadata.fallbackAttempted;
 
       expect(shouldTriggerFallback).toBe(true);
     });
@@ -130,7 +133,8 @@ describe("Guardrails Fallback - ModelRouter Integration", () => {
         chunkCount++;
       }
 
-      const shouldTriggerFallback = chunkCount === 0 && !metadata.fallbackAttempted;
+      const shouldTriggerFallback =
+        chunkCount === 0 && !metadata.fallbackAttempted;
 
       expect(shouldTriggerFallback).toBe(false);
     });
@@ -159,15 +163,20 @@ describe("Guardrails Fallback - ModelRouter Integration", () => {
 
   describe("Error message construction", () => {
     it("should construct proper error message for zero chunks", () => {
-      const errorMsg = "Stream completed with 0 chunks (possible guardrails block)";
+      const errorMsg =
+        "Stream completed with 0 chunks (possible guardrails block)";
       const errorMessage: string | undefined = errorMsg;
 
-      expect(errorMessage).toBe("Stream completed with 0 chunks (possible guardrails block)");
+      expect(errorMessage).toBe(
+        "Stream completed with 0 chunks (possible guardrails block)",
+      );
     });
 
     it("should append fallback error when fallback also fails", () => {
-      const initialError = "Stream completed with 0 chunks (possible guardrails block)";
-      const fallbackError = "Fallback provider anthropic also returned 0 chunks";
+      const initialError =
+        "Stream completed with 0 chunks (possible guardrails block)";
+      const fallbackError =
+        "Fallback provider anthropic also returned 0 chunks";
 
       const errorMessage = `${initialError}; Fallback failed: ${fallbackError}`;
 
@@ -255,7 +264,8 @@ describe("Guardrails Fallback - ModelRouter Integration", () => {
 
         if (chunkCount === 0 && !metadata.fallbackAttempted) {
           metadata.fallbackAttempted = true;
-          metadata.error = "Stream completed with 0 chunks (possible guardrails block)";
+          metadata.error =
+            "Stream completed with 0 chunks (possible guardrails block)";
 
           // In actual implementation, fallback route determines which provider/model to use
           // We verify the route selection logic in separate tests above
@@ -312,7 +322,8 @@ describe("Guardrails Fallback - ModelRouter Integration", () => {
         if (chunkCount === 0 && !metadata.fallbackAttempted) {
           metadata.fallbackAttempted = true;
           metadata.guardrailsBlocked = true;
-          metadata.error = "Stream completed with 0 chunks (possible guardrails block)";
+          metadata.error =
+            "Stream completed with 0 chunks (possible guardrails block)";
         }
       }
 
@@ -322,7 +333,9 @@ describe("Guardrails Fallback - ModelRouter Integration", () => {
 
       expect(metadata.fallbackAttempted).toBe(true);
       expect(metadata.guardrailsBlocked).toBe(true);
-      expect(metadata.error).toBe("Stream completed with 0 chunks (possible guardrails block)");
+      expect(metadata.error).toBe(
+        "Stream completed with 0 chunks (possible guardrails block)",
+      );
     });
 
     it("should yield fallback chunks when primary returns zero", async () => {

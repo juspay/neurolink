@@ -166,15 +166,16 @@ export class TelemetryService {
   async traceAIRequest<T>(
     provider: string,
     operation: () => Promise<T>,
+    operationType: string = "generate_text",
   ): Promise<T> {
     if (!this.enabled || !this.tracer) {
-      return await operation(); // Direct execution when disabled
+      return await operation();
     }
 
-    const span = this.tracer.startSpan(`ai.${provider}.generate_text`, {
+    const span = this.tracer.startSpan(`ai.${provider}.${operationType}`, {
       attributes: {
         "ai.provider": provider,
-        "ai.operation": "generate_text",
+        "ai.operation": operationType,
       },
     });
 
