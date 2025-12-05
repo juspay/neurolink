@@ -93,19 +93,7 @@ export type PDFProcessorOptions = {
 };
 
 /**
- * File detector options
- */
-export type FileDetectorOptions = {
-  maxSize?: number;
-  timeout?: number;
-  allowedTypes?: FileType[];
-  csvOptions?: CSVProcessorOptions;
-  confidenceThreshold?: number;
-  provider?: string;
-};
-
-/**
- * Audio processor options for transcription configuration
+ * Audio processor options
  */
 export type AudioProcessorOptions = {
   /** AI provider to use for transcription (e.g., 'openai', 'google', 'azure') */
@@ -120,6 +108,19 @@ export type AudioProcessorOptions = {
   maxDurationSeconds?: number;
   /** Maximum file size in megabytes */
   maxSizeMB?: number;
+};
+
+/**
+ * File detector options
+ */
+export type FileDetectorOptions = {
+  maxSize?: number;
+  timeout?: number;
+  allowedTypes?: FileType[];
+  audioOptions?: AudioProcessorOptions;
+  csvOptions?: CSVProcessorOptions;
+  confidenceThreshold?: number;
+  provider?: string;
 };
 
 /**
