@@ -213,3 +213,6 @@ export * from "./fileTypes.js";
 
 // Content types for multimodal support
 export * from "./content.js";
+
+// TTS (Text-to-Speech) types
+export * from "./ttsTypes.js";

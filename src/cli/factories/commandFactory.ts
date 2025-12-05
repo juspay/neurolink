@@ -12,7 +12,11 @@ import type {
   BatchCommandArgs,
   GenerateResult,
 } from "../../lib/types/cli.js";
-import type { TokenUsage, AnalyticsData } from "../../lib/types/index.js";
+import type {
+  TokenUsage,
+  AnalyticsData,
+  TTSResult,
+} from "../../lib/types/index.js";
 import { configManager } from "../commands/config.js";
 import { handleError } from "../errorHandler.js";
 import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";
@@ -35,6 +39,7 @@ import { logger } from "../../lib/utils/logger.js";
 import fs from "fs";
 import { handleSetup } from "../commands/setup.js";
 import { checkRedisAvailability } from "../../lib/utils/conversationMemoryUtils.js";
+import { saveAudioToFile, formatFileSize } from "../utils/audioFileUtils.js";
 
 /**
  * CLI Command Factory for generate commands
@@ -224,6 +229,44 @@ export class CLICommandFactory {
       default: false,
       description: "Test command without making actual API calls (for testing)",
     },
+
+    // TTS (Text-to-Speech) options
+    tts: {
+      type: "boolean" as const,
+      default: false,
+      description: "Enable text-to-speech output",
+    },
+    ttsVoice: {
+      type: "string" as const,
+      description: "TTS voice to use (e.g., 'en-US-Neural2-C')",
+    },
+    ttsFormat: {
+      type: "string" as const,
+      choices: ["mp3", "wav", "ogg", "opus"],
+      default: "mp3",
+      description: "Audio output format",
+    },
+    ttsSpeed: {
+      type: "number" as const,
+      default: 1.0,
+      description: "Speaking rate (0.25-4.0, default: 1.0)",
+    },
+    ttsQuality: {
+      type: "string" as const,
+      choices: ["standard", "hd"],
+      default: "standard",
+      description: "Audio quality level",
+    },
+    ttsOutput: {
+      type: "string" as const,
+      description:
+        "Save TTS audio to file (supports absolute and relative paths)",
+    },
+    ttsPlay: {
+      type: "boolean" as const,
+      default: false,
+      description: "Auto-play generated audio",
+    },
   };
 
   // Helper method to build options for commands
@@ -359,6 +402,14 @@ export class CLICommandFactory {
       noColor: argv.noColor as boolean | undefined,
       configFile: argv.configFile as string | undefined,
       dryRun: argv.dryRun as boolean | undefined,
+      // TTS options
+      tts: argv.tts as boolean | undefined,
+      ttsVoice: argv.ttsVoice as string | undefined,
+      ttsFormat: argv.ttsFormat as "mp3" | "wav" | "ogg" | "opus" | undefined,
+      ttsSpeed: argv.ttsSpeed as number | undefined,
+      ttsQuality: argv.ttsQuality as "standard" | "hd" | undefined,
+      ttsOutput: argv.ttsOutput as string | undefined,
+      ttsPlay: argv.ttsPlay as boolean | undefined,
     };
   }
 
@@ -399,6 +450,58 @@ export class CLICommandFactory {
       }
     } else {
       logger.always(output);
+    }
+  }
+
+  /**
+   * Helper method to handle TTS audio file output
+   * Saves audio to file when --tts-output flag is provided
+   */
+  private static async handleTTSOutput(
+    result: GenerateResult | unknown,
+    options: BaseCommandArgs & Record<string, unknown>,
+  ): Promise<void> {
+    // Check if --tts-output flag is provided
+    const ttsOutputPath = options.ttsOutput as string | undefined;
+    if (!ttsOutputPath) {
+      return;
+    }
+
+    // Extract audio from result
+    const resultObj = result as Record<string, unknown>;
+    const audio = resultObj?.audio as TTSResult | undefined;
+
+    if (!audio) {
+      if (!options.quiet) {
+        logger.always(
+          chalk.yellow(
+            "⚠️  No audio available in result. TTS may not be enabled for this request.",
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      // Save audio to file
+      const saveResult = await saveAudioToFile(audio, ttsOutputPath);
+
+      if (saveResult.success) {
+        if (!options.quiet) {
+          logger.always(
+            chalk.green(
+              `🔊 Audio saved to: ${saveResult.path} (${formatFileSize(saveResult.size)})`,
+            ),
+          );
+        }
+      } else {
+        handleError(
+          new Error(saveResult.error || "Failed to save audio file"),
+          "TTS Output",
+        );
+      }
+    } catch (error) {
+      handleError(error as Error, "TTS Output");
     }
   }
 
@@ -1065,9 +1168,8 @@ export class CLICommandFactory {
 
         // Handle --list-conversations option
         if (listConversations) {
-          const { ConversationSelector } = await import(
-            "../loop/conversationSelector.js"
-          );
+          const { ConversationSelector } =
+            await import("../loop/conversationSelector.js");
           const conversationSelector = new ConversationSelector();
 
           try {
@@ -1496,6 +1598,9 @@ export class CLICommandFactory {
       // Handle output with universal formatting
       this.handleOutput(result, options);
 
+      // Handle TTS audio file output if --tts-output is provided
+      await this.handleTTSOutput(result, options);
+
       if (options.debug) {
         logger.debug("\n" + chalk.yellow("Debug Information:"));
         logger.debug("Provider:", result.provider);
@@ -1905,6 +2010,22 @@ export class CLICommandFactory {
       }
     }
 
+    // Handle TTS audio output if --tts-output is provided
+    // Note: For streaming, TTS audio is collected during the stream
+    // and saved at the end if available
+    const ttsOutputPath = options.ttsOutput as string | undefined;
+    if (ttsOutputPath) {
+      // For now, streaming TTS output is not yet available
+      // This will be enabled when the TTS streaming infrastructure is complete
+      if (!options.quiet) {
+        logger.always(
+          chalk.yellow(
+            "⚠️  TTS audio output for streaming is not yet available. Use 'generate' command for TTS output.",
+          ),
+        );
+      }
+    }
+
     // Debug output for streaming
     if (options.debug) {
       await this.logStreamDebugInfo({
@@ -2221,9 +2342,8 @@ export class CLICommandFactory {
     const options = this.processOptions(argv);
 
     try {
-      const { getBestProvider } = await import(
-        "../../lib/utils/providerUtils.js"
-      );
+      const { getBestProvider } =
+        await import("../../lib/utils/providerUtils.js");
       const bestProvider = await getBestProvider();
 
       if (options.format === "json") {
@@ -2648,9 +2768,8 @@ export class CLICommandFactory {
   private static async flushLangfuseTraces(): Promise<void> {
     try {
       logger.debug("[CLI] Flushing Langfuse traces before exit...");
-      const { flushOpenTelemetry } = await import(
-        "../../lib/services/server/ai/observability/instrumentation.js"
-      );
+      const { flushOpenTelemetry } =
+        await import("../../lib/services/server/ai/observability/instrumentation.js");
       await flushOpenTelemetry();
       logger.debug("[CLI] Langfuse traces flushed successfully");
     } catch (error) {
