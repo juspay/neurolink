@@ -182,7 +182,31 @@ const result = await neurolink.generate({
 | External Discovery | ✅ Working | MCP server discovery examples             |
 | CLI Usage          | ✅ Ready   | Command-line interface examples           |
 | SDK Integration    | ✅ Ready   | TypeScript/JavaScript SDK examples        |
+| PDF Analysis       | ✅ Ready   | PDF document processing examples          |
+| CSV Analysis       | ✅ Ready   | CSV data analysis examples                |
+| Office Documents   | ✅ Ready   | DOCX, PPTX, XLSX processing examples      |
 | External Tools     | 🔧 Coming  | Direct external tool execution (v1.8.0)   |
+
+## 📄 **Office Document Examples (NEW)**
+
+Process and analyze Microsoft Office documents with AI:
+
+### **Office Documents Directory** (`office-documents/`)
+
+- `contract-analysis.ts` - DOCX contract analysis and risk assessment
+- `presentation-summary.ts` - PPTX presentation summarization
+- `data-analysis.ts` - XLSX spreadsheet analysis and insights
+- `mixed-multimodal.ts` - Combined document workflows
+
+```bash
+# Run office document examples
+npx tsx examples/office-documents/contract-analysis.ts
+npx tsx examples/office-documents/presentation-summary.ts
+npx tsx examples/office-documents/data-analysis.ts
+npx tsx examples/office-documents/mixed-multimodal.ts
+```
+
+See [`office-documents/README.md`](office-documents/README.md) for detailed documentation.
 
 ---
 
