@@ -21,6 +21,29 @@ export class MultimodalLogger {
 }
 
 /**
+ * Image count limits per provider
+ * These limits prevent API rejections when too many images are sent
+ */
+const IMAGE_LIMITS = {
+  openai: 10,
+  azure: 10, // Same as OpenAI
+  "google-ai": 16,
+  google: 16,
+  anthropic: 20,
+  vertex: {
+    // Vertex has model-specific limits
+    claude: 20, // Claude models on Vertex
+    gemini: 16, // Gemini models on Vertex
+    default: 16,
+  },
+  ollama: 10, // Conservative limit for Ollama
+  litellm: 10, // Conservative limit, as it proxies to various providers
+  mistral: 10, // Conservative limit for Mistral
+  // Note: Bedrock limit defined for future use when vision support is added
+  bedrock: 20, // Same as Anthropic for Claude models on Bedrock
+} as const;
+
+/**
  * Vision capability definitions for each provider
  */
 const VISION_CAPABILITIES = {
@@ -380,7 +403,9 @@ export class ProviderImageAdapter {
           break;
         case "azure":
         case "azure-openai":
-          adaptedPayload = this.formatForOpenAI(text, images);
+          // Azure uses same format as OpenAI but validate with azure provider name
+          this.validateImageCount(images.length, "azure");
+          adaptedPayload = this.formatForOpenAI(text, images, true);
           break;
         case "google-ai":
         case "google":
@@ -393,7 +418,9 @@ export class ProviderImageAdapter {
           adaptedPayload = this.formatForVertex(text, images, model);
           break;
         case "ollama":
-          adaptedPayload = this.formatForOpenAI(text, images);
+          // Ollama uses same format as OpenAI but validate with ollama provider name
+          this.validateImageCount(images.length, "ollama");
+          adaptedPayload = this.formatForOpenAI(text, images, true);
           break;
         case "huggingface":
           adaptedPayload = this.formatForOpenAI(text, images);
@@ -431,7 +458,13 @@ export class ProviderImageAdapter {
   private static formatForOpenAI(
     text: string,
     images: Array<Buffer | string>,
+    skipValidation = false,
   ): unknown {
+    // Validate image count before processing (unless called from another formatter)
+    if (!skipValidation) {
+      this.validateImageCount(images.length, "openai");
+    }
+
     const content: unknown[] = [{ type: "text", text }];
 
     images.forEach((image, index) => {
@@ -459,7 +492,13 @@ export class ProviderImageAdapter {
   private static formatForGoogleAI(
     text: string,
     images: Array<Buffer | string>,
+    skipValidation = false,
   ): unknown {
+    // Validate image count before processing (unless called from another formatter)
+    if (!skipValidation) {
+      this.validateImageCount(images.length, "google-ai");
+    }
+
     const parts: unknown[] = [{ text }];
 
     images.forEach((image, index) => {
@@ -486,7 +525,13 @@ export class ProviderImageAdapter {
   private static formatForAnthropic(
     text: string,
     images: Array<Buffer | string>,
+    skipValidation = false,
   ): unknown {
+    // Validate image count before processing (unless called from another formatter)
+    if (!skipValidation) {
+      this.validateImageCount(images.length, "anthropic");
+    }
+
     const content: unknown[] = [{ type: "text", text }];
 
     images.forEach((image, index) => {
@@ -521,13 +566,76 @@ export class ProviderImageAdapter {
     images: Array<Buffer | string>,
     model: string,
   ): unknown {
-    // Route based on model type
+    // Validate image count with model-specific limits before processing
+    this.validateImageCount(images.length, "vertex", model);
+
+    // Route based on model type, skip validation in delegated methods
     if (model.includes("gemini")) {
-      return this.formatForGoogleAI(text, images);
+      return this.formatForGoogleAI(text, images, true);
     } else if (model.includes("claude")) {
-      return this.formatForAnthropic(text, images);
+      return this.formatForAnthropic(text, images, true);
     } else {
-      return this.formatForGoogleAI(text, images);
+      return this.formatForGoogleAI(text, images, true);
+    }
+  }
+
+  /**
+   * Validate image count against provider limits
+   * Warns at 80% threshold, throws error if limit exceeded
+   */
+  private static validateImageCount(
+    imageCount: number,
+    provider: string,
+    model?: string,
+  ): void {
+    const normalizedProvider = provider.toLowerCase();
+    let limit: number;
+
+    // Determine the limit based on provider
+    if (normalizedProvider === "vertex" && model) {
+      // Vertex has model-specific limits
+      if (model.includes("claude")) {
+        limit = IMAGE_LIMITS.vertex.claude;
+      } else if (model.includes("gemini")) {
+        limit = IMAGE_LIMITS.vertex.gemini;
+      } else {
+        limit = IMAGE_LIMITS.vertex.default;
+      }
+    } else {
+      // Use provider-specific limit
+      const providerLimit =
+        normalizedProvider in IMAGE_LIMITS
+          ? IMAGE_LIMITS[normalizedProvider as keyof typeof IMAGE_LIMITS]
+          : undefined;
+
+      // If provider not found in limits map, use a conservative default
+      if (providerLimit === undefined) {
+        // Conservative default for unknown providers
+        limit = 10;
+        logger.warn(
+          `Image count limit not defined for provider ${provider}. Using conservative default of 10 images.`,
+        );
+      } else {
+        // providerLimit is always a number when defined (except vertex which is handled separately)
+        limit = providerLimit as number;
+      }
+    }
+
+    // Warn only once at 80% threshold to avoid noise in batch processing
+    const warningThreshold = Math.floor(limit * 0.8);
+    if (imageCount === warningThreshold) {
+      logger.warn(
+        `Image count (${imageCount}) is approaching the limit for ${provider}. ` +
+          `Maximum allowed: ${limit}. Please reduce the number of images.`,
+      );
+    }
+
+    // Throw error if limit exceeded
+    if (imageCount > limit) {
+      throw new Error(
+        `Image count (${imageCount}) exceeds the maximum limit for ${provider}. ` +
+          `Maximum allowed: ${limit}. Please reduce the number of images.`,
+      );
     }
   }
 
