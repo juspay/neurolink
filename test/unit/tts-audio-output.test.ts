@@ -293,9 +293,8 @@ describe("TTS Types", () => {
 
   describe("isValidTTSOptions type guard", () => {
     it("should validate correct TTSOptions", async () => {
-      const { isValidTTSOptions } = await import(
-        "../../src/lib/types/ttsTypes.js"
-      );
+      const { isValidTTSOptions } =
+        await import("../../src/lib/types/ttsTypes.js");
 
       expect(isValidTTSOptions({})).toBe(true);
       expect(isValidTTSOptions({ enabled: true })).toBe(true);
@@ -306,9 +305,8 @@ describe("TTS Types", () => {
     });
 
     it("should reject invalid speed values", async () => {
-      const { isValidTTSOptions } = await import(
-        "../../src/lib/types/ttsTypes.js"
-      );
+      const { isValidTTSOptions } =
+        await import("../../src/lib/types/ttsTypes.js");
 
       expect(isValidTTSOptions({ speed: 0.1 })).toBe(false); // Below 0.25
       expect(isValidTTSOptions({ speed: 5.0 })).toBe(false); // Above 4.0
@@ -316,18 +314,16 @@ describe("TTS Types", () => {
     });
 
     it("should reject invalid format values", async () => {
-      const { isValidTTSOptions } = await import(
-        "../../src/lib/types/ttsTypes.js"
-      );
+      const { isValidTTSOptions } =
+        await import("../../src/lib/types/ttsTypes.js");
 
       expect(isValidTTSOptions({ format: "invalid" })).toBe(false);
       expect(isValidTTSOptions({ format: "flac" })).toBe(false);
     });
 
     it("should reject invalid quality values", async () => {
-      const { isValidTTSOptions } = await import(
-        "../../src/lib/types/ttsTypes.js"
-      );
+      const { isValidTTSOptions } =
+        await import("../../src/lib/types/ttsTypes.js");
 
       expect(isValidTTSOptions({ quality: "ultra" })).toBe(false);
       expect(isValidTTSOptions({ quality: "low" })).toBe(false);

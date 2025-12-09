@@ -12,7 +12,10 @@ import type {
   BatchCommandArgs,
   GenerateResult,
 } from "../../lib/types/cli.js";
-import type { TokenUsage, AnalyticsData } from "../../lib/types/index.js";
+import type {
+  TokenUsage,
+  AnalyticsData,
+} from "../../lib/types/index.js";
 import { configManager } from "../commands/config.js";
 import { handleError } from "../errorHandler.js";
 import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";
@@ -1167,9 +1170,8 @@ export class CLICommandFactory {
 
         // Handle --list-conversations option
         if (listConversations) {
-          const { ConversationSelector } = await import(
-            "../loop/conversationSelector.js"
-          );
+          const { ConversationSelector } =
+            await import("../loop/conversationSelector.js");
           const conversationSelector = new ConversationSelector();
 
           try {
@@ -2342,9 +2344,8 @@ export class CLICommandFactory {
     const options = this.processOptions(argv);
 
     try {
-      const { getBestProvider } = await import(
-        "../../lib/utils/providerUtils.js"
-      );
+      const { getBestProvider } =
+        await import("../../lib/utils/providerUtils.js");
       const bestProvider = await getBestProvider();
 
       if (options.format === "json") {
@@ -2769,9 +2770,8 @@ export class CLICommandFactory {
   private static async flushLangfuseTraces(): Promise<void> {
     try {
       logger.debug("[CLI] Flushing Langfuse traces before exit...");
-      const { flushOpenTelemetry } = await import(
-        "../../lib/services/server/ai/observability/instrumentation.js"
-      );
+      const { flushOpenTelemetry } =
+        await import("../../lib/services/server/ai/observability/instrumentation.js");
       await flushOpenTelemetry();
       logger.debug("[CLI] Langfuse traces flushed successfully");
     } catch (error) {
