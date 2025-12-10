@@ -12,10 +12,7 @@ import type {
   BatchCommandArgs,
   GenerateResult,
 } from "../../lib/types/cli.js";
-import type {
-  TokenUsage,
-  AnalyticsData,
-} from "../../lib/types/index.js";
+import type { TokenUsage, AnalyticsData } from "../../lib/types/index.js";
 import { configManager } from "../commands/config.js";
 import { handleError } from "../errorHandler.js";
 import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";

@@ -33,8 +33,11 @@ function isRetryableDownloadError(error: unknown): boolean {
   if (error && typeof error === "object") {
     const errorCode = (error as { code?: string }).code;
     const errorName = (error as { name?: string }).name;
-    
-    if (RETRYABLE_ERROR_CODES.has(errorCode || "") || errorName === "AbortError") {
+
+    if (
+      RETRYABLE_ERROR_CODES.has(errorCode || "") ||
+      errorName === "AbortError"
+    ) {
       return true;
     }
   }
@@ -56,7 +59,9 @@ function isRetryableDownloadError(error: unknown): boolean {
     // Check for timeout/network-related error messages
     // Use more precise matching to avoid false positives like "No timeout specified"
     if (
-      /\b(request timed out|operation timed out|connection timed out|timed out)\b/i.test(message) ||
+      /\b(request timed out|operation timed out|connection timed out|timed out)\b/i.test(
+        message,
+      ) ||
       /\bnetwork (error|failure|unreachable|down)\b/i.test(message)
     ) {
       return true;

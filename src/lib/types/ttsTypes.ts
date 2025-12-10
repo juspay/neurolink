@@ -6,6 +6,8 @@
  * @module types/ttsTypes
  */
 
+import { BaseError } from "./errors.js";
+
 /**
  * Supported audio formats for TTS output
  */
@@ -141,3 +143,59 @@ export function isValidTTSOptions(options: unknown): options is TTSOptions {
   }
   return true;
 }
+
+/**
+ * TTS-specific error codes
+ */
+export enum TTSErrorCode {
+  INVALID_TEXT = "INVALID_TEXT",
+  TEXT_TOO_LONG = "TEXT_TOO_LONG",
+  UNSUPPORTED_PROVIDER = "UNSUPPORTED_PROVIDER",
+  INVALID_OPTIONS = "INVALID_OPTIONS",
+  SYNTHESIS_FAILED = "SYNTHESIS_FAILED",
+  HANDLER_NOT_FOUND = "HANDLER_NOT_FOUND",
+}
+
+/**
+ * Error class for TTS-specific errors
+ */
+export class TTSError extends BaseError {
+  constructor(
+    message: string,
+    public code: TTSErrorCode,
+    public provider?: string,
+  ) {
+    super(provider ? `[${provider}] ${message}` : message);
+    this.name = "TTSError";
+  }
+}
+
+/**
+ * Interface for TTS provider handlers
+ */
+export interface TTSHandler {
+  /**
+   * Provider name that this handler supports
+   */
+  readonly providerName: string;
+
+  /**
+   * Synthesize text to speech
+   * @param text - The text to synthesize
+   * @param options - TTS options
+   * @returns Promise resolving to TTS result
+   */
+  synthesize(text: string, options: TTSOptions): Promise<TTSResult>;
+}
+
+/**
+ * TTS synthesis options for internal processing
+ */
+export type TTSSynthesizeOptions = {
+  /** Text to synthesize */
+  text: string;
+  /** Provider to use for synthesis */
+  provider: string;
+  /** TTS options */
+  options: TTSOptions;
+};
