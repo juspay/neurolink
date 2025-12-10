@@ -113,6 +113,38 @@ export function isTTSResult(value: unknown): value is TTSResult {
 }
 
 /**
+ * TTS Handler type for provider-specific implementations
+ *
+ * Each provider (Google AI, OpenAI, etc.) implements this type
+ * to provide TTS generation capabilities using their respective APIs.
+ */
+export type TTSHandler = {
+  /**
+   * Generate audio from text using provider-specific TTS API
+   *
+   * @param text - Text to convert to speech
+   * @param options - TTS configuration options
+   * @returns Audio buffer with metadata
+   */
+  synthesize(text: string, options: TTSOptions): Promise<TTSResult>;
+
+  /**
+   * Get available voices for the provider
+   *
+   * @param languageCode - Optional language filter (e.g., "en-US")
+   * @returns List of available voices
+   */
+  getVoices(languageCode?: string): Promise<TTSVoice[]>;
+
+  /**
+   * Validate that the provider is properly configured
+   *
+   * @returns True if provider can generate TTS
+   */
+  isConfigured(): boolean;
+};
+
+/**
  * Type guard to check if TTSOptions are valid
  */
 export function isValidTTSOptions(options: unknown): options is TTSOptions {
