@@ -273,15 +273,99 @@ export class CLICommandFactory {
     });
   }
 
+  /**
+   * Validate file path before processing
+   * @param filePath - Path to file to validate
+   * @param fileType - Type of file (image, pdf, csv, file)
+   * @param quiet - Whether to suppress warnings
+   * @throws Error if file is invalid with troubleshooting guidance
+   */
+  private static validateFilePath(
+    filePath: string,
+    fileType: "image" | "pdf" | "csv" | "file",
+    quiet: boolean = false,
+  ): void {
+    // Skip validation for URLs
+    if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+      return;
+    }
+
+    // Check file existence
+    if (!fs.existsSync(filePath)) {
+      throw new Error(
+        `❌ File not found: ${filePath}\n\n` +
+          `🔧 Troubleshooting steps:\n` +
+          `1. Check if the file path is correct\n` +
+          `2. Ensure the file exists at the specified location\n` +
+          `3. Use absolute paths or paths relative to current directory\n` +
+          `4. For URLs, ensure they start with http:// or https://\n\n` +
+          `💡 Tip: Use 'ls' or 'dir' to verify the file exists`,
+      );
+    }
+
+    // Get file stats
+    const stats = fs.statSync(filePath);
+
+    // Reject directories
+    if (stats.isDirectory()) {
+      throw new Error(
+        `❌ Path is a directory, not a file: ${filePath}\n\n` +
+          `🔧 Troubleshooting steps:\n` +
+          `1. Specify a file path, not a directory\n` +
+          `2. If you want to process multiple files, use the flag multiple times\n` +
+          `   Example: --image file1.jpg --image file2.jpg\n\n` +
+          `💡 Tip: Use 'ls ${filePath}' to see files in the directory`,
+      );
+    }
+
+    // Check file size and warn for large files
+    const fileSizeBytes = stats.size;
+    const fileSizeMB = fileSizeBytes / (1024 * 1024);
+
+    // Define size limits based on file type
+    const sizeLimits = {
+      image: 10, // 10MB for images
+      pdf: 50, // 50MB for PDFs
+      csv: 50, // 50MB for CSVs
+      file: 50, // 50MB for generic files
+    };
+
+    const limit = sizeLimits[fileType];
+
+    if (fileSizeMB > limit) {
+      const warningMessage =
+        `⚠️  Warning: Large ${fileType} file detected (${fileSizeMB.toFixed(2)}MB > ${limit}MB)\n` +
+        `   File: ${filePath}\n` +
+        `   This may cause:\n` +
+        `   - Slow processing times\n` +
+        `   - High token usage and costs\n` +
+        `   - Potential timeout errors\n\n` +
+        `💡 Recommendations:\n` +
+        `   - For images: Resize or compress before uploading\n` +
+        `   - For PDFs: Split into smaller documents or extract key pages\n` +
+        `   - For CSVs: Use --csv-max-rows to limit data processing\n`;
+
+      if (!quiet) {
+        logger.always(chalk.yellow(warningMessage));
+      }
+    }
+  }
+
   // Helper method to process CLI images with smart auto-detection
   private static processCliImages(
     images?: string | string[],
+    quiet: boolean = false,
   ): Array<Buffer | string> | undefined {
     if (!images) {
       return undefined;
     }
 
     const imagePaths = Array.isArray(images) ? images : [images];
+
+    // Validate each image path before processing
+    for (const imagePath of imagePaths) {
+      this.validateFilePath(imagePath, "image", quiet);
+    }
 
     // Return as-is - let the smart message builder handle URL vs file detection
     // URLs will be detected and appended to prompt text
@@ -292,31 +376,58 @@ export class CLICommandFactory {
   // Helper method to process CLI CSV files
   private static processCliCSVFiles(
     csvFiles?: string | string[],
+    quiet: boolean = false,
   ): Array<Buffer | string> | undefined {
     if (!csvFiles) {
       return undefined;
     }
-    return Array.isArray(csvFiles) ? csvFiles : [csvFiles];
+
+    const csvPaths = Array.isArray(csvFiles) ? csvFiles : [csvFiles];
+
+    // Validate each CSV path before processing
+    for (const csvPath of csvPaths) {
+      this.validateFilePath(csvPath, "csv", quiet);
+    }
+
+    return csvPaths;
   }
 
   // Helper method to process CLI PDF files
   private static processCliPDFFiles(
     pdfFiles?: string | string[],
+    quiet: boolean = false,
   ): Array<Buffer | string> | undefined {
     if (!pdfFiles) {
       return undefined;
     }
-    return Array.isArray(pdfFiles) ? pdfFiles : [pdfFiles];
+
+    const pdfPaths = Array.isArray(pdfFiles) ? pdfFiles : [pdfFiles];
+
+    // Validate each PDF path before processing
+    for (const pdfPath of pdfPaths) {
+      this.validateFilePath(pdfPath, "pdf", quiet);
+    }
+
+    return pdfPaths;
   }
 
   // Helper method to process CLI files with auto-detection
   private static processCliFiles(
     files?: string | string[],
+    quiet: boolean = false,
   ): Array<Buffer | string> | undefined {
     if (!files) {
       return undefined;
     }
-    return Array.isArray(files) ? files : [files];
+
+    const filePaths = Array.isArray(files) ? files : [files];
+
+    // Validate each file path before processing
+    for (const filePath of filePaths) {
+      this.validateFilePath(filePath, "file", quiet);
+    }
+
+    return filePaths;
   }
 
   // Helper method to process common options
@@ -1526,15 +1637,19 @@ export class CLICommandFactory {
       // Process CLI multimodal inputs
       const imageBuffers = CLICommandFactory.processCliImages(
         argv.image as string | string[] | undefined,
+        options.quiet as boolean,
       );
       const csvFiles = CLICommandFactory.processCliCSVFiles(
         argv.csv as string | string[] | undefined,
+        options.quiet as boolean,
       );
       const pdfFiles = CLICommandFactory.processCliPDFFiles(
         argv.pdf as string | string[] | undefined,
+        options.quiet as boolean,
       );
       const files = CLICommandFactory.processCliFiles(
         argv.file as string | string[] | undefined,
+        options.quiet as boolean,
       );
 
       const generateInput = {
@@ -1784,15 +1899,19 @@ export class CLICommandFactory {
     // Process CLI multimodal inputs
     const imageBuffers = CLICommandFactory.processCliImages(
       argv.image as string | string[] | undefined,
+      options.quiet as boolean,
     );
     const csvFiles = CLICommandFactory.processCliCSVFiles(
       argv.csv as string | string[] | undefined,
+      options.quiet as boolean,
     );
     const pdfFiles = CLICommandFactory.processCliPDFFiles(
       argv.pdf as string | string[] | undefined,
+      options.quiet as boolean,
     );
     const files = CLICommandFactory.processCliFiles(
       argv.file as string | string[] | undefined,
+      options.quiet as boolean,
     );
 
     const stream = await sdk.stream({
