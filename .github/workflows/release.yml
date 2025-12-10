@@ -44,7 +44,7 @@ jobs:
       packages: write
       issues: write
       pull-requests: write
-      id-token: write  # Required for OIDC authentication with npm provenance
+      id-token: write # Required for OIDC authentication with npm provenance
     steps:
       - name: Checkout
         uses: actions/checkout@v4
