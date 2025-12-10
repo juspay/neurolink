@@ -166,10 +166,6 @@ importers:
       zod-to-json-schema:
         specifier: ^3.24.6
         version: 3.24.6(zod@3.25.76)
-    optionalDependencies:
-      canvas:
-        specifier: ^3.2.0
-        version: 3.2.0
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.2.4
@@ -196,8 +192,8 @@ importers:
         specifier: ^11.0.6
         version: 11.0.6(semantic-release@24.2.9(typescript@5.9.3))
       '@semantic-release/npm':
-        specifier: ^12.0.2
-        version: 12.0.2(semantic-release@24.2.9(typescript@5.9.3))
+        specifier: ^13.1.2
+        version: 13.1.2(semantic-release@24.2.9(typescript@5.9.3))
       '@semantic-release/release-notes-generator':
         specifier: ^14.1.0
         version: 14.1.0(semantic-release@24.2.9(typescript@5.9.3))
@@ -300,8 +296,24 @@ importers:
       why-is-node-running:
         specifier: ^3.2.2
         version: 3.2.2
+    optionalDependencies:
+      canvas:
+        specifier: ^3.2.0
+        version: 3.2.0
 
 packages:
+
+  '@actions/core@1.11.1':
+    resolution: {integrity: sha512-hXJCSrkwfA46Vd9Z3q4cpEpHB1rL5NG04+/rbqW9d3+CSvtB1tYe8UTpAlixa1vj0m/ULglfEK2UKxMGxCxv5A==}
+
+  '@actions/exec@1.1.1':
+    resolution: {integrity: sha512-+sCcHHbVdk93a0XT19ECtO/gIXoxvdsgQLzb2fE2/5sIZmWQuluYyjPQtrtTHdU1YzTZ7bAPN4sITq2xi1679w==}
+
+  '@actions/http-client@2.2.3':
+    resolution: {integrity: sha512-mx8hyJi/hjFvbPokCg4uRd4ZX78t+YyRPtnKWwIl+RzNaVuFpQHfmlGVfsKEJN8LwTCvL+DfVgAM04XaHkm6bA==}
+
+  '@actions/io@1.1.3':
+    resolution: {integrity: sha512-wi9JjgKLYS7U/z8PPbco+PvTb/nRWjeoFlJ1Qer83k/3C5PHQi28hiVdeE2kHXmIL99mQFawx8qt/JPjZilJ8Q==}
 
   '@ai-sdk/anthropic@1.2.12':
     resolution: {integrity: sha512-YSzjlko7JvuiyQFmI9RN1tNZdEiZxc+6xld/0tq/VkJaHpEzGAb1yiNxxvmYVcjvfu/PcvCxAAYXmTYQQ63IHQ==}
@@ -2047,6 +2059,12 @@ packages:
     peerDependencies:
       semantic-release: '>=20.1.0'
 
+  '@semantic-release/npm@13.1.2':
+    resolution: {integrity: sha512-9rtshDTNlzYrC7uSBtB1vHqFzFZaNHigqkkCH5Ls4N/BSlVOenN5vtwHYxjAR4jf1hNvWSVwL4eIFTHONYckkw==}
+    engines: {node: ^22.14.0 || >= 24.10.0}
+    peerDependencies:
+      semantic-release: '>=20.1.0'
+
   '@semantic-release/release-notes-generator@14.1.0':
     resolution: {integrity: sha512-CcyDRk7xq+ON/20YNR+1I/jP7BYKICr1uKd1HHpROSnnTdGqOTburi4jcRiTYz0cpfhxSloQO3cGhnoot7IEkA==}
     engines: {node: '>=20.8.1'}
@@ -3777,6 +3795,10 @@ packages:
     resolution: {integrity: sha512-Rw/B2DNQaPBICNXEm8balFz9a6WpZrkCGpcWFpy7nCj+NyhSdqXipmfvtmWt9xGfp0wZnBxB+iVpLmQMYt47Tw==}
     engines: {node: ^18.17.0 || >=20.5.0}
 
+  hosted-git-info@9.0.2:
+    resolution: {integrity: sha512-M422h7o/BR3rmCQ8UHi7cyyMqKltdP9Uo+J2fXK+RSAY+wTcKOIRyhTuKv4qn+DJf3g+PL890AzId5KZpX+CBg==}
+    engines: {node: ^20.17.0 || >=22.9.0}
+
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
 
@@ -4518,6 +4540,10 @@ packages:
     resolution: {integrity: sha512-V6gygoYb/5EmNI+MEGrWkC+e6+Rr7mTmfHrxDbLzxQogBkgzo76rkok0Am6thgSF7Mv2nLOajAJj5vDJZEFn7g==}
     engines: {node: ^16.14.0 || >=18.0.0}
 
+  normalize-package-data@8.0.0:
+    resolution: {integrity: sha512-RWk+PI433eESQ7ounYxIp67CYuVsS1uYSonX3kA6ps/3LWfjVQa/ptEg6Y3T6uAMq1mWpX9PQ+qx+QaHpsc7gQ==}
+    engines: {node: ^20.17.0 || >=22.9.0}
+
   normalize-url@8.1.0:
     resolution: {integrity: sha512-X06Mfd/5aKsRHc0O0J5CUedwnPmnDtLF2+nq+KN9KSDlJHkPuh0JUviWjEWMe0SW/9TDdSLVPuk7L5gGTIA1/w==}
     engines: {node: '>=14.16'}
@@ -4607,6 +4633,78 @@ packages:
       - validate-npm-package-name
       - which
       - write-file-atomic
+
+  npm@11.7.0:
+    resolution: {integrity: sha512-wiCZpv/41bIobCoJ31NStIWKfAxxYyD1iYnWCtiyns8s5v3+l8y0HCP/sScuH6B5+GhIfda4HQKiqeGZwJWhFw==}
+    engines: {node: ^20.17.0 || >=22.9.0}
+    hasBin: true
+    bundledDependencies:
+      - '@isaacs/string-locale-compare'
+      - '@npmcli/arborist'
+      - '@npmcli/config'
+      - '@npmcli/fs'
+      - '@npmcli/map-workspaces'
+      - '@npmcli/metavuln-calculator'
+      - '@npmcli/package-json'
+      - '@npmcli/promise-spawn'
+      - '@npmcli/redact'
+      - '@npmcli/run-script'
+      - '@sigstore/tuf'
+      - abbrev
+      - archy
+      - cacache
+      - chalk
+      - ci-info
+      - cli-columns
+      - fastest-levenshtein
+      - fs-minipass
+      - glob
+      - graceful-fs
+      - hosted-git-info
+      - ini
+      - init-package-json
+      - is-cidr
+      - json-parse-even-better-errors
+      - libnpmaccess
+      - libnpmdiff
+      - libnpmexec
+      - libnpmfund
+      - libnpmorg
+      - libnpmpack
+      - libnpmpublish
+      - libnpmsearch
+      - libnpmteam
+      - libnpmversion
+      - make-fetch-happen
+      - minimatch
+      - minipass
+      - minipass-pipeline
+      - ms
+      - node-gyp
+      - nopt
+      - npm-audit-report
+      - npm-install-checks
+      - npm-package-arg
+      - npm-pick-manifest
+      - npm-profile
+      - npm-registry-fetch
+      - npm-user-validate
+      - p-map
+      - pacote
+      - parse-conflict-json
+      - proc-log
+      - qrcode-terminal
+      - read
+      - semver
+      - spdx-expression-parse
+      - ssri
+      - supports-color
+      - tar
+      - text-table
+      - tiny-relative-date
+      - treeverse
+      - validate-npm-package-name
+      - which
 
   npmlog@6.0.2:
     resolution: {integrity: sha512-/vBvz5Jfr9dT/aFWd0FIRf+T/Q2WBsLENygUaFUqstqsycmZAP/t5BvFJTK0viFmSUxiUKTUplWy5vt+rvKIxg==}
@@ -5115,6 +5213,10 @@ packages:
     resolution: {integrity: sha512-MbgfoNPANMdb4oRBNg5eqLbB2t2r+o5Ua1pNt8BqGp4I0FJZhuVSOj3PaBPni4azWuSzEdNn2evevzVmEk1ohQ==}
     engines: {node: '>=18'}
 
+  read-pkg@10.0.0:
+    resolution: {integrity: sha512-A70UlgfNdKI5NSvTTfHzLQj7NJRpJ4mT5tGafkllJ4wh71oYuGm/pzphHcmW4s35iox56KSK721AihodoXSc/A==}
+    engines: {node: '>=20'}
+
   read-pkg@9.0.1:
     resolution: {integrity: sha512-9viLL4/n1BJUCT1NXVTdS1jtm80yDEgR5T4yCelII49Mbj0v1rZdKqj7zCiYdbB0CuCgdrvHcNogAKTFPBocFA==}
     engines: {node: '>=18'}
@@ -5546,6 +5648,10 @@ packages:
     peerDependencies:
       react: ^16.11.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
+  tagged-tag@1.0.0:
+    resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
+    engines: {node: '>=20'}
+
   tar-fs@2.1.4:
     resolution: {integrity: sha512-mDAjwmZdh7LTT6pNleZ05Yt65HC3E+NiQzl672vQG38jIrehtJk/J3mNwIg+vShQPcLF/LV7CMnDW6vjj6sfYQ==}
 
@@ -5656,6 +5762,10 @@ packages:
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
 
+  tunnel@0.0.6:
+    resolution: {integrity: sha512-1h/Lnq9yajKY2PEbBadPXj3VxsDDu844OnaAo52UVmIzIvwwtBPIuNvkjuzBlTWpfJyUbG3ez0KSBibQkj4ojg==}
+    engines: {node: '>=0.6.11 <=0.7.0 || >=0.7.3'}
+
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
@@ -5675,6 +5785,10 @@ packages:
   type-fest@4.41.0:
     resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
     engines: {node: '>=16'}
+
+  type-fest@5.3.1:
+    resolution: {integrity: sha512-VCn+LMHbd4t6sF3wfU/+HKT63C9OoyrSIf4b+vtWHpt2U7/4InZG467YDNMFMR70DdHjAdpPWmw2lzRdg0Xqqg==}
+    engines: {node: '>=20'}
 
   type-is@2.0.1:
     resolution: {integrity: sha512-OZs6gsjF4vMp32qrCbiVSkrFmXtG/AZhY3t0iAMrMBiAZyV9oALtXO8hsrHbMXF9x6L3grlFuwW2oAz7cav+Gw==}
@@ -6033,6 +6147,22 @@ packages:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
 snapshots:
+
+  '@actions/core@1.11.1':
+    dependencies:
+      '@actions/exec': 1.1.1
+      '@actions/http-client': 2.2.3
+
+  '@actions/exec@1.1.1':
+    dependencies:
+      '@actions/io': 1.1.3
+
+  '@actions/http-client@2.2.3':
+    dependencies:
+      tunnel: 0.0.6
+      undici: 5.28.5
+
+  '@actions/io@1.1.3': {}
 
   '@ai-sdk/anthropic@1.2.12(zod@3.25.76)':
     dependencies:
@@ -8501,6 +8631,25 @@ snapshots:
       semver: 7.7.2
       tempy: 3.1.0
 
+  '@semantic-release/npm@13.1.2(semantic-release@24.2.9(typescript@5.9.3))':
+    dependencies:
+      '@actions/core': 1.11.1
+      '@semantic-release/error': 4.0.0
+      aggregate-error: 5.0.0
+      env-ci: 11.2.0
+      execa: 9.6.0
+      fs-extra: 11.3.2
+      lodash-es: 4.17.21
+      nerf-dart: 1.0.0
+      normalize-url: 8.1.0
+      npm: 11.7.0
+      rc: 1.2.8
+      read-pkg: 10.0.0
+      registry-auth-token: 5.1.0
+      semantic-release: 24.2.9(typescript@5.9.3)
+      semver: 7.7.3
+      tempy: 3.1.0
+
   '@semantic-release/release-notes-generator@14.1.0(semantic-release@24.2.9(typescript@5.9.3))':
     dependencies:
       conventional-changelog-angular: 8.0.0
@@ -10564,6 +10713,10 @@ snapshots:
     dependencies:
       lru-cache: 10.4.3
 
+  hosted-git-info@9.0.2:
+    dependencies:
+      lru-cache: 11.2.2
+
   html-escaper@2.0.2: {}
 
   http-cache-semantics@4.2.0:
@@ -11320,6 +11473,12 @@ snapshots:
       semver: 7.7.2
       validate-npm-package-license: 3.0.4
 
+  normalize-package-data@8.0.0:
+    dependencies:
+      hosted-git-info: 9.0.2
+      semver: 7.7.3
+      validate-npm-package-license: 3.0.4
+
   normalize-url@8.1.0: {}
 
   npm-run-path@4.0.1:
@@ -11336,6 +11495,8 @@ snapshots:
       unicorn-magic: 0.3.0
 
   npm@10.9.4: {}
+
+  npm@11.7.0: {}
 
   npmlog@6.0.2:
     dependencies:
@@ -11866,6 +12027,14 @@ snapshots:
       find-up-simple: 1.0.1
       read-pkg: 9.0.1
       type-fest: 4.41.0
+
+  read-pkg@10.0.0:
+    dependencies:
+      '@types/normalize-package-data': 2.4.4
+      normalize-package-data: 8.0.0
+      parse-json: 8.3.0
+      type-fest: 5.3.1
+      unicorn-magic: 0.3.0
 
   read-pkg@9.0.1:
     dependencies:
@@ -12407,6 +12576,8 @@ snapshots:
       react: 19.2.0
       use-sync-external-store: 1.6.0(react@19.2.0)
 
+  tagged-tag@1.0.0: {}
+
   tar-fs@2.1.4:
     dependencies:
       chownr: 1.1.4
@@ -12531,6 +12702,8 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
+  tunnel@0.0.6: {}
+
   type-check@0.4.0:
     dependencies:
       prelude-ls: 1.2.1
@@ -12542,6 +12715,10 @@ snapshots:
   type-fest@2.19.0: {}
 
   type-fest@4.41.0: {}
+
+  type-fest@5.3.1:
+    dependencies:
+      tagged-tag: 1.0.0
 
   type-is@2.0.1:
     dependencies:
