@@ -4,7 +4,7 @@
  */
 
 import { logger } from "./logger.js";
-import { ImageProcessingTelemetry } from "../telemetry/imageProcessingTelemetry.js";
+import { ProcessorTelemetryRegistry } from "../telemetry/processorTelemetry.js";
 import type { ProcessedImage } from "../types/multimodal.js";
 import type { FileProcessingResult } from "../types/fileTypes.js";
 
@@ -12,7 +12,7 @@ import type { FileProcessingResult } from "../types/fileTypes.js";
  * Image processor class for handling provider-specific image formatting
  */
 export class ImageProcessor {
-  private static telemetry = ImageProcessingTelemetry.getInstance();
+  private static telemetry = ProcessorTelemetryRegistry.getInstance("image");
 
   /**
    * Process image Buffer (unified interface)

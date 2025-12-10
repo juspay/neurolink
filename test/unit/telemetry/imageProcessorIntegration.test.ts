@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { ImageProcessor } from "../../../src/lib/utils/imageProcessor.js";
-import { ImageProcessingTelemetry } from "../../../src/lib/telemetry/imageProcessingTelemetry.js";
+import { ProcessorTelemetryRegistry } from "../../../src/lib/telemetry/processorTelemetry.js";
 
 /**
  * Helper function to create a minimal PNG buffer for testing
@@ -14,12 +14,10 @@ function createTestPngBuffer(): Buffer {
   );
 }
 
-describe("ImageProcessor with Telemetry Integration", () => {
-  let telemetry: ImageProcessingTelemetry;
-
+describe("ImageProcessor with Generic Telemetry Integration", () => {
   beforeEach(() => {
-    telemetry = ImageProcessingTelemetry.getInstance();
-    telemetry.reset();
+    // Reset the image processor telemetry before each test
+    ProcessorTelemetryRegistry.getInstance("image").reset();
   });
 
   describe("process method", () => {
@@ -28,7 +26,7 @@ describe("ImageProcessor with Telemetry Integration", () => {
 
       await ImageProcessor.process(pngBuffer);
 
-      const stats = telemetry.getStats();
+      const stats = ProcessorTelemetryRegistry.getInstance("image").getStats();
       expect(stats.totalProcessed).toBeGreaterThan(0);
       expect(stats.operationBreakdown.process).toBeGreaterThan(0);
     });
@@ -39,7 +37,7 @@ describe("ImageProcessor with Telemetry Integration", () => {
       const imageBuffer = Buffer.from("fake-image-data");
       ImageProcessor.processImageForOpenAI(imageBuffer);
 
-      const stats = telemetry.getStats();
+      const stats = ProcessorTelemetryRegistry.getInstance("image").getStats();
       expect(stats.totalProcessed).toBeGreaterThan(0);
       expect(stats.operationBreakdown.processForOpenAI).toBeGreaterThan(0);
       expect(stats.providerBreakdown["openai"]).toBeGreaterThan(0);
@@ -50,7 +48,7 @@ describe("ImageProcessor with Telemetry Integration", () => {
       const result = ImageProcessor.processImageForOpenAI(url);
 
       expect(result).toBe(url);
-      const stats = telemetry.getStats();
+      const stats = ProcessorTelemetryRegistry.getInstance("image").getStats();
       expect(stats.operationBreakdown.processForOpenAI).toBeGreaterThan(0);
     });
 
@@ -59,7 +57,7 @@ describe("ImageProcessor with Telemetry Integration", () => {
       const result = ImageProcessor.processImageForOpenAI(dataUri);
 
       expect(result).toBe(dataUri);
-      const stats = telemetry.getStats();
+      const stats = ProcessorTelemetryRegistry.getInstance("image").getStats();
       expect(stats.operationBreakdown.processForOpenAI).toBeGreaterThan(0);
     });
   });
@@ -72,7 +70,7 @@ describe("ImageProcessor with Telemetry Integration", () => {
       expect(result.mimeType).toBe("image/jpeg");
       expect(result.data).toBeTruthy();
 
-      const stats = telemetry.getStats();
+      const stats = ProcessorTelemetryRegistry.getInstance("image").getStats();
       expect(stats.totalProcessed).toBeGreaterThan(0);
       expect(stats.operationBreakdown.processForGoogle).toBeGreaterThan(0);
       expect(stats.providerBreakdown["google-ai"]).toBeGreaterThan(0);
@@ -95,7 +93,7 @@ describe("ImageProcessor with Telemetry Integration", () => {
       expect(result.mediaType).toBe("image/jpeg");
       expect(result.data).toBeTruthy();
 
-      const stats = telemetry.getStats();
+      const stats = ProcessorTelemetryRegistry.getInstance("image").getStats();
       expect(stats.totalProcessed).toBeGreaterThan(0);
       expect(stats.operationBreakdown.processForAnthropic).toBeGreaterThan(0);
       expect(stats.providerBreakdown["anthropic"]).toBeGreaterThan(0);
@@ -107,7 +105,7 @@ describe("ImageProcessor with Telemetry Integration", () => {
       const imageBuffer = Buffer.from("fake-image-data");
       ImageProcessor.processImageForVertex(imageBuffer, "gemini-1.5-pro");
 
-      const stats = telemetry.getStats();
+      const stats = ProcessorTelemetryRegistry.getInstance("image").getStats();
       expect(stats.totalProcessed).toBeGreaterThan(0);
       expect(stats.operationBreakdown.processForVertex).toBeGreaterThan(0);
       expect(stats.providerBreakdown["vertex"]).toBeGreaterThan(0);
@@ -117,7 +115,7 @@ describe("ImageProcessor with Telemetry Integration", () => {
       const imageBuffer = Buffer.from("fake-image-data");
       ImageProcessor.processImageForVertex(imageBuffer, "claude-3-opus");
 
-      const stats = telemetry.getStats();
+      const stats = ProcessorTelemetryRegistry.getInstance("image").getStats();
       expect(stats.providerBreakdown["vertex"]).toBeGreaterThan(0);
     });
   });
@@ -165,7 +163,7 @@ describe("ImageProcessor with Telemetry Integration", () => {
       // Note: processImageForVertex calls processImageForGoogle or processImageForAnthropic internally
       ImageProcessor.processImageForVertex(buffer, "gemini-pro");
 
-      const stats = telemetry.getStats();
+      const stats = ProcessorTelemetryRegistry.getInstance("image").getStats();
 
       // processForVertex with gemini routes to processForGoogle, so we expect 5 operations:
       // 1. processForOpenAI

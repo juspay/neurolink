@@ -1,11 +1,23 @@
 // Optional Telemetry Infrastructure (Phase 2)
 export { TelemetryService, type HealthMetrics } from "./telemetryService.js";
+
+// Generic processor telemetry (recommended for all processors)
+export {
+  ProcessorTelemetry,
+  ProcessorTelemetryRegistry,
+  type ProcessingMetrics,
+  type ProcessingStats,
+} from "./processorTelemetry.js";
+
+// Legacy image-specific telemetry (deprecated - use ProcessorTelemetry instead)
+// @deprecated Use ProcessorTelemetryRegistry.getInstance('image') instead
 export {
   ImageProcessingTelemetry,
   type ImageOperation,
   type ImageProcessingMetrics,
   type ImageProcessingStats,
 } from "./imageProcessingTelemetry.js";
+
 import { logger } from "../utils/logger.js";
 
 /**
