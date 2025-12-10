@@ -2240,6 +2240,44 @@ export class CLICommandFactory {
         error?: string;
       }> = [];
 
+      // Process CLI multimodal inputs (these will be attached to ALL prompts)
+      const imageBuffers = CLICommandFactory.processCliImages(
+        argv.image as string | string[] | undefined,
+      );
+      const csvFiles = CLICommandFactory.processCliCSVFiles(
+        argv.csv as string | string[] | undefined,
+      );
+      const pdfFiles = CLICommandFactory.processCliPDFFiles(
+        argv.pdf as string | string[] | undefined,
+      );
+      const files = CLICommandFactory.processCliFiles(
+        argv.file as string | string[] | undefined,
+      );
+
+      // Warn user that multimodal files will be attached to ALL prompts
+      const hasMultimodalFiles = imageBuffers || csvFiles || pdfFiles || files;
+      if (hasMultimodalFiles && !options.quiet) {
+        const fileTypes: string[] = [];
+        if (imageBuffers) {
+          fileTypes.push("image(s)");
+        }
+        if (csvFiles) {
+          fileTypes.push("CSV file(s)");
+        }
+        if (pdfFiles) {
+          fileTypes.push("PDF file(s)");
+        }
+        if (files) {
+          fileTypes.push("file(s)");
+        }
+
+        logger.always(
+          chalk.yellow(
+            `⚠️  ${fileTypes.join(", ")} will be attached to ALL ${prompts.length} prompts in the batch`,
+          ),
+        );
+      }
+
       const sdk = globalSession.getOrCreateNeuroLink();
       const sessionVariables = globalSession.getSessionVariables();
       const enhancedOptions = { ...options, ...sessionVariables };
@@ -2292,8 +2330,25 @@ export class CLICommandFactory {
             ? { ...contextMetadata, sessionId }
             : contextMetadata;
 
+          // Build generate input with multimodal files
+          const generateInput = {
+            text: inputText,
+            ...(imageBuffers && { images: imageBuffers }),
+            ...(csvFiles && { csvFiles }),
+            ...(pdfFiles && { pdfFiles }),
+            ...(files && { files }),
+          };
+
           const result = await sdk.generate({
-            input: { text: inputText },
+            input: generateInput,
+            csvOptions: {
+              maxRows: argv.csvMaxRows as number | undefined,
+              formatStyle: argv.csvFormat as
+                | "raw"
+                | "markdown"
+                | "json"
+                | undefined,
+            },
             provider: enhancedOptions.provider,
             model: enhancedOptions.model,
             temperature: enhancedOptions.temperature,
