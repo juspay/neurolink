@@ -23,9 +23,18 @@ export class ImageProcessor {
     content: Buffer,
     _options?: unknown,
   ): Promise<FileProcessingResult> {
+    // Validate content is non-empty before processing
+    if (content.length === 0) {
+      logger.error("Empty buffer provided");
+      throw new Error("Invalid image processing: buffer is empty");
+    }
+
     const mediaType = this.detectImageType(content);
     const base64 = content.toString("base64");
     const dataUri = `data:${mediaType};base64,${base64}`;
+
+    // Validate output before returning
+    this.validateProcessOutput(dataUri, base64, mediaType);
 
     return {
       type: "image",
@@ -36,6 +45,46 @@ export class ImageProcessor {
         size: content.length,
       },
     } satisfies FileProcessingResult;
+  }
+
+  /**
+   * Validate processed output meets required format
+   * Checks:
+   * - Base64 content is non-empty
+   * - Data URI format is valid (data:{mimeType};base64,{content})
+   * - MIME type is in the allowed list
+   * @param dataUri - The complete data URI string
+   * @param base64 - The base64-encoded content
+   * @param mediaType - The MIME type of the image
+   * @throws Error if any validation fails
+   */
+  private static validateProcessOutput(
+    dataUri: string,
+    base64: string,
+    mediaType: string,
+  ): void {
+    // Validate base64 is non-empty (check first for better error message)
+    if (base64.length === 0) {
+      logger.error("Empty base64 content generated");
+      throw new Error("Invalid image processing: base64 content is empty");
+    }
+
+    // Validate data URI format with proper base64 character validation
+    // Base64 can only have 0, 1, or 2 padding characters at the end
+    const dataUriRegex = /^data:[^;]+;base64,[A-Za-z0-9+/]*={0,2}$/;
+    if (!dataUriRegex.test(dataUri)) {
+      logger.error("Invalid data URI format generated", { dataUri });
+      throw new Error(
+        "Invalid data URI format: must be data:{mimeType};base64,{content}",
+      );
+    }
+
+    // Defensive check: ensure detectImageType() returns valid MIME type
+    // This validation protects against future changes to detectImageType()
+    if (!this.validateImageFormat(mediaType)) {
+      logger.error("Invalid MIME type generated", { mediaType });
+      throw new Error(`Invalid MIME type: ${mediaType} is not in allowed list`);
+    }
   }
 
   /**
