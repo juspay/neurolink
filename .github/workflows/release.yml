@@ -10,6 +10,7 @@ permissions:
   packages: write
   issues: write
   pull-requests: write
+  id-token: write # Required for npm provenance
 
 jobs:
   test:
