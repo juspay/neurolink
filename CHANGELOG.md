@@ -1,3 +1,34 @@
+## [8.9.0](https://github.com/juspay/neurolink/compare/v8.8.0...v8.9.0) (2025-12-11)
+
+### Features
+
+- **(csv):** add sampleDataFormat option for CSV metadata ([ded6ec4](https://github.com/juspay/neurolink/commit/ded6ec4ef0924ff020de079ed3a8031490e76094))
+
+## [8.8.0](https://github.com/juspay/neurolink/compare/v8.7.0...v8.8.0) (2025-12-11)
+
+### Features
+
+- **(types):** add AudioProviderConfig type definition for transcription providers ([c34f437](https://github.com/juspay/neurolink/commit/c34f437455fba20b803b84811b9dda143351427e))
+
+## [8.7.0](https://github.com/juspay/neurolink/compare/v8.6.0...v8.7.0) (2025-12-10)
+
+### Features
+
+- **(cli):** implement TTS audio file output (TTS-024) ([48af003](https://github.com/juspay/neurolink/commit/48af0033db12d3a7b7dd62b8fb5c965f61f20042))
+- **(ImageProcessor):** Add output validation to ImageProcessor.process() method ([6fe3a16](https://github.com/juspay/neurolink/commit/6fe3a16e8290a1a7640ab51865343583253418d0))
+- **(imageProcessor):** add retry logic with exponential backoff for URL downloads ([e6ab4df](https://github.com/juspay/neurolink/commit/e6ab4df4e974c3981d6a2e2de30d5b3e19ecccf9))
+- **(types):** add AudioProcessorOptions and audioOptions to FileDetectorOptions ([2bd877b](https://github.com/juspay/neurolink/commit/2bd877bd5f41fed786cabbdea6e57df95bd7debb))
+
+### Bug Fixes
+
+- **(deps):** convert canvas and pdfjs-dist to dynamic imports for SSR compatibility ([cc7d99e](https://github.com/juspay/neurolink/commit/cc7d99e33d5087ac4d8f442c0dfebdfad9c294c4))
+- **(deps):** force @semantic-release/npm v13 via pnpm override for OIDC support ([8a528c9](https://github.com/juspay/neurolink/commit/8a528c95e8c983ce3cb8d1196b8c08ae4ed93ec1))
+- **(lock):** add missing update for lockfile ([376b7ad](https://github.com/juspay/neurolink/commit/376b7ad0297e1f8f6fc68c5c58d30213bae9d23c))
+- **(release):** enable OIDC trusted publishing for npm ([3ba6dd9](https://github.com/juspay/neurolink/commit/3ba6dd9d7b6156e170550315f8a208ccafa5483a))
+- **(tts):** add audio property to GenerateResult type and improve type safety ([e85c7d0](https://github.com/juspay/neurolink/commit/e85c7d0435b6b4f81421ce816e2252b932e0b3ca))
+- **(workflows):** add job-level OIDC permissions and remove conflicting auth ([8ee4fb1](https://github.com/juspay/neurolink/commit/8ee4fb1ed3e0a996540032ddd92d4a491a2b53a1))
+- **(workflows):** add OIDC authentication for npm trusted publishing ([c6bb5bb](https://github.com/juspay/neurolink/commit/c6bb5bb33c34249ee89e8622d879f266025ecb9a))
+
 ## [8.6.0](https://github.com/juspay/neurolink/compare/v8.5.1...v8.6.0) (2025-12-06)
 
 ### Features

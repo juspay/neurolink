@@ -349,6 +349,12 @@ Set appropriate `maxTokens` for PDF analysis (recommended: 2000-8000 tokens).
 
 ## Related Features
 
+**Document Processing:**
+
+- [Office Documents](office-documents.md) – DOCX, PPTX, XLSX processing for Bedrock, Vertex, Anthropic
+- [PDF Support](pdf-support.md) – PDF document processing for visual analysis
+- [CSV Support](csv-support.md) – CSV file processing with auto-detection
+
 **Q4 2025 Features:**
 
 - [Guardrails Middleware](guardrails.md) – Content filtering for multimodal outputs

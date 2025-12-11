@@ -492,6 +492,8 @@ try {
 
 ## Related Features
 
+- **[Office Documents](./office-documents.md)**: DOCX, PPTX, XLSX processing
+- **[PDF Support](./pdf-support.md)**: PDF document processing
 - **Image Support**: Similar multimodal input for images
 - **File Detection**: Auto-detect file types with confidence scores
 - **Memory Efficient**: Streaming parser for large files

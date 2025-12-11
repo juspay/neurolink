@@ -701,6 +701,7 @@ See `examples/pdf-analysis.ts` for complete working examples:
 ## Related Features
 
 - [Multimodal Chat](./multimodal-chat.md) - Overview of multimodal capabilities
+- [Office Documents](./office-documents.md) - DOCX, PPTX, XLSX processing
 - [CSV Support](./csv-support.md) - CSV file processing
 - [Image Support](./multimodal-chat.md#images) - Image analysis
 

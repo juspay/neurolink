@@ -10,6 +10,7 @@ import { logger } from "./logger.js";
 import type {
   FileProcessingResult,
   CSVProcessorOptions,
+  SampleDataFormat,
 } from "../types/fileTypes.js";
 
 /**
@@ -82,6 +83,7 @@ export class CSVProcessor {
       maxRows: rawMaxRows = 1000,
       formatStyle = "raw",
       includeHeaders = true,
+      sampleDataFormat = "json",
     } = options || {};
 
     const maxRows = Math.max(1, Math.min(10000, rawMaxRows));
@@ -140,10 +142,11 @@ export class CSVProcessor {
       (col) => !col || col.trim() === "",
     );
     const sampleRows = rows.slice(0, 3);
-    const sampleData =
-      sampleRows.length > 0
-        ? JSON.stringify(sampleRows, null, 2)
-        : "No data rows";
+    const sampleData = this.formatSampleData(
+      sampleRows,
+      sampleDataFormat,
+      includeHeaders,
+    );
 
     // Format parsed data
     const formatted = this.formatForLLM(rows, formatStyle, includeHeaders);
@@ -365,5 +368,74 @@ export class CSVProcessor {
     });
 
     return markdown;
+  }
+
+  /**
+   * Format sample data according to the specified format
+   *
+   * @param sampleRows - Array of sample row objects
+   * @param format - Output format for sample data
+   * @param includeHeaders - Whether to include headers in CSV/markdown formats
+   * @returns Formatted sample data as string or array
+   */
+  private static formatSampleData(
+    sampleRows: unknown[],
+    format: SampleDataFormat,
+    includeHeaders: boolean,
+  ): string | unknown[] {
+    if (sampleRows.length === 0) {
+      return format === "object" ? [] : "No data rows";
+    }
+
+    switch (format) {
+      case "object":
+        return sampleRows;
+      case "json":
+        return JSON.stringify(sampleRows, null, 2);
+      case "csv":
+        return this.toCSVString(sampleRows, includeHeaders);
+      case "markdown":
+        return this.toMarkdownTable(sampleRows, includeHeaders);
+      default:
+        return sampleRows;
+    }
+  }
+
+  /**
+   * Convert row objects to CSV string format
+   *
+   * @param rows - Array of row objects
+   * @param includeHeaders - Whether to include header row
+   * @returns CSV formatted string
+   */
+  private static toCSVString(rows: unknown[], includeHeaders: boolean): string {
+    if (rows.length === 0) {
+      return "";
+    }
+
+    const headers = Object.keys(rows[0] as Record<string, unknown>);
+
+    // Escape CSV values (wrap in quotes if contains comma, quote, or newline)
+    const escapeCSV = (value: string): string => {
+      if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    };
+
+    const lines: string[] = [];
+
+    if (includeHeaders) {
+      lines.push(headers.map(escapeCSV).join(","));
+    }
+
+    rows.forEach((row) => {
+      const values = headers.map((h) =>
+        escapeCSV(String((row as Record<string, unknown>)[h] ?? "")),
+      );
+      lines.push(values.join(","));
+    });
+
+    return lines.join("\n");
   }
 }
