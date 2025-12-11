@@ -108,6 +108,18 @@ export class CLICommandFactory {
       default: false,
       description: "Extract and transcribe audio from video",
     },
+    "audio-language": {
+      type: "string" as const,
+      default: "auto",
+      description:
+        "Language code for audio transcription (e.g., 'en', 'es', 'fr', 'auto' for auto-detection)",
+    },
+    "audio-provider": {
+      type: "string" as const,
+      choices: ["auto", "openai", "google", "azure"],
+      default: "auto",
+      description: "AI provider to use for audio transcription",
+    },
     file: {
       type: "string" as const,
       description:
@@ -442,6 +454,12 @@ export class CLICommandFactory {
       ttsQuality: argv.ttsQuality as "standard" | "hd" | undefined,
       ttsOutput: argv.ttsOutput as string | undefined,
       ttsPlay: argv.ttsPlay as boolean | undefined,
+      // Audio transcription options
+      audioLanguage: argv.audioLanguage as string | undefined,
+      audioProvider:
+        argv.audioProvider === "auto"
+          ? undefined
+          : (argv.audioProvider as string | undefined),
     };
   }
 
