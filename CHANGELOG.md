@@ -1,3 +1,9 @@
+## [8.9.0](https://github.com/juspay/neurolink/compare/v8.8.0...v8.9.0) (2025-12-11)
+
+### Features
+
+- **(csv):** add sampleDataFormat option for CSV metadata ([ded6ec4](https://github.com/juspay/neurolink/commit/ded6ec4ef0924ff020de079ed3a8031490e76094))
+
 ## [8.8.0](https://github.com/juspay/neurolink/compare/v8.7.0...v8.8.0) (2025-12-11)
 
 ### Features
