@@ -45,7 +45,7 @@ pnpm run build:complete     # Complete pipeline with validation
 
 # Test
 pnpm test                   # Run all tests
-pnpm run test:run           # Tests once (CI mode)
+pnpm run test:ci            # Tests once (CI mode)
 pnpm run test:integration   # Integration tests
 pnpm run test:smart         # Adaptive test runner
 
