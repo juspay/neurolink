@@ -6,6 +6,7 @@
 
 import { request, getGlobalDispatcher, interceptors } from "undici";
 import { readFile, stat } from "fs/promises";
+import { createHash } from "crypto";
 import type {
   FileType,
   FileInput,
@@ -19,6 +20,23 @@ import { logger } from "./logger.js";
 import { CSVProcessor } from "./csvProcessor.js";
 import { ImageProcessor } from "./imageProcessor.js";
 import { PDFProcessor } from "./pdfProcessor.js";
+
+/**
+ * Cache entry with timestamp for TTL tracking
+ */
+type CacheEntry = {
+  result: FileDetectionResult;
+  timestamp: number;
+};
+
+/**
+ * Cache configuration constants
+ */
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_MAX_SIZE = 1000; // Maximum number of cache entries
+const CACHE_CLEANUP_BUFFER = 100; // Additional entries to remove during cleanup
+const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB
+const HASH_SAMPLE_SIZE = 4 * 1024; // 4KB
 
 /**
  * Format file size in human-readable units
@@ -54,6 +72,89 @@ type DetectionStrategy = {
  * ```
  */
 export class FileDetector {
+  /**
+   * In-memory cache for file detection results
+   */
+  private static detectionCache = new Map<string, CacheEntry>();
+
+  /**
+   * Generate cache key for file input using smart hashing
+   * For files > 5MB: hash first 4KB + file size
+   * For files <= 5MB: hash entire content
+   */
+  private static async getCacheKey(input: FileInput): Promise<string> {
+    if (typeof input === "string") {
+      // For URLs and paths, use the string directly
+      return createHash("sha256").update(input).digest("hex");
+    }
+
+    // For buffers, use smart hashing
+    const buffer = input as Buffer;
+    const fileSize = buffer.length;
+
+    if (fileSize > LARGE_FILE_THRESHOLD) {
+      // Large files: hash first 4KB + size for fast cache lookup
+      const sample = buffer.slice(0, Math.min(HASH_SAMPLE_SIZE, fileSize));
+      const hash = createHash("sha256");
+      hash.update(sample);
+      hash.update(String(fileSize));
+      return hash.digest("hex");
+    } else {
+      // Small files: hash entire content for accuracy
+      return createHash("sha256").update(buffer).digest("hex");
+    }
+  }
+
+  /**
+   * Check if cache entry is still valid (within TTL)
+   */
+  private static isCacheValid(entry: CacheEntry): boolean {
+    return Date.now() - entry.timestamp < CACHE_TTL_MS;
+  }
+
+  /**
+   * Clean up expired cache entries
+   */
+  private static cleanupCache(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.detectionCache.entries()) {
+      if (now - entry.timestamp >= CACHE_TTL_MS) {
+        this.detectionCache.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Enforce cache size limit by removing expired entries
+   * If still over limit, remove oldest entries
+   */
+  private static enforceCacheLimit(): void {
+    if (this.detectionCache.size > CACHE_MAX_SIZE) {
+      this.cleanupCache();
+
+      // If still over limit after cleanup, remove oldest entries
+      if (this.detectionCache.size > CACHE_MAX_SIZE) {
+        const entries = Array.from(this.detectionCache.entries());
+        entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+
+        const toRemove = entries.slice(
+          0,
+          this.detectionCache.size - CACHE_MAX_SIZE + CACHE_CLEANUP_BUFFER,
+        );
+        for (const [key] of toRemove) {
+          this.detectionCache.delete(key);
+        }
+      }
+    }
+  }
+
+  /**
+   * Clear all cached detection results
+   */
+  public static clearCache(): void {
+    this.detectionCache.clear();
+    logger.info("[FileDetector] Cache cleared");
+  }
   /**
    * Auto-detect file type and process in one call
    *
@@ -103,6 +204,18 @@ export class FileDetector {
     input: FileInput,
     options?: FileDetectorOptions,
   ): Promise<FileDetectionResult> {
+    // Check cache if not disabled
+    if (!options?.disableCache) {
+      const cacheKey = await this.getCacheKey(input);
+      const cached = this.detectionCache.get(cacheKey);
+
+      if (cached && this.isCacheValid(cached)) {
+        logger.info("[FileDetector] Cache hit - returning cached result");
+        return cached.result;
+      }
+    }
+
+    // Run detection strategies
     const confidenceThreshold = options?.confidenceThreshold ?? 80;
     const strategies: DetectionStrategy[] = [
       new MagicBytesStrategy(),
@@ -121,6 +234,17 @@ export class FileDetector {
         logger.info(
           `[FileDetector] Type: ${result.type} (${result.metadata.confidence}%)`,
         );
+
+        // Store in cache if not disabled
+        if (!options?.disableCache) {
+          this.enforceCacheLimit();
+          const cacheKey = await this.getCacheKey(input);
+          this.detectionCache.set(cacheKey, {
+            result,
+            timestamp: Date.now(),
+          });
+        }
+
         return result;
       }
     }
@@ -128,6 +252,17 @@ export class FileDetector {
     logger.warn(
       `[FileDetector] Low confidence: ${best?.type ?? "unknown"} (${best?.metadata.confidence ?? 0}%)`,
     );
+
+    // Store result in cache even if low confidence (unless disabled)
+    if (!options?.disableCache && best) {
+      this.enforceCacheLimit();
+      const cacheKey = await this.getCacheKey(input);
+      this.detectionCache.set(cacheKey, {
+        result: best,
+        timestamp: Date.now(),
+      });
+    }
+
     return best as FileDetectionResult;
   }
 

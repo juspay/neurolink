@@ -102,6 +102,7 @@ export type FileDetectorOptions = {
   csvOptions?: CSVProcessorOptions;
   confidenceThreshold?: number;
   provider?: string;
+  disableCache?: boolean;
 };
 
 /**

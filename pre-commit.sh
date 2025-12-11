@@ -2,6 +2,11 @@
 
 set -e
 
+# Set PNPM_HOME for build:cli to work in pre-commit hook
+export PNPM_HOME="${PNPM_HOME:-/tmp/pnpm}"
+mkdir -p "$PNPM_HOME"
+export PATH="$PNPM_HOME:$PATH"
+
 finish() {
   result=$?
   # Add cleanup code here
