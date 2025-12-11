@@ -253,8 +253,13 @@ When adding a new provider:
 
 ```
 test/
-├── suites/              # Feature tests (tool discovery, file ops)
-└── integration/         # Provider integration tests
+├── unit/
+│   ├── multimodal/
+│   ├── providers/
+│   ├── stream/
+│   └── utils/
+├── types/
+└── fixtures/
 ```
 
 ### Performance
