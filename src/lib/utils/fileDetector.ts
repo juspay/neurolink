@@ -54,6 +54,10 @@ type DetectionStrategy = {
  * ```
  */
 export class FileDetector {
+  // FD-017: Replace hardcoded timeouts with constants.
+  // These default ensure consistent timeout behavior across all file-detection logic.
+  public static readonly DEFAULT_NETWORK_TIMEOUT = 30000; // 30 seconds
+  public static readonly DEFAULT_HEAD_TIMEOUT = 5000; // 5 seconds
   /**
    * Auto-detect file type and process in one call
    *
@@ -206,7 +210,7 @@ export class FileDetector {
     options?: FileDetectorOptions,
   ): Promise<Buffer> {
     const maxSize = options?.maxSize || 10 * 1024 * 1024;
-    const timeout = options?.timeout || 30000;
+    const timeout = options?.timeout || this.DEFAULT_NETWORK_TIMEOUT;
 
     const response = await request(url, {
       dispatcher: getGlobalDispatcher().compose(
@@ -380,8 +384,8 @@ class MimeTypeStrategy implements DetectionStrategy {
           interceptors.redirect({ maxRedirections: 5 }),
         ),
         method: "HEAD",
-        headersTimeout: 5000,
-        bodyTimeout: 5000,
+        headersTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
+        bodyTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
       });
       const contentType = (response.headers["content-type"] as string) || "";
       const type = this.mimeToFileType(contentType);
