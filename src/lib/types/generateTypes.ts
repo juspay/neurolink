@@ -188,6 +188,52 @@ export type GenerateOptions = {
     enableProgress?: boolean;
     fallbackToGenerate?: boolean;
   };
+
+  /**
+   * Formatted mem0 personalization context for system message injection.
+   *
+   * This field is populated automatically during generation when mem0 is enabled
+   * and contains the formatted memory context retrieved from mem0 cloud API.
+   * It is injected as a separate system message to provide personalization
+   * without modifying the user's input text.
+   *
+   * @remarks
+   * This field is set internally by the SDK and should not be manually populated.
+   * To customize how memory context is formatted, use `formatMemoryConfig` in mem0 configuration.
+   *
+   * @internal
+   */
+  mem0Context?: string;
+
+  /**
+   * Per-request override for global mem0 configuration.
+   *
+   * When set, this flag overrides the global mem0 enabled/disabled setting
+   * for this specific generation request only.
+   *
+   * @example
+   * ```typescript
+   * // Force-enable mem0 for this request even if globally disabled
+   * await neurolink.generate({
+   *   input: { text: "What did we discuss last time?" },
+   *   mem0Enabled: true,
+   *   context: { userId: "user-123" }
+   * });
+   *
+   * // Disable mem0 for a sensitive request
+   * await neurolink.generate({
+   *   input: { text: "Process this confidential data" },
+   *   mem0Enabled: false
+   * });
+   * ```
+   *
+   * @remarks
+   * - If `true`: Enables mem0 for this request regardless of global setting
+   * - If `false`: Disables mem0 for this request regardless of global setting
+   * - If `undefined`: Falls back to global mem0 configuration
+   * - Requires `context.userId` to be set for memory retrieval
+   */
+  mem0Enabled?: boolean;
 };
 
 /**
@@ -383,6 +429,8 @@ export type TextGenerationOptions = {
   // NEW: Conversation Memory Configuration
   conversationMemoryConfig?: Partial<ConversationMemoryConfig>;
   originalPrompt?: string; // Original prompt for context summarization
+  mem0Context?: string; // Mem0 personalization context for separate injection
+  mem0Enabled?: boolean; // Override global mem0 configuration for this request
 
   // NEW: Middleware related configs
   middleware?: MiddlewareFactoryOptions;

@@ -353,6 +353,52 @@ export type StreamOptions = {
   // NEW: Message Array Support for Conversation Memory
   conversationMessages?: ChatMessage[]; // Previous conversation as message array
 
+  /**
+   * Formatted mem0 personalization context for system message injection.
+   *
+   * This field is populated automatically during streaming when mem0 is enabled
+   * and contains the formatted memory context retrieved from mem0 cloud API.
+   * It is injected as a separate system message to provide personalization
+   * without modifying the user's input text.
+   *
+   * @remarks
+   * This field is set internally by the SDK and should not be manually populated.
+   * To customize how memory context is formatted, use `formatMemoryConfig` in mem0 configuration.
+   *
+   * @internal
+   */
+  mem0Context?: string;
+
+  /**
+   * Per-request override for global mem0 configuration.
+   *
+   * When set, this flag overrides the global mem0 enabled/disabled setting
+   * for this specific streaming request only.
+   *
+   * @example
+   * ```typescript
+   * // Force-enable mem0 for streaming even if globally disabled
+   * await neurolink.stream({
+   *   input: { text: "Continue our previous discussion" },
+   *   mem0Enabled: true,
+   *   context: { userId: "user-123" }
+   * });
+   *
+   * // Disable mem0 for a streaming request
+   * await neurolink.stream({
+   *   input: { text: "Stream this without memory context" },
+   *   mem0Enabled: false
+   * });
+   * ```
+   *
+   * @remarks
+   * - If `true`: Enables mem0 for this request regardless of global setting
+   * - If `false`: Disables mem0 for this request regardless of global setting
+   * - If `undefined`: Falls back to global mem0 configuration
+   * - Requires `context.userId` to be set for memory retrieval
+   */
+  mem0Enabled?: boolean;
+
   // NEW: Middleware related config
   middleware?: MiddlewareFactoryOptions;
 };

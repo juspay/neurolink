@@ -20,6 +20,8 @@ export const textGenerationOptionsSchema: Record<
     | "conversationMessages"
     | "conversationMemoryConfig"
     | "originalPrompt"
+    | "mem0Context"
+    | "mem0Enabled"
     | "middleware"
     | "expectedOutcome"
     | "evaluationCriteria"

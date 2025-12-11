@@ -370,6 +370,14 @@ export async function buildMessagesArray(
     });
   }
 
+  // Inject mem0 context as separate system message (already formatted with custom template)
+  if (options.mem0Context) {
+    messages.push({
+      role: "system",
+      content: options.mem0Context.trim(),
+    });
+  }
+
   // Add conversation history if available
   // Convert ChatMessages to CoreMessages and filter out tool messages
   if (hasConversationHistory && options.conversationMessages) {
@@ -730,6 +738,15 @@ export async function buildMultimodalMessagesArray(
     messages.push({
       role: "system",
       content: systemPrompt.trim(),
+    });
+  }
+
+  // Inject mem0 context as separate system message (already formatted with custom template)
+  const mem0 = options.mem0Context?.trim();
+  if (mem0) {
+    messages.push({
+      role: "system",
+      content: mem0,
     });
   }
 
