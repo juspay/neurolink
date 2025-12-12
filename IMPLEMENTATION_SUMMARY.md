@@ -13,7 +13,7 @@ Added comprehensive file validation to the CLI that checks files before passing 
 ### 1. Core Implementation (`src/cli/factories/commandFactory.ts`)
 
 #### New Helper Method: `validateFilePath()`
-- **Location**: Lines 276-352
+- **Location**: Lines 276-376
 - **Functionality**:
   - Validates file existence
   - Rejects directories (files only)
