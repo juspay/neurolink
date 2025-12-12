@@ -72,10 +72,7 @@ function validateFilePath(
   if (fileSizeMB > limit && !quiet) {
     // In actual implementation, this would log a warning
     // For testing, we just verify the logic would trigger
-    const warningDetected = true;
-    if (!warningDetected) {
-      throw new Error("Warning should be detected for large files");
-    }
+    // (Warning logic would go here)
   }
 }
 
