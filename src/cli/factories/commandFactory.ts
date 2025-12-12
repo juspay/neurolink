@@ -304,7 +304,31 @@ export class CLICommandFactory {
     }
 
     // Get file stats
-    const stats = fs.statSync(filePath);
+    let stats;
+    try {
+      stats = fs.statSync(filePath);
+    } catch (err: any) {
+      if (err.code === "EACCES" || err.code === "EPERM") {
+        throw new Error(
+          `❌ Permission denied: Cannot access file: ${filePath}\n\n` +
+            `🔧 Troubleshooting steps:\n` +
+            `1. Check file permissions and ownership\n` +
+            `2. Try running the command with elevated privileges (if appropriate)\n` +
+            `3. Ensure the file is not locked by another process\n\n` +
+            `💡 Tip: Use 'ls -l ${filePath}' or 'icacls ${filePath}' to inspect permissions`
+        );
+      } else {
+        throw new Error(
+          `❌ Unable to access file: ${filePath}\n\n` +
+            `Error: ${err.message}\n\n` +
+            `🔧 Troubleshooting steps:\n` +
+            `1. Check if the file path is correct\n` +
+            `2. Ensure the file exists and is accessible\n` +
+            `3. Check for invalid characters in the file name\n\n` +
+            `💡 Tip: Use 'ls' or 'dir' to verify the file exists`
+        );
+      }
+    }
 
     // Reject directories
     if (stats.isDirectory()) {
