@@ -36,8 +36,14 @@ jobs:
           echo "🔄 Running SvelteKit sync to generate TypeScript configs..."
           pnpm exec svelte-kit sync
 
-      - name: Auto-format code
-        run: pnpm run format
+      - name: Check code formatting
+        run: |
+          echo "🎨 Checking code formatting..."
+          pnpm run format:check || {
+            echo "❌ Formatting issues found!"
+            echo "Run 'pnpm run format' locally to fix."
+            exit 1
+          }
 
       - name: Run linting
         run: |
