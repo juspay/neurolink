@@ -38,6 +38,7 @@
     "modelServer": "node scripts/modelServer.js",
     "lint": "prettier --check . && eslint .",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "format:staged": "node scripts/format-staged.cjs",
     "changeset": "changeset",
     "changeset:version": "changeset version && git add --all",
