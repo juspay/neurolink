@@ -707,6 +707,26 @@ export class CLICommandFactory {
               "Enable usage analytics",
             )
             .example(
+              '$0 generate "What objects are in this image?" --image photo.jpg',
+              "Analyze image content",
+            )
+            .example(
+              '$0 generate "Summarize this invoice" --pdf invoice.pdf --provider vertex',
+              "Analyze PDF document",
+            )
+            .example(
+              '$0 generate "What are key trends?" --csv sales.csv --csv-max-rows 100',
+              "Analyze CSV data with row limit",
+            )
+            .example(
+              '$0 generate "Compare report with data" --pdf report.pdf --csv data.csv --image chart.png',
+              "Combine multiple file types",
+            )
+            .example(
+              '$0 generate "Analyze these files" --file report.pdf --file data.csv --file diagram.png',
+              "Auto-detect file types",
+            )
+            .example(
               '$0 generate "Describe this video" --video path/to/video.mp4',
               "Analyze video content",
             ),
@@ -744,6 +764,18 @@ export class CLICommandFactory {
               "Stream to file",
             )
             .example('echo "Live demo" | $0 stream', "Stream from stdin")
+            .example(
+              '$0 stream "Describe this image in detail" --image photo.jpg',
+              "Stream image analysis",
+            )
+            .example(
+              '$0 stream "Explain this document" --pdf contract.pdf --provider anthropic',
+              "Stream PDF analysis",
+            )
+            .example(
+              '$0 stream "Analyze these files" --image chart.png --csv data.csv',
+              "Stream multiple file types",
+            )
             .example(
               '$0 stream "Narrate this video" --video path/to/video.mp4',
               "Stream video analysis",
@@ -1211,9 +1243,8 @@ export class CLICommandFactory {
 
         // Handle --list-conversations option
         if (listConversations) {
-          const { ConversationSelector } = await import(
-            "../loop/conversationSelector.js"
-          );
+          const { ConversationSelector } =
+            await import("../loop/conversationSelector.js");
           const conversationSelector = new ConversationSelector();
 
           try {
@@ -2406,9 +2437,8 @@ export class CLICommandFactory {
     const options = this.processOptions(argv);
 
     try {
-      const { getBestProvider } = await import(
-        "../../lib/utils/providerUtils.js"
-      );
+      const { getBestProvider } =
+        await import("../../lib/utils/providerUtils.js");
       const bestProvider = await getBestProvider();
 
       if (options.format === "json") {
@@ -2833,9 +2863,8 @@ export class CLICommandFactory {
   private static async flushLangfuseTraces(): Promise<void> {
     try {
       logger.debug("[CLI] Flushing Langfuse traces before exit...");
-      const { flushOpenTelemetry } = await import(
-        "../../lib/services/server/ai/observability/instrumentation.js"
-      );
+      const { flushOpenTelemetry } =
+        await import("../../lib/services/server/ai/observability/instrumentation.js");
       await flushOpenTelemetry();
       logger.debug("[CLI] Langfuse traces flushed successfully");
     } catch (error) {
