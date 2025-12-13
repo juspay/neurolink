@@ -103,6 +103,7 @@ type GenerateOptions = {
     maxRows?: number; // Default: 1000
     formatStyle?: "raw" | "markdown" | "json"; // Default: "raw"
     includeHeaders?: boolean; // Default: true
+    skipEmptyLines?: boolean; // Default: true
   };
 
   // ... other options
@@ -156,6 +157,31 @@ csvOptions: {
   maxRows: 100; // Only process first 100 rows
 }
 ```
+
+#### skipEmptyLines
+
+Skip empty lines in CSV files (default: true). Empty lines are blank rows or rows where all fields are empty.
+
+```typescript
+csvOptions: {
+  skipEmptyLines: true; // Skip empty lines (default)
+}
+
+csvOptions: {
+  skipEmptyLines: false; // Preserve empty lines
+}
+```
+
+**What counts as an empty line:**
+
+- Completely blank lines (just a newline)
+- Lines with only whitespace
+- Rows where all CSV fields are empty or whitespace
+
+**When to use:**
+
+- **`true` (default)**: For most use cases - gives accurate row counts and cleaner data
+- **`false`**: When empty rows have semantic meaning (e.g., section separators)
 
 #### formatStyle
 
@@ -340,6 +366,33 @@ const result = await neurolink.generate({
 });
 ```
 
+### Handling CSVs with Empty Lines
+
+```typescript
+// Skip empty lines (default behavior)
+const result = await neurolink.generate({
+  input: {
+    text: "Analyze this customer data and calculate summary statistics",
+    csvFiles: ["customers.csv"],
+  },
+  csvOptions: {
+    skipEmptyLines: true, // Empty rows are filtered out
+  },
+});
+// Row count will reflect actual data rows only
+
+// Preserve empty lines (when they have meaning)
+const result = await neurolink.generate({
+  input: {
+    text: "This CSV uses empty lines to separate sections. Analyze each section separately.",
+    csvFiles: ["sectioned-data.csv"],
+  },
+  csvOptions: {
+    skipEmptyLines: false, // Keep empty lines as section separators
+  },
+});
+```
+
 ### Schema Generation
 
 ```typescript
@@ -390,6 +443,7 @@ type CSVProcessorOptions = {
   maxRows?: number;
   formatStyle?: "raw" | "markdown" | "json";
   includeHeaders?: boolean;
+  skipEmptyLines?: boolean;
 };
 
 // File detector options
