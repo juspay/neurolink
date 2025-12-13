@@ -166,9 +166,8 @@ describe("Structured Output - System Prompt Enhancement", () => {
       const systemContent = systemMessage?.content as string;
 
       // Import STRUCTURED_OUTPUT_INSTRUCTIONS to verify it's not present
-      const { STRUCTURED_OUTPUT_INSTRUCTIONS } = await import(
-        "../../src/lib/config/conversationMemory.js"
-      );
+      const { STRUCTURED_OUTPUT_INSTRUCTIONS } =
+        await import("../../src/lib/config/conversationMemory.js");
 
       // Should NOT contain structured output instructions when format is explicitly "text"
       expect(systemContent).not.toContain(
@@ -283,9 +282,8 @@ describe("Structured Output Instructions Constant", () => {
   it("should have defined structured output instructions", async () => {
     // This test will verify that the STRUCTURED_OUTPUT_INSTRUCTIONS constant exists
     // after we implement it
-    const { STRUCTURED_OUTPUT_INSTRUCTIONS } = await import(
-      "../../src/lib/config/conversationMemory.js"
-    );
+    const { STRUCTURED_OUTPUT_INSTRUCTIONS } =
+      await import("../../src/lib/config/conversationMemory.js");
 
     // Explicitly verify the constant is defined and has proper content
     expect(STRUCTURED_OUTPUT_INSTRUCTIONS).toBeDefined();
@@ -323,9 +321,8 @@ describe("Multimodal with Structured Output", () => {
 
     const systemMsg = messages.find((m) => m.role === "system");
     expect(systemMsg?.content).toBeDefined();
-    const { STRUCTURED_OUTPUT_INSTRUCTIONS } = await import(
-      "../../src/lib/config/conversationMemory.js"
-    );
+    const { STRUCTURED_OUTPUT_INSTRUCTIONS } =
+      await import("../../src/lib/config/conversationMemory.js");
     expect(systemMsg?.content).toContain(STRUCTURED_OUTPUT_INSTRUCTIONS.trim());
   });
 
@@ -349,9 +346,8 @@ describe("Multimodal with Structured Output", () => {
 
     const systemMsg = messages.find((m) => m.role === "system");
     expect(systemMsg?.content).toBeDefined();
-    const { STRUCTURED_OUTPUT_INSTRUCTIONS } = await import(
-      "../../src/lib/config/conversationMemory.js"
-    );
+    const { STRUCTURED_OUTPUT_INSTRUCTIONS } =
+      await import("../../src/lib/config/conversationMemory.js");
     expect(systemMsg?.content).toContain(STRUCTURED_OUTPUT_INSTRUCTIONS.trim());
   });
 
@@ -373,9 +369,8 @@ describe("Multimodal with Structured Output", () => {
 
     const systemMsg = messages.find((m) => m.role === "system");
     expect(systemMsg?.content).toBeDefined();
-    const { STRUCTURED_OUTPUT_INSTRUCTIONS } = await import(
-      "../../src/lib/config/conversationMemory.js"
-    );
+    const { STRUCTURED_OUTPUT_INSTRUCTIONS } =
+      await import("../../src/lib/config/conversationMemory.js");
     expect(systemMsg?.content).toContain(STRUCTURED_OUTPUT_INSTRUCTIONS.trim());
   });
 
@@ -395,9 +390,8 @@ describe("Multimodal with Structured Output", () => {
     );
 
     const systemMsg = messages.find((m) => m.role === "system");
-    const { STRUCTURED_OUTPUT_INSTRUCTIONS } = await import(
-      "../../src/lib/config/conversationMemory.js"
-    );
+    const { STRUCTURED_OUTPUT_INSTRUCTIONS } =
+      await import("../../src/lib/config/conversationMemory.js");
     const content = systemMsg?.content || "";
     expect(content).not.toContain(STRUCTURED_OUTPUT_INSTRUCTIONS.trim());
   });

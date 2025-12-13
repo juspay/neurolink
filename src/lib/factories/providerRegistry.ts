@@ -49,9 +49,8 @@ export class ProviderRegistry {
           _providerName?: string,
           sdk?: UnknownRecord,
         ) => {
-          const { GoogleAIStudioProvider } = await import(
-            "../providers/googleAiStudio.js"
-          );
+          const { GoogleAIStudioProvider } =
+            await import("../providers/googleAiStudio.js");
           return new GoogleAIStudioProvider(
             modelName,
             sdk as NeuroLink | undefined,
@@ -84,9 +83,8 @@ export class ProviderRegistry {
           _providerName?: string,
           sdk?: UnknownRecord,
         ) => {
-          const { AnthropicProvider } = await import(
-            "../providers/anthropic.js"
-          );
+          const { AnthropicProvider } =
+            await import("../providers/anthropic.js");
           return new AnthropicProvider(modelName, sdk as NeuroLink | undefined);
         },
         AnthropicModels.CLAUDE_SONNET_4_0,
@@ -102,9 +100,8 @@ export class ProviderRegistry {
           sdk?: UnknownRecord,
           region?: string,
         ) => {
-          const { AmazonBedrockProvider } = await import(
-            "../providers/amazonBedrock.js"
-          );
+          const { AmazonBedrockProvider } =
+            await import("../providers/amazonBedrock.js");
           return new AmazonBedrockProvider(
             modelName,
             sdk as NeuroLink | undefined,
@@ -123,9 +120,8 @@ export class ProviderRegistry {
           _providerName?: string,
           sdk?: UnknownRecord,
         ) => {
-          const { AzureOpenAIProvider } = await import(
-            "../providers/azureOpenai.js"
-          );
+          const { AzureOpenAIProvider } =
+            await import("../providers/azureOpenai.js");
           return new AzureOpenAIProvider(
             modelName,
             sdk as NeuroLink | undefined,
@@ -148,9 +144,8 @@ export class ProviderRegistry {
           sdk?: UnknownRecord,
           region?: string,
         ) => {
-          const { GoogleVertexProvider } = await import(
-            "../providers/googleVertex.js"
-          );
+          const { GoogleVertexProvider } =
+            await import("../providers/googleVertex.js");
           return new GoogleVertexProvider(
             modelName,
             providerName,
@@ -166,9 +161,8 @@ export class ProviderRegistry {
       ProviderFactory.registerProvider(
         AIProviderName.HUGGINGFACE,
         async (modelName?: string) => {
-          const { HuggingFaceProvider } = await import(
-            "../providers/huggingFace.js"
-          );
+          const { HuggingFaceProvider } =
+            await import("../providers/huggingFace.js");
           return new HuggingFaceProvider(modelName);
         },
         process.env.HUGGINGFACE_MODEL ||
@@ -228,9 +222,8 @@ export class ProviderRegistry {
           _providerName?: string,
           sdk?: UnknownRecord,
         ) => {
-          const { OpenAICompatibleProvider } = await import(
-            "../providers/openaiCompatible.js"
-          );
+          const { OpenAICompatibleProvider } =
+            await import("../providers/openaiCompatible.js");
           return new OpenAICompatibleProvider(
             modelName,
             sdk as NeuroLink | undefined,
@@ -249,9 +242,8 @@ export class ProviderRegistry {
           _sdk?: UnknownRecord,
           region?: string,
         ) => {
-          const { AmazonSageMakerProvider } = await import(
-            "../providers/amazonSagemaker.js"
-          );
+          const { AmazonSageMakerProvider } =
+            await import("../providers/amazonSagemaker.js");
           return new AmazonSageMakerProvider(modelName, undefined, region);
         },
         process.env.SAGEMAKER_MODEL || "sagemaker-model",
