@@ -466,6 +466,41 @@ export class LoopSession {
       "\nAny other command will be executed as a standard neurolink CLI command.",
     );
 
+    // Multimodal Support Section
+    logger.always(chalk.cyan("\nMultimodal Support in Loop Mode:"));
+    logger.always(
+      "  Multimodal flags work with generate/stream commands in loop mode.",
+    );
+    logger.always(chalk.gray("\n  Examples:"));
+    const multimodalExamples = [
+      {
+        example: 'generate "Describe this UI" --image ./screenshot.png',
+        desc: "Analyze an image file",
+      },
+      {
+        example: 'generate "Summarize this document" --pdf report.pdf',
+        desc: "Process a PDF file",
+      },
+      {
+        example: 'stream "Analyze this data" --csv sales.csv',
+        desc: "Analyze CSV data with streaming",
+      },
+      {
+        example:
+          'generate "Compare these files" --image chart.png --csv data.csv',
+        desc: "Multiple file types",
+      },
+    ];
+    multimodalExamples.forEach((ex) => {
+      logger.always(chalk.yellow(`    ${ex.example}`));
+      logger.always(chalk.gray(`      → ${ex.desc}`));
+    });
+    logger.always(
+      chalk.gray(
+        "\n  💡 Tip: Use --image, --pdf, and --csv flags with any generate/stream command.",
+      ),
+    );
+
     // Also show the standard help output
     this.initializeCliParser().showHelp("log");
   }
