@@ -5,7 +5,21 @@
 /**
  * Supported file types for multimodal input
  */
-export type FileType = "csv" | "image" | "pdf" | "audio" | "text" | "unknown";
+export type FileType =
+  | "csv"
+  | "image"
+  | "pdf"
+  | "audio"
+  | "text"
+  | "docx"
+  | "pptx"
+  | "xlsx"
+  | "unknown";
+
+/**
+ * Office document types
+ */
+export type OfficeDocumentType = "docx" | "pptx" | "xlsx";
 
 /**
  * File input can be Buffer or string (path/URL/data URI)
@@ -54,6 +68,17 @@ export type FileProcessingResult = {
     estimatedPages?: number | null;
     provider?: string;
     apiType?: PDFAPIType;
+    // Office-specific metadata
+    officeFormat?: OfficeDocumentType;
+    pageCount?: number;
+    slideCount?: number;
+    sheetCount?: number;
+    sheetNames?: string[];
+    author?: string;
+    createdDate?: string;
+    modifiedDate?: string;
+    hasFormulas?: boolean;
+    hasImages?: boolean;
   };
 };
 
@@ -168,6 +193,51 @@ export type AudioProcessorOptions = {
 };
 
 /**
+ * Office processor options for Word, PowerPoint, and Excel documents
+ *
+ * @example Word document processing (docx)
+ * ```typescript
+ * const options: OfficeProcessorOptions = {
+ *   format: "docx",
+ *   extractTextOnly: false,
+ *   includeMetadata: true
+ * };
+ * ```
+ *
+ * @example PowerPoint processing (pptx)
+ * ```typescript
+ * const options: OfficeProcessorOptions = {
+ *   format: "pptx",
+ *   includeSlideNotes: true,  // pptx-specific
+ *   includeMetadata: true
+ * };
+ * ```
+ *
+ * @example Excel processing (xlsx)
+ * ```typescript
+ * const options: OfficeProcessorOptions = {
+ *   format: "xlsx",
+ *   processAllSheets: true,   // xlsx-specific
+ *   includeMetadata: true
+ * };
+ * ```
+ */
+export type OfficeProcessorOptions = {
+  /** Office document format type */
+  format?: OfficeDocumentType;
+  /** Whether to extract text only (true) or preserve formatting (false). Applies to: docx, pptx, xlsx */
+  extractTextOnly?: boolean;
+  /** Maximum file size in megabytes. Applies to: docx, pptx, xlsx */
+  maxSizeMB?: number;
+  /** Whether to include metadata (author, created date, etc.). Applies to: docx, pptx, xlsx */
+  includeMetadata?: boolean;
+  /** For spreadsheets (xlsx only): whether to process all sheets or just the first */
+  processAllSheets?: boolean;
+  /** For presentations (pptx only): whether to include slide notes */
+  includeSlideNotes?: boolean;
+};
+
+/**
  * File detector options
  */
 export type FileDetectorOptions = {
@@ -176,6 +246,7 @@ export type FileDetectorOptions = {
   allowedTypes?: FileType[];
   audioOptions?: AudioProcessorOptions;
   csvOptions?: CSVProcessorOptions;
+  officeOptions?: OfficeProcessorOptions;
   confidenceThreshold?: number;
   provider?: string;
 };
