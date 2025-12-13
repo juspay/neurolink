@@ -269,7 +269,7 @@ describe("Multimodal CLI Examples", () => {
         "Analyze these files",
         "Describe this image in detail",
         "Explain this document",
-        "Analyze these files",
+        "Narrate this video",
       ];
 
       examplePrompts.forEach((prompt) => {
