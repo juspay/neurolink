@@ -47,6 +47,28 @@ function isMetadataLine(lines: string[]): boolean {
 }
 
 /**
+ * Check if a CSV line is empty (blank or only whitespace)
+ */
+function isEmptyLine(line: string): boolean {
+  return !line || line.trim() === "";
+}
+
+/**
+ * Check if a parsed CSV row is empty (all values are empty/undefined)
+ */
+function isEmptyRow(row: unknown): boolean {
+  if (!row || typeof row !== "object") {
+    return true;
+  }
+
+  const values = Object.values(row as Record<string, unknown>);
+  return (
+    values.length === 0 ||
+    values.every((val) => !val || String(val).trim() === "")
+  );
+}
+
+/**
  * CSV processor for converting CSV data to LLM-optimized formats
  *
  * Supports three output formats:
@@ -84,6 +106,7 @@ export class CSVProcessor {
       formatStyle = "raw",
       includeHeaders = true,
       sampleDataFormat = "json",
+      skipEmptyLines = true,
     } = options || {};
 
     const maxRows = Math.max(1, Math.min(10000, rawMaxRows));
@@ -96,17 +119,23 @@ export class CSVProcessor {
       const lines = csvString.split("\n");
       const hasMetadataLine = isMetadataLine(lines);
 
-      // Skip metadata line if present, then take header + maxRows data rows
+      // Skip metadata line if present
       const csvLines = hasMetadataLine
         ? lines.slice(1) // Skip metadata line
         : lines;
 
-      const limitedLines = csvLines.slice(0, 1 + maxRows); // header + data rows
+      // Filter empty lines if skipEmptyLines is enabled
+      const filteredLines = skipEmptyLines
+        ? csvLines.filter((line, index) => index === 0 || !isEmptyLine(line)) // Keep header (index 0) always
+        : csvLines;
+
+      // Take header + maxRows data rows
+      const limitedLines = filteredLines.slice(0, 1 + maxRows); // header + data rows
 
       const limitedCSV = limitedLines.join("\n");
 
       const rowCount = limitedLines.length - 1; // Subtract header
-      const originalRowCount = csvLines.length - 1; // Subtract header from original
+      const originalRowCount = filteredLines.length - 1; // Subtract header from filtered
 
       logger.debug(
         `[CSVProcessor] raw format: ${rowCount} rows (original: ${originalRowCount}) → ${limitedCSV.length} chars`,
@@ -114,6 +143,7 @@ export class CSVProcessor {
           formatStyle: "raw",
           originalSize: csvString.length,
           limitedSize: limitedCSV.length,
+          skipEmptyLines,
         },
       );
 
@@ -131,7 +161,12 @@ export class CSVProcessor {
     }
 
     // Parse CSV for JSON and Markdown formats only
-    const rows = await this.parseCSVString(csvString, maxRows);
+    const parsedRows = await this.parseCSVString(csvString, maxRows);
+
+    // Filter empty rows if skipEmptyLines is enabled
+    const rows = skipEmptyLines
+      ? parsedRows.filter((row) => !isEmptyRow(row))
+      : parsedRows;
 
     // Extract metadata from parsed results
     const rowCount = rows.length;
@@ -153,7 +188,13 @@ export class CSVProcessor {
 
     logger.info(
       `[CSVProcessor] ${formatStyle} format: ${rowCount} rows × ${columnCount} columns → ${formatted.length} chars`,
-      { rowCount, columnCount, columns: columnNames, hasEmptyColumns },
+      {
+        rowCount,
+        columnCount,
+        columns: columnNames,
+        hasEmptyColumns,
+        skipEmptyLines,
+      },
     );
 
     return {

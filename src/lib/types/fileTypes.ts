@@ -74,6 +74,7 @@ export type CSVProcessorOptions = {
   formatStyle?: "raw" | "markdown" | "json";
   includeHeaders?: boolean;
   sampleDataFormat?: SampleDataFormat;
+  skipEmptyLines?: boolean;
 };
 
 /**

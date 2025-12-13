@@ -185,4 +185,259 @@ Charlie,35,Chicago`;
       expect(csvOutput.split("\n")[0]).toBe("Alice,30,New York");
     });
   });
+
+  describe("empty line handling", () => {
+    const csvWithEmptyLines = `name,age,city
+Alice,30,New York
+
+Bob,25,Los Angeles
+
+
+Charlie,35,Chicago
+
+`;
+
+    describe("JSON format", () => {
+      it("should skip empty lines by default", async () => {
+        const buffer = Buffer.from(csvWithEmptyLines);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "json",
+        });
+
+        expect(result.metadata.rowCount).toBe(3);
+        const parsed = JSON.parse(result.content);
+        expect(parsed).toHaveLength(3);
+        expect(parsed[0]).toEqual({
+          name: "Alice",
+          age: "30",
+          city: "New York",
+        });
+        expect(parsed[1]).toEqual({
+          name: "Bob",
+          age: "25",
+          city: "Los Angeles",
+        });
+        expect(parsed[2]).toEqual({
+          name: "Charlie",
+          age: "35",
+          city: "Chicago",
+        });
+      });
+
+      it("should skip empty lines when skipEmptyLines is true", async () => {
+        const buffer = Buffer.from(csvWithEmptyLines);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "json",
+          skipEmptyLines: true,
+        });
+
+        expect(result.metadata.rowCount).toBe(3);
+        const parsed = JSON.parse(result.content);
+        expect(parsed).toHaveLength(3);
+        expect(parsed.every((row) => Object.keys(row).length > 0)).toBe(true);
+      });
+
+      it("should preserve empty lines when skipEmptyLines is false", async () => {
+        const buffer = Buffer.from(csvWithEmptyLines);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "json",
+          skipEmptyLines: false,
+        });
+
+        expect(result.metadata.rowCount).toBe(7);
+        const parsed = JSON.parse(result.content);
+        expect(parsed).toHaveLength(7);
+        // Check that some rows are empty objects
+        expect(parsed[1]).toEqual({});
+        expect(parsed[3]).toEqual({});
+        expect(parsed[4]).toEqual({});
+        expect(parsed[6]).toEqual({});
+      });
+
+      it("should handle CSV with only empty lines", async () => {
+        const emptyCSV = `name,age,city
+
+
+`;
+        const buffer = Buffer.from(emptyCSV);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "json",
+          skipEmptyLines: true,
+        });
+
+        expect(result.metadata.rowCount).toBe(0);
+        expect(result.content).toContain(
+          "CSV file is empty or contains no data",
+        );
+      });
+    });
+
+    describe("raw format", () => {
+      it("should skip empty lines by default in raw format", async () => {
+        const buffer = Buffer.from(csvWithEmptyLines);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "raw",
+        });
+
+        expect(result.metadata.rowCount).toBe(3);
+        const lines = result.content.split("\n").filter((line) => line.trim());
+        expect(lines).toHaveLength(4); // header + 3 data rows
+        expect(result.content).toContain("Alice,30,New York");
+        expect(result.content).toContain("Bob,25,Los Angeles");
+        expect(result.content).toContain("Charlie,35,Chicago");
+      });
+
+      it("should skip empty lines when skipEmptyLines is true in raw format", async () => {
+        const buffer = Buffer.from(csvWithEmptyLines);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "raw",
+          skipEmptyLines: true,
+        });
+
+        expect(result.metadata.rowCount).toBe(3);
+        // Count non-empty lines in output
+        const nonEmptyLines = result.content
+          .split("\n")
+          .filter((line) => line.trim() !== "");
+        expect(nonEmptyLines).toHaveLength(4); // header + 3 data rows
+      });
+
+      it("should preserve empty lines when skipEmptyLines is false in raw format", async () => {
+        const buffer = Buffer.from(csvWithEmptyLines);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "raw",
+          skipEmptyLines: false,
+        });
+
+        // With preserving empty lines, we get more rows
+        expect(result.metadata.rowCount).toBeGreaterThan(3);
+        const lines = result.content.split("\n");
+        // Should contain empty lines
+        expect(lines.some((line) => line.trim() === "")).toBe(true);
+      });
+
+      it("should handle consecutive empty lines", async () => {
+        const csvWithConsecutiveEmpty = `name,value
+
+
+data1,100
+
+
+data2,200`;
+        const buffer = Buffer.from(csvWithConsecutiveEmpty);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "raw",
+          skipEmptyLines: true,
+        });
+
+        expect(result.metadata.rowCount).toBe(2);
+        const lines = result.content.split("\n").filter((line) => line.trim());
+        expect(lines).toHaveLength(3); // header + 2 data rows
+      });
+    });
+
+    describe("markdown format", () => {
+      it("should skip empty lines in markdown format", async () => {
+        const buffer = Buffer.from(csvWithEmptyLines);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "markdown",
+          skipEmptyLines: true,
+        });
+
+        expect(result.metadata.rowCount).toBe(3);
+        const mdLines = result.content.split("\n");
+        // Should have header + separator + 3 data rows
+        expect(
+          mdLines.filter((line) => line.trim().startsWith("|")),
+        ).toHaveLength(5);
+      });
+
+      it("should preserve empty lines in markdown format when disabled", async () => {
+        const buffer = Buffer.from(csvWithEmptyLines);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "markdown",
+          skipEmptyLines: false,
+        });
+
+        expect(result.metadata.rowCount).toBe(7);
+        // Should have more rows due to empty entries
+        const mdLines = result.content.split("\n");
+        expect(
+          mdLines.filter((line) => line.trim().startsWith("|")),
+        ).toHaveLength(9);
+      });
+    });
+
+    describe("edge cases", () => {
+      it("should handle CSV with whitespace-only lines", async () => {
+        const csvWithWhitespace = `name,age
+Alice,30
+   
+Bob,25
+		
+Charlie,35`;
+        const buffer = Buffer.from(csvWithWhitespace);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "json",
+          skipEmptyLines: true,
+        });
+
+        expect(result.metadata.rowCount).toBe(3);
+        const parsed = JSON.parse(result.content);
+        expect(parsed).toHaveLength(3);
+      });
+
+      it("should handle CSV with trailing empty lines", async () => {
+        const csvWithTrailing = `name,age
+Alice,30
+Bob,25
+
+
+`;
+        const buffer = Buffer.from(csvWithTrailing);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "json",
+          skipEmptyLines: true,
+        });
+
+        expect(result.metadata.rowCount).toBe(2);
+      });
+
+      it("should handle CSV with leading empty lines after header", async () => {
+        const csvWithLeading = `name,age
+
+
+Alice,30
+Bob,25`;
+        const buffer = Buffer.from(csvWithLeading);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "json",
+          skipEmptyLines: true,
+        });
+
+        expect(result.metadata.rowCount).toBe(2);
+      });
+
+      it("should handle rows with some empty fields vs completely empty rows", async () => {
+        const csvMixed = `name,age,city
+Alice,,New York
+
+Bob,25,
+Charlie,35,Chicago`;
+        const buffer = Buffer.from(csvMixed);
+        const result = await CSVProcessor.process(buffer, {
+          formatStyle: "json",
+          skipEmptyLines: true,
+        });
+
+        // Rows with some values should be preserved
+        expect(result.metadata.rowCount).toBe(3);
+        const parsed = JSON.parse(result.content);
+        expect(parsed).toHaveLength(3);
+        expect(parsed[0].name).toBe("Alice");
+        expect(parsed[1].name).toBe("Bob");
+        expect(parsed[2].name).toBe("Charlie");
+      });
+    });
+  });
 });
