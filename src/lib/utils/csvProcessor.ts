@@ -218,6 +218,8 @@ export class CSVProcessor {
       const rows: unknown[] = [];
       let count = 0;
       let lineCount = 0;
+      let currentRow: unknown = null;
+      let columnNames: string[] = [];
 
       const source = fs.createReadStream(filePath, { encoding: "utf-8" });
       const parser = csvParser();
@@ -227,10 +229,17 @@ export class CSVProcessor {
         parser.destroy();
       };
 
+      // Track headers from parser
+      parser.on("headers", (headers: string[]) => {
+        columnNames = headers;
+      });
+
       source
         .pipe(parser)
         .on("data", (row: unknown) => {
           lineCount++;
+          currentRow = row;
+
           if (lineCount <= skipLines) {
             return;
           }
@@ -250,8 +259,36 @@ export class CSVProcessor {
           resolve(rows);
         })
         .on("error", (error: Error) => {
-          logger.error("[CSVProcessor] File parsing failed:", error);
-          reject(error);
+          // Enhanced error with context
+          const rowNumber = lineCount + 1; // +1 for header row
+          const contextInfo = [];
+
+          contextInfo.push(`row ${rowNumber}`);
+
+          if (columnNames.length > 0) {
+            contextInfo.push(`columns: [${columnNames.join(", ")}]`);
+          }
+
+          if (currentRow && typeof currentRow === "object") {
+            const rowData = JSON.stringify(currentRow);
+            if (rowData.length < 200) {
+              contextInfo.push(`data: ${rowData}`);
+            } else {
+              contextInfo.push(`data length: ${rowData.length} chars`);
+            }
+          }
+
+          const enhancedMessage = `Failed to parse CSV file at ${contextInfo.join(", ")}: ${error.message}`;
+          logger.error("[CSVProcessor] File parsing failed:", {
+            error: error.message,
+            rowNumber,
+            columnNames,
+            filePath,
+          });
+
+          const enhancedError = new Error(enhancedMessage);
+          enhancedError.cause = error;
+          reject(enhancedError);
         });
     });
   }
@@ -278,6 +315,8 @@ export class CSVProcessor {
     return new Promise((resolve, reject) => {
       const rows: unknown[] = [];
       let count = 0;
+      let currentRow: unknown = null;
+      let columnNames: string[] = [];
 
       const source = Readable.from([csvData]);
       const parser = csvParser();
@@ -287,9 +326,15 @@ export class CSVProcessor {
         parser.destroy();
       };
 
+      // Track headers from parser
+      parser.on("headers", (headers: string[]) => {
+        columnNames = headers;
+      });
+
       source
         .pipe(parser)
         .on("data", (row: unknown) => {
+          currentRow = row;
           rows.push(row);
           count++;
 
@@ -305,8 +350,45 @@ export class CSVProcessor {
           resolve(rows);
         })
         .on("error", (error: Error) => {
-          logger.error("[CSVProcessor] Parsing failed:", error);
-          reject(error);
+          // Enhanced error with context
+          const rowNumber = count + 1; // +1 for header row
+          const contextInfo = [];
+
+          contextInfo.push(`row ${rowNumber}`);
+
+          if (columnNames.length > 0) {
+            contextInfo.push(`columns: [${columnNames.join(", ")}]`);
+          }
+
+          if (currentRow && typeof currentRow === "object") {
+            const rowData = JSON.stringify(currentRow);
+            if (rowData.length < 200) {
+              contextInfo.push(`data: ${rowData}`);
+            } else {
+              contextInfo.push(`data length: ${rowData.length} chars`);
+            }
+          }
+
+          // Calculate approximate byte offset
+          const processedLines = hasMetadataLine ? count + 2 : count + 1; // +1 for header
+          const approximateOffset = lines
+            .slice(0, processedLines)
+            .join("\n").length;
+          if (csvString.length > 1000) {
+            contextInfo.push(`offset: ~${approximateOffset} bytes`);
+          }
+
+          const enhancedMessage = `Failed to parse CSV string at ${contextInfo.join(", ")}: ${error.message}`;
+          logger.error("[CSVProcessor] Parsing failed:", {
+            error: error.message,
+            rowNumber,
+            columnNames,
+            approximateOffset,
+          });
+
+          const enhancedError = new Error(enhancedMessage);
+          enhancedError.cause = error;
+          reject(enhancedError);
         });
     });
   }
