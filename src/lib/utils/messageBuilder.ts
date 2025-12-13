@@ -538,16 +538,16 @@ export async function buildMultimodalMessagesArray(
           options.input.text += csvSection;
           logger.info(`[FileDetector] ✅ CSV: ${filename}`);
         } else if (result.type === "image") {
-          options.input.images = [
-            ...(options.input.images || []),
-            result.content,
-          ];
+          if (!options.input.images) {
+            options.input.images = [];
+          }
+          options.input.images.push(result.content);
           logger.info(`[FileDetector] ✅ Image: ${result.mimeType}`);
         } else if (result.type === "pdf") {
-          options.input.pdfFiles = [
-            ...(options.input.pdfFiles || []),
-            result.content,
-          ];
+          if (!options.input.pdfFiles) {
+            options.input.pdfFiles = [];
+          }
+          options.input.pdfFiles.push(result.content);
           logger.info(`[FileDetector] ✅ PDF: ${extractFilename(file)}`);
         }
       } catch (error) {
