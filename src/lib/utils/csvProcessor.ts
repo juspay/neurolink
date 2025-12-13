@@ -36,7 +36,7 @@ function sanitizeColumnName(columnName: string): string {
     return "column";
   }
 
-  // Convert special patterns to words (preserve as separate words for camelCase)
+  // Convert special patterns to words (add spaces to separate from adjacent words)
   sanitized = sanitized
     .replace(/\$/g, " Dollar ")
     .replace(/€/g, " Euro ")
@@ -52,8 +52,7 @@ function sanitizeColumnName(columnName: string): string {
     .replace(/^1st\b/i, "first")
     .replace(/^2nd\b/i, "second")
     .replace(/^3rd\b/i, "third")
-    .replace(/^(\d+)th\b/i, "$1th")
-    .replace(/^(\d+)\b/, "num$1");
+    .replace(/^(\d+)\b/, "num$1"); // Handles all other numeric prefixes
 
   // Remove or replace invalid characters (keep only alphanumeric and spaces)
   sanitized = sanitized.replace(/[^a-zA-Z0-9\s]/g, " ");
