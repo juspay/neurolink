@@ -81,7 +81,7 @@ export interface TTSHandler {
   isConfigured(): boolean;
 
   /**
-   * Maximum text length supported by this provider (in characters)
+   * Maximum text length supported by this provider (in bytes)
    * Different providers have different limits
    *
    * @default 3000 if not specified
@@ -116,7 +116,7 @@ export class TTSProcessor {
   private static readonly handlers = new Map<string, TTSHandler>();
 
   /**
-   * Default maximum text length for TTS synthesis (characters)
+   * Default maximum text length for TTS synthesis (in bytes)
    *
    * Providers can override this value by specifying the `maxTextLength` property
    * in their respective `TTSHandler` implementation. If not specified, this default
