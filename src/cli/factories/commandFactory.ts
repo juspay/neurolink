@@ -745,6 +745,18 @@ export class CLICommandFactory {
             )
             .example('echo "Live demo" | $0 stream', "Stream from stdin")
             .example(
+              '$0 stream "Describe this image in detail" --image photo.jpg',
+              "Stream image analysis",
+            )
+            .example(
+              '$0 stream "Explain this document section by section" --pdf report.pdf',
+              "Stream PDF walkthrough",
+            )
+            .example(
+              '$0 stream "Analyze trends in this data" --csv sales.csv',
+              "Stream CSV data analysis",
+            )
+            .example(
               '$0 stream "Narrate this video" --video path/to/video.mp4',
               "Stream video analysis",
             ),
