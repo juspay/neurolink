@@ -355,6 +355,52 @@ export class CLICommandFactory {
     return Array.isArray(videoFiles) ? videoFiles : [videoFiles];
   }
 
+  // Helper method to format multimodal debug information
+  private static formatMultimodalDebugInfo(params: {
+    images?: Array<Buffer | string>;
+    csvFiles?: Array<Buffer | string>;
+    pdfFiles?: Array<Buffer | string>;
+    videoFiles?: Array<Buffer | string>;
+    files?: Array<Buffer | string>;
+    csvMaxRows?: number;
+    csvFormat?: string;
+  }): void {
+    const hasMultimodal =
+      params.images ||
+      params.csvFiles ||
+      params.pdfFiles ||
+      params.videoFiles ||
+      params.files;
+
+    if (hasMultimodal) {
+      logger.debug(chalk.cyan("\nMultimodal Files:"));
+
+      if (params.images && params.images.length > 0) {
+        logger.debug(`  Images: ${params.images.length} file(s)`);
+      }
+
+      if (params.csvFiles && params.csvFiles.length > 0) {
+        logger.debug(
+          `  CSV: ${params.csvFiles.length} file(s)` +
+            (params.csvMaxRows ? ` (maxRows: ${params.csvMaxRows})` : "") +
+            (params.csvFormat ? ` (format: ${params.csvFormat})` : ""),
+        );
+      }
+
+      if (params.pdfFiles && params.pdfFiles.length > 0) {
+        logger.debug(`  PDF: ${params.pdfFiles.length} file(s)`);
+      }
+
+      if (params.videoFiles && params.videoFiles.length > 0) {
+        logger.debug(`  Video: ${params.videoFiles.length} file(s)`);
+      }
+
+      if (params.files && params.files.length > 0) {
+        logger.debug(`  Auto-detect: ${params.files.length} file(s)`);
+      }
+    }
+  }
+
   // Helper method to process common options
   private static processOptions(
     argv: BaseCommandArgs & Record<string, unknown>,
@@ -1498,6 +1544,23 @@ export class CLICommandFactory {
         }
       }
 
+      // Process CLI multimodal inputs early for debug output
+      const imageBuffers = CLICommandFactory.processCliImages(
+        argv.image as string | string[] | undefined,
+      );
+      const csvFiles = CLICommandFactory.processCliCSVFiles(
+        argv.csv as string | string[] | undefined,
+      );
+      const pdfFiles = CLICommandFactory.processCliPDFFiles(
+        argv.pdf as string | string[] | undefined,
+      );
+      const videoFiles = CLICommandFactory.processCliVideoFiles(
+        argv.video as string | string[] | undefined,
+      );
+      const files = CLICommandFactory.processCliFiles(
+        argv.file as string | string[] | undefined,
+      );
+
       // Handle dry-run mode for testing
       if (options.dryRun) {
         const mockResult = {
@@ -1544,6 +1607,17 @@ export class CLICommandFactory {
           logger.debug("Provider:", mockResult.provider);
           logger.debug("Model:", mockResult.model);
           logger.debug("Mode: DRY-RUN (no actual API calls made)");
+
+          // Show multimodal file information
+          this.formatMultimodalDebugInfo({
+            images: imageBuffers,
+            csvFiles,
+            pdfFiles,
+            videoFiles,
+            files,
+            csvMaxRows: argv.csvMaxRows as number | undefined,
+            csvFormat: argv.csvFormat as string | undefined,
+          });
         }
 
         if (!globalSession.getCurrentSessionId()) {
@@ -1566,23 +1640,6 @@ export class CLICommandFactory {
           toolsEnabled: !options.disableTools,
         });
       }
-
-      // Process CLI multimodal inputs
-      const imageBuffers = CLICommandFactory.processCliImages(
-        argv.image as string | string[] | undefined,
-      );
-      const csvFiles = CLICommandFactory.processCliCSVFiles(
-        argv.csv as string | string[] | undefined,
-      );
-      const pdfFiles = CLICommandFactory.processCliPDFFiles(
-        argv.pdf as string | string[] | undefined,
-      );
-      const videoFiles = CLICommandFactory.processCliVideoFiles(
-        argv.video as string | string[] | undefined,
-      );
-      const files = CLICommandFactory.processCliFiles(
-        argv.file as string | string[] | undefined,
-      );
 
       const generateInput = {
         text: inputText,
@@ -1659,6 +1716,18 @@ export class CLICommandFactory {
         logger.debug("\n" + chalk.yellow("Debug Information:"));
         logger.debug("Provider:", result.provider);
         logger.debug("Model:", result.model);
+
+        // Show multimodal file information
+        this.formatMultimodalDebugInfo({
+          images: imageBuffers,
+          csvFiles,
+          pdfFiles,
+          videoFiles,
+          files,
+          csvMaxRows: argv.csvMaxRows as number | undefined,
+          csvFormat: argv.csvFormat as string | undefined,
+        });
+
         if (result.analytics) {
           logger.debug("Analytics:", JSON.stringify(result.analytics, null, 2));
         }
@@ -1733,6 +1802,7 @@ export class CLICommandFactory {
   private static async executeDryRunStream(
     options: BaseCommandArgs & Record<string, unknown>,
     contextMetadata: Partial<BaseContext> | undefined,
+    argv?: StreamCommandArgs,
   ): Promise<void> {
     if (!options.quiet) {
       logger.always(chalk.blue("🔄 Dry-run streaming..."));
@@ -1810,6 +1880,35 @@ export class CLICommandFactory {
       logger.debug("Provider:", options.provider || "auto");
       logger.debug("Model:", options.model || "test-model");
       logger.debug("Mode: DRY-RUN (no actual API calls made)");
+
+      // Show multimodal file information
+      if (argv) {
+        const imageBuffers = CLICommandFactory.processCliImages(
+          argv.image as string | string[] | undefined,
+        );
+        const csvFiles = CLICommandFactory.processCliCSVFiles(
+          argv.csv as string | string[] | undefined,
+        );
+        const pdfFiles = CLICommandFactory.processCliPDFFiles(
+          argv.pdf as string | string[] | undefined,
+        );
+        const videoFiles = CLICommandFactory.processCliVideoFiles(
+          argv.video as string | string[] | undefined,
+        );
+        const files = CLICommandFactory.processCliFiles(
+          argv.file as string | string[] | undefined,
+        );
+
+        this.formatMultimodalDebugInfo({
+          images: imageBuffers,
+          csvFiles,
+          pdfFiles,
+          videoFiles,
+          files,
+          csvMaxRows: argv.csvMaxRows as number | undefined,
+          csvFormat: argv.csvFormat as string | undefined,
+        });
+      }
     }
 
     if (!globalSession.getCurrentSessionId()) {
@@ -2065,6 +2164,7 @@ export class CLICommandFactory {
   private static async handleStreamOutput(
     options: BaseCommandArgs & Record<string, unknown>,
     fullContent: string,
+    argv?: StreamCommandArgs,
   ): Promise<void> {
     // Handle output file if specified
     if (options.output) {
@@ -2091,10 +2191,36 @@ export class CLICommandFactory {
     }
 
     // Debug output for streaming
-    if (options.debug) {
+    if (options.debug && argv) {
+      // Process CLI multimodal inputs for debug display
+      const imageBuffers = CLICommandFactory.processCliImages(
+        argv.image as string | string[] | undefined,
+      );
+      const csvFiles = CLICommandFactory.processCliCSVFiles(
+        argv.csv as string | string[] | undefined,
+      );
+      const pdfFiles = CLICommandFactory.processCliPDFFiles(
+        argv.pdf as string | string[] | undefined,
+      );
+      const videoFiles = CLICommandFactory.processCliVideoFiles(
+        argv.video as string | string[] | undefined,
+      );
+      const files = CLICommandFactory.processCliFiles(
+        argv.file as string | string[] | undefined,
+      );
+
       await this.logStreamDebugInfo({
         provider: options.provider as string,
         model: options.model as string,
+        multimodal: {
+          images: imageBuffers,
+          csvFiles,
+          pdfFiles,
+          videoFiles,
+          files,
+          csvMaxRows: argv.csvMaxRows as number | undefined,
+          csvFormat: argv.csvFormat as string | undefined,
+        },
       });
     }
   }
@@ -2108,10 +2234,25 @@ export class CLICommandFactory {
     analytics?: unknown;
     evaluation?: unknown;
     metadata?: unknown;
+    multimodal?: {
+      images?: Array<Buffer | string>;
+      csvFiles?: Array<Buffer | string>;
+      pdfFiles?: Array<Buffer | string>;
+      videoFiles?: Array<Buffer | string>;
+      files?: Array<Buffer | string>;
+      csvMaxRows?: number;
+      csvFormat?: string;
+    };
   }): Promise<void> {
     logger.debug("\n" + chalk.yellow("Debug Information (Streaming):"));
     logger.debug("Provider:", stream.provider);
     logger.debug("Model:", stream.model);
+
+    // Show multimodal file information
+    if (stream.multimodal) {
+      this.formatMultimodalDebugInfo(stream.multimodal);
+    }
+
     if (stream.analytics) {
       const resolvedAnalytics = await (stream.analytics instanceof Promise
         ? stream.analytics
@@ -2177,7 +2318,7 @@ export class CLICommandFactory {
 
       // Handle dry-run mode for testing
       if (options.dryRun) {
-        await this.executeDryRunStream(options, contextMetadata);
+        await this.executeDryRunStream(options, contextMetadata, argv);
         return;
       }
 
@@ -2188,7 +2329,7 @@ export class CLICommandFactory {
         contextMetadata,
       );
 
-      await this.handleStreamOutput(options, fullContent);
+      await this.handleStreamOutput(options, fullContent, argv);
 
       if (!globalSession.getCurrentSessionId()) {
         await this.flushLangfuseTraces();
