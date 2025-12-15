@@ -14,6 +14,19 @@ import type {
 } from "../types/fileTypes.js";
 
 /**
+ * Get a human-readable type description for error messages
+ */
+function getTypeDescription(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (value === undefined) {
+    return "undefined";
+  }
+  return typeof value;
+}
+
+/**
  * Detect if first line is CSV metadata (not actual data/headers)
  * Common patterns:
  * - Excel separator line: "SEP=,"
@@ -79,6 +92,17 @@ export class CSVProcessor {
     content: Buffer,
     options?: CSVProcessorOptions,
   ): Promise<FileProcessingResult> {
+    // Input validation
+    if (!Buffer.isBuffer(content)) {
+      throw new Error(
+        `Invalid content: expected Buffer, received ${getTypeDescription(content)}`,
+      );
+    }
+
+    if (content.length === 0) {
+      throw new Error("Invalid content: Buffer is empty");
+    }
+
     const {
       maxRows: rawMaxRows = 1000,
       formatStyle = "raw",
@@ -238,6 +262,17 @@ export class CSVProcessor {
     filePath: string,
     maxRows: number = 1000,
   ): Promise<unknown[]> {
+    // Input validation
+    if (typeof filePath !== "string") {
+      throw new Error(
+        `Invalid filePath: expected string, received ${getTypeDescription(filePath)}`,
+      );
+    }
+
+    if (filePath.trim() === "") {
+      throw new Error("Invalid filePath: path cannot be empty");
+    }
+
     const clampedMaxRows = Math.max(1, Math.min(10000, maxRows));
     const fs = await import("fs");
 
@@ -333,6 +368,17 @@ export class CSVProcessor {
     csvString: string,
     maxRows: number = 1000,
   ): Promise<unknown[]> {
+    // Input validation
+    if (typeof csvString !== "string") {
+      throw new Error(
+        `Invalid csvString: expected string, received ${getTypeDescription(csvString)}`,
+      );
+    }
+
+    if (csvString.trim() === "") {
+      throw new Error("Invalid csvString: CSV data cannot be empty");
+    }
+
     const clampedMaxRows = Math.max(1, Math.min(10000, maxRows));
 
     logger.debug("[CSVProcessor] Starting string parsing", {
