@@ -1,3 +1,9 @@
+## [8.17.0](https://github.com/juspay/neurolink/compare/v8.16.0...v8.17.0) (2025-12-16)
+
+### Features
+
+- **(tts):** Add TTS type integration to GenerateOptions, GenerateResult, and StreamChunk ([e290330](https://github.com/juspay/neurolink/commit/e290330e8fe22a4cd0427185cbddbb8856fbd5ca))
+
 ## [8.16.0](https://github.com/juspay/neurolink/compare/v8.15.0...v8.16.0) (2025-12-16)
 
 ### Features
