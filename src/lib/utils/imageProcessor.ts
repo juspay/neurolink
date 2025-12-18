@@ -21,6 +21,24 @@ const RETRYABLE_ERROR_CODES = new Set([
 ]);
 
 /**
+ * Minimum buffer size in bytes for format detection
+ * Most image formats require at least 12 bytes for magic number detection
+ */
+const MIN_IMAGE_SIZE = 12;
+
+/**
+ * Minimum valid image sizes in bytes for each format
+ * These are the smallest valid image files that can be properly decoded
+ */
+const MIN_VALID_IMAGE_SIZE: Record<string, number> = {
+  "image/png": 67, // Minimum valid PNG (1x1 pixel)
+  "image/jpeg": 125, // Minimum valid JPEG
+  "image/gif": 43, // Minimum valid GIF (1x1 pixel)
+  "image/webp": 20, // Minimum valid WebP
+  "image/avif": 100, // Minimum valid AVIF
+};
+
+/**
  * Determines if an HTTP error is retryable based on status code
  * Only network errors and certain HTTP status codes should be retried
  * 4xx client errors like 404 (Not Found) and 403 (Forbidden) should NOT be retried
@@ -76,6 +94,54 @@ function isRetryableDownloadError(error: unknown): boolean {
  */
 export class ImageProcessor {
   /**
+   * Validate that the buffer is not empty and meets minimum size requirements
+   *
+   * @param buffer - The image buffer to validate
+   * @throws Error if buffer is empty or too small
+   */
+  private static validateBufferNotEmpty(buffer: Buffer): void {
+    // Check for empty buffer (0 bytes)
+    if (buffer.length === 0) {
+      logger.error("Empty buffer provided for image processing");
+      throw new Error(
+        "Invalid image: buffer is empty (0 bytes). Please provide a valid image file.",
+      );
+    }
+
+    // Check for minimum size required for format detection
+    if (buffer.length < MIN_IMAGE_SIZE) {
+      logger.error(
+        `Buffer too small for format detection: ${buffer.length} bytes`,
+        {
+          bufferSize: buffer.length,
+          minimumRequired: MIN_IMAGE_SIZE,
+        },
+      );
+      throw new Error(
+        `Invalid image: buffer is too small (${buffer.length} bytes). Minimum ${MIN_IMAGE_SIZE} bytes required for format detection.`,
+      );
+    }
+
+    // Detect format and check format-specific minimum sizes
+    const detectedType = this.detectImageType(buffer);
+    const minSizeForFormat = MIN_VALID_IMAGE_SIZE[detectedType];
+
+    if (minSizeForFormat && buffer.length < minSizeForFormat) {
+      logger.error(
+        `Buffer too small for detected format ${detectedType}: ${buffer.length} bytes`,
+        {
+          bufferSize: buffer.length,
+          detectedFormat: detectedType,
+          minimumRequired: minSizeForFormat,
+        },
+      );
+      throw new Error(
+        `Invalid image: buffer is too small (${buffer.length} bytes) for ${detectedType}. Minimum ${minSizeForFormat} bytes required.`,
+      );
+    }
+  }
+
+  /**
    * Process image Buffer (unified interface)
    * Matches CSVProcessor.process() signature for consistency
    *
@@ -87,11 +153,8 @@ export class ImageProcessor {
     content: Buffer,
     _options?: unknown,
   ): Promise<FileProcessingResult> {
-    // Validate content is non-empty before processing
-    if (content.length === 0) {
-      logger.error("Empty buffer provided");
-      throw new Error("Invalid image processing: buffer is empty");
-    }
+    // Validate buffer is not empty and meets minimum size requirements
+    this.validateBufferNotEmpty(content);
 
     const mediaType = this.detectImageType(content);
     const base64 = content.toString("base64");
