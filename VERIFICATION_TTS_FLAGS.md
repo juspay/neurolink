@@ -124,20 +124,20 @@ A dedicated `handleTTSOutput()` method is implemented (lines 492-541) that:
 ### Commands Supporting TTS Flags
 The TTS flags are available on all these commands through `buildOptions()`:
 
-1. **generate/gen** - Lines 681-717
-2. **stream** - Lines 723-755
-3. **batch** - Lines 761-790
-4. **provider status** - Lines 800-819
-5. **status** - Lines 825-837
-6. **memory stats/history/clear** - Lines 864-930
-7. **config** - Lines 936-992
-8. **loop** - Lines 1106-1285
+1. **generate/gen** - Primary generation command
+2. **stream** - Real-time streaming command
+3. **batch** - Batch processing command
+4. **provider status** - Provider diagnostics
+5. **status** - Quick status check
+6. **memory** subcommands - Memory management (stats/history/clear)
+7. **config** subcommands - Configuration management
+8. **loop** - Interactive session mode
 
 ### Type System Integration
 TTS types are properly integrated:
-- `TTSResult` type imported from `ttsTypes.ts`
-- Used in `GenerateResult.audio` field (cli.ts line 379)
-- Validated in `audioFileUtils.ts`
+- `TTSResult` type imported from `src/lib/types/ttsTypes.ts`
+- Used in `GenerateResult.audio` field defined in `src/lib/types/cli.ts`
+- Validated in `src/cli/utils/audioFileUtils.ts`
 
 ## Testing
 
