@@ -202,7 +202,6 @@ export type {
 export type {
   ConversationMemoryConfig,
   SessionMemory,
-  ConversationMemoryStats,
   ChatMessage,
   MessageContent,
   MultimodalChatMessage,

@@ -110,6 +110,7 @@ import { EventEmitter } from "events";
 import type {
   ConversationMemoryConfig,
   ChatMessage,
+  ProviderDetails,
 } from "./types/conversation.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
 import { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
@@ -144,6 +145,9 @@ import type { ObservabilityConfig } from "./types/observability.js";
 import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
 
 import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
+const { initializeConversationMemory } = await import(
+  "./core/conversationMemoryInitializer.js"
+);
 
 export class NeuroLink {
   private mcpInitialized = false;
@@ -2788,6 +2792,13 @@ Current user's request: ${currentInput}`;
               const userId = (
                 enhancedOptions.context as Record<string, unknown>
               )?.userId as string;
+              let providerDetails: ProviderDetails | undefined = undefined;
+              if (enhancedOptions.model) {
+                providerDetails = {
+                  provider: providerName,
+                  model: enhancedOptions.model,
+                };
+              }
 
               try {
                 await self.conversationMemory.storeConversationTurn(
@@ -2796,13 +2807,8 @@ Current user's request: ${currentInput}`;
                   originalPrompt ?? "",
                   accumulatedContent,
                   new Date(startTime),
+                  providerDetails,
                 );
-
-                logger.debug("Stream conversation turn stored", {
-                  sessionId,
-                  userInputLength: originalPrompt?.length ?? 0,
-                  responseLength: accumulatedContent.length,
-                });
               } catch (error) {
                 logger.warn("Failed to store stream conversation turn", {
                   error: error instanceof Error ? error.message : String(error),
@@ -3102,6 +3108,13 @@ Current user's request: ${currentInput}`;
           )?.sessionId as string;
           const userId = (enhancedOptions?.context as Record<string, unknown>)
             ?.userId as string;
+          let providerDetails: ProviderDetails | undefined = undefined;
+          if (options.model) {
+            providerDetails = {
+              provider: providerName,
+              model: options.model,
+            };
+          }
 
           try {
             await self.conversationMemory.storeConversationTurn(
@@ -3110,13 +3123,8 @@ Current user's request: ${currentInput}`;
               originalPrompt ?? "",
               fallbackAccumulatedContent,
               new Date(startTime),
+              providerDetails,
             );
-
-            logger.debug("Fallback stream conversation turn stored", {
-              sessionId: sessionId || options.context?.sessionId,
-              userInputLength: originalPrompt?.length ?? 0,
-              responseLength: fallbackAccumulatedContent.length,
-            });
           } catch (error) {
             logger.warn("Failed to store fallback stream conversation turn", {
               error: error instanceof Error ? error.message : String(error),
@@ -5744,38 +5752,11 @@ Current user's request: ${currentInput}`;
     generateInternalHrTimeStart: bigint,
   ): Promise<void> {
     try {
-      // Import the integration module
-      const { initializeConversationMemory } = await import(
-        "./core/conversationMemoryInitializer.js"
-      );
-
-      // Use the integration module to create the appropriate memory manager
-      const memoryManagerCreateStartTime = process.hrtime.bigint();
       const memoryManager = await initializeConversationMemory(
         this.conversationMemoryConfig,
       );
       // Assign to conversationMemory with proper type to handle both memory manager types
       this.conversationMemory = memoryManager;
-
-      const memoryManagerCreateEndTime = process.hrtime.bigint();
-      const memoryManagerCreateDurationNs =
-        memoryManagerCreateEndTime - memoryManagerCreateStartTime;
-
-      logger.info(`[NeuroLink] ✅ LOG_POINT_G004_MEMORY_LAZY_INIT_SUCCESS`, {
-        logPoint: "G004_MEMORY_LAZY_INIT_SUCCESS",
-        generateInternalId,
-        timestamp: new Date().toISOString(),
-        elapsedMs: Date.now() - generateInternalStartTime,
-        elapsedNs: (
-          process.hrtime.bigint() - generateInternalHrTimeStart
-        ).toString(),
-        memoryManagerCreateDurationNs: memoryManagerCreateDurationNs.toString(),
-        memoryManagerCreateDurationMs:
-          Number(memoryManagerCreateDurationNs) / 1000000,
-        storageType: process.env.STORAGE_TYPE || "memory",
-        message:
-          "Lazy conversation memory initialization completed successfully",
-      });
 
       // Reset the lazy init flag since we've now initialized
       this.conversationMemoryNeedsInit = false;

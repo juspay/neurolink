@@ -133,18 +133,10 @@ export function deserializeConversation(
   data: string | null,
 ): RedisConversationObject | null {
   if (!data) {
-    logger.debug(
-      "[redisUtils] No conversation data to deserialize, returning null",
-    );
     return null;
   }
 
   try {
-    logger.debug("[redisUtils] Deserializing conversation", {
-      dataLength: data.length,
-      dataPreview: data.substring(0, 100) + (data.length > 100 ? "..." : ""),
-    });
-
     // Parse as unknown first, then validate before casting
     const parsedData = JSON.parse(data) as unknown;
 

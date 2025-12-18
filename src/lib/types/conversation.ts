@@ -15,17 +15,11 @@ export type ConversationMemoryConfig = {
   /** Maximum number of sessions to keep in memory (default: 50) */
   maxSessions?: number;
 
-  /** Maximum number of conversation turns to keep per session (default: 20) */
-  maxTurnsPerSession?: number;
-
   /** Enable automatic summarization */
   enableSummarization?: boolean;
 
-  /** Turn count to trigger summarization */
-  summarizationThresholdTurns?: number;
-
-  /** Target turn count for the summary */
-  summarizationTargetTurns?: number;
+  /** Token threshold to trigger summarization (optional - defaults to 80% of model context) */
+  tokenThreshold?: number;
 
   /** Provider to use for summarization */
   summarizationProvider?: string;
@@ -41,6 +35,15 @@ export type ConversationMemoryConfig = {
 
   /** Redis configuration (optional) - overrides environment variables */
   redisConfig?: RedisStorageConfig;
+
+  /** @deprecated Use tokenThreshold instead - Maximum number of conversation turns to keep per session (default: 20) */
+  maxTurnsPerSession?: number;
+
+  /** @deprecated Use tokenThreshold instead - Turn count to trigger summarization */
+  summarizationThresholdTurns?: number;
+
+  /** @deprecated Use tokenThreshold instead - Target turn count for the summary */
+  summarizationTargetTurns?: number;
 };
 /**
  * Complete memory for a conversation session
@@ -64,6 +67,21 @@ export type SessionMemory = {
 
   /** When this session was last active */
   lastActivity: number;
+
+  /** Pointer to last summarized message ID (NEW - for token-based memory) */
+  summarizedUpToMessageId?: string;
+
+  /** Cached index of summarizedUpToMessageId in messages array (performance optimization) */
+  summarizedUpToMessageIndex?: number;
+
+  /** Per-session token threshold override (NEW - for token-based memory) */
+  tokenThreshold?: number;
+
+  /** Cached token count for performance (NEW - for token-based memory) */
+  lastTokenCount?: number;
+
+  /** When token count was last calculated (NEW - for token-based memory) */
+  lastCountedAt?: number;
 
   /** Optional session metadata */
   metadata?: {
@@ -93,16 +111,16 @@ export type ConversationMemoryStats = {
  * Chat message format for conversation history
  */
 export type ChatMessage = {
+  /** Unique message identifier (required for token-based memory) */
+  id: string;
+
   /** Role/type of the message */
   role: "user" | "assistant" | "system" | "tool_call" | "tool_result";
 
   /** Content of the message */
   content: string;
 
-  /** Message ID (optional) - for new format */
-  id?: string;
-
-  /** Timestamp (optional) - for new format */
+  /** Timestamp (ISO string) */
   timestamp?: string;
 
   /** Tool name (optional) - for tool_call/tool_result messages */
@@ -118,6 +136,18 @@ export type ChatMessage = {
     result?: unknown;
     type?: string;
     error?: string;
+  };
+
+  /** Message metadata (NEW - for token-based memory) */
+  metadata?: {
+    /** Is this a summary message? */
+    isSummary?: boolean;
+    /** First message ID that this summary covers */
+    summarizesFrom?: string;
+    /** Last message ID that this summary covers */
+    summarizesTo?: string;
+    /** Was this message truncated due to token limits? */
+    truncated?: boolean;
   };
 };
 
@@ -250,6 +280,21 @@ export type ConversationBase = {
 
   /** When this conversation was last updated */
   updatedAt: string;
+
+  /** Pointer to last summarized message (token-based memory) */
+  summarizedUpToMessageId?: string;
+
+  /** Cached index of summarizedUpToMessageId in messages array (performance optimization) */
+  summarizedUpToMessageIndex?: number;
+
+  /** Per-session token threshold override */
+  tokenThreshold?: number;
+
+  /** Cached token count for efficiency */
+  lastTokenCount?: number;
+
+  /** Timestamp of last token count */
+  lastCountedAt?: number;
 };
 
 /**
@@ -334,4 +379,9 @@ export type RedisStorageConfig = {
     maxRetriesPerRequest?: number;
     [key: string]: string | number | boolean | undefined;
   };
+};
+
+export type ProviderDetails = {
+  provider: string;
+  model: string;
 };
