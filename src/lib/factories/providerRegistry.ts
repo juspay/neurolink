@@ -260,6 +260,32 @@ export class ProviderRegistry {
 
       logger.debug("All providers registered successfully");
       this.registered = true;
+
+      // ===== TTS HANDLER REGISTRATION =====
+      try {
+        // Create handler instance and register explicitly
+        const { GoogleTTSHandler } = await import(
+          "../adapters/tts/googleTTSHandler.js"
+        );
+        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
+
+        const googleHandler = new GoogleTTSHandler();
+        TTSProcessor.registerHandler("google-ai", googleHandler);
+        TTSProcessor.registerHandler("vertex", googleHandler);
+
+        logger.debug("TTS handlers registered successfully", {
+          providers: ["google-ai", "vertex"],
+        });
+      } catch (ttsError) {
+        logger.warn(
+          "Failed to register TTS handlers - TTS functionality will be unavailable",
+          {
+            error:
+              ttsError instanceof Error ? ttsError.message : String(ttsError),
+          },
+        );
+        // Don't throw - TTS is optional functionality
+      }
     } catch (error) {
       logger.error("Failed to register providers:", error);
       throw error;

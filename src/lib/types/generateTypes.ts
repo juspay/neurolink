@@ -335,6 +335,38 @@ export type TextGenerationOptions = {
   timeout?: number | string; // Optional timeout (e.g., 30000, '30s', '2m', '1h')
   disableTools?: boolean; // Disable tools (tools are enabled by default)
   maxSteps?: number; // Maximum tool execution steps (default: 5)
+
+  /**
+   * Text-to-Speech (TTS) configuration
+   *
+   * Enable audio generation from text. Behavior depends on useAiResponse flag:
+   * - When useAiResponse is false/undefined (default): TTS synthesizes the input text directly
+   * - When useAiResponse is true: TTS synthesizes the AI-generated response
+   *
+   * @example Using input text (default)
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   * const result = await neurolink.generate({
+   *   input: { text: "Hello world" },
+   *   provider: "google-ai",
+   *   tts: { enabled: true, voice: "en-US-Neural2-C" }
+   * });
+   * // TTS synthesizes "Hello world" directly, no AI generation
+   * ```
+   *
+   * @example Using AI response
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   * const result = await neurolink.generate({
+   *   input: { text: "Tell me a joke" },
+   *   provider: "google-ai",
+   *   tts: { enabled: true, useAiResponse: true, voice: "en-US-Neural2-C" }
+   * });
+   * // AI generates the joke, then TTS synthesizes the AI's response
+   * ```
+   */
+  tts?: TTSOptions;
+
   // NEW: Analytics and Evaluation Support
   enableEvaluation?: boolean; // Default: false - AI quality scoring
   enableAnalytics?: boolean; // Default: false - Usage tracking
@@ -393,6 +425,7 @@ export type TextGenerationResult = {
   // Analytics and evaluation data
   analytics?: AnalyticsData;
   evaluation?: EvaluationData;
+  audio?: TTSResult;
 };
 
 /**

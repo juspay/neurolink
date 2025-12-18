@@ -1772,6 +1772,7 @@ Current user's request: ${currentInput}`;
         toolUsageContext: options.toolUsageContext,
         input: options.input, // This includes text, images, and content arrays
         region: options.region,
+        tts: options.tts,
       };
 
       // Apply factory enhancement using centralized utilities
@@ -1869,6 +1870,7 @@ Current user's request: ${currentInput}`;
                 factoryResult.domainType,
             }
           : undefined,
+        audio: textResult.audio,
       };
 
       if (
@@ -2105,7 +2107,10 @@ Current user's request: ${currentInput}`;
     generateInternalHrTimeStart: bigint,
     functionTag: string,
   ): Promise<TextGenerationResult | null> {
-    if (!options.disableTools) {
+    if (
+      !options.disableTools &&
+      !(options.tts?.enabled && !options.tts?.useAiResponse)
+    ) {
       return await this.performMCPGenerationRetries(
         options,
         generateInternalId,
@@ -2348,6 +2353,7 @@ Current user's request: ${currentInput}`;
         availableTools: transformToolsForMCP(
           transformToolsToExpectedFormat(availableTools),
         ),
+        audio: result.audio,
         // Include analytics and evaluation from BaseProvider
         analytics: result.analytics,
         evaluation: result.evaluation,
@@ -2472,6 +2478,7 @@ Current user's request: ${currentInput}`;
           enhancedWithTools: false,
           analytics: result.analytics,
           evaluation: result.evaluation,
+          audio: result.audio,
         };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));

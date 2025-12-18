@@ -5,7 +5,7 @@
  * This covers the TTS-024 implementation requirements.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -331,6 +331,298 @@ describe("TTS Types", () => {
 
       expect(isValidTTSOptions({ quality: "ultra" })).toBe(false);
       expect(isValidTTSOptions({ quality: "low" })).toBe(false);
+    });
+  });
+});
+
+describe("TTS Integration - BaseProvider.generate()", () => {
+  describe("Mode 1: Direct Input Synthesis (useAiResponse=false)", () => {
+    it("should return audio when TTS is enabled with direct input synthesis", async () => {
+      // Mock TTSProcessor.synthesize
+      const mockTTSResult: TTSResult = {
+        buffer: Buffer.from("mock audio data"),
+        format: "mp3",
+        size: 15,
+        voice: "en-US-Neural2-C",
+        metadata: {
+          latency: 500,
+          provider: "google-ai",
+        },
+      };
+
+      const { TTSProcessor } = await import(
+        "../../src/lib/utils/ttsProcessor.js"
+      );
+      const synthesizeSpy = vi
+        .spyOn(TTSProcessor, "synthesize")
+        .mockResolvedValue(mockTTSResult);
+
+      // Use NeuroLink instance
+      const { NeuroLink } = await import("../../src/lib/neurolink.js");
+      const neurolink = new NeuroLink();
+
+      try {
+        // Call generate with TTS enabled (Mode 1: direct synthesis)
+        const result = await neurolink.generate({
+          input: { text: "Hello world" },
+          provider: "google-ai",
+          tts: {
+            enabled: true,
+            useAiResponse: false, // Direct input synthesis
+            voice: "en-US-Neural2-C",
+            format: "mp3",
+          },
+        });
+
+        // Verify TTSProcessor.synthesize was called with correct parameters
+        expect(synthesizeSpy).toHaveBeenCalledWith(
+          "Hello world",
+          "google-ai",
+          expect.objectContaining({
+            enabled: true,
+            useAiResponse: false,
+            voice: "en-US-Neural2-C",
+            format: "mp3",
+          }),
+        );
+
+        // Verify result contains audio
+        expect(result).toBeDefined();
+        expect(result.audio).toBeDefined();
+        expect(result.audio?.buffer).toEqual(Buffer.from("mock audio data"));
+        expect(result.audio?.format).toBe("mp3");
+        expect(result.audio?.size).toBe(15);
+        expect(result.audio?.voice).toBe("en-US-Neural2-C");
+        expect(result.audio?.metadata?.latency).toBe(500);
+
+        // Verify content is the input text (no AI generation in Mode 1)
+        expect(result.content).toBe("Hello world");
+      } finally {
+        synthesizeSpy.mockRestore();
+        await neurolink.dispose();
+      }
+    });
+
+    it("should return audio without calling AI generation in Mode 1", async () => {
+      const mockTTSResult: TTSResult = {
+        buffer: Buffer.from("audio"),
+        format: "mp3",
+        size: 5,
+        metadata: {
+          latency: 300,
+          provider: "google-ai",
+        },
+      };
+
+      const { TTSProcessor } = await import(
+        "../../src/lib/utils/ttsProcessor.js"
+      );
+      const synthesizeSpy = vi
+        .spyOn(TTSProcessor, "synthesize")
+        .mockResolvedValue(mockTTSResult);
+
+      const { NeuroLink } = await import("../../src/lib/neurolink.js");
+      const neurolink = new NeuroLink();
+
+      try {
+        // Mode 1 should return early without AI generation
+        const result = await neurolink.generate({
+          input: { text: "Test text" },
+          provider: "google-ai",
+          tts: { enabled: true, useAiResponse: false },
+        });
+
+        expect(result.audio).toBeDefined();
+        expect(result.usage?.input).toBe(0); // No AI tokens used
+        expect(result.usage?.output).toBe(0);
+      } finally {
+        synthesizeSpy.mockRestore();
+        await neurolink.dispose();
+      }
+    });
+  });
+
+  describe("Mode 2: AI Response Synthesis (useAiResponse=true)", () => {
+    it("should return audio with AI-generated content when useAiResponse=true", async () => {
+      const mockTTSResult: TTSResult = {
+        buffer: Buffer.from("ai response audio"),
+        format: "mp3",
+        size: 17,
+        voice: "en-US-Neural2-D",
+        metadata: {
+          latency: 600,
+          provider: "google-ai",
+        },
+      };
+
+      const { TTSProcessor } = await import(
+        "../../src/lib/utils/ttsProcessor.js"
+      );
+      const synthesizeSpy = vi
+        .spyOn(TTSProcessor, "synthesize")
+        .mockResolvedValue(mockTTSResult);
+
+      const { NeuroLink } = await import("../../src/lib/neurolink.js");
+      const neurolink = new NeuroLink();
+
+      try {
+        // Mode 2: AI generation + TTS of AI response
+        const result = await neurolink.generate({
+          input: { text: "What is 2+2?" },
+          provider: "google-ai",
+          maxTokens: 10,
+          tts: {
+            enabled: true,
+            useAiResponse: true, // Synthesize AI response
+            voice: "en-US-Neural2-D",
+          },
+        });
+
+        // Verify TTSProcessor.synthesize was called with AI response
+        expect(synthesizeSpy).toHaveBeenCalled();
+        const [synthesizedText, synthesizedProvider] =
+          synthesizeSpy.mock.calls[0];
+        expect(synthesizedText).toBeTruthy(); // AI response exists
+        expect(synthesizedText).not.toBe("What is 2+2?"); // Not the input
+        expect(synthesizedProvider).toBe("google-ai"); // Provider passed correctly
+
+        // Verify result contains both AI content and audio
+        expect(result.content).toBeTruthy();
+        expect(result.audio).toBeDefined();
+        expect(result.audio?.buffer).toEqual(Buffer.from("ai response audio"));
+      } finally {
+        synthesizeSpy.mockRestore();
+        await neurolink.dispose();
+      }
+    });
+  });
+
+  describe("TTS disabled - no audio field", () => {
+    it("should not include audio when TTS is not enabled", async () => {
+      const { NeuroLink } = await import("../../src/lib/neurolink.js");
+      const neurolink = new NeuroLink();
+
+      try {
+        const result = await neurolink.generate({
+          input: { text: "What is 2+2?" },
+          provider: "google-ai",
+          maxTokens: 10,
+          // No TTS option
+        });
+
+        // Verify no audio field
+        expect(result.audio).toBeUndefined();
+        expect(result.content).toBeTruthy();
+      } finally {
+        await neurolink.dispose();
+      }
+    });
+
+    it("should not include audio when TTS enabled is false", async () => {
+      const { NeuroLink } = await import("../../src/lib/neurolink.js");
+      const neurolink = new NeuroLink();
+
+      try {
+        const result = await neurolink.generate({
+          input: { text: "What is 2+2?" },
+          provider: "google-ai",
+          maxTokens: 10,
+          tts: { enabled: false },
+        });
+
+        expect(result.audio).toBeUndefined();
+      } finally {
+        await neurolink.dispose();
+      }
+    });
+  });
+
+  describe("Error handling", () => {
+    it("should handle TTS errors gracefully without failing request", async () => {
+      const { TTSProcessor } = await import(
+        "../../src/lib/utils/ttsProcessor.js"
+      );
+      const { TTSError, TTS_ERROR_CODES } = await import(
+        "../../src/lib/utils/ttsProcessor.js"
+      );
+
+      // Mock TTS to throw an error
+      const ttsError = new TTSError({
+        code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
+        message: "TTS synthesis failed",
+      });
+      const synthesizeSpy = vi
+        .spyOn(TTSProcessor, "synthesize")
+        .mockRejectedValue(ttsError);
+
+      const { NeuroLink } = await import("../../src/lib/neurolink.js");
+      const neurolink = new NeuroLink();
+
+      try {
+        // Should not throw - errors should be logged
+        const result = await neurolink.generate({
+          input: { text: "Test" },
+          provider: "google-ai",
+          tts: { enabled: true, useAiResponse: false },
+        });
+
+        // Request should succeed even if TTS fails
+        expect(result).toBeDefined();
+        expect(result.content).toBeTruthy();
+      } finally {
+        synthesizeSpy.mockRestore();
+        await neurolink.dispose();
+      }
+    });
+
+    it("should handle TTS errors gracefully in Mode 2 without failing AI generation", async () => {
+      const { TTSProcessor } = await import(
+        "../../src/lib/utils/ttsProcessor.js"
+      );
+      const { TTSError, TTS_ERROR_CODES } = await import(
+        "../../src/lib/utils/ttsProcessor.js"
+      );
+
+      // Mock TTS to throw an error when processing AI response
+      const ttsError = new TTSError({
+        code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
+        message: "TTS synthesis failed for AI response",
+      });
+      const synthesizeSpy = vi
+        .spyOn(TTSProcessor, "synthesize")
+        .mockRejectedValue(ttsError);
+
+      const { NeuroLink } = await import("../../src/lib/neurolink.js");
+      const neurolink = new NeuroLink();
+
+      try {
+        // Mode 2: AI generation should complete successfully even if TTS fails
+        const result = await neurolink.generate({
+          input: { text: "What is 2+2?" },
+          provider: "google-ai",
+          maxTokens: 10,
+          tts: { enabled: true, useAiResponse: true }, // Mode 2: synthesize AI response
+        });
+
+        // AI generation should succeed
+        expect(result).toBeDefined();
+        expect(result.content).toBeTruthy();
+
+        // Content should be the AI's response, not the input
+        expect(result.content).not.toBe("What is 2+2?");
+
+        // Audio field should be absent or undefined since TTS failed
+        expect(result.audio).toBeUndefined();
+
+        // Verify TTS was attempted with the AI response
+        expect(synthesizeSpy).toHaveBeenCalled();
+        const [synthesizedText] = synthesizeSpy.mock.calls[0];
+        expect(synthesizedText).toBeTruthy();
+        expect(synthesizedText).not.toBe("What is 2+2?"); // Should be AI response, not input
+      } finally {
+        synthesizeSpy.mockRestore();
+        await neurolink.dispose();
+      }
     });
   });
 });

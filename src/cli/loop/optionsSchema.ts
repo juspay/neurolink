@@ -25,6 +25,7 @@ export const textGenerationOptionsSchema: Record<
     | "evaluationCriteria"
     | "region"
     | "csvOptions"
+    | "tts"
   >,
   OptionSchema
 > = {

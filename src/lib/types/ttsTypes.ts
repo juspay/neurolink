@@ -22,6 +22,35 @@ export type TTSQuality = "standard" | "hd";
 export type TTSOptions = {
   /** Enable TTS output */
   enabled?: boolean;
+  /**
+   * Use the AI-generated response for TTS instead of the input text
+   *
+   * When false or undefined (default): TTS will synthesize the input text/prompt directly without calling AI generation
+   * When true: TTS will synthesize the AI-generated response after generation completes
+   *
+   * @default false
+   *
+   * @example Using input text directly (default)
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: "Hello world" },
+   *   provider: "google-ai",
+   *   tts: { enabled: true }  // or useAiResponse: false
+   * });
+   * // TTS synthesizes "Hello world" directly, no AI generation
+   * ```
+   *
+   * @example Using AI response
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: "Tell me a joke" },
+   *   provider: "google-ai",
+   *   tts: { enabled: true, useAiResponse: true }
+   * });
+   * // AI generates the joke, then TTS synthesizes the AI's response
+   * ```
+   */
+  useAiResponse?: boolean;
   /** Voice identifier (e.g., "en-US-Neural2-C") */
   voice?: string;
   /** Audio format (default: mp3) */

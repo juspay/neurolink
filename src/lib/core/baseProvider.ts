@@ -33,6 +33,7 @@ import { GenerationHandler } from "./modules/GenerationHandler.js";
 import { TelemetryHandler } from "./modules/TelemetryHandler.js";
 import { Utilities } from "./modules/Utilities.js";
 import { ToolsManager } from "./modules/ToolsManager.js";
+import { TTSProcessor } from "../utils/ttsProcessor.js";
 
 /**
  * Abstract base class for all AI providers
@@ -459,6 +460,21 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Text generation method - implements AIProvider interface
    * Tools are always available unless explicitly disabled
+   *
+   * Supports Text-to-Speech (TTS) audio generation in two modes:
+   * 1. Direct synthesis (default): TTS synthesizes the input text without AI generation
+   * 2. AI response synthesis: TTS synthesizes the AI-generated response after generation
+   *
+   * When TTS is enabled with useAiResponse=false (default), the method returns early with
+   * only the audio result, skipping AI generation entirely for optimal performance.
+   *
+   * When TTS is enabled with useAiResponse=true, the method performs full AI generation
+   * and then synthesizes the AI response to audio.
+   *
+   * @param optionsOrPrompt - Generation options or prompt string
+   * @param _analysisSchema - Optional analysis schema (not used)
+   * @returns Enhanced result with optional audio field containing TTSResult
+   *
    * IMPLEMENTATION NOTE: Uses streamText() under the hood and accumulates results
    * for consistency and better performance
    */
@@ -471,6 +487,35 @@ export abstract class BaseProvider implements AIProvider {
     const startTime = Date.now();
 
     try {
+      // ===== TTS MODE 1: Direct Input Synthesis (useAiResponse=false) =====
+      // Synthesize input text directly without AI generation
+      // This is optimal for simple read-aloud scenarios
+      if (options.tts?.enabled && !options.tts?.useAiResponse) {
+        const textToSynthesize = options.prompt ?? options.input?.text ?? "";
+
+        const ttsResult = await TTSProcessor.synthesize(
+          textToSynthesize,
+          options.provider ?? this.providerName,
+          options.tts,
+        );
+
+        const baseResult: EnhancedGenerateResult = {
+          content: textToSynthesize,
+          audio: ttsResult,
+          provider: options.provider ?? this.providerName,
+          model: this.modelName,
+          usage: {
+            input: 0,
+            output: 0,
+            total: 0,
+          },
+        };
+
+        // Call enhanceResult for consistency - enables analytics/evaluation for TTS-only requests
+        return await this.enhanceResult(baseResult, options, startTime);
+      }
+
+      // ===== Normal AI Generation Flow =====
       const { tools, model } = await this.prepareGenerationContext(options);
       const messages = await this.buildMessages(options);
       const generateResult = await this.executeGeneration(
@@ -490,13 +535,49 @@ export abstract class BaseProvider implements AIProvider {
 
       const { toolsUsed, toolExecutions } =
         this.extractToolInformation(generateResult);
-      const enhancedResult = this.formatEnhancedResult(
+      let enhancedResult = this.formatEnhancedResult(
         generateResult,
         tools,
         toolsUsed,
         toolExecutions,
         options,
       );
+
+      // ===== TTS MODE 2: AI Response Synthesis (useAiResponse=true) =====
+      // Synthesize AI-generated response after generation completes
+      if (options.tts?.enabled && options.tts?.useAiResponse) {
+        const aiResponse = enhancedResult.content;
+        const provider = options.provider ?? this.providerName;
+
+        // Validate AI response and provider before synthesis
+        if (aiResponse && provider) {
+          const ttsResult = await TTSProcessor.synthesize(
+            aiResponse,
+            provider,
+            options.tts,
+          );
+
+          // Add audio to enhanced result (TTSProcessor already includes latency in metadata)
+          enhancedResult = {
+            ...enhancedResult,
+            audio: ttsResult,
+          };
+        } else {
+          logger.warn(`TTS synthesis skipped despite being enabled`, {
+            provider: this.providerName,
+            hasAiResponse: !!aiResponse,
+            aiResponseLength: aiResponse?.length ?? 0,
+            hasProvider: !!provider,
+            ttsConfig: {
+              enabled: options.tts?.enabled,
+              useAiResponse: options.tts?.useAiResponse,
+            },
+            reason: !aiResponse
+              ? "AI response is empty or undefined"
+              : "Provider is missing",
+          });
+        }
+      }
 
       return await this.enhanceResult(enhancedResult, options, startTime);
     } catch (error) {
@@ -556,6 +637,7 @@ export abstract class BaseProvider implements AIProvider {
       enhancedWithTools: !!(result.toolsUsed && result.toolsUsed.length > 0),
       analytics: result.analytics,
       evaluation: result.evaluation,
+      audio: result.audio,
     };
   }
 

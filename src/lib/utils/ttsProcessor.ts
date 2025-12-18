@@ -10,7 +10,7 @@
 import { logger } from "./logger.js";
 import type { TTSOptions, TTSResult, TTSVoice } from "../types/ttsTypes.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
-import { NeuroLinkError, withTimeout } from "./errorHandling.js";
+import { NeuroLinkError } from "./errorHandling.js";
 
 /**
  * TTS-specific error codes
@@ -55,14 +55,46 @@ export class TTSError extends NeuroLinkError {
  *
  * Each provider (Google AI, OpenAI, etc.) implements this interface
  * to provide TTS generation capabilities using their respective APIs.
+ *
+ * **Timeout Handling:**
+ * Implementations MUST handle their own timeouts for the `synthesize()` method.
+ * Recommended timeout: 30 seconds. Implementations should use `withTimeout()` utility
+ * or provider-specific timeout mechanisms (e.g., Google Cloud client timeout).
+ *
+ * **Error Handling:**
+ * Implementations should throw TTSError for all failures, including timeouts.
+ * Use appropriate error codes from TTS_ERROR_CODES.
+ *
+ * @example
+ * ```typescript
+ * class MyTTSHandler implements TTSHandler {
+ *   async synthesize(text: string, options: TTSOptions): Promise<TTSResult> {
+ *     // REQUIRED: Implement timeout handling
+ *     return await withTimeout(
+ *       this.actualSynthesis(text, options),
+ *       30000, // 30 second timeout
+ *       'TTS synthesis timed out'
+ *     );
+ *   }
+ *
+ *   isConfigured(): boolean {
+ *     return !!process.env.MY_TTS_API_KEY;
+ *   }
+ * }
+ * ```
  */
 export interface TTSHandler {
   /**
    * Generate audio from text using provider-specific TTS API
    *
-   * @param text - Text to convert to speech
-   * @param options - TTS configuration options
+   * **IMPORTANT: Timeout Responsibility**
+   * Implementations MUST enforce their own timeouts (recommended: 30 seconds).
+   * Use the `withTimeout()` utility or provider-specific timeout mechanisms.
+   *
+   * @param text - Text to convert to speech (pre-validated, non-empty, within length limits)
+   * @param options - TTS configuration options (voice, format, speed, etc.)
    * @returns Audio buffer with metadata
+   * @throws {TTSError} On synthesis failure, timeout, or configuration issues
    */
   synthesize(text: string, options: TTSOptions): Promise<TTSResult>;
 
@@ -126,17 +158,6 @@ export class TTSProcessor {
    * @private
    */
   private static readonly DEFAULT_MAX_TEXT_LENGTH = 3000;
-
-  /**
-   * Default timeout for TTS synthesis operations (milliseconds)
-   *
-   * This timeout prevents indefinite hangs in provider API calls and serves as
-   * a safety net for all TTS operations. Individual handlers may implement
-   * shorter provider-specific timeouts.
-   *
-   * @private
-   */
-  private static readonly DEFAULT_SYNTHESIS_TIMEOUT_MS = 60000;
 
   /**
    * Register a TTS handler for a specific provider
@@ -230,14 +251,19 @@ export class TTSProcessor {
    * 1. Validates input text (not empty, within length limits)
    * 2. Looks up the provider handler
    * 3. Verifies provider configuration
-   * 4. Delegates synthesis to the provider
+   * 4. Delegates synthesis to the provider (timeout handled by provider)
    * 5. Enriches result with metadata
+   *
+   * **Timeout Handling:**
+   * Timeouts are enforced by individual provider implementations (see TTSHandler interface).
+   * Providers typically use 30-second timeouts via `withTimeout()` utility or
+   * provider-specific timeout mechanisms (e.g., Google Cloud client timeout).
    *
    * @param text - Text to convert to speech
    * @param provider - Provider identifier
    * @param options - TTS configuration options
    * @returns Audio result with buffer and metadata
-   * @throws TTSError if validation fails, provider not supported/configured, or synthesis times out
+   * @throws TTSError if validation fails or provider not supported/configured
    *
    * @example
    * ```typescript
@@ -326,23 +352,8 @@ export class TTSProcessor {
         `[TTSProcessor] Starting synthesis with provider: ${provider}`,
       );
 
-      // 5. Call handler.synthesize() with timeout protection (60 second safety net)
-      const result = await withTimeout(
-        handler.synthesize(trimmedText, options),
-        this.DEFAULT_SYNTHESIS_TIMEOUT_MS,
-        new TTSError({
-          code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
-          message: `TTS synthesis timeout for provider "${provider}" after ${this.DEFAULT_SYNTHESIS_TIMEOUT_MS}ms`,
-          category: ErrorCategory.EXECUTION,
-          severity: ErrorSeverity.HIGH,
-          retriable: true,
-          context: {
-            provider,
-            timeoutMs: this.DEFAULT_SYNTHESIS_TIMEOUT_MS,
-            textLength: trimmedText.length,
-          },
-        }),
-      );
+      // 5. Call handler.synthesize() - providers handle their own timeouts
+      const result = await handler.synthesize(trimmedText, options);
 
       // 6. Post-processing: add metadata
       const enrichedResult: TTSResult = {
