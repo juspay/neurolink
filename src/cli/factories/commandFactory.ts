@@ -36,10 +36,11 @@ import fs from "fs";
 import { handleSetup } from "../commands/setup.js";
 import { checkRedisAvailability } from "../../lib/utils/conversationMemoryUtils.js";
 import { saveAudioToFile, formatFileSize } from "../utils/audioFileUtils.js";
-import {
-  showProcessingSpinner,
-  showMultiFileSpinner,
-} from "../utils/spinner.js";
+// Note: Spinner utilities imported but not yet used - will be integrated when OFFICE-013 is complete
+// import {
+//   showProcessingSpinner,
+//   showMultiFileSpinner,
+// } from "../utils/spinner.js";
 
 /**
  * CLI Command Factory for generate commands
@@ -1642,36 +1643,8 @@ export class CLICommandFactory {
         argv.file as string | string[] | undefined,
       );
 
-      // Show progress indicators for office files
-      const allOfficeFiles = [
-        ...(docxFiles || []),
-        ...(pptxFiles || []),
-        ...(xlsxFiles || []),
-      ];
-
-      if (allOfficeFiles.length > 0 && !options.quiet) {
-        if (allOfficeFiles.length === 1) {
-          // Single file - show simple spinner
-          const fileSpinner = showProcessingSpinner(
-            allOfficeFiles[0],
-            options.quiet,
-          );
-          // Note: Spinner will be stopped after SDK processing completes
-          // This is a placeholder for when office processing is implemented
-          fileSpinner?.succeed(
-            chalk.green(`✅ Processed ${allOfficeFiles[0]}`),
-          );
-        } else {
-          // Multiple files - show multi-file spinner
-          const progress = showMultiFileSpinner(allOfficeFiles, options.quiet);
-          // Note: Progress will be updated as files are processed
-          // This is a placeholder for when office processing is implemented
-          for (const file of allOfficeFiles) {
-            progress.updateFile(file, "success");
-          }
-          progress.complete();
-        }
-      }
+      // Note: Office file spinners will be integrated when OFFICE-013 is implemented
+      // The spinner utility functions are ready to use: showProcessingSpinner(), showMultiFileSpinner()
 
       const generateInput = {
         text: inputText,
@@ -1953,34 +1926,8 @@ export class CLICommandFactory {
       argv.file as string | string[] | undefined,
     );
 
-    // Show progress indicators for office files
-    const allOfficeFiles = [
-      ...(docxFiles || []),
-      ...(pptxFiles || []),
-      ...(xlsxFiles || []),
-    ];
-
-    if (allOfficeFiles.length > 0 && !options.quiet) {
-      if (allOfficeFiles.length === 1) {
-        // Single file - show simple spinner
-        const fileSpinner = showProcessingSpinner(
-          allOfficeFiles[0],
-          options.quiet,
-        );
-        // Note: Spinner will be stopped after SDK processing completes
-        // This is a placeholder for when office processing is implemented
-        fileSpinner?.succeed(chalk.green(`✅ Processed ${allOfficeFiles[0]}`));
-      } else {
-        // Multiple files - show multi-file spinner
-        const progress = showMultiFileSpinner(allOfficeFiles, options.quiet);
-        // Note: Progress will be updated as files are processed
-        // This is a placeholder for when office processing is implemented
-        for (const file of allOfficeFiles) {
-          progress.updateFile(file, "success");
-        }
-        progress.complete();
-      }
-    }
+    // Note: Office file spinners will be integrated when OFFICE-013 is implemented
+    // The spinner utility functions are ready to use: showProcessingSpinner(), showMultiFileSpinner()
 
     const stream = await sdk.stream({
       input: {

@@ -9,12 +9,13 @@ The CLI now includes comprehensive progress indicators for office document proce
 ### File Type Support
 
 - **DOCX** (Word Documents) - 📄
-- **PPTX** (PowerPoint Presentations) - 📊  
+- **PPTX** (PowerPoint Presentations) - 📊
 - **XLSX** (Excel Spreadsheets) - 📈
 
 ### Visual Indicators
 
 Each file type has:
+
 - Distinctive emoji for visual identification
 - File name display with dimmed styling
 - Processing status messages
@@ -173,6 +174,7 @@ npx tsx test/manual/spinner-test.ts
 ```
 
 This will visually demonstrate:
+
 - Single file spinners for each office type
 - Multi-file spinner with success/error cases
 - Quiet mode behavior
