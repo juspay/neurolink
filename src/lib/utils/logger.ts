@@ -136,9 +136,27 @@ class NeuroLinkLogger {
       error: console.error,
     }[level];
     if (data !== undefined && data !== null) {
-      logMethod(prefix, message, data);
+      const stringifiedData = this.stringifyData(data);
+      logMethod(prefix, message, stringifiedData);
     } else {
       logMethod(prefix, message);
+    }
+  }
+
+  /**
+   * Safely stringifies data for logging output.
+   *
+   * @param data - The data to stringify.
+   * @returns Stringified representation of the data.
+   */
+  private stringifyData(data: unknown): string {
+    try {
+      if (typeof data === "string") {
+        return data;
+      }
+      return JSON.stringify(data, null, 2);
+    } catch {
+      return "[Unserializable Object]";
     }
   }
 
@@ -175,7 +193,10 @@ class NeuroLinkLogger {
           level,
           message,
           timestamp: new Date().getTime(),
-          data,
+          data:
+            data !== undefined && data !== null
+              ? this.stringifyData(data)
+              : undefined,
         });
       } catch {
         // Silently ignore emitter errors to avoid disrupting logging
