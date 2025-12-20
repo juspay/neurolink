@@ -761,13 +761,45 @@ export const imageUtils = {
 
   /**
    * Validate base64 string format
+   * Validates format BEFORE buffer allocation to prevent memory exhaustion
    */
   isValidBase64: (str: string): boolean => {
     try {
       // Remove data URI prefix if present
       const cleanBase64 = str.includes(",") ? str.split(",")[1] : str;
 
-      // Check if it's valid base64
+      // Empty string check
+      if (!cleanBase64 || cleanBase64.length === 0) {
+        return false;
+      }
+
+      // 1. Validate character set FIRST (A-Z, a-z, 0-9, +, /, =)
+      // This prevents memory allocation for invalid input like "hello world"
+      const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+      if (!base64Regex.test(cleanBase64)) {
+        return false;
+      }
+
+      // 2. Check length is multiple of 4
+      if (cleanBase64.length % 4 !== 0) {
+        return false;
+      }
+
+      // 3. Validate padding position (max 2 equals at end only)
+      const paddingIndex = cleanBase64.indexOf("=");
+      if (paddingIndex !== -1) {
+        // Padding must be at the end
+        if (paddingIndex < cleanBase64.length - 2) {
+          return false;
+        }
+        // No characters after padding
+        const afterPadding = cleanBase64.slice(paddingIndex);
+        if (!/^=+$/.test(afterPadding)) {
+          return false;
+        }
+      }
+
+      // 4. ONLY NOW decode if format is valid
       const decoded = Buffer.from(cleanBase64, "base64");
       const reencoded = decoded.toString("base64");
 
