@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { Argv } from "yargs";
 
 /**
  * Test suite for Loop Mode set help command
@@ -8,21 +7,31 @@ import type { Argv } from "yargs";
  */
 describe("Loop Mode set help", () => {
   let loggerOutput: string[];
+  let mockLogger: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     loggerOutput = [];
-    // Mock the logger to capture output
-    vi.mock("../../../src/lib/utils/logger.js", () => ({
-      logger: {
-        always: (message: string) => {
-          loggerOutput.push(message);
-        },
-      },
+    
+    // Create a proper mock for the logger
+    mockLogger = {
+      always: vi.fn((message: string) => {
+        loggerOutput.push(message);
+      }),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    };
+
+    // Mock the logger module before importing LoopSession
+    vi.doMock("../../../src/lib/utils/logger.js", () => ({
+      logger: mockLogger,
     }));
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
   });
 
   it("should have vitest globals available", () => {
@@ -32,117 +41,147 @@ describe("Loop Mode set help", () => {
   });
 
   describe("Multimodal flags documentation", () => {
-    it("should document that multimodal flags exist", () => {
-      // The help should mention all multimodal flags
-      const expectedFlags = ["--image", "--pdf", "--csv", "--video", "--file"];
+    it("should document that multimodal flags exist", async () => {
+      // Dynamically import LoopSession after mocking
+      const { LoopSession } = await import("../../../src/cli/loop/session.js");
+      
+      // Create a minimal mock for Argv
+      const mockInitializeCliParser = vi.fn(() => ({
+        showHelp: vi.fn(),
+      } as any));
 
-      // Validate each flag is a valid multimodal flag
-      expect(expectedFlags).toHaveLength(5);
-      expect(expectedFlags).toContain("--image");
-      expect(expectedFlags).toContain("--pdf");
-      expect(expectedFlags).toContain("--csv");
-      expect(expectedFlags).toContain("--video");
-      expect(expectedFlags).toContain("--file");
+      const session = new LoopSession(mockInitializeCliParser);
+      
+      // Access the private method through the command processor
+      // We'll simulate the "set help" command being processed
+      await (session as any).handleCommand("set help");
+
+      // Check that the logger was called with messages containing all flags
+      const allOutput = loggerOutput.join(" ");
+      
+      expect(allOutput).toContain("--image");
+      expect(allOutput).toContain("--pdf");
+      expect(allOutput).toContain("--csv");
+      expect(allOutput).toContain("--video");
+      expect(allOutput).toContain("--file");
     });
 
-    it("should clarify multimodal flags are per-command", () => {
-      // The help message should explicitly state that multimodal flags
-      // are per-command flags, not session variables
-      const expectedClarification =
-        "These are per-command flags, not session variables.";
+    it("should clarify multimodal flags are per-command", async () => {
+      const { LoopSession } = await import("../../../src/cli/loop/session.js");
+      
+      const mockInitializeCliParser = vi.fn(() => ({
+        showHelp: vi.fn(),
+      } as any));
 
-      // This clarification should be present in the help output
-      expect(expectedClarification).toContain("per-command");
-      expect(expectedClarification).toContain("not session variables");
+      const session = new LoopSession(mockInitializeCliParser);
+      await (session as any).handleCommand("set help");
+
+      const allOutput = loggerOutput.join(" ");
+      
+      expect(allOutput).toContain("per-command flags");
+      expect(allOutput).toContain("not session variables");
     });
 
-    it("should provide example usage in loop mode", () => {
-      // The help should include examples showing correct usage
-      // of multimodal flags in loop mode
-      const examplePattern1 = /analyze.*--image/;
-      const examplePattern2 = /summarize.*--pdf/;
+    it("should provide example usage in loop mode", async () => {
+      const { LoopSession } = await import("../../../src/cli/loop/session.js");
+      
+      const mockInitializeCliParser = vi.fn(() => ({
+        showHelp: vi.fn(),
+      } as any));
 
-      // Example formats should show: command + description + flag
-      const exampleUsage1 = "analyze this chart --image chart.png";
-      const exampleUsage2 = "summarize this document --pdf report.pdf";
+      const session = new LoopSession(mockInitializeCliParser);
+      await (session as any).handleCommand("set help");
 
-      expect(exampleUsage1).toMatch(examplePattern1);
-      expect(exampleUsage1).toContain("--image");
-      expect(exampleUsage2).toMatch(examplePattern2);
-      expect(exampleUsage2).toContain("--pdf");
+      const allOutput = loggerOutput.join(" ");
+      
+      expect(allOutput).toContain("Example:");
+      expect(allOutput).toContain("analyze this chart --image chart.png");
+      expect(allOutput).toContain("summarize this document --pdf report.pdf");
     });
   });
 
   describe("Help message structure", () => {
-    it("should have clear sections for session variables and multimodal flags", () => {
-      // The help output should have distinct sections:
-      // 1. Available Session Variables to Set
-      // 2. Note: Multimodal Flags (with flags inline)
+    it("should have clear sections for session variables and multimodal flags", async () => {
+      const { LoopSession } = await import("../../../src/cli/loop/session.js");
+      
+      const mockInitializeCliParser = vi.fn(() => ({
+        showHelp: vi.fn(),
+      } as any));
 
-      const expectedSections = [
-        "Available Session Variables to Set",
-        "Note: Multimodal Flags",
-      ];
+      const session = new LoopSession(mockInitializeCliParser);
+      await (session as any).handleCommand("set help");
 
-      expect(expectedSections).toHaveLength(2);
-      expect(expectedSections[0]).toContain("Session Variables");
-      expect(expectedSections[1]).toContain("Note:");
-      expect(expectedSections[1]).toContain("Multimodal Flags");
+      const allOutput = loggerOutput.join("\n");
+      
+      expect(allOutput).toContain("Available Session Variables to Set");
+      expect(allOutput).toContain("Note: Multimodal Flags");
     });
 
-    it("should use consistent formatting patterns", () => {
-      // Help should use chalk for consistent formatting:
-      // - cyan for headers (including Note header with flags)
-      // - yellow for variable names
-      // - gray for descriptions
-      // - dim for examples
+    it("should use consistent formatting patterns", async () => {
+      const { LoopSession } = await import("../../../src/cli/loop/session.js");
+      
+      const mockInitializeCliParser = vi.fn(() => ({
+        showHelp: vi.fn(),
+      } as any));
 
-      const formattingPatterns = {
-        headers: "cyan", // "Available Session Variables", "Note: Multimodal Flags"
-        variableNames: "yellow", // Session variable names
-        descriptions: "gray", // Types, allowed values, descriptions
-        examples: "dim", // Example commands
-      };
+      const session = new LoopSession(mockInitializeCliParser);
+      await (session as any).handleCommand("set help");
 
-      expect(formattingPatterns.headers).toBe("cyan");
-      expect(formattingPatterns.variableNames).toBe("yellow");
-      expect(formattingPatterns.descriptions).toBe("gray");
-      expect(formattingPatterns.examples).toBe("dim");
+      // Verify that logger.always was called multiple times with formatted output
+      expect(mockLogger.always).toHaveBeenCalled();
+      expect(mockLogger.always.mock.calls.length).toBeGreaterThan(5);
     });
   });
 
   describe("User experience", () => {
-    it("should prevent confusion about setting multimodal flags as session variables", () => {
-      // The explicit clarification should prevent users from trying commands like:
-      // "set image photo.jpg" (INCORRECT)
-      // Instead of:
-      // "analyze this chart --image chart.png" (CORRECT)
+    it("should prevent confusion about setting multimodal flags as session variables", async () => {
+      const { LoopSession } = await import("../../../src/cli/loop/session.js");
+      
+      const mockInitializeCliParser = vi.fn(() => ({
+        showHelp: vi.fn(),
+      } as any));
 
-      const incorrectUsage = "set image photo.jpg";
-      const correctUsage1 = "analyze this chart --image chart.png";
-      const correctUsage2 = "summarize this document --pdf report.pdf";
+      const session = new LoopSession(mockInitializeCliParser);
+      await (session as any).handleCommand("set help");
 
-      // Validate the patterns
-      expect(incorrectUsage).toMatch(/^set/);
-      expect(correctUsage1).toMatch(/^analyze.*--image/);
-      expect(correctUsage1).not.toMatch(/^set/);
-      expect(correctUsage2).toMatch(/^summarize.*--pdf/);
-      expect(correctUsage2).not.toMatch(/^set/);
+      const allOutput = loggerOutput.join(" ");
+      
+      // Verify the clarification message exists
+      expect(allOutput).toContain("not session variables");
+      expect(allOutput).toContain("Use them directly with your commands");
     });
 
-    it("should clearly state multimodal flags must be used directly in commands", () => {
-      // The help should explicitly state to "use them directly with your commands"
-      const expectedGuidance =
-        "Use them directly with your commands in loop mode";
+    it("should clearly state multimodal flags must be used directly in commands", async () => {
+      const { LoopSession } = await import("../../../src/cli/loop/session.js");
+      
+      const mockInitializeCliParser = vi.fn(() => ({
+        showHelp: vi.fn(),
+      } as any));
 
-      expect(expectedGuidance).toContain("directly");
-      expect(expectedGuidance).toContain("commands");
+      const session = new LoopSession(mockInitializeCliParser);
+      await (session as any).handleCommand("set help");
+
+      const allOutput = loggerOutput.join(" ");
+      
+      expect(allOutput).toContain("directly with your commands");
+      expect(allOutput).toContain("loop mode");
     });
   });
 
   describe("Comprehensive multimodal flag coverage", () => {
-    it("should list all multimodal flags that are per-command", () => {
-      // Comprehensive list of multimodal flags from commandFactory.ts
+    it("should list all multimodal flags that are per-command", async () => {
+      const { LoopSession } = await import("../../../src/cli/loop/session.js");
+      
+      const mockInitializeCliParser = vi.fn(() => ({
+        showHelp: vi.fn(),
+      } as any));
+
+      const session = new LoopSession(mockInitializeCliParser);
+      await (session as any).handleCommand("set help");
+
+      const allOutput = loggerOutput.join(" ");
+      
+      // All 5 multimodal flags should be present
       const allMultimodalFlags = [
         "--image",
         "--pdf",
@@ -151,48 +190,29 @@ describe("Loop Mode set help", () => {
         "--file",
       ];
 
-      // Validate each flag
       allMultimodalFlags.forEach((flag) => {
-        expect(flag).toMatch(/^--/);
-        expect([
-          "--image",
-          "--pdf",
-          "--csv",
-          "--video",
-          "--file",
-        ]).toContain(flag);
+        expect(allOutput).toContain(flag);
       });
-
-      expect(allMultimodalFlags.length).toBe(5);
     });
 
-    it("should differentiate multimodal flags from session variables", () => {
-      // Session variables (can be set with 'set' command):
-      const sessionVariables = [
-        "provider",
-        "model",
-        "temperature",
-        "maxTokens",
-        // etc.
-      ];
+    it("should differentiate multimodal flags from session variables", async () => {
+      const { LoopSession } = await import("../../../src/cli/loop/session.js");
+      
+      const mockInitializeCliParser = vi.fn(() => ({
+        showHelp: vi.fn(),
+      } as any));
 
-      // Multimodal flags (per-command only):
-      const multimodalFlags = [
-        "--image",
-        "--pdf",
-        "--csv",
-        "--video",
-        "--file",
-      ];
+      const session = new LoopSession(mockInitializeCliParser);
+      await (session as any).handleCommand("set help");
 
-      // Verify no overlap - multimodal flags are not session variables
-      sessionVariables.forEach((variable) => {
-        expect(variable).not.toMatch(/^--/);
-      });
-
-      multimodalFlags.forEach((flag) => {
-        expect(flag).toMatch(/^--/);
-      });
+      const allOutput = loggerOutput.join("\n");
+      
+      // Should have separate sections
+      expect(allOutput).toContain("Available Session Variables to Set");
+      expect(allOutput).toContain("Note: Multimodal Flags");
+      
+      // The note should explicitly state they're different
+      expect(allOutput).toContain("not session variables");
     });
   });
 });
