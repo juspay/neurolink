@@ -47,11 +47,17 @@ describe("AzureTTSHandler Skeleton - TTS-015", () => {
         expect(handler2).toBeInstanceOf(AzureTTSHandler);
       } finally {
         // Restore env vars
-        if (oldKey) process.env.AZURE_SPEECH_KEY = oldKey;
-        else delete process.env.AZURE_SPEECH_KEY;
+        if (oldKey) {
+          process.env.AZURE_SPEECH_KEY = oldKey;
+        } else {
+          delete process.env.AZURE_SPEECH_KEY;
+        }
 
-        if (oldRegion) process.env.AZURE_SPEECH_REGION = oldRegion;
-        else delete process.env.AZURE_SPEECH_REGION;
+        if (oldRegion) {
+          process.env.AZURE_SPEECH_REGION = oldRegion;
+        } else {
+          delete process.env.AZURE_SPEECH_REGION;
+        }
       }
     });
   });

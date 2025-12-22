@@ -9,11 +9,7 @@
 import * as sdk from "microsoft-cognitiveservices-speech-sdk";
 import { TTSError, TTS_ERROR_CODES } from "../../utils/ttsProcessor.js";
 import type { TTSHandler } from "../../utils/ttsProcessor.js";
-import type {
-  TTSOptions,
-  TTSResult,
-  TTSVoice,
-} from "../../types/ttsTypes.js";
+import type { TTSOptions, TTSResult, TTSVoice } from "../../types/ttsTypes.js";
 import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
 import { logger } from "../../utils/logger.js";
 
