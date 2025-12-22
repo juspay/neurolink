@@ -12,6 +12,7 @@ import type { MiddlewareFactoryOptions } from "./middlewareTypes.js";
 import type { JsonValue } from "./common.js";
 import type { Content, ImageWithAltText } from "./content.js";
 import type { TTSOptions, TTSResult } from "./ttsTypes.js";
+import type { VideoProcessorOptions } from "./fileTypes.js";
 
 /**
  * Generate function options type - Primary method for content generation
@@ -53,13 +54,11 @@ export type GenerateOptions = {
     includeHeaders?: boolean;
   };
 
-  // Video processing options
-  videoOptions?: {
-    frames?: number; // Number of frames to extract (default: 8)
-    quality?: number; // Frame quality 0-100 (default: 85)
-    format?: "jpeg" | "png"; // Frame format (default: jpeg)
-    transcribeAudio?: boolean; // Extract and transcribe audio (default: false)
-  };
+  /**
+   * Video processing options
+   * Controls frame extraction, quality, and transcription
+   */
+  videoOptions?: VideoProcessorOptions;
 
   /**
    * Text-to-Speech (TTS) configuration

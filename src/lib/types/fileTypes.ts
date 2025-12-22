@@ -168,6 +168,45 @@ export type AudioProcessorOptions = {
 };
 
 /**
+ * Video processor options
+ *
+ * Configuration for processing video files, including frame extraction,
+ * quality settings, and audio transcription.
+ *
+ * @example Basic frame extraction
+ * ```typescript
+ * const videoOptions: VideoProcessorOptions = {
+ *   frameCount: 10,
+ *   format: "jpeg",
+ *   quality: 90
+ * };
+ * ```
+ *
+ * @example With audio transcription
+ * ```typescript
+ * const videoOptions: VideoProcessorOptions = {
+ *   frameCount: 8,
+ *   format: "png",
+ *   quality: 85,
+ *   transcribe: true,
+ *   transcriptionModel: "whisper-1"
+ * };
+ * ```
+ */
+export type VideoProcessorOptions = {
+  /** Number of frames to extract from the video (default: 8) */
+  frameCount?: number;
+  /** Frame format for extracted frames (default: "jpeg") */
+  format?: "jpeg" | "png";
+  /** Frame quality from 0-100, where 100 is highest quality (default: 85) */
+  quality?: number;
+  /** Enable audio transcription from the video's audio track (default: false) */
+  transcribe?: boolean;
+  /** Model to use for audio transcription (e.g., 'whisper-1') */
+  transcriptionModel?: string;
+};
+
+/**
  * File detector options
  */
 export type FileDetectorOptions = {
