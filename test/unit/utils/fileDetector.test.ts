@@ -243,7 +243,14 @@ describe("FileDetector", () => {
       });
 
       it("should detect PDF from Buffer magic bytes", async () => {
-        const pdfBuffer = Buffer.from("%PDF-1.4 test content");
+        // Create a minimal but structurally valid PDF
+        const pdfBuffer = Buffer.from(
+          "%PDF-1.4\n" +
+            "1 0 obj\n<</Type/Catalog/Pages 2 0 R>>endobj\n" +
+            "2 0 obj\n<</Type/Pages/Count 0/Kids[]>>endobj\n" +
+            "xref\n0 3\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n" +
+            "trailer\n<</Size 3/Root 1 0 R>>\nstartxref\n108\n%%EOF",
+        );
 
         await expect(
           FileDetector.detectAndProcess(pdfBuffer, {

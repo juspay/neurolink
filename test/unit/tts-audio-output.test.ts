@@ -314,9 +314,8 @@ describe("TTS Types", () => {
 
   describe("isValidTTSOptions type guard", () => {
     it("should validate correct TTSOptions", async () => {
-      const { isValidTTSOptions } = await import(
-        "../../src/lib/types/ttsTypes.js"
-      );
+      const { isValidTTSOptions } =
+        await import("../../src/lib/types/ttsTypes.js");
 
       expect(isValidTTSOptions({})).toBe(true);
       expect(isValidTTSOptions({ enabled: true })).toBe(true);
@@ -327,9 +326,8 @@ describe("TTS Types", () => {
     });
 
     it("should reject invalid speed values", async () => {
-      const { isValidTTSOptions } = await import(
-        "../../src/lib/types/ttsTypes.js"
-      );
+      const { isValidTTSOptions } =
+        await import("../../src/lib/types/ttsTypes.js");
 
       expect(isValidTTSOptions({ speed: 0.1 })).toBe(false); // Below 0.25
       expect(isValidTTSOptions({ speed: 5.0 })).toBe(false); // Above 4.0
@@ -337,18 +335,16 @@ describe("TTS Types", () => {
     });
 
     it("should reject invalid format values", async () => {
-      const { isValidTTSOptions } = await import(
-        "../../src/lib/types/ttsTypes.js"
-      );
+      const { isValidTTSOptions } =
+        await import("../../src/lib/types/ttsTypes.js");
 
       expect(isValidTTSOptions({ format: "invalid" })).toBe(false);
       expect(isValidTTSOptions({ format: "flac" })).toBe(false);
     });
 
     it("should reject invalid quality values", async () => {
-      const { isValidTTSOptions } = await import(
-        "../../src/lib/types/ttsTypes.js"
-      );
+      const { isValidTTSOptions } =
+        await import("../../src/lib/types/ttsTypes.js");
 
       expect(isValidTTSOptions({ quality: "ultra" })).toBe(false);
       expect(isValidTTSOptions({ quality: "low" })).toBe(false);
@@ -371,9 +367,8 @@ describe("TTS Integration - BaseProvider.generate()", () => {
         },
       };
 
-      const { TTSProcessor } = await import(
-        "../../src/lib/utils/ttsProcessor.js"
-      );
+      const { TTSProcessor } =
+        await import("../../src/lib/utils/ttsProcessor.js");
       const synthesizeSpy = vi
         .spyOn(TTSProcessor, "synthesize")
         .mockResolvedValue(mockTTSResult);
@@ -435,9 +430,8 @@ describe("TTS Integration - BaseProvider.generate()", () => {
         },
       };
 
-      const { TTSProcessor } = await import(
-        "../../src/lib/utils/ttsProcessor.js"
-      );
+      const { TTSProcessor } =
+        await import("../../src/lib/utils/ttsProcessor.js");
       const synthesizeSpy = vi
         .spyOn(TTSProcessor, "synthesize")
         .mockResolvedValue(mockTTSResult);
@@ -476,9 +470,8 @@ describe("TTS Integration - BaseProvider.generate()", () => {
         },
       };
 
-      const { TTSProcessor } = await import(
-        "../../src/lib/utils/ttsProcessor.js"
-      );
+      const { TTSProcessor } =
+        await import("../../src/lib/utils/ttsProcessor.js");
       const synthesizeSpy = vi
         .spyOn(TTSProcessor, "synthesize")
         .mockResolvedValue(mockTTSResult);
@@ -560,12 +553,10 @@ describe("TTS Integration - BaseProvider.generate()", () => {
 
   describe("Error handling", () => {
     it("should handle TTS errors gracefully without failing request", async () => {
-      const { TTSProcessor } = await import(
-        "../../src/lib/utils/ttsProcessor.js"
-      );
-      const { TTSError, TTS_ERROR_CODES } = await import(
-        "../../src/lib/utils/ttsProcessor.js"
-      );
+      const { TTSProcessor } =
+        await import("../../src/lib/utils/ttsProcessor.js");
+      const { TTSError, TTS_ERROR_CODES } =
+        await import("../../src/lib/utils/ttsProcessor.js");
 
       // Mock TTS to throw an error
       const ttsError = new TTSError({
@@ -597,12 +588,10 @@ describe("TTS Integration - BaseProvider.generate()", () => {
     });
 
     it("should handle TTS errors gracefully in Mode 2 without failing AI generation", async () => {
-      const { TTSProcessor } = await import(
-        "../../src/lib/utils/ttsProcessor.js"
-      );
-      const { TTSError, TTS_ERROR_CODES } = await import(
-        "../../src/lib/utils/ttsProcessor.js"
-      );
+      const { TTSProcessor } =
+        await import("../../src/lib/utils/ttsProcessor.js");
+      const { TTSError, TTS_ERROR_CODES } =
+        await import("../../src/lib/utils/ttsProcessor.js");
 
       // Mock TTS to throw an error when processing AI response
       const ttsError = new TTSError({

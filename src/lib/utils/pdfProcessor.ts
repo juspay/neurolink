@@ -127,10 +127,10 @@ export class PDFProcessor {
     const provider = (options?.provider || "unknown").toLowerCase();
     const config = PDF_PROVIDER_CONFIGS[provider];
 
-    if (!this.isValidPDF(content)) {
-      throw new Error(
-        "Invalid PDF file format. File must start with %PDF- header.",
-      );
+    const validation = this.validatePDFStructure(content);
+    if (!validation.valid || validation.truncated) {
+      const errorDetails = validation.errors.join("; ");
+      throw new Error(`Invalid PDF file format: ${errorDetails}`);
     }
 
     if (!config) {
@@ -202,11 +202,86 @@ export class PDFProcessor {
     return PDF_PROVIDER_CONFIGS[provider] || null;
   }
 
-  private static isValidPDF(buffer: Buffer): boolean {
+  /**
+   * Comprehensive PDF validation result
+   */
+  static validatePDFStructure(buffer: Buffer): {
+    valid: boolean;
+    encrypted: boolean;
+    truncated: boolean;
+    errors: string[];
+  } {
+    const errors: string[] = [];
+    let encrypted = false;
+    let truncated = false;
+
+    // 1. Validate PDF signature (first 5 bytes: %PDF-)
     if (buffer.length < 5) {
+      errors.push("File too small to be a valid PDF (< 5 bytes)");
+      return { valid: false, encrypted: false, truncated: true, errors };
+    }
+
+    if (!buffer.subarray(0, 5).equals(this.PDF_SIGNATURE)) {
+      errors.push("Invalid PDF signature - file must start with %PDF-");
+      return { valid: false, encrypted: false, truncated: false, errors };
+    }
+
+    // Convert buffer to string for marker detection
+    const pdfString = buffer.toString("utf-8");
+
+    // 2. Validate trailer marker
+    if (!pdfString.includes("trailer")) {
+      errors.push("Missing PDF trailer marker - file may be corrupted");
+      logger.warn("[PDF] Missing trailer marker - PDF file may be corrupted");
+      truncated = true;
+    }
+
+    // 3. Validate EOF marker (check last 1024 bytes)
+    const lastChunkSize = Math.min(1024, buffer.length);
+    const lastChunk = buffer
+      .subarray(buffer.length - lastChunkSize)
+      .toString("utf-8");
+
+    if (!lastChunk.includes("%%EOF")) {
+      errors.push("Missing %%EOF marker - file may be truncated");
+      logger.warn("[PDF] Missing %%EOF marker - PDF file may be truncated");
+      truncated = true;
+    }
+
+    // 4. Detect encryption
+    if (pdfString.includes("/Encrypt")) {
+      encrypted = true;
+      errors.push("PDF is encrypted - may require password for processing");
+      logger.warn(
+        "[PDF] Encrypted PDF detected - document may require password",
+      );
+    }
+
+    // Determine overall validity
+    const valid = errors.length === 0 || (errors.length === 1 && encrypted);
+
+    return { valid, encrypted, truncated, errors };
+  }
+
+  private static isValidPDF(buffer: Buffer): boolean {
+    const validation = this.validatePDFStructure(buffer);
+
+    // Log all structural issues
+    if (validation.errors.length > 0) {
+      logger.warn("[PDF] PDF validation issues detected:", {
+        encrypted: validation.encrypted,
+        truncated: validation.truncated,
+        errors: validation.errors,
+      });
+    }
+
+    // PDF is valid if it has proper structure (even if encrypted)
+    // But reject if truncated or missing critical markers
+    if (validation.truncated) {
       return false;
     }
-    return buffer.subarray(0, 5).equals(this.PDF_SIGNATURE);
+
+    return validation.valid;
   }
 
   private static extractBasicMetadata(buffer: Buffer) {
