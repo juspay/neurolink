@@ -222,7 +222,10 @@ export class PDFProcessor {
     buffer: Buffer,
   ): Promise<number | null> {
     try {
-      // Dynamic import pdfjs to avoid DOMMatrix errors
+      // Dynamic import pdfjs to avoid DOMMatrix errors in Node.js
+      // pdfjs-dist contains browser-specific code (DOMMatrix, Canvas) that causes
+      // "ReferenceError: DOMMatrix is not defined" when statically imported in Node.js
+      // environments. Dynamic import defers loading until actually needed.
       const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
       // Helper function to get page count
@@ -232,8 +235,11 @@ export class PDFProcessor {
           const loadingTask = pdfjs.getDocument({
             data: new Uint8Array(buffer),
             useSystemFonts: true,
+            // Use CDN for standard fonts (required for proper text rendering)
+            // TODO: Consider bundling fonts locally or making URL configurable
             standardFontDataUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
-            // Disable password prompts
+            // Empty password prevents pdfjs from attempting interactive password prompts
+            // in headless/Node.js environments. Password-protected PDFs will fail gracefully.
             password: "",
           });
 

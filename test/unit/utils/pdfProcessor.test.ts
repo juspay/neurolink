@@ -28,6 +28,17 @@ vi.mock("../../../src/lib/utils/logger.js", () => ({
 // Helper to load test fixtures
 const fixturesPath = join(process.cwd(), "test", "fixtures");
 
+// Type-safe helper to access Vitest mock calls
+type MockFunction = {
+  mock: {
+    calls: unknown[][];
+  };
+};
+
+const getMockCalls = (mockFn: unknown): unknown[][] => {
+  return (mockFn as MockFunction).mock.calls;
+};
+
 describe("PDFProcessor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -102,9 +113,7 @@ describe("PDFProcessor", () => {
 
       // 3 pages shouldn't exceed limit, but let's verify the warning mechanism works
       // by checking that no warning is logged for this case
-      const warnCalls = (
-        logger.warn as unknown as { mock: { calls: unknown[][] } }
-      ).mock.calls;
+      const warnCalls = getMockCalls(logger.warn);
       const pageWarnings = warnCalls.filter(
         (call: unknown[]) =>
           typeof call[0] === "string" && call[0].includes("pages"),
@@ -282,9 +291,7 @@ describe("PDFProcessor", () => {
       });
 
       // Should have logged debug message about failure
-      const debugCalls = (
-        logger.debug as unknown as { mock: { calls: unknown[][] } }
-      ).mock.calls;
+      const debugCalls = getMockCalls(logger.debug);
       const failureLogs = debugCalls.filter(
         (call: unknown[]) =>
           (typeof call[0] === "string" &&
