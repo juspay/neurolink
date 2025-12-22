@@ -54,7 +54,7 @@ describe("Loop Mode set help", () => {
       
       // Access the private method through the command processor
       // We'll simulate the "set help" command being processed
-      await (session as any).handleCommand("set help");
+      await (session as any).handleSessionCommands("set help");
 
       // Check that the logger was called with messages containing all flags
       const allOutput = loggerOutput.join(" ");
@@ -74,7 +74,7 @@ describe("Loop Mode set help", () => {
       } as any));
 
       const session = new LoopSession(mockInitializeCliParser);
-      await (session as any).handleCommand("set help");
+      await (session as any).handleSessionCommands("set help");
 
       const allOutput = loggerOutput.join(" ");
       
@@ -90,7 +90,7 @@ describe("Loop Mode set help", () => {
       } as any));
 
       const session = new LoopSession(mockInitializeCliParser);
-      await (session as any).handleCommand("set help");
+      await (session as any).handleSessionCommands("set help");
 
       const allOutput = loggerOutput.join(" ");
       
@@ -109,7 +109,7 @@ describe("Loop Mode set help", () => {
       } as any));
 
       const session = new LoopSession(mockInitializeCliParser);
-      await (session as any).handleCommand("set help");
+      await (session as any).handleSessionCommands("set help");
 
       const allOutput = loggerOutput.join("\n");
       
@@ -125,7 +125,7 @@ describe("Loop Mode set help", () => {
       } as any));
 
       const session = new LoopSession(mockInitializeCliParser);
-      await (session as any).handleCommand("set help");
+      await (session as any).handleSessionCommands("set help");
 
       // Verify that logger.always was called multiple times with formatted output
       expect(mockLogger.always).toHaveBeenCalled();
@@ -142,7 +142,7 @@ describe("Loop Mode set help", () => {
       } as any));
 
       const session = new LoopSession(mockInitializeCliParser);
-      await (session as any).handleCommand("set help");
+      await (session as any).handleSessionCommands("set help");
 
       const allOutput = loggerOutput.join(" ");
       
@@ -159,7 +159,7 @@ describe("Loop Mode set help", () => {
       } as any));
 
       const session = new LoopSession(mockInitializeCliParser);
-      await (session as any).handleCommand("set help");
+      await (session as any).handleSessionCommands("set help");
 
       const allOutput = loggerOutput.join(" ");
       
@@ -177,7 +177,7 @@ describe("Loop Mode set help", () => {
       } as any));
 
       const session = new LoopSession(mockInitializeCliParser);
-      await (session as any).handleCommand("set help");
+      await (session as any).handleSessionCommands("set help");
 
       const allOutput = loggerOutput.join(" ");
       
@@ -203,7 +203,7 @@ describe("Loop Mode set help", () => {
       } as any));
 
       const session = new LoopSession(mockInitializeCliParser);
-      await (session as any).handleCommand("set help");
+      await (session as any).handleSessionCommands("set help");
 
       const allOutput = loggerOutput.join("\n");
       
