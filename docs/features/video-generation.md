@@ -122,7 +122,7 @@ interface GenerateVideoOptions {
   provider: "google-ai" | "vertex";
   model?: string; // Default: 'veo-3.1'
   resolution?: "720p" | "1080p";
-  lenght?: 4 | 6 | 8;
+  length?: 4 | 6 | 8;
   aspect_ratio?: "9:16" | "16:9";
   audio?: true | false;
 }
