@@ -201,15 +201,15 @@ const result = await neurolink.generate({
 
 ## 🎯 **Example Categories**
 
-| Category           | Status     | Description                                |
-| ------------------ | ---------- | ------------------------------------------ |
-| Basic Usage        | ✅ Ready   | Simple text generation and provider setup  |
-| Built-in Tools     | ✅ Working | MCP built-in tool examples                 |
-| External Discovery | ✅ Working | MCP server discovery examples              |
-| CLI Usage          | ✅ Ready   | Command-line interface examples            |
-| SDK Integration    | ✅ Ready   | TypeScript/JavaScript SDK examples         |
-| Multimodal         | ✅ Ready   | PDF, CSV, and Video analysis examples      |
-| External Tools     | 🔧 Coming  | Direct external tool execution (v1.8.0)    |
+| Category           | Status     | Description                               |
+| ------------------ | ---------- | ----------------------------------------- |
+| Basic Usage        | ✅ Ready   | Simple text generation and provider setup |
+| Built-in Tools     | ✅ Working | MCP built-in tool examples                |
+| External Discovery | ✅ Working | MCP server discovery examples             |
+| CLI Usage          | ✅ Ready   | Command-line interface examples           |
+| SDK Integration    | ✅ Ready   | TypeScript/JavaScript SDK examples        |
+| Multimodal         | ✅ Ready   | PDF, CSV, and Video analysis examples     |
+| External Tools     | 🔧 Coming  | Direct external tool execution (v1.8.0)   |
 
 ---
 
