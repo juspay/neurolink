@@ -94,6 +94,32 @@ const claudeResult = await neurolink.generate({
 - `sdk-advanced.ts` - Advanced provider configuration
 - `sdk-streaming.ts` - Streaming responses
 
+## 📊 **Multimodal Analysis Examples**
+
+### **Document Processing**
+
+- `pdf-analysis.ts` - Comprehensive PDF processing and analysis
+- `csv-analysis.ts` - CSV data analysis and insights
+- `video-analysis.ts` - **🆕 NEW!** Video processing with frame extraction and audio transcription
+
+### **Video Analysis Features**
+
+The `video-analysis.ts` example demonstrates:
+
+- **Frame-based processing** (OpenAI, Anthropic): Extracts frames from video
+- **Native video upload** (Gemini): Direct video processing without frame extraction
+- **Audio transcription**: Extract and transcribe audio tracks
+- **Custom frame extraction**: Control frame count (default: 8) and quality (default: 85%)
+- **Multiple video comparison**: Analyze and compare multiple videos
+- **Streaming support**: Get faster initial results
+- **Best practices**: Optimization tips for different video lengths and use cases
+
+Run with:
+
+```bash
+npx tsx examples/video-analysis.ts
+```
+
 ## 🛠️ **Running Examples**
 
 ### **Prerequisites**
@@ -175,14 +201,15 @@ const result = await neurolink.generate({
 
 ## 🎯 **Example Categories**
 
-| Category           | Status     | Description                               |
-| ------------------ | ---------- | ----------------------------------------- |
-| Basic Usage        | ✅ Ready   | Simple text generation and provider setup |
-| Built-in Tools     | ✅ Working | MCP built-in tool examples                |
-| External Discovery | ✅ Working | MCP server discovery examples             |
-| CLI Usage          | ✅ Ready   | Command-line interface examples           |
-| SDK Integration    | ✅ Ready   | TypeScript/JavaScript SDK examples        |
-| External Tools     | 🔧 Coming  | Direct external tool execution (v1.8.0)   |
+| Category           | Status     | Description                                |
+| ------------------ | ---------- | ------------------------------------------ |
+| Basic Usage        | ✅ Ready   | Simple text generation and provider setup  |
+| Built-in Tools     | ✅ Working | MCP built-in tool examples                 |
+| External Discovery | ✅ Working | MCP server discovery examples              |
+| CLI Usage          | ✅ Ready   | Command-line interface examples            |
+| SDK Integration    | ✅ Ready   | TypeScript/JavaScript SDK examples         |
+| Multimodal         | ✅ Ready   | PDF, CSV, and Video analysis examples      |
+| External Tools     | 🔧 Coming  | Direct external tool execution (v1.8.0)    |
 
 ---
 
