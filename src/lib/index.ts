@@ -48,6 +48,9 @@ export {
   isValidProvider,
 } from "./utils/providerUtils.js";
 
+// Model name normalization (PC-010)
+export { ModelNameNormalizer } from "./utils/modelNameNormalizer.js";
+
 // Dynamic Models exports
 export { dynamicModelProvider } from "./core/dynamicModels.js";
 export type { DynamicModelConfig, ModelRegistry } from "./types/modelTypes.js";

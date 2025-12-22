@@ -2,6 +2,7 @@ import type { AIProvider } from "../types/index.js";
 import type { UnknownRecord } from "../types/common.js";
 import { logger } from "../utils/logger.js";
 import { AIProviderName } from "../constants/enums.js";
+import { ModelNameNormalizer } from "../utils/modelNameNormalizer.js";
 
 // Pure factory pattern with no hardcoded imports
 // All providers loaded dynamically via registry to avoid circular dependencies
@@ -101,6 +102,27 @@ export class ProviderFactory {
       }
       // Fallback to registry default if no env var
       model = model || registration.defaultModel;
+    }
+
+    // Normalize model name using ModelNameNormalizer (PC-010)
+    if (model) {
+      const originalModel = model;
+      model = ModelNameNormalizer.normalize(model, normalizedName);
+
+      if (originalModel !== model) {
+        logger.debug(
+          `Model name normalized for provider ${providerName}: ${originalModel} → ${model}`,
+        );
+      }
+
+      // Validate model name
+      if (!ModelNameNormalizer.validate(model, normalizedName)) {
+        const errorMessage = ModelNameNormalizer.getErrorMessage(
+          model,
+          normalizedName,
+        );
+        throw new Error(errorMessage);
+      }
     }
 
     try {
