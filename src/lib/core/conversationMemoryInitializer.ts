@@ -113,15 +113,6 @@ export async function initializeConversationMemory(config?: {
 
       logger.info(
         "[conversationMemoryInitializer] Redis conversation memory manager created successfully",
-        {
-          configSource,
-          host: redisConfig.host || "localhost",
-          port: redisConfig.port || 6379,
-          keyPrefix: redisConfig.keyPrefix || "neurolink:conversation:",
-          maxSessions: memoryConfig.maxSessions,
-          maxTurnsPerSession: memoryConfig.maxTurnsPerSession,
-          managerType: redisMemoryManager?.constructor?.name,
-        },
       );
 
       // Perform basic validation

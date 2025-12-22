@@ -600,7 +600,11 @@ export async function buildMultimodalMessagesArray(
   }
 
   // Track PDF files for multimodal processing (NOT text conversion)
-  const pdfFiles: Array<{ buffer: Buffer; filename: string }> = [];
+  const pdfFiles: Array<{
+    buffer: Buffer;
+    filename: string;
+    pageCount?: number | null;
+  }> = [];
 
   // Process explicit PDF files array
   if (options.input.pdfFiles && options.input.pdfFiles.length > 0) {
@@ -620,8 +624,14 @@ export async function buildMultimodalMessagesArray(
         });
 
         if (Buffer.isBuffer(result.content)) {
-          pdfFiles.push({ buffer: result.content, filename });
-          logger.info(`[PDF] ✅ Queued for multimodal: ${filename}`);
+          pdfFiles.push({
+            buffer: result.content,
+            filename,
+            pageCount: result.metadata?.estimatedPages ?? null,
+          });
+          logger.info(
+            `[PDF] ✅ Queued for multimodal: ${filename} (${result.metadata?.estimatedPages ?? "unknown"} pages)`,
+          );
         }
       } catch (error) {
         logger.error(`[PDF] ❌ Failed to process ${filename}:`, error);
@@ -1058,7 +1068,11 @@ async function convertSimpleImagesToProviderFormat(
 async function convertMultimodalToProviderFormat(
   text: string,
   images: Array<Buffer | string | ImageWithAltText>,
-  pdfFiles: Array<{ buffer: Buffer; filename: string }>,
+  pdfFiles: Array<{
+    buffer: Buffer;
+    filename: string;
+    pageCount?: number | null;
+  }>,
   provider: string,
   model: string,
 ): Promise<Array<TextPart | ImagePart | FilePart>> {

@@ -27,10 +27,7 @@ export function createConversationMemoryManager(
       config: {
         enabled: config.enabled,
         maxSessions: config.maxSessions,
-        maxTurnsPerSession: config.maxTurnsPerSession,
         enableSummarization: config.enableSummarization,
-        summarizationThresholdTurns: config.summarizationThresholdTurns,
-        summarizationTargetTurns: config.summarizationTargetTurns,
         summarizationProvider: config.summarizationProvider,
         summarizationModel: config.summarizationModel,
       },

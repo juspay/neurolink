@@ -397,6 +397,8 @@ export type TextGenerationOptions = {
     formatStyle?: "raw" | "markdown" | "json";
     includeHeaders?: boolean;
   };
+
+  enableSummarization?: boolean; // Enable/disable summarization for this specific request
 };
 
 /**

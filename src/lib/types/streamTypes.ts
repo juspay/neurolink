@@ -355,6 +355,8 @@ export type StreamOptions = {
 
   // NEW: Middleware related config
   middleware?: MiddlewareFactoryOptions;
+
+  enableSummarization?: boolean; // Enable/disable summarization for this specific request
 };
 
 /**

@@ -14,7 +14,7 @@
  */
 
 import type { LanguageModelV1, CoreMessage, Tool } from "ai";
-import { generateText, Output } from "ai";
+import { generateText, Output, NoObjectGeneratedError } from "ai";
 import type {
   TextGenerationOptions,
   EnhancedGenerateResult,
@@ -55,17 +55,19 @@ export class GenerationHandler {
   ) {}
 
   /**
-   * Execute the generation with AI SDK
+   * Helper method to call generateText with optional structured output
+   * @private
    */
-  async executeGeneration(
+  private async callGenerateText(
     model: LanguageModelV1,
     messages: CoreMessage[],
     tools: Record<string, Tool>,
     options: TextGenerationOptions,
+    shouldUseTools: boolean,
+    includeStructuredOutput: boolean,
   ): Promise<Awaited<ReturnType<typeof generateText>>> {
-    const shouldUseTools = !options.disableTools && this.supportsToolsFn();
-
     const useStructuredOutput =
+      includeStructuredOutput &&
       !!options.schema &&
       (options.output?.format === "json" ||
         options.output?.format === "structured");
@@ -100,6 +102,61 @@ export class GenerationHandler {
         });
       },
     });
+  }
+
+  /**
+   * Execute the generation with AI SDK
+   */
+  async executeGeneration(
+    model: LanguageModelV1,
+    messages: CoreMessage[],
+    tools: Record<string, Tool>,
+    options: TextGenerationOptions,
+  ): Promise<Awaited<ReturnType<typeof generateText>>> {
+    const shouldUseTools = !options.disableTools && this.supportsToolsFn();
+
+    const useStructuredOutput =
+      !!options.schema &&
+      (options.output?.format === "json" ||
+        options.output?.format === "structured");
+
+    try {
+      return await this.callGenerateText(
+        model,
+        messages,
+        tools,
+        options,
+        shouldUseTools,
+        true, // includeStructuredOutput
+      );
+    } catch (error) {
+      // If NoObjectGeneratedError is thrown when using schema + tools together,
+      // fall back to generating without experimental_output and extract JSON manually
+      if (error instanceof NoObjectGeneratedError && useStructuredOutput) {
+        logger.debug(
+          "[GenerationHandler] NoObjectGeneratedError caught - falling back to manual JSON extraction",
+          {
+            provider: this.providerName,
+            model: this.modelName,
+            error: error.message,
+          },
+        );
+
+        // Retry without experimental_output - the formatEnhancedResult method
+        // will extract JSON from the text response
+        return await this.callGenerateText(
+          model,
+          messages,
+          tools,
+          options,
+          shouldUseTools,
+          false, // includeStructuredOutput - intentionally omitted
+        );
+      }
+
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   /**
@@ -242,11 +299,30 @@ export class GenerationHandler {
 
     let content: string;
     if (useStructuredOutput) {
-      if (generateResult.experimental_output !== undefined) {
-        content = JSON.stringify(generateResult.experimental_output);
-      } else {
+      try {
+        const experimentalOutput = generateResult.experimental_output;
+        if (experimentalOutput !== undefined) {
+          content = JSON.stringify(experimentalOutput);
+        } else {
+          // Fall back to text parsing
+          const rawText = generateResult.text || "";
+          const strippedText = rawText
+            .replace(/^```(?:json)?\s*\n?/i, "")
+            .replace(/\n?```\s*$/i, "")
+            .trim();
+          content = strippedText;
+        }
+      } catch (outputError) {
+        // experimental_output is a getter that can throw NoObjectGeneratedError
+        // Fall back to text parsing when structured output fails
         logger.debug(
-          "[GenerationHandler] experimental_output not available, falling back to text parsing",
+          "[GenerationHandler] experimental_output threw, falling back to text parsing",
+          {
+            error:
+              outputError instanceof Error
+                ? outputError.message
+                : String(outputError),
+          },
         );
         const rawText = generateResult.text || "";
         const strippedText = rawText

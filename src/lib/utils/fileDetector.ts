@@ -21,6 +21,34 @@ import { ImageProcessor } from "./imageProcessor.js";
 import { PDFProcessor } from "./pdfProcessor.js";
 
 /**
+ * Check if text has JSON markers (starts with { or [ and ends with corresponding closing bracket)
+ */
+function hasJsonMarkers(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const firstChar = trimmed[0];
+  const lastChar = trimmed[trimmed.length - 1];
+
+  const hasMatchingBrackets =
+    (firstChar === "{" && lastChar === "}") ||
+    (firstChar === "[" && lastChar === "]");
+
+  if (!hasMatchingBrackets) {
+    return false;
+  }
+
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Format file size in human-readable units
  */
 function formatFileSize(bytes: number): string {
@@ -77,12 +105,45 @@ export class FileDetector {
   ): Promise<FileProcessingResult> {
     const detection = await this.detect(input, options);
 
+    // FD-018: Comprehensive fallback parsing for extension-less files
+    // When file detection returns "unknown" or doesn't match allowedTypes,
+    // attempt parsing for each allowed type before failing. This handles cases like Slack
+    // files named "file-1", "file-2" without extensions that could be CSV, JSON, or text.
     if (
       options?.allowedTypes &&
       !options.allowedTypes.includes(detection.type)
     ) {
+      // Try fallback parsing for both "unknown" types and when detection doesn't match allowed types
+      const content = await this.loadContent(input, detection, options);
+      const errors: string[] = [];
+
+      // Try each allowed type in order of specificity
+      for (const allowedType of options.allowedTypes) {
+        try {
+          const result = await this.tryFallbackParsing(
+            content,
+            allowedType,
+            options,
+          );
+          if (result) {
+            logger.info(
+              `[FileDetector] ✅ ${allowedType.toUpperCase()} fallback successful`,
+            );
+            return result;
+          }
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          errors.push(`${allowedType}: ${errorMsg}`);
+          logger.debug(
+            `[FileDetector] ${allowedType} fallback failed: ${errorMsg}`,
+          );
+        }
+      }
+
+      // All fallbacks failed
       throw new Error(
-        `File type ${detection.type} not allowed. Allowed: ${options.allowedTypes.join(", ")}`,
+        `File type detection failed and all fallback parsing attempts failed. Original detection: ${detection.type}. Attempted types: ${options.allowedTypes.join(", ")}. Errors: ${errors.join("; ")}`,
       );
     }
 
@@ -97,6 +158,217 @@ export class FileDetector {
       csvOptions,
       options?.provider,
     );
+  }
+
+  /**
+   * Try fallback parsing for a specific file type
+   * Used when file detection returns "unknown" but we want to try parsing anyway
+   */
+  private static async tryFallbackParsing(
+    content: Buffer,
+    fileType: FileType,
+    options?: FileDetectorOptions,
+  ): Promise<FileProcessingResult | null> {
+    logger.info(
+      `[FileDetector] Attempting ${fileType.toUpperCase()} fallback parsing`,
+    );
+
+    switch (fileType) {
+      case "csv": {
+        // Try CSV parsing
+        const csvOptions: CSVProcessorOptions | undefined = options?.csvOptions;
+        const result = await CSVProcessor.process(content, csvOptions);
+        logger.info(
+          `[FileDetector] CSV fallback: ${result.metadata?.rowCount || 0} rows, ${result.metadata?.columnCount || 0} columns`,
+        );
+        return result;
+      }
+
+      case "text": {
+        // Try text parsing - check if content is valid UTF-8 text
+        const textContent = content.toString("utf-8");
+        // Validate it's actually text (no null bytes, mostly printable)
+        if (this.isValidText(textContent)) {
+          return {
+            type: "text",
+            content: textContent,
+            mimeType: this.guessTextMimeType(textContent),
+            metadata: {
+              confidence: 70,
+              size: content.length,
+            },
+          };
+        }
+        throw new Error("Content does not appear to be valid text");
+      }
+
+      case "image": {
+        // Image requires magic bytes - can't fallback without detection
+        throw new Error(
+          "Image type requires binary detection, cannot fallback parse",
+        );
+      }
+
+      case "pdf": {
+        // PDF requires magic bytes - can't fallback without detection
+        throw new Error(
+          "PDF type requires binary detection, cannot fallback parse",
+        );
+      }
+
+      case "audio": {
+        // Audio requires magic bytes - can't fallback without detection
+        throw new Error(
+          "Audio type requires binary detection, cannot fallback parse",
+        );
+      }
+
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Check if content is valid text (UTF-8, mostly printable)
+   */
+  private static isValidText(content: string): boolean {
+    // Check for null bytes which indicate binary content
+    if (content.includes("\0")) {
+      return false;
+    }
+
+    // Check if content has reasonable amount of printable characters
+    let printableCount = 0;
+    for (let i = 0; i < content.length; i++) {
+      const code = content.charCodeAt(i);
+      if (
+        (code >= 32 && code < 127) || // ASCII printable
+        code === 9 || // Tab
+        code === 10 || // Newline
+        code === 13 || // Carriage return
+        code > 127 // Unicode (non-ASCII)
+      ) {
+        printableCount++;
+      }
+    }
+
+    // At least 90% should be printable
+    return printableCount / content.length >= 0.9;
+  }
+
+  /**
+   * Guess the MIME type for text content based on content patterns
+   */
+  private static guessTextMimeType(content: string): string {
+    const trimmed = content.trim();
+
+    // Check for JSON
+    if (
+      (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+      (trimmed.startsWith("[") && trimmed.endsWith("]"))
+    ) {
+      try {
+        JSON.parse(trimmed);
+        return "application/json";
+      } catch {
+        // Not valid JSON, continue checking
+      }
+    }
+
+    // Check for XML/HTML using stricter detection
+    if (this.looksLikeXMLStrict(trimmed)) {
+      const isHTML =
+        trimmed.includes("<!DOCTYPE html") ||
+        trimmed.toLowerCase().includes("<html") ||
+        trimmed.includes("<head") ||
+        trimmed.includes("<body");
+      return isHTML ? "text/html" : "application/xml";
+    }
+
+    // Check for YAML using robust multi-indicator detection
+    if (this.looksLikeYAMLStrict(trimmed)) {
+      return "application/yaml";
+    }
+
+    // Default to plain text
+    return "text/plain";
+  }
+
+  /**
+   * Strict YAML detection for guessTextMimeType
+   * Similar to ContentHeuristicStrategy but requires at least 2 indicators
+   * to avoid false positives from simple key: value patterns
+   */
+  private static looksLikeYAMLStrict(text: string): boolean {
+    if (text.length === 0) {
+      return false;
+    }
+
+    const lines = text.split("\n");
+
+    // For single-line content, only --- or ... qualify as YAML
+    if (lines.length === 1) {
+      return text === "---" || text === "...";
+    }
+
+    // Collect YAML indicators (requires at least 2 for positive detection)
+    const indicators: boolean[] = [];
+
+    // Indicator 1: Document start marker (---)
+    indicators.push(text.startsWith("---"));
+
+    // Indicator 2: Document end marker (...)
+    indicators.push(/^\.\.\.$|[\n]\.\.\.$/.test(text));
+
+    // Indicator 3: YAML list items (- followed by space)
+    indicators.push(/^[\s]*-\s+[^-]/m.test(text));
+
+    // Indicator 4: Multiple key-value pairs (at least 2)
+    const keyValuePattern = /^[\s]*[a-zA-Z_][a-zA-Z0-9_-]*:\s*(.+)$/;
+    const keyValueMatches = lines.filter((line) =>
+      keyValuePattern.test(line),
+    ).length;
+    indicators.push(keyValueMatches >= 2);
+
+    // Require at least 2 indicators for confident YAML detection
+    const matchCount = indicators.filter(Boolean).length;
+    return matchCount >= 2;
+  }
+
+  /**
+   * Strict XML detection for guessTextMimeType
+   * Ensures content has proper XML declaration or valid tag structure with closing tags
+   * Prevents false positives from arbitrary content starting with <
+   */
+  private static looksLikeXMLStrict(content: string): boolean {
+    // XML declaration is a definitive marker
+    if (content.startsWith("<?xml")) {
+      return true;
+    }
+
+    // Must start with < for XML/HTML
+    if (!content.startsWith("<")) {
+      return false;
+    }
+
+    // Check for HTML DOCTYPE declaration
+    if (content.includes("<!DOCTYPE html")) {
+      return true;
+    }
+
+    // Must have valid opening tag structure: <tagname
+    // Not just any < character like "< something"
+    const hasValidOpeningTag = /<[a-zA-Z][a-zA-Z0-9-]*(?:\s[^>]*)?>/;
+    if (!hasValidOpeningTag.test(content)) {
+      return false;
+    }
+
+    // Must have at least one closing tag or self-closing tag to be valid XML/HTML
+    const hasClosingTag = /<\/[a-zA-Z][a-zA-Z0-9-]*>/.test(content);
+    const hasSelfClosingTag =
+      /<[a-zA-Z][a-zA-Z0-9-]*(?:\s[^>]*)?\s*\/\s*>/.test(content);
+
+    return hasClosingTag || hasSelfClosingTag;
   }
 
   /**
@@ -194,7 +466,7 @@ export class FileDetector {
         return {
           type: "text",
           content: content.toString("utf-8"),
-          mimeType: "text/plain",
+          mimeType: detection.mimeType || "text/plain",
           metadata: detection.metadata,
         };
       default:
@@ -467,6 +739,16 @@ class ExtensionStrategy implements DetectionStrategy {
       pdf: "pdf",
       txt: "text",
       md: "text",
+      json: "text",
+      xml: "text",
+      yaml: "text",
+      yml: "text",
+      html: "text",
+      htm: "text",
+      log: "text",
+      conf: "text",
+      cfg: "text",
+      ini: "text",
     };
 
     const type = typeMap[ext.toLowerCase()];
@@ -521,6 +803,16 @@ class ExtensionStrategy implements DetectionStrategy {
       pdf: "application/pdf",
       txt: "text/plain",
       md: "text/markdown",
+      json: "application/json",
+      xml: "application/xml",
+      yaml: "application/yaml",
+      yml: "application/yaml",
+      html: "text/html",
+      htm: "text/html",
+      log: "text/plain",
+      conf: "text/plain",
+      cfg: "text/plain",
+      ini: "text/plain",
     };
     return mimeMap[ext.toLowerCase()] || "application/octet-stream";
   }
@@ -542,34 +834,279 @@ class ExtensionStrategy implements DetectionStrategy {
  */
 class ContentHeuristicStrategy implements DetectionStrategy {
   async detect(input: FileInput): Promise<FileDetectionResult> {
-    if (!Buffer.isBuffer(input)) {
+    let buffer: Buffer;
+
+    if (Buffer.isBuffer(input)) {
+      buffer = input;
+    } else if (typeof input === "string") {
+      // Try to load from file path or data URI
+      if (input.startsWith("data:")) {
+        // Data URI
+        const match = input.match(/^data:([^;]+);base64,(.+)$/);
+        if (!match) {
+          return this.unknown();
+        }
+        buffer = Buffer.from(match[2], "base64");
+      } else if (input.startsWith("http://") || input.startsWith("https://")) {
+        // URL - can't analyze without making HTTP request in ContentHeuristic
+        return this.unknown();
+      } else {
+        // File path - try to load it
+        try {
+          buffer = await readFile(input);
+        } catch {
+          return this.unknown();
+        }
+      }
+    } else {
       return this.unknown();
     }
 
-    const sample = input.toString("utf-8", 0, Math.min(1000, input.length));
+    const sample = buffer.toString("utf-8", 0, Math.min(2000, buffer.length));
 
+    // Check for JSON first (more specific than CSV)
+    if (this.looksLikeJSON(sample)) {
+      return this.result("text", "application/json", 75);
+    }
+
+    // Check CSV after JSON (CSV is more generic)
     if (this.looksLikeCSV(sample)) {
       return this.result("csv", "text/csv", 75);
+    }
+
+    // Check for XML/HTML
+    if (this.looksLikeXML(sample)) {
+      const isHTML =
+        sample.includes("<!DOCTYPE html") || sample.includes("<html");
+      return this.result("text", isHTML ? "text/html" : "application/xml", 70);
+    }
+
+    // Check for YAML
+    if (this.looksLikeYAML(sample)) {
+      return this.result("text", "application/yaml", 70);
+    }
+
+    // Check for plain text (if mostly printable characters)
+    if (this.looksLikeText(sample)) {
+      return this.result("text", "text/plain", 60);
     }
 
     return this.unknown();
   }
 
   private looksLikeCSV(text: string): boolean {
-    const lines = text.split("\n").slice(0, 5);
+    const lines = text.trim().split("\n");
     if (lines.length < 2) {
       return false;
     }
 
-    const hasCommas = lines.every((line) => line.includes(","));
-    if (!hasCommas) {
+    // Detect delimiter from first line
+    const firstLine = lines[0];
+    const delimiters = [",", ";", "\t", "|"];
+    const delimiter = delimiters.find((d) => firstLine.includes(d));
+
+    // Single-column CSV check (no delimiter)
+    if (!delimiter) {
+      // Exclude content that looks like other structured formats
+      // YAML indicators
+      if (
+        text.startsWith("---") ||
+        /^[\s]*-\s+/m.test(text) ||
+        /^[\s]*[a-zA-Z_][a-zA-Z0-9_-]*:\s*/m.test(text)
+      ) {
+        return false;
+      }
+
+      // XML/HTML indicators
+      if (text.startsWith("<") || text.includes("<?xml")) {
+        return false;
+      }
+
+      // JSON indicators
+      if (
+        (text.startsWith("{") && text.includes("}")) ||
+        (text.startsWith("[") && text.includes("]"))
+      ) {
+        return false;
+      }
+
+      // Exclude prose/sentences (look for sentence patterns)
+      // Check for multiple words per line (prose indicator)
+      const hasProsePattern = lines.some((line) => {
+        const words = line.trim().split(/\s+/);
+        return words.length > 4; // More than 4 words suggests prose, not data
+      });
+      if (hasProsePattern) {
+        return false;
+      }
+
+      // Check for consistent line structure (not binary, reasonable lengths)
+      const hasReasonableLengths = lines.every(
+        (l) => l.length > 0 && l.length < 1000,
+      );
+      const noBinaryChars = !text.includes("\0");
+
+      // Single-column CSVs should have VERY uniform line lengths
+      // (data values like IDs, codes, numbers - not varied content)
+      const lengths = lines.map((l) => l.length);
+      const avgLength = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+      const variance =
+        lengths.reduce((sum, len) => sum + Math.pow(len - avgLength, 2), 0) /
+        lengths.length;
+      const stdDev = Math.sqrt(variance);
+      // Single-column CSVs can contain varied data (names, cities, emails, etc.)
+      // but should still show some consistency compared to random text
+      const hasUniformLengths = stdDev / avgLength < 0.75;
+
+      return hasReasonableLengths && noBinaryChars && hasUniformLengths;
+    }
+
+    // Count delimiters per line and check consistency
+    const delimRegex = delimiter === "|" ? /\|/g : new RegExp(delimiter, "g");
+    const counts = lines.map((line) => (line.match(delimRegex) || []).length);
+    const firstCount = counts[0];
+    const consistentLines = counts.filter((c) => c === firstCount).length;
+
+    return consistentLines / lines.length >= 0.8;
+  }
+
+  private looksLikeJSON(text: string): boolean {
+    // hasJsonMarkers now does full validation including JSON.parse
+    return hasJsonMarkers(text);
+  }
+
+  private looksLikeXML(text: string): boolean {
+    const trimmed = text.trim();
+
+    // XML declaration is a definitive marker
+    if (trimmed.startsWith("<?xml")) {
+      return true;
+    }
+
+    // Check for HTML DOCTYPE or tags
+    if (
+      trimmed.includes("<!DOCTYPE html") ||
+      trimmed.toLowerCase().includes("<html")
+    ) {
+      return true;
+    }
+
+    // Strict validation for arbitrary content starting with <:
+    // Must have proper tag structure with at least one closing tag
+    if (!trimmed.startsWith("<")) {
       return false;
     }
 
-    const columnCounts = lines.map((line) => line.split(",").length);
-    const uniqueCounts = new Set(columnCounts);
+    // Must have valid opening tag structure: <tagname followed by space or >
+    // Not just any < character
+    const hasValidOpeningTag = /<[a-zA-Z][a-zA-Z0-9-]*(?:\s[^>]*)?>/;
+    if (!hasValidOpeningTag.test(trimmed)) {
+      return false;
+    }
 
-    return uniqueCounts.size === 1 && columnCounts[0] >= 2;
+    // Must have at least one closing tag or self-closing tag to be valid XML/HTML
+    const hasClosingTag = /<\/[a-zA-Z][a-zA-Z0-9-]*>/.test(trimmed);
+    const hasSelfClosingTag =
+      /<[a-zA-Z][a-zA-Z0-9-]*(?:\s[^>]*)?\s*\/\s*>/.test(trimmed);
+
+    return hasClosingTag || hasSelfClosingTag;
+  }
+
+  private looksLikeYAML(text: string): boolean {
+    const trimmed = text.trim();
+
+    if (trimmed.length === 0) {
+      return false;
+    }
+
+    // For single-line content, be very conservative about YAML detection
+    const lines = trimmed.split("\n");
+    if (lines.length === 1) {
+      // Single line can only be YAML if it's a document marker
+      return trimmed === "---" || trimmed === "...";
+    }
+
+    // Collect YAML indicators (requires at least 2 for positive detection)
+    const indicators: boolean[] = [];
+
+    // Indicator 1: Document start marker (---)
+    indicators.push(trimmed.startsWith("---"));
+
+    // Indicator 2: Document end marker (...) or appears within content
+    indicators.push(/^\.\.\.$|[\n]\.\.\.$/.test(trimmed));
+
+    // Indicator 3: YAML list items (- followed by space at line start)
+    indicators.push(/^[\s]*-\s+[^-]/m.test(trimmed));
+
+    // Indicator 4: Multiple key-value pairs (at least 2)
+    // Allow hyphens and underscores in keys, support nested keys
+    const keyValuePattern = /^[\s]*[a-zA-Z_][a-zA-Z0-9_-]*:\s*(.+)$/;
+    const keyValueMatches = lines.filter((line) =>
+      keyValuePattern.test(line),
+    ).length;
+    indicators.push(keyValueMatches >= 2);
+
+    // Indicator 5: Nested indentation pattern (common in YAML objects/lists)
+    let hasNesting = false;
+    const sampleLines = lines.slice(0, 10);
+    for (let i = 0; i < sampleLines.length - 1; i++) {
+      const currentLine = sampleLines[i].trim();
+      const nextLine = sampleLines[i + 1];
+      if (
+        currentLine.length > 0 &&
+        nextLine.length > 0 &&
+        /[:-]$/.test(currentLine)
+      ) {
+        const currentIndent = sampleLines[i].match(/^[\s]*/)?.[0].length ?? 0;
+        const nextIndent = nextLine.match(/^[\s]*/)?.[0].length ?? 0;
+        if (nextIndent > currentIndent) {
+          hasNesting = true;
+          break;
+        }
+      }
+    }
+    indicators.push(hasNesting);
+
+    // Indicator 6: YAML comments (# followed by space)
+    indicators.push(/^\s*#\s+/m.test(trimmed));
+
+    // Indicator 7: List continuation (multiple items with - )
+    const listItemCount = lines.filter((line) =>
+      /^[\s]*-[\s]/.test(line),
+    ).length;
+    indicators.push(listItemCount >= 2);
+
+    // Indicator 8: Inline maps or complex structures
+    indicators.push(/{\s*[a-zA-Z_]/.test(trimmed) || /\[.*\]/.test(trimmed));
+
+    // Require at least 2 indicators for confident YAML detection
+    const matchCount = indicators.filter(Boolean).length;
+    return matchCount >= 2;
+  }
+
+  private looksLikeText(text: string): boolean {
+    // Check if content has null bytes (binary indicator)
+    if (text.includes("\0")) {
+      return false;
+    }
+
+    // Count printable characters
+    let printable = 0;
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      if (
+        (code >= 32 && code < 127) || // ASCII printable
+        code === 9 || // Tab
+        code === 10 || // Newline
+        code === 13 || // Carriage return
+        code > 127 // Unicode
+      ) {
+        printable++;
+      }
+    }
+
+    // At least 85% should be printable for text
+    return printable / text.length >= 0.85;
   }
 
   private result(

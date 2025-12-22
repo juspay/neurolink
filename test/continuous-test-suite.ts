@@ -2624,6 +2624,250 @@ async function testCLIStreamTwoPDFComparison(): Promise<boolean> {
   }
 }
 
+/**
+ * Test for extension-less CSV files (FD-018)
+ *
+ * This test verifies that files without extensions (like "file-1", "file-2")
+ * can be processed as CSV when they contain valid CSV content.
+ *
+ * BEFORE FIX: This test FAILS with "File type unknown not allowed. Allowed: csv"
+ * AFTER FIX: This test PASSES because CSV fallback parsing succeeds
+ *
+ * This addresses the Slack MCP tool issue where files are named "file-1", "file-2"
+ * without extensions, causing file detection to fail.
+ */
+async function testCLIExtensionlessCSV(): Promise<boolean> {
+  logSection("Testing CLI with Extension-less CSV Files (FD-018)");
+
+  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-cli-extensionless-csv-");
+  // Create file WITHOUT .csv extension (simulates Slack file naming)
+  const extensionlessPath = tempDir + "/file-1";
+
+  try {
+    // Write valid CSV content to file without extension
+    fs.writeFileSync(
+      extensionlessPath,
+      "merchant_id,txn_id,amount,status\nIND937427,TXN001,1200.50,SUCCESS\nIND937427,TXN002,850.00,SUCCESS\nIND219314,TXN003,2500.75,PENDING",
+    );
+
+    log(
+      "Step 1: Testing extension-less CSV file processing with CLI...",
+      "blue",
+    );
+    log(`  File path: ${extensionlessPath} (no .csv extension)`, "reset");
+
+    const result = await runCommand("node", [
+      "dist/cli/index.js",
+      "generate",
+      ...buildBaseCLIArgs(),
+      `--max-tokens=${TEST_CONFIG.maxTokens}`,
+      `--file=${extensionlessPath}`,
+      "What is the total amount for all transactions in this CSV data?",
+    ]);
+
+    if (!result.success) {
+      // Check if the error is the known "unknown file type" error
+      const isKnownError =
+        result.stderr.includes("File type unknown not allowed") ||
+        result.stderr.includes("unknown not allowed");
+
+      if (isKnownError) {
+        logTest(
+          "CLI Extension-less CSV (FD-018)",
+          "FAIL",
+          `Expected failure before fix: ${result.stderr.substring(0, 200)}`,
+        );
+      } else {
+        logTest(
+          "CLI Extension-less CSV (FD-018)",
+          "FAIL",
+          `Unexpected error: ${result.code}, Error: ${result.stderr}`,
+        );
+      }
+      return false;
+    }
+
+    const responseText = result.stdout.toLowerCase();
+    const hasMerchantData =
+      responseText.includes("ind937427") ||
+      responseText.includes("ind219314") ||
+      responseText.includes("merchant");
+    const hasTransactionData =
+      responseText.includes("txn001") ||
+      responseText.includes("transaction") ||
+      responseText.includes("amount");
+
+    // Extract numbers for calculation verification
+    const numberMatches = result.stdout.match(/\$?\d[\d,]*\.?\d*/g);
+    const numbers =
+      numberMatches?.map((n) => parseFloat(n.replace(/[$,]/g, ""))) || [];
+
+    // Expected total: 1200.50 + 850.00 + 2500.75 = 4551.25
+    const hasCalculation = numbers.some(
+      (n) =>
+        n === 4551.25 ||
+        n === 4551 ||
+        n === 1200.5 ||
+        n === 850 ||
+        n === 2500.75,
+    );
+
+    if (hasMerchantData || hasTransactionData || hasCalculation) {
+      logTest(
+        "CLI Extension-less CSV (FD-018)",
+        "PASS",
+        `Extension-less CSV processed successfully! (merchant: ${hasMerchantData}, txn: ${hasTransactionData}, calc: ${hasCalculation})`,
+      );
+      return true;
+    } else {
+      logTest(
+        "CLI Extension-less CSV (FD-018)",
+        "FAIL",
+        `Extension-less CSV data not properly used. Merchant: ${hasMerchantData}, Transaction: ${hasTransactionData}`,
+      );
+      log("Response preview:", "yellow");
+      log(result.stdout.substring(0, 500) + "...", "reset");
+      return false;
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logTest("CLI Extension-less CSV (FD-018)", "FAIL", errorMessage);
+    return false;
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
+/**
+ * Test SDK with extension-less CSV files (FD-018)
+ */
+async function testSDKExtensionlessCSV(): Promise<boolean> {
+  logSection("Testing SDK with Extension-less CSV Files (FD-018)");
+
+  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-sdk-extensionless-csv-");
+  const tempScriptPath = tempDir + "/test-sdk-extensionless-csv.mjs";
+
+  try {
+    // Create file WITHOUT .csv extension (simulates Slack file naming)
+    const extensionlessPath = tempDir + "/file-2";
+    fs.writeFileSync(
+      extensionlessPath,
+      "product,price,quantity\nLaptop,1200,5\nMouse,25,50\nKeyboard,80,30",
+    );
+
+    const sdkOptions = buildBaseSDKOptions();
+    const testScript = `
+import { NeuroLink } from '${process.cwd()}/dist/index.js';
+
+async function testSDKExtensionlessCSV() {
+  const sdk = new NeuroLink();
+  let exitCode = 0;
+
+  try {
+    console.log('Step 1: Testing SDK with extension-less CSV file...');
+    console.log('  File path: ${extensionlessPath} (no .csv extension)');
+
+    const result = await sdk.generate({
+      input: {
+        text: 'Calculate the total revenue (price * quantity) for all products in this CSV data.',
+        csvFiles: ['${extensionlessPath}']
+      },
+      provider: '${sdkOptions.provider}'${
+        sdkOptions.model
+          ? `,
+      model: '${sdkOptions.model}'`
+          : ""
+      },
+      maxTokens: ${TEST_CONFIG.maxTokens}
+    });
+
+    const responseText = result.content?.toLowerCase() || '';
+    const hasProductData = responseText.includes('laptop') || responseText.includes('mouse') || responseText.includes('keyboard');
+    const hasCalculation = responseText.includes('9650') || responseText.includes('6000') || responseText.includes('1250') || responseText.includes('2400');
+
+    console.log('Response text:', result.content?.substring(0, 200) + '...');
+
+    if (hasProductData || hasCalculation) {
+      console.log('SUCCESS: Extension-less CSV processed by SDK');
+    } else {
+      console.error('FAIL: Extension-less CSV data not properly used');
+      exitCode = 1;
+    }
+  } catch (error) {
+    console.error('ERROR:', error.message);
+    // Check if this is the known "unknown file type" error
+    if (error.message.includes('File type unknown not allowed')) {
+      console.error('Expected failure before FD-018 fix: File type detection failed for extension-less file');
+    }
+    exitCode = 1;
+  } finally {
+    // Cleanup resources
+    try {
+      if (sdk && typeof sdk.dispose === 'function') {
+        await sdk.dispose();
+        console.log('[CLEANUP] SDK instance disposed');
+      }
+    } catch (cleanupError) {
+      console.warn('[CLEANUP] Error during cleanup:', cleanupError.message);
+    }
+    process.exit(exitCode);
+  }
+}
+
+testSDKExtensionlessCSV();
+`;
+
+    fs.writeFileSync(tempScriptPath, testScript);
+
+    log("Step 1: Testing SDK generate with extension-less CSV file...", "blue");
+    log(`  File path: ${extensionlessPath} (no .csv extension)`, "reset");
+
+    const result = await runCommand("node", [tempScriptPath]);
+
+    if (result.success) {
+      logTest(
+        "SDK Extension-less CSV (FD-018)",
+        "PASS",
+        "Extension-less CSV processed successfully by SDK",
+      );
+      return true;
+    } else {
+      const isKnownError =
+        result.stderr.includes("File type unknown not allowed") ||
+        result.stdout.includes("File type unknown not allowed");
+
+      if (isKnownError) {
+        logTest(
+          "SDK Extension-less CSV (FD-018)",
+          "FAIL",
+          `Expected failure before fix: File type detection failed for extension-less file`,
+        );
+      } else {
+        logTest(
+          "SDK Extension-less CSV (FD-018)",
+          "FAIL",
+          `Exit code: ${result.code}, Error: ${result.stderr || result.stdout}`,
+        );
+      }
+      return false;
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logTest("SDK Extension-less CSV (FD-018)", "FAIL", errorMessage);
+    return false;
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
 async function testCLIStreamPDFAndCSV(): Promise<boolean> {
   logSection("Testing CLI Stream with PDF and CSV");
 
@@ -2793,6 +3037,14 @@ async function runAllTests(): Promise<void> {
     },
     { name: "SDK Generate CSV", fn: testSDKGenerateCSV },
     { name: "SDK Stream CSV", fn: testSDKStreamCSV },
+    {
+      name: "CLI Extension-less CSV (FD-018)",
+      fn: testCLIExtensionlessCSV,
+    },
+    {
+      name: "SDK Extension-less CSV (FD-018)",
+      fn: testSDKExtensionlessCSV,
+    },
     { name: "CLI Generate PDF", fn: testCLIGeneratePDF },
     { name: "CLI Stream PDF", fn: testCLIStreamPDF },
     {

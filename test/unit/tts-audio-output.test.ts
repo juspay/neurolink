@@ -5,7 +5,28 @@
  * This covers the TTS-024 implementation requirements.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+// Mock the Google AI SDK to avoid requiring actual API credentials (must be before imports)
+import { vi } from "vitest";
+
+vi.mock("@ai-sdk/google", () => ({
+  createGoogleGenerativeAI: () => {
+    // createGoogleGenerativeAI returns a function (model name parameter accepted for API compatibility)
+    return (_modelName?: string) => ({
+      doGenerate: async () => ({
+        text: "Mock AI response: The answer is 4.",
+        usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+        finishReason: "stop",
+      }),
+      doStream: async function* () {
+        yield { type: "text-delta", textDelta: "Mock " };
+        yield { type: "text-delta", textDelta: "AI " };
+        yield { type: "text-delta", textDelta: "response" };
+      },
+    });
+  },
+}));
+
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";

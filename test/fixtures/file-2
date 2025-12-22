@@ -1,0 +1,4 @@
+id,name,email,active
+1,John Doe,john@example.com,true
+2,Jane Smith,jane@example.com,true
+3,Bob Wilson,bob@example.com,false

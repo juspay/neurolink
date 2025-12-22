@@ -1,0 +1,1 @@
+{"type": "slack_message", "channel": "C12345", "user": "U67890", "text": "Hello from Slack!", "ts": "1234567890.123456"}

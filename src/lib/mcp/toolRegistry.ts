@@ -69,6 +69,14 @@ export class MCPToolRegistry extends MCPRegistry {
     registryLogger.debug("Auto-registering direct tools...");
 
     for (const [toolName, toolDef] of Object.entries(directAgentTools)) {
+      // Skip undefined tools
+      if (!toolDef) {
+        registryLogger.warn(
+          `Skipping undefined tool during registration: ${toolName}`,
+        );
+        continue;
+      }
+
       const toolId = `direct.${toolName}`;
       const toolInfo: ToolInfo = {
         name: toolName,

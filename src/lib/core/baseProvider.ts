@@ -493,23 +493,28 @@ export abstract class BaseProvider implements AIProvider {
       if (options.tts?.enabled && !options.tts?.useAiResponse) {
         const textToSynthesize = options.prompt ?? options.input?.text ?? "";
 
-        const ttsResult = await TTSProcessor.synthesize(
-          textToSynthesize,
-          options.provider ?? this.providerName,
-          options.tts,
-        );
-
+        // Build base result structure - common to both paths
         const baseResult: EnhancedGenerateResult = {
           content: textToSynthesize,
-          audio: ttsResult,
           provider: options.provider ?? this.providerName,
           model: this.modelName,
-          usage: {
-            input: 0,
-            output: 0,
-            total: 0,
-          },
+          usage: { input: 0, output: 0, total: 0 },
         };
+
+        try {
+          const ttsResult = await TTSProcessor.synthesize(
+            textToSynthesize,
+            options.provider ?? this.providerName,
+            options.tts,
+          );
+          baseResult.audio = ttsResult;
+        } catch (ttsError) {
+          logger.error(
+            `TTS synthesis failed in Mode 1 (direct input synthesis):`,
+            ttsError,
+          );
+          // baseResult remains without audio - graceful degradation
+        }
 
         // Call enhanceResult for consistency - enables analytics/evaluation for TTS-only requests
         return await this.enhanceResult(baseResult, options, startTime);
@@ -551,17 +556,26 @@ export abstract class BaseProvider implements AIProvider {
 
         // Validate AI response and provider before synthesis
         if (aiResponse && provider) {
-          const ttsResult = await TTSProcessor.synthesize(
-            aiResponse,
-            provider,
-            options.tts,
-          );
+          try {
+            const ttsResult = await TTSProcessor.synthesize(
+              aiResponse,
+              provider,
+              options.tts,
+            );
 
-          // Add audio to enhanced result (TTSProcessor already includes latency in metadata)
-          enhancedResult = {
-            ...enhancedResult,
-            audio: ttsResult,
-          };
+            // Add audio to enhanced result (TTSProcessor already includes latency in metadata)
+            enhancedResult = {
+              ...enhancedResult,
+              audio: ttsResult,
+            };
+          } catch (ttsError) {
+            // Log TTS error but continue with text-only result
+            logger.error(
+              `TTS synthesis failed in Mode 2 (AI response synthesis):`,
+              ttsError,
+            );
+            // enhancedResult remains unchanged (no audio field added)
+          }
         } else {
           logger.warn(`TTS synthesis skipped despite being enabled`, {
             provider: this.providerName,

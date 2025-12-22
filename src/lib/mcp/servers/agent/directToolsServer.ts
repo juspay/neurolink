@@ -31,6 +31,14 @@ export const directToolsServer = createMCPServer({
  */
 if (!shouldDisableBuiltinTools()) {
   Object.entries(directAgentTools).forEach(([toolName, toolDef]) => {
+    // Skip undefined tools
+    if (!toolDef) {
+      logger.warn(
+        `Skipping undefined tool during direct tools server registration: ${toolName}`,
+      );
+      return;
+    }
+
     // The toolDef is a Vercel AI SDK Tool object
     // Extract properties from the Tool object
     const toolSpec = (toolDef as UnknownRecord)._spec || toolDef;

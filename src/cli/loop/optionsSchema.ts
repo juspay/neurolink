@@ -87,4 +87,9 @@ export const textGenerationOptionsSchema: Record<
     type: "string",
     description: "Context about tools/MCPs used in the interaction.",
   },
+  enableSummarization: {
+    type: "boolean",
+    description:
+      "Enable or disable automatic conversation summarization for this request.",
+  },
 };

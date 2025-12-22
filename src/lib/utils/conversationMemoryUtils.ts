@@ -6,6 +6,7 @@
 import type {
   ConversationMemoryConfig,
   ChatMessage,
+  ProviderDetails,
 } from "../types/conversation.js";
 import type { ConversationMemoryManager } from "../core/conversationMemoryManager.js";
 import type {
@@ -88,14 +89,25 @@ export async function storeConversationTurn(
     return;
   }
 
+  let providerDetails: ProviderDetails | undefined = undefined;
+  if (result.provider && result.model) {
+    providerDetails = {
+      provider: result.provider,
+      model: result.model,
+    };
+  }
+
   try {
-    await conversationMemory.storeConversationTurn(
+    await conversationMemory.storeConversationTurn({
       sessionId,
       userId,
-      originalOptions.originalPrompt || originalOptions.prompt || "",
-      result.content,
+      userMessage:
+        originalOptions.originalPrompt || originalOptions.prompt || "",
+      aiResponse: result.content,
       startTimeStamp,
-    );
+      providerDetails,
+      enableSummarization: originalOptions.enableSummarization,
+    });
 
     logger.debug("Conversation turn stored", {
       sessionId,

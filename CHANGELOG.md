@@ -1,3 +1,15 @@
+## [8.20.0](https://github.com/juspay/neurolink/compare/v8.19.1...v8.20.0) (2025-12-22)
+
+### Features
+
+- **(memory):** Implement token based summarization ([ffdc902](https://github.com/juspay/neurolink/commit/ffdc902f534c97a5aff38d7de419021fcabcd791))
+
+## [8.19.1](https://github.com/juspay/neurolink/compare/v8.19.0...v8.19.1) (2025-12-20)
+
+### Bug Fixes
+
+- **(files):** comprehensive extension-less file detection with fallback parsing (FD-018) ([7e9dbc7](https://github.com/juspay/neurolink/commit/7e9dbc78df48f6df051c7845824977f360f8feee))
+
 ## [8.19.0](https://github.com/juspay/neurolink/compare/v8.18.0...v8.19.0) (2025-12-18)
 
 ### Features

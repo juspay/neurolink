@@ -299,13 +299,20 @@ describe("Provider Image Count Limits", () => {
     const provider = "mistral";
     const model = "mistral-small";
 
-    it("should verify mistral is currently unsupported for vision", async () => {
+    it("should allow image count at the limit (10)", async () => {
       const images = createMockImages(10);
-      // Note: Mistral limit is defined (10) but provider is not implemented in switch statement
-      // This documents current behavior - will throw unsupported error
       await expect(
         ProviderImageAdapter.adaptForProvider("test", images, provider, model),
-      ).rejects.toThrow("Vision not supported for provider: mistral");
+      ).resolves.toBeDefined();
+    });
+
+    it("should reject image count over the limit (11)", async () => {
+      const images = createMockImages(11);
+      await expect(
+        ProviderImageAdapter.adaptForProvider("test", images, provider, model),
+      ).rejects.toThrow(
+        "Image count (11) exceeds the maximum limit for mistral. Maximum allowed: 10. Please reduce the number of images.",
+      );
     });
   });
 
@@ -313,13 +320,20 @@ describe("Provider Image Count Limits", () => {
     const provider = "litellm";
     const model = "gpt-4o";
 
-    it("should verify litellm is currently unsupported for vision", async () => {
+    it("should allow image count at the limit (10)", async () => {
       const images = createMockImages(10);
-      // Note: LiteLLM limit is defined (10) but provider is not implemented in switch statement
-      // This documents current behavior - will throw unsupported error
       await expect(
         ProviderImageAdapter.adaptForProvider("test", images, provider, model),
-      ).rejects.toThrow("Vision not supported for provider: litellm");
+      ).resolves.toBeDefined();
+    });
+
+    it("should reject image count over the limit (11)", async () => {
+      const images = createMockImages(11);
+      await expect(
+        ProviderImageAdapter.adaptForProvider("test", images, provider, model),
+      ).rejects.toThrow(
+        "Image count (11) exceeds the maximum limit for litellm. Maximum allowed: 10. Please reduce the number of images.",
+      );
     });
   });
 
@@ -327,13 +341,20 @@ describe("Provider Image Count Limits", () => {
     const provider = "bedrock";
     const model = "anthropic.claude-3-5-sonnet";
 
-    it("should verify bedrock is currently unsupported for vision", async () => {
+    it("should allow image count at the limit (20)", async () => {
       const images = createMockImages(20);
-      // Note: Bedrock limit is defined (20) but provider is not implemented in switch statement
-      // This documents current behavior - will throw unsupported error until vision support is added
       await expect(
         ProviderImageAdapter.adaptForProvider("test", images, provider, model),
-      ).rejects.toThrow("Vision not supported for provider: bedrock");
+      ).resolves.toBeDefined();
+    });
+
+    it("should reject image count over the limit (21)", async () => {
+      const images = createMockImages(21);
+      await expect(
+        ProviderImageAdapter.adaptForProvider("test", images, provider, model),
+      ).rejects.toThrow(
+        "Image count (21) exceeds the maximum limit for bedrock. Maximum allowed: 20. Please reduce the number of images.",
+      );
     });
   });
 
@@ -462,6 +483,112 @@ describe("Provider Image Count Limits", () => {
       );
       // Should not warn at 9 because we only warn at exactly the threshold (8)
       expect(logger.warn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("PDF page counting", () => {
+    describe("countImagesInMessage", () => {
+      it("should count only images when no PDF pages provided", () => {
+        const images = createMockImages(3);
+        const count = ProviderImageAdapter.countImagesInMessage(images);
+        expect(count).toBe(3);
+      });
+
+      it("should count only images when pdfPages is null", () => {
+        const images = createMockImages(2);
+        const count = ProviderImageAdapter.countImagesInMessage(images, null);
+        expect(count).toBe(2);
+      });
+
+      it("should count only images when pdfPages is undefined", () => {
+        const images = createMockImages(4);
+        const count = ProviderImageAdapter.countImagesInMessage(
+          images,
+          undefined,
+        );
+        expect(count).toBe(4);
+      });
+
+      it("should count images plus PDF pages", () => {
+        const images = createMockImages(2);
+        const count = ProviderImageAdapter.countImagesInMessage(images, 3);
+        expect(count).toBe(5); // 2 images + 3 PDF pages
+      });
+
+      it("should count only PDF pages when no images", () => {
+        const images: Buffer[] = [];
+        const count = ProviderImageAdapter.countImagesInMessage(images, 5);
+        expect(count).toBe(5);
+      });
+
+      it("should return 0 when no images and no PDF pages", () => {
+        const images: Buffer[] = [];
+        const count = ProviderImageAdapter.countImagesInMessage(images);
+        expect(count).toBe(0);
+      });
+
+      it("should handle large numbers correctly", () => {
+        const images = createMockImages(10);
+        const count = ProviderImageAdapter.countImagesInMessage(images, 15);
+        expect(count).toBe(25); // 10 images + 15 PDF pages
+      });
+    });
+
+    describe("countImagesInPages", () => {
+      it("should count pages from single PDF", () => {
+        const pdfMetadata = [{ pageCount: 5 }];
+        const count = ProviderImageAdapter.countImagesInPages(pdfMetadata);
+        expect(count).toBe(5);
+      });
+
+      it("should count pages from multiple PDFs", () => {
+        const pdfMetadata = [{ pageCount: 3 }, { pageCount: 2 }];
+        const count = ProviderImageAdapter.countImagesInPages(pdfMetadata);
+        expect(count).toBe(5); // 3 + 2 = 5
+      });
+
+      it("should handle empty array", () => {
+        const count = ProviderImageAdapter.countImagesInPages([]);
+        expect(count).toBe(0);
+      });
+
+      it("should handle undefined input", () => {
+        const count = ProviderImageAdapter.countImagesInPages(undefined);
+        expect(count).toBe(0);
+      });
+
+      it("should handle null pageCount", () => {
+        const pdfMetadata = [{ pageCount: null }];
+        const count = ProviderImageAdapter.countImagesInPages(pdfMetadata);
+        expect(count).toBe(0);
+      });
+
+      it("should handle undefined pageCount", () => {
+        const pdfMetadata = [{ pageCount: undefined }];
+        const count = ProviderImageAdapter.countImagesInPages(pdfMetadata);
+        expect(count).toBe(0);
+      });
+
+      it("should handle mixed valid and null pageCounts", () => {
+        const pdfMetadata = [
+          { pageCount: 3 },
+          { pageCount: null },
+          { pageCount: 2 },
+        ];
+        const count = ProviderImageAdapter.countImagesInPages(pdfMetadata);
+        expect(count).toBe(5); // 3 + 0 + 2 = 5
+      });
+
+      it("should handle multiple PDFs with various page counts", () => {
+        const pdfMetadata = [
+          { pageCount: 10 },
+          { pageCount: 5 },
+          { pageCount: 3 },
+          { pageCount: 7 },
+        ];
+        const count = ProviderImageAdapter.countImagesInPages(pdfMetadata);
+        expect(count).toBe(25); // 10 + 5 + 3 + 7 = 25
+      });
     });
   });
 });

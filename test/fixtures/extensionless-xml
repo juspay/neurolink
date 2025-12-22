@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog>
+  <book id="1">
+    <title>The Great Gatsby</title>
+    <author>F. Scott Fitzgerald</author>
+    <year>1925</year>
+  </book>
+  <book id="2">
+    <title>1984</title>
+    <author>George Orwell</author>
+    <year>1949</year>
+  </book>
+</catalog>

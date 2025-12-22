@@ -429,13 +429,19 @@ export class ProviderImageAdapter {
           adaptedPayload = this.formatForOpenAI(text, images);
           break;
         case "litellm":
-          adaptedPayload = this.formatForOpenAI(text, images);
+          // LiteLLM uses same format as OpenAI but validate with litellm provider name
+          this.validateImageCount(images.length, "litellm");
+          adaptedPayload = this.formatForOpenAI(text, images, true);
           break;
         case "mistral":
-          adaptedPayload = this.formatForOpenAI(text, images);
+          // Mistral uses same format as OpenAI but validate with mistral provider name
+          this.validateImageCount(images.length, "mistral");
+          adaptedPayload = this.formatForOpenAI(text, images, true);
           break;
         case "bedrock":
-          adaptedPayload = this.formatForAnthropic(text, images);
+          // Bedrock uses same format as Anthropic but validate with bedrock provider name
+          this.validateImageCount(images.length, "bedrock");
+          adaptedPayload = this.formatForAnthropic(text, images, true);
           break;
         default:
           throw new Error(`Vision not supported for provider: ${provider}`);
@@ -757,5 +763,33 @@ export class ProviderImageAdapter {
    */
   static getVisionProviders(): string[] {
     return Object.keys(VISION_CAPABILITIES);
+  }
+
+  /**
+   * Count total "images" in a message (actual images + PDF pages)
+   * PDF pages count toward image limits for providers
+   */
+  static countImagesInMessage(
+    images: Array<Buffer | string>,
+    pdfPages?: number | null,
+  ): number {
+    const imageCount = images?.length || 0;
+    const pageCount = pdfPages ?? 0;
+    return imageCount + pageCount;
+  }
+
+  /**
+   * Extract page count from PDF metadata array
+   * Returns total pages across all PDFs
+   */
+  static countImagesInPages(
+    pdfMetadataArray: Array<{ pageCount?: number | null }> | undefined,
+  ): number {
+    if (!pdfMetadataArray || pdfMetadataArray.length === 0) {
+      return 0;
+    }
+    return pdfMetadataArray.reduce((total, pdf) => {
+      return total + (pdf.pageCount ?? 0);
+    }, 0);
   }
 }

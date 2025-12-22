@@ -34,19 +34,45 @@ IMPORTANT: You are continuing an ongoing conversation. The previous messages in 
 Always reference and build upon this conversation history when relevant. If the user asks about information mentioned earlier in the conversation, refer to those previous messages to provide accurate, contextual responses.`;
 
 /**
+ * Percentage of model context window to use for conversation memory threshold
+ * Default: 80% of model's context window
+ */
+export const MEMORY_THRESHOLD_PERCENTAGE = 0.8;
+
+/**
+ * Fallback token threshold if model context unknown
+ */
+export const DEFAULT_FALLBACK_THRESHOLD = 50000;
+
+/**
+ * Ratio of threshold to keep as recent unsummarized messages
+ * When summarization triggers, this percentage of tokens from the end
+ * are preserved as detailed messages, while older content gets summarized.
+ */
+export const RECENT_MESSAGES_RATIO = 0.3;
+
+/**
  * Structured output instructions for JSON/structured output mode
  * Used to ensure AI providers output only valid JSON without conversational filler
  * This addresses the issue where models add text like "Excellent!" before JSON output
+ * and the case where tools are used but final output must still be pure JSON
  */
 export const STRUCTURED_OUTPUT_INSTRUCTIONS = `
+Output ONLY valid JSON. No markdown, text, or decorations—ever.
 
-STRUCTURED OUTPUT REQUIREMENT:
-You MUST respond with ONLY a valid JSON object that matches the provided schema.
-- Do NOT include any text before the JSON (no greetings, acknowledgments, or preamble like "Excellent!", "Sure!", "Here is the result:", etc.)
-- Do NOT include any text after the JSON (no explanations, summaries, or follow-up comments)
-- Do NOT wrap the JSON in markdown code blocks
-- Output ONLY the raw JSON object, starting with { and ending with }
-- Ensure the JSON is valid and parseable`;
+FORBIDDEN: markdown code blocks, text before/after JSON, explanations, preambles, summaries, conversational text about tools.
+
+REQUIRED: response starts with { and ends with }, valid JSON only, no additional characters.
+
+IF YOU CALLED TOOLS: Incorporate data directly into the JSON structure. Do NOT explain what you did.
+
+WRONG: \`\`\`json
+{"field": "value"}
+\`\`\`
+WRONG: Based on the data, here's the result: {"field": "value"}
+CORRECT: {"field": "value"}
+
+Your entire response = raw JSON object. Nothing else.`;
 
 /**
  * Get default configuration values for conversation memory
@@ -57,17 +83,23 @@ export function getConversationMemoryDefaults(): ConversationMemoryConfig {
     enabled: process.env.NEUROLINK_MEMORY_ENABLED === "true",
     maxSessions:
       Number(process.env.NEUROLINK_MEMORY_MAX_SESSIONS) || DEFAULT_MAX_SESSIONS,
-    maxTurnsPerSession:
-      Number(process.env.NEUROLINK_MEMORY_MAX_TURNS_PER_SESSION) ||
-      DEFAULT_MAX_TURNS_PER_SESSION,
-    enableSummarization: process.env.NEUROLINK_SUMMARIZATION_ENABLED === "true",
-    summarizationThresholdTurns:
-      Number(process.env.NEUROLINK_SUMMARIZATION_THRESHOLD_TURNS) || 20,
-    summarizationTargetTurns:
-      Number(process.env.NEUROLINK_SUMMARIZATION_TARGET_TURNS) || 10,
+    enableSummarization:
+      process.env.NEUROLINK_SUMMARIZATION_ENABLED !== "false",
+    tokenThreshold: process.env.NEUROLINK_TOKEN_THRESHOLD
+      ? Number(process.env.NEUROLINK_TOKEN_THRESHOLD)
+      : undefined,
     summarizationProvider:
       process.env.NEUROLINK_SUMMARIZATION_PROVIDER || "vertex",
     summarizationModel:
       process.env.NEUROLINK_SUMMARIZATION_MODEL || "gemini-2.5-flash",
+
+    // Deprecated (for backward compatibility)
+    maxTurnsPerSession:
+      Number(process.env.NEUROLINK_MEMORY_MAX_TURNS_PER_SESSION) ||
+      DEFAULT_MAX_TURNS_PER_SESSION,
+    summarizationThresholdTurns:
+      Number(process.env.NEUROLINK_SUMMARIZATION_THRESHOLD_TURNS) || 20,
+    summarizationTargetTurns:
+      Number(process.env.NEUROLINK_SUMMARIZATION_TARGET_TURNS) || 10,
   };
 }
