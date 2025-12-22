@@ -28,7 +28,8 @@ const FRAME_PROVIDER = "openai"; // or "anthropic", "azure-openai"
 const NATIVE_PROVIDER = "gemini"; // or "google-ai-studio", "vertex"
 
 // Use existing demo video from the repository
-const DEMO_VIDEO = "./docs/visual-content/cli-videos/cli-03-text-generation.mp4";
+const DEMO_VIDEO =
+  "./docs/visual-content/cli-videos/cli-03-text-generation.mp4";
 const DEMO_VIDEO_ALT = "./docs/visual-content/cli-videos/cli-01-cli-help.mp4";
 
 /**
@@ -368,9 +369,7 @@ async function main() {
   console.log("   - Native video upload available with Gemini");
   console.log("   - Audio transcription enhances video understanding");
   console.log("   - Customize frames, quality, and format for optimal results");
-  console.log(
-    "   - Use streaming for faster feedback with long videos\n",
-  );
+  console.log("   - Use streaming for faster feedback with long videos\n");
 }
 
 // Run examples
