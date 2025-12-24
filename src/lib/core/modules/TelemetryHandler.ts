@@ -160,9 +160,10 @@ export class TelemetryHandler {
   }
 
   /**
-   * Get telemetry configuration for streaming/generation
+   * Create telemetry configuration for Vercel AI SDK experimental_telemetry
+   * This enables automatic OpenTelemetry tracing when telemetry is enabled
    */
-  getStreamTelemetryConfig(
+  getTelemetryConfig(
     options: StreamOptions | TextGenerationOptions,
     operationType: "stream" | "generate" = "stream",
   ):
@@ -183,6 +184,7 @@ export class TelemetryHandler {
     const functionId = traceName ? traceName : userId ? userId : "guest";
 
     const metadata: Record<string, string | number | boolean> = {
+      ...(context?.metadata || {}),
       provider: this.providerName,
       model: this.modelName,
       toolsEnabled: !options.disableTools,

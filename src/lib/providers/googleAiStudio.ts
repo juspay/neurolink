@@ -187,7 +187,8 @@ export class GoogleAIStudioProvider extends BaseProvider {
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         toolChoice: shouldUseTools ? "auto" : "none",
         abortSignal: timeoutController?.controller.signal,
-        experimental_telemetry: this.getStreamTelemetryConfig(options),
+        experimental_telemetry:
+          this.telemetryHandler.getTelemetryConfig(options),
         onStepFinish: ({ toolCalls, toolResults }) => {
           this.handleToolExecutionStorage(
             toolCalls,

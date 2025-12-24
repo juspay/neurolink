@@ -12,7 +12,6 @@ import type {
   EnhancedGenerateResult,
   AnalyticsData,
 } from "../types/index.js";
-import type { Context } from "../types/common.js";
 import { AIProviderName } from "../constants/enums.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
@@ -63,7 +62,7 @@ export abstract class BaseProvider implements AIProvider {
   private readonly messageBuilder: MessageBuilder;
   private readonly streamHandler: StreamHandler;
   private readonly generationHandler: GenerationHandler;
-  private readonly telemetryHandler: TelemetryHandler;
+  protected readonly telemetryHandler: TelemetryHandler;
   private readonly utilities: Utilities;
   private readonly toolsManager: ToolsManager;
 
@@ -86,7 +85,10 @@ export abstract class BaseProvider implements AIProvider {
       this.modelName,
       () => this.supportsTools(),
       (options, type) =>
-        this.getStreamTelemetryConfig(options, type as "stream" | "generate"),
+        this.telemetryHandler.getTelemetryConfig(
+          options,
+          type as "stream" | "generate",
+        ),
       (toolCalls, toolResults, options, timestamp) =>
         this.handleToolExecutionStorage(
           toolCalls,
@@ -1115,57 +1117,5 @@ export abstract class BaseProvider implements AIProvider {
     }
 
     return chunks;
-  }
-
-  /**
-   * Create telemetry configuration for Vercel AI SDK experimental_telemetry
-   * This enables automatic OpenTelemetry tracing when telemetry is enabled
-   */
-  protected getStreamTelemetryConfig(
-    options: StreamOptions | TextGenerationOptions,
-    operationType: "stream" | "generate" = "stream",
-  ):
-    | {
-        isEnabled: boolean;
-        functionId?: string;
-        metadata?: Record<string, string | number | boolean>;
-      }
-    | undefined {
-    // Check if telemetry is enabled via NeuroLink observability config
-    if (!this.neurolink?.isTelemetryEnabled()) {
-      return undefined;
-    }
-
-    const context = options.context as Context;
-    const traceName = context?.traceName;
-    const userId = context?.userId;
-    const functionId = traceName ? traceName : userId ? userId : "guest";
-
-    const metadata: Record<string, string | number | boolean> = {
-      provider: this.providerName,
-      model: this.modelName,
-      toolsEnabled: !options.disableTools,
-      neurolink: true,
-      operationType,
-      originalProvider: this.providerName,
-    };
-
-    // Add sessionId if available
-    if ("sessionId" in options && options.sessionId) {
-      const sessionId = options.sessionId;
-      if (
-        typeof sessionId === "string" ||
-        typeof sessionId === "number" ||
-        typeof sessionId === "boolean"
-      ) {
-        metadata.sessionId = sessionId;
-      }
-    }
-
-    return {
-      isEnabled: true,
-      functionId,
-      metadata,
-    };
   }
 }

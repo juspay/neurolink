@@ -227,4 +227,5 @@ export type Context = {
   traceName?: string;
   userId?: string;
   sessionId?: string;
+  metadata?: Record<string, string | number | boolean>;
 };

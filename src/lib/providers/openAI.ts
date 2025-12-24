@@ -375,7 +375,8 @@ export class OpenAIProvider extends BaseProvider {
         toolChoice:
           shouldUseTools && Object.keys(tools).length > 0 ? "auto" : "none",
         abortSignal: timeoutController?.controller.signal,
-        experimental_telemetry: this.getStreamTelemetryConfig(options),
+        experimental_telemetry:
+          this.telemetryHandler.getTelemetryConfig(options),
         onStepFinish: ({ toolCalls, toolResults }) => {
           logger.info("Tool execution completed", { toolResults, toolCalls });
 
