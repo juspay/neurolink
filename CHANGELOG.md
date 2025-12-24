@@ -1,3 +1,9 @@
+## [8.23.1](https://github.com/juspay/neurolink/compare/v8.23.0...v8.23.1) (2025-12-24)
+
+### Bug Fixes
+
+- **(mcp):** Added Blocked Tool Support ([852d079](https://github.com/juspay/neurolink/commit/852d079371878d2a808ef6c0dc76103eb1d13a83))
+
 ## [8.23.0](https://github.com/juspay/neurolink/compare/v8.22.0...v8.23.0) (2025-12-23)
 
 ### Features
