@@ -12,12 +12,17 @@ dotenv.config({ path: path.resolve(__dirname, "../.env.test") });
 
 // Global test setup
 beforeEach(() => {
-  // Reset all mocks before each test
+  // Clear mock call history before each test
+  // Note: We use clearAllMocks() instead of resetAllMocks() because
+  // resetAllMocks() also resets mock implementations to return undefined,
+  // which would break mocks defined via vi.mock() that have custom implementations.
   vi.clearAllMocks();
-  vi.resetAllMocks();
 
-  // Reset modules to ensure clean state
-  vi.resetModules();
+  // Note: vi.resetModules() was removed because it causes issues with
+  // tests that use dynamic imports (await import()) after the beforeEach runs.
+  // When modules are reset, the mock factories are re-executed but dynamic
+  // imports don't get the properly mocked versions. Individual test files
+  // can call vi.resetModules() if they specifically need to reset module state.
 });
 
 afterEach(() => {
@@ -25,7 +30,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// Mock AI SDK providers (from implementation document)
+// Mock AI SDK providers
 vi.mock("ai", () => ({
   stream: vi.fn(),
   generate: vi.fn(),
@@ -34,7 +39,15 @@ vi.mock("ai", () => ({
     parameters: config.parameters || {},
     execute: config.execute || vi.fn(),
   })),
+  jsonSchema: vi.fn((schema) => schema),
+  wrapLanguageModel: vi.fn((model) => model),
   Output: { object: vi.fn() },
+  NoObjectGeneratedError: class NoObjectGeneratedError extends Error {
+    constructor(message?: string) {
+      super(message || "No object generated");
+      this.name = "NoObjectGeneratedError";
+    }
+  },
 }));
 
 // Mock all AI providers

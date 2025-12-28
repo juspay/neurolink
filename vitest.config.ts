@@ -15,7 +15,9 @@ export default defineConfig({
     // Performance optimization (from document requirements)
     testTimeout: 30000, // 30s max per test
     maxConcurrency: 10, // Parallel execution
-    mockReset: true,
+    // Note: mockReset is intentionally NOT enabled because it resets mock
+    // implementations to return undefined, breaking mocks defined via vi.mock().
+    // Instead, we use clearMocks which only clears call history.
     clearMocks: true,
 
     // Coverage configuration (document requirements: >90% SDK, >85% CLI)

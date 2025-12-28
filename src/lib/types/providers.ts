@@ -1272,3 +1272,57 @@ export namespace TelemetryTypes {
     recordException(exception: unknown): void;
   }
 }
+
+// ============================================================================
+// OpenRouter Provider Types
+// ============================================================================
+
+/**
+ * OpenRouter provider configuration
+ */
+export type OpenRouterConfig = {
+  /** OpenRouter API key */
+  apiKey: string;
+  /** HTTP Referer header for attribution on openrouter.ai/activity */
+  referer?: string;
+  /** App name for X-Title header attribution */
+  appName?: string;
+};
+
+/**
+ * OpenRouter model information from /api/v1/models endpoint
+ */
+export type OpenRouterModelInfo = {
+  /** Model ID in format 'provider/model-name' */
+  id: string;
+  /** Supported parameters (e.g., 'tools', 'temperature') */
+  supported_parameters?: string[];
+  /** Model name */
+  name?: string;
+  /** Model description */
+  description?: string;
+  /** Pricing information */
+  pricing?: {
+    prompt?: string;
+    completion?: string;
+  };
+  /** Context length */
+  context_length?: number;
+};
+
+/**
+ * OpenRouter models API response
+ */
+export type OpenRouterModelsResponse = {
+  data: OpenRouterModelInfo[];
+};
+
+/**
+ * OpenRouter provider static cache properties (for testing/internal use)
+ */
+export type OpenRouterProviderCache = {
+  modelsCache: string[];
+  modelsCacheTime: number;
+  toolCapableModels: Set<string>;
+  capabilitiesCached: boolean;
+};

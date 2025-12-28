@@ -9,6 +9,7 @@ export enum AIProviderName {
   BEDROCK = "bedrock",
   OPENAI = "openai",
   OPENAI_COMPATIBLE = "openai-compatible",
+  OPENROUTER = "openrouter",
   VERTEX = "vertex",
   ANTHROPIC = "anthropic",
   AZURE = "azure",
@@ -19,6 +20,30 @@ export enum AIProviderName {
   LITELLM = "litellm",
   SAGEMAKER = "sagemaker",
   AUTO = "auto",
+}
+
+/**
+ * Popular Models for OpenRouter (300+ available at openrouter.ai/models)
+ * OpenRouter uses 'provider/model' format
+ */
+export enum OpenRouterModels {
+  // Anthropic Claude models
+  CLAUDE_3_5_SONNET = "anthropic/claude-3-5-sonnet",
+  CLAUDE_3_5_HAIKU = "anthropic/claude-3-5-haiku",
+  CLAUDE_3_OPUS = "anthropic/claude-3-opus",
+  // OpenAI models
+  GPT_4O = "openai/gpt-4o",
+  GPT_4O_MINI = "openai/gpt-4o-mini",
+  GPT_4_TURBO = "openai/gpt-4-turbo",
+  // Google models
+  GEMINI_2_0_FLASH = "google/gemini-2.0-flash",
+  GEMINI_1_5_PRO = "google/gemini-1.5-pro",
+  // Meta Llama models
+  LLAMA_3_1_70B = "meta-llama/llama-3.1-70b-instruct",
+  LLAMA_3_1_8B = "meta-llama/llama-3.1-8b-instruct",
+  // Mistral models
+  MISTRAL_LARGE = "mistralai/mistral-large",
+  MIXTRAL_8X7B = "mistralai/mixtral-8x7b-instruct",
 }
 
 /**

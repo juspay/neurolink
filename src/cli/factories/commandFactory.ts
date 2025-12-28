@@ -49,6 +49,8 @@ export class CLICommandFactory {
         "auto",
         "openai",
         "openai-compatible",
+        "openrouter",
+        "or",
         "bedrock",
         "vertex",
         "googleVertex",
@@ -1055,6 +1057,7 @@ export class CLICommandFactory {
               choices: [
                 "google-ai",
                 "openai",
+                "openrouter",
                 "anthropic",
                 "azure",
                 "bedrock",

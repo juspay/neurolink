@@ -1,7 +1,7 @@
 {
   "name": "@juspay/neurolink",
   "version": "8.23.2",
-  "description": "Universal AI Development Platform with working MCP integration, multi-provider support, and professional CLI. Built-in tools operational, 58+ external MCP servers discoverable. Connect to filesystem, GitHub, database operations, and more. Build, test, and deploy AI applications with 9 major providers: OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, Hugging Face, Ollama, and Mistral AI.",
+  "description": "Universal AI Development Platform with working MCP integration, multi-provider support, and professional CLI. Built-in tools operational, 58+ external MCP servers discoverable. Connect to filesystem, GitHub, database operations, and more. Build, test, and deploy AI applications with 13 providers: OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, Hugging Face, Ollama, and Mistral AI.",
   "author": {
     "name": "Juspay Technologies",
     "email": "support@juspay.in",
@@ -171,6 +171,7 @@
     "@huggingface/inference": "^2.8.1",
     "@langfuse/otel": "^4.2.0",
     "@modelcontextprotocol/sdk": "^1.17.5",
+    "@openrouter/ai-sdk-provider": "^0.7.5",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "^0.56.0",
     "@opentelemetry/core": "^2.1.0",
@@ -181,7 +182,7 @@
     "@opentelemetry/sdk-trace-node": "^2.1.0",
     "@opentelemetry/semantic-conventions": "^1.30.1",
     "adm-zip": "^0.5.16",
-    "ai": "4.3.16",
+    "ai": "4.3.19",
     "chalk": "^5.6.2",
     "csv-parser": "^3.2.0",
     "dotenv": "^16.6.1",

@@ -54,7 +54,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 ### 🤖 AI Provider Integration
 
-**12 providers unified under one API** - Switch providers with a single parameter change.
+**13 providers unified under one API** - Switch providers with a single parameter change.
 
 | Provider              | Models                         | Free Tier       | Tool Support | Status        | Documentation                                                      |
 | --------------------- | ------------------------------ | --------------- | ------------ | ------------- | ------------------------------------------------------------------ |
@@ -65,6 +65,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 | **Google Vertex**     | Gemini via GCP                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#vertex)            |
 | **Azure OpenAI**      | GPT-4, GPT-4o, o1              | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#azure)             |
 | **LiteLLM**           | 100+ models unified            | Varies          | ✅ Full      | ✅ Production | [Setup Guide](LITELLM-INTEGRATION.md)                              |
+| **OpenRouter**        | 300+ models unified            | Varies          | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openrouter)        |
 | **AWS SageMaker**     | Custom deployed models         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](SAGEMAKER-INTEGRATION.md)                            |
 | **Mistral AI**        | Mistral Large, Small           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#mistral)           |
 | **Hugging Face**      | 100,000+ models                | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](getting-started/provider-setup.md#huggingface)       |

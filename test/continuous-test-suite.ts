@@ -52,13 +52,15 @@ const PROVIDER_MAX_TOKENS: Record<string, number> = {
   openai: 16384, // GPT-4o can handle more
   bedrock: 8192, // Conservative default for various models
   ollama: 4096, // Local models typically lower
+  openrouter: 4096, // Conservative for free tier models
+  or: 4096, // Alias for openrouter
 };
 
-// Test configuration (can be overridden via CLI arguments)
+// Test configuration (can be overridden via CLI arguments or environment variables)
 const TEST_CONFIG = {
-  // Use Vertex provider for better context handling (can be overridden)
-  provider: "vertex",
-  model: undefined as string | undefined, // Optional model override
+  // Use provider from env or default to vertex
+  provider: process.env.TEST_PROVIDER || "vertex",
+  model: process.env.TEST_MODEL || (undefined as string | undefined), // Optional model override
   maxTokens: undefined as number | undefined, // Dynamically set based on provider
   timeout: 60000, // Increased to 60 seconds for CLI stream reliability
 
@@ -148,6 +150,8 @@ const colors = {
   magenta: "\x1b[35m",
   cyan: "\x1b[36m",
 } as const;
+
+const cwd = process.cwd();
 
 type ColorName = keyof typeof colors;
 
@@ -580,8 +584,7 @@ async function testCLIGenerate(): Promise<boolean> {
     // Test 2: Now use a specific external tool
     log("Step 2: Using filesystem tool to read package.json...", "blue");
 
-    const filePrompt =
-      "Use the filesystem tool to read the package.json file and tell me the exact version number, main script, and count of dependencies and devDependencies. Make sure to use the actual filesystem tool to read the file.";
+    const filePrompt = `Read the file at ${cwd}/package.json and tell me the exact version number, main script, and count of dependencies and devDependencies. Make sure to use the actual filesystem tool to read the file.`;
 
     const fileResult = await runCommand("node", [
       "dist/cli/index.js",
@@ -686,8 +689,7 @@ async function testCLIStream(): Promise<boolean> {
       "blue",
     );
 
-    const filePrompt =
-      "Use the filesystem tool to read the README.md file and provide a brief summary of this project and its key features.";
+    const filePrompt = `Read the file at ${cwd}/README.md and provide a brief summary of this project and its key features.`;
 
     const fileResult = await runCommand("node", [
       "dist/cli/index.js",
@@ -930,7 +932,7 @@ async function testSDKStream(sdk: NeuroLink): Promise<boolean> {
 
     const streamResult = await sdk.stream({
       input: {
-        text: "Use the filesystem tool to read the .mcp-config.json file and tell me what MCP servers are configured and their transport types.",
+        text: `Read the file at ${cwd}/.mcp-config.json and tell me what MCP servers are configured and their transport types.`,
       },
       maxTokens: TEST_CONFIG.maxTokens,
       provider: sdkOptions.provider,

@@ -91,7 +91,7 @@ User Request → Model Registry/Discovery + Health Check → [Single Model? → 
 - **Inputs**: Provider APIs, health metrics, configuration constraints
 - **Outputs**: List of healthy available models (if 1 → direct route, if >1 → orchestration pipeline)
 - **Key Features**:
-  - **Model Inventory**: Tracks 100+ models across 12 providers
+  - **Model Inventory**: Tracks 100+ models across 13 providers
   - **Health Integration**: Only returns models with healthy providers (>95% success rate)
   - **Capability Matrix**: Vision, function calling, context length, specialized abilities
   - **Cost Database**: Real-time pricing per model

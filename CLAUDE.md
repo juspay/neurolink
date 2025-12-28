@@ -110,7 +110,7 @@ NeuroLink uses a **factory pattern with dynamic provider registration** to avoid
 src/
 ├── lib/                    # Core SDK implementation
 │   ├── neurolink.ts       # Main SDK entry point
-│   ├── providers/         # AI provider implementations (12 providers)
+│   ├── providers/         # AI provider implementations (13 providers)
 │   ├── factories/         # Provider factory and registry
 │   ├── adapters/          # Provider-specific adapters (image, PDF, etc.)
 │   ├── utils/             # Utilities (messageBuilder, transformations, etc.)

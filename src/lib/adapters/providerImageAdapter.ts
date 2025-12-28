@@ -41,6 +41,7 @@ const IMAGE_LIMITS = {
   mistral: 10, // Conservative limit for Mistral
   // Note: Bedrock limit defined for future use when vision support is added
   bedrock: 20, // Same as Anthropic for Claude models on Bedrock
+  openrouter: 10, // Conservative limit, routes to various underlying providers
 } as const;
 
 /**
@@ -235,6 +236,37 @@ const VISION_CAPABILITIES = {
     "gemini-2.0-flash-lite",
     // Groq models via LiteLLM (vision)
     "groq/llama-3.2-11b-vision-preview",
+  ],
+  openrouter: [
+    // OpenRouter provides access to vision-capable models from multiple providers
+    // Anthropic Claude models (via OpenRouter)
+    "anthropic/claude-3-5-sonnet",
+    "anthropic/claude-3-5-haiku",
+    "anthropic/claude-3-opus",
+    "anthropic/claude-3-sonnet",
+    "anthropic/claude-3-haiku",
+    // OpenAI models (via OpenRouter)
+    "openai/gpt-4o",
+    "openai/gpt-4o-mini",
+    "openai/gpt-4-turbo",
+    "openai/gpt-4-vision-preview",
+    // Google models (via OpenRouter)
+    "google/gemini-2.5-pro",
+    "google/gemini-2.5-flash",
+    "google/gemini-2.0-flash",
+    "google/gemini-2.0-flash-001",
+    "google/gemini-1.5-pro",
+    "google/gemini-1.5-flash",
+    "google/gemini-pro-vision",
+    // Meta Llama models (vision-capable via OpenRouter)
+    "meta-llama/llama-3.2-90b-vision-instruct",
+    "meta-llama/llama-3.2-11b-vision-instruct",
+    // Pixtral/Mistral models (via OpenRouter)
+    "mistralai/pixtral-12b",
+    "mistralai/pixtral-large",
+    // Qwen models (via OpenRouter)
+    "qwen/qwen-2-vl-72b-instruct",
+    "qwen/qwen-2-vl-7b-instruct",
   ],
   mistral: [
     // Mistral Large (latest has vision via Pixtral integration)
@@ -442,6 +474,11 @@ export class ProviderImageAdapter {
           // Bedrock uses same format as Anthropic but validate with bedrock provider name
           this.validateImageCount(images.length, "bedrock");
           adaptedPayload = this.formatForAnthropic(text, images, true);
+          break;
+        case "openrouter":
+          // OpenRouter routes to underlying providers, use OpenAI format
+          this.validateImageCount(images.length, "openrouter");
+          adaptedPayload = this.formatForOpenAI(text, images);
           break;
         default:
           throw new Error(`Vision not supported for provider: ${provider}`);

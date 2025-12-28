@@ -237,7 +237,27 @@ export class ProviderRegistry {
           );
         },
         process.env.OPENAI_COMPATIBLE_MODEL || undefined, // Enable auto-discovery when no model specified
-        ["openai-compatible", "openrouter", "vllm", "compatible"],
+        ["openai-compatible", "vllm", "compatible"],
+      );
+
+      // Register OpenRouter provider (300+ models from 60+ providers)
+      ProviderFactory.registerProvider(
+        AIProviderName.OPENROUTER,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+        ) => {
+          const { OpenRouterProvider } = await import(
+            "../providers/openRouter.js"
+          );
+          return new OpenRouterProvider(
+            modelName,
+            sdk as NeuroLink | undefined,
+          );
+        },
+        process.env.OPENROUTER_MODEL || "anthropic/claude-3-5-sonnet",
+        ["openrouter", "or"],
       );
 
       // Register Amazon SageMaker provider

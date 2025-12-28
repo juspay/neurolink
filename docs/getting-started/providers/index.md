@@ -98,6 +98,19 @@ Providers with specific compliance certifications:
 
 Access multiple providers through unified interfaces:
 
+### [OpenRouter](openrouter.md)
+
+**300+ models from 60+ providers**
+
+- 🌐 Single API for all major providers (Anthropic, OpenAI, Google, Meta, etc.)
+- ⚡ Automatic failover and routing
+- 💰 Competitive pricing with cost optimization
+- 🎯 Zero lock-in - switch models instantly
+- 📊 Usage tracking dashboard
+- 🆓 Free models available
+
+[Setup Guide →](openrouter.md)
+
 ### [OpenAI Compatible](openai-compatible.md)
 
 **OpenRouter, vLLM, LocalAI, and more**
@@ -129,6 +142,7 @@ Access multiple providers through unified interfaces:
 | [Hugging Face](huggingface.md)            | ✅        | ❌         | ✅     | Medium  | Open source, experimentation    |
 | [Google AI](google-ai.md)                 | ✅        | ✅         | ✅     | Low     | Free tier, Gemini               |
 | [Mistral AI](mistral.md)                  | ❌        | ✅         | ✅     | Low     | EU compliance, cost             |
+| [OpenRouter](openrouter.md)               | ✅        | ✅         | Varies | Low     | Multi-model, automatic failover |
 | [OpenAI Compatible](openai-compatible.md) | Varies    | ✅         | Varies | Varies  | Flexibility, local deployment   |
 | [LiteLLM](litellm.md)                     | ❌        | ✅         | Varies | Low     | Multi-provider, unified API     |
 | [Azure OpenAI](azure-openai.md)           | ❌        | ✅         | ✅     | Low     | Enterprise, Microsoft ecosystem |

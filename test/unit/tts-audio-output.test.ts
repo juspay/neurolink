@@ -5,8 +5,34 @@
  * This covers the TTS-024 implementation requirements.
  */
 
-// Mock the Google AI SDK to avoid requiring actual API credentials (must be before imports)
+// Mock the AI SDK and Google AI provider (must be before imports)
 import { vi } from "vitest";
+
+// Mock the ai SDK's generateText function to return proper response structure
+vi.mock("ai", () => ({
+  generateText: vi.fn(async () => ({
+    text: "Mock AI response: The answer is 4.",
+    usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+    finishReason: "stop",
+    toolCalls: [],
+    toolResults: [],
+  })),
+  stream: vi.fn(),
+  tool: vi.fn((config: Record<string, unknown>) => ({
+    description: config.description || "",
+    parameters: config.parameters || {},
+    execute: config.execute || vi.fn(),
+  })),
+  jsonSchema: vi.fn((schema: unknown) => schema),
+  wrapLanguageModel: vi.fn((model: unknown) => model),
+  Output: { object: vi.fn() },
+  NoObjectGeneratedError: class NoObjectGeneratedError extends Error {
+    constructor(message?: string) {
+      super(message || "No object generated");
+      this.name = "NoObjectGeneratedError";
+    }
+  },
+}));
 
 vi.mock("@ai-sdk/google", () => ({
   createGoogleGenerativeAI: () => {

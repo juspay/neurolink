@@ -263,7 +263,7 @@ await stream.send("Compare to last week");
 Start with our production-ready platform:
 
 - **[Quick Start Guide](../getting-started/quick-start.md)** - Get running in <5 minutes
-- **[Provider Setup](../getting-started/provider-setup.md)** - Configure all 12 providers
+- **[Provider Setup](../getting-started/provider-setup.md)** - Configure all 13 providers
 - **[SDK Integration](../sdk/index.md)** - Build with TypeScript
 - **[Production Deployment](../advanced/enterprise.md)** - Enterprise setup
 

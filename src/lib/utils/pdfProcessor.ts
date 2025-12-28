@@ -114,6 +114,20 @@ const PDF_PROVIDER_CONFIGS: Record<string, PDFProviderConfig> = {
     requiresCitations: false,
     apiType: "files-api",
   },
+  openrouter: {
+    maxSizeMB: 10,
+    maxPages: 100,
+    supportsNative: true,
+    requiresCitations: false,
+    apiType: "files-api",
+  },
+  or: {
+    maxSizeMB: 10,
+    maxPages: 100,
+    supportsNative: true,
+    requiresCitations: false,
+    apiType: "files-api",
+  },
 };
 
 export class PDFProcessor {

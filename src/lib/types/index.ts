@@ -77,6 +77,10 @@ export type {
   AISDKModel,
   ProviderError,
   AIModelProviderConfig,
+  OpenRouterConfig,
+  OpenRouterModelInfo,
+  OpenRouterModelsResponse,
+  OpenRouterProviderCache,
 } from "./providers.js";
 
 export type {
