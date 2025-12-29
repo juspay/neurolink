@@ -168,6 +168,338 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     throw new ProviderError(`Google AI error: ${message}`, this.providerName);
   }
+
+  /**
+   * Overrides the BaseProvider's image generation method to implement it for Google AI.
+   * This method calls the Google AI API to generate an image from a prompt.
+   * @param options The generation options containing the prompt.
+   * @returns A promise that resolves to the generation result, including the image data.
+   */
+  protected async executeImageGeneration(
+    options: TextGenerationOptions,
+  ): Promise<EnhancedGenerateResult> {
+    const prompt = options.prompt || options.input?.text || "";
+    const imageModelName = options.model || this.modelName;
+    const startTime = Date.now();
+    const apiKey = this.getApiKey();
+
+    logger.info("🎨 Starting Google AI Studio image generation", {
+      model: imageModelName,
+      prompt: prompt.substring(0, 100),
+      provider: this.providerName,
+    });
+
+    // Use the @google/genai client for image generation
+    let client: GenAIClient;
+    try {
+      client = await createGoogleGenAIClient(apiKey);
+    } catch {
+      throw new AuthenticationError(
+        "Missing '@google/genai'. Install with: npm install @google/genai",
+        this.providerName,
+      );
+    }
+
+    try {
+      // Build content array with multimodal support
+      const imageParts = await Promise.all(
+        (options.input?.images || []).map(async (image) => {
+          // Handle ImageWithAltText objects
+          if (typeof image === "object" && "url" in image) {
+            const imageUrl = image.url as string;
+            if (imageUrl.startsWith("http")) {
+              const response = await fetch(imageUrl);
+              if (!response.ok) {
+                throw new Error(
+                  `Failed to fetch image from ${imageUrl}: ${response.status} ${response.statusText}`,
+                );
+              }
+              const arrayBuffer = await response.arrayBuffer();
+              const buffer = Buffer.from(arrayBuffer);
+              const mimeType = this.detectImageType(buffer);
+              logger.debug(
+                `Downloaded and detected image MIME type: ${mimeType}`,
+              );
+              return {
+                inlineData: {
+                  mimeType,
+                  data: buffer.toString("base64"),
+                },
+              };
+            }
+            // Base64 URL in ImageWithAltText
+            const buffer = Buffer.from(imageUrl as string, "base64");
+            const mimeType = this.detectImageType(buffer);
+            return {
+              inlineData: {
+                mimeType,
+                data: buffer.toString("base64"),
+              },
+            };
+          }
+          // Handle string URLs
+          if (typeof image === "string" && image.startsWith("http")) {
+            const response = await fetch(image);
+            if (!response.ok) {
+              throw new Error(
+                `Failed to fetch image from ${image}: ${response.status} ${response.statusText}`,
+              );
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const mimeType = this.detectImageType(buffer);
+            logger.debug(
+              `Downloaded and detected image MIME type: ${mimeType}`,
+            );
+            return {
+              inlineData: {
+                mimeType,
+                data: buffer.toString("base64"),
+              },
+            };
+          }
+          // Handle Buffer or base64 string
+          const buffer = Buffer.isBuffer(image)
+            ? image
+            : typeof image === "string"
+              ? Buffer.from(image, "base64")
+              : Buffer.from(""); // Fallback for unexpected types
+          const mimeType = this.detectImageType(buffer);
+          logger.debug(`Detected image MIME type: ${mimeType}`);
+          return {
+            inlineData: {
+              mimeType,
+              data: buffer.toString("base64"),
+            },
+          };
+        }),
+      );
+
+      const contents = [
+        {
+          role: "user",
+          parts: [{ text: prompt }, ...imageParts],
+        },
+      ];
+
+      // Configure for image generation
+      const generateConfig = {
+        responseModalities: ["IMAGE", "TEXT"] as ("TEXT" | "IMAGE" | "AUDIO")[], // This is the key setting for image generation
+      };
+
+      logger.debug("Starting image generation request", {
+        model: imageModelName,
+        contentParts: contents[0].parts.length,
+        responseModalities: generateConfig.responseModalities,
+      });
+
+      // Try streaming approach first
+      let imageData: string | null = null;
+      let textContent = "";
+
+      try {
+        // Await the Promise to get the AsyncIterable
+        const stream = await client.models.generateContentStream({
+          model: imageModelName,
+          contents: contents,
+          config: generateConfig,
+        });
+
+        // Process the stream
+        for await (const chunk of stream) {
+          logger.debug("Received chunk", {
+            hasCandidate: !!chunk.candidates?.[0],
+            hasContent: !!chunk.candidates?.[0]?.content,
+            hasParts: !!chunk.candidates?.[0]?.content?.parts,
+          });
+
+          const candidate = chunk.candidates?.[0];
+          if (candidate?.content?.parts) {
+            for (const part of candidate.content.parts) {
+              // Check for image data
+              if ("inlineData" in part && part.inlineData?.data) {
+                const foundImageData = part.inlineData.data;
+                imageData = foundImageData;
+                const mimeType = part.inlineData.mimeType || "image/png";
+
+                logger.info("Image generation successful", {
+                  model: imageModelName,
+                  mimeType,
+                  dataLength: foundImageData.length,
+                  responseTime: Date.now() - startTime,
+                });
+
+                const result: EnhancedGenerateResult = {
+                  content: `Generated image using ${imageModelName} (${mimeType})`,
+                  imageOutput: {
+                    base64: foundImageData,
+                  },
+                  provider: this.providerName,
+                  model: imageModelName,
+                  usage: {
+                    input: this.estimateTokenCount(prompt),
+                    output: 0,
+                    total: this.estimateTokenCount(prompt),
+                  },
+                };
+
+                return await this.enhanceResult(result, options, startTime);
+              }
+
+              // Check for text content
+              if ("text" in part && part.text) {
+                textContent += part.text;
+                logger.debug("Received text content", {
+                  text: part.text.substring(0, 100),
+                });
+              }
+            }
+          }
+        }
+      } catch (streamError) {
+        logger.debug("Streaming failed, trying non-streaming approach", {
+          error:
+            streamError instanceof Error
+              ? streamError.message
+              : String(streamError),
+        });
+      }
+
+      // If no image was found, try non-streaming approach
+      if (!imageData) {
+        logger.debug("Trying non-streaming approach");
+
+        const response = await client.models.generateContent({
+          model: imageModelName,
+          contents: contents,
+          config: generateConfig,
+        });
+
+        const candidate = response.candidates?.[0];
+        if (candidate?.content?.parts) {
+          for (const part of candidate.content.parts) {
+            if ("inlineData" in part && part.inlineData?.data) {
+              const foundImageData = part.inlineData.data;
+              imageData = foundImageData;
+              const mimeType = part.inlineData.mimeType || "image/png";
+
+              logger.info("Image generation successful (non-streaming)", {
+                model: imageModelName,
+                mimeType,
+                dataLength: foundImageData.length,
+                responseTime: Date.now() - startTime,
+              });
+
+              const result: EnhancedGenerateResult = {
+                content: `Generated image using ${imageModelName} (${mimeType})`,
+                imageOutput: {
+                  base64: foundImageData,
+                },
+                provider: this.providerName,
+                model: imageModelName,
+                usage: {
+                  input: this.estimateTokenCount(prompt),
+                  output: 0,
+                  total: this.estimateTokenCount(prompt),
+                },
+              };
+
+              return await this.enhanceResult(result, options, startTime);
+            }
+
+            if ("text" in part && part.text) {
+              textContent += part.text;
+            }
+          }
+        }
+      }
+
+      // If we reach here, no image was generated
+      logger.warn("No image data found in response", {
+        model: imageModelName,
+        prompt: prompt.substring(0, 100),
+        hasTextContent: !!textContent,
+        textContent: textContent.substring(0, 200),
+      });
+
+      throw new ProviderError(
+        textContent ||
+          `Image generation completed but no image data was returned. This may indicate an issue with the model "${imageModelName}" or the prompt: "${prompt}". Please try again or use a different model.`,
+        this.providerName,
+      );
+    } catch (error) {
+      logger.error("Image generation failed", {
+        error: error instanceof Error ? error.message : String(error),
+        model: imageModelName,
+        prompt: prompt.substring(0, 100),
+      });
+
+      throw this.handleProviderError(error);
+    }
+  }
+
+  /**
+   * Detect image MIME type from buffer
+   */
+  private detectImageType(buffer: Buffer): string {
+    // Check PNG signature
+    if (
+      buffer.length >= 8 &&
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47
+    ) {
+      return "image/png";
+    }
+
+    // Check JPEG signature
+    if (
+      buffer.length >= 3 &&
+      buffer[0] === 0xff &&
+      buffer[1] === 0xd8 &&
+      buffer[2] === 0xff
+    ) {
+      return "image/jpeg";
+    }
+
+    // Check WebP signature
+    if (
+      buffer.length >= 12 &&
+      buffer[0] === 0x52 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x46 &&
+      buffer[8] === 0x57 &&
+      buffer[9] === 0x45 &&
+      buffer[10] === 0x42 &&
+      buffer[11] === 0x50
+    ) {
+      return "image/webp";
+    }
+
+    // Check GIF signature
+    if (
+      buffer.length >= 6 &&
+      buffer[0] === 0x47 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46
+    ) {
+      return "image/gif";
+    }
+
+    // Default to PNG if unknown
+    return "image/png";
+  }
+
+  /**
+   * Estimate token count from text (simple character-based estimation)
+   */
+  private estimateTokenCount(text: string): number {
+    // Rough estimation: ~4 characters per token
+    return Math.ceil(text.length / 4);
+  }
+
   // executeGenerate removed - BaseProvider handles all generation with tools
   protected async executeStream(
     options: StreamOptions,
@@ -1222,7 +1554,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
         },
       },
       config: {
-        responseModalities: ["AUDIO"],
+        responseModalities: ["AUDIO"] as ("TEXT" | "IMAGE" | "AUDIO")[],
         speechConfig: {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: "Orus" } },
         },

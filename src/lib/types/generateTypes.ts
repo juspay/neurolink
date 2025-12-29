@@ -339,6 +339,7 @@ export type GenerateResult = {
    * ```
    */
   video?: VideoGenerationResult;
+  imageOutput?: { base64: string } | null; // Standard format for image generation
 
   // Provider information
   provider?: string;
@@ -451,6 +452,7 @@ export type TextGenerationOptions = {
      * For video generation, the first image is used as the source frame.
      */
     images?: Array<Buffer | string | import("./content.js").ImageWithAltText>;
+    pdfFiles?: Array<Buffer | string>; // Support for PDF inputs (for image generation with Vertex AI)
   };
   provider?: AIProviderName;
   model?: string;
@@ -672,7 +674,10 @@ export type TextGenerationResult = {
   analytics?: AnalyticsData;
   evaluation?: EvaluationData;
   audio?: TTSResult;
+  /** Video generation result */
   video?: VideoGenerationResult;
+  /** Image generation output */
+  imageOutput?: { base64: string } | null;
 };
 
 /**

@@ -23,7 +23,7 @@ import {
 } from "../adapters/providerImageAdapter.js";
 import { logger } from "./logger.js";
 import { FileDetector } from "./fileDetector.js";
-import { PDFProcessor } from "./pdfProcessor.js";
+import { PDFProcessor, PDFImageConverter } from "./pdfProcessor.js";
 import { request, getGlobalDispatcher, interceptors } from "undici";
 import { readFileSync, existsSync } from "fs";
 import type {
@@ -1097,22 +1097,78 @@ async function convertMultimodalToProviderFormat(
     }
   }
 
-  // Add PDFs using Vercel AI SDK standard format (works for all providers except Mistral)
-  // NOTE: Mistral API has a fundamental limitation - it does NOT support PDFs in any form.
-  // The API strictly requires image content to start with data:image/, rejecting data:application/pdf
-  // See: MISTRAL_PDF_FIX_SUMMARY.md for full investigation details
-  content.push(
-    ...pdfFiles.map((pdf): FilePart => {
-      logger.info(
-        `[PDF] ✅ Added to content (Vercel AI SDK format): ${pdf.filename}`,
-      );
-      return {
-        type: "file" as const,
-        data: pdf.buffer,
-        mimeType: "application/pdf",
-      };
-    }),
-  );
+  // Check if provider supports native PDF processing
+  const supportsNativePDF = PDFProcessor.supportsNativePDF(provider);
+
+  if (supportsNativePDF) {
+    // Add PDFs using Vercel AI SDK standard format (works for providers with native PDF support)
+    content.push(
+      ...pdfFiles.map((pdf): FilePart => {
+        logger.info(
+          `[PDF] ✅ Added to content (native PDF format): ${pdf.filename}`,
+        );
+        return {
+          type: "file" as const,
+          data: pdf.buffer,
+          mimeType: "application/pdf",
+        };
+      }),
+    );
+  } else {
+    // Provider doesn't support native PDF - convert PDF pages to images
+    // This enables PDF processing for providers like Mistral, Ollama that support images but not PDFs
+    logger.info(
+      `[PDF→Image] Provider ${provider} doesn't support native PDF. Converting ${pdfFiles.length} PDF(s) to images...`,
+    );
+
+    for (const pdf of pdfFiles) {
+      try {
+        const conversionResult = await PDFImageConverter.convertToImages(
+          pdf.buffer,
+          {
+            scale: 2.0, // High quality for OCR/analysis
+            maxPages: 20, // Limit pages to prevent token overflow
+          },
+        );
+
+        logger.info(
+          `[PDF→Image] ✅ Converted ${pdf.filename}: ${conversionResult.pageCount} page(s) → images`,
+        );
+
+        // Add each page as an ImagePart
+        conversionResult.images.forEach((base64Image, pageIndex) => {
+          content.push({
+            type: "image" as const,
+            image: `data:image/png;base64,${base64Image}`,
+            mimeType: "image/png",
+          } as ImagePart);
+
+          logger.debug(
+            `[PDF→Image] Added page ${pageIndex + 1}/${conversionResult.pageCount} of ${pdf.filename}`,
+          );
+        });
+
+        // Log any warnings from conversion
+        if (conversionResult.warnings) {
+          conversionResult.warnings.forEach((warning) => {
+            logger.warn(`[PDF→Image] ${warning}`);
+          });
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.error(
+          `[PDF→Image] ❌ Failed to convert ${pdf.filename}: ${errorMessage}`,
+        );
+
+        // Re-throw so the user knows PDF processing failed
+        throw new Error(
+          `PDF to image conversion failed for ${pdf.filename}: ${errorMessage}. ` +
+            `Provider ${provider} doesn't support native PDFs and image conversion failed.`,
+        );
+      }
+    }
+  }
 
   return content;
 }

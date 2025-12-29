@@ -81,6 +81,8 @@ export type GenerateCommandArgs = BaseCommandArgs & {
   thinkingLevel?: "minimal" | "low" | "medium" | "high";
   /** Vertex AI region */
   region?: string;
+  /** Custom path for generated image output */
+  imageOutput?: string;
 };
 
 /**
@@ -393,6 +395,10 @@ export type GenerateResult = CommandResult & {
   }>;
   /** TTS audio result when TTS is enabled */
   audio?: import("./index.js").TTSResult;
+  imageOutput?: {
+    base64: string;
+    savedPath?: string; // Local file path where image was saved
+  } | null; // Image generation output
 };
 
 /**

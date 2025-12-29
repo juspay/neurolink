@@ -155,9 +155,9 @@ importers:
       p-limit:
         specifier: ^6.2.0
         version: 6.2.0
-      pdfjs-dist:
-        specifier: ^5.4.296
-        version: 5.4.296
+      pdf-to-img:
+        specifier: ^5.0.0
+        version: 5.0.0
       reconnecting-eventsource:
         specifier: ^1.6.4
         version: 1.6.4
@@ -5166,6 +5166,11 @@ packages:
   pathval@2.0.1:
     resolution: {integrity: sha512-//nshmD55c46FuFw26xV/xFAaB5HF9Xdap7HJBBnrKdAd6/GxDBaNA1870O79+9ueg61cZLSVc+OaFlfmObYVQ==}
     engines: {node: '>= 14.16'}
+
+  pdf-to-img@5.0.0:
+    resolution: {integrity: sha512-QJy7P2Qbk86lntPPIC3HVZAyw/CvM+CP592UbO7grborOJ74Icspb8A2sdHO33MDb/WHwHZpSJxd771rQTlZKA==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   pdfjs-dist@5.4.296:
     resolution: {integrity: sha512-DlOzet0HO7OEnmUmB6wWGJrrdvbyJKftI1bhMitK7O2N8W2gc757yyYBbINy9IDafXAV9wmKr9t7xsTaNKRG5Q==}
@@ -12350,6 +12355,10 @@ snapshots:
   pathe@1.1.2: {}
 
   pathval@2.0.1: {}
+
+  pdf-to-img@5.0.0:
+    dependencies:
+      pdfjs-dist: 5.4.296
 
   pdfjs-dist@5.4.296:
     optionalDependencies:

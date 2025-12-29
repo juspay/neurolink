@@ -33,8 +33,10 @@ import type { NeuroLink } from "../neurolink.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import { AuthenticationError, ProviderError } from "../types/errors.js";
 import {
   DEFAULT_MAX_STEPS,
+  GLOBAL_LOCATION_MODELS,
   DEFAULT_TOOL_MAX_RETRIES,
 } from "../core/constants.js";
 import { ModelConfigurationManager } from "../core/modelConfiguration.js";
@@ -91,6 +93,7 @@ const getDefaultVertexModel = (): string => {
 
 const hasGoogleCredentials = (): boolean => {
   return !!(
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK ||
     process.env.GOOGLE_APPLICATION_CREDENTIALS ||
     process.env.GOOGLE_SERVICE_ACCOUNT_KEY ||
     (process.env.GOOGLE_AUTH_CLIENT_EMAIL &&
@@ -192,8 +195,9 @@ const createVertexSettings = async (
   }
 
   // 🎯 OPTION 1: Check for principal account authentication (Accept any valid GOOGLE_APPLICATION_CREDENTIALS file (service account OR ADC))
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK) {
+    const credentialsPath =
+      process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK;
 
     // Check if the credentials file exists
     let fileExists = false;
@@ -205,6 +209,21 @@ const createVertexSettings = async (
 
     if (fileExists) {
       return baseSettings;
+    }
+  } else {
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      // Check if the credentials file exists
+      let fileExists = false;
+      try {
+        fileExists = fs.existsSync(credentialsPath);
+      } catch {
+        fileExists = false;
+      }
+
+      if (fileExists) {
+        return baseSettings;
+      }
     }
   }
 
@@ -672,7 +691,10 @@ export class GoogleVertexProvider extends BaseProvider {
           errorEnvironment: {
             httpProxy: process.env.HTTP_PROXY || process.env.http_proxy,
             httpsProxy: process.env.HTTPS_PROXY || process.env.https_proxy,
-            googleAppCreds: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+            googleAppCreds:
+              process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK ||
+              process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+              "NOT_SET",
             hasGoogleServiceKey: !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
             nodeVersion: process.version,
             memoryUsage: process.memoryUsage(),
@@ -2705,9 +2727,14 @@ export class GoogleVertexProvider extends BaseProvider {
 
     try {
       // Check for service account file authentication (preferred)
-      if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-        const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
+      if (
+        process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK ||
+        process.env.GOOGLE_APPLICATION_CREDENTIALS
+      ) {
+        const credentialsPath = process.env
+          .GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK
+          ? process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK
+          : process.env.GOOGLE_APPLICATION_CREDENTIALS || "";
         try {
           if (fs.existsSync(credentialsPath)) {
             // Validate JSON structure
@@ -3225,6 +3252,472 @@ export class GoogleVertexProvider extends BaseProvider {
         maxTokens: now - GoogleVertexProvider.maxTokensCacheTime,
       },
     };
+  }
+
+  /**
+   * Detect image MIME type from buffer
+   */
+  private detectImageType(buffer: Buffer): string {
+    // Check PNG signature
+    if (
+      buffer.length >= 8 &&
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47
+    ) {
+      return "image/png";
+    }
+
+    // Check JPEG signature
+    if (
+      buffer.length >= 3 &&
+      buffer[0] === 0xff &&
+      buffer[1] === 0xd8 &&
+      buffer[2] === 0xff
+    ) {
+      return "image/jpeg";
+    }
+
+    // Check WebP signature
+    if (
+      buffer.length >= 12 &&
+      buffer[0] === 0x52 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x46 &&
+      buffer[8] === 0x57 &&
+      buffer[9] === 0x45 &&
+      buffer[10] === 0x42 &&
+      buffer[11] === 0x50
+    ) {
+      return "image/webp";
+    }
+
+    // Check GIF signature
+    if (
+      buffer.length >= 6 &&
+      buffer[0] === 0x47 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46
+    ) {
+      return "image/gif";
+    }
+
+    // Default to PNG if unknown
+    return "image/png";
+  }
+
+  /**
+   * Estimate token count from text (simple character-based estimation)
+   */
+  private estimateTokenCount(text: string): number {
+    // Rough estimation: ~4 characters per token
+    return Math.ceil(text.length / 4);
+  }
+
+  /**
+   * Build image parts for multimodal content
+   */
+
+  /**
+   * Overrides the BaseProvider's image generation method to implement it for Vertex AI.
+   * Uses REST API approach with google-auth-library for authentication.
+   * Supports PDF input for image generation with gemini-3-pro-image-preview (Nano Banana Pro).
+   * @param options The generation options containing the prompt and optional PDF files.
+   * @returns A promise that resolves to the generation result, including the image data.
+   */
+  protected async executeImageGeneration(
+    options: TextGenerationOptions,
+  ): Promise<EnhancedGenerateResult> {
+    const prompt = options.prompt || options.input?.text || "";
+    const pdfFiles = options.input?.pdfFiles || [];
+    const inputImages = options.input?.images || [];
+    const hasPdfInput = pdfFiles.length > 0;
+    const hasImageInput = inputImages.length > 0;
+
+    // Validate that we have at least a prompt or PDF/image input
+    if (!prompt.trim() && !hasPdfInput && !hasImageInput) {
+      throw new ProviderError(
+        "Image generation requires either a prompt, PDF file, or image as input",
+        this.providerName,
+      );
+    }
+
+    // Select appropriate model - use gemini-3-pro-image-preview for PDF input
+    let imageModelName =
+      options.model || this.modelName || "gemini-3-pro-image-preview";
+
+    // If PDF files are provided, ensure we use a model that supports PDF input
+    if (hasPdfInput && !imageModelName.includes("gemini-3-pro-image")) {
+      imageModelName = "gemini-3-pro-image-preview";
+    }
+
+    // Determine location - some image models require 'global' location
+    // Check if the model is in GLOBAL_LOCATION_MODELS array (includes gemini-3-pro-image-preview, gemini-2.5-flash-image, etc.)
+    const imageLocation = process.env.GOOGLE_VERTEX_IMAGE_LOCATION || "global";
+    const requiresGlobalLocation = GLOBAL_LOCATION_MODELS.some(
+      (model) =>
+        imageModelName.includes(model) || model.includes(imageModelName),
+    );
+    const location = requiresGlobalLocation ? imageLocation : this.location;
+
+    const startTime = Date.now();
+
+    logger.info("🎨 Starting Vertex AI image generation (REST API)", {
+      model: imageModelName,
+      prompt: prompt.substring(0, 100),
+      provider: this.providerName,
+      projectId: this.projectId,
+      location: location,
+      hasPdfInput,
+      pdfCount: pdfFiles.length,
+      hasImageInput,
+      imageCount: inputImages.length,
+    });
+
+    try {
+      // Import google-auth-library dynamically
+      const { GoogleAuth } = await import("google-auth-library");
+
+      // Determine which credentials file to use
+      // Priority: GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK > GOOGLE_APPLICATION_CREDENTIALS
+      const credentialsPath =
+        process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK ||
+        process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+      // Initialize GoogleAuth with credentials
+      // Use keyFilename to explicitly specify the credentials file to avoid using wrong service account
+      const auth = new GoogleAuth({
+        ...(credentialsPath && { keyFilename: credentialsPath }),
+        scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+      });
+
+      // Get access token
+      const client = await auth.getClient();
+      const accessToken = await client.getAccessToken();
+
+      if (!accessToken.token) {
+        throw new AuthenticationError(
+          "Failed to obtain access token from Google Auth",
+          this.providerName,
+        );
+      }
+
+      // Build parts array - supports text prompt and optional PDF files
+      const parts: Array<{
+        text?: string;
+        inlineData?: { mimeType: string; data: string };
+      }> = [];
+
+      // Add text prompt
+      if (prompt) {
+        parts.push({ text: prompt });
+      }
+
+      // Add PDF files as inline data (for gemini-3-pro-image-preview)
+      if (hasPdfInput) {
+        for (const pdfFile of pdfFiles) {
+          let pdfBase64: string;
+
+          if (Buffer.isBuffer(pdfFile)) {
+            pdfBase64 = pdfFile.toString("base64");
+          } else if (typeof pdfFile === "string") {
+            // Check if it's already base64 or a file path
+            // Supports absolute paths, Windows paths, and relative paths
+            const isFilePath =
+              pdfFile.startsWith("/") ||
+              /^[a-zA-Z]:\\/.test(pdfFile) ||
+              pdfFile.startsWith("./") ||
+              pdfFile.startsWith("../") ||
+              pdfFile.startsWith("..\\") ||
+              pdfFile.startsWith(".\\");
+            if (isFilePath) {
+              // Validate and normalize the path for security
+              const normalizedPath = path.resolve(pdfFile);
+              const cwd = process.cwd();
+
+              // Security: Ensure path is within current working directory
+              if (
+                !normalizedPath.startsWith(cwd + path.sep) &&
+                normalizedPath !== cwd
+              ) {
+                throw new ProviderError(
+                  `PDF file path must be within current directory for security`,
+                  this.providerName,
+                );
+              }
+
+              // Security: Validate file exists before reading
+              if (!fs.existsSync(normalizedPath)) {
+                throw new ProviderError(
+                  `PDF file not found: ${normalizedPath}`,
+                  this.providerName,
+                );
+              }
+
+              // Read the file
+              const pdfBuffer = fs.readFileSync(normalizedPath);
+              pdfBase64 = pdfBuffer.toString("base64");
+            } else {
+              // Assume it's already base64
+              pdfBase64 = pdfFile;
+            }
+          } else {
+            logger.warn("Invalid PDF file format, skipping", {
+              type: typeof pdfFile,
+            });
+            continue;
+          }
+          parts.push({
+            inlineData: {
+              mimeType: "application/pdf",
+              data: pdfBase64,
+            },
+          });
+          logger.debug("Added PDF file to request", {
+            dataLength: pdfBase64.length,
+          });
+        }
+      }
+
+      // Add images (including those converted from PDF by baseProvider)
+      // This handles the case where PDFs are converted to images for models that don't support native PDF
+      if (hasImageInput) {
+        for (let i = 0; i < inputImages.length; i++) {
+          const image = inputImages[i];
+          let imageBase64: string;
+          let mimeType: string;
+
+          if (Buffer.isBuffer(image)) {
+            imageBase64 = image.toString("base64");
+            mimeType = this.detectImageType(image);
+          } else if (typeof image === "string") {
+            // Check if it's a file path or already base64
+            const isFilePath =
+              image.startsWith("/") ||
+              /^[a-zA-Z]:\\/.test(image) ||
+              image.startsWith("./") ||
+              image.startsWith("../") ||
+              image.startsWith("..\\") ||
+              image.startsWith(".\\");
+
+            if (isFilePath) {
+              // Read from file path
+              const normalizedPath = path.resolve(image);
+              if (!fs.existsSync(normalizedPath)) {
+                logger.warn(
+                  `Image file not found: ${normalizedPath}, skipping`,
+                );
+                continue;
+              }
+              const imageBuffer = fs.readFileSync(normalizedPath);
+              imageBase64 = imageBuffer.toString("base64");
+              mimeType = this.detectImageType(imageBuffer);
+            } else if (image.startsWith("data:")) {
+              // Data URL format: data:image/png;base64,<base64data>
+              const matches = image.match(/^data:([^;]+);base64,(.+)$/);
+              if (matches) {
+                mimeType = matches[1];
+                imageBase64 = matches[2];
+              } else {
+                logger.warn("Invalid data URL format, skipping image", {
+                  index: i,
+                });
+                continue;
+              }
+            } else {
+              // Assume it's already base64 encoded
+              imageBase64 = image;
+              // Try to detect type from base64 data
+              const decodedBuffer = Buffer.from(imageBase64, "base64");
+              mimeType = this.detectImageType(decodedBuffer);
+            }
+          } else {
+            logger.warn("Invalid image format, skipping", {
+              type: typeof image,
+              index: i,
+            });
+            continue;
+          }
+
+          parts.push({
+            inlineData: {
+              mimeType: mimeType,
+              data: imageBase64,
+            },
+          });
+
+          logger.debug("Added image to request", {
+            index: i,
+            mimeType,
+            dataLength: imageBase64.length,
+          });
+        }
+      }
+
+      // Build request body with CRITICAL response_modalities setting
+      const requestBody = {
+        contents: [
+          {
+            role: "user",
+            parts: parts,
+          },
+        ],
+        generation_config: {
+          response_modalities: ["TEXT", "IMAGE"], // CRITICAL for image generation
+          temperature: options.temperature || 0.7,
+          candidate_count: 1,
+        },
+      };
+
+      // Construct Vertex AI endpoint - use appropriate base URL for location
+      let url: string;
+      if (location === "global") {
+        // Global endpoint doesn't have region prefix
+        url = `https://aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/global/publishers/google/models/${imageModelName}:generateContent`;
+      } else {
+        url = `https://${location}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${location}/publishers/google/models/${imageModelName}:generateContent`;
+      }
+
+      logger.debug("Making REST API call to Vertex AI", {
+        url,
+        model: imageModelName,
+        hasAccessToken: !!accessToken.token,
+      });
+
+      // Add timeout protection (120 seconds for image generation)
+      // Note: Using Promise.race instead of createTimeoutController because:
+      // 1. This is a one-off REST API call (not streaming) where fetch completion is atomic
+      // 2. AbortController mid-request cancellation isn't beneficial for image generation
+      //    since the server generates the full image before responding
+      // 3. The simpler Promise.race pattern is sufficient for this use case
+      const timeoutMs = 120000;
+
+      const fetchPromise = fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(
+            new TimeoutError(
+              `Vertex AI image generation timed out after ${timeoutMs}ms`,
+              timeoutMs,
+            ),
+          );
+        }, timeoutMs);
+      });
+
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new ProviderError(
+          `Vertex AI API error (${response.status}): ${errorText}`,
+          this.providerName,
+        );
+      }
+
+      const data = (await response.json()) as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{
+              inlineData?: { data: string; mimeType?: string };
+              inline_data?: { data: string; mime_type?: string };
+              text?: string;
+            }>;
+          };
+        }>;
+      };
+
+      // Extract image from response (handle both inlineData and inline_data formats)
+      const candidate = data.candidates?.[0];
+      if (!candidate?.content?.parts) {
+        throw new ProviderError(
+          "No content parts in Vertex AI response",
+          this.providerName,
+        );
+      }
+
+      // Find image part (check both camelCase and snake_case)
+      const imagePart = candidate.content.parts.find(
+        (part) =>
+          (part.inlineData || part.inline_data) &&
+          ((part.inlineData && part.inlineData.mimeType) ||
+            (part.inline_data && part.inline_data.mime_type)) &&
+          ((part.inlineData &&
+            part.inlineData.mimeType?.startsWith("image/")) ||
+            (part.inline_data &&
+              part.inline_data.mime_type?.startsWith("image/"))),
+      );
+
+      if (!imagePart) {
+        // Check if response contains text instead of image (don't expose text content in error for security)
+        const hasTextContent = candidate.content.parts.some(
+          (part) => part.text,
+        );
+
+        throw new ProviderError(
+          hasTextContent
+            ? `Image generation completed but model returned text instead of image data. Model: ${imageModelName}`
+            : `Image generation completed but no image data was returned. Model: ${imageModelName}`,
+          this.providerName,
+        );
+      }
+
+      // Extract image data (handle both formats)
+      const imageData =
+        imagePart.inlineData?.data || imagePart.inline_data?.data;
+      const mimeType =
+        imagePart.inlineData?.mimeType ||
+        imagePart.inline_data?.mime_type ||
+        "image/png";
+
+      if (!imageData) {
+        throw new ProviderError(
+          "Image part found but no data available",
+          this.providerName,
+        );
+      }
+
+      logger.info("Image generation successful", {
+        model: imageModelName,
+        mimeType,
+        dataLength: imageData.length,
+        responseTime: Date.now() - startTime,
+      });
+
+      // Return result structure
+      const result: EnhancedGenerateResult = {
+        content: `Generated image using ${imageModelName} (${mimeType})`,
+        imageOutput: {
+          base64: imageData,
+        },
+        provider: this.providerName,
+        model: imageModelName,
+        usage: {
+          input: this.estimateTokenCount(prompt),
+          output: 0,
+          total: this.estimateTokenCount(prompt),
+        },
+      };
+
+      return await this.enhanceResult(result, options, startTime);
+    } catch (error) {
+      logger.error("Image generation failed", {
+        error: error instanceof Error ? error.message : String(error),
+        model: imageModelName,
+        prompt: prompt.substring(0, 100),
+      });
+
+      throw this.handleProviderError(error);
+    }
   }
 
   /**

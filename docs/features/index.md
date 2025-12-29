@@ -14,6 +14,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 | Feature                                                                             | Description                                                                                        |
 | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| :material-image: **[Image Generation](../IMAGE-GENERATION-STREAMING.md)**           | Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio.           |
 | :material-hand-pointing-up: **[Human-in-the-Loop (HITL)](hitl.md)**                 | Pause AI tool execution for user approval before risky operations like file deletion or API calls. |
 | :material-shield-check: **[Guardrails Middleware](guardrails.md)**                  | Content filtering, PII detection, and safety checks for AI outputs with zero configuration.        |
 | :material-database-export: **[Redis Conversation Export](conversation-history.md)** | Export complete session history as JSON for analytics, debugging, and compliance auditing.         |

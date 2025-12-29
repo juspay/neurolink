@@ -3,6 +3,24 @@
  * Single source of truth for all default values
  */
 
+// Image Generation Model Identifiers
+// Used to detect if a model is an image generation model (not text generation)
+export const IMAGE_GENERATION_MODELS = [
+  "gemini-3-pro-image-preview",
+  "gemini-2.5-flash-image",
+];
+
+// PDF Image Generation Models
+// Models that support generating images from PDFs
+export const PDF_IMAGE_GENERATION_MODELS = ["gemini-3-pro-image-preview"];
+
+// Global Location Models
+// Models that require global location configuration (uses aiplatform.googleapis.com instead of region-specific endpoints)
+export const GLOBAL_LOCATION_MODELS = [
+  "gemini-3-pro-image-preview",
+  "gemini-2.5-flash-image",
+];
+
 // Core AI Generation Defaults
 export const DEFAULT_MAX_TOKENS = undefined; // Unlimited by default - let providers decide their own limits
 export const DEFAULT_TEMPERATURE = 0.7;
@@ -83,6 +101,14 @@ export const CLI_LIMITS = {
     max: 2,
     default: DEFAULT_TEMPERATURE,
   },
+};
+
+// PDF Processing Limits
+export const PDF_LIMITS = {
+  // Maximum PDF size for image conversion (20MB)
+  MAX_SIZE_MB: 20,
+  // Default maximum pages for image conversion
+  DEFAULT_MAX_PAGES: 20,
 };
 
 // Performance and System Limits

@@ -414,8 +414,10 @@ export type StreamOptions = {
  */
 export type StreamResult = {
   stream: AsyncIterable<
-    { content: string } | { type: "audio"; audio: AudioChunk }
-  >; // text chunks or audio events
+    | { content: string }
+    | { type: "audio"; audio: AudioChunk }
+    | { type: "image"; imageOutput: { base64: string } }
+  >; // text chunks, audio events, or image output
 
   // Provider information
   provider?: string;

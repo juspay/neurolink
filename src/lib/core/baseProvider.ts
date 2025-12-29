@@ -19,6 +19,7 @@ import type { MiddlewareFactoryOptions } from "../types/middlewareTypes.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { JsonValue, UnknownRecord } from "../types/common.js";
 import { logger } from "../utils/logger.js";
+import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
 import { directAgentTools } from "../agent/directTools.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
@@ -156,6 +157,24 @@ export abstract class BaseProvider implements AIProvider {
       timestamp: Date.now(),
     });
 
+    // 🔧 CRITICAL: Image generation models don't support real streaming
+    // Force fake streaming for image models to ensure image output is yielded
+    const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
+      this.modelName.includes(m),
+    );
+
+    if (isImageModel) {
+      logger.info(`Image model detected, forcing fake streaming`, {
+        provider: this.providerName,
+        model: this.modelName,
+        reason:
+          "Image generation requires fake streaming to yield image output",
+      });
+
+      // Skip real streaming, go directly to fake streaming
+      return await this.executeFakeStreaming(options, analysisSchema);
+    }
+
     // CRITICAL FIX: Always prefer real streaming over fake streaming
     // Try real streaming first, use fake streaming only as fallback
     try {
@@ -190,124 +209,7 @@ export abstract class BaseProvider implements AIProvider {
 
       // Fallback to fake streaming only if real streaming fails AND tools are enabled
       if (!options.disableTools && this.supportsTools()) {
-        try {
-          logger.info(`Starting fake streaming with tools`, {
-            provider: this.providerName,
-            supportsTools: this.supportsTools(),
-            timestamp: Date.now(),
-          });
-
-          // Convert stream options to text generation options
-          const textOptions: TextGenerationOptions = {
-            prompt: options.input?.text || "",
-            input: options.input,
-            systemPrompt: options.systemPrompt,
-            temperature: options.temperature,
-            maxTokens: options.maxTokens,
-            disableTools: false,
-            maxSteps: options.maxSteps || 5,
-            provider: options.provider as AIProviderName | undefined,
-            model: options.model,
-            region: options.region, // Pass region for Vertex AI
-            // 🔧 FIX: Include analytics and evaluation options from stream options
-            enableAnalytics: options.enableAnalytics,
-            enableEvaluation: options.enableEvaluation,
-            evaluationDomain: options.evaluationDomain,
-            toolUsageContext: options.toolUsageContext,
-            context: options.context as Record<string, JsonValue> | undefined,
-            csvOptions: options.csvOptions,
-          };
-
-          logger.debug(`Calling generate for fake streaming`, {
-            provider: this.providerName,
-            maxSteps: textOptions.maxSteps,
-            disableTools: textOptions.disableTools,
-            timestamp: Date.now(),
-          });
-
-          const result = await this.generate(textOptions, analysisSchema);
-
-          logger.info(`Generate completed for fake streaming`, {
-            provider: this.providerName,
-            hasContent: !!result?.content,
-            contentLength: result?.content?.length || 0,
-            toolsUsed: result?.toolsUsed?.length || 0,
-            timestamp: Date.now(),
-          });
-
-          // Create a synthetic stream from the generate result that simulates progressive delivery
-          return {
-            stream: (async function* () {
-              if (result?.content) {
-                // Split content into words for more natural streaming
-                const words = result.content.split(/(\s+)/); // Keep whitespace
-                let buffer = "";
-
-                for (let i = 0; i < words.length; i++) {
-                  buffer += words[i];
-
-                  // Yield chunks of roughly 5-10 words or at punctuation
-                  const shouldYield =
-                    i === words.length - 1 || // Last word
-                    buffer.length > 50 || // Buffer getting long
-                    /[.!?;,]\s*$/.test(buffer); // End of sentence/clause
-
-                  if (shouldYield && buffer.trim()) {
-                    yield { content: buffer };
-                    buffer = "";
-
-                    // Small delay to simulate streaming (1-10ms)
-                    await new Promise((resolve, reject) => {
-                      const timeoutId = setTimeout(
-                        resolve,
-                        Math.random() * 9 + 1,
-                      );
-                      // Handle potential timeout issues
-                      if (!timeoutId) {
-                        reject(new Error("Failed to create timeout"));
-                      }
-                    }).catch((err) => {
-                      logger.error("Error in streaming delay:", err);
-                    });
-                  }
-                }
-
-                // Yield all remaining content
-                if (buffer.trim()) {
-                  yield { content: buffer };
-                }
-              }
-            })(),
-            usage: result?.usage,
-            provider: result?.provider,
-            model: result?.model,
-            toolCalls: result?.toolCalls?.map((call) => ({
-              toolName: call.toolName,
-              parameters: call.args,
-              id: call.toolCallId,
-            })),
-            toolResults: result?.toolResults
-              ? result.toolResults.map((tr) => ({
-                  toolName:
-                    ((tr as UnknownRecord).toolName as string) || "unknown",
-                  status: (((tr as UnknownRecord).status as string) === "error"
-                    ? "failure"
-                    : "success") as "success" | "failure",
-                  result: (tr as UnknownRecord).result,
-                  error: (tr as UnknownRecord).error as string | undefined,
-                }))
-              : undefined,
-            // 🔧 FIX: Include analytics and evaluation from generate result
-            analytics: result?.analytics,
-            evaluation: result?.evaluation,
-          };
-        } catch (error) {
-          logger.error(
-            `Fake streaming fallback failed for ${this.providerName}:`,
-            error,
-          );
-          throw this.handleProviderError(error);
-        }
+        return await this.executeFakeStreaming(options, analysisSchema);
       } else {
         // If real streaming failed and no tools are enabled, re-throw the original error
         logger.error(
@@ -316,6 +218,132 @@ export abstract class BaseProvider implements AIProvider {
         );
         throw this.handleProviderError(realStreamError);
       }
+    }
+  }
+
+  /**
+   * Execute fake streaming - extracted method for reusability
+   */
+  private async executeFakeStreaming(
+    options: StreamOptions,
+    analysisSchema?: ValidationSchema,
+  ): Promise<StreamResult> {
+    try {
+      logger.info(`Starting fake streaming with tools`, {
+        provider: this.providerName,
+        supportsTools: this.supportsTools(),
+        timestamp: Date.now(),
+      });
+
+      // Convert stream options to text generation options
+      const textOptions: TextGenerationOptions = {
+        prompt: options.input?.text || "",
+        input: options.input,
+        systemPrompt: options.systemPrompt,
+        temperature: options.temperature,
+        maxTokens: options.maxTokens,
+        disableTools: false,
+        maxSteps: options.maxSteps || 5,
+        provider: options.provider as AIProviderName | undefined,
+        model: options.model,
+        region: options.region, // Pass region for Vertex AI
+        // 🔧 FIX: Include analytics and evaluation options from stream options
+        enableAnalytics: options.enableAnalytics,
+        enableEvaluation: options.enableEvaluation,
+        evaluationDomain: options.evaluationDomain,
+        toolUsageContext: options.toolUsageContext,
+        context: options.context as Record<string, JsonValue> | undefined,
+        csvOptions: options.csvOptions,
+      };
+
+      logger.debug(`Calling generate for fake streaming`, {
+        provider: this.providerName,
+        maxSteps: textOptions.maxSteps,
+        disableTools: textOptions.disableTools,
+        timestamp: Date.now(),
+      });
+
+      const result = await this.generate(textOptions, analysisSchema);
+
+      logger.info(`Generate completed for fake streaming`, {
+        provider: this.providerName,
+        hasContent: !!result?.content,
+        contentLength: result?.content?.length || 0,
+        toolsUsed: result?.toolsUsed?.length || 0,
+        hasImageOutput: !!result?.imageOutput,
+        timestamp: Date.now(),
+      });
+
+      // Create a synthetic stream from the generate result that simulates progressive delivery
+      return {
+        stream: (async function* () {
+          if (result?.content) {
+            // Split content into words for more natural streaming
+            const words = result.content.split(/(\s+)/); // Keep whitespace
+            let buffer = "";
+
+            for (let i = 0; i < words.length; i++) {
+              buffer += words[i];
+
+              // Yield chunks of roughly 5-10 words or at punctuation
+              const shouldYield =
+                i === words.length - 1 || // Last word
+                buffer.length > 50 || // Buffer getting long
+                /[.!?;,]\s*$/.test(buffer); // End of sentence/clause
+
+              if (shouldYield && buffer.trim()) {
+                yield { content: buffer };
+                buffer = "";
+
+                // Small delay to simulate streaming (1-10ms)
+                await new Promise((resolve) => {
+                  setTimeout(resolve, Math.random() * 9 + 1);
+                });
+              }
+            }
+
+            // Yield all remaining content
+            if (buffer.trim()) {
+              yield { content: buffer };
+            }
+          }
+
+          // 🔧 CRITICAL FIX: Yield image output if present
+          if (result?.imageOutput) {
+            yield {
+              type: "image" as const,
+              imageOutput: result.imageOutput,
+            };
+          }
+        })(),
+        usage: result?.usage,
+        provider: result?.provider,
+        model: result?.model,
+        toolCalls: result?.toolCalls?.map((call) => ({
+          toolName: call.toolName,
+          parameters: call.args,
+          id: call.toolCallId,
+        })),
+        toolResults: result?.toolResults
+          ? result.toolResults.map((tr) => ({
+              toolName: ((tr as UnknownRecord).toolName as string) || "unknown",
+              status: (((tr as UnknownRecord).status as string) === "error"
+                ? "failure"
+                : "success") as "success" | "failure",
+              result: (tr as UnknownRecord).result,
+              error: (tr as UnknownRecord).error as string | undefined,
+            }))
+          : undefined,
+        // 🔧 FIX: Include analytics and evaluation from generate result
+        analytics: result?.analytics,
+        evaluation: result?.evaluation,
+      };
+    } catch (error) {
+      logger.error(
+        `Fake streaming fallback failed for ${this.providerName}:`,
+        error,
+      );
+      throw this.handleProviderError(error);
     }
   }
 
@@ -494,6 +522,25 @@ export abstract class BaseProvider implements AIProvider {
       // Generate video from image + prompt using Veo 3.1
       if (options.output?.mode === "video") {
         return await this.handleVideoGeneration(options, startTime);
+      }
+
+      // ===== IMAGE GENERATION MODE =====
+      // Route to executeImageGeneration for image generation models
+      const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
+        this.modelName.includes(m),
+      );
+
+      if (isImageModel) {
+        logger.info(
+          `Image generation model detected, routing to executeImageGeneration`,
+          {
+            provider: this.providerName,
+            model: this.modelName,
+          },
+        );
+
+        const imageResult = await this.executeImageGeneration(options);
+        return await this.enhanceResult(imageResult, options, startTime);
       }
 
       // ===== TTS MODE 1: Direct Input Synthesis (useAiResponse=false) =====
@@ -847,6 +894,20 @@ export abstract class BaseProvider implements AIProvider {
    */
   protected abstract handleProviderError(error: unknown): Error;
 
+  /**
+   * Image generation method. Providers that support it should override this.
+   * By default, it throws an error indicating that the functionality is not supported.
+   * @param _options The generation options.
+   * @returns A promise that resolves to the generation result.
+   */
+  protected async executeImageGeneration(
+    _options: TextGenerationOptions,
+  ): Promise<EnhancedGenerateResult> {
+    throw new Error(
+      `Image generation is not supported by the ${this.providerName} provider or the selected model.`,
+    );
+  }
+
   // ===================
   // CONSOLIDATED PROVIDER METHODS - MOVED FROM INDIVIDUAL PROVIDERS
   // ===================
@@ -986,18 +1047,21 @@ export abstract class BaseProvider implements AIProvider {
     startTime: number,
   ): Promise<EnhancedGenerateResult> {
     const responseTime = Date.now() - startTime;
+
+    // CRITICAL FIX: Store imageOutput separately to ensure it's preserved
+    const imageOutput = result.imageOutput;
+
     let enhancedResult = { ...result };
 
     if (options.enableAnalytics) {
       try {
-        logger.debug(`Creating analytics for ${this.providerName}...`);
         const analytics = await this.createAnalytics(
           result,
           responseTime,
           options,
         );
-        logger.debug(`Analytics created:`, analytics);
-        enhancedResult = { ...enhancedResult, analytics };
+        // Preserve ALL fields including imageOutput when adding analytics
+        enhancedResult = { ...enhancedResult, analytics, imageOutput };
       } catch (error) {
         logger.warn(
           `Analytics creation failed for ${this.providerName}:`,
@@ -1009,13 +1073,19 @@ export abstract class BaseProvider implements AIProvider {
     if (options.enableEvaluation) {
       try {
         const evaluation = await this.createEvaluation(result, options);
-        enhancedResult = { ...enhancedResult, evaluation };
+        // Preserve ALL fields including imageOutput when adding evaluation
+        enhancedResult = { ...enhancedResult, evaluation, imageOutput };
       } catch (error) {
         logger.warn(
           `Evaluation creation failed for ${this.providerName}:`,
           error,
         );
       }
+    }
+
+    // CRITICAL FIX: Always restore imageOutput if it existed in the original result
+    if (imageOutput) {
+      enhancedResult.imageOutput = imageOutput;
     }
 
     return enhancedResult;

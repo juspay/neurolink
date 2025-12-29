@@ -542,7 +542,7 @@ export type LiveConnectConfig = {
   model: string;
   callbacks: LiveConnectCallbacks;
   config: {
-    responseModalities: string[];
+    responseModalities: ("TEXT" | "IMAGE" | "AUDIO")[];
     speechConfig: {
       voiceConfig: { prebuiltVoiceConfig: { voiceName: string } };
     };
@@ -570,6 +570,34 @@ export type GenAILiveSession = {
 export type GenAIStreamChunk = {
   text?: string;
   functionCalls?: Array<{ name: string; args: Record<string, unknown> }>;
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+        inlineData?: {
+          data?: string;
+          mimeType?: string;
+        };
+      }>;
+    };
+  }>;
+};
+
+/**
+ * Google AI generate content response
+ */
+export type GenAIGenerateContentResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+        inlineData?: {
+          data?: string;
+          mimeType?: string;
+        };
+      }>;
+    };
+  }>;
 };
 
 /**
@@ -581,6 +609,11 @@ export type GenAIModelsAPI = {
     contents: Array<{ role: string; parts: unknown[] }>;
     config?: Record<string, unknown>;
   }) => Promise<AsyncIterable<GenAIStreamChunk>>;
+  generateContent: (params: {
+    model: string;
+    contents: Array<{ role: string; parts: unknown[] }>;
+    config?: Record<string, unknown>;
+  }) => Promise<GenAIGenerateContentResponse>;
 };
 
 /**

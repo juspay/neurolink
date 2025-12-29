@@ -1,4 +1,6 @@
 import type { CommandModule, Argv } from "yargs";
+import path from "node:path";
+import fs from "node:fs";
 import { globalSession } from "../../lib/session/globalSessionState.js";
 import type { JsonValue } from "../../lib/types/common.js";
 import type {
@@ -33,7 +35,6 @@ import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
 import ora from "ora";
 import chalk from "chalk";
 import { logger } from "../../lib/utils/logger.js";
-import fs from "fs";
 import { handleSetup } from "../commands/setup.js";
 import { checkRedisAvailability } from "../../lib/utils/conversationMemoryUtils.js";
 import { saveAudioToFile, formatFileSize } from "../utils/audioFileUtils.js";
@@ -162,6 +163,12 @@ export class CLICommandFactory {
       type: "string" as const,
       description: "Save output to file",
       alias: "o",
+    },
+    imageOutput: {
+      type: "string" as const,
+      description:
+        "Custom path for generated image (default: generated-images/image-<timestamp>.png)",
+      alias: "image-output",
     },
 
     // Behavior control options
@@ -457,6 +464,7 @@ export class CLICommandFactory {
       quiet: argv.quiet as boolean | undefined,
       format: argv.format as "text" | "json" | "table" | "yaml" | undefined,
       output: argv.output as string | undefined,
+      imageOutput: argv.imageOutput as string | undefined,
       delay: argv.delay as number | undefined,
       noColor: argv.noColor as boolean | undefined,
       configFile: argv.configFile as string | undefined,
@@ -501,6 +509,63 @@ export class CLICommandFactory {
       } else if (result && typeof result === "object" && "content" in result) {
         const generateResult = result as GenerateResult;
         output = generateResult.content;
+
+        // 🔧 Handle image generation output
+        if (
+          generateResult.imageOutput?.base64 &&
+          generateResult.imageOutput.base64.trim().length > 0
+        ) {
+          try {
+            // Use custom path or default
+            let imagePath: string;
+            const cwd = process.cwd();
+            if (options.imageOutput) {
+              imagePath = options.imageOutput as string;
+              // Validate path is within current working directory for security
+              const resolvedPath = path.resolve(imagePath);
+              if (
+                !resolvedPath.startsWith(cwd + path.sep) &&
+                resolvedPath !== cwd
+              ) {
+                throw new Error(
+                  `Image output path must be within current directory: ${cwd}`,
+                );
+              }
+              // Create parent directory if needed (cross-platform)
+              const dir = path.dirname(resolvedPath);
+              if (dir && dir !== "." && !fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+              }
+            } else {
+              const imageDir = "generated-images";
+              const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+              imagePath = path.join(imageDir, `image-${timestamp}.png`);
+              // Create directory if it doesn't exist
+              if (!fs.existsSync(imageDir)) {
+                fs.mkdirSync(imageDir, { recursive: true });
+              }
+            }
+
+            // Save image to file
+            const imageBuffer = Buffer.from(
+              generateResult.imageOutput.base64,
+              "base64",
+            );
+            fs.writeFileSync(imagePath, imageBuffer);
+
+            // Store image path in result for JSON output
+            generateResult.imageOutput.savedPath = imagePath;
+
+            // Always print image save confirmation - this is essential output
+            // (not suppressed by quiet flag since users need to know where the image was saved)
+            logger.always(`\n📸 Generated image saved to: ${imagePath}`);
+            logger.always(
+              `   Image size: ${(imageBuffer.length / 1024).toFixed(2)} KB`,
+            );
+          } catch (error) {
+            handleError(error as Error, "Failed to save generated image");
+          }
+        }
 
         // Add analytics display for text mode when enabled
         if (options.enableAnalytics && generateResult.analytics) {
@@ -743,6 +808,14 @@ export class CLICommandFactory {
             .example(
               '$0 generate "Analyze data" --enable-analytics',
               "Enable usage analytics",
+            )
+            .example(
+              '$0 generate "Futuristic city" --model gemini-2.5-flash-image',
+              "Generate an image",
+            )
+            .example(
+              '$0 generate "Mountain landscape" --model gemini-2.5-flash-image --imageOutput ./my-images/mountain.png',
+              "Generate image with custom path",
             )
             .example(
               '$0 generate "Describe this video" --video path/to/video.mp4',
@@ -1954,7 +2027,13 @@ export class CLICommandFactory {
    * Process stream with timeout handling
    */
   private static async processStreamWithTimeout(
-    stream: { stream: AsyncIterable<{ content: string } | { type: "audio" }> },
+    stream: {
+      stream: AsyncIterable<
+        | { content: string }
+        | { type: "audio" }
+        | { type: "image"; imageOutput: { base64: string } }
+      >;
+    },
     options: BaseCommandArgs & Record<string, unknown>,
   ): Promise<string> {
     let fullContent = "";
@@ -2032,6 +2111,13 @@ export class CLICommandFactory {
           !!o &&
           typeof o === "object" &&
           (o as Record<string, unknown>).type === "audio";
+        const isImage = (
+          o: unknown,
+        ): o is { type: "image"; imageOutput: { base64: string } } =>
+          !!o &&
+          typeof o === "object" &&
+          (o as Record<string, unknown>).type === "image" &&
+          typeof (o as Record<string, unknown>).imageOutput === "object";
 
         if (isText(evt)) {
           process.stdout.write(evt.content);
@@ -2039,6 +2125,12 @@ export class CLICommandFactory {
         } else if (isAudio(evt)) {
           if (options.debug && !options.quiet) {
             process.stdout.write("[audio-chunk]");
+          }
+        } else if (isImage(evt)) {
+          // Image events are handled after stream completes (in generate flow)
+          // This handler ensures they're not silently dropped
+          if (options.debug && !options.quiet) {
+            process.stdout.write("[image-received]");
           }
         }
       }

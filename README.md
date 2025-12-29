@@ -25,6 +25,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q4 2025)
 
+- **Image Generation** – Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio. Supports streaming mode with automatic file saving. → [Image Generation Guide](docs/IMAGE-GENERATION-STREAMING.md)
 - **HTTP/Streamable HTTP Transport for MCP** – Connect to remote MCP servers via HTTP with authentication headers, retry logic, and rate limiting. → [HTTP Transport Guide](docs/MCP-HTTP-TRANSPORT.md)
 - 🧠 **Gemini 3 Preview Support** - Full support for gemini-3-flash-preview and gemini-3-pro-preview with extended thinking capabilities
 - **Structured Output with Zod Schemas** – Type-safe JSON generation with automatic validation using `schema` + `output.format: "json"` in `generate()`. → [Structured Output Guide](docs/features/structured-output.md)
