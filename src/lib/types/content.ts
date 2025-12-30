@@ -23,6 +23,8 @@ export type {
   PDFContent,
   AudioContent,
   VideoContent,
+  VideoOutputOptions,
+  VideoGenerationResult,
   Content,
   ImageWithAltText,
   MultimodalInput,

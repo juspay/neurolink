@@ -145,6 +145,87 @@ export type AudioContent = {
 };
 
 /**
+ * Video output configuration options for video generation
+ *
+ * Used with `output.video` in GenerateOptions when `output.mode` is "video".
+ * Controls resolution, duration, aspect ratio, and audio settings for generated videos.
+ *
+ * @example
+ * ```typescript
+ * const videoOptions: VideoOutputOptions = {
+ *   resolution: "1080p",
+ *   length: 8,
+ *   aspectRatio: "16:9",
+ *   audio: true
+ * };
+ * ```
+ */
+export type VideoOutputOptions = {
+  /** Output resolution - "720p" (1280x720) or "1080p" (1920x1080) */
+  resolution?: "720p" | "1080p";
+  /** Video duration in seconds (4, 6, or 8 seconds supported) */
+  length?: 4 | 6 | 8;
+  /** Aspect ratio - "9:16" for portrait or "16:9" for landscape */
+  aspectRatio?: "9:16" | "16:9";
+  /** Enable audio generation (default: true) */
+  audio?: boolean;
+};
+
+/**
+ * Result type for generated video content
+ *
+ * Returned in `GenerateResult.video` when video generation is successful.
+ * Contains the raw video buffer and associated metadata.
+ *
+ * @example
+ * ```typescript
+ * const result = await neurolink.generate({
+ *   input: { text: "Product showcase", images: [imageBuffer] },
+ *   provider: "vertex",
+ *   model: "veo-3.1",
+ *   output: { mode: "video" }
+ * });
+ *
+ * if (result.video) {
+ *   writeFileSync("output.mp4", result.video.data);
+ *   console.log(`Duration: ${result.video.metadata?.duration}s`);
+ * }
+ * ```
+ */
+export type VideoGenerationResult = {
+  /** Raw video data as Buffer */
+  data: Buffer;
+  /** Video media type */
+  mediaType: "video/mp4" | "video/webm";
+  /** Video metadata */
+  metadata?: {
+    /** Original filename if applicable */
+    filename?: string;
+    /** Video duration in seconds */
+    duration?: number;
+    /** Video dimensions */
+    dimensions?: {
+      width: number;
+      height: number;
+    };
+    /** Frame rate in fps */
+    frameRate?: number;
+    /** Video codec used */
+    codec?: string;
+    /** Model used for generation */
+    model?: string;
+    /** Provider used for generation */
+    provider?: string;
+    /** Aspect ratio of the video */
+    aspectRatio?: string;
+    /** Whether audio was enabled during generation */
+    audioEnabled?: boolean;
+    /** Processing time in milliseconds */
+    processingTime?: number;
+  };
+};
+
+/**
  * Video content type for multimodal messages
  *
  * NOTE: This is for FILE-BASED video input.

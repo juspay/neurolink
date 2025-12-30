@@ -215,7 +215,7 @@ export * from "./middlewareTypes.js";
 // File detection and processing types
 export * from "./fileTypes.js";
 
-// Content types for multimodal support
+// Content types for multimodal support (includes multimodal re-exports for backward compatibility)
 export * from "./content.js";
 
 // TTS (Text-to-Speech) types

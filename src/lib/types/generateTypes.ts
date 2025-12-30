@@ -12,6 +12,10 @@ import type { MiddlewareFactoryOptions } from "./middlewareTypes.js";
 import type { JsonValue } from "./common.js";
 import type { Content, ImageWithAltText } from "./content.js";
 import type { TTSOptions, TTSResult } from "./ttsTypes.js";
+import type {
+  VideoOutputOptions,
+  VideoGenerationResult,
+} from "./multimodal.js";
 
 /**
  * Generate function options type - Primary method for content generation
@@ -44,7 +48,42 @@ export type GenerateOptions = {
     files?: Array<Buffer | string>; // Auto-detect file types
     content?: Content[]; // Advanced multimodal content
   };
-  output?: { format?: "text" | "structured" | "json" }; // Future extensible
+  /**
+   * Output configuration options
+   *
+   * @example Text output (default)
+   * ```typescript
+   * output: { format: "text" }
+   * ```
+   *
+   * @example Video generation with Veo 3.1
+   * ```typescript
+   * output: {
+   *   mode: "video",
+   *   video: {
+   *     resolution: "1080p",
+   *     length: 8,
+   *     aspectRatio: "16:9",
+   *     audio: true
+   *   }
+   * }
+   * ```
+   */
+  output?: {
+    /** Output format for text generation */
+    format?: "text" | "structured" | "json";
+    /**
+     * Output mode - determines the type of content generated
+     * - "text": Standard text generation (default)
+     * - "video": Video generation using models like Veo 3.1
+     */
+    mode?: "text" | "video";
+    /**
+     * Video generation configuration (used when mode is "video")
+     * Requires an input image and text prompt
+     */
+    video?: VideoOutputOptions;
+  };
 
   // CSV processing options
   csvOptions?: {
@@ -227,6 +266,30 @@ export type GenerateResult = {
    * ```
    */
   audio?: TTSResult;
+
+  /**
+   * Video generation result
+   *
+   * Contains the generated video buffer and metadata when video mode is enabled.
+   * Present when `output.mode` is set to "video" in GenerateOptions.
+   *
+   * @example Accessing generated video
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: "Product showcase", images: [imageBuffer] },
+   *   provider: "vertex",
+   *   model: "veo-3.1",
+   *   output: { mode: "video", video: { resolution: "1080p" } }
+   * });
+   *
+   * if (result.video) {
+   *   fs.writeFileSync('output.mp4', result.video.data);
+   *   console.log(`Duration: ${result.video.metadata?.duration}s`);
+   *   console.log(`Dimensions: ${result.video.metadata?.dimensions?.width}x${result.video.metadata?.dimensions?.height}`);
+   * }
+   * ```
+   */
+  video?: VideoGenerationResult;
 
   // Provider information
   provider?: string;
