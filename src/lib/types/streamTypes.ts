@@ -304,6 +304,55 @@ export type StreamOptions = {
    */
   tts?: TTSOptions;
 
+  /**
+   * Thinking/reasoning configuration for extended thinking models
+   *
+   * Enables extended thinking capabilities for supported models.
+   *
+   * **Gemini 3 Models** (gemini-3-pro-preview, gemini-3-flash-preview):
+   * Use `thinkingLevel` to control reasoning depth:
+   * - `minimal` - Near-zero thinking (Flash only)
+   * - `low` - Fast reasoning for simple tasks
+   * - `medium` - Balanced reasoning/latency
+   * - `high` - Maximum reasoning depth (default for Pro)
+   *
+   * **Anthropic Claude** (claude-3-7-sonnet, etc.):
+   * Use `budgetTokens` to set token budget for thinking.
+   *
+   * @example Gemini 3 with thinking level (streaming)
+   * ```typescript
+   * const result = await neurolink.stream({
+   *   input: { text: "Solve this complex problem..." },
+   *   provider: "google-ai",
+   *   model: "gemini-3-pro-preview",
+   *   thinkingConfig: {
+   *     thinkingLevel: "high"
+   *   }
+   * });
+   * ```
+   *
+   * @example Anthropic with budget tokens (streaming)
+   * ```typescript
+   * const result = await neurolink.stream({
+   *   input: { text: "Solve this complex math problem..." },
+   *   provider: "anthropic",
+   *   model: "claude-3-7-sonnet-20250219",
+   *   thinkingConfig: {
+   *     enabled: true,
+   *     budgetTokens: 10000
+   *   }
+   * });
+   * ```
+   */
+  thinkingConfig?: {
+    enabled?: boolean;
+    type?: "enabled" | "disabled";
+    /** Token budget for thinking (Anthropic models) */
+    budgetTokens?: number;
+    /** Thinking level for Gemini 3 models: minimal, low, medium, high */
+    thinkingLevel?: "minimal" | "low" | "medium" | "high";
+  };
+
   // Core streaming options
   provider?: AIProviderName | string;
   model?: string;
@@ -401,6 +450,9 @@ export type StreamResult = {
     hasToolErrors?: boolean;
     guardrailsBlocked?: boolean;
     error?: string;
+    // Thought/reasoning metadata
+    thoughtSignature?: string;
+    thoughts?: Array<{ id?: string; type?: string; content?: string }>;
   };
 
   // Analytics and evaluation (available after stream completion)

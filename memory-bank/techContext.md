@@ -1,5 +1,49 @@
 # NeuroLink Technical Context
 
+## ✅ **GEMINI 3 EXTENDED THINKING TECHNICAL IMPLEMENTATION** (2025-12-31)
+
+### **Extended Thinking Configuration**
+```typescript
+// thinkingLevel configuration for Gemini 3 models
+export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
+
+export interface Gemini3Options {
+  thinkingLevel?: ThinkingLevel;  // Controls extended thinking depth
+}
+
+// Usage in NeuroLink SDK
+const neurolink = new NeuroLink({
+  provider: 'google-ai',
+  model: 'gemini-3-pro',
+  thinkingLevel: 'high'  // Enables deep reasoning mode
+});
+
+// Usage in generate options
+const result = await neurolink.generate({
+  input: { text: 'Analyze this complex problem...' },
+  thinkingLevel: 'medium'  // Override per-request
+});
+```
+
+### **Gemini 3 Model Capabilities**
+| Model | Extended Thinking | Context Window | Best For |
+|-------|------------------|----------------|----------|
+| gemini-3-pro | Yes (minimal/low/medium/high) | 1M tokens | Complex reasoning, analysis |
+| gemini-3-flash | Yes (minimal/low/medium/high) | 1M tokens | Fast inference with thinking |
+
+### **thinkingLevel Impact**
+- **minimal**: Minimal extended thinking, fastest response
+- **low**: Light thinking depth, quick reasoning tasks
+- **medium**: Balanced thinking depth, good for most use cases
+- **high**: Deep reasoning mode, best for complex multi-step problems
+
+### **Technical Integration**
+- **Provider**: Google AI Studio (`google-ai`)
+- **Backward Compatibility**: Existing Gemini 2.x code continues to work
+- **Configuration Priority**: Per-request thinkingLevel overrides SDK default
+
+---
+
 ## ✅ **CLI LOOP COMMAND HISTORY TECHNICAL IMPLEMENTATION** (2025-09-18)
 
 ### **Readline Integration Architecture**
@@ -738,8 +782,13 @@ export enum OpenAIModels {
 }
 
 export enum GoogleAIModels {
+  // Gemini 3 Models (Latest - with Extended Thinking)
+  GEMINI_3_PRO = 'gemini-3-pro',
+  GEMINI_3_FLASH = 'gemini-3-flash',
+  // Gemini 2.5 Models
   GEMINI_2_5_PRO = 'gemini-2.5-pro',
   GEMINI_2_5_FLASH = 'gemini-2.5-flash',
+  // Legacy Models
   GEMINI_PRO = 'gemini-pro',
   GEMINI_PRO_VISION = 'gemini-pro-vision'
 }

@@ -13,26 +13,48 @@ import {
   type Schema,
   type LanguageModelV1,
   type LanguageModel,
+  type Tool,
 } from "ai";
-import { AIProviderName } from "../constants/enums.js";
+import {
+  AIProviderName,
+  ErrorCategory,
+  ErrorSeverity,
+} from "../constants/enums.js";
+import { NeuroLinkError, ERROR_CODES } from "../utils/errorHandling.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { UnknownRecord } from "../types/common.js";
+import type { GenAIClient, GoogleGenAIClass } from "../types/providers.js";
+import type { ZodUnknownSchema } from "../types/typeAliases.js";
+import type {
+  TextGenerationOptions,
+  EnhancedGenerateResult,
+} from "../types/generateTypes.js";
 import type { NeuroLink } from "../neurolink.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
+import {
+  DEFAULT_MAX_STEPS,
+  DEFAULT_TOOL_MAX_RETRIES,
+} from "../core/constants.js";
 import { ModelConfigurationManager } from "../core/modelConfiguration.js";
 import {
   validateApiKey,
   createVertexProjectConfig,
   createGoogleAuthConfig,
 } from "../utils/providerConfig.js";
+import { isGemini3Model } from "../utils/modelDetection.js";
+import {
+  convertZodToJsonSchema,
+  inlineJsonSchema,
+} from "../utils/schemaConversion.js";
+import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
 import fs from "fs";
 import path from "path";
 import os from "os";
 import dns from "dns";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
+import { FileDetector } from "../utils/fileDetector.js";
 
 // Import proper types for multimodal message handling
 
@@ -94,6 +116,11 @@ const createVertexSettings = async (
   // instead of {region}-aiplatform.googleapis.com
   if (location === "global") {
     baseSettings.baseURL = `https://aiplatform.googleapis.com/v1/projects/${project}/locations/global/publishers/google`;
+    logger.debug("[GoogleVertexProvider] Using global endpoint", {
+      baseURL: baseSettings.baseURL,
+      location,
+      project,
+    });
   }
 
   // 🎯 OPTION 2: Create credentials file from environment variables at runtime
@@ -375,6 +402,13 @@ export class GoogleVertexProvider extends BaseProvider {
     // Initialize Google Cloud configuration
     this.projectId = getVertexProjectId();
     this.location = region || getVertexLocation();
+
+    logger.debug("[GoogleVertexProvider] Constructor initialized", {
+      regionParam: region,
+      resolvedLocation: this.location,
+      projectId: this.projectId,
+    });
+
     logger.debug("Google Vertex AI BaseProvider v2 initialized", {
       modelName: this.modelName,
       projectId: this.projectId,
@@ -858,6 +892,41 @@ export class GoogleVertexProvider extends BaseProvider {
     options: StreamOptions,
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
   ): Promise<StreamResult> {
+    // Check if this is a Gemini 3 model with tools - use native SDK for thought_signature
+    const gemini3CheckModelName =
+      options.model || this.modelName || getDefaultVertexModel();
+
+    // Check for tools from options AND from SDK (MCP tools)
+    // Need to check early if we should route to native SDK
+    const gemini3CheckShouldUseTools =
+      !options.disableTools && this.supportsTools();
+    const optionTools = options.tools || {};
+    const sdkTools = gemini3CheckShouldUseTools ? await this.getAllTools() : {};
+    const combinedToolCount =
+      Object.keys(optionTools).length + Object.keys(sdkTools).length;
+    const hasTools = gemini3CheckShouldUseTools && combinedToolCount > 0;
+
+    if (isGemini3Model(gemini3CheckModelName) && hasTools) {
+      // Process CSV files before routing to native SDK (bypasses normal message builder)
+      const processedOptions = await this.processCSVFilesForNativeSDK(options);
+
+      // Merge SDK tools into options for native SDK path
+      const mergedOptions = {
+        ...processedOptions,
+        tools: { ...sdkTools, ...optionTools },
+      };
+      logger.info(
+        "[GoogleVertex] Routing Gemini 3 to native SDK for tool calling",
+        {
+          model: gemini3CheckModelName,
+          optionToolCount: Object.keys(optionTools).length,
+          sdkToolCount: Object.keys(sdkTools).length,
+          totalToolCount: combinedToolCount,
+        },
+      );
+      return this.executeNativeGemini3Stream(mergedOptions);
+    }
+
     // Initialize stream execution tracking
     const functionTag = "GoogleVertexProvider.executeStream";
     let chunkCount = 0;
@@ -916,6 +985,24 @@ export class GoogleVertexProvider extends BaseProvider {
         abortSignal: timeoutController?.controller.signal,
         experimental_telemetry:
           this.telemetryHandler.getTelemetryConfig(options),
+        // Gemini 3: use thinkingLevel via providerOptions (Vertex AI)
+        // Gemini 2.5: use thinkingBudget via providerOptions
+        ...(options.thinkingConfig?.enabled && {
+          providerOptions: {
+            vertex: {
+              thinkingConfig: {
+                ...(options.thinkingConfig.thinkingLevel && {
+                  thinkingLevel: options.thinkingConfig.thinkingLevel,
+                }),
+                ...(options.thinkingConfig.budgetTokens &&
+                  !options.thinkingConfig.thinkingLevel && {
+                    thinkingBudget: options.thinkingConfig.budgetTokens,
+                  }),
+                includeThoughts: true,
+              },
+            },
+          },
+        }),
 
         onError: (event: { error: unknown }) => {
           const error = event.error;
@@ -1019,6 +1106,1195 @@ export class GoogleVertexProvider extends BaseProvider {
       });
       throw this.handleProviderError(error);
     }
+  }
+
+  /**
+   * Create @google/genai client configured for Vertex AI
+   */
+  private async createVertexGenAIClient(
+    regionOverride?: string,
+  ): Promise<GenAIClient> {
+    const project = getVertexProjectId();
+    const location = regionOverride || this.location || getVertexLocation();
+
+    const mod: unknown = await import("@google/genai");
+    const ctor = (mod as Record<string, unknown>).GoogleGenAI as unknown;
+    if (!ctor) {
+      throw new NeuroLinkError({
+        code: ERROR_CODES.INVALID_CONFIGURATION,
+        message: "@google/genai does not export GoogleGenAI",
+        category: ErrorCategory.CONFIGURATION,
+        severity: ErrorSeverity.CRITICAL,
+        retriable: false,
+        context: { module: "@google/genai", expectedExport: "GoogleGenAI" },
+      });
+    }
+
+    const Ctor = ctor as GoogleGenAIClass;
+
+    // Use vertexai mode with project and location
+    return new Ctor({
+      vertexai: true,
+      project,
+      location,
+    });
+  }
+
+  /**
+   * Execute stream using native @google/genai SDK for Gemini 3 models on Vertex AI
+   * This bypasses @ai-sdk/google-vertex to properly handle thought_signature
+   */
+  private async executeNativeGemini3Stream(
+    options: StreamOptions,
+  ): Promise<StreamResult> {
+    const client = await this.createVertexGenAIClient(options.region);
+    const modelName =
+      options.model || this.modelName || getDefaultVertexModel();
+    const effectiveLocation =
+      options.region || this.location || getVertexLocation();
+
+    logger.debug("[GoogleVertex] Using native @google/genai for Gemini 3", {
+      model: modelName,
+      hasTools: !!options.tools && Object.keys(options.tools).length > 0,
+      project: this.projectId,
+      location: effectiveLocation,
+    });
+
+    // Build contents from input with multimodal support
+    // Type for native SDK content parts (text, inlineData for PDFs/images)
+    type NativeStreamPart =
+      | { text: string }
+      | { inlineData: { mimeType: string; data: string } };
+
+    const contents: Array<{
+      role: string;
+      parts: NativeStreamPart[];
+    }> = [];
+
+    // Build user message parts - start with text
+    const userParts: NativeStreamPart[] = [{ text: options.input.text }];
+
+    // Add PDF files as inlineData parts if present
+    // Cast input to access multimodal properties that may exist at runtime
+    const multimodalInput = options.input as {
+      text: string;
+      pdfFiles?: Array<Buffer | string>;
+      images?: Array<Buffer | string>;
+    };
+
+    if (multimodalInput?.pdfFiles && multimodalInput.pdfFiles.length > 0) {
+      logger.debug(
+        `[GoogleVertex] Processing ${multimodalInput.pdfFiles.length} PDF file(s) for native stream`,
+      );
+
+      for (const pdfFile of multimodalInput.pdfFiles) {
+        let pdfBuffer: Buffer;
+
+        if (typeof pdfFile === "string") {
+          // Check if it's a file path
+          if (fs.existsSync(pdfFile)) {
+            pdfBuffer = fs.readFileSync(pdfFile);
+          } else {
+            // Assume it's already base64 encoded
+            pdfBuffer = Buffer.from(pdfFile, "base64");
+          }
+        } else {
+          pdfBuffer = pdfFile;
+        }
+
+        // Convert to base64 for the native SDK
+        const base64Data = pdfBuffer.toString("base64");
+        userParts.push({
+          inlineData: {
+            mimeType: "application/pdf",
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    // Add images as inlineData parts if present
+    if (multimodalInput?.images && multimodalInput.images.length > 0) {
+      logger.debug(
+        `[GoogleVertex] Processing ${multimodalInput.images.length} image(s) for native stream`,
+      );
+
+      for (const image of multimodalInput.images) {
+        let imageBuffer: Buffer;
+        let mimeType = "image/jpeg"; // Default
+
+        if (typeof image === "string") {
+          if (fs.existsSync(image)) {
+            imageBuffer = fs.readFileSync(image);
+            // Detect mime type from extension
+            const ext = path.extname(image).toLowerCase();
+            if (ext === ".png") {
+              mimeType = "image/png";
+            } else if (ext === ".gif") {
+              mimeType = "image/gif";
+            } else if (ext === ".webp") {
+              mimeType = "image/webp";
+            }
+          } else if (image.startsWith("data:")) {
+            // Handle data URL
+            const matches = image.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+              mimeType = matches[1];
+              imageBuffer = Buffer.from(matches[2], "base64");
+            } else {
+              continue; // Skip invalid data URL
+            }
+          } else {
+            // Assume base64 string
+            imageBuffer = Buffer.from(image, "base64");
+          }
+        } else {
+          imageBuffer = image;
+        }
+
+        const base64Data = imageBuffer.toString("base64");
+        userParts.push({
+          inlineData: {
+            mimeType,
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    contents.push({
+      role: "user",
+      parts: userParts,
+    });
+
+    // Convert Vercel AI SDK tools to @google/genai FunctionDeclarations
+    type FunctionDeclaration = {
+      name: string;
+      description: string;
+      parametersJsonSchema?: Record<string, unknown>;
+    };
+
+    let tools:
+      | Array<{ functionDeclarations: FunctionDeclaration[] }>
+      | undefined;
+    const executeMap = new Map<string, Tool["execute"]>();
+
+    if (
+      options.tools &&
+      Object.keys(options.tools).length > 0 &&
+      !options.disableTools
+    ) {
+      const functionDeclarations: FunctionDeclaration[] = [];
+
+      for (const [name, tool] of Object.entries(options.tools)) {
+        const decl: FunctionDeclaration = {
+          name,
+          description: tool.description || `Tool: ${name}`,
+        };
+
+        if (tool.parameters) {
+          // Convert and inline schema to resolve $ref/definitions
+          const rawSchema = convertZodToJsonSchema(
+            tool.parameters as ZodUnknownSchema,
+          ) as Record<string, unknown>;
+          decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
+          // Remove $schema if present - @google/genai doesn't need it
+          if (decl.parametersJsonSchema.$schema) {
+            delete decl.parametersJsonSchema.$schema;
+          }
+        }
+
+        functionDeclarations.push(decl);
+
+        if (tool.execute) {
+          executeMap.set(name, tool.execute);
+        }
+      }
+
+      tools = [{ functionDeclarations }];
+
+      logger.debug("[GoogleVertex] Converted tools for native SDK", {
+        toolCount: functionDeclarations.length,
+        toolNames: functionDeclarations.map((t) => t.name),
+      });
+    }
+
+    // Build config
+    const config: Record<string, unknown> = {
+      temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
+      maxOutputTokens: options.maxTokens,
+    };
+
+    if (tools) {
+      config.tools = tools;
+    }
+
+    if (options.systemPrompt) {
+      config.systemInstruction = options.systemPrompt;
+    }
+
+    // Add thinking config for Gemini 3
+    const nativeThinkingConfig = createNativeThinkingConfig(
+      options.thinkingConfig,
+    );
+    if (nativeThinkingConfig) {
+      config.thinkingConfig = nativeThinkingConfig;
+    }
+
+    // Add JSON output format support for native SDK stream
+    // Note: Combining tools + schema may have limitations with Gemini models
+    const streamOptions = options as TextGenerationOptions;
+    if (streamOptions.output?.format === "json" || streamOptions.schema) {
+      config.responseMimeType = "application/json";
+
+      // Convert schema to JSON schema format for the native SDK
+      if (streamOptions.schema) {
+        const rawSchema = convertZodToJsonSchema(
+          streamOptions.schema as ZodUnknownSchema,
+        ) as Record<string, unknown>;
+        const inlinedSchema = inlineJsonSchema(rawSchema);
+        // Remove $schema if present - @google/genai doesn't need it
+        if (inlinedSchema.$schema) {
+          delete inlinedSchema.$schema;
+        }
+        config.responseSchema = inlinedSchema;
+
+        logger.debug(
+          "[GoogleVertex] Added responseSchema for JSON output (stream)",
+          {
+            schemaKeys: Object.keys(inlinedSchema),
+          },
+        );
+      }
+    }
+
+    const startTime = Date.now();
+    // Ensure maxSteps is a valid positive integer to prevent infinite loops
+    const rawMaxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
+    const maxSteps =
+      Number.isFinite(rawMaxSteps) && rawMaxSteps > 0
+        ? Math.min(Math.floor(rawMaxSteps), 100) // Cap at 100 for safety
+        : Math.min(DEFAULT_MAX_STEPS, 100);
+    const currentContents = [...contents];
+    let finalText = "";
+    let lastStepText = ""; // Track text from last step for maxSteps termination
+    const allToolCalls: Array<{
+      toolName: string;
+      args: Record<string, unknown>;
+    }> = [];
+    let step = 0;
+
+    // Track failed tools to prevent infinite retry loops
+    // Key: tool name, Value: { count: retry attempts, lastError: error message }
+    const failedTools = new Map<string, { count: number; lastError: string }>();
+
+    // Track token usage across all steps
+    // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+
+    // Agentic loop for tool calling
+    while (step < maxSteps) {
+      step++;
+      logger.debug(`[GoogleVertex] Native SDK step ${step}/${maxSteps}`);
+
+      try {
+        const stream = await client.models.generateContentStream({
+          model: modelName,
+          contents: currentContents,
+          config,
+        });
+
+        const stepFunctionCalls: Array<{
+          name: string;
+          args: Record<string, unknown>;
+        }> = [];
+
+        // Capture raw response parts including thoughtSignature
+        const rawResponseParts: unknown[] = [];
+
+        for await (const chunk of stream) {
+          // Extract raw parts from candidates FIRST
+          // This avoids using chunk.text which triggers SDK warning when
+          // non-text parts (thoughtSignature, functionCall) are present
+          const chunkRecord = chunk as Record<string, unknown>;
+          const candidates = chunkRecord.candidates as
+            | Array<Record<string, unknown>>
+            | undefined;
+          const firstCandidate = candidates?.[0];
+          const chunkContent = firstCandidate?.content as
+            | Record<string, unknown>
+            | undefined;
+          if (chunkContent && Array.isArray(chunkContent.parts)) {
+            rawResponseParts.push(...chunkContent.parts);
+          }
+          if (chunk.functionCalls) {
+            stepFunctionCalls.push(...chunk.functionCalls);
+          }
+
+          // Extract usage metadata from chunk
+          // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
+          const usageMetadata = chunkRecord.usageMetadata as
+            | {
+                promptTokenCount?: number;
+                candidatesTokenCount?: number;
+                totalTokenCount?: number;
+              }
+            | undefined;
+          if (usageMetadata) {
+            // Take the latest promptTokenCount (usually only in final chunk)
+            if (
+              usageMetadata.promptTokenCount !== undefined &&
+              usageMetadata.promptTokenCount > 0
+            ) {
+              totalInputTokens = usageMetadata.promptTokenCount;
+            }
+            // Take the latest candidatesTokenCount (accumulates through chunks)
+            if (
+              usageMetadata.candidatesTokenCount !== undefined &&
+              usageMetadata.candidatesTokenCount > 0
+            ) {
+              totalOutputTokens = usageMetadata.candidatesTokenCount;
+            }
+          }
+        }
+
+        // Extract text from raw parts after stream completes
+        // This avoids SDK warning about non-text parts (thoughtSignature, functionCall)
+        const stepText = rawResponseParts
+          .filter(
+            (part): part is { text: string } =>
+              typeof (part as Record<string, unknown>).text === "string",
+          )
+          .map((part) => part.text)
+          .join("");
+
+        // If no function calls, we're done
+        if (stepFunctionCalls.length === 0) {
+          finalText = stepText;
+          break;
+        }
+
+        // Track the last step text for maxSteps termination
+        lastStepText = stepText;
+
+        // Execute function calls
+        logger.debug(
+          `[GoogleVertex] Executing ${stepFunctionCalls.length} function calls`,
+        );
+
+        // Add model response with ALL parts (including thoughtSignature) to history
+        // This preserves the thought_signature which is required for Gemini 3 multi-turn tool calling
+        currentContents.push({
+          role: "model",
+          parts:
+            rawResponseParts.length > 0
+              ? (rawResponseParts as Array<{ text: string }>)
+              : (stepFunctionCalls.map((fc) => ({
+                  functionCall: fc,
+                })) as unknown as Array<{ text: string }>),
+        });
+
+        // Execute each function and collect responses
+        const functionResponses: Array<{
+          functionResponse: { name: string; response: unknown };
+        }> = [];
+
+        for (const call of stepFunctionCalls) {
+          allToolCalls.push({ toolName: call.name, args: call.args });
+
+          // Check if this tool has already exceeded retry limit
+          const failedInfo = failedTools.get(call.name);
+          if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
+            logger.warn(
+              `[GoogleVertex] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
+            );
+            functionResponses.push({
+              functionResponse: {
+                name: call.name,
+                response: {
+                  error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
+                  status: "permanently_failed",
+                  do_not_retry: true,
+                },
+              },
+            });
+            continue;
+          }
+
+          const execute = executeMap.get(call.name);
+          if (execute) {
+            try {
+              // AI SDK Tool execute requires (args, options) - provide minimal options
+              const toolOptions = {
+                toolCallId: `${call.name}-${Date.now()}`,
+                messages: [],
+                abortSignal: undefined as AbortSignal | undefined,
+              };
+              const result = await execute(call.args, toolOptions);
+              functionResponses.push({
+                functionResponse: { name: call.name, response: { result } },
+              });
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error ? error.message : "Unknown error";
+
+              // Track this failure
+              const currentFailInfo = failedTools.get(call.name) || {
+                count: 0,
+                lastError: "",
+              };
+              currentFailInfo.count++;
+              currentFailInfo.lastError = errorMessage;
+              failedTools.set(call.name, currentFailInfo);
+
+              logger.warn(
+                `[GoogleVertex] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
+              );
+
+              // Determine if this is a permanent failure
+              const isPermanentFailure =
+                currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
+
+              functionResponses.push({
+                functionResponse: {
+                  name: call.name,
+                  response: {
+                    error: isPermanentFailure
+                      ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
+                      : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
+                    status: isPermanentFailure
+                      ? "permanently_failed"
+                      : "failed",
+                    do_not_retry: isPermanentFailure,
+                    retry_count: currentFailInfo.count,
+                    max_retries: DEFAULT_TOOL_MAX_RETRIES,
+                  },
+                },
+              });
+            }
+          } else {
+            // Tool not found is a permanent error
+            functionResponses.push({
+              functionResponse: {
+                name: call.name,
+                response: {
+                  error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
+                  status: "permanently_failed",
+                  do_not_retry: true,
+                },
+              },
+            });
+          }
+        }
+
+        // Add function responses to history
+        currentContents.push({
+          role: "function",
+          parts: functionResponses as unknown as Array<{ text: string }>,
+        });
+      } catch (error) {
+        logger.error("[GoogleVertex] Native SDK error", error);
+        throw this.handleProviderError(error);
+      }
+    }
+
+    // Handle maxSteps termination - if we exited the loop due to maxSteps being reached
+    if (step >= maxSteps && !finalText) {
+      logger.warn(
+        `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
+          `Model was still calling tools. Using accumulated text from last step.`,
+      );
+      finalText =
+        lastStepText ||
+        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
+    }
+
+    const responseTime = Date.now() - startTime;
+
+    // Create async iterable for streaming result
+    async function* createTextStream(): AsyncIterable<{ content: string }> {
+      yield { content: finalText };
+    }
+
+    return {
+      stream: createTextStream(),
+      provider: this.providerName,
+      model: modelName,
+      usage: {
+        input: totalInputTokens,
+        output: totalOutputTokens,
+        total: totalInputTokens + totalOutputTokens,
+      },
+      toolCalls: allToolCalls.map((tc) => ({
+        toolName: tc.toolName,
+        args: tc.args,
+      })),
+      metadata: {
+        streamId: `native-vertex-${Date.now()}`,
+        startTime,
+        responseTime,
+        totalToolExecutions: allToolCalls.length,
+      },
+    };
+  }
+
+  /**
+   * Execute generate using native @google/genai SDK for Gemini 3 models on Vertex AI
+   * This bypasses @ai-sdk/google-vertex to properly handle thought_signature
+   */
+  private async executeNativeGemini3Generate(
+    options: TextGenerationOptions,
+  ): Promise<EnhancedGenerateResult> {
+    const client = await this.createVertexGenAIClient(options.region);
+    const modelName =
+      options.model || this.modelName || getDefaultVertexModel();
+    const effectiveLocation =
+      options.region || this.location || getVertexLocation();
+
+    logger.debug(
+      "[GoogleVertex] Using native @google/genai for Gemini 3 generate",
+      {
+        model: modelName,
+        project: this.projectId,
+        location: effectiveLocation,
+      },
+    );
+
+    // Build contents from input with multimodal support
+    const inputText =
+      options.prompt || options.input?.text || "Please respond.";
+
+    // Type for native SDK content parts (text, inlineData for PDFs/images)
+    type NativePart =
+      | { text: string }
+      | { inlineData: { mimeType: string; data: string } };
+
+    const contents: Array<{
+      role: string;
+      parts: NativePart[];
+    }> = [];
+
+    // Build user message parts - start with text
+    const userParts: NativePart[] = [{ text: inputText }];
+
+    // Add PDF files as inlineData parts if present
+    // Cast input to access multimodal properties that may exist at runtime
+    const multimodalInput = options.input as
+      | {
+          text?: string;
+          pdfFiles?: Array<Buffer | string>;
+          images?: Array<Buffer | string>;
+        }
+      | undefined;
+
+    if (multimodalInput?.pdfFiles && multimodalInput.pdfFiles.length > 0) {
+      logger.debug(
+        `[GoogleVertex] Processing ${multimodalInput.pdfFiles.length} PDF file(s) for native generate`,
+      );
+
+      for (const pdfFile of multimodalInput.pdfFiles) {
+        let pdfBuffer: Buffer;
+
+        if (typeof pdfFile === "string") {
+          // Check if it's a file path
+          if (fs.existsSync(pdfFile)) {
+            pdfBuffer = fs.readFileSync(pdfFile);
+          } else {
+            // Assume it's already base64 encoded
+            pdfBuffer = Buffer.from(pdfFile, "base64");
+          }
+        } else {
+          pdfBuffer = pdfFile;
+        }
+
+        // Convert to base64 for the native SDK
+        const base64Data = pdfBuffer.toString("base64");
+        userParts.push({
+          inlineData: {
+            mimeType: "application/pdf",
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    // Add images as inlineData parts if present
+    if (multimodalInput?.images && multimodalInput.images.length > 0) {
+      logger.debug(
+        `[GoogleVertex] Processing ${multimodalInput.images.length} image(s) for native generate`,
+      );
+
+      for (const image of multimodalInput.images) {
+        let imageBuffer: Buffer;
+        let mimeType = "image/jpeg"; // Default
+
+        if (typeof image === "string") {
+          if (fs.existsSync(image)) {
+            imageBuffer = fs.readFileSync(image);
+            // Detect mime type from extension
+            const ext = path.extname(image).toLowerCase();
+            if (ext === ".png") {
+              mimeType = "image/png";
+            } else if (ext === ".gif") {
+              mimeType = "image/gif";
+            } else if (ext === ".webp") {
+              mimeType = "image/webp";
+            }
+          } else if (image.startsWith("data:")) {
+            // Handle data URL
+            const matches = image.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+              mimeType = matches[1];
+              imageBuffer = Buffer.from(matches[2], "base64");
+            } else {
+              continue; // Skip invalid data URL
+            }
+          } else {
+            // Assume base64 string
+            imageBuffer = Buffer.from(image, "base64");
+          }
+        } else {
+          imageBuffer = image;
+        }
+
+        const base64Data = imageBuffer.toString("base64");
+        userParts.push({
+          inlineData: {
+            mimeType,
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    contents.push({
+      role: "user",
+      parts: userParts,
+    });
+
+    // Get tools from SDK and options
+    const shouldUseTools = !options.disableTools && this.supportsTools();
+    const sdkTools = shouldUseTools ? await this.getAllTools() : {};
+    const combinedTools = { ...sdkTools, ...(options.tools || {}) };
+
+    // Convert Vercel AI SDK tools to @google/genai FunctionDeclarations
+    type FunctionDeclaration = {
+      name: string;
+      description: string;
+      parametersJsonSchema?: Record<string, unknown>;
+    };
+
+    let tools:
+      | Array<{ functionDeclarations: FunctionDeclaration[] }>
+      | undefined;
+    const executeMap = new Map<string, Tool["execute"]>();
+
+    if (Object.keys(combinedTools).length > 0) {
+      const functionDeclarations: FunctionDeclaration[] = [];
+
+      for (const [name, tool] of Object.entries(combinedTools)) {
+        const decl: FunctionDeclaration = {
+          name,
+          description: tool.description || `Tool: ${name}`,
+        };
+
+        if (tool.parameters) {
+          // Convert and inline schema to resolve $ref/definitions
+          const rawSchema = convertZodToJsonSchema(
+            tool.parameters as ZodUnknownSchema,
+          ) as Record<string, unknown>;
+          decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
+          // Remove $schema if present - @google/genai doesn't need it
+          if (decl.parametersJsonSchema.$schema) {
+            delete decl.parametersJsonSchema.$schema;
+          }
+        }
+
+        functionDeclarations.push(decl);
+
+        if (tool.execute) {
+          executeMap.set(name, tool.execute);
+        }
+      }
+
+      tools = [{ functionDeclarations }];
+
+      logger.debug("[GoogleVertex] Converted tools for native SDK generate", {
+        toolCount: functionDeclarations.length,
+        toolNames: functionDeclarations.map((t) => t.name),
+      });
+    }
+
+    // Build config
+    const config: Record<string, unknown> = {
+      temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
+      maxOutputTokens: options.maxTokens,
+    };
+
+    if (tools) {
+      config.tools = tools;
+    }
+
+    if (options.systemPrompt) {
+      config.systemInstruction = options.systemPrompt;
+    }
+
+    // Add thinking config for Gemini 3
+    const nativeThinkingConfig2 = createNativeThinkingConfig(
+      options.thinkingConfig,
+    );
+    if (nativeThinkingConfig2) {
+      config.thinkingConfig = nativeThinkingConfig2;
+    }
+
+    // Note: Schema/JSON output for Gemini 3 native SDK is complex due to $ref resolution issues
+    // For now, schemas are handled via the AI SDK fallback path, not native SDK
+    // TODO: Implement proper $ref resolution for complex nested schemas
+
+    const startTime = Date.now();
+    // Ensure maxSteps is a valid positive integer to prevent infinite loops
+    const rawMaxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
+    const maxSteps =
+      Number.isFinite(rawMaxSteps) && rawMaxSteps > 0
+        ? Math.min(Math.floor(rawMaxSteps), 100) // Cap at 100 for safety
+        : Math.min(DEFAULT_MAX_STEPS, 100);
+    const currentContents = [...contents];
+    let finalText = "";
+    let lastStepText = ""; // Track text from last step for maxSteps termination
+    const allToolCalls: Array<{
+      toolName: string;
+      args: Record<string, unknown>;
+    }> = [];
+    const toolExecutions: Array<{
+      name: string;
+      input: Record<string, unknown>;
+      output: unknown;
+    }> = [];
+    let step = 0;
+
+    // Track failed tools to prevent infinite retry loops
+    // Key: tool name, Value: { count: retry attempts, lastError: error message }
+    const failedTools = new Map<string, { count: number; lastError: string }>();
+
+    // Track token usage across all steps
+    // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+
+    // Agentic loop for tool calling
+    while (step < maxSteps) {
+      step++;
+      logger.debug(
+        `[GoogleVertex] Native SDK generate step ${step}/${maxSteps}`,
+      );
+
+      try {
+        // Use generateContentStream and collect all chunks (same as GoogleAIStudio)
+        const stream = await client.models.generateContentStream({
+          model: modelName,
+          contents: currentContents,
+          config,
+        });
+
+        const stepFunctionCalls: Array<{
+          name: string;
+          args: Record<string, unknown>;
+        }> = [];
+
+        // Capture raw response parts including thoughtSignature
+        const rawResponseParts: unknown[] = [];
+
+        // Collect all chunks from stream
+        for await (const chunk of stream) {
+          // Extract raw parts from candidates FIRST
+          // This avoids using chunk.text which triggers SDK warning when
+          // non-text parts (thoughtSignature, functionCall) are present
+          const chunkRecord = chunk as Record<string, unknown>;
+          const candidates = chunkRecord.candidates as
+            | Array<Record<string, unknown>>
+            | undefined;
+          const firstCandidate = candidates?.[0];
+          const chunkContent = firstCandidate?.content as
+            | Record<string, unknown>
+            | undefined;
+          if (chunkContent && Array.isArray(chunkContent.parts)) {
+            rawResponseParts.push(...chunkContent.parts);
+          }
+          if (chunk.functionCalls) {
+            stepFunctionCalls.push(...chunk.functionCalls);
+          }
+
+          // Extract usage metadata from chunk
+          // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
+          const usageMetadata = chunkRecord.usageMetadata as
+            | {
+                promptTokenCount?: number;
+                candidatesTokenCount?: number;
+                totalTokenCount?: number;
+              }
+            | undefined;
+          if (usageMetadata) {
+            // Take the latest promptTokenCount (usually only in final chunk)
+            if (
+              usageMetadata.promptTokenCount !== undefined &&
+              usageMetadata.promptTokenCount > 0
+            ) {
+              totalInputTokens = usageMetadata.promptTokenCount;
+            }
+            // Take the latest candidatesTokenCount (accumulates through chunks)
+            if (
+              usageMetadata.candidatesTokenCount !== undefined &&
+              usageMetadata.candidatesTokenCount > 0
+            ) {
+              totalOutputTokens = usageMetadata.candidatesTokenCount;
+            }
+          }
+        }
+
+        // Extract text from raw parts after stream completes
+        // This avoids SDK warning about non-text parts (thoughtSignature, functionCall)
+        const stepText = rawResponseParts
+          .filter(
+            (part): part is { text: string } =>
+              typeof (part as Record<string, unknown>).text === "string",
+          )
+          .map((part) => part.text)
+          .join("");
+
+        // If no function calls, we're done
+        if (stepFunctionCalls.length === 0) {
+          finalText = stepText;
+          break;
+        }
+
+        // Track the last step text for maxSteps termination
+        lastStepText = stepText;
+
+        // Execute function calls
+        logger.debug(
+          `[GoogleVertex] Generate executing ${stepFunctionCalls.length} function calls`,
+        );
+
+        // Add model response with ALL parts (including thoughtSignature) to history
+        // This preserves the thought_signature which is required for Gemini 3 multi-turn tool calling
+        currentContents.push({
+          role: "model",
+          parts:
+            rawResponseParts.length > 0
+              ? (rawResponseParts as Array<{ text: string }>)
+              : (stepFunctionCalls.map((fc) => ({
+                  functionCall: fc,
+                })) as unknown as Array<{ text: string }>),
+        });
+
+        // Execute each function and collect responses
+        const functionResponses: Array<{
+          functionResponse: { name: string; response: unknown };
+        }> = [];
+
+        for (const call of stepFunctionCalls) {
+          allToolCalls.push({ toolName: call.name, args: call.args });
+
+          // Check if this tool has already exceeded retry limit
+          const failedInfo = failedTools.get(call.name);
+          if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
+            logger.warn(
+              `[GoogleVertex] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
+            );
+
+            const errorOutput = {
+              error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
+              status: "permanently_failed",
+              do_not_retry: true,
+            };
+
+            toolExecutions.push({
+              name: call.name,
+              input: call.args,
+              output: errorOutput,
+            });
+
+            functionResponses.push({
+              functionResponse: {
+                name: call.name,
+                response: errorOutput,
+              },
+            });
+            continue;
+          }
+
+          const execute = executeMap.get(call.name);
+          if (execute) {
+            try {
+              // AI SDK Tool execute requires (args, options) - provide minimal options
+              const toolOptions = {
+                toolCallId: `${call.name}-${Date.now()}`,
+                messages: [],
+                abortSignal: undefined as AbortSignal | undefined,
+              };
+              const execResult = await execute(call.args, toolOptions);
+
+              // Track execution
+              toolExecutions.push({
+                name: call.name,
+                input: call.args,
+                output: execResult,
+              });
+
+              functionResponses.push({
+                functionResponse: {
+                  name: call.name,
+                  response: { result: execResult },
+                },
+              });
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error ? error.message : "Unknown error";
+
+              // Track this failure
+              const currentFailInfo = failedTools.get(call.name) || {
+                count: 0,
+                lastError: "",
+              };
+              currentFailInfo.count++;
+              currentFailInfo.lastError = errorMessage;
+              failedTools.set(call.name, currentFailInfo);
+
+              logger.warn(
+                `[GoogleVertex] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
+              );
+
+              // Determine if this is a permanent failure
+              const isPermanentFailure =
+                currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
+
+              const errorOutput = {
+                error: isPermanentFailure
+                  ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
+                  : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
+                status: isPermanentFailure ? "permanently_failed" : "failed",
+                do_not_retry: isPermanentFailure,
+                retry_count: currentFailInfo.count,
+                max_retries: DEFAULT_TOOL_MAX_RETRIES,
+              };
+
+              toolExecutions.push({
+                name: call.name,
+                input: call.args,
+                output: errorOutput,
+              });
+
+              functionResponses.push({
+                functionResponse: {
+                  name: call.name,
+                  response: errorOutput,
+                },
+              });
+            }
+          } else {
+            // Tool not found is a permanent error
+            const errorOutput = {
+              error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
+              status: "permanently_failed",
+              do_not_retry: true,
+            };
+
+            toolExecutions.push({
+              name: call.name,
+              input: call.args,
+              output: errorOutput,
+            });
+
+            functionResponses.push({
+              functionResponse: {
+                name: call.name,
+                response: errorOutput,
+              },
+            });
+          }
+        }
+
+        // Add function responses to history
+        currentContents.push({
+          role: "function",
+          parts: functionResponses as unknown as NativePart[],
+        });
+      } catch (error) {
+        logger.error("[GoogleVertex] Native SDK generate error", error);
+        throw this.handleProviderError(error);
+      }
+    }
+
+    // Handle maxSteps termination - if we exited the loop due to maxSteps being reached
+    if (step >= maxSteps && !finalText) {
+      logger.warn(
+        `[GoogleVertex] Generate tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
+          `Model was still calling tools. Using accumulated text from last step.`,
+      );
+      finalText =
+        lastStepText ||
+        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
+    }
+
+    const responseTime = Date.now() - startTime;
+
+    // Build EnhancedGenerateResult
+    return {
+      content: finalText,
+      provider: this.providerName,
+      model: modelName,
+      usage: {
+        input: totalInputTokens,
+        output: totalOutputTokens,
+        total: totalInputTokens + totalOutputTokens,
+      },
+      responseTime,
+      toolsUsed: allToolCalls.map((tc) => tc.toolName),
+      toolExecutions: toolExecutions,
+      enhancedWithTools: allToolCalls.length > 0,
+    };
+  }
+
+  /**
+   * Process CSV files and append content to options.input.text
+   * This ensures CSV data is available in the prompt for native Gemini 3 SDK calls
+   * Returns a new options object with modified input (immutable pattern)
+   */
+  private async processCSVFilesForNativeSDK<
+    T extends TextGenerationOptions | StreamOptions,
+  >(options: T): Promise<T> {
+    const input = options.input as
+      | { text?: string; csvFiles?: Array<Buffer | string> }
+      | undefined;
+
+    if (!input?.csvFiles || input.csvFiles.length === 0) {
+      return options;
+    }
+
+    logger.info(
+      `[GoogleVertex] Processing ${input.csvFiles.length} CSV file(s) for native Gemini 3 SDK`,
+    );
+
+    let modifiedText = input.text || "";
+
+    for (let i = 0; i < input.csvFiles.length; i++) {
+      const csvFile = input.csvFiles[i];
+      try {
+        const result = await FileDetector.detectAndProcess(csvFile, {
+          allowedTypes: ["csv"],
+          csvOptions:
+            "csvOptions" in options
+              ? (options.csvOptions as Record<string, unknown>)
+              : undefined,
+        });
+
+        // Extract filename for display
+        const filename =
+          typeof csvFile === "string"
+            ? path.basename(csvFile)
+            : `csv_file_${i + 1}.csv`;
+
+        let csvSection = `\n\n## CSV Data from "${filename}":\n`;
+
+        // Add metadata if available
+        if (result.metadata) {
+          const meta = result.metadata as Record<string, unknown>;
+          if (meta.rowCount || meta.columnCount || meta.columnNames) {
+            csvSection += `**File Info:**\n`;
+            if (meta.rowCount) {
+              csvSection += `- Rows: ${meta.rowCount}\n`;
+            }
+            if (meta.columnCount) {
+              csvSection += `- Columns: ${meta.columnCount}\n`;
+            }
+            if (meta.columnNames && Array.isArray(meta.columnNames)) {
+              csvSection += `- Column Names: ${meta.columnNames.join(", ")}\n`;
+            }
+            csvSection += "\n";
+          }
+        }
+
+        // Add strong instructions to use the CSV data directly
+        csvSection += `\n**CRITICAL INSTRUCTION**: The complete CSV data is included below. You MUST use this data directly from this prompt.\n`;
+        csvSection += `DO NOT use any external tools (github, search_code, get_file_contents, etc.) to access this data.\n`;
+        csvSection += `The data you need is right here in this message - read it carefully and answer based on it.\n\n`;
+
+        csvSection += result.content;
+        // Prepend CSV to ensure data appears before user's question
+        modifiedText =
+          csvSection + "\n\n---\n\n**USER QUESTION:**\n" + modifiedText;
+
+        logger.info(`[GoogleVertex] ✅ Processed CSV: ${filename}`);
+      } catch (error) {
+        logger.error(
+          `[GoogleVertex] ❌ Failed to process CSV file ${i + 1}:`,
+          error,
+        );
+        const filename =
+          typeof csvFile === "string"
+            ? path.basename(csvFile)
+            : `csv_file_${i + 1}.csv`;
+        modifiedText += `\n\n## CSV Data Error: Failed to process "${filename}"\nReason: ${error instanceof Error ? error.message : "Unknown error"}`;
+      }
+    }
+
+    // Return new options with modified input (immutable pattern)
+    // Preserve the full type of options.input by spreading options.input directly
+    return {
+      ...options,
+      input: { ...options.input, text: modifiedText },
+    } as T;
+  }
+
+  /**
+   * Override generate to route Gemini 3 models with tools to native SDK
+   */
+  async generate(
+    optionsOrPrompt: TextGenerationOptions | string,
+  ): Promise<EnhancedGenerateResult | null> {
+    // Normalize options
+    const options =
+      typeof optionsOrPrompt === "string"
+        ? { prompt: optionsOrPrompt }
+        : optionsOrPrompt;
+
+    const modelName =
+      options.model || this.modelName || getDefaultVertexModel();
+
+    // Check if we should use native SDK for Gemini 3 with tools
+    const shouldUseTools = !options.disableTools && this.supportsTools();
+    const sdkTools = shouldUseTools ? await this.getAllTools() : {};
+    const hasTools =
+      shouldUseTools &&
+      (Object.keys(sdkTools).length > 0 ||
+        (options.tools && Object.keys(options.tools).length > 0));
+
+    if (isGemini3Model(modelName) && hasTools) {
+      // Process CSV files before routing to native SDK (bypasses normal message builder)
+      const processedOptions = await this.processCSVFilesForNativeSDK(options);
+
+      // Merge SDK tools into options for native SDK path
+      const mergedOptions = {
+        ...processedOptions,
+        tools: { ...sdkTools, ...(processedOptions.tools || {}) },
+      };
+      logger.info(
+        "[GoogleVertex] Routing Gemini 3 generate to native SDK for tool calling",
+        {
+          model: modelName,
+          sdkToolCount: Object.keys(sdkTools).length,
+          optionToolCount: Object.keys(processedOptions.tools || {}).length,
+          totalToolCount:
+            Object.keys(sdkTools).length +
+            Object.keys(processedOptions.tools || {}).length,
+        },
+      );
+      return this.executeNativeGemini3Generate(mergedOptions);
+    }
+
+    // Fall back to BaseProvider implementation
+    return super.generate(optionsOrPrompt);
   }
 
   protected handleProviderError(error: unknown): Error {
@@ -1570,15 +2846,45 @@ export class GoogleVertexProvider extends BaseProvider {
   ): Promise<boolean> {
     // Based on Google Cloud documentation, these regions support Anthropic models
     const supportedRegions = [
+      // North America
       "us-central1",
+      "us-east1",
       "us-east4",
       "us-east5",
+      "us-south1",
       "us-west1",
       "us-west4",
+      "northamerica-northeast1",
+      "northamerica-northeast2",
+      // Europe
       "europe-west1",
+      "europe-west2",
+      "europe-west3",
       "europe-west4",
-      "asia-southeast1",
+      "europe-west6",
+      "europe-west8",
+      "europe-west9",
+      "europe-north1",
+      "europe-central2",
+      "europe-southwest1",
+      // Asia Pacific
+      "asia-east1",
+      "asia-east2",
       "asia-northeast1",
+      "asia-northeast2",
+      "asia-northeast3",
+      "asia-south1",
+      "asia-southeast1",
+      "asia-southeast2",
+      "australia-southeast1",
+      "australia-southeast2",
+      // Middle East & Africa
+      "me-west1",
+      "me-central1",
+      "africa-south1",
+      // South America
+      "southamerica-east1",
+      "southamerica-west1",
     ];
 
     return supportedRegions.includes(region);

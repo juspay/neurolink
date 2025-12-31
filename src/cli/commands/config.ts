@@ -15,6 +15,8 @@ import { z } from "zod";
 import { CLI_LIMITS } from "../../lib/core/constants.js";
 
 import { logger } from "../../lib/utils/logger.js";
+import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
+import { AIProviderName } from "../../lib/types/index.js";
 // Configuration schema for validation
 const ConfigSchema = z.object({
   defaultProvider: z
@@ -56,7 +58,7 @@ const ConfigSchema = z.object({
       vertex: z
         .object({
           projectId: z.string().optional(),
-          location: z.string().default("us-east5"),
+          location: z.string().default("us-central1"),
           credentials: z.string().optional(),
           serviceAccountKey: z.string().optional(),
           clientEmail: z.string().optional(),
@@ -446,6 +448,9 @@ export class ConfigManager {
    * OpenAI provider setup
    */
   private async setupOpenAI(): Promise<void> {
+    const modelChoices = getTopModelChoices(AIProviderName.OPENAI, 5).filter(
+      (c) => c.value !== "custom",
+    );
     const answers = await inquirer.prompt([
       {
         type: "password",
@@ -458,8 +463,7 @@ export class ConfigManager {
         type: "list",
         name: "model",
         message: "Default model:",
-        choices: ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
-        default: "gpt-4",
+        choices: modelChoices,
       },
       {
         type: "input",
@@ -539,6 +543,10 @@ export class ConfigManager {
       },
     ]);
 
+    const vertexModelChoices = getTopModelChoices(
+      AIProviderName.VERTEX,
+      5,
+    ).filter((c) => c.value !== "custom");
     const commonAnswers = await inquirer.prompt([
       {
         type: "input",
@@ -551,14 +559,13 @@ export class ConfigManager {
         type: "input",
         name: "location",
         message: "Vertex AI Location:",
-        default: "us-east5",
+        default: "us-central1",
       },
       {
         type: "list",
         name: "model",
         message: "Default model:",
-        choices: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-pro"],
-        default: "gemini-2.5-pro",
+        choices: vertexModelChoices,
       },
     ]);
 
@@ -634,6 +641,10 @@ export class ConfigManager {
    * Anthropic provider setup
    */
   private async setupAnthropic(): Promise<void> {
+    const anthropicModelChoices = getTopModelChoices(
+      AIProviderName.ANTHROPIC,
+      5,
+    ).filter((c) => c.value !== "custom");
     const answers = await inquirer.prompt([
       {
         type: "password",
@@ -645,12 +656,7 @@ export class ConfigManager {
         type: "list",
         name: "model",
         message: "Default model:",
-        choices: [
-          "claude-3-5-sonnet-20241022",
-          "claude-3-5-haiku-20241022",
-          "claude-3-opus-20240229",
-        ],
-        default: "claude-3-5-sonnet-20241022",
+        choices: anthropicModelChoices,
       },
     ]);
 
@@ -661,6 +667,10 @@ export class ConfigManager {
    * Azure OpenAI provider setup
    */
   private async setupAzure(): Promise<void> {
+    const azureModelChoices = getTopModelChoices(
+      AIProviderName.AZURE,
+      5,
+    ).filter((c) => c.value !== "custom");
     const answers = await inquirer.prompt([
       {
         type: "password",
@@ -683,8 +693,7 @@ export class ConfigManager {
         type: "list",
         name: "model",
         message: "Model:",
-        choices: ["gpt-4", "gpt-4-turbo", "gpt-35-turbo"],
-        default: "gpt-4",
+        choices: azureModelChoices,
       },
     ]);
 
@@ -695,6 +704,10 @@ export class ConfigManager {
    * Google AI Studio provider setup
    */
   private async setupGoogleAI(): Promise<void> {
+    const googleAIModelChoices = getTopModelChoices(
+      AIProviderName.GOOGLE_AI,
+      5,
+    ).filter((c) => c.value !== "custom");
     const answers = await inquirer.prompt([
       {
         type: "password",
@@ -706,8 +719,7 @@ export class ConfigManager {
         type: "list",
         name: "model",
         message: "Default model:",
-        choices: ["gemini-2.5-pro", "gemini-2.5-flash"],
-        default: "gemini-2.5-pro",
+        choices: googleAIModelChoices,
       },
     ]);
 
@@ -771,6 +783,10 @@ export class ConfigManager {
    * Mistral AI provider setup
    */
   private async setupMistral(): Promise<void> {
+    const mistralModelChoices = getTopModelChoices(
+      AIProviderName.MISTRAL,
+      5,
+    ).filter((c) => c.value !== "custom");
     const answers = await inquirer.prompt([
       {
         type: "password",
@@ -782,13 +798,7 @@ export class ConfigManager {
         type: "list",
         name: "model",
         message: "Default model:",
-        choices: [
-          "mistral-small",
-          "mistral-medium",
-          "mistral-large",
-          "mistral-tiny",
-        ],
-        default: "mistral-small",
+        choices: mistralModelChoices,
       },
     ]);
 

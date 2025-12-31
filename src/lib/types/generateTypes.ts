@@ -134,6 +134,55 @@ export type GenerateOptions = {
    */
   tts?: TTSOptions;
 
+  /**
+   * Thinking/reasoning configuration for extended thinking models
+   *
+   * Enables extended thinking capabilities for supported models.
+   *
+   * **Gemini 3 Models** (gemini-3-pro-preview, gemini-3-flash-preview):
+   * Use `thinkingLevel` to control reasoning depth:
+   * - `minimal` - Near-zero thinking (Flash only)
+   * - `low` - Fast reasoning for simple tasks
+   * - `medium` - Balanced reasoning/latency
+   * - `high` - Maximum reasoning depth (default for Pro)
+   *
+   * **Anthropic Claude** (claude-3-7-sonnet, etc.):
+   * Use `budgetTokens` to set token budget for thinking.
+   *
+   * @example Gemini 3 with thinking level
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: "Solve this complex problem..." },
+   *   provider: "google-ai",
+   *   model: "gemini-3-pro-preview",
+   *   thinkingConfig: {
+   *     thinkingLevel: "high"
+   *   }
+   * });
+   * ```
+   *
+   * @example Anthropic with budget tokens
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: "Solve this complex math problem..." },
+   *   provider: "anthropic",
+   *   model: "claude-3-7-sonnet-20250219",
+   *   thinkingConfig: {
+   *     enabled: true,
+   *     budgetTokens: 10000
+   *   }
+   * });
+   * ```
+   */
+  thinkingConfig?: {
+    enabled?: boolean;
+    type?: "enabled" | "disabled";
+    /** Token budget for thinking (Anthropic models) */
+    budgetTokens?: number;
+    /** Thinking level for Gemini 3 models: minimal, low, medium, high */
+    thinkingLevel?: "minimal" | "low" | "medium" | "high";
+  };
+
   // Core options (inherited from TextGenerationOptions)
   provider?: AIProviderName | string;
   model?: string;
@@ -462,6 +511,98 @@ export type TextGenerationOptions = {
   };
 
   enableSummarization?: boolean; // Enable/disable summarization for this specific request
+
+  /**
+   * ## Extended Thinking Options
+   *
+   * NeuroLink provides multiple ways to configure extended thinking/reasoning.
+   * These options interact as follows:
+   *
+   * ### Option Hierarchy (Priority: thinkingConfig > individual options)
+   *
+   * 1. **`thinkingConfig`** (recommended) - Full configuration object, highest priority
+   * 2. **`thinking`**, **`thinkingBudget`**, **`thinkingLevel`** - Simplified CLI-friendly options
+   *
+   * When both are provided, `thinkingConfig` takes precedence. The simplified options
+   * are automatically merged into `thinkingConfig` internally.
+   *
+   * ### Provider-Specific Behavior
+   *
+   * **Anthropic Claude (claude-3-7-sonnet, etc.):**
+   * - Use `thinkingConfig.budgetTokens` or `thinkingBudget`
+   * - Range: 5000-100000 tokens
+   * - `thinkingLevel` is ignored for Anthropic
+   *
+   * **Google Gemini 3 (gemini-3-pro-preview, gemini-3-flash-preview):**
+   * - Use `thinkingConfig.thinkingLevel` or `thinkingLevel`
+   * - Levels: minimal, low, medium, high
+   * - `budgetTokens` is ignored for Gemini (uses level-based allocation)
+   *
+   * ### Option Compatibility Matrix
+   *
+   * | Option         | Anthropic | Gemini 3 | Other Providers |
+   * |----------------|-----------|----------|-----------------|
+   * | thinking       | Yes       | Yes      | Ignored         |
+   * | thinkingBudget | Yes       | Ignored  | Ignored         |
+   * | thinkingLevel  | Ignored   | Yes      | Ignored         |
+   * | thinkingConfig | Yes       | Yes      | Ignored         |
+   *
+   * ### Examples
+   *
+   * ```typescript
+   * // Simplified (CLI-friendly) - Anthropic
+   * { thinking: true, thinkingBudget: 10000 }
+   *
+   * // Simplified (CLI-friendly) - Gemini 3
+   * { thinking: true, thinkingLevel: "high" }
+   *
+   * // Full config (recommended for SDK)
+   * { thinkingConfig: { enabled: true, budgetTokens: 10000 } } // Anthropic
+   * { thinkingConfig: { thinkingLevel: "high" } }              // Gemini 3
+   * ```
+   */
+
+  /**
+   * Enable extended thinking capability (simplified option).
+   * Equivalent to `thinkingConfig.enabled = true`.
+   * Works with both Anthropic and Gemini 3 models.
+   */
+  thinking?: boolean;
+
+  /**
+   * Token budget for thinking (Anthropic models only).
+   * Equivalent to `thinkingConfig.budgetTokens`.
+   * Range: 5000-100000 tokens. Ignored for Gemini models.
+   */
+  thinkingBudget?: number;
+
+  /**
+   * Thinking level for Gemini 3 models only.
+   * Equivalent to `thinkingConfig.thinkingLevel`.
+   * - `minimal` - Near-zero thinking (Flash only)
+   * - `low` - Light reasoning
+   * - `medium` - Balanced reasoning/latency
+   * - `high` - Deep reasoning (Pro default)
+   * Ignored for Anthropic models.
+   */
+  thinkingLevel?: "minimal" | "low" | "medium" | "high";
+
+  /**
+   * Full thinking/reasoning configuration (recommended for SDK usage).
+   * Takes precedence over simplified options (thinking, thinkingBudget, thinkingLevel).
+   *
+   * @see Above documentation for provider-specific behavior and option compatibility.
+   */
+  thinkingConfig?: {
+    /** Enable extended thinking. Default: false */
+    enabled?: boolean;
+    /** Explicit enable/disable type. Alternative to `enabled` boolean. */
+    type?: "enabled" | "disabled";
+    /** Token budget for thinking (Anthropic: 5000-100000). Ignored for Gemini. */
+    budgetTokens?: number;
+    /** Thinking level (Gemini 3: minimal|low|medium|high). Ignored for Anthropic. */
+    thinkingLevel?: "minimal" | "low" | "medium" | "high";
+  };
 };
 
 /**

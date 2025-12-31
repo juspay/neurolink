@@ -82,6 +82,10 @@ const VISION_CAPABILITIES = {
     "gemini-3-pro-preview-11-2025",
     "gemini-3-pro-latest",
     "gemini-3-pro-image-preview",
+    // Gemini 3 Flash Series
+    "gemini-3-flash",
+    "gemini-3-flash-preview",
+    "gemini-3-flash-latest",
     // Gemini 2.5 Series
     "gemini-2.5-pro",
     "gemini-2.5-flash",
@@ -156,6 +160,10 @@ const VISION_CAPABILITIES = {
     "gemini-3-pro-latest",
     "gemini-3-pro-preview",
     "gemini-3-pro",
+    // Gemini 3 Flash Series on Vertex AI
+    "gemini-3-flash",
+    "gemini-3-flash-preview",
+    "gemini-3-flash-latest",
     // Gemini 2.5 models on Vertex AI
     "gemini-2.5-pro",
     "gemini-2.5-flash",
@@ -231,6 +239,9 @@ const VISION_CAPABILITIES = {
     "gemini/gemini-2.0-flash",
     "gemini-3-pro-preview",
     "gemini-3-pro-latest",
+    "gemini-3-flash",
+    "gemini-3-flash-preview",
+    "gemini-3-flash-latest",
     "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-2.0-flash-lite",

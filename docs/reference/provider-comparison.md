@@ -129,7 +129,9 @@
 
 1. **GPT-4o** (OpenAI) - Best overall
 2. **Claude 3.5 Sonnet** (Anthropic/Bedrock)
-3. **Gemini 1.5 Pro** (Google AI/Vertex)
+3. **Gemini 3 Pro Preview** (Google AI/Vertex) - Latest with extended thinking
+4. **Gemini 3 Flash Preview** (Google AI/Vertex) - Fast with extended thinking
+5. **Gemini 1.5 Pro** (Google AI/Vertex)
 
 #### Best Open Source Models
 
@@ -175,9 +177,38 @@ const result = await neurolink.generate({
 });
 ```
 
-**Future Support:**
+**Gemini 3 Models:**
 
-- Gemini 3 Pro Preview (November 2025) will support both
+- `gemini-3-flash-preview` and `gemini-3-pro-preview` are now available
+- These models still cannot use tools + JSON schema together (same limitation as other Gemini models)
+
+### Gemini 3 Feature Comparison
+
+| Feature                | gemini-3-flash-preview | gemini-3-pro-preview |
+| ---------------------- | ---------------------- | -------------------- |
+| **Extended Thinking**  | ✅ (thinkingLevel)     | ✅ (thinkingLevel)   |
+| **Streaming**          | ✅                     | ✅                   |
+| **Tool Calling**       | ✅                     | ✅                   |
+| **Vision/Multimodal**  | ✅                     | ✅                   |
+| **JSON Schema Output** | ✅\*                   | ✅\*                 |
+| **Tools + Schema**     | ❌                     | ❌                   |
+
+\*JSON Schema Output requires `disableTools: true` - cannot be used simultaneously with tool calling (Gemini API limitation)
+
+**Extended Thinking Support:**
+
+Gemini 3 models support extended thinking via the `thinkingLevel` parameter:
+
+```typescript
+const result = await neurolink.generate({
+  prompt: "Solve this complex problem...",
+  provider: "google-ai",
+  model: "gemini-3-pro-preview",
+  thinkingLevel: "high", // "minimal" | "low" | "medium" | "high"
+});
+```
+
+**Limitation:** When using tools with Gemini 3 models, you cannot simultaneously use JSON schema output. Use `disableTools: true` when structured output is required.
 
 ## Provider Deep Dive
 

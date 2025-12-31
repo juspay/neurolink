@@ -565,16 +565,41 @@ export type GenAILiveSession = {
 };
 
 /**
+ * Google AI generateContentStream response chunk
+ */
+export type GenAIStreamChunk = {
+  text?: string;
+  functionCalls?: Array<{ name: string; args: Record<string, unknown> }>;
+};
+
+/**
+ * Google AI models API interface
+ */
+export type GenAIModelsAPI = {
+  generateContentStream: (params: {
+    model: string;
+    contents: Array<{ role: string; parts: unknown[] }>;
+    config?: Record<string, unknown>;
+  }) => Promise<AsyncIterable<GenAIStreamChunk>>;
+};
+
+/**
  * Google AI client interface
  */
 export type GenAIClient = {
   live: { connect: (config: LiveConnectConfig) => Promise<GenAILiveSession> };
+  models: GenAIModelsAPI;
 };
 
 /**
  * Google GenAI constructor type
+ * Supports both API key (Google AI Studio) and Vertex AI configurations
  */
-export type GoogleGenAIClass = new (cfg: { apiKey: string }) => GenAIClient;
+export type GoogleGenAIClass = new (
+  cfg:
+    | { apiKey: string }
+    | { vertexai: boolean; project: string; location: string },
+) => GenAIClient;
 
 // ============================================================================
 // OpenAI Compatible Provider Types

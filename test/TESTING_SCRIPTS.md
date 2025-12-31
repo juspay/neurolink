@@ -260,6 +260,36 @@ cat /tmp/neurolink-sequential-tests/results-summary.txt
 
 ---
 
+## 🧪 Model-Specific Testing
+
+### Testing with Gemini 3 Models
+
+To test with specific Gemini 3 models on Vertex AI, use environment variables with the legacy test suite:
+
+```bash
+# Test with Gemini 3 Flash Preview
+TEST_PROVIDER=vertex TEST_MODEL=gemini-3-flash-preview pnpm test:legacy
+
+# Test with Gemini 3 Pro Preview
+TEST_PROVIDER=vertex TEST_MODEL=gemini-3-pro-preview pnpm test:legacy
+```
+
+#### Known Limitations
+
+**Zod Schema Tests with Gemini Models:**
+
+The Zod schema validation tests are automatically skipped when testing with Gemini models. This is due to a known limitation where Gemini does not currently support combining tool usage with JSON schema output constraints in the same request.
+
+When you see tests skipped with messages like:
+
+```
+⏭️ Skipping Zod schema test (Gemini does not support tools + JSON schema together)
+```
+
+This is expected behavior and not a test failure.
+
+---
+
 ## 🔍 Debugging Failed Tests
 
 ### View Detailed Logs

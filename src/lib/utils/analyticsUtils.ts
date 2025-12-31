@@ -9,7 +9,17 @@ import type { TokenUsage, AnalyticsData } from "../types/index.js";
  * Format token usage as a human-readable string
  */
 export function formatTokenUsage(usage: TokenUsage): string {
-  return `${usage.input}/${usage.output}/${usage.total}`;
+  let result = `${usage.input} input / ${usage.output} output`;
+  if (usage.cacheCreationTokens) {
+    result += ` / ${usage.cacheCreationTokens} cache-create`;
+  }
+  if (usage.cacheReadTokens) {
+    result += ` / ${usage.cacheReadTokens} cache-read`;
+  }
+  if (usage.reasoning) {
+    result += ` / ${usage.reasoning} reasoning`;
+  }
+  return result;
 }
 
 /**
@@ -31,8 +41,20 @@ export function combineTokenUsage(usages: TokenUsage[]): TokenUsage {
       input: total.input + current.input,
       output: total.output + current.output,
       total: total.total + current.total,
+      cacheCreationTokens:
+        (total.cacheCreationTokens || 0) + (current.cacheCreationTokens || 0),
+      cacheReadTokens:
+        (total.cacheReadTokens || 0) + (current.cacheReadTokens || 0),
+      reasoning: (total.reasoning || 0) + (current.reasoning || 0),
     }),
-    { input: 0, output: 0, total: 0 },
+    {
+      input: 0,
+      output: 0,
+      total: 0,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+      reasoning: 0,
+    },
   );
 }
 

@@ -195,12 +195,16 @@ const ai = new NeuroLink({
 
 ### Gemini Models (Google)
 
-| Model                | Description       | Context    | Best For          | Pricing      |
-| -------------------- | ----------------- | ---------- | ----------------- | ------------ |
-| **gemini-2.0-flash** | Latest fast model | 1M tokens  | Speed, real-time  | $0.075/1M in |
-| **gemini-1.5-pro**   | Most capable      | 2M tokens  | Complex reasoning | $1.25/1M in  |
-| **gemini-1.5-flash** | Balanced          | 1M tokens  | General tasks     | $0.075/1M in |
-| **gemini-1.0-pro**   | Stable version    | 32K tokens | Production        | $0.50/1M in  |
+| Model                      | Description               | Context    | Best For                 | Pricing                          |
+| -------------------------- | ------------------------- | ---------- | ------------------------ | -------------------------------- |
+| **gemini-3-pro-preview**   | Latest, extended thinking | 1M tokens  | Deep reasoning, analysis | Preview                          |
+| **gemini-3-flash-preview** | Fast with thinking        | 1M tokens  | Balanced speed/quality   | Preview                          |
+| **gemini-2.0-flash**       | Fast model                | 1M tokens  | Speed, real-time         | $0.075/1M input, $0.30/1M output |
+| **gemini-1.5-pro**         | Most capable              | 2M tokens  | Complex reasoning        | $1.25/1M in                      |
+| **gemini-1.5-flash**       | Balanced                  | 1M tokens  | General tasks            | $0.075/1M in                     |
+| **gemini-1.0-pro**         | Stable version            | 32K tokens | Production               | $0.50/1M in                      |
+
+> **Note:** Gemini 3 models (`gemini-3-pro-preview`, `gemini-3-flash-preview`) are preview models and may have stricter rate limits than production models. Monitor your usage and expect potential API changes during the preview period.
 
 ### Claude Models (Anthropic via Vertex)
 
@@ -234,6 +238,109 @@ const premium = await ai.generate({
   model: "claude-3-5-sonnet",
 });
 ```
+
+---
+
+## Extended Thinking (Gemini 3)
+
+Gemini 3 models support **Extended Thinking**, which enables the model to perform deeper reasoning before generating responses. This is ideal for complex analysis, multi-step problem solving, and tasks requiring careful deliberation.
+
+### Thinking Levels
+
+| Level       | Description                        | Use Case                           | Latency Impact |
+| ----------- | ---------------------------------- | ---------------------------------- | -------------- |
+| **minimal** | Near-zero thinking (Flash only)    | Simple queries requiring speed     | Minimal        |
+| **low**     | Minimal thinking, faster responses | Simple queries, quick answers      | Low            |
+| **medium**  | Balanced thinking and speed        | General tasks, moderate complexity | Moderate       |
+| **high**    | Deep reasoning, thorough analysis  | Complex problems, critical tasks   | Higher         |
+
+### Basic Usage
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const ai = new NeuroLink({
+  providers: [
+    {
+      name: "vertex",
+      config: {
+        projectId: process.env.GOOGLE_VERTEX_PROJECT_ID,
+        location: process.env.GOOGLE_VERTEX_LOCATION,
+      },
+    },
+  ],
+});
+
+// Enable extended thinking with Gemini 3
+const result = await ai.generate({
+  input: {
+    text: "Analyze the trade-offs between microservices and monolithic architecture for a startup with 5 engineers.",
+  },
+  provider: "vertex",
+  model: "gemini-3-pro-preview",
+  thinkingLevel: "high", // 'minimal' | 'low' | 'medium' | 'high'
+});
+
+console.log(result.content);
+```
+
+### Thinking Level Examples
+
+```typescript
+// Low thinking - Quick responses for simple queries
+const quick = await ai.generate({
+  input: { text: "What is the capital of France?" },
+  provider: "vertex",
+  model: "gemini-3-flash-preview",
+  thinkingLevel: "low",
+});
+
+// Medium thinking - Balanced for everyday tasks
+const balanced = await ai.generate({
+  input: { text: "Summarize the key points of this article..." },
+  provider: "vertex",
+  model: "gemini-3-flash-preview",
+  thinkingLevel: "medium",
+});
+
+// High thinking - Deep analysis for complex problems
+const deep = await ai.generate({
+  input: {
+    text: `Given the following codebase architecture, identify potential
+           security vulnerabilities and suggest remediation strategies...`,
+  },
+  provider: "vertex",
+  model: "gemini-3-pro-preview",
+  thinkingLevel: "high",
+});
+```
+
+### Streaming with Extended Thinking
+
+```typescript
+// Stream responses with thinking enabled
+const stream = await ai.stream({
+  input: {
+    text: "Design a distributed caching strategy for a high-traffic e-commerce platform.",
+  },
+  provider: "vertex",
+  model: "gemini-3-pro-preview",
+  thinkingLevel: "high",
+});
+
+for await (const chunk of stream) {
+  process.stdout.write(chunk.content);
+}
+```
+
+### Best Practices for Extended Thinking
+
+1. **Match thinking level to task complexity**: Use `low` for simple queries, `high` for complex analysis
+2. **Consider latency requirements**: Higher thinking levels increase response time
+3. **Use with complex prompts**: Extended thinking shines with multi-step reasoning tasks
+4. **Monitor token usage**: Thinking processes consume additional tokens
+
+> **Important:** Extended Thinking is only available on Gemini 3 models (`gemini-3-pro-preview`, `gemini-3-flash-preview`). Using `thinkingLevel` with other models will be ignored.
 
 ---
 
@@ -729,9 +836,11 @@ GOOGLE_VERTEX_LOCATION=europe-west1
 
 ## Known Limitations
 
-### Structured Output + Function Calling (Gemini Models Only)
+### Tools + JSON Schema Cannot Be Used Simultaneously (Gemini Models)
 
-**Google API Limitation:** Google Gemini models on Vertex AI cannot combine function calling with structured output (JSON schema). This is a fundamental Google API constraint.
+**Google API Limitation:** All Google Gemini models on Vertex AI (including Gemini 3 preview models) cannot combine function calling (tools) with structured output (JSON schema) in the same request. This is a fundamental Google API constraint.
+
+**Affected models:** All Gemini models including `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.0-flash`, `gemini-1.5-pro`, `gemini-1.5-flash`
 
 **Note:** This limitation ONLY affects Gemini models. Anthropic Claude models via Vertex AI do NOT have this limitation.
 
@@ -744,14 +853,29 @@ Function calling with a response mime type: 'application/json' is unsupported
 **Solution for Gemini models:**
 
 ```typescript
-// ✅ Correct approach with Gemini
+// ✅ Correct approach with Gemini (including Gemini 3)
 const result = await neurolink.generate({
   input: { text: "Analyze this data" },
   schema: MyZodSchema,
   output: { format: "json" },
   provider: "vertex",
-  model: "gemini-2.5-flash",
-  disableTools: true, // Required for Gemini models
+  model: "gemini-3-pro-preview", // or any Gemini model
+  disableTools: true, // Required for ALL Gemini models when using schema
+});
+```
+
+**With Extended Thinking (Gemini 3):**
+
+```typescript
+// ✅ Using schema with Gemini 3 Extended Thinking
+const result = await neurolink.generate({
+  input: { text: "Analyze this complex data and provide structured insights" },
+  schema: MyZodSchema,
+  output: { format: "json" },
+  provider: "vertex",
+  model: "gemini-3-pro-preview",
+  thinkingLevel: "high",
+  disableTools: true, // Still required even with thinking enabled
 });
 ```
 
@@ -774,6 +898,45 @@ const result = await neurolink.generate({
 - This limitation affects ALL frameworks using Gemini (LangChain, Vercel AI SDK, Agno, Instructor)
 - All use the same workaround: disable tools when using schemas
 - Future Gemini versions may support both - check official Google Cloud documentation for updates
+
+### Preview Model Rate Limits (Gemini 3)
+
+**Preview models** (`gemini-3-pro-preview`, `gemini-3-flash-preview`) have stricter rate limits than production models:
+
+- Lower requests per minute (RPM) quotas
+- Lower tokens per minute (TPM) quotas
+- Potential for API changes without notice
+- Not recommended for production workloads without fallback
+
+**Recommended pattern for production:**
+
+```typescript
+const ai = new NeuroLink({
+  providers: [
+    // Primary: Gemini 3 preview
+    {
+      name: "vertex-gemini3",
+      config: {
+        projectId: process.env.GOOGLE_VERTEX_PROJECT_ID,
+        location: "us-central1",
+      },
+      model: "gemini-3-pro-preview",
+      priority: 1,
+    },
+    // Fallback: Stable Gemini 2
+    {
+      name: "vertex-gemini2",
+      config: {
+        projectId: process.env.GOOGLE_VERTEX_PROJECT_ID,
+        location: "us-central1",
+      },
+      model: "gemini-2.0-flash",
+      priority: 2,
+    },
+  ],
+  failoverConfig: { enabled: true },
+});
+```
 
 ### Complex Schema Limitations
 

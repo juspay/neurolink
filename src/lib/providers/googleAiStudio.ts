@@ -1,12 +1,22 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { streamText, type Schema, type LanguageModelV1 } from "ai";
+import { streamText, type Schema, type LanguageModelV1, type Tool } from "ai";
 import type { ZodUnknownSchema } from "../types/typeAliases.js";
-import { AIProviderName, GoogleAIModels } from "../constants/enums.js";
+import {
+  AIProviderName,
+  GoogleAIModels,
+  ErrorCategory,
+  ErrorSeverity,
+} from "../constants/enums.js";
+import { NeuroLinkError, ERROR_CODES } from "../utils/errorHandling.js";
 import type {
   StreamOptions,
   StreamResult,
   AudioChunk,
 } from "../types/streamTypes.js";
+import type {
+  TextGenerationOptions,
+  EnhancedGenerateResult,
+} from "../types/generateTypes.js";
 import type { UnknownRecord } from "../types/common.js";
 import type {
   LiveServerMessage,
@@ -23,8 +33,18 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/errors.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
+import {
+  DEFAULT_MAX_STEPS,
+  DEFAULT_TOOL_MAX_RETRIES,
+} from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
+import { isGemini3Model } from "../utils/modelDetection.js";
+import {
+  convertZodToJsonSchema,
+  inlineJsonSchema,
+  isZodSchema,
+} from "../utils/schemaConversion.js";
+import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
 
 // Google AI Live API types now imported from ../types/providerSpecific.js
 
@@ -35,7 +55,14 @@ async function createGoogleGenAIClient(apiKey: string): Promise<GenAIClient> {
   const mod: unknown = await import("@google/genai");
   const ctor = (mod as Record<string, unknown>).GoogleGenAI as unknown;
   if (!ctor) {
-    throw new Error("@google/genai does not export GoogleGenAI");
+    throw new NeuroLinkError({
+      code: ERROR_CODES.INVALID_CONFIGURATION,
+      message: "@google/genai does not export GoogleGenAI",
+      category: ErrorCategory.CONFIGURATION,
+      severity: ErrorSeverity.CRITICAL,
+      retriable: false,
+      context: { module: "@google/genai", expectedExport: "GoogleGenAI" },
+    });
   }
   const Ctor = ctor as GoogleGenAIClass;
   return new Ctor({ apiKey });
@@ -146,6 +173,37 @@ export class GoogleAIStudioProvider extends BaseProvider {
     options: StreamOptions,
     _analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
+    // Check if this is a Gemini 3 model with tools - use native SDK for thought_signature
+    const gemini3CheckModelName = options.model || this.modelName;
+
+    // Check for tools from options AND from SDK (MCP tools)
+    // Need to check early if we should route to native SDK
+    const gemini3CheckShouldUseTools =
+      !options.disableTools && this.supportsTools();
+    const optionTools = options.tools || {};
+    const sdkTools = gemini3CheckShouldUseTools ? await this.getAllTools() : {};
+    const combinedToolCount =
+      Object.keys(optionTools).length + Object.keys(sdkTools).length;
+    const hasTools = gemini3CheckShouldUseTools && combinedToolCount > 0;
+
+    if (isGemini3Model(gemini3CheckModelName) && hasTools) {
+      // Merge SDK tools into options for native SDK path
+      const mergedOptions = {
+        ...options,
+        tools: { ...sdkTools, ...optionTools },
+      };
+      logger.info(
+        "[GoogleAIStudio] Routing Gemini 3 to native SDK for tool calling",
+        {
+          model: gemini3CheckModelName,
+          optionToolCount: Object.keys(optionTools).length,
+          sdkToolCount: Object.keys(sdkTools).length,
+          totalToolCount: combinedToolCount,
+        },
+      );
+      return this.executeNativeGemini3Stream(mergedOptions);
+    }
+
     // Phase 1: if audio input present, bridge to Gemini Live (Studio) using @google/genai
     if (options.input?.audio) {
       return await this.executeAudioStreamViaGeminiLive(options);
@@ -189,6 +247,24 @@ export class GoogleAIStudioProvider extends BaseProvider {
         abortSignal: timeoutController?.controller.signal,
         experimental_telemetry:
           this.telemetryHandler.getTelemetryConfig(options),
+        // Gemini 3: use thinkingLevel via providerOptions
+        // Gemini 2.5: use thinkingBudget via providerOptions
+        ...(options.thinkingConfig?.enabled && {
+          providerOptions: {
+            google: {
+              thinkingConfig: {
+                ...(options.thinkingConfig.thinkingLevel && {
+                  thinkingLevel: options.thinkingConfig.thinkingLevel,
+                }),
+                ...(options.thinkingConfig.budgetTokens &&
+                  !options.thinkingConfig.thinkingLevel && {
+                    thinkingBudget: options.thinkingConfig.budgetTokens,
+                  }),
+                includeThoughts: true,
+              },
+            },
+          },
+        }),
         onStepFinish: ({ toolCalls, toolResults }) => {
           this.handleToolExecutionStorage(
             toolCalls,
@@ -238,6 +314,826 @@ export class GoogleAIStudioProvider extends BaseProvider {
       timeoutController?.cleanup();
       throw this.handleProviderError(error);
     }
+  }
+
+  /**
+   * Execute stream using native @google/genai SDK for Gemini 3 models
+   * This bypasses @ai-sdk/google to properly handle thought_signature
+   */
+  private async executeNativeGemini3Stream(
+    options: StreamOptions,
+  ): Promise<StreamResult> {
+    const startTime = Date.now();
+    const timeout = this.getTimeout(options);
+    const timeoutController = createTimeoutController(
+      timeout,
+      this.providerName,
+      "stream",
+    );
+
+    const apiKey = this.getApiKey();
+    const client = await createGoogleGenAIClient(apiKey);
+    const modelName = options.model || this.modelName;
+
+    logger.debug("[GoogleAIStudio] Using native @google/genai for Gemini 3", {
+      model: modelName,
+      hasTools: !!options.tools && Object.keys(options.tools).length > 0,
+    });
+
+    // Build contents from input
+    const contents: Array<{
+      role: string;
+      parts: Array<{ text: string }>;
+    }> = [];
+
+    contents.push({
+      role: "user",
+      parts: [{ text: options.input.text }],
+    });
+
+    // Convert Vercel AI SDK tools to @google/genai FunctionDeclarations
+    type FunctionDeclaration = {
+      name: string;
+      description: string;
+      parametersJsonSchema?: Record<string, unknown>;
+    };
+
+    let tools:
+      | Array<{ functionDeclarations: FunctionDeclaration[] }>
+      | undefined;
+    const executeMap = new Map<string, Tool["execute"]>();
+
+    if (
+      options.tools &&
+      Object.keys(options.tools).length > 0 &&
+      !options.disableTools
+    ) {
+      const functionDeclarations: FunctionDeclaration[] = [];
+
+      for (const [name, tool] of Object.entries(options.tools)) {
+        const decl: FunctionDeclaration = {
+          name,
+          description: tool.description || `Tool: ${name}`,
+        };
+
+        if (tool.parameters) {
+          let rawSchema: Record<string, unknown>;
+
+          if (isZodSchema(tool.parameters)) {
+            // It's a Zod schema - convert it
+            rawSchema = convertZodToJsonSchema(
+              tool.parameters as ZodUnknownSchema,
+            ) as Record<string, unknown>;
+          } else if (typeof tool.parameters === "object") {
+            // Already JSON schema (jsonSchema() wrapper) - use directly
+            rawSchema = tool.parameters as Record<string, unknown>;
+          } else {
+            rawSchema = { type: "object", properties: {} };
+          }
+
+          decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
+          // Remove $schema if present - @google/genai doesn't need it
+          if (decl.parametersJsonSchema.$schema) {
+            delete decl.parametersJsonSchema.$schema;
+          }
+        }
+
+        functionDeclarations.push(decl);
+
+        if (tool.execute) {
+          executeMap.set(name, tool.execute);
+        }
+      }
+
+      tools = [{ functionDeclarations }];
+
+      logger.debug("[GoogleAIStudio] Converted tools for native SDK", {
+        toolCount: functionDeclarations.length,
+        toolNames: functionDeclarations.map((t) => t.name),
+      });
+    }
+
+    // Build config
+    const config: Record<string, unknown> = {
+      temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
+      maxOutputTokens: options.maxTokens,
+    };
+
+    if (tools) {
+      config.tools = tools;
+    }
+
+    if (options.systemPrompt) {
+      config.systemInstruction = options.systemPrompt;
+    }
+
+    // Add thinking config for Gemini 3
+    const nativeThinkingConfig = createNativeThinkingConfig(
+      options.thinkingConfig,
+    );
+    if (nativeThinkingConfig) {
+      config.thinkingConfig = nativeThinkingConfig;
+    }
+
+    // Ensure maxSteps is a valid positive integer to prevent infinite loops
+    const rawMaxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
+    const maxSteps =
+      Number.isFinite(rawMaxSteps) && rawMaxSteps > 0
+        ? Math.min(Math.floor(rawMaxSteps), 100) // Cap at 100 for safety
+        : Math.min(DEFAULT_MAX_STEPS, 100);
+    const currentContents = [...contents];
+    let finalText = "";
+    let lastStepText = ""; // Track text from last step for maxSteps termination
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    const allToolCalls: Array<{
+      toolName: string;
+      args: Record<string, unknown>;
+    }> = [];
+    let step = 0;
+
+    // Track failed tools to prevent infinite retry loops
+    // Key: tool name, Value: { count: retry attempts, lastError: error message }
+    const failedTools = new Map<string, { count: number; lastError: string }>();
+
+    // Agentic loop for tool calling
+    while (step < maxSteps) {
+      step++;
+      logger.debug(`[GoogleAIStudio] Native SDK step ${step}/${maxSteps}`);
+
+      try {
+        const stream = await client.models.generateContentStream({
+          model: modelName,
+          contents: currentContents,
+          config,
+        });
+
+        const stepFunctionCalls: Array<{
+          name: string;
+          args: Record<string, unknown>;
+        }> = [];
+        // Capture all raw parts including thoughtSignature for history
+        const rawResponseParts: unknown[] = [];
+
+        for await (const chunk of stream) {
+          // Extract raw parts from candidates FIRST
+          // This avoids using chunk.text which triggers SDK warning when
+          // non-text parts (thoughtSignature, functionCall) are present
+          const chunkRecord = chunk as Record<string, unknown>;
+          const candidates = chunkRecord.candidates as
+            | Array<Record<string, unknown>>
+            | undefined;
+          const firstCandidate = candidates?.[0];
+          const chunkContent = firstCandidate?.content as
+            | Record<string, unknown>
+            | undefined;
+          if (chunkContent && Array.isArray(chunkContent.parts)) {
+            rawResponseParts.push(...chunkContent.parts);
+          }
+          if (chunk.functionCalls) {
+            stepFunctionCalls.push(...chunk.functionCalls);
+          }
+
+          // Accumulate usage metadata from chunks
+          const usage = chunkRecord.usageMetadata as
+            | { promptTokenCount?: number; candidatesTokenCount?: number }
+            | undefined;
+          if (usage) {
+            totalInputTokens = Math.max(
+              totalInputTokens,
+              usage.promptTokenCount || 0,
+            );
+            totalOutputTokens = Math.max(
+              totalOutputTokens,
+              usage.candidatesTokenCount || 0,
+            );
+          }
+        }
+
+        // Extract text from raw parts after stream completes
+        // This avoids SDK warning about non-text parts (thoughtSignature, functionCall)
+        const stepText = rawResponseParts
+          .filter(
+            (part): part is { text: string } =>
+              typeof (part as Record<string, unknown>).text === "string",
+          )
+          .map((part) => part.text)
+          .join("");
+
+        // If no function calls, we're done
+        if (stepFunctionCalls.length === 0) {
+          finalText = stepText;
+          break;
+        }
+
+        // Track the last step text for maxSteps termination
+        lastStepText = stepText;
+
+        // Execute function calls
+        logger.debug(
+          `[GoogleAIStudio] Executing ${stepFunctionCalls.length} function calls`,
+        );
+
+        // Add model response with ALL parts (including thoughtSignature) to history
+        currentContents.push({
+          role: "model",
+          parts:
+            rawResponseParts.length > 0
+              ? (rawResponseParts as Array<{ text: string }>)
+              : (stepFunctionCalls.map((fc) => ({
+                  functionCall: fc,
+                })) as unknown as Array<{ text: string }>),
+        });
+
+        // Execute each function and collect responses
+        const functionResponses: Array<{
+          functionResponse: { name: string; response: unknown };
+        }> = [];
+
+        for (const call of stepFunctionCalls) {
+          allToolCalls.push({ toolName: call.name, args: call.args });
+
+          // Check if this tool has already exceeded retry limit
+          const failedInfo = failedTools.get(call.name);
+          if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
+            logger.warn(
+              `[GoogleAIStudio] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
+            );
+            functionResponses.push({
+              functionResponse: {
+                name: call.name,
+                response: {
+                  error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
+                  status: "permanently_failed",
+                  do_not_retry: true,
+                },
+              },
+            });
+            continue;
+          }
+
+          const execute = executeMap.get(call.name);
+          if (execute) {
+            try {
+              // AI SDK Tool execute requires (args, options) - provide minimal options
+              const toolOptions = {
+                toolCallId: `${call.name}-${Date.now()}`,
+                messages: [],
+                abortSignal: undefined as AbortSignal | undefined,
+              };
+              const result = await execute(call.args, toolOptions);
+              functionResponses.push({
+                functionResponse: { name: call.name, response: { result } },
+              });
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error ? error.message : "Unknown error";
+
+              // Track this failure
+              const currentFailInfo = failedTools.get(call.name) || {
+                count: 0,
+                lastError: "",
+              };
+              currentFailInfo.count++;
+              currentFailInfo.lastError = errorMessage;
+              failedTools.set(call.name, currentFailInfo);
+
+              logger.warn(
+                `[GoogleAIStudio] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
+              );
+
+              // Determine if this is a permanent failure
+              const isPermanentFailure =
+                currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
+
+              functionResponses.push({
+                functionResponse: {
+                  name: call.name,
+                  response: {
+                    error: isPermanentFailure
+                      ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
+                      : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
+                    status: isPermanentFailure
+                      ? "permanently_failed"
+                      : "failed",
+                    do_not_retry: isPermanentFailure,
+                    retry_count: currentFailInfo.count,
+                    max_retries: DEFAULT_TOOL_MAX_RETRIES,
+                  },
+                },
+              });
+            }
+          } else {
+            // Tool not found is a permanent error
+            functionResponses.push({
+              functionResponse: {
+                name: call.name,
+                response: {
+                  error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
+                  status: "permanently_failed",
+                  do_not_retry: true,
+                },
+              },
+            });
+          }
+        }
+
+        // Add function responses to history
+        currentContents.push({
+          role: "function",
+          parts: functionResponses as unknown as Array<{ text: string }>,
+        });
+      } catch (error) {
+        logger.error("[GoogleAIStudio] Native SDK error", error);
+        throw this.handleProviderError(error);
+      }
+    }
+
+    timeoutController?.cleanup();
+
+    // Handle maxSteps termination - if we exited the loop due to maxSteps being reached
+    if (step >= maxSteps && !finalText) {
+      logger.warn(
+        `[GoogleAIStudio] Tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
+          `Model was still calling tools. Using accumulated text from last step.`,
+      );
+      finalText =
+        lastStepText ||
+        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
+    }
+
+    const responseTime = Date.now() - startTime;
+
+    // Create async iterable for streaming result
+    async function* createTextStream(): AsyncIterable<{ content: string }> {
+      yield { content: finalText };
+    }
+
+    return {
+      stream: createTextStream(),
+      provider: this.providerName,
+      model: modelName,
+      toolCalls: allToolCalls.map((tc) => ({
+        toolName: tc.toolName,
+        args: tc.args,
+      })),
+      analytics: Promise.resolve({
+        provider: this.providerName,
+        model: modelName,
+        tokenUsage: {
+          input: totalInputTokens,
+          output: totalOutputTokens,
+          total: totalInputTokens + totalOutputTokens,
+        },
+        requestDuration: responseTime,
+        timestamp: new Date().toISOString(),
+      }),
+      metadata: {
+        streamId: `native-${Date.now()}`,
+        startTime,
+        responseTime,
+        totalToolExecutions: allToolCalls.length,
+      },
+    };
+  }
+
+  /**
+   * Execute generate using native @google/genai SDK for Gemini 3 models
+   * This bypasses @ai-sdk/google to properly handle thought_signature
+   */
+  private async executeNativeGemini3Generate(
+    options: TextGenerationOptions,
+  ): Promise<EnhancedGenerateResult> {
+    const apiKey = this.getApiKey();
+    const client = await createGoogleGenAIClient(apiKey);
+    const modelName = options.model || this.modelName;
+
+    logger.debug(
+      "[GoogleAIStudio] Using native @google/genai for Gemini 3 generate",
+      {
+        model: modelName,
+        hasTools: !!options.tools && Object.keys(options.tools).length > 0,
+      },
+    );
+
+    // Build contents from input
+    const contents: Array<{
+      role: string;
+      parts: unknown[];
+    }> = [];
+
+    const promptText = options.prompt || options.input?.text || "";
+    contents.push({
+      role: "user",
+      parts: [{ text: promptText }],
+    });
+
+    // Convert Vercel AI SDK tools to @google/genai FunctionDeclarations
+    type FunctionDeclaration = {
+      name: string;
+      description: string;
+      parametersJsonSchema?: Record<string, unknown>;
+    };
+
+    let tools:
+      | Array<{ functionDeclarations: FunctionDeclaration[] }>
+      | undefined;
+    const executeMap = new Map<string, Tool["execute"]>();
+    const allToolsForResult: Record<string, Tool> = {};
+
+    // Merge SDK tools with options.tools
+    const shouldUseTools = !options.disableTools;
+    if (shouldUseTools) {
+      const sdkTools = await this.getAllTools();
+      const mergedTools = { ...sdkTools, ...(options.tools || {}) };
+
+      if (Object.keys(mergedTools).length > 0) {
+        const functionDeclarations: FunctionDeclaration[] = [];
+
+        for (const [name, tool] of Object.entries(mergedTools)) {
+          allToolsForResult[name] = tool;
+          const decl: FunctionDeclaration = {
+            name,
+            description: tool.description || `Tool: ${name}`,
+          };
+
+          if (tool.parameters) {
+            let rawSchema: Record<string, unknown>;
+
+            if (isZodSchema(tool.parameters)) {
+              // It's a Zod schema - convert it
+              rawSchema = convertZodToJsonSchema(
+                tool.parameters as ZodUnknownSchema,
+              ) as Record<string, unknown>;
+            } else if (typeof tool.parameters === "object") {
+              // Already JSON schema (jsonSchema() wrapper) - use directly
+              rawSchema = tool.parameters as Record<string, unknown>;
+            } else {
+              rawSchema = { type: "object", properties: {} };
+            }
+
+            decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
+            // Remove $schema if present - @google/genai doesn't need it
+            if (decl.parametersJsonSchema.$schema) {
+              delete decl.parametersJsonSchema.$schema;
+            }
+          }
+
+          functionDeclarations.push(decl);
+
+          if (tool.execute) {
+            executeMap.set(name, tool.execute);
+          }
+        }
+
+        tools = [{ functionDeclarations }];
+
+        logger.debug(
+          "[GoogleAIStudio] Converted tools for native SDK generate",
+          {
+            toolCount: functionDeclarations.length,
+            toolNames: functionDeclarations.map((t) => t.name),
+          },
+        );
+      }
+    }
+
+    // Build config
+    const config: Record<string, unknown> = {
+      temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
+      maxOutputTokens: options.maxTokens,
+    };
+
+    if (tools) {
+      config.tools = tools;
+    }
+
+    if (options.systemPrompt) {
+      config.systemInstruction = options.systemPrompt;
+    }
+
+    const startTime = Date.now();
+    // Ensure maxSteps is a valid positive integer to prevent infinite loops
+    const rawMaxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
+    const maxSteps =
+      Number.isFinite(rawMaxSteps) && rawMaxSteps > 0
+        ? Math.min(Math.floor(rawMaxSteps), 100) // Cap at 100 for safety
+        : Math.min(DEFAULT_MAX_STEPS, 100);
+    const currentContents = [...contents];
+    let finalText = "";
+    let lastStepText = ""; // Track text from last step for maxSteps termination
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    const allToolCalls: Array<{
+      toolName: string;
+      args: Record<string, unknown>;
+    }> = [];
+    const toolExecutions: Array<{
+      name: string;
+      input: Record<string, unknown>;
+      output: unknown;
+    }> = [];
+    let step = 0;
+
+    // Track failed tools to prevent infinite retry loops
+    // Key: tool name, Value: { count: retry attempts, lastError: error message }
+    const failedTools = new Map<string, { count: number; lastError: string }>();
+
+    // Agentic loop for tool calling
+    while (step < maxSteps) {
+      step++;
+      logger.debug(
+        `[GoogleAIStudio] Native SDK generate step ${step}/${maxSteps}`,
+      );
+
+      try {
+        const stream = await client.models.generateContentStream({
+          model: modelName,
+          contents: currentContents,
+          config,
+        });
+
+        const stepFunctionCalls: Array<{
+          name: string;
+          args: Record<string, unknown>;
+        }> = [];
+        // Capture all raw parts including thoughtSignature for history
+        const rawResponseParts: unknown[] = [];
+
+        for await (const chunk of stream) {
+          // Extract raw parts from candidates FIRST
+          // This avoids using chunk.text which triggers SDK warning when
+          // non-text parts (thoughtSignature, functionCall) are present
+          const chunkRecord = chunk as Record<string, unknown>;
+          const candidates = chunkRecord.candidates as
+            | Array<Record<string, unknown>>
+            | undefined;
+          const firstCandidate = candidates?.[0];
+          const chunkContent = firstCandidate?.content as
+            | Record<string, unknown>
+            | undefined;
+          if (chunkContent && Array.isArray(chunkContent.parts)) {
+            rawResponseParts.push(...chunkContent.parts);
+          }
+          if (chunk.functionCalls) {
+            stepFunctionCalls.push(...chunk.functionCalls);
+          }
+
+          // Accumulate usage metadata from chunks
+          const usage = chunkRecord.usageMetadata as
+            | { promptTokenCount?: number; candidatesTokenCount?: number }
+            | undefined;
+          if (usage) {
+            totalInputTokens = Math.max(
+              totalInputTokens,
+              usage.promptTokenCount || 0,
+            );
+            totalOutputTokens = Math.max(
+              totalOutputTokens,
+              usage.candidatesTokenCount || 0,
+            );
+          }
+        }
+
+        // Extract text from raw parts after stream completes
+        // This avoids SDK warning about non-text parts (thoughtSignature, functionCall)
+        const stepText = rawResponseParts
+          .filter(
+            (part): part is { text: string } =>
+              typeof (part as Record<string, unknown>).text === "string",
+          )
+          .map((part) => part.text)
+          .join("");
+
+        // If no function calls, we're done
+        if (stepFunctionCalls.length === 0) {
+          finalText = stepText;
+          break;
+        }
+
+        // Track the last step text for maxSteps termination
+        lastStepText = stepText;
+
+        // Execute function calls
+        logger.debug(
+          `[GoogleAIStudio] Executing ${stepFunctionCalls.length} function calls in generate`,
+        );
+
+        // Add model response with ALL parts (including thoughtSignature) to history
+        // This is critical for Gemini 3 - it requires thought signatures in subsequent turns
+        currentContents.push({
+          role: "model",
+          parts:
+            rawResponseParts.length > 0
+              ? (rawResponseParts as Array<{ text: string }>)
+              : (stepFunctionCalls.map((fc) => ({
+                  functionCall: fc,
+                })) as unknown as Array<{ text: string }>),
+        });
+
+        // Execute each function and collect responses
+        const functionResponses: Array<{
+          functionResponse: { name: string; response: unknown };
+        }> = [];
+
+        for (const call of stepFunctionCalls) {
+          allToolCalls.push({ toolName: call.name, args: call.args });
+
+          // Check if this tool has already exceeded retry limit
+          const failedInfo = failedTools.get(call.name);
+          if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
+            logger.warn(
+              `[GoogleAIStudio] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
+            );
+
+            const errorOutput = {
+              error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
+              status: "permanently_failed",
+              do_not_retry: true,
+            };
+
+            functionResponses.push({
+              functionResponse: {
+                name: call.name,
+                response: errorOutput,
+              },
+            });
+            toolExecutions.push({
+              name: call.name,
+              input: call.args,
+              output: errorOutput,
+            });
+            continue;
+          }
+
+          const execute = executeMap.get(call.name);
+          if (execute) {
+            try {
+              // AI SDK Tool execute requires (args, options) - provide minimal options
+              const toolOptions = {
+                toolCallId: `${call.name}-${Date.now()}`,
+                messages: [],
+                abortSignal: undefined as AbortSignal | undefined,
+              };
+              const result = await execute(call.args, toolOptions);
+              functionResponses.push({
+                functionResponse: { name: call.name, response: { result } },
+              });
+              toolExecutions.push({
+                name: call.name,
+                input: call.args,
+                output: result,
+              });
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error ? error.message : "Unknown error";
+
+              // Track this failure
+              const currentFailInfo = failedTools.get(call.name) || {
+                count: 0,
+                lastError: "",
+              };
+              currentFailInfo.count++;
+              currentFailInfo.lastError = errorMessage;
+              failedTools.set(call.name, currentFailInfo);
+
+              logger.warn(
+                `[GoogleAIStudio] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
+              );
+
+              // Determine if this is a permanent failure
+              const isPermanentFailure =
+                currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
+
+              const errorOutput = {
+                error: isPermanentFailure
+                  ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
+                  : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
+                status: isPermanentFailure ? "permanently_failed" : "failed",
+                do_not_retry: isPermanentFailure,
+                retry_count: currentFailInfo.count,
+                max_retries: DEFAULT_TOOL_MAX_RETRIES,
+              };
+
+              functionResponses.push({
+                functionResponse: {
+                  name: call.name,
+                  response: errorOutput,
+                },
+              });
+              toolExecutions.push({
+                name: call.name,
+                input: call.args,
+                output: errorOutput,
+              });
+            }
+          } else {
+            // Tool not found is a permanent error
+            const errorOutput = {
+              error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
+              status: "permanently_failed",
+              do_not_retry: true,
+            };
+
+            functionResponses.push({
+              functionResponse: {
+                name: call.name,
+                response: errorOutput,
+              },
+            });
+            toolExecutions.push({
+              name: call.name,
+              input: call.args,
+              output: errorOutput,
+            });
+          }
+        }
+
+        // Add function responses to history
+        currentContents.push({
+          role: "function",
+          parts: functionResponses,
+        });
+      } catch (error) {
+        logger.error("[GoogleAIStudio] Native SDK generate error", error);
+        throw this.handleProviderError(error);
+      }
+    }
+
+    // Handle maxSteps termination - if we exited the loop due to maxSteps being reached
+    if (step >= maxSteps && !finalText) {
+      logger.warn(
+        `[GoogleAIStudio] Generate tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
+          `Model was still calling tools. Using accumulated text from last step.`,
+      );
+      finalText =
+        lastStepText ||
+        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
+    }
+
+    const responseTime = Date.now() - startTime;
+
+    // Build EnhancedGenerateResult
+    return {
+      content: finalText,
+      provider: this.providerName,
+      model: modelName,
+      usage: {
+        input: totalInputTokens,
+        output: totalOutputTokens,
+        total: totalInputTokens + totalOutputTokens,
+      },
+      responseTime,
+      toolsUsed: allToolCalls.map((tc) => tc.toolName),
+      toolExecutions: toolExecutions,
+      enhancedWithTools: allToolCalls.length > 0,
+    };
+  }
+
+  /**
+   * Override generate to route Gemini 3 models with tools to native SDK
+   */
+  async generate(
+    optionsOrPrompt: TextGenerationOptions | string,
+  ): Promise<EnhancedGenerateResult | null> {
+    // Normalize options
+    const options =
+      typeof optionsOrPrompt === "string"
+        ? { prompt: optionsOrPrompt }
+        : optionsOrPrompt;
+
+    const modelName = options.model || this.modelName;
+
+    // Check if we should use native SDK for Gemini 3 with tools
+    const shouldUseTools = !options.disableTools && this.supportsTools();
+    const sdkTools = shouldUseTools ? await this.getAllTools() : {};
+    const hasTools =
+      shouldUseTools &&
+      (Object.keys(sdkTools).length > 0 ||
+        (options.tools && Object.keys(options.tools).length > 0));
+
+    if (isGemini3Model(modelName) && hasTools) {
+      // Merge SDK tools into options for native SDK path
+      const mergedOptions = {
+        ...options,
+        tools: { ...sdkTools, ...(options.tools || {}) },
+      };
+      logger.info(
+        "[GoogleAIStudio] Routing Gemini 3 generate to native SDK for tool calling",
+        {
+          model: modelName,
+          sdkToolCount: Object.keys(sdkTools).length,
+          optionToolCount: Object.keys(options.tools || {}).length,
+          totalToolCount:
+            Object.keys(sdkTools).length +
+            Object.keys(options.tools || {}).length,
+        },
+      );
+      return this.executeNativeGemini3Generate(mergedOptions);
+    }
+
+    // Fall back to BaseProvider implementation
+    return super.generate(optionsOrPrompt);
   }
 
   // ===================

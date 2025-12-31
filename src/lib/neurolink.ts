@@ -2435,7 +2435,7 @@ Current user's request: ${currentInput}`;
           options.model,
           !options.disableTools, // Pass disableTools as inverse of enableMCP
           this as unknown as UnknownRecord, // Pass SDK instance
-          options.region,
+          options.region, // Pass region parameter
         );
 
         // ADD: Emit connection events for successful provider creation (Bedrock-compatible)

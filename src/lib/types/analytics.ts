@@ -12,6 +12,10 @@ export type TokenUsage = {
   input: number;
   output: number;
   total: number;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+  reasoning?: number;
+  cacheSavingsPercent?: number;
 };
 
 /**

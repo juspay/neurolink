@@ -9,6 +9,7 @@ import { logger } from "../utils/logger.js";
 import type { JsonValue, UnknownRecord } from "../types/common.js";
 import { modelConfig } from "./modelConfiguration.js";
 import type { TokenUsage, AnalyticsData } from "../types/analytics.js";
+import { extractTokenUsage as extractTokenUsageUtil } from "../utils/tokenUtils.js";
 
 /**
  * Create analytics data structure from AI response
@@ -65,48 +66,16 @@ export function createAnalytics(
 
 /**
  * Extract token usage from various AI result formats
+ * Delegates to centralized tokenUtils for consistent extraction across providers
  */
 function extractTokenUsage(result: UnknownRecord): TokenUsage {
-  // Use properly typed usage object from BaseProvider or direct AI SDK
-  if (
-    result.usage &&
-    typeof result.usage === "object" &&
-    result.usage !== null
-  ) {
-    const usage = result.usage as Record<string, unknown>;
-
-    // Try BaseProvider normalized format first (input/output/total)
-    if (typeof usage.input === "number" || typeof usage.output === "number") {
-      const input = typeof usage.input === "number" ? usage.input : 0;
-      const output = typeof usage.output === "number" ? usage.output : 0;
-      const total =
-        typeof usage.total === "number" ? usage.total : input + output;
-      return { input, output, total };
-    }
-
-    // Try OpenAI/Mistral format (promptTokens/completionTokens)
-    if (
-      typeof usage.promptTokens === "number" ||
-      typeof usage.completionTokens === "number"
-    ) {
-      const input =
-        typeof usage.promptTokens === "number" ? usage.promptTokens : 0;
-      const output =
-        typeof usage.completionTokens === "number" ? usage.completionTokens : 0;
-      const total =
-        typeof usage.total === "number" ? usage.total : input + output;
-      return { input, output, total };
-    }
-
-    // Handle total-only case
-    if (typeof usage.total === "number") {
-      return { input: 0, output: 0, total: usage.total };
-    }
-  }
-
-  // Fallback for edge cases
-  logger.debug("Token extraction failed: unknown usage format", { result });
-  return { input: 0, output: 0, total: 0 };
+  // Use centralized token extraction utility
+  // The utility handles nested usage objects, multiple provider formats,
+  // cache tokens, reasoning tokens, and cache savings calculation
+  // Cast result to allow extractTokenUsageUtil to handle type normalization
+  return extractTokenUsageUtil(
+    result.usage as Parameters<typeof extractTokenUsageUtil>[0],
+  );
 }
 
 /**

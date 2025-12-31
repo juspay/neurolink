@@ -606,7 +606,7 @@ interface GenerateOptions {
 - ❌ Cannot combine `schema` + `tools` (including built-in tools)
 - ✅ Solution: Use `disableTools: true` when using schemas
 - 🔄 Industry Standard: All frameworks use this approach
-- 📅 Future: Gemini 3 Pro Preview (Nov 2025) supports both
+- **Note:** This limitation applies to all Gemini models, including Gemini 3 models
 
 **Example:**
 
@@ -1194,6 +1194,67 @@ const result = await provider.generate({
 console.log(result.content);
 ```
 
+### thinkingLevel Option
+
+The `thinkingLevel` option controls reasoning depth for Gemini 3 models, enabling more thorough analysis for complex tasks.
+
+```typescript
+import { createBestAIProvider } from "@juspay/neurolink";
+
+// Create provider with Gemini 3 model
+const provider = createBestAIProvider("google-ai", "gemini-3-pro");
+
+// Low thinking - fast responses for simple tasks
+const quickResult = await provider.generate({
+  input: { text: "What is 2 + 2?" },
+  thinkingLevel: "low",
+});
+
+// Medium thinking - balanced reasoning (default behavior)
+const balancedResult = await provider.generate({
+  input: { text: "Explain the concept of recursion in programming" },
+  thinkingLevel: "medium",
+});
+
+// High thinking - deep reasoning for complex problems
+const deepResult = await provider.generate({
+  input: {
+    text: "Design a distributed caching system for a high-traffic e-commerce platform",
+  },
+  thinkingLevel: "high",
+});
+
+console.log(deepResult.content);
+```
+
+**thinkingLevel Values:**
+
+| Level     | Description                           | Use Case                                      |
+| --------- | ------------------------------------- | --------------------------------------------- |
+| `minimal` | No extended reasoning, fastest        | Simple lookups, direct answers                |
+| `low`     | Minimal reasoning, fast responses     | Simple queries, factual lookups               |
+| `medium`  | Balanced reasoning depth              | General tasks, explanations, code generation  |
+| `high`    | Deep reasoning with extended analysis | Complex problems, architecture design, proofs |
+
+**Streaming with thinkingConfig:**
+
+```typescript
+const stream = await provider.stream({
+  input: { text: "Solve this step by step: If a train leaves..." },
+  thinkingConfig: {
+    enabled: true,
+    thinkingLevel: "high",
+    budgetTokens: 10000,
+  },
+});
+
+for await (const chunk of stream.stream) {
+  process.stdout.write(chunk.content);
+}
+```
+
+**Note:** The `thinkingLevel` option is only supported by Gemini 3 models (`gemini-3-flash`, `gemini-3-pro`). When used with other providers or models, it will be ignored.
+
 ### Dynamic Model Usage (v1.8.0+)
 
 ```typescript
@@ -1406,6 +1467,66 @@ type GoogleAIModel =
   | "gemini-2.5-pro" // Default - Latest Gemini Pro
   | "gemini-2.5-flash"; // Fast, efficient responses
 ```
+
+### Gemini 3 Models (Preview)
+
+Google's latest generation Gemini models with enhanced reasoning capabilities and extended thinking support.
+
+```typescript
+type Gemini3Model =
+  | "gemini-3-flash-preview" // Fast, efficient with thinking support (default)
+  | "gemini-3-pro-preview"; // Advanced reasoning with maximum thinking depth
+```
+
+**Model Variants:**
+
+| Model                    | Best For                    | Thinking Default | Speed   |
+| ------------------------ | --------------------------- | ---------------- | ------- |
+| `gemini-3-flash-preview` | Fast tasks, simple queries  | `low`            | Fastest |
+| `gemini-3-pro-preview`   | Complex reasoning, analysis | `high`           | Slower  |
+
+**Capabilities:**
+
+| Capability        | gemini-3-flash-preview  | gemini-3-pro-preview    |
+| ----------------- | ----------------------- | ----------------------- |
+| Vision            | Yes                     | Yes                     |
+| Function Calling  | Yes                     | Yes                     |
+| Extended Thinking | Yes (minimal-high)      | Yes (low-high)          |
+| Structured Output | Yes (with disableTools) | Yes (with disableTools) |
+| Context Window    | 1M tokens               | 1M tokens               |
+
+**Extended Thinking Support:**
+
+Gemini 3 models support the `thinkingLevel` option to control reasoning depth:
+
+- `minimal` - Near-zero thinking, fastest responses (Flash only)
+- `low` - Light reasoning for simple tasks
+- `medium` - Balanced reasoning and latency
+- `high` - Deep reasoning for complex problems (Pro default)
+
+**Example:**
+
+```typescript
+// Fast response with minimal thinking
+const quickResult = await neurolink.generate({
+  input: { text: "What is 2+2?" },
+  provider: "google-ai",
+  model: "gemini-3-flash-preview",
+  thinkingLevel: "minimal",
+});
+
+// Deep reasoning for complex analysis
+const deepResult = await neurolink.generate({
+  input: {
+    text: "Analyze the implications of quantum computing on cryptography",
+  },
+  provider: "google-ai",
+  model: "gemini-3-pro-preview",
+  thinkingLevel: "high",
+});
+```
+
+**Note:** Gemini 3 models inherit the same schema limitation as other Gemini models - you must use `disableTools: true` when using structured output schemas. See [Schema Limitations by Provider](#schema-limitations-by-provider).
 
 ### Azure OpenAI Models
 
@@ -1816,6 +1937,7 @@ interface GenerateOptions {
   enableAnalytics?: boolean; // Enable usage analytics
   enableEvaluation?: boolean; // Enable AI quality scoring
   context?: Record<string, any>; // Custom context for analytics
+  thinkingLevel?: "minimal" | "low" | "medium" | "high"; // Controls reasoning depth for Gemini 3 models
 }
 
 interface GenerateResult {

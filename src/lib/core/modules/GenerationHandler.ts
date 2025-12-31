@@ -26,6 +26,7 @@ import type {
 import type { ToolCallObject, ToolResult } from "../../types/tools.js";
 import type { UnknownRecord } from "../../types/common.js";
 import { logger } from "../../utils/logger.js";
+import { extractTokenUsage } from "../../utils/tokenUtils.js";
 import { DEFAULT_MAX_STEPS } from "../constants.js";
 
 /**
@@ -66,6 +67,14 @@ export class GenerationHandler {
     shouldUseTools: boolean,
     includeStructuredOutput: boolean,
   ): Promise<Awaited<ReturnType<typeof generateText>>> {
+    // Check if this is a Google provider (for provider-specific options)
+    const isGoogleProvider =
+      this.providerName === "google-ai" || this.providerName === "vertex";
+
+    // Check if this is an Anthropic provider
+    const isAnthropicProvider =
+      this.providerName === "anthropic" || this.providerName === "bedrock";
+
     const useStructuredOutput =
       includeStructuredOutput &&
       !!options.schema &&
@@ -84,6 +93,39 @@ export class GenerationHandler {
         options.schema && {
           experimental_output: Output.object({ schema: options.schema }),
         }),
+      // Add thinking configuration for extended reasoning
+      // Gemini 3 models use providerOptions.google.thinkingConfig with thinkingLevel
+      // Gemini 2.5 models use thinkingBudget
+      // Anthropic models use experimental_thinking with budgetTokens
+      ...(options.thinkingConfig?.enabled && {
+        // For Anthropic: experimental_thinking with budgetTokens
+        ...(isAnthropicProvider &&
+          options.thinkingConfig.budgetTokens &&
+          !options.thinkingConfig.thinkingLevel && {
+            experimental_thinking: {
+              type: "enabled" as const,
+              budgetTokens: options.thinkingConfig.budgetTokens,
+            },
+          }),
+        // For Google Gemini 3: providerOptions with thinkingLevel
+        // For Gemini 2.5: providerOptions with thinkingBudget
+        ...(isGoogleProvider && {
+          providerOptions: {
+            google: {
+              thinkingConfig: {
+                ...(options.thinkingConfig.thinkingLevel && {
+                  thinkingLevel: options.thinkingConfig.thinkingLevel,
+                }),
+                ...(options.thinkingConfig.budgetTokens &&
+                  !options.thinkingConfig.thinkingLevel && {
+                    thinkingBudget: options.thinkingConfig.budgetTokens,
+                  }),
+                includeThoughts: true,
+              },
+            },
+          },
+        }),
+      }),
       experimental_telemetry: this.getTelemetryConfigFn(options, "generate"),
       onStepFinish: ({ toolCalls, toolResults }) => {
         logger.info("Tool execution completed", { toolResults, toolCalls });
@@ -335,13 +377,14 @@ export class GenerationHandler {
       content = generateResult.text;
     }
 
+    // Extract usage with support for different formats and reasoning tokens
+    // Note: The AI SDK bundles thinking tokens into promptTokens for Google models.
+    // Separate reasoningTokens tracking will work when/if the AI SDK adds support.
+    const usage = extractTokenUsage(generateResult.usage);
+
     return {
       content,
-      usage: {
-        input: generateResult.usage?.promptTokens || 0,
-        output: generateResult.usage?.completionTokens || 0,
-        total: generateResult.usage?.totalTokens || 0,
-      },
+      usage,
       provider: this.providerName,
       model: this.modelName,
       toolCalls: generateResult.toolCalls

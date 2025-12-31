@@ -19,6 +19,8 @@ import {
   updateEnvFile as updateEnvFileShared,
   displayEnvUpdateSummary,
 } from "../utils/envManager.js";
+import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
+import { AIProviderName } from "../../lib/types/index.js";
 
 interface AzureSetupOptions {
   checkOnly?: boolean;
@@ -395,28 +397,7 @@ async function promptForModel(): Promise<string> {
       type: "list",
       name: "modelChoice",
       message: "Select an Azure OpenAI model:",
-      choices: [
-        {
-          name: "gpt-4o (Latest multimodal model)",
-          value: "gpt-4o",
-        },
-        {
-          name: "gpt-4o-mini (Cost-effective)",
-          value: "gpt-4o-mini",
-        },
-        {
-          name: "gpt-4-turbo (Previous generation)",
-          value: "gpt-4-turbo",
-        },
-        {
-          name: "gpt-35-turbo (Legacy, most cost-effective)",
-          value: "gpt-35-turbo",
-        },
-        {
-          name: "Custom deployment name (enter manually)",
-          value: "custom",
-        },
-      ],
+      choices: getTopModelChoices(AIProviderName.AZURE, 5),
     },
   ]);
 

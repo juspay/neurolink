@@ -21,7 +21,7 @@ Google AI Studio offers one of the most generous free tiers: 1,500 requests/day 
 
 - **🆓 Generous Free Tier**: 15 requests/minute, 1M tokens/minute, 1500 requests/day
 - **⚡ Fast Setup**: Single API key, no service accounts required
-- **🎯 Gemini Models**: Access to Gemini 2.0 Flash, Gemini 1.5 Pro, and more
+- **🎯 Gemini Models**: Access to Gemini 3 (with Extended Thinking), Gemini 2.0 Flash, Gemini 1.5 Pro, and more
 - **💰 Cost-Effective**: Free tier covers most development needs
 - **🔧 Simple Auth**: No complex GCP setup needed
 - **📊 Multimodal**: Text, images, video, and audio support
@@ -124,16 +124,34 @@ You should consider upgrading to **Vertex AI** when:
 
 ### Available Gemini Models
 
-| Model                | Description         | Context    | Best For                    | Free Tier |
-| -------------------- | ------------------- | ---------- | --------------------------- | --------- |
-| **gemini-2.0-flash** | Latest fast model   | 1M tokens  | Speed, real-time apps       | ✅ Yes    |
-| **gemini-1.5-pro**   | Most capable model  | 2M tokens  | Complex reasoning, analysis | ✅ Yes    |
-| **gemini-1.5-flash** | Balanced model      | 1M tokens  | General tasks               | ✅ Yes    |
-| **gemini-1.0-pro**   | Legacy stable model | 32K tokens | Production stability        | ✅ Yes    |
+| Model                      | Description                   | Context    | Best For                             | Free Tier |
+| -------------------------- | ----------------------------- | ---------- | ------------------------------------ | --------- |
+| **gemini-3-pro-preview**   | Latest flagship with thinking | 2M tokens  | Complex reasoning, extended thinking | ✅ Yes    |
+| **gemini-3-flash-preview** | Fast model with thinking      | 1M tokens  | Speed + reasoning, real-time         | ✅ Yes    |
+| **gemini-2.0-flash**       | Production fast model         | 1M tokens  | Speed, real-time apps                | ✅ Yes    |
+| **gemini-1.5-pro**         | Proven capable model          | 2M tokens  | Complex reasoning, analysis          | ✅ Yes    |
+| **gemini-1.5-flash**       | Balanced model                | 1M tokens  | General tasks                        | ✅ Yes    |
+| **gemini-1.0-pro**         | Legacy stable model           | 32K tokens | Production stability                 | ✅ Yes    |
 
 ### Model Selection by Use Case
 
 ```typescript
+// Extended thinking for complex problems (Gemini 3)
+const deepReasoning = await ai.generate({
+  input: { text: "Solve this complex mathematical proof..." },
+  provider: "google-ai",
+  model: "gemini-3-pro-preview", // Best reasoning with thinking
+  thinkingLevel: "high", // Enable extended thinking
+});
+
+// Fast reasoning with thinking (Gemini 3 Flash)
+const fastReasoning = await ai.generate({
+  input: { text: "Analyze this code and find bugs" },
+  provider: "google-ai",
+  model: "gemini-3-flash-preview", // Fast + reasoning
+  thinkingLevel: "medium",
+});
+
 // Real-time applications (speed priority)
 const realtime = await ai.generate({
   input: { text: "Quick customer query" },
@@ -170,14 +188,118 @@ const general = await ai.generate({
 
 ```
 Model Context Limits:
-- gemini-2.0-flash:    1,000,000 tokens (500 novels)
-- gemini-1.5-pro:      2,000,000 tokens (1000 novels)
-- gemini-1.5-flash:    1,000,000 tokens (500 novels)
-- gemini-1.0-pro:         32,000 tokens (16 novels)
+- gemini-3-pro-preview:   2,000,000 tokens (1000 novels)
+- gemini-3-flash-preview: 1,000,000 tokens (500 novels)
+- gemini-2.0-flash:       1,000,000 tokens (500 novels)
+- gemini-1.5-pro:         2,000,000 tokens (1000 novels)
+- gemini-1.5-flash:       1,000,000 tokens (500 novels)
+- gemini-1.0-pro:            32,000 tokens (16 novels)
 
 For comparison:
 - GPT-4 Turbo:          128,000 tokens
 - Claude 3.5 Sonnet:    200,000 tokens
+```
+
+---
+
+## Extended Thinking (Gemini 3)
+
+Gemini 3 models introduce **Extended Thinking**, a feature that allows the model to "think" more deeply before responding. This improves reasoning quality for complex tasks like mathematical proofs, code analysis, and multi-step problem solving.
+
+### Thinking Levels
+
+| Level       | Description                        | Use Case                            | Token Budget |
+| ----------- | ---------------------------------- | ----------------------------------- | ------------ |
+| **minimal** | Basic reasoning with minimal usage | Quick decisions, simple queries     | ~500 tokens  |
+| **low**     | Quick reasoning, minimal overhead  | Simple analysis, quick decisions    | ~1K tokens   |
+| **medium**  | Balanced thinking depth            | Code review, moderate complexity    | ~8K tokens   |
+| **high**    | Deep reasoning, maximum thinking   | Complex proofs, architecture design | ~24K tokens  |
+
+### Configuration
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const ai = new NeuroLink();
+
+// Enable extended thinking with thinkingLevel
+const result = await ai.generate({
+  input: { text: "Prove that the square root of 2 is irrational" },
+  provider: "google-ai",
+  model: "gemini-3-pro-preview",
+  thinkingLevel: "high", // 'minimal' | 'low' | 'medium' | 'high'
+});
+
+console.log(result.content);
+```
+
+### Extended Thinking Examples
+
+```typescript
+// Mathematical reasoning with high thinking
+const mathProof = await ai.generate({
+  input: {
+    text: "Prove the Pythagorean theorem using at least three different methods",
+  },
+  provider: "google-ai",
+  model: "gemini-3-pro-preview",
+  thinkingLevel: "high",
+});
+
+// Code architecture analysis
+const codeReview = await ai.generate({
+  input: {
+    text: `Review this code for potential issues and suggest improvements:
+
+    ${codeSnippet}`,
+  },
+  provider: "google-ai",
+  model: "gemini-3-flash-preview",
+  thinkingLevel: "medium",
+});
+
+// Quick analysis with minimal thinking overhead
+const quickAnalysis = await ai.generate({
+  input: { text: "What's the time complexity of binary search?" },
+  provider: "google-ai",
+  model: "gemini-3-flash-preview",
+  thinkingLevel: "low",
+});
+```
+
+### CLI Usage with Thinking
+
+```bash
+# Use Gemini 3 with extended thinking
+npx @juspay/neurolink generate "Solve this logic puzzle..." \
+  --provider google-ai \
+  --model "gemini-3-pro-preview" \
+  --thinking-level high
+
+# Fast reasoning with medium thinking
+npx @juspay/neurolink generate "Analyze this code pattern" \
+  --provider google-ai \
+  --model "gemini-3-flash-preview" \
+  --thinking-level medium
+```
+
+### Best Practices for Extended Thinking
+
+1. **Match thinking level to task complexity**: Use `low` for simple queries, `high` for complex reasoning
+2. **Consider latency**: Higher thinking levels increase response time
+3. **Token budget awareness**: Thinking tokens count toward your quota
+4. **Streaming recommended**: Use streaming for high thinking levels to see progress
+
+```typescript
+// Stream thinking responses for better UX
+for await (const chunk of ai.stream({
+  input: { text: "Design a distributed caching system" },
+  provider: "google-ai",
+  model: "gemini-3-pro-preview",
+  thinkingLevel: "high",
+})) {
+  process.stdout.write(chunk.content);
+}
 ```
 
 ---
@@ -712,7 +834,9 @@ for await (const chunk of ai.stream({
 ```typescript
 // Use current model names
 const validModels = [
-  "gemini-2.0-flash", // ✅ Current
+  "gemini-3-pro-preview", // ✅ Latest with thinking
+  "gemini-3-flash-preview", // ✅ Fast with thinking
+  "gemini-2.0-flash", // ✅ Production stable
   "gemini-1.5-pro", // ✅ Current
   "gemini-1.5-flash", // ✅ Current
   "gemini-pro", // ❌ Use gemini-1.0-pro instead
@@ -721,7 +845,7 @@ const validModels = [
 const result = await ai.generate({
   input: { text: "test" },
   provider: "google-ai",
-  model: "gemini-2.0-flash", // Use latest
+  model: "gemini-3-flash-preview", // Use latest
 });
 ```
 
@@ -801,14 +925,21 @@ async function robustGenerate(prompt: string) {
 
 ```typescript
 // ✅ Good: Choose appropriate model for task
-function selectModel(task: string): string {
+function selectModel(task: string, needsThinking: boolean = false): string {
   const taskType = analyzeTask(task);
+
+  // Use Gemini 3 for tasks requiring deep reasoning
+  if (needsThinking || /prove|reason|analyze deeply|architecture/.test(task)) {
+    return taskType === "realtime"
+      ? "gemini-3-flash-preview" // Fast thinking
+      : "gemini-3-pro-preview"; // Deep thinking
+  }
 
   switch (taskType) {
     case "simple":
       return "gemini-1.5-flash"; // Fast, cost-effective
     case "complex":
-      return "gemini-1.5-pro"; // High capability
+      return "gemini-3-pro-preview"; // High capability with thinking
     case "realtime":
       return "gemini-2.0-flash"; // Lowest latency
     case "multimodal":
@@ -820,7 +951,7 @@ function selectModel(task: string): string {
 
 function analyzeTask(task: string): string {
   if (task.length < 100) return "simple";
-  if (/analyze|complex|detailed/.test(task)) return "complex";
+  if (/analyze|complex|detailed|prove|reason/.test(task)) return "complex";
   if (/image|video|audio/.test(task)) return "multimodal";
   return "realtime";
 }
@@ -874,9 +1005,12 @@ class CachedGoogleAI {
 
 ## Known Limitations
 
-### Structured Output + Function Calling
+### Tools + JSON Schema Cannot Be Used Together
 
-**Google API Limitation:** Google AI Studio (Gemini models) cannot combine function calling with structured output (JSON schema). This is a fundamental Google API constraint documented in the [Gemini API documentation](https://ai.google.dev/gemini-api/docs/).
+!!! warning "Critical Limitation"
+Gemini models (including Gemini 3) cannot use function calling (tools) and JSON schema output simultaneously. You must choose one or the other.
+
+**Google API Limitation:** Google AI Studio (all Gemini models including Gemini 3) cannot combine function calling with structured output (JSON schema). This is a fundamental Google API constraint documented in the [Gemini API documentation](https://ai.google.dev/gemini-api/docs/).
 
 **Error:**
 
@@ -887,13 +1021,31 @@ Function calling with a response mime type: 'application/json' is unsupported
 **Solution:**
 
 ```typescript
-// ✅ Correct approach
+// ❌ This will fail - tools + schema together
+const badResult = await neurolink.generate({
+  input: { text: "Analyze this data" },
+  schema: MyZodSchema,
+  provider: "google-ai",
+  model: "gemini-3-pro-preview",
+  tools: myTools, // Cannot use tools with schema!
+});
+
+// ✅ Correct approach - disable tools when using schema
 const result = await neurolink.generate({
   input: { text: "Analyze this data" },
   schema: MyZodSchema,
   output: { format: "json" },
   provider: "google-ai",
+  model: "gemini-3-pro-preview",
   disableTools: true, // Required for schemas
+});
+
+// ✅ Alternative - use tools without schema
+const toolResult = await neurolink.generate({
+  input: { text: "What's the weather in London?" },
+  provider: "google-ai",
+  model: "gemini-3-flash-preview",
+  tools: myTools, // Works fine without schema
 });
 ```
 
@@ -901,13 +1053,15 @@ const result = await neurolink.generate({
 
 - This limitation affects ALL frameworks using Gemini (LangChain, Vercel AI SDK, Agno, Instructor)
 - All use the same workaround: disable tools when using schemas
-- Future Gemini versions may support both - check official Google AI Studio documentation for updates
+- This applies to all Gemini versions including Gemini 3 preview models
+- Check official Google AI Studio documentation for future updates
 
 **Alternative Approaches:**
 
 1. Use OpenAI or Anthropic providers (support both simultaneously)
 2. Use Vertex AI with Claude models (via Anthropic integration)
 3. Choose between tools OR schemas for Gemini models
+4. Chain requests: first call with tools, second call with schema
 
 ### Complex Schema Limitations
 

@@ -25,6 +25,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q4 2025)
 
+- 🧠 **Gemini 3 Preview Support** - Full support for gemini-3-flash-preview and gemini-3-pro-preview with extended thinking capabilities
 - **Structured Output with Zod Schemas** – Type-safe JSON generation with automatic validation using `schema` + `output.format: "json"` in `generate()`. → [Structured Output Guide](docs/features/structured-output.md)
 - **CSV File Support** – Attach CSV files to prompts for AI-powered data analysis with auto-detection. → [CSV Guide](docs/features/multimodal-chat.md#csv-file-support)
 - **PDF File Support** – Process PDF documents with native visual analysis for Vertex AI, Anthropic, Bedrock, AI Studio. → [PDF Guide](docs/features/pdf-support.md)
@@ -58,21 +59,21 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 **13 providers unified under one API** - Switch providers with a single parameter change.
 
-| Provider              | Models                         | Free Tier       | Tool Support | Status        | Documentation                                                           |
-| --------------------- | ------------------------------ | --------------- | ------------ | ------------- | ----------------------------------------------------------------------- |
-| **OpenAI**            | GPT-4o, GPT-4o-mini, o1        | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai)            |
-| **Anthropic**         | Claude 3.5/3.7 Sonnet, Opus    | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#anthropic)         |
-| **Google AI Studio**  | Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#google-ai)         |
-| **AWS Bedrock**       | Claude, Titan, Llama, Nova     | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)           |
-| **Google Vertex**     | Gemini via GCP                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)            |
-| **Azure OpenAI**      | GPT-4, GPT-4o, o1              | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)             |
-| **LiteLLM**           | 100+ models unified            | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/LITELLM-INTEGRATION.md)                              |
-| **OpenRouter**        | 300+ models unified            | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openrouter)        |
-| **AWS SageMaker**     | Custom deployed models         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/SAGEMAKER-INTEGRATION.md)                            |
-| **Mistral AI**        | Mistral Large, Small           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)           |
-| **Hugging Face**      | 100,000+ models                | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)       |
-| **Ollama**            | Local models (Llama, Mistral)  | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)            |
-| **OpenAI Compatible** | Any OpenAI-compatible endpoint | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible) |
+| Provider              | Models                             | Free Tier       | Tool Support | Status        | Documentation                                                           |
+| --------------------- | ---------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------- |
+| **OpenAI**            | GPT-4o, GPT-4o-mini, o1            | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai)            |
+| **Anthropic**         | Claude 3.5/3.7 Sonnet, Opus        | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#anthropic)         |
+| **Google AI Studio**  | Gemini 2.5 Flash/Pro               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#google-ai)         |
+| **AWS Bedrock**       | Claude, Titan, Llama, Nova         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)           |
+| **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview) | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)            |
+| **Azure OpenAI**      | GPT-4, GPT-4o, o1                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)             |
+| **LiteLLM**           | 100+ models unified                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/LITELLM-INTEGRATION.md)                              |
+| **OpenRouter**        | 300+ models unified                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openrouter)        |
+| **AWS SageMaker**     | Custom deployed models             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/SAGEMAKER-INTEGRATION.md)                            |
+| **Mistral AI**        | Mistral Large, Small               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)           |
+| **Hugging Face**      | 100,000+ models                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)       |
+| **Ollama**            | Local models (Llama, Mistral)      | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)            |
+| **OpenAI Compatible** | Any OpenAI-compatible endpoint     | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible) |
 
 **[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
 **[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 11 providers
@@ -117,16 +118,17 @@ const result = await neurolink.generate({
 
 **SDK-First Design** with TypeScript, IntelliSense, and type safety:
 
-| Feature                     | Description                    | Documentation                                         |
-| --------------------------- | ------------------------------ | ----------------------------------------------------- |
-| **Auto Provider Selection** | Intelligent provider fallback  | [SDK Guide](docs/sdk/index.md#auto-selection)         |
-| **Streaming Responses**     | Real-time token streaming      | [Streaming Guide](docs/advanced/streaming.md)         |
-| **Conversation Memory**     | Automatic context management   | [Memory Guide](docs/sdk/index.md#memory)              |
-| **Full Type Safety**        | Complete TypeScript types      | [Type Reference](docs/sdk/api-reference.md)           |
-| **Error Handling**          | Graceful provider fallback     | [Error Guide](docs/reference/troubleshooting.md)      |
-| **Analytics & Evaluation**  | Usage tracking, quality scores | [Analytics Guide](docs/advanced/analytics.md)         |
-| **Middleware System**       | Request/response hooks         | [Middleware Guide](docs/CUSTOM-MIDDLEWARE-GUIDE.md)   |
-| **Framework Integration**   | Next.js, SvelteKit, Express    | [Framework Guides](docs/sdk/framework-integration.md) |
+| Feature                     | Description                                                   | Documentation                                             |
+| --------------------------- | ------------------------------------------------------------- | --------------------------------------------------------- |
+| **Auto Provider Selection** | Intelligent provider fallback                                 | [SDK Guide](docs/sdk/index.md#auto-selection)             |
+| **Streaming Responses**     | Real-time token streaming                                     | [Streaming Guide](docs/advanced/streaming.md)             |
+| **Conversation Memory**     | Automatic context management                                  | [Memory Guide](docs/sdk/index.md#memory)                  |
+| **Full Type Safety**        | Complete TypeScript types                                     | [Type Reference](docs/sdk/api-reference.md)               |
+| **Error Handling**          | Graceful provider fallback                                    | [Error Guide](docs/reference/troubleshooting.md)          |
+| **Analytics & Evaluation**  | Usage tracking, quality scores                                | [Analytics Guide](docs/advanced/analytics.md)             |
+| **Middleware System**       | Request/response hooks                                        | [Middleware Guide](docs/CUSTOM-MIDDLEWARE-GUIDE.md)       |
+| **Framework Integration**   | Next.js, SvelteKit, Express                                   | [Framework Guides](docs/sdk/framework-integration.md)     |
+| **Extended Thinking**       | Native thinking/reasoning mode for Gemini 3 and Claude models | [Thinking Guide](docs/features/thinking-configuration.md) |
 
 ---
 
@@ -291,6 +293,26 @@ const result = await neurolink.generate({
 
 console.log(result.content);
 console.log(result.evaluation?.overallScore);
+```
+
+### Gemini 3 with Extended Thinking
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// Use Gemini 3 with extended thinking for complex reasoning
+const result = await neurolink.generate({
+  input: {
+    text: "Solve this step by step: What is the optimal strategy for...",
+  },
+  provider: "vertex",
+  model: "gemini-3-flash-preview",
+  thinkingLevel: "medium", // Options: "minimal", "low", "medium", "high"
+});
+
+console.log(result.content);
 ```
 
 Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/commands.md) and [`docs/sdk/api-reference.md`](docs/sdk/api-reference.md).

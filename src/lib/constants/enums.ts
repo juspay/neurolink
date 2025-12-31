@@ -317,6 +317,12 @@ export enum VertexModels {
   GEMINI_3_PRO_LATEST = "gemini-3-pro-latest",
   /** Gemini 3 Pro Preview - Generic preview (legacy) */
   GEMINI_3_PRO_PREVIEW = "gemini-3-pro-preview",
+  /** Gemini 3 Flash - Base model with adaptive thinking */
+  GEMINI_3_FLASH = "gemini-3-flash",
+  /** Gemini 3 Flash Preview - Versioned preview */
+  GEMINI_3_FLASH_PREVIEW = "gemini-3-flash-preview",
+  /** Gemini 3 Flash Latest - Auto-updated alias (always points to latest preview) */
+  GEMINI_3_FLASH_LATEST = "gemini-3-flash-latest",
 
   // Gemini 2.5 Series (Latest - 2025)
   GEMINI_2_5_PRO = "gemini-2.5-pro",
@@ -342,6 +348,8 @@ export enum GoogleAIModels {
   // Gemini 3 Series
   GEMINI_3_PRO_PREVIEW = "gemini-3-pro-preview",
   GEMINI_3_PRO_IMAGE_PREVIEW = "gemini-3-pro-image-preview",
+  GEMINI_3_FLASH = "gemini-3-flash",
+  GEMINI_3_FLASH_PREVIEW = "gemini-3-flash-preview",
 
   // Gemini 2.5 Series
   GEMINI_2_5_PRO = "gemini-2.5-pro",

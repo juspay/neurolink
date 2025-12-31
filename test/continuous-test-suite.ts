@@ -3071,7 +3071,11 @@ async function runAllTests(): Promise<void> {
     { name: "Enterprise Proxy Support", fn: testEnterpriseProxySupport },
     {
       name: "Complex Zod Schema Multi-Provider",
-      fn: testComplexZodSchemaMultiProvider,
+      fn: () =>
+        testComplexZodSchemaMultiProvider(
+          TEST_CONFIG.provider,
+          TEST_CONFIG.model,
+        ),
     },
   ];
 

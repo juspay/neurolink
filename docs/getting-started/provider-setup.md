@@ -7,7 +7,7 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 - **OpenAI** - GPT-4o, GPT-4o-mini, GPT-4-turbo
 - **Amazon Bedrock** - Claude 3.7 Sonnet, Claude 3.5 Sonnet, Claude 3 Haiku
 - **Amazon SageMaker** - Custom models deployed on SageMaker endpoints
-- **Google Vertex AI** - Gemini 2.5 Flash, Claude 4.0 Sonnet
+- **Google Vertex AI** - Gemini 3 Flash/Pro (preview), Gemini 2.5 Flash, Claude 4.0 Sonnet
 - **Google AI Studio** - Gemini 1.5 Pro, Gemini 2.0 Flash, Gemini 1.5 Flash
 - **Anthropic** - Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
 - **Azure OpenAI** - GPT-4, GPT-3.5-Turbo
@@ -454,8 +454,97 @@ const result = await vertex.generate({
 
 ### Supported Models
 
+**Gemini 3 (Preview):**
+
+- `gemini-3-flash-preview` - Latest Gemini 3 Flash with extended thinking support
+- `gemini-3-pro-preview` - Latest Gemini 3 Pro with extended thinking support
+
+**Gemini 2.x:**
+
 - `gemini-2.5-flash` (default) - Fast, efficient model
+
+**Anthropic Models:**
+
 - `claude-sonnet-4@20250514` - High-quality reasoning (Anthropic via Vertex AI)
+
+### Gemini 3 Extended Thinking Configuration
+
+Gemini 3 models support **extended thinking** (also known as "thinking mode"), which allows the model to reason more deeply before providing responses. This is particularly useful for complex reasoning tasks, math problems, and multi-step analysis.
+
+#### Environment Variables for Gemini 3
+
+```bash
+# Required: Google Vertex AI credentials (same as above)
+export GOOGLE_VERTEX_PROJECT="your-project-id"
+export GOOGLE_VERTEX_LOCATION="us-central1"
+
+# Gemini 3 model selection
+export VERTEX_MODEL_ID="gemini-3-flash-preview"  # or gemini-3-pro-preview
+```
+
+#### Extended Thinking Configuration
+
+Configure thinking level to control how much reasoning the model performs:
+
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const vertex = AIProviderFactory.createProvider(
+  "vertex",
+  "gemini-3-flash-preview",
+);
+
+// Enable extended thinking with thinkingLevel configuration
+const result = await vertex.generate({
+  input: { text: "Solve this complex math problem step by step: ..." },
+  temperature: 0.7,
+  maxTokens: 4000,
+  // Gemini 3 extended thinking configuration
+  thinkingLevel: "medium", // Options: "minimal", "low", "medium", "high"
+});
+```
+
+#### Thinking Levels
+
+| Level     | Description                             | Best For                          |
+| --------- | --------------------------------------- | --------------------------------- |
+| `minimal` | No extended thinking, fastest responses | Simple queries, quick answers     |
+| `low`     | Brief reasoning before responding       | Moderate complexity tasks         |
+| `medium`  | Balanced reasoning depth (recommended)  | Most use cases                    |
+| `high`    | Deep reasoning, thorough analysis       | Complex math, multi-step problems |
+
+#### Usage Example with Extended Thinking
+
+```typescript
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const gemini3 = AIProviderFactory.createProvider(
+  "vertex",
+  "gemini-3-pro-preview",
+);
+
+// Complex reasoning task with high thinking level
+const result = await gemini3.generate({
+  input: {
+    text: "Analyze the following business scenario and provide strategic recommendations...",
+  },
+  thinkingLevel: "high",
+  maxTokens: 8000,
+  timeout: "2m", // Extended timeout for deep thinking
+});
+
+console.log(result.content);
+```
+
+#### CLI Usage with Gemini 3
+
+```bash
+# Generate with Gemini 3 Flash
+npx @juspay/neurolink generate "Explain quantum computing" --provider vertex --model gemini-3-flash-preview
+
+# Stream with Gemini 3 Pro
+npx @juspay/neurolink stream "Write a detailed analysis" --provider vertex --model gemini-3-pro-preview
+```
 
 ### Claude Sonnet 4 via Vertex AI Configuration
 
@@ -1262,6 +1351,10 @@ GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/service-account.json
 GOOGLE_VERTEX_PROJECT=your-gcp-project-id
 GOOGLE_VERTEX_LOCATION=us-east5
 VERTEX_MODEL_ID=claude-sonnet-4@20250514
+
+# Alternative: Gemini 3 models with extended thinking support
+# VERTEX_MODEL_ID=gemini-3-flash-preview
+# VERTEX_MODEL_ID=gemini-3-pro-preview
 
 # Google AI Studio
 GOOGLE_AI_API_KEY=AIza-your-googleAiStudio-key

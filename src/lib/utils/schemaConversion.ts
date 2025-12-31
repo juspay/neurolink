@@ -5,6 +5,137 @@ import type { ZodUnknownSchema } from "../types/tools.js";
 import { logger } from "./logger.js";
 
 /**
+ * Inline a JSON Schema by recursively resolving all $ref references.
+ * zodToJsonSchema with 'name' option produces schemas with $ref pointing to definitions.
+ * Some SDKs (like @google/genai) expect flat schemas without $ref.
+ *
+ * This function handles:
+ * - Top-level $ref resolution
+ * - Nested $ref within properties, items, additionalProperties
+ * - $ref within allOf, anyOf, oneOf arrays
+ * - Circular reference detection to prevent infinite loops
+ */
+export function inlineJsonSchema(
+  schema: Record<string, unknown>,
+  definitions?: Record<string, Record<string, unknown>>,
+  visited: Set<string> = new Set(),
+): Record<string, unknown> {
+  // Use definitions from schema if not provided
+  const defs =
+    definitions ||
+    (schema.definitions as Record<string, Record<string, unknown>>);
+
+  // Handle $ref at current level
+  if (
+    typeof schema.$ref === "string" &&
+    schema.$ref.startsWith("#/definitions/")
+  ) {
+    const defName = schema.$ref.replace("#/definitions/", "");
+
+    // Prevent circular reference infinite loops
+    if (visited.has(defName)) {
+      logger.debug(
+        `[SCHEMA-INLINE] Circular reference detected for: ${defName}`,
+      );
+      // Return a simple object placeholder for circular refs
+      return { type: "object" };
+    }
+
+    if (defs && defs[defName]) {
+      visited.add(defName);
+      // Recursively inline the resolved definition
+      const resolved = inlineJsonSchema({ ...defs[defName] }, defs, visited);
+      visited.delete(defName);
+      return resolved;
+    }
+  }
+
+  // Create result without $ref and definitions
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(schema)) {
+    // Skip $ref and definitions keys
+    if (key === "$ref" || key === "definitions") {
+      continue;
+    }
+
+    // Recursively process nested schemas
+    if (key === "properties" && value && typeof value === "object") {
+      const properties: Record<string, unknown> = {};
+      for (const [propName, propSchema] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
+        if (propSchema && typeof propSchema === "object") {
+          properties[propName] = inlineJsonSchema(
+            propSchema as Record<string, unknown>,
+            defs,
+            visited,
+          );
+        } else {
+          properties[propName] = propSchema;
+        }
+      }
+      result[key] = properties;
+    } else if (key === "items" && value && typeof value === "object") {
+      // Handle array items schema
+      if (Array.isArray(value)) {
+        result[key] = value.map((item) =>
+          item && typeof item === "object"
+            ? inlineJsonSchema(item as Record<string, unknown>, defs, visited)
+            : item,
+        );
+      } else {
+        result[key] = inlineJsonSchema(
+          value as Record<string, unknown>,
+          defs,
+          visited,
+        );
+      }
+    } else if (
+      key === "additionalProperties" &&
+      value &&
+      typeof value === "object"
+    ) {
+      result[key] = inlineJsonSchema(
+        value as Record<string, unknown>,
+        defs,
+        visited,
+      );
+    } else if (
+      (key === "allOf" || key === "anyOf" || key === "oneOf") &&
+      Array.isArray(value)
+    ) {
+      // Handle composition schemas
+      result[key] = value.map((item) =>
+        item && typeof item === "object"
+          ? inlineJsonSchema(item as Record<string, unknown>, defs, visited)
+          : item,
+      );
+    } else if (key === "not" && value && typeof value === "object") {
+      result[key] = inlineJsonSchema(
+        value as Record<string, unknown>,
+        defs,
+        visited,
+      );
+    } else if (
+      (key === "if" || key === "then" || key === "else") &&
+      value &&
+      typeof value === "object"
+    ) {
+      result[key] = inlineJsonSchema(
+        value as Record<string, unknown>,
+        defs,
+        visited,
+      );
+    } else {
+      result[key] = value;
+    }
+  }
+
+  return result;
+}
+
+/**
  * Convert Zod schema to JSON Schema format for Claude AI
  */
 export function convertZodToJsonSchema(zodSchema: ZodUnknownSchema): object {

@@ -16,6 +16,8 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
+import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
+import { AIProviderName } from "../../lib/types/index.js";
 
 interface AnthropicSetupOptions {
   checkOnly?: boolean;
@@ -327,32 +329,7 @@ async function promptForModel(): Promise<string> {
       type: "list",
       name: "modelChoice",
       message: "Select an Anthropic Claude model:",
-      choices: [
-        {
-          name: "claude-3-5-sonnet-20241022 (Recommended - Latest and most capable)",
-          value: "claude-3-5-sonnet-20241022",
-        },
-        {
-          name: "claude-3-5-haiku-20241022 (Fast and cost-effective)",
-          value: "claude-3-5-haiku-20241022",
-        },
-        {
-          name: "claude-3-opus-20240229 (Most powerful, slower)",
-          value: "claude-3-opus-20240229",
-        },
-        {
-          name: "claude-3-sonnet-20240229 (Balanced performance)",
-          value: "claude-3-sonnet-20240229",
-        },
-        {
-          name: "claude-3-haiku-20240307 (Fast and economical)",
-          value: "claude-3-haiku-20240307",
-        },
-        {
-          name: "Custom model (enter manually)",
-          value: "custom",
-        },
-      ],
+      choices: getTopModelChoices(AIProviderName.ANTHROPIC, 5),
     },
   ]);
 

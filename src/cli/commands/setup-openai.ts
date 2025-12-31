@@ -16,6 +16,8 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
+import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
+import { AIProviderName } from "../../lib/types/index.js";
 
 interface OpenAISetupOptions {
   checkOnly?: boolean;
@@ -316,28 +318,7 @@ async function promptForModel(): Promise<string> {
       type: "list",
       name: "modelChoice",
       message: "Select an OpenAI model:",
-      choices: [
-        {
-          name: "gpt-4o (Recommended - Latest multimodal model)",
-          value: "gpt-4o",
-        },
-        {
-          name: "gpt-4o-mini (Cost-effective, fast)",
-          value: "gpt-4o-mini",
-        },
-        {
-          name: "gpt-4-turbo (Previous generation)",
-          value: "gpt-4-turbo",
-        },
-        {
-          name: "gpt-3.5-turbo (Legacy, most cost-effective)",
-          value: "gpt-3.5-turbo",
-        },
-        {
-          name: "Custom model (enter manually)",
-          value: "custom",
-        },
-      ],
+      choices: getTopModelChoices(AIProviderName.OPENAI, 5),
     },
   ]);
 

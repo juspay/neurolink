@@ -20,6 +20,8 @@ import {
   updateEnvFile as updateEnvFileManager,
   displayEnvUpdateSummary,
 } from "../utils/envManager.js";
+import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
+import { AIProviderName } from "../../lib/types/index.js";
 
 interface GoogleAISetupOptions {
   checkOnly?: boolean;
@@ -341,28 +343,7 @@ async function promptForModel(): Promise<string> {
       type: "list",
       name: "modelChoice",
       message: "Select a Google AI model:",
-      choices: [
-        {
-          name: "gemini-2.5-pro (Recommended - Latest high-capability model)",
-          value: "gemini-2.5-pro",
-        },
-        {
-          name: "gemini-2.5-flash (Fast and efficient)",
-          value: "gemini-2.5-flash",
-        },
-        {
-          name: "gemini-pro-vision (Multimodal - text and images)",
-          value: "gemini-pro-vision",
-        },
-        {
-          name: "gemini-pro (Previous generation)",
-          value: "gemini-pro",
-        },
-        {
-          name: "Custom model (enter manually)",
-          value: "custom",
-        },
-      ],
+      choices: getTopModelChoices(AIProviderName.GOOGLE_AI, 5),
     },
   ]);
 

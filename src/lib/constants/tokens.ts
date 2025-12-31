@@ -108,6 +108,10 @@ export const PROVIDER_TOKEN_LIMITS = {
     "gemini-3-pro-preview": 8192,
     "gemini-3-pro-preview-11-2025": 8192,
     "gemini-3-pro-latest": 8192,
+    // Gemini 3 Flash Series
+    "gemini-3-flash": 65536,
+    "gemini-3-flash-preview": 65536,
+    "gemini-3-flash-latest": 65536,
     // Gemini 2.5 Series
     "gemini-2.5-pro": 8192,
     "gemini-2.5-flash": 8192,
@@ -128,6 +132,10 @@ export const PROVIDER_TOKEN_LIMITS = {
     "gemini-3-pro-preview": 8192,
     "gemini-3-pro-preview-11-2025": 8192,
     "gemini-3-pro-latest": 8192,
+    // Gemini 3 Flash Series
+    "gemini-3-flash": 65536,
+    "gemini-3-flash-preview": 65536,
+    "gemini-3-flash-latest": 65536,
     // Gemini 2.5 Series
     "gemini-2.5-pro": 8192,
     "gemini-2.5-flash": 8192,
@@ -232,6 +240,17 @@ export const CONTEXT_WINDOWS = {
 
   /** Maximum theoretical context */
   MAXIMUM: 2097152, // 2M - Maximum context
+} as const;
+
+/**
+ * Model-specific token limits with input/output breakdown
+ * For models that require explicit input and output token limits
+ */
+export const MODEL_TOKEN_LIMITS = {
+  /** Gemini 3 Flash Series */
+  "gemini-3-flash": { input: 1000000, output: 65536 },
+  "gemini-3-flash-preview": { input: 1000000, output: 65536 },
+  "gemini-3-flash-latest": { input: 1000000, output: 65536 },
 } as const;
 
 /**

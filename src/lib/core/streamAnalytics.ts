@@ -6,6 +6,10 @@ import type {
   StreamAnalyticsCollector,
   ResponseMetadata,
 } from "../types/streamTypes.js";
+import {
+  extractTokenUsage,
+  createEmptyTokenUsage,
+} from "../utils/tokenUtils.js";
 
 /**
  * Base implementation for collecting analytics from Vercel AI SDK stream results
@@ -13,6 +17,7 @@ import type {
 export class BaseStreamAnalyticsCollector implements StreamAnalyticsCollector {
   /**
    * Collect token usage from stream result
+   * Uses centralized tokenUtils for consistent extraction across providers
    */
   async collectUsage(result: StreamTextResult): Promise<TokenUsage> {
     try {
@@ -20,27 +25,16 @@ export class BaseStreamAnalyticsCollector implements StreamAnalyticsCollector {
 
       if (!usage) {
         logger.debug("No usage data available from stream result");
-        return {
-          input: 0,
-          output: 0,
-          total: 0,
-        };
+        return createEmptyTokenUsage();
       }
 
-      return {
-        input: usage.promptTokens || 0,
-        output: usage.completionTokens || 0,
-        total:
-          usage.totalTokens ||
-          (usage.promptTokens || 0) + (usage.completionTokens || 0),
-      };
+      // Use centralized token extraction utility
+      // Handles multiple provider formats, cache tokens, reasoning tokens,
+      // and cache savings calculation
+      return extractTokenUsage(usage);
     } catch (error) {
       logger.warn("Failed to collect usage from stream result", { error });
-      return {
-        input: 0,
-        output: 0,
-        total: 0,
-      };
+      return createEmptyTokenUsage();
     }
   }
 

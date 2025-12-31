@@ -26,6 +26,7 @@ export const textGenerationOptionsSchema: Record<
     | "region"
     | "csvOptions"
     | "tts"
+    | "thinkingConfig" // Complex object, use thinking/thinkingBudget instead
   >,
   OptionSchema
 > = {
@@ -91,5 +92,19 @@ export const textGenerationOptionsSchema: Record<
     type: "boolean",
     description:
       "Enable or disable automatic conversation summarization for this request.",
+  },
+  thinking: {
+    type: "boolean",
+    description: "Enable extended thinking/reasoning capability.",
+  },
+  thinkingBudget: {
+    type: "number",
+    description: "Token budget for thinking (Anthropic models: 5000-100000).",
+  },
+  thinkingLevel: {
+    type: "string",
+    description:
+      "Thinking level for Gemini 3 models: minimal, low, medium, high.",
+    allowedValues: ["minimal", "low", "medium", "high"],
   },
 };

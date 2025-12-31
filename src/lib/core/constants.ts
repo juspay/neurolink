@@ -8,6 +8,7 @@ export const DEFAULT_MAX_TOKENS = undefined; // Unlimited by default - let provi
 export const DEFAULT_TEMPERATURE = 0.7;
 export const DEFAULT_TIMEOUT = 60000;
 export const DEFAULT_MAX_STEPS = 200;
+export const DEFAULT_TOOL_MAX_RETRIES = 2; // Maximum retries per tool before permanently failing
 
 // Step execution limits
 export const STEP_LIMITS = {

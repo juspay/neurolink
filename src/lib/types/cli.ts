@@ -73,6 +73,14 @@ export type GenerateCommandArgs = BaseCommandArgs & {
   maxSteps?: number;
   /** Output file */
   output?: string;
+  /** Enable extended thinking/reasoning */
+  thinking?: boolean;
+  /** Token budget for thinking */
+  thinkingBudget?: number;
+  /** Thinking level for extended reasoning */
+  thinkingLevel?: "minimal" | "low" | "medium" | "high";
+  /** Vertex AI region */
+  region?: string;
 };
 
 /**
@@ -93,6 +101,14 @@ export type StreamCommandArgs = BaseCommandArgs & {
   maxTokens?: number;
   /** Disable tools */
   disableTools?: boolean;
+  /** Enable extended thinking/reasoning */
+  thinking?: boolean;
+  /** Token budget for thinking */
+  thinkingBudget?: number;
+  /** Thinking level for extended reasoning */
+  thinkingLevel?: "minimal" | "low" | "medium" | "high";
+  /** Vertex AI region */
+  region?: string;
 };
 
 /**

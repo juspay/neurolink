@@ -16,6 +16,7 @@ import type { TokenUsage, AnalyticsData } from "../../lib/types/index.js";
 import { configManager } from "../commands/config.js";
 import { handleError } from "../errorHandler.js";
 import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";
+import { createThinkingConfigFromRecord } from "../../lib/utils/thinkingConfig.js";
 import { LoopSession } from "../loop/session.js";
 import { initializeCliParser } from "../parser.js";
 
@@ -291,6 +292,30 @@ export class CLICommandFactory {
       default: false,
       description: "Auto-play generated audio",
     },
+    thinking: {
+      alias: "think",
+      type: "boolean" as const,
+      description: "Enable extended thinking/reasoning capability",
+      default: false,
+    },
+    thinkingBudget: {
+      type: "number" as const,
+      description:
+        "Token budget for extended thinking - Anthropic Claude and Gemini 2.5+ models (5000-100000)",
+      default: 10000,
+    },
+    thinkingLevel: {
+      type: "string" as const,
+      description:
+        "Thinking level for Gemini 3 models: minimal, low, medium, high",
+      choices: ["minimal", "low", "medium", "high"] as const,
+    },
+    region: {
+      type: "string" as const,
+      description:
+        "Vertex AI region (e.g., us-central1, europe-west1, asia-northeast1)",
+      alias: "r",
+    },
   };
 
   // Helper method to build options for commands
@@ -444,6 +469,17 @@ export class CLICommandFactory {
       ttsQuality: argv.ttsQuality as "standard" | "hd" | undefined,
       ttsOutput: argv.ttsOutput as string | undefined,
       ttsPlay: argv.ttsPlay as boolean | undefined,
+      // Extended thinking options for Claude and Gemini models
+      thinking: argv.thinking as boolean | undefined,
+      thinkingBudget: argv.thinkingBudget as number | undefined,
+      thinkingLevel: argv.thinkingLevel as
+        | "minimal"
+        | "low"
+        | "medium"
+        | "high"
+        | undefined,
+      // Region option for cloud providers (Vertex AI, Bedrock, etc.)
+      region: argv.region as string | undefined,
     };
   }
 
@@ -1630,6 +1666,12 @@ export class CLICommandFactory {
           | string
           | undefined,
         context: context,
+        region: (options as Record<string, unknown>).region as
+          | string
+          | undefined,
+        thinkingConfig: createThinkingConfigFromRecord(
+          options as Record<string, unknown>,
+        ),
         factoryConfig: enhancedOptions.domain
           ? {
               domainType: enhancedOptions.domain,
@@ -1888,6 +1930,10 @@ export class CLICommandFactory {
       evaluationDomain: enhancedOptions.evaluationDomain as string | undefined,
       toolUsageContext: enhancedOptions.toolUsageContext as string | undefined,
       context: context,
+      region: (options as Record<string, unknown>).region as string | undefined,
+      thinkingConfig: createThinkingConfigFromRecord(
+        options as Record<string, unknown>,
+      ),
       factoryConfig: enhancedOptions.domain
         ? {
             domainType: enhancedOptions.domain as string,

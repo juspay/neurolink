@@ -1,6 +1,6 @@
 # Provider Feature Compatibility Reference
 
-**Last Updated:** 2025-11-02
+**Last Updated:** 2025-12-31
 **Test Suite:** continuous-test-suite.ts (19 comprehensive tests)
 **Providers Tested:** 11 providers across CSV, PDF, MCP tools, business tools, and enterprise features
 
@@ -55,6 +55,40 @@ After comprehensive testing across 11 AI providers, we have identified **4 produ
 - 🔧 Configuration/billing issue
 - \* Production-ready for non-PDF workloads
 - \*\* Configuration issue, not technical limitation
+
+---
+
+## Model-Level Feature Compatibility
+
+### Gemini 3 Models
+
+| Model              | Streaming | Tools | Vision | Extended Thinking | JSON Schema |
+| ------------------ | --------- | ----- | ------ | ----------------- | ----------- |
+| **gemini-3-flash** | ✓         | ✓     | ✓      | ✓                 | ✓†          |
+| **gemini-3-pro**   | ✓         | ✓     | ✓      | ✓                 | ✓†          |
+
+†**JSON Schema Limitation:** Gemini 3 models support JSON Schema for structured output, but **cannot combine tools with JSON Schema** in the same request. When using structured output with a schema, you must disable tools by setting `disableTools: true`. This is a Google API limitation, not a NeuroLink bug.
+
+**Example Usage:**
+
+```typescript
+// Structured output with JSON Schema (tools must be disabled)
+await neurolink.generate({
+  prompt: "Extract user information",
+  schema: UserSchema,
+  provider: "google-ai-studio",
+  model: "gemini-3-flash",
+  disableTools: true, // Required when using schema
+});
+
+// Tools work normally without schema
+await neurolink.generate({
+  prompt: "Search for documents",
+  provider: "google-ai-studio",
+  model: "gemini-3-pro",
+  // Tools enabled by default
+});
+```
 
 ---
 

@@ -1,6 +1,36 @@
 /**
  * Conversation Memory Types for NeuroLink
  * Provides type-safe conversation storage and context management
+ *
+ * ## Timestamp Conventions
+ *
+ * NeuroLink uses two timestamp formats throughout the conversation system:
+ *
+ * ### Unix Milliseconds (number)
+ * Used for internal storage, event timestamps, and performance-critical operations.
+ * - `SessionMemory.createdAt` - Session creation time as Unix epoch milliseconds
+ * - `SessionMemory.lastActivity` - Last activity time as Unix epoch milliseconds
+ * - `SessionMemory.lastCountedAt` - Token count timestamp as Unix epoch milliseconds
+ * - `ConversationMemoryEvents.*.timestamp` - Event timestamps as Unix epoch milliseconds
+ * - `ChatMessage.metadata.timestamp` - Optional numeric timestamp for internal tracking
+ *
+ * Example: `1735689600000` represents January 1, 2025, 00:00:00 UTC
+ *
+ * ### ISO 8601 String (string)
+ * Used for human-readable fields and API responses.
+ * - `ChatMessage.timestamp` - Message timestamp as ISO 8601 string
+ * - `ConversationBase.createdAt` - Conversation creation as ISO 8601 string
+ * - `ConversationBase.updatedAt` - Last update as ISO 8601 string
+ * - `ConversationSummary.firstMessage.timestamp` - Message preview timestamp
+ * - `ConversationSummary.lastMessage.timestamp` - Message preview timestamp
+ *
+ * Example: `"2025-01-01T00:00:00.000Z"`
+ *
+ * ### Conversion Guidelines
+ * - Unix ms to ISO: `new Date(unixMs).toISOString()`
+ * - ISO to Unix ms: `new Date(isoString).getTime()`
+ * - Current time (Unix ms): `Date.now()`
+ * - Current time (ISO): `new Date().toISOString()`
  */
 
 import type { Mem0Config } from "../memory/mem0Initializer.js";
@@ -62,10 +92,18 @@ export type SessionMemory = {
   /** Direct message storage - ready for immediate AI consumption */
   messages: ChatMessage[];
 
-  /** When this session was created */
+  /**
+   * When this session was created.
+   * Format: Unix epoch milliseconds (number).
+   * Example: 1735689600000 for January 1, 2025, 00:00:00 UTC.
+   */
   createdAt: number;
 
-  /** When this session was last active */
+  /**
+   * When this session was last active.
+   * Format: Unix epoch milliseconds (number).
+   * Updated on every message addition or session interaction.
+   */
   lastActivity: number;
 
   /** Pointer to last summarized message ID (NEW - for token-based memory) */
@@ -120,7 +158,12 @@ export type ChatMessage = {
   /** Content of the message */
   content: string;
 
-  /** Timestamp (ISO string) */
+  /**
+   * Message timestamp.
+   * Format: ISO 8601 string (e.g., "2025-01-01T12:30:00.000Z").
+   * Optional - may be omitted for system-generated messages.
+   * Use `metadata.timestamp` for numeric Unix ms representation.
+   */
   timestamp?: string;
 
   /** Tool name (optional) - for tool_call/tool_result messages */
@@ -148,6 +191,27 @@ export type ChatMessage = {
     summarizesTo?: string;
     /** Was this message truncated due to token limits? */
     truncated?: boolean;
+    /** Source of the message (e.g., provider name, user input) */
+    source?: string;
+    /** Language of the message content */
+    language?: string;
+    /** Confidence score for AI-generated content */
+    confidence?: number;
+    /**
+     * Numeric timestamp for internal tracking and efficient comparisons.
+     * Format: Unix epoch milliseconds (number).
+     * Complements the ISO string `ChatMessage.timestamp` field.
+     * Use this for sorting, filtering, and performance-critical operations.
+     */
+    timestamp?: number;
+    /** Model used to generate this message */
+    modelUsed?: string;
+    /** Unique signature identifying thought/reasoning patterns */
+    thoughtSignature?: string;
+    /** Hash of the thinking/reasoning content for deduplication */
+    thoughtHash?: string;
+    /** Whether extended thinking was used for this message */
+    thinkingExpanded?: boolean;
   };
 };
 
@@ -161,10 +225,14 @@ export type { MessageContent, MultimodalChatMessage } from "./multimodal.js";
  * Events emitted by conversation memory system
  */
 export type ConversationMemoryEvents = {
-  /** Emitted when a new session is created */
+  /**
+   * Emitted when a new session is created.
+   * The timestamp field is Unix epoch milliseconds.
+   */
   "session:created": {
     sessionId: string;
     userId?: string;
+    /** Event timestamp as Unix epoch milliseconds */
     timestamp: number;
   };
 

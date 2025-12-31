@@ -974,7 +974,7 @@ Error: Function calling with a response mime type: 'application/json' is unsuppo
 
 - Gemini 2.0 and earlier: Cannot combine tools + schemas
 - Gemini 2.5: **Worsened** - even fails with tool calls in conversation history
-- Gemini 3 Pro Preview: Finally supports both
+- Gemini 3: Still cannot combine tools + schemas (same limitation applies)
 
 ---
 

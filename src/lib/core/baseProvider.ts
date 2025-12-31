@@ -208,6 +208,7 @@ export abstract class BaseProvider implements AIProvider {
             maxSteps: options.maxSteps || 5,
             provider: options.provider as AIProviderName | undefined,
             model: options.model,
+            region: options.region, // Pass region for Vertex AI
             // 🔧 FIX: Include analytics and evaluation options from stream options
             enableAnalytics: options.enableAnalytics,
             enableEvaluation: options.enableEvaluation,

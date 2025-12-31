@@ -380,16 +380,43 @@ function validateDataAccuracy(
 /**
  * Tests complex zod schema validation across multiple providers
  *
+ * @param providerOverride - Optional provider to use (defaults to "vertex")
+ * @param modelOverride - Optional model to use (uses provider default if not specified)
  * @returns Promise<boolean> - true if all tests pass, false otherwise
  */
-export async function testComplexZodSchemaMultiProvider(): Promise<boolean> {
+export async function testComplexZodSchemaMultiProvider(
+  providerOverride?: string,
+  modelOverride?: string,
+): Promise<boolean> {
   logSection("Testing Complex Zod Schema Validation (Multi-Provider)");
 
-  // Test Vertex AI with Claude Sonnet 4.5 - supports both tools + schemas together
-  // (Gemini models require disableTools: true, but Claude models do not)
+  // Use provided provider/model or defaults
+  const providerName = providerOverride || "vertex";
+  const modelName = modelOverride || undefined;
+
+  // Check if this is a Gemini MODEL - Gemini cannot use tools + JSON schema together
+  // This is a documented Gemini limitation, not a bug in the SDK.
+  // Note: provider name alone is not sufficient - Vertex can run Claude too.
+  const isGeminiModel =
+    modelName?.toLowerCase().includes("gemini") ||
+    (!modelName &&
+      (providerName === "google-ai" || providerName === "googleAiStudio"));
+
+  if (isGeminiModel) {
+    logTest(
+      "Complex Zod Schema Multi-Provider",
+      "PASS",
+      "SKIPPED: Gemini providers cannot use tools + JSON schema together (documented limitation). Test requires tools to read data files.",
+    );
+    return true; // Return true since this is an expected limitation, not a failure
+  }
+
   const providers = [
-    { name: "vertex", model: "claude-sonnet-4-5@20250929" },
-  ] as const;
+    {
+      name: providerName,
+      model: modelName,
+    },
+  ];
   const results: {
     provider: string;
     model: string;

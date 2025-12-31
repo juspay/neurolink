@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ProviderImageAdapter } from "../../../src/lib/adapters/providerImageAdapter.js";
 import { logger } from "../../../src/lib/utils/logger.js";
+import { GoogleAIModels } from "../../../src/lib/constants/enums.js";
 
 // Mock the logger to capture warnings
 vi.mock("../../../src/lib/utils/logger.js", () => ({
@@ -125,7 +126,7 @@ describe("Provider Image Count Limits", () => {
 
   describe("Google AI provider limits", () => {
     const provider = "google-ai";
-    const model = "gemini-2.5-flash";
+    const model = GoogleAIModels.GEMINI_2_5_FLASH;
 
     it("should allow image count at the limit (16)", async () => {
       const images = createMockImages(16);
@@ -229,7 +230,7 @@ describe("Provider Image Count Limits", () => {
 
     describe("Gemini models on Vertex (limit: 16)", () => {
       const provider = "vertex";
-      const model = "gemini-2.5-flash";
+      const model = GoogleAIModels.GEMINI_2_5_FLASH;
 
       it("should allow image count at Gemini limit (16)", async () => {
         const images = createMockImages(16);
@@ -364,7 +365,11 @@ describe("Provider Image Count Limits", () => {
         { provider: "openai", model: "gpt-4o", limit: 10 },
         { provider: "azure", model: "gpt-4o", limit: 10 },
         { provider: "anthropic", model: "claude-3-5-sonnet", limit: 20 },
-        { provider: "google-ai", model: "gemini-2.5-flash", limit: 16 },
+        {
+          provider: "google-ai",
+          model: GoogleAIModels.GEMINI_2_5_FLASH,
+          limit: 16,
+        },
         { provider: "ollama", model: "llama3.2-vision", limit: 10 },
       ];
 
@@ -446,7 +451,11 @@ describe("Provider Image Count Limits", () => {
       const testCases = [
         { provider: "openai", model: "gpt-4o", threshold: 8 }, // 80% of 10
         { provider: "anthropic", model: "claude-3-5-sonnet", threshold: 16 }, // 80% of 20
-        { provider: "google-ai", model: "gemini-2.5-flash", threshold: 12 }, // 80% of 16 (rounded down: Math.floor(16 * 0.8) = 12)
+        {
+          provider: "google-ai",
+          model: GoogleAIModels.GEMINI_2_5_FLASH,
+          threshold: 12,
+        }, // 80% of 16 (rounded down: Math.floor(16 * 0.8) = 12)
       ];
 
       for (const { provider, model, threshold } of testCases) {

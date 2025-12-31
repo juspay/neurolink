@@ -15,6 +15,8 @@ import chalk from "chalk";
 import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
 import { updateEnvFile as envUpdate } from "../utils/envManager.js";
+import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
+import { AIProviderName } from "../../lib/types/index.js";
 
 interface BedrockSetupOptions {
   checkOnly?: boolean;
@@ -526,33 +528,7 @@ async function handleModelSelection(config: ConfigData): Promise<void> {
         type: "list",
         name: "model",
         message: "Select a Bedrock model:",
-        choices: [
-          {
-            name: "Claude 3.7 Sonnet (Recommended - Latest)",
-            value:
-              "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-          },
-          {
-            name: "Claude 3.5 Sonnet v2",
-            value: "anthropic.claude-3-5-sonnet-20241022-v2:0",
-          },
-          {
-            name: "Claude 3 Sonnet",
-            value: "anthropic.claude-3-sonnet-20240229-v1:0",
-          },
-          {
-            name: "Claude 3 Haiku",
-            value: "anthropic.claude-3-haiku-20240307-v1:0",
-          },
-          {
-            name: "Claude 3 Opus",
-            value: "anthropic.claude-3-opus-20240229-v1:0",
-          },
-          {
-            name: "Custom model (enter manually)",
-            value: "custom",
-          },
-        ],
+        choices: getTopModelChoices(AIProviderName.BEDROCK, 5),
       },
     ]);
 

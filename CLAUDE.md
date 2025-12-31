@@ -163,7 +163,7 @@ ProviderFactory.registerProvider(
 
 - `src/lib/providers/openAI.ts` - OpenAI integration
 - `src/lib/providers/anthropic.ts` - Anthropic Claude
-- `src/lib/providers/googleAiStudio.ts` - Google AI Studio (Gemini)
+- `src/lib/providers/googleAiStudio.ts` - Google AI Studio (Gemini 2.x and Gemini 3)
 - `src/lib/providers/googleVertex.ts` - Google Vertex AI
 - `src/lib/providers/amazonBedrock.ts` - AWS Bedrock
 - `src/lib/providers/azureOpenai.ts` - Azure OpenAI
@@ -371,6 +371,32 @@ vitest run test/integration/openai.test.ts
 - Configuration validated with `env:validate` script
 - Config manager in `src/cli/commands/config.ts`
 
+### Thinking Level Configuration
+
+The `thinkingLevel` option controls extended thinking for supported models (Anthropic Claude, Gemini 2.5+, Gemini 3):
+
+- `"minimal"` - Minimal thinking budget (fastest responses)
+- `"low"` - Low thinking budget
+- `"medium"` - Moderate thinking budget (default)
+- `"high"` - Maximum thinking budget (deep reasoning)
+
+**Usage in SDK:**
+
+```typescript
+const result = await neurolink.generate({
+  prompt: "Complex reasoning task",
+  thinkingLevel: "high",
+});
+```
+
+**Usage in CLI:**
+
+```bash
+neurolink generate "Complex task" --thinking-level high
+```
+
+Note: When `thinkingLevel` is enabled, some providers may have limitations (see Important Constraints).
+
 ### Memory Management
 
 - Redis for distributed memory (production)
@@ -385,6 +411,7 @@ vitest run test/integration/openai.test.ts
 4. **Backward Compatibility:** SDK changes must maintain existing API
 5. **File Size Limits:** Consider token limits for multimodal content
 6. **Environment Isolation:** CLI and SDK have separate concerns (CLI can use manual MCP, SDK cannot)
+7. **Gemini Tool + JSON Schema Limitation:** Google Gemini models (AI Studio and Vertex) cannot use tools and JSON schema output simultaneously. When `structuredOutput` with a JSON schema is specified, tools must be disabled. This is a limitation of the Gemini API. Design workflows to either use tools OR structured JSON output, not both together.
 
 ## Development Workflow
 
