@@ -1,3 +1,9 @@
+## [8.26.1](https://github.com/juspay/neurolink/compare/v8.26.0...v8.26.1) (2025-12-31)
+
+### Bug Fixes
+
+- **(providers):** resolve Gemini 3 issues, add utilities, improve tests ([270ef6f](https://github.com/juspay/neurolink/commit/270ef6f225e7861846cf359f2d81edae38592053))
+
 ## [8.26.0](https://github.com/juspay/neurolink/compare/v8.25.0...v8.26.0) (2025-12-30)
 
 ### Features
