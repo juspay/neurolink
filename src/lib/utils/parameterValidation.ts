@@ -3,19 +3,21 @@
  * Provides consistent parameter validation across all tool interfaces
  */
 
+import { SYSTEM_LIMITS } from "../core/constants.js";
 import type {
-  StandardRecord,
-  ValidationSchema,
-  StringArray,
-} from "../types/typeAliases.js";
-import type { EnhancedValidationResult } from "../types/tools.js";
-import type { StreamOptions } from "../types/streamTypes.js";
-import type {
-  TextGenerationOptions,
   GenerateOptions,
+  TextGenerationOptions,
 } from "../types/generateTypes.js";
 import type { NeuroLinkMCPTool } from "../types/mcpTypes.js";
-import { SYSTEM_LIMITS } from "../core/constants.js";
+import type { VideoOutputOptions } from "../types/multimodal.js";
+import type { StreamOptions } from "../types/streamTypes.js";
+import type { EnhancedValidationResult } from "../types/tools.js";
+import type {
+  StandardRecord,
+  StringArray,
+  ValidationSchema,
+} from "../types/typeAliases.js";
+import { ErrorFactory, NeuroLinkError } from "./errorHandling.js";
 import { isNonNullObject } from "./typeUtils.js";
 
 // ============================================================================
@@ -704,6 +706,264 @@ export function validateToolBatch(tools: Record<string, unknown>): {
     invalidTools,
     results,
   };
+}
+
+// ============================================================================
+// VIDEO GENERATION VALIDATORS
+// ============================================================================
+
+/**
+ * Convert a NeuroLinkError to a ValidationError shape
+ * Used to maintain consistent error types in validation results
+ */
+function toValidationError(error: NeuroLinkError): ValidationError {
+  return new ValidationError(
+    error.message,
+    (error as { field?: string }).field,
+    error.code,
+    (error as { suggestions?: StringArray }).suggestions,
+  );
+}
+
+/**
+ * Valid video generation options
+ */
+const VALID_VIDEO_RESOLUTIONS = ["720p", "1080p"] as const;
+const VALID_VIDEO_LENGTHS = [4, 6, 8] as const;
+const VALID_VIDEO_ASPECT_RATIOS = ["9:16", "16:9"] as const;
+const MAX_VIDEO_PROMPT_LENGTH = 500;
+const MAX_VIDEO_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+
+/**
+ * Validate video output options (resolution, length, aspect ratio, audio)
+ *
+ * @param options - VideoOutputOptions to validate
+ * @returns NeuroLinkError if invalid, null if valid
+ *
+ * @example
+ * ```typescript
+ * const error = validateVideoOutputOptions({ resolution: "4K", length: 10 });
+ * // error.code === "INVALID_VIDEO_RESOLUTION"
+ * ```
+ */
+export function validateVideoOutputOptions(
+  options: VideoOutputOptions,
+): NeuroLinkError | null {
+  // Validate resolution
+  if (
+    options.resolution &&
+    !VALID_VIDEO_RESOLUTIONS.includes(
+      options.resolution as (typeof VALID_VIDEO_RESOLUTIONS)[number],
+    )
+  ) {
+    return ErrorFactory.invalidVideoResolution(options.resolution);
+  }
+
+  // Validate length
+  if (
+    options.length !== undefined &&
+    !VALID_VIDEO_LENGTHS.includes(
+      options.length as (typeof VALID_VIDEO_LENGTHS)[number],
+    )
+  ) {
+    return ErrorFactory.invalidVideoLength(options.length);
+  }
+
+  // Validate aspect ratio
+  if (
+    options.aspectRatio &&
+    !VALID_VIDEO_ASPECT_RATIOS.includes(
+      options.aspectRatio as (typeof VALID_VIDEO_ASPECT_RATIOS)[number],
+    )
+  ) {
+    return ErrorFactory.invalidVideoAspectRatio(options.aspectRatio);
+  }
+
+  // Validate audio (must be boolean if provided)
+  if (options.audio !== undefined && typeof options.audio !== "boolean") {
+    return ErrorFactory.invalidVideoAudio(options.audio);
+  }
+
+  return null;
+}
+
+/**
+ * Validate image input for video generation
+ *
+ * Checks image format (magic bytes) and size constraints.
+ * Supports JPEG, PNG, and WebP formats.
+ *
+ * @param image - Image buffer to validate
+ * @param maxSize - Maximum allowed size in bytes (default: 10MB)
+ * @returns NeuroLinkError if invalid, null if valid
+ *
+ * @example
+ * ```typescript
+ * const imageBuffer = readFileSync("product.jpg");
+ * const error = validateImageForVideo(imageBuffer);
+ * if (error) throw error;
+ * ```
+ */
+export function validateImageForVideo(
+  image: Buffer | string,
+  maxSize: number = MAX_VIDEO_IMAGE_SIZE,
+): NeuroLinkError | null {
+  // Handle null/undefined
+  if (image === null || image === undefined) {
+    return ErrorFactory.invalidImageType();
+  }
+
+  // If string (URL or path), skip detailed validation
+  if (typeof image === "string") {
+    // Basic URL/path validation
+    if (image.trim().length === 0) {
+      return ErrorFactory.emptyImagePath();
+    }
+    return null;
+  }
+
+  // Ensure it's a Buffer
+  if (!Buffer.isBuffer(image)) {
+    return ErrorFactory.invalidImageType();
+  }
+
+  // Check size
+  if (image.length > maxSize) {
+    const sizeMB = (image.length / 1024 / 1024).toFixed(2);
+    const maxMB = (maxSize / 1024 / 1024).toFixed(0);
+    return ErrorFactory.imageTooLarge(sizeMB, maxMB);
+  }
+
+  // Check minimum size (at least a few bytes for magic number detection)
+  if (image.length < 8) {
+    return ErrorFactory.imageTooSmall();
+  }
+
+  // Check magic bytes for supported formats
+  const isJPEG = image[0] === 0xff && image[1] === 0xd8 && image[2] === 0xff;
+  const isPNG =
+    image[0] === 0x89 &&
+    image[1] === 0x50 &&
+    image[2] === 0x4e &&
+    image[3] === 0x47;
+
+  // WebP requires both RIFF header AND WEBP signature
+  // Check for WebP: RIFF at bytes 0-3 AND "WEBP" at bytes 8-11
+  const isWebP =
+    image.length >= 12 &&
+    image[0] === 0x52 &&
+    image[1] === 0x49 &&
+    image[2] === 0x46 &&
+    image[3] === 0x46 && // RIFF header
+    image[8] === 0x57 &&
+    image[9] === 0x45 &&
+    image[10] === 0x42 &&
+    image[11] === 0x50; // WEBP signature
+
+  const isValidFormat = isJPEG || isPNG || isWebP;
+
+  if (!isValidFormat) {
+    return ErrorFactory.invalidImageFormat();
+  }
+
+  return null;
+}
+
+/**
+ * Validate complete video generation input
+ *
+ * Validates all requirements for video generation:
+ * - output.mode must be "video"
+ * - Must have exactly one input image
+ * - Prompt must be within length limits
+ * - Video output options must be valid
+ *
+ * @param options - GenerateOptions to validate for video generation
+ * @returns EnhancedValidationResult with errors, warnings, and suggestions
+ *
+ * @example
+ * ```typescript
+ * const validation = validateVideoGenerationInput({
+ *   input: { text: "Product showcase video", images: [imageBuffer] },
+ *   output: { mode: "video", video: { resolution: "1080p" } }
+ * });
+ * if (!validation.isValid) {
+ *   console.error(validation.errors);
+ * }
+ * ```
+ */
+export function validateVideoGenerationInput(
+  options: GenerateOptions,
+): EnhancedValidationResult {
+  const errors: ValidationError[] = [];
+  const warnings: string[] = [];
+  const suggestions: StringArray = [];
+
+  // Must have video mode
+  if (options.output?.mode !== "video") {
+    errors.push(toValidationError(ErrorFactory.invalidVideoMode()));
+  }
+
+  // Must have at least one image
+  if (!options.input?.images || options.input.images.length === 0) {
+    errors.push(toValidationError(ErrorFactory.missingVideoImage()));
+  } else if (options.input.images.length > 1) {
+    // Warn if multiple images provided - only first will be used
+    warnings.push(
+      "Only the first image will be used for video generation. Additional images will be ignored.",
+    );
+    suggestions.push("Provide a single image for video generation");
+  }
+
+  // Validate the first image if present
+  if (options.input?.images && options.input.images.length > 0) {
+    const firstImage = options.input.images[0];
+    // Handle ImageWithAltText type
+    const imageData =
+      typeof firstImage === "object" && "data" in firstImage
+        ? firstImage.data
+        : firstImage;
+
+    // Skip validation for URL/path strings, validate Buffers
+    if (typeof imageData !== "string") {
+      const imageError = validateImageForVideo(imageData as Buffer);
+      if (imageError) {
+        errors.push(toValidationError(imageError));
+      }
+    }
+  }
+
+  // Validate prompt/text - trim once for consistency
+  const trimmedPrompt = options.input?.text?.trim() || "";
+  if (trimmedPrompt.length === 0) {
+    errors.push(toValidationError(ErrorFactory.emptyVideoPrompt()));
+  } else if (trimmedPrompt.length > MAX_VIDEO_PROMPT_LENGTH) {
+    errors.push(
+      toValidationError(
+        ErrorFactory.videoPromptTooLong(
+          trimmedPrompt.length,
+          MAX_VIDEO_PROMPT_LENGTH,
+        ),
+      ),
+    );
+  }
+
+  // Validate video output options if provided
+  if (options.output?.video) {
+    const videoError = validateVideoOutputOptions(options.output.video);
+    if (videoError) {
+      errors.push(toValidationError(videoError));
+    }
+  }
+
+  // Add helpful suggestions
+  if (errors.length === 0 && warnings.length === 0) {
+    suggestions.push(
+      "Video generation takes 60-180 seconds. Consider setting a longer timeout.",
+    );
+  }
+
+  return { isValid: errors.length === 0, errors, warnings, suggestions };
 }
 
 // ============================================================================

@@ -32,6 +32,23 @@ export const ERROR_CODES = {
   // Configuration errors
   INVALID_CONFIGURATION: "INVALID_CONFIGURATION",
   MISSING_CONFIGURATION: "MISSING_CONFIGURATION",
+
+  // Video validation errors
+  INVALID_VIDEO_RESOLUTION: "INVALID_VIDEO_RESOLUTION",
+  INVALID_VIDEO_LENGTH: "INVALID_VIDEO_LENGTH",
+  INVALID_VIDEO_ASPECT_RATIO: "INVALID_VIDEO_ASPECT_RATIO",
+  INVALID_VIDEO_AUDIO: "INVALID_VIDEO_AUDIO",
+  INVALID_VIDEO_MODE: "INVALID_VIDEO_MODE",
+  MISSING_VIDEO_IMAGE: "MISSING_VIDEO_IMAGE",
+  EMPTY_VIDEO_PROMPT: "EMPTY_VIDEO_PROMPT",
+  VIDEO_PROMPT_TOO_LONG: "VIDEO_PROMPT_TOO_LONG",
+
+  // Image validation errors
+  EMPTY_IMAGE_PATH: "EMPTY_IMAGE_PATH",
+  INVALID_IMAGE_TYPE: "INVALID_IMAGE_TYPE",
+  IMAGE_TOO_LARGE: "IMAGE_TOO_LARGE",
+  IMAGE_TOO_SMALL: "IMAGE_TOO_SMALL",
+  INVALID_IMAGE_FORMAT: "INVALID_IMAGE_FORMAT",
 } as const;
 
 /**
@@ -211,6 +228,274 @@ export class ErrorFactory {
       retriable: false,
       context: { memoryUsageMB },
       toolName,
+    });
+  }
+
+  // ============================================================================
+  // VIDEO VALIDATION ERRORS
+  // ============================================================================
+
+  /**
+   * Create an invalid video resolution error
+   */
+  static invalidVideoResolution(resolution: string): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_VIDEO_RESOLUTION,
+      message: `Invalid resolution '${resolution}'. Use '720p' or '1080p'`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "output.video.resolution",
+        providedValue: resolution,
+        suggestions: ["Use '720p' for standard HD", "Use '1080p' for full HD"],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid video length error
+   */
+  static invalidVideoLength(length: number): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_VIDEO_LENGTH,
+      message: `Invalid length '${length}'. Use 4, 6, or 8 seconds`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "output.video.length",
+        providedValue: length,
+        suggestions: [
+          "Use 4 for short clips",
+          "Use 6 for balanced duration (recommended)",
+          "Use 8 for longer videos",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid video aspect ratio error
+   */
+  static invalidVideoAspectRatio(aspectRatio: string): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_VIDEO_ASPECT_RATIO,
+      message: `Invalid aspect ratio '${aspectRatio}'. Use '9:16' or '16:9'`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "output.video.aspectRatio",
+        providedValue: aspectRatio,
+        suggestions: [
+          "Use '9:16' for portrait/vertical video",
+          "Use '16:9' for landscape",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid video audio option error
+   */
+  static invalidVideoAudio(audio: unknown): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_VIDEO_AUDIO,
+      message: `Invalid audio option '${audio}'. Must be true or false`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "output.video.audio",
+        providedValue: audio,
+        suggestions: [
+          "Set audio: true to enable audio generation",
+          "Set audio: false to disable",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid video mode error
+   */
+  static invalidVideoMode(): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_VIDEO_MODE,
+      message: "Video generation requires output.mode to be 'video'",
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "output.mode",
+        suggestions: ["Set output: { mode: 'video' } for video generation"],
+      },
+    });
+  }
+
+  /**
+   * Create a missing video image error
+   */
+  static missingVideoImage(): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.MISSING_VIDEO_IMAGE,
+      message: "Video generation requires an input image",
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "input.images",
+        suggestions: [
+          "Provide an image via input.images array",
+          "Example: input: { text: 'prompt', images: [imageBuffer] }",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create an empty video prompt error
+   */
+  static emptyVideoPrompt(): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.EMPTY_VIDEO_PROMPT,
+      message: "Video prompt cannot be empty",
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "input.text",
+        suggestions: [
+          "Provide a text prompt describing the desired video motion/content",
+          "Example: 'Smooth camera pan with dramatic lighting'",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create a video prompt too long error
+   */
+  static videoPromptTooLong(length: number, maxLength: number): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.VIDEO_PROMPT_TOO_LONG,
+      message: `Video prompt must be ${maxLength} characters or less (got ${length})`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "input.text",
+        providedLength: length,
+        maxLength,
+        suggestions: [
+          `Shorten your prompt to ${maxLength} characters or less`,
+          "Focus on key visual elements and camera motion",
+        ],
+      },
+    });
+  }
+
+  // ============================================================================
+  // IMAGE VALIDATION ERRORS
+  // ============================================================================
+
+  /**
+   * Create an empty image path error
+   */
+  static emptyImagePath(): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.EMPTY_IMAGE_PATH,
+      message: "Image path or URL cannot be empty",
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "input.images",
+        suggestions: ["Provide a valid file path or URL"],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid image type error
+   */
+  static invalidImageType(): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_IMAGE_TYPE,
+      message: "Image must be a Buffer, file path string, or URL",
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "input.images",
+        suggestions: [
+          "Provide image as Buffer: fs.readFileSync('image.jpg')",
+          "Or as file path string: './image.jpg'",
+          "Or as URL: 'https://example.com/image.jpg'",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create an image too large error
+   */
+  static imageTooLarge(sizeMB: string, maxMB: string): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.IMAGE_TOO_LARGE,
+      message: `Image size (${sizeMB}MB) exceeds maximum (${maxMB}MB)`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "input.images",
+        sizeMB,
+        maxMB,
+        suggestions: [
+          `Compress or resize the image to under ${maxMB}MB`,
+          "Use a lower quality JPEG compression",
+          "Reduce image dimensions",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create an image too small error
+   */
+  static imageTooSmall(): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.IMAGE_TOO_SMALL,
+      message: "Image data is too small to be a valid image file",
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "input.images",
+        suggestions: ["Provide a valid JPEG, PNG, or WebP image file"],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid image format error
+   */
+  static invalidImageFormat(): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_IMAGE_FORMAT,
+      message: "Unsupported image format. Use JPEG, PNG, or WebP",
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "input.images",
+        suggestions: [
+          "Convert your image to JPEG, PNG, or WebP format",
+          "Ensure the file is not corrupted",
+          "Check that the file extension matches the actual format",
+        ],
+      },
     });
   }
 }
