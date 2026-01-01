@@ -1,11 +1,21 @@
-# 🧠 NeuroLink
+<div align="center">
+  <h1>🧠 NeuroLink</h1>
+  <p><strong>The Enterprise AI SDK for Production Applications</strong></p>
+  <p>13 Providers | 58+ MCP Tools | HITL Security | Redis Persistence</p>
+</div>
 
-[![NPM Version](https://img.shields.io/npm/v/@juspay/neurolink)](https://www.npmjs.com/package/@juspay/neurolink)
-[![Downloads](https://img.shields.io/npm/dm/@juspay/neurolink)](https://www.npmjs.com/package/@juspay/neurolink)
+<div align="center">
+
+[![npm version](https://badge.fury.io/js/%40juspay%2Fneurolink.svg)](https://www.npmjs.com/package/@juspay/neurolink)
+[![npm downloads](https://img.shields.io/npm/dw/@juspay/neurolink)](https://www.npmjs.com/package/@juspay/neurolink)
+[![Build Status](https://github.com/juspay/neurolink/actions/workflows/ci.yml/badge.svg)](https://github.com/juspay/neurolink/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/juspay/neurolink/badge.svg?branch=main)](https://coveralls.io/github/juspay/neurolink?branch=main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![GitHub Stars](https://img.shields.io/github/stars/juspay/neurolink)](https://github.com/juspay/neurolink/stargazers)
-[![License](https://img.shields.io/npm/l/@juspay/neurolink)](https://github.com/juspay/neurolink/blob/release/LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](https://www.typescriptlang.org/)
-[![CI](https://github.com/juspay/neurolink/workflows/CI/badge.svg)](https://github.com/juspay/neurolink/actions)
+[![Discord](https://img.shields.io/discord/DISCORD_SERVER_ID?label=Discord&logo=discord)](https://discord.gg/neurolink)
+
+</div>
 
 Enterprise AI development platform with unified provider access, production-ready tooling, and an opinionated factory architecture. NeuroLink ships as both a TypeScript SDK and a professional CLI so teams can build, operate, and iterate on AI features quickly.
 
@@ -38,6 +48,40 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 - **Redis conversation export** – Export full session history as JSON for analytics and debugging. → [History Guide](docs/features/conversation-history.md)
 
 > **Q3 highlights** (multimodal chat, auto-evaluation, loop sessions, orchestration) are now in [Platform Capabilities](#platform-capabilities-at-a-glance) below.
+
+## Enterprise Security: Human-in-the-Loop (HITL)
+
+NeuroLink includes a **production-ready HITL system** for regulated industries and high-stakes AI operations:
+
+| Capability                  | Description                                               | Use Case                                   |
+| --------------------------- | --------------------------------------------------------- | ------------------------------------------ |
+| **Tool Approval Workflows** | Require human approval before AI executes sensitive tools | Financial transactions, data modifications |
+| **Output Validation**       | Route AI outputs through human review pipelines           | Medical diagnosis, legal documents         |
+| **Confidence Thresholds**   | Automatically trigger human review below confidence level | Critical business decisions                |
+| **Complete Audit Trail**    | Full audit logging for compliance (HIPAA, SOC2, GDPR)     | Regulated industries                       |
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  hitl: {
+    enabled: true,
+    requireApproval: ["writeFile", "executeCode", "sendEmail"],
+    confidenceThreshold: 0.85,
+    reviewCallback: async (action, context) => {
+      // Custom review logic - integrate with your approval system
+      return await yourApprovalSystem.requestReview(action);
+    },
+  },
+});
+
+// AI pauses for human approval before executing sensitive tools
+const result = await neurolink.generate({
+  input: { text: "Send quarterly report to stakeholders" },
+});
+```
+
+**[Enterprise HITL Guide](docs/features/enterprise-hitl.md)** | **[Quick Start](docs/features/hitl.md)**
 
 ## Get Started in Two Steps
 
@@ -161,6 +205,70 @@ const result = await neurolink.generate({
 
 ---
 
+## Enterprise Persistence: Redis Memory
+
+Production-ready distributed conversation state for multi-instance deployments:
+
+### Capabilities
+
+| Feature                | Description                                  | Benefit                     |
+| ---------------------- | -------------------------------------------- | --------------------------- |
+| **Distributed Memory** | Share conversation context across instances  | Horizontal scaling          |
+| **Session Export**     | Export full history as JSON                  | Analytics, debugging, audit |
+| **Auto-Detection**     | Automatic Redis discovery from environment   | Zero-config in containers   |
+| **Graceful Failover**  | Falls back to in-memory if Redis unavailable | High availability           |
+| **TTL Management**     | Configurable session expiration              | Memory management           |
+
+### Quick Setup
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+// Auto-detect Redis from REDIS_URL environment variable
+const neurolink = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    store: "redis", // Automatically uses REDIS_URL
+    ttl: 86400, // 24-hour session expiration
+  },
+});
+
+// Or explicit configuration
+const neuriolinkExplicit = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    store: "redis",
+    redis: {
+      host: "redis.example.com",
+      port: 6379,
+      password: process.env.REDIS_PASSWORD,
+      tls: true, // Enable for production
+    },
+  },
+});
+
+// Export conversation for analytics
+const history = await neurolink.exportConversation({ format: "json" });
+await saveToDataWarehouse(history);
+```
+
+### Docker Quick Start
+
+```bash
+# Start Redis
+docker run -d --name neurolink-redis -p 6379:6379 redis:7-alpine
+
+# Configure NeuroLink
+export REDIS_URL=redis://localhost:6379
+
+# Start your application
+node your-app.js
+```
+
+**[Redis Setup Guide](docs/getting-started/redis-quickstart.md)** | **[Production Configuration](docs/guides/redis-configuration.md)** | **[Migration Patterns](docs/guides/redis-migration.md)**
+
+---
+
 ### 🎨 Professional CLI
 
 **15+ commands** for every workflow:
@@ -200,51 +308,66 @@ npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "an
 npx @juspay/neurolink generate "Write code" # Automatically chooses optimal provider
 ```
 
-## ✨ Interactive Loop Mode
+## Revolutionary Interactive CLI
 
-NeuroLink features a powerful **interactive loop mode** that transforms the CLI into a persistent, stateful session. This allows you to run multiple commands, set session-wide variables, and maintain conversation history without restarting.
+NeuroLink's CLI goes beyond simple commands - it's a **full AI development environment**:
 
-### Start the Loop
+### Why Interactive Mode Changes Everything
 
-```bash
-npx @juspay/neurolink loop
-```
+| Feature       | Traditional CLI   | NeuroLink Interactive          |
+| ------------- | ----------------- | ------------------------------ |
+| Session State | None              | Full persistence               |
+| Memory        | Per-command       | Conversation-aware             |
+| Configuration | Flags per command | `/set` persists across session |
+| Tool Testing  | Manual per tool   | Live discovery & testing       |
+| Streaming     | Optional          | Real-time default              |
 
-### Example Session
-
-```bash
-# Start the interactive session
-$ npx @juspay/neurolink loop
-
-neurolink » /set provider google-ai
-✓ provider set to google-ai
-
-neurolink » /set temperature 0.8
-✓ temperature set to 0.8
-
-neurolink » Tell me a fun fact about space
-
-The quietest place on Earth is an anechoic chamber at Microsoft's headquarters in Redmond, Washington. The background noise is so low that it's measured in negative decibels, and you can hear your own heartbeat.
-
-# Use "/" for CLI commands
-neurolink » /generate "Draft a haiku"
-...
-
-# Use "//" to escape prompts starting with "/"
-neurolink » //what is /usr/bin used for?
-...
-
-# Exit the session
-neurolink » exit
-```
-
-### Conversation Memory in Loop Mode
-
-Start the loop with conversation memory to have the AI remember the context of your previous commands.
+### Live Demo: Development Session
 
 ```bash
-npx @juspay/neurolink loop --enable-conversation-memory
+$ npx @juspay/neurolink loop --enable-conversation-memory
+
+neurolink > /set provider vertex
+✓ provider set to vertex (Gemini 3 support enabled)
+
+neurolink > /set model gemini-3-flash-preview
+✓ model set to gemini-3-flash-preview
+
+neurolink > Analyze my project architecture and suggest improvements
+
+✓ Analyzing your project structure...
+[AI provides detailed analysis, remembering context]
+
+neurolink > Now implement the first suggestion
+[AI remembers previous context and implements suggestion]
+
+neurolink > /mcp discover
+✓ Discovered 58 MCP tools:
+   GitHub: create_issue, list_repos, create_pr...
+   PostgreSQL: query, insert, update...
+   [full list]
+
+neurolink > Use the GitHub tool to create an issue for this improvement
+✓ Creating issue... (requires HITL approval if configured)
+
+neurolink > /export json > session-2026-01-01.json
+✓ Exported 15 messages to session-2026-01-01.json
+
+neurolink > exit
+Session saved. Resume with: neurolink loop --session session-2026-01-01.json
 ```
+
+### Session Commands Reference
+
+| Command              | Purpose                                              |
+| -------------------- | ---------------------------------------------------- |
+| `/set <key> <value>` | Persist configuration (provider, model, temperature) |
+| `/mcp discover`      | List all available MCP tools                         |
+| `/export json`       | Export conversation to JSON                          |
+| `/history`           | View conversation history                            |
+| `/clear`             | Clear context while keeping settings                 |
+
+**[Interactive CLI Guide](docs/features/interactive-cli.md)** | **[CLI Reference](docs/cli/commands.md)**
 
 Skip the wizard and configure manually? See [`docs/getting-started/provider-setup.md`](docs/getting-started/provider-setup.md).
 
@@ -331,15 +454,53 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 ## Documentation Map
 
-| Area            | When to Use                                     | Link                                                             |
-| --------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
-| Getting started | Install, configure, run first prompt            | [`docs/getting-started/index.md`](docs/getting-started/index.md) |
-| Feature guides  | Understand new functionality front-to-back      | [`docs/features/index.md`](docs/features/index.md)               |
-| CLI reference   | Command syntax, flags, loop sessions            | [`docs/cli/index.md`](docs/cli/index.md)                         |
-| SDK reference   | Classes, methods, options                       | [`docs/sdk/index.md`](docs/sdk/index.md)                         |
-| Integrations    | LiteLLM, SageMaker, MCP, Mem0                   | [`docs/LITELLM-INTEGRATION.md`](docs/LITELLM-INTEGRATION.md)     |
-| Operations      | Configuration, troubleshooting, provider matrix | [`docs/reference/index.md`](docs/reference/index.md)             |
-| Visual demos    | Screens, GIFs, interactive tours                | [`docs/demos/index.md`](docs/demos/index.md)                     |
+| Area            | When to Use                                           | Link                                                             |
+| --------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| Getting started | Install, configure, run first prompt                  | [`docs/getting-started/index.md`](docs/getting-started/index.md) |
+| Feature guides  | Understand new functionality front-to-back            | [`docs/features/index.md`](docs/features/index.md)               |
+| CLI reference   | Command syntax, flags, loop sessions                  | [`docs/cli/index.md`](docs/cli/index.md)                         |
+| SDK reference   | Classes, methods, options                             | [`docs/sdk/index.md`](docs/sdk/index.md)                         |
+| Integrations    | LiteLLM, SageMaker, MCP, Mem0                         | [`docs/LITELLM-INTEGRATION.md`](docs/LITELLM-INTEGRATION.md)     |
+| Advanced        | Middleware, architecture, streaming patterns          | [`docs/advanced/index.md`](docs/advanced/index.md)               |
+| Cookbook        | Practical recipes for common patterns                 | [`docs/cookbook/index.md`](docs/cookbook/index.md)               |
+| Guides          | Migration, Redis, troubleshooting, provider selection | [`docs/guides/index.md`](docs/guides/index.md)                   |
+| Operations      | Configuration, troubleshooting, provider matrix       | [`docs/reference/index.md`](docs/reference/index.md)             |
+
+### New in 2026: Enhanced Documentation
+
+**Enterprise Features:**
+
+- [Enterprise HITL Guide](docs/features/enterprise-hitl.md) - Production-ready approval workflows
+- [Interactive CLI Guide](docs/features/interactive-cli.md) - AI development environment
+- [MCP Tools Showcase](docs/features/mcp-tools-showcase.md) - 58+ external tools & 6 built-in tools
+
+**Provider Intelligence:**
+
+- [Provider Capabilities Audit](docs/reference/provider-capabilities-audit.md) - Technical capabilities matrix
+- [Provider Selection Guide](docs/guides/provider-selection.md) - Interactive decision wizard
+- [Provider Comparison](docs/reference/provider-comparison.md) - Feature & cost comparison
+
+**Middleware System:**
+
+- [Middleware Architecture](docs/advanced/middleware-architecture.md) - Complete lifecycle & patterns
+- [Built-in Middleware](docs/advanced/builtin-middleware.md) - Analytics, Guardrails, Evaluation
+- [Custom Middleware Guide](docs/CUSTOM-MIDDLEWARE-GUIDE.md) - Build your own
+
+**Redis & Persistence:**
+
+- [Redis Quick Start](docs/getting-started/redis-quickstart.md) - 5-minute setup
+- [Redis Configuration](docs/guides/redis-configuration.md) - Production-ready setup
+- [Redis Migration](docs/guides/redis-migration.md) - Migration patterns
+
+**Migration Guides:**
+
+- [From LangChain](docs/guides/migration/from-langchain.md) - Complete migration guide
+- [From Vercel AI SDK](docs/guides/migration/from-vercel-ai-sdk.md) - Next.js focused
+
+**Developer Experience:**
+
+- [Cookbook](docs/cookbook/index.md) - 10 practical recipes
+- [Troubleshooting Guide](docs/guides/troubleshooting.md) - Common issues & solutions
 
 ## Integrations
 

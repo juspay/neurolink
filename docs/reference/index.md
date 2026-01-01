@@ -20,11 +20,17 @@ This section provides comprehensive reference materials for advanced usage, conf
 
   Complete configuration reference including environment variables, provider settings, and optimization.
 
+- :material-shield-check: **[Provider Capabilities Audit](provider-capabilities-audit.md)**
+
+  ***
+
+  Comprehensive audit of all 13 provider implementations with capability matrices and configuration examples.
+
 - :material-compare: **[Provider Comparison](provider-comparison.md)**
 
   ***
 
-  Detailed comparison of all 9 supported AI providers with features, costs, and recommendations.
+  Detailed comparison of all 13 supported AI providers with features, costs, and recommendations.
 
 - :material-frequently-asked-questions: **[FAQ](faq.md)**
 
@@ -120,14 +126,21 @@ const result = await neurolink.generate({
 
 ## 📊 Provider Comparison Matrix
 
-| Feature          | OpenAI | Google AI | Anthropic | Bedrock | Azure | Vertex | HuggingFace | Ollama | Mistral |
-| ---------------- | ------ | --------- | --------- | ------- | ----- | ------ | ----------- | ------ | ------- |
-| **Free Tier**    | ❌     | ✅        | ❌        | ❌      | ❌    | ❌     | ✅          | ✅     | ✅      |
-| **Tool Support** | ✅     | ✅        | ✅        | ✅      | ✅    | ✅     | ⚠️          | ⚠️     | ✅      |
-| **Streaming**    | ✅     | ✅        | ✅        | ✅      | ✅    | ✅     | ✅          | ✅     | ✅      |
-| **Vision**       | ✅     | ✅        | ✅        | ✅      | ✅    | ✅     | ✅          | ⚠️     | ❌      |
-| **Local**        | ❌     | ❌        | ❌        | ❌      | ❌    | ❌     | ❌          | ✅     | ❌      |
-| **Enterprise**   | ✅     | ✅        | ✅        | ✅      | ✅    | ✅     | ⚠️          | ✅     | ✅      |
+**Quick Overview** (see [Provider Capabilities Audit](provider-capabilities-audit.md) for complete details):
+
+| Feature          | OpenAI | Google AI | Anthropic | Bedrock | Azure | Vertex | HuggingFace | Ollama | Mistral | LiteLLM | SageMaker | OpenRouter | OpenAI Compat |
+| ---------------- | ------ | --------- | --------- | ------- | ----- | ------ | ----------- | ------ | ------- | ------- | --------- | ---------- | ------------- |
+| **Free Tier**    | ❌     | ✅        | ❌        | ❌      | ❌    | ❌     | ✅          | ✅     | ✅      | Varies  | ❌        | Varies     | Varies        |
+| **Tool Support** | ✅     | ✅        | ✅        | ✅      | ✅    | ✅     | ⚠️          | ⚠️     | ✅      | ✅      | ✅        | ✅         | ✅            |
+| **Streaming**    | ✅     | ✅        | ✅        | ✅      | ✅    | ✅     | ✅          | ✅     | ✅      | ✅      | ✅        | ✅         | ✅            |
+| **Vision**       | ✅     | ✅        | ✅        | ✅      | ✅    | ✅     | ✅          | ⚠️     | ❌      | ✅      | Varies    | ✅         | Varies        |
+| **Local**        | ❌     | ❌        | ❌        | ❌      | ❌    | ❌     | ❌          | ✅     | ❌      | ❌      | ❌        | ❌         | Varies        |
+| **Enterprise**   | ✅     | ✅        | ✅        | ✅      | ✅    | ✅     | ⚠️          | ✅     | ✅      | ✅      | ✅        | ✅         | Varies        |
+
+For detailed capability matrices, authentication requirements, and configuration examples, see:
+
+- **[Provider Capabilities Audit](provider-capabilities-audit.md)** - Technical implementation details
+- **[Provider Comparison](provider-comparison.md)** - Feature comparison and selection guide
 
 ## 🔍 Error Code Reference
 

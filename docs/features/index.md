@@ -10,10 +10,13 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 ---
 
-## Latest Features (Q4 2025)
+## Latest Features (Q4 2025 - 2026)
 
 | Feature                                                                             | Description                                                                                        |
 | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| :material-security: **[Enterprise HITL](enterprise-hitl.md)**                       | Production-ready HITL with approval workflows, confidence thresholds, and enterprise patterns.     |
+| :material-console-line: **[Interactive CLI](interactive-cli.md)**                   | AI development environment with loop mode, session variables, and conversation memory.             |
+| :material-tools: **[MCP Tools Showcase](mcp-tools-showcase.md)**                    | Complete guide to 6 built-in tools and 58+ external MCP servers across 6 categories.               |
 | :material-hand-pointing-up: **[Human-in-the-Loop (HITL)](hitl.md)**                 | Pause AI tool execution for user approval before risky operations like file deletion or API calls. |
 | :material-shield-check: **[Guardrails Middleware](guardrails.md)**                  | Content filtering, PII detection, and safety checks for AI outputs with zero configuration.        |
 | :material-database-export: **[Redis Conversation Export](conversation-history.md)** | Export complete session history as JSON for analytics, debugging, and compliance auditing.         |

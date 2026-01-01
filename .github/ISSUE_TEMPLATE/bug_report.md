@@ -1,51 +1,86 @@
 ---
-name: Bug report
-about: Create a report to help us improve
+name: Bug Report
+about: Report a bug to help us improve NeuroLink
 title: "[BUG] "
-labels: bug
+labels: "bug, needs-triage"
 assignees: ""
 ---
 
-## Describe the bug
+## Bug Description
 
 A clear and concise description of what the bug is.
 
-## To Reproduce
+## Steps to Reproduce
 
 Steps to reproduce the behavior:
 
-1. Import package with '...'
-2. Initialize provider with '...'
-3. Call method '...'
+1. Initialize NeuroLink with '...'
+2. Call method '...'
+3. Pass parameters '...'
 4. See error
 
-## Expected behavior
+## Expected Behavior
 
 A clear and concise description of what you expected to happen.
 
+## Actual Behavior
+
+A clear and concise description of what actually happened.
+
 ## Environment
 
-- NeuroLink version: [e.g. 1.0.0]
-- AI provider: [e.g. OpenAI, Bedrock, Vertex]
-- Node.js version: [e.g. 18.15.0]
-- Framework: [e.g. SvelteKit, Next.js, Express, React]
-- Browser (if applicable): [e.g. Chrome, Safari]
+Please complete the following information:
 
-## Code snippet
+- **NeuroLink version:** [e.g., 8.26.1]
+- **Node.js version:** [e.g., 18.17.0]
+- **Provider:** [e.g., OpenAI, Anthropic, Google AI]
+- **Model:** [e.g., gpt-4, claude-3-5-sonnet, gemini-2.0-flash]
+- **Operating System:** [e.g., macOS 14.0, Ubuntu 22.04, Windows 11]
+- **Package Manager:** [e.g., pnpm, npm, yarn]
+
+## Code Sample
+
+Please provide a minimal code sample that reproduces the issue:
 
 ```typescript
-// Add a minimal code snippet that demonstrates the issue
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-// ... your code that shows the issue
+const neurolink = new NeuroLink();
+
+// Minimal reproduction code here
+const result = await neurolink.generate({
+  input: { text: "test" },
+  provider: "openai",
+});
 ```
 
-## Error message
+## Error Output
+
+If applicable, paste the error message or stack trace:
 
 ```
-// If applicable, paste any error message or stack trace here
+Error message here
 ```
 
-## Additional context
+## Additional Context
 
-Add any other context about the problem here.
+Add any other context about the problem here:
+
+- Screenshots
+- Logs
+- Related issues
+- Workarounds you've tried
+- Configuration files
+- Environment variables (redact sensitive values)
+
+## Possible Solution
+
+If you have suggestions on how to fix this bug, please share them here.
+
+## Checklist
+
+- [ ] I have searched existing issues to ensure this is not a duplicate
+- [ ] I have provided all required environment information
+- [ ] I have included a minimal code sample that reproduces the issue
+- [ ] I have redacted any sensitive information (API keys, credentials)
+- [ ] I am using a supported version of NeuroLink (see [SECURITY.md](../../SECURITY.md))
