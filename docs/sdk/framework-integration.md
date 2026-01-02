@@ -21,10 +21,27 @@ export const POST: RequestHandler = async ({ request }) => {
       maxTokens: 1000,
     });
 
-    return new Response(result.toReadableStream(), {
+    // Manually create ReadableStream from AsyncIterable
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of result.stream) {
+            if (chunk && typeof chunk === "object" && "content" in chunk) {
+              controller.enqueue(new TextEncoder().encode(chunk.content));
+            }
+          }
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    });
+
+    return new Response(readable, {
       headers: {
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
+        Connection: "keep-alive",
       },
     });
   } catch (error) {
@@ -163,10 +180,27 @@ export const POST: RequestHandler = async ({ request }) => {
       maxTokens: 1000,
     });
 
-    return new Response(result.toReadableStream(), {
+    // Manually create ReadableStream from AsyncIterable
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of result.stream) {
+            if (chunk && typeof chunk === "object" && "content" in chunk) {
+              controller.enqueue(new TextEncoder().encode(chunk.content));
+            }
+          }
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    });
+
+    return new Response(readable, {
       headers: {
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
+        Connection: "keep-alive",
         "X-Model-Used": result.model,
         "X-Provider-Used": result.provider,
       },
@@ -346,10 +380,27 @@ export async function PUT(request: NextRequest) {
       input: { text: prompt },
     });
 
-    return new Response(result.toReadableStream(), {
+    // Manually create ReadableStream from AsyncIterable
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of result.stream) {
+            if (chunk && typeof chunk === "object" && "content" in chunk) {
+              controller.enqueue(new TextEncoder().encode(chunk.content));
+            }
+          }
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    });
+
+    return new Response(readable, {
       headers: {
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
+        Connection: "keep-alive",
       },
     });
   } catch (error) {
@@ -1126,4 +1177,4 @@ CMD ["npm", "start"]
 
 ---
 
-[← Back to Main README](../index.md) | [Next: Provider Configuration →](../getting-started/provider-setup.md)
+[← Back to Main README](./index.md) | [Next: Provider Configuration →](./getting-started/provider-setup.md)

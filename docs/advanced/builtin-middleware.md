@@ -430,23 +430,21 @@ Evaluates the safety of the input prompt **before** it reaches the main LLM. If 
 **Configuration:**
 
 ```typescript
-import { openai } from "@ai-sdk/openai";
-
 config: {
   precallEvaluation: {
     enabled: true,
     provider: "openai",
-    model: "gpt-4", // Main model (not used if blocked)
-    evaluationModel: openai("gpt-4"), // Model for safety evaluation
-    threshold: 0.8, // Minimum safety score (0-1)
-    categories: [
-      "hate_speech",
-      "violence",
-      "sexual_content",
-      "self_harm",
-      "illegal_activity",
-      "misinformation"
-    ]
+    evaluationModel: "gpt-4", // Model for safety evaluation (string)
+    thresholds: {
+      safetyScore: 7, // Safety threshold (1-10 scale, default 7)
+      appropriatenessScore: 6, // Appropriateness threshold (1-10 scale, default 6)
+    },
+    blockUnsafeRequests: true, // Block requests that fail evaluation
+    actions: {
+      onUnsafe: "block",
+      onInappropriate: "sanitize",
+      onSuspicious: "warn",
+    },
   }
 }
 ```
@@ -485,8 +483,13 @@ const factory = new MiddlewareFactory({
         badWords: ["spam", "abuse", "harassment"],
         precallEvaluation: {
           enabled: true,
-          evaluationModel: openai("gpt-4"),
-          threshold: 0.9, // Strict filtering
+          provider: "openai",
+          evaluationModel: "gpt-4",
+          thresholds: {
+            safetyScore: 9, // Strict filtering (1-10 scale)
+            appropriatenessScore: 8,
+          },
+          blockUnsafeRequests: true,
         },
       },
     },
@@ -526,13 +529,18 @@ const factory = new MiddlewareFactory({
       config: {
         precallEvaluation: {
           enabled: true,
-          evaluationModel: openai("gpt-4"),
-          threshold: 0.85,
-          categories: [
-            "prompt_injection",
-            "jailbreak_attempt",
-            "system_prompt_extraction",
-          ],
+          provider: "openai",
+          evaluationModel: "gpt-4",
+          thresholds: {
+            safetyScore: 8, // High safety threshold (1-10 scale)
+            appropriatenessScore: 7,
+          },
+          blockUnsafeRequests: true,
+          actions: {
+            onUnsafe: "block",
+            onInappropriate: "block",
+            onSuspicious: "block",
+          },
         },
       },
     },
@@ -889,12 +897,13 @@ const factory = new MiddlewareFactory({
         badWords: ["spam", "abuse", "harassment"],
         precallEvaluation: {
           enabled: true,
-          evaluationModel: openai("gpt-4"),
-          threshold: 0.85,
-        },
-        modelFilter: {
-          enabled: true,
-          filterModel: openai("gpt-3.5-turbo"),
+          provider: "openai",
+          evaluationModel: "gpt-4",
+          thresholds: {
+            safetyScore: 8, // High safety threshold (1-10 scale)
+            appropriatenessScore: 7,
+          },
+          blockUnsafeRequests: true,
         },
       },
     },
@@ -950,8 +959,13 @@ const factory = new MiddlewareFactory({
         badWords: organizationBlocklist,
         precallEvaluation: {
           enabled: true,
-          evaluationModel: openai("gpt-4"),
-          threshold: 0.9, // Very strict
+          provider: "openai",
+          evaluationModel: "gpt-4",
+          thresholds: {
+            safetyScore: 9, // Very strict (1-10 scale)
+            appropriatenessScore: 9,
+          },
+          blockUnsafeRequests: true,
         },
       },
     },

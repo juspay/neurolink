@@ -143,14 +143,32 @@ This section contains practical implementations, use cases, and tutorials to hel
       const { message } = await request.json();
       const provider = createBestAIProvider();
 
-      const stream = await provider.stream({
+      const result = await provider.stream({
         input: { text: message },
         timeout: "2m",
       });
 
-      return new Response(stream.toReadableStream(), {
+      // Manually create ReadableStream from AsyncIterable
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of result.stream) {
+              if (chunk && typeof chunk === "object" && "content" in chunk) {
+                controller.enqueue(new TextEncoder().encode(chunk.content));
+              }
+            }
+            controller.close();
+          } catch (error) {
+            controller.error(error);
+          }
+        },
+      });
+
+      return new Response(readable, {
         headers: {
-          "Content-Type": "text/plain; charset=utf-8",
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
         },
       });
     };
