@@ -478,6 +478,156 @@ npx @juspay/neurolink mcp exec filesystem read_file --params '{"path": "index.md
 
 ---
 
+### **🌐 HTTP Transport Issues (Remote MCP Servers)**
+
+#### **Connection Timeout**
+
+**Symptom**: `ETIMEDOUT` or `Connection timeout` when connecting to remote MCP servers
+
+**Diagnosis**:
+
+```bash
+# Test remote endpoint directly
+curl -v https://api.example.com/mcp
+
+# Check with custom timeout
+curl --max-time 30 https://api.example.com/mcp
+```
+
+**Solutions**:
+
+1. **Increase Connection Timeout**:
+
+   ```json
+   {
+     "mcpServers": {
+       "remote-api": {
+         "transport": "http",
+         "url": "https://api.example.com/mcp",
+         "httpOptions": {
+           "connectionTimeout": 60000,
+           "requestTimeout": 120000
+         }
+       }
+     }
+   }
+   ```
+
+2. **Check Network/Firewall**:
+   - Verify the remote endpoint is accessible
+   - Check corporate firewall allows outbound connections
+   - Verify proxy settings if behind corporate network
+
+#### **Authentication Errors**
+
+**Symptom**: `401 Unauthorized` or `403 Forbidden` errors
+
+**Diagnosis**:
+
+```bash
+# Test authentication
+curl -H "Authorization: Bearer YOUR_TOKEN" https://api.example.com/mcp
+```
+
+**Solutions**:
+
+1. **Check Bearer Token**:
+
+   ```json
+   {
+     "mcpServers": {
+       "remote-api": {
+         "transport": "http",
+         "url": "https://api.example.com/mcp",
+         "headers": {
+           "Authorization": "Bearer YOUR_VALID_TOKEN"
+         }
+       }
+     }
+   }
+   ```
+
+2. **Check API Key**:
+
+   ```json
+   {
+     "headers": {
+       "X-API-Key": "your-valid-api-key"
+     }
+   }
+   ```
+
+3. **Refresh OAuth Token**:
+   - OAuth tokens may expire; check token validity
+   - Verify OAuth configuration has correct scopes
+
+#### **Rate Limiting Errors**
+
+**Symptom**: `429 Too Many Requests` errors
+
+**Solutions**:
+
+1. **Configure Rate Limiting**:
+
+   ```json
+   {
+     "mcpServers": {
+       "remote-api": {
+         "transport": "http",
+         "url": "https://api.example.com/mcp",
+         "rateLimiting": {
+           "requestsPerMinute": 30,
+           "maxBurst": 5,
+           "useTokenBucket": true
+         }
+       }
+     }
+   }
+   ```
+
+2. **Add Retry Configuration**:
+   ```json
+   {
+     "retryConfig": {
+       "maxAttempts": 5,
+       "initialDelay": 2000,
+       "maxDelay": 60000,
+       "backoffMultiplier": 2
+     }
+   }
+   ```
+
+#### **SSL/TLS Errors**
+
+**Symptom**: `CERT_HAS_EXPIRED` or `UNABLE_TO_VERIFY_LEAF_SIGNATURE`
+
+**Solutions**:
+
+1. **Check Certificate**:
+
+   ```bash
+   openssl s_client -connect api.example.com:443 -servername api.example.com
+   ```
+
+2. **For Development Only** (not recommended for production):
+   ```bash
+   export NODE_TLS_REJECT_UNAUTHORIZED=0
+   ```
+
+#### **HTTP Transport Debug Mode**
+
+```bash
+# Enable debug logging for HTTP transport
+export NEUROLINK_DEBUG=true
+
+# Test with verbose output
+npx @juspay/neurolink mcp test remote-api --debug
+```
+
+See [MCP HTTP Transport Guide](MCP-HTTP-TRANSPORT.md) for complete configuration options.
+
+---
+
 ## 🔗 **LiteLLM Provider Issues**
 
 ### **LiteLLM Proxy Server Not Available**

@@ -4,7 +4,7 @@
  */
 
 import type { JsonValue, JsonObject } from "./common.js";
-import type { ExecutionContext, ToolInfo } from "./tools.js";
+import type { ExecutionContext, ToolInfo, ToolResult } from "./tools.js";
 
 /**
  * In-memory MCP server configuration
@@ -25,6 +25,7 @@ export type MCPTransportType =
   | "stdio"
   | "sse"
   | "websocket"
+  | "http"
   | "ws"
   | "tcp"
   | "unix";
@@ -97,6 +98,9 @@ export type MCPServerInfo = {
   args?: string[];
   env?: Record<string, string>;
   url?: string;
+  headers?: Record<string, string>; // HTTP headers for authentication (HTTP/SSE/WebSocket)
+  /** HTTP transport-specific options */
+  httpOptions?: MCPHTTPTransportOptions;
   timeout?: number;
   retries?: number;
   error?: string;
@@ -107,8 +111,57 @@ export type MCPServerInfo = {
   autoRestart?: boolean; // Whether to automatically restart on failure
   healthCheckInterval?: number; // Health check interval in milliseconds
 
+  /** Retry configuration for HTTP transport */
+  retryConfig?: {
+    maxAttempts?: number;
+    initialDelay?: number;
+    maxDelay?: number;
+    backoffMultiplier?: number;
+  };
+
+  /** Rate limiting configuration for HTTP transport */
+  rateLimiting?: {
+    /** Maximum requests per minute (default: 60) */
+    requestsPerMinute?: number;
+    /** Maximum requests per hour (optional) */
+    requestsPerHour?: number;
+    /** Maximum burst size for token bucket (default: 10) */
+    maxBurst?: number;
+    /** Use token bucket algorithm (default: true) */
+    useTokenBucket?: boolean;
+  };
+
   // Tool filtering (blocklist for security/control)
   blockedTools?: string[]; // List of tool names to block from this server
+
+  /** Authentication configuration for HTTP/SSE/WebSocket transports */
+  auth?: {
+    /** Authentication type */
+    type: "oauth2" | "bearer" | "api-key";
+    /** OAuth 2.1 configuration */
+    oauth?: {
+      /** OAuth client ID */
+      clientId: string;
+      /** OAuth client secret (optional for public clients with PKCE) */
+      clientSecret?: string;
+      /** Authorization endpoint URL */
+      authorizationUrl: string;
+      /** Token endpoint URL */
+      tokenUrl: string;
+      /** Redirect URI for OAuth callback */
+      redirectUrl: string;
+      /** OAuth scope (space-separated) */
+      scope?: string;
+      /** Enable PKCE (Proof Key for Code Exchange) - recommended for OAuth 2.1 */
+      usePKCE?: boolean;
+    };
+    /** Bearer token for simple token authentication */
+    token?: string;
+    /** API key for API key authentication */
+    apiKey?: string;
+    /** Header name for API key (default: "X-API-Key") */
+    apiKeyHeader?: string;
+  };
 
   // Extensible metadata
   metadata?: {
@@ -121,6 +174,20 @@ export type MCPServerInfo = {
     tags?: string[];
     [key: string]: unknown;
   };
+};
+
+/**
+ * HTTP Transport Options for fine-grained control
+ */
+export type MCPHTTPTransportOptions = {
+  /** Connection timeout in milliseconds (default: 30000) */
+  connectionTimeout?: number;
+  /** Request timeout in milliseconds (default: 60000) */
+  requestTimeout?: number;
+  /** Idle timeout for connection pool (default: 120000) */
+  idleTimeout?: number;
+  /** Keep-alive timeout (default: 30000) */
+  keepAliveTimeout?: number;
 };
 
 /**
@@ -319,31 +386,8 @@ export type NeuroLinkExecutionContext = {
   [key: string]: unknown;
 };
 
-/**
- * Tool execution result - Standardized result format
- */
-export type ToolResult = {
-  success: boolean;
-  data?: unknown;
-  error?: string | Error;
-  usage?: {
-    tokens?: number;
-    cost?: number;
-    provider?: string;
-    model?: string;
-    executionTime?: number;
-  };
-  metadata?: {
-    toolName?: string;
-    serverId?: string;
-    serverTitle?: string;
-    sessionId?: string;
-    timestamp?: number;
-    executionTime?: number;
-    executionId?: string;
-    [key: string]: unknown;
-  };
-};
+// ToolResult is imported from tools.ts and re-exported for convenience
+export type { ToolResult } from "./tools.js";
 
 /**
  * Unified MCP Registry type
@@ -772,4 +816,194 @@ export type FlexibleValidationResult = {
     validator?: string;
     schema?: string;
   };
+};
+
+// ============================================================================
+// HTTP TRANSPORT TYPES - OAuth 2.1, Rate Limiting, Retry Configuration
+// ============================================================================
+
+/**
+ * OAuth tokens structure for MCP HTTP transport authentication
+ */
+export type OAuthTokens = {
+  /** Access token for API authentication */
+  accessToken: string;
+  /** Refresh token for obtaining new access tokens */
+  refreshToken?: string;
+  /** Token expiration timestamp (Unix epoch in milliseconds) */
+  expiresAt?: number;
+  /** Token type (typically "Bearer") */
+  tokenType: string;
+  /** OAuth scope granted */
+  scope?: string;
+};
+
+/**
+ * Token storage type for OAuth 2.1 authentication
+ * Implementations can use in-memory, file-based, or external storage
+ */
+export type TokenStorage = {
+  /**
+   * Get stored tokens for a server
+   * @param serverId - Unique identifier for the MCP server
+   * @returns Stored tokens or null if not found
+   */
+  getTokens(serverId: string): Promise<OAuthTokens | null>;
+
+  /**
+   * Save tokens for a server
+   * @param serverId - Unique identifier for the MCP server
+   * @param tokens - OAuth tokens to store
+   */
+  saveTokens(serverId: string, tokens: OAuthTokens): Promise<void>;
+
+  /**
+   * Delete stored tokens for a server
+   * @param serverId - Unique identifier for the MCP server
+   */
+  deleteTokens(serverId: string): Promise<void>;
+
+  /**
+   * Check if tokens exist for a server
+   * @param serverId - Unique identifier for the MCP server
+   * @returns True if tokens exist
+   */
+  hasTokens?(serverId: string): Promise<boolean>;
+
+  /**
+   * Clear all stored tokens
+   */
+  clearAll?(): Promise<void>;
+};
+
+/**
+ * OAuth 2.1 configuration for MCP servers
+ */
+export type MCPOAuthConfig = {
+  /** OAuth client ID */
+  clientId: string;
+  /** OAuth client secret (optional for public clients with PKCE) */
+  clientSecret?: string;
+  /** Authorization endpoint URL */
+  authorizationUrl: string;
+  /** Token endpoint URL */
+  tokenUrl: string;
+  /** Redirect URI for OAuth callback */
+  redirectUrl: string;
+  /** OAuth scope (space-separated) */
+  scope?: string;
+  /** Enable PKCE (Proof Key for Code Exchange) - recommended for OAuth 2.1 */
+  usePKCE?: boolean;
+  /** Additional authorization parameters */
+  additionalParams?: Record<string, string>;
+};
+
+/**
+ * OAuth client information returned to MCP SDK
+ */
+export type OAuthClientInformation = {
+  clientId: string;
+  clientSecret?: string;
+  redirectUri: string;
+};
+
+/**
+ * Authorization URL result from OAuth flow
+ */
+export type AuthorizationUrlResult = {
+  url: string;
+  state: string;
+  codeVerifier?: string;
+};
+
+/**
+ * Token exchange request for OAuth code exchange
+ */
+export type TokenExchangeRequest = {
+  code: string;
+  state: string;
+  codeVerifier?: string;
+};
+
+/**
+ * Token bucket rate limit configuration options for HTTP transport
+ */
+export type TokenBucketRateLimitConfig = {
+  /** Maximum requests per window */
+  requestsPerWindow: number;
+  /** Window size in milliseconds (default: 60000 = 1 minute) */
+  windowMs: number;
+  /** Use token bucket algorithm (default: true) */
+  useTokenBucket: boolean;
+  /** Token refill rate (tokens per second, for token bucket) */
+  refillRate: number;
+  /** Maximum burst size (for token bucket) */
+  maxBurst: number;
+};
+
+/** @deprecated Use TokenBucketRateLimitConfig instead */
+export type RateLimitConfig = TokenBucketRateLimitConfig;
+
+/**
+ * HTTP retry configuration for MCP transport
+ */
+export type HTTPRetryConfig = {
+  /** Maximum retry attempts (default: 3) */
+  maxAttempts: number;
+  /** Initial delay in ms (default: 1000) */
+  initialDelay: number;
+  /** Maximum delay in ms (default: 30000) */
+  maxDelay: number;
+  /** Backoff multiplier (default: 2) */
+  backoffMultiplier: number;
+  /** HTTP status codes that trigger retry */
+  retryableStatusCodes: number[];
+};
+
+/**
+ * PKCE (Proof Key for Code Exchange) challenge data for OAuth 2.1 authentication
+ * Used internally by OAuth client providers to generate and store PKCE parameters
+ */
+export type PKCEChallenge = {
+  /** Random code verifier string (43-128 characters, URL-safe) */
+  codeVerifier: string;
+  /** SHA-256 hash of code verifier, base64url encoded */
+  codeChallenge: string;
+  /** Challenge method - always "S256" per OAuth 2.1 specification */
+  codeChallengeMethod: "S256";
+};
+
+/**
+ * Rate limiter statistics for monitoring and debugging HTTP transport rate limiting
+ * Provides insight into token bucket state and queue status
+ */
+export type RateLimiterStats = {
+  /** Current number of available tokens */
+  tokens: number;
+  /** Maximum burst size (token capacity) */
+  maxBurst: number;
+  /** Token refill rate (tokens per second) */
+  refillRate: number;
+  /** Number of requests waiting in queue */
+  queueLength: number;
+  /** Timestamp of last token refill */
+  lastRefill: Date;
+};
+
+/**
+ * Token response from OAuth server
+ * Standard OAuth 2.0/2.1 token endpoint response structure
+ * Used internally by NeuroLinkOAuthProvider for token exchange and refresh
+ */
+export type TokenResponse = {
+  /** Access token for API authentication */
+  access_token: string;
+  /** Refresh token for obtaining new access tokens (optional) */
+  refresh_token?: string;
+  /** Token lifetime in seconds (optional) */
+  expires_in?: number;
+  /** Token type (typically "Bearer") */
+  token_type: string;
+  /** OAuth scope granted (optional, space-separated) */
+  scope?: string;
 };

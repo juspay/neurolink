@@ -173,6 +173,46 @@ For a comprehensive guide to all supported tools and their configuration locatio
 
 All configurations use similar JSON structure with `mcpServers` as the primary key.
 
+### Transport Types (NEW - MCP 2025)
+
+NeuroLink supports multiple transport types for MCP server connections:
+
+| Transport | Use Case | Configuration |
+|-----------|----------|---------------|
+| **stdio** | Local MCP servers (npx commands) | `command: "npx ..."` |
+| **sse** | Legacy remote servers | `transport: "sse"`, `url: "http://..."` |
+| **http** | Remote MCP APIs (GitHub Copilot, Enterprise) | `transport: "http"`, `url: "https://..."` |
+
+#### HTTP Transport Configuration
+For remote MCP servers that use HTTP/Streamable HTTP transport:
+
+```json
+{
+  "mcpServers": {
+    "github-copilot": {
+      "name": "github-copilot",
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      },
+      "httpOptions": {
+        "timeout": 15000,
+        "retries": 3
+      }
+    }
+  }
+}
+```
+
+Key features:
+- **Custom Headers**: Authentication via Bearer tokens, API keys
+- **Session Management**: Automatic `Mcp-Session-Id` handling
+- **Retry Logic**: Configurable retry with exponential backoff
+- **Rate Limiting**: Built-in request throttling support
+
+See [MCP HTTP Transport Documentation](../docs/MCP-HTTP-TRANSPORT.md) for full details.
+
 ### The Resilient JSON Parser
 
 Our breakthrough resilient JSON parser handles real-world configuration files that often have syntax issues:

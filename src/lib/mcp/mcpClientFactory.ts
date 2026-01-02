@@ -1,21 +1,30 @@
 /**
  * MCP Client Factory
  * Creates and manages MCP clients for external servers
- * Supports stdio, SSE, and WebSocket transports
+ * Supports stdio, SSE, WebSocket, and HTTP transports
+ * Enhanced with retry, rate limiting, and OAuth 2.1 support
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { WebSocketClientTransport } from "@modelcontextprotocol/sdk/client/websocket.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type {
   ClientCapabilities,
   Implementation,
 } from "@modelcontextprotocol/sdk/types.js";
-import { spawn, ChildProcess } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
 import { mcpLogger } from "../utils/logger.js";
 import { globalCircuitBreakerManager } from "./mcpCircuitBreaker.js";
+import {
+  withHTTPRetry,
+  DEFAULT_HTTP_RETRY_CONFIG,
+} from "./httpRetryHandler.js";
+import { globalRateLimiterManager } from "./httpRateLimiter.js";
+import { NeuroLinkOAuthProvider, InMemoryTokenStorage } from "./auth/index.js";
+import type { MCPOAuthConfig } from "../types/mcpTypes.js";
 import type { MCPTransportType } from "../types/externalMcp.js";
 import type { MCPServerInfo, MCPClientResult } from "../types/mcpTypes.js";
 import type {
@@ -43,6 +52,7 @@ export class MCPClientFactory {
 
   /**
    * Create an MCP client for the given server configuration
+   * Enhanced with retry logic, rate limiting, and circuit breaker protection
    */
   static async createClient(
     config: MCPServerInfo,
@@ -54,7 +64,29 @@ export class MCPClientFactory {
       mcpLogger.info(`[MCPClientFactory] Creating client for ${config.id}`, {
         transport: config.transport,
         command: config.command,
+        hasRetryConfig: !!config.retryConfig,
+        hasRateLimiting: !!config.rateLimiting,
+        hasAuth: !!config.auth,
       });
+
+      // Acquire rate limit token if rate limiting is configured for HTTP transport
+      if (
+        (config.transport === "http" || config.transport === "sse") &&
+        config.rateLimiting
+      ) {
+        const rateLimiter = globalRateLimiterManager.getLimiter(config.id, {
+          requestsPerWindow: config.rateLimiting.requestsPerMinute ?? 60,
+          windowMs: 60000,
+          maxBurst: config.rateLimiting.maxBurst ?? 10,
+          useTokenBucket: config.rateLimiting.useTokenBucket ?? true,
+          refillRate: (config.rateLimiting.requestsPerMinute ?? 60) / 60,
+        });
+
+        await rateLimiter.acquire();
+        mcpLogger.debug(
+          `[MCPClientFactory] Rate limit token acquired for ${config.id}`,
+        );
+      }
 
       // Create circuit breaker for this server
       const circuitBreaker = globalCircuitBreakerManager.getBreaker(
@@ -66,10 +98,47 @@ export class MCPClientFactory {
         },
       );
 
-      // Create client with circuit breaker protection
-      const result = await circuitBreaker.execute(async () => {
-        return await this.createClientInternal(config, timeout);
-      });
+      // Define the client creation operation
+      const createClientOperation = async (): Promise<
+        Omit<MCPClientResult, "success" | "duration">
+      > => {
+        return await circuitBreaker.execute(async () => {
+          return await this.createClientInternal(config, timeout);
+        });
+      };
+
+      // Wrap with retry logic if retry config is provided for HTTP transport
+      let result: Omit<MCPClientResult, "success" | "duration">;
+
+      if (
+        (config.transport === "http" || config.transport === "sse") &&
+        config.retryConfig
+      ) {
+        mcpLogger.debug(
+          `[MCPClientFactory] Using retry logic for ${config.id}`,
+          {
+            maxAttempts:
+              config.retryConfig.maxAttempts ??
+              DEFAULT_HTTP_RETRY_CONFIG.maxAttempts,
+          },
+        );
+
+        result = await withHTTPRetry(createClientOperation, {
+          maxAttempts:
+            config.retryConfig.maxAttempts ??
+            DEFAULT_HTTP_RETRY_CONFIG.maxAttempts,
+          initialDelay:
+            config.retryConfig.initialDelay ??
+            DEFAULT_HTTP_RETRY_CONFIG.initialDelay,
+          maxDelay:
+            config.retryConfig.maxDelay ?? DEFAULT_HTTP_RETRY_CONFIG.maxDelay,
+          backoffMultiplier:
+            config.retryConfig.backoffMultiplier ??
+            DEFAULT_HTTP_RETRY_CONFIG.backoffMultiplier,
+        });
+      } else {
+        result = await createClientOperation();
+      }
 
       mcpLogger.info(
         `[MCPClientFactory] Client created successfully for ${config.id}`,
@@ -181,6 +250,9 @@ export class MCPClientFactory {
 
       case "websocket":
         return this.createWebSocketTransport(config);
+
+      case "http":
+        return this.createHTTPTransport(config);
 
       default:
         throw new Error(`Unsupported transport type: ${config.transport}`);
@@ -345,6 +417,208 @@ export class MCPClientFactory {
       throw new Error(
         `Invalid WebSocket URL: ${error instanceof Error ? error.message : String(error)}`,
       );
+    }
+  }
+
+  /**
+   * Create HTTP transport (Streamable HTTP)
+   * Enhanced with OAuth 2.1, rate limiting, and configurable timeouts
+   */
+  private static async createHTTPTransport(
+    config: MCPServerInfo,
+  ): Promise<NetworkTransportResult> {
+    if (!config.url) {
+      throw new Error("URL is required for HTTP transport");
+    }
+
+    // Extract HTTP options with defaults
+    const httpOptions = {
+      connectionTimeout: config.httpOptions?.connectionTimeout ?? 30000,
+      requestTimeout: config.httpOptions?.requestTimeout ?? 60000,
+      idleTimeout: config.httpOptions?.idleTimeout ?? 120000,
+      keepAliveTimeout: config.httpOptions?.keepAliveTimeout ?? 30000,
+    };
+
+    mcpLogger.debug(
+      `[MCPClientFactory] Creating HTTP transport for ${config.id}`,
+      {
+        url: config.url,
+        hasHeaders: !!config.headers,
+        hasAuth: !!config.auth,
+        authType: config.auth?.type,
+        httpOptions,
+      },
+    );
+
+    try {
+      const url = new URL(config.url);
+
+      // Set up OAuth provider if configured
+      const oauthProvider = await this.setupAuthProvider(config);
+
+      // Build headers including authentication
+      const headers: Record<string, string> = {
+        ...(config.headers ?? {}),
+      };
+
+      // Add authentication headers based on auth type
+      if (config.auth) {
+        const authHeader = await this.getAuthorizationHeader(
+          config,
+          oauthProvider,
+        );
+        if (authHeader) {
+          headers["Authorization"] = authHeader;
+        }
+      }
+
+      // Create custom fetch wrapper with timeout and rate limiting support
+      const fetchWithEnhancements = this.createEnhancedFetch(
+        config,
+        httpOptions.requestTimeout,
+        oauthProvider,
+      );
+
+      // Create request init with custom headers
+      const requestInit: RequestInit = {
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+      };
+
+      const transport = new StreamableHTTPClientTransport(url, {
+        requestInit,
+        fetch: fetchWithEnhancements,
+      });
+
+      return { transport };
+    } catch (error) {
+      throw new Error(
+        `Invalid HTTP URL: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Create a fetch wrapper with timeout support
+   */
+  private static createFetchWithTimeout(timeoutMs: number): typeof fetch {
+    return async (input: RequestInfo | URL, init?: RequestInit) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        return await fetch(input, { ...init, signal: controller.signal });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+  }
+
+  /**
+   * Create an enhanced fetch function with timeout and optional retry
+   */
+  private static createEnhancedFetch(
+    config: MCPServerInfo,
+    timeoutMs: number,
+    oauthProvider?: NeuroLinkOAuthProvider,
+  ): typeof fetch {
+    const fetchWithTimeout = this.createFetchWithTimeout(timeoutMs);
+
+    return async (input: RequestInfo | URL, init?: RequestInit) => {
+      // If OAuth is configured, ensure we have valid tokens
+      if (oauthProvider && config.auth?.type === "oauth2") {
+        try {
+          const authHeader = await oauthProvider.getAuthorizationHeader(
+            config.id,
+          );
+          if (authHeader) {
+            const existingHeaders = init?.headers ?? {};
+            const headers = new Headers(existingHeaders);
+            headers.set("Authorization", authHeader);
+
+            init = {
+              ...init,
+              headers,
+            };
+          }
+        } catch (error) {
+          mcpLogger.warn(
+            `[MCPClientFactory] OAuth token refresh failed for ${config.id}:`,
+            error instanceof Error ? error.message : String(error),
+          );
+          // Continue without auth - let the request fail naturally
+        }
+      }
+
+      return fetchWithTimeout(input, init);
+    };
+  }
+
+  /**
+   * Set up OAuth provider if configured
+   */
+  private static async setupAuthProvider(
+    config: MCPServerInfo,
+  ): Promise<NeuroLinkOAuthProvider | undefined> {
+    if (config.auth?.type === "oauth2" && config.auth.oauth) {
+      const tokenStorage = new InMemoryTokenStorage();
+      const oauthConfig: MCPOAuthConfig = {
+        clientId: config.auth.oauth.clientId,
+        clientSecret: config.auth.oauth.clientSecret,
+        authorizationUrl: config.auth.oauth.authorizationUrl,
+        tokenUrl: config.auth.oauth.tokenUrl,
+        redirectUrl: config.auth.oauth.redirectUrl,
+        scope: config.auth.oauth.scope,
+        usePKCE: config.auth.oauth.usePKCE ?? true,
+      };
+
+      const provider = new NeuroLinkOAuthProvider(oauthConfig, tokenStorage);
+
+      mcpLogger.debug(
+        `[MCPClientFactory] OAuth provider created for ${config.id}`,
+        {
+          clientId: oauthConfig.clientId,
+          usePKCE: oauthConfig.usePKCE,
+        },
+      );
+
+      return provider;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Get authorization header based on auth configuration
+   */
+  private static async getAuthorizationHeader(
+    config: MCPServerInfo,
+    oauthProvider?: NeuroLinkOAuthProvider,
+  ): Promise<string | undefined> {
+    if (!config.auth) {
+      return undefined;
+    }
+
+    switch (config.auth.type) {
+      case "oauth2":
+        if (oauthProvider) {
+          const header = await oauthProvider.getAuthorizationHeader(config.id);
+          return header ?? undefined;
+        }
+        return undefined;
+
+      case "bearer":
+        if (config.auth.token) {
+          return `Bearer ${config.auth.token}`;
+        }
+        return undefined;
+
+      case "api-key":
+        // API key is typically sent as a custom header, not Authorization
+        // But if needed, we can return it here
+        return undefined;
+
+      default:
+        return undefined;
     }
   }
 
@@ -591,12 +865,16 @@ export class MCPClientFactory {
       errors.push("Transport is required");
     }
 
-    if (!["stdio", "sse", "websocket"].includes(config.transport)) {
-      errors.push("Transport must be stdio, sse, or websocket");
+    if (!["stdio", "sse", "websocket", "http"].includes(config.transport)) {
+      errors.push("Transport must be stdio, sse, websocket, or http");
     }
 
     // Transport-specific validation
-    if (config.transport === "sse" || config.transport === "websocket") {
+    if (
+      config.transport === "sse" ||
+      config.transport === "websocket" ||
+      config.transport === "http"
+    ) {
       if (!config.url) {
         errors.push(`URL is required for ${config.transport} transport`);
       } else {
@@ -624,7 +902,7 @@ export class MCPClientFactory {
    * Get supported transport types
    */
   static getSupportedTransports(): MCPTransportType[] {
-    return ["stdio", "sse", "websocket"];
+    return ["stdio", "sse", "websocket", "http"];
   }
 
   /**

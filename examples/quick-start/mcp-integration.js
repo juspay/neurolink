@@ -1,144 +1,155 @@
 #!/usr/bin/env node
 /**
- * MCP Integration Demo - Small Team MCP Usage
- * Shows how to use NeuroLink's MCP system effectively
+ * MCP Integration Demo - HTTP Transport with NeuroLink
+ * Shows how to use NeuroLink's MCP system with remote HTTP servers
+ *
+ * This example demonstrates:
+ * - NeuroLink SDK setup
+ * - Adding external MCP servers with HTTP transport
+ * - AI generation with MCP tool access
+ * - Proper MCPServerInfo structure (flat, no nesting)
  */
 
 import dotenv from "dotenv";
 dotenv.config();
 
-import { AIProviderFactory } from "@juspay/neurolink";
-import { createMCPClient } from "../../dist/lib/mcp/factory.js";
+import { NeuroLink } from "@juspay/neurolink";
 
 async function mcpIntegrationDemo() {
-  console.log("🔧 MCP Integration Demo");
-  console.log("======================\n");
+  console.log("MCP Integration Demo");
+  console.log("====================\n");
 
   try {
-    // 1. MCP Factory Creation
-    console.log("1. 🏭 MCP Factory Setup");
+    // 1. Create NeuroLink instance
+    console.log("1. Creating NeuroLink instance");
 
-    const mcpClient = await MCPFactory.createClient({
-      enableLogging: true,
-      enableSecurity: true,
-      enableCaching: true,
-    });
+    const neurolink = new NeuroLink();
+    console.log("   NeuroLink instance created successfully\n");
 
-    if (mcpClient) {
-      console.log("   ✅ MCP client created successfully");
-    } else {
-      console.log("   ⚠️  MCP client creation failed");
-      return;
-    }
-    console.log();
+    // 2. Add External MCP Server with HTTP Transport
+    console.log("2. Adding External MCP Server (HTTP Transport)");
 
-    // 2. Tool Registration
-    console.log("2. 🛠️ Tool Registration");
-
-    // Register a custom tool
-    await mcpClient.registerTool("text-analyzer", {
-      description: "Analyzes text for sentiment and keywords",
-      parameters: {
-        text: { type: "string", required: true },
-        mode: { type: "string", default: "sentiment" },
-      },
-      handler: async (params) => {
-        // Simple text analysis example
-        const { text, mode } = params;
-        if (mode === "sentiment") {
-          const positive = ["good", "great", "excellent", "amazing"].some(
-            (word) => text.toLowerCase().includes(word),
-          );
-          return {
-            sentiment: positive ? "positive" : "neutral",
-            confidence: 0.8,
-          };
-        }
-        return { words: text.split(" ").length, characters: text.length };
-      },
-    });
-
-    console.log("   ✅ Custom tool registered: text-analyzer");
-    console.log();
-
-    // 3. Tool Execution
-    console.log("3. ⚡ Tool Execution");
-
-    const analysisResult = await mcpClient.executeTool("text-analyzer", {
-      text: "This is a great example of MCP integration!",
-      mode: "sentiment",
-    });
-
-    console.log("   📊 Analysis Result:", analysisResult);
-    console.log();
-
-    // 4. AI + MCP Integration
-    console.log("4. 🤝 AI + MCP Integration");
-
-    const aiProvider = await AIProviderFactory.createProvider(
-      "google-ai",
-      "gemini-2.5-flash",
-    );
-
-    if (aiProvider) {
-      // Use AI with MCP tool context
-      const prompt = `Analyze this text using available tools: "NeuroLink MCP system is excellent!"`;
-
-      const aiResult = await aiProvider.generate({
-        input: { text: prompt },
-        context: {
-          availableTools: ["text-analyzer"],
-          mcpEnabled: true,
+    // MCPServerInfo uses a FLAT structure - no nested server/config wrappers
+    // This is the correct pattern for adding remote MCP servers
+    try {
+      await neurolink.addExternalMCPServer("github-copilot", {
+        id: "github-copilot",
+        name: "GitHub Copilot MCP",
+        description: "GitHub Copilot MCP API for code assistance",
+        transport: "http",
+        status: "initializing",
+        tools: [],
+        url: "https://api.githubcopilot.com/mcp",
+        headers: {
+          Authorization: `Bearer ${process.env.GITHUB_COPILOT_TOKEN || "YOUR_TOKEN"}`,
+          "Content-Type": "application/json",
         },
       });
+      console.log("   GitHub Copilot MCP server added successfully\n");
+    } catch (error) {
+      console.log(
+        "   Note: GitHub Copilot MCP requires valid token:",
+        error.message,
+        "\n",
+      );
+    }
 
-      console.log("   🤖 AI Response:", aiResult.text);
+    // 3. Add another example HTTP MCP server
+    console.log("3. Adding Custom HTTP MCP Server");
 
-      // Execute the tool based on AI suggestion
-      const toolResult = await mcpClient.executeTool("text-analyzer", {
-        text: "NeuroLink MCP system is excellent!",
-        mode: "sentiment",
+    try {
+      await neurolink.addExternalMCPServer("custom-api", {
+        id: "custom-api",
+        name: "Custom API Server",
+        description: "Custom HTTP MCP server for domain-specific tools",
+        transport: "http",
+        status: "initializing",
+        tools: [],
+        url: "https://api.example.com/mcp",
+        headers: {
+          Authorization: `Bearer ${process.env.API_TOKEN || "YOUR_TOKEN"}`,
+          "X-Custom-Header": "custom-value",
+        },
+      });
+      console.log("   Custom API MCP server added successfully\n");
+    } catch (error) {
+      console.log(
+        "   Note: Custom API demo (expected in demo mode):",
+        error.message,
+        "\n",
+      );
+    }
+
+    // 4. AI Generation with MCP Tools
+    console.log("4. AI Generation with MCP Integration");
+
+    // Check if we have a valid API key for generation
+    const hasGoogleKey = !!process.env.GOOGLE_AI_API_KEY;
+    const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
+
+    if (hasGoogleKey || hasOpenAIKey) {
+      const provider = hasGoogleKey ? "google-ai" : "openai";
+      const model = hasGoogleKey ? "gemini-2.5-flash" : "gpt-4o-mini";
+
+      console.log(`   Using provider: ${provider} with model: ${model}`);
+
+      const result = await neurolink.generate({
+        input: { text: "What tools do you have available? List them briefly." },
+        provider: provider,
+        model: model,
       });
 
-      console.log("   🔧 Tool Result:", toolResult);
-    }
-    console.log();
-
-    // 5. Batch Tool Operations
-    console.log("5. 📦 Batch Operations");
-
-    const texts = [
-      "This is amazing!",
-      "Not sure about this.",
-      "Absolutely fantastic work!",
-    ];
-
-    const batchResults = await Promise.all(
-      texts.map((text) =>
-        mcpClient.executeTool("text-analyzer", { text, mode: "sentiment" }),
-      ),
-    );
-
-    batchResults.forEach((result, index) => {
+      console.log("   AI Response:", result.text?.substring(0, 200) + "...\n");
+    } else {
+      console.log("   Skipping AI generation (no API key configured)");
       console.log(
-        `   ${index + 1}. "${texts[index]}" → ${result.sentiment} (${result.confidence})`,
+        "   Set GOOGLE_AI_API_KEY or OPENAI_API_KEY to test generation\n",
       );
-    });
+    }
+
+    // 5. Display MCPServerInfo Structure Reference
+    console.log("5. MCPServerInfo Structure Reference");
+    console.log("   The correct FLAT structure for addExternalMCPServer:\n");
+
+    const exampleServerInfo = {
+      id: "server-id",
+      name: "Server Name",
+      description: "Server description",
+      transport: "http", // or "stdio" or "sse"
+      status: "initializing", // or "connected" or "error"
+      tools: [], // Array of available tools
+      url: "https://api.example.com/mcp", // Required for HTTP transport
+      headers: {
+        // Optional headers for authentication
+        Authorization: "Bearer TOKEN",
+      },
+    };
+
+    console.log(JSON.stringify(exampleServerInfo, null, 4));
     console.log();
 
-    console.log("🎉 MCP Integration Demo Complete!");
-    console.log("\n💡 Small Team MCP Best Practices:");
-    console.log("   - Register custom tools for domain-specific tasks");
-    console.log("   - Use batch operations for efficiency");
-    console.log("   - Combine AI + MCP for enhanced capabilities");
-    console.log("   - Enable caching for repeated tool calls");
-    console.log("   - Use security manager for production");
+    // Summary
+    console.log("MCP Integration Demo Complete!\n");
+    console.log("Key Points:");
+    console.log("  - Use NeuroLink class directly (not AIProviderFactory)");
+    console.log("  - Use addExternalMCPServer() for remote MCP servers");
+    console.log(
+      "  - MCPServerInfo uses FLAT structure (no server/config wrappers)",
+    );
+    console.log("  - HTTP transport requires url and optional headers");
+    console.log("  - Use neurolink.generate() for AI interactions");
+
+    console.log("\nTransport Types:");
+    console.log("  stdio  - Local CLI tools (npx, node, python commands)");
+    console.log("  sse    - Server-Sent Events (legacy web servers)");
+    console.log("  http   - HTTP/REST APIs (recommended for remote servers)");
   } catch (error) {
-    console.error("❌ MCP demo failed:", error.message);
-    console.log("\n🔧 MCP Troubleshooting:");
-    console.log("   1. Check MCP configuration in .mcp-config.json");
-    console.log("   2. Verify tool registration permissions");
-    console.log("   3. Check MCP server connectivity");
+    console.error("MCP demo failed:", error.message);
+    console.log("\nTroubleshooting:");
+    console.log("  1. Ensure NeuroLink is properly installed");
+    console.log("  2. Check API keys are set in environment");
+    console.log("  3. Verify MCP server URLs are accessible");
+    console.log("  4. Check authentication headers are correct");
   }
 }
 

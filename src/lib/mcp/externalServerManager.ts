@@ -8,14 +8,11 @@
  */
 
 import { EventEmitter } from "events";
-import type { ChildProcess } from "child_process";
-import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { mcpLogger } from "../utils/logger.js";
 import { MCPClientFactory } from "./mcpClientFactory.js";
 import { ToolDiscoveryService } from "./toolDiscoveryService.js";
 import { toolRegistry } from "./toolRegistry.js";
-import type { HITLManager } from "../hitl/hitlManager.js";
+import type { HITLManager } from "../types/hitlTypes.js";
 import { HITLUserRejectedError, HITLTimeoutError } from "../hitl/hitlErrors.js";
 import type {
   ExternalMCPServerInstance,
@@ -26,6 +23,7 @@ import type {
   ExternalMCPServerEvents,
   ExternalMCPManagerConfig,
   ExternalMCPToolInfo,
+  RuntimeMCPServerInfo,
 } from "../types/externalMcp.js";
 import type {
   MCPServerInfo,
@@ -84,6 +82,7 @@ function safeMetadataConversion(
 
 /**
  * Type guard to validate external MCP server configuration
+ * Supports both stdio transport (requires command) and HTTP transport (requires url)
  */
 function isValidExternalMCPServerConfig(
   config: unknown,
@@ -103,8 +102,16 @@ function isValidExternalMCPServerConfig(
     }
   }
 
+  // Must have either command (for stdio) or url (for HTTP/SSE transport)
+  const hasCommand = typeof record.command === "string";
+  const hasUrl = typeof record.url === "string";
+
+  if (!hasCommand && !hasUrl) {
+    return false;
+  }
+
   return (
-    typeof record.command === "string" &&
+    (record.command === undefined || typeof record.command === "string") &&
     (record.args === undefined || Array.isArray(record.args)) &&
     (record.env === undefined || isNonNullObject(record.env)) &&
     (record.transport === undefined || typeof record.transport === "string") &&
@@ -116,6 +123,11 @@ function isValidExternalMCPServerConfig(
       typeof record.autoRestart === "boolean") &&
     (record.cwd === undefined || typeof record.cwd === "string") &&
     (record.url === undefined || typeof record.url === "string") &&
+    (record.headers === undefined || isNonNullObject(record.headers)) &&
+    (record.httpOptions === undefined || isNonNullObject(record.httpOptions)) &&
+    (record.retryConfig === undefined || isNonNullObject(record.retryConfig)) &&
+    (record.rateLimiting === undefined ||
+      isNonNullObject(record.rateLimiting)) &&
     (record.metadata === undefined || isNonNullObject(record.metadata))
   );
 }
@@ -124,42 +136,6 @@ function isValidExternalMCPServerConfig(
  * ExternalServerManager
  * Core class for managing external MCP servers
  */
-/**
- * Extended MCPServerInfo with runtime state for external servers
- * This represents the transition towards zero-conversion architecture
- */
-interface RuntimeMCPServerInfo extends MCPServerInfo {
-  // Runtime-only fields not in MCPServerInfo
-  process: ChildProcess | null;
-  client: Client | null;
-  transportInstance: Transport | null; // Rename to avoid conflict with MCPServerInfo.transport
-  lastError?: string;
-  startTime?: Date;
-  lastHealthCheck?: Date;
-  reconnectAttempts: number;
-  maxReconnectAttempts: number;
-  capabilities?: Record<string, JsonValue>;
-  healthTimer?: NodeJS.Timeout;
-  restartTimer?: NodeJS.Timeout;
-  metrics: {
-    totalConnections: number;
-    totalDisconnections: number;
-    totalErrors: number;
-    totalToolCalls: number;
-    averageResponseTime: number;
-    lastResponseTime: number;
-  };
-  // Legacy compatibility - maintain tools map for now
-  toolsMap: Map<string, ExternalMCPToolInfo>;
-  toolsArray?: Array<{
-    name: string;
-    description: string;
-    inputSchema?: object;
-  }>;
-  // Compatibility field for existing code
-  config: MCPServerInfo;
-}
-
 export class ExternalServerManager extends EventEmitter {
   private servers: Map<string, RuntimeMCPServerInfo> = new Map();
   private config: Required<ExternalMCPManagerConfig>;
@@ -299,14 +275,20 @@ export class ExternalServerManager extends EventEmitter {
             const externalConfig: MCPServerInfo = {
               id: serverId,
               name: serverId,
-              description: `External MCP server: ${serverId}`,
+              description:
+                typeof serverConfig.description === "string"
+                  ? serverConfig.description
+                  : `External MCP server: ${serverId}`,
               transport:
                 typeof serverConfig.transport === "string"
                   ? (serverConfig.transport as MCPTransportType)
                   : "stdio",
               status: "initializing" as const,
               tools: [],
-              command: serverConfig.command as string,
+              command:
+                typeof serverConfig.command === "string"
+                  ? serverConfig.command
+                  : undefined,
               args: Array.isArray(serverConfig.args)
                 ? (serverConfig.args as string[])
                 : [],
@@ -337,6 +319,19 @@ export class ExternalServerManager extends EventEmitter {
                 typeof serverConfig.url === "string"
                   ? serverConfig.url
                   : undefined,
+              // HTTP transport-specific fields
+              headers: isNonNullObject(serverConfig.headers)
+                ? (serverConfig.headers as Record<string, string>)
+                : undefined,
+              httpOptions: isNonNullObject(serverConfig.httpOptions)
+                ? (serverConfig.httpOptions as MCPServerInfo["httpOptions"])
+                : undefined,
+              retryConfig: isNonNullObject(serverConfig.retryConfig)
+                ? (serverConfig.retryConfig as MCPServerInfo["retryConfig"])
+                : undefined,
+              rateLimiting: isNonNullObject(serverConfig.rateLimiting)
+                ? (serverConfig.rateLimiting as MCPServerInfo["rateLimiting"])
+                : undefined,
               blockedTools: Array.isArray(serverConfig.blockedTools)
                 ? (serverConfig.blockedTools as string[])
                 : undefined,
@@ -451,14 +446,20 @@ export class ExternalServerManager extends EventEmitter {
           const externalConfig: MCPServerInfo = {
             id: serverId,
             name: serverId,
-            description: `External MCP server: ${serverId}`,
+            description:
+              typeof serverConfig.description === "string"
+                ? serverConfig.description
+                : `External MCP server: ${serverId}`,
             transport:
               typeof serverConfig.transport === "string"
                 ? (serverConfig.transport as MCPTransportType)
                 : "stdio",
             status: "initializing" as const,
             tools: [],
-            command: serverConfig.command as string,
+            command:
+              typeof serverConfig.command === "string"
+                ? serverConfig.command
+                : undefined,
             args: Array.isArray(serverConfig.args)
               ? (serverConfig.args as string[])
               : [],
@@ -489,6 +490,19 @@ export class ExternalServerManager extends EventEmitter {
               typeof serverConfig.url === "string"
                 ? serverConfig.url
                 : undefined,
+            // HTTP transport-specific fields
+            headers: isNonNullObject(serverConfig.headers)
+              ? (serverConfig.headers as Record<string, string>)
+              : undefined,
+            httpOptions: isNonNullObject(serverConfig.httpOptions)
+              ? (serverConfig.httpOptions as MCPServerInfo["httpOptions"])
+              : undefined,
+            retryConfig: isNonNullObject(serverConfig.retryConfig)
+              ? (serverConfig.retryConfig as MCPServerInfo["retryConfig"])
+              : undefined,
+            rateLimiting: isNonNullObject(serverConfig.rateLimiting)
+              ? (serverConfig.rateLimiting as MCPServerInfo["rateLimiting"])
+              : undefined,
             blockedTools: Array.isArray(serverConfig.blockedTools)
               ? (serverConfig.blockedTools as string[])
               : undefined,
@@ -544,24 +558,30 @@ export class ExternalServerManager extends EventEmitter {
       errors.push("Server ID is required and must be a string");
     }
 
-    if (!config.command || typeof config.command !== "string") {
-      errors.push("Command is required and must be a string");
+    if (!["stdio", "sse", "websocket", "http"].includes(config.transport)) {
+      errors.push("Transport must be one of: stdio, sse, websocket, http");
     }
 
-    if (!Array.isArray(config.args)) {
-      errors.push("Args must be an array");
-    }
-
-    if (!["stdio", "sse", "websocket"].includes(config.transport)) {
-      errors.push("Transport must be one of: stdio, sse, websocket");
-    }
-
-    // URL validation for non-stdio transports
-    if (
-      (config.transport === "sse" || config.transport === "websocket") &&
-      !config.url
+    // Transport-specific validation
+    if (config.transport === "stdio") {
+      // stdio transport requires command
+      if (!config.command || typeof config.command !== "string") {
+        errors.push(
+          "Command is required and must be a string for stdio transport",
+        );
+      }
+      if (!Array.isArray(config.args)) {
+        errors.push("Args must be an array");
+      }
+    } else if (
+      config.transport === "sse" ||
+      config.transport === "websocket" ||
+      config.transport === "http"
     ) {
-      errors.push(`URL is required for ${config.transport} transport`);
+      // HTTP-based transports require URL
+      if (!config.url || typeof config.url !== "string") {
+        errors.push(`URL is required for ${config.transport} transport`);
+      }
     }
 
     // Warnings for common issues
@@ -680,14 +700,19 @@ export class ExternalServerManager extends EventEmitter {
         command: serverInfo.command || "",
         args: serverInfo.args || [],
         env: serverInfo.env || {},
-        timeout: serverInfo.metadata?.timeout as number,
-        retries: serverInfo.metadata?.retries as number,
-        healthCheckInterval: serverInfo.metadata?.healthCheckInterval as number,
-        autoRestart: serverInfo.metadata?.autoRestart as boolean,
-        cwd: serverInfo.metadata?.cwd as string,
-        url: serverInfo.metadata?.url as string,
+        timeout: serverInfo.timeout,
+        retries: serverInfo.retries,
+        healthCheckInterval: serverInfo.healthCheckInterval,
+        autoRestart: serverInfo.autoRestart,
+        cwd: serverInfo.cwd,
+        url: serverInfo.url,
         blockedTools: serverInfo.blockedTools,
         metadata: safeMetadataConversion(serverInfo.metadata),
+        // HTTP transport-specific fields
+        headers: serverInfo.headers,
+        httpOptions: serverInfo.httpOptions,
+        retryConfig: serverInfo.retryConfig,
+        rateLimiting: serverInfo.rateLimiting,
       };
 
       const validation = this.validateConfig(tempConfig);

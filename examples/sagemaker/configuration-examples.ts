@@ -5,14 +5,10 @@
  * for setting up the SageMaker provider in different environments.
  */
 
-import { AIProviderFactory } from "@juspay/neurolink";
-import type {
-  SageMakerConfig,
-  SageMakerModelConfig,
-} from "@juspay/neurolink/lib/providers/sagemaker/types";
+import { NeuroLink } from "@juspay/neurolink";
 
 // Example 1: Environment Variable Configuration (Recommended for Production)
-export async function createProviderFromEnvironment() {
+export async function generateWithEnvironmentConfig() {
   console.log("📋 Configuration Example 1: Environment Variables");
 
   // Set environment variables (typically in .env file or deployment config)
@@ -27,60 +23,75 @@ export async function createProviderFromEnvironment() {
   SAGEMAKER_MODEL_TYPE=custom
   */
 
-  const provider = await AIProviderFactory.createProvider("sagemaker", {
-    // Provider will automatically load from environment variables
-    endpointName: process.env.SAGEMAKER_DEFAULT_ENDPOINT,
+  const neurolink = new NeuroLink();
+
+  // NeuroLink automatically loads AWS credentials from environment variables
+  const result = await neurolink.generate({
+    input: {
+      text: "Explain the benefits of using SageMaker for ML deployment",
+    },
+    provider: "sagemaker",
+    model: process.env.SAGEMAKER_DEFAULT_ENDPOINT || "my-model-endpoint",
   });
 
-  console.log("✅ Provider created using environment configuration");
-  return provider;
+  console.log("✅ Generation completed using environment configuration");
+  console.log("Response:", result.text);
+  return result;
 }
 
-// Example 2: Explicit Configuration Object
-export async function createProviderWithExplicitConfig() {
+// Example 2: Explicit Configuration with Provider Options
+export async function generateWithExplicitConfig() {
   console.log("📋 Configuration Example 2: Explicit Configuration");
 
-  const config: SageMakerConfig = {
-    accessKeyId: "AKIAIOSFODNN7EXAMPLE",
-    secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-    region: "us-west-2",
-    sessionToken: "optional-session-token",
-    timeout: 45000, // 45 seconds
-    maxRetries: 5,
-    endpoint: "https://custom-sagemaker-endpoint.amazonaws.com",
-  };
+  const neurolink = new NeuroLink();
 
-  const provider = await AIProviderFactory.createProvider("sagemaker", {
-    config,
-    endpointName: "my-custom-endpoint",
-    modelName: "my-custom-model",
+  const result = await neurolink.generate({
+    input: { text: "What are the best practices for SageMaker endpoints?" },
+    provider: "sagemaker",
+    model: "my-custom-endpoint",
+    providerOptions: {
+      sagemaker: {
+        region: "us-west-2",
+        timeout: 45000, // 45 seconds
+        maxRetries: 5,
+        contentType: "application/json",
+        accept: "application/json",
+      },
+    },
   });
 
-  console.log("✅ Provider created with explicit configuration");
-  return provider;
+  console.log("✅ Generation completed with explicit configuration");
+  console.log("Response:", result.text);
+  return result;
 }
 
 // Example 3: Development Environment Configuration
-export async function createDevelopmentProvider() {
+export async function generateForDevelopment() {
   console.log("📋 Configuration Example 3: Development Environment");
 
-  const provider = await AIProviderFactory.createProvider("sagemaker", {
-    config: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      region: "us-east-1",
-      timeout: 60000, // Longer timeout for development
-      maxRetries: 2, // Fewer retries for faster feedback
+  const neurolink = new NeuroLink();
+
+  const result = await neurolink.generate({
+    input: { text: "Help me debug my SageMaker endpoint" },
+    provider: "sagemaker",
+    model: "dev-test-endpoint",
+    providerOptions: {
+      sagemaker: {
+        region: "us-east-1",
+        timeout: 60000, // Longer timeout for development
+        maxRetries: 2, // Fewer retries for faster feedback
+      },
     },
-    endpointName: "dev-test-endpoint",
+    temperature: 0.7, // More creative for development testing
   });
 
-  console.log("✅ Development provider created");
-  return provider;
+  console.log("✅ Development generation completed");
+  console.log("Response:", result.text);
+  return result;
 }
 
 // Example 4: Production Environment Configuration
-export async function createProductionProvider() {
+export async function generateForProduction() {
   console.log("📋 Configuration Example 4: Production Environment");
 
   // Production configuration with error handling
@@ -96,33 +107,32 @@ export async function createProductionProvider() {
     }
   }
 
-  const provider = await AIProviderFactory.createProvider("sagemaker", {
-    config: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      region: process.env.AWS_REGION || "us-east-1",
-      sessionToken: process.env.AWS_SESSION_TOKEN,
-      timeout: parseInt(process.env.SAGEMAKER_TIMEOUT || "30000"),
-      maxRetries: parseInt(process.env.SAGEMAKER_MAX_RETRIES || "3"),
+  const neurolink = new NeuroLink();
+
+  const result = await neurolink.generate({
+    input: { text: "Process this production request" },
+    provider: "sagemaker",
+    model: process.env.SAGEMAKER_PRODUCTION_ENDPOINT!,
+    providerOptions: {
+      sagemaker: {
+        region: process.env.AWS_REGION || "us-east-1",
+        timeout: parseInt(process.env.SAGEMAKER_TIMEOUT || "30000"),
+        maxRetries: parseInt(process.env.SAGEMAKER_MAX_RETRIES || "3"),
+      },
     },
-    endpointName: process.env.SAGEMAKER_PRODUCTION_ENDPOINT!,
-    modelName: process.env.SAGEMAKER_MODEL_NAME || "production-model",
+    temperature: 0.3, // Lower temperature for consistent production outputs
   });
 
-  console.log("✅ Production provider created with validation");
-  return provider;
+  console.log("✅ Production generation completed with validation");
+  console.log("Response:", result.text);
+  return result;
 }
 
 // Example 5: Multi-Region Configuration
-export async function createMultiRegionProviders() {
+export async function generateWithMultiRegion() {
   console.log("📋 Configuration Example 5: Multi-Region Setup");
 
-  const baseConfig = {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    timeout: 30000,
-    maxRetries: 3,
-  };
+  const neurolink = new NeuroLink();
 
   const regions = [
     { region: "us-east-1", endpoint: "us-east-model-endpoint" },
@@ -130,110 +140,110 @@ export async function createMultiRegionProviders() {
     { region: "ap-southeast-1", endpoint: "asia-model-endpoint" },
   ];
 
-  const providers = await Promise.all(
+  const results = await Promise.all(
     regions.map(async ({ region, endpoint }) => {
-      return await AIProviderFactory.createProvider("sagemaker", {
-        config: { ...baseConfig, region },
-        endpointName: endpoint,
+      return await neurolink.generate({
+        input: { text: `Process request in ${region}` },
+        provider: "sagemaker",
+        model: endpoint,
+        providerOptions: {
+          sagemaker: {
+            region,
+            timeout: 30000,
+            maxRetries: 3,
+          },
+        },
       });
     }),
   );
 
-  console.log(`✅ Created ${providers.length} regional providers`);
-  return providers;
+  console.log(`✅ Completed ${results.length} regional generations`);
+  return results;
 }
 
 // Example 6: Configuration with Custom Model Types
-export async function createTypedModelProviders() {
+export async function generateWithTypedModels() {
   console.log("📋 Configuration Example 6: Typed Model Configuration");
 
-  const configs = [
+  const neurolink = new NeuroLink();
+
+  const modelConfigs = [
     {
       name: "LLaMA Model",
-      config: {
-        endpointName: "llama-2-7b-endpoint",
-        modelType: "llama" as const,
-        contentType: "application/json",
-        accept: "application/json",
-      },
+      endpoint: "llama-2-7b-endpoint",
+      modelType: "llama",
     },
     {
       name: "Mistral Model",
-      config: {
-        endpointName: "mistral-7b-endpoint",
-        modelType: "mistral" as const,
-        contentType: "application/json",
-        accept: "application/json",
-      },
+      endpoint: "mistral-7b-endpoint",
+      modelType: "mistral",
     },
     {
       name: "HuggingFace Model",
-      config: {
-        endpointName: "huggingface-endpoint",
-        modelType: "huggingface" as const,
-        inputFormat: "huggingface" as const,
-        outputFormat: "huggingface" as const,
-      },
+      endpoint: "huggingface-endpoint",
+      modelType: "huggingface",
     },
   ];
 
-  const providers = await Promise.all(
-    configs.map(async ({ name, config }) => {
-      const provider = await AIProviderFactory.createProvider(
-        "sagemaker",
-        config,
-      );
-      console.log(`   ✅ Created provider for ${name}`);
-      return { name, provider };
+  const results = await Promise.all(
+    modelConfigs.map(async ({ name, endpoint, modelType }) => {
+      const result = await neurolink.generate({
+        input: { text: `Test prompt for ${name}` },
+        provider: "sagemaker",
+        model: endpoint,
+        providerOptions: {
+          sagemaker: {
+            modelType,
+            contentType: "application/json",
+            accept: "application/json",
+          },
+        },
+      });
+      console.log(`   ✅ Completed generation for ${name}`);
+      return { name, result };
     }),
   );
 
-  return providers;
+  return results;
 }
 
 // Example 7: Configuration Validation and Testing
 export async function validateAndTestConfiguration() {
   console.log("📋 Configuration Example 7: Validation and Testing");
 
+  const neurolink = new NeuroLink();
+
   try {
-    // Create provider
-    const provider = await AIProviderFactory.createProvider("sagemaker", {
-      endpointName: process.env.SAGEMAKER_TEST_ENDPOINT || "test-endpoint",
+    console.log("   🔍 Testing configuration...");
+
+    const result = await neurolink.generate({
+      input: {
+        text: "Hello, this is a connectivity test. Please respond briefly.",
+      },
+      provider: "sagemaker",
+      model: process.env.SAGEMAKER_TEST_ENDPOINT || "test-endpoint",
+      maxTokens: 50, // Short response for testing
     });
 
-    // Get model and test connectivity
-    const model = await provider.getAISDKModel();
-
-    console.log("   🔍 Testing configuration...");
-    const connectivityTest = await model.testConnectivity();
-
-    if (connectivityTest.success) {
+    if (result.text) {
       console.log("   ✅ Configuration validated successfully");
-
-      // Get model info
-      const modelInfo = model.getModelInfo();
-      console.log("   📊 Model Information:");
-      console.log(`      Provider: ${modelInfo.provider}`);
-      console.log(`      Model ID: ${modelInfo.modelId}`);
-      console.log(`      Endpoint: ${modelInfo.endpointName}`);
-      console.log(`      Region: ${modelInfo.region}`);
-
-      // Test capabilities
-      const capabilities = model.getModelCapabilities();
-      console.log("   🎯 Model Capabilities:");
-      console.log(`      Streaming: ${capabilities.capabilities.streaming}`);
+      console.log("   📊 Generation Information:");
+      console.log(`      Provider: sagemaker`);
       console.log(
-        `      Tool Calling: ${capabilities.capabilities.toolCalling}`,
+        `      Model: ${process.env.SAGEMAKER_TEST_ENDPOINT || "test-endpoint"}`,
       );
-      console.log(
-        `      Structured Output: ${capabilities.capabilities.structuredOutput}`,
-      );
+      console.log(`      Response length: ${result.text.length} characters`);
 
-      return { success: true, provider, model };
+      if (result.usage) {
+        console.log("   📈 Usage:");
+        console.log(`      Input tokens: ${result.usage.promptTokens}`);
+        console.log(`      Output tokens: ${result.usage.completionTokens}`);
+      }
+
+      return { success: true, result };
     } else {
-      console.log("   ❌ Configuration validation failed");
-      console.log(`      Error: ${connectivityTest.error}`);
-      return { success: false, error: connectivityTest.error };
+      console.log("   ❌ Configuration validation failed - no response");
+      return { success: false, error: "No response received" };
     }
   } catch (error) {
     console.log("   ❌ Configuration error");
@@ -248,51 +258,57 @@ export async function validateAndTestConfiguration() {
 }
 
 // Example 8: Configuration from File
-export async function createProviderFromConfigFile(configPath: string) {
+export async function generateFromConfigFile(configPath: string) {
   console.log("📋 Configuration Example 8: File-based Configuration");
 
-  try {
-    // Example config file structure
-    const exampleConfig = {
-      aws: {
-        accessKeyId: "your-access-key",
-        secretAccessKey: "your-secret-key",
-        region: "us-east-1",
-        timeout: 30000,
-        maxRetries: 3,
-      },
+  // Example config file structure
+  const exampleConfig = {
+    aws: {
+      region: "us-east-1",
+      timeout: 30000,
+      maxRetries: 3,
+    },
+    sagemaker: {
+      defaultEndpoint: "my-model-endpoint",
+      modelType: "custom",
+      contentType: "application/json",
+      accept: "application/json",
+    },
+  };
+
+  console.log("   📄 Example config file structure:");
+  console.log(JSON.stringify(exampleConfig, null, 2));
+
+  // In a real implementation, you would read from the file:
+  // const fs = await import('fs/promises');
+  // const configData = await fs.readFile(configPath, 'utf-8');
+  // const config = JSON.parse(configData);
+
+  const neurolink = new NeuroLink();
+
+  // For demonstration, using example config
+  const result = await neurolink.generate({
+    input: { text: "Process request using file-based configuration" },
+    provider: "sagemaker",
+    model: exampleConfig.sagemaker.defaultEndpoint,
+    providerOptions: {
       sagemaker: {
-        defaultEndpoint: "my-model-endpoint",
-        modelType: "custom",
-        contentType: "application/json",
-        accept: "application/json",
+        region: exampleConfig.aws.region,
+        timeout: exampleConfig.aws.timeout,
+        maxRetries: exampleConfig.aws.maxRetries,
+        modelType: exampleConfig.sagemaker.modelType,
+        contentType: exampleConfig.sagemaker.contentType,
+        accept: exampleConfig.sagemaker.accept,
       },
-    };
+    },
+  });
 
-    console.log("   📄 Example config file structure:");
-    console.log(JSON.stringify(exampleConfig, null, 2));
-
-    // In a real implementation, you would read from the file:
-    // const fs = await import('fs/promises');
-    // const configData = await fs.readFile(configPath, 'utf-8');
-    // const config = JSON.parse(configData);
-
-    // For demonstration, using example config
-    const provider = await AIProviderFactory.createProvider("sagemaker", {
-      config: exampleConfig.aws,
-      endpointName: exampleConfig.sagemaker.defaultEndpoint,
-    });
-
-    console.log("   ✅ Provider created from configuration file");
-    return provider;
-  } catch (error) {
-    console.log("   ❌ Failed to load configuration from file");
-    throw error;
-  }
+  console.log("   ✅ Generation completed using file configuration");
+  return result;
 }
 
 // Example 9: Dynamic Configuration Selection
-export async function createProviderByEnvironment(
+export async function generateByEnvironment(
   environment: "development" | "staging" | "production",
 ) {
   console.log(
@@ -301,48 +317,80 @@ export async function createProviderByEnvironment(
 
   const configurations = {
     development: {
-      config: {
-        accessKeyId: process.env.DEV_AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.DEV_AWS_SECRET_ACCESS_KEY!,
-        region: "us-east-1",
-        timeout: 60000,
-        maxRetries: 1,
-      },
-      endpointName: "dev-model-endpoint",
-      modelName: "development-model",
+      endpoint: "dev-model-endpoint",
+      region: "us-east-1",
+      timeout: 60000,
+      maxRetries: 1,
+      temperature: 0.7,
     },
     staging: {
-      config: {
-        accessKeyId: process.env.STAGING_AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.STAGING_AWS_SECRET_ACCESS_KEY!,
-        region: "us-west-2",
-        timeout: 45000,
-        maxRetries: 2,
-      },
-      endpointName: "staging-model-endpoint",
-      modelName: "staging-model",
+      endpoint: "staging-model-endpoint",
+      region: "us-west-2",
+      timeout: 45000,
+      maxRetries: 2,
+      temperature: 0.5,
     },
     production: {
-      config: {
-        accessKeyId: process.env.PROD_AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.PROD_AWS_SECRET_ACCESS_KEY!,
-        region: process.env.PROD_AWS_REGION || "us-east-1",
-        timeout: 30000,
-        maxRetries: 3,
-      },
-      endpointName: process.env.PROD_SAGEMAKER_ENDPOINT!,
-      modelName: "production-model",
+      endpoint: process.env.PROD_SAGEMAKER_ENDPOINT || "production-endpoint",
+      region: process.env.PROD_AWS_REGION || "us-east-1",
+      timeout: 30000,
+      maxRetries: 3,
+      temperature: 0.3,
     },
   };
 
   const config = configurations[environment];
-  const provider = await AIProviderFactory.createProvider("sagemaker", config);
+  const neurolink = new NeuroLink();
 
-  console.log(`   ✅ ${environment} provider created`);
-  return provider;
+  const result = await neurolink.generate({
+    input: { text: `Process ${environment} request` },
+    provider: "sagemaker",
+    model: config.endpoint,
+    temperature: config.temperature,
+    providerOptions: {
+      sagemaker: {
+        region: config.region,
+        timeout: config.timeout,
+        maxRetries: config.maxRetries,
+      },
+    },
+  });
+
+  console.log(`   ✅ ${environment} generation completed`);
+  console.log("Response:", result.text);
+  return result;
 }
 
-// Example 10: Configuration Best Practices Summary
+// Example 10: Streaming with SageMaker
+export async function generateWithStreaming() {
+  console.log("📋 Configuration Example 10: Streaming Generation");
+
+  const neurolink = new NeuroLink();
+
+  const stream = await neurolink.stream({
+    input: { text: "Explain machine learning in detail" },
+    provider: "sagemaker",
+    model: process.env.SAGEMAKER_STREAMING_ENDPOINT || "streaming-endpoint",
+    providerOptions: {
+      sagemaker: {
+        region: "us-east-1",
+        timeout: 60000,
+      },
+    },
+  });
+
+  console.log("   📝 Streaming response:");
+  process.stdout.write("   ");
+
+  for await (const chunk of stream.textStream) {
+    process.stdout.write(chunk);
+  }
+
+  console.log("\n   ✅ Streaming completed");
+  return stream;
+}
+
+// Example 11: Configuration Best Practices Summary
 export function showConfigurationBestPractices() {
   console.log("📋 Configuration Best Practices Summary\n");
 
@@ -371,7 +419,7 @@ export function showConfigurationBestPractices() {
       items: [
         "Configure timeouts based on expected response times",
         "Set appropriate retry limits to balance reliability and speed",
-        "Use connection pooling for high-throughput applications",
+        "Use streaming for long-running generations",
         "Monitor and adjust configurations based on metrics",
       ],
     },
@@ -415,31 +463,34 @@ export async function runAllConfigurationExamples() {
 
   try {
     // Run each example
-    await createProviderFromEnvironment();
+    await generateWithEnvironmentConfig();
     console.log();
 
-    await createProviderWithExplicitConfig();
+    await generateWithExplicitConfig();
     console.log();
 
-    await createDevelopmentProvider();
+    await generateForDevelopment();
     console.log();
 
-    await createProductionProvider();
+    await generateForProduction();
     console.log();
 
-    await createMultiRegionProviders();
+    await generateWithMultiRegion();
     console.log();
 
-    await createTypedModelProviders();
+    await generateWithTypedModels();
     console.log();
 
     await validateAndTestConfiguration();
     console.log();
 
-    await createProviderFromConfigFile("./config/sagemaker.json");
+    await generateFromConfigFile("./config/sagemaker.json");
     console.log();
 
-    await createProviderByEnvironment("development");
+    await generateByEnvironment("development");
+    console.log();
+
+    await generateWithStreaming();
     console.log();
 
     showConfigurationBestPractices();
@@ -450,6 +501,8 @@ export async function runAllConfigurationExamples() {
 }
 
 // Run examples if this file is executed directly
-if (require.main === module) {
+// Note: Use ES module check for direct execution
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
   runAllConfigurationExamples();
 }

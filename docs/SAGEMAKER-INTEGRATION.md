@@ -1,21 +1,21 @@
-# 🚀 SageMaker Integration - Deploy Your Custom AI Models
+# SageMaker Integration - Deploy Your Custom AI Models
 
-> **✅ FULLY IMPLEMENTED**: NeuroLink now supports Amazon SageMaker, enabling you to deploy and use your own custom trained models through NeuroLink's unified interface. All features documented below are complete and production-ready.
+> **FULLY IMPLEMENTED**: NeuroLink now supports Amazon SageMaker, enabling you to deploy and use your own custom trained models through NeuroLink's unified interface. All features documented below are complete and production-ready.
 
-## 🌟 **What is SageMaker Integration?**
+## What is SageMaker Integration?
 
 SageMaker integration transforms NeuroLink into a platform for custom AI model deployment, offering:
 
-- **🏗️ Custom Model Hosting** - Deploy your fine-tuned models on AWS infrastructure
-- **💰 Cost Control** - Pay only for inference usage with auto-scaling capabilities
-- **🔒 Enterprise Security** - Full control over model infrastructure and data privacy
-- **⚡ Performance** - Dedicated compute resources with predictable latency
-- **🌍 Global Deployment** - Available in all major AWS regions
-- **📊 Monitoring** - Built-in CloudWatch metrics and logging
+- **Custom Model Hosting** - Deploy your fine-tuned models on AWS infrastructure
+- **Cost Control** - Pay only for inference usage with auto-scaling capabilities
+- **Enterprise Security** - Full control over model infrastructure and data privacy
+- **Performance** - Dedicated compute resources with predictable latency
+- **Global Deployment** - Available in all major AWS regions
+- **Monitoring** - Built-in CloudWatch metrics and logging
 
-## 🚀 **Quick Start**
+## Quick Start
 
-### **1. Deploy Your Model to SageMaker**
+### 1. Deploy Your Model to SageMaker
 
 First, you need a model deployed to a SageMaker endpoint:
 
@@ -40,7 +40,7 @@ predictor = huggingface_model.deploy(
 )
 ```
 
-### **2. Configure NeuroLink**
+### 2. Configure NeuroLink
 
 ```bash
 # Set AWS credentials and SageMaker configuration
@@ -50,7 +50,7 @@ export AWS_REGION="us-east-1"
 export SAGEMAKER_DEFAULT_ENDPOINT="my-custom-model-endpoint"
 ```
 
-### **3. Use with CLI**
+### 3. Use with CLI
 
 ```bash
 # Test SageMaker endpoint connectivity
@@ -66,37 +66,37 @@ npx @juspay/neurolink generate "Domain-specific task" --provider sagemaker --mod
 npx @juspay/neurolink sagemaker benchmark my-custom-model-endpoint
 ```
 
-### **4. Use with SDK**
+### 4. Use with SDK
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-// Create SageMaker provider
-const provider = await AIProviderFactory.createProvider("sagemaker");
+// Create NeuroLink instance
+const neurolink = new NeuroLink();
 
 // Generate with default endpoint
-const result = await provider.generate({
+const result = await neurolink.generate({
   input: { text: "Analyze customer feedback for sentiment and themes" },
+  provider: "sagemaker",
 });
 
 // Use specific endpoint
-const domainProvider = await AIProviderFactory.createProvider(
-  "sagemaker",
-  "domain-expert-model-endpoint",
-);
-
-const domainResult = await domainProvider.generate({
+const domainResult = await neurolink.generate({
   input: { text: "Industry-specific analysis request" },
+  provider: "sagemaker",
+  model: "domain-expert-model-endpoint",
 });
 ```
 
-## 🎯 **Key Benefits**
+## Key Benefits
 
-### **🏗️ Custom Model Deployment**
+### Custom Model Deployment
 
 Deploy any model you've trained or fine-tuned:
 
 ```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
 // Example: Using different specialized models
 const models = {
   sentiment: "sentiment-analysis-model",
@@ -107,14 +107,12 @@ const models = {
 
 async function analyzeWithSpecializedModel(text: string, task: string) {
   const endpoint = models[task] || models.sentiment;
+  const neurolink = new NeuroLink();
 
-  const provider = await AIProviderFactory.createProvider(
-    "sagemaker",
-    endpoint,
-  );
-
-  const result = await provider.generate({
+  const result = await neurolink.generate({
     input: { text: `${task}: ${text}` },
+    provider: "sagemaker",
+    model: endpoint,
     temperature: 0.3, // Lower for specialized tasks
     timeout: "45s",
   });
@@ -138,12 +136,15 @@ const summaryResult = await analyzeWithSpecializedModel(
 );
 ```
 
-### **💰 Cost Optimization**
+### Cost Optimization
 
 SageMaker enables precise cost control through multiple deployment options:
 
 ```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
 class CostOptimizedSageMaker {
+  private neurolink: NeuroLink;
   private endpoints: {
     cheap: string; // Small instance, basic model
     balanced: string; // Medium instance, good model
@@ -151,6 +152,7 @@ class CostOptimizedSageMaker {
   };
 
   constructor() {
+    this.neurolink = new NeuroLink();
     this.endpoints = {
       cheap: "cost-effective-model",
       balanced: "production-model",
@@ -164,14 +166,11 @@ class CostOptimizedSageMaker {
   ) {
     const endpoint = this.endpoints[priority];
 
-    const provider = await AIProviderFactory.createProvider(
-      "sagemaker",
-      endpoint,
-    );
-
     const startTime = Date.now();
-    const result = await provider.generate({
+    const result = await this.neurolink.generate({
       input: { text: prompt },
+      provider: "sagemaker",
+      model: endpoint,
       timeout: priority === "cost" ? "15s" : "45s", // Faster timeout for cost model
     });
     const responseTime = Date.now() - startTime;
@@ -216,12 +215,15 @@ console.log(
 );
 ```
 
-### **🔒 Enterprise Security & Compliance**
+### Enterprise Security & Compliance
 
 Full control over your model infrastructure:
 
 ```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
 class SecureSageMakerProvider {
+  private neurolink: NeuroLink;
   private region: string;
   private vpcConfig?: {
     securityGroups: string[];
@@ -229,6 +231,7 @@ class SecureSageMakerProvider {
   };
 
   constructor(region: string, vpcConfig?: any) {
+    this.neurolink = new NeuroLink();
     this.region = region;
     this.vpcConfig = vpcConfig;
   }
@@ -247,13 +250,10 @@ class SecureSageMakerProvider {
       `[AUDIT] User ${securityContext.userId} from ${securityContext.department} requesting ${securityContext.clearanceLevel} generation`,
     );
 
-    const provider = await AIProviderFactory.createProvider(
-      "sagemaker",
-      endpoint,
-    );
-
-    const result = await provider.generate({
+    const result = await this.neurolink.generate({
       input: { text: prompt },
+      provider: "sagemaker",
+      model: endpoint,
       timeout: "30s",
       // Custom metadata for tracking
       context: {
@@ -299,18 +299,22 @@ const secureResult = await secureProvider.secureGenerate(
 );
 ```
 
-## 📊 **Advanced Model Management**
+## Advanced Model Management
 
-### **Multi-Model Endpoints**
+### Multi-Model Endpoints
 
 Manage multiple models through a single endpoint:
 
 ```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
 class MultiModelSageMaker {
+  private neurolink: NeuroLink;
   private multiModelEndpoint: string;
   private models: Map<string, string>;
 
   constructor(endpoint: string) {
+    this.neurolink = new NeuroLink();
     this.multiModelEndpoint = endpoint;
     this.models = new Map([
       ["sentiment", "sentiment-v2.tar.gz"],
@@ -332,13 +336,10 @@ class MultiModelSageMaker {
       throw new Error(`Model type '${modelType}' not available`);
     }
 
-    const provider = await AIProviderFactory.createProvider(
-      "sagemaker",
-      this.multiModelEndpoint,
-    );
-
-    const result = await provider.generate({
+    const result = await this.neurolink.generate({
       input: { text: prompt },
+      provider: "sagemaker",
+      model: this.multiModelEndpoint,
       temperature: options.temperature || 0.7,
       maxTokens: options.maxTokens || 500,
       // SageMaker-specific: target model for multi-model endpoint
@@ -393,15 +394,19 @@ const comparison = await multiModel.compareModels(
 );
 ```
 
-### **Health Monitoring & Auto-Recovery**
+### Health Monitoring & Auto-Recovery
 
 ```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
 class SageMakerHealthMonitor {
+  private neurolink: NeuroLink;
   private endpoints: string[];
   private healthStatus: Map<string, boolean>;
   private failureCount: Map<string, number>;
 
   constructor(endpoints: string[]) {
+    this.neurolink = new NeuroLink();
     this.endpoints = endpoints;
     this.healthStatus = new Map();
     this.failureCount = new Map();
@@ -409,13 +414,10 @@ class SageMakerHealthMonitor {
 
   async checkHealth(endpoint: string): Promise<boolean> {
     try {
-      const provider = await AIProviderFactory.createProvider(
-        "sagemaker",
-        endpoint,
-      );
-
-      const result = await provider.generate({
+      const result = await this.neurolink.generate({
         input: { text: "health check" },
+        provider: "sagemaker",
+        model: endpoint,
         timeout: "10s",
         maxTokens: 10,
       });
@@ -437,13 +439,10 @@ class SageMakerHealthMonitor {
 
       if (isHealthy) {
         try {
-          const provider = await AIProviderFactory.createProvider(
-            "sagemaker",
-            endpoint,
-          );
-
-          const result = await provider.generate({
+          const result = await this.neurolink.generate({
             input: { text: prompt },
+            provider: "sagemaker",
+            model: endpoint,
             timeout: "30s",
           });
 
@@ -491,17 +490,21 @@ const healthReport = monitor.getHealthReport();
 console.log("Endpoint Health:", healthReport);
 ```
 
-## 🔧 **Advanced Configuration**
+## Advanced Configuration
 
-### **Serverless Inference**
+### Serverless Inference
 
 Configure SageMaker for serverless inference:
 
 ```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
 class ServerlessSageMaker {
+  private neurolink: NeuroLink;
   private serverlessEndpoint: string;
 
   constructor(endpoint: string) {
+    this.neurolink = new NeuroLink();
     this.serverlessEndpoint = endpoint;
   }
 
@@ -519,14 +522,11 @@ class ServerlessSageMaker {
       memorySize = 4096,
     } = options;
 
-    const provider = await AIProviderFactory.createProvider(
-      "sagemaker",
-      this.serverlessEndpoint,
-    );
-
     const startTime = Date.now();
-    const result = await provider.generate({
+    const result = await this.neurolink.generate({
       input: { text: prompt },
+      provider: "sagemaker",
+      model: this.serverlessEndpoint,
       timeout: coldStartTimeout,
       // Serverless-specific metadata
       context: {
@@ -596,12 +596,15 @@ const prompts = [
 const batchResults = await serverless.batchServerless(prompts, 3);
 ```
 
-## 🧪 **Testing and Validation**
+## Testing and Validation
 
-### **Model Performance Testing**
+### Model Performance Testing
 
 ```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
 class SageMakerPerformanceTester {
+  private neurolink: NeuroLink;
   private endpoint: string;
   private baseline: {
     latency: number;
@@ -610,6 +613,7 @@ class SageMakerPerformanceTester {
   };
 
   constructor(endpoint: string, baseline: any) {
+    this.neurolink = new NeuroLink();
     this.endpoint = endpoint;
     this.baseline = baseline;
   }
@@ -632,14 +636,11 @@ class SageMakerPerformanceTester {
           requestCount++;
 
           try {
-            const provider = await AIProviderFactory.createProvider(
-              "sagemaker",
-              this.endpoint,
-            );
-
             const requestStart = Date.now();
-            const result = await provider.generate({
+            const result = await this.neurolink.generate({
               input: { text: prompt },
+              provider: "sagemaker",
+              model: this.endpoint,
               timeout: "30s",
             });
             const latency = Date.now() - requestStart;
@@ -734,11 +735,11 @@ const performanceReport = await tester.loadTest(testPrompts, 10, 120000); // 2 m
 console.log("Performance Report:", performanceReport);
 ```
 
-## 🚨 **Troubleshooting**
+## Troubleshooting
 
-### **Common Issues**
+### Common Issues
 
-#### **1. "Endpoint not found" Error**
+#### 1. "Endpoint not found" Error
 
 ```bash
 # Check if endpoint exists
@@ -748,7 +749,7 @@ aws sagemaker describe-endpoint --endpoint-name your-endpoint-name
 npx @juspay/neurolink sagemaker status
 ```
 
-#### **2. "Access denied" Error**
+#### 2. "Access denied" Error
 
 ```bash
 # Verify IAM permissions
@@ -758,7 +759,7 @@ aws sts get-caller-identity
 aws sagemaker invoke-endpoint --endpoint-name your-endpoint --body '{"inputs": "test"}' --content-type application/json /tmp/output.json
 ```
 
-#### **3. "Model not loading" Error**
+#### 3. "Model not loading" Error
 
 ```bash
 # Check endpoint health
@@ -768,7 +769,7 @@ npx @juspay/neurolink sagemaker test your-endpoint
 aws logs describe-log-groups --log-group-name-prefix /aws/sagemaker/Endpoints
 ```
 
-### **Debug Mode**
+### Debug Mode
 
 ```bash
 # Enable debug output
@@ -780,7 +781,7 @@ export SAGEMAKER_DEBUG=true
 npx @juspay/neurolink sagemaker status --verbose
 ```
 
-## 📚 **Related Documentation**
+## Related Documentation
 
 - **[Provider Setup Guide](./getting-started/provider-setup.md#amazon-sagemaker-configuration)** - Complete SageMaker setup
 - **[Environment Variables](./getting-started/environment-variables.md)** - Configuration options
@@ -788,29 +789,29 @@ npx @juspay/neurolink sagemaker status --verbose
 - **[Basic Usage Examples](./examples/basic-usage.md#custom-model-access-with-sagemaker)** - Code examples
 - **[CLI Reference](./CLI-GUIDE.md)** - Command-line usage
 
-### **🔗 Other Provider Integrations**
+### Other Provider Integrations
 
-- **[🔄 LiteLLM Integration](./LITELLM-INTEGRATION.md)** - Access 100+ models through unified interface
-- **[🔧 MCP Integration](./MCP-INTEGRATION.md)** - Model Context Protocol support
-- **[🏗️ Framework Integration](./FRAMEWORK-INTEGRATION.md)** - Next.js, React, and more
+- **[LiteLLM Integration](./LITELLM-INTEGRATION.md)** - Access 100+ models through unified interface
+- **[MCP Integration](./MCP-INTEGRATION.md)** - Model Context Protocol support
+- **[Framework Integration](./FRAMEWORK-INTEGRATION.md)** - Next.js, React, and more
 
-## 🌟 **Why Choose SageMaker Integration?**
+## Why Choose SageMaker Integration?
 
-### **🎯 For AI/ML Teams**
+### For AI/ML Teams
 
 - **Custom Models**: Deploy your own fine-tuned models
 - **Experimentation**: A/B test different model versions
 - **Performance Control**: Dedicated compute resources
 - **Cost Transparency**: Clear pricing per inference request
 
-### **🏢 For Enterprises**
+### For Enterprises
 
 - **Data Privacy**: Models run in your AWS account
 - **Compliance**: Meet industry-specific requirements
 - **Scalability**: Auto-scaling from zero to thousands of requests
 - **Integration**: Seamless fit with existing AWS infrastructure
 
-### **📊 For Production**
+### For Production
 
 - **Reliability**: Multi-AZ deployment options
 - **Monitoring**: CloudWatch integration for metrics and logs
@@ -819,4 +820,4 @@ npx @juspay/neurolink sagemaker status --verbose
 
 ---
 
-**🚀 Ready to deploy your custom models?** Follow the [Quick Start](#quick-start) guide above to begin using your own AI models through NeuroLink's SageMaker integration today!
+**Ready to deploy your custom models?** Follow the [Quick Start](#quick-start) guide above to begin using your own AI models through NeuroLink's SageMaker integration today!

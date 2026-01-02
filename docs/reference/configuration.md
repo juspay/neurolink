@@ -110,9 +110,17 @@ NeuroLink automatically selects the best available provider:
 ```bash
 # CLI
 npx neurolink generate "Hello" --provider openai
+```
 
-# SDK
-const provider = createAIProvider('openai');
+```typescript
+// SDK
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+const result = await neurolink.generate({
+  input: { text: "Hello" },
+  provider: "openai",
+});
 ```
 
 ---
@@ -195,29 +203,29 @@ npx neurolink models best --use-case coding
 #### **SDK Usage**
 
 ```typescript
-import { AIProviderFactory, DynamicModelRegistry } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-const factory = new AIProviderFactory();
-const registry = new DynamicModelRegistry();
+const neurolink = new NeuroLink();
 
 // Use aliases for easy access
-const provider = await factory.createProvider({
+const result = await neurolink.generate({
+  input: { text: "Write code" },
   provider: "anthropic",
   model: "claude-latest", // Auto-resolves to latest Claude
 });
 
-// Capability-based selection
-const visionProvider = await factory.createProvider({
-  provider: "auto",
-  capability: "vision", // Automatically selects best vision model
-  optimizeFor: "cost", // Prefer cost-effective options
+// Capability-based selection with vision model
+const visionResult = await neurolink.generate({
+  input: { text: "Describe this image" },
+  provider: "openai",
+  model: "gpt-4o", // Vision-capable model
 });
 
-// Find optimal model for specific needs
-const bestModel = await registry.findBestModel({
-  capability: "code",
-  maxPrice: 0.005, // Max $0.005 per 1K tokens
-  provider: "anthropic", // Prefer Anthropic models
+// Use cost-effective models
+const efficientResult = await neurolink.generate({
+  input: { text: "Quick task" },
+  provider: "anthropic",
+  model: "claude-3-haiku", // Cost-effective option
 });
 ```
 
@@ -297,6 +305,55 @@ Create `.mcp-config.json` in your project root:
   }
 }
 ```
+
+#### **HTTP Transport Configuration**
+
+For remote MCP servers, use HTTP transport with authentication, retry, and rate limiting:
+
+```json
+{
+  "mcpServers": {
+    "remote-api": {
+      "transport": "http",
+      "url": "https://api.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN",
+        "X-API-Key": "your-api-key"
+      },
+      "httpOptions": {
+        "connectionTimeout": 30000,
+        "requestTimeout": 60000,
+        "idleTimeout": 120000,
+        "keepAliveTimeout": 30000
+      },
+      "retryConfig": {
+        "maxAttempts": 3,
+        "initialDelay": 1000,
+        "maxDelay": 30000,
+        "backoffMultiplier": 2
+      },
+      "rateLimiting": {
+        "requestsPerMinute": 60,
+        "maxBurst": 10,
+        "useTokenBucket": true
+      }
+    }
+  }
+}
+```
+
+**HTTP Transport Options:**
+
+| Option         | Type     | Description                             |
+| -------------- | -------- | --------------------------------------- |
+| `transport`    | `"http"` | Transport type for remote servers       |
+| `url`          | `string` | URL of the remote MCP endpoint          |
+| `headers`      | `object` | HTTP headers for authentication         |
+| `httpOptions`  | `object` | Connection and timeout settings         |
+| `retryConfig`  | `object` | Retry behavior with exponential backoff |
+| `rateLimiting` | `object` | Rate limiting configuration             |
+
+See [MCP HTTP Transport Guide](../MCP-HTTP-TRANSPORT.md) for complete documentation.
 
 ### **MCP Discovery Commands**
 
@@ -457,28 +514,33 @@ fi
 ### **Custom Provider Configuration**
 
 ```typescript
-import { createAIProvider } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-// Custom provider settings
-const provider = createAIProvider("openai", {
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: "https://api.openai.com/v1",
+// Create NeuroLink instance with custom settings
+const neurolink = new NeuroLink({
   timeout: 30000,
-  retries: 3,
+});
+
+// Generate with specific provider
+const result = await neurolink.generate({
+  input: { text: "Hello" },
+  provider: "openai",
+  model: "gpt-4o",
 });
 ```
 
 ### **Tool Configuration**
 
 ```typescript
-// Enable/disable tools
-const result = await provider.generate({
-  prompt: "Hello",
-  tools: {
-    enabled: true,
-    allowedTools: ["time", "utilities"],
-    maxToolCalls: 5,
-  },
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// Enable/disable tools via generate options
+const result = await neurolink.generate({
+  input: { text: "What time is it?" },
+  provider: "openai",
+  maxToolRoundtrips: 5, // Control tool call iterations
 });
 ```
 

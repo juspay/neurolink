@@ -7,25 +7,14 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
 async function batchProcessingDemo() {
   console.log("📦 Batch Processing Demo");
   console.log("========================\n");
 
   try {
-    const provider = await AIProviderFactory.createProvider(
-      "google-ai",
-      "gemini-2.5-flash",
-      {
-        enableAnalytics: true,
-      },
-    );
-
-    if (!provider) {
-      console.log("❌ No provider available");
-      return;
-    }
+    const neurolink = new NeuroLink();
 
     // 1. Sequential Processing (Slow)
     console.log("1. 🐌 Sequential Processing");
@@ -39,8 +28,10 @@ async function batchProcessingDemo() {
     const sequentialResults = [];
 
     for (const prompt of prompts) {
-      const result = await provider.generate({
+      const result = await neurolink.generate({
         input: { text: prompt },
+        provider: "google-ai",
+        model: "gemini-2.5-flash",
         enableAnalytics: true,
       });
       sequentialResults.push(result);
@@ -56,7 +47,12 @@ async function batchProcessingDemo() {
     const parallelStart = Date.now();
     const parallelResults = await Promise.all(
       prompts.map((prompt) =>
-        provider.generate({ input: { text: prompt }, enableAnalytics: true }),
+        neurolink.generate({
+          input: { text: prompt },
+          provider: "google-ai",
+          model: "gemini-2.5-flash",
+          enableAnalytics: true,
+        }),
       ),
     );
 
@@ -77,8 +73,10 @@ async function batchProcessingDemo() {
         const batch = items.slice(i, i + batchSize);
         const batchResults = await Promise.all(
           batch.map((item) =>
-            provider.generate({
+            neurolink.generate({
               input: { text: item },
+              provider: "google-ai",
+              model: "gemini-2.5-flash",
               enableAnalytics: true,
             }),
           ),
@@ -145,7 +143,11 @@ async function batchProcessingDemo() {
       const results = await Promise.allSettled(
         prompts.map(async (prompt, index) => {
           try {
-            const result = await provider.generate({ input: { text: prompt } });
+            const result = await neurolink.generate({
+              input: { text: prompt },
+              provider: "google-ai",
+              model: "gemini-2.5-flash",
+            });
             return { index, prompt, result: result.text, status: "success" };
           } catch (error) {
             return { index, prompt, error: error.message, status: "failed" };

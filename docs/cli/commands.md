@@ -247,11 +247,56 @@ See the complete guide: [Redis Conversation Export](../features/conversation-his
 
 ### `mcp`
 
+Manage Model Context Protocol servers and tools. Supports stdio, SSE, WebSocket, and HTTP transports.
+
 ```bash
-npx @juspay/neurolink mcp list            # Registered servers/tools
-npx @juspay/neurolink mcp discover        # Auto-discover new MCP servers
-npx @juspay/neurolink mcp connect --url https://...  # Attach external server
+# List registered servers/tools
+npx @juspay/neurolink mcp list
+
+# Auto-discover MCP servers from config files
+npx @juspay/neurolink mcp discover
+
+# Install popular MCP servers
+npx @juspay/neurolink mcp install filesystem
+npx @juspay/neurolink mcp install github
+
+# Add custom servers with different transports
+npx @juspay/neurolink mcp add myserver "python server.py" --transport stdio
+npx @juspay/neurolink mcp add webserver "http://localhost:8080" --transport sse --url "http://localhost:8080/sse"
+
+# Add HTTP remote server with authentication
+npx @juspay/neurolink mcp add remote-api "https://api.example.com/mcp" \
+  --transport http \
+  --url "https://api.example.com/mcp" \
+  --headers '{"Authorization": "Bearer YOUR_TOKEN"}'
+
+# Test server connectivity
+npx @juspay/neurolink mcp test myserver
+
+# Remove a server
+npx @juspay/neurolink mcp remove myserver
 ```
+
+**MCP Command Options:**
+
+| Option        | Description                                         |
+| ------------- | --------------------------------------------------- |
+| `--transport` | Transport type: `stdio`, `sse`, `websocket`, `http` |
+| `--url`       | URL for SSE/WebSocket/HTTP transport                |
+| `--headers`   | JSON string with HTTP headers for authentication    |
+| `--args`      | Command arguments (comma-separated)                 |
+| `--env`       | Environment variables (JSON string)                 |
+| `--cwd`       | Working directory for the server                    |
+
+**HTTP Transport Features:**
+
+- Custom headers for authentication (Bearer tokens, API keys)
+- Configurable timeouts and connection options
+- Automatic retry with exponential backoff
+- Rate limiting to prevent API throttling
+- OAuth 2.1 support with PKCE
+
+See [MCP HTTP Transport Guide](../MCP-HTTP-TRANSPORT.md) for complete configuration options.
 
 ## Global Flags (available on every command)
 

@@ -28,7 +28,7 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 
 **Best Practices:**
 
-- Use `createBestAIProvider()` for automatic cost-optimized provider selection
+- Use `new NeuroLink()` with automatic provider selection for cost-optimized routing
 - Monitor usage through built-in analytics to track costs
 - Consider local models (Ollama) for development and testing
 - Check provider documentation for current pricing and availability
@@ -69,11 +69,14 @@ export OPENAI_MODEL="gpt-4o"  # Default model to use
 ### Usage Example
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-const openai = AIProviderFactory.createProvider("openai", "gpt-4o");
-const result = await openai.generate({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
   input: { text: "Explain machine learning" },
+  provider: "openai",
+  model: "gpt-4o",
   temperature: 0.7,
   maxTokens: 500,
   timeout: "30s", // Optional: Override default 30s timeout
@@ -161,11 +164,13 @@ export BEDROCK_MODEL_ID="arn:aws:bedrock:us-east-2:<account_id>:inference-profil
 ### Usage Example
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-const bedrock = AIProviderFactory.createProvider("bedrock");
-const result = await bedrock.generate({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
   input: { text: "Write a haiku about AI" },
+  provider: "bedrock",
   temperature: 0.8,
   maxTokens: 100,
   timeout: "45s", // Optional: Override default 45s timeout
@@ -435,11 +440,14 @@ export GOOGLE_AUTH_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhki
 ### Usage Example
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-const vertex = AIProviderFactory.createProvider("vertex", "gemini-2.5-flash");
-const result = await vertex.generate({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
   input: { text: "Explain quantum computing" },
+  provider: "vertex",
+  model: "gemini-2.5-flash",
   temperature: 0.6,
   maxTokens: 800,
   timeout: "1m", // Optional: Override default 60s timeout
@@ -487,16 +495,15 @@ export VERTEX_MODEL_ID="gemini-3-flash-preview"  # or gemini-3-pro-preview
 Configure thinking level to control how much reasoning the model performs:
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-const vertex = AIProviderFactory.createProvider(
-  "vertex",
-  "gemini-3-flash-preview",
-);
+const neurolink = new NeuroLink();
 
 // Enable extended thinking with thinkingLevel configuration
-const result = await vertex.generate({
+const result = await neurolink.generate({
   input: { text: "Solve this complex math problem step by step: ..." },
+  provider: "vertex",
+  model: "gemini-3-flash-preview",
   temperature: 0.7,
   maxTokens: 4000,
   // Gemini 3 extended thinking configuration
@@ -516,18 +523,17 @@ const result = await vertex.generate({
 #### Usage Example with Extended Thinking
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-const gemini3 = AIProviderFactory.createProvider(
-  "vertex",
-  "gemini-3-pro-preview",
-);
+const neurolink = new NeuroLink();
 
 // Complex reasoning task with high thinking level
-const result = await gemini3.generate({
+const result = await neurolink.generate({
   input: {
     text: "Analyze the following business scenario and provide strategic recommendations...",
   },
+  provider: "vertex",
+  model: "gemini-3-pro-preview",
   thinkingLevel: "high",
   maxTokens: 8000,
   timeout: "2m", // Extended timeout for deep thinking
@@ -623,14 +629,14 @@ export GOOGLE_AI_MODEL="gemini-2.5-pro"  # Default model to use
 ### Usage Example
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-const googleAI = AIProviderFactory.createProvider(
-  "google-ai",
-  "gemini-2.5-flash",
-);
-const result = await googleAI.generate({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
   input: { text: "Explain the future of AI" },
+  provider: "google-ai",
+  model: "gemini-2.5-flash",
   temperature: 0.7,
   maxTokens: 1000,
   timeout: "30s", // Optional: Override default 30s timeout
@@ -687,12 +693,14 @@ Google AI Studio includes generous free tier limits:
 ### Error Handling for Google AI Studio
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
 
 try {
-  const provider = AIProviderFactory.createProvider("google-ai");
-  const result = await provider.generate({
-    prompt: "Generate a creative story",
+  const result = await neurolink.generate({
+    input: { text: "Generate a creative story" },
+    provider: "google-ai",
     temperature: 0.8,
     maxTokens: 500,
   });
@@ -802,12 +810,15 @@ model_list:
 ### Usage Example
 
 ```typescript
-import { ProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-// Create LiteLLM provider with specific model
-const litellm = ProviderFactory.createProvider("litellm", "openai/gpt-4o");
-const result = await litellm.generate({
+const neurolink = new NeuroLink();
+
+// Use LiteLLM provider with specific model
+const result = await neurolink.generate({
   input: { text: "Explain quantum computing" },
+  provider: "litellm",
+  model: "openai/gpt-4o",
   temperature: 0.7,
 });
 
@@ -859,11 +870,14 @@ Hugging Face hosts 100,000+ models. Choose based on:
 ### Usage Example
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-const huggingface = AIProviderFactory.createProvider("huggingface", "gpt2");
-const result = await huggingface.generate({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
   input: { text: "Explain machine learning" },
+  provider: "huggingface",
+  model: "gpt2",
   temperature: 0.8,
   maxTokens: 200,
   timeout: "45s", // Optional: Override default 30s timeout
@@ -939,9 +953,14 @@ ollama rm llama2
 ### Usage Example
 
 ```typescript
-const ollama = AIProviderFactory.createProvider("ollama", "llama2");
-const result = await ollama.generate({
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
   input: { text: "Write a poem about privacy" },
+  provider: "ollama",
+  model: "llama2",
   temperature: 0.7,
   maxTokens: 300,
   timeout: "10m", // Optional: Override default 5m timeout
@@ -983,6 +1002,56 @@ OLLAMA_MAX_MEMORY=8GB ollama serve
 OLLAMA_CUDA_DEVICE=0 ollama serve
 ```
 
+## OpenRouter Configuration {#openrouter}
+
+OpenRouter provides access to 300+ AI models from 60+ providers through a single unified API with automatic failover and cost optimization.
+
+### Basic Setup
+
+```bash
+export OPENROUTER_API_KEY="sk-or-v1-your-api-key"
+```
+
+### Optional Configuration
+
+```bash
+# Attribution for OpenRouter dashboard
+export OPENROUTER_REFERER="https://yourapp.com"
+export OPENROUTER_APP_NAME="Your App Name"
+
+# Default model
+export OPENROUTER_MODEL="anthropic/claude-3-5-sonnet"
+```
+
+### Supported Models
+
+OpenRouter supports 300+ models including:
+
+- `anthropic/claude-3-5-sonnet` (default) - Best overall quality
+- `openai/gpt-4o` - Excellent code generation
+- `google/gemini-2.0-flash` - Fast and cost-effective
+- `meta-llama/llama-3.1-70b-instruct` - Best open source
+
+### Usage Example
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Explain quantum computing" },
+  provider: "openrouter",
+  model: "anthropic/claude-3-5-sonnet",
+  temperature: 0.7,
+  maxTokens: 500,
+});
+```
+
+### Complete Guide
+
+For comprehensive OpenRouter setup including model selection, cost optimization, and best practices, see the [OpenRouter Provider Guide](./providers/openrouter.md).
+
 ## Mistral AI Configuration {#mistral}
 
 ### Basic Setup
@@ -1016,9 +1085,14 @@ Mistral offers competitive pricing:
 ### Usage Example
 
 ```typescript
-const mistral = AIProviderFactory.createProvider("mistral", "mistral-small");
-const result = await mistral.generate({
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
   input: { text: "Translate to French: Hello world" },
+  provider: "mistral",
+  model: "mistral-small",
   temperature: 0.3,
   maxTokens: 100,
   timeout: "30s", // Optional: Override default 30s timeout
@@ -1085,14 +1159,14 @@ export ANTHROPIC_MODEL="claude-3-5-sonnet-20241022"  # Default model
 ### Usage Example
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-const anthropic = AIProviderFactory.createProvider(
-  "anthropic",
-  "claude-3-5-sonnet-20241022",
-);
-const result = await anthropic.generate({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
   input: { text: "Explain quantum computing" },
+  provider: "anthropic",
+  model: "claude-3-5-sonnet-20241022",
   temperature: 0.7,
   maxTokens: 1000,
   timeout: "30s",
@@ -1142,11 +1216,13 @@ Azure OpenAI supports deployment of:
 ### Usage Example
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-const azure = AIProviderFactory.createProvider("azure");
-const result = await azure.generate({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
   input: { text: "Explain machine learning" },
+  provider: "azure",
   temperature: 0.7,
   maxTokens: 500,
   timeout: "30s",
@@ -1195,14 +1271,14 @@ export OPENAI_COMPATIBLE_MODEL="your-model-name"
 ### Usage Example
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-const compatible = AIProviderFactory.createProvider(
-  "openai-compatible",
-  "your-model",
-);
-const result = await compatible.generate({
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
   input: { text: "Hello from custom endpoint" },
+  provider: "openai-compatible",
+  model: "your-model",
   temperature: 0.7,
   maxTokens: 500,
 });
@@ -1389,13 +1465,17 @@ NEUROLINK_DEBUG=false
 
 ### Automatic Provider Selection
 
-NeuroLink automatically selects the best available provider:
+NeuroLink automatically selects the best available provider when no provider is specified:
 
 ```typescript
-import { createBestAIProvider } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
 
 // Automatically selects best available provider
-const provider = createBestAIProvider();
+const result = await neurolink.generate({
+  input: { text: "Hello, world!" },
+});
 ```
 
 ### Provider Priority Order
@@ -1412,33 +1492,34 @@ The default priority order (most reliable first):
 8. **Amazon Bedrock** - High quality, requires careful setup
 9. **Ollama** - Local only, no fallback
 
-### Custom Priority
+### Specifying Provider and Model
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
-// Custom provider with fallback
-const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
-  "bedrock", // Prefer Bedrock
-  "openai", // Fall back to OpenAI
-);
+const neurolink = new NeuroLink();
 
-try {
-  const result = await primary.generate({ input: { text: "Hello" } });
-} catch (error) {
-  console.log("Primary failed, trying fallback...");
-  const result = await fallback.generate({ input: { text: "Hello" } });
-}
+// Explicitly specify provider and model
+const result = await neurolink.generate({
+  input: { text: "Hello" },
+  provider: "bedrock",
+  model: "anthropic.claude-3-sonnet-20240229-v1:0",
+});
 ```
 
 ### Environment-Based Selection
 
 ```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
 // Different providers for different environments
-const provider =
-  process.env.NODE_ENV === "production"
-    ? AIProviderFactory.createProvider("bedrock") // Production: Bedrock
-    : AIProviderFactory.createProvider("openai", "gpt-4o-mini"); // Dev: Cheaper model
+const result = await neurolink.generate({
+  input: { text: "Hello" },
+  provider: process.env.NODE_ENV === "production" ? "bedrock" : "openai",
+  model: process.env.NODE_ENV === "production" ? undefined : "gpt-4o-mini",
+});
 ```
 
 ## Testing Provider Configuration
@@ -1459,7 +1540,7 @@ npx @juspay/neurolink status --verbose
 ### Programmatic Testing
 
 ```typescript
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
 async function testProviders() {
   const providers = [
@@ -1474,13 +1555,15 @@ async function testProviders() {
     "mistral",
   ];
 
+  const neurolink = new NeuroLink();
+
   for (const providerName of providers) {
     try {
-      const provider = AIProviderFactory.createProvider(providerName);
       const start = Date.now();
 
-      const result = await provider.generate({
+      const result = await neurolink.generate({
         input: { text: "Test" },
+        provider: providerName,
         maxTokens: 10,
       });
 

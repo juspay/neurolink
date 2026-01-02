@@ -25,6 +25,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q4 2025)
 
+- **HTTP/Streamable HTTP Transport for MCP** – Connect to remote MCP servers via HTTP with authentication headers, retry logic, and rate limiting. → [HTTP Transport Guide](docs/MCP-HTTP-TRANSPORT.md)
 - 🧠 **Gemini 3 Preview Support** - Full support for gemini-3-flash-preview and gemini-3-pro-preview with extended thinking capabilities
 - **Structured Output with Zod Schemas** – Type-safe JSON generation with automatic validation using `schema` + `output.format: "json"` in `generate()`. → [Structured Output Guide](docs/features/structured-output.md)
 - **CSV File Support** – Attach CSV files to prompts for AI-powered data analysis with auto-detection. → [CSV Guide](docs/features/multimodal-chat.md#csv-file-support)
@@ -96,12 +97,21 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 **58+ External MCP Servers** supported (GitHub, PostgreSQL, Google Drive, Slack, and more):
 
 ```typescript
-// Add any MCP server dynamically
+// stdio transport - local MCP servers via command execution
 await neurolink.addExternalMCPServer("github", {
   command: "npx",
   args: ["-y", "@modelcontextprotocol/server-github"],
   transport: "stdio",
   env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN },
+});
+
+// HTTP transport - remote MCP servers via URL
+await neurolink.addExternalMCPServer("github-copilot", {
+  transport: "http",
+  url: "https://api.githubcopilot.com/mcp",
+  headers: { Authorization: "Bearer YOUR_COPILOT_TOKEN" },
+  timeout: 15000,
+  retries: 5,
 });
 
 // Tools automatically available to AI
@@ -110,7 +120,17 @@ const result = await neurolink.generate({
 });
 ```
 
+**MCP Transport Options:**
+
+| Transport   | Use Case       | Key Features                                    |
+| ----------- | -------------- | ----------------------------------------------- |
+| `stdio`     | Local servers  | Command execution, environment variables        |
+| `http`      | Remote servers | URL-based, auth headers, retries, rate limiting |
+| `sse`       | Event streams  | Server-Sent Events, real-time updates           |
+| `websocket` | Bi-directional | Full-duplex communication                       |
+
 **[📖 MCP Integration Guide](docs/advanced/mcp-integration.md)** - Setup external servers
+**[📖 HTTP Transport Guide](docs/MCP-HTTP-TRANSPORT.md)** - Remote MCP server configuration
 
 ---
 
@@ -327,7 +347,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 | **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4).                            |
 | **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                                     |
 | **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.                                         |
-| **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search.                                         |
+| **Tool ecosystem**       | MCP auto discovery, HTTP/stdio/SSE/WebSocket transports, LiteLLM hub access, SageMaker custom deployment, web search.    |
 
 ## Documentation Map
 
@@ -349,6 +369,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 - **Enterprise proxy & security** – Configure outbound policies and compliance posture. → [`docs/ENTERPRISE-PROXY-SETUP.md`](docs/ENTERPRISE-PROXY-SETUP.md)
 - **Configuration automation** – Manage environments, regions, and credentials safely. → [`docs/CONFIGURATION-MANAGEMENT.md`](docs/CONFIGURATION-MANAGEMENT.md)
 - **MCP tool ecosystem** – Auto-discover Model Context Protocol tools and extend workflows. → [`docs/advanced/mcp-integration.md`](docs/advanced/mcp-integration.md)
+- **Remote MCP via HTTP** – Connect to HTTP-based MCP servers with authentication, retries, and rate limiting. → [`docs/MCP-HTTP-TRANSPORT.md`](docs/MCP-HTTP-TRANSPORT.md)
 
 ## Contributing & Support
 

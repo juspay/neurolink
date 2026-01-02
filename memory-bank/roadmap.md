@@ -19,7 +19,20 @@ This roadmap outlines the planned development trajectory for the NeuroLink AI to
 
 **Expected Impact**: Transform NeuroLink from AI SDK to comprehensive e-commerce AI platform with production-ready analytics, payment processing, and business intelligence tools.
 
-## ✅ **COMPLETED MILESTONES** (2025)
+## ✅ **COMPLETED MILESTONES** (2025-2026)
+
+### **🌐 HTTP/Streamable HTTP Transport for MCP Servers** (January 2, 2026) ✅
+
+- ✅ **Remote MCP Connectivity**: HTTP transport support for remote MCP servers (GitHub Copilot, enterprise APIs)
+- ✅ **MCP 2025 Specification**: Implements Streamable HTTP transport per MCP 2025 spec
+- ✅ **Custom Authentication**: Headers support for Bearer tokens, API keys, and custom auth
+- ✅ **Configuration Options**: `transport: "http"`, `url`, `headers`, `httpOptions`, `retryConfig`, `rateLimiting`
+- ✅ **Session Management**: Automatic `Mcp-Session-Id` header handling
+- ✅ **Retry Logic**: Exponential backoff with configurable retry settings
+- ✅ **Rate Limiting**: Built-in request throttling for API compliance
+- ✅ **Streaming Support**: Both SSE streaming and batch JSON responses
+- ✅ **Comprehensive Documentation**: Full guide at `docs/MCP-HTTP-TRANSPORT.md`
+- ✅ **Example Code**: `examples/http-transport-mcp.ts` with usage patterns
 
 ### **🎉 Universal AI Provider Compatibility Achieved** (January 20, 2025) ✅
 

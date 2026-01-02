@@ -7,30 +7,23 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { AIProviderFactory } from "@juspay/neurolink";
+import { NeuroLink } from "@juspay/neurolink";
 
 async function analyticsDemo() {
-  console.log("📊 Analytics Demo - Performance Tracking");
+  console.log("Analytics Demo - Performance Tracking");
   console.log("=======================================\n");
 
   try {
-    const provider = await AIProviderFactory.createProvider(
-      "google-ai",
-      "gemini-2.5-pro",
-      {
-        enableAnalytics: true,
-      },
-    );
-
-    if (!provider) {
-      console.log("❌ No provider available (check API keys)");
-      return;
-    }
+    const neurolink = new NeuroLink({
+      enableAnalytics: true,
+    });
 
     // 1. Basic Analytics Tracking
-    console.log("1. 📈 Basic Analytics");
-    const result = await provider.generate({
+    console.log("1. Basic Analytics");
+    const result = await neurolink.generate({
       input: { text: "Explain APIs in one sentence" },
+      provider: "google-ai",
+      model: "gemini-2.5-pro",
       enableAnalytics: true,
       context: { team: "development", feature: "api-docs" },
     });
@@ -39,7 +32,7 @@ async function analyticsDemo() {
       console.log(`   Provider: ${result.analytics.provider}`);
       console.log(`   Model: ${result.analytics.model}`);
       console.log(
-        `   Tokens: ${result.analytics.tokens.input} → ${result.analytics.tokens.output}`,
+        `   Tokens: ${result.analytics.tokens.input} -> ${result.analytics.tokens.output}`,
       );
       console.log(`   Time: ${result.analytics.responseTime}ms`);
       if (result.analytics.cost) {
@@ -49,37 +42,29 @@ async function analyticsDemo() {
     console.log();
 
     // 2. Performance Comparison
-    console.log("2. ⚡ Performance Comparison");
+    console.log("2. Performance Comparison");
     const models = ["gemini-2.5-pro", "gemini-2.5-flash"];
     const prompt = "What is Node.js?";
 
     for (const model of models) {
-      const testProvider = await AIProviderFactory.createProvider(
-        "google-ai",
-        model,
-        {
-          enableAnalytics: true,
-        },
+      const testResult = await neurolink.generate({
+        input: { text: prompt },
+        provider: "google-ai",
+        model: model,
+        enableAnalytics: true,
+      });
+
+      console.log(`   ${model}:`);
+      console.log(`     Time: ${testResult.analytics?.responseTime}ms`);
+      console.log(`     Tokens: ${testResult.analytics?.tokens.total}`);
+      console.log(
+        `     Cost: $${testResult.analytics?.cost?.toFixed(6) || "N/A"}`,
       );
-
-      if (testProvider) {
-        const result = await testProvider.generate({
-          input: { text: prompt },
-          enableAnalytics: true,
-        });
-
-        console.log(`   ${model}:`);
-        console.log(`     Time: ${result.analytics?.responseTime}ms`);
-        console.log(`     Tokens: ${result.analytics?.tokens.total}`);
-        console.log(
-          `     Cost: $${result.analytics?.cost?.toFixed(6) || "N/A"}`,
-        );
-      }
     }
     console.log();
 
     // 3. Cost Tracking (Small Team Budget)
-    console.log("3. 💰 Cost Tracking");
+    console.log("3. Cost Tracking");
     let totalCost = 0;
     let totalRequests = 0;
 
@@ -90,13 +75,15 @@ async function analyticsDemo() {
     ];
 
     for (const testPrompt of testPrompts) {
-      const result = await provider.generate({
+      const costResult = await neurolink.generate({
         input: { text: testPrompt },
+        provider: "google-ai",
+        model: "gemini-2.5-pro",
         enableAnalytics: true,
       });
 
-      if (result.analytics?.cost) {
-        totalCost += result.analytics.cost;
+      if (costResult.analytics?.cost) {
+        totalCost += costResult.analytics.cost;
       }
       totalRequests++;
     }
@@ -109,14 +96,14 @@ async function analyticsDemo() {
     );
     console.log();
 
-    console.log("✅ Analytics tracking working!");
-    console.log("\n💡 Small Team Tips:");
+    console.log("Analytics tracking working!");
+    console.log("\nSmall Team Tips:");
     console.log("   - Use gemini-2.5-flash for development (faster/cheaper)");
     console.log("   - Track costs daily to stay within budget");
     console.log("   - Monitor response times for performance");
     console.log("   - Use context tracking for feature analysis");
   } catch (error) {
-    console.error("❌ Analytics demo failed:", error.message);
+    console.error("Analytics demo failed:", error.message);
   }
 }
 

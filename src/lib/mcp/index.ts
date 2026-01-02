@@ -7,6 +7,51 @@ import type { McpMetadata } from "../types/mcpTypes.js";
 
 export { mcpLogger } from "../utils/logger.js";
 
+// HTTP Transport types - exported from centralized types
+export type {
+  RateLimitConfig,
+  HTTPRetryConfig,
+  OAuthTokens,
+  TokenStorage,
+  MCPOAuthConfig,
+  OAuthClientInformation,
+  AuthorizationUrlResult,
+  TokenExchangeRequest,
+} from "../types/mcpTypes.js";
+
+// HTTP Rate Limiter
+export {
+  HTTPRateLimiter,
+  RateLimiterManager,
+  globalRateLimiterManager,
+  DEFAULT_RATE_LIMIT_CONFIG,
+} from "./httpRateLimiter.js";
+
+// HTTP Retry Handler
+export {
+  DEFAULT_HTTP_RETRY_CONFIG,
+  isRetryableStatusCode,
+  isRetryableHTTPError,
+  withHTTPRetry,
+} from "./httpRetryHandler.js";
+
+// OAuth Authentication
+export {
+  InMemoryTokenStorage,
+  FileTokenStorage,
+  isTokenExpired,
+  calculateExpiresAt,
+  NeuroLinkOAuthProvider,
+  createOAuthProviderFromConfig,
+} from "./auth/index.js";
+
+// Circuit Breaker
+export {
+  MCPCircuitBreaker,
+  CircuitBreakerManager,
+  globalCircuitBreakerManager,
+} from "./mcpCircuitBreaker.js";
+
 /**
  * Initialize the MCP ecosystem - simplified
  */

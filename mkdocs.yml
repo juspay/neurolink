@@ -165,6 +165,7 @@ nav:
       - LITELLM Integration: LITELLM-INTEGRATION.md
       - SageMaker Integration: SAGEMAKER-INTEGRATION.md
       - MCP Integration: advanced/mcp-integration.md
+      - MCP HTTP Transport: MCP-HTTP-TRANSPORT.md
       - Mem0 Conversational Memory: MEM0_INTEGRATION.md
       - Enterprise Proxy Setup: ENTERPRISE-PROXY-SETUP.md
       - Configuration Management: CONFIGURATION-MANAGEMENT.md

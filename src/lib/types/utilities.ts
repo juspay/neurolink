@@ -74,6 +74,26 @@ export type LogEntry = {
   data?: unknown;
 };
 
+/**
+ * Logger interface matching the logger object shape
+ * Used for SDK tool contexts and other components that need a logger
+ */
+export type Logger = {
+  debug: (...args: unknown[]) => void;
+  info: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
+  always: (...args: unknown[]) => void;
+  table: (data: unknown) => void;
+  setLogLevel: (level: LogLevel) => void;
+  getLogs: (level?: LogLevel) => LogEntry[];
+  clearLogs: () => void;
+  setEventEmitter: (emitter: {
+    emit: (event: string, ...args: unknown[]) => boolean;
+  }) => void;
+  clearEventEmitter: () => void;
+};
+
 // Structured error interface
 export type StructuredError = {
   code: string;

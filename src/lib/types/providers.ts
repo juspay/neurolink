@@ -1225,77 +1225,71 @@ export type ProviderHealthCheckOptions = {
 };
 
 // ============================================================================
-// Provider-Specific Namespace Types (Using Interfaces for Declaration Merging)
+// Provider-Specific Namespace Types
 // ============================================================================
-//
-// Note: The following namespace exports use `interface` instead of `type` to enable
-// TypeScript declaration merging. This allows downstream consumers to augment these
-// interfaces with additional properties or methods while maintaining type safety.
-// Declaration merging is not possible with type aliases, making interfaces the
-// preferred choice for extensible provider-specific type definitions.
 
 /**
  * Amazon Bedrock specific types
  */
 export namespace BedrockTypes {
-  export interface Client {
-    // Based on AWS SDK Bedrock types
+  // Based on AWS SDK Bedrock types
+  export type Client = {
     send(command: unknown): Promise<unknown>;
     config: {
       region?: string;
       credentials?: unknown;
     };
-  }
+  };
 
-  export interface InvokeModelCommand {
-    // Based on AWS SDK types
+  // Based on AWS SDK types
+  export type InvokeModelCommand = {
     input: {
       modelId: string;
       body: string;
       contentType?: string;
     };
-  }
+  };
 }
 
 /**
  * Mistral specific types
  */
 export namespace MistralTypes {
-  export interface Client {
-    // Based on Mistral SDK types
+  // Based on Mistral SDK types
+  export type Client = {
     chat?: {
       complete?: (options: unknown) => Promise<unknown>;
       stream?: (options: unknown) => AsyncIterable<unknown>;
     };
-  }
+  };
 }
 
 /**
  * OpenTelemetry specific types (for telemetry service)
  */
 export namespace TelemetryTypes {
-  export interface Meter {
+  export type Meter = {
     createCounter(name: string, options?: unknown): Counter;
     createHistogram(name: string, options?: unknown): Histogram;
-  }
+  };
 
-  export interface Tracer {
+  export type Tracer = {
     startSpan(name: string, options?: unknown): Span;
-  }
+  };
 
-  export interface Counter {
+  export type Counter = {
     add(value: number, attributes?: UnknownRecord): void;
-  }
+  };
 
-  export interface Histogram {
+  export type Histogram = {
     record(value: number, attributes?: UnknownRecord): void;
-  }
+  };
 
-  export interface Span {
+  export type Span = {
     end(): void;
     setStatus(status: unknown): void;
     recordException(exception: unknown): void;
-  }
+  };
 }
 
 // ============================================================================

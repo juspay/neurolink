@@ -11,9 +11,9 @@ Enterprise AI development platform with unified provider access, production-read
 
 ## 🧠 What is NeuroLink?
 
-**NeuroLink is the universal AI integration platform that unifies 12 major AI providers and 100+ models under one consistent API.**
+**NeuroLink is the universal AI integration platform that unifies 13 major AI providers and 100+ models under one consistent API.**
 
-Extracted from production systems at Juspay and battle-tested at enterprise scale, NeuroLink provides a production-ready solution for integrating AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 12 supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
+Extracted from production systems at Juspay and battle-tested at enterprise scale, NeuroLink provides a production-ready solution for integrating AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 13 supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
 
 **Why NeuroLink?** Switch providers with a single parameter change, leverage 64+ built-in tools and MCP servers, deploy with confidence using enterprise features like Redis memory and multi-provider failover, and optimize costs automatically with intelligent routing. Use it via our professional CLI or TypeScript SDK—whichever fits your workflow.
 
@@ -25,10 +25,14 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q4 2025)
 
+- **HTTP/Streamable HTTP Transport for MCP** – Connect to remote MCP servers via HTTP with authentication headers, retry logic, and rate limiting. → [HTTP Transport Guide](MCP-HTTP-TRANSPORT.md)
+- 🧠 **Gemini 3 Preview Support** - Full support for gemini-3-flash-preview and gemini-3-pro-preview with extended thinking capabilities
+- **Structured Output with Zod Schemas** – Type-safe JSON generation with automatic validation using `schema` + `output.format: "json"` in `generate()`. → [Structured Output Guide](features/structured-output.md)
 - **CSV File Support** – Attach CSV files to prompts for AI-powered data analysis with auto-detection. → [CSV Guide](features/multimodal-chat.md#csv-file-support)
 - **PDF File Support** – Process PDF documents with native visual analysis for Vertex AI, Anthropic, Bedrock, AI Studio. → [PDF Guide](features/pdf-support.md)
 - **LiteLLM Integration** – Access 100+ AI models from all major providers through unified interface. → [Setup Guide](LITELLM-INTEGRATION.md)
 - **SageMaker Integration** – Deploy and use custom trained models on AWS infrastructure. → [Setup Guide](SAGEMAKER-INTEGRATION.md)
+- **OpenRouter Integration** – Access 300+ models from OpenAI, Anthropic, Google, Meta, and more through a single unified API. → [Setup Guide](getting-started/providers/openrouter.md)
 - **Human-in-the-loop workflows** – Pause generation for user approval/input before tool execution. → [HITL Guide](features/hitl.md)
 - **Guardrails middleware** – Block PII, profanity, and unsafe content with built-in filtering. → [Guardrails Guide](features/guardrails.md)
 - **Context summarization** – Automatic conversation compression for long-running sessions. → [Summarization Guide](CONTEXT-SUMMARIZATION.md)
@@ -56,23 +60,24 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 **13 providers unified under one API** - Switch providers with a single parameter change.
 
-| Provider              | Models                         | Free Tier       | Tool Support | Status        | Documentation                                                      |
-| --------------------- | ------------------------------ | --------------- | ------------ | ------------- | ------------------------------------------------------------------ |
-| **OpenAI**            | GPT-4o, GPT-4o-mini, o1        | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openai)            |
-| **Anthropic**         | Claude 3.5/3.7 Sonnet, Opus    | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#anthropic)         |
-| **Google AI Studio**  | Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#google-ai)         |
-| **AWS Bedrock**       | Claude, Titan, Llama, Nova     | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#bedrock)           |
-| **Google Vertex**     | Gemini via GCP                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#vertex)            |
-| **Azure OpenAI**      | GPT-4, GPT-4o, o1              | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#azure)             |
-| **LiteLLM**           | 100+ models unified            | Varies          | ✅ Full      | ✅ Production | [Setup Guide](LITELLM-INTEGRATION.md)                              |
-| **OpenRouter**        | 300+ models unified            | Varies          | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openrouter)        |
-| **AWS SageMaker**     | Custom deployed models         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](SAGEMAKER-INTEGRATION.md)                            |
-| **Mistral AI**        | Mistral Large, Small           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#mistral)           |
-| **Hugging Face**      | 100,000+ models                | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](getting-started/provider-setup.md#huggingface)       |
-| **Ollama**            | Local models (Llama, Mistral)  | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](getting-started/provider-setup.md#ollama)            |
-| **OpenAI Compatible** | Any OpenAI-compatible endpoint | Varies          | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openai-compatible) |
+| Provider              | Models                             | Free Tier       | Tool Support | Status        | Documentation                                                      |
+| --------------------- | ---------------------------------- | --------------- | ------------ | ------------- | ------------------------------------------------------------------ |
+| **OpenAI**            | GPT-4o, GPT-4o-mini, o1            | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openai)            |
+| **Anthropic**         | Claude 3.5/3.7 Sonnet, Opus        | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#anthropic)         |
+| **Google AI Studio**  | Gemini 2.5 Flash/Pro               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#google-ai)         |
+| **AWS Bedrock**       | Claude, Titan, Llama, Nova         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#bedrock)           |
+| **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview) | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#vertex)            |
+| **Azure OpenAI**      | GPT-4, GPT-4o, o1                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#azure)             |
+| **LiteLLM**           | 100+ models unified                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](LITELLM-INTEGRATION.md)                              |
+| **OpenRouter**        | 300+ models unified                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openrouter)        |
+| **AWS SageMaker**     | Custom deployed models             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](SAGEMAKER-INTEGRATION.md)                            |
+| **Mistral AI**        | Mistral Large, Small               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#mistral)           |
+| **Hugging Face**      | 100,000+ models                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](getting-started/provider-setup.md#huggingface)       |
+| **Ollama**            | Local models (Llama, Mistral)      | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](getting-started/provider-setup.md#ollama)            |
+| **OpenAI Compatible** | Any OpenAI-compatible endpoint     | Varies          | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openai-compatible) |
 
 **[📖 Provider Comparison Guide](reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
+**[🔬 Provider Feature Compatibility](reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 11 providers
 
 ---
 
@@ -92,12 +97,21 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 **58+ External MCP Servers** supported (GitHub, PostgreSQL, Google Drive, Slack, and more):
 
 ```typescript
-// Add any MCP server dynamically
+// stdio transport - local MCP servers via command execution
 await neurolink.addExternalMCPServer("github", {
   command: "npx",
   args: ["-y", "@modelcontextprotocol/server-github"],
   transport: "stdio",
   env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN },
+});
+
+// HTTP transport - remote MCP servers via URL
+await neurolink.addExternalMCPServer("github-copilot", {
+  transport: "http",
+  url: "https://api.githubcopilot.com/mcp",
+  headers: { Authorization: "Bearer YOUR_COPILOT_TOKEN" },
+  timeout: 15000,
+  retries: 5,
 });
 
 // Tools automatically available to AI
@@ -106,7 +120,17 @@ const result = await neurolink.generate({
 });
 ```
 
+**MCP Transport Options:**
+
+| Transport   | Use Case       | Key Features                                    |
+| ----------- | -------------- | ----------------------------------------------- |
+| `stdio`     | Local servers  | Command execution, environment variables        |
+| `http`      | Remote servers | URL-based, auth headers, retries, rate limiting |
+| `sse`       | Event streams  | Server-Sent Events, real-time updates           |
+| `websocket` | Bi-directional | Full-duplex communication                       |
+
 **[📖 MCP Integration Guide](advanced/mcp-integration.md)** - Setup external servers
+**[📖 HTTP Transport Guide](MCP-HTTP-TRANSPORT.md)** - Remote MCP server configuration
 
 ---
 
@@ -114,16 +138,17 @@ const result = await neurolink.generate({
 
 **SDK-First Design** with TypeScript, IntelliSense, and type safety:
 
-| Feature                     | Description                    | Documentation                                    |
-| --------------------------- | ------------------------------ | ------------------------------------------------ |
-| **Auto Provider Selection** | Intelligent provider fallback  | [SDK Guide](sdk/index.md#auto-selection)         |
-| **Streaming Responses**     | Real-time token streaming      | [Streaming Guide](advanced/streaming.md)         |
-| **Conversation Memory**     | Automatic context management   | [Memory Guide](sdk/index.md#memory)              |
-| **Full Type Safety**        | Complete TypeScript types      | [Type Reference](sdk/api-reference.md)           |
-| **Error Handling**          | Graceful provider fallback     | [Error Guide](reference/troubleshooting.md)      |
-| **Analytics & Evaluation**  | Usage tracking, quality scores | [Analytics Guide](advanced/analytics.md)         |
-| **Middleware System**       | Request/response hooks         | [Middleware Guide](CUSTOM-MIDDLEWARE-GUIDE.md)   |
-| **Framework Integration**   | Next.js, SvelteKit, Express    | [Framework Guides](sdk/framework-integration.md) |
+| Feature                     | Description                                                   | Documentation                                        |
+| --------------------------- | ------------------------------------------------------------- | ---------------------------------------------------- |
+| **Auto Provider Selection** | Intelligent provider fallback                                 | [SDK Guide](sdk/index.md#auto-selection)             |
+| **Streaming Responses**     | Real-time token streaming                                     | [Streaming Guide](advanced/streaming.md)             |
+| **Conversation Memory**     | Automatic context management                                  | [Memory Guide](sdk/index.md#memory)                  |
+| **Full Type Safety**        | Complete TypeScript types                                     | [Type Reference](sdk/api-reference.md)               |
+| **Error Handling**          | Graceful provider fallback                                    | [Error Guide](reference/troubleshooting.md)          |
+| **Analytics & Evaluation**  | Usage tracking, quality scores                                | [Analytics Guide](advanced/analytics.md)             |
+| **Middleware System**       | Request/response hooks                                        | [Middleware Guide](CUSTOM-MIDDLEWARE-GUIDE.md)       |
+| **Framework Integration**   | Next.js, SvelteKit, Express                                   | [Framework Guides](sdk/framework-integration.md)     |
+| **Extended Thinking**       | Native thinking/reasoning mode for Gemini 3 and Claude models | [Thinking Guide](features/thinking-configuration.md) |
 
 ---
 
@@ -211,14 +236,23 @@ npx @juspay/neurolink loop
 # Start the interactive session
 $ npx @juspay/neurolink loop
 
-neurolink » set provider google-ai
+neurolink » /set provider google-ai
 ✓ provider set to google-ai
 
-neurolink » set temperature 0.8
+neurolink » /set temperature 0.8
 ✓ temperature set to 0.8
 
-neurolink » generate "Tell me a fun fact about space"
+neurolink » Tell me a fun fact about space
+
 The quietest place on Earth is an anechoic chamber at Microsoft's headquarters in Redmond, Washington. The background noise is so low that it's measured in negative decibels, and you can hear your own heartbeat.
+
+# Use "/" for CLI commands
+neurolink » /generate "Draft a haiku"
+...
+
+# Use "//" to escape prompts starting with "/"
+neurolink » //what is /usr/bin used for?
+...
 
 # Exit the session
 neurolink » exit
@@ -268,31 +302,52 @@ const result = await neurolink.generate({
     text: "Create a comprehensive analysis",
     files: [
       "./sales_data.csv", // Auto-detected as CSV
-      "./diagrams/architecture.png", // Auto-detected as image
       "examples/data/invoice.pdf", // Auto-detected as PDF
+      "./diagrams/architecture.png", // Auto-detected as image
     ],
   },
-  provider: "vertex", // Vertex is one of several providers supporting PDF (see docs/features/pdf-support.md)
+  provider: "vertex", // PDF-capable provider (see docs/features/pdf-support.md)
   enableEvaluation: true,
+  region: "us-east-1",
 });
 
 console.log(result.content);
 console.log(result.evaluation?.overallScore);
 ```
 
+### Gemini 3 with Extended Thinking
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// Use Gemini 3 with extended thinking for complex reasoning
+const result = await neurolink.generate({
+  input: {
+    text: "Solve this step by step: What is the optimal strategy for...",
+  },
+  provider: "vertex",
+  model: "gemini-3-flash-preview",
+  thinkingLevel: "medium", // Options: "minimal", "low", "medium", "high"
+});
+
+console.log(result.content);
+```
+
 Full command and API breakdown lives in [`docs/cli/commands.md`](cli/commands.md) and [`docs/sdk/api-reference.md`](sdk/api-reference.md).
 
 ## Platform Capabilities at a Glance
 
-| Capability               | Highlights                                                                                                                 |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | 12+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                                    |
-| **Multimodal pipeline**  | Stream images, CSV data, and PDF documents across providers with local/remote assets. Auto-detection for mixed file types. |
-| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.                               |
-| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4).                              |
-| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                                       |
-| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.                                           |
-| **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search.                                           |
+| Capability               | Highlights                                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| **Provider unification** | 13+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                                  |
+| **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types. |
+| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.                             |
+| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4).                            |
+| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                                     |
+| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.                                         |
+| **Tool ecosystem**       | MCP auto discovery, HTTP/stdio/SSE/WebSocket transports, LiteLLM hub access, SageMaker custom deployment, web search.    |
 
 ## Documentation Map
 
@@ -314,6 +369,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](cli/commands.md
 - **Enterprise proxy & security** – Configure outbound policies and compliance posture. → [`docs/ENTERPRISE-PROXY-SETUP.md`](ENTERPRISE-PROXY-SETUP.md)
 - **Configuration automation** – Manage environments, regions, and credentials safely. → [`docs/CONFIGURATION-MANAGEMENT.md`](CONFIGURATION-MANAGEMENT.md)
 - **MCP tool ecosystem** – Auto-discover Model Context Protocol tools and extend workflows. → [`docs/advanced/mcp-integration.md`](advanced/mcp-integration.md)
+- **Remote MCP via HTTP** – Connect to HTTP-based MCP servers with authentication, retries, and rate limiting. → [`docs/MCP-HTTP-TRANSPORT.md`](MCP-HTTP-TRANSPORT.md)
 
 ## Contributing & Support
 

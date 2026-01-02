@@ -1628,7 +1628,11 @@ export class OllamaProvider extends BaseProvider {
             return String(result.data);
           }
         } else if (result.error) {
-          throw new Error(result.error.message || "Tool execution failed");
+          const errorMessage =
+            typeof result.error === "string"
+              ? result.error
+              : result.error.message || "Tool execution failed";
+          throw new Error(errorMessage);
         }
       }
 

@@ -86,14 +86,14 @@ export class SemaphoreManager {
 ### **Concurrent Execution Management**
 ```typescript
 // Queue depth monitoring and performance tracking
-interface SemaphoreStats {
+type SemaphoreStats = {
   activeOperations: number;
   queuedOperations: number;
   totalOperations: number;
   totalWaitTime: number;
   averageWaitTime: number;
   peakQueueDepth: number;
-}
+};
 ```
 
 ---
@@ -103,13 +103,13 @@ interface SemaphoreStats {
 ### **Dynamic Tool Selection**
 ```typescript
 // AI decides tool sequence based on task requirements
-export interface ToolDecision {
+export type ToolDecision = {
   toolName: string;
   args: Record<string, any>;
   reasoning: string;
   confidence: number;
   shouldContinue: boolean;
-}
+};
 
 // Dynamic chain execution with AI decision-making
 export class DynamicOrchestrator {
@@ -138,7 +138,7 @@ export class AIModelChainPlanner {
 ### **Session Lifecycle Management**
 ```typescript
 // UUID-based session tracking with TTL
-export interface OrchestratorSession {
+export type OrchestratorSession = {
   id: string;                          // UUID v4
   context: NeuroLinkExecutionContext;
   toolHistory: ToolResult[];
@@ -151,7 +151,7 @@ export interface OrchestratorSession {
   createdAt: number;
   lastActivity: number;
   expiresAt: number;
-}
+};
 ```
 
 ### **State Persistence**
@@ -181,14 +181,14 @@ export enum ConnectionStatus {
 }
 
 // Health check with latency monitoring
-export interface HealthCheckResult {
+export type HealthCheckResult = {
   success: boolean;
   status: ConnectionStatus;
   message?: string;
   latency?: number;
   error?: Error;
   timestamp: number;
-}
+};
 ```
 
 ### **Auto-Recovery Mechanisms**
@@ -255,14 +255,14 @@ export class ErrorRecovery {
 ### **Transport Abstraction**
 ```typescript
 // Protocol-agnostic transport layer
-export interface MCPTransport {
+export type MCPTransport = {
   type: 'stdio' | 'sse' | 'http';
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   send(message: any): Promise<void>;
   receive(): AsyncIterableIterator<any>;
   getStatus(): ConnectionStatus;
-}
+};
 
 // Transport manager with failover
 export class TransportManager {
@@ -274,15 +274,82 @@ export class TransportManager {
 }
 ```
 
+### **HTTP/Streamable HTTP Transport Pattern (NEW - MCP 2025 Spec)**
+```typescript
+// HTTP transport for remote MCP servers (GitHub Copilot, Enterprise APIs)
+type HTTPMCPServerConfig = {
+  transport: 'http';                    // Transport type identifier
+  url: string;                          // HTTP endpoint URL
+  headers?: Record<string, string>;     // Custom headers for authentication
+  httpOptions?: {
+    timeout?: number;                   // Connection timeout in ms
+    retries?: number;                   // Max retry attempts
+  };
+  retryConfig?: {
+    maxRetries?: number;
+    initialDelayMs?: number;
+    maxDelayMs?: number;
+  };
+  rateLimiting?: {
+    maxRequestsPerSecond?: number;
+    burstLimit?: number;
+  };
+};
+
+// Usage pattern: Adding HTTP MCP server programmatically
+await neurolink.addInMemoryMCPServer("github-copilot", {
+  server: {
+    title: "GitHub Copilot MCP",
+    description: "GitHub Copilot API integration",
+    tools: {},
+  },
+  config: {
+    id: "github-copilot",
+    name: "github-copilot",
+    transport: "http",
+    url: "https://api.githubcopilot.com/mcp",
+    headers: {
+      Authorization: "Bearer YOUR_GITHUB_COPILOT_TOKEN"
+    },
+    tools: [],
+    status: "initializing",
+  },
+});
+
+// Usage pattern: JSON configuration file (.mcp-config.json)
+{
+  "mcpServers": {
+    "github-copilot": {
+      "name": "github-copilot",
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ghp_xxxx"
+      }
+    }
+  }
+}
+```
+
+### **HTTP Transport vs Other Transports**
+| Feature | stdio | SSE | HTTP |
+|---------|-------|-----|------|
+| Local servers | Yes | No | No |
+| Remote servers | No | Yes | Yes |
+| Authentication | Env vars | Headers | Headers |
+| Session management | No | Partial | Yes |
+| Auto-reconnection | No | Partial | Yes |
+| MCP Specification | Core | Core | 2025 |
+
 ### **Graceful Failover**
 ```typescript
 // Automatic transport switching on failure
-interface TransportFailoverOptions {
+type TransportFailoverOptions = {
   maxRetries: number;
   retryDelay: number;
   preferredTransports: string[];
   fallbackTimeout: number;
-}
+};
 ```
 
 ---
@@ -313,7 +380,7 @@ export class AgentEnhancedProvider implements AIProvider {
 ### **Analytics Integration**
 ```typescript
 // Enhanced analytics with MCP metrics
-interface MCPAnalytics {
+type MCPAnalytics = {
   toolExecutions: number;
   averageToolLatency: number;
   sessionCount: number;
@@ -321,7 +388,7 @@ interface MCPAnalytics {
   healthCheckResults: HealthCheckResult[];
   errorRate: number;
   recoverySuccessRate: number;
-}
+};
 ```
 
 ---
@@ -344,12 +411,12 @@ const PERFORMANCE_BENCHMARKS = {
 ### **Memory Management**
 ```typescript
 // Session cleanup and resource management
-interface ResourceManagement {
+type ResourceManagement = {
   maxActiveSessions: number;        // Default: 100
   sessionCleanupInterval: number;   // Default: 300000 (5 minutes)
   maxConcurrentOperations: number;  // Default: 50
   memoryThreshold: number;          // Default: 200MB
-}
+};
 ```
 
 ---
@@ -359,7 +426,7 @@ interface ResourceManagement {
 ### **Context Isolation**
 ```typescript
 // Session-based context isolation
-interface SecurityContext {
+type SecurityContext = {
   sessionId: string;
   userId?: string;
   permissions: string[];
@@ -369,7 +436,7 @@ interface SecurityContext {
     maxConcurrentOps: number;
     maxMemoryUsage: number;
   };
-}
+};
 ```
 
 ### **Input Validation**
@@ -643,7 +710,7 @@ export type ConversationMemoryConfig = {
 };
 
 // Redis storage configuration
-export interface RedisStorageConfig {
+export type RedisStorageConfig = {
   host?: string;
   port?: number;
   password?: string;
@@ -652,7 +719,7 @@ export interface RedisStorageConfig {
   keyPrefix?: string;
   connectionTimeout?: number;
   ttl?: number;
-}
+};
 ```
 
 ### **Configuration Validation Pattern**
@@ -776,13 +843,13 @@ export class GlobalSessionManager {
 // Typed session variable system
 type SessionVariableValue = string | number | boolean;
 
-interface LoopSessionState {
+type LoopSessionState = {
   neurolinkInstance: NeuroLink;
   sessionId: string;
   isActive: boolean;
   conversationMemoryConfig?: ConversationMemoryConfig;
   sessionVariables: Record<string, SessionVariableValue>;
-}
+};
 
 // Session commands: set, get, unset, show, clear
 // Example: set provider openai
@@ -1022,17 +1089,17 @@ src/lib/mcp/
 ### **Optional Interface Methods Pattern**
 ```typescript
 // Maximum flexibility with optional methods
-interface McpRegistry {
+type McpRegistry = {
   registerServer?(serverId: string, config?: unknown, context?: ExecutionContext): Promise<void>;
   executeTool?<T>(toolName: string, args?: unknown, context?: ExecutionContext): Promise<T>;
   listTools?(context?: ExecutionContext): Promise<ToolInfo[]>;
-}
+};
 ```
 
 ### **Rich Context Flow Pattern**
 ```typescript
 // Context flows through all MCP operations
-interface ExecutionContext {
+type ExecutionContext = {
   sessionId?: string;
   userId?: string;
   aiProvider?: string;
@@ -1040,7 +1107,7 @@ interface ExecutionContext {
   cacheOptions?: CacheOptions;
   fallbackOptions?: FallbackOptions;
   metadata?: Record<string, unknown>;
-}
+};
 ```
 
 ### **Error Recovery Pattern**
@@ -1190,13 +1257,13 @@ The NeuroLink toolkit follows a structured architecture based on the following p
 
 ### 1. AIProvider Interface
 
-The central interface that all providers implement:
+The central type that all providers implement:
 
 ```typescript
-interface AIProvider {
+type AIProvider = {
   generate(options: GenerateOptions): Promise<GenerateResult>;
   stream(options: StreamOptions): Promise<StreamResult>;
-}
+};
 ```
 
 ### 2. Provider Implementations

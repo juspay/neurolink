@@ -156,8 +156,9 @@ neurolink mcp add <name> <command> [options]
 **Options:**
 
 - `--args` - Command arguments (array)
-- `--transport` - Transport type (stdio|sse)
-- `--url` - URL for SSE transport
+- `--transport` - Transport type (stdio|sse|websocket|http)
+- `--url` - URL for SSE/WebSocket/HTTP transport
+- `--headers` - HTTP headers for authentication (JSON)
 - `--env` - Environment variables (JSON)
 - `--cwd` - Working directory
 
@@ -169,6 +170,9 @@ neurolink mcp add myserver "python /path/to/server.py" --args "arg1,arg2"
 
 # Add SSE server
 neurolink mcp add webserver "http://localhost:8080" --transport sse --url "http://localhost:8080/mcp"
+
+# Add HTTP remote server with authentication
+neurolink mcp add remote-api "https://api.example.com/mcp" --transport http --url "https://api.example.com/mcp" --headers '{"Authorization": "Bearer YOUR_TOKEN"}'
 
 # Add server with environment variables
 neurolink mcp add dbserver "npx db-mcp-server" --env '{"DB_URL": "postgresql://..."}'
@@ -365,6 +369,60 @@ For web-based servers:
 ```bash
 neurolink mcp add web-server "http://localhost:8080" --transport sse --url "http://localhost:8080/sse"
 ```
+
+#### **HTTP Transport (Streamable HTTP)**
+
+For remote MCP servers with authentication, retry, and rate limiting:
+
+```bash
+neurolink mcp add remote-api "https://api.example.com/mcp" \
+  --transport http \
+  --url "https://api.example.com/mcp" \
+  --headers '{"Authorization": "Bearer YOUR_TOKEN"}'
+```
+
+**Configuration in `.mcp-config.json`:**
+
+```json
+{
+  "mcpServers": {
+    "remote-api": {
+      "transport": "http",
+      "url": "https://api.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      },
+      "httpOptions": {
+        "connectionTimeout": 30000,
+        "requestTimeout": 60000,
+        "idleTimeout": 120000,
+        "keepAliveTimeout": 30000
+      },
+      "retryConfig": {
+        "maxAttempts": 3,
+        "initialDelay": 1000,
+        "maxDelay": 30000,
+        "backoffMultiplier": 2
+      },
+      "rateLimiting": {
+        "requestsPerMinute": 60,
+        "maxBurst": 10,
+        "useTokenBucket": true
+      }
+    }
+  }
+}
+```
+
+**HTTP Transport Features:**
+
+- Custom headers for authentication (Bearer, API Key)
+- Configurable connection and request timeouts
+- Automatic retry with exponential backoff
+- Rate limiting with token bucket algorithm
+- OAuth 2.1 support with PKCE
+
+See [MCP HTTP Transport Guide](../MCP-HTTP-TRANSPORT.md) for complete documentation.
 
 ### **Server Environment Configuration**
 

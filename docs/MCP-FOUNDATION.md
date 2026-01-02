@@ -39,7 +39,7 @@ const result = await provider.generate({
 - **Lighthouse-compatible server creation**: Standard MCP server interface
 - **Dynamic server instantiation**: Create servers based on configuration
 - **Resource management**: Automatic cleanup and connection handling
-- **Transport abstraction**: Support for stdio, SSE, and WebSocket transports
+- **Transport abstraction**: Support for stdio, SSE, WebSocket, and HTTP transports
 
 ```typescript
 // Factory creates MCP servers with Lighthouse compatibility
@@ -236,7 +236,8 @@ import { createMCPServer } from "@juspay/neurolink/mcp";
 ### Compatibility Features
 
 - **Standard MCP Protocol**: Full compliance with MCP 2024-11-05 specification
-- **Transport Support**: stdio, SSE, WebSocket transports supported
+- **Transport Support**: stdio, SSE, WebSocket, and HTTP transports supported
+- **HTTP Transport**: Remote MCP servers with authentication, retry, and rate limiting
 - **Schema Validation**: JSON Schema validation for all tool interactions
 - **Error Handling**: Standardized error responses and recovery
 

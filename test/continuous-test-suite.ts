@@ -18,6 +18,8 @@
 import { spawn } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 // Read package.json dynamically for version and main script
 const packageJsonPath = "package.json";
@@ -31,18 +33,13 @@ try {
 }
 import { NeuroLink } from "../dist/index.js";
 import { testComplexZodSchemaMultiProvider } from "./zod-schema-test-function.js";
-
-type PurgeQuarterlyDataParams = {
-  quarter: string;
-};
-
-type TerminateEmployeesParams = {
-  department: string;
-};
-
-type DestroyInventoryParams = {
-  warehouseId: string;
-};
+import type {
+  PurgeQuarterlyDataParams,
+  TerminateEmployeesParams,
+  DestroyInventoryParams,
+  ColorName,
+  CommandResult,
+} from "./types/mcp.js";
 
 // Provider-specific token limits
 const PROVIDER_MAX_TOKENS: Record<string, number> = {
@@ -152,8 +149,6 @@ const colors = {
 } as const;
 
 const cwd = process.cwd();
-
-type ColorName = keyof typeof colors;
 
 function log(message: string, color: ColorName = "reset"): void {
   console.log(`${colors[color]}${message}${colors.reset}`);
@@ -291,13 +286,6 @@ function logTest(
   if (details) {
     log(`   ${details}`, "reset");
   }
-}
-
-interface CommandResult {
-  code: number;
-  stdout: string;
-  stderr: string;
-  success: boolean;
 }
 
 // Helper function to build base CLI arguments with provider and optional model
@@ -2935,6 +2923,244 @@ async function testCLIStreamPDFAndCSV(): Promise<boolean> {
   }
 }
 
+// Real HTTP MCP server endpoints for integration testing
+const REAL_HTTP_MCP_SERVERS = {
+  deepwiki: {
+    url: "https://mcp.deepwiki.com/mcp",
+    name: "DeepWiki MCP",
+    description: "Documentation and wiki search MCP server",
+  },
+  semgrep: {
+    url: "https://mcp.semgrep.ai/mcp",
+    name: "Semgrep MCP",
+    description: "Code analysis and security scanning MCP server",
+  },
+  fetchServer: {
+    url: "https://remote.mcpservers.org/fetch/mcp",
+    name: "Remote Fetch MCP",
+    description: "URL fetching MCP server",
+  },
+  sequentialThinking: {
+    url: "https://remote.mcpservers.org/sequentialthinking/mcp",
+    name: "Sequential Thinking MCP",
+    description: "Sequential thinking/reasoning MCP server",
+  },
+};
+
+// Test real HTTP MCP servers with streamable HTTP transport
+async function testRealHttpMcpServers(): Promise<boolean> {
+  logSection("Testing Real HTTP MCP Servers (Streamable HTTP Transport)");
+
+  const results: Array<{
+    name: string;
+    connected: boolean;
+    tools: string[];
+    responseTime: number;
+    error?: string;
+  }> = [];
+
+  // Test each server
+  for (const [_key, serverConfig] of Object.entries(REAL_HTTP_MCP_SERVERS)) {
+    log(`Testing ${serverConfig.name} (${serverConfig.url})...`, "blue");
+
+    const startTime = Date.now();
+    let client: Client | null = null;
+    let transport: StreamableHTTPClientTransport | null = null;
+
+    try {
+      // Create transport
+      transport = new StreamableHTTPClientTransport(new URL(serverConfig.url), {
+        requestInit: {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      });
+
+      // Create client
+      client = new Client(
+        {
+          name: "neurolink-continuous-test-client",
+          version: "1.0.0",
+        },
+        {
+          capabilities: {},
+        },
+      );
+
+      // Connect with timeout
+      const connectPromise = client.connect(transport);
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Connection timeout")), 30000);
+      });
+
+      await Promise.race([connectPromise, timeoutPromise]);
+
+      // List tools
+      const toolsResult = await client.listTools();
+      const tools = toolsResult.tools.map((t) => t.name);
+      const responseTime = Date.now() - startTime;
+
+      results.push({
+        name: serverConfig.name,
+        connected: true,
+        tools,
+        responseTime,
+      });
+
+      logTest(
+        `${serverConfig.name} Connection`,
+        "PASS",
+        `Connected in ${responseTime}ms, ${tools.length} tools: ${tools.join(", ")}`,
+      );
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      results.push({
+        name: serverConfig.name,
+        connected: false,
+        tools: [],
+        responseTime,
+        error: errorMessage,
+      });
+
+      logTest(
+        `${serverConfig.name} Connection`,
+        "FAIL",
+        `Failed after ${responseTime}ms: ${errorMessage}`,
+      );
+    } finally {
+      // Cleanup
+      if (client) {
+        try {
+          await client.close();
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+    }
+  }
+
+  // Test tool invocation on fetch server
+  log("\nTesting tool invocation on Remote Fetch MCP server...", "blue");
+
+  let toolInvocationPassed = false;
+  let fetchClient: Client | null = null;
+  let fetchTransport: StreamableHTTPClientTransport | null = null;
+
+  try {
+    fetchTransport = new StreamableHTTPClientTransport(
+      new URL(REAL_HTTP_MCP_SERVERS.fetchServer.url),
+      {
+        requestInit: {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      },
+    );
+
+    fetchClient = new Client(
+      {
+        name: "neurolink-tool-invoke-test",
+        version: "1.0.0",
+      },
+      {
+        capabilities: {},
+      },
+    );
+
+    await fetchClient.connect(fetchTransport);
+
+    // List tools to find fetch
+    const toolsResult = await fetchClient.listTools();
+    const fetchTool = toolsResult.tools.find((t) => t.name === "fetch");
+
+    if (fetchTool) {
+      // Invoke fetch tool
+      const result = await fetchClient.callTool({
+        name: "fetch",
+        arguments: {
+          url: "https://httpbin.org/json",
+        },
+      });
+
+      if (result && result.content && Array.isArray(result.content)) {
+        const textContent = result.content.find(
+          (c: { type: string }) => c.type === "text",
+        );
+        if (
+          textContent &&
+          "text" in textContent &&
+          textContent.text.length > 0
+        ) {
+          toolInvocationPassed = true;
+          logTest(
+            "HTTP MCP Tool Invocation (fetch)",
+            "PASS",
+            `Successfully fetched ${textContent.text.length} bytes from httpbin.org`,
+          );
+        }
+      }
+    }
+
+    if (!toolInvocationPassed) {
+      logTest(
+        "HTTP MCP Tool Invocation (fetch)",
+        "FAIL",
+        "Could not invoke fetch tool or no content returned",
+      );
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logTest(
+      "HTTP MCP Tool Invocation (fetch)",
+      "FAIL",
+      `Tool invocation failed: ${errorMessage}`,
+    );
+  } finally {
+    if (fetchClient) {
+      try {
+        await fetchClient.close();
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  }
+
+  // Calculate results
+  const connectedCount = results.filter((r) => r.connected).length;
+  const totalServers = Object.keys(REAL_HTTP_MCP_SERVERS).length;
+
+  log(`\n=== HTTP MCP Server Summary ===`, "cyan");
+  log(`Connected: ${connectedCount}/${totalServers} servers`, "cyan");
+  log(
+    `Total tools discovered: ${results.reduce((acc, r) => acc + r.tools.length, 0)}`,
+    "cyan",
+  );
+
+  // Pass if at least 2 servers connected and tool invocation worked
+  const passed = connectedCount >= 2 && toolInvocationPassed;
+
+  if (passed) {
+    logTest(
+      "Real HTTP MCP Servers",
+      "PASS",
+      `${connectedCount}/${totalServers} servers connected, tool invocation successful`,
+    );
+  } else {
+    logTest(
+      "Real HTTP MCP Servers",
+      "FAIL",
+      `Only ${connectedCount}/${totalServers} servers connected or tool invocation failed`,
+    );
+  }
+
+  return passed;
+}
+
 interface TestFunction {
   name: string;
   fn: () => Promise<boolean>;
@@ -3069,6 +3295,7 @@ async function runAllTests(): Promise<void> {
     // { name: "SDK HITL Generate", fn: testSDKHITLGenerate },
     // { name: "SDK HITL Stream", fn: testSDKHITLStream },
     { name: "Enterprise Proxy Support", fn: testEnterpriseProxySupport },
+    { name: "Real HTTP MCP Servers", fn: testRealHttpMcpServers },
     {
       name: "Complex Zod Schema Multi-Provider",
       fn: () =>

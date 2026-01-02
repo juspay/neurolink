@@ -73,6 +73,16 @@
       },
       "description": "Example custom Node.js MCP server"
     },
+    "docker-server": {
+      "name": "docker-server",
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "my-mcp-server:latest"],
+      "transport": "stdio",
+      "description": "Example Docker-based MCP server"
+    },
+
+    "___SSE_TRANSPORT_EXAMPLES___": "=== Server-Sent Events (SSE) transport examples below ===",
+
     "sse-web-server": {
       "name": "sse-web-server",
       "command": "http://localhost:8080",
@@ -80,12 +90,158 @@
       "url": "http://localhost:8080/sse",
       "description": "Example SSE-based web MCP server"
     },
-    "docker-server": {
-      "name": "docker-server",
-      "command": "docker",
-      "args": ["run", "--rm", "-i", "my-mcp-server:latest"],
-      "transport": "stdio",
-      "description": "Example Docker-based MCP server"
+    "github-copilot": {
+      "name": "github-copilot",
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_COPILOT_TOKEN}"
+      },
+      "httpOptions": {
+        "connectionTimeout": 30000,
+        "requestTimeout": 60000
+      },
+      "retryConfig": {
+        "maxAttempts": 3,
+        "initialDelay": 1000,
+        "maxDelay": 30000
+      },
+      "rateLimiting": {
+        "requestsPerMinute": 60,
+        "maxBurst": 10
+      },
+      "description": "GitHub Copilot MCP API with full configuration - uses Bearer token authentication"
+    },
+    "simple-http-server": {
+      "name": "simple-http-server",
+      "transport": "http",
+      "url": "https://api.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${API_TOKEN}"
+      },
+      "description": "Minimal HTTP transport configuration - only required fields"
+    },
+    "http-with-all-options": {
+      "name": "http-with-all-options",
+      "transport": "http",
+      "url": "https://api.enterprise.com/mcp/v1",
+      "headers": {
+        "Authorization": "Bearer ${API_TOKEN}",
+        "X-API-Version": "2024-01",
+        "X-Client-ID": "neurolink-client",
+        "X-Request-ID": "${REQUEST_ID}"
+      },
+      "httpOptions": {
+        "connectionTimeout": 30000,
+        "requestTimeout": 120000,
+        "keepAlive": true,
+        "maxSockets": 10
+      },
+      "retryConfig": {
+        "maxAttempts": 5,
+        "initialDelay": 500,
+        "maxDelay": 60000,
+        "backoffMultiplier": 2,
+        "retryableStatusCodes": [429, 500, 502, 503, 504]
+      },
+      "rateLimiting": {
+        "requestsPerMinute": 100,
+        "requestsPerHour": 1000,
+        "maxBurst": 20,
+        "burstWindow": 1000
+      },
+      "description": "HTTP transport with all available configuration options demonstrated"
+    },
+    "api-key-server": {
+      "name": "api-key-server",
+      "transport": "http",
+      "url": "https://api.example.com/mcp",
+      "auth": {
+        "type": "api-key",
+        "apiKey": "${YOUR_API_KEY}"
+      },
+      "headers": {
+        "X-API-Key": "${YOUR_API_KEY}"
+      },
+      "httpOptions": {
+        "requestTimeout": 30000
+      },
+      "description": "MCP server with API key authentication (key in header)"
+    },
+    "enterprise-oauth-server": {
+      "name": "enterprise-oauth-server",
+      "transport": "http",
+      "url": "https://api.enterprise.com/mcp",
+      "auth": {
+        "type": "oauth2",
+        "oauth": {
+          "clientId": "${OAUTH_CLIENT_ID}",
+          "clientSecret": "${OAUTH_CLIENT_SECRET}",
+          "authorizationUrl": "https://auth.enterprise.com/authorize",
+          "tokenUrl": "https://auth.enterprise.com/token",
+          "redirectUrl": "http://localhost:8080/callback",
+          "scope": "mcp:read mcp:write tools:execute",
+          "usePKCE": true,
+          "refreshTokenBuffer": 300
+        }
+      },
+      "httpOptions": {
+        "requestTimeout": 120000,
+        "connectionTimeout": 60000
+      },
+      "retryConfig": {
+        "maxAttempts": 3,
+        "initialDelay": 1000,
+        "maxDelay": 30000
+      },
+      "description": "Enterprise MCP server with OAuth 2.1 + PKCE authentication flow"
+    },
+    "internal-http-server": {
+      "name": "internal-http-server",
+      "transport": "http",
+      "url": "http://internal-mcp.company.local:8080/api/mcp",
+      "headers": {
+        "X-Internal-Auth": "${INTERNAL_API_KEY}",
+        "X-Service-Name": "neurolink"
+      },
+      "httpOptions": {
+        "connectionTimeout": 5000,
+        "requestTimeout": 30000,
+        "rejectUnauthorized": false
+      },
+      "retryConfig": {
+        "maxAttempts": 2,
+        "initialDelay": 100,
+        "maxDelay": 1000
+      },
+      "description": "Internal network HTTP MCP server with relaxed SSL verification"
+    },
+    "high-throughput-server": {
+      "name": "high-throughput-server",
+      "transport": "http",
+      "url": "https://api.highvolume.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${HT_API_TOKEN}"
+      },
+      "httpOptions": {
+        "connectionTimeout": 10000,
+        "requestTimeout": 30000,
+        "keepAlive": true,
+        "maxSockets": 50
+      },
+      "rateLimiting": {
+        "requestsPerMinute": 1000,
+        "requestsPerHour": 50000,
+        "maxBurst": 100,
+        "burstWindow": 500
+      },
+      "retryConfig": {
+        "maxAttempts": 3,
+        "initialDelay": 100,
+        "maxDelay": 5000,
+        "retryableStatusCodes": [429, 503]
+      },
+      "description": "High-throughput HTTP MCP server optimized for bulk operations"
     }
   },
   "globalConfig": {
@@ -96,8 +252,29 @@
   },
   "metadata": {
     "version": "1.0.0",
-    "description": "NeuroLink MCP Server Configuration",
+    "description": "NeuroLink MCP Server Configuration - Comprehensive examples for all transport types",
     "lastUpdated": "2025-01-09",
-    "documentation": "https://github.com/juspay/neurolink/docs/MCP-INTEGRATION.md"
+    "documentation": "https://github.com/juspay/neurolink/docs/MCP-HTTP-TRANSPORT.md",
+    "transportTypes": {
+      "stdio": "Standard input/output - for local CLI-based MCP servers",
+      "sse": "Server-Sent Events - for web-based MCP servers (legacy)",
+      "http": "HTTP/Streamable HTTP - for remote REST-style MCP APIs (recommended for remote servers)"
+    },
+    "httpConfigReference": {
+      "transport": "Must be 'http' for HTTP transport",
+      "url": "Required - The full URL of the MCP HTTP endpoint",
+      "headers": "Optional - Custom headers including Authorization",
+      "auth": "Optional - Structured auth config (api-key or oauth2)",
+      "httpOptions.connectionTimeout": "Optional - Connection timeout in ms (default: 30000)",
+      "httpOptions.requestTimeout": "Optional - Request timeout in ms (default: 60000)",
+      "httpOptions.keepAlive": "Optional - Enable keep-alive connections (default: true)",
+      "httpOptions.maxSockets": "Optional - Max concurrent connections (default: 10)",
+      "retryConfig.maxAttempts": "Optional - Max retry attempts (default: 3)",
+      "retryConfig.initialDelay": "Optional - Initial delay between retries in ms (default: 1000)",
+      "retryConfig.maxDelay": "Optional - Maximum delay between retries in ms (default: 30000)",
+      "retryConfig.backoffMultiplier": "Optional - Exponential backoff multiplier (default: 2)",
+      "rateLimiting.requestsPerMinute": "Optional - Max requests per minute (default: 60)",
+      "rateLimiting.maxBurst": "Optional - Max burst requests (default: 10)"
+    }
   }
 }

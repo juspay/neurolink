@@ -7,10 +7,26 @@
       "transport": "stdio"
     },
     "github": {
-      "name": "github",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "transport": "stdio"
+      "name": "github-copilot",
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_COPILOT_TOKEN}"
+      },
+      "httpOptions": {
+        "connectionTimeout": 30000,
+        "requestTimeout": 60000
+      },
+      "retryConfig": {
+        "maxAttempts": 3,
+        "initialDelay": 1000,
+        "maxDelay": 30000
+      },
+      "rateLimiting": {
+        "requestsPerMinute": 60,
+        "maxBurst": 10
+      },
+      "description": "GitHub Copilot MCP API with full configuration"
     },
     "bitbucket": {
       "name": "bitbucket",
@@ -18,8 +34,8 @@
       "args": ["-y", "@nexus2520/bitbucket-mcp-server"],
       "transport": "stdio",
       "env": {
-        "BITBUCKET_USERNAME": "your-bitbucket-username",
-        "BITBUCKET_APP_PASSWORD": "your-app-password"
+        "BITBUCKET_USERNAME": "${BITBUCKET_USERNAME}",
+        "BITBUCKET_APP_PASSWORD": "${BITBUCKET_APP_PASSWORD}"
       }
     }
   },

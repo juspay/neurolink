@@ -181,8 +181,9 @@ neurolink mcp add <name> <command> [options]
 **Options:**
 
 - `--args` - Command arguments (array)
-- `--transport` - Transport type (stdio|sse)
-- `--url` - URL for SSE transport
+- `--transport` - Transport type (stdio|sse|websocket|http)
+- `--url` - URL for SSE/WebSocket/HTTP transport
+- `--headers` - JSON string of HTTP headers for authentication (HTTP/SSE/WebSocket)
 - `--env` - Environment variables (JSON)
 - `--cwd` - Working directory
 
@@ -194,6 +195,9 @@ neurolink mcp add myserver "python /path/to/server.py" --args "arg1,arg2"
 
 # Add SSE server
 neurolink mcp add webserver "http://localhost:8080" --transport sse --url "http://localhost:8080/mcp"
+
+# Add HTTP server with authentication
+neurolink mcp add copilot "https://api.githubcopilot.com/mcp" --transport http --url "https://api.githubcopilot.com/mcp" --headers '{"Authorization": "Bearer YOUR_TOKEN"}'
 
 # Add server with environment variables
 neurolink mcp add dbserver "npx db-mcp-server" --env '{"DB_URL": "postgresql://..."}'
@@ -282,6 +286,16 @@ External MCP servers will be configured in `.mcp-config.json`:
       "args": ["/path/to/server.py"],
       "transport": "stdio",
       "cwd": "/project/directory"
+    },
+    "github-copilot": {
+      "name": "github-copilot",
+      "command": "https://api.githubcopilot.com/mcp",
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_GITHUB_COPILOT_TOKEN"
+      },
+      "description": "GitHub Copilot MCP API"
     }
   }
 }
@@ -473,6 +487,166 @@ For web-based servers:
 ```bash
 neurolink mcp add web-server "http://localhost:8080" --transport sse --url "http://localhost:8080/sse"
 ```
+
+#### **HTTP Transport (Streamable HTTP)**
+
+For remote MCP servers using the HTTP/Streamable HTTP protocol:
+
+```bash
+neurolink mcp add github-copilot "https://api.githubcopilot.com/mcp" --transport http --url "https://api.githubcopilot.com/mcp" --headers '{"Authorization": "Bearer YOUR_TOKEN"}'
+```
+
+**HTTP Transport Features:**
+
+- ✅ Supports the MCP Streamable HTTP specification
+- ✅ Custom headers for authentication (e.g., Bearer tokens, API keys)
+- ✅ Session management with automatic reconnection
+- ✅ Compatible with services like GitHub Copilot MCP API
+- ✅ Works through firewalls and proxies
+
+**Configuration Example** (`.mcp-config.json`):
+
+```json
+{
+  "mcpServers": {
+    "github-copilot": {
+      "name": "github-copilot",
+      "command": "https://api.githubcopilot.com/mcp",
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_GITHUB_COPILOT_TOKEN"
+      },
+      "description": "GitHub Copilot MCP API"
+    },
+    "custom-api": {
+      "name": "custom-api",
+      "command": "https://your-api.example.com/mcp",
+      "transport": "http",
+      "url": "https://your-api.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN",
+        "X-Custom-Header": "value"
+      },
+      "httpOptions": {
+        "connectionTimeout": 30000,
+        "requestTimeout": 60000,
+        "idleTimeout": 120000,
+        "keepAliveTimeout": 30000
+      },
+      "retryConfig": {
+        "maxAttempts": 3,
+        "initialDelay": 1000,
+        "maxDelay": 30000,
+        "backoffMultiplier": 2
+      },
+      "rateLimiting": {
+        "requestsPerMinute": 60,
+        "maxBurst": 10,
+        "useTokenBucket": true
+      },
+      "description": "Custom MCP API endpoint"
+    }
+  }
+}
+```
+
+**HTTP Configuration Options:**
+
+| Option         | Type   | Default | Description                                 |
+| -------------- | ------ | ------- | ------------------------------------------- |
+| `headers`      | object | -       | Custom HTTP headers for authentication      |
+| `httpOptions`  | object | -       | Fine-grained connection settings            |
+| `retryConfig`  | object | -       | Automatic retry with exponential backoff    |
+| `rateLimiting` | object | -       | Rate limiting configuration                 |
+| `auth`         | object | -       | Authentication (OAuth 2.1, Bearer, API Key) |
+
+See [MCP HTTP Transport Guide](./MCP-HTTP-TRANSPORT.md) for full documentation.
+
+**Programmatic Configuration:**
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+const neurolink = new NeuroLink();
+
+// Add HTTP MCP server with full configuration
+await neurolink.addInMemoryMCPServer("enterprise-api", {
+  server: {
+    title: "Enterprise MCP API",
+    description: "Enterprise API integration with full HTTP options",
+    tools: {},
+  },
+  config: {
+    id: "enterprise-api",
+    name: "enterprise-api",
+    description: "Enterprise MCP API",
+    command: "https://api.enterprise.com/mcp",
+    transport: "http",
+    url: "https://api.enterprise.com/mcp",
+    headers: {
+      Authorization: "Bearer YOUR_TOKEN",
+    },
+    // HTTP connection options
+    httpOptions: {
+      connectionTimeout: 30000,
+      requestTimeout: 60000,
+      idleTimeout: 120000,
+      keepAliveTimeout: 30000,
+    },
+    // Retry configuration
+    retryConfig: {
+      maxAttempts: 3,
+      initialDelay: 1000,
+      maxDelay: 30000,
+      backoffMultiplier: 2,
+    },
+    // Rate limiting
+    rateLimiting: {
+      requestsPerMinute: 60,
+      maxBurst: 10,
+      useTokenBucket: true,
+    },
+    tools: [],
+    status: "initializing",
+  },
+});
+
+// Add HTTP server with OAuth 2.1
+await neurolink.addInMemoryMCPServer("oauth-api", {
+  server: {
+    title: "OAuth Protected API",
+    description: "API with OAuth 2.1 authentication",
+    tools: {},
+  },
+  config: {
+    id: "oauth-api",
+    name: "oauth-api",
+    description: "OAuth MCP API",
+    transport: "http",
+    url: "https://api.oauth-protected.com/mcp",
+    auth: {
+      type: "oauth2",
+      oauth: {
+        clientId: "your-client-id",
+        clientSecret: "your-client-secret",
+        authorizationUrl: "https://auth.provider.com/oauth/authorize",
+        tokenUrl: "https://auth.provider.com/oauth/token",
+        redirectUrl: "http://localhost:8080/callback",
+        scope: "mcp:read mcp:write",
+        usePKCE: true,
+      },
+    },
+    tools: [],
+    status: "initializing",
+  },
+});
+```
+
+**Supported Headers:**
+
+- `Authorization`: Bearer tokens, API keys
+- `X-API-Key`: Alternative authentication
+- Custom headers for service-specific requirements
 
 ### **Server Environment Configuration**
 

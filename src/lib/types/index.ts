@@ -44,63 +44,6 @@ export type {
   ConfigUpdateOptions,
 } from "./configTypes.js";
 
-// Re-export commonly used types for convenience
-export type {
-  Unknown,
-  UnknownRecord,
-  UnknownArray,
-  JsonValue,
-  JsonObject,
-  JsonArray,
-  ErrorInfo,
-  Result,
-  FunctionParameters,
-} from "./common.js";
-
-export type {
-  ToolArgs,
-  ToolContext,
-  ToolResult,
-  ToolDefinition,
-  SimpleTool,
-  AvailableTool,
-  ToolInfo,
-  ToolExecution,
-  ToolExecutionResult,
-  ValidationResult,
-  ExecutionContext,
-  CacheOptions,
-  FallbackOptions,
-} from "./tools.js";
-
-export type {
-  AISDKModel,
-  ProviderError,
-  AIModelProviderConfig,
-  OpenRouterConfig,
-  OpenRouterModelInfo,
-  OpenRouterModelsResponse,
-  OpenRouterProviderCache,
-} from "./providers.js";
-
-export type {
-  BaseCommandArgs,
-  GenerateCommandArgs,
-  MCPCommandArgs,
-  ModelsCommandArgs,
-  CommandResult,
-  GenerateResult,
-  StreamChunk,
-} from "./cli.js";
-
-export type {
-  TaskType,
-  TaskClassification,
-  ClassificationScores,
-  ClassificationStats,
-  ClassificationValidation,
-} from "./taskClassificationTypes.js";
-
 // MCP domain types
 export type {
   MCPTransportType,
@@ -132,6 +75,16 @@ export type {
   McpRegistry,
   MCPClientResult,
   FlexibleValidationResult,
+  // HTTP Transport types (OAuth, Rate Limiting, Retry)
+  OAuthTokens,
+  TokenStorage,
+  MCPOAuthConfig,
+  OAuthClientInformation,
+  AuthorizationUrlResult,
+  TokenExchangeRequest,
+  TokenBucketRateLimitConfig,
+  RateLimitConfig,
+  HTTPRetryConfig,
 } from "./mcpTypes.js";
 
 // External MCP types
@@ -170,8 +123,17 @@ export type {
   DomainValidationRule,
 } from "./domainTypes.js";
 
-// Generate types - NEW
-export * from "./generateTypes.js";
+// Generate types - NEW (selective export to avoid GenerateResult conflict with cli.js)
+export type {
+  GenerateOptions,
+  GenerateResult as GenerateApiResult, // Renamed to avoid conflict with cli.js GenerateResult
+  UnifiedGenerationOptions,
+  EnhancedProvider,
+  FactoryEnhancedProvider,
+  TextGenerationOptions,
+  TextGenerationResult,
+  EnhancedGenerateResult,
+} from "./generateTypes.js";
 
 // Stream types - NEW (selective export to avoid conflicts)
 export type {
@@ -188,8 +150,14 @@ export type {
   EnhancedStreamProvider,
 } from "./streamTypes.js";
 
-// Analytics types - NEW
-export * from "./analytics.js";
+// Analytics types - NEW (selective export to avoid ErrorInfo conflict with common.js)
+export type {
+  TokenUsage,
+  ErrorInfo as AnalyticsErrorInfo, // Renamed to avoid conflict with common.js ErrorInfo
+  AnalyticsData,
+  StreamAnalyticsData,
+  PerformanceMetrics,
+} from "./analytics.js";
 
 // Evaluation types - NEW
 export * from "./evaluation.js";
@@ -204,6 +172,8 @@ export * from "./serviceTypes.js";
 export * from "./evaluationProviders.js";
 
 // SDK Types - Core types for external developers
+// Note: sdkTypes.ts uses selective re-exports internally, so we use wildcard here
+// The conflicts were from generateTypes and analytics which are now handled above
 export * from "./sdkTypes.js";
 
 // Utilities Types - Utility module types (selective export to avoid conflicts)
@@ -220,3 +190,6 @@ export * from "./content.js";
 
 // TTS (Text-to-Speech) types
 export * from "./ttsTypes.js";
+
+// HITL (Human-in-the-Loop) types
+export * from "./hitlTypes.js";

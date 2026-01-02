@@ -13,6 +13,7 @@ NeuroLink is an enterprise AI development platform that provides unified access 
 - Opinionated factory architecture with provider registry pattern
 - Comprehensive multimodal support (text, images, PDFs, CSV)
 - Full MCP (Model Context Protocol) integration with 58+ external servers
+- Multiple MCP transports: stdio (local), HTTP/Streamable HTTP (remote), SSE, WebSocket
 - Production-ready enterprise features (Redis memory, failover, telemetry)
 
 ## Essential Development Commands
@@ -207,6 +208,47 @@ ProviderFactory.registerProvider(
 - External MCP servers (GitHub, PostgreSQL, Google Drive, etc.)
 - Custom tools defined by users
 
+**MCP Transport Protocols:**
+
+NeuroLink supports multiple transport protocols for MCP servers:
+
+| Transport     | Use Case                                | Configuration                  |
+| ------------- | --------------------------------------- | ------------------------------ |
+| **stdio**     | Local MCP servers via command execution | `command`, `args`, `env`       |
+| **http**      | Remote HTTP/Streamable HTTP servers     | `url`, `headers`, HTTP options |
+| **sse**       | Server-Sent Events connections          | `url`, `headers`               |
+| **websocket** | WebSocket connections                   | `url`, `headers`               |
+
+**HTTP Transport Features:**
+
+- URL-based server configuration (vs command-based for stdio)
+- Authentication via custom headers (Bearer tokens, API keys)
+- HTTP options: `timeout`, `retries`, `healthCheckInterval`
+- Rate limiting with configurable limits
+- Automatic retry with exponential backoff
+- Session management via `Mcp-Session-Id` header
+
+**Example configurations:**
+
+```typescript
+// stdio transport (local server)
+await neurolink.addExternalMCPServer("github", {
+  command: "npx",
+  args: ["-y", "@modelcontextprotocol/server-github"],
+  transport: "stdio",
+  env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN },
+});
+
+// HTTP transport (remote server)
+await neurolink.addExternalMCPServer("github-copilot", {
+  transport: "http",
+  url: "https://api.githubcopilot.com/mcp",
+  headers: { Authorization: "Bearer YOUR_TOKEN" },
+  timeout: 15000,
+  retries: 5,
+});
+```
+
 **Tool execution flow:**
 
 1. Tools registered with MCPToolRegistry
@@ -217,8 +259,13 @@ ProviderFactory.registerProvider(
 **Key files:**
 
 - `src/lib/mcp/toolRegistry.ts` - Tool registry
+- `src/lib/mcp/mcpClientFactory.ts` - MCP client creation for all transports
+- `src/lib/mcp/externalServerManager.ts` - External server lifecycle management
+- `src/lib/mcp/httpRetryHandler.ts` - HTTP retry with exponential backoff
+- `src/lib/mcp/httpRateLimiter.ts` - Rate limiting for HTTP transport
 - `src/lib/utils/transformationUtils.ts` - Tool format transformations
-- `src/lib/types/mcpTypes.ts` - MCP type definitions
+- `src/lib/types/mcpTypes.ts` - MCP type definitions (includes `MCPTransportType`)
+- `src/lib/types/externalMcp.ts` - External MCP server types
 - `src/lib/types/tools.ts` - Tool type definitions
 
 ### Type System
@@ -425,15 +472,18 @@ Note: When `thinkingLevel` is enabled, some providers may have limitations (see 
 
 ## Key Files to Know
 
-| File                                       | Purpose                                    |
-| ------------------------------------------ | ------------------------------------------ |
-| `src/lib/neurolink.ts`                     | Main SDK class, orchestrates everything    |
-| `src/lib/factories/providerRegistry.ts`    | Provider registration with dynamic imports |
-| `src/lib/utils/messageBuilder.ts`          | Central message construction logic         |
-| `src/lib/adapters/providerImageAdapter.ts` | Multimodal content adaptation              |
-| `src/lib/mcp/toolRegistry.ts`              | Tool management and MCP integration        |
-| `src/cli/factories/commandFactory.ts`      | CLI command creation                       |
-| `src/lib/types/index.ts`                   | Main type definitions and exports          |
+| File                                       | Purpose                                       |
+| ------------------------------------------ | --------------------------------------------- |
+| `src/lib/neurolink.ts`                     | Main SDK class, orchestrates everything       |
+| `src/lib/factories/providerRegistry.ts`    | Provider registration with dynamic imports    |
+| `src/lib/utils/messageBuilder.ts`          | Central message construction logic            |
+| `src/lib/adapters/providerImageAdapter.ts` | Multimodal content adaptation                 |
+| `src/lib/mcp/toolRegistry.ts`              | Tool management and MCP integration           |
+| `src/lib/mcp/mcpClientFactory.ts`          | MCP client creation for all transports        |
+| `src/lib/mcp/externalServerManager.ts`     | External MCP server lifecycle management      |
+| `src/cli/factories/commandFactory.ts`      | CLI command creation                          |
+| `src/lib/types/index.ts`                   | Main type definitions and exports             |
+| `src/lib/types/externalMcp.ts`             | External MCP server types (HTTP config, etc.) |
 
 ## Documentation
 

@@ -259,3 +259,58 @@ export type HITLStatistics = {
   /** Number of timed out requests */
   timedOutRequests: number;
 };
+
+/**
+ * HITLManager type
+ * Defines the public contract for HITL manager implementations.
+ * Used for type annotations when referencing HITLManager instances.
+ */
+export type HITLManager = {
+  /** Check if HITL is currently enabled */
+  isEnabled(): boolean;
+
+  /** Check if a tool requires confirmation based on configuration */
+  requiresConfirmation(toolName: string, args?: unknown): boolean;
+
+  /** Request confirmation for a tool execution */
+  requestConfirmation(
+    toolName: string,
+    arguments_: unknown,
+    context?: {
+      serverId?: string;
+      sessionId?: string;
+      userId?: string;
+    },
+  ): Promise<ConfirmationResult>;
+
+  /** Process user response to confirmation request */
+  processUserResponse(
+    confirmationId: string,
+    response: {
+      approved: boolean;
+      reason?: string;
+      modifiedArguments?: unknown;
+      responseTime?: number;
+      userId?: string;
+    },
+  ): void;
+
+  /** Get current HITL usage statistics */
+  getStatistics(): HITLStatistics;
+
+  /** Get current configuration */
+  getConfig(): HITLConfig;
+
+  /** Update configuration dynamically */
+  updateConfig(newConfig: Partial<HITLConfig>): void;
+
+  /** Clean up resources and reject pending confirmations */
+  cleanup(): void;
+
+  /** Get count of pending confirmations */
+  getPendingCount(): number;
+
+  /** EventEmitter methods for HITL events */
+  on(event: string, listener: (...args: unknown[]) => void): HITLManager;
+  emit(event: string, ...args: unknown[]): boolean;
+};

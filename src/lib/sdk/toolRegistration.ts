@@ -8,10 +8,9 @@ import { logger } from "../utils/logger.js";
 import type { MCPServerInfo, MCPServerCategory } from "../types/mcpTypes.js";
 import type {
   ToolArgs,
-  ToolContext as CoreToolContext,
-  ToolResult,
   SimpleTool as CoreSimpleTool,
   ZodUnknownSchema,
+  SDKToolContext,
 } from "../types/tools.js";
 import type { JsonValue } from "../types/common.js";
 import { createMCPServerInfo } from "../utils/mcpDefaults.js";
@@ -100,34 +99,9 @@ const VALIDATION_CONFIG = {
 
 /**
  * Context provided to tools during execution
- * Extends the core ToolContext with SDK-specific features
+ * Type alias for backward compatibility
  */
-export interface ToolContext extends CoreToolContext {
-  /**
-   * Current session ID
-   */
-  sessionId: string;
-
-  /**
-   * AI provider being used
-   */
-  provider?: string;
-
-  /**
-   * Model being used
-   */
-  model?: string;
-
-  /**
-   * Call another tool
-   */
-  callTool?: (name: string, params: ToolArgs) => Promise<ToolResult>;
-
-  /**
-   * Logger instance
-   */
-  logger: typeof logger;
-}
+export type ToolContext = SDKToolContext;
 
 /**
  * Simple tool interface for SDK users

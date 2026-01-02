@@ -1523,6 +1523,81 @@ console.log("• Custom tool:", calculationResult.result);
 console.log("• MCP server tool:", reportResult.data.reportId);
 ```
 
+### Adding Remote HTTP MCP Servers
+
+Connect to remote MCP servers via HTTP transport with authentication, retry, and rate limiting:
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// Add HTTP MCP server with full configuration
+await neurolink.addMCPServer("remote-api", {
+  transport: "http",
+  url: "https://api.example.com/mcp",
+  headers: {
+    Authorization: "Bearer YOUR_API_TOKEN",
+    "X-Custom-Header": "value",
+  },
+  httpOptions: {
+    connectionTimeout: 30000,
+    requestTimeout: 60000,
+    idleTimeout: 120000,
+    keepAliveTimeout: 30000,
+  },
+  retryConfig: {
+    maxAttempts: 3,
+    initialDelay: 1000,
+    maxDelay: 30000,
+    backoffMultiplier: 2,
+  },
+  rateLimiting: {
+    requestsPerMinute: 60,
+    maxBurst: 10,
+    useTokenBucket: true,
+  },
+});
+
+// Add HTTP server with OAuth 2.1
+await neurolink.addMCPServer("oauth-api", {
+  transport: "http",
+  url: "https://api.enterprise.com/mcp",
+  auth: {
+    type: "oauth2",
+    oauth: {
+      clientId: "your-client-id",
+      clientSecret: "your-client-secret",
+      authorizationUrl: "https://auth.provider.com/authorize",
+      tokenUrl: "https://auth.provider.com/token",
+      redirectUrl: "http://localhost:8080/callback",
+      scope: "mcp:read mcp:write",
+      usePKCE: true,
+    },
+  },
+});
+
+// Use the remote server's tools in AI generation
+const result = await neurolink.generate({
+  input: { text: "Use the remote API to perform analysis" },
+  provider: "google-ai",
+});
+```
+
+**HTTP Configuration Options:**
+
+| Option         | Type   | Description                                 |
+| -------------- | ------ | ------------------------------------------- |
+| `transport`    | string | Must be `"http"` for HTTP transport         |
+| `url`          | string | Remote MCP endpoint URL                     |
+| `headers`      | object | Custom HTTP headers                         |
+| `httpOptions`  | object | Connection timeout settings                 |
+| `retryConfig`  | object | Retry with exponential backoff              |
+| `rateLimiting` | object | Rate limiting configuration                 |
+| `auth`         | object | Authentication (OAuth 2.1, Bearer, API Key) |
+
+See [MCP HTTP Transport Guide](./MCP-HTTP-TRANSPORT.md) for complete documentation.
+
 ### Best Practices for MCP Integration
 
 #### 1. Organize Tools by Domain

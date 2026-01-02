@@ -7,9 +7,9 @@
 // thinkingLevel configuration for Gemini 3 models
 export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 
-export interface Gemini3Options {
+export type Gemini3Options = {
   thinkingLevel?: ThinkingLevel;  // Controls extended thinking depth
-}
+};
 
 // Usage in NeuroLink SDK
 const neurolink = new NeuroLink({
@@ -198,18 +198,18 @@ const PERFORMANCE_METRICS = {
 ### **Factory-Enhanced Architecture Implementation**
 ```typescript
 // NEW: Core interfaces for generate() function
-interface GenerateOptions {
+type GenerateOptions = {
   input: { text: string };
   output?: { format?: 'text' | 'structured' | 'json' };
   provider?: AIProviderName;
   // ... all existing TextGenerationOptions preserved
-}
+};
 
-interface GenerateResult {
+type GenerateResult = {
   content: string;
   outputs?: { text: string };
   // ... all existing fields preserved
-}
+};
 
 // Factory pattern implementation
 class ProviderGenerateFactory {
@@ -499,7 +499,7 @@ export class HealthMonitor extends EventEmitter {
 ### **Error Categorization System**
 ```typescript
 // 5-category, 4-severity error classification
-export interface CategorizedError {
+export type CategorizedError = {
   id: string;
   category: ErrorCategory;
   severity: ErrorSeverity;
@@ -509,7 +509,7 @@ export interface CategorizedError {
   timestamp: number;
   recoveryAttempts: number;
   resolved: boolean;
-}
+};
 
 export class ErrorManager {
   private errorHistory: Map<string, CategorizedError[]> = new Map();
@@ -548,16 +548,16 @@ export class ErrorManager {
 ### **Transport Abstraction Layer**
 ```typescript
 // Protocol-agnostic transport interface
-export interface MCPTransport {
+export type MCPTransport = {
   type: 'stdio' | 'sse' | 'http';
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   send(message: any): Promise<void>;
   receive(): AsyncIterableIterator<any>;
   getStatus(): ConnectionStatus;
-}
+};
 
-// stdio implementation
+// stdio implementation - Local MCP servers
 export class StdioTransport implements MCPTransport {
   type = 'stdio' as const;
   private process: ChildProcess;
@@ -569,7 +569,7 @@ export class StdioTransport implements MCPTransport {
   }
 }
 
-// SSE implementation
+// SSE implementation - Legacy remote servers
 export class SSETransport implements MCPTransport {
   type = 'sse' as const;
   private eventSource: EventSource;
@@ -578,14 +578,75 @@ export class SSETransport implements MCPTransport {
     this.eventSource = new EventSource(this.url);
   }
 }
+
+// HTTP/Streamable HTTP implementation - Remote MCP APIs (MCP 2025 spec)
+export class HTTPTransport implements MCPTransport {
+  type = 'http' as const;
+  private url: string;
+  private headers: Record<string, string>;
+  private sessionId?: string;
+
+  async connect(): Promise<void> {
+    // Uses StreamableHTTPClientTransport from @modelcontextprotocol/sdk
+    this.transport = new StreamableHTTPClientTransport(new URL(this.url), {
+      requestInit: { headers: this.headers }
+    });
+  }
+}
+```
+
+### **HTTP Transport Configuration (NEW)**
+```typescript
+// HTTP transport configuration for remote MCP servers
+type HTTPTransportConfig = {
+  transport: 'http';                    // Required: transport type
+  url: string;                          // Required: HTTP endpoint URL
+  headers?: Record<string, string>;     // Optional: auth headers
+  httpOptions?: {
+    timeout?: number;                   // Connection timeout (ms)
+    retries?: number;                   // Max retry attempts
+  };
+  retryConfig?: {
+    maxRetries?: number;
+    initialDelayMs?: number;
+    maxDelayMs?: number;
+  };
+  rateLimiting?: {
+    maxRequestsPerSecond?: number;
+    burstLimit?: number;
+  };
+};
+
+// Example: GitHub Copilot MCP configuration
+const githubCopilotConfig = {
+  transport: 'http',
+  url: 'https://api.githubcopilot.com/mcp',
+  headers: {
+    Authorization: 'Bearer YOUR_GITHUB_COPILOT_TOKEN'
+  },
+  httpOptions: { timeout: 15000, retries: 3 }
+};
 ```
 
 ### **Transport Technology Stack**
-- **stdio**: Child process communication
-- **SSE**: Server-Sent Events with EventSource
-- **HTTP**: Fetch API with custom retry logic
+- **stdio**: Child process communication (local servers)
+- **SSE**: Server-Sent Events with EventSource (legacy remote)
+- **HTTP/Streamable HTTP**: MCP 2025 specification for remote APIs
+  - Uses `StreamableHTTPClientTransport` from `@modelcontextprotocol/sdk`
+  - Supports custom headers for authentication (Bearer tokens, API keys)
+  - Session management via `Mcp-Session-Id` header
+  - Automatic reconnection with exponential backoff
+  - Both streaming (SSE) and batch JSON responses
 - **Failover**: Automatic protocol switching
 - **Connection Pooling**: Reuse existing connections
+
+### **HTTP Transport Use Cases**
+| Use Case | Configuration | Authentication |
+|----------|--------------|----------------|
+| GitHub Copilot MCP | `transport: "http"` | Bearer token |
+| Enterprise API Gateway | `transport: "http"` | API key header |
+| Custom MCP Service | `transport: "http"` | Custom headers |
+| Multi-cloud MCP | `transport: "http"` | Provider-specific |
 
 ---
 

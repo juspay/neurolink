@@ -667,159 +667,159 @@ export type CLIMCPServerConfig = {
  * OpenAI setup configuration types
  */
 export namespace OpenAISetup {
-  export interface SetupOptions {
+  export type SetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
-  }
+  };
 
-  export interface SetupArgv {
+  export type SetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
-  }
+  };
 
-  export interface Config {
+  export type Config = {
     apiKey?: string;
     organization?: string;
     model?: string;
     isReconfiguring?: boolean;
-  }
+  };
 }
 
 /**
  * Anthropic setup configuration types
  */
 export namespace AnthropicSetup {
-  export interface SetupOptions {
+  export type SetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
-  }
+  };
 
-  export interface SetupArgv {
+  export type SetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
-  }
+  };
 
-  export interface Config {
+  export type Config = {
     apiKey?: string;
     model?: string;
     isReconfiguring?: boolean;
-  }
+  };
 }
 
 /**
  * Google AI setup configuration types
  */
 export namespace GoogleAISetup {
-  export interface SetupOptions {
+  export type SetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
-  }
+  };
 
-  export interface SetupArgv {
+  export type SetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
-  }
+  };
 
-  export interface Config {
+  export type Config = {
     apiKey?: string;
     model?: string;
     isReconfiguring?: boolean;
-  }
+  };
 }
 
 /**
  * Azure setup configuration types
  */
 export namespace AzureSetup {
-  export interface SetupOptions {
+  export type SetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
-  }
+  };
 
-  export interface SetupArgv {
+  export type SetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
-  }
+  };
 
-  export interface Config {
+  export type Config = {
     apiKey?: string;
     endpoint?: string;
     deploymentName?: string;
     apiVersion?: string;
     model?: string;
     isReconfiguring?: boolean;
-  }
+  };
 }
 
 /**
  * AWS Bedrock setup configuration types
  */
 export namespace BedrockSetup {
-  export interface SetupOptions {
+  export type SetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
-  }
+  };
 
-  export interface SetupArgv {
+  export type SetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
-  }
+  };
 
-  export interface ConfigData {
+  export type ConfigData = {
     region?: string;
     accessKeyId?: string;
     secretAccessKey?: string;
     model?: string;
-  }
+  };
 
-  export interface ConfigStatus {
+  export type ConfigStatus = {
     hasCredentials: boolean;
     hasRegion: boolean;
     hasModel: boolean;
     isReconfiguring?: boolean;
-  }
+  };
 }
 
 /**
  * GCP/Vertex AI setup configuration types
  */
 export namespace GCPSetup {
-  export interface SetupOptions {
+  export type SetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
-  }
+  };
 
-  export interface SetupArgv {
+  export type SetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
-  }
+  };
 
-  export interface AuthMethodStatus {
+  export type AuthMethodStatus = {
     hasServiceAccount: boolean;
     hasGcloudAuth: boolean;
     hasApplicationDefault: boolean;
     preferredMethod?: "service-account" | "gcloud" | "adc";
-  }
+  };
 }
 
 /**
  * Hugging Face setup configuration types
  */
 export namespace HuggingFaceSetup {
-  export interface SetupArgs {
+  export type SetupArgs = {
     check?: boolean;
     nonInteractive?: boolean;
     help?: boolean;
-  }
+  };
 }
 
 /**
  * Mistral setup configuration types
  */
 export namespace MistralSetup {
-  export interface SetupArgs {
+  export type SetupArgs = {
     check?: boolean;
     nonInteractive?: boolean;
     help?: boolean;
-  }
+  };
 }

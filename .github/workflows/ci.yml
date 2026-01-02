@@ -29,10 +29,7 @@ jobs:
           cache: "pnpm"
 
       - name: Install ffmpeg
-        uses: FedericoCarboni/setup-ffmpeg@36c6454b5a2348e7794ba2d82a21506605921e3d
-        with:
-          ffmpeg-version: "7.0.2"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+        uses: AnimMouse/setup-ffmpeg@v1
 
       - name: Verify ffmpeg installation
         run: |
@@ -98,10 +95,7 @@ jobs:
           cache: "pnpm"
 
       - name: Install ffmpeg
-        uses: FedericoCarboni/setup-ffmpeg@36c6454b5a2348e7794ba2d82a21506605921e3d
-        with:
-          ffmpeg-version: "7.0.2"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+        uses: AnimMouse/setup-ffmpeg@v1
 
       - name: Verify ffmpeg installation
         run: |
@@ -148,11 +142,7 @@ jobs:
           cache: "pnpm"
 
       - name: Install ffmpeg
-        uses: FedericoCarboni/setup-ffmpeg@36c6454b5a2348e7794ba2d82a21506605921e3d
-        with:
-          # ffmpeg for video features (VIDEO-034)
-          ffmpeg-version: "7.0.2"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+        uses: AnimMouse/setup-ffmpeg@v1
 
       - name: Verify ffmpeg installation
         run: |

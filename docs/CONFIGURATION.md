@@ -420,6 +420,95 @@ Create `.mcp-config.json` in your project root:
 }
 ```
 
+#### **HTTP Transport Configuration (Remote MCP Servers)**
+
+For remote MCP servers, use HTTP transport with authentication, retry, and rate limiting:
+
+```json
+{
+  "mcpServers": {
+    "remote-api": {
+      "transport": "http",
+      "url": "https://api.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN",
+        "X-API-Key": "your-api-key"
+      },
+      "httpOptions": {
+        "connectionTimeout": 30000,
+        "requestTimeout": 60000,
+        "idleTimeout": 120000,
+        "keepAliveTimeout": 30000
+      },
+      "retryConfig": {
+        "maxAttempts": 3,
+        "initialDelay": 1000,
+        "maxDelay": 30000,
+        "backoffMultiplier": 2
+      },
+      "rateLimiting": {
+        "requestsPerMinute": 60,
+        "maxBurst": 10,
+        "useTokenBucket": true
+      }
+    }
+  }
+}
+```
+
+**HTTP Transport Options:**
+
+| Category       | Option                           | Type      | Default  | Description                       |
+| -------------- | -------------------------------- | --------- | -------- | --------------------------------- |
+| **Core**       | `transport`                      | `"http"`  | -        | Transport type for remote servers |
+| **Core**       | `url`                            | `string`  | -        | URL of the remote MCP endpoint    |
+| **Core**       | `headers`                        | `object`  | `{}`     | HTTP headers for authentication   |
+| **Timeouts**   | `httpOptions.connectionTimeout`  | `number`  | `30000`  | Connection timeout in ms          |
+| **Timeouts**   | `httpOptions.requestTimeout`     | `number`  | `60000`  | Request timeout in ms             |
+| **Timeouts**   | `httpOptions.idleTimeout`        | `number`  | `120000` | Idle timeout in ms                |
+| **Timeouts**   | `httpOptions.keepAliveTimeout`   | `number`  | `30000`  | Keep-alive timeout in ms          |
+| **Retry**      | `retryConfig.maxAttempts`        | `number`  | `3`      | Max retry attempts                |
+| **Retry**      | `retryConfig.initialDelay`       | `number`  | `1000`   | Initial retry delay in ms         |
+| **Retry**      | `retryConfig.maxDelay`           | `number`  | `30000`  | Max retry delay in ms             |
+| **Retry**      | `retryConfig.backoffMultiplier`  | `number`  | `2`      | Backoff multiplier                |
+| **Rate Limit** | `rateLimiting.requestsPerMinute` | `number`  | `60`     | Rate limit per minute             |
+| **Rate Limit** | `rateLimiting.maxBurst`          | `number`  | `10`     | Max burst requests                |
+| **Rate Limit** | `rateLimiting.useTokenBucket`    | `boolean` | `true`   | Use token bucket algorithm        |
+
+**Authentication Types:**
+
+```json
+// Bearer Token
+{
+  "headers": {
+    "Authorization": "Bearer YOUR_TOKEN"
+  }
+}
+
+// API Key
+{
+  "headers": {
+    "X-API-Key": "your-api-key"
+  }
+}
+
+// OAuth 2.1 with PKCE
+{
+  "auth": {
+    "type": "oauth2",
+    "oauth": {
+      "clientId": "your-client-id",
+      "clientSecret": "your-client-secret",
+      "tokenEndpoint": "https://auth.example.com/oauth/token",
+      "scopes": ["mcp:read", "mcp:write"],
+      "usePKCE": true
+    }
+  }
+}
+```
+
+See [MCP HTTP Transport Guide](MCP-HTTP-TRANSPORT.md) for complete documentation.
+
 ### **MCP Discovery Commands**
 
 ```bash

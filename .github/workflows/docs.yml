@@ -64,7 +64,7 @@ jobs:
 
       - name: Build documentation
         run: |
-          mkdocs build --strict --clean --verbose
+          mkdocs build --strict --clean
 
       - name: Upload artifact
         if: github.event_name != 'pull_request'

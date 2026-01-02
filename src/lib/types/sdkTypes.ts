@@ -54,26 +54,8 @@ export type {
   ConfigUpdateOptions,
 } from "./configTypes.js";
 
-// Tool system types - Complete tool interface
-export type {
-  ToolArgs,
-  ToolContext,
-  ToolResult,
-  ToolDefinition,
-  SimpleTool,
-  AvailableTool,
-  ToolExecution,
-  BaseToolArgs,
-  ToolExecutionEvent,
-  ToolExecutionSummary,
-  ToolExecutionContext,
-  ToolExecutionMetadata,
-  ToolParameterSchema,
-  ZodUnknownSchema,
-  ZodAnySchema,
-  ZodObjectSchema,
-  ZodStringSchema,
-} from "./tools.js";
+// Tool system types are exported directly from tools.js via index.ts
+// Do not re-export here to avoid duplicate export conflicts
 
 // Provider types - Complete provider interface
 export type {
@@ -93,7 +75,7 @@ export type {
 // Generation types - Core generation interface
 export type {
   GenerateOptions,
-  GenerateResult,
+  GenerateResult as GenerateApiResult, // Renamed to avoid conflict with cli.js GenerateResult
   UnifiedGenerationOptions,
   EnhancedProvider,
   FactoryEnhancedProvider,

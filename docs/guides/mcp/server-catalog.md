@@ -18,6 +18,17 @@ The Model Context Protocol (MCP) enables AI models to interact with external too
 
 MCP is an open protocol that standardizes how AI applications connect to external data sources and tools. Think of it as USB-C for AI - one universal standard for connecting AI models to any tool or data source.
 
+### Transport Types
+
+MCP servers communicate using different transport protocols:
+
+| Transport     | Use Case      | Description                                                     |
+| ------------- | ------------- | --------------------------------------------------------------- |
+| **stdio**     | Local servers | Default for CLI-based MCP servers                               |
+| **SSE**       | Web servers   | Server-Sent Events for HTTP streaming                           |
+| **WebSocket** | Real-time     | Bidirectional real-time communication                           |
+| **HTTP**      | Remote APIs   | HTTP/Streamable HTTP for remote MCP servers with authentication |
+
 ### Categories
 
 - **🗄️ Data & Storage** (12 servers): Databases, file systems, cloud storage
@@ -394,6 +405,133 @@ mcpServers: [
 | **encryption** | Crypto operations | `npm -g @modelcontextprotocol/server-encryption` | Encrypt/decrypt       |
 | **qr-code**    | QR code generator | `npm -g @modelcontextprotocol/server-qr-code`    | Generate QR codes     |
 | **image**      | Image processing  | `npm -g @modelcontextprotocol/server-image`      | Resize, convert       |
+
+---
+
+## Remote HTTP MCP Servers
+
+NeuroLink supports connecting to remote MCP servers over HTTP/Streamable HTTP transport with authentication, retry logic, and rate limiting.
+
+### Configuring Remote HTTP Servers
+
+```typescript
+const ai = new NeuroLink({
+  providers: [
+    { name: "anthropic", config: { apiKey: process.env.ANTHROPIC_API_KEY } },
+  ],
+  mcpServers: [
+    // Remote API with Bearer token
+    {
+      name: "remote-api",
+      transport: "http",
+      url: "https://api.example.com/mcp",
+      headers: {
+        Authorization: `Bearer ${process.env.API_TOKEN}`,
+      },
+      httpOptions: {
+        connectionTimeout: 30000,
+        requestTimeout: 60000,
+      },
+      retryConfig: {
+        maxAttempts: 3,
+        initialDelay: 1000,
+        maxDelay: 30000,
+      },
+    },
+
+    // Remote server with API key
+    {
+      name: "external-tools",
+      transport: "http",
+      url: "https://tools.example.com/mcp",
+      headers: {
+        "X-API-Key": process.env.TOOLS_API_KEY,
+      },
+      rateLimiting: {
+        requestsPerMinute: 60,
+        maxBurst: 10,
+      },
+    },
+
+    // OAuth 2.1 protected server
+    {
+      name: "oauth-protected",
+      transport: "http",
+      url: "https://secure.example.com/mcp",
+      auth: {
+        type: "oauth2",
+        oauth: {
+          clientId: process.env.OAUTH_CLIENT_ID,
+          clientSecret: process.env.OAUTH_CLIENT_SECRET,
+          tokenEndpoint: "https://auth.example.com/oauth/token",
+          scopes: ["mcp:read", "mcp:write"],
+          usePKCE: true,
+        },
+      },
+    },
+  ],
+});
+```
+
+### HTTP Transport Configuration Options
+
+| Option                           | Type      | Description                               |
+| -------------------------------- | --------- | ----------------------------------------- |
+| `transport`                      | `"http"`  | Transport type for remote servers         |
+| `url`                            | `string`  | URL of the remote MCP endpoint            |
+| `headers`                        | `object`  | HTTP headers for authentication           |
+| `httpOptions.connectionTimeout`  | `number`  | Connection timeout in ms (default: 30000) |
+| `httpOptions.requestTimeout`     | `number`  | Request timeout in ms (default: 60000)    |
+| `httpOptions.idleTimeout`        | `number`  | Idle timeout in ms (default: 120000)      |
+| `httpOptions.keepAliveTimeout`   | `number`  | Keep-alive timeout in ms (default: 30000) |
+| `retryConfig.maxAttempts`        | `number`  | Max retry attempts (default: 3)           |
+| `retryConfig.initialDelay`       | `number`  | Initial retry delay in ms (default: 1000) |
+| `retryConfig.maxDelay`           | `number`  | Max retry delay in ms (default: 30000)    |
+| `retryConfig.backoffMultiplier`  | `number`  | Backoff multiplier (default: 2)           |
+| `rateLimiting.requestsPerMinute` | `number`  | Rate limit per minute                     |
+| `rateLimiting.maxBurst`          | `number`  | Max burst requests                        |
+| `rateLimiting.useTokenBucket`    | `boolean` | Use token bucket algorithm                |
+
+### Authentication Types
+
+**Bearer Token:**
+
+```typescript
+{
+  headers: {
+    "Authorization": "Bearer YOUR_TOKEN"
+  }
+}
+```
+
+**API Key:**
+
+```typescript
+{
+  headers: {
+    "X-API-Key": "your-api-key"
+  }
+}
+```
+
+**OAuth 2.1 with PKCE:**
+
+```typescript
+{
+  auth: {
+    type: "oauth2",
+    oauth: {
+      clientId: "your-client-id",
+      clientSecret: "your-client-secret",
+      tokenEndpoint: "https://auth.example.com/oauth/token",
+      scopes: ["mcp:read", "mcp:write"],
+      usePKCE: true
+    }
+  }
+}
+```
+
+See [MCP HTTP Transport Guide](../../MCP-HTTP-TRANSPORT.md) for complete documentation.
 
 ---
 

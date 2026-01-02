@@ -116,6 +116,71 @@ Most tools follow a similar JSON structure:
 }
 ```
 
+## HTTP Transport Configuration
+
+For remote MCP servers using HTTP/Streamable HTTP transport:
+
+```json
+{
+  "mcpServers": {
+    "remote-api": {
+      "transport": "http",
+      "url": "https://api.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      },
+      "httpOptions": {
+        "connectionTimeout": 30000,
+        "requestTimeout": 60000,
+        "idleTimeout": 120000,
+        "keepAliveTimeout": 30000
+      },
+      "retryConfig": {
+        "maxAttempts": 3,
+        "initialDelay": 1000,
+        "maxDelay": 30000,
+        "backoffMultiplier": 2
+      },
+      "rateLimiting": {
+        "requestsPerMinute": 60,
+        "maxBurst": 10,
+        "useTokenBucket": true
+      }
+    },
+    "oauth-protected-api": {
+      "transport": "http",
+      "url": "https://api.secure.com/mcp",
+      "auth": {
+        "type": "oauth2",
+        "oauth": {
+          "clientId": "your-client-id",
+          "clientSecret": "your-client-secret",
+          "authorizationUrl": "https://auth.provider.com/authorize",
+          "tokenUrl": "https://auth.provider.com/token",
+          "redirectUrl": "http://localhost:8080/callback",
+          "scope": "mcp:read mcp:write",
+          "usePKCE": true
+        }
+      }
+    }
+  }
+}
+```
+
+### HTTP Configuration Options
+
+| Option         | Type   | Description                                  |
+| -------------- | ------ | -------------------------------------------- |
+| `transport`    | string | Must be `"http"` for HTTP transport          |
+| `url`          | string | Remote MCP endpoint URL                      |
+| `headers`      | object | Custom HTTP headers (e.g., Authorization)    |
+| `httpOptions`  | object | Connection timeout settings                  |
+| `retryConfig`  | object | Retry with exponential backoff               |
+| `rateLimiting` | object | Rate limiting configuration                  |
+| `auth`         | object | OAuth 2.1, Bearer, or API key authentication |
+
+See [MCP HTTP Transport Guide](./MCP-HTTP-TRANSPORT.md) for complete documentation.
+
 ## Key Observations
 
 1. **Common Pattern**: Almost all tools use JSON files with an `mcpServers` object

@@ -182,6 +182,37 @@ export type ToolContext = {
 };
 
 /**
+ * SDK-specific tool context with additional fields for SDK usage
+ * Extends the base ToolContext with session management, provider info, and logging
+ */
+export type SDKToolContext = ToolContext & {
+  /**
+   * Current session ID (required for SDK context)
+   */
+  sessionId: string;
+
+  /**
+   * AI provider being used
+   */
+  provider?: string;
+
+  /**
+   * Model being used
+   */
+  model?: string;
+
+  /**
+   * Call another tool
+   */
+  callTool?: (name: string, params: ToolArgs) => Promise<ToolResult>;
+
+  /**
+   * Logger instance
+   */
+  logger: import("./utilities.js").Logger;
+};
+
+/**
  * Tool execution result metadata
  */
 export type ToolResultMetadata = {
@@ -191,15 +222,32 @@ export type ToolResultMetadata = {
   source?: string;
   version?: string;
   serverId?: string;
+  sessionId?: string;
+  blocked?: boolean;
+  [key: string]: JsonValue | undefined;
+};
+
+/**
+ * Tool result usage information
+ */
+export type ToolResultUsage = {
+  executionTime?: number;
+  tokensUsed?: number;
+  cost?: number;
+  [key: string]: JsonValue | undefined;
 };
 
 /**
  * Tool execution result
  */
-export type ToolResult<T = JsonValue> = Result<T, ErrorInfo> & {
+export type ToolResult<T = JsonValue | unknown> = Result<
+  T,
+  ErrorInfo | string
+> & {
   success: boolean;
-  data?: T;
-  error?: ErrorInfo;
+  data?: T | null;
+  error?: ErrorInfo | string;
+  usage?: ToolResultUsage;
   metadata?: ToolResultMetadata;
 };
 

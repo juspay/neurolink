@@ -22,7 +22,7 @@ import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
 import { directAgentTools } from "../agent/directTools.js";
 import { detectCategory, createMCPServerInfo } from "../utils/mcpDefaults.js";
 import { FlexibleToolValidator } from "./flexibleToolValidator.js";
-import type { HITLManager } from "../hitl/hitlManager.js";
+import type { HITLManager } from "../types/hitlTypes.js";
 import { HITLUserRejectedError, HITLTimeoutError } from "../hitl/hitlErrors.js";
 
 export class MCPToolRegistry extends MCPRegistry {
@@ -150,17 +150,15 @@ export class MCPToolRegistry extends MCPRegistry {
   ): Promise<void>;
   async registerServer(
     serverInfoOrId: MCPServerInfo | string,
-    serverConfigOrContext?: unknown | ExecutionContext,
-    context?: ExecutionContext,
+    _serverConfigOrContext?: unknown | ExecutionContext,
+    _context?: ExecutionContext,
   ): Promise<void> {
     // Handle both signatures for backward compatibility
     let serverInfo: MCPServerInfo;
-    let _finalContext: ExecutionContext | undefined;
 
     if (typeof serverInfoOrId === "string") {
       // Legacy signature: registerServer(serverId, serverConfig, context)
       const serverId = serverInfoOrId;
-      _finalContext = context;
 
       // Convert legacy call to MCPServerInfo format using smart defaults
       serverInfo = createMCPServerInfo({
@@ -172,7 +170,6 @@ export class MCPToolRegistry extends MCPRegistry {
     } else {
       // New signature: registerServer(serverInfo, context)
       serverInfo = serverInfoOrId;
-      _finalContext = serverConfigOrContext as ExecutionContext | undefined;
     }
     const serverId = serverInfo.id;
 
@@ -304,9 +301,6 @@ export class MCPToolRegistry extends MCPRegistry {
     const startTime = Date.now();
 
     try {
-      registryLogger.info(
-        `🔧 [TOOL_EXECUTION] Starting execution: ${toolName}`,
-      );
       registryLogger.info(
         `🔧 [TOOL_EXECUTION] Starting execution: ${toolName}`,
         { args, context },
@@ -871,6 +865,3 @@ export class MCPToolRegistry extends MCPRegistry {
 // Create default instance
 export const toolRegistry = new MCPToolRegistry();
 export const defaultToolRegistry = toolRegistry;
-
-// Export ToolInfo for other modules
-export type { ToolInfo } from "../types/tools.js";

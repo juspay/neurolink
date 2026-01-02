@@ -8,6 +8,10 @@ keywords: multimodal, images, vision, chat, streaming, text and images, visual A
 
 NeuroLink 7.47.0 introduces full multimodal pipelines so you can mix text, URLs, and local images in a single interaction. The CLI, SDK, and loop sessions all use the same message builder, ensuring parity across workflows.
 
+## Images {#images}
+
+NeuroLink provides comprehensive image support across all vision-capable providers. Images can be provided as local file paths, HTTPS URLs, or Buffer objects, and are automatically converted to the provider's required encoding format.
+
 ## What You Get
 
 - **Unified CLI flag** – `--image` accepts multiple file paths or HTTPS URLs per request.

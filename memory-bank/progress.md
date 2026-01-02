@@ -1,5 +1,71 @@
 # Project Progress
 
+## 🚀 **HTTP/STREAMABLE HTTP TRANSPORT FOR MCP SERVERS** (2026-01-02)
+
+### **🏆 LATEST ENHANCEMENT: REMOTE MCP SERVER CONNECTIVITY**
+
+**Objective**: Enable NeuroLink to connect to remote MCP servers using HTTP/Streamable HTTP transport, supporting services like GitHub Copilot MCP API and custom HTTP-based MCP endpoints.
+**Achievement**: Implemented full HTTP transport support following the MCP 2025 Streamable HTTP specification.
+**Impact**: Expands NeuroLink's MCP capabilities beyond local stdio servers to include remote HTTP-based MCP services, enterprise API gateways, and cloud-hosted MCP endpoints.
+
+**Technical Implementation**:
+- ✅ **Transport Type**: Added `transport: "http"` configuration option
+- ✅ **URL-based Connection**: Use `url` instead of `command` for HTTP endpoints
+- ✅ **Custom Headers**: Full header support for authentication (Bearer tokens, API keys)
+- ✅ **HTTP Options**: Configurable timeout, retries, and connection settings
+- ✅ **Retry Configuration**: Exponential backoff with `retryConfig` options
+- ✅ **Rate Limiting**: Built-in rate limiting support via `rateLimiting` configuration
+- ✅ **Session Management**: Automatic session handling via `Mcp-Session-Id` header
+- ✅ **Streaming Support**: Both SSE streaming and batch JSON responses
+
+**Configuration Example**:
+```typescript
+// Programmatic API
+await neurolink.addInMemoryMCPServer("github-copilot", {
+  config: {
+    transport: "http",
+    url: "https://api.githubcopilot.com/mcp",
+    headers: { Authorization: "Bearer YOUR_TOKEN" },
+    httpOptions: { timeout: 15000, retries: 3 }
+  }
+});
+
+// JSON configuration (.mcp-config.json)
+{
+  "mcpServers": {
+    "github-copilot": {
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": { "Authorization": "Bearer TOKEN" }
+    }
+  }
+}
+```
+
+**Transport Comparison**:
+| Feature | stdio | SSE | HTTP |
+|---------|-------|-----|------|
+| Local servers | Yes | No | No |
+| Remote servers | No | Yes | Yes |
+| Authentication | Env vars | Headers | Headers |
+| Session management | No | Partial | Yes |
+| MCP Specification | Core | Core | 2025 |
+
+**Files Added/Modified**:
+- `src/lib/mcp/transport-manager.ts` - HTTP transport implementation
+- `src/lib/types/mcpTypes.ts` - HTTP transport type definitions
+- `docs/MCP-HTTP-TRANSPORT.md` - Comprehensive documentation
+- `examples/http-transport-mcp.ts` - Example usage code
+- `examples/README.md` - Updated with HTTP transport example
+
+**Strategic Value**:
+- **Remote MCP Access**: Connect to GitHub Copilot, enterprise APIs, cloud MCP services
+- **Enterprise Ready**: Custom authentication headers for API gateways
+- **Firewall Friendly**: HTTP transport works through corporate proxies
+- **Future Proof**: Implements MCP 2025 Streamable HTTP specification
+
+---
+
 ## 🚀 **SEPARATE REDIS CONFIGURATION FOR CONVERSATION HISTORY** (2025-10-23)
 
 ### **🏆 LATEST ENHANCEMENT: MULTI-TENANCY REDIS SUPPORT**
