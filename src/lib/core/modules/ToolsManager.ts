@@ -494,12 +494,30 @@ export class ToolsManager {
               : result;
             const endTime = Date.now();
 
-            // 🔧 NATIVE NEUROLINK EVENT EMISSION - Tool End (Success)
+            let errorResult: string | undefined = undefined;
+
+            if (
+              convertedResult &&
+              typeof convertedResult === "object" &&
+              "isError" in convertedResult &&
+              convertedResult.isError
+            ) {
+              try {
+                errorResult = JSON.stringify(convertedResult);
+              } catch (error) {
+                logger.error(
+                  `Failed to serialize error result for ${toolName}`,
+                  error,
+                );
+              }
+            }
+
+            // 🔧 NATIVE NEUROLINK EVENT EMISSION - Tool End (Success or Handled Error)
             if (this.neurolink?.emitToolEnd) {
               this.neurolink.emitToolEnd(
                 toolName,
                 convertedResult,
-                undefined, // no error
+                errorResult,
                 startTime,
                 endTime,
                 executionId,
