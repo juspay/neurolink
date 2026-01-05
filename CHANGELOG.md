@@ -1,3 +1,9 @@
+## [8.31.0](https://github.com/juspay/neurolink/compare/v8.30.0...v8.31.0) (2026-01-05)
+
+### Features
+
+- **(sdk):** image generation support with gemini ([7150f8c](https://github.com/juspay/neurolink/commit/7150f8c7967d5340fe854ffd58f8474dabe9c606))
+
 ## [8.30.0](https://github.com/juspay/neurolink/compare/v8.29.0...v8.30.0) (2026-01-03)
 
 ### Features
