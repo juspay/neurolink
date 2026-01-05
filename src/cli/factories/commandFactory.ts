@@ -21,6 +21,7 @@ import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";
 import { createThinkingConfigFromRecord } from "../../lib/utils/thinkingConfig.js";
 import { LoopSession } from "../loop/session.js";
 import { initializeCliParser } from "../parser.js";
+import { resolveFilePaths } from "../utils/pathResolver.js";
 
 // Use TokenUsage from standard types - no local interface needed
 import {
@@ -343,10 +344,10 @@ export class CLICommandFactory {
 
     const imagePaths = Array.isArray(images) ? images : [images];
 
-    // Return as-is - let the smart message builder handle URL vs file detection
-    // URLs will be detected and appended to prompt text
+    // Resolve relative paths to absolute paths before returning
+    // URLs are preserved as-is by resolveFilePaths
     // File paths will be converted to base64 by the message builder
-    return imagePaths;
+    return resolveFilePaths(imagePaths);
   }
 
   // Helper method to process CLI CSV files
@@ -356,7 +357,10 @@ export class CLICommandFactory {
     if (!csvFiles) {
       return undefined;
     }
-    return Array.isArray(csvFiles) ? csvFiles : [csvFiles];
+    const paths = Array.isArray(csvFiles) ? csvFiles : [csvFiles];
+    // Resolve relative paths to absolute paths before returning
+    // URLs are preserved as-is by resolveFilePaths
+    return resolveFilePaths(paths);
   }
 
   // Helper method to process CLI PDF files
@@ -366,7 +370,10 @@ export class CLICommandFactory {
     if (!pdfFiles) {
       return undefined;
     }
-    return Array.isArray(pdfFiles) ? pdfFiles : [pdfFiles];
+    const paths = Array.isArray(pdfFiles) ? pdfFiles : [pdfFiles];
+    // Resolve relative paths to absolute paths before returning
+    // URLs are preserved as-is by resolveFilePaths
+    return resolveFilePaths(paths);
   }
 
   // Helper method to process CLI files with auto-detection
@@ -376,7 +383,10 @@ export class CLICommandFactory {
     if (!files) {
       return undefined;
     }
-    return Array.isArray(files) ? files : [files];
+    const paths = Array.isArray(files) ? files : [files];
+    // Resolve relative paths to absolute paths before returning
+    // URLs are preserved as-is by resolveFilePaths
+    return resolveFilePaths(paths);
   }
 
   // Helper method to process CLI video files
@@ -386,7 +396,10 @@ export class CLICommandFactory {
     if (!videoFiles) {
       return undefined;
     }
-    return Array.isArray(videoFiles) ? videoFiles : [videoFiles];
+    const paths = Array.isArray(videoFiles) ? videoFiles : [videoFiles];
+    // Resolve relative paths to absolute paths before returning
+    // URLs are preserved as-is by resolveFilePaths
+    return resolveFilePaths(paths);
   }
 
   // Helper method to process common options
