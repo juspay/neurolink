@@ -1,3 +1,9 @@
+## [8.31.1](https://github.com/juspay/neurolink/compare/v8.31.0...v8.31.1) (2026-01-05)
+
+### Bug Fixes
+
+- **(tools):** Error not getting populated inspite tool result has error ([111f5ca](https://github.com/juspay/neurolink/commit/111f5cacdefb8a3bc8a151b5f68d782533d4b4d6))
+
 ## [8.31.0](https://github.com/juspay/neurolink/compare/v8.30.0...v8.31.0) (2026-01-05)
 
 ### Features
