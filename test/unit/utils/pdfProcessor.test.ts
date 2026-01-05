@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { PDFProcessor } from "../../../src/lib/utils/pdfProcessor.js";
 
-describe("PDFProcessor.convertPDFToImages", () => {
+describe("PDFProcessor.convertToImages", () => {
   describe("format validation", () => {
     // Create a minimal valid PDF buffer for testing
     // This is a minimal PDF that won't actually render, but will help test validation
@@ -11,7 +11,7 @@ describe("PDFProcessor.convertPDFToImages", () => {
 
     it('should throw error for unsupported format "gif"', async () => {
       await expect(
-        PDFProcessor.convertPDFToImages(minimalPdfBuffer, {
+        PDFProcessor.convertToImages(minimalPdfBuffer, {
           format: "gif" as "png",
         }),
       ).rejects.toThrow(
@@ -21,7 +21,7 @@ describe("PDFProcessor.convertPDFToImages", () => {
 
     it('should throw error for unsupported format "webp"', async () => {
       await expect(
-        PDFProcessor.convertPDFToImages(minimalPdfBuffer, {
+        PDFProcessor.convertToImages(minimalPdfBuffer, {
           format: "webp" as "png",
         }),
       ).rejects.toThrow(
@@ -31,7 +31,7 @@ describe("PDFProcessor.convertPDFToImages", () => {
 
     it('should throw error for case-sensitive format "PNG" (uppercase)', async () => {
       await expect(
-        PDFProcessor.convertPDFToImages(minimalPdfBuffer, {
+        PDFProcessor.convertToImages(minimalPdfBuffer, {
           format: "PNG" as "png",
         }),
       ).rejects.toThrow(
@@ -41,7 +41,7 @@ describe("PDFProcessor.convertPDFToImages", () => {
 
     it('should throw error for case-sensitive format "JPEG" (uppercase)', async () => {
       await expect(
-        PDFProcessor.convertPDFToImages(minimalPdfBuffer, {
+        PDFProcessor.convertToImages(minimalPdfBuffer, {
           format: "JPEG" as "png",
         }),
       ).rejects.toThrow(
@@ -51,7 +51,7 @@ describe("PDFProcessor.convertPDFToImages", () => {
 
     it('should throw error for case-sensitive format "Png" (mixed case)', async () => {
       await expect(
-        PDFProcessor.convertPDFToImages(minimalPdfBuffer, {
+        PDFProcessor.convertToImages(minimalPdfBuffer, {
           format: "Png" as "png",
         }),
       ).rejects.toThrow(
@@ -64,7 +64,7 @@ describe("PDFProcessor.convertPDFToImages", () => {
       const invalidBuffer = Buffer.from("not-a-pdf");
 
       await expect(
-        PDFProcessor.convertPDFToImages(invalidBuffer, {
+        PDFProcessor.convertToImages(invalidBuffer, {
           format: "invalid" as "png",
         }),
       ).rejects.toThrow(
@@ -76,7 +76,7 @@ describe("PDFProcessor.convertPDFToImages", () => {
       // This will fail during PDF processing, but should pass format validation
       // We're testing that the format validation doesn't reject "png"
       try {
-        await PDFProcessor.convertPDFToImages(minimalPdfBuffer, {
+        await PDFProcessor.convertToImages(minimalPdfBuffer, {
           format: "png",
         });
       } catch (error) {
@@ -90,7 +90,7 @@ describe("PDFProcessor.convertPDFToImages", () => {
       // This will fail during PDF processing, but should pass format validation
       // We're testing that the format validation doesn't reject "jpeg"
       try {
-        await PDFProcessor.convertPDFToImages(minimalPdfBuffer, {
+        await PDFProcessor.convertToImages(minimalPdfBuffer, {
           format: "jpeg",
         });
       } catch (error) {
@@ -103,7 +103,7 @@ describe("PDFProcessor.convertPDFToImages", () => {
     it("should use default format png when format is not provided", async () => {
       // Test that omitting format uses the default "png" and doesn't throw validation error
       try {
-        await PDFProcessor.convertPDFToImages(minimalPdfBuffer);
+        await PDFProcessor.convertToImages(minimalPdfBuffer);
       } catch (error) {
         // Should fail due to canvas/pdfjs dependencies or PDF processing issues,
         // not due to format validation

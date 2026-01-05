@@ -230,6 +230,34 @@
           "speed": "ultra-fast",
           "quality": "good"
         }
+      },
+      "veo-3.1-generate-001": {
+        "id": "veo-3.1-generate-001",
+        "displayName": "Veo 3.1 Video Generation",
+        "aliases": ["veo-3.1", "veo"],
+        "capabilities": [
+          "video-generation",
+          "image-to-video",
+          "audio-generation"
+        ],
+        "deprecated": false,
+        "pricing": { "input": 0.05, "output": 0.1 },
+        "contextWindow": 1024,
+        "releaseDate": "2025-01-01",
+        "metadata": {
+          "description": "Google's Veo 3.1 model for AI video generation from images with audio",
+          "useCase": "video-generation",
+          "speed": "slow",
+          "quality": "highest",
+          "maxDuration": 8,
+          "supportedResolutions": ["720p", "1080p"],
+          "supportedAspectRatios": ["9:16", "16:9"],
+          "supportedDurations": [4, 6, 8],
+          "audioGeneration": true,
+          "inputRequirements": "image + text prompt",
+          "endpoint": "predictLongRunning",
+          "pollEndpoint": "fetchPredictOperation"
+        }
       }
     },
     "bedrock": {

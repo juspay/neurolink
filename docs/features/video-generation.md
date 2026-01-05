@@ -33,7 +33,7 @@ graph LR
 
 - **Video with audio** – Generate 8-second video clips with synchronized audio from a single image and text prompt
 - **SDK integration** – Use existing `neurolink.generate()` with `output.mode: "video"` to create videos
-- **CLI support** – Generate videos directly from the command line with `--output-mode video`
+- **CLI support** – Generate videos directly from the command line with `--outputMode video`
 - **Buffer-based output** – Receive video as Buffer objects via `VideoGenerationResult` for flexible post-processing
 - **Multiple resolutions** – Support for 720p and 1080p output
 - **Aspect ratio control** – Choose between 9:16 (portrait) and 16:9 (landscape) formats
@@ -178,45 +178,45 @@ if (result.video) {
 # Basic video generation
 npx @juspay/neurolink generate "Create a product showcase video" \
   --image ./input.jpg \
-  --video-output ./output.mp4
+  --videoOutput ./output.mp4
 
 # Full options
 npx @juspay/neurolink generate "Dynamic camera movement" \
   --image ./input.jpg \
   --provider vertex \
   --model veo-3.1 \
-  --video-resolution 1080p \
-  --video-length 8 \
-  --video-aspect-ratio 16:9 \
-  --video-audio true \
-  --video-output ./output.mp4
+  --videoResolution 1080p \
+  --videoLength 8 \
+  --videoAspectRatio 16:9 \
+  --videoAudio true \
+  --videoOutput ./output.mp4
 
 # JSON output mode (for scripting)
 npx @juspay/neurolink generate "prompt" \
   --image input.jpg \
-  --video-output output.mp4 \
+  --videoOutput output.mp4 \
   --format json
 
 # With analytics
 npx @juspay/neurolink generate "Camera pans across futuristic city" \
   --image ./input-city.jpg \
-  --video-resolution 1080p \
-  --video-output ./city-video.mp4 \
+  --videoResolution 1080p \
+  --videoOutput ./city-video.mp4 \
   --enable-analytics
 ```
 
 ### CLI Arguments
 
-| Argument               | Type    | Default        | Description                            |
-| ---------------------- | ------- | -------------- | -------------------------------------- |
-| `--image`              | string  | Required       | Path to the input image file           |
-| `--video-output`       | string  | `./output.mp4` | Path to save the generated video       |
-| `--provider`           | string  | `vertex`       | AI provider to use                     |
-| `--model`              | string  | `veo-3.1`      | Model version                          |
-| `--video-resolution`   | string  | `720p`         | Output resolution (`720p` or `1080p`)  |
-| `--video-length`       | number  | `8`            | Video duration in seconds (4, 6, or 8) |
-| `--video-aspect-ratio` | string  | `9:16`         | Aspect ratio (`9:16` or `16:9`)        |
-| `--video-audio`        | boolean | `true`         | Enable audio generation                |
+| Argument             | Type    | Default        | Description                            |
+| -------------------- | ------- | -------------- | -------------------------------------- |
+| `--image`            | string  | Required       | Path to the input image file           |
+| `--videoOutput`      | string  | `./output.mp4` | Path to save the generated video       |
+| `--provider`         | string  | `vertex`       | AI provider to use                     |
+| `--model`            | string  | `veo-3.1`      | Model version                          |
+| `--videoResolution`  | string  | `720p`         | Output resolution (`720p` or `1080p`)  |
+| `--videoLength`      | number  | `4`            | Video duration in seconds (4, 6, or 8) |
+| `--videoAspectRatio` | string  | `16:9`         | Aspect ratio (`9:16` or `16:9`)        |
+| `--videoAudio`       | boolean | `true`         | Enable audio generation                |
 
 ## Comprehensive Examples
 

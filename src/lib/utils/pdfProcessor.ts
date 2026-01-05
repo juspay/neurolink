@@ -139,8 +139,8 @@ export type PDFImageConversionOptions = {
   scale?: number;
   /** Maximum number of pages to convert (default: 20 from PDF_LIMITS.DEFAULT_MAX_PAGES) */
   maxPages?: number;
-  /** Output format hint (currently only PNG supported by pdf-to-img) */
-  format?: "png";
+  /** Output format (png or jpeg, default: png). Note: pdf-to-img outputs PNG, JPEG conversion would require additional processing */
+  format?: "png" | "jpeg";
 };
 
 /**
@@ -322,14 +322,26 @@ export class PDFProcessor {
     options?: PDFImageConversionOptions,
   ): Promise<PDFImageConversionResult> {
     const startTime = Date.now();
-    const { scale = 2, maxPages = PDF_LIMITS.DEFAULT_MAX_PAGES } =
-      options || {};
+    const {
+      scale = 2,
+      maxPages = PDF_LIMITS.DEFAULT_MAX_PAGES,
+      format = "png",
+    } = options || {};
     const images: string[] = [];
     const warnings: string[] = [];
 
     // ============================================================================
     // INPUT VALIDATION (Security: Prevent malformed/malicious PDF processing)
     // ============================================================================
+
+    // 0. Validate format is supported and case-sensitive
+    const SUPPORTED_FORMATS = ["png", "jpeg"] as const;
+    type SupportedFormat = (typeof SUPPORTED_FORMATS)[number];
+    if (!SUPPORTED_FORMATS.includes(format as SupportedFormat)) {
+      throw new Error(
+        `Invalid format: "${format}". Supported formats: "png", "jpeg".`,
+      );
+    }
 
     // 1. Validate buffer is not empty or too small
     if (!pdfBuffer || pdfBuffer.length < 5) {

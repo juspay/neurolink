@@ -33,12 +33,18 @@ import { ModelsCommandFactory } from "../commands/models.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
 import { OllamaCommandFactory } from "./ollamaCommandFactory.js";
 import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
+import { ModelResolver } from "../../lib/models/modelResolver.js";
 import ora from "ora";
 import chalk from "chalk";
 import { logger } from "../../lib/utils/logger.js";
 import { handleSetup } from "../commands/setup.js";
 import { checkRedisAvailability } from "../../lib/utils/conversationMemoryUtils.js";
 import { saveAudioToFile, formatFileSize } from "../utils/audioFileUtils.js";
+import {
+  saveVideoToFile,
+  formatVideoFileSize,
+  getVideoMetadataSummary,
+} from "../utils/videoFileUtils.js";
 
 /**
  * CLI Command Factory for generate commands
@@ -300,6 +306,44 @@ export class CLICommandFactory {
       default: false,
       description: "Auto-play generated audio",
     },
+
+    // Video Generation options (Veo 3.1)
+    outputMode: {
+      type: "string" as const,
+      choices: ["text", "video"],
+      default: "text",
+      description:
+        "Output mode: 'text' for standard generation, 'video' for video generation",
+    },
+    videoOutput: {
+      type: "string" as const,
+      alias: "vo",
+      description: "Path to save generated video file (e.g., ./output.mp4)",
+    },
+    videoResolution: {
+      type: "string" as const,
+      choices: ["720p", "1080p"],
+      default: "720p",
+      description: "Video output resolution (720p or 1080p)",
+    },
+    videoLength: {
+      type: "number" as const,
+      choices: [4, 6, 8],
+      default: 4,
+      description: "Video duration in seconds (4, 6, or 8)",
+    },
+    videoAspectRatio: {
+      type: "string" as const,
+      choices: ["9:16", "16:9"],
+      default: "16:9",
+      description: "Video aspect ratio (9:16 for portrait, 16:9 for landscape)",
+    },
+    videoAudio: {
+      type: "boolean" as const,
+      default: true,
+      description: "Enable/disable audio generation in video",
+    },
+
     thinking: {
       alias: "think",
       type: "boolean" as const,
@@ -490,6 +534,13 @@ export class CLICommandFactory {
       ttsQuality: argv.ttsQuality as "standard" | "hd" | undefined,
       ttsOutput: argv.ttsOutput as string | undefined,
       ttsPlay: argv.ttsPlay as boolean | undefined,
+      // Video generation options (Veo 3.1)
+      outputMode: argv.outputMode as "text" | "video" | undefined,
+      videoOutput: argv.videoOutput as string | undefined,
+      videoResolution: argv.videoResolution as "720p" | "1080p" | undefined,
+      videoLength: argv.videoLength as 4 | 6 | 8 | undefined,
+      videoAspectRatio: argv.videoAspectRatio as "9:16" | "16:9" | undefined,
+      videoAudio: argv.videoAudio as boolean | undefined,
       // Extended thinking options for Claude and Gemini models
       thinking: argv.thinking as boolean | undefined,
       thinkingBudget: argv.thinkingBudget as number | undefined,
@@ -653,6 +704,135 @@ export class CLICommandFactory {
       }
     } catch (error) {
       handleError(error as Error, "TTS Output");
+    }
+  }
+
+  /**
+   * Helper method to configure options for video generation mode
+   * Auto-configures provider, model, and tools settings for video generation
+   */
+  private static configureVideoMode(
+    enhancedOptions: BaseCommandArgs & Record<string, unknown>,
+    argv: BaseCommandArgs & Record<string, unknown>,
+    options: BaseCommandArgs & Record<string, unknown>,
+  ): void {
+    const userEnabledTools = !argv.disableTools; // Tools are enabled by default
+    enhancedOptions.disableTools = true;
+
+    // Auto-set provider to vertex for video generation if not explicitly specified
+    if (!enhancedOptions.provider) {
+      enhancedOptions.provider = "vertex";
+      if (options.debug) {
+        logger.debug(
+          "Auto-setting provider to 'vertex' for video generation mode",
+        );
+      }
+    } else if (enhancedOptions.provider !== "vertex") {
+      // Warn if user specified a non-vertex provider
+      if (!options.quiet) {
+        logger.always(
+          chalk.yellow(
+            `⚠️  Warning: Video generation only supports Vertex AI. Overriding provider '${enhancedOptions.provider}' to 'vertex'.`,
+          ),
+        );
+      }
+      enhancedOptions.provider = "vertex";
+    }
+
+    // Auto-set model to veo-3.1 if not explicitly specified
+    if (!enhancedOptions.model) {
+      // Resolve the alias to the full model ID for Vertex AI
+      const modelAlias = "veo-3.1";
+      const resolvedModel = ModelResolver.resolveModel(modelAlias);
+      const fullModelId = resolvedModel?.id || "veo-3.1-generate-001";
+      enhancedOptions.model = fullModelId;
+      if (options.debug) {
+        logger.debug(
+          `Auto-setting model to '${fullModelId}' for video generation mode`,
+        );
+      }
+    }
+
+    // Warn user if they explicitly enabled tools
+    if (userEnabledTools && !options.quiet) {
+      logger.always(
+        chalk.yellow(
+          "⚠️  Note: MCP tools are not supported in video generation mode and have been disabled.",
+        ),
+      );
+    }
+
+    if (options.debug) {
+      logger.debug("Video generation mode enabled (tools auto-disabled):", {
+        provider: enhancedOptions.provider,
+        model: enhancedOptions.model,
+        resolution: enhancedOptions.videoResolution,
+        length: enhancedOptions.videoLength,
+        aspectRatio: enhancedOptions.videoAspectRatio,
+        audio: enhancedOptions.videoAudio,
+        outputPath: enhancedOptions.videoOutput,
+      });
+    }
+  }
+
+  /**
+   * Helper method to handle video file output
+   * Saves generated video to file when --videoOutput flag is provided
+   */
+  private static async handleVideoOutput(
+    result: GenerateResult | unknown,
+    options: BaseCommandArgs & Record<string, unknown>,
+  ): Promise<void> {
+    // Check if --videoOutput flag is provided
+    const videoOutputPath = options.videoOutput as string | undefined;
+    if (!videoOutputPath) {
+      return;
+    }
+
+    // Extract video from result with proper type checking
+    if (!result || typeof result !== "object") {
+      return;
+    }
+    const generateResult = result as GenerateResult;
+    const video = generateResult.video;
+
+    if (!video) {
+      if (!options.quiet) {
+        logger.always(
+          chalk.yellow(
+            "⚠️  No video available in result. Video generation may not be enabled or the request failed.",
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      // Save video to file
+      const saveResult = await saveVideoToFile(video, videoOutputPath);
+
+      if (saveResult.success) {
+        if (!options.quiet) {
+          // Format video info output
+          const sizeInfo = formatVideoFileSize(saveResult.size);
+          const metadataSummary = getVideoMetadataSummary(video);
+
+          logger.always(
+            chalk.green(`🎬 Video saved to: ${saveResult.path} (${sizeInfo})`),
+          );
+
+          if (metadataSummary) {
+            logger.always(chalk.gray(`   ${metadataSummary}`));
+          }
+        }
+      } else {
+        handleError(
+          new Error(saveResult.error || "Failed to save video file"),
+          "Video Output",
+        );
+      }
+    } catch (error) {
+      handleError(error as Error, "Video Output");
     }
   }
 
@@ -833,6 +1013,14 @@ export class CLICommandFactory {
             .example(
               '$0 generate "Describe this video" --video path/to/video.mp4',
               "Analyze video content",
+            )
+            .example(
+              '$0 generate "Product showcase video" --image ./product.jpg --outputMode video --videoOutput ./output.mp4',
+              "Generate video from image",
+            )
+            .example(
+              '$0 generate "Smooth camera movement" --image ./input.jpg --provider vertex --model veo-3.1-generate-001 --outputMode video --videoResolution 720p --videoLength 6 --videoAspectRatio 16:9 --videoOutput ./output.mp4',
+              "Video generation with full options",
             ),
         );
       },
@@ -1582,7 +1770,14 @@ export class CLICommandFactory {
     }
 
     const options = this.processOptions(argv);
-    const spinner = argv.quiet ? null : ora("🤖 Generating text...").start();
+
+    // Determine if video generation mode is enabled
+    const isVideoMode =
+      (options as Record<string, unknown>).outputMode === "video";
+    const spinnerMessage = isVideoMode
+      ? "🎬 Generating video... (this may take 1-2 minutes)"
+      : "🤖 Generating text...";
+    const spinner = argv.quiet ? null : ora(spinnerMessage).start();
 
     try {
       // Add delay if specified
@@ -1692,6 +1887,11 @@ export class CLICommandFactory {
         });
       }
 
+      // Video generation doesn't support tools, so auto-disable them
+      if (isVideoMode) {
+        this.configureVideoMode(enhancedOptions, argv, options);
+      }
+
       // Process CLI multimodal inputs
       const imageBuffers = CLICommandFactory.processCliImages(
         argv.image as string | string[] | undefined,
@@ -1734,6 +1934,24 @@ export class CLICommandFactory {
           format: argv.videoFormat as "jpeg" | "png" | undefined,
           transcribeAudio: argv.transcribeAudio as boolean | undefined,
         },
+        // Video generation output configuration
+        output: isVideoMode
+          ? {
+              mode: "video" as const,
+              video: {
+                resolution: enhancedOptions.videoResolution as
+                  | "720p"
+                  | "1080p"
+                  | undefined,
+                length: enhancedOptions.videoLength as 4 | 6 | 8 | undefined,
+                aspectRatio: enhancedOptions.videoAspectRatio as
+                  | "9:16"
+                  | "16:9"
+                  | undefined,
+                audio: enhancedOptions.videoAudio as boolean | undefined,
+              },
+            }
+          : undefined,
         provider: enhancedOptions.provider,
         model: enhancedOptions.model,
         temperature: enhancedOptions.temperature,
@@ -1768,7 +1986,11 @@ export class CLICommandFactory {
       });
 
       if (spinner) {
-        spinner.succeed(chalk.green("✅ Text generated successfully!"));
+        if (isVideoMode) {
+          spinner.succeed(chalk.green("✅ Video generated successfully!"));
+        } else {
+          spinner.succeed(chalk.green("✅ Text generated successfully!"));
+        }
       }
 
       // Display provider and model info by default (unless quiet mode)
@@ -1780,11 +2002,16 @@ export class CLICommandFactory {
         );
       }
 
-      // Handle output with universal formatting
-      this.handleOutput(result, options);
+      // Handle output with universal formatting (for text mode)
+      if (!isVideoMode) {
+        this.handleOutput(result, options);
+      }
 
       // Handle TTS audio file output if --tts-output is provided
       await this.handleTTSOutput(result, options);
+
+      // Handle video file output if --videoOutput is provided
+      await this.handleVideoOutput(result, options);
 
       if (options.debug) {
         logger.debug("\n" + chalk.yellow("Debug Information:"));
