@@ -1,3 +1,9 @@
+## [8.31.2](https://github.com/juspay/neurolink/compare/v8.31.1...v8.31.2) (2026-01-05)
+
+### Bug Fixes
+
+- **(cli):** add path resolution for file inputs ([2c191c0](https://github.com/juspay/neurolink/commit/2c191c0d86dbec6018ea8b7d1b35c5bba8e7b0d8)), closes [#338](https://github.com/juspay/neurolink/issues/338)
+
 ## [8.31.1](https://github.com/juspay/neurolink/compare/v8.31.0...v8.31.1) (2026-01-05)
 
 ### Bug Fixes
