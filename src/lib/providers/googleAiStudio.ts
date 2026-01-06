@@ -23,6 +23,7 @@ import type { AnalyticsData } from "../types/analytics.js";
 import type { UnknownRecord } from "../types/common.js";
 import {
   AuthenticationError,
+  InvalidModelError,
   NetworkError,
   ProviderError,
   RateLimitError,
@@ -69,6 +70,7 @@ import {
   sanitizeToolsForGemini,
 } from "./googleNativeGemini3.js";
 import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 // Google AI Live API types now imported from ../types/providerSpecific.js
 
@@ -89,7 +91,13 @@ async function createGoogleGenAIClient(apiKey: string): Promise<GenAIClient> {
     });
   }
   const Ctor = ctor as GoogleGenAIClass;
-  return new Ctor({ apiKey });
+  // Include httpOptions with proxy fetch for corporate network support
+  return new Ctor({
+    apiKey,
+    httpOptions: {
+      fetch: createProxyFetch(),
+    },
+  });
 }
 
 /**
@@ -160,7 +168,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
    */
   public getAISDKModel(): LanguageModel {
     const apiKey = this.getApiKey();
-    const google = createGoogleGenerativeAI({ apiKey });
+    const google = createGoogleGenerativeAI({
+      apiKey,
+      fetch: createProxyFetch(),
+    });
     return google(this.modelName);
   }
 
@@ -174,17 +185,76 @@ export class GoogleAIStudioProvider extends BaseProvider {
       typeof errorRecord?.message === "string"
         ? errorRecord.message
         : "Unknown error";
+    const statusCode =
+      typeof errorRecord?.status === "number"
+        ? errorRecord.status
+        : typeof errorRecord?.statusCode === "number"
+          ? errorRecord.statusCode
+          : undefined;
 
-    if (message.includes("API_KEY_INVALID")) {
+    // Authentication errors
+    if (
+      message.includes("API_KEY_INVALID") ||
+      message.includes("Invalid API key") ||
+      statusCode === 401
+    ) {
       return new AuthenticationError(
         "Invalid Google AI API key. Please check your GOOGLE_AI_API_KEY environment variable.",
         this.providerName,
       );
     }
 
-    if (message.includes("RATE_LIMIT_EXCEEDED")) {
+    // Rate limit errors
+    if (
+      message.includes("RATE_LIMIT_EXCEEDED") ||
+      message.includes("rate limit") ||
+      message.includes("429") ||
+      statusCode === 429
+    ) {
       return new RateLimitError(
         "Google AI rate limit exceeded. Please try again later.",
+        this.providerName,
+      );
+    }
+
+    // Model not found errors
+    if (
+      message.includes("NOT_FOUND") ||
+      message.includes("model not found") ||
+      message.includes("Model not found") ||
+      message.includes("models/") ||
+      statusCode === 404
+    ) {
+      return new InvalidModelError(
+        `Model '${this.modelName}' not found. Please check the model name and ensure it is available.`,
+        this.providerName,
+      );
+    }
+
+    // Network connectivity errors
+    if (
+      message.includes("ECONNRESET") ||
+      message.includes("ENOTFOUND") ||
+      message.includes("ETIMEDOUT") ||
+      message.includes("ECONNREFUSED") ||
+      message.includes("network") ||
+      message.includes("connection")
+    ) {
+      return new NetworkError(`Connection error: ${message}`, this.providerName);
+    }
+
+    // Server errors (5xx)
+    if (
+      message.includes("500") ||
+      message.includes("502") ||
+      message.includes("503") ||
+      message.includes("504") ||
+      message.includes("server error") ||
+      message.includes("Internal Server Error") ||
+      (statusCode && statusCode >= 500 && statusCode < 600)
+    ) {
+      return new ProviderError(
+        `Google AI server error: ${message}. Please try again later.`,
         this.providerName,
       );
     }

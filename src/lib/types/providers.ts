@@ -891,14 +891,59 @@ export type GenAIClient = {
 };
 
 /**
+ * HTTP options for Google GenAI SDK
+ * Allows custom fetch implementation for proxy support
+ */
+export type GoogleGenAIHttpOptions = {
+  /** Custom fetch implementation for proxy support */
+  fetch?: typeof fetch;
+};
+
+/**
  * Google GenAI constructor type
  * Supports both API key (Google AI Studio) and Vertex AI configurations
  */
 export type GoogleGenAIClass = new (
   cfg:
-    | { apiKey: string }
-    | { vertexai: boolean; project: string; location: string },
+    | { apiKey: string; httpOptions?: GoogleGenAIHttpOptions }
+    | {
+        vertexai: boolean;
+        project: string;
+        location: string;
+        httpOptions?: GoogleGenAIHttpOptions;
+      },
 ) => GenAIClient;
+
+// ============================================================================
+// Google Vertex AI Provider Types
+// ============================================================================
+
+/**
+ * Google Vertex AI provider settings for native SDK configuration
+ * Used with @google/genai SDK in vertexai mode
+ *
+ * Note: Authentication is handled via environment variables (GOOGLE_APPLICATION_CREDENTIALS)
+ * or the temporary credentials file approach, not through these settings fields.
+ */
+export type GoogleVertexProviderSettings = {
+  /** Google Cloud project ID */
+  project: string;
+  /** Google Cloud region/location (e.g., 'us-central1') */
+  location: string;
+  /** Optional custom fetch implementation */
+  fetch?: typeof fetch;
+};
+
+/**
+ * Anthropic Vertex AI settings for Claude models on Vertex
+ * Used with @anthropic-ai/vertex-sdk
+ */
+export type AnthropicVertexSettings = {
+  /** Google Cloud project ID */
+  projectId: string;
+  /** Google Cloud region for Anthropic models (e.g., 'us-east5') */
+  region: string;
+};
 
 // ============================================================================
 // OpenAI Compatible Provider Types

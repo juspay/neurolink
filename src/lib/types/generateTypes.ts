@@ -778,6 +778,12 @@ export type TextGenerationOptions = {
   region?: string;
   temperature?: number;
   maxTokens?: number;
+  /** Top-p (nucleus) sampling parameter. Controls diversity of generated tokens. */
+  topP?: number;
+  /** Top-k sampling parameter. Limits the number of tokens considered. (Google/Gemini models only) */
+  topK?: number;
+  /** Stop sequences that will halt generation when encountered. */
+  stopSequences?: string[];
   systemPrompt?: string;
   schema?: ZodUnknownSchema | Schema<unknown>;
   /**
