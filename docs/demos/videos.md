@@ -676,10 +676,12 @@ NOTE Audio descriptions for visual elements
 
 #### **Markdown Embedding**
 
+<!-- Template example - replace placeholder values with actual paths -->
+
 ```markdown
 ### Video Title
 
-**[Video Description](path/to/video.mp4)**
+**[Video Description]({video-path}.mp4)**
 _Duration: X:XX | Format: MP4 | Size: XXMb_
 
 Brief description of video content and key features demonstrated.
@@ -692,9 +694,9 @@ Brief description of video content and key features demonstrated.
 
 **Accessibility:**
 
-- [Captions](path/to/captions.vtt)
-- [Transcript](path/to/transcript.md)
-- [Audio Description](path/to/audio-description.vtt)
+- [Captions]({video-path}-captions.vtt)
+- [Transcript]({video-path}-transcript.md)
+- [Audio Description]({video-path}-audio-description.vtt)
 ```
 
 #### **HTML5 Video Element**
@@ -865,4 +867,4 @@ _All videos are professionally produced with clear audio, high-quality visuals, 
 - [Screenshots Gallery](screenshots.md) - Static visual examples
 - [Interactive Demo](interactive.md) - Try it yourself
 - [CLI Examples](../cli/examples.md) - Command-line patterns
-- [Complete Visual Guide](../VISUAL-DEMOS.md) - Full documentation
+- [Complete Visual Guide](../visual-demos.md) - Full documentation

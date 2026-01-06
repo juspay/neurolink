@@ -118,13 +118,13 @@ console.log(`Routed to: ${result.provider} in ${result.region}`);
 ```typescript
 import geoip from "geoip-lite";
 
-interface RegionInfo {
+type RegionInfo = {
   region: string;
   country: string;
   city: string;
   latitude: number;
   longitude: number;
-}
+};
 
 function detectRegion(ip: string): string {
   const geo = geoip.lookup(ip);

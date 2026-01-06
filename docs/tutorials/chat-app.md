@@ -504,10 +504,10 @@ Create `src/components/ChatInterface.tsx`:
 
 import { useState, useRef, useEffect } from 'react';
 
-interface Message {
+type Message = {
   role: 'user' | 'assistant';
   content: string;
-}
+};
 
 export default function ChatInterface({ userId }: { userId: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -664,11 +664,11 @@ Create `src/components/Sidebar.tsx`:
 
 import { useState, useEffect } from 'react';
 
-interface Conversation {
+type Conversation = {
   id: string;
   title: string;
   updatedAt: string;
-}
+};
 
 export default function Sidebar({
   userId,
@@ -870,11 +870,11 @@ setError('Failed to send message. Please try again.');
 ### Add Message Timestamps
 
 ```typescript
-interface Message {
+type Message = {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-}
+};
 
 // Display timestamp
 <span className="text-xs opacity-75">

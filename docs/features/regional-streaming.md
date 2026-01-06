@@ -90,6 +90,6 @@ Co-locate your NeuroLink deployment with your application servers. For example, 
 
 ## Related Material
 
-- [SageMaker Integration Guide](../SAGEMAKER-INTEGRATION.md)
-- [Enterprise Proxy Setup](../ENTERPRISE-PROXY-SETUP.md)
+- [SageMaker Integration Guide](../sagemaker-integration.md)
+- [Enterprise Proxy Setup](../enterprise-proxy-setup.md)
 - [Dynamic Models Guide](../advanced/dynamic-models.md)

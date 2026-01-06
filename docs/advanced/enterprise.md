@@ -72,4 +72,4 @@ NeuroLink provides comprehensive enterprise-grade features for production deploy
 - Custom development
 - Training and support
 
-For setup instructions, see [Enterprise Proxy Setup](../getting-started/ENTERPRISE-PROXY-SETUP.md).
+For setup instructions, see [Enterprise Proxy Setup](../getting-started/enterprise-proxy-setup.md).

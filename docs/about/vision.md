@@ -276,7 +276,7 @@ Help us build the future:
 - **Streaming Architecture**: Protocol design and implementation
 - **Example Applications**: Showcase edge + streaming patterns
 
-**[Contributing Guide](../CONTRIBUTING.md)** - How to contribute
+**[Contributing Guide](../contributing.md)** - How to contribute
 
 ### Share Your Use Cases
 

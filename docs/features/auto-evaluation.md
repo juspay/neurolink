@@ -161,4 +161,4 @@ Only enable evaluation when needed: during prompt engineering, quality regressio
 
 - [Analytics Guide](../advanced/analytics.md) – Track evaluation metrics over time
 - [SDK API Reference](../sdk/api-reference.md) – Evaluation options
-- [Troubleshooting](../TROUBLESHOOTING.md) – Common evaluation issues
+- [Troubleshooting](../troubleshooting.md) – Common evaluation issues

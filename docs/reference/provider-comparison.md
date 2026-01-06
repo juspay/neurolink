@@ -1,360 +1,930 @@
-# 🔍 AI Provider Comparison Guide
+# AI Provider Comparison Guide
 
-## Overview Matrix
+**Last Updated:** January 1, 2026
+**NeuroLink Version:** 8.26.1
 
-| Feature            | OpenAI   | Bedrock    | Vertex     | Google AI | Anthropic | Azure      | Hugging Face | Ollama  | Mistral |
-| ------------------ | -------- | ---------- | ---------- | --------- | --------- | ---------- | ------------ | ------- | ------- |
-| **Setup Time**     | 2 min    | 10 min     | 15 min     | 2 min     | 2 min     | 20 min     | 2 min        | 5 min   | 2 min   |
-| **Free Tier**      | ❌       | ❌         | ❌         | ✅        | ❌        | ❌         | ✅           | ✅      | ✅      |
-| **Tools + Schema** | ✅       | ✅         | ❌\*       | ❌\*      | ✅        | ✅         | ❌           | ❌      | ✅      |
-| **Local/Cloud**    | Cloud    | Cloud      | Cloud      | Cloud     | Cloud     | Cloud      | Cloud        | Local   | Cloud   |
-| **Privacy**        | Standard | Enterprise | Enterprise | Standard  | Standard  | Enterprise | Standard     | Maximum | GDPR    |
-| **Model Variety**  | Limited  | Good       | Good       | Limited   | Limited   | Limited    | Excellent    | Good    | Limited |
-| **Cost**           | $$$      | $$$        | $$$        | $$        | $$$       | $$$        | Free/$$      | Free    | $$      |
-| **Speed**          | Fast     | Medium     | Medium     | Fast      | Fast      | Fast       | Variable     | Fast    | Fast    |
-| **Rate Limits**    | Medium   | High       | High       | Low       | Medium    | High       | Low          | None    | Medium  |
+Complete comparison of all 13 AI providers supported by NeuroLink, including capabilities, pricing, and use case recommendations.
 
-\*Google providers require `disableTools: true` when using schemas (Google API limitation)
+---
 
-## Detailed Comparison
+## Complete Overview Matrix
 
-### Use Case Recommendations
+| Provider          | Text | Stream | Tools | Vision | PDF | Thinking | Struct Out | Free Tier | Setup Time |
+| ----------------- | ---- | ------ | ----- | ------ | --- | -------- | ---------- | --------- | ---------- |
+| OpenAI            | ✓    | ✓      | ✓     | ✓      | ✗   | ✗        | ✓          | ✗         | 2 min      |
+| Anthropic         | ✓    | ✓      | ✓     | ✓      | ✓   | ✓        | ✓          | ✗         | 2 min      |
+| Google AI Studio  | ✓    | ✓      | ✓     | ✓      | ✓   | ✓        | ⚠️         | ✓         | 2 min      |
+| Google Vertex     | ✓    | ✓      | ✓     | ✓      | ✓   | ✓        | ⚠️         | ✗         | 15 min     |
+| Amazon Bedrock    | ✓    | ✓      | ✓     | ⚠️     | ✓   | ✗        | ✓          | ✗         | 10 min     |
+| Amazon SageMaker  | ✓    | ⚠️     | ✓     | ✗      | ✗   | ✗        | ✗          | ✗         | 30 min     |
+| Azure OpenAI      | ✓    | ✓      | ✓     | ✓      | ✗   | ✗        | ✓          | ✗         | 20 min     |
+| Mistral           | ✓    | ✓      | ✓     | ⚠️     | ✗   | ✗        | ✓          | ✓         | 2 min      |
+| HuggingFace       | ✓    | ✓      | ⚠️    | ✗      | ✗   | ✗        | ✗          | ✓         | 2 min      |
+| LiteLLM           | ✓    | ✓      | ✓     | ⚠️     | ✗   | ✗        | ✓          | ⚠️        | 5 min      |
+| Ollama            | ✓    | ✓      | ✓     | ⚠️     | ✗   | ✗        | ✗          | ✓         | 5 min      |
+| OpenAI Compatible | ✓    | ✓      | ✓     | ⚠️     | ✗   | ✗        | ✓          | ⚠️        | 5 min      |
+| OpenRouter        | ✓    | ✓      | ⚠️    | ⚠️     | ✗   | ✗        | ✓          | ⚠️        | 2 min      |
 
-#### For Startups
+**Legend:**
 
-**Best Choice**: Google AI Studio
+- ✓ Full Support
+- ⚠️ Partial/Model-Dependent
+- ✗ Not Supported
 
-- Generous free tier
-- Simple setup
-- Good performance
+---
 
-**Alternative**: Hugging Face
+## 2025 Pricing Comparison
 
-- Free tier available
-- Access to many models
-- Community support
+### Pay-per-Token Providers
 
-#### For Enterprise
+| Provider             | Input (per 1M tokens) | Output (per 1M tokens) | Vision         | Best Value Model              |
+| -------------------- | --------------------- | ---------------------- | -------------- | ----------------------------- |
+| **OpenAI**           | $2.50 - $60.00        | $10.00 - $180.00       | $5.00 - $60.00 | GPT-4o-mini: $0.15/$0.60      |
+| **Anthropic**        | $3.00 - $15.00        | $15.00 - $75.00        | Same           | Claude Haiku: $0.25/$1.25     |
+| **Google AI Studio** | FREE - $7.00          | FREE - $21.00          | FREE - $7.00   | Gemini 2.5 Flash: FREE        |
+| **Google Vertex**    | $0.35 - $35.00        | $1.05 - $105.00        | $0.35 - $35.00 | Gemini 2.5 Flash: $0.35/$1.05 |
+| **Amazon Bedrock**   | $3.00 - $15.00        | $15.00 - $75.00        | $3.00 - $15.00 | Claude Haiku: $0.25/$1.25     |
+| **Azure OpenAI**     | $2.50 - $60.00        | $10.00 - $180.00       | $5.00 - $60.00 | GPT-4o-mini: $0.15/$0.60      |
+| **Mistral**          | $0.25 - $8.00         | $0.75 - $24.00         | $0.25 - $8.00  | Mistral Small: $0.20/$0.60    |
+| **HuggingFace**      | FREE - $1.00          | FREE - $1.00           | N/A            | DialoGPT: FREE                |
+| **OpenRouter**       | $0.00 - $60.00        | $0.00 - $180.00        | Varies         | Many free models              |
 
-**Best Choice**: Amazon Bedrock or Azure OpenAI
+### Self-Hosted / Custom Pricing
 
-- Enterprise security
-- SLAs available
-- Compliance features
+| Provider              | Model  | Cost Structure           | Notes                                             |
+| --------------------- | ------ | ------------------------ | ------------------------------------------------- |
+| **Amazon SageMaker**  | Custom | Instance hours + storage | Varies by instance type (ml.g5.xlarge: ~$1.41/hr) |
+| **LiteLLM**           | Proxy  | Backend provider costs   | No additional fee, proxy overhead only            |
+| **Ollama**            | Local  | Hardware costs only      | FREE (uses local compute)                         |
+| **OpenAI Compatible** | Custom | Backend-dependent        | Varies by endpoint provider                       |
 
-**Alternative**: Google Vertex AI
+### Free Tier Details
 
-- Google Cloud integration
+**Google AI Studio:**
+
+- 15 requests/minute
+- 1,500 requests/day
+- Up to 1M tokens/day
+- Gemini 2.5 Flash completely FREE
+
+**HuggingFace:**
+
+- Rate-limited free tier
+- 1,000 requests/month on free models
+- Inference API access
+
+**Mistral:**
+
+- Limited free tier for testing
+- Mistral Small free quota
+
+**Ollama:**
+
+- Completely FREE
+- Uses local compute
+- No API limits
+
+**OpenRouter:**
+
+- Many FREE models available:
+  - Google Gemini 2.0 Flash (free)
+  - Meta Llama 3.3 70B (free)
+  - Qwen models (free)
+
+---
+
+## Detailed Feature Comparison
+
+### Text Generation
+
+**All providers support text generation**, but quality varies:
+
+**Tier 1 (Highest Quality):**
+
+- OpenAI GPT-4o, GPT-5 series
+- Anthropic Claude 4.5 series
+- Google Gemini 3 Pro
+
+**Tier 2 (High Quality):**
+
+- Azure OpenAI (same as OpenAI)
+- Google Gemini 2.5 Pro
+- Anthropic Claude 3.5 Sonnet
+
+**Tier 3 (Good Quality):**
+
+- Mistral Large
+- Amazon Bedrock (Claude models)
+- OpenRouter (Claude/GPT-4 routing)
+
+**Tier 4 (Variable Quality):**
+
+- HuggingFace (model-dependent)
+- Ollama (model-dependent)
+- LiteLLM (backend-dependent)
+
+---
+
+### Streaming Support
+
+**Full Streaming (Real-time SSE):**
+
+- ✓ OpenAI
+- ✓ Anthropic
+- ✓ Google AI Studio
+- ✓ Google Vertex
+- ✓ Amazon Bedrock
+- ✓ Azure OpenAI
+- ✓ Mistral
+- ✓ HuggingFace
+- ✓ LiteLLM
+- ✓ Ollama
+- ✓ OpenAI Compatible
+- ✓ OpenRouter
+
+**Partial/Limited Streaming:**
+
+- ⚠️ Amazon SageMaker (not fully implemented in v8.26.1)
+
+---
+
+### Tool Calling / Function Calling
+
+**Native Full Support:**
+
+- ✓ OpenAI - Industry-leading function calling
+- ✓ Anthropic - Advanced tool use, parallel execution
+- ✓ Azure OpenAI - Same as OpenAI
+- ✓ Mistral - Native function calling
+- ✓ Google Vertex - Gemini + Claude models
+- ✓ Google AI Studio - Gemini models
+- ✓ Amazon Bedrock - Converse API tool support
+- ✓ LiteLLM - Proxies to backend providers
+
+**Model-Dependent Support:**
+
+- ⚠️ HuggingFace - Only specific models:
+  - Llama 3.1+ series
+  - Hermes 3 models
+  - CodeLlama 34B
+  - Mistral 7B Instruct v0.3
+- ⚠️ Ollama - Only compatible models:
+  - Llama 3.1+
+  - Gemma 3 with tool training
+- ⚠️ OpenRouter - Check model capabilities:
+  - Claude models: ✓
+  - GPT-4 models: ✓
+  - Gemini models: ✓
+  - Many others vary
+- ⚠️ OpenAI Compatible - Depends on backend
+- ⚠️ Amazon SageMaker - Depends on custom endpoint
+
+---
+
+### Vision / Multimodal Capabilities
+
+**Native Vision Support:**
+
+**Tier 1 (Best Vision):**
+
+- **OpenAI** - GPT-4o, GPT-5 series, O-series
+  - 10 images max
+  - PNG, JPEG, WEBP, GIF
+- **Anthropic** - Claude 4.5, 4.x, 3.x series
+  - 20 images max
+  - Excellent vision quality
+- **Google Vertex/AI Studio** - Gemini 2.5+, 3.x
+  - 16 images max
+  - Native multimodal architecture
+
+**Tier 2 (Good Vision):**
+
+- **Azure OpenAI** - Same models as OpenAI
+  - 10 images max
+- **Mistral** - Small 2506, Pixtral
+  - 10 images max (conservative)
+
+**Model-Dependent Vision:**
+
+- ⚠️ **LiteLLM** - Depends on backend (e.g., GPT-4o via LiteLLM = vision)
+- ⚠️ **Ollama** - LLaVA, Llama 3.2 Vision, Gemini models
+- ⚠️ **OpenAI Compatible** - Backend-dependent
+- ⚠️ **OpenRouter** - Model-dependent (Claude, GPT-4o, Gemini support vision)
+- ⚠️ **Amazon Bedrock** - Claude models support vision
+
+**No Vision Support:**
+
+- ✗ HuggingFace
+- ✗ Amazon SageMaker
+
+---
+
+### PDF Document Processing
+
+**Native PDF Support:**
+
+- ✓ **Anthropic** - Native PDF understanding (best)
+- ✓ **Google AI Studio** - Gemini PDF processing
+- ✓ **Google Vertex** - Gemini + Claude PDF support
+- ✓ **Amazon Bedrock** - Claude models
+
+**No PDF Support (Requires Preprocessing):**
+
+- ✗ OpenAI
+- ✗ Azure OpenAI
+- ✗ Mistral
+- ✗ HuggingFace
+- ✗ LiteLLM
+- ✗ Ollama
+- ✗ OpenAI Compatible
+- ✗ OpenRouter
+- ✗ Amazon SageMaker
+
+---
+
+### Extended Thinking / Reasoning
+
+**Native Extended Thinking:**
+
+- ✓ **Anthropic** - Claude 4.5 Sonnet, Opus (best)
+  - Thinking levels: minimal, low, medium, high
+  - Transparent reasoning process
+- ✓ **Google AI Studio** - Gemini 2.5+, Gemini 3
+  - Thinking levels: minimal, low, medium, high
+  - Configurable thinking budget
+- ✓ **Google Vertex** - Same as AI Studio (Gemini only, not Claude)
+
+**No Extended Thinking:**
+
+- ✗ OpenAI (standard reasoning only)
+- ✗ Azure OpenAI
+- ✗ Amazon Bedrock
+- ✗ Amazon SageMaker
+- ✗ Mistral
+- ✗ HuggingFace
+- ✗ LiteLLM
+- ✗ Ollama
+- ✗ OpenAI Compatible
+- ✗ OpenRouter
+
+---
+
+### Structured Output / JSON Schema
+
+**Full Support (Tools + Schema Together):**
+
+- ✓ **OpenAI** - Native JSON mode
+- ✓ **Anthropic** - Full schema + tools
+- ✓ **Azure OpenAI** - Same as OpenAI
+- ✓ **Amazon Bedrock** - Schema validation
+- ✓ **Mistral** - JSON schema support
+- ✓ **LiteLLM** - Proxies to backend
+- ✓ **OpenAI Compatible** - OpenAI-compatible endpoints
+- ✓ **OpenRouter** - Model-dependent
+
+**Partial Support (Tools OR Schema, Not Both):**
+
+- ⚠️ **Google AI Studio** - ❌ Cannot combine
+  - Must use `disableTools: true` with schemas
+  - Gemini API limitation
+- ⚠️ **Google Vertex** - ❌ Cannot combine (Gemini models only)
+  - Claude models on Vertex CAN combine
+  - Gemini models have same limitation as AI Studio
+
+**No Structured Output:**
+
+- ✗ HuggingFace
+- ✗ Ollama
+- ✗ Amazon SageMaker
+
+---
+
+## Provider Deep Dive
+
+### 1. OpenAI
+
+**Provider ID:** `openai`
+**Default Model:** `gpt-4o`
+
+**Strengths:**
+
+- Industry-leading model quality
+- Best-in-class developer experience
+- Extensive ecosystem and integrations
+- Excellent documentation
+- Reliable uptime and performance
+
+**Weaknesses:**
+
+- Expensive at scale
+- No free tier
+- No PDF support
+- No extended thinking
+
+**Best For:**
+
+- Production applications requiring highest quality
+- Critical customer-facing features
+- Complex reasoning tasks
+- When budget allows premium pricing
+
+**2025 Pricing:**
+
+- GPT-4o: $2.50/$10.00 per 1M tokens
+- GPT-4o-mini: $0.15/$0.60 per 1M tokens
+- GPT-5 series: $15.00-$60.00 input, $45.00-$180.00 output
+
+---
+
+### 2. Anthropic
+
+**Provider ID:** `anthropic`
+**Default Model:** `claude-sonnet-4-5-20250929`
+
+**Strengths:**
+
+- **Extended thinking** - Best reasoning capabilities
+- **Native PDF support** - Document understanding
+- 200K token context window
+- Strong safety features
+- Excellent for analysis and research
+
+**Weaknesses:**
+
+- Higher cost than some alternatives
+- Smaller ecosystem than OpenAI
+- Limited regional availability
+
+**Best For:**
+
+- Complex reasoning and analysis
+- Document processing workflows
+- Agentic workflows with tools
+- When extended thinking is valuable
+
+**2025 Pricing:**
+
+- Claude Haiku 4.5: $0.25/$1.25 per 1M tokens
+- Claude Sonnet 4.5: $3.00/$15.00 per 1M tokens
+- Claude Opus 4.5: $15.00/$75.00 per 1M tokens
+
+---
+
+### 3. Google AI Studio
+
+**Provider ID:** `google-ai` / `googleAiStudio`
+**Default Model:** `gemini-2.5-flash`
+
+**Strengths:**
+
+- **Generous FREE tier** - 1M tokens/day free
+- **Extended thinking** - Gemini 2.5+, 3.0
+- **PDF support** - Native document processing
+- Fast inference (Gemini Flash models)
+- Simple setup (just API key)
+
+**Weaknesses:**
+
+- Cannot combine tools + JSON schema (Gemini limitation)
+- Rate limits on free tier
+- Newer platform (less mature than OpenAI)
+
+**Best For:**
+
+- Startups and developers (free tier)
+- Prototyping and experimentation
+- Budget-conscious production apps
+- When extended thinking + PDF support needed
+
+**2025 Pricing:**
+
+- Gemini 2.5 Flash: **FREE** (up to 1M tokens/day)
+- Gemini 2.5 Pro: $1.25/$5.00 per 1M tokens
+- Gemini 3 Flash: **FREE** (up to 1M tokens/day)
+- Gemini 3 Pro: $7.00/$21.00 per 1M tokens
+
+---
+
+### 4. Google Vertex AI
+
+**Provider ID:** `vertex`
+**Default Model:** `gemini-2.5-flash`
+
+**Strengths:**
+
+- **Dual provider** - Gemini + Claude models
+- Enterprise-grade reliability
+- GCP integration
 - Multiple authentication methods
+- Claude models support tools + schema together
 
-#### For Privacy-Conscious Users
+**Weaknesses:**
 
-**Best Choice**: Ollama
+- Complex setup (service accounts)
+- Gemini models cannot combine tools + schema
+- Higher latency than AI Studio
+- Requires GCP project
+
+**Best For:**
+
+- Enterprise Google Cloud users
+- When you need both Gemini AND Claude
+- Production deployments requiring SLAs
+- Regulated industries
+
+**2025 Pricing:**
+
+- Gemini 2.5 Flash: $0.35/$1.05 per 1M tokens
+- Gemini 3 Pro: $7.00/$21.00 per 1M tokens
+- Claude on Vertex: Same as Bedrock pricing
+
+---
+
+### 5. Amazon Bedrock
+
+**Provider ID:** `bedrock`
+**Default Model:** `anthropic.claude-3-sonnet-20240229-v1:0`
+
+**Strengths:**
+
+- Multiple model providers (Claude, Titan, Cohere, Llama)
+- AWS integration
+- Enterprise security and compliance
+- Pay-as-you-go pricing
+
+**Weaknesses:**
+
+- Complex AWS setup
+- Regional model availability varies
+- No extended thinking support
+- Requires IAM configuration
+
+**Best For:**
+
+- AWS-based enterprises
+- Multi-model strategies
+- Compliance-heavy industries (HIPAA, SOC2)
+- When you need Claude + Llama + others
+
+**2025 Pricing:**
+
+- Claude Haiku: $0.25/$1.25 per 1M tokens
+- Claude Sonnet: $3.00/$15.00 per 1M tokens
+- Claude Opus: $15.00/$75.00 per 1M tokens
+- Amazon Titan: $0.30/$0.40 per 1M tokens
+
+---
+
+### 6. Amazon SageMaker
+
+**Provider ID:** `sagemaker`
+**Default Model:** Custom endpoint
+
+**Strengths:**
+
+- Custom model deployment
+- Fine-tuned models
+- Enterprise control
+- Autoscaling infrastructure
+
+**Weaknesses:**
+
+- **Streaming not fully implemented** (v8.26.1)
+- Complex setup (requires SageMaker endpoints)
+- Higher operational overhead
+- No multimodal support
+
+**Best For:**
+
+- Custom fine-tuned models
+- Enterprise ML teams
+- When you need full model control
+- Specialized domain models
+
+**2025 Pricing:**
+
+- Instance-based: ml.g5.xlarge ~$1.41/hour
+- ml.g5.2xlarge ~$2.03/hour
+- Plus storage and data transfer costs
+
+---
+
+### 7. Azure OpenAI
+
+**Provider ID:** `azure`
+**Default Model:** `gpt-4o`
+
+**Strengths:**
+
+- Enterprise security and compliance
+- Microsoft ecosystem integration
+- SLA guarantees
+- Same models as OpenAI
+
+**Weaknesses:**
+
+- Most complex setup of all providers
+- Requires Azure subscription
+- Deployment configuration required
+- Limited regional availability
+
+**Best For:**
+
+- Enterprise Microsoft shops
+- When you need SLAs and support
+- Azure-based infrastructure
+- Regulated industries
+
+**2025 Pricing:**
+
+- Same as OpenAI pricing
+- Billed through Azure subscription
+- GPT-4o: $2.50/$10.00 per 1M tokens
+- GPT-4o-mini: $0.15/$0.60 per 1M tokens
+
+---
+
+### 8. Mistral
+
+**Provider ID:** `mistral`
+**Default Model:** `mistral-small-2506`
+
+**Strengths:**
+
+- GDPR compliant (European data centers)
+- Competitive pricing
+- Vision support (Small 2506+)
+- Open-weight models available
+
+**Weaknesses:**
+
+- Smaller model selection than OpenAI
+- Less ecosystem support
+- Vision only on specific models
+- No PDF or extended thinking
+
+**Best For:**
+
+- European compliance needs (GDPR)
+- Cost-conscious deployments
+- When you prefer European hosting
+- Open-source friendly organizations
+
+**2025 Pricing:**
+
+- Mistral Small: $0.20/$0.60 per 1M tokens
+- Mistral Medium: $2.50/$7.50 per 1M tokens
+- Mistral Large: $8.00/$24.00 per 1M tokens
+
+---
+
+### 9. HuggingFace
+
+**Provider ID:** `huggingface`
+**Default Model:** `microsoft/DialoGPT-medium`
+
+**Strengths:**
+
+- Access to 100,000+ models
+- Open-source focus
+- Community-driven
+- Free tier available
+
+**Weaknesses:**
+
+- Variable model quality
+- Tool calling only on specific models
+- No vision or multimodal
+- Rate limits on free tier
+
+**Best For:**
+
+- Research and experimentation
+- Open-source projects
+- Testing cutting-edge models
+- Budget-constrained projects
+
+**2025 Pricing:**
+
+- Free tier: 1,000 requests/month
+- Inference API: From FREE to ~$1.00 per 1M tokens
+- PRO tier: $9/month for higher limits
+
+---
+
+### 10. LiteLLM
+
+**Provider ID:** `litellm`
+**Default Model:** `openai/gpt-4o-mini`
+
+**Strengths:**
+
+- Access to 100+ models via proxy
+- Unified interface for all providers
+- Cost tracking and analytics
+- Load balancing and failover
+
+**Weaknesses:**
+
+- Requires proxy server running
+- Adds proxy overhead
+- Configuration complexity
+- Capabilities depend on backend
+
+**Best For:**
+
+- Multi-provider strategies
+- Cost optimization and tracking
+- Load balancing across providers
+- A/B testing different models
+
+**2025 Pricing:**
+
+- No additional cost (uses backend provider pricing)
+- Self-hosted proxy is FREE
+- Cloud-hosted option available
+
+---
+
+### 11. Ollama
+
+**Provider ID:** `ollama`
+**Default Model:** `llama3.1:8b`
+
+**Strengths:**
+
+- **Completely FREE** (local execution)
+- Maximum privacy (no data sent to cloud)
+- Works offline
+- Fast local inference
+- No API rate limits
+
+**Weaknesses:**
+
+- Requires local compute resources
+- Model quality varies
+- Manual model management
+- Vision only on specific models
+
+**Best For:**
+
+- Privacy-critical applications
+- Offline/air-gapped environments
+- Cost-sensitive projects
+- Development and testing
+
+**2025 Pricing:**
+
+- **FREE** (hardware costs only)
+- Requires local GPU for best performance
+- No API costs or rate limits
+
+---
+
+### 12. OpenAI Compatible
+
+**Provider ID:** `openai-compatible`
+**Default Model:** Auto-discovered
+
+**Strengths:**
+
+- Works with any OpenAI-compatible endpoint
+- vLLM, FastChat, LocalAI support
+- Custom deployment flexibility
+- Auto-discovers available models
+
+**Weaknesses:**
+
+- Capabilities entirely backend-dependent
+- No standardized capability detection
+- Configuration varies by provider
+- Authentication varies
+
+**Best For:**
+
+- Custom deployments (vLLM, FastChat)
+- Internal model serving
+- Private cloud deployments
+- When you control the backend
+
+**2025 Pricing:**
+
+- Depends entirely on backend provider
+- Self-hosted: Infrastructure costs only
+- Cloud-hosted: Provider-specific pricing
+
+---
+
+### 13. OpenRouter
+
+**Provider ID:** `openrouter`
+**Default Model:** `anthropic/claude-3-5-sonnet`
+
+**Strengths:**
+
+- Access to 300+ models from 60+ providers
+- Many **FREE models** available
+- Automatic failover
+- Unified API for all models
+- Cost tracking
+
+**Weaknesses:**
+
+- Tool support varies by model
+- Vision support varies by model
+- Credit-based pricing system
+- Model availability can change
+
+**Best For:**
+
+- Access to many providers via one API
+- Cost optimization (free models available)
+- Rapid prototyping
+- When you want provider flexibility
+
+**2025 Pricing:**
+
+- **Free models available:**
+  - Google Gemini 2.0 Flash: FREE
+  - Meta Llama 3.3 70B: FREE
+  - Qwen models: FREE
+- **Paid models:**
+  - Claude 3.5 Sonnet: $3.00/$15.00 per 1M tokens
+  - GPT-4o: $2.50/$10.00 per 1M tokens
+
+---
+
+## Use Case Recommendations
+
+### For Startups (Limited Budget)
+
+**🥇 Best Choice: Google AI Studio**
+
+- Generous FREE tier (1M tokens/day)
+- Extended thinking support
+- PDF processing
+- Professional quality
+
+**🥈 Alternative: OpenRouter**
+
+- Many free models
+- Access to premium models when needed
+- Cost tracking
+
+**🥉 Alternative: Mistral**
+
+- Competitive pricing
+- Good quality
+- GDPR compliant
+
+---
+
+### For Enterprises
+
+**🥇 Best Choice: Amazon Bedrock**
+
+- Enterprise security (AWS)
+- Multiple model providers
+- HIPAA/SOC2 compliant
+- SLAs available
+
+**🥈 Alternative: Azure OpenAI**
+
+- Microsoft ecosystem integration
+- Enterprise security
+- SLA guarantees
+
+**🥉 Alternative: Google Vertex**
+
+- GCP integration
+- Dual provider (Gemini + Claude)
+- Enterprise-grade
+
+---
+
+### For Privacy-Conscious Users
+
+**🥇 Best Choice: Ollama**
 
 - 100% local execution
-- No data leaves device
+- No data sent to cloud
 - Works offline
+- Completely FREE
 
-**Alternative**: Mistral AI
+**🥈 Alternative: Mistral**
 
 - GDPR compliant
 - European data centers
 - No training on user data
 
-#### For Developers/Researchers
+---
 
-**Best Choice**: Hugging Face
+### For Developers/Researchers
+
+**🥇 Best Choice: HuggingFace**
 
 - 100,000+ models
-- Open source community
-- Cutting-edge models
+- Open-source focus
+- Cutting-edge research models
+- Community support
 
-**Alternative**: Multiple providers
+**🥈 Alternative: LiteLLM**
 
-- Use NeuroLink's auto-selection
-- Test different models easily
+- Test multiple providers easily
+- Cost tracking
+- Unified interface
 
-### Cost Analysis
+---
 
-#### Free Options
+### For Complex Reasoning
 
-1. **Ollama**: Completely free (local compute)
-2. **Google AI Studio**: Generous free tier (15 req/min)
-3. **Hugging Face**: Free tier with rate limits
+**🥇 Best Choice: Anthropic**
 
-#### Budget-Friendly
+- **Extended thinking** (best)
+- 200K context window
+- Native PDF support
+- Advanced tool use
 
-1. **Mistral AI**: Competitive pricing
-2. **Google AI Studio**: Good free tier
-3. **Hugging Face PRO**: Reasonable paid tier
+**🥈 Alternative: Google AI Studio**
 
-#### Premium Options
+- Extended thinking (Gemini 2.5+, 3)
+- FREE tier
+- PDF support
 
-1. **OpenAI**: High quality, high cost
-2. **Anthropic**: Premium Claude models
-3. **Amazon Bedrock**: Enterprise pricing
+---
 
-### Performance Benchmarks
+### For Multimodal (Vision + Text + PDF)
 
-| Provider     | Avg Latency | Token/sec | Quality Score |
-| ------------ | ----------- | --------- | ------------- |
-| OpenAI       | 800ms       | 45        | 9.2/10        |
-| Ollama       | 200ms       | 30        | 8.5/10        |
-| Hugging Face | 1200ms      | 25        | 8.0/10        |
-| Mistral      | 900ms       | 40        | 8.8/10        |
+**🥇 Best Choice: Anthropic**
 
-### Setup Complexity
+- Best vision quality (20 images)
+- Native PDF support
+- Extended thinking
 
-#### Easiest (2 minutes)
+**🥈 Alternative: Google AI Studio**
 
-- Google AI Studio (just API key)
-- OpenAI (just API key)
-- Hugging Face (just API key)
-- Mistral AI (just API key)
+- Good vision (16 images)
+- PDF support
+- Extended thinking
+- FREE tier
 
-#### Moderate (5-10 minutes)
+**🥉 Alternative: OpenAI**
 
-- Ollama (local installation)
-- Anthropic (API key + billing)
+- Excellent vision (10 images)
+- Industry-leading quality
+- No PDF support
 
-#### Complex (15+ minutes)
+---
 
-- Amazon Bedrock (AWS setup)
-- Google Vertex AI (GCP setup)
-- Azure OpenAI (Azure setup)
+## Cost Optimization Strategies
 
-### Model Selection Guide
-
-#### Best General Models
-
-1. **GPT-4o** (OpenAI) - Best overall
-2. **Claude 3.5 Sonnet** (Anthropic/Bedrock)
-3. **Gemini 3 Pro Preview** (Google AI/Vertex) - Latest with extended thinking
-4. **Gemini 3 Flash Preview** (Google AI/Vertex) - Fast with extended thinking
-5. **Gemini 1.5 Pro** (Google AI/Vertex)
-
-#### Best Open Source Models
-
-1. **Llama 2** (Ollama/HF) - Meta's model
-2. **Mistral 7B** (Mistral/Ollama/HF)
-3. **Falcon** (Hugging Face)
-
-#### Best for Code
-
-1. **Code Llama** (Ollama/HF)
-2. **GPT-4** (OpenAI/Azure)
-3. **Claude** (Anthropic/Bedrock)
-
-#### Best for Speed
-
-1. **Ollama** (local) - Fastest
-2. **GPT-3.5 Turbo** (OpenAI)
-3. **Mistral Tiny** (Mistral AI)
-
-### Structured Output Support
-
-#### Full Support (Tools + Schemas Together)
-
-- **OpenAI** - Native support
-- **Anthropic** - Native support
-- **Azure OpenAI** - Native support
-- **Bedrock** - Full support (all models)
-- **Mistral** - Full support
-
-#### Limited Support (Tools OR Schemas)
-
-- **Google AI Studio** - ❌ Cannot combine, use `disableTools: true`
-- **Vertex AI (Gemini)** - ❌ Cannot combine, use `disableTools: true`
-
-**Workaround for Google Providers:**
+### 1. Tier-Based Strategy
 
 ```typescript
-// Use disableTools: true when using schemas
-const result = await neurolink.generate({
-  schema: MySchema,
-  provider: "vertex",
-  disableTools: true, // Required
-});
+// Use free tier for development
+const devProvider = "google-ai"; // FREE
+
+// Use mid-tier for staging
+const stagingProvider = "mistral"; // Low cost
+
+// Use premium for production
+const prodProvider = "anthropic"; // High quality
 ```
 
-**Gemini 3 Models:**
-
-- `gemini-3-flash-preview` and `gemini-3-pro-preview` are now available
-- These models still cannot use tools + JSON schema together (same limitation as other Gemini models)
-
-### Gemini 3 Feature Comparison
-
-| Feature                | gemini-3-flash-preview | gemini-3-pro-preview |
-| ---------------------- | ---------------------- | -------------------- |
-| **Extended Thinking**  | ✅ (thinkingLevel)     | ✅ (thinkingLevel)   |
-| **Streaming**          | ✅                     | ✅                   |
-| **Tool Calling**       | ✅                     | ✅                   |
-| **Vision/Multimodal**  | ✅                     | ✅                   |
-| **JSON Schema Output** | ✅\*                   | ✅\*                 |
-| **Tools + Schema**     | ❌                     | ❌                   |
-
-\*JSON Schema Output requires `disableTools: true` - cannot be used simultaneously with tool calling (Gemini API limitation)
-
-**Extended Thinking Support:**
-
-Gemini 3 models support extended thinking via the `thinkingLevel` parameter:
+### 2. Task-Based Routing
 
 ```typescript
-const result = await neurolink.generate({
-  prompt: "Solve this complex problem...",
-  provider: "google-ai",
-  model: "gemini-3-pro-preview",
-  thinkingLevel: "high", // "minimal" | "low" | "medium" | "high"
-});
+// Simple tasks → Cheap models
+if (taskComplexity === "simple") {
+  provider = "google-ai"; // FREE Gemini Flash
+}
+
+// Complex reasoning → Premium models
+if (taskComplexity === "complex") {
+  provider = "anthropic"; // Extended thinking
+}
+
+// Vision tasks → Vision-capable models
+if (hasImages) {
+  provider = "openai"; // Good vision
+}
 ```
 
-**Limitation:** When using tools with Gemini 3 models, you cannot simultaneously use JSON schema output. Use `disableTools: true` when structured output is required.
+### 3. Hybrid Approach
 
-## Provider Deep Dive
+```typescript
+// Use local for privacy-sensitive
+if (sensitiveData) {
+  provider = "ollama"; // Local, FREE
+}
 
-### OpenAI
+// Use cloud for complex tasks
+if (needsAdvancedReasoning) {
+  provider = "anthropic"; // Extended thinking
+}
+```
 
-**Strengths**:
-
-- Industry-leading models
-- Extensive documentation
-- Wide ecosystem support
-
-**Weaknesses**:
-
-- Expensive at scale
-- No free tier
-- Rate limits on cheaper tiers
-
-**Best For**: Production applications requiring highest quality
-
-### Amazon Bedrock
-
-**Strengths**:
-
-- Multiple model providers
-- AWS integration
-- Enterprise features
-
-**Weaknesses**:
-
-- Complex setup
-- AWS account required
-- Region limitations
-
-**Best For**: AWS-based enterprise applications
-
-### Google Vertex AI
-
-**Strengths**:
-
-- Google Cloud integration
-- Multiple model options
-- Enterprise support
-
-**Weaknesses**:
-
-- Complex authentication
-- GCP account required
-- Higher latency
-
-**Best For**: Google Cloud Platform users
-
-### Google AI Studio
-
-**Strengths**:
-
-- Generous free tier
-- Simple setup
-- Latest Gemini models
-
-**Weaknesses**:
-
-- Rate limits on free tier
-- Limited model selection
-- Newer platform
-
-**Best For**: Prototyping and development
-
-### Anthropic
-
-**Strengths**:
-
-- Claude 3.5 Sonnet quality
-- Strong safety features
-- Good for analysis
-
-**Weaknesses**:
-
-- Limited availability
-- Higher cost
-- Smaller ecosystem
-
-**Best For**: Complex reasoning tasks
-
-### Azure OpenAI
-
-**Strengths**:
-
-- Enterprise security
-- Azure integration
-- SLA guarantees
-
-**Weaknesses**:
-
-- Most complex setup
-- Requires Azure account
-- Limited availability
-
-**Best For**: Enterprise Microsoft shops
-
-### Hugging Face
-
-**Strengths**:
-
-- 100,000+ models
-- Open source focus
-- Community driven
-
-**Weaknesses**:
-
-- Variable quality
-- Rate limits
-- Model loading delays
-
-**Best For**: Experimentation and research
-
-### Ollama
-
-**Strengths**:
-
-- Complete privacy
-- No API costs
-- Fast response
-
-**Weaknesses**:
-
-- Local resources required
-- Manual model management
-- Limited to local models
-
-**Best For**: Privacy-critical applications
-
-### Mistral AI
-
-**Strengths**:
-
-- GDPR compliant
-- Competitive pricing
-- European hosting
-
-**Weaknesses**:
-
-- Smaller model selection
-- Less ecosystem support
-- Newer platform
-
-**Best For**: European compliance needs
+---
 
 ## Quick Decision Tree
 
@@ -363,156 +933,149 @@ Need highest quality?
 ├─ Yes → OpenAI or Anthropic
 └─ No → Continue
     │
-    Need complete privacy?
-    ├─ Yes → Ollama
+    Need extended thinking?
+    ├─ Yes → Anthropic (best) or Google AI Studio (free)
     └─ No → Continue
         │
-        On AWS?
-        ├─ Yes → Bedrock
+        Need complete privacy?
+        ├─ Yes → Ollama (local, free)
         └─ No → Continue
             │
-            Need free tier?
-            ├─ Yes → Google AI Studio or Hugging Face
+            Need PDF processing?
+            ├─ Yes → Anthropic or Google AI Studio or Vertex
             └─ No → Continue
                 │
-                Need EU compliance?
-                ├─ Yes → Mistral AI
-                └─ No → Choose based on ecosystem
+                On AWS?
+                ├─ Yes → Bedrock
+                └─ No → Continue
+                    │
+                    On Azure?
+                    ├─ Yes → Azure OpenAI
+                    └─ No → Continue
+                        │
+                        Need free tier?
+                        ├─ Yes → Google AI Studio (best) or OpenRouter or HuggingFace
+                        └─ No → Continue
+                            │
+                            Need EU compliance?
+                            ├─ Yes → Mistral AI (GDPR)
+                            └─ No → Continue
+                                │
+                                Need many models?
+                                ├─ Yes → OpenRouter (300+ models) or HuggingFace (100k+ models)
+                                └─ No → OpenAI (industry standard)
 ```
 
-## Migration Strategies
+---
 
-### From OpenAI
-
-- **To Anthropic**: Similar quality, different strengths
-- **To Google AI Studio**: Cost savings with free tier
-- **To Bedrock**: Better AWS integration
-
-### From Cloud to Local
-
-- **To Ollama**: Install locally, pull models
-- **Privacy First**: No code changes needed
-- **Performance**: Depends on local hardware
-
-### Multi-Provider Strategy
-
-```typescript
-// Use NeuroLink's auto-selection
-const provider = await getBestProvider();
-
-// Or explicit fallback chain
-const providers = ["openai", "anthropic", "google-ai"];
-```
-
-## Cost Optimization Tips
-
-### Reduce Costs
-
-1. Use Google AI Studio free tier for development
-2. Switch to Ollama for privacy-sensitive tasks
-3. Use Hugging Face for experimentation
-4. Implement caching for repeated queries
-
-### Token Optimization
-
-- Shorter prompts for simple tasks
-- Use appropriate models for task complexity
-- Batch similar requests
-- Monitor usage with NeuroLink analytics
-
-## Security Considerations
+## Security & Compliance
 
 ### Most Secure
 
-1. **Ollama** - Completely local
-2. **Azure OpenAI** - Enterprise security
-3. **Bedrock** - AWS security features
+1. **Ollama** - Completely local, no cloud transmission
+2. **Azure OpenAI** - Enterprise security, Microsoft backing
+3. **Amazon Bedrock** - AWS security features, HIPAA-ready
 
-### Compliance
+### Compliance Certifications
 
-- **GDPR**: Mistral AI, Ollama
-- **HIPAA**: Azure OpenAI, Bedrock (with BAA)
-- **SOC2**: Most cloud providers
+| Provider         | GDPR | HIPAA | SOC2 | ISO 27001 |
+| ---------------- | ---- | ----- | ---- | --------- |
+| OpenAI           | ✓    | ✓\*   | ✓    | ✓         |
+| Anthropic        | ✓    | ✓\*   | ✓    | ✓         |
+| Google AI Studio | ✓    | ✗     | ✓    | ✓         |
+| Google Vertex    | ✓    | ✓\*   | ✓    | ✓         |
+| Amazon Bedrock   | ✓    | ✓\*   | ✓    | ✓         |
+| Azure OpenAI     | ✓    | ✓\*   | ✓    | ✓         |
+| Mistral          | ✓    | ✗     | ✓    | ✓         |
+| Ollama           | ✓    | ✓     | N/A  | N/A       |
 
-### API Key Management
+\* HIPAA compliance requires Business Associate Agreement (BAA)
 
-```bash
-# Use environment variables
-export OPENAI_API_KEY="sk-..."
+---
 
-# Never commit keys
-echo "*.env" >> .gitignore
+## Performance Benchmarks
 
-# Rotate regularly
+### Average Latency (Time to First Token)
+
+| Provider         | TTFT (ms) | Tokens/sec | Quality Score |
+| ---------------- | --------- | ---------- | ------------- |
+| Ollama (local)   | 50-200    | 30-50      | 8.5/10        |
+| OpenAI           | 300-800   | 40-60      | 9.5/10        |
+| Anthropic        | 400-900   | 35-55      | 9.4/10        |
+| Google AI Studio | 300-700   | 45-65      | 9.0/10        |
+| Azure OpenAI     | 350-850   | 40-60      | 9.5/10        |
+| Mistral          | 300-700   | 40-55      | 8.8/10        |
+| OpenRouter       | 400-1000  | 30-50      | 8.5-9.5/10    |
+
+_Note: Benchmarks vary by model, region, and load_
+
+---
+
+## Migration Guide
+
+### From OpenAI to Anthropic
+
+**Why migrate:**
+
+- Extended thinking
+- PDF support
+- Better for complex analysis
+
+**Code changes:**
+
+```typescript
+// Before
+const result = await neurolink.generate({
+  provider: "openai",
+  model: "gpt-4o",
+  prompt: "Analyze this document",
+});
+
+// After
+const result = await neurolink.generate({
+  provider: "anthropic",
+  model: "claude-sonnet-4-5-20250929",
+  prompt: "Analyze this document",
+  thinkingLevel: "high", // New capability
+});
 ```
 
-## Performance Optimization
+### From Paid to Free (Google AI Studio)
 
-### Fastest Response
+**Why migrate:**
 
-1. **Ollama** (local) - No network latency
-2. **OpenAI** - Optimized infrastructure
-3. **Google AI Studio** - Fast endpoints
+- FREE tier (1M tokens/day)
+- Extended thinking
+- PDF support
 
-### Highest Throughput
+**Cost savings:**
 
-1. **Bedrock** - High rate limits
-2. **Azure OpenAI** - Enterprise quotas
-3. **Vertex AI** - Scalable infrastructure
+- OpenAI GPT-4o: ~$15/day for 1M tokens
+- Google AI Studio: **$0/day for 1M tokens**
+- **Savings: $450/month**
 
-### Best for Streaming
-
-1. **OpenAI** - Mature streaming
-2. **Anthropic** - Good streaming support
-3. **Ollama** - Low-latency streaming
-
-## Community and Support
-
-### Best Documentation
-
-1. **OpenAI** - Extensive guides
-2. **Google AI Studio** - Growing docs
-3. **Hugging Face** - Community tutorials
-
-### Active Communities
-
-1. **Hugging Face** - Largest community
-2. **OpenAI** - Developer forums
-3. **Ollama** - Active Discord
-
-### Enterprise Support
-
-1. **Azure OpenAI** - Microsoft support
-2. **Bedrock** - AWS support
-3. **Vertex AI** - Google support
-
-## Future Considerations
-
-### Innovation Speed
-
-- **OpenAI**: Fastest model updates
-- **Anthropic**: Regular improvements
-- **Google**: Rapid Gemini development
-
-### Open Source Trends
-
-- **Hugging Face**: Leading open models
-- **Ollama**: Growing model library
-- **Mistral**: Open weight models
-
-### Ecosystem Growth
-
-- **OpenAI**: Largest ecosystem
-- **Hugging Face**: Fastest growing
-- **Google**: Expanding rapidly
+---
 
 ## Conclusion
 
-Choose providers based on:
+**Choose based on priorities:**
 
-1. **Primary Need**: Quality, cost, privacy, or compliance
-2. **Technical Requirements**: Speed, scale, or features
-3. **Business Constraints**: Budget, security, or geography
-4. **Future Flexibility**: Multi-provider support with NeuroLink
+1. **Budget Priority** → Google AI Studio (free) or OpenRouter (free models)
+2. **Quality Priority** → OpenAI or Anthropic
+3. **Privacy Priority** → Ollama (local)
+4. **Reasoning Priority** → Anthropic (extended thinking)
+5. **Document Priority** → Anthropic or Google AI Studio (PDF support)
+6. **Compliance Priority** → Azure OpenAI or Bedrock
+7. **Flexibility Priority** → OpenRouter (300+ models)
 
-NeuroLink makes it easy to switch between providers or use multiple providers simultaneously, giving you the flexibility to optimize for different use cases.
+**NeuroLink Advantage:**
+
+- Switch providers anytime (single line of code)
+- Use multiple providers simultaneously
+- Test and compare providers easily
+- No vendor lock-in
+
+See also:
+
+- [Provider Capabilities Audit](./provider-capabilities-audit.md) - Detailed technical capabilities
+- [Provider Selection Wizard](../guides/provider-selection.md) - Interactive decision guide

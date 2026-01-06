@@ -1,7 +1,7 @@
 ---
 title: Feature Guides
 description: In-depth guides for NeuroLink's latest capabilities and platform features
-keywords: features, capabilities, guides, tutorials, how-to, q3 2025, q4 2025
+keywords: features, capabilities, guides, tutorials, how-to, q3 2025, q4 2025, q1 2026, video generation, runway, image generation, gemini, http transport, mcp
 ---
 
 # Feature Guides
@@ -10,17 +10,36 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 ---
 
-## Latest Features (Q4 2025)
+## Latest Features (Q1 2026)
+
+| Feature                                                                                    | Description                                                                                                       |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| :material-video: **[Video Generation](video-generation.md)**                               | Generate videos from text prompts using RunwayML (ML5, ML6 Turbo models) with full prompt and duration control.   |
+| :material-image-plus: **[Image Generation with Gemini](../image-generation-streaming.md)** | Native image generation using Gemini 2.0 Flash Experimental with imagen-3.0-generate-002 model.                   |
+| :material-web: **[HTTP/Streamable HTTP Transport for MCP](../mcp-http-transport.md)**      | Connect to remote MCP servers via HTTP with authentication, rate limiting, retry support, and session management. |
+
+**Q1 2026 Highlights:**
+
+- **Video Generation**: Create AI-generated videos with RunwayML integration supporting ML5 and ML6 Turbo models, customizable duration (5-10s), and watermark control
+- **Gemini Image Generation**: Native support for Google's imagen-3.0-generate-002 model through Gemini 2.0 Flash Experimental for high-quality image synthesis
+- **Remote MCP Servers**: HTTP/Streamable HTTP transport enables connecting to cloud-hosted MCP servers with Bearer token authentication, configurable rate limits, automatic retry with exponential backoff, and session management via `Mcp-Session-Id` header
+
+---
+
+## Core Features (Q4 2025)
 
 | Feature                                                                             | Description                                                                                        |
 | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| :material-image: **[Image Generation](../IMAGE-GENERATION-STREAMING.md)**           | Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio.           |
+| :material-image: **[Image Generation](../image-generation-streaming.md)**           | Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio.           |
+| :material-security: **[Enterprise HITL](enterprise-hitl.md)**                       | Production-ready HITL with approval workflows, confidence thresholds, and enterprise patterns.     |
+| :material-console-line: **[Interactive CLI](interactive-cli.md)**                   | AI development environment with loop mode, session variables, and conversation memory.             |
+| :material-tools: **[MCP Tools Showcase](mcp-tools-showcase.md)**                    | Complete guide to 6 built-in tools and 58+ external MCP servers across 6 categories.               |
 | :material-hand-pointing-up: **[Human-in-the-Loop (HITL)](hitl.md)**                 | Pause AI tool execution for user approval before risky operations like file deletion or API calls. |
 | :material-shield-check: **[Guardrails Middleware](guardrails.md)**                  | Content filtering, PII detection, and safety checks for AI outputs with zero configuration.        |
 | :material-database-export: **[Redis Conversation Export](conversation-history.md)** | Export complete session history as JSON for analytics, debugging, and compliance auditing.         |
-| :material-brain-circuit: **[Context Summarization](../CONTEXT-SUMMARIZATION.md)**   | Automatic conversation compression for long-running sessions to stay within token limits.          |
-| :material-server-network: **[LiteLLM Integration](../LITELLM-INTEGRATION.md)**      | Access 100+ AI models from all major providers through unified LiteLLM routing interface.          |
-| :material-aws: **[SageMaker Integration](../SAGEMAKER-INTEGRATION.md)**             | Deploy and use custom trained models on AWS SageMaker infrastructure with full control.            |
+| :material-brain-circuit: **[Context Summarization](../context-summarization.md)**   | Automatic conversation compression for long-running sessions to stay within token limits.          |
+| :material-server-network: **[LiteLLM Integration](../litellm-integration.md)**      | Access 100+ AI models from all major providers through unified LiteLLM routing interface.          |
+| :material-aws: **[SageMaker Integration](../sagemaker-integration.md)**             | Deploy and use custom trained models on AWS SageMaker infrastructure with full control.            |
 
 ---
 
@@ -46,9 +65,9 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 | **Provider unification** | 12+ providers with automatic failover, cost-aware routing, provider orchestration (Q3)                             | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents + Office files across providers with auto-detection for mixed file types. | [Multimodal Guide](multimodal-chat.md), [CSV Support](csv-support.md), [PDF Support](pdf-support.md), [Office Docs](office-documents.md) |
 | **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging                        | [Auto Evaluation](auto-evaluation.md), [Guardrails](guardrails.md), [HITL](hitl.md)                                                      |
-| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4)                       | [Conversation Memory](../CONVERSATION-MEMORY.md), [Redis Export](conversation-history.md)                                                |
+| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4)                       | [Conversation Memory](../conversation-memory.md), [Redis Export](conversation-history.md)                                                |
 | **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output                                | [CLI Loop](cli-loop-sessions.md), [CLI Commands](../cli/commands.md)                                                                     |
-| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management                                    | [Enterprise Proxy](../ENTERPRISE-PROXY-SETUP.md), [Telemetry](../TELEMETRY-GUIDE.md)                                                     |
+| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management                                    | [Enterprise Proxy](../enterprise-proxy-setup.md), [Telemetry](../telemetry-guide.md)                                                     |
 | **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search                                    | [MCP Integration](../advanced/mcp-integration.md), [MCP Catalog](../guides/mcp/server-catalog.md)                                        |
 
 ---
@@ -65,8 +84,8 @@ NeuroLink supports **12 major AI providers** with unified API access:
 | **AWS Bedrock**       | Claude, Titan, Llama, Nova     | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#bedrock)           |
 | **Google Vertex**     | Gemini via GCP                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#vertex)            |
 | **Azure OpenAI**      | GPT-4, GPT-4o, o1              | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#azure)             |
-| **LiteLLM**           | 100+ models unified            | Varies          | ✅ Full      | ✅ Production | [Integration Guide](../LITELLM-INTEGRATION.md)                        |
-| **AWS SageMaker**     | Custom deployed models         | ❌              | ✅ Full      | ✅ Production | [Integration Guide](../SAGEMAKER-INTEGRATION.md)                      |
+| **LiteLLM**           | 100+ models unified            | Varies          | ✅ Full      | ✅ Production | [Integration Guide](../litellm-integration.md)                        |
+| **AWS SageMaker**     | Custom deployed models         | ❌              | ✅ Full      | ✅ Production | [Integration Guide](../sagemaker-integration.md)                      |
 | **Mistral AI**        | Mistral Large, Small           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#mistral)           |
 | **Hugging Face**      | 100,000+ models                | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#huggingface)       |
 | **Ollama**            | Local models                   | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#ollama)            |
@@ -245,7 +264,7 @@ const result = await neurolink.generate({
 | **Full Type Safety**        | Complete TypeScript types      | [Type Reference](../sdk/api-reference.md)           |
 | **Error Handling**          | Graceful provider fallback     | [Error Guide](../reference/troubleshooting.md)      |
 | **Analytics & Evaluation**  | Usage tracking, quality scores | [Analytics Guide](../advanced/analytics.md)         |
-| **Middleware System**       | Request/response hooks         | [Middleware Guide](../CUSTOM-MIDDLEWARE-GUIDE.md)   |
+| **Middleware System**       | Request/response hooks         | [Middleware Guide](../custom-middleware-guide.md)   |
 | **Framework Integration**   | Next.js, SvelteKit, Express    | [Framework Guides](../sdk/framework-integration.md) |
 
 ---
@@ -343,16 +362,16 @@ neurolink » exit
 
 | Feature                      | Description                         | Use Case                     | Documentation                                                     |
 | ---------------------------- | ----------------------------------- | ---------------------------- | ----------------------------------------------------------------- |
-| **Enterprise Proxy**         | Corporate proxy support             | Behind firewalls             | [Proxy Setup](../ENTERPRISE-PROXY-SETUP.md)                       |
+| **Enterprise Proxy**         | Corporate proxy support             | Behind firewalls             | [Proxy Setup](../enterprise-proxy-setup.md)                       |
 | **Redis Memory**             | Distributed conversation state      | Multi-instance deployment    | [Redis Guide](../getting-started/provider-setup.md#redis)         |
 | **Cost Optimization**        | Automatic cheapest model selection  | Budget control               | [Cost Guide](../guides/enterprise/cost-optimization.md)           |
 | **Multi-Provider Failover**  | Automatic provider switching        | High availability            | [Failover Guide](../guides/enterprise/multi-provider-failover.md) |
-| **Telemetry & Monitoring**   | OpenTelemetry integration           | Observability                | [Telemetry Guide](../TELEMETRY-GUIDE.md)                          |
+| **Telemetry & Monitoring**   | OpenTelemetry integration           | Observability                | [Telemetry Guide](../telemetry-guide.md)                          |
 | **Security Hardening**       | Credential management, auditing     | Compliance                   | [Security Guide](../guides/enterprise/compliance.md)              |
-| **Custom Model Hosting**     | SageMaker integration               | Private models               | [SageMaker Guide](../SAGEMAKER-INTEGRATION.md)                    |
+| **Custom Model Hosting**     | SageMaker integration               | Private models               | [SageMaker Guide](../sagemaker-integration.md)                    |
 | **Load Balancing**           | LiteLLM proxy integration           | Scale & routing              | [Load Balancing Guide](../guides/enterprise/load-balancing.md)    |
 | **Audit Trails**             | Comprehensive logging               | Compliance                   | [Audit Guide](../guides/enterprise/audit-trails.md)               |
-| **Configuration Management** | Environment & credential management | Multi-environment deployment | [Config Guide](../CONFIGURATION-MANAGEMENT.md)                    |
+| **Configuration Management** | Environment & credential management | Multi-environment deployment | [Config Guide](../configuration-management.md)                    |
 
 ### Advanced Security Features
 
@@ -362,12 +381,12 @@ Enterprise-grade approval system for sensitive operations:
 
 ```typescript
 // HITL Policy Configuration
-interface HITLPolicy {
+type HITLPolicy = {
   requireApprovalFor: string[]; // Tool-specific policies
   autoApprove: string[]; // Safe operation whitelist
   alwaysDeny: string[]; // Blacklist operations
   timeoutBehavior: "deny" | "approve"; // Timeout handling
-}
+};
 ```
 
 **HITL Capabilities:**
@@ -430,7 +449,7 @@ Pluggable request/response processing for custom workflows:
 
 ```typescript
 // Middleware Configuration
-interface MiddlewareFactoryOptions {
+type MiddlewareFactoryOptions = {
   middleware?: NeuroLinkMiddleware[]; // Custom middleware registration
   enabledMiddleware?: string[]; // Selective activation
   disabledMiddleware?: string[]; // Selective deactivation
@@ -441,7 +460,7 @@ interface MiddlewareFactoryOptions {
     maxExecutionTime?: number;
     continueOnError?: boolean;
   };
-}
+};
 ```
 
 **Middleware Features:**
@@ -453,7 +472,7 @@ interface MiddlewareFactoryOptions {
 - ✅ Priority-based execution order
 - ✅ Detailed execution statistics
 
-**[📖 Custom Middleware Guide](../CUSTOM-MIDDLEWARE-GUIDE.md)** - Build your own middleware
+**[📖 Custom Middleware Guide](../custom-middleware-guide.md)** - Build your own middleware
 
 ---
 
@@ -487,7 +506,7 @@ Production-grade fault tolerance:
 - ✅ **Graceful Degradation**: Intelligent fallback strategies
 - ✅ **Retry Logic**: Configurable retry with exponential backoff
 
-**[📖 Performance Optimization Guide](../PERFORMANCE-OPTIMIZATION.md)** - Complete optimization strategies
+**[📖 Performance Optimization Guide](../performance-optimization.md)** - Complete optimization strategies
 
 ---
 
@@ -495,11 +514,11 @@ Production-grade fault tolerance:
 
 | Integration                                                                    | Description                                                                             |
 | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| :material-server-network: **[LiteLLM Integration](../LITELLM-INTEGRATION.md)** | Access 100+ models from all major providers via LiteLLM routing with unified interface. |
-| :material-aws: **[SageMaker Integration](../SAGEMAKER-INTEGRATION.md)**        | Deploy and call custom endpoints directly from NeuroLink CLI/SDK with full control.     |
-| :material-brain-circuit: **[Mem0 Integration](../MEM0_INTEGRATION.md)**        | Persistent semantic memory with vector store support for long-term conversations.       |
-| :material-shield-lock: **[Enterprise Proxy](../ENTERPRISE-PROXY-SETUP.md)**    | Configure outbound policies and compliance posture for corporate environments.          |
-| :material-cog: **[Configuration Management](../CONFIGURATION-MANAGEMENT.md)**  | Manage environments, regions, and credentials safely across deployments.                |
+| :material-server-network: **[LiteLLM Integration](../litellm-integration.md)** | Access 100+ models from all major providers via LiteLLM routing with unified interface. |
+| :material-aws: **[SageMaker Integration](../sagemaker-integration.md)**        | Deploy and call custom endpoints directly from NeuroLink CLI/SDK with full control.     |
+| :material-brain-circuit: **[Mem0 Integration](../mem0-integration.md)**        | Persistent semantic memory with vector store support for long-term conversations.       |
+| :material-shield-lock: **[Enterprise Proxy](../enterprise-proxy-setup.md)**    | Configure outbound policies and compliance posture for corporate environments.          |
+| :material-cog: **[Configuration Management](../configuration-management.md)**  | Manage environments, regions, and credentials safely across deployments.                |
 
 ---
 
@@ -507,12 +526,12 @@ Production-grade fault tolerance:
 
 | Feature                                                                                   | Description                                                                        |
 | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| :material-factory: **[Factory Pattern Architecture](../FACTORY-PATTERN-ARCHITECTURE.md)** | Unified provider interface with automatic fallbacks and type-safe implementations. |
-| :material-database-cog: **[Conversation Memory](../CONVERSATION-MEMORY.md)**              | Deep dive into memory management, Redis integration, and Mem0 support.             |
-| :material-middleware: **[Custom Middleware](../CUSTOM-MIDDLEWARE-GUIDE.md)**              | Build request/response hooks for logging, filtering, and custom processing.        |
-| :material-speedometer: **[Performance Optimization](../PERFORMANCE-OPTIMIZATION.md)**     | Caching, connection pooling, and latency optimization strategies.                  |
-| :material-chart-timeline: **[Telemetry & Observability](../TELEMETRY-GUIDE.md)**          | OpenTelemetry integration for distributed tracing and monitoring.                  |
-| :material-test-tube: **[Testing Guide](../TESTING.md)**                                   | Provider-agnostic testing, mocking, and quality assurance strategies.              |
+| :material-factory: **[Factory Pattern Architecture](../factory-pattern-architecture.md)** | Unified provider interface with automatic fallbacks and type-safe implementations. |
+| :material-database-cog: **[Conversation Memory](../conversation-memory.md)**              | Deep dive into memory management, Redis integration, and Mem0 support.             |
+| :material-middleware: **[Custom Middleware](../custom-middleware-guide.md)**              | Build request/response hooks for logging, filtering, and custom processing.        |
+| :material-speedometer: **[Performance Optimization](../performance-optimization.md)**     | Caching, connection pooling, and latency optimization strategies.                  |
+| :material-chart-timeline: **[Telemetry & Observability](../telemetry-guide.md)**          | OpenTelemetry integration for distributed tracing and monitoring.                  |
+| :material-test-tube: **[Testing Guide](../testing.md)**                                   | Provider-agnostic testing, mocking, and quality assurance strategies.              |
 | :material-chart-box: **[Analytics & Evaluation](../advanced/analytics.md)**               | Usage tracking, cost monitoring, and quality scoring for AI responses.             |
 | :material-flash: **[Streaming](../advanced/streaming.md)**                                | Real-time token streaming with provider-specific optimizations.                    |
 

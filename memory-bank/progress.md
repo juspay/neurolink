@@ -54,7 +54,7 @@ await neurolink.addInMemoryMCPServer("github-copilot", {
 **Files Added/Modified**:
 - `src/lib/mcp/transport-manager.ts` - HTTP transport implementation
 - `src/lib/types/mcpTypes.ts` - HTTP transport type definitions
-- `docs/MCP-HTTP-TRANSPORT.md` - Comprehensive documentation
+- `docs/mcp-http-transport.md` - Comprehensive documentation
 - `examples/http-transport-mcp.ts` - Example usage code
 - `examples/README.md` - Updated with HTTP transport example
 

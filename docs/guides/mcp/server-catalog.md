@@ -531,7 +531,7 @@ const ai = new NeuroLink({
 }
 ```
 
-See [MCP HTTP Transport Guide](../../MCP-HTTP-TRANSPORT.md) for complete documentation.
+See [MCP HTTP Transport Guide](../../mcp-http-transport.md) for complete documentation.
 
 ---
 
@@ -827,15 +827,23 @@ const testServer = new NeuroLink({
 ### 4. ✅ Monitor MCP Server Usage
 
 ```typescript
-// ✅ Track which MCP tools are used
-const result = await ai.generate({
-  input: { text: "Your prompt" },
-  tools: "auto",
-  onToolCall: (toolName, args) => {
-    console.log(`MCP tool called: ${toolName}`, args);
-    metrics.increment("mcp.tool.usage", { tool: toolName });
+// ✅ Track tool usage via analytics middleware
+const neurolink = new NeuroLink({
+  middleware: {
+    analytics: {
+      enabled: true,
+    },
   },
 });
+
+const result = await neurolink.generate({
+  input: { text: "Your prompt" },
+  tools: "auto",
+});
+
+// Analytics data is available in the result metadata
+// You can also enable debug logging to see tool execution details:
+// DEBUG=neurolink:* npx neurolink generate "Your prompt"
 ```
 
 ### 5. ✅ Handle Server Failures Gracefully

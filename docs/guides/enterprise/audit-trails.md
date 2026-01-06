@@ -615,13 +615,13 @@ For tamper-proof audit trails:
 ```typescript
 import crypto from "crypto";
 
-interface AuditBlock {
+type AuditBlock = {
   index: number;
   timestamp: string;
   data: AuditEvent;
   previousHash: string;
   hash: string;
-}
+};
 
 class AuditBlockchain {
   private chain: AuditBlock[] = [];
@@ -727,7 +727,7 @@ const ai = new NeuroLink({
 GDPR Article 7 requires proof of consent. Track user consent alongside audit logs.
 
 ```typescript
-interface ConsentRecord {
+type ConsentRecord = {
   consentId: string;
   userId: string;
   purpose: string;
@@ -738,7 +738,7 @@ interface ConsentRecord {
   granted: boolean;
   revoked?: boolean;
   revokedAt?: Date;
-}
+};
 
 class ConsentManager {
   async recordConsent(data: Omit<ConsentRecord, "consentId">): Promise<string> {

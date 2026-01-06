@@ -1,0 +1,47 @@
+{
+  "default": true,
+  "MD001": true,
+  "MD003": {
+    "style": "consistent"
+  },
+  "MD004": {
+    "style": "consistent"
+  },
+  "MD007": {
+    "indent": 2
+  },
+  "MD009": {
+    "br_spaces": 2,
+    "list_item_empty_lines": false,
+    "strict": false
+  },
+  "MD010": {
+    "code_blocks": true,
+    "spaces_per_tab": 2
+  },
+  "MD013": false,
+  "MD024": {
+    "siblings_only": true
+  },
+  "MD025": true,
+  "MD026": {
+    "punctuation": ".,;:!"
+  },
+  "MD029": {
+    "style": "one_or_ordered"
+  },
+  "MD033": false,
+  "MD034": false,
+  "MD036": false,
+  "MD040": false,
+  "MD041": false,
+  "MD046": {
+    "style": "consistent"
+  },
+  "MD049": {
+    "style": "consistent"
+  },
+  "MD050": {
+    "style": "consistent"
+  }
+}

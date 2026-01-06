@@ -508,7 +508,7 @@ import { readdir, readFile, writeFile, mkdir } from "fs/promises";
 import path from "path";
 import pLimit from "p-limit";
 
-interface PipelineConfig {
+type PipelineConfig = {
   inputDir: string;
   outputDir: string;
   prompts: Record<string, string>; // filename pattern -> prompt
@@ -516,7 +516,7 @@ interface PipelineConfig {
   resolution: "720p" | "1080p";
   aspectRatio: "9:16" | "16:9";
   concurrency: number;
-}
+};
 
 async function videoPipeline(config: PipelineConfig) {
   const neurolink = new NeuroLink();

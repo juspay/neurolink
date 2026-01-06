@@ -91,11 +91,11 @@ The SDK uses a **Factory Pattern** architecture that provides:
 - **Built-in Tools**: 6 core tools available across all providers
 
 ```typescript
-interface AIProvider {
+type AIProvider = {
   generate(options: TextGenerationOptions): Promise<EnhancedGenerateResult>;
   stream(options: StreamOptions): Promise<StreamResult>;
   supportsTools(): boolean;
-}
+};
 ```
 
 ## ⚙️ Configuration
@@ -199,9 +199,9 @@ const result2 = await neurolink.generate({
 
 **Learn more:**
 
-- [Conversation Memory Deep Dive](../CONVERSATION-MEMORY.md)
+- [Conversation Memory Deep Dive](../conversation-memory.md)
 - [Redis Configuration](../getting-started/provider-setup.md#redis)
-- [Context Summarization](../CONTEXT-SUMMARIZATION.md)
+- [Context Summarization](../context-summarization.md)
 
 ---
 
@@ -310,17 +310,40 @@ const result = await neurolink.generate({
     ```typescript
     // src/routes/api/ai/+server.ts
     import { createBestAIProvider } from "@juspay/neurolink";
+    import type { RequestHandler } from "./$types";
 
     export const POST: RequestHandler = async ({ request }) => {
       const { message } = await request.json();
       const provider = createBestAIProvider();
 
-      const stream = await provider.stream({
+      const result = await provider.stream({
         input: { text: message },
         timeout: "2m",
       });
 
-      return new Response(stream.toReadableStream());
+      // Manually create ReadableStream from AsyncIterable
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of result.stream) {
+              if (chunk && typeof chunk === "object" && "content" in chunk) {
+                controller.enqueue(new TextEncoder().encode(chunk.content));
+              }
+            }
+            controller.close();
+          } catch (error) {
+            controller.error(error);
+          }
+        },
+      });
+
+      return new Response(readable, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
     };
     ```
 

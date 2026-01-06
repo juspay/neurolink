@@ -46,7 +46,27 @@ NeuroLink goes beyond simple API wrappers to provide a comprehensive AI developm
 
   Real-time streaming architecture with analytics support and multi-modal readiness.
 
+- :material-middleware: **[Middleware Architecture](middleware-architecture.md)**
+
+  ***
+
+  Comprehensive middleware system for request/response processing, logging, and custom transformations.
+
+- :material-shield-check: **[Built-in Middleware](builtin-middleware.md)**
+
+  ***
+
+  Pre-built middleware for analytics, guardrails, and auto-evaluation.
+
 </div>
+
+## 🛡️ Middleware System
+
+NeuroLink includes a powerful middleware architecture for extending functionality:
+
+- **[Middleware Architecture](middleware-architecture.md)** - Complete middleware lifecycle and factory patterns
+- **[Built-in Middleware](builtin-middleware.md)** - Analytics, Guardrails, Auto-Evaluation middleware reference
+- **[Custom Middleware Guide](../custom-middleware-guide.md)** - Build your own middleware with examples
 
 ## 🏭 Architecture Highlights
 

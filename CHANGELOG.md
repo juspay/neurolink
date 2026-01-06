@@ -1601,7 +1601,7 @@ NEUROLINK_DEBUG=true node dist/cli/cli/index.js generate-text "test" --max-token
 docs/
 ├── AI-ANALYSIS-TOOLS.md          # AI optimization and analysis tools
 ├── AI-WORKFLOW-TOOLS.md          # Development lifecycle tools
-├── MCP-FOUNDATION.md             # Technical MCP architecture
+├── mcp-foundation.md             # Technical MCP architecture
 └── GOOGLE-AI-STUDIO-INTEGRATION-ARCHIVE.md  # Integration details
 ```
 

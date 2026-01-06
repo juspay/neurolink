@@ -248,7 +248,7 @@ HTTP_PROXY="http://username:password@proxy.company.com:8080"
 
 **All NeuroLink providers automatically use proxy settings when configured.**
 
-**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](ENTERPRISE-PROXY-SETUP.md)
+**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](enterprise-proxy-setup.md)
 
 ## 🤖 Provider Configuration
 
@@ -991,9 +991,9 @@ node -e "require('dotenv').config(); console.log(process.env.OPENAI_API_KEY)"
 ## 📖 Related Documentation
 
 - **[Provider Configuration Guide](./provider-setup.md)** - Detailed provider setup
-- **[CLI Guide](../CLI-GUIDE.md)** - Complete CLI command reference
+- **[CLI Guide](../cli-guide.md)** - Complete CLI command reference
 - **[API Reference](../sdk/api-reference.md)** - Programmatic usage examples
-- **[Framework Integration](../FRAMEWORK-INTEGRATION.md)** - Next.js, SvelteKit, React
+- **[Framework Integration](../framework-integration.md)** - Next.js, SvelteKit, React
 
 ---
 

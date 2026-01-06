@@ -60,34 +60,63 @@ const neurolink = new NeuroLink({
 
 ### Handling Confirmation in Your UI
 
+HITL uses an event-based workflow where the SDK emits confirmation requests and your app responds with user decisions.
+
 ```typescript
-// When tool requires confirmation
-if (error.code === "USER_CONFIRMATION_REQUIRED") {
-  // (1)!
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  hitl: {
+    enabled: true,
+    dangerousActions: ["delete", "remove", "drop", "truncate"],
+    timeout: 30000, // 30 seconds
+  },
+});
+
+// (1)! Listen for confirmation requests
+neurolink.on("hitl:confirmation-request", async (event) => {
+  const {
+    confirmationId,
+    toolName,
+    arguments: args,
+    timeoutMs,
+  } = event.payload;
+
+  // (2)! Show your app's confirmation UI
   const approved = await showConfirmationDialog({
-    // (2)!
-    action: tool.name,
-    details: tool.args,
-    message: "AI wants to perform this action. Allow?",
+    action: toolName,
+    details: args,
+    message: `AI wants to ${toolName}. Allow?`,
+    timeoutMs,
   });
 
-  if (approved) {
-    setUserConfirmation(true); // (3)!
-    const result = await executeTool(tool); // (4)!
-    setUserConfirmation(false); // (5)!
-    return result;
-  } else {
-    return { cancelled: true, reason: "User denied permission" }; // (6)!
-  }
-}
+  // (3)! Send response back to NeuroLink
+  neurolink.emit("hitl:confirmation-response", {
+    type: "hitl:confirmation-response",
+    payload: {
+      confirmationId, // (4)! Must match the request
+      approved, // (5)! User decision
+      reason: approved ? undefined : "User denied permission",
+      metadata: {
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now(), // Track response speed
+      },
+    },
+  });
+});
+
+// (6)! Handle confirmation timeouts
+neurolink.on("hitl:timeout", (event) => {
+  console.warn(`Confirmation timed out for ${event.payload.toolName}`);
+});
 ```
 
-1. Catch the special error code when tool needs user approval
-2. Show your app's confirmation UI with action details
-3. Grant one-time permission flag
-4. Retry tool execution now that permission is granted
-5. **Critical**: Reset flag immediately to prevent reuse
-6. Return cancellation message to inform the AI
+1. Event-based confirmation workflow - NeuroLink emits requests, your app handles them
+2. Show confirmation UI with tool details and countdown timer
+3. Respond using event emitter with confirmation ID
+4. Confirmation ID links the response to the specific request
+5. Approval decision determines if tool executes
+6. Optional: Handle cases where user doesn't respond in time
 
 ## Configuration
 
@@ -132,12 +161,55 @@ const riskyTool = {
 
 ## API Reference
 
-### SDK Methods
+### Event Types
 
-- `setUserConfirmation(approved: boolean)` → Grants/revokes one-time permission
-- `executeTool(name, args)` → Executes tool with HITL checkpoint
+**Confirmation Request Event** (`hitl:confirmation-request`):
 
-See [HUMAN-IN-THE-LOOP.md](../HUMAN-IN-THE-LOOP.md) for complete technical documentation.
+```typescript
+neurolink.on("hitl:confirmation-request", (event) => {
+  event.payload: {
+    confirmationId: string;      // Unique ID for this request
+    toolName: string;            // Tool requiring confirmation
+    arguments: unknown;          // Tool parameters for review
+    actionType: string;          // Human-readable description
+    timeoutMs: number;           // Milliseconds until timeout
+    allowModification: boolean;  // Can user edit arguments?
+    metadata: { ... }            // Session/user context
+  }
+});
+```
+
+**Confirmation Response** (emit from your app):
+
+```typescript
+neurolink.emit("hitl:confirmation-response", {
+  type: "hitl:confirmation-response",
+  payload: {
+    confirmationId: string;      // Must match request
+    approved: boolean;           // User decision
+    reason?: string;             // Rejection reason
+    modifiedArguments?: unknown; // User-edited args
+    metadata: {
+      timestamp: string;
+      responseTime: number;
+    }
+  }
+});
+```
+
+**Timeout Event** (`hitl:timeout`):
+
+```typescript
+neurolink.on("hitl:timeout", (event) => {
+  event.payload: {
+    confirmationId: string;
+    toolName: string;
+    timeout: number;
+  }
+});
+```
+
+See [human-in-the-loop.md](../human-in-the-loop.md) for complete technical documentation.
 
 ## Troubleshooting
 
@@ -159,36 +231,55 @@ const tool = {
 
 ### Problem: AI keeps asking for confirmation repeatedly
 
-**Cause**: `confirmation_received` flag not being reset after execution
+**Cause**: Confirmation responses not being sent or sent with wrong `confirmationId`
 **Solution**:
 
 ```typescript
-// Always reset the flag after tool execution
-setUserConfirmation(true); // (1)!
-await executeTool(); // (2)!
-setUserConfirmation(false); // (3)!
+// Always respond to confirmation requests with matching ID
+neurolink.on("hitl:confirmation-request", async (event) => {
+  const { confirmationId } = event.payload; // (1)!
+
+  const approved = await showConfirmationDialog(event.payload);
+
+  // (2)! Send response with EXACT confirmationId from request
+  neurolink.emit("hitl:confirmation-response", {
+    type: "hitl:confirmation-response",
+    payload: {
+      confirmationId, // (3)! Must match request exactly
+      approved,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now(),
+      },
+    },
+  });
+});
 ```
 
-1. Grant temporary permission
-2. Execute the tool while permission is active
-3. **Immediately** revoke permission to prevent AI reuse
+1. Extract confirmation ID from the request event
+2. Always respond to every confirmation request
+3. **Critical**: Use the same confirmationId from the request
 
 ### Problem: Confirmation dialog doesn't show
 
-**Cause**: UI not handling `USER_CONFIRMATION_REQUIRED` error
+**Cause**: Not listening to `hitl:confirmation-request` event
 **Solution**:
 
 ```typescript
-// Catch and handle confirmation errors
-try {
-  await executeTool(toolName, args);
-} catch (error) {
-  if (error.code === "USER_CONFIRMATION_REQUIRED") {
-    // Show your confirmation UI
-    await handleConfirmationPrompt(error);
-  }
-}
+// Set up event listener BEFORE making AI requests
+neurolink.on("hitl:confirmation-request", async (event) => {
+  // (1)! Show your confirmation UI
+  await handleConfirmationPrompt(event);
+});
+
+// (2)! Then make AI requests - confirmations will now work
+const result = await neurolink.generate({
+  input: { text: "Delete all temporary files" },
+});
 ```
+
+1. Register the event handler early in your application startup
+2. All subsequent tool executions will trigger confirmations when needed
 
 ## Best Practices
 
@@ -224,7 +315,7 @@ Store user confirmation preferences to avoid repeated prompts for the same actio
 
 - [Guardrails Middleware](./guardrails.md) - Content filtering and safety checks
 - [Custom Tools](../sdk/custom-tools.md) - Building your own tools with HITL
-- [Middleware Architecture](../MIDDLEWARE.md) - Advanced request interception
+- [Middleware Architecture](../middleware.md) - Advanced request interception
 
 ## Migration Notes
 
@@ -236,4 +327,4 @@ If upgrading from versions before v7.39.0:
 4. Test with low-risk tools first
 5. Roll out to production gradually
 
-For comprehensive technical documentation, diagrams, and security details, see the [complete HITL guide](../HUMAN-IN-THE-LOOP.md).
+For comprehensive technical documentation, diagrams, and security details, see the [complete HITL guide](../human-in-the-loop.md).

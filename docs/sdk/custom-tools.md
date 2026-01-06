@@ -103,11 +103,11 @@ neurolink.registerTool("goodTool", {
 All custom tools implement the `SimpleTool` interface:
 
 ```typescript
-interface SimpleTool<T = any, R = any> {
+type SimpleTool<T = any, R = any> = {
   description: string; // What the tool does
   parameters?: ZodSchema<T>; // Input validation schema
   execute: (args: T) => Promise<R>; // Tool implementation
-}
+};
 ```
 
 ### Interface Components
@@ -1807,7 +1807,7 @@ neurolink generate "Pure text" --disable-tools
 
 - [MCP Integration Guide](../advanced/mcp-integration.md)
 - [MCP Server Catalog](../guides/mcp/server-catalog.md)
-- [Advanced MCP Testing Guide](../advanced/MCP-TESTING-GUIDE.md)
+- [Advanced MCP Testing Guide](../advanced/mcp-testing-guide.md)
 
 ---
 

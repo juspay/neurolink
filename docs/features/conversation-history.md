@@ -45,24 +45,31 @@ await neurolink.generate({
   context: { sessionId: "session-123" },
 });
 
-// Export the conversation history
-const history = await neurolink.exportConversationHistory({
-  sessionId: "session-123",
-  format: "json",
-});
+// Get the conversation history
+const history = await neurolink.getConversationHistory("session-123");
+// Returns: Promise<ChatMessage[]>
 
 console.log(history);
-// {
-//   sessionId: "session-123",
-//   turns: [
-//     { role: "user", content: "What is machine learning?", timestamp: "..." },
-//     { role: "assistant", content: "...", timestamp: "..." }
-//   ],
-//   metadata: { ... }
-// }
+// [
+//   { role: "user", content: "What is machine learning?" },
+//   { role: "assistant", content: "..." }
+// ]
+
+// Clear a specific session
+const cleared = await neurolink.clearConversationSession("session-123");
+// Returns: Promise<boolean>
+
+// Clear all conversations
+await neurolink.clearAllConversations();
+// Returns: Promise<void>
 ```
 
 ### CLI Example
+
+> **Planned Feature**
+>
+> The `neurolink memory` CLI subcommand is planned for a future release.
+> The commands shown below represent the intended interface once implemented.
 
 ```bash
 # Enable Redis-backed conversation memory
@@ -177,49 +184,43 @@ neurolink:sessions → Set of all active session IDs
 
 ## Advanced Usage
 
-### Export with Time Filtering
+### Retrieve Session History
 
 ```typescript
-// Export conversations from last 24 hours
-const history = await neurolink.exportConversationHistory({
-  sessionId: "session-123",
-  startTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
-  endTime: new Date(),
-});
-```
+// Get conversation history for a specific session
+const history = await neurolink.getConversationHistory("session-123");
+// Returns: Promise<ChatMessage[]>
 
-### Batch Export All Sessions
-
-```typescript
-// Get all active session IDs
-const sessions = await neurolink.getActiveSessions();
-
-// Export each session
-for (const sessionId of sessions) {
-  const history = await neurolink.exportConversationHistory({
-    sessionId,
-    format: "json",
-  });
-
-  await fs.writeFile(
-    `./exports/${sessionId}.json`,
-    JSON.stringify(history, null, 2),
-  );
+// Process the history
+for (const message of history) {
+  console.log(`${message.role}: ${message.content}`);
 }
 ```
 
-### Export to CSV for Analytics
+### Clear Session Data
 
 ```typescript
-const history = await neurolink.exportConversationHistory({
-  sessionId: "session-123",
-  format: "csv",
-});
+// Clear a specific session
+const cleared = await neurolink.clearConversationSession("session-123");
+if (cleared) {
+  console.log("Session cleared successfully");
+}
 
-// CSV format:
-// index,role,content,timestamp,model,provider,tokens_prompt,tokens_completion
-// 0,user,"What is AI?",2025-09-30T10:00:00Z,,,
-// 1,assistant,"AI is...",2025-09-30T10:00:05Z,gpt-4,openai,12,45
+// Clear all conversations
+await neurolink.clearAllConversations();
+console.log("All conversations cleared");
+```
+
+### Export History to File
+
+```typescript
+// Get history and save to JSON file
+const history = await neurolink.getConversationHistory("session-123");
+
+await fs.writeFile(
+  `./exports/session-123.json`,
+  JSON.stringify(history, null, 2),
+);
 ```
 
 ### Integration with Analytics Pipeline
@@ -233,23 +234,21 @@ import { analyticsService } from "./analytics";
 
 // After each conversation session ends
 async function processSession(sessionId: string) {
-  // Export conversation
-  const history = await neurolink.exportConversationHistory({
-    sessionId,
-    includeMetadata: true,
-  });
+  // Get conversation history
+  const history = await neurolink.getConversationHistory(sessionId);
 
   // Send to analytics
   await analyticsService.track("conversation_completed", {
-    sessionId: history.sessionId,
-    turnCount: history.turns.length,
-    duration: new Date(history.updatedAt) - new Date(history.createdAt),
-    models: history.metadata.models,
-    success: history.metadata.error == null,
+    sessionId,
+    turnCount: history.length,
+    messages: history,
   });
 
   // Archive to data warehouse
-  await dataWarehouse.store("conversations", history);
+  await dataWarehouse.store("conversations", { sessionId, messages: history });
+
+  // Optionally clear the session after archiving
+  await neurolink.clearConversationSession(sessionId);
 }
 ```
 
@@ -257,22 +256,37 @@ async function processSession(sessionId: string) {
 
 ### SDK Methods
 
-- `exportConversationHistory(options)` → Returns conversation history object
-- `getActiveSessions()` → Returns array of active session IDs
-- `deleteConversationHistory(sessionId)` → Deletes session from Redis
+```typescript
+// Get conversation history for a session
+const history = await neurolink.getConversationHistory(sessionId);
+// Returns: Promise<ChatMessage[]>
+
+// Clear a specific session
+const cleared = await neurolink.clearConversationSession(sessionId);
+// Returns: Promise<boolean>
+
+// Clear all conversations
+await neurolink.clearAllConversations();
+// Returns: Promise<void>
+```
 
 ### CLI Commands
 
-- `neurolink memory export --session-id <ID>` → Export single session
-- `neurolink memory export-all` → Export all sessions
-- `neurolink memory list` → List active sessions
-- `neurolink memory delete --session-id <ID>` → Delete session
+> **Planned Feature**
+>
+> The `neurolink memory` CLI subcommand is planned for a future release.
+> The commands shown below represent the intended interface once implemented.
 
-See [CONVERSATION-MEMORY.md](../CONVERSATION-MEMORY.md) for complete memory system documentation.
+- `neurolink memory export --session-id <ID>` → Export single session (planned)
+- `neurolink memory export-all` → Export all sessions (planned)
+- `neurolink memory list` → List active sessions (planned)
+- `neurolink memory delete --session-id <ID>` → Delete session (planned)
+
+See [conversation-memory.md](../conversation-memory.md) for complete memory system documentation.
 
 ## Troubleshooting
 
-### Problem: Export returns empty history
+### Problem: getConversationHistory returns empty array
 
 **Cause**: Session ID doesn't exist or Redis not configured
 **Solution**:
@@ -281,11 +295,16 @@ See [CONVERSATION-MEMORY.md](../CONVERSATION-MEMORY.md) for complete memory syst
 # Verify Redis connection
 redis-cli ping  # Should return PONG
 
-# List all sessions
-npx @juspay/neurolink memory list
-
 # Check environment variables
 echo $REDIS_URL
+```
+
+```typescript
+// Verify the session exists before retrieving
+const history = await neurolink.getConversationHistory(sessionId);
+if (history.length === 0) {
+  console.log("No messages found for session:", sessionId);
+}
 ```
 
 ### Problem: Redis connection failed
@@ -304,29 +323,34 @@ docker run -d -p 6379:6379 redis:latest
 redis-cli -h localhost -p 6379 ping
 ```
 
-### Problem: Exported data missing metadata
+### Problem: Need additional metadata with history
 
-**Cause**: `includeMetadata` set to false
+**Cause**: `getConversationHistory` returns only message array
 **Solution**:
 
 ```typescript
-const history = await neurolink.exportConversationHistory({
+// Add your own metadata when archiving
+const history = await neurolink.getConversationHistory("session-123");
+const enrichedHistory = {
   sessionId: "session-123",
-  includeMetadata: true, // ← Enable metadata
-});
+  messages: history,
+  exportedAt: new Date().toISOString(),
+  messageCount: history.length,
+};
 ```
 
-### Problem: Export command not found in CLI
+### Problem: Memory command not found in CLI
 
-**Cause**: Using older version without export feature
+**Cause**: The `neurolink memory` subcommand is a planned feature
 **Solution**:
 
-```bash
-# Update to latest version
-npm install @juspay/neurolink@latest
+The CLI memory subcommand is planned for a future release. In the meantime, use the SDK methods directly:
 
-# Verify version has export feature (v7.38.0+)
-npx @juspay/neurolink --version
+```typescript
+// Use SDK methods for conversation history management
+const history = await neurolink.getConversationHistory(sessionId);
+await neurolink.clearConversationSession(sessionId);
+await neurolink.clearAllConversations();
 ```
 
 ## Best Practices
@@ -348,59 +372,54 @@ config: {
 2. **Archive regularly** - Export to long-term storage
 
 ```typescript
-// Daily archive cron job
-async function dailyArchive() {
-  const sessions = await neurolink.getActiveSessions();
-  for (const id of sessions) {
-    const history = await neurolink.exportConversationHistory({
-      sessionId: id,
-    });
-    await s3.upload(`archives/${id}.json`, history);
-    await neurolink.deleteConversationHistory(id); // Clean up
-  }
+// Archive a session before clearing
+async function archiveSession(sessionId: string) {
+  const history = await neurolink.getConversationHistory(sessionId);
+  await s3.upload(`archives/${sessionId}.json`, JSON.stringify(history));
+  await neurolink.clearConversationSession(sessionId); // Clean up
 }
 ```
 
 ### Privacy & Compliance
 
 ```typescript
-// Redact PII before export
-async function exportWithRedaction(sessionId: string) {
-  const history = await neurolink.exportConversationHistory({ sessionId });
+// Redact PII before archiving
+async function archiveWithRedaction(sessionId: string) {
+  const history = await neurolink.getConversationHistory(sessionId);
 
   // Redact sensitive data
-  history.turns = history.turns.map((turn) => ({
-    ...turn,
-    content: redactPII(turn.content), // Remove emails, phone numbers, etc.
+  const redactedHistory = history.map((message) => ({
+    ...message,
+    content:
+      typeof message.content === "string"
+        ? redactPII(message.content) // Remove emails, phone numbers, etc.
+        : message.content,
   }));
 
-  return history;
+  return { sessionId, messages: redactedHistory };
 }
 ```
 
-### Performance Optimization
+### Session Cleanup
 
 ```typescript
-// For large sessions, use pagination
-async function exportLargeSession(sessionId: string) {
-  const chunkSize = 100;
-  let offset = 0;
-  const allTurns = [];
-
-  while (true) {
-    const chunk = await neurolink.exportConversationHistory({
-      sessionId,
-      limit: chunkSize,
-      offset,
-    });
-
-    if (chunk.turns.length === 0) break;
-
-    allTurns.push(...chunk.turns);
-    offset += chunkSize;
+// Clean up old sessions
+async function cleanupSession(sessionId: string) {
+  // Archive first if needed
+  const history = await neurolink.getConversationHistory(sessionId);
+  if (history.length > 0) {
+    await archiveToStorage(sessionId, history);
   }
 
-  return { sessionId, turns: allTurns };
+  // Clear the session
+  const cleared = await neurolink.clearConversationSession(sessionId);
+  console.log(`Session ${sessionId} cleared: ${cleared}`);
+}
+
+// Clear all conversations (use with caution)
+async function clearAllData() {
+  await neurolink.clearAllConversations();
+  console.log("All conversations cleared");
 }
 ```
 
@@ -409,47 +428,48 @@ async function exportLargeSession(sessionId: string) {
 ### Quality Assurance
 
 ```typescript
-// Export failed conversations for review
+// Review conversations for specific sessions
 const failedSessions = await db.query(
   "SELECT session_id FROM sessions WHERE error IS NOT NULL",
 );
 
 for (const { session_id } of failedSessions) {
-  const history = await neurolink.exportConversationHistory({
-    sessionId: session_id,
-  });
+  const history = await neurolink.getConversationHistory(session_id);
 
   // Analyze why conversation failed
-  analyzeFailure(history);
+  analyzeFailure({ sessionId: session_id, messages: history });
 }
 ```
 
-### Model Evaluation
+### Session Review
 
 ```typescript
-// Compare model performance across sessions
-const sessions = await neurolink.getActiveSessions();
+// Review a specific session's conversation
+async function reviewSession(sessionId: string) {
+  const history = await neurolink.getConversationHistory(sessionId);
 
-const report = await Promise.all(
-  sessions.map(async (sessionId) => {
-    const history = await neurolink.exportConversationHistory({ sessionId });
-    return {
-      sessionId,
-      model: history.metadata.model,
-      avgResponseTime: calculateAvgResponseTime(history.turns),
-      userSatisfaction: history.metadata.rating,
-    };
-  }),
-);
+  const report = {
+    sessionId,
+    messageCount: history.length,
+    messages: history.map((msg) => ({
+      role: msg.role,
+      contentPreview:
+        typeof msg.content === "string"
+          ? msg.content.substring(0, 100)
+          : "[complex content]",
+    })),
+  };
 
-console.table(report);
+  console.table(report.messages);
+  return report;
+}
 ```
 
 ## Related Features
 
 - [CLI Loop Sessions](./cli-loop-sessions.md) - Persistent conversation mode
-- [Conversation Memory](../CONVERSATION-MEMORY.md) - Full memory system docs
-- [Mem0 Integration](../MEM0_INTEGRATION.md) - Semantic memory with vectors
+- [Conversation Memory](../conversation-memory.md) - Full memory system docs
+- [Mem0 Integration](../mem0-integration.md) - Semantic memory with vectors
 - [Analytics Integration](../advanced/analytics.md) - Track conversation metrics
 
 ## Migration Notes
@@ -462,4 +482,4 @@ If upgrading from in-memory to Redis-backed storage:
 4. Export functionality only works with Redis store
 5. Consider gradual rollout with feature flag
 
-For complete conversation memory system documentation, see [CONVERSATION-MEMORY.md](../CONVERSATION-MEMORY.md).
+For complete conversation memory system documentation, see [conversation-memory.md](../conversation-memory.md).

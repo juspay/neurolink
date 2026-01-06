@@ -954,7 +954,7 @@ Error: 9 FAILED_PRECONDITION: Too many states for serving
 2. Use `disableTools: true` (reduces state count)
 3. Use Claude models via Vertex AI (no such limitation)
 
-See [Troubleshooting Guide](../../TROUBLESHOOTING.md#google-gemini-too-many-states-for-serving-error) for details.
+See [Troubleshooting Guide](../../troubleshooting.md#google-gemini-too-many-states-for-serving-error) for details.
 
 ---
 

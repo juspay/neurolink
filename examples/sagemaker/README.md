@@ -138,6 +138,20 @@ SAGEMAKER_TEST_ENDPOINT=test-endpoint
 NODE_ENV=development
 ```
 
+### Environment Variables Reference
+
+| Variable                     | Description                                            | Required |
+| ---------------------------- | ------------------------------------------------------ | -------- |
+| `AWS_ACCESS_KEY_ID`          | AWS access key                                         | Yes      |
+| `AWS_SECRET_ACCESS_KEY`      | AWS secret key                                         | Yes      |
+| `AWS_REGION`                 | AWS region (e.g., us-west-2, us-east-1)                | Yes      |
+| `SAGEMAKER_DEFAULT_ENDPOINT` | Default SageMaker endpoint name                        | No       |
+| `SAGEMAKER_MODEL_TYPE`       | Model type (llama, mistral, huggingface, custom, etc.) | No       |
+| `SAGEMAKER_TIMEOUT`          | Request timeout in milliseconds (default: 30000)       | No       |
+| `SAGEMAKER_MAX_RETRIES`      | Maximum retry attempts (default: 3)                    | No       |
+| `SAGEMAKER_MODEL_NAME`       | Custom model name identifier                           | No       |
+| `SAGEMAKER_TEST_ENDPOINT`    | Endpoint for testing purposes                          | No       |
+
 ## CLI Usage
 
 The examples work alongside the CLI commands:
@@ -166,45 +180,73 @@ npx neurolink sagemaker benchmark your-endpoint-name --requests 10
 ```typescript
 import { AIProviderFactory } from "@juspay/neurolink";
 
-const provider = await AIProviderFactory.createProvider("sagemaker", {
-  endpointName: "llama-2-7b-chat",
-  config: { modelType: "llama" },
-});
+// Configuration via environment variables
+process.env.SAGEMAKER_DEFAULT_ENDPOINT = "llama-2-7b-chat";
+process.env.SAGEMAKER_MODEL_TYPE = "llama";
+process.env.AWS_REGION = "us-west-2";
+
+// Create provider (configuration read from env vars)
+const provider = await AIProviderFactory.createProvider("sagemaker");
+
+// Or with explicit endpoint name as model parameter
+const providerWithEndpoint = await AIProviderFactory.createProvider(
+  "sagemaker",
+  "llama-2-7b-chat",
+);
 ```
 
 ### Mistral Models
 
 ```typescript
-const provider = await AIProviderFactory.createProvider("sagemaker", {
-  endpointName: "mistral-7b-instruct",
-  config: { modelType: "mistral" },
-});
+// Configuration via environment variables
+process.env.SAGEMAKER_DEFAULT_ENDPOINT = "mistral-7b-instruct";
+process.env.SAGEMAKER_MODEL_TYPE = "mistral";
+process.env.AWS_REGION = "us-west-2";
+
+// Create provider (configuration read from env vars)
+const provider = await AIProviderFactory.createProvider("sagemaker");
+
+// Or with explicit endpoint name as model parameter
+const providerWithEndpoint = await AIProviderFactory.createProvider(
+  "sagemaker",
+  "mistral-7b-instruct",
+);
 ```
 
 ### HuggingFace Models
 
 ```typescript
-const provider = await AIProviderFactory.createProvider("sagemaker", {
-  endpointName: "huggingface-text-generation",
-  config: {
-    modelType: "huggingface",
-    inputFormat: "huggingface",
-    outputFormat: "huggingface",
-  },
-});
+// Configuration via environment variables
+process.env.SAGEMAKER_DEFAULT_ENDPOINT = "huggingface-text-generation";
+process.env.SAGEMAKER_MODEL_TYPE = "huggingface";
+process.env.AWS_REGION = "us-west-2";
+
+// Create provider (configuration read from env vars)
+const provider = await AIProviderFactory.createProvider("sagemaker");
+
+// Or with explicit endpoint name as model parameter
+const providerWithEndpoint = await AIProviderFactory.createProvider(
+  "sagemaker",
+  "huggingface-text-generation",
+);
 ```
 
 ### Custom Models
 
 ```typescript
-const provider = await AIProviderFactory.createProvider("sagemaker", {
-  endpointName: "my-custom-model",
-  config: {
-    modelType: "custom",
-    contentType: "application/json",
-    accept: "application/json",
-  },
-});
+// Configuration via environment variables
+process.env.SAGEMAKER_DEFAULT_ENDPOINT = "my-custom-model";
+process.env.SAGEMAKER_MODEL_TYPE = "custom";
+process.env.AWS_REGION = "us-west-2";
+
+// Create provider (configuration read from env vars)
+const provider = await AIProviderFactory.createProvider("sagemaker");
+
+// Or with explicit endpoint name as model parameter
+const providerWithEndpoint = await AIProviderFactory.createProvider(
+  "sagemaker",
+  "my-custom-model",
+);
 ```
 
 ## Error Handling
@@ -235,13 +277,12 @@ aws sagemaker describe-endpoint --endpoint-name your-endpoint
 ### Network Problems
 
 ```typescript
-// Increase timeout for slow endpoints
-const provider = await AIProviderFactory.createProvider("sagemaker", {
-  config: {
-    timeout: 60000, // 60 seconds
-    maxRetries: 5,
-  },
-});
+// Increase timeout for slow endpoints via environment variables
+process.env.SAGEMAKER_TIMEOUT = "60000"; // 60 seconds
+process.env.SAGEMAKER_MAX_RETRIES = "5";
+
+// Create provider (configuration read from env vars)
+const provider = await AIProviderFactory.createProvider("sagemaker");
 ```
 
 ## Performance Tips

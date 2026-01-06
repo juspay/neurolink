@@ -44,7 +44,7 @@ export HTTP_PROXY=http://your-corporate-proxy:port
 
 **No code changes required** - NeuroLink automatically detects and uses proxy settings.
 
-**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](../ENTERPRISE-PROXY-SETUP.md)
+**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](../enterprise-proxy-setup.md)
 
 ## OpenAI Configuration {#openai}
 
@@ -344,7 +344,7 @@ export SAGEMAKER_TIMEOUT="60000"  # 60 seconds for large models
 ### 📖 Complete SageMaker Guide
 
 For comprehensive SageMaker setup, advanced features, and production deployment:
-**[📖 Complete SageMaker Integration Guide](../SAGEMAKER-INTEGRATION.md)** - Includes:
+**[📖 Complete SageMaker Integration Guide](../sagemaker-integration.md)** - Includes:
 
 - Model deployment examples
 - Cost optimization strategies
@@ -1651,4 +1651,4 @@ Authentication failed
 
 ---
 
-[← Back to Main README](../index.md) | [Next: API Reference →](./API-REFERENCE.md)
+[← Back to Main README](../index.md) | [Next: API Reference →](./api-reference.md)

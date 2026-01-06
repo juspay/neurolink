@@ -10,6 +10,42 @@ Comprehensive guides for building production-ready AI applications with NeuroLin
 
 ---
 
+## 🎯 Essential Guides
+
+Core guides for getting the most out of NeuroLink.
+
+| Guide                                                 | Description                                                            |
+| ----------------------------------------------------- | ---------------------------------------------------------------------- |
+| **[Provider Selection Guide](provider-selection.md)** | Interactive wizard to choose the best provider for your use case       |
+| **[Troubleshooting](troubleshooting.md)**             | Common issues, debugging tips, and solutions for NeuroLink CLI and SDK |
+
+---
+
+## 🗄️ Redis & Persistence
+
+Guides for setting up and managing Redis-backed conversation memory.
+
+| Guide                                             | Description                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------------ |
+| **[Redis Configuration](redis-configuration.md)** | Production-ready Redis setup with cluster, security, and cloud providers |
+| **[Redis Migration](redis-migration.md)**         | Migration patterns for upgrading Redis and moving between environments   |
+
+See also: [Redis Quick Start](../getting-started/redis-quickstart.md) in Getting Started
+
+---
+
+## 🔄 Migration Guides
+
+Migrate from other AI frameworks to NeuroLink.
+
+| Guide                                                     | Description                                                                     |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **[From LangChain](migration/from-langchain.md)**         | Complete migration guide from LangChain with concept mapping and examples       |
+| **[From Vercel AI SDK](migration/from-vercel-ai-sdk.md)** | Migrate from Vercel AI SDK with Next.js-focused patterns and streaming examples |
+| **[Migration Guide (Legacy)](migration-guide.md)**        | General migration guide for older versions                                      |
+
+---
+
 ## 🏢 Enterprise Guides
 
 Production-ready patterns for enterprise AI deployments.
@@ -33,6 +69,8 @@ Model Context Protocol server catalog and integration patterns.
 | Guide                                       | Description                                                 |
 | ------------------------------------------- | ----------------------------------------------------------- |
 | **[Server Catalog](mcp/server-catalog.md)** | 58+ MCP servers for file systems, databases, APIs, and more |
+
+See also: [MCP Tools Showcase](../features/mcp-tools-showcase.md) for detailed tool documentation
 
 ---
 
@@ -62,6 +100,8 @@ Real-world use cases and production code patterns.
 ## Next Steps
 
 - **New to NeuroLink?** Start with [Quick Start](../getting-started/quick-start.md)
+- **Need to choose a provider?** Use the [Provider Selection Guide](provider-selection.md)
 - **Building a chat app?** Try our [Chat Application Tutorial](../tutorials/chat-app.md)
 - **Need knowledge base Q&A?** Build a [RAG System](../tutorials/rag.md)
-- **Want provider-specific setup?** See [Provider Guides](../getting-started/providers/huggingface.md)
+- **Want practical code examples?** Check the [Cookbook](../cookbook/index.md)
+- **Migrating from another framework?** See our [Migration Guides](#migration-guides)

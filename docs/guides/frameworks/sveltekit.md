@@ -604,10 +604,10 @@ import { ai } from "$lib/ai";
 import { fail } from "@sveltejs/kit";
 import type { Actions } from "./$types";
 
-interface Message {
+type Message = {
   role: "user" | "assistant";
   content: string;
-}
+};
 
 export const actions: Actions = {
   send: async ({ request }) => {
@@ -650,10 +650,10 @@ export const actions: Actions = {
 <script lang="ts">
   import { enhance } from '$app/forms';
 
-  interface Message {
+  type Message = {
     role: 'user' | 'assistant';
     content: string;
-  }
+  };
 
   let messages: Message[] = [];
   let input = '';

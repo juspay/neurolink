@@ -262,7 +262,7 @@ const neurolink = new NeuroLink({
 - `preset: "all"` → Enables guardrails + all other middleware
 - `middlewareConfig.guardrails` → Custom guardrails configuration
 
-See [GUARDRAILS-AI-INTEGRATION.md](../GUARDRAILS-AI-INTEGRATION.md) for complete integration guide.
+See [guardrails-ai-integration.md](../guardrails-ai-integration.md) for complete integration guide.
 
 ## Troubleshooting
 
@@ -402,7 +402,7 @@ config: {
 ## Related Features
 
 - [HITL Workflows](./hitl.md) - User approval for risky actions
-- [Middleware Architecture](../MIDDLEWARE.md) - Custom middleware development
+- [Middleware Architecture](../middleware.md) - Custom middleware development
 - [Analytics Integration](../advanced/analytics.md) - Track filtered content metrics
 
 ## Migration Notes
@@ -414,4 +414,4 @@ If upgrading from versions before v7.42.0:
 3. No breaking changes - existing configs still work
 4. Recommended: Switch to `preset: "security"` for simplified setup
 
-For complete technical documentation and advanced integration patterns, see [GUARDRAILS-AI-INTEGRATION.md](../GUARDRAILS-AI-INTEGRATION.md).
+For complete technical documentation and advanced integration patterns, see [guardrails-ai-integration.md](../guardrails-ai-integration.md).

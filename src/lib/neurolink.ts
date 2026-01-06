@@ -146,6 +146,78 @@ import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
 
 import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
 
+/**
+ * NeuroLink - Universal AI Development Platform
+ *
+ * Main SDK class providing unified access to 13+ AI providers with enterprise features:
+ * - Multi-provider support (OpenAI, Anthropic, Google AI Studio, Google Vertex, AWS Bedrock, etc.)
+ * - MCP (Model Context Protocol) tool integration with 58+ external servers
+ * - Human-in-the-Loop (HITL) security workflows for regulated industries
+ * - Redis-based conversation memory and persistence
+ * - Enterprise middleware system for monitoring and control
+ * - Automatic provider fallback and retry logic
+ * - Streaming with real-time token delivery
+ * - Multimodal support (text, images, PDFs, CSV)
+ *
+ * @category Core
+ *
+ * @example Basic usage
+ * ```typescript
+ * import { NeuroLink } from '@juspay/neurolink';
+ *
+ * const neurolink = new NeuroLink();
+ *
+ * const result = await neurolink.generate({
+ *   input: { text: 'Explain quantum computing' },
+ *   provider: 'vertex',
+ *   model: 'gemini-3-flash'
+ * });
+ *
+ * console.log(result.content);
+ * ```
+ *
+ * @example With HITL security
+ * ```typescript
+ * const neurolink = new NeuroLink({
+ *   hitl: {
+ *     enabled: true,
+ *     requireApproval: ['writeFile', 'executeCode'],
+ *     confidenceThreshold: 0.85
+ *   }
+ * });
+ * ```
+ *
+ * @example With Redis memory
+ * ```typescript
+ * const neurolink = new NeuroLink({
+ *   conversationMemory: {
+ *     enabled: true,
+ *     redis: {
+ *       url: 'redis://localhost:6379'
+ *     }
+ *   }
+ * });
+ * ```
+ *
+ * @example With MCP tools
+ * ```typescript
+ * const neurolink = new NeuroLink();
+ *
+ * // Discover available tools
+ * const tools = await neurolink.getAvailableTools();
+ *
+ * // Use tools in generation
+ * const result = await neurolink.generate({
+ *   input: { text: 'Read the README.md file' },
+ *   tools: ['readFile']
+ * });
+ * ```
+ *
+ * @see {@link GenerateOptions} for generation options
+ * @see {@link StreamOptions} for streaming options
+ * @see {@link NeurolinkConstructorConfig} for configuration options
+ * @since 1.0.0
+ */
 export class NeuroLink {
   private mcpInitialized = false;
   private emitter =
@@ -1651,6 +1723,106 @@ Current user's request: ${currentInput}`;
     }
   }
 
+  /**
+   * Generate AI response with comprehensive feature support.
+   *
+   * Primary method for AI generation with support for all NeuroLink features:
+   * - Multi-provider support (13+ providers)
+   * - MCP tool integration
+   * - Structured JSON output with Zod schemas
+   * - Conversation memory (Redis or in-memory)
+   * - HITL security workflows
+   * - Middleware execution
+   * - Multimodal inputs (images, PDFs, CSV)
+   *
+   * @category Generation
+   *
+   * @param optionsOrPrompt - Generation options or simple text prompt
+   * @param optionsOrPrompt.input - Input text and optional files
+   * @param optionsOrPrompt.provider - AI provider name (e.g., 'vertex', 'openai', 'anthropic')
+   * @param optionsOrPrompt.model - Model name to use
+   * @param optionsOrPrompt.tools - MCP tools to enable for this generation
+   * @param optionsOrPrompt.schema - Zod schema for structured output validation
+   * @param optionsOrPrompt.temperature - Sampling temperature (0-2, default: 1.0)
+   * @param optionsOrPrompt.maxTokens - Maximum tokens to generate
+   * @param optionsOrPrompt.thinkingConfig - Extended thinking configuration (thinkingLevel: 'minimal'|'low'|'medium'|'high')
+   * @param optionsOrPrompt.context - Context with conversationId and userId for memory
+   * @returns Promise resolving to generation result with content and metadata
+   *
+   * @example Basic text generation
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: 'Explain quantum computing' }
+   * });
+   * console.log(result.content);
+   * ```
+   *
+   * @example With specific provider
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: 'Write a poem' },
+   *   provider: 'anthropic',
+   *   model: 'claude-3-opus'
+   * });
+   * ```
+   *
+   * @example With MCP tools
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: 'Read README.md and summarize it' },
+   *   tools: ['readFile']
+   * });
+   * ```
+   *
+   * @example With structured output
+   * ```typescript
+   * import { z } from 'zod';
+   *
+   * const schema = z.object({
+   *   name: z.string(),
+   *   age: z.number(),
+   *   city: z.string()
+   * });
+   *
+   * const result = await neurolink.generate({
+   *   input: { text: 'Extract person info: John is 30 years old from NYC' },
+   *   schema: schema
+   * });
+   * // result.structuredData is type-safe!
+   * ```
+   *
+   * @example With conversation memory
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: 'What did we discuss earlier?' },
+   *   context: {
+   *     conversationId: 'conv-123',
+   *     userId: 'user-456'
+   *   }
+   * });
+   * ```
+   *
+   * @example With multimodal input
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: {
+   *     text: 'Describe this image',
+   *     images: ['/path/to/image.jpg']
+   *   },
+   *   provider: 'vertex'
+   * });
+   * ```
+   *
+   * @throws {Error} When input text is missing or invalid
+   * @throws {Error} When all providers fail to generate content
+   * @throws {Error} When structured output validation fails
+   * @throws {Error} When HITL approval is denied
+   *
+   * @see {@link GenerateOptions} for all available options
+   * @see {@link GenerateResult} for result structure
+   * @see {@link stream} for streaming generation
+   * @since 1.0.0
+   */
   async generate(
     optionsOrPrompt: GenerateOptions | string,
   ): Promise<GenerateResult> {

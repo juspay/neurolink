@@ -104,9 +104,9 @@ export default async function Home() {
 // app/summary/page.tsx
 import { ai } from '@/lib/ai';
 
-interface Props {
+type Props = {
   searchParams: { text?: string };
-}
+};
 
 export default async function SummaryPage({ searchParams }: Props) {
   const { text } = searchParams;
@@ -576,10 +576,10 @@ function mapCountryToRegion(country: string): string {
 
 import { useState } from 'react';
 
-interface Message {
+type Message = {
   role: 'user' | 'assistant';
   content: string;
-}
+};
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);

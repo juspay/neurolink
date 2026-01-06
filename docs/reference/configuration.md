@@ -17,7 +17,7 @@
 **Version**: v7.47.0
 **Last Updated**: September 26, 2025
 
-> Looking for the full configuration story? Start with [`docs/CONFIGURATION.md`](../CONFIGURATION.md) for detailed environment variable explanations, evaluation toggles, and regional routing notes. This reference focuses on quick lookup tables.
+> Looking for the full configuration story? Start with [`docs/configuration.md`](../configuration.md) for detailed environment variable explanations, evaluation toggles, and regional routing notes. This reference focuses on quick lookup tables.
 
 ---
 
@@ -353,7 +353,7 @@ For remote MCP servers, use HTTP transport with authentication, retry, and rate 
 | `retryConfig`  | `object` | Retry behavior with exponential backoff |
 | `rateLimiting` | `object` | Rate limiting configuration             |
 
-See [MCP HTTP Transport Guide](../MCP-HTTP-TRANSPORT.md) for complete documentation.
+See [MCP HTTP Transport Guide](../mcp-http-transport.md) for complete documentation.
 
 ### **MCP Discovery Commands**
 

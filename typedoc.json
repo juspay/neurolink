@@ -1,0 +1,63 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["./src/lib/index.ts"],
+  "out": "./docs/api",
+  "cleanOutputDir": true,
+  "plugin": ["typedoc-plugin-markdown"],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "readme": "none",
+  "includeVersion": true,
+  "sort": ["source-order"],
+  "exclude": [
+    "**/node_modules/**",
+    "**/test/**",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
+  "blockTags": [
+    "@category",
+    "@example",
+    "@important",
+    "@module",
+    "@param",
+    "@remarks",
+    "@required",
+    "@returns",
+    "@see",
+    "@sensitive",
+    "@since",
+    "@deprecated",
+    "@default",
+    "@throws"
+  ],
+  "externalSymbolLinkMappings": {
+    "@juspay/neurolink": {
+      "StreamOptions": "#",
+      "NeurolinkConstructorConfig": "#"
+    }
+  },
+  "validation": {
+    "notExported": false,
+    "invalidLink": true,
+    "notDocumented": false
+  },
+  "name": "NeuroLink API Reference",
+  "githubPages": false,
+  "emit": "both",
+  "treatWarningsAsErrors": false,
+  "skipErrorChecking": true,
+  "categorizeByGroup": true,
+  "defaultCategory": "Other",
+  "categoryOrder": [
+    "Core",
+    "Providers",
+    "Types",
+    "Tools",
+    "MCP",
+    "Middleware",
+    "Utilities",
+    "*"
+  ]
+}

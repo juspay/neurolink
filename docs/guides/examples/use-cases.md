@@ -710,7 +710,7 @@ const multiLang = await translator.translateWithFallback(
 ### Implementation
 
 ```typescript
-interface Invoice {
+type Invoice = {
   invoiceNumber: string;
   date: string;
   vendor: string;
@@ -720,7 +720,7 @@ interface Invoice {
     quantity: number;
     price: number;
   }>;
-}
+};
 
 class DataExtractor {
   private ai: NeuroLink;
@@ -847,11 +847,11 @@ Total: $95.00
 ### Implementation
 
 ```typescript
-interface Message {
+type Message = {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
-}
+};
 
 class ConversationalChatbot {
   private ai: NeuroLink;

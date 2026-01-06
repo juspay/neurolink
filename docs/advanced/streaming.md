@@ -1048,14 +1048,14 @@ console.log(response);
 ### Stream Settings
 
 ```typescript
-interface StreamConfig {
+type StreamConfig = {
   bufferSize?: number; // Chunk buffer size (default: 1024)
   flushInterval?: number; // Flush interval in ms (default: 100)
   timeout?: number; // Stream timeout in ms (default: 60000)
   enableChunking?: boolean; // Enable smart chunking (default: true)
   retryAttempts?: number; // Retry attempts on failure (default: 3)
   reconnectDelay?: number; // Reconnection delay in ms (default: 1000)
-}
+};
 
 const stream = await neurolink.stream({
   input: { text: "Your prompt" },
@@ -1918,7 +1918,7 @@ streaming:
 - [Analytics](analytics.md) - Streaming analytics features
 - [Dynamic Models](dynamic-models.md) - Multi-model endpoint setup
 - [Enterprise Features](enterprise.md) - Enterprise security features
-- [Performance Optimization](../PERFORMANCE-OPTIMIZATION.md) - Optimization strategies
+- [Performance Optimization](../performance-optimization.md) - Optimization strategies
 - [Analytics & Monitoring](analytics.md) - Comprehensive monitoring
 - [Provider Setup](../getting-started/provider-setup.md) - Provider configuration
 - [Development Guide](../development/index.md) - Development and deployment guide

@@ -422,7 +422,7 @@ neurolink mcp add remote-api "https://api.example.com/mcp" \
 - Rate limiting with token bucket algorithm
 - OAuth 2.1 support with PKCE
 
-See [MCP HTTP Transport Guide](../MCP-HTTP-TRANSPORT.md) for complete documentation.
+See [MCP HTTP Transport Guide](../mcp-http-transport.md) for complete documentation.
 
 ### **Server Environment Configuration**
 
@@ -546,9 +546,9 @@ neurolink workflow "
 
 ### **NeuroLink MCP Resources**
 
-- [MCP Testing Guide](MCP-TESTING-GUIDE.md)
+- [MCP Testing Guide](mcp-testing-guide.md)
 - [CLI Command Reference](../cli/commands.md#mcp)
-- [API Integration](API-REFERENCE.md#mcp-integration)
+- [API Integration](api-reference.md#mcp-integration)
 
 ### **Community Servers**
 

@@ -66,20 +66,19 @@ npx @juspay/neurolink gen "Business analysis" \
 // Enable evaluation for quality scoring
 const result = await neurolink.generate({
   input: { text: "Write production code" },
-  evaluation: {
-    enabled: true,
-    domain: "Senior Software Engineer",
-    criteria: ["accuracy", "completeness", "best_practices"],
-  },
+  enableEvaluation: true,
+  evaluationDomain: "Senior Software Engineer",
+  evaluationCriteria: ["accuracy", "completeness"],
 });
 
 console.log(result.evaluation);
 // {
 //   overall: 9.2,
-//   accuracy: 9.5,
+//   relevance: 9.5,
+//   accuracy: 9.0,
 //   completeness: 8.8,
-//   best_practices: 9.3,
-//   reasoning: "Code follows best practices..."
+//   reasoning: "Code follows best practices...",
+//   alertSeverity: "none"
 // }
 ```
 
@@ -111,39 +110,50 @@ Specialized evaluation contexts:
 - **Creative**: `Content Writer`, `UX Designer`, `Creative Director`
 - **Academic**: `Research Scientist`, `Technical Writer`, `Educator`
 
-## 📈 Analytics Dashboard
+## 📈 Analytics Collection
 
-### Real-time Monitoring
+### Per-Request Analytics
+
+Analytics are collected on a per-request basis and included in each result:
 
 ```typescript
-// Get analytics summary
-const analytics = await neurolink.getAnalytics({
-  timeRange: "last_7_days",
-  groupBy: ["provider", "user_id"],
-  metrics: ["usage", "cost", "performance"],
+// Enable analytics for a single request
+const result = await neurolink.generate({
+  input: { text: "Generate documentation" },
+  enableAnalytics: true,
 });
 
-console.log(analytics);
+// Access analytics from the result
+console.log(result.analytics);
 // {
-//   totalRequests: 1248,
-//   totalCost: 12.34,
-//   averageResponseTime: 1456,
-//   providerBreakdown: {...},
-//   userStats: {...}
+//   totalTokens: 1523,
+//   promptTokens: 421,
+//   completionTokens: 1102,
+//   cost: 0.0045,
+//   durationMs: 1456,
+//   provider: "openai",
+//   model: "gpt-4o"
 // }
 ```
 
-### Export Analytics Data
+### Middleware-Based Analytics
 
-```bash
-# Export to JSON
-npx @juspay/neurolink analytics export --format json --output analytics.json
+For application-wide analytics collection, use the analytics middleware:
 
-# Export to CSV for spreadsheets
-npx @juspay/neurolink analytics export --format csv --output usage-report.csv
+```typescript
+import {
+  getAnalyticsMetrics,
+  clearAnalyticsMetrics,
+} from "@juspay/neurolink/middleware/builtin/analytics";
 
-# Get summary report
-npx @juspay/neurolink analytics summary --period weekly
+// Analytics are automatically collected by the middleware
+const metrics = getAnalyticsMetrics();
+
+// Process or export metrics as needed
+console.log(metrics);
+
+// Clear metrics after processing
+clearAnalyticsMetrics();
 ```
 
 ## 🔧 Configuration
@@ -151,46 +161,70 @@ npx @juspay/neurolink analytics summary --period weekly
 ### Environment Variables
 
 ```bash
-# Analytics Configuration
-NEUROLINK_ANALYTICS_ENABLED="true"
-NEUROLINK_ANALYTICS_ENDPOINT="https://analytics.company.com"
-NEUROLINK_ANALYTICS_API_KEY="your-analytics-key"
-
 # Evaluation Configuration
-NEUROLINK_EVALUATION_ENABLED="true"
 NEUROLINK_EVALUATION_PROVIDER="google-ai"
 NEUROLINK_EVALUATION_MODEL="gemini-2.5-flash"
+NEUROLINK_EVALUATION_THRESHOLD="7"
 ```
 
-### Advanced Configuration
+### Per-Request Configuration
+
+Analytics and evaluation are configured on a per-request basis:
 
 ```typescript
-const neurolink = new NeuroLink({
-  analytics: {
-    enabled: true,
-    endpoint: "https://analytics.company.com",
-    apiKey: process.env.ANALYTICS_API_KEY,
-    batchSize: 10,
-    flushInterval: 5000,
-    retryAttempts: 3,
-  },
-  evaluation: {
-    enabled: true,
-    provider: "google-ai",
-    model: "gemini-2.5-flash",
-    temperature: 0.1,
-    maxTokens: 500,
-    fallbackProviders: ["openai", "anthropic"],
-  },
+// Enable analytics and evaluation for specific requests
+const result = await neurolink.generate({
+  input: { text: "Your prompt" },
+  enableAnalytics: true,
+  enableEvaluation: true,
+  evaluationDomain: "Senior Software Engineer",
+  evaluationCriteria: ["accuracy", "completeness"],
 });
 ```
 
-## 📊 Use Cases
+## 📊 Currently Available Methods
 
-### Performance Monitoring
+The following methods are available today for analytics and monitoring:
+
+| Method                                 | Description                                       |
+| -------------------------------------- | ------------------------------------------------- |
+| `neurolink.getProviderStatus()`        | Get provider availability status                  |
+| `neurolink.getProviderHealthSummary()` | Get health summary for all providers              |
+| `neurolink.getToolExecutionMetrics()`  | Get tool execution statistics                     |
+| `getAnalyticsMetrics()`                | Standalone middleware function for analytics data |
 
 ```typescript
-// Monitor provider performance
+import { NeuroLink } from "@juspay/neurolink";
+import { getAnalyticsMetrics } from "@juspay/neurolink/middleware/builtin/analytics";
+
+const neurolink = new NeuroLink();
+
+// Get provider health status
+const healthSummary = neurolink.getProviderHealthSummary();
+console.log(healthSummary);
+
+// Get tool execution metrics
+const toolMetrics = neurolink.getToolExecutionMetrics();
+console.log(toolMetrics);
+
+// Get analytics from middleware
+const metrics = getAnalyticsMetrics();
+console.log(metrics);
+```
+
+---
+
+## 📊 Use Cases
+
+> **Planned Feature**
+>
+> The following methods (`getProviderMetrics()`, `getCostAnalysis()`, `getTeamAnalytics()`) are planned for a future release and are **not yet available** in the current SDK version.
+> These examples illustrate the planned API design.
+
+### Planned API: Performance Monitoring
+
+```typescript
+// PLANNED - Monitor provider performance
 const perfMetrics = await neurolink.getProviderMetrics({
   providers: ["openai", "google-ai", "anthropic"],
   timeRange: "last_24_hours",
@@ -205,10 +239,10 @@ const bestProvider = perfMetrics.providers.sort(
 console.log(`Best provider: ${bestProvider.name}`);
 ```
 
-### Cost Optimization
+### Planned API: Cost Optimization
 
 ```typescript
-// Track costs and optimize
+// PLANNED - Track costs and optimize
 const costAnalysis = await neurolink.getCostAnalysis({
   timeRange: "current_month",
   groupBy: ["provider", "model", "user_id"],
@@ -237,10 +271,15 @@ jq '.evaluation.overall' evaluations.json | awk '{sum+=$1} END {print "Average q
 
 ## 🚀 Enterprise Features
 
-### Team Analytics
+> **Planned Feature**
+>
+> The enterprise analytics methods below (`getTeamAnalytics()`, custom metrics configuration) are planned for a future release.
+> These examples illustrate the planned API design for enterprise deployments.
+
+### Planned API: Team Analytics
 
 ```typescript
-// Department-level analytics
+// PLANNED - Department-level analytics
 const teamMetrics = await neurolink.getTeamAnalytics({
   departments: ["engineering", "product", "marketing"],
   metrics: ["usage", "cost", "quality_scores"],
@@ -248,10 +287,10 @@ const teamMetrics = await neurolink.getTeamAnalytics({
 });
 ```
 
-### Custom Metrics
+### Planned API: Custom Metrics
 
 ```typescript
-// Define custom analytics
+// PLANNED - Define custom analytics
 const result = await neurolink.generate({
   input: { text: "Generate report" },
   analytics: {

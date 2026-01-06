@@ -296,7 +296,7 @@ npx @juspay/neurolink mcp remove myserver
 - Rate limiting to prevent API throttling
 - OAuth 2.1 support with PKCE
 
-See [MCP HTTP Transport Guide](../MCP-HTTP-TRANSPORT.md) for complete configuration options.
+See [MCP HTTP Transport Guide](../mcp-http-transport.md) for complete configuration options.
 
 ## Global Flags (available on every command)
 
@@ -345,5 +345,5 @@ For advanced workflows (batching, tooling, configuration management) see the rel
 **Documentation:**
 
 - [SDK API Reference](../sdk/api-reference.md) – TypeScript API equivalents
-- [Configuration Guide](../CONFIGURATION.md) – Environment variables and config files
-- [Troubleshooting](../TROUBLESHOOTING.md) – Detailed error solutions
+- [Configuration Guide](../configuration.md) – Environment variables and config files
+- [Troubleshooting](../troubleshooting.md) – Detailed error solutions

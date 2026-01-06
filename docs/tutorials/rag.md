@@ -136,7 +136,7 @@ import path from "path";
 import pdf from "pdf-parse";
 import matter from "gray-matter";
 
-export interface Document {
+export type Document = {
   id: string;
   content: string;
   metadata: {
@@ -146,7 +146,7 @@ export interface Document {
     path: string;
     createdAt: Date;
   };
-}
+};
 
 export class DocumentParser {
   async parseDirectory(dirPath: string): Promise<Document[]> {
@@ -278,13 +278,13 @@ export class DocumentParser {
 Create `src/lib/text-chunker.ts`:
 
 ```typescript
-export interface Chunk {
+export type Chunk = {
   id: string;
   documentId: string;
   content: string;
   metadata: any;
   chunkIndex: number;
-}
+};
 
 export class TextChunker {
   constructor(
@@ -405,12 +405,12 @@ Create `src/lib/vector-store.ts`:
 import { Chunk } from "./text-chunker";
 import { EmbeddingService } from "./embeddings";
 
-interface VectorEntry {
+type VectorEntry = {
   // (1)!
   id: string;
   embedding: number[];
   chunk: Chunk;
-}
+};
 
 export class InMemoryVectorStore {
   private vectors: VectorEntry[] = []; // (2)!
@@ -603,7 +603,7 @@ import { InMemoryVectorStore } from "./vector-store";
 import { DocumentParser } from "./document-parser";
 import { TextChunker } from "./text-chunker";
 
-export interface RAGResult {
+export type RAGResult = {
   answer: string;
   sources: Array<{
     title: string;
@@ -611,7 +611,7 @@ export interface RAGResult {
     score: number;
     path: string;
   }>;
-}
+};
 
 export class RAGService {
   private ai: NeuroLink;
@@ -813,12 +813,12 @@ Create `src/app/page.tsx`:
 
 import { useState, useEffect } from 'react';
 
-interface Source {
+type Source = {
   title: string;
   content: string;
   score: number;
   path: string;
-}
+};
 
 export default function Home() {
   const [question, setQuestion] = useState('');
@@ -1186,7 +1186,7 @@ const results = await vectorStore.search(query, 10);
 **Tutorials & Examples:**
 
 - [Chat App Tutorial](./chat-app.md) - Build a chat interface
-- [Document Analysis Use Case](../guides/examples/use-cases.md#4-document-analysis-summarization)
+- [Document Analysis Use Case](../guides/examples/use-cases.md)
 - [MCP Server Catalog](../guides/mcp/server-catalog.md) - MCP servers for data retrieval
 
 ---

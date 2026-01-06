@@ -839,16 +839,16 @@ export DEBUG=neurolink:proxy
 npx @juspay/neurolink generate "test proxy" --debug
 ```
 
-**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](../getting-started/ENTERPRISE-PROXY-SETUP.md)
+**For detailed proxy setup** → See [Enterprise & Proxy Setup Guide](../enterprise-proxy-setup.md)
 
 ---
 
 ## 📚 **Additional Resources**
 
-- **[MCP Integration Guide](../MCP-INTEGRATION.md)** - Complete MCP setup and usage
-- **[CLI Guide](../CLI-GUIDE.md)** - Comprehensive CLI documentation
-- **[API Reference](../API-REFERENCE.md)** - Complete API documentation
-- **[Configuration Guide](../CONFIGURATION.md)** - Environment and setup guide
+- **[MCP Integration Guide](../mcp-integration.md)** - Complete MCP setup and usage
+- **[CLI Guide](../cli-guide.md)** - Comprehensive CLI documentation
+- **[API Reference](../api-reference.md)** - Complete API documentation
+- **[Configuration Guide](../configuration.md)** - Environment and setup guide
 
 ---
 

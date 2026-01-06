@@ -19,7 +19,7 @@ const neurolink = new NeuroLink(config?: NeuroLinkConstructorConfig)
 **Parameters:**
 
 ```typescript
-interface NeuroLinkConstructorConfig {
+type NeuroLinkConstructorConfig = {
   // Conversation Memory
   conversationMemory?: {
     enabled: boolean;
@@ -63,7 +63,7 @@ interface NeuroLinkConstructorConfig {
     fallbackChain?: string[]; // Provider fallback order
     preferCheap?: boolean;
   };
-}
+};
 ```
 
 **Examples:**
@@ -140,7 +140,7 @@ async generate(options: GenerateOptions): Promise<GenerateResult>
 **Parameters:**
 
 ```typescript
-interface GenerateOptions {
+type GenerateOptions = {
   input: {
     text: string;
     images?: Array<string | Buffer>; // Local paths, URLs, or buffers
@@ -170,13 +170,13 @@ interface GenerateOptions {
 
   // Document processing options
   officeOptions?: OfficeProcessorOptions;
-}
+};
 ```
 
 **Returns:**
 
 ```typescript
-interface GenerateResult {
+type GenerateResult = {
   content: string;
   provider?: string;
   model?: string;
@@ -220,7 +220,7 @@ interface GenerateResult {
       domainKnowledgeUsed: boolean;
     };
   };
-}
+};
 ```
 
 **Basic Example:**
@@ -326,7 +326,7 @@ async stream(options: StreamOptions): Promise<StreamResult>
 **Parameters:**
 
 ```typescript
-interface StreamOptions {
+type StreamOptions = {
   input: { text: string };
   output?: {
     format?: "text" | "structured" | "json";
@@ -341,13 +341,13 @@ interface StreamOptions {
   temperature?: number;
   maxTokens?: number;
   timeout?: number | string;
-}
+};
 ```
 
 **Returns:**
 
 ```typescript
-interface StreamResult {
+type StreamResult = {
   stream: AsyncIterable<{ content: string }>;
   provider?: string;
   model?: string;
@@ -356,7 +356,7 @@ interface StreamResult {
     startTime?: number;
     totalChunks?: number;
   };
-}
+};
 ```
 
 **Example:**
@@ -564,30 +564,127 @@ getUnifiedRegistry(): UnifiedMCPRegistry
 
 ## Conversation History Management
 
-### `exportConversationHistory(options)`
+### Currently Available Methods
 
-Export conversation session history from Redis storage as JSON or CSV.
+#### `getConversationHistory(sessionId)`
+
+Retrieve the complete conversation history for a specific session.
 
 ```typescript
-async exportConversationHistory(options: ExportOptions): Promise<ConversationHistory>
+async getConversationHistory(sessionId: string): Promise<ChatMessage[]>
 ```
 
 **Parameters:**
 
+| Parameter   | Type     | Description                            |
+| ----------- | -------- | -------------------------------------- |
+| `sessionId` | `string` | The session ID to retrieve history for |
+
+**Returns:**
+
 ```typescript
-interface ExportOptions {
+// Array of ChatMessage objects in chronological order
+type ChatMessage = {
+  role: "user" | "assistant" | "system";
+  content: string;
+};
+```
+
+**Example:**
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    store: "redis", // or 'memory'
+  },
+});
+
+// Retrieve conversation history
+const history = await neurolink.getConversationHistory("session-abc123");
+
+console.log(`Total messages: ${history.length}`);
+for (const message of history) {
+  console.log(`[${message.role}]: ${message.content.substring(0, 50)}...`);
+}
+
+// Export to JSON file
+import { writeFileSync } from "fs";
+writeFileSync("conversation.json", JSON.stringify(history, null, 2));
+```
+
+---
+
+#### `clearConversationSession(sessionId)`
+
+Clear conversation history for a specific session.
+
+```typescript
+async clearConversationSession(sessionId: string): Promise<boolean>
+```
+
+**Parameters:**
+
+| Parameter   | Type     | Description             |
+| ----------- | -------- | ----------------------- |
+| `sessionId` | `string` | The session ID to clear |
+
+**Returns:** `boolean` - `true` if session was cleared, `false` if session didn't exist.
+
+**Example:**
+
+```typescript
+// Clear a specific session
+const cleared = await neurolink.clearConversationSession("session-abc123");
+if (cleared) {
+  console.log("Session cleared successfully");
+} else {
+  console.log("Session not found");
+}
+```
+
+---
+
+#### `clearAllConversations()`
+
+Clear all conversation history across all sessions.
+
+```typescript
+async clearAllConversations(): Promise<void>
+```
+
+**Example:**
+
+```typescript
+// Clear all conversation history
+await neurolink.clearAllConversations();
+console.log("All conversations cleared");
+```
+
+---
+
+### Planned Features
+
+> **Planned Feature**
+>
+> The advanced `exportConversationHistory()` method with filtering, format options, and metadata is planned for a future release.
+> Currently, use `getConversationHistory(sessionId)` to retrieve conversation data and process it as needed.
+
+The following advanced export capabilities are planned:
+
+```typescript
+// PLANNED - Not yet available
+type ExportOptions = {
   sessionId: string; // Session ID to export
   format?: "json" | "csv"; // Default: 'json'
   includeMetadata?: boolean; // Default: true
   startTime?: Date; // Filter: export from this time
   endTime?: Date; // Filter: export until this time
-}
-```
+};
 
-**Returns:**
-
-```typescript
-interface ConversationHistory {
+type ConversationHistory = {
   sessionId: string;
   userId?: string;
   createdAt: string;
@@ -610,85 +707,28 @@ interface ConversationHistory {
     totalTurns: number;
     toolsUsed?: string[];
   };
+};
+```
+
+> **Planned Feature**
+>
+> The `getActiveSessions()` method to list all active conversation sessions is planned for a future release.
+
+**Workaround:** For now, track session IDs in your application when creating conversations:
+
+```typescript
+// Track sessions manually
+const activeSessions: string[] = [];
+
+// When starting a conversation
+const sessionId = `session-${Date.now()}`;
+activeSessions.push(sessionId);
+
+// Retrieve history for all tracked sessions
+for (const sessionId of activeSessions) {
+  const history = await neurolink.getConversationHistory(sessionId);
+  await saveToDatabase(sessionId, history);
 }
-```
-
-**Examples:**
-
-```typescript
-import { NeuroLink } from "@juspay/neurolink";
-
-const neurolink = new NeuroLink({
-  conversationMemory: {
-    enabled: true,
-    store: "redis",
-  },
-});
-
-// Export session as JSON
-const history = await neurolink.exportConversationHistory({
-  sessionId: "session-abc123",
-  format: "json",
-  includeMetadata: true,
-});
-
-console.log(history.turns.length); // Number of conversation turns
-console.log(history.metadata); // Session metadata
-
-// Export with time filtering
-const recentHistory = await neurolink.exportConversationHistory({
-  sessionId: "session-abc123",
-  startTime: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
-  endTime: new Date(),
-});
-
-// Export as CSV for analytics
-const csvHistory = await neurolink.exportConversationHistory({
-  sessionId: "session-abc123",
-  format: "csv",
-});
-```
-
-**Note:** Requires `conversationMemory.store: 'redis'` configuration. In-memory storage does not support export.
-
----
-
-### `getActiveSessions()`
-
-Get list of all active conversation sessions stored in Redis.
-
-```typescript
-async getActiveSessions(): Promise<string[]>
-```
-
-**Example:**
-
-```typescript
-const sessions = await neurolink.getActiveSessions();
-console.log(`Active sessions: ${sessions.length}`);
-
-// Export all sessions
-for (const sessionId of sessions) {
-  const history = await neurolink.exportConversationHistory({ sessionId });
-  await saveToDatabase(history);
-}
-```
-
----
-
-### `deleteConversationHistory(sessionId)`
-
-Delete a conversation session from Redis storage.
-
-```typescript
-async deleteConversationHistory(sessionId: string): Promise<void>
-```
-
-**Example:**
-
-```typescript
-// Clean up old session
-await neurolink.deleteConversationHistory("session-abc123");
 ```
 
 ---
@@ -886,13 +926,13 @@ console.log(`Used provider: ${result.provider}`);
 Main configuration interface for enterprise features:
 
 ```typescript
-interface NeuroLinkConfig {
+type NeuroLinkConfig = {
   providers: ProviderConfig;
   performance: PerformanceConfig;
   analytics: AnalyticsConfig;
   backup: BackupConfig;
   validation: ValidationConfig;
-}
+};
 ```
 
 ### `ExecutionContext`
@@ -900,7 +940,7 @@ interface NeuroLinkConfig {
 Rich context interface for all MCP operations:
 
 ```typescript
-interface ExecutionContext {
+type ExecutionContext = {
   sessionId?: string;
   userId?: string;
   aiProvider?: string;
@@ -916,7 +956,7 @@ interface ExecutionContext {
   userAgent?: string;
   clientVersion?: string;
   environment?: string;
-}
+};
 ```
 
 ### `ToolInfo`
@@ -924,7 +964,7 @@ interface ExecutionContext {
 Comprehensive tool metadata interface:
 
 ```typescript
-interface ToolInfo {
+type ToolInfo = {
   name: string;
   description?: string;
   serverId?: string;
@@ -935,7 +975,7 @@ interface ToolInfo {
   lastUsed?: Date;
   usageCount?: number;
   averageExecutionTime?: number;
-}
+};
 ```
 
 ### `ConfigUpdateOptions`
@@ -943,14 +983,14 @@ interface ToolInfo {
 Flexible configuration update options:
 
 ```typescript
-interface ConfigUpdateOptions {
+type ConfigUpdateOptions = {
   createBackup?: boolean;
   validateBeforeUpdate?: boolean;
   mergeStrategy?: "replace" | "merge" | "deep-merge";
   backupRetention?: number;
   onValidationError?: (errors: ValidationError[]) => void;
   onBackupCreated?: (backupPath: string) => void;
-}
+};
 ```
 
 ### `McpRegistry`
@@ -958,7 +998,7 @@ interface ConfigUpdateOptions {
 Registry interface with optional methods for maximum flexibility:
 
 ```typescript
-interface McpRegistry {
+type McpRegistry = {
   registerServer?(
     serverId: string,
     config?: unknown,
@@ -976,7 +1016,7 @@ interface McpRegistry {
   >;
   unregisterServer?(serverId: string): Promise<void>;
   getServerInfo?(serverId: string): Promise<unknown>;
-}
+};
 ```
 
 ---
@@ -1178,7 +1218,7 @@ type ProviderName =
   | "mistral"
   | "litellm";
 
-interface GenerateOptions {
+type GenerateOptions = {
   input: { text: string };
   provider?: ProviderName | string;
   model?: string;
@@ -1192,9 +1232,9 @@ interface GenerateOptions {
   enableEvaluation?: boolean; // Enable AI quality scoring
   context?: Record<string, any>; // Custom context for analytics
   thinkingLevel?: "minimal" | "low" | "medium" | "high"; // Gemini 3 models
-}
+};
 
-interface GenerateResult {
+type GenerateResult = {
   content: string;
   provider: string;
   model: string;
@@ -1216,13 +1256,13 @@ interface GenerateResult {
     alertLevel?: string; // 'none', 'low', 'medium', 'high'
     reasoning?: string; // AI reasoning for the evaluation
   };
-}
+};
 
-interface TokenUsage {
+type TokenUsage = {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
-}
+};
 ```
 
 ### Office Document Types
@@ -1243,7 +1283,7 @@ type FileType = "csv" | "image" | "pdf" | "office" | "text" | "unknown";
 /**
  * Office processor options
  */
-interface OfficeProcessorOptions {
+type OfficeProcessorOptions = {
   /** Provider to use for document processing */
   provider?: string;
 
@@ -1255,12 +1295,12 @@ interface OfficeProcessorOptions {
 
   /** Whether to preserve document structure in output */
   preserveStructure?: boolean;
-}
+};
 
 /**
  * Office processing result
  */
-interface OfficeProcessingResult {
+type OfficeProcessingResult = {
   type: "office";
   content: Buffer;
   mimeType: string;
@@ -1274,7 +1314,7 @@ interface OfficeProcessingResult {
     hasEmbeddedImages?: boolean;
     hasCharts?: boolean;
   };
-}
+};
 ```
 
 **Office Document Provider Support:**
@@ -1368,7 +1408,7 @@ try {
 Every NeuroLink instance automatically includes these tools:
 
 ```typescript
-interface BuiltInTools {
+type BuiltInTools = {
   getCurrentTime: {
     description: "Get the current date and time";
     parameters: { timezone?: string };
@@ -1393,7 +1433,7 @@ interface BuiltInTools {
     description: "Search for files by pattern";
     parameters: { pattern: string; path?: string };
   };
-}
+};
 ```
 
 **Example with Tools:**
@@ -1441,7 +1481,7 @@ const resultNoTools = await neurolink.generate({
 
 - [Human-in-the-Loop (HITL)](../features/hitl.md) - Mark tools with `requiresConfirmation: true`
 - [Guardrails Middleware](../features/guardrails.md) - Enable with `middleware: { preset: 'security' }`
-- [Redis Conversation Export](../features/conversation-history.md) - Use `exportConversationHistory()` method
+- [Conversation History](../features/conversation-history.md) - Use `getConversationHistory()` method
 - [Multimodal Chat](../features/multimodal-chat.md) - Use `images` array in `generate()` options
 - [Auto Evaluation](../features/auto-evaluation.md) - Enable with `enableEvaluation: true`
 - [CLI Loop Sessions](../features/cli-loop-sessions.md) - Interactive mode with persistent state
@@ -1451,9 +1491,9 @@ const resultNoTools = await neurolink.generate({
 - [PDF Support](../features/pdf-support.md) - Use `pdfFiles` array for PDF documents
 - [CSV Support](../features/csv-support.md) - Use `csvFiles` array for spreadsheet data
 - [CLI Commands Reference](../cli/commands.md) - CLI equivalents for all SDK methods
-- [Configuration Guide](../CONFIGURATION.md) - Environment variables and config files
-- [Troubleshooting](../TROUBLESHOOTING.md) - Common SDK issues and solutions
+- [Configuration Guide](../configuration.md) - Environment variables and config files
+- [Troubleshooting](../troubleshooting.md) - Common SDK issues and solutions
 
 ---
 
-[Back to Main README](../index.md) | [Next: Visual Demos](../VISUAL-DEMOS.md)
+[Back to Main README](../index.md) | [Next: Visual Demos](../visual-demos.md)

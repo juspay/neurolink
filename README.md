@@ -1,11 +1,21 @@
-# 🧠 NeuroLink
+<div align="center">
+  <h1>🧠 NeuroLink</h1>
+  <p><strong>The Enterprise AI SDK for Production Applications</strong></p>
+  <p>13 Providers | 58+ MCP Tools | HITL Security | Redis Persistence</p>
+</div>
 
-[![NPM Version](https://img.shields.io/npm/v/@juspay/neurolink)](https://www.npmjs.com/package/@juspay/neurolink)
-[![Downloads](https://img.shields.io/npm/dm/@juspay/neurolink)](https://www.npmjs.com/package/@juspay/neurolink)
+<div align="center">
+
+[![npm version](https://badge.fury.io/js/%40juspay%2Fneurolink.svg)](https://www.npmjs.com/package/@juspay/neurolink)
+[![npm downloads](https://img.shields.io/npm/dw/@juspay/neurolink)](https://www.npmjs.com/package/@juspay/neurolink)
+[![Build Status](https://github.com/juspay/neurolink/actions/workflows/ci.yml/badge.svg)](https://github.com/juspay/neurolink/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/juspay/neurolink/badge.svg?branch=main)](https://coveralls.io/github/juspay/neurolink?branch=main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![GitHub Stars](https://img.shields.io/github/stars/juspay/neurolink)](https://github.com/juspay/neurolink/stargazers)
-[![License](https://img.shields.io/npm/l/@juspay/neurolink)](https://github.com/juspay/neurolink/blob/release/LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](https://www.typescriptlang.org/)
-[![CI](https://github.com/juspay/neurolink/workflows/CI/badge.svg)](https://github.com/juspay/neurolink/actions)
+[![Discord](https://img.shields.io/discord/DISCORD_SERVER_ID?label=Discord&logo=discord)](https://discord.gg/neurolink)
+
+</div>
 
 Enterprise AI development platform with unified provider access, production-ready tooling, and an opinionated factory architecture. NeuroLink ships as both a TypeScript SDK and a professional CLI so teams can build, operate, and iterate on AI features quickly.
 
@@ -23,23 +33,88 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ---
 
-## What's New (Q4 2025)
+## What's New (Q1 2026)
 
-- **Image Generation** – Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio. Supports streaming mode with automatic file saving. → [Image Generation Guide](docs/IMAGE-GENERATION-STREAMING.md)
-- **HTTP/Streamable HTTP Transport for MCP** – Connect to remote MCP servers via HTTP with authentication headers, retry logic, and rate limiting. → [HTTP Transport Guide](docs/MCP-HTTP-TRANSPORT.md)
-- 🧠 **Gemini 3 Preview Support** - Full support for gemini-3-flash-preview and gemini-3-pro-preview with extended thinking capabilities
-- **Structured Output with Zod Schemas** – Type-safe JSON generation with automatic validation using `schema` + `output.format: "json"` in `generate()`. → [Structured Output Guide](docs/features/structured-output.md)
-- **CSV File Support** – Attach CSV files to prompts for AI-powered data analysis with auto-detection. → [CSV Guide](docs/features/multimodal-chat.md#csv-file-support)
-- **PDF File Support** – Process PDF documents with native visual analysis for Vertex AI, Anthropic, Bedrock, AI Studio. → [PDF Guide](docs/features/pdf-support.md)
-- **LiteLLM Integration** – Access 100+ AI models from all major providers through unified interface. → [Setup Guide](docs/LITELLM-INTEGRATION.md)
-- **SageMaker Integration** – Deploy and use custom trained models on AWS infrastructure. → [Setup Guide](docs/SAGEMAKER-INTEGRATION.md)
-- **OpenRouter Integration** – Access 300+ models from OpenAI, Anthropic, Google, Meta, and more through a single unified API. → [Setup Guide](docs/getting-started/providers/openrouter.md)
-- **Human-in-the-loop workflows** – Pause generation for user approval/input before tool execution. → [HITL Guide](docs/features/hitl.md)
-- **Guardrails middleware** – Block PII, profanity, and unsafe content with built-in filtering. → [Guardrails Guide](docs/features/guardrails.md)
-- **Context summarization** – Automatic conversation compression for long-running sessions. → [Summarization Guide](docs/CONTEXT-SUMMARIZATION.md)
-- **Redis conversation export** – Export full session history as JSON for analytics and debugging. → [History Guide](docs/features/conversation-history.md)
+| Feature                            | Version | Description                                                                                                                                                  | Guide                                                        |
+| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| **Video Generation**               | v8.32.0 | Generate videos from text prompts using RunwayML integration with ML5 and ML6 Turbo models. Create cinematic content, product demos, and animated sequences. | [Video Generation Guide](docs/features/video-generation.md)  |
+| **Image Generation with Gemini**   | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.               | [Image Generation Guide](docs/image-generation-streaming.md) |
+| **HTTP/Streamable HTTP Transport** | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.                | [HTTP Transport Guide](docs/mcp-http-transport.md)           |
 
-> **Q3 highlights** (multimodal chat, auto-evaluation, loop sessions, orchestration) are now in [Platform Capabilities](#platform-capabilities-at-a-glance) below.
+```typescript
+// Video Generation (v8.32.0)
+const video = await neurolink.generateVideo({
+  prompt: "A serene mountain landscape at sunset",
+  model: "runway-ml6-turbo",
+  duration: 5,
+});
+
+// Image Generation with Gemini (v8.31.0)
+const image = await neurolink.generateImage({
+  prompt: "A futuristic cityscape",
+  provider: "google-ai",
+  model: "imagen-3.0-generate-002",
+});
+
+// HTTP Transport for Remote MCP (v8.29.0)
+await neurolink.addExternalMCPServer("remote-tools", {
+  transport: "http",
+  url: "https://mcp.example.com/v1",
+  headers: { Authorization: "Bearer token" },
+  retries: 3,
+  timeout: 15000,
+});
+```
+
+---
+
+<details>
+<summary><strong>Previous Updates (Q4 2025)</strong></summary>
+
+- **Image Generation** – Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio. → [Guide](docs/image-generation-streaming.md)
+- **Gemini 3 Preview Support** - Full support for `gemini-3-flash-preview` and `gemini-3-pro-preview` with extended thinking
+- **Structured Output with Zod Schemas** – Type-safe JSON generation with automatic validation. → [Guide](docs/features/structured-output.md)
+- **CSV & PDF File Support** – Attach CSV/PDF files to prompts with auto-detection. → [CSV](docs/features/multimodal-chat.md#csv-file-support) | [PDF](docs/features/pdf-support.md)
+- **LiteLLM & SageMaker** – Access 100+ models via LiteLLM, deploy custom models on SageMaker. → [LiteLLM](docs/litellm-integration.md) | [SageMaker](docs/sagemaker-integration.md)
+- **OpenRouter Integration** – Access 300+ models through a single unified API. → [Guide](docs/getting-started/providers/openrouter.md)
+- **HITL & Guardrails** – Human-in-the-loop approval workflows and content filtering middleware. → [HITL](docs/features/hitl.md) | [Guardrails](docs/features/guardrails.md)
+- **Redis & Context Management** – Session export, conversation history, and automatic summarization. → [History](docs/features/conversation-history.md)
+
+</details>
+
+## Enterprise Security: Human-in-the-Loop (HITL)
+
+NeuroLink includes a **production-ready HITL system** for regulated industries and high-stakes AI operations:
+
+| Capability                  | Description                                               | Use Case                                   |
+| --------------------------- | --------------------------------------------------------- | ------------------------------------------ |
+| **Tool Approval Workflows** | Require human approval before AI executes sensitive tools | Financial transactions, data modifications |
+| **Output Validation**       | Route AI outputs through human review pipelines           | Medical diagnosis, legal documents         |
+| **Confidence Thresholds**   | Automatically trigger human review below confidence level | Critical business decisions                |
+| **Complete Audit Trail**    | Full audit logging for compliance (HIPAA, SOC2, GDPR)     | Regulated industries                       |
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  hitl: {
+    enabled: true,
+    requireApproval: ["writeFile", "executeCode", "sendEmail"],
+    confidenceThreshold: 0.85,
+    reviewCallback: async (action, context) => {
+      // Custom review logic - integrate with your approval system
+      return await yourApprovalSystem.requestReview(action);
+    },
+  },
+});
+
+// AI pauses for human approval before executing sensitive tools
+const result = await neurolink.generate({
+  input: { text: "Send quarterly report to stakeholders" },
+});
+```
+
+**[Enterprise HITL Guide](docs/features/enterprise-hitl.md)** | **[Quick Start](docs/features/hitl.md)**
 
 ## Get Started in Two Steps
 
@@ -69,9 +144,9 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 | **AWS Bedrock**       | Claude, Titan, Llama, Nova         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)           |
 | **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview) | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)            |
 | **Azure OpenAI**      | GPT-4, GPT-4o, o1                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)             |
-| **LiteLLM**           | 100+ models unified                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/LITELLM-INTEGRATION.md)                              |
+| **LiteLLM**           | 100+ models unified                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/litellm-integration.md)                              |
 | **OpenRouter**        | 300+ models unified                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openrouter)        |
-| **AWS SageMaker**     | Custom deployed models             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/SAGEMAKER-INTEGRATION.md)                            |
+| **AWS SageMaker**     | Custom deployed models             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/sagemaker-integration.md)                            |
 | **Mistral AI**        | Mistral Large, Small               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)           |
 | **Hugging Face**      | 100,000+ models                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)       |
 | **Ollama**            | Local models (Llama, Mistral)      | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)            |
@@ -131,7 +206,7 @@ const result = await neurolink.generate({
 | `websocket` | Bi-directional | Full-duplex communication                       |
 
 **[📖 MCP Integration Guide](docs/advanced/mcp-integration.md)** - Setup external servers
-**[📖 HTTP Transport Guide](docs/MCP-HTTP-TRANSPORT.md)** - Remote MCP server configuration
+**[📖 HTTP Transport Guide](docs/mcp-http-transport.md)** - Remote MCP server configuration
 
 ---
 
@@ -147,7 +222,7 @@ const result = await neurolink.generate({
 | **Full Type Safety**        | Complete TypeScript types                                     | [Type Reference](docs/sdk/api-reference.md)               |
 | **Error Handling**          | Graceful provider fallback                                    | [Error Guide](docs/reference/troubleshooting.md)          |
 | **Analytics & Evaluation**  | Usage tracking, quality scores                                | [Analytics Guide](docs/advanced/analytics.md)             |
-| **Middleware System**       | Request/response hooks                                        | [Middleware Guide](docs/CUSTOM-MIDDLEWARE-GUIDE.md)       |
+| **Middleware System**       | Request/response hooks                                        | [Middleware Guide](docs/custom-middleware-guide.md)       |
 | **Framework Integration**   | Next.js, SvelteKit, Express                                   | [Framework Guides](docs/sdk/framework-integration.md)     |
 | **Extended Thinking**       | Native thinking/reasoning mode for Gemini 3 and Claude models | [Thinking Guide](docs/features/thinking-configuration.md) |
 
@@ -159,14 +234,14 @@ const result = await neurolink.generate({
 
 | Feature                     | Description                        | Use Case                  | Documentation                                               |
 | --------------------------- | ---------------------------------- | ------------------------- | ----------------------------------------------------------- |
-| **Enterprise Proxy**        | Corporate proxy support            | Behind firewalls          | [Proxy Setup](docs/ENTERPRISE-PROXY-SETUP.md)               |
+| **Enterprise Proxy**        | Corporate proxy support            | Behind firewalls          | [Proxy Setup](docs/enterprise-proxy-setup.md)               |
 | **Redis Memory**            | Distributed conversation state     | Multi-instance deployment | [Redis Guide](docs/getting-started/provider-setup.md#redis) |
 | **Cost Optimization**       | Automatic cheapest model selection | Budget control            | [Cost Guide](docs/advanced/index.md)                        |
 | **Multi-Provider Failover** | Automatic provider switching       | High availability         | [Failover Guide](docs/advanced/index.md)                    |
-| **Telemetry & Monitoring**  | OpenTelemetry integration          | Observability             | [Telemetry Guide](docs/TELEMETRY-GUIDE.md)                  |
+| **Telemetry & Monitoring**  | OpenTelemetry integration          | Observability             | [Telemetry Guide](docs/telemetry-guide.md)                  |
 | **Security Hardening**      | Credential management, auditing    | Compliance                | [Security Guide](docs/advanced/enterprise.md)               |
-| **Custom Model Hosting**    | SageMaker integration              | Private models            | [SageMaker Guide](docs/SAGEMAKER-INTEGRATION.md)            |
-| **Load Balancing**          | LiteLLM proxy integration          | Scale & routing           | [Load Balancing](docs/LITELLM-INTEGRATION.md)               |
+| **Custom Model Hosting**    | SageMaker integration              | Private models            | [SageMaker Guide](docs/sagemaker-integration.md)            |
+| **Load Balancing**          | LiteLLM proxy integration          | Scale & routing           | [Load Balancing](docs/litellm-integration.md)               |
 
 **Security & Compliance:**
 
@@ -179,6 +254,70 @@ const result = await neurolink.generate({
 - ✅ Encrypted configuration storage
 
 **[📖 Enterprise Deployment Guide](docs/advanced/enterprise.md)** - Complete production checklist
+
+---
+
+## Enterprise Persistence: Redis Memory
+
+Production-ready distributed conversation state for multi-instance deployments:
+
+### Capabilities
+
+| Feature                | Description                                  | Benefit                     |
+| ---------------------- | -------------------------------------------- | --------------------------- |
+| **Distributed Memory** | Share conversation context across instances  | Horizontal scaling          |
+| **Session Export**     | Export full history as JSON                  | Analytics, debugging, audit |
+| **Auto-Detection**     | Automatic Redis discovery from environment   | Zero-config in containers   |
+| **Graceful Failover**  | Falls back to in-memory if Redis unavailable | High availability           |
+| **TTL Management**     | Configurable session expiration              | Memory management           |
+
+### Quick Setup
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+// Auto-detect Redis from REDIS_URL environment variable
+const neurolink = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    store: "redis", // Automatically uses REDIS_URL
+    ttl: 86400, // 24-hour session expiration
+  },
+});
+
+// Or explicit configuration
+const neuriolinkExplicit = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    store: "redis",
+    redis: {
+      host: "redis.example.com",
+      port: 6379,
+      password: process.env.REDIS_PASSWORD,
+      tls: true, // Enable for production
+    },
+  },
+});
+
+// Export conversation for analytics
+const history = await neurolink.exportConversation({ format: "json" });
+await saveToDataWarehouse(history);
+```
+
+### Docker Quick Start
+
+```bash
+# Start Redis
+docker run -d --name neurolink-redis -p 6379:6379 redis:7-alpine
+
+# Configure NeuroLink
+export REDIS_URL=redis://localhost:6379
+
+# Start your application
+node your-app.js
+```
+
+**[Redis Setup Guide](docs/getting-started/redis-quickstart.md)** | **[Production Configuration](docs/guides/redis-configuration.md)** | **[Migration Patterns](docs/guides/redis-migration.md)**
 
 ---
 
@@ -221,51 +360,66 @@ npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "an
 npx @juspay/neurolink generate "Write code" # Automatically chooses optimal provider
 ```
 
-## ✨ Interactive Loop Mode
+## Revolutionary Interactive CLI
 
-NeuroLink features a powerful **interactive loop mode** that transforms the CLI into a persistent, stateful session. This allows you to run multiple commands, set session-wide variables, and maintain conversation history without restarting.
+NeuroLink's CLI goes beyond simple commands - it's a **full AI development environment**:
 
-### Start the Loop
+### Why Interactive Mode Changes Everything
 
-```bash
-npx @juspay/neurolink loop
-```
+| Feature       | Traditional CLI   | NeuroLink Interactive          |
+| ------------- | ----------------- | ------------------------------ |
+| Session State | None              | Full persistence               |
+| Memory        | Per-command       | Conversation-aware             |
+| Configuration | Flags per command | `/set` persists across session |
+| Tool Testing  | Manual per tool   | Live discovery & testing       |
+| Streaming     | Optional          | Real-time default              |
 
-### Example Session
-
-```bash
-# Start the interactive session
-$ npx @juspay/neurolink loop
-
-neurolink » /set provider google-ai
-✓ provider set to google-ai
-
-neurolink » /set temperature 0.8
-✓ temperature set to 0.8
-
-neurolink » Tell me a fun fact about space
-
-The quietest place on Earth is an anechoic chamber at Microsoft's headquarters in Redmond, Washington. The background noise is so low that it's measured in negative decibels, and you can hear your own heartbeat.
-
-# Use "/" for CLI commands
-neurolink » /generate "Draft a haiku"
-...
-
-# Use "//" to escape prompts starting with "/"
-neurolink » //what is /usr/bin used for?
-...
-
-# Exit the session
-neurolink » exit
-```
-
-### Conversation Memory in Loop Mode
-
-Start the loop with conversation memory to have the AI remember the context of your previous commands.
+### Live Demo: Development Session
 
 ```bash
-npx @juspay/neurolink loop --enable-conversation-memory
+$ npx @juspay/neurolink loop --enable-conversation-memory
+
+neurolink > /set provider vertex
+✓ provider set to vertex (Gemini 3 support enabled)
+
+neurolink > /set model gemini-3-flash-preview
+✓ model set to gemini-3-flash-preview
+
+neurolink > Analyze my project architecture and suggest improvements
+
+✓ Analyzing your project structure...
+[AI provides detailed analysis, remembering context]
+
+neurolink > Now implement the first suggestion
+[AI remembers previous context and implements suggestion]
+
+neurolink > /mcp discover
+✓ Discovered 58 MCP tools:
+   GitHub: create_issue, list_repos, create_pr...
+   PostgreSQL: query, insert, update...
+   [full list]
+
+neurolink > Use the GitHub tool to create an issue for this improvement
+✓ Creating issue... (requires HITL approval if configured)
+
+neurolink > /export json > session-2026-01-01.json
+✓ Exported 15 messages to session-2026-01-01.json
+
+neurolink > exit
+Session saved. Resume with: neurolink loop --session session-2026-01-01.json
 ```
+
+### Session Commands Reference
+
+| Command              | Purpose                                              |
+| -------------------- | ---------------------------------------------------- |
+| `/set <key> <value>` | Persist configuration (provider, model, temperature) |
+| `/mcp discover`      | List all available MCP tools                         |
+| `/export json`       | Export conversation to JSON                          |
+| `/history`           | View conversation history                            |
+| `/clear`             | Clear context while keeping settings                 |
+
+**[Interactive CLI Guide](docs/features/interactive-cli.md)** | **[CLI Reference](docs/cli/commands.md)**
 
 Skip the wizard and configure manually? See [`docs/getting-started/provider-setup.md`](docs/getting-started/provider-setup.md).
 
@@ -352,25 +506,63 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 ## Documentation Map
 
-| Area            | When to Use                                     | Link                                                             |
-| --------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
-| Getting started | Install, configure, run first prompt            | [`docs/getting-started/index.md`](docs/getting-started/index.md) |
-| Feature guides  | Understand new functionality front-to-back      | [`docs/features/index.md`](docs/features/index.md)               |
-| CLI reference   | Command syntax, flags, loop sessions            | [`docs/cli/index.md`](docs/cli/index.md)                         |
-| SDK reference   | Classes, methods, options                       | [`docs/sdk/index.md`](docs/sdk/index.md)                         |
-| Integrations    | LiteLLM, SageMaker, MCP, Mem0                   | [`docs/LITELLM-INTEGRATION.md`](docs/LITELLM-INTEGRATION.md)     |
-| Operations      | Configuration, troubleshooting, provider matrix | [`docs/reference/index.md`](docs/reference/index.md)             |
-| Visual demos    | Screens, GIFs, interactive tours                | [`docs/demos/index.md`](docs/demos/index.md)                     |
+| Area            | When to Use                                           | Link                                                             |
+| --------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| Getting started | Install, configure, run first prompt                  | [`docs/getting-started/index.md`](docs/getting-started/index.md) |
+| Feature guides  | Understand new functionality front-to-back            | [`docs/features/index.md`](docs/features/index.md)               |
+| CLI reference   | Command syntax, flags, loop sessions                  | [`docs/cli/index.md`](docs/cli/index.md)                         |
+| SDK reference   | Classes, methods, options                             | [`docs/sdk/index.md`](docs/sdk/index.md)                         |
+| Integrations    | LiteLLM, SageMaker, MCP, Mem0                         | [`docs/litellm-integration.md`](docs/litellm-integration.md)     |
+| Advanced        | Middleware, architecture, streaming patterns          | [`docs/advanced/index.md`](docs/advanced/index.md)               |
+| Cookbook        | Practical recipes for common patterns                 | [`docs/cookbook/index.md`](docs/cookbook/index.md)               |
+| Guides          | Migration, Redis, troubleshooting, provider selection | [`docs/guides/index.md`](docs/guides/index.md)                   |
+| Operations      | Configuration, troubleshooting, provider matrix       | [`docs/reference/index.md`](docs/reference/index.md)             |
+
+### New in 2026: Enhanced Documentation
+
+**Enterprise Features:**
+
+- [Enterprise HITL Guide](docs/features/enterprise-hitl.md) - Production-ready approval workflows
+- [Interactive CLI Guide](docs/features/interactive-cli.md) - AI development environment
+- [MCP Tools Showcase](docs/features/mcp-tools-showcase.md) - 58+ external tools & 6 built-in tools
+
+**Provider Intelligence:**
+
+- [Provider Capabilities Audit](docs/reference/provider-capabilities-audit.md) - Technical capabilities matrix
+- [Provider Selection Guide](docs/guides/provider-selection.md) - Interactive decision wizard
+- [Provider Comparison](docs/reference/provider-comparison.md) - Feature & cost comparison
+
+**Middleware System:**
+
+- [Middleware Architecture](docs/advanced/middleware-architecture.md) - Complete lifecycle & patterns
+- [Built-in Middleware](docs/advanced/builtin-middleware.md) - Analytics, Guardrails, Evaluation
+- [Custom Middleware Guide](docs/custom-middleware-guide.md) - Build your own
+
+**Redis & Persistence:**
+
+- [Redis Quick Start](docs/getting-started/redis-quickstart.md) - 5-minute setup
+- [Redis Configuration](docs/guides/redis-configuration.md) - Production-ready setup
+- [Redis Migration](docs/guides/redis-migration.md) - Migration patterns
+
+**Migration Guides:**
+
+- [From LangChain](docs/guides/migration/from-langchain.md) - Complete migration guide
+- [From Vercel AI SDK](docs/guides/migration/from-vercel-ai-sdk.md) - Next.js focused
+
+**Developer Experience:**
+
+- [Cookbook](docs/cookbook/index.md) - 10 practical recipes
+- [Troubleshooting Guide](docs/guides/troubleshooting.md) - Common issues & solutions
 
 ## Integrations
 
-- **LiteLLM 100+ model hub** – Unified access to third-party models via LiteLLM routing. → [`docs/LITELLM-INTEGRATION.md`](docs/LITELLM-INTEGRATION.md)
-- **Amazon SageMaker** – Deploy and call custom endpoints directly from NeuroLink CLI/SDK. → [`docs/SAGEMAKER-INTEGRATION.md`](docs/SAGEMAKER-INTEGRATION.md)
-- **Mem0 conversational memory** – Persistent semantic memory with vector store support. → [`docs/MEM0_INTEGRATION.md`](docs/MEM0_INTEGRATION.md)
-- **Enterprise proxy & security** – Configure outbound policies and compliance posture. → [`docs/ENTERPRISE-PROXY-SETUP.md`](docs/ENTERPRISE-PROXY-SETUP.md)
-- **Configuration automation** – Manage environments, regions, and credentials safely. → [`docs/CONFIGURATION-MANAGEMENT.md`](docs/CONFIGURATION-MANAGEMENT.md)
+- **LiteLLM 100+ model hub** – Unified access to third-party models via LiteLLM routing. → [`docs/litellm-integration.md`](docs/litellm-integration.md)
+- **Amazon SageMaker** – Deploy and call custom endpoints directly from NeuroLink CLI/SDK. → [`docs/sagemaker-integration.md`](docs/sagemaker-integration.md)
+- **Mem0 conversational memory** – Persistent semantic memory with vector store support. → [`docs/mem0-integration.md`](docs/mem0-integration.md)
+- **Enterprise proxy & security** – Configure outbound policies and compliance posture. → [`docs/enterprise-proxy-setup.md`](docs/enterprise-proxy-setup.md)
+- **Configuration automation** – Manage environments, regions, and credentials safely. → [`docs/configuration-management.md`](docs/configuration-management.md)
 - **MCP tool ecosystem** – Auto-discover Model Context Protocol tools and extend workflows. → [`docs/advanced/mcp-integration.md`](docs/advanced/mcp-integration.md)
-- **Remote MCP via HTTP** – Connect to HTTP-based MCP servers with authentication, retries, and rate limiting. → [`docs/MCP-HTTP-TRANSPORT.md`](docs/MCP-HTTP-TRANSPORT.md)
+- **Remote MCP via HTTP** – Connect to HTTP-based MCP servers with authentication, retries, and rate limiting. → [`docs/mcp-http-transport.md`](docs/mcp-http-transport.md)
 
 ## Contributing & Support
 

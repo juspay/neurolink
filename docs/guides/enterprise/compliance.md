@@ -405,7 +405,7 @@ app.post("/api/ai/generate", async (req, res) => {
 Comprehensive audit trail for all AI operations.
 
 ```typescript
-interface AuditEntry {
+type AuditEntry = {
   timestamp: Date;
   userId: string;
   action: string;
@@ -421,7 +421,7 @@ interface AuditEntry {
   ipAddress: string;
   userAgent: string;
   requestId: string;
-}
+};
 
 class AuditLogger {
   async log(entry: AuditEntry) {
@@ -645,7 +645,7 @@ const ai = new NeuroLink({
 Track all PHI access.
 
 ```typescript
-interface HIPAAAuditEntry {
+type HIPAAAuditEntry = {
   timestamp: Date;
   userId: string;
   action: "CREATE" | "READ" | "UPDATE" | "DELETE";
@@ -654,7 +654,7 @@ interface HIPAAAuditEntry {
   success: boolean;
   ipAddress: string;
   reasonForAccess: string;
-}
+};
 
 class HIPAAAuditLogger {
   async logPHIAccess(entry: HIPAAAuditEntry) {

@@ -10,6 +10,9 @@ node_modules
 /build
 /dist
 
+# TypeDoc generated (regenerated on each build)
+docs/api/_media/
+
 # Test Output Files
 /test-outputs/
 verification-results-*.txt
@@ -120,3 +123,4 @@ quality-metrics.json
 # Security Files
 *.key
 *.pem
+test-output/

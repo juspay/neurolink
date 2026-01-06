@@ -14,9 +14,15 @@ docs_dir: "docs"
 # 4. Follows modern convention for build artifacts separation
 site_dir: "_site"
 
-# Exclude files that conflict with navigation
+# The root docs/index.md is synced from README.md via sync-readme.sh
+
+# Exclude TypeDoc-generated files that link to _media:
+# - api/_media/: TypeDoc copies files linked from root README.md here (duplicates)
+# - api/README.md: TypeDoc-generated from root README, has broken _media links
+# The canonical docs are at their proper locations (sdk/, features/, guides/, etc.)
 exclude_docs: |
-  README.md
+  api/_media/**
+  api/README.md
 
 # Theme configuration
 theme:
@@ -131,6 +137,7 @@ nav:
       - Installation: getting-started/installation.md
       - Provider Setup: getting-started/provider-setup.md
       - Environment Variables: getting-started/environment-variables.md
+      - Redis Quick Start: getting-started/redis-quickstart.md
       - Providers:
           - getting-started/providers/index.md
           - Hugging Face: getting-started/providers/huggingface.md
@@ -143,14 +150,23 @@ nav:
           - AWS Bedrock: getting-started/providers/aws-bedrock.md
   - Feature Guides:
       - features/index.md
+      - Enterprise HITL: features/enterprise-hitl.md
       - Human-in-the-Loop (HITL): features/hitl.md
+      - Interactive CLI: features/interactive-cli.md
+      - MCP Tools Showcase: features/mcp-tools-showcase.md
       - Guardrails Middleware: features/guardrails.md
       - Redis Conversation Export: features/conversation-history.md
       - Multimodal Chat Experiences: features/multimodal-chat.md
+      - CSV Support: features/csv-support.md
+      - PDF Support: features/pdf-support.md
+      - Office Documents: features/office-documents.md
       - Auto Evaluation Engine: features/auto-evaluation.md
       - CLI Loop Sessions: features/cli-loop-sessions.md
       - Regional Streaming Controls: features/regional-streaming.md
       - Provider Orchestration Brain: features/provider-orchestration.md
+      - Structured Output: features/structured-output.md
+      - Thinking Configuration: features/thinking-configuration.md
+      - Video Generation: features/video-generation.md
   - CLI Guide:
       - cli/index.md
       - Commands Reference: cli/commands.md
@@ -162,25 +178,38 @@ nav:
       - Framework Integration: sdk/framework-integration.md
       - Custom Tools: sdk/custom-tools.md
   - Integrations & Platforms:
-      - LITELLM Integration: LITELLM-INTEGRATION.md
-      - SageMaker Integration: SAGEMAKER-INTEGRATION.md
-      - MCP Integration: advanced/mcp-integration.md
-      - MCP HTTP Transport: MCP-HTTP-TRANSPORT.md
-      - Mem0 Conversational Memory: MEM0_INTEGRATION.md
-      - Enterprise Proxy Setup: ENTERPRISE-PROXY-SETUP.md
-      - Configuration Management: CONFIGURATION-MANAGEMENT.md
-  - Architecture & Advanced:
+      - LITELLM Integration: litellm-integration.md
+      - SageMaker Integration: sagemaker-integration.md
+      - MCP Integration: mcp-integration.md
+      - MCP HTTP Transport: mcp-http-transport.md
+      - Mem0 Conversational Memory: mem0-integration.md
+      - Enterprise Proxy Setup: enterprise-proxy-setup.md
+      - Configuration Management: configuration-management.md
+  - Advanced:
       - advanced/index.md
-      - Advanced Orchestration: ADVANCED-ORCHESTRATION.md
-      - AI Orchestration Guide: AI-ORCHESTRATION-GUIDE.md
+      - Advanced Orchestration: advanced-orchestration.md
+      - AI Orchestration Guide: ai-orchestration-guide.md
       - Analytics & Evaluation: advanced/analytics.md
       - Dynamic Models: advanced/dynamic-models.md
-      - Factory Pattern Architecture: FACTORY-PATTERN-ARCHITECTURE.md
-      - Conversation Memory Deep Dive: CONVERSATION-MEMORY.md
+      - Factory Pattern Architecture: factory-pattern-architecture.md
+      - Conversation Memory Deep Dive: conversation-memory.md
       - Streaming: advanced/streaming.md
-      - Error Handling: ERROR-HANDLING.md
+      - Error Handling: error-handling.md
+      - Middleware:
+          - Middleware Architecture: advanced/middleware-architecture.md
+          - Built-in Middleware: advanced/builtin-middleware.md
+          - Custom Middleware Guide: custom-middleware-guide.md
   - Guides:
       - guides/index.md
+      - Provider Selection Guide: guides/provider-selection.md
+      - Troubleshooting: guides/troubleshooting.md
+      - Redis:
+          - Redis Configuration: guides/redis-configuration.md
+          - Redis Migration: guides/redis-migration.md
+      - Migration:
+          - From LangChain: guides/migration/from-langchain.md
+          - From Vercel AI SDK: guides/migration/from-vercel-ai-sdk.md
+          - Migration Guide (Legacy): guides/migration-guide.md
       - Enterprise:
           - Multi-Provider Failover: guides/enterprise/multi-provider-failover.md
           - Load Balancing: guides/enterprise/load-balancing.md
@@ -198,11 +227,23 @@ nav:
       - Examples:
           - Use Cases: guides/examples/use-cases.md
           - Code Patterns: guides/examples/code-patterns.md
+  - Cookbook:
+      - cookbook/index.md
+      - Streaming with Retry: cookbook/streaming-with-retry.md
+      - Cost Optimization: cookbook/cost-optimization.md
+      - Rate Limit Handling: cookbook/rate-limit-handling.md
+      - Context Window Management: cookbook/context-window-management.md
+      - Error Recovery: cookbook/error-recovery.md
+      - Multi-Provider Fallback: cookbook/multi-provider-fallback.md
+      - Conversation Summarization: cookbook/conversation-summarization.md
+      - Structured Output: cookbook/structured-output.md
+      - Batch Processing: cookbook/batch-processing.md
+      - Tool Chaining: cookbook/tool-chaining.md
   - Tutorials:
       - tutorials/index.md
       - Chat Application: tutorials/chat-app.md
       - RAG System: tutorials/rag.md
-  - Examples & Tutorials:
+  - Examples:
       - examples/index.md
       - Basic Usage: examples/basic-usage.md
       - Advanced Examples: examples/advanced.md
@@ -213,14 +254,14 @@ nav:
       - Screenshots: demos/screenshots.md
       - Videos: demos/videos.md
       - Interactive Demo: demos/interactive.md
-  - Operations & Reference:
+  - Reference:
       - reference/index.md
       - Configuration Reference: reference/configuration.md
+      - Provider Capabilities Audit: reference/provider-capabilities-audit.md
       - Provider Comparison: reference/provider-comparison.md
       - Troubleshooting: reference/troubleshooting.md
       - FAQ: reference/faq.md
       - Documentation Matrix: tracking/FEATURE-DOC-MATRIX.md
-      - Migration Guide: guides/migration-guide.md
   - Development:
       - development/index.md
       - Contributing: development/contributing.md
@@ -229,12 +270,6 @@ nav:
       - Factory Pattern Migration: development/factory-migration.md
       - Documentation Versioning: development/versioning.md
       - Automated Link Checking: development/link-checking.md
-  - Reference:
-      - reference/index.md
-      - Troubleshooting: reference/troubleshooting.md
-      - Configuration: reference/configuration.md
-      - Provider Comparison: reference/provider-comparison.md
-      - FAQ: reference/faq.md
 
 # Social links and extras
 extra:

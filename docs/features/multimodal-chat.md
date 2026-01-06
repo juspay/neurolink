@@ -368,4 +368,4 @@ Set appropriate `maxTokens` for PDF analysis (recommended: 2000-8000 tokens).
 
 - [CLI Commands](../cli/commands.md) – CLI flags & options
 - [SDK API Reference](../sdk/api-reference.md) – Generate/stream APIs
-- [Troubleshooting](../TROUBLESHOOTING.md) – Extended error catalogue
+- [Troubleshooting](../troubleshooting.md) – Extended error catalogue

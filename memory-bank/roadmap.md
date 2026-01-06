@@ -31,7 +31,7 @@ This roadmap outlines the planned development trajectory for the NeuroLink AI to
 - ✅ **Retry Logic**: Exponential backoff with configurable retry settings
 - ✅ **Rate Limiting**: Built-in request throttling for API compliance
 - ✅ **Streaming Support**: Both SSE streaming and batch JSON responses
-- ✅ **Comprehensive Documentation**: Full guide at `docs/MCP-HTTP-TRANSPORT.md`
+- ✅ **Comprehensive Documentation**: Full guide at `docs/mcp-http-transport.md`
 - ✅ **Example Code**: `examples/http-transport-mcp.ts` with usage patterns
 
 ### **🎉 Universal AI Provider Compatibility Achieved** (January 20, 2025) ✅

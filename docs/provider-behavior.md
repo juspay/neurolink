@@ -12,9 +12,9 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 
 ## Related Documentation
 
-- [API Reference](API-REFERENCE.md) - Complete API documentation
-- [CLI Guide](CLI-GUIDE.md) - Command-line interface usage
-- [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md) - Factory pattern implementation
+- [API Reference](api-reference.md) - Complete API documentation
+- [CLI Guide](cli-guide.md) - Command-line interface usage
+- [Factory Pattern Migration](factory-pattern-migration.md) - Factory pattern implementation
 - [Streaming Guide](advanced/streaming.md) - Advanced streaming features
 
 ## Provider-Specific Input Handling
@@ -162,11 +162,11 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 ### For Automated Tests
 
 1. **Use Provider-Neutral Inputs**: Choose prompts that work consistently across all providers
-   - See [CLI Guide](CLI-GUIDE.md) for example commands
+   - See [CLI Guide](cli-guide.md) for example commands
 2. **Avoid Domain Keywords**: Use generic prompts for functionality testing
-   - Reference [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md) for domain-specific usage
+   - Reference [Factory Pattern Migration](factory-pattern-migration.md) for domain-specific usage
 3. **Test Provider-Specific Features**: Separate tests for provider-specific capabilities
-   - Check [API Reference](API-REFERENCE.md) for provider options
+   - Check [API Reference](api-reference.md) for provider options
 4. **Implement Fallback Strategies**: Design tests to handle provider variations gracefully
    - See [Streaming Guide](advanced/streaming.md) for robust patterns
 
@@ -179,7 +179,7 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 3. **Error Handling**: Implement robust error handling for provider-specific failures
    - See [Troubleshooting](#troubleshooting-common-issues) section for common patterns
 4. **Performance Monitoring**: Track provider performance and adjust accordingly
-   - Reference [API Reference](API-REFERENCE.md) for monitoring setup
+   - Reference [API Reference](api-reference.md) for monitoring setup
 
 ## Provider Selection Guidelines
 
@@ -208,7 +208,7 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 
 - Try alternative provider from [Provider Selection Guidelines](#provider-selection-guidelines)
 - Rephrase input using [Testing Recommendations](#testing-recommendations) patterns
-- Check provider status using [CLI Guide](CLI-GUIDE.md)
+- Check provider status using [CLI Guide](cli-guide.md)
 
 ### Inconsistent Tool Execution
 
@@ -217,8 +217,8 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 **Solutions**:
 
 - Use providers with full tool support (OpenAI, Anthropic, Google AI)
-- Configure tools using [CLI Guide](CLI-GUIDE.md)
-- Debug with [API Reference](API-REFERENCE.md)
+- Configure tools using [CLI Guide](cli-guide.md)
+- Debug with [API Reference](api-reference.md)
 
 ### Streaming Interruptions
 
@@ -236,8 +236,8 @@ This guide documents provider-specific behaviors, quirks, and recommended usage 
 **Likely Causes**: Provider load, geographic location, model selection
 **Solutions**:
 
-- Implement provider rotation using [API Reference](API-REFERENCE.md)
-- Monitor performance metrics with [Analytics Integration](API-REFERENCE.md)
+- Implement provider rotation using [API Reference](api-reference.md)
+- Monitor performance metrics with [Analytics Integration](api-reference.md)
 - Optimize based on [Provider Selection Guidelines](#provider-selection-guidelines)
 
 ## Factory Pattern Integration
@@ -247,25 +247,25 @@ When using NeuroLink's factory patterns with specific providers:
 ### Domain Configuration
 
 - **Provider Sensitivity**: Some providers may filter domain-specific keywords
-- **Configuration Guide**: See [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md) for setup
+- **Configuration Guide**: See [Factory Pattern Migration](factory-pattern-migration.md) for setup
 - **Testing Strategies**: Reference [Testing Recommendations](#testing-recommendations) above
 
 ### Context Processing
 
 - **Validation**: Ensure context data compatibility across providers
-- **Implementation**: Follow patterns in [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md)
-- **Debugging**: Use [API Reference](API-REFERENCE.md) for validation tools
+- **Implementation**: Follow patterns in [Factory Pattern Migration](factory-pattern-migration.md)
+- **Debugging**: Use [API Reference](api-reference.md) for validation tools
 
 ### Evaluation Integration
 
 - **Provider Variation**: Different providers may have varying evaluation accuracy
-- **Setup Guide**: See [API Reference](API-REFERENCE.md) for configuration
-- **Best Practices**: Reference [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md)
+- **Setup Guide**: See [API Reference](api-reference.md) for configuration
+- **Best Practices**: Reference [Factory Pattern Migration](factory-pattern-migration.md)
 
 ### Tool Integration
 
 - **Compatibility Testing**: Test tool execution with each target provider
-- **Configuration**: Use [CLI Guide](CLI-GUIDE.md) for MCP tool setup
+- **Configuration**: Use [CLI Guide](cli-guide.md) for MCP tool setup
 - **Advanced Usage**: See [Streaming Guide](advanced/streaming.md) for streaming with tools
 
 ## Best Practices
@@ -273,15 +273,15 @@ When using NeuroLink's factory patterns with specific providers:
 ### General Guidelines
 
 1. **Provider Rotation**: Use multiple providers for resilience
-   - Implementation guide: [API Reference](API-REFERENCE.md)
+   - Implementation guide: [API Reference](api-reference.md)
 2. **Input Validation**: Validate inputs for provider compatibility
    - See provider-specific sections above for validation patterns
 3. **Error Handling**: Implement graceful fallbacks
    - Follow [Streaming Guide](advanced/streaming.md) patterns
 4. **Performance Monitoring**: Track provider metrics
-   - Setup: [API Reference](API-REFERENCE.md)
+   - Setup: [API Reference](api-reference.md)
 5. **Cost Management**: Monitor token usage across providers
-   - Tools: [CLI Guide](CLI-GUIDE.md)
+   - Tools: [CLI Guide](cli-guide.md)
 6. **Testing Strategy**: Use provider-appropriate test cases
    - Reference [Testing Recommendations](#testing-recommendations) above
 
@@ -294,9 +294,9 @@ When using NeuroLink's factory patterns with specific providers:
 
 ## See Also
 
-- [API Reference](API-REFERENCE.md) - Complete API documentation and configuration
-- [CLI Guide](CLI-GUIDE.md) - Command-line interface and provider testing
-- [Factory Pattern Migration](FACTORY-PATTERN-MIGRATION.md) - Advanced factory pattern usage
+- [API Reference](api-reference.md) - Complete API documentation and configuration
+- [CLI Guide](cli-guide.md) - Command-line interface and provider testing
+- [Factory Pattern Migration](factory-pattern-migration.md) - Advanced factory pattern usage
 - [Streaming Guide](advanced/streaming.md) - Streaming functionality and error handling
 - [Main Documentation](index.md) - Getting started guide and overview
 

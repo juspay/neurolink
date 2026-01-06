@@ -211,7 +211,7 @@ Key features:
 - **Retry Logic**: Configurable retry with exponential backoff
 - **Rate Limiting**: Built-in request throttling support
 
-See [MCP HTTP Transport Documentation](../docs/MCP-HTTP-TRANSPORT.md) for full details.
+See [MCP HTTP Transport Documentation](../docs/mcp-http-transport.md) for full details.
 
 ### The Resilient JSON Parser
 

@@ -591,4 +591,4 @@ _All screenshots are captured from live NeuroLink implementations and demonstrat
 
 - [Video Demonstrations](videos.md) - Live action videos
 - [Interactive Demo](interactive.md) - Try it yourself
-- [Visual Demos Guide](../VISUAL-DEMOS.md) - Complete visual documentation
+- [Visual Demos Guide](../visual-demos.md) - Complete visual documentation
