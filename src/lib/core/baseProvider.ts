@@ -16,7 +16,7 @@ import { AIProviderName } from "../constants/enums.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
 import type { MiddlewareFactoryOptions } from "../types/middlewareTypes.js";
-import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import type { StreamOptions, StreamResult, StreamChunk } from "../types/streamTypes.js";
 import type { JsonValue, UnknownRecord } from "../types/common.js";
 import { logger } from "../utils/logger.js";
 import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
@@ -34,6 +34,7 @@ import { TelemetryHandler } from "./modules/TelemetryHandler.js";
 import { Utilities } from "./modules/Utilities.js";
 import { ToolsManager } from "./modules/ToolsManager.js";
 import { TTSProcessor } from "../utils/ttsProcessor.js";
+import type { TTSChunk } from "../types/ttsTypes.js";
 
 /**
  * Abstract base class for all AI providers
@@ -139,6 +140,56 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Primary streaming method - implements AIProvider interface
    * When tools are involved, falls back to generate() with synthetic streaming
+   *
+   * **Text-to-Speech (TTS) Streaming Support:**
+   * When `options.tts?.enabled === true`, the stream will yield both text and audio chunks.
+   * Text chunks are yielded first as they arrive, followed by corresponding audio chunks
+   * generated via Text-to-Speech synthesis.
+   *
+   * @param optionsOrPrompt - Stream options or prompt string
+   * @param analysisSchema - Optional analysis schema
+   * @returns Stream result with async iterable of text and/or audio chunks
+   *
+   * @example Basic streaming with TTS
+   * ```typescript
+   * const result = await provider.stream({
+   *   input: { text: "Tell me a story" },
+   *   provider: "google-ai",
+   *   tts: { enabled: true, voice: "en-US-Neural2-C" }
+   * });
+   *
+   * for await (const chunk of result.stream) {
+   *   if (chunk.type === "text") {
+   *     process.stdout.write(chunk.content);
+   *   } else if (chunk.type === "audio") {
+   *     playAudioChunk(chunk.audioChunk.data);
+   *   }
+   * }
+   * ```
+   *
+   * @example Advanced TTS streaming with audio buffering
+   * ```typescript
+   * const result = await provider.stream({
+   *   input: { text: "Speak slowly" },
+   *   tts: {
+   *     enabled: true,
+   *     voice: "en-US-Neural2-D",
+   *     speed: 0.8,
+   *     format: "mp3"
+   *   }
+   * });
+   *
+   * const audioBuffer: Buffer[] = [];
+   * for await (const chunk of result.stream) {
+   *   if (chunk.type === "audio") {
+   *     audioBuffer.push(chunk.audioChunk.data);
+   *     if (chunk.audioChunk.isFinal) {
+   *       const fullAudio = Buffer.concat(audioBuffer);
+   *       fs.writeFileSync('output.mp3', fullAudio);
+   *     }
+   *   }
+   * }
+   * ```
    */
   async stream(
     optionsOrPrompt: StreamOptions | string,
@@ -154,6 +205,7 @@ export abstract class BaseProvider implements AIProvider {
       inputLength: options.input?.text?.length || 0,
       maxTokens: options.maxTokens,
       temperature: options.temperature,
+      ttsEnabled: !!options.tts?.enabled,
       timestamp: Date.now(),
     });
 
@@ -193,6 +245,11 @@ export abstract class BaseProvider implements AIProvider {
         timestamp: Date.now(),
       });
 
+      // 🎤 TTS INTEGRATION: Wrap stream with TTS synthesis if enabled
+      if (options.tts?.enabled) {
+        return this.wrapStreamWithTTS(realStreamResult, options);
+      }
+
       // If real streaming succeeds, return it (with tools support via Vercel AI SDK)
       return realStreamResult;
     } catch (realStreamError) {
@@ -219,6 +276,115 @@ export abstract class BaseProvider implements AIProvider {
         throw this.handleProviderError(realStreamError);
       }
     }
+  }
+
+  /**
+   * Wrap a stream result with TTS synthesis
+   *
+   * Creates a new async generator that:
+   * 1. Yields original text chunks as they arrive
+   * 2. Buffers text for TTS synthesis
+   * 3. Yields audio chunks after text streaming completes
+   *
+   * @private
+   * @param streamResult - Original stream result from executeStream
+   * @param options - Stream options with TTS configuration
+   * @returns Enhanced stream result with audio chunks
+   */
+  private wrapStreamWithTTS(
+    streamResult: StreamResult,
+    options: StreamOptions,
+  ): StreamResult {
+    const provider = options.provider ?? this.providerName;
+    const ttsOptions = options.tts!;
+
+    // Create wrapped stream generator
+    const wrappedStream = async function* (
+      this: BaseProvider,
+    ): AsyncGenerator<StreamChunk> {
+      const textBuffer: string[] = [];
+      const ttsStartTime = Date.now();
+
+      try {
+        // Phase 1: Stream text chunks and buffer for TTS
+        for await (const chunk of streamResult.stream) {
+          // Yield original chunk (text, audio, or image)
+          yield chunk as StreamChunk;
+
+          // Buffer text content for TTS synthesis
+          if ("content" in chunk && typeof chunk.content === "string") {
+            textBuffer.push(chunk.content);
+          }
+        }
+
+        // Phase 2: Synthesize buffered text to audio
+        const fullText = textBuffer.join("");
+        if (fullText.trim()) {
+          logger.debug(`[TTS Streaming] Synthesizing ${fullText.length} characters`, {
+            provider,
+            voice: ttsOptions.voice,
+          });
+
+          try {
+            const ttsResult = await TTSProcessor.synthesize(
+              fullText,
+              provider,
+              ttsOptions,
+            );
+
+            const ttsLatency = Date.now() - ttsStartTime;
+
+            // Yield final audio chunk with complete audio
+            const audioChunk: TTSChunk = {
+              data: ttsResult.buffer,
+              format: ttsResult.format,
+              index: 0,
+              isFinal: true,
+              cumulativeSize: ttsResult.size,
+              estimatedDuration: ttsResult.duration,
+              voice: ttsResult.voice,
+              sampleRate: ttsResult.sampleRate,
+            };
+
+            yield {
+              type: "audio" as const,
+              audioChunk,
+            };
+
+            logger.info(`[TTS Streaming] Audio synthesis complete`, {
+              provider,
+              audioSize: ttsResult.size,
+              duration: ttsResult.duration,
+              latency: ttsLatency,
+            });
+          } catch (ttsError) {
+            // Log TTS error but don't fail the stream - graceful degradation
+            logger.error(`[TTS Streaming] Synthesis failed:`, ttsError);
+            // Stream continues with text-only output
+          }
+        } else {
+          logger.warn(`[TTS Streaming] No text to synthesize`, {
+            provider,
+            bufferLength: textBuffer.length,
+          });
+        }
+      } catch (streamError) {
+        logger.error(`[TTS Streaming] Stream processing failed:`, streamError);
+        throw streamError;
+      }
+    }.bind(this)();
+
+    // Return enhanced stream result
+    return {
+      ...streamResult,
+      stream: wrappedStream,
+      metadata: {
+        ...streamResult.metadata,
+        ttsEnabled: true,
+        ttsProvider: provider,
+        ttsVoice: ttsOptions.voice,
+      },
+    };
   }
 
   /**
