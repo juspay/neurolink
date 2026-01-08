@@ -323,10 +323,11 @@ describe("Multimodal with Structured Output", () => {
 
     const systemMsg = messages.find((m) => m.role === "system");
     expect(systemMsg?.content).toBeDefined();
-    const { STRUCTURED_OUTPUT_INSTRUCTIONS } = await import(
-      "../../src/lib/config/conversationMemory.js"
+    // Check for key phrases from the new unified schema instructions format
+    expect(systemMsg?.content).toContain("MANDATORY OUTPUT FORMAT");
+    expect(systemMsg?.content).toContain(
+      "Your ENTIRE response MUST be a valid JSON object",
     );
-    expect(systemMsg?.content).toContain(STRUCTURED_OUTPUT_INSTRUCTIONS.trim());
   });
 
   it("should inject STRUCTURED_OUTPUT_INSTRUCTIONS with PDFs", async () => {
@@ -349,10 +350,11 @@ describe("Multimodal with Structured Output", () => {
 
     const systemMsg = messages.find((m) => m.role === "system");
     expect(systemMsg?.content).toBeDefined();
-    const { STRUCTURED_OUTPUT_INSTRUCTIONS } = await import(
-      "../../src/lib/config/conversationMemory.js"
+    // Check for key phrases from the new unified schema instructions format
+    expect(systemMsg?.content).toContain("MANDATORY OUTPUT FORMAT");
+    expect(systemMsg?.content).toContain(
+      "Your ENTIRE response MUST be a valid JSON object",
     );
-    expect(systemMsg?.content).toContain(STRUCTURED_OUTPUT_INSTRUCTIONS.trim());
   });
 
   it("should inject STRUCTURED_OUTPUT_INSTRUCTIONS with CSV", async () => {
@@ -373,10 +375,11 @@ describe("Multimodal with Structured Output", () => {
 
     const systemMsg = messages.find((m) => m.role === "system");
     expect(systemMsg?.content).toBeDefined();
-    const { STRUCTURED_OUTPUT_INSTRUCTIONS } = await import(
-      "../../src/lib/config/conversationMemory.js"
+    // Check for key phrases from the new unified schema instructions format
+    expect(systemMsg?.content).toContain("MANDATORY OUTPUT FORMAT");
+    expect(systemMsg?.content).toContain(
+      "Your ENTIRE response MUST be a valid JSON object",
     );
-    expect(systemMsg?.content).toContain(STRUCTURED_OUTPUT_INSTRUCTIONS.trim());
   });
 
   it("should NOT inject instructions without schema", async () => {

@@ -35,6 +35,7 @@ import {
   createValidationSummary,
 } from "../../utils/parameterValidation.js";
 import { STEP_LIMITS } from "../constants.js";
+import type { CoreMessage, ToolCallPart, ToolResultPart } from "ai";
 
 /**
  * Utilities class - Provides validation, normalization, and utility methods
@@ -447,4 +448,36 @@ export class Utilities {
 
     return null; // Not a common error, let provider handle it
   }
+}
+
+/**
+ * Add tool context to messages for Phase 3
+ * Preserves tool calls and results from Phase 1 using native AI SDK types
+ */
+export function addToolContextToMessages(
+  messages: CoreMessage[],
+  toolCalls: ToolCallPart[],
+  toolResults: ToolResultPart[],
+): CoreMessage[] {
+  const toolMessages: CoreMessage[] = [];
+
+  // Add tool calls as assistant message (direct use - already in correct format!)
+  if (toolCalls.length > 0) {
+    toolMessages.push({
+      role: "assistant",
+      content: toolCalls, // ✅ Direct assignment - no mapping needed
+    });
+  }
+
+  // Add tool results as tool messages
+  if (toolResults.length > 0) {
+    toolResults.forEach((part) => {
+      toolMessages.push({
+        role: "tool",
+        content: [part], // ✅ Direct use - already ToolResultPart
+      });
+    });
+  }
+
+  return [...messages, ...toolMessages];
 }

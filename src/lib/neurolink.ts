@@ -2085,6 +2085,7 @@ Current user's request: ${currentInput}`;
       // Convert back to GenerateResult
       const generateResult: GenerateResult = {
         content: textResult.content,
+        structuredOutputAchieved: textResult.structuredOutputAchieved,
         provider: textResult.provider,
         model: textResult.model,
         usage: textResult.usage
@@ -2897,6 +2898,7 @@ Current user's request: ${currentInput}`;
         content: result.content || "", // Ensure content is never undefined
         provider: providerName,
         usage: result.usage,
+        structuredOutputAchieved: result.structuredOutputAchieved,
         responseTime,
         toolsUsed: result.toolsUsed || [],
         toolExecutions: transformedToolExecutions,
