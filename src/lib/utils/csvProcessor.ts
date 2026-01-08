@@ -101,7 +101,8 @@ export class CSVProcessor {
     // For raw format, return original CSV with row limit (no parsing needed)
     // This preserves the exact original format which works best for LLMs
     if (formatStyle === "raw") {
-      const lines = csvString.split(/\r?\n|\r/);
+      // Handle all line ending types: Unix (\n), Windows (\r\n), Mac (\r)
+      const lines = csvString.split(/\r\n|\n|\r/);
       const hasMetadataLine = isMetadataLine(lines);
 
       if (hasMetadataLine) {
@@ -284,7 +285,8 @@ export class CSVProcessor {
       let buffer = "";
       lineReader.on("data", (chunk: string | Buffer) => {
         buffer += chunk.toString();
-        const lines = buffer.split(/\r?\n|\r/);
+        // Handle all line ending types
+        const lines = buffer.split(/\r\n|\n|\r/);
         if (lines.length >= 2) {
           firstLines.push(lines[0], lines[1]);
           lineReader.destroy();
@@ -370,7 +372,8 @@ export class CSVProcessor {
     });
 
     // Detect and skip metadata line
-    const lines = csvString.split(/\r?\n|\r/);
+    // Handle all line ending types: Unix (\n), Windows (\r\n), Mac (\r)
+    const lines = csvString.split(/\r\n|\n|\r/);
     const hasMetadataLine = isMetadataLine(lines);
     const csvData = hasMetadataLine ? lines.slice(1).join("\n") : csvString;
 
@@ -451,10 +454,12 @@ export class CSVProcessor {
 
     const headers = Object.keys(rows[0] as Record<string, unknown>);
 
-    // Escape backslashes, pipes, and sanitize newlines to keep rows intact
-    // Also strip any remaining \r characters from cell values
+    // Escape backslashes, pipes, and sanitize all line ending types to keep rows intact
     const escapePipe = (str: string) =>
-      str.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n|\r/g, " ");
+      str
+        .replace(/\\/g, "\\\\")
+        .replace(/\|/g, "\\|")
+        .replace(/\r\n|\n|\r/g, " ");
 
     let markdown = "";
 
