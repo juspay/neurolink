@@ -1,0 +1,234 @@
+name: "NeuroLink AI"
+description: "Run AI-powered workflows with 13 providers (OpenAI, Anthropic, Google, AWS, Azure, and more)"
+author: "Juspay Technologies"
+
+branding:
+  icon: "cpu"
+  color: "purple"
+
+inputs:
+  prompt:
+    description: "The prompt to send to the AI model"
+    required: true
+
+  # Provider API Keys (verified providers only - NO groq/together/deepseek/xai)
+  openai_api_key:
+    description: "OpenAI API key"
+    required: false
+  anthropic_api_key:
+    description: "Anthropic API key"
+    required: false
+  google_ai_api_key:
+    description: "Google AI Studio API key"
+    required: false
+  azure_openai_api_key:
+    description: "Azure OpenAI API key"
+    required: false
+  azure_openai_endpoint:
+    description: "Azure OpenAI endpoint URL"
+    required: false
+  azure_openai_deployment:
+    description: "Azure OpenAI deployment name"
+    required: false
+  mistral_api_key:
+    description: "Mistral AI API key"
+    required: false
+  huggingface_api_key:
+    description: "Hugging Face API key"
+    required: false
+  openrouter_api_key:
+    description: "OpenRouter API key"
+    required: false
+  litellm_api_key:
+    description: "LiteLLM API key"
+    required: false
+  litellm_base_url:
+    description: "LiteLLM base URL"
+    required: false
+  openai_compatible_api_key:
+    description: "OpenAI-compatible API key"
+    required: false
+  openai_compatible_base_url:
+    description: "OpenAI-compatible base URL"
+    required: false
+
+  # AWS
+  aws_access_key_id:
+    description: "AWS Access Key ID for Bedrock/SageMaker"
+    required: false
+  aws_secret_access_key:
+    description: "AWS Secret Access Key"
+    required: false
+  aws_region:
+    description: "AWS Region"
+    required: false
+    default: "us-east-1"
+  aws_session_token:
+    description: "AWS Session Token"
+    required: false
+  bedrock_model_id:
+    description: "AWS Bedrock model ID"
+    required: false
+  sagemaker_endpoint:
+    description: "Amazon SageMaker endpoint"
+    required: false
+
+  # Google Cloud
+  google_vertex_project:
+    description: "Google Cloud project ID for Vertex AI"
+    required: false
+  google_vertex_location:
+    description: "Google Cloud location"
+    required: false
+    default: "us-central1"
+  google_application_credentials:
+    description: "GCP service account JSON (base64 encoded)"
+    required: false
+
+  # Provider & Model
+  provider:
+    description: "AI provider (openai, anthropic, google-ai, vertex, azure, bedrock, mistral, huggingface, openrouter, litellm, ollama, sagemaker, openai-compatible)"
+    required: false
+    default: "auto"
+  model:
+    description: "Specific model to use"
+    required: false
+
+  # Generation
+  temperature:
+    description: "Sampling temperature (0.0-2.0)"
+    required: false
+    default: "0.7"
+  max_tokens:
+    description: "Maximum tokens in response"
+    required: false
+    default: "4096"
+  system_prompt:
+    description: "System prompt for context"
+    required: false
+  command:
+    description: "CLI command: generate, stream, batch"
+    required: false
+    default: "generate"
+
+  # Multimodal
+  image_paths:
+    description: "Comma-separated image paths"
+    required: false
+  pdf_paths:
+    description: "Comma-separated PDF paths"
+    required: false
+  csv_paths:
+    description: "Comma-separated CSV paths"
+    required: false
+  video_paths:
+    description: "Comma-separated video paths"
+    required: false
+
+  # Extended Thinking
+  thinking_enabled:
+    description: "Enable extended thinking"
+    required: false
+    default: "false"
+  thinking_level:
+    description: "Thinking level: minimal, low, medium, high"
+    required: false
+    default: "medium"
+  thinking_budget:
+    description: "Thinking token budget"
+    required: false
+    default: "10000"
+
+  # Features (verified to exist)
+  enable_analytics:
+    description: "Enable usage analytics and cost tracking"
+    required: false
+    default: "false"
+  enable_evaluation:
+    description: "Enable response quality evaluation"
+    required: false
+    default: "false"
+
+  # Output
+  output_format:
+    description: "Output format: text, json"
+    required: false
+    default: "text"
+  output_file:
+    description: "Output file path"
+    required: false
+
+  # MCP Tools
+  enable_tools:
+    description: "Enable MCP tools"
+    required: false
+    default: "false"
+  mcp_config_path:
+    description: "Path to .mcp-config.json file"
+    required: false
+
+  # GitHub Integration
+  post_comment:
+    description: "Post AI response as PR/issue comment"
+    required: false
+    default: "false"
+  update_existing_comment:
+    description: "Update existing NeuroLink comment instead of creating new"
+    required: false
+    default: "true"
+  comment_tag:
+    description: "HTML comment tag to identify NeuroLink comments"
+    required: false
+    default: "neurolink-action"
+  github_token:
+    description: "GitHub token for PR/issue operations"
+    required: false
+    default: "${{ github.token }}"
+
+  # Advanced
+  timeout:
+    description: "Request timeout in seconds"
+    required: false
+    default: "300"
+  debug:
+    description: "Enable debug logging"
+    required: false
+    default: "false"
+  neurolink_version:
+    description: "NeuroLink CLI version to install"
+    required: false
+    default: "latest"
+  working_directory:
+    description: "Working directory for CLI execution"
+    required: false
+    default: "."
+
+outputs:
+  response:
+    description: "AI response text content"
+  response_json:
+    description: "Full JSON response including metadata"
+  provider:
+    description: "Provider that was used"
+  model:
+    description: "Model that was used"
+  tokens_used:
+    description: "Total tokens consumed"
+  prompt_tokens:
+    description: "Input/prompt tokens"
+  completion_tokens:
+    description: "Output/completion tokens"
+  cost:
+    description: "Estimated cost in USD (if analytics enabled)"
+  execution_time:
+    description: "Execution time in milliseconds"
+  evaluation_score:
+    description: "Quality evaluation score 0-100 (if evaluation enabled)"
+  comment_id:
+    description: "GitHub comment ID (if post_comment enabled)"
+  error:
+    description: "Error message if execution failed"
+
+runs:
+  using: "node20"
+  main: "action-dist/index.js"

@@ -6,7 +6,7 @@
 
 # Class: InMemoryTokenStorage
 
-Defined in: [mcp/auth/tokenStorage.ts:14](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/auth/tokenStorage.ts#L14)
+Defined in: [mcp/auth/tokenStorage.ts:14](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/auth/tokenStorage.ts#L14)
 
 In-memory token storage implementation
 Suitable for development and single-session use
@@ -34,7 +34,7 @@ Tokens are lost when the process terminates
 
 > **get** **size**(): `number`
 
-Defined in: [mcp/auth/tokenStorage.ts:40](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/auth/tokenStorage.ts#L40)
+Defined in: [mcp/auth/tokenStorage.ts:40](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/auth/tokenStorage.ts#L40)
 
 Get the number of stored token sets
 
@@ -48,7 +48,7 @@ Get the number of stored token sets
 
 > **getTokens**(`serverId`): `Promise`\<[`OAuthTokens`](../type-aliases/OAuthTokens.md) \| `null`\>
 
-Defined in: [mcp/auth/tokenStorage.ts:17](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/auth/tokenStorage.ts#L17)
+Defined in: [mcp/auth/tokenStorage.ts:17](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/auth/tokenStorage.ts#L17)
 
 Get stored tokens for a server
 
@@ -76,7 +76,7 @@ Stored tokens or null if not found
 
 > **saveTokens**(`serverId`, `tokens`): `Promise`\<`void`\>
 
-Defined in: [mcp/auth/tokenStorage.ts:21](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/auth/tokenStorage.ts#L21)
+Defined in: [mcp/auth/tokenStorage.ts:21](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/auth/tokenStorage.ts#L21)
 
 Save tokens for a server
 
@@ -108,7 +108,7 @@ OAuth tokens to store
 
 > **deleteTokens**(`serverId`): `Promise`\<`void`\>
 
-Defined in: [mcp/auth/tokenStorage.ts:25](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/auth/tokenStorage.ts#L25)
+Defined in: [mcp/auth/tokenStorage.ts:25](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/auth/tokenStorage.ts#L25)
 
 Delete stored tokens for a server
 
@@ -134,7 +134,7 @@ Unique identifier for the MCP server
 
 > **hasTokens**(`serverId`): `Promise`\<`boolean`\>
 
-Defined in: [mcp/auth/tokenStorage.ts:29](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/auth/tokenStorage.ts#L29)
+Defined in: [mcp/auth/tokenStorage.ts:29](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/auth/tokenStorage.ts#L29)
 
 Check if tokens exist for a server
 
@@ -162,7 +162,7 @@ True if tokens exist
 
 > **clearAll**(): `Promise`\<`void`\>
 
-Defined in: [mcp/auth/tokenStorage.ts:33](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/auth/tokenStorage.ts#L33)
+Defined in: [mcp/auth/tokenStorage.ts:33](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/auth/tokenStorage.ts#L33)
 
 Clear all stored tokens
 
@@ -180,7 +180,7 @@ Clear all stored tokens
 
 > **getServerIds**(): `string`[]
 
-Defined in: [mcp/auth/tokenStorage.ts:47](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/auth/tokenStorage.ts#L47)
+Defined in: [mcp/auth/tokenStorage.ts:47](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/auth/tokenStorage.ts#L47)
 
 Get all server IDs with stored tokens
 

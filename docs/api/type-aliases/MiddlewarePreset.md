@@ -8,7 +8,7 @@
 
 > **MiddlewarePreset** = `object`
 
-Defined in: [types/middlewareTypes.ts:135](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/middlewareTypes.ts#L135)
+Defined in: [types/middlewareTypes.ts:135](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L135)
 
 Middleware preset configurations
 
@@ -18,7 +18,7 @@ Middleware preset configurations
 
 > **name**: `string`
 
-Defined in: [types/middlewareTypes.ts:137](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/middlewareTypes.ts#L137)
+Defined in: [types/middlewareTypes.ts:137](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L137)
 
 Preset name
 
@@ -28,7 +28,7 @@ Preset name
 
 > **description**: `string`
 
-Defined in: [types/middlewareTypes.ts:139](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/middlewareTypes.ts#L139)
+Defined in: [types/middlewareTypes.ts:139](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L139)
 
 Description of the preset
 
@@ -38,6 +38,6 @@ Description of the preset
 
 > **config**: `Record`\<`string`, [`MiddlewareConfig`](MiddlewareConfig.md)\>
 
-Defined in: [types/middlewareTypes.ts:141](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/middlewareTypes.ts#L141)
+Defined in: [types/middlewareTypes.ts:141](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L141)
 
 Middleware configurations in the preset

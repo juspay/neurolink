@@ -8,7 +8,7 @@
 
 > **OpenTelemetryConfig** = `object`
 
-Defined in: [types/observability.ts:37](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/observability.ts#L37)
+Defined in: [types/observability.ts:37](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L37)
 
 OpenTelemetry configuration
 
@@ -18,7 +18,7 @@ OpenTelemetry configuration
 
 > **enabled**: `boolean`
 
-Defined in: [types/observability.ts:39](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/observability.ts#L39)
+Defined in: [types/observability.ts:39](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L39)
 
 Whether OpenTelemetry is enabled
 
@@ -28,7 +28,7 @@ Whether OpenTelemetry is enabled
 
 > `optional` **endpoint**: `string`
 
-Defined in: [types/observability.ts:41](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/observability.ts#L41)
+Defined in: [types/observability.ts:41](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L41)
 
 OTLP endpoint URL
 
@@ -38,7 +38,7 @@ OTLP endpoint URL
 
 > `optional` **serviceName**: `string`
 
-Defined in: [types/observability.ts:43](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/observability.ts#L43)
+Defined in: [types/observability.ts:43](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L43)
 
 Service name for traces
 
@@ -48,6 +48,6 @@ Service name for traces
 
 > `optional` **serviceVersion**: `string`
 
-Defined in: [types/observability.ts:45](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/observability.ts#L45)
+Defined in: [types/observability.ts:45](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L45)
 
 Service version

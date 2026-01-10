@@ -232,6 +232,45 @@ export class ErrorFactory {
   }
 
   // ============================================================================
+  // CONFIGURATION ERRORS
+  // ============================================================================
+
+  /**
+   * Create a missing configuration error (e.g., missing API key)
+   */
+  static missingConfiguration(
+    configName: string,
+    context?: Record<string, unknown>,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.MISSING_CONFIGURATION,
+      message: `Missing required configuration: ${configName}`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.HIGH,
+      retriable: false,
+      context: context || {},
+    });
+  }
+
+  /**
+   * Create an invalid configuration error (e.g., NaN for numeric values)
+   */
+  static invalidConfiguration(
+    configName: string,
+    reason: string,
+    context?: Record<string, unknown>,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_CONFIGURATION,
+      message: `Invalid configuration for '${configName}': ${reason}`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.HIGH,
+      retriable: false,
+      context: context || {},
+    });
+  }
+
+  // ============================================================================
   // VIDEO VALIDATION ERRORS
   // ============================================================================
 

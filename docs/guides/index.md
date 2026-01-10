@@ -17,6 +17,7 @@ Core guides for getting the most out of NeuroLink.
 | Guide                                                 | Description                                                            |
 | ----------------------------------------------------- | ---------------------------------------------------------------------- |
 | **[Provider Selection Guide](provider-selection.md)** | Interactive wizard to choose the best provider for your use case       |
+| **[GitHub Action Guide](github-action.md)**           | Run AI-powered workflows in GitHub Actions with 13 providers           |
 | **[Troubleshooting](troubleshooting.md)**             | Common issues, debugging tips, and solutions for NeuroLink CLI and SDK |
 
 ---

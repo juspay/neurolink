@@ -1,0 +1,58 @@
+# src/action/examples/issue-triage.yml
+name: AI Issue Triage
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Triage Issue
+        uses: juspay/neurolink@v1
+        id: triage
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: |
+            Analyze this GitHub issue and respond with JSON:
+
+            Title: ${{ github.event.issue.title }}
+            Body: ${{ github.event.issue.body }}
+
+            {
+              "category": "bug|feature|question|docs",
+              "priority": "high|medium|low",
+              "labels": ["suggested", "labels"],
+              "summary": "one line summary"
+            }
+          provider: openai
+          model: gpt-4o-mini
+          output_format: json
+
+      - name: Apply labels
+        uses: actions/github-script@v7
+        env:
+          TRIAGE_RESPONSE: ${{ steps.triage.outputs.response }}
+        with:
+          script: |
+            try {
+              const analysis = JSON.parse(process.env.TRIAGE_RESPONSE);
+
+              if (!analysis.labels || !Array.isArray(analysis.labels)) {
+                core.setFailed('Invalid triage response: missing or invalid labels array');
+                return;
+              }
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: analysis.labels
+              });
+            } catch (error) {
+              core.setFailed(`Failed to parse triage response: ${error.message}`);
+            }

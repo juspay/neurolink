@@ -6,7 +6,7 @@
 
 # Class: MCPCircuitBreaker
 
-Defined in: [mcp/mcpCircuitBreaker.ts:21](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/mcpCircuitBreaker.ts#L21)
+Defined in: [mcp/mcpCircuitBreaker.ts:21](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/mcpCircuitBreaker.ts#L21)
 
 MCPCircuitBreaker
 Implements circuit breaker pattern for fault tolerance
@@ -21,7 +21,7 @@ Implements circuit breaker pattern for fault tolerance
 
 > **new MCPCircuitBreaker**(`name`, `config`): `MCPCircuitBreaker`
 
-Defined in: [mcp/mcpCircuitBreaker.ts:31](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/mcpCircuitBreaker.ts#L31)
+Defined in: [mcp/mcpCircuitBreaker.ts:31](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/mcpCircuitBreaker.ts#L31)
 
 #### Parameters
 
@@ -47,7 +47,7 @@ Defined in: [mcp/mcpCircuitBreaker.ts:31](https://github.com/juspay/neurolink/bl
 
 > **execute**\<`T`\>(`operation`): `Promise`\<`T`\>
 
-Defined in: [mcp/mcpCircuitBreaker.ts:54](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/mcpCircuitBreaker.ts#L54)
+Defined in: [mcp/mcpCircuitBreaker.ts:54](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/mcpCircuitBreaker.ts#L54)
 
 Execute an operation with circuit breaker protection
 
@@ -73,7 +73,7 @@ Execute an operation with circuit breaker protection
 
 > **getStats**(): `CircuitBreakerStats`
 
-Defined in: [mcp/mcpCircuitBreaker.ts:257](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/mcpCircuitBreaker.ts#L257)
+Defined in: [mcp/mcpCircuitBreaker.ts:257](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/mcpCircuitBreaker.ts#L257)
 
 Get current statistics
 
@@ -87,7 +87,7 @@ Get current statistics
 
 > **reset**(): `void`
 
-Defined in: [mcp/mcpCircuitBreaker.ts:286](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/mcpCircuitBreaker.ts#L286)
+Defined in: [mcp/mcpCircuitBreaker.ts:286](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/mcpCircuitBreaker.ts#L286)
 
 Manually reset the circuit breaker
 
@@ -101,7 +101,7 @@ Manually reset the circuit breaker
 
 > **forceOpen**(`reason`): `void`
 
-Defined in: [mcp/mcpCircuitBreaker.ts:296](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/mcpCircuitBreaker.ts#L296)
+Defined in: [mcp/mcpCircuitBreaker.ts:296](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/mcpCircuitBreaker.ts#L296)
 
 Force open the circuit breaker
 
@@ -121,7 +121,7 @@ Force open the circuit breaker
 
 > **getName**(): `string`
 
-Defined in: [mcp/mcpCircuitBreaker.ts:304](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/mcpCircuitBreaker.ts#L304)
+Defined in: [mcp/mcpCircuitBreaker.ts:304](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/mcpCircuitBreaker.ts#L304)
 
 Get circuit breaker name
 
@@ -135,7 +135,7 @@ Get circuit breaker name
 
 > **isOpen**(): `boolean`
 
-Defined in: [mcp/mcpCircuitBreaker.ts:311](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/mcpCircuitBreaker.ts#L311)
+Defined in: [mcp/mcpCircuitBreaker.ts:311](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/mcpCircuitBreaker.ts#L311)
 
 Check if circuit is open
 
@@ -149,7 +149,7 @@ Check if circuit is open
 
 > **isClosed**(): `boolean`
 
-Defined in: [mcp/mcpCircuitBreaker.ts:318](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/mcpCircuitBreaker.ts#L318)
+Defined in: [mcp/mcpCircuitBreaker.ts:318](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/mcpCircuitBreaker.ts#L318)
 
 Check if circuit is closed
 
@@ -163,7 +163,7 @@ Check if circuit is closed
 
 > **isHalfOpen**(): `boolean`
 
-Defined in: [mcp/mcpCircuitBreaker.ts:325](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/mcpCircuitBreaker.ts#L325)
+Defined in: [mcp/mcpCircuitBreaker.ts:325](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/mcpCircuitBreaker.ts#L325)
 
 Check if circuit is half-open
 
@@ -177,7 +177,7 @@ Check if circuit is half-open
 
 > **destroy**(): `void`
 
-Defined in: [mcp/mcpCircuitBreaker.ts:334](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/mcpCircuitBreaker.ts#L334)
+Defined in: [mcp/mcpCircuitBreaker.ts:334](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/mcpCircuitBreaker.ts#L334)
 
 Destroy the circuit breaker and clean up resources
 This method should be called when the circuit breaker is no longer needed

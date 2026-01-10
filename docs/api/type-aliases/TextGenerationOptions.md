@@ -8,7 +8,7 @@
 
 > **TextGenerationOptions** = `object`
 
-Defined in: [types/generateTypes.ts:437](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L437)
+Defined in: [types/generateTypes.ts:437](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L437)
 
 Text generation options type (consolidated from core types)
 Extended to support video generation mode
@@ -19,7 +19,7 @@ Extended to support video generation mode
 
 > `optional` **prompt**: `string`
 
-Defined in: [types/generateTypes.ts:438](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L438)
+Defined in: [types/generateTypes.ts:438](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L438)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/generateTypes.ts:438](https://github.com/juspay/neurolink/blo
 
 > `optional` **input**: `object`
 
-Defined in: [types/generateTypes.ts:448](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L448)
+Defined in: [types/generateTypes.ts:448](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L448)
 
 Alternative input format for multimodal SDK operations.
 
@@ -58,7 +58,7 @@ For video generation, the first image is used as the source frame.
 
 > `optional` **provider**: [`AIProviderName`](../enumerations/AIProviderName.md)
 
-Defined in: [types/generateTypes.ts:457](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L457)
+Defined in: [types/generateTypes.ts:457](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L457)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/generateTypes.ts:457](https://github.com/juspay/neurolink/blo
 
 > `optional` **model**: `string`
 
-Defined in: [types/generateTypes.ts:458](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L458)
+Defined in: [types/generateTypes.ts:458](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L458)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/generateTypes.ts:458](https://github.com/juspay/neurolink/blo
 
 > `optional` **region**: `string`
 
-Defined in: [types/generateTypes.ts:459](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L459)
+Defined in: [types/generateTypes.ts:459](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L459)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/generateTypes.ts:459](https://github.com/juspay/neurolink/blo
 
 > `optional` **temperature**: `number`
 
-Defined in: [types/generateTypes.ts:460](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L460)
+Defined in: [types/generateTypes.ts:460](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L460)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/generateTypes.ts:460](https://github.com/juspay/neurolink/blo
 
 > `optional` **maxTokens**: `number`
 
-Defined in: [types/generateTypes.ts:461](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L461)
+Defined in: [types/generateTypes.ts:461](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L461)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/generateTypes.ts:461](https://github.com/juspay/neurolink/blo
 
 > `optional` **systemPrompt**: `string`
 
-Defined in: [types/generateTypes.ts:462](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L462)
+Defined in: [types/generateTypes.ts:462](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L462)
 
 ---
 
@@ -106,7 +106,7 @@ Defined in: [types/generateTypes.ts:462](https://github.com/juspay/neurolink/blo
 
 > `optional` **schema**: `ZodUnknownSchema` \| `Schema`\<`unknown`\>
 
-Defined in: [types/generateTypes.ts:463](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L463)
+Defined in: [types/generateTypes.ts:463](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L463)
 
 ---
 
@@ -114,7 +114,7 @@ Defined in: [types/generateTypes.ts:463](https://github.com/juspay/neurolink/blo
 
 > `optional` **output**: `object`
 
-Defined in: [types/generateTypes.ts:475](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L475)
+Defined in: [types/generateTypes.ts:475](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L475)
 
 Output configuration options
 
@@ -152,7 +152,7 @@ output: {
 
 > `optional` **tools**: `Record`\<`string`, `Tool`\>
 
-Defined in: [types/generateTypes.ts:488](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L488)
+Defined in: [types/generateTypes.ts:488](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L488)
 
 ---
 
@@ -160,7 +160,7 @@ Defined in: [types/generateTypes.ts:488](https://github.com/juspay/neurolink/blo
 
 > `optional` **timeout**: `number` \| `string`
 
-Defined in: [types/generateTypes.ts:489](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L489)
+Defined in: [types/generateTypes.ts:489](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L489)
 
 ---
 
@@ -168,7 +168,7 @@ Defined in: [types/generateTypes.ts:489](https://github.com/juspay/neurolink/blo
 
 > `optional` **disableTools**: `boolean`
 
-Defined in: [types/generateTypes.ts:490](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L490)
+Defined in: [types/generateTypes.ts:490](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L490)
 
 ---
 
@@ -176,7 +176,7 @@ Defined in: [types/generateTypes.ts:490](https://github.com/juspay/neurolink/blo
 
 > `optional` **maxSteps**: `number`
 
-Defined in: [types/generateTypes.ts:491](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L491)
+Defined in: [types/generateTypes.ts:491](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L491)
 
 ---
 
@@ -184,7 +184,7 @@ Defined in: [types/generateTypes.ts:491](https://github.com/juspay/neurolink/blo
 
 > `optional` **tts**: `TTSOptions`
 
-Defined in: [types/generateTypes.ts:522](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L522)
+Defined in: [types/generateTypes.ts:522](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L522)
 
 Text-to-Speech (TTS) configuration
 
@@ -221,7 +221,7 @@ const result = await neurolink.generate({
 
 > `optional` **enableEvaluation**: `boolean`
 
-Defined in: [types/generateTypes.ts:525](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L525)
+Defined in: [types/generateTypes.ts:525](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L525)
 
 ---
 
@@ -229,7 +229,7 @@ Defined in: [types/generateTypes.ts:525](https://github.com/juspay/neurolink/blo
 
 > `optional` **enableAnalytics**: `boolean`
 
-Defined in: [types/generateTypes.ts:526](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L526)
+Defined in: [types/generateTypes.ts:526](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L526)
 
 ---
 
@@ -237,7 +237,7 @@ Defined in: [types/generateTypes.ts:526](https://github.com/juspay/neurolink/blo
 
 > `optional` **context**: `Record`\<`string`, `JsonValue`\>
 
-Defined in: [types/generateTypes.ts:527](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L527)
+Defined in: [types/generateTypes.ts:527](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L527)
 
 ---
 
@@ -245,7 +245,7 @@ Defined in: [types/generateTypes.ts:527](https://github.com/juspay/neurolink/blo
 
 > `optional` **evaluationDomain**: `string`
 
-Defined in: [types/generateTypes.ts:530](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L530)
+Defined in: [types/generateTypes.ts:530](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L530)
 
 ---
 
@@ -253,7 +253,7 @@ Defined in: [types/generateTypes.ts:530](https://github.com/juspay/neurolink/blo
 
 > `optional` **toolUsageContext**: `string`
 
-Defined in: [types/generateTypes.ts:531](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L531)
+Defined in: [types/generateTypes.ts:531](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L531)
 
 ---
 
@@ -261,7 +261,7 @@ Defined in: [types/generateTypes.ts:531](https://github.com/juspay/neurolink/blo
 
 > `optional` **conversationHistory**: `object`[]
 
-Defined in: [types/generateTypes.ts:532](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L532)
+Defined in: [types/generateTypes.ts:532](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L532)
 
 #### role
 
@@ -277,7 +277,7 @@ Defined in: [types/generateTypes.ts:532](https://github.com/juspay/neurolink/blo
 
 > `optional` **conversationMessages**: `ChatMessage`[]
 
-Defined in: [types/generateTypes.ts:535](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L535)
+Defined in: [types/generateTypes.ts:535](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L535)
 
 ---
 
@@ -285,7 +285,7 @@ Defined in: [types/generateTypes.ts:535](https://github.com/juspay/neurolink/blo
 
 > `optional` **conversationMemoryConfig**: `Partial`\<`ConversationMemoryConfig`\>
 
-Defined in: [types/generateTypes.ts:538](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L538)
+Defined in: [types/generateTypes.ts:538](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L538)
 
 ---
 
@@ -293,7 +293,7 @@ Defined in: [types/generateTypes.ts:538](https://github.com/juspay/neurolink/blo
 
 > `optional` **originalPrompt**: `string`
 
-Defined in: [types/generateTypes.ts:539](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L539)
+Defined in: [types/generateTypes.ts:539](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L539)
 
 ---
 
@@ -301,7 +301,7 @@ Defined in: [types/generateTypes.ts:539](https://github.com/juspay/neurolink/blo
 
 > `optional` **middleware**: [`MiddlewareFactoryOptions`](MiddlewareFactoryOptions.md)
 
-Defined in: [types/generateTypes.ts:542](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L542)
+Defined in: [types/generateTypes.ts:542](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L542)
 
 ---
 
@@ -309,7 +309,7 @@ Defined in: [types/generateTypes.ts:542](https://github.com/juspay/neurolink/blo
 
 > `optional` **expectedOutcome**: `string`
 
-Defined in: [types/generateTypes.ts:545](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L545)
+Defined in: [types/generateTypes.ts:545](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L545)
 
 ---
 
@@ -317,7 +317,7 @@ Defined in: [types/generateTypes.ts:545](https://github.com/juspay/neurolink/blo
 
 > `optional` **evaluationCriteria**: `string`[]
 
-Defined in: [types/generateTypes.ts:546](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L546)
+Defined in: [types/generateTypes.ts:546](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L546)
 
 ---
 
@@ -325,7 +325,7 @@ Defined in: [types/generateTypes.ts:546](https://github.com/juspay/neurolink/blo
 
 > `optional` **csvOptions**: `object`
 
-Defined in: [types/generateTypes.ts:549](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L549)
+Defined in: [types/generateTypes.ts:549](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L549)
 
 #### maxRows?
 
@@ -345,7 +345,7 @@ Defined in: [types/generateTypes.ts:549](https://github.com/juspay/neurolink/blo
 
 > `optional` **enableSummarization**: `boolean`
 
-Defined in: [types/generateTypes.ts:555](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L555)
+Defined in: [types/generateTypes.ts:555](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L555)
 
 ---
 
@@ -353,7 +353,7 @@ Defined in: [types/generateTypes.ts:555](https://github.com/juspay/neurolink/blo
 
 > `optional` **thinking**: `boolean`
 
-Defined in: [types/generateTypes.ts:612](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L612)
+Defined in: [types/generateTypes.ts:612](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L612)
 
 Enable extended thinking capability (simplified option).
 Equivalent to `thinkingConfig.enabled = true`.
@@ -365,7 +365,7 @@ Works with both Anthropic and Gemini 3 models.
 
 > `optional` **thinkingBudget**: `number`
 
-Defined in: [types/generateTypes.ts:619](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L619)
+Defined in: [types/generateTypes.ts:619](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L619)
 
 Token budget for thinking (Anthropic models only).
 Equivalent to `thinkingConfig.budgetTokens`.
@@ -377,7 +377,7 @@ Range: 5000-100000 tokens. Ignored for Gemini models.
 
 > `optional` **thinkingLevel**: `"minimal"` \| `"low"` \| `"medium"` \| `"high"`
 
-Defined in: [types/generateTypes.ts:630](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L630)
+Defined in: [types/generateTypes.ts:630](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L630)
 
 Thinking level for Gemini 3 models only.
 Equivalent to `thinkingConfig.thinkingLevel`.
@@ -394,7 +394,7 @@ Equivalent to `thinkingConfig.thinkingLevel`.
 
 > `optional` **thinkingConfig**: `object`
 
-Defined in: [types/generateTypes.ts:638](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/generateTypes.ts#L638)
+Defined in: [types/generateTypes.ts:638](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L638)
 
 Full thinking/reasoning configuration (recommended for SDK usage).
 Takes precedence over simplified options (thinking, thinkingBudget, thinkingLevel).

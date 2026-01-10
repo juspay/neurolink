@@ -9,6 +9,12 @@ node_modules
 /.svelte-kit
 /build
 /dist
+# Keep GitHub Action compiled output (required for GitHub Actions)
+!action-dist/
+
+# Local action testing
+.actrc
+event.json
 
 # TypeDoc generated (regenerated on each build)
 docs/api/_media/

@@ -1,7 +1,7 @@
 <div align="center">
   <h1>🧠 NeuroLink</h1>
   <p><strong>The Enterprise AI SDK for Production Applications</strong></p>
-  <p>13 Providers | 58+ MCP Tools | HITL Security | Redis Persistence</p>
+  <p>12 Providers | 58+ MCP Tools | HITL Security | Redis Persistence</p>
 </div>
 
 <div align="center">
@@ -35,20 +35,12 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q1 2026)
 
-| Feature                            | Version | Description                                                                                                                                                  | Guide                                                   |
-| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| **Video Generation**               | v8.32.0 | Generate videos from text prompts using RunwayML integration with ML5 and ML6 Turbo models. Create cinematic content, product demos, and animated sequences. | [Video Generation Guide](features/video-generation.md)  |
-| **Image Generation with Gemini**   | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.               | [Image Generation Guide](image-generation-streaming.md) |
-| **HTTP/Streamable HTTP Transport** | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.                | [HTTP Transport Guide](mcp-http-transport.md)           |
+| Feature                            | Version | Description                                                                                                                                    | Guide                                                   |
+| ---------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| **Image Generation with Gemini**   | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI. | [Image Generation Guide](image-generation-streaming.md) |
+| **HTTP/Streamable HTTP Transport** | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.  | [HTTP Transport Guide](mcp-http-transport.md)           |
 
 ```typescript
-// Video Generation (v8.32.0)
-const video = await neurolink.generateVideo({
-  prompt: "A serene mountain landscape at sunset",
-  model: "runway-ml6-turbo",
-  duration: 5,
-});
-
 // Image Generation with Gemini (v8.31.0)
 const image = await neurolink.generateImage({
   prompt: "A futuristic cityscape",
@@ -145,7 +137,6 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 | **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview) | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#vertex)            |
 | **Azure OpenAI**      | GPT-4, GPT-4o, o1                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#azure)             |
 | **LiteLLM**           | 100+ models unified                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](litellm-integration.md)                              |
-| **OpenRouter**        | 300+ models unified                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openrouter)        |
 | **AWS SageMaker**     | Custom deployed models             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](sagemaker-integration.md)                            |
 | **Mistral AI**        | Mistral Large, Small               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#mistral)           |
 | **Hugging Face**      | 100,000+ models                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](getting-started/provider-setup.md#huggingface)       |
@@ -153,7 +144,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 | **OpenAI Compatible** | Any OpenAI-compatible endpoint     | Varies          | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openai-compatible) |
 
 **[📖 Provider Comparison Guide](reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
-**[🔬 Provider Feature Compatibility](reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 11 providers
+**[🔬 Provider Feature Compatibility](reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 13 providers
 
 ---
 
@@ -337,6 +328,32 @@ node your-app.js
 | `eval`     | Model evaluation                   | `neurolink eval`           | [Eval](cli/commands.md#eval)         |
 
 **[📖 Complete CLI Reference](cli/commands.md)** - All commands and options
+
+---
+
+### 🤖 GitHub Action
+
+Run AI-powered workflows directly in GitHub Actions with 13 provider support and automatic PR/issue commenting.
+
+```yaml
+- uses: juspay/neurolink@v1
+  with:
+    anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+    prompt: "Review this PR for security issues and code quality"
+    post_comment: true
+```
+
+| Feature                | Description                                     |
+| ---------------------- | ----------------------------------------------- |
+| **Multi-Provider**     | 13 providers with unified interface             |
+| **PR/Issue Comments**  | Auto-post AI responses with intelligent updates |
+| **Multimodal Support** | Attach images, PDFs, CSVs to prompts            |
+| **Cost Tracking**      | Built-in analytics and quality evaluation       |
+| **Extended Thinking**  | Deep reasoning with thinking tokens             |
+
+**[📖 GitHub Action Guide](guides/github-action.md)** - Complete setup and examples
+
+---
 
 ## 💰 Smart Model Selection
 

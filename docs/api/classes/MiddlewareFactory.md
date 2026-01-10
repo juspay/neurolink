@@ -6,7 +6,7 @@
 
 # Class: MiddlewareFactory
 
-Defined in: [middleware/factory.ts:23](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L23)
+Defined in: [middleware/factory.ts:23](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L23)
 
 Middleware factory for creating and applying middleware chains.
 Each factory instance manages its own registry and configuration.
@@ -17,7 +17,7 @@ Each factory instance manages its own registry and configuration.
 
 > **new MiddlewareFactory**(`options`): `MiddlewareFactory`
 
-Defined in: [middleware/factory.ts:28](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L28)
+Defined in: [middleware/factory.ts:28](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L28)
 
 #### Parameters
 
@@ -35,7 +35,7 @@ Defined in: [middleware/factory.ts:28](https://github.com/juspay/neurolink/blob/
 
 > **registry**: `MiddlewareRegistry`
 
-Defined in: [middleware/factory.ts:24](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L24)
+Defined in: [middleware/factory.ts:24](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L24)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [middleware/factory.ts:24](https://github.com/juspay/neurolink/blob/
 
 > **presets**: `Map`\<`string`, [`MiddlewarePreset`](../type-aliases/MiddlewarePreset.md)\>
 
-Defined in: [middleware/factory.ts:25](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L25)
+Defined in: [middleware/factory.ts:25](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L25)
 
 ## Methods
 
@@ -51,7 +51,7 @@ Defined in: [middleware/factory.ts:25](https://github.com/juspay/neurolink/blob/
 
 > **registerPreset**(`preset`, `replace`): `void`
 
-Defined in: [middleware/factory.ts:91](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L91)
+Defined in: [middleware/factory.ts:91](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L91)
 
 Register a custom preset
 
@@ -75,7 +75,7 @@ Register a custom preset
 
 > **register**(`middleware`, `options?`): `void`
 
-Defined in: [middleware/factory.ts:103](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L103)
+Defined in: [middleware/factory.ts:103](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L103)
 
 Register a custom middleware
 
@@ -99,7 +99,7 @@ Register a custom middleware
 
 > **applyMiddleware**(`model`, `context`, `options`): `LanguageModelV1`
 
-Defined in: [middleware/factory.ts:113](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L113)
+Defined in: [middleware/factory.ts:113](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L113)
 
 Apply middleware to a language model
 
@@ -127,7 +127,7 @@ Apply middleware to a language model
 
 > **createContext**(`provider`, `model`, `options`, `session?`): [`MiddlewareContext`](../type-aliases/MiddlewareContext.md)
 
-Defined in: [middleware/factory.ts:292](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L292)
+Defined in: [middleware/factory.ts:292](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L292)
 
 Create middleware context from provider and options
 
@@ -165,7 +165,7 @@ Create middleware context from provider and options
 
 > **validateConfig**(`config`): `object`
 
-Defined in: [middleware/factory.ts:313](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L313)
+Defined in: [middleware/factory.ts:313](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L313)
 
 Validate middleware configuration
 
@@ -197,7 +197,7 @@ Validate middleware configuration
 
 > **getAvailablePresets**(): `object`[]
 
-Defined in: [middleware/factory.ts:368](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L368)
+Defined in: [middleware/factory.ts:368](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L368)
 
 Get available presets
 
@@ -211,7 +211,7 @@ Get available presets
 
 > **getChainStats**(`context`, `config`): `MiddlewareChainStats`
 
-Defined in: [middleware/factory.ts:383](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L383)
+Defined in: [middleware/factory.ts:383](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L383)
 
 Get middleware chain statistics
 
@@ -235,7 +235,7 @@ Get middleware chain statistics
 
 > **createModelFactory**(`baseModelFactory`, `defaultOptions`): (`context`, `options`) => `Promise`\<`LanguageModelV1`\>
 
-Defined in: [middleware/factory.ts:416](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/middleware/factory.ts#L416)
+Defined in: [middleware/factory.ts:416](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/middleware/factory.ts#L416)
 
 Create a middleware-enabled model factory function
 

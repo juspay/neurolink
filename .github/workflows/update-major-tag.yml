@@ -1,0 +1,25 @@
+name: Update Major Version Tag
+on:
+  release:
+    types: [published]
+permissions:
+  contents: write
+jobs:
+  update-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+      - name: Update major version tag
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name }}"
+          if [[ $TAG =~ ^v([0-9]+)\. ]]; then
+            MAJOR="v${BASH_REMATCH[1]}"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -fa "$MAJOR" -m "Update $MAJOR to $TAG"
+            git push origin "$MAJOR" --force
+          fi

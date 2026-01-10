@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../action-dist",
+    "rootDir": "../",
+    "noEmit": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "declaration": false
+  },
+  "include": [
+    "index.ts",
+    "../lib/action/**/*.ts",
+    "../lib/types/actionTypes.ts",
+    "../lib/constants/enums.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

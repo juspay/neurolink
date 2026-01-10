@@ -8,7 +8,7 @@
 
 > **TokenStorage** = `object`
 
-Defined in: [types/mcpTypes.ts:845](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L845)
+Defined in: [types/mcpTypes.ts:845](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L845)
 
 Token storage type for OAuth 2.1 authentication
 Implementations can use in-memory, file-based, or external storage
@@ -19,7 +19,7 @@ Implementations can use in-memory, file-based, or external storage
 
 > **getTokens**(`serverId`): `Promise`\<[`OAuthTokens`](OAuthTokens.md) \| `null`\>
 
-Defined in: [types/mcpTypes.ts:851](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L851)
+Defined in: [types/mcpTypes.ts:851](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L851)
 
 Get stored tokens for a server
 
@@ -43,7 +43,7 @@ Stored tokens or null if not found
 
 > **saveTokens**(`serverId`, `tokens`): `Promise`\<`void`\>
 
-Defined in: [types/mcpTypes.ts:858](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L858)
+Defined in: [types/mcpTypes.ts:858](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L858)
 
 Save tokens for a server
 
@@ -71,7 +71,7 @@ OAuth tokens to store
 
 > **deleteTokens**(`serverId`): `Promise`\<`void`\>
 
-Defined in: [types/mcpTypes.ts:864](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L864)
+Defined in: [types/mcpTypes.ts:864](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L864)
 
 Delete stored tokens for a server
 
@@ -93,7 +93,7 @@ Unique identifier for the MCP server
 
 > `optional` **hasTokens**(`serverId`): `Promise`\<`boolean`\>
 
-Defined in: [types/mcpTypes.ts:871](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L871)
+Defined in: [types/mcpTypes.ts:871](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L871)
 
 Check if tokens exist for a server
 
@@ -117,7 +117,7 @@ True if tokens exist
 
 > `optional` **clearAll**(): `Promise`\<`void`\>
 
-Defined in: [types/mcpTypes.ts:876](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L876)
+Defined in: [types/mcpTypes.ts:876](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L876)
 
 Clear all stored tokens
 

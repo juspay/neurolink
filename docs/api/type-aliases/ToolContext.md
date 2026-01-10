@@ -8,7 +8,7 @@
 
 > **ToolContext** = `object`
 
-Defined in: [types/tools.ts:177](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L177)
+Defined in: [types/tools.ts:177](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L177)
 
 Tool execution context
 
@@ -18,7 +18,7 @@ Tool execution context
 
 > `optional` **sessionId**: `string`
 
-Defined in: [types/tools.ts:178](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L178)
+Defined in: [types/tools.ts:178](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L178)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/tools.ts:178](https://github.com/juspay/neurolink/blob/e2ee0f
 
 > `optional` **userId**: `string`
 
-Defined in: [types/tools.ts:179](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L179)
+Defined in: [types/tools.ts:179](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L179)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/tools.ts:179](https://github.com/juspay/neurolink/blob/e2ee0f
 
 > `optional` **aiProvider**: `string`
 
-Defined in: [types/tools.ts:180](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L180)
+Defined in: [types/tools.ts:180](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L180)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/tools.ts:180](https://github.com/juspay/neurolink/blob/e2ee0f
 
 > `optional` **metadata**: `ToolExecutionMetadata`
 
-Defined in: [types/tools.ts:181](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L181)
+Defined in: [types/tools.ts:181](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L181)

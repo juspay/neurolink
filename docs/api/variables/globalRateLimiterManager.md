@@ -8,7 +8,7 @@
 
 > `const` **globalRateLimiterManager**: [`RateLimiterManager`](../classes/RateLimiterManager.md)
 
-Defined in: [mcp/httpRateLimiter.ts:460](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRateLimiter.ts#L460)
+Defined in: [mcp/httpRateLimiter.ts:460](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L460)
 
 Global rate limiter manager instance
 Use this for application-wide rate limiting management

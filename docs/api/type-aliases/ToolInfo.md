@@ -8,7 +8,7 @@
 
 > **ToolInfo** = `object`
 
-Defined in: [types/tools.ts:96](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L96)
+Defined in: [types/tools.ts:96](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L96)
 
 Tool information with extensibility
 Moved from src/lib/mcp/contracts/mcpContract.ts
@@ -23,7 +23,7 @@ Moved from src/lib/mcp/contracts/mcpContract.ts
 
 > **name**: `string`
 
-Defined in: [types/tools.ts:97](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L97)
+Defined in: [types/tools.ts:97](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L97)
 
 ---
 
@@ -31,7 +31,7 @@ Defined in: [types/tools.ts:97](https://github.com/juspay/neurolink/blob/e2ee0ff
 
 > `optional` **description**: `string`
 
-Defined in: [types/tools.ts:98](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L98)
+Defined in: [types/tools.ts:98](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L98)
 
 ---
 
@@ -39,7 +39,7 @@ Defined in: [types/tools.ts:98](https://github.com/juspay/neurolink/blob/e2ee0ff
 
 > `optional` **category**: `string`
 
-Defined in: [types/tools.ts:99](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L99)
+Defined in: [types/tools.ts:99](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L99)
 
 ---
 
@@ -47,7 +47,7 @@ Defined in: [types/tools.ts:99](https://github.com/juspay/neurolink/blob/e2ee0ff
 
 > `optional` **serverId**: `string`
 
-Defined in: [types/tools.ts:100](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L100)
+Defined in: [types/tools.ts:100](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L100)
 
 ---
 
@@ -55,7 +55,7 @@ Defined in: [types/tools.ts:100](https://github.com/juspay/neurolink/blob/e2ee0f
 
 > `optional` **inputSchema**: `StandardRecord`
 
-Defined in: [types/tools.ts:101](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L101)
+Defined in: [types/tools.ts:101](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L101)
 
 ---
 
@@ -63,4 +63,4 @@ Defined in: [types/tools.ts:101](https://github.com/juspay/neurolink/blob/e2ee0f
 
 > `optional` **outputSchema**: `StandardRecord`
 
-Defined in: [types/tools.ts:102](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/tools.ts#L102)
+Defined in: [types/tools.ts:102](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L102)

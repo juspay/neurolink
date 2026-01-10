@@ -8,7 +8,7 @@
 
 > **AIProvider** = `object`
 
-Defined in: [types/providers.ts:296](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/providers.ts#L296)
+Defined in: [types/providers.ts:296](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/providers.ts#L296)
 
 AI Provider type with flexible parameter support
 
@@ -18,7 +18,7 @@ AI Provider type with flexible parameter support
 
 > **stream**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<`StreamResult`\>
 
-Defined in: [types/providers.ts:298](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/providers.ts#L298)
+Defined in: [types/providers.ts:298](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/providers.ts#L298)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [types/providers.ts:298](https://github.com/juspay/neurolink/blob/e2
 
 > **generate**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<`EnhancedGenerateResult` \| `null`\>
 
-Defined in: [types/providers.ts:303](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/providers.ts#L303)
+Defined in: [types/providers.ts:303](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/providers.ts#L303)
 
 #### Parameters
 
@@ -62,7 +62,7 @@ Defined in: [types/providers.ts:303](https://github.com/juspay/neurolink/blob/e2
 
 > **gen**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<`EnhancedGenerateResult` \| `null`\>
 
-Defined in: [types/providers.ts:308](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/providers.ts#L308)
+Defined in: [types/providers.ts:308](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/providers.ts#L308)
 
 #### Parameters
 
@@ -84,7 +84,7 @@ Defined in: [types/providers.ts:308](https://github.com/juspay/neurolink/blob/e2
 
 > **setupToolExecutor**(`sdk`, `functionTag`): `void`
 
-Defined in: [types/providers.ts:314](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/providers.ts#L314)
+Defined in: [types/providers.ts:314](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/providers.ts#L314)
 
 #### Parameters
 

@@ -6,7 +6,7 @@
 
 # Class: RateLimiterManager
 
-Defined in: [mcp/httpRateLimiter.ts:314](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRateLimiter.ts#L314)
+Defined in: [mcp/httpRateLimiter.ts:314](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L314)
 
 RateLimiterManager
 Manages multiple rate limiters for different servers
@@ -28,7 +28,7 @@ Each server can have its own rate limiting configuration
 
 > **getLimiter**(`serverId`, `config?`): [`HTTPRateLimiter`](HTTPRateLimiter.md)
 
-Defined in: [mcp/httpRateLimiter.ts:324](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRateLimiter.ts#L324)
+Defined in: [mcp/httpRateLimiter.ts:324](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L324)
 
 Get or create a rate limiter for a server
 
@@ -58,7 +58,7 @@ HTTPRateLimiter instance for the server
 
 > **hasLimiter**(`serverId`): `boolean`
 
-Defined in: [mcp/httpRateLimiter.ts:351](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRateLimiter.ts#L351)
+Defined in: [mcp/httpRateLimiter.ts:351](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L351)
 
 Check if a rate limiter exists for a server
 
@@ -82,7 +82,7 @@ true if a rate limiter exists for the server
 
 > **removeLimiter**(`serverId`): `void`
 
-Defined in: [mcp/httpRateLimiter.ts:360](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRateLimiter.ts#L360)
+Defined in: [mcp/httpRateLimiter.ts:360](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L360)
 
 Remove a rate limiter for a server
 
@@ -104,7 +104,7 @@ Unique identifier for the server
 
 > **getServerIds**(): `string`[]
 
-Defined in: [mcp/httpRateLimiter.ts:377](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRateLimiter.ts#L377)
+Defined in: [mcp/httpRateLimiter.ts:377](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L377)
 
 Get all server IDs with active rate limiters
 
@@ -120,7 +120,7 @@ Array of server IDs
 
 > **getAllStats**(): `Record`\<`string`, `RateLimiterStats`\>
 
-Defined in: [mcp/httpRateLimiter.ts:386](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRateLimiter.ts#L386)
+Defined in: [mcp/httpRateLimiter.ts:386](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L386)
 
 Get statistics for all rate limiters
 
@@ -136,7 +136,7 @@ Record of server IDs to their rate limiter statistics
 
 > **resetAll**(): `void`
 
-Defined in: [mcp/httpRateLimiter.ts:399](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRateLimiter.ts#L399)
+Defined in: [mcp/httpRateLimiter.ts:399](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L399)
 
 Reset all rate limiters
 
@@ -150,7 +150,7 @@ Reset all rate limiters
 
 > **destroyAll**(): `void`
 
-Defined in: [mcp/httpRateLimiter.ts:411](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRateLimiter.ts#L411)
+Defined in: [mcp/httpRateLimiter.ts:411](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L411)
 
 Destroy all rate limiters and clean up resources
 This should be called during application shutdown
@@ -165,7 +165,7 @@ This should be called during application shutdown
 
 > **getHealthSummary**(): `object`
 
-Defined in: [mcp/httpRateLimiter.ts:423](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRateLimiter.ts#L423)
+Defined in: [mcp/httpRateLimiter.ts:423](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L423)
 
 Get health summary for all rate limiters
 

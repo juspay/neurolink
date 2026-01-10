@@ -52,3 +52,4 @@ pnpm-lock.yaml
 *.d.ts
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+action-dist/

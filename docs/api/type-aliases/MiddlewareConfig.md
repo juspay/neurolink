@@ -8,7 +8,7 @@
 
 > **MiddlewareConfig** = `object`
 
-Defined in: [types/middlewareTypes.ts:37](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/middlewareTypes.ts#L37)
+Defined in: [types/middlewareTypes.ts:37](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L37)
 
 Middleware configuration options
 
@@ -18,7 +18,7 @@ Middleware configuration options
 
 > `optional` **enabled**: `boolean`
 
-Defined in: [types/middlewareTypes.ts:39](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/middlewareTypes.ts#L39)
+Defined in: [types/middlewareTypes.ts:39](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L39)
 
 Whether the middleware is enabled
 
@@ -28,7 +28,7 @@ Whether the middleware is enabled
 
 > `optional` **config**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/middlewareTypes.ts:41](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/middlewareTypes.ts#L41)
+Defined in: [types/middlewareTypes.ts:41](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L41)
 
 Middleware-specific configuration
 
@@ -38,6 +38,6 @@ Middleware-specific configuration
 
 > `optional` **conditions**: `MiddlewareConditions`
 
-Defined in: [types/middlewareTypes.ts:43](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/middlewareTypes.ts#L43)
+Defined in: [types/middlewareTypes.ts:43](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L43)
 
 Conditions under which to apply this middleware

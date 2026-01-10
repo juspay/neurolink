@@ -8,6 +8,6 @@
 
 > **ModelRegistry** = `z.infer`\<_typeof_ `ModelRegistrySchema`\>
 
-Defined in: [types/modelTypes.ts:111](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/modelTypes.ts#L111)
+Defined in: [types/modelTypes.ts:111](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/modelTypes.ts#L111)
 
 Dynamic model registry type

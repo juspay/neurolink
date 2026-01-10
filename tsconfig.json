@@ -12,5 +12,6 @@
     "noImplicitReturns": true,
     "allowSyntheticDefaultImports": true,
     "types": ["vite/client", "@sveltejs/kit", "vitest/globals", "node"]
-  }
+  },
+  "exclude": ["action-dist"]
 }

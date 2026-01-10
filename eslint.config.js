@@ -211,6 +211,7 @@ export default [
     ignores: [
       "node_modules/**",
       "dist/**",
+      "action-dist/**",
       "build/**",
       ".svelte-kit/**",
       "package/**",

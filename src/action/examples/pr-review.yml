@@ -1,0 +1,46 @@
+# src/action/examples/pr-review.yml
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > diff.txt
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          head -c 50000 diff.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: AI Code Review
+        uses: juspay/neurolink@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request diff and provide constructive feedback:
+
+            ```diff
+            ${{ steps.diff.outputs.diff }}
+            ```
+
+            Focus on:
+            1. Potential bugs or issues
+            2. Code quality improvements
+            3. Security concerns
+          provider: anthropic
+          model: claude-sonnet-4-20250514
+          post_comment: true
+          enable_analytics: true

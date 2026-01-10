@@ -8,7 +8,7 @@
 
 > `const` **DEFAULT_RATE_LIMIT_CONFIG**: [`RateLimitConfig`](../type-aliases/RateLimitConfig.md)
 
-Defined in: [mcp/httpRateLimiter.ts:14](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRateLimiter.ts#L14)
+Defined in: [mcp/httpRateLimiter.ts:14](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L14)
 
 Default rate limit configuration
 Provides sensible defaults for most MCP HTTP transport use cases

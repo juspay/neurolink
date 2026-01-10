@@ -1,64 +1,46 @@
-# Dependabot configuration for automated dependency updates
-# This ensures dependencies stay secure and up-to-date
-
 version: 2
 updates:
-  # Enable version updates for npm dependencies
+  # Keep npm dependencies updated
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 5
-    assignees:
-      - "neurolink-dev-team"
-    reviewers:
-      - "neurolink-dev-team"
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
-      - "automated"
     commit-message:
       prefix: "deps"
       include: "scope"
-    # Group security updates for faster review
     groups:
-      security-updates:
-        patterns:
-          - "*"
-        update-types:
-          - "security-update"
-      minor-updates:
-        patterns:
-          - "*"
+      # Security updates are ungrouped and processed immediately
+      development-dependencies:
+        dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
-    # Ignore specific packages that require manual review
-    ignore:
-      - dependency-name: "@types/node"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "typescript"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "eslint"
-        update-types: ["version-update:semver-major"]
+    # Ignore patterns for known false positives or handled elsewhere
+    ignore: []
 
-  # Enable version updates for GitHub Actions
+  # Keep GitHub Actions updated
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:30"
-    open-pull-requests-limit: 3
-    assignees:
-      - "neurolink-dev-team"
-    reviewers:
-      - "neurolink-dev-team"
+      time: "09:00"
+    open-pull-requests-limit: 5
     labels:
-      - "github-actions"
       - "dependencies"
-      - "automated"
+      - "github-actions"
     commit-message:
       prefix: "ci"
       include: "scope"
+    groups:
+      actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

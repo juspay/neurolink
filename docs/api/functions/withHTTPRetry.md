@@ -8,7 +8,7 @@
 
 > **withHTTPRetry**\<`T`\>(`operation`, `config`): `Promise`\<`T`\>
 
-Defined in: [mcp/httpRetryHandler.ts:155](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/mcp/httpRetryHandler.ts#L155)
+Defined in: [mcp/httpRetryHandler.ts:155](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRetryHandler.ts#L155)
 
 Execute an HTTP operation with retry logic
 

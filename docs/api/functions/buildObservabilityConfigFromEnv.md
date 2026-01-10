@@ -8,7 +8,7 @@
 
 > **buildObservabilityConfigFromEnv**(): [`ObservabilityConfig`](../type-aliases/ObservabilityConfig.md) \| `undefined`
 
-Defined in: [utils/observabilityHelpers.ts:29](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/utils/observabilityHelpers.ts#L29)
+Defined in: [utils/observabilityHelpers.ts:29](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/utils/observabilityHelpers.ts#L29)
 
 Build observability config from environment variables
 

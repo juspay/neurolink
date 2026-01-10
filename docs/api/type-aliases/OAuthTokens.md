@@ -8,7 +8,7 @@
 
 > **OAuthTokens** = `object`
 
-Defined in: [types/mcpTypes.ts:828](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L828)
+Defined in: [types/mcpTypes.ts:828](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L828)
 
 OAuth tokens structure for MCP HTTP transport authentication
 
@@ -18,7 +18,7 @@ OAuth tokens structure for MCP HTTP transport authentication
 
 > **accessToken**: `string`
 
-Defined in: [types/mcpTypes.ts:830](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L830)
+Defined in: [types/mcpTypes.ts:830](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L830)
 
 Access token for API authentication
 
@@ -28,7 +28,7 @@ Access token for API authentication
 
 > `optional` **refreshToken**: `string`
 
-Defined in: [types/mcpTypes.ts:832](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L832)
+Defined in: [types/mcpTypes.ts:832](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L832)
 
 Refresh token for obtaining new access tokens
 
@@ -38,7 +38,7 @@ Refresh token for obtaining new access tokens
 
 > `optional` **expiresAt**: `number`
 
-Defined in: [types/mcpTypes.ts:834](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L834)
+Defined in: [types/mcpTypes.ts:834](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L834)
 
 Token expiration timestamp (Unix epoch in milliseconds)
 
@@ -48,7 +48,7 @@ Token expiration timestamp (Unix epoch in milliseconds)
 
 > **tokenType**: `string`
 
-Defined in: [types/mcpTypes.ts:836](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L836)
+Defined in: [types/mcpTypes.ts:836](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L836)
 
 Token type (typically "Bearer")
 
@@ -58,6 +58,6 @@ Token type (typically "Bearer")
 
 > `optional` **scope**: `string`
 
-Defined in: [types/mcpTypes.ts:838](https://github.com/juspay/neurolink/blob/e2ee0ff27847312a233f21617e325b3d2c69c76c/src/lib/types/mcpTypes.ts#L838)
+Defined in: [types/mcpTypes.ts:838](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L838)
 
 OAuth scope granted
