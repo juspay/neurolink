@@ -36,6 +36,42 @@ import type { ServerLoadResult } from "../types/typeAliases.js";
 import { isObject, isNonNullObject } from "../utils/typeUtils.js";
 
 /**
+ * Recursively substitute environment variables in strings
+ * Replaces ${VAR_NAME} with the value from process.env.VAR_NAME
+ * @param value - Value to process (string, object, array, or primitive)
+ * @returns Processed value with environment variables substituted
+ */
+function substituteEnvVariables<T>(value: T): T {
+  if (typeof value === "string") {
+    // Replace ${VAR_NAME} with process.env.VAR_NAME
+    return value.replace(/\$\{([^}]+)\}/g, (match, varName) => {
+      const envValue = process.env[varName.trim()];
+      if (envValue === undefined) {
+        mcpLogger.warn(
+          `[ExternalServerManager] Environment variable ${varName} is not defined, using empty string`,
+        );
+        return "";
+      }
+      return envValue;
+    }) as T;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => substituteEnvVariables(item)) as T;
+  }
+
+  if (isNonNullObject(value)) {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      result[key] = substituteEnvVariables(val);
+    }
+    return result as T;
+  }
+
+  return value;
+}
+
+/**
  * Type guard to validate if an object can be safely used as Record<string, JsonValue>
  */
 function isValidJsonRecord(value: unknown): value is Record<string, JsonValue> {
@@ -293,7 +329,9 @@ export class ExternalServerManager extends EventEmitter {
                 ? (serverConfig.args as string[])
                 : [],
               env: isNonNullObject(serverConfig.env)
-                ? (serverConfig.env as Record<string, string>)
+                ? substituteEnvVariables(
+                    serverConfig.env as Record<string, string>,
+                  )
                 : {},
               timeout:
                 typeof serverConfig.timeout === "number"
@@ -321,7 +359,9 @@ export class ExternalServerManager extends EventEmitter {
                   : undefined,
               // HTTP transport-specific fields
               headers: isNonNullObject(serverConfig.headers)
-                ? (serverConfig.headers as Record<string, string>)
+                ? substituteEnvVariables(
+                    serverConfig.headers as Record<string, string>,
+                  )
                 : undefined,
               httpOptions: isNonNullObject(serverConfig.httpOptions)
                 ? (serverConfig.httpOptions as MCPServerInfo["httpOptions"])
@@ -464,7 +504,9 @@ export class ExternalServerManager extends EventEmitter {
               ? (serverConfig.args as string[])
               : [],
             env: isNonNullObject(serverConfig.env)
-              ? (serverConfig.env as Record<string, string>)
+              ? substituteEnvVariables(
+                  serverConfig.env as Record<string, string>,
+                )
               : {},
             timeout:
               typeof serverConfig.timeout === "number"
@@ -492,7 +534,9 @@ export class ExternalServerManager extends EventEmitter {
                 : undefined,
             // HTTP transport-specific fields
             headers: isNonNullObject(serverConfig.headers)
-              ? (serverConfig.headers as Record<string, string>)
+              ? substituteEnvVariables(
+                  serverConfig.headers as Record<string, string>,
+                )
               : undefined,
             httpOptions: isNonNullObject(serverConfig.httpOptions)
               ? (serverConfig.httpOptions as MCPServerInfo["httpOptions"])

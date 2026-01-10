@@ -1,0 +1,26 @@
+# src/action/examples/code-generation.yml
+name: AI Code Generation
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "What to generate"
+        required: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Code
+        uses: juspay/neurolink/action@v1
+        id: codegen
+        with:
+          google_ai_api_key: ${{ secrets.GOOGLE_AI_API_KEY }}
+          prompt: ${{ inputs.prompt }}
+          provider: google-ai
+          model: gemini-2.5-pro
+          temperature: "0.3"
+          enable_evaluation: true

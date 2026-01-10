@@ -1,0 +1,9 @@
+# Test fixtures for error handling - not real credentials
+.github/workflows/test-action-errors.yml:sk-invalid-key-12345
+
+# Documentation files referencing test fixtures - not real credentials
+FIXES_REQUIRED.md:sk-invalid-key-12345
+EXECUTIVE_SUMMARY.md:sk-invalid-key-12345
+pr770_review_summary.md:sk-invalid-key-12345
+pr770_review_analysis.md:sk-invalid-key-12345
+pr770_complete_comments.json:sk-invalid-key-12345

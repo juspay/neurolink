@@ -193,3 +193,24 @@ export * from "./ttsTypes.js";
 
 // HITL (Human-in-the-Loop) types
 export * from "./hitlTypes.js";
+
+// Action types
+export type {
+  ActionInputs,
+  ActionProviderKeys,
+  ActionAWSConfig,
+  ActionGoogleCloudConfig,
+  ActionThinkingConfig,
+  ActionMultimodalInputs,
+  ActionExecutionResult,
+  ActionCommentResult,
+  ActionOutput,
+  ActionTokenUsage,
+  ActionEvaluation,
+  ActionInputValidation,
+  ProviderKeyMapping,
+  CliResponse,
+  CliTokenUsage,
+  CliAnalytics,
+  CliEvaluation,
+} from "./actionTypes.js";

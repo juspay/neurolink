@@ -77,6 +77,62 @@ jobs:
           pnpm run build:cli
           node dist/cli/index.js --help
 
+  action-smoke-test:
+    name: GitHub Action Smoke Test
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build GitHub Action
+        run: pnpm run build:action
+
+      - name: Test NeuroLink Action
+        id: neurolink
+        uses: ./
+        with:
+          prompt: "Respond with exactly: Hello from smoke test"
+          provider: google-ai
+          google_ai_api_key: ${{ secrets.GOOGLE_AI_API_KEY }}
+          max_tokens: "20"
+          temperature: "0"
+          debug: "true"
+
+      - name: Verify response
+        env:
+          RESPONSE: ${{ steps.neurolink.outputs.response }}
+          PROVIDER: ${{ steps.neurolink.outputs.provider }}
+        run: |
+          echo "Response: $RESPONSE"
+          echo "Provider: $PROVIDER"
+
+          if [ -z "$RESPONSE" ]; then
+            echo "ERROR: No response received"
+            exit 1
+          fi
+
+          if [ -z "$PROVIDER" ]; then
+            echo "ERROR: Provider not reported"
+            exit 1
+          fi
+
+          echo "✅ Action smoke test passed!"
+
   build-check:
     runs-on: ubuntu-latest
     steps:
