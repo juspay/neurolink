@@ -1515,7 +1515,7 @@ export class ExternalServerManager extends EventEmitter {
       const discoveryResult = await this.toolDiscovery.discoverTools(
         serverId,
         instance.client,
-        this.config.defaultTimeout,
+        instance.config.timeout || this.config.defaultTimeout,
       );
 
       if (discoveryResult.success) {
@@ -1598,7 +1598,10 @@ export class ExternalServerManager extends EventEmitter {
                   serverId,
                   toolName,
                   params as JsonObject,
-                  { timeout: this.config.defaultTimeout },
+                  {
+                    timeout:
+                      instance.config.timeout || this.config.defaultTimeout,
+                  },
                 );
               },
             }),
@@ -1784,7 +1787,10 @@ export class ExternalServerManager extends EventEmitter {
         instance.client,
         finalParameters,
         {
-          timeout: options?.timeout || this.config.defaultTimeout,
+          timeout:
+            options?.timeout ||
+            instance.config.timeout ||
+            this.config.defaultTimeout,
         },
       );
 
