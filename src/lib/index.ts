@@ -35,29 +35,12 @@
 // Core exports
 import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
-export type {
-  AIProvider,
-  AIModelProviderConfig,
-  StreamingOptions,
-  ProviderAttempt,
-  SupportedModelName,
-} from "./types/index.js";
 
-// NEW: Generate function exports
-export type {
-  GenerateOptions,
-  GenerateResult,
-  EnhancedProvider,
-} from "./types/generateTypes.js";
+// Export ALL types from the centralized type barrel
+export * from "./types/index.js";
 
-// Tool Registration exports - use MCPServerInfo.tools format
-export type { ToolContext } from "./types/tools.js";
+// Tool Registration utility
 export { validateTool } from "./sdk/toolRegistration.js";
-
-export type { ToolResult, ToolDefinition } from "./types/tools.js";
-
-// Model enums
-export { DEFAULT_PROVIDER_CONFIGS } from "./types/index.js";
 
 export {
   AIProviderName,
