@@ -59,6 +59,9 @@ importers:
       '@aws-sdk/types':
         specifier: ^3.862.0
         version: 3.901.0
+      '@google-cloud/text-to-speech':
+        specifier: ^5.0.0
+        version: 5.8.1(encoding@0.1.13)
       '@google-cloud/vertexai':
         specifier: ^1.10.0
         version: 1.10.0(encoding@0.1.13)
@@ -207,9 +210,6 @@ importers:
       '@eslint/js':
         specifier: ^9.35.0
         version: 9.37.0
-      '@google-cloud/text-to-speech':
-        specifier: ^5.0.0
-        version: 5.8.1(encoding@0.1.13)
       '@semantic-release/changelog':
         specifier: ^6.0.3
         version: 6.0.3(semantic-release@24.2.9(typescript@5.9.3))
