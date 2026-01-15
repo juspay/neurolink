@@ -1,7 +1,90 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { PDFProcessor } from "../../../src/lib/utils/pdfProcessor.js";
 
 describe("PDFProcessor.convertToImages", () => {
+  describe("empty PDF validation", () => {
+    it("should throw error for PDF with 0 pages", async () => {
+      // Create a valid PDF header buffer that will pass initial validation
+      const validPdfHeader = Buffer.from(
+        "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Count 0/Kids[]>>endobj\nxref\n0 3\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\ntrailer<</Size 3/Root 1 0 R>>\nstartxref\n150\n%%EOF",
+      );
+
+      // Mock pdf-to-img to return an empty async iterator (0 pages)
+      vi.doMock("pdf-to-img", () => ({
+        pdf: vi.fn().mockResolvedValue({
+          [Symbol.asyncIterator]: async function* () {
+            // Empty iterator - no pages
+          },
+        }),
+      }));
+
+      // Re-import to get the mocked version
+      const { PDFProcessor: MockedPDFProcessor } = await import(
+        "../../../src/lib/utils/pdfProcessor.js"
+      );
+
+      await expect(
+        MockedPDFProcessor.convertToImages(validPdfHeader),
+      ).rejects.toThrow("PDF has 0 pages. Cannot convert empty PDF to images.");
+
+      vi.doUnmock("pdf-to-img");
+    });
+
+    it("should succeed for PDF with at least 1 page", async () => {
+      const validPdfHeader = Buffer.from(
+        "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj 3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n0000000115 00000 n\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n200\n%%EOF",
+      );
+
+      // Mock pdf-to-img to return a single page
+      vi.doMock("pdf-to-img", () => ({
+        pdf: vi.fn().mockResolvedValue({
+          [Symbol.asyncIterator]: async function* () {
+            yield Buffer.from("fake-png-data");
+          },
+        }),
+      }));
+
+      const { PDFProcessor: MockedPDFProcessor } = await import(
+        "../../../src/lib/utils/pdfProcessor.js"
+      );
+
+      const result = await MockedPDFProcessor.convertToImages(validPdfHeader);
+      expect(result.pageCount).toBe(1);
+      expect(result.images).toHaveLength(1);
+
+      vi.doUnmock("pdf-to-img");
+    });
+
+    it("should provide clear error message mentioning 0 pages", async () => {
+      const validPdfHeader = Buffer.from(
+        "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Count 0/Kids[]>>endobj\nxref\n0 3\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\ntrailer<</Size 3/Root 1 0 R>>\nstartxref\n150\n%%EOF",
+      );
+
+      vi.doMock("pdf-to-img", () => ({
+        pdf: vi.fn().mockResolvedValue({
+          [Symbol.asyncIterator]: async function* () {
+            // Empty iterator
+          },
+        }),
+      }));
+
+      const { PDFProcessor: MockedPDFProcessor } = await import(
+        "../../../src/lib/utils/pdfProcessor.js"
+      );
+
+      try {
+        await MockedPDFProcessor.convertToImages(validPdfHeader);
+        expect.fail("Should have thrown an error");
+      } catch (error) {
+        const errorMessage = (error as Error).message;
+        expect(errorMessage).toContain("0 pages");
+        expect(errorMessage).toContain("empty PDF");
+      }
+
+      vi.doUnmock("pdf-to-img");
+    });
+  });
+
   describe("format validation", () => {
     // Create a minimal valid PDF buffer for testing
     // This is a minimal PDF that won't actually render, but will help test validation

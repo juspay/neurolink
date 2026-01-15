@@ -411,6 +411,11 @@ export class PDFProcessor {
         });
       }
 
+      // Check for empty PDF (0 pages)
+      if (images.length === 0) {
+        throw new Error("PDF has 0 pages. Cannot convert empty PDF to images.");
+      }
+
       const conversionTimeMs = Date.now() - startTime;
 
       logger.info("[PDF→Image] ✅ PDF conversion completed", {
