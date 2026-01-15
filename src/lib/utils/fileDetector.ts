@@ -21,6 +21,136 @@ import { ImageProcessor } from "./imageProcessor.js";
 import { PDFProcessor } from "./pdfProcessor.js";
 
 /**
+ * Default retry configuration constants
+ */
+const DEFAULT_MAX_RETRIES = 3;
+const DEFAULT_RETRY_DELAY = 1000; // milliseconds
+
+/**
+ * Retryable network error codes (Node.js/undici network errors)
+ */
+const RETRYABLE_ERROR_CODES = [
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "ENETUNREACH",
+  "EAI_AGAIN",
+  "EPIPE",
+  "ECONNABORTED",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+  "UND_ERR_SOCKET",
+];
+
+/**
+ * Non-retryable HTTP status codes (client errors)
+ */
+const NON_RETRYABLE_STATUS_CODES = [400, 401, 403, 404, 405];
+
+/**
+ * Retryable HTTP status codes (server errors + rate limiting)
+ */
+const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 504];
+
+/**
+ * Check if an error is a recoverable network error that should be retried
+ *
+ * @param error - Error to check
+ * @returns True if error is retryable (transient network issue)
+ */
+function isRetryableNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const errorMessage = error.message.toLowerCase();
+
+  // Extract error code from various error shapes
+  const errorWithCode = error as { code?: string; statusCode?: number };
+  const errorCode = errorWithCode.code?.toUpperCase();
+
+  // Check for retryable network error codes
+  if (errorCode && RETRYABLE_ERROR_CODES.includes(errorCode)) {
+    return true;
+  }
+
+  // Check HTTP status code if present in error message (e.g., "HTTP 503")
+  const httpStatusMatch = errorMessage.match(/http\s*(\d{3})/);
+  if (httpStatusMatch) {
+    const statusCode = parseInt(httpStatusMatch[1], 10);
+    if (NON_RETRYABLE_STATUS_CODES.includes(statusCode)) {
+      return false;
+    }
+    if (RETRYABLE_STATUS_CODES.includes(statusCode)) {
+      return true;
+    }
+  }
+
+  // Check error message for transient issues
+  const transientKeywords = [
+    "timeout",
+    "timed out",
+    "connection reset",
+    "econnreset",
+    "etimedout",
+    "network error",
+    "socket hang up",
+    "enotfound",
+    "getaddrinfo",
+    "unavailable",
+    "service unavailable",
+  ];
+
+  return transientKeywords.some((keyword) => errorMessage.includes(keyword));
+}
+
+/**
+ * Execute an operation with automatic retry logic on transient network errors
+ *
+ * @param operation - Async function to execute
+ * @param options - Retry configuration options
+ * @returns Promise resolving to the operation result
+ * @throws Error if all retry attempts fail or error is non-retryable
+ */
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  options: { maxRetries?: number; retryDelay?: number } = {},
+): Promise<T> {
+  const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
+  const retryDelay = options.retryDelay ?? DEFAULT_RETRY_DELAY;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      const isRetryable = isRetryableNetworkError(error);
+      const isLastAttempt = attempt === maxRetries;
+
+      if (!isRetryable || isLastAttempt) {
+        throw error;
+      }
+
+      // Calculate exponential backoff delay
+      const delay = retryDelay * Math.pow(2, attempt);
+
+      logger.debug("Retrying network operation after transient error", {
+        attempt: attempt + 1,
+        maxRetries,
+        delay,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  // TypeScript exhaustiveness check - should never reach here
+  throw new Error("Retry logic failed unexpectedly");
+}
+
+/**
  * Check if text has JSON markers (starts with { or [ and ends with corresponding closing bracket)
  */
 function hasJsonMarkers(text: string): boolean {
@@ -480,7 +610,7 @@ export class FileDetector {
   }
 
   /**
-   * Load file from URL
+   * Load file from URL with automatic retry on transient network errors
    */
   private static async loadFromURL(
     url: string,
@@ -488,34 +618,41 @@ export class FileDetector {
   ): Promise<Buffer> {
     const maxSize = options?.maxSize || 10 * 1024 * 1024;
     const timeout = options?.timeout || this.DEFAULT_NETWORK_TIMEOUT;
+    const maxRetries = options?.maxRetries ?? DEFAULT_MAX_RETRIES;
+    const retryDelay = options?.retryDelay ?? DEFAULT_RETRY_DELAY;
 
-    const response = await request(url, {
-      dispatcher: getGlobalDispatcher().compose(
-        interceptors.redirect({ maxRedirections: 5 }),
-      ),
-      method: "GET",
-      headersTimeout: timeout,
-      bodyTimeout: timeout,
-    });
+    return withRetry(
+      async () => {
+        const response = await request(url, {
+          dispatcher: getGlobalDispatcher().compose(
+            interceptors.redirect({ maxRedirections: 5 }),
+          ),
+          method: "GET",
+          headersTimeout: timeout,
+          bodyTimeout: timeout,
+        });
 
-    if (response.statusCode !== 200) {
-      throw new Error(`HTTP ${response.statusCode}`);
-    }
+        if (response.statusCode !== 200) {
+          throw new Error(`HTTP ${response.statusCode}`);
+        }
 
-    const chunks: Buffer[] = [];
-    let totalSize = 0;
+        const chunks: Buffer[] = [];
+        let totalSize = 0;
 
-    for await (const chunk of response.body) {
-      totalSize += chunk.length;
-      if (totalSize > maxSize) {
-        throw new Error(
-          `File too large: ${formatFileSize(totalSize)} (max: ${formatFileSize(maxSize)})`,
-        );
-      }
-      chunks.push(chunk);
-    }
+        for await (const chunk of response.body) {
+          totalSize += chunk.length;
+          if (totalSize > maxSize) {
+            throw new Error(
+              `File too large: ${formatFileSize(totalSize)} (max: ${formatFileSize(maxSize)})`,
+            );
+          }
+          chunks.push(chunk);
+        }
 
-    return Buffer.concat(chunks);
+        return Buffer.concat(chunks);
+      },
+      { maxRetries, retryDelay },
+    );
   }
 
   /**

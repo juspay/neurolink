@@ -252,6 +252,10 @@ export type FileDetectorOptions = {
   officeOptions?: OfficeProcessorOptions;
   confidenceThreshold?: number;
   provider?: string;
+  /** Maximum number of retry attempts for network requests (default: 3) */
+  maxRetries?: number;
+  /** Initial retry delay in milliseconds with exponential backoff (default: 1000) */
+  retryDelay?: number;
 };
 
 /**
