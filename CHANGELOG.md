@@ -1,3 +1,9 @@
+## [8.35.1](https://github.com/juspay/neurolink/compare/v8.35.0...v8.35.1) (2026-01-15)
+
+### Bug Fixes
+
+- **(pdf):** reject empty PDFs with 0 pages instead of returning success ([92d8d4e](https://github.com/juspay/neurolink/commit/92d8d4eb3e6e675ee969e3a8ee92c5997dc416aa))
+
 ## [8.35.0](https://github.com/juspay/neurolink/compare/v8.34.1...v8.35.0) (2026-01-15)
 
 ### Features
