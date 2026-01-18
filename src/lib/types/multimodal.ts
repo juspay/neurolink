@@ -226,28 +226,23 @@ export type VideoGenerationResult = {
 };
 
 /**
- * Video content type for multimodal messages
- *
- * NOTE: This is for FILE-BASED video input.
- * For streaming video, this type may be extended in future.
- *
- * @example
- * ```typescript
- * const videoContent: VideoContent = {
- *   type: "video",
- *   data: videoBuffer,
- *   mediaType: "video/mp4",
- *   metadata: {
- *     filename: "demo.mp4",
- *     duration: 300,
- *     dimensions: { width: 1920, height: 1080 }
- *   }
- * };
- * ```
+ * Represents a single extracted frame from a video,
+ * typically as a base64 encoded image or a URL.
  */
-export type VideoContent = {
-  type: "video";
-  data: Buffer | string; // Buffer, base64, URL, or file path
+export type ExtractedFrame = string;
+
+/**
+ * Metadata for VideoContent, describing properties of the video file.
+ */
+export interface VideoMetadata {
+  filename?: string;
+  duration?: number; // in seconds
+  dimensions?: {
+    width: number;
+    height: number;
+  };
+  frameRate?: number;
+  codec?: string;
   mediaType?:
     | "video/mp4" // MP4
     | "video/webm" // WebM
@@ -255,19 +250,52 @@ export type VideoContent = {
     | "video/quicktime" // MOV
     | "video/x-msvideo" // AVI
     | "video/x-matroska"; // MKV
-  metadata?: {
-    filename?: string;
-    duration?: number; // in seconds
-    dimensions?: {
-      width: number;
-      height: number;
-    };
-    frameRate?: number;
-    codec?: string;
-    extractedFrames?: string[]; // Base64 or URLs of extracted frames
-    transcription?: string; // Optional transcription of audio track
-  };
-};
+}
+
+/**
+ * Video content type for multimodal messages.
+ *
+ * This type supports both frame-based processing and native video file handling.
+ *
+ * @example Frame-based video content
+ * ```typescript
+ * const frameVideoContent: VideoContent = {
+ *   type: "video",
+ *   frames: ["base64ImageData1", "base64ImageData2"],
+ *   metadata: {
+ *     filename: "video_frames.json",
+ *     duration: 10,
+ *     frameRate: 1
+ *   }
+ * };
+ * ```
+ *
+ * @example Native video file content
+ * ```typescript
+ * const nativeVideoContent: VideoContent = {
+ *   type: "video",
+ *   content: "base64EncodedVideoData",
+ *   metadata: {
+ *     filename: "demo.mp4",
+ *     duration: 300,
+ *     dimensions: { width: 1920, height: 1080 },
+ *     mediaType: "video/mp4"
+ *   },
+ *   transcription: "This is a transcription of the video's audio."
+ * };
+ * ```
+ */
+export interface VideoContent {
+  type: "video";
+  /** Optional: Array of extracted frames from the video, typically base64 images or URLs. */
+  frames?: ExtractedFrame[];
+  /** Optional: Base64 encoded native video data. */
+  content?: string;
+  /** Optional: Transcription of the video's audio track. */
+  transcription?: string;
+  /** Metadata describing the video content. */
+  metadata: VideoMetadata;
+}
 
 /**
  * Union type for all content types
