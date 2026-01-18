@@ -107,10 +107,12 @@ import {
   CircuitBreaker,
 } from "./utils/errorHandling.js";
 import { EventEmitter } from "events";
+import { randomUUID } from "crypto";
 import type {
   ConversationMemoryConfig,
   ChatMessage,
   ProviderDetails,
+  RedisConversationObject,
 } from "./types/conversation.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
 import { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
@@ -3059,6 +3061,112 @@ Current user's request: ${currentInput}`;
         };
 
         const self = this;
+
+        // Incremental save setup
+        const incrementalSaveEnabled =
+          this.conversationMemoryConfig?.conversationMemory?.redisConfig
+            ?.incrementalSaveEnabled === true;
+        const incrementalSaveIntervalMs =
+          this.conversationMemoryConfig?.conversationMemory?.redisConfig
+            ?.incrementalSaveIntervalMs ?? 3000;
+
+        // Initialize streaming turn immediately if enabled
+        let conversation: RedisConversationObject | null = null;
+        let streamingUpdateInterval: ReturnType<typeof setInterval> | null =
+          null;
+        if (
+          incrementalSaveEnabled &&
+          this.conversationMemory &&
+          enhancedOptions.context?.sessionId &&
+          this.conversationMemory instanceof RedisConversationMemoryManager
+        ) {
+          const sessionId = (enhancedOptions.context as Record<string, unknown>)
+            ?.sessionId as string;
+          const userId = (enhancedOptions.context as Record<string, unknown>)
+            ?.sessionId as string;
+
+          try {
+            // Get or create conversation
+            conversation =
+              await this.conversationMemory.getOrCreateConversation(
+                sessionId,
+                userId,
+                new Date(startTime),
+              );
+
+            // Push user message
+            conversation.messages.push({
+              id: randomUUID(),
+              timestamp: new Date(startTime).toISOString(),
+              role: "user",
+              content: originalPrompt ?? "",
+            });
+
+            // Push empty assistant placeholder
+            conversation.messages.push({
+              id: randomUUID(),
+              timestamp: new Date().toISOString(),
+              role: "assistant",
+              content: "",
+            });
+
+            // Save to Redis
+            await this.conversationMemory.saveConversationDirect(conversation);
+
+            // Start interval for periodic saves
+            streamingUpdateInterval = setInterval(async () => {
+              if (
+                accumulatedContent.length > 0 &&
+                conversation &&
+                self.conversationMemory instanceof
+                  RedisConversationMemoryManager
+              ) {
+                try {
+                  const lastMsg =
+                    conversation.messages[conversation.messages.length - 1];
+                  if (lastMsg && lastMsg.role === "assistant") {
+                    lastMsg.content = accumulatedContent;
+                    lastMsg.timestamp = new Date().toISOString();
+
+                    await self.conversationMemory.saveConversationDirect(
+                      conversation,
+                    );
+
+                    logger.debug(
+                      "[NeuroLink] Incremental save: content updated",
+                      {
+                        contentLength: accumulatedContent.length,
+                      },
+                    );
+                  }
+                } catch (error) {
+                  logger.warn(
+                    "[NeuroLink] Failed to update incremental save content",
+                    {
+                      error:
+                        error instanceof Error ? error.message : String(error),
+                    },
+                  );
+                }
+              }
+            }, incrementalSaveIntervalMs);
+
+            logger.debug("[NeuroLink] Incremental save: turn initialized", {
+              sessionId,
+              userId,
+              messageCount: conversation.messages.length,
+            });
+          } catch (error) {
+            logger.warn(
+              "[NeuroLink] Failed to initialize streaming turn, continuing without incremental save",
+              {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+            conversation = null;
+          }
+        }
+
         const processedStream = (async function* () {
           try {
             for await (const chunk of mcpStream) {
@@ -3163,6 +3271,13 @@ Current user's request: ${currentInput}`;
               }
             }
           } finally {
+            // Clear interval if it was set
+            if (streamingUpdateInterval) {
+              clearInterval(streamingUpdateInterval);
+              streamingUpdateInterval = null;
+              logger.debug("[NeuroLink] Incremental save: interval cleared");
+            }
+
             self.emitter.off("response:chunk", onResponseChunk);
             self.emitter.off("tool:start", onToolStart);
             self.emitter.off("tool:end", onToolEnd);
@@ -3187,6 +3302,38 @@ Current user's request: ${currentInput}`;
               }
 
               try {
+                // Check if there's unsaved content after last incremental save
+                if (
+                  conversation &&
+                  incrementalSaveEnabled &&
+                  self.conversationMemory instanceof
+                    RedisConversationMemoryManager
+                ) {
+                  const lastMsg =
+                    conversation.messages[conversation.messages.length - 1];
+                  if (
+                    lastMsg &&
+                    lastMsg.role === "assistant" &&
+                    lastMsg.content !== accumulatedContent
+                  ) {
+                    // Final chunks arrived after last incremental save - push them now
+                    lastMsg.content = accumulatedContent;
+                    lastMsg.timestamp = new Date().toISOString();
+
+                    await self.conversationMemory.saveConversationDirect(
+                      conversation,
+                    );
+
+                    logger.debug(
+                      "[NeuroLink] Final incremental save: content updated after stream end",
+                      {
+                        contentLength: accumulatedContent.length,
+                      },
+                    );
+                  }
+                }
+
+                // Call storeConversationTurn for summarization
                 await self.conversationMemory.storeConversationTurn({
                   sessionId,
                   userId,

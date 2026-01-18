@@ -332,7 +332,90 @@ export class RedisConversationMemoryManager {
   }
 
   /**
+   * Get existing conversation or create a new one
+   * Used for direct conversation manipulation during streaming
+   */
+  async getOrCreateConversation(
+    sessionId: string,
+    userId: string,
+    startTime?: Date,
+  ): Promise<RedisConversationObject> {
+    await this.ensureInitialized();
+
+    if (!this.redisClient) {
+      throw new Error("Redis client not initialized");
+    }
+
+    const redisKey = getSessionKey(this.redisConfig, sessionId, userId);
+    const conversationData = await this.redisClient.get(redisKey);
+    let conversation = deserializeConversation(conversationData);
+
+    if (!conversation) {
+      const normalizedUserId = userId || "randomUser";
+      const currentTime = startTime?.toISOString() || new Date().toISOString();
+
+      conversation = {
+        id: randomUUID(),
+        title: "New Conversation",
+        sessionId,
+        userId: normalizedUserId,
+        createdAt: currentTime,
+        updatedAt: currentTime,
+        messages: [],
+      };
+
+      logger.debug(
+        "[RedisConversationMemoryManager] Created new conversation",
+        {
+          sessionId,
+          userId: normalizedUserId,
+        },
+      );
+    }
+
+    return conversation;
+  }
+
+  /**
+   * Save conversation directly to Redis
+   * Used for streaming updates without full storeConversationTurn logic
+   */
+  async saveConversationDirect(
+    conversation: RedisConversationObject,
+  ): Promise<void> {
+    await this.ensureInitialized();
+
+    if (!this.redisClient) {
+      throw new Error("Redis client not initialized");
+    }
+
+    conversation.updatedAt = new Date().toISOString();
+
+    const redisKey = getSessionKey(
+      this.redisConfig,
+      conversation.sessionId,
+      conversation.userId,
+    );
+    const serializedData = serializeConversation(conversation);
+    await this.redisClient.set(redisKey, serializedData);
+
+    if (this.redisConfig.ttl > 0) {
+      await this.redisClient.expire(redisKey, this.redisConfig.ttl);
+    }
+
+    logger.debug(
+      "[RedisConversationMemoryManager] Saved conversation directly",
+      {
+        sessionId: conversation.sessionId,
+        messageCount: conversation.messages.length,
+      },
+    );
+  }
+
+  /**
    * Store a conversation turn for a session
+   * Now primarily used for final save with summarization
+   * Direct incremental saves are handled via saveConversationDirect()
    */
   async storeConversationTurn(
     options: StoreConversationTurnOptions,
@@ -445,7 +528,9 @@ export class RedisConversationMemoryManager {
         role: "user",
         content: options.userMessage,
       };
-      conversation.messages.push(userMsg);
+      if (!this.config.redisConfig?.incrementalSaveEnabled) {
+        conversation.messages.push(userMsg);
+      }
 
       await this.flushPendingToolData(
         conversation,
@@ -460,7 +545,9 @@ export class RedisConversationMemoryManager {
         content: options.aiResponse,
         events: options.events || undefined,
       };
-      conversation.messages.push(assistantMsg);
+      if (!this.config.redisConfig?.incrementalSaveEnabled) {
+        conversation.messages.push(assistantMsg);
+      }
 
       logger.info("[RedisConversationMemoryManager] Added new messages", {
         sessionId: conversation.sessionId,

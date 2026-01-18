@@ -326,6 +326,8 @@ export function getNormalizedConfig(
     userSessionsKeyPrefix:
       config.userSessionsKeyPrefix || defaultUserSessionsPrefix,
     ttl: config.ttl || 86400,
+    incrementalSaveEnabled: config.incrementalSaveEnabled ?? false,
+    incrementalSaveIntervalMs: config.incrementalSaveIntervalMs ?? 3000,
     connectionOptions: {
       connectTimeout: 30000,
       lazyConnect: true,

@@ -461,6 +461,19 @@ export type RedisStorageConfig = {
   /** Time-to-live in seconds (default: 86400, 24 hours) */
   ttl?: number;
 
+  /**
+   * Enable incremental save during streaming
+   * When enabled, saves user prompt immediately and periodically updates assistant response during streaming
+   * @default false
+   */
+  incrementalSaveEnabled?: boolean;
+
+  /**
+   * Interval in milliseconds between periodic incremental saves of streaming content
+   * @default 3000 (3 seconds)
+   */
+  incrementalSaveIntervalMs?: number;
+
   /** Additional Redis connection options */
   connectionOptions?: {
     connectTimeout?: number;
