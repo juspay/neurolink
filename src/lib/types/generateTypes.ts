@@ -12,6 +12,7 @@ import type { MiddlewareFactoryOptions } from "./middlewareTypes.js";
 import type { JsonValue } from "./common.js";
 import type { Content, ImageWithAltText } from "./content.js";
 import type { TTSOptions, TTSResult } from "./ttsTypes.js";
+import type { PPTOutputOptions, PPTGenerationResult } from "./pptTypes.js";
 import type {
   VideoOutputOptions,
   VideoGenerationResult,
@@ -76,13 +77,19 @@ export type GenerateOptions = {
      * Output mode - determines the type of content generated
      * - "text": Standard text generation (default)
      * - "video": Video generation using models like Veo 3.1
+     * - "ppt": PowerPoint presentation generation
      */
-    mode?: "text" | "video";
+    mode?: "text" | "video" | "ppt";
     /**
      * Video generation configuration (used when mode is "video")
      * Requires an input image and text prompt
      */
     video?: VideoOutputOptions;
+    /**
+     * PowerPoint generation configuration (used when mode is "ppt")
+     * Generates slides based on text prompt
+     */
+    ppt?: PPTOutputOptions;
   };
 
   // CSV processing options
@@ -339,6 +346,24 @@ export type GenerateResult = {
    * ```
    */
   video?: VideoGenerationResult;
+  /**
+   * PowerPoint generation result (present when output.mode is "ppt")
+   *
+   * @example
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: "Introducing Our New Product" },
+   *   model: "gemini-pro",
+   *   output: { mode: "ppt", ppt: { pages: 10, theme: "modern" } }
+   * });
+   *
+   * if (result.ppt) {
+   *   console.log(`Generated ${result.ppt.slides.length} slides`);
+   *   console.log(`Title: ${result.ppt.slides[0].title}`);
+   * }
+   * ```
+   */
+  ppt?: PPTGenerationResult;
   imageOutput?: { base64: string } | null; // Standard format for image generation
 
   // Provider information
@@ -478,12 +503,17 @@ export type TextGenerationOptions = {
      * Output mode - determines the type of content generated
      * - "text": Standard text generation (default)
      * - "video": Video generation using models like Veo 3.1
+     * - "ppt": PowerPoint presentation generation
      */
-    mode?: "text" | "video";
+    mode?: "text" | "video" | "ppt";
     /**
      * Video generation configuration (used when mode is "video")
      */
     video?: VideoOutputOptions;
+    /**
+     * PowerPoint generation configuration (used when mode is "ppt")
+     */
+    ppt?: PPTOutputOptions;
   };
   tools?: Record<string, Tool>; // Enable MCP tools integration
   timeout?: number | string; // Optional timeout (e.g., 30000, '30s', '2m', '1h')
@@ -676,6 +706,8 @@ export type TextGenerationResult = {
   audio?: TTSResult;
   /** Video generation result */
   video?: VideoGenerationResult;
+  /** PowerPoint generation result */
+  ppt?: PPTGenerationResult;
   /** Image generation output */
   imageOutput?: { base64: string } | null;
 };

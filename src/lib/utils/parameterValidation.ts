@@ -3,6 +3,7 @@
  * Provides consistent parameter validation across all tool interfaces
  */
 
+import type { AIProviderName } from "../constants/enums.js";
 import { SYSTEM_LIMITS } from "../core/constants.js";
 import type {
   GenerateOptions,
@@ -10,6 +11,7 @@ import type {
 } from "../types/generateTypes.js";
 import type { NeuroLinkMCPTool } from "../types/mcpTypes.js";
 import type { VideoOutputOptions } from "../types/multimodal.js";
+import type { PPTOutputOptions } from "../types/pptTypes.js";
 import type { StreamOptions } from "../types/streamTypes.js";
 import type { EnhancedValidationResult } from "../types/tools.js";
 import type {
@@ -960,6 +962,340 @@ export function validateVideoGenerationInput(
   if (errors.length === 0 && warnings.length === 0) {
     suggestions.push(
       "Video generation takes 60-180 seconds. Consider setting a longer timeout.",
+    );
+  }
+
+  return { isValid: errors.length === 0, errors, warnings, suggestions };
+}
+
+// ============================================================================
+// PPT VALIDATION (Presentation Generation)
+// ============================================================================
+
+/**
+ * Valid PPT generation options
+ */
+const VALID_PPT_THEMES = [
+  "modern",
+  "corporate",
+  "creative",
+  "minimal",
+  "dark",
+] as const;
+const VALID_PPT_AUDIENCES = [
+  "business",
+  "students",
+  "technical",
+  "general",
+] as const;
+const VALID_PPT_TONES = [
+  "professional",
+  "casual",
+  "educational",
+  "persuasive",
+] as const;
+const VALID_PPT_ASPECT_RATIOS = ["16:9", "4:3"] as const;
+const VALID_PPT_FORMATS = ["pptx"] as const;
+export const MIN_PPT_PAGES = 5;
+export const MAX_PPT_PAGES = 50;
+export const MIN_PPT_PROMPT_LENGTH = 10;
+export const MAX_PPT_PROMPT_LENGTH = 1000;
+
+/**
+ * Validate PPT output options (pages, theme, audience, tone, etc.)
+ *
+ * @param options - PPTOutputOptions to validate
+ * @returns NeuroLinkError if invalid, null if valid
+ *
+ * @example
+ * ```typescript
+ * const error = validatePPTOutputOptions({ pages: 100, theme: "invalid" });
+ * // error.code === "INVALID_PPT_PAGES"
+ * ```
+ */
+export function validatePPTOutputOptions(
+  options: PPTOutputOptions,
+): NeuroLinkError | null {
+  // Validate pages (slide count) - REQUIRED FIELD
+  if (options.pages === undefined || options.pages === null) {
+    return ErrorFactory.missingPPTProperty("output.ppt.pages", [
+      "Provide the number of slides: output.ppt.pages = 10",
+      "Valid range: 5 to 50 slides",
+      "Recommended: 10 slides for most presentations",
+    ]);
+  }
+
+  if (typeof options.pages !== "number") {
+    return ErrorFactory.invalidPPTPages(options.pages, "not a number");
+  }
+
+  if (!Number.isInteger(options.pages)) {
+    return ErrorFactory.invalidPPTPages(options.pages, "not an integer");
+  }
+
+  if (options.pages < MIN_PPT_PAGES || options.pages > MAX_PPT_PAGES) {
+    return ErrorFactory.invalidPPTPages(
+      options.pages,
+      `out of range (${MIN_PPT_PAGES}-${MAX_PPT_PAGES})`,
+    );
+  }
+
+  // Validate format
+  if (
+    options.format !== undefined &&
+    !VALID_PPT_FORMATS.includes(options.format)
+  ) {
+    return ErrorFactory.invalidPPTFormat(options.format);
+  }
+
+  // Validate theme
+  if (
+    options.theme !== undefined &&
+    !VALID_PPT_THEMES.includes(options.theme)
+  ) {
+    return ErrorFactory.invalidPPTOutputOptions(
+      "theme",
+      options.theme,
+      Array.from(VALID_PPT_THEMES),
+    );
+  }
+
+  // Validate audience
+  if (
+    options.audience !== undefined &&
+    !VALID_PPT_AUDIENCES.includes(options.audience)
+  ) {
+    return ErrorFactory.invalidPPTOutputOptions(
+      "audience",
+      options.audience,
+      Array.from(VALID_PPT_AUDIENCES),
+    );
+  }
+
+  // Validate tone
+  if (options.tone !== undefined && !VALID_PPT_TONES.includes(options.tone)) {
+    return ErrorFactory.invalidPPTOutputOptions(
+      "tone",
+      options.tone,
+      Array.from(VALID_PPT_TONES),
+    );
+  }
+
+  // Validate aspectRatio
+  if (
+    options.aspectRatio !== undefined &&
+    !VALID_PPT_ASPECT_RATIOS.includes(options.aspectRatio)
+  ) {
+    return ErrorFactory.invalidPPTOutputOptions(
+      "aspectRatio",
+      options.aspectRatio,
+      Array.from(VALID_PPT_ASPECT_RATIOS),
+    );
+  }
+
+  // Validate includeImages (must be boolean if provided)
+  if (
+    options.includeImages !== undefined &&
+    typeof options.includeImages !== "boolean"
+  ) {
+    return ErrorFactory.invalidPPTOutputOptions(
+      "includeImages",
+      options.includeImages,
+      ["true", "false"],
+    );
+  }
+
+  // Validate logoPath (string path, Buffer, or ImageWithAltText)
+  if (options.logoPath !== undefined) {
+    if (typeof options.logoPath === "string") {
+      if (options.logoPath.trim().length === 0) {
+        return ErrorFactory.invalidPPTLogoPath(
+          options.logoPath,
+          "empty string",
+        );
+      }
+    } else if (Buffer.isBuffer(options.logoPath)) {
+      // ok
+    } else if (
+      typeof options.logoPath === "object" &&
+      "data" in options.logoPath
+    ) {
+      const data = (options.logoPath as { data: unknown }).data;
+      if (typeof data === "string") {
+        if (data.trim().length === 0) {
+          return ErrorFactory.invalidPPTLogoPath(
+            options.logoPath,
+            "empty string",
+          );
+        }
+      } else if (!Buffer.isBuffer(data)) {
+        return ErrorFactory.invalidPPTLogoPath(
+          options.logoPath,
+          "invalid data type",
+        );
+      }
+    } else {
+      return ErrorFactory.invalidPPTLogoPath(options.logoPath, "invalid type");
+    }
+  }
+
+  // Validate outputPath (must be non-empty string if provided)
+  if (options.outputPath !== undefined) {
+    if (typeof options.outputPath !== "string") {
+      return ErrorFactory.invalidPPTOutputPath(
+        options.outputPath,
+        "not a string",
+      );
+    }
+    if (options.outputPath.trim().length === 0) {
+      return ErrorFactory.invalidPPTOutputPath(
+        options.outputPath,
+        "empty string",
+      );
+    }
+  }
+
+  return null;
+}
+
+function validatePPTProvider(
+  provider: AIProviderName | string,
+): NeuroLinkError | null {
+  // PPT generation supported providers (subset of all AIProviderName values)
+  // Supports major LLM providers with structured output capabilities
+  const validProviders = [
+    "vertex",
+    "openai",
+    "azure",
+    "anthropic",
+    "google-ai",
+    "bedrock",
+  ];
+
+  // Convert enum or string to lowercase string for comparison
+  const providerString = String(provider).toLowerCase();
+
+  if (!validProviders.includes(providerString)) {
+    return ErrorFactory.invalidPPTProvider(provider);
+  }
+
+  return null;
+}
+
+/**
+ * Validate complete PPT generation input
+ *
+ * Validates all requirements for presentation generation:
+ * - output.mode must be "ppt"
+ * - Prompt must be within length limits
+ * - PPT output options must be valid
+ *
+ * @param options - GenerateOptions to validate for PPT generation
+ * @returns EnhancedValidationResult with errors, warnings, and suggestions
+ *
+ * @example
+ * ```typescript
+ * const validation = validatePPTGenerationInput({
+ *   input: { text: "Introducing Our New Product" },
+ *   output: { mode: "ppt", ppt: { pages: 10, theme: "modern" } }
+ * });
+ * if (!validation.isValid) {
+ *   console.error(validation.errors);
+ * }
+ * ```
+ */
+export function validatePPTGenerationInput(
+  options: GenerateOptions,
+): EnhancedValidationResult {
+  const errors: ValidationError[] = [];
+  const warnings: string[] = [];
+  const suggestions: StringArray = [];
+
+  // Validate prompt/text - trim once for consistency
+  const trimmedPrompt = options.input.text.trim();
+  if (trimmedPrompt === "") {
+    errors.push(
+      toValidationError(ErrorFactory.invalidPPTPrompt("empty prompt")),
+    );
+  } else if (trimmedPrompt.length < MIN_PPT_PROMPT_LENGTH) {
+    errors.push(
+      toValidationError(
+        ErrorFactory.invalidPPTPrompt(
+          `prompt too short (${trimmedPrompt.length} characters, min ${MIN_PPT_PROMPT_LENGTH})`,
+        ),
+      ),
+    );
+  } else if (trimmedPrompt.length > MAX_PPT_PROMPT_LENGTH) {
+    errors.push(
+      toValidationError(
+        ErrorFactory.invalidPPTPrompt(
+          `prompt too long (${trimmedPrompt.length} characters, max ${MAX_PPT_PROMPT_LENGTH})`,
+        ),
+      ),
+    );
+  }
+
+  // image PPT options if provided
+  if (options.input.images && options.input.images.length > 0) {
+    warnings.push(
+      "Images can be unused in PPT generation due to fail in quality standards and can lead to longer generation times.",
+    );
+    suggestions.push(
+      "Only provide high-quality, relevant images for PPT generation.",
+    );
+  }
+
+  // Validate provider (optional - only validate if explicitly provided)
+  if (options.provider !== undefined) {
+    const providerError = validatePPTProvider(options.provider);
+    if (providerError) {
+      errors.push(toValidationError(providerError));
+    }
+  }
+
+  // Mode is optional, but if provided must be "ppt"
+  if (options.output?.mode !== undefined && options.output.mode !== "ppt") {
+    errors.push(toValidationError(ErrorFactory.invalidPPTMode()));
+  }
+
+  // Validate PPT output options
+  if (options.output?.ppt) {
+    const pptError = validatePPTOutputOptions(options.output.ppt);
+    if (pptError) {
+      errors.push(toValidationError(pptError));
+    }
+
+    // Add specific warnings
+    const pages = options.output.ppt.pages;
+    if (pages > 30) {
+      warnings.push(
+        `Generating ${pages} slides may take significant time (estimated: ${Math.ceil(pages * 3)}-${Math.ceil(pages * 5)} seconds)`,
+      );
+    }
+
+    if (
+      options.output.ppt.includeImages === undefined ||
+      options.output.ppt.includeImages === true
+    ) {
+      suggestions.push(
+        "Image generation is enabled. Each slide with images will take additional time (~2-5 seconds per image).",
+      );
+    }
+  } else {
+    errors.push(
+      toValidationError(
+        ErrorFactory.missingPPTProperty("output.ppt", [
+          "Provide PPT generation options under output.ppt",
+          "Specify number of slides, theme, and other preferences",
+        ]),
+      ),
+    );
+  }
+
+  // Add helpful suggestions
+  if (errors.length === 0 && warnings.length === 0) {
+    suggestions.push(
+      "PPT generation typically takes 30-120 seconds depending on slide count and image generation.",
     );
   }
 

@@ -2,7 +2,6 @@
  * Robust Error Handling Utilities for NeuroLink
  * Provides structured error management for tool execution and system operations
  */
-
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import type { StructuredError } from "../types/utilities.js";
 import { logger } from "./logger.js";
@@ -49,6 +48,17 @@ export const ERROR_CODES = {
   IMAGE_TOO_LARGE: "IMAGE_TOO_LARGE",
   IMAGE_TOO_SMALL: "IMAGE_TOO_SMALL",
   INVALID_IMAGE_FORMAT: "INVALID_IMAGE_FORMAT",
+
+  // PPT validation errors
+  MISSING_PPT_PROPERTIES: "MISSING_PPT_PROPERTIES",
+  INVALID_PPT_PAGES: "INVALID_PPT_PAGES",
+  INVALID_PPT_FORMAT: "INVALID_PPT_FORMAT",
+  INVALID_PPT_PROVIDER: "INVALID_PPT_PROVIDER",
+  INVALID_PPT_OUTPUT_OPTIONS: "INVALID_PPT_OUTPUT_OPTIONS",
+  INVALID_PPT_OUTPUT_PATH: "INVALID_PPT_OUTPUT_PATH",
+  INVALID_PPT_LOGO_PATH: "INVALID_PPT_LOGO_PATH",
+  INVALID_PPT_MODE: "INVALID_PPT_MODE",
+  INVALID_PPT_PROMPT: "INVALID_PPT_PROMPT",
 } as const;
 
 /**
@@ -533,6 +543,206 @@ export class ErrorFactory {
           "Convert your image to JPEG, PNG, or WebP format",
           "Ensure the file is not corrupted",
           "Check that the file extension matches the actual format",
+        ],
+      },
+    });
+  }
+
+  // ============================================================================
+  // PPT VALIDATION ERRORS
+  // ============================================================================
+
+  /**
+   * Create a generic missing PPT property error
+   */
+  static missingPPTProperty(
+    field: string,
+    suggestions?: string[],
+  ): NeuroLinkError {
+    const defaultSuggestions = [`Provide the required '${field}' field`];
+
+    return new NeuroLinkError({
+      code: ERROR_CODES.MISSING_PPT_PROPERTIES,
+      message: `PPT generation requires '${field}' field`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field,
+        suggestions: suggestions || defaultSuggestions,
+      },
+    });
+  }
+
+  /**
+   * Create an invalid PPT pages error
+   */
+  static invalidPPTPages(pages: unknown, reason: string): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_PPT_PAGES,
+      message: `Invalid pages value '${pages}': ${reason}`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "output.ppt.pages",
+        providedValue: pages,
+        suggestions: [
+          "Use a number between 5 and 50",
+          "For longer presentations, consider breaking into multiple decks",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid PPT format error
+   */
+  static invalidPPTFormat(format: string): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_PPT_FORMAT,
+      message: `Invalid format '${format}'. Only 'pptx' is supported`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "output.ppt.format",
+        providedValue: format,
+        suggestions: ["Use format: 'pptx' or omit (defaults to 'pptx')"],
+      },
+    });
+  }
+
+  /**
+   * Create a generic invalid PPT output options error
+   */
+  static invalidPPTOutputOptions(
+    field: string,
+    value: unknown,
+    validOptions?: string[],
+  ): NeuroLinkError {
+    const suggestions = validOptions
+      ? validOptions.map((opt) => `Use '${opt}'`)
+      : ["Check the documentation for valid options"];
+
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_PPT_OUTPUT_OPTIONS,
+      message: `Invalid ${field} value '${value}'`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: `output.ppt.${field}`,
+        providedValue: value,
+        suggestions,
+      },
+    });
+  }
+
+  /**
+   * Create an invalid PPT output path error
+   */
+  static invalidPPTOutputPath(path: unknown, reason: string): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_PPT_OUTPUT_PATH,
+      message: `Invalid outputPath '${path}': ${reason}`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "output.ppt.outputPath",
+        providedValue: path,
+        suggestions: [
+          "Provide a valid file path string",
+          "Example: './presentations/my-deck.pptx'",
+          "Omit to use auto-generated path",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid PPT mode error
+   */
+  static invalidPPTMode(): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_PPT_MODE,
+      message: "Presentation generation requires output.mode to be 'ppt'",
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "output.mode",
+        suggestions: [
+          "Set output: { mode: 'ppt' } for presentation generation",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid PPT prompt error
+   */
+  static invalidPPTPrompt(reason: string): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_PPT_PROMPT,
+      message: `Invalid PPT prompt: ${reason}`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "input.text",
+        suggestions: [
+          "Provide a non-empty text prompt",
+          "Keep the prompt under 1000 characters",
+          "Focus on key topics and structure for the presentation",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid PPT logo path error
+   */
+  static invalidPPTLogoPath(path: unknown, reason: string): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_PPT_LOGO_PATH,
+      message: `Invalid logoPath '${path}': ${reason}`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "output.ppt.logoPath",
+        providedValue: path,
+        suggestions: [
+          "Provide a valid file path string",
+          "Example: './assets/logo.png'",
+          "Omit to skip logo inclusion",
+        ],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid PPT provider error
+   */
+  static invalidPPTProvider(provider: unknown): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_PPT_PROVIDER,
+      message: `Invalid provider '${provider}' for PPT generation. Supported providers: vertex, openai, azure, anthropic, google-ai, bedrock`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "provider",
+        providedValue: provider,
+        suggestions: [
+          "Use 'vertex' for Google Vertex AI (Gemini)",
+          "Use 'openai' for OpenAI GPT models",
+          "Use 'azure' for Azure OpenAI",
+          "Use 'anthropic' for Anthropic Claude models",
+          "Use 'google-ai' for Google AI Studio (Gemini)",
+          "Use 'bedrock' for AWS Bedrock (Claude, Llama, Nova, etc.)",
         ],
       },
     });
