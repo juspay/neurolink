@@ -49,6 +49,11 @@ export const ERROR_CODES = {
   IMAGE_TOO_SMALL: "IMAGE_TOO_SMALL",
   INVALID_IMAGE_FORMAT: "INVALID_IMAGE_FORMAT",
 
+  // Rate limiter errors
+  RATE_LIMITER_QUEUE_FULL: "RATE_LIMITER_QUEUE_FULL",
+  RATE_LIMITER_QUEUE_TIMEOUT: "RATE_LIMITER_QUEUE_TIMEOUT",
+  RATE_LIMITER_RESET: "RATE_LIMITER_RESET",
+
   // PPT validation errors
   MISSING_PPT_PROPERTIES: "MISSING_PPT_PROPERTIES",
   INVALID_PPT_PAGES: "INVALID_PPT_PAGES",
@@ -545,6 +550,52 @@ export class ErrorFactory {
           "Check that the file extension matches the actual format",
         ],
       },
+    });
+  }
+
+  // ============================================================================
+  // RATE LIMITER ERRORS
+  // ============================================================================
+
+  /**
+   * Create a rate limiter queue full error
+   */
+  static rateLimiterQueueFull(maxQueueSize: number): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.RATE_LIMITER_QUEUE_FULL,
+      message: `Rate limiter queue full: too many pending requests (${maxQueueSize} max)`,
+      category: ErrorCategory.RESOURCE,
+      severity: ErrorSeverity.HIGH,
+      retriable: true,
+      context: { maxQueueSize },
+    });
+  }
+
+  /**
+   * Create a rate limiter queue timeout error
+   */
+  static rateLimiterQueueTimeout(timeoutMs: number): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.RATE_LIMITER_QUEUE_TIMEOUT,
+      message: `Rate limiter queue timeout: request exceeded ${timeoutMs}ms wait time`,
+      category: ErrorCategory.TIMEOUT,
+      severity: ErrorSeverity.HIGH,
+      retriable: true,
+      context: { timeoutMs },
+    });
+  }
+
+  /**
+   * Create a rate limiter reset error
+   */
+  static rateLimiterReset(): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.RATE_LIMITER_RESET,
+      message: "Rate limiter was reset while request was pending",
+      category: ErrorCategory.EXECUTION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: true,
+      context: {},
     });
   }
 

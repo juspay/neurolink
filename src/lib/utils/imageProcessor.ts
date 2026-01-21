@@ -4,6 +4,7 @@
  */
 
 import { logger } from "./logger.js";
+import { urlDownloadRateLimiter } from "./rateLimiter.js";
 import { withRetry } from "./retryHandler.js";
 import { SYSTEM_LIMITS } from "../core/constants.js";
 import type { ProcessedImage } from "../types/multimodal.js";
@@ -653,6 +654,7 @@ export const imageUtils = {
    * @param options.maxBytes - Maximum allowed file size (default: 10MB)
    * @param options.maxAttempts - Maximum number of total attempts including initial attempt (default: 3)
    * @returns Promise<string> - Base64 data URI of the downloaded image
+   * Rate-limited to 10 downloads per second to prevent DoS
    */
   urlToBase64DataUri: async (
     url: string,
@@ -666,6 +668,9 @@ export const imageUtils = {
       maxAttempts?: number;
     } = {},
   ): Promise<string> => {
+    // Apply rate limiting before download
+    await urlDownloadRateLimiter.acquire();
+
     // Basic protocol whitelist - fail fast, no retry needed
     if (!/^https?:\/\//i.test(url)) {
       throw new Error("Unsupported protocol");
