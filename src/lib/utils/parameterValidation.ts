@@ -1281,6 +1281,21 @@ export function validatePPTGenerationInput(
         "Image generation is enabled. Each slide with images will take additional time (~2-5 seconds per image).",
       );
     }
+
+    // Add suggestion about defaults being used
+    const missingDefaults: string[] = [];
+    if (options.output.ppt.theme === undefined) {
+      missingDefaults.push('theme: "modern"');
+    }
+    if (options.output.ppt.audience === undefined) {
+      missingDefaults.push('audience: "general"');
+    }
+    if (options.output.ppt.tone === undefined) {
+      missingDefaults.push('tone: "professional"');
+    }
+    if (missingDefaults.length > 0) {
+      suggestions.push(`Using defaults: ${missingDefaults.join(", ")}`);
+    }
   } else {
     errors.push(
       toValidationError(
