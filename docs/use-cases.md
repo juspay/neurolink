@@ -53,6 +53,58 @@ if (product.category === "basic-apparel" && costPerDescription > 0.05) {
 - **Productivity:** 10x faster than manual writing
 - **A/B Testing:** 23% higher conversion rates
 
+### Product Video Generation
+
+**Business Challenge:** Create engaging product videos at scale for social media and e-commerce listings.
+
+**Solution Implementation:**
+
+```javascript
+import { NeuroLink } from "@juspay/neurolink";
+import { readFile, writeFile } from "fs/promises";
+
+const neurolink = new NeuroLink();
+
+try {
+  // Generate product showcase video from image
+  const videoResult = await neurolink.generate({
+    input: {
+      text: `Smooth camera movement showcasing ${product.name} 
+      with elegant rotation revealing product details`,
+      images: [await readFile(product.heroImagePath)],
+    },
+    provider: "vertex",
+    model: "veo-3.1",
+    output: {
+      mode: "video",
+      video: {
+        resolution: "1080p",
+        length: 8,
+        aspectRatio: product.platform === "instagram" ? "9:16" : "16:9",
+        audio: true,
+      },
+    },
+    enableAnalytics: true,
+  });
+
+  if (videoResult.video) {
+    await writeFile(`${product.id}-showcase.mp4`, videoResult.video.data);
+    // Use your logger instead: logger.info(`Video generated: ${videoResult.video.metadata?.duration}s`)
+  }
+} catch (error) {
+  // Handle video generation errors (quota exceeded, invalid format, timeout, etc.)
+  // Use your logger instead: logger.error('Video generation failed', { error, productId: product.id })
+  throw error;
+}
+```
+
+**Business Results:**
+
+- **Content Velocity:** 50x faster than traditional video production
+- **Cost Savings:** 90% reduction vs. professional video shoots
+- **Engagement:** 40% higher engagement on video vs. static images
+- **Scale:** Generate videos for entire product catalog
+
 ### Customer Review Response
 
 **CLI Implementation:**
@@ -454,35 +506,35 @@ const marketingROI = {
 
 ## 📋 Implementation Checklist by Industry
 
-### E-commerce Setup:
+### E-commerce Setup
 
 - [ ] Product description templates with quality gates
 - [ ] Cost optimization by product category
 - [ ] Customer review response automation
 - [ ] A/B testing integration for conversion optimization
 
-### Healthcare Setup:
+### Healthcare Setup
 
 - [ ] Medical accuracy thresholds (>95%)
 - [ ] Regulatory compliance validation
 - [ ] Medical professional review workflows
 - [ ] Patient comprehension optimization
 
-### Financial Services Setup:
+### Financial Services Setup
 
 - [ ] Compliance framework integration
 - [ ] Fact-checking requirements
 - [ ] Risk disclosure automation
 - [ ] Client tier cost tracking
 
-### SaaS/Technology Setup:
+### SaaS/Technology Setup
 
 - [ ] Customer tier quality differentiation
 - [ ] Response time optimization
 - [ ] Technical accuracy validation
 - [ ] Scalability cost tracking
 
-### Education Setup:
+### Education Setup
 
 - [ ] Learning objective alignment
 - [ ] Grade-level appropriate content

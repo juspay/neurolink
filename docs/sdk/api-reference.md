@@ -151,7 +151,7 @@ type GenerateOptions = {
     content?: Array<TextContent | ImageContent>; // Advanced multimodal payloads
   };
   provider?: AIProviderName | string; // Leave undefined to allow orchestration/fallback
-  model?: string; // Model slug (e.g., 'gpt-4o')
+  model?: string; // Model slug (e.g., 'gpt-4o', 'veo-3.1')
   region?: string; // Regional routing for providers that support it
   temperature?: number;
   maxTokens?: number;
@@ -168,9 +168,24 @@ type GenerateOptions = {
   conversationHistory?: Array<{ role: string; content: string }>;
   thinkingLevel?: "minimal" | "low" | "medium" | "high"; // Gemini 3 models only
 
+  // Output configuration
+  output?: {
+    format?: "text" | "structured" | "json";
+    mode?: "text" | "video"; // Output mode: 'text' (default) or 'video'
+    video?: VideoOutputOptions; // Video generation options (when mode is 'video')
+  };
+
   // Document processing options
   officeOptions?: OfficeProcessorOptions;
 };
+
+// Video output configuration (for Veo 3.1 via Vertex AI)
+interface VideoOutputOptions {
+  resolution?: "720p" | "1080p"; // Video resolution (default: "720p")
+  length?: 4 | 6 | 8; // Video duration in seconds (default: 6)
+  aspectRatio?: "9:16" | "16:9"; // Aspect ratio (default: "16:9")
+  audio?: boolean; // Include synchronized audio (default: true)
+}
 ```
 
 **Returns:**
@@ -193,6 +208,17 @@ type GenerateResult = {
   }>;
   toolResults?: unknown[];
   toolsUsed?: string[];
+
+  // Video generation result (when output.mode is 'video')
+  video?: {
+    data: Buffer; // Raw video data
+    mediaType: string; // MIME type (e.g., 'video/mp4')
+    metadata?: {
+      duration?: number; // Video duration in seconds
+      dimensions?: { width: number; height: number };
+      model?: string; // Model used for generation
+    };
+  };
 
   analytics?: {
     provider: string;
@@ -266,6 +292,42 @@ console.log("Analytics:", result.analytics);
 console.log("Evaluation:", result.evaluation);
 // { relevanceScore: 9, accuracyScore: 8, completenessScore: 9, overallScore: 8.7 }
 ```
+
+**With Video Generation (Veo 3.1):**
+
+```typescript
+import { readFile, writeFile } from "fs/promises";
+
+// Generate video from image + text prompt
+const result = await neurolink.generate({
+  input: {
+    text: "Smooth camera movement showcasing the product",
+    images: [await readFile("./product-image.jpg")],
+  },
+  provider: "vertex",
+  model: "veo-3.1",
+  output: {
+    mode: "video",
+    video: {
+      resolution: "1080p",
+      length: 8,
+      aspectRatio: "16:9",
+      audio: true,
+    },
+  },
+});
+
+// Save generated video
+if (result.video) {
+  await writeFile("output.mp4", result.video.data);
+  console.log(`Video duration: ${result.video.metadata?.duration}s`);
+  console.log(
+    `Dimensions: ${result.video.metadata?.dimensions?.width}x${result.video.metadata?.dimensions?.height}`,
+  );
+}
+```
+
+> **Note:** Video generation requires Vertex AI credentials and currently only supports Veo 3.1 model. See [Video Generation Guide](../features/video-generation.md) for complete documentation.
 
 ### Schema Limitations by Provider
 

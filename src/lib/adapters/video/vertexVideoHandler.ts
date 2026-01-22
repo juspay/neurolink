@@ -363,6 +363,7 @@ export async function generateVideoWithVertex(
   image: Buffer,
   prompt: string,
   options: VideoOutputOptions = {},
+  region?: string,
 ): Promise<VideoGenerationResult> {
   // Validate configuration
   if (!isVertexVideoConfigured()) {
@@ -382,7 +383,10 @@ export async function generateVideoWithVertex(
     });
   }
 
-  const { project, location } = await getVertexConfig();
+  const config = await getVertexConfig();
+  const project = config.project;
+  const location = region || config.location;
+
   const startTime = Date.now();
 
   // Set defaults (matching reference implementation)

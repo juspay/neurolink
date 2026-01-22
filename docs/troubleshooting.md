@@ -59,6 +59,17 @@ This guide helps diagnose and resolve common issues with NeuroLink, including AI
 | `getConversationHistory` returns empty array | Ensure `conversationMemory.enabled: true` is configured → See [Conversation History Guide](features/conversation-history.md#configuration) |
 | Missing metadata in export                   | Set `includeMetadata: true` in export options → See [Conversation History Guide](features/conversation-history.md#advanced-usage)          |
 
+### Video Generation (Veo 3.1)
+
+| Issue                                  | Solution                                                                                                                                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PROVIDER_NOT_CONFIGURED` error        | Set `GOOGLE_APPLICATION_CREDENTIALS` to your service account JSON path → See [Video Generation Guide](features/video-generation.md#prerequisites)             |
+| `VIDEO_POLL_TIMEOUT` after 3 minutes   | Video generation can take 1-2 minutes; increase timeout or check Vertex AI quota → See [Video Generation Guide](features/video-generation.md#troubleshooting) |
+| `VIDEO_INVALID_INPUT` for image format | Ensure image is PNG, JPEG, or WebP under 20MB; check aspect ratio compatibility → See [Video Generation Guide](features/video-generation.md#limitations)      |
+| Video generation uses wrong provider   | Video gen only supports Vertex AI; provider auto-switches to `vertex` when `output.mode: "video"`                                                             |
+| `Project not found` error              | Set `GOOGLE_VERTEX_PROJECT` or `GOOGLE_CLOUD_PROJECT` environment variable                                                                                    |
+| Audio missing from generated video     | Set `output.video.audio: true` (enabled by default) and ensure Veo 3.1 model is used                                                                          |
+
 ## 🎯 **Generate Function Migration Issues**
 
 ### **Migration Questions**
@@ -455,6 +466,7 @@ npx @juspay/neurolink mcp discover --format json | jq '.servers | length'
    ```
 
 3. **Discovery Errors**:
+
    ```bash
    # Enable debug mode
    export NEUROLINK_DEBUG=true
@@ -586,6 +598,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" https://api.example.com/mcp
    ```
 
 2. **Add Retry Configuration**:
+
    ```json
    {
      "retryConfig": {
@@ -610,6 +623,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" https://api.example.com/mcp
    ```
 
 2. **For Development Only** (not recommended for production):
+
    ```bash
    export NODE_TLS_REJECT_UNAUTHORIZED=0
    ```
@@ -979,6 +993,7 @@ npx @juspay/neurolink generate "Hello" --provider google-ai --debug
    ```
 
 2. **Check Fallback Logic**:
+
    ```bash
    # This should automatically select best available provider
    npx @juspay/neurolink generate "Hello" --debug
@@ -1008,6 +1023,7 @@ npx @juspay/neurolink generate "Hello" --provider google-ai --debug
    ```
 
 3. **Local Project Usage**:
+
    ```bash
    npm install @juspay/neurolink
    npx @juspay/neurolink --help
@@ -1069,6 +1085,7 @@ node dist/cli/index.js generate "what is deepest you can think?" --provider goog
    ```
 
 2. **Dependencies Issues**:
+
    ```bash
    # Update dependencies
    npm update
@@ -1342,6 +1359,7 @@ curl -I --proxy $HTTPS_PROXY https://api.openai.com
    ```
 
 3. **Test bypass**:
+
    ```bash
    # Temporarily unset proxy
    unset HTTPS_PROXY HTTP_PROXY
@@ -1362,6 +1380,7 @@ curl -I --proxy $HTTPS_PROXY https://api.openai.com
    - `aiplatform.googleapis.com` (Vertex AI)
 
 2. **Check SSL verification**:
+
    ```bash
    # Disable SSL verification (not recommended for production)
    export NODE_TLS_REJECT_UNAUTHORIZED=0

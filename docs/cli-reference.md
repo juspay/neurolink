@@ -66,6 +66,18 @@ npx @juspay/neurolink gen "Write code" --provider openai
 | ----------------- | ------- | ------- | ------------------------------------------------------- |
 | `--disable-tools` | boolean | `false` | Disable MCP tool integration (tools enabled by default) |
 
+### Video Generation (Veo 3.1)
+
+| Flag                   | Type    | Default | Description                                                               |
+| ---------------------- | ------- | ------- | ------------------------------------------------------------------------- |
+| `--outputMode`         | string  | `text`  | Output mode: 'text' or 'video'                                            |
+| `--image`              | string  | none    | Path to an input image to base the generated video on (e.g., ./input.png) |
+| `--videoOutput`, `-vo` | string  | none    | Path to save generated video (e.g., ./output.mp4)                         |
+| `--videoResolution`    | string  | `720p`  | Video resolution: '720p' or '1080p'                                       |
+| `--videoLength`        | number  | `6`     | Video duration in seconds: 4, 6, or 8                                     |
+| `--videoAspectRatio`   | string  | `16:9`  | Aspect ratio: '9:16' (portrait) or '16:9' (landscape)                     |
+| `--videoAudio`         | boolean | `true`  | Include synchronized audio                                                |
+
 ## Usage Examples
 
 ### Basic Text Generation
@@ -263,6 +275,39 @@ Artificial Intelligence (AI) refers to...
 3. **Cost Optimization**: Set `NEUROLINK_EVALUATION_PREFER_CHEAP=true` for automatic cost optimization
 4. **Debug Efficiently**: Use `--debug` only when troubleshooting to avoid verbose output
 5. **Context Size**: Keep `--context` objects small to minimize token usage
+
+## Video Generation Examples
+
+Generate videos from images using Veo 3.1 via Vertex AI:
+
+```bash
+# Basic video generation
+npx @juspay/neurolink generate "Product showcase with smooth camera movement" \
+  --image ./product.jpg \
+  --outputMode video \
+  --videoOutput ./output.mp4
+
+# Full options
+npx @juspay/neurolink generate "Cinematic reveal with dramatic lighting" \
+  --image ./hero-image.png \
+  --provider vertex \
+  --model veo-3.1 \
+  --outputMode video \
+  --videoResolution 1080p \
+  --videoLength 8 \
+  --videoAspectRatio 16:9 \
+  --videoOutput ./cinematic.mp4
+
+# Portrait video for social media
+npx @juspay/neurolink generate "Vertical scroll animation" \
+  --image ./mobile-screenshot.jpg \
+  --outputMode video \
+  --videoResolution 720p \
+  --videoAspectRatio 9:16 \
+  --videoOutput ./story.mp4
+```
+
+> **Note:** Video generation requires Vertex AI credentials. See [Video Generation Guide](./features/video-generation.md).
 
 ## Environment Variables
 

@@ -535,4 +535,232 @@ This architecture ensures NeuroLink remains maintainable, extensible, and consis
 
 ---
 
+## 🎥 Video Generation Handler Architecture
+
+Video generation via Veo 3.1 follows the same factory pattern architecture with specialized handling for long-running operations.
+
+### Video Handler Implementation
+
+```typescript
+// src/lib/handlers/videoHandler.ts
+export class VideoGenerationHandler {
+  private readonly provider: VertexAIProvider;
+  private readonly pollInterval: number = 5000; // 5 seconds
+  private readonly maxPolls: number = 36; // 3 minutes max
+
+  constructor(provider: VertexAIProvider) {
+    this.provider = provider;
+  }
+
+  async generate(options: VideoGenerationOptions): Promise<VideoResult> {
+    // 1. Validate inputs
+    this.validateInputs(options);
+
+    // 2. Submit video generation request
+    const operationId = await this.submitRequest(options);
+
+    // 3. Poll for completion
+    const result = await this.pollForCompletion(operationId);
+
+    // 4. Download and return video
+    return this.processResult(result);
+  }
+
+  private async pollForCompletion(operationId: string): Promise<any> {
+    let attempts = 0;
+
+    while (attempts < this.maxPolls) {
+      const status = await this.checkStatus(operationId);
+
+      if (status.done) {
+        return status.response;
+      }
+
+      if (status.error) {
+        throw new VideoGenerationError(status.error);
+      }
+
+      await this.sleep(this.pollInterval);
+      attempts++;
+    }
+
+    throw new VideoGenerationError("VIDEO_POLL_TIMEOUT");
+  }
+
+  private validateInputs(options: VideoGenerationOptions): void {
+    if (!options.image) {
+      throw new VideoGenerationError("VIDEO_INVALID_INPUT: Image required");
+    }
+
+    const validResolutions = ["720p", "1080p"];
+    if (options.resolution && !validResolutions.includes(options.resolution)) {
+      throw new VideoGenerationError("VIDEO_INVALID_INPUT: Invalid resolution");
+    }
+
+    const validLengths = [4, 6, 8];
+    if (options.length && !validLengths.includes(options.length)) {
+      throw new VideoGenerationError("VIDEO_INVALID_INPUT: Invalid length");
+    }
+  }
+}
+```
+
+### Integration with BaseProvider
+
+```typescript
+// src/lib/providers/vertex.ts
+export class VertexAIProvider extends BaseProvider {
+  private videoHandler?: VideoGenerationHandler;
+
+  constructor(config: VertexConfig) {
+    super();
+    if (config.enableVideoGeneration) {
+      this.videoHandler = new VideoGenerationHandler(this);
+    }
+  }
+
+  async generate(options: GenerateOptions): Promise<GenerateResult> {
+    // Check if this is a video generation request
+    if (options.output?.mode === "video") {
+      if (!this.videoHandler) {
+        throw new Error("Video generation not enabled for this provider");
+      }
+
+      const videoResult = await this.videoHandler.generate({
+        prompt: options.input.text,
+        image: options.input.images?.[0],
+        resolution: options.output.video?.resolution,
+        length: options.output.video?.length,
+        aspectRatio: options.output.video?.aspectRatio,
+        audio: options.output.video?.audio,
+      });
+
+      return {
+        content: "",
+        video: videoResult,
+        provider: "vertex",
+        model: "veo-3.1",
+      };
+    }
+
+    // Regular text generation
+    return super.generate(options);
+  }
+}
+```
+
+### Factory Pattern Benefits for Video Generation
+
+**1. Provider-Specific Features:** Video generation is only available on Vertex AI, but the architecture allows graceful handling:
+
+```typescript
+const provider = createBestAIProvider();
+
+try {
+  const result = await provider.generate({
+    input: { text: "Video prompt", images: [image] },
+    output: { mode: "video" },
+  });
+} catch (error) {
+  if (error.code === "FEATURE_NOT_SUPPORTED") {
+    // Automatically fall back or switch provider
+    console.log("Video generation not supported by this provider");
+  }
+}
+```
+
+**2. Automatic Provider Routing:** Factory can route video requests to Vertex AI:
+
+```typescript
+class AIProviderFactory {
+  static createProvider(name: string, config?: any): BaseProvider {
+    // Auto-route video generation to Vertex AI
+    if (config?.output?.mode === "video") {
+      if (name !== "vertex") {
+        console.warn(`Video generation requires Vertex AI, switching provider`);
+        name = "vertex";
+      }
+    }
+
+    switch (name) {
+      case "vertex":
+        return new VertexAIProvider(config);
+      // ... other providers
+    }
+  }
+}
+```
+
+**3. Consistent Error Handling:** Video-specific errors follow the same pattern:
+
+```typescript
+// All errors follow the same structure
+try {
+  const result = await provider.generate(options);
+} catch (error) {
+  switch (error.code) {
+    case "VIDEO_GENERATION_FAILED":
+    case "VIDEO_POLL_TIMEOUT":
+    case "VIDEO_INVALID_INPUT":
+      // Handle video-specific errors
+      break;
+    case "PROVIDER_NOT_CONFIGURED":
+    case "RATE_LIMIT_EXCEEDED":
+      // Handle general provider errors
+      break;
+  }
+}
+```
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────┐
+│          NeuroLink Instance             │
+│  (High-level SDK interface)             │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│      AIProviderFactory                  │
+│  (Selects appropriate provider)         │
+└──────────────┬──────────────────────────┘
+               │
+               ├─────────────┬─────────────┐
+               ▼             ▼             ▼
+┌──────────────────┐  ┌─────────────┐  ┌─────────────┐
+│   BaseProvider   │  │ OpenAI      │  │ Anthropic   │
+│  (Core logic)    │  │ Provider    │  │ Provider    │
+└──────────────────┘  └─────────────┘  └─────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────┐
+│      VertexAIProvider                    │
+│  (Extends BaseProvider)                  │
+└──────────────┬───────────────────────────┘
+               │
+               ├───────────────────────────┐
+               ▼                           ▼
+┌─────────────────────────┐  ┌──────────────────────────┐
+│  Text Generation        │  │  VideoGenerationHandler  │
+│  (Standard flow)        │  │  (Specialized for video) │
+└─────────────────────────┘  └──────────────────────────┘
+                                        │
+                                        ▼
+                             ┌──────────────────────────┐
+                             │  Polling & Download      │
+                             │  (Long-running ops)      │
+                             └──────────────────────────┘
+```
+
+### Key Design Decisions
+
+1. **Separation of Concerns**: Video handler is separate from core provider logic
+2. **Extensibility**: Easy to add image generation, audio generation, etc.
+3. **Consistent Interface**: Same `generate()` method for text and video
+4. **Provider-Specific Features**: Only Vertex AI supports video, handled gracefully
+5. **Error Handling**: Unified error codes across all features
+
+---
+
 **Understanding the architecture helps you build better AI applications! 🚀**

@@ -32,6 +32,7 @@ Comprehensive guide for optimizing NeuroLink performance, reducing latency, and 
    ```
 
 3. **Implement Request Batching**
+
    ```bash
    # CLI batch processing
    npx @juspay/neurolink batch process \
@@ -534,6 +535,272 @@ npx @juspay/neurolink diagnose performance \
   --output diagnosis.json
 ```
 
+## 🎥 Video Generation Performance Optimization
+
+Video generation via Veo 3.1 requires special performance considerations due to longer processing times and larger resource requirements.
+
+### Timeout Configuration
+
+Video generation typically takes 1-3 minutes. Configure appropriate timeouts:
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: {
+    text: "Product showcase video",
+    images: [imageBuffer],
+  },
+  provider: "vertex",
+  model: "veo-3.1",
+  output: { mode: "video" },
+  timeout: 180, // 3 minutes (recommended minimum)
+});
+```
+
+### Polling Strategy
+
+Video generation uses long-polling. Optimize the polling strategy:
+
+```typescript
+// Adjust polling intervals for better performance
+const result = await neurolink.generate({
+  input: { text: "Video prompt", images: [image] },
+  provider: "vertex",
+  model: "veo-3.1",
+  output: {
+    mode: "video",
+    video: {
+      resolution: "720p", // Use 720p for faster generation
+      length: 4, // Shorter videos generate faster (4s vs 8s)
+    },
+  },
+  // Custom polling configuration (if supported)
+  pollInterval: 5000, // Check every 5 seconds
+  maxPolls: 36, // Up to 3 minutes (36 * 5s)
+});
+```
+
+### Resource Optimization
+
+**Resolution vs Speed Trade-off:**
+
+| Resolution | Avg Time | File Size | Use Case                    |
+| ---------- | -------- | --------- | --------------------------- |
+| 720p       | 60-90s   | ~5-10MB   | Social media, previews      |
+| 1080p      | 90-180s  | ~15-30MB  | Professional content, demos |
+
+**Length vs Speed Trade-off:**
+
+| Length | Avg Time | Use Case                        |
+| ------ | -------- | ------------------------------- |
+| 4s     | 60-90s   | Quick animations, teasers       |
+| 6s     | 75-120s  | Social media posts              |
+| 8s     | 90-180s  | Product showcases, storytelling |
+
+### Batch Processing Strategy
+
+Process multiple videos efficiently:
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+import PQueue from "p-queue";
+
+const neurolink = new NeuroLink();
+
+// Limit concurrent video generations (Vertex AI rate limits)
+const queue = new PQueue({ concurrency: 2 });
+
+async function generateVideos(requests: VideoRequest[]) {
+  const results = await Promise.allSettled(
+    requests.map((req) =>
+      queue.add(async () => {
+        try {
+          return await neurolink.generate({
+            input: { text: req.prompt, images: [req.image] },
+            provider: "vertex",
+            model: "veo-3.1",
+            output: {
+              mode: "video",
+              video: {
+                resolution: req.resolution || "720p",
+                length: req.length || 6,
+              },
+            },
+            timeout: 180,
+          });
+        } catch (error) {
+          console.error(`Failed to generate video: ${req.id}`, error);
+          return null;
+        }
+      }),
+    ),
+  );
+
+  return results.filter((r) => r.status === "fulfilled" && r.value !== null);
+}
+```
+
+### Caching Strategy
+
+Video generation is expensive. Implement aggressive caching:
+
+```typescript
+import { createHash } from "crypto";
+import { readFile, writeFile, access } from "fs/promises";
+
+// Generate cache key from inputs
+function getCacheKey(prompt: string, imageBuffer: Buffer): string {
+  const hash = createHash("sha256");
+  hash.update(prompt);
+  hash.update(imageBuffer);
+  return hash.digest("hex");
+}
+
+async function generateVideoWithCache(prompt: string, image: Buffer) {
+  const cacheKey = getCacheKey(prompt, image);
+  const cacheFile = `./cache/videos/${cacheKey}.mp4`;
+
+  // Check cache first
+  try {
+    await access(cacheFile);
+    const cached = await readFile(cacheFile);
+    console.log("✅ Video served from cache");
+    return { video: { data: cached }, cached: true };
+  } catch {
+    // Not in cache, generate new
+  }
+
+  const neurolink = new NeuroLink();
+  const result = await neurolink.generate({
+    input: { text: prompt, images: [image] },
+    provider: "vertex",
+    model: "veo-3.1",
+    output: { mode: "video" },
+  });
+
+  // Cache the result
+  if (result.video) {
+    await writeFile(cacheFile, result.video.data);
+    console.log("✅ Video cached for future use");
+  }
+
+  return { ...result, cached: false };
+}
+```
+
+### Cost Optimization
+
+**Best Practices:**
+
+1. **Use 720p by default** - 30-50% faster, 60% lower cost
+2. **Prefer 4-6 second videos** - Faster generation, lower cost
+3. **Implement aggressive caching** - Avoid regenerating identical videos
+4. **Batch similar requests** - Group by resolution/length for efficiency
+5. **Monitor Vertex AI quotas** - Set up alerts before hitting limits
+
+**Cost Comparison:**
+
+| Configuration      | Avg Time | Relative Cost | Best For             |
+| ------------------ | -------- | ------------- | -------------------- |
+| 720p, 4s, no audio | 60s      | 1x            | Quick previews       |
+| 720p, 6s, audio    | 90s      | 1.5x          | Social media         |
+| 1080p, 8s, audio   | 180s     | 3x            | Professional content |
+
+### Error Handling for Long Operations
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+async function robustVideoGeneration(prompt: string, image: Buffer) {
+  const neurolink = new NeuroLink();
+  const maxRetries = 2;
+  let attempt = 0;
+
+  while (attempt < maxRetries) {
+    try {
+      const result = await neurolink.generate({
+        input: { text: prompt, images: [image] },
+        provider: "vertex",
+        model: "veo-3.1",
+        output: { mode: "video" },
+        timeout: 180,
+      });
+
+      return result;
+    } catch (error) {
+      attempt++;
+
+      if (error.code === "VIDEO_POLL_TIMEOUT" && attempt < maxRetries) {
+        console.log(`Timeout on attempt ${attempt}, retrying...`);
+        continue;
+      }
+
+      if (error.code === "VIDEO_QUOTA_EXCEEDED") {
+        console.error("Quota exceeded. Wait before retrying.");
+        throw error;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error("Video generation failed after maximum retries");
+}
+```
+
+### Monitoring Video Generation Performance
+
+```typescript
+interface VideoMetrics {
+  totalGenerated: number;
+  avgGenerationTime: number;
+  cacheHitRate: number;
+  failureRate: number;
+  costEstimate: number;
+}
+
+class VideoPerformanceMonitor {
+  private metrics: VideoMetrics = {
+    totalGenerated: 0,
+    avgGenerationTime: 0,
+    cacheHitRate: 0,
+    failureRate: 0,
+    costEstimate: 0,
+  };
+
+  recordGeneration(duration: number, cached: boolean, success: boolean) {
+    this.metrics.totalGenerated++;
+
+    if (!cached && success) {
+      // Update average generation time
+      const total =
+        this.metrics.avgGenerationTime * (this.metrics.totalGenerated - 1);
+      this.metrics.avgGenerationTime =
+        (total + duration) / this.metrics.totalGenerated;
+    }
+
+    // Update cache hit rate
+    const cacheHits =
+      this.metrics.cacheHitRate * (this.metrics.totalGenerated - 1);
+    this.metrics.cacheHitRate =
+      (cacheHits + (cached ? 1 : 0)) / this.metrics.totalGenerated;
+
+    // Update failure rate
+    const failures =
+      this.metrics.failureRate * (this.metrics.totalGenerated - 1);
+    this.metrics.failureRate =
+      (failures + (success ? 0 : 1)) / this.metrics.totalGenerated;
+  }
+
+  getMetrics(): VideoMetrics {
+    return { ...this.metrics };
+  }
+}
+```
+
 This comprehensive performance optimization guide provides the tools and strategies needed to maximize NeuroLink's performance in any environment, from development to large-scale production deployments.
 
 ## 📚 Related Documentation
@@ -542,3 +809,4 @@ This comprehensive performance optimization guide provides the tools and strateg
 - [System Architecture](development/architecture.md) - Understanding system design
 - [Troubleshooting](reference/troubleshooting.md) - Common performance issues
 - [Enterprise Setup](getting-started/provider-setup.md) - Production configuration
+- [Video Generation Guide](features/video-generation.md) - Complete video generation documentation

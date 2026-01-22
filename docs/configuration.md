@@ -194,6 +194,26 @@ export MEM0_VECTOR_STORE="qdrant"
 
 Consult [`docs/mem0-integration.md`](mem0-integration.md) for vector store specifics and SDK examples.
 
+### **Video Generation (Veo 3.1)**
+
+Configure Vertex AI credentials to enable video generation with Veo 3.1. Choose **one** of the following credential options:
+
+```bash
+# Option 1: Service account file (recommended for production)
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
+export GOOGLE_VERTEX_PROJECT="your-project-id"
+export GOOGLE_VERTEX_LOCATION="us-central1"
+
+# Option 2: Environment variables (alternative to service account file)
+# GOOGLE_CLOUD_* variables are equivalent to GOOGLE_VERTEX_* for project/location configuration
+export GOOGLE_CLOUD_PROJECT="your-project-id"
+export GOOGLE_CLOUD_LOCATION="us-central1"
+```
+
+**Note:** These are alternative approaches—you only need one. `GOOGLE_VERTEX_PROJECT` and `GOOGLE_CLOUD_PROJECT` map to the same project configuration; similarly, `GOOGLE_VERTEX_LOCATION` and `GOOGLE_CLOUD_LOCATION` specify the same region.
+
+See [Video Generation Guide](features/video-generation.md) for complete setup and usage.
+
 ### **Regional Routing**
 
 Set region-specific variables to control latency and compliance.

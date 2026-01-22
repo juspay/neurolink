@@ -124,6 +124,16 @@ npx @juspay/neurolink gen "Analyze this problem" --provider google-ai --model ge
 - `--context <json>` - JSON context object for custom data (e.g., '{"userId":"123","project":"api-design"}')
 - `--disableTools` - Disable MCP tool integration (tools enabled by default)
 
+**Video Generation Options (Veo 3.1):**
+
+- `--outputMode <mode>` - Output mode: 'text' (default) or 'video'
+- `--image <path>` - Path to input image file for image-based video generation (required for video mode, e.g., ./input.jpg)
+- `--videoOutput <path>` - Path to save generated video file (e.g., ./output.mp4)
+- `--videoResolution <res>` - Video resolution: '720p' or '1080p' (default: 720p)
+- `--videoLength <seconds>` - Video duration: 4, 6, or 8 seconds (default: 6)
+- `--videoAspectRatio <ratio>` - Aspect ratio: '9:16' (portrait) or '16:9' (landscape, default: 16:9)
+- `--videoAudio <bool>` - Include synchronized audio (default: true)
+
 **Output Example:**
 
 ```
@@ -1130,7 +1140,7 @@ npx @juspay/neurolink status
 
 ## When to Use CLI vs SDK
 
-### Use the CLI when:
+### Use the CLI when
 
 - 🔧 **Prototyping**: Quick testing of prompts and providers
 - 📜 **Scripting**: Shell scripts and automation workflows
@@ -1138,7 +1148,7 @@ npx @juspay/neurolink status
 - 📊 **Batch Processing**: Processing multiple prompts from files
 - 🎯 **One-off Tasks**: Generating content without writing code
 
-### Use the SDK when:
+### Use the SDK when
 
 - 🏗️ **Application Development**: Building web apps, APIs, or services
 - 🔄 **Real-time Integration**: Chat interfaces, streaming responses

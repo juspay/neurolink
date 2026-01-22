@@ -4,9 +4,31 @@ description: Stream text and images together with automatic provider fallbacks a
 keywords: multimodal, images, vision, chat, streaming, text and images, visual AI
 ---
 
-# Multimodal Chat Experiences
-
 NeuroLink 7.47.0 introduces full multimodal pipelines so you can mix text, URLs, and local images in a single interaction. The CLI, SDK, and loop sessions all use the same message builder, ensuring parity across workflows.
+
+## Video Generation {#video-generation}
+
+NeuroLink supports **video generation** from images using Google's Veo 3.1 model via Vertex AI. Transform static images into 8-second videos with synchronized audio.
+
+```typescript
+import { readFile, writeFile } from "node:fs/promises";
+
+const result = await neurolink.generate({
+  input: {
+    text: "Smooth camera movement showcasing the product",
+    images: [await readFile("./product.jpg")],
+  },
+  provider: "vertex",
+  model: "veo-3.1",
+  output: { mode: "video", video: { resolution: "1080p" } },
+});
+
+if (result.video) {
+  await writeFile("output.mp4", result.video.data);
+}
+```
+
+**See:** [Video Generation Guide](video-generation.md) for complete documentation.
 
 ## Images {#images}
 

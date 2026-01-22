@@ -37,7 +37,7 @@ node BEFORE_AFTER_COMPARISON.js
 
 ### Expected Results
 
-#### CLI Enhancement Output:
+#### CLI Enhancement Output
 
 ```
 📊 Analytics:
@@ -58,7 +58,7 @@ node BEFORE_AFTER_COMPARISON.js
 }
 ```
 
-#### SDK Enhancement Output:
+#### SDK Enhancement Output
 
 ```javascript
 // Result object contains:
@@ -237,6 +237,200 @@ node ./dist/cli/index.js generate "Help with task" --context '{"userId":"123","d
 
 # Expected: Context object preserved in analytics.context
 # Expected: Context available throughout request chain
+```
+
+### Video Generation Testing
+
+#### SDK Video Generation Tests
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+import { readFile, writeFile } from "fs/promises";
+import { describe, it, expect } from "vitest";
+
+describe("Video Generation", () => {
+  const neurolink = new NeuroLink();
+
+  it("should generate video from image", async () => {
+    const result = await neurolink.generate({
+      input: {
+        text: "Smooth camera pan across the landscape",
+        images: [await readFile("./test/fixtures/landscape.jpg")],
+      },
+      provider: "vertex",
+      model: "veo-3.1",
+      output: {
+        mode: "video",
+        video: {
+          resolution: "720p",
+          length: 6,
+          aspectRatio: "16:9",
+        },
+      },
+    });
+
+    expect(result.video).toBeDefined();
+    expect(result.video?.data).toBeInstanceOf(Buffer);
+    expect(result.video?.mediaType).toBe("video/mp4");
+    expect(result.video?.metadata?.duration).toBeGreaterThan(0);
+  });
+
+  it("should handle video generation errors", async () => {
+    await expect(
+      neurolink.generate({
+        input: { text: "Video without image" },
+        provider: "vertex",
+        model: "veo-3.1",
+        output: { mode: "video" },
+      }),
+    ).rejects.toThrow("VIDEO_INVALID_INPUT");
+  });
+
+  it("should generate video with audio", async () => {
+    const result = await neurolink.generate({
+      input: {
+        text: "Dynamic product showcase with audio",
+        images: [await readFile("./test/fixtures/product.jpg")],
+      },
+      provider: "vertex",
+      model: "veo-3.1",
+      output: {
+        mode: "video",
+        video: {
+          resolution: "1080p",
+          length: 8,
+          audio: true,
+        },
+      },
+    });
+
+    expect(result.video?.data).toBeDefined();
+    expect(result.video?.metadata?.duration).toBe(8);
+  });
+});
+```
+
+#### CLI Video Generation Tests
+
+```bash
+# Test basic video generation
+npx @juspay/neurolink generate "Camera movement" \
+  --image ./test/fixtures/sample.jpg \
+  --outputMode video \
+  --videoOutput ./test-output.mp4 \
+  --provider vertex \
+  --model veo-3.1
+
+# Verify output file exists and is valid
+test -f ./test-output.mp4 && echo "✅ Video file created"
+ffprobe ./test-output.mp4 2>&1 | grep -q "Video:" && echo "✅ Valid video format"
+
+# Test video with options
+npx @juspay/neurolink generate "Product showcase" \
+  --image ./test/fixtures/product.jpg \
+  --outputMode video \
+  --videoOutput ./test-1080p.mp4 \
+  --videoResolution 1080p \
+  --videoLength 8 \
+  --videoAspectRatio 16:9 \
+  --videoAudio true
+
+# Test error handling
+npx @juspay/neurolink generate "Video without image" \
+  --outputMode video \
+  --videoOutput ./fail.mp4 \
+  2>&1 | grep -q "VIDEO_INVALID_INPUT" && echo "✅ Error handled correctly"
+```
+
+#### Mock Strategy for CI/CD
+
+To avoid Vertex AI costs in CI/CD, mock video generation:
+
+```typescript
+import { vi } from "vitest";
+
+// Mock video generation in tests
+vi.mock("@juspay/neurolink", async () => {
+  const actual = await vi.importActual("@juspay/neurolink");
+  return {
+    ...actual,
+    NeuroLink: class MockNeuroLink {
+      async generate(options: any) {
+        if (options.output?.mode === "video") {
+          return {
+            content: "",
+            video: {
+              data: Buffer.from("mock-video-data"),
+              mediaType: "video/mp4",
+              metadata: {
+                duration: options.output.video?.length || 6,
+                dimensions: { width: 1280, height: 720 },
+                model: "veo-3.1",
+              },
+            },
+            provider: "vertex",
+            model: "veo-3.1",
+          };
+        }
+        // Default mock response for non-video modes
+        return {
+          content: "Mock text response",
+          provider: options.provider || "mock",
+          model: options.model || "mock-model",
+        };
+      }
+    },
+  };
+});
+```
+
+#### Integration Test Example
+
+```bash
+#!/bin/bash
+# integration-test-video.sh
+
+set -e
+
+echo "🧪 Testing Video Generation Integration"
+
+# Setup
+export GOOGLE_APPLICATION_CREDENTIALS="./test-service-account.json"
+export GOOGLE_VERTEX_PROJECT="test-project"
+export GOOGLE_VERTEX_LOCATION="us-central1"
+
+# Test 1: Basic video generation
+echo "Test 1: Basic video generation"
+npx @juspay/neurolink generate "Test video" \
+  --image ./test/fixtures/test.jpg \
+  --outputMode video \
+  --videoOutput ./test-output.mp4 \
+  --timeout 180
+
+if [ -f "./test-output.mp4" ]; then
+  echo "✅ Test 1 passed"
+else
+  echo "❌ Test 1 failed"
+  exit 1
+fi
+
+# Test 2: High-resolution video
+echo "Test 2: High-resolution video"
+npx @juspay/neurolink generate "HD test" \
+  --image ./test/fixtures/test.jpg \
+  --outputMode video \
+  --videoOutput ./test-1080p.mp4 \
+  --videoResolution 1080p \
+  --videoLength 8
+
+# Verify resolution
+ffprobe -v error -select_streams v:0 -show_entries stream=width,height \
+  -of csv=p=0 ./test-1080p.mp4 | grep -q "1920,1080" && echo "✅ Test 2 passed"
+
+# Cleanup
+rm -f ./test-output.mp4 ./test-1080p.mp4
+
+echo "✅ All video generation tests passed"
 ```
 
 ## Troubleshooting Guide

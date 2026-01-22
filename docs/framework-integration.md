@@ -1281,4 +1281,291 @@ CMD ["npm", "start"]
 
 ---
 
+## Video Generation Integration
+
+### Next.js Video Generation API
+
+```typescript
+// app/api/video/route.ts
+import { NeuroLink } from "@juspay/neurolink";
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const prompt = formData.get("prompt") as string;
+    const image = formData.get("image") as File;
+    const resolution = (formData.get("resolution") as string) || "720p";
+    const length = parseInt(formData.get("length") as string) || 6;
+
+    if (!image) {
+      return NextResponse.json({ error: "Image is required" }, { status: 400 });
+    }
+
+    const imageBuffer = Buffer.from(await image.arrayBuffer());
+
+    const neurolink = new NeuroLink();
+    const result = await neurolink.generate({
+      input: {
+        text: prompt,
+        images: [imageBuffer],
+      },
+      provider: "vertex",
+      model: "veo-3.1",
+      output: {
+        mode: "video",
+        video: {
+          resolution: resolution as "720p" | "1080p",
+          length: length as 4 | 6 | 8,
+          aspectRatio: "16:9",
+          audio: true,
+        },
+      },
+      timeout: 180,
+    });
+
+    if (!result.video) {
+      return NextResponse.json(
+        { error: "Video generation failed" },
+        { status: 500 },
+      );
+    }
+
+    // Return video as downloadable file
+    return new NextResponse(result.video.data, {
+      headers: {
+        "Content-Type": "video/mp4",
+        "Content-Disposition": `attachment; filename="generated-video.mp4"`,
+        "X-Video-Duration": result.video.metadata?.duration?.toString() || "",
+      },
+    });
+  } catch (error) {
+    // Use your logger: logger.error('Video generation error', { error })
+    console.error("Video generation error:", error);
+    const message =
+      error instanceof Error ? error.message : "Video generation failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+```
+
+### React Video Generator Component
+
+```typescript
+// components/VideoGenerator.tsx
+"use client";
+import { useState } from "react";
+
+export default function VideoGenerator() {
+  const [prompt, setPrompt] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+
+  const handleGenerate = async () => {
+    if (!prompt || !image) {
+      setError("Please provide both prompt and image");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setVideoUrl("");
+
+    const formData = new FormData();
+    formData.append("prompt", prompt);
+    formData.append("image", image);
+    formData.append("resolution", "1080p");
+    formData.append("length", "8");
+
+    try {
+      const response = await fetch("/api/video", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Video generation failed");
+      }
+
+      // Create blob URL for video preview
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setVideoUrl(url);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Video generation failed";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="video-generator">
+      <h2>Video Generator</h2>
+
+      <div className="form">
+        <input
+          type="text"
+          placeholder="Describe the video motion..."
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+        />
+
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={(e) => setImage(e.target.files?.[0] || null)}
+        />
+
+        <button onClick={handleGenerate} disabled={loading}>
+          {loading ? "Generating Video..." : "Generate Video"}
+        </button>
+      </div>
+
+      {error && <div className="error">{error}</div>}
+
+      {videoUrl && (
+        <div className="result">
+          <h3>Generated Video</h3>
+          <video src={videoUrl} controls width="640" />
+          <a href={videoUrl} download="generated-video.mp4">
+            Download Video
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Express.js Video Generation
+
+```typescript
+// routes/video.ts
+import express from "express";
+import multer from "multer";
+import { NeuroLink } from "@juspay/neurolink";
+
+const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
+router.post("/generate", upload.single("image"), async (req, res) => {
+  try {
+    const { prompt, resolution = "720p", length = 6 } = req.body;
+    const image = req.file;
+
+    if (!image || !prompt) {
+      return res.status(400).json({ error: "Image and prompt required" });
+    }
+
+    const neurolink = new NeuroLink();
+    const result = await neurolink.generate({
+      input: {
+        text: prompt,
+        images: [image.buffer],
+      },
+      provider: "vertex",
+      model: "veo-3.1",
+      output: {
+        mode: "video",
+        video: {
+          resolution: resolution as "720p" | "1080p",
+          length: parseInt(length),
+          aspectRatio: "16:9",
+          audio: true,
+        },
+      },
+      timeout: 180,
+    });
+
+    if (!result.video) {
+      return res.status(500).json({ error: "Video generation failed" });
+    }
+
+    res.set({
+      "Content-Type": "video/mp4",
+      "Content-Length": result.video.data.length,
+      "Content-Disposition": 'attachment; filename="video.mp4"',
+    });
+
+    res.send(result.video.data);
+  } catch (error) {
+    // Use your logger: logger.error('Video generation error', { error })
+    console.error("Video generation error:", error);
+    const message =
+      error instanceof Error ? error.message : "Video generation failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+export default router;
+```
+
+### SvelteKit Video Generation
+
+```typescript
+// src/routes/api/video/+server.ts
+import { NeuroLink } from "@juspay/neurolink";
+import type { RequestHandler } from "./$types";
+
+export const POST: RequestHandler = async ({ request }) => {
+  try {
+    const formData = await request.formData();
+    const prompt = formData.get("prompt") as string;
+    const imageFile = formData.get("image") as File;
+    const resolution = (formData.get("resolution") as string) || "720p";
+
+    if (!imageFile || !prompt) {
+      return new Response(
+        JSON.stringify({ error: "Image and prompt required" }),
+        { status: 400 },
+      );
+    }
+
+    const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
+
+    const neurolink = new NeuroLink();
+    const result = await neurolink.generate({
+      input: {
+        text: prompt,
+        images: [imageBuffer],
+      },
+      provider: "vertex",
+      model: "veo-3.1",
+      output: {
+        mode: "video",
+        video: {
+          resolution: resolution as "720p" | "1080p",
+          length: 8,
+          aspectRatio: "16:9",
+        },
+      },
+    });
+
+    if (!result.video) {
+      return new Response(
+        JSON.stringify({ error: "Video generation failed" }),
+        { status: 500 },
+      );
+    }
+
+    return new Response(result.video.data, {
+      headers: {
+        "Content-Type": "video/mp4",
+        "Content-Disposition": 'attachment; filename="video.mp4"',
+      },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+    });
+  }
+};
+```
+
+---
+
 [← Back to Main README](./index.md) | [Next: Provider Configuration →](./getting-started/provider-setup.md)

@@ -58,6 +58,18 @@ Key flags:
 - `--debug` – verbose logging and full JSON payloads.
 - `--quiet` – suppress spinners.
 
+**Video Generation (Veo 3.1):**
+
+- `--outputMode` – output mode: `text` (default) or `video`.
+- `--image` – path to input image file (required for video generation, e.g., ./input.jpg).
+- `--videoOutput`, `-vo` – path to save generated video file.
+- `--videoResolution` – `720p` or `1080p` (default `720p`).
+- `--videoLength` – duration: `4`, `6`, or `8` seconds (default `6`).
+- `--videoAspectRatio` – `9:16` (portrait) or `16:9` (landscape, default `16:9`).
+- `--videoAudio` – include synchronized audio (default `true`).
+
+**Note:** Video generation requires Vertex AI provider (`vertex`) and Veo 3.1 model (`veo-3.1`). The provider auto-switches to Vertex when `--outputMode video` is specified. Supported image formats: PNG, JPEG, WebP (max 20MB).
+
 `gen` is a short alias with the same options.
 
 ### `stream <input>` {#stream}

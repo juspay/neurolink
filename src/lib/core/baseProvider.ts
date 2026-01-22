@@ -1270,6 +1270,7 @@ export abstract class BaseProvider implements AIProvider {
       imageBuffer,
       prompt,
       options.output?.video,
+      options.region,
     );
 
     logger.info("Video generation complete", {

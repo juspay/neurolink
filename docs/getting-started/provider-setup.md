@@ -475,6 +475,12 @@ const result = await neurolink.generate({
 
 - `claude-sonnet-4@20250514` - High-quality reasoning (Anthropic via Vertex AI)
 
+**Video Generation:**
+
+- `veo-3.1` / `veo-3.1-generate-001` - Video generation from image + text prompt (8-second videos with audio)
+
+> **Video Generation:** Use `output.mode: "video"` with Veo 3.1 to generate videos. See [Video Generation Guide](../features/video-generation.md).
+
 ### Gemini 3 Extended Thinking Configuration
 
 Gemini 3 models support **extended thinking** (also known as "thinking mode"), which allows the model to reason more deeply before providing responses. This is particularly useful for complex reasoning tasks, math problems, and multi-step analysis.

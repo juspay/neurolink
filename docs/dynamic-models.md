@@ -11,6 +11,7 @@ The dynamic model system enables:
 - **Smart model resolution** with fuzzy matching and aliases
 - **Capability-based search** to find models with specific features
 - **Cost optimization** by automatically selecting cheapest models for tasks
+- **Video generation** support via Veo 3.1 model on Vertex AI
 
 ## 🏗️ Architecture
 

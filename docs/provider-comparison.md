@@ -12,6 +12,7 @@
 | **Cost**          | $$$      | $$$        | $$$        | $$        | $$$       | $$$        | Free/$$      | Free    | $$      |
 | **Speed**         | Fast     | Medium     | Medium     | Fast      | Fast      | Fast       | Variable     | Fast    | Fast    |
 | **Rate Limits**   | Medium   | High       | High       | Low       | Medium    | High       | Low          | None    | Medium  |
+| **Video Gen**     | ❌       | ❌         | ✅ Veo 3.1 | ❌        | ❌        | ❌         | ❌           | ❌      | ❌      |
 
 ## Detailed Comparison
 

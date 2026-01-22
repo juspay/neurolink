@@ -36,7 +36,86 @@ console.log("⭐ Quality:", result.evaluation);
 // Shows: { relevanceScore: 9, accuracyScore: 8, completenessScore: 9, overallScore: 8.7 }
 ```
 
-## 🌐 Web App Integration
+## Video Generation (Veo 3.1)
+
+Generate videos from images using Google's Veo 3.1 model via Vertex AI.
+
+### Prerequisites
+
+```bash
+# Set up Vertex AI credentials
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
+export GOOGLE_VERTEX_PROJECT="your-project-id"
+export GOOGLE_VERTEX_LOCATION="us-central1"
+```
+
+### SDK Video Generation
+
+```javascript
+import { NeuroLink } from "@juspay/neurolink";
+import { readFile, writeFile } from "fs/promises";
+
+const neurolink = new NeuroLink();
+
+// Generate video from image + text prompt
+// Note: Image must be PNG, JPEG, or WebP format (max 20MB)
+const result = await neurolink.generate({
+  input: {
+    text: "Smooth camera pan with cinematic lighting",
+    images: [await readFile("./product-image.jpg")],
+  },
+  provider: "vertex", // Optional: auto-switches to vertex when output.mode is "video"
+  model: "veo-3.1",
+  output: {
+    mode: "video",
+    video: {
+      resolution: "1080p", // or "720p"
+      length: 8, // 4, 6, or 8 seconds
+      aspectRatio: "16:9", // or "9:16" for portrait
+      audio: true, // synchronized audio
+    },
+  },
+});
+
+// Save generated video
+if (result.video) {
+  await writeFile("output.mp4", result.video.data);
+  console.log(`Duration: ${result.video.metadata?.duration}s`);
+}
+```
+
+**Image Requirements:**
+
+- **Formats:** PNG, JPEG, or WebP only
+- **Size limit:** 20MB maximum
+- **Aspect ratio:** Should be compatible with target video aspect ratio (16:9 or 9:16)
+
+### CLI Video Generation
+
+```bash
+# Basic video generation
+npx @juspay/neurolink generate "Product showcase video" \
+  --image ./product.jpg \
+  --outputMode video \
+  --videoOutput ./output.mp4
+
+# Full options (--provider vertex is optional, auto-selected for video mode)
+npx @juspay/neurolink generate "Cinematic camera movement" \
+  --image ./input.jpg \
+  --provider vertex \
+  --model veo-3.1 \
+  --outputMode video \
+  --videoResolution 1080p \
+  --videoLength 8 \
+  --videoAspectRatio 16:9 \
+  --videoOutput ./output.mp4
+```
+
+**Note:** The `--provider vertex` flag is optional for video generation—NeuroLink automatically switches to Vertex AI when `--outputMode video` is specified.
+
+For complete documentation, see the [Video Generation Guide](features/video-generation.md).
+
+## �🌐 Web App Integration
 
 ### Express.js API
 
