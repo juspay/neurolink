@@ -199,6 +199,7 @@
     "ora": "^7.0.1",
     "p-limit": "^6.2.0",
     "pdf-to-img": "^5.0.0",
+    "pptxgenjs": "^3.12.0",
     "reconnecting-eventsource": "^1.6.4",
     "redis": "^5.8.2",
     "undici": "^7.5.0",

@@ -82,4 +82,18 @@ export {
   SLIDE_DIMENSIONS,
   isValidHexColor,
   normalizeHexColor,
+
+  // PptxGenJS slide and presentation interfaces
+  type PptxSlide,
+  type PptxPresentation,
+  type PptxTextProps,
+  type PptxTableRow,
+  type PptxChartName,
+  type PptxChartData,
+  type PptxBackgroundOptions,
+  type PptxTextOptions,
+  type PptxImageOptions,
+  type PptxShapeOptions,
+  type PptxChartOptions,
+  type PptxTableOptions,
 } from "../../types/pptTypes.js";

@@ -733,8 +733,9 @@ export function extractPPTContext(
 }
 
 // ============================================================================
-// PPTXGENJS COMPATIBLE TYPES
-// These types map directly to pptxgenjs interfaces for seamless integration
+// PPTXGENJS COMPATIBLE TYPES - COMPREHENSIVE DOCUMENTATION
+// These types document the full pptxgenjs API surface for reference and testing.
+// For actual slide rendering, use the simplified Pptx* types at the end of this file.
 // ============================================================================
 
 /**
@@ -1008,6 +1009,7 @@ export type ImageProps = PositionProps & {
 
 /**
  * Chart types supported by pptxgenjs
+ * @deprecated Use PptxChartName instead (defined below in runtime types section)
  */
 export type PptxChartType =
   | "area"
@@ -1243,3 +1245,253 @@ export function isValidHexColor(color: string): boolean {
 export function normalizeHexColor(color: string): string {
   return color.replace(/^#/, "");
 }
+
+// ============================================================================
+// PPTXGENJS SLIDE & PRESENTATION INTERFACES - RUNTIME TYPES
+// These are the actual types used by SlideGenerator and slideRenderers.
+// They define only the methods/properties we actually use, avoiding 'any'.
+// For comprehensive documentation of all available options, see the types above.
+// ============================================================================
+
+/**
+ * Text properties for addText method
+ * Represents individual text items with formatting options
+ */
+export type PptxTextProps = {
+  text: string;
+  options?: {
+    bullet?: boolean | { type?: string; code?: string };
+    fontSize?: number;
+    fontFace?: string;
+    color?: string;
+    bold?: boolean;
+    italic?: boolean;
+    indentLevel?: number;
+    breakLine?: boolean;
+    paraSpaceBefore?: number;
+    paraSpaceAfter?: number;
+  };
+};
+
+/**
+ * Table row for addTable method
+ */
+export type PptxTableRow = Array<{
+  text: string;
+  options?: {
+    bold?: boolean;
+    fill?: { color: string };
+    color?: string;
+    fontSize?: number;
+    fontFace?: string;
+    align?: "left" | "center" | "right";
+    valign?: "top" | "middle" | "bottom";
+  };
+}>;
+
+/**
+ * Chart type names supported by pptxgenjs
+ */
+export type PptxChartName =
+  | "area"
+  | "bar"
+  | "bar3D"
+  | "bubble"
+  | "doughnut"
+  | "line"
+  | "pie"
+  | "radar"
+  | "scatter";
+
+/**
+ * Chart data structure for addChart method
+ */
+export type PptxChartData = {
+  name: string;
+  labels: string[];
+  values: number[];
+};
+
+/**
+ * Background options for a slide
+ */
+export type PptxBackgroundOptions = {
+  color?: string;
+  data?: string;
+};
+
+/**
+ * Text options for addText method
+ */
+export type PptxTextOptions = {
+  x?: number | string;
+  y?: number | string;
+  w?: number | string;
+  h?: number | string;
+  fontSize?: number;
+  fontFace?: string;
+  color?: string;
+  bold?: boolean;
+  italic?: boolean;
+  align?: "left" | "center" | "right";
+  valign?: "top" | "middle" | "bottom";
+  rotate?: number;
+  shadow?: ShadowProps;
+  transparency?: number;
+  charSpacing?: number;
+  lineSpacing?: number;
+  margin?: number;
+  autoFit?: boolean;
+};
+
+/**
+ * Image options for addImage method
+ */
+export type PptxImageOptions = {
+  data?: string;
+  path?: string;
+  x?: number | string;
+  y?: number | string;
+  w?: number | string;
+  h?: number | string;
+  sizing?: {
+    type: "contain" | "cover" | "crop";
+    w?: number;
+    h?: number;
+    x?: number;
+    y?: number;
+  };
+  altText?: string;
+  rotate?: number;
+  transparency?: number;
+  hyperlink?: HyperlinkProps;
+  shadow?: ShadowProps;
+};
+
+/**
+ * Shape options for addShape method
+ */
+export type PptxShapeOptions = {
+  x?: number | string;
+  y?: number | string;
+  w?: number | string;
+  h?: number | string;
+  fill?: { color: string; transparency?: number };
+  line?: { color?: string; width?: number; dashType?: string };
+  rectRadius?: number;
+  rotate?: number;
+  shadow?: ShadowProps;
+};
+
+/**
+ * Chart options for addChart method
+ */
+export type PptxChartOptions = {
+  x?: number | string;
+  y?: number | string;
+  w?: number | string;
+  h?: number | string;
+  chartColors?: string[];
+  showLegend?: boolean;
+  legendPos?: "b" | "l" | "r" | "t" | "tr";
+  showTitle?: boolean;
+  title?: string;
+  titleColor?: string;
+  titleFontFace?: string;
+  titleFontSize?: number;
+  showLabel?: boolean;
+  showValue?: boolean;
+  showPercent?: boolean;
+  barGapWidthPct?: number;
+  lineDataSymbol?:
+    | "circle"
+    | "dash"
+    | "diamond"
+    | "dot"
+    | "none"
+    | "square"
+    | "triangle";
+  lineDataSymbolSize?: number;
+  lineSmooth?: boolean;
+};
+
+/**
+ * Table options for addTable method
+ */
+export type PptxTableOptions = {
+  x?: number | string;
+  y?: number | string;
+  w?: number | string;
+  h?: number;
+  colW?: number | number[];
+  rowH?: number | number[];
+  fontSize?: number;
+  fontFace?: string;
+  color?: string;
+  fill?: { color: string };
+  border?: TableBorderOptions | TableBorderOptions[];
+  margin?: number | [number, number, number, number];
+  align?: "left" | "center" | "right";
+  valign?: "top" | "middle" | "bottom";
+  autoPage?: boolean;
+  autoPageRepeatHeader?: boolean;
+};
+
+/**
+ * PptxGenJS Slide interface
+ * Defines the methods we use from a pptxgenjs slide
+ */
+export type PptxSlide = {
+  /** Slide background */
+  background?: PptxBackgroundOptions;
+
+  /** Add text to the slide */
+  addText: (
+    text: string | PptxTextProps[],
+    options?: PptxTextOptions,
+  ) => PptxSlide;
+
+  /** Add an image to the slide */
+  addImage: (options: PptxImageOptions) => PptxSlide;
+
+  /** Add a shape to the slide */
+  addShape: (shapeName: string, options?: PptxShapeOptions) => PptxSlide;
+
+  /** Add a chart to the slide */
+  addChart: (
+    chartType: PptxChartName,
+    data: PptxChartData[],
+    options?: PptxChartOptions,
+  ) => PptxSlide;
+
+  /** Add a table to the slide */
+  addTable: (rows: PptxTableRow[], options?: PptxTableOptions) => PptxSlide;
+
+  /** Add speaker notes to the slide */
+  addNotes: (notes: string) => PptxSlide;
+};
+
+/**
+ * PptxGenJS Presentation interface
+ * Defines the methods we use from a pptxgenjs presentation instance
+ */
+export type PptxPresentation = {
+  /** Add a new slide to the presentation */
+  addSlide: () => PptxSlide;
+
+  /** Define a custom layout */
+  defineLayout: (layout: {
+    name: string;
+    width: number;
+    height: number;
+  }) => void;
+
+  /** Current layout name */
+  layout: string;
+
+  /** Write presentation to file */
+  writeFile: (options: { fileName: string }) => Promise<string>;
+
+  /** Write presentation to buffer/stream */
+  write: (options: { outputType: string }) => Promise<unknown>;
+};

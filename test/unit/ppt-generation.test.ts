@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   validatePPTOutputOptions,
   validatePPTGenerationInput,
@@ -51,6 +51,19 @@ import {
   isImageSlideType,
 } from "../../src/lib/features/ppt/constants.js";
 import { AIProviderName } from "../../src/lib/constants/enums.js";
+import {
+  SlideGenerator,
+  createSlideGenerator,
+  generateSlidesFromPlan,
+  PptxGenJS,
+  type SlideGeneratorConfig,
+  type LogoConfig,
+  type LogoPosition,
+} from "../../src/lib/features/ppt/slideGenerator.js";
+import type {
+  CompleteSlide,
+  PresentationTheme,
+} from "../../src/lib/features/ppt/types.js";
 
 // -----------------------------------------------------------------------
 // PPT Validation Tests
@@ -88,12 +101,15 @@ describe("PPT Validation", () => {
 
     it("should reject invalid theme/audience/tone", () => {
       expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         validatePPTOutputOptions({ pages: 10, theme: "invalid" as any }),
       ).not.toBeNull();
       expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         validatePPTOutputOptions({ pages: 10, audience: "invalid" as any }),
       ).not.toBeNull();
       expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         validatePPTOutputOptions({ pages: 10, tone: "invalid" as any }),
       ).not.toBeNull();
     });
@@ -743,5 +759,457 @@ describe("Guidelines", () => {
   it("should have VALID_AUDIENCES and VALID_TONES constants", () => {
     expect(VALID_AUDIENCES).toContain("business");
     expect(VALID_TONES).toContain("professional");
+  });
+});
+
+// -----------------------------------------------------------------------
+// SlideGenerator Tests
+// -----------------------------------------------------------------------
+
+// Mock NeuroLink
+const mockNeuroLink = { generate: vi.fn() };
+
+// Test fixtures
+const createMockConfig = (
+  overrides: Partial<SlideGeneratorConfig> = {},
+): SlideGeneratorConfig => ({
+  theme: "modern",
+  includeImages: false,
+  aspectRatio: "16:9",
+  ...overrides,
+});
+
+const createMockSlideSchema = (
+  overrides: Partial<SlideSchema> = {},
+): SlideSchema => ({
+  slideNumber: 1,
+  type: "content",
+  layout: "title-content",
+  title: "Test Slide",
+  content: {
+    bullets: [
+      { text: "Point 1", emphasis: false },
+      { text: "Point 2", emphasis: true },
+    ],
+  },
+  imagePrompt: null,
+  speakerNotes: "Notes",
+  ...overrides,
+});
+
+const createTitleSlide = (): SlideSchema => ({
+  slideNumber: 1,
+  type: "title",
+  layout: "title-centered",
+  title: "Title",
+  content: { subtitle: "Subtitle" },
+  imagePrompt: null,
+  speakerNotes: "",
+});
+
+const createThankYouSlide = (n: number): SlideSchema => ({
+  slideNumber: n,
+  type: "thank-you",
+  layout: "contact-info",
+  title: "Thank You!",
+  content: { cta: "Questions?" },
+  imagePrompt: null,
+  speakerNotes: "",
+});
+
+describe("SlideGenerator", () => {
+  describe("constructor", () => {
+    it("should create instance with string/custom themes", () => {
+      expect(
+        new SlideGenerator(createMockConfig({ theme: "modern" })),
+      ).toBeInstanceOf(SlideGenerator);
+      expect(
+        new SlideGenerator(createMockConfig({ theme: "corporate" })),
+      ).toBeInstanceOf(SlideGenerator);
+      const customTheme: PresentationTheme = {
+        name: "custom",
+        displayName: "Custom Theme",
+        description: "A custom test theme",
+        colors: {
+          primary: "#FF0000",
+          secondary: "#00FF00",
+          accent: "#0000FF",
+          background: "#FFF",
+          text: "#000",
+          textOnPrimary: "#FFF",
+          muted: "#666",
+        },
+        fonts: {
+          heading: "Arial",
+          body: "Helvetica",
+          sizes: {
+            title: 44,
+            subtitle: 24,
+            heading: 28,
+            body: 18,
+            caption: 12,
+          },
+        },
+      };
+      expect(
+        new SlideGenerator(createMockConfig({ theme: customTheme })),
+      ).toBeInstanceOf(SlideGenerator);
+    });
+
+    it("should create via factory", () => {
+      expect(createSlideGenerator(createMockConfig())).toBeInstanceOf(
+        SlideGenerator,
+      );
+    });
+  });
+
+  describe("generateSlide", () => {
+    it("should generate slide and handle all types", async () => {
+      const gen = createSlideGenerator(createMockConfig());
+      const result = await gen.generateSlide(createMockSlideSchema());
+      expect(result.slideNumber).toBe(1);
+      expect(result.schema).toBeDefined();
+
+      const types: SlideType[] = [
+        "title",
+        "content",
+        "bullets",
+        "quote",
+        "statistics",
+        "timeline",
+        "chart-bar",
+        "table",
+        "thank-you",
+      ];
+      for (const type of types) {
+        const r = await gen.generateSlide(createMockSlideSchema({ type }));
+        expect(r.slideNumber).toBe(1);
+      }
+    });
+
+    it("should skip images when includeImages=false", async () => {
+      const gen = createSlideGenerator(
+        createMockConfig({ includeImages: false }),
+      );
+      const result = await gen.generateSlide(
+        createMockSlideSchema({ imagePrompt: "test" }),
+      );
+      expect(result.imageBuffer).toBeUndefined();
+    });
+  });
+
+  describe("generateSlides (batch)", () => {
+    it("should generate multiple slides", async () => {
+      const gen = createSlideGenerator(createMockConfig());
+      const schemas = [
+        createTitleSlide(),
+        createMockSlideSchema({ slideNumber: 2 }),
+        createThankYouSlide(3),
+      ];
+      const result = await gen.generateSlides(schemas);
+      expect(result.slides).toHaveLength(3);
+      expect(result.generationTime).toBeGreaterThanOrEqual(0);
+    });
+
+    it("should handle empty array", async () => {
+      const result = await createSlideGenerator(
+        createMockConfig(),
+      ).generateSlides([]);
+      expect(result.slides).toHaveLength(0);
+    });
+  });
+
+  describe("renderSlide", () => {
+    it("should render slides to pptxgenjs", () => {
+      const gen = createSlideGenerator(createMockConfig());
+      const ppt = new PptxGenJS();
+      ppt.layout = "LAYOUT_16x9";
+
+      const types: SlideType[] = [
+        "title",
+        "content",
+        "bullets",
+        "quote",
+        "statistics",
+        "timeline",
+        "two-column",
+        "blank",
+      ];
+      types.forEach((type) => {
+        const slide: CompleteSlide = {
+          slideNumber: 1,
+          schema: createMockSlideSchema({ type }),
+          generationTime: 10,
+        };
+        expect(() => gen.renderSlide(ppt, slide, 1, 5)).not.toThrow();
+      });
+    });
+  });
+});
+
+describe("Logo Configuration", () => {
+  it("should support all logo options", () => {
+    const ppt = new PptxGenJS();
+    ppt.layout = "LAYOUT_16x9";
+    const slide: CompleteSlide = {
+      slideNumber: 1,
+      schema: createMockSlideSchema(),
+      generationTime: 10,
+    };
+
+    // No logo
+    expect(() =>
+      createSlideGenerator(createMockConfig()).renderSlide(ppt, slide, 1, 5),
+    ).not.toThrow();
+
+    // Base64 string
+    expect(() =>
+      createSlideGenerator(
+        createMockConfig({ logo: "data:image/png;base64,test" }),
+      ).renderSlide(ppt, slide, 1, 5),
+    ).not.toThrow();
+
+    // Buffer
+    expect(() =>
+      createSlideGenerator(
+        createMockConfig({ logo: Buffer.from("test") }),
+      ).renderSlide(ppt, slide, 1, 5),
+    ).not.toThrow();
+
+    // Full config with positions
+    const positions: LogoPosition[] = [
+      "top-left",
+      "top-right",
+      "bottom-left",
+      "bottom-right",
+    ];
+    positions.forEach((pos) => {
+      const cfg: LogoConfig = {
+        data: "data:image/png;base64,test",
+        position: pos,
+        width: 1,
+        height: 0.5,
+        showOn: "all-slides",
+      };
+      expect(() =>
+        createSlideGenerator(createMockConfig({ logo: cfg })).renderSlide(
+          ppt,
+          slide,
+          1,
+          5,
+        ),
+      ).not.toThrow();
+    });
+  });
+});
+
+describe("Slide Content Rendering", () => {
+  const gen = createSlideGenerator(createMockConfig());
+  const ppt = () => {
+    const p = new PptxGenJS();
+    p.layout = "LAYOUT_16x9";
+    return p;
+  };
+  const render = (schema: SlideSchema) =>
+    gen.renderSlide(
+      ppt(),
+      { slideNumber: 1, schema, generationTime: 10 },
+      1,
+      5,
+    );
+
+  it("should render statistics", () => {
+    expect(() =>
+      render(
+        createMockSlideSchema({
+          type: "statistics",
+          content: {
+            statistics: [
+              { value: "95%", label: "Growth", trend: "up", change: "+5%" },
+            ],
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("should render quote", () => {
+    expect(() =>
+      render(
+        createMockSlideSchema({
+          type: "quote",
+          content: {
+            quote: "Test quote",
+            quoteAuthor: "Author",
+            quoteAuthorTitle: "Title",
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("should render timeline", () => {
+    expect(() =>
+      render(
+        createMockSlideSchema({
+          type: "timeline",
+          content: {
+            timeline: {
+              orientation: "horizontal",
+              items: [{ date: "2020", title: "Event", description: "Desc" }],
+            },
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("should render charts", () => {
+    expect(() =>
+      render(
+        createMockSlideSchema({
+          type: "chart-bar",
+          content: {
+            chartData: {
+              type: "bar",
+              title: "Chart",
+              series: [{ name: "S1", labels: ["A"], values: [10] }],
+            },
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("should render table", () => {
+    expect(() =>
+      render(
+        createMockSlideSchema({
+          type: "table",
+          content: {
+            tableData: {
+              hasHeader: true,
+              headers: ["Col1"],
+              rows: [[{ text: "Val" }]],
+            },
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("should render columns", () => {
+    expect(() =>
+      render(
+        createMockSlideSchema({
+          type: "two-column",
+          content: {
+            leftColumn: { title: "L", bullets: [] },
+            rightColumn: { title: "R", bullets: [] },
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+});
+
+describe("Image Generation", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("should skip when no neurolink or includeImages=false", async () => {
+    const gen = createSlideGenerator(createMockConfig({ includeImages: true }));
+    const r = await gen.generateSlide(
+      createMockSlideSchema({ type: "image-focus", imagePrompt: "test" }),
+    );
+    expect(r.imageBuffer).toBeUndefined();
+  });
+
+  it("should generate images with neurolink", async () => {
+    mockNeuroLink.generate.mockResolvedValue({
+      imageOutput: { base64: "abc123" },
+      model: "gemini",
+    });
+    const gen = createSlideGenerator(
+      createMockConfig({
+        includeImages: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        neurolink: mockNeuroLink as any,
+      }),
+    );
+    const r = await gen.generateSlide(
+      createMockSlideSchema({ type: "image-focus", imagePrompt: "test" }),
+    );
+    expect(mockNeuroLink.generate).toHaveBeenCalled();
+    expect(r.imageBuffer).toBeInstanceOf(Buffer);
+  });
+
+  it("should handle errors gracefully", async () => {
+    // Suppress error logs during this test
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockNeuroLink.generate.mockRejectedValue(new Error("Failed"));
+    const gen = createSlideGenerator(
+      createMockConfig({
+        includeImages: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        neurolink: mockNeuroLink as any,
+      }),
+    );
+    const r = await gen.generateSlide(
+      createMockSlideSchema({ type: "image-focus", imagePrompt: "test" }),
+    );
+    expect(r.imageBuffer).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+});
+
+describe("PptxGenJS Export", () => {
+  it("should export and work correctly", () => {
+    expect(PptxGenJS).toBeDefined();
+    const ppt = new PptxGenJS();
+    expect(ppt.addSlide).toBeDefined();
+    ppt.layout = "LAYOUT_16x9";
+    expect(ppt.layout).toBe("LAYOUT_16x9");
+  });
+});
+
+describe("Theme Application", () => {
+  it("should apply all themes", () => {
+    const ppt = new PptxGenJS();
+    ppt.layout = "LAYOUT_16x9";
+    const slide: CompleteSlide = {
+      slideNumber: 1,
+      schema: createMockSlideSchema(),
+      generationTime: 10,
+    };
+
+    ["modern", "corporate", "creative", "minimal", "dark"].forEach((theme) => {
+      expect(() =>
+        createSlideGenerator(createMockConfig({ theme })).renderSlide(
+          ppt,
+          slide,
+          1,
+          5,
+        ),
+      ).not.toThrow();
+    });
+  });
+});
+
+describe("E2E Integration", () => {
+  it("should generate and render complete presentation", async () => {
+    const schemas = [
+      createTitleSlide(),
+      createMockSlideSchema({ slideNumber: 2 }),
+      createThankYouSlide(3),
+    ];
+    const result = await generateSlidesFromPlan(schemas, createMockConfig());
+    expect(result.slides).toHaveLength(3);
+
+    const ppt = new PptxGenJS();
+    ppt.layout = "LAYOUT_16x9";
+    const gen = createSlideGenerator(createMockConfig());
+    result.slides.forEach((s, i) =>
+      expect(() => gen.renderSlide(ppt, s, i + 1, 3)).not.toThrow(),
+    );
   });
 });

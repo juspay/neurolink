@@ -108,3 +108,15 @@ export {
   ensureThankYouSlide,
   postProcessPlan,
 } from "./contentPlanner.js";
+
+// Slide Generator
+export {
+  SlideGenerator,
+  createSlideGenerator,
+  generateSlidesFromPlan,
+  PptxGenJS,
+  type SlideGeneratorConfig,
+  type SlideGenerationBatchResult,
+  type LogoConfig,
+  type LogoPosition,
+} from "./slideGenerator.js";
