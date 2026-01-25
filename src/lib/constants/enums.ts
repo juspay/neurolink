@@ -19,6 +19,7 @@ export enum AIProviderName {
   MISTRAL = "mistral",
   LITELLM = "litellm",
   SAGEMAKER = "sagemaker",
+  GATEWAY = "gateway",
   AUTO = "auto",
 }
 

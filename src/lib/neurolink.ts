@@ -15,136 +15,140 @@ try {
   // Environment variables should be set externally in production
 }
 
-import type {
-  TextGenerationOptions,
-  TextGenerationResult,
-  AnalyticsData,
-  ProviderStatus,
-} from "./types/index.js";
-import { AIProviderFactory } from "./core/factory.js";
-import { isNonNullObject } from "./utils/typeUtils.js";
-import { isZodSchema } from "./utils/schemaConversion.js";
+import { EventEmitter } from "events";
 import type { MemoryClient } from "mem0ai";
-import { AIProviderName } from "./constants/enums.js";
-import { mcpLogger } from "./utils/logger.js";
-import { SYSTEM_LIMITS } from "./core/constants.js";
+import pLimit from "p-limit";
+import type { AIProviderName } from "./constants/enums.js";
 import {
-  NANOSECOND_TO_MS_DIVISOR,
-  TOOL_TIMEOUTS,
-  RETRY_ATTEMPTS,
-  RETRY_DELAYS,
   CIRCUIT_BREAKER,
   CIRCUIT_BREAKER_RESET_MS,
   MEMORY_THRESHOLDS,
-  PROVIDER_TIMEOUTS,
+  NANOSECOND_TO_MS_DIVISOR,
   PERFORMANCE_THRESHOLDS,
+  PROVIDER_TIMEOUTS,
+  RETRY_ATTEMPTS,
+  RETRY_DELAYS,
+  TOOL_TIMEOUTS,
 } from "./constants/index.js";
-import pLimit from "p-limit";
-import { MCPToolRegistry } from "./mcp/toolRegistry.js";
-import { logger } from "./utils/logger.js";
-import { getBestProvider } from "./utils/providerUtils.js";
+import { SYSTEM_LIMITS } from "./core/constants.js";
+import type { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
+import { AIProviderFactory } from "./core/factory.js";
+import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
+import { HITLManager } from "./hitl/hitlManager.js";
+import { ExternalServerManager } from "./mcp/externalServerManager.js";
+// Import direct tools server for automatic registration
+import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
+import { MCPToolRegistry } from "./mcp/toolRegistry.js";
+import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
+import {
+  flushOpenTelemetry,
+  getLangfuseHealthStatus,
+  initializeOpenTelemetry,
+  setLangfuseContext,
+  shutdownOpenTelemetry,
+} from "./services/server/ai/observability/instrumentation.js";
+import type {
+  JsonObject,
+  JsonValue,
+  NeuroLinkEvents,
+  TypedEventEmitter,
+  UnknownRecord,
+} from "./types/common.js";
+import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
+import type {
+  ChatMessage,
+  ConversationMemoryConfig,
+  ProviderDetails,
+} from "./types/conversation.js";
+import type {
+  ExternalMCPOperationResult,
+  ExternalMCPServerInstance,
+  ExternalMCPToolInfo,
+} from "./types/externalMcp.js";
 // NEW: Generate function imports
 import type { GenerateOptions, GenerateResult } from "./types/generateTypes.js";
 import type {
-  StreamOptions,
-  StreamResult,
-  ToolCall,
-  ToolResult,
-  AudioChunk,
-} from "./types/streamTypes.js";
-import type { TokenUsage, EvaluationData } from "./types/index.js";
+  ConfirmationResponseEvent,
+  HITLConfig,
+} from "./types/hitlTypes.js";
+import type {
+  AnalyticsData,
+  EvaluationData,
+  ProviderStatus,
+  TextGenerationOptions,
+  TextGenerationResult,
+  TokenUsage,
+} from "./types/index.js";
 import type {
   MCPExecutableTool,
   MCPServerCategory,
   MCPServerInfo,
   MCPStatus,
 } from "./types/mcpTypes.js";
-import type { ToolInfo } from "./types/tools.js";
-import type { NeuroLinkEvents, TypedEventEmitter } from "./types/common.js";
-import {
-  createCustomToolServerInfo,
-  detectCategory,
-} from "./utils/mcpDefaults.js";
+import type { ObservabilityConfig } from "./types/observability.js";
+import type {
+  AudioChunk,
+  StreamOptions,
+  StreamResult,
+  ToolCall,
+  ToolResult,
+} from "./types/streamTypes.js";
 import type {
   ToolExecutionContext,
   ToolExecutionSummary,
+  ToolInfo,
 } from "./types/tools.js";
-import type { JsonValue, JsonObject, UnknownRecord } from "./types/common.js";
 import type {
-  ToolExecutionResult,
   BatchOperationResult,
+  ToolExecutionResult,
 } from "./types/typeAliases.js";
-// Factory processing imports
-import {
-  processFactoryOptions,
-  enhanceTextGenerationOptions,
-  validateFactoryConfig,
-  processStreamingFactoryOptions,
-  createCleanStreamOptions,
-} from "./utils/factoryProcessing.js";
-// Tool detection and execution imports
-// Transformation utilities
-import {
-  transformToolExecutions,
-  transformToolExecutionsForMCP,
-  transformAvailableTools,
-  transformToolsForMCP,
-  transformToolsToExpectedFormat,
-  transformToolsToDescriptions,
-  extractToolNames,
-  transformParamsForLogging,
-  optimizeToolForCollection,
-} from "./utils/transformationUtils.js";
-// Enhanced error handling imports
-import {
-  ErrorFactory,
-  NeuroLinkError,
-  withTimeout,
-  withRetry,
-  isRetriableError,
-  logStructuredError,
-  CircuitBreaker,
-} from "./utils/errorHandling.js";
-import { EventEmitter } from "events";
-import type {
-  ConversationMemoryConfig,
-  ChatMessage,
-  ProviderDetails,
-} from "./types/conversation.js";
-import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
-import { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import {
   getConversationMessages,
   storeConversationTurn,
 } from "./utils/conversationMemory.js";
-import { ExternalServerManager } from "./mcp/externalServerManager.js";
-import type {
-  HITLConfig,
-  ConfirmationResponseEvent,
-} from "./types/hitlTypes.js";
-import { HITLManager } from "./hitl/hitlManager.js";
-import type {
-  ExternalMCPServerInstance,
-  ExternalMCPOperationResult,
-  ExternalMCPToolInfo,
-} from "./types/externalMcp.js";
-// Import direct tools server for automatic registration
-import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
+// Enhanced error handling imports
+import {
+  CircuitBreaker,
+  ErrorFactory,
+  isRetriableError,
+  logStructuredError,
+  NeuroLinkError,
+  withRetry,
+  withTimeout,
+} from "./utils/errorHandling.js";
+// Factory processing imports
+import {
+  createCleanStreamOptions,
+  enhanceTextGenerationOptions,
+  processFactoryOptions,
+  processStreamingFactoryOptions,
+  validateFactoryConfig,
+} from "./utils/factoryProcessing.js";
+import { logger, mcpLogger } from "./utils/logger.js";
+import {
+  createCustomToolServerInfo,
+  detectCategory,
+} from "./utils/mcpDefaults.js";
 // Import orchestration components
 import { ModelRouter } from "./utils/modelRouter.js";
+import { getBestProvider } from "./utils/providerUtils.js";
+import { isZodSchema } from "./utils/schemaConversion.js";
 import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
+// Tool detection and execution imports
+// Transformation utilities
 import {
-  initializeOpenTelemetry,
-  shutdownOpenTelemetry,
-  flushOpenTelemetry,
-  getLangfuseHealthStatus,
-  setLangfuseContext,
-} from "./services/server/ai/observability/instrumentation.js";
-import type { ObservabilityConfig } from "./types/observability.js";
-import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
-
-import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
+  extractToolNames,
+  optimizeToolForCollection,
+  transformAvailableTools,
+  transformParamsForLogging,
+  transformToolExecutions,
+  transformToolExecutionsForMCP,
+  transformToolsForMCP,
+  transformToolsToDescriptions,
+  transformToolsToExpectedFormat,
+} from "./utils/transformationUtils.js";
+import { isNonNullObject } from "./utils/typeUtils.js";
 
 /**
  * NeuroLink - Universal AI Development Platform
@@ -3178,7 +3182,7 @@ Current user's request: ${currentInput}`;
               const userId = (
                 enhancedOptions.context as Record<string, unknown>
               )?.userId as string;
-              let providerDetails: ProviderDetails | undefined = undefined;
+              let providerDetails: ProviderDetails | undefined;
               if (enhancedOptions.model) {
                 providerDetails = {
                   provider: providerName,
@@ -3541,7 +3545,7 @@ Current user's request: ${currentInput}`;
           )?.sessionId as string;
           const userId = (enhancedOptions?.context as Record<string, unknown>)
             ?.userId as string;
-          let providerDetails: ProviderDetails | undefined = undefined;
+          let providerDetails: ProviderDetails | undefined;
           if (options.model) {
             providerDetails = {
               provider: providerName,
@@ -5220,7 +5224,10 @@ Current user's request: ${currentInput}`;
     try {
       const health = await ProviderHealthChecker.checkProviderHealth(
         providerName as AIProviderName,
-        { includeConnectivityTest: false, cacheResults: false },
+        {
+          includeConnectivityTest: false,
+          cacheResults: false,
+        },
       );
       return health.isConfigured && health.hasApiKey;
     } catch (error) {
@@ -6238,6 +6245,125 @@ Current user's request: ${currentInput}`;
         error,
       );
     }
+  }
+
+  // ============================================================================
+  // GATEWAY PROVIDER API - Unified Access to 69+ AI Providers
+  // ============================================================================
+
+  /**
+   * Create a GatewayProvider for unified access to 69+ AI providers
+   *
+   * The gateway provider supports Mastra-style model routing using "provider/model" format.
+   * It enables access to OpenRouter, LiteLLM, and direct SDK providers through a single interface.
+   *
+   * @param modelString - Model identifier in "provider/model" format (e.g., "anthropic/claude-3-5-sonnet")
+   * @param options - Gateway options including fallback configuration
+   * @returns GatewayProvider instance
+   *
+   * @example Basic usage
+   * ```typescript
+   * const gateway = neurolink.gateway("anthropic/claude-3-5-sonnet");
+   * const result = await gateway.generate({ prompt: "Hello!" });
+   * ```
+   *
+   * @example With fallbacks
+   * ```typescript
+   * const gateway = neurolink.gateway("openai/gpt-4o", {
+   *   fallback: {
+   *     models: ["anthropic/claude-3-5-sonnet", "google/gemini-1.5-pro"],
+   *     retries: 2,
+   *     retryDelayMs: 1000
+   *   }
+   * });
+   * ```
+   *
+   * @example Dynamic model selection
+   * ```typescript
+   * const gateway = neurolink.gateway(({ availableModels }) =>
+   *   availableModels.includes("openai/gpt-4o") ? "openai/gpt-4o" : "openai/gpt-4o-mini"
+   * );
+   * ```
+   *
+   * @see {@link GatewayProvider} for full API
+   * @since 2.0.0
+   */
+  gateway(
+    modelString:
+      | string
+      | ((context: {
+          availableModels: string[];
+          runtimeContext?: Map<string, unknown>;
+        }) => string),
+    options?: {
+      fallback?: {
+        models: string[];
+        retries: number;
+        retryDelayMs: number;
+        timeout?: number;
+      };
+    },
+  ): Promise<import("./gateway/gatewayProvider.js").GatewayProvider> {
+    return (async () => {
+      const { GatewayProvider } = await import("./gateway/gatewayProvider.js");
+      return new GatewayProvider(modelString, this, options);
+    })();
+  }
+
+  /**
+   * Shorthand for gateway().generate() - Quick access to unified model generation
+   *
+   * This is the simplest way to generate text using any of 69+ AI providers.
+   * Just specify the model in "provider/model" format and your prompt.
+   *
+   * @param modelString - Model identifier (e.g., "anthropic/claude-3-5-sonnet", "openai/gpt-4o")
+   * @param prompt - The prompt or generation options
+   * @returns Promise resolving to the generation result
+   *
+   * @example Simple generation
+   * ```typescript
+   * const result = await neurolink.gen("anthropic/claude-3-5-sonnet", "Hello!");
+   * console.log(result.content);
+   * ```
+   *
+   * @example With full options
+   * ```typescript
+   * const result = await neurolink.gen("openai/gpt-4o", {
+   *   prompt: "Explain quantum computing",
+   *   temperature: 0.7,
+   *   maxTokens: 500
+   * });
+   * ```
+   *
+   * @see {@link gateway} for more control with fallbacks
+   * @since 2.0.0
+   */
+  async gen(
+    modelString: string,
+    promptOrOptions:
+      | string
+      | {
+          prompt: string;
+          temperature?: number;
+          maxTokens?: number;
+          systemPrompt?: string;
+        },
+  ): Promise<import("./types/generateTypes.js").GenerateResult> {
+    const gateway = await this.gateway(modelString);
+
+    const options =
+      typeof promptOrOptions === "string"
+        ? { prompt: promptOrOptions }
+        : promptOrOptions;
+
+    const result = await gateway.generate(options);
+
+    // Handle null result case
+    if (!result) {
+      throw new Error(`Gateway generation failed for model: ${modelString}`);
+    }
+
+    return result as import("./types/generateTypes.js").GenerateResult;
   }
 
   /**

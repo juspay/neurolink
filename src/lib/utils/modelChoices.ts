@@ -5,18 +5,18 @@
 
 import {
   AIProviderName,
-  OpenAIModels,
   AnthropicModels,
-  GoogleAIModels,
+  AzureOpenAIModels,
   BedrockModels,
-  VertexModels,
+  GoogleAIModels,
+  HuggingFaceModels,
+  LiteLLMModels,
   MistralModels,
   OllamaModels,
-  AzureOpenAIModels,
-  LiteLLMModels,
-  HuggingFaceModels,
-  SageMakerModels,
+  OpenAIModels,
   OpenRouterModels,
+  SageMakerModels,
+  VertexModels,
 } from "../constants/enums.js";
 
 /**
@@ -258,6 +258,32 @@ const TOP_MODELS_CONFIG: Record<
     { model: "gpt-4-turbo", description: "Turbo compatible model" },
     { model: "gpt-3.5-turbo", description: "Legacy compatible model" },
   ],
+  [AIProviderName.GATEWAY]: [
+    {
+      model: "openai/gpt-4o",
+      description: "Recommended - OpenAI GPT-4o via Gateway",
+    },
+    {
+      model: "anthropic/claude-3-5-sonnet",
+      description: "Anthropic Claude 3.5 via Gateway",
+    },
+    {
+      model: "google/gemini-2.0-flash",
+      description: "Google Gemini via Gateway",
+    },
+    {
+      model: "mistral/mistral-large-latest",
+      description: "Mistral Large via Gateway",
+    },
+    {
+      model: "meta-llama/llama-3.1-70b-instruct",
+      description: "Meta Llama via Gateway",
+    },
+    {
+      model: "deepseek/deepseek-chat",
+      description: "DeepSeek via Gateway",
+    },
+  ],
   [AIProviderName.AUTO]: [],
 };
 
@@ -297,6 +323,7 @@ const MODEL_ENUMS: Record<AIProviderName, Record<string, string> | null> = {
   [AIProviderName.SAGEMAKER]: SageMakerModels,
   [AIProviderName.OPENROUTER]: OpenRouterModels,
   [AIProviderName.OPENAI_COMPATIBLE]: null,
+  [AIProviderName.GATEWAY]: null, // Gateway uses dynamic "provider/model" format
   [AIProviderName.AUTO]: null,
 };
 

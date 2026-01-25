@@ -1,23 +1,23 @@
-import { ProviderFactory } from "./providerFactory.js";
+import type { MistralProvider as MistralProviderType } from "@ai-sdk/mistral";
+import {
+  AIProviderName,
+  AnthropicModels,
+  GoogleAIModels,
+  HuggingFaceModels,
+  LiteLLMModels,
+  MistralModels,
+  OllamaModels,
+  OpenAIModels,
+  VertexModels,
+} from "../constants/enums.js";
+import type { NeuroLink } from "../neurolink.js";
+import type { UnknownRecord } from "../types/common.js";
 // Lazy loading all providers to avoid circular dependencies
 // Removed all static imports - providers loaded dynamically when needed
 // This breaks the circular dependency chain completely
 import type { ProviderRegistryOptions } from "../types/index.js";
 import { logger } from "../utils/logger.js";
-import type { UnknownRecord } from "../types/common.js";
-import type { NeuroLink } from "../neurolink.js";
-import type { MistralProvider as MistralProviderType } from "@ai-sdk/mistral";
-import {
-  AIProviderName,
-  GoogleAIModels,
-  OpenAIModels,
-  AnthropicModels,
-  VertexModels,
-  MistralModels,
-  OllamaModels,
-  LiteLLMModels,
-  HuggingFaceModels,
-} from "../constants/enums.js";
+import { ProviderFactory } from "./providerFactory.js";
 
 /**
  * Provider Registry - registers all providers with the factory
@@ -33,7 +33,7 @@ export class ProviderRegistry {
    * Register all providers with the factory
    */
   static async registerAllProviders(): Promise<void> {
-    if (this.registered) {
+    if (ProviderRegistry.registered) {
       return;
     }
 
@@ -278,8 +278,28 @@ export class ProviderRegistry {
         ["sagemaker", "aws-sagemaker"],
       );
 
+      // Register Gateway provider (unified access to 69+ AI providers)
+      ProviderFactory.registerProvider(
+        AIProviderName.GATEWAY,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+        ) => {
+          const { GatewayProvider } = await import(
+            "../gateway/gatewayProvider.js"
+          );
+          return new GatewayProvider(
+            modelName || "openai/gpt-4o",
+            sdk as NeuroLink | undefined,
+          );
+        },
+        "openai/gpt-4o",
+        ["gateway", "unified", "mastra"],
+      );
+
       logger.debug("All providers registered successfully");
-      this.registered = true;
+      ProviderRegistry.registered = true;
 
       // ===== TTS HANDLER REGISTRATION =====
       try {
@@ -316,7 +336,7 @@ export class ProviderRegistry {
    * Check if providers are registered
    */
   static isRegistered(): boolean {
-    return this.registered;
+    return ProviderRegistry.registered;
   }
 
   /**
@@ -324,22 +344,25 @@ export class ProviderRegistry {
    */
   static clearRegistrations(): void {
     ProviderFactory.clearRegistrations();
-    this.registered = false;
+    ProviderRegistry.registered = false;
   }
 
   /**
    * Set registry options (should be called before initialization)
    */
   static setOptions(options: ProviderRegistryOptions): void {
-    this.options = { ...this.options, ...options };
-    logger.debug("Provider registry options updated:", this.options);
+    ProviderRegistry.options = { ...ProviderRegistry.options, ...options };
+    logger.debug(
+      "Provider registry options updated:",
+      ProviderRegistry.options,
+    );
   }
 
   /**
    * Get current registry options
    */
   static getOptions(): ProviderRegistryOptions {
-    return { ...this.options };
+    return { ...ProviderRegistry.options };
   }
 }
 
