@@ -211,7 +211,11 @@
     "@google-cloud/text-to-speech": "^5.0.0"
   },
   "optionalDependencies": {
-    "canvas": "^3.2.0"
+    "canvas": "^3.2.0",
+    "@pinecone-database/pinecone": "^3.0.0",
+    "@qdrant/js-client-rest": "^1.11.0",
+    "chromadb": "^1.8.0",
+    "pg": "^8.12.0"
   },
   "devDependencies": {
     "@actions/core": "^2.0.2",
@@ -239,6 +243,7 @@
     "@types/node": "^20.19.13",
     "@types/ws": "^8.18.1",
     "@types/xml2js": "^0.4.14",
+    "@types/pg": "^8.11.0",
     "@types/yargs": "^17.0.33",
     "@typescript-eslint/eslint-plugin": "^8.43.0",
     "@typescript-eslint/parser": "^8.43.0",
