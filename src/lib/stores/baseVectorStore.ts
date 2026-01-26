@@ -97,6 +97,15 @@ export abstract class BaseVectorStore<
   ): Promise<VectorDeleteResult>;
 
   /**
+   * Update an individual vector's embedding and/or metadata
+   */
+  abstract updateVector<TMetadata extends UnknownRecord = UnknownRecord>(
+    indexName: string,
+    id: string,
+    update: { vector?: number[]; metadata?: TMetadata },
+  ): Promise<void>;
+
+  /**
    * Get index statistics
    */
   abstract getStats(indexName: string): Promise<VectorStoreStats>;
@@ -111,6 +120,13 @@ export abstract class BaseVectorStore<
   // ===================
   // COMMON METHODS (Shared implementations)
   // ===================
+
+  /**
+   * Delete a single vector by ID (convenience method)
+   */
+  async deleteVector(indexName: string, id: string): Promise<void> {
+    await this.delete(indexName, { ids: [id] });
+  }
 
   /**
    * Get store health status

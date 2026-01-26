@@ -46,6 +46,11 @@ class TestVectorStore extends BaseVectorStore {
     indexName: string;
     options: VectorDeleteOptions;
   }> = [];
+  public updateVectorCalls: Array<{
+    indexName: string;
+    id: string;
+    update: { vector?: number[]; metadata?: UnknownRecord };
+  }> = [];
 
   async connect(): Promise<void> {
     this.initialized = true;
@@ -116,6 +121,19 @@ class TestVectorStore extends BaseVectorStore {
       namespaceCount: 2,
       metrics: { indexName },
     };
+  }
+
+  async updateVector<TMetadata extends UnknownRecord = UnknownRecord>(
+    indexName: string,
+    id: string,
+    update: { vector?: number[]; metadata?: TMetadata },
+  ): Promise<void> {
+    this.ensureInitialized();
+    this.updateVectorCalls.push({
+      indexName,
+      id,
+      update: update as { vector?: number[]; metadata?: UnknownRecord },
+    });
   }
 
   protected translateFilter<TMetadata extends UnknownRecord>(
@@ -430,6 +448,74 @@ describe("BaseVectorStore", () => {
 
     it("should throw on getStats when not initialized", async () => {
       await expect(store.getStats("test")).rejects.toThrow("not initialized");
+    });
+
+    it("should throw on updateVector when not initialized", async () => {
+      await expect(
+        store.updateVector("test", "id-1", { vector: [0.1, 0.2] }),
+      ).rejects.toThrow("not initialized");
+    });
+  });
+
+  describe("updateVector", () => {
+    beforeEach(async () => {
+      await store.connect();
+    });
+
+    it("should call updateVector with vector update", async () => {
+      await store.updateVector("test-index", "doc-1", {
+        vector: [0.1, 0.2, 0.3],
+      });
+
+      expect(store.updateVectorCalls.length).toBe(1);
+      expect(store.updateVectorCalls[0].indexName).toBe("test-index");
+      expect(store.updateVectorCalls[0].id).toBe("doc-1");
+      expect(store.updateVectorCalls[0].update.vector).toEqual([0.1, 0.2, 0.3]);
+    });
+
+    it("should call updateVector with metadata update", async () => {
+      await store.updateVector("test-index", "doc-1", {
+        metadata: { category: "updated" },
+      });
+
+      expect(store.updateVectorCalls.length).toBe(1);
+      expect(store.updateVectorCalls[0].update.metadata).toEqual({
+        category: "updated",
+      });
+    });
+
+    it("should call updateVector with both vector and metadata", async () => {
+      await store.updateVector("test-index", "doc-1", {
+        vector: [0.5, 0.5],
+        metadata: { updated: true },
+      });
+
+      expect(store.updateVectorCalls.length).toBe(1);
+      expect(store.updateVectorCalls[0].update.vector).toEqual([0.5, 0.5]);
+      expect(store.updateVectorCalls[0].update.metadata).toEqual({
+        updated: true,
+      });
+    });
+  });
+
+  describe("deleteVector", () => {
+    beforeEach(async () => {
+      await store.connect();
+    });
+
+    it("should delete a single vector by id", async () => {
+      await store.deleteVector("test-index", "doc-1");
+
+      expect(store.deleteCalls.length).toBe(1);
+      expect(store.deleteCalls[0].indexName).toBe("test-index");
+      expect(store.deleteCalls[0].options.ids).toEqual(["doc-1"]);
+    });
+
+    it("should use the delete method with single id array", async () => {
+      await store.deleteVector("test-index", "single-id");
+
+      expect(store.deleteCalls[0].options.ids).toHaveLength(1);
+      expect(store.deleteCalls[0].options.ids![0]).toBe("single-id");
     });
   });
 });

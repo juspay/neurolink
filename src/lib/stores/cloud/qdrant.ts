@@ -53,6 +53,22 @@ type QdrantClient = {
       filter?: Record<string, unknown>;
     },
   ) => Promise<void>;
+  setPayload: (
+    collectionName: string,
+    params: {
+      wait: boolean;
+      points: (string | number)[];
+      payload: Record<string, unknown>;
+    },
+  ) => Promise<void>;
+  retrieve: (
+    collectionName: string,
+    params: {
+      ids: (string | number)[];
+      with_vector?: boolean;
+      with_payload?: boolean;
+    },
+  ) => Promise<Array<QdrantSearchResult>>;
 };
 
 type QdrantPoint = {
@@ -333,6 +349,66 @@ export class QdrantStore extends BaseVectorStore<QdrantConfig> {
         | string
         | undefined,
     }));
+  }
+
+  /**
+   * Update an individual vector's embedding and/or metadata
+   */
+  async updateVector<TMetadata extends UnknownRecord = UnknownRecord>(
+    indexName: string,
+    id: string,
+    update: { vector?: number[]; metadata?: TMetadata },
+  ): Promise<void> {
+    this.ensureInitialized();
+
+    if (!update.vector && !update.metadata) {
+      return; // Nothing to update
+    }
+
+    // If only updating metadata, use setPayload for efficiency
+    if (!update.vector && update.metadata) {
+      await this.client!.setPayload(indexName, {
+        wait: true,
+        points: [id],
+        payload: update.metadata as Record<string, unknown>,
+      });
+      this.logDebug(`Updated metadata for vector: ${id}`);
+      return;
+    }
+
+    // If updating vector (with or without metadata), need to upsert
+    // First retrieve existing payload if we're only updating the vector
+    let payload: Record<string, unknown> | undefined;
+
+    if (update.vector && !update.metadata) {
+      const existing = await this.client!.retrieve(indexName, {
+        ids: [id],
+        with_payload: true,
+        with_vector: false,
+      });
+
+      if (existing.length === 0) {
+        throw new Error(
+          `Vector with id '${id}' not found in collection '${indexName}'`,
+        );
+      }
+      payload = existing[0].payload;
+    } else {
+      payload = update.metadata as Record<string, unknown>;
+    }
+
+    // Upsert with the new vector and payload
+    await this.client!.upsert(indexName, {
+      wait: true,
+      points: [
+        {
+          id,
+          vector: update.vector!,
+          payload,
+        },
+      ],
+    });
+    this.logDebug(`Updated vector: ${id}`);
   }
 
   /**

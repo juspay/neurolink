@@ -358,6 +358,54 @@ export class PineconeStore extends BaseVectorStore<PineconeConfig> {
   }
 
   /**
+   * Update an individual vector's embedding and/or metadata
+   */
+  async updateVector<TMetadata extends UnknownRecord = UnknownRecord>(
+    indexName: string,
+    id: string,
+    update: { vector?: number[]; metadata?: TMetadata },
+  ): Promise<void> {
+    this.ensureInitialized();
+
+    if (!update.vector && !update.metadata) {
+      return; // Nothing to update
+    }
+
+    const index = this.getIndex(indexName);
+
+    // Pinecone uses upsert for updates - we need to provide the full vector
+    const upsertData: PineconeVector = { id, values: update.vector || [] };
+
+    if (update.metadata) {
+      upsertData.metadata = update.metadata as Record<string, unknown>;
+    }
+
+    // If only metadata is provided, we need to fetch the existing vector first
+    if (!update.vector) {
+      // Query for the existing vector
+      const queryResult = await this.withRetry(() =>
+        index.query({
+          vector: new Array(1536).fill(0), // Dummy vector for ID lookup
+          topK: 1,
+          includeValues: true,
+          filter: { id: { $eq: id } },
+        }),
+      );
+
+      if (queryResult.matches && queryResult.matches.length > 0) {
+        upsertData.values = queryResult.matches[0].values || [];
+      } else {
+        throw new Error(
+          `Vector with id '${id}' not found in index '${indexName}'`,
+        );
+      }
+    }
+
+    await this.withRetry(() => index.upsert([upsertData]));
+    this.logDebug(`Updated vector: ${id}`);
+  }
+
+  /**
    * Get index statistics
    */
   async getStats(indexName: string): Promise<VectorStoreStats> {

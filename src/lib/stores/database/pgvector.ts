@@ -490,6 +490,56 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
   }
 
   /**
+   * Update an individual vector's embedding and/or metadata
+   */
+  async updateVector<TMetadata extends UnknownRecord = UnknownRecord>(
+    indexName: string,
+    id: string,
+    update: { vector?: number[]; metadata?: TMetadata },
+  ): Promise<void> {
+    this.ensureInitialized();
+
+    if (!update.vector && !update.metadata) {
+      return; // Nothing to update
+    }
+
+    const tableName = this.sanitizeIdentifier(indexName);
+    const setClauses: string[] = [];
+    const params: unknown[] = [];
+    let paramIndex = 1;
+
+    if (update.vector) {
+      setClauses.push(`embedding = $${paramIndex}::vector`);
+      params.push(`[${update.vector.join(",")}]`);
+      paramIndex++;
+    }
+
+    if (update.metadata) {
+      setClauses.push(`metadata = $${paramIndex}::jsonb`);
+      params.push(JSON.stringify(update.metadata));
+      paramIndex++;
+    }
+
+    // Always update the updated_at timestamp
+    setClauses.push("updated_at = NOW()");
+
+    params.push(id);
+
+    const result = await this.pool!.query(
+      `UPDATE ${this.schema}.${tableName} SET ${setClauses.join(", ")} WHERE id = $${paramIndex}`,
+      params,
+    );
+
+    if (result.rowCount === 0) {
+      throw new Error(
+        `Vector with id '${id}' not found in table '${indexName}'`,
+      );
+    }
+
+    this.logDebug(`Updated vector: ${id}`);
+  }
+
+  /**
    * Get table statistics
    */
   async getStats(indexName: string): Promise<VectorStoreStats> {

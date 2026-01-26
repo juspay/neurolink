@@ -41,6 +41,17 @@ type ChromaCollection = {
     metadatas?: Array<Record<string, unknown>>;
     documents?: string[];
   }) => Promise<void>;
+  update: (params: {
+    ids: string[];
+    embeddings?: number[][];
+    metadatas?: Array<Record<string, unknown>>;
+    documents?: string[];
+  }) => Promise<void>;
+  get: (params: {
+    ids?: string[];
+    where?: Record<string, unknown>;
+    include?: Array<"metadatas" | "documents" | "embeddings">;
+  }) => Promise<ChromaGetResponse>;
   query: (params: {
     queryEmbeddings: number[][];
     nResults?: number;
@@ -59,6 +70,13 @@ type ChromaQueryResponse = {
   embeddings?: number[][][];
   metadatas?: Array<Array<Record<string, unknown> | null>>;
   documents?: Array<Array<string | null>>;
+};
+
+type ChromaGetResponse = {
+  ids: string[];
+  embeddings?: number[][];
+  metadatas?: Array<Record<string, unknown> | null>;
+  documents?: Array<string | null>;
 };
 
 /**
@@ -286,6 +304,55 @@ export class ChromaStore extends BaseVectorStore<ChromaConfig> {
     }
 
     return results;
+  }
+
+  /**
+   * Update an individual vector's embedding and/or metadata
+   */
+  async updateVector<TMetadata extends UnknownRecord = UnknownRecord>(
+    indexName: string,
+    id: string,
+    update: { vector?: number[]; metadata?: TMetadata },
+  ): Promise<void> {
+    this.ensureInitialized();
+
+    if (!update.vector && !update.metadata) {
+      return; // Nothing to update
+    }
+
+    const collection = await this.getCollection(indexName);
+
+    // Check if the vector exists
+    const existing = await collection.get({
+      ids: [id],
+      include: ["embeddings", "metadatas"],
+    });
+
+    if (existing.ids.length === 0) {
+      throw new Error(
+        `Vector with id '${id}' not found in collection '${indexName}'`,
+      );
+    }
+
+    // Build update params
+    const updateParams: {
+      ids: string[];
+      embeddings?: number[][];
+      metadatas?: Array<Record<string, unknown>>;
+    } = {
+      ids: [id],
+    };
+
+    if (update.vector) {
+      updateParams.embeddings = [update.vector];
+    }
+
+    if (update.metadata) {
+      updateParams.metadatas = [update.metadata as Record<string, unknown>];
+    }
+
+    await collection.update(updateParams);
+    this.logDebug(`Updated vector: ${id}`);
   }
 
   /**
