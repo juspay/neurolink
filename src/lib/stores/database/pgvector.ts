@@ -21,6 +21,14 @@ import type {
 import { BaseVectorStore, type VectorStoreConfig } from "../baseVectorStore.js";
 import { translateToPgvector } from "../filterTranslator.js";
 
+// Constants for edge case handling
+const MAX_BATCH_SIZE = 10000; // PostgreSQL practical limit for UNNEST arrays
+const MAX_VECTOR_DIMENSION = 16000; // pgvector maximum dimension
+const MIN_VECTOR_DIMENSION = 1;
+const MAX_METADATA_SIZE_BYTES = 1024 * 1024; // 1MB practical limit for JSONB
+const MAX_INDEX_NAME_LENGTH = 63; // PostgreSQL identifier limit
+const DEFAULT_CONNECTION_TIMEOUT_MS = 10000;
+
 // Types for pg client (using dynamic import)
 type Pool = {
   connect: () => Promise<PoolClient>;
@@ -75,6 +83,8 @@ export type PgvectorConfig = VectorStoreConfig & {
   poolSize?: number;
   /** Index type: ivfflat or hnsw (default: hnsw) */
   indexType?: "ivfflat" | "hnsw";
+  /** Connection timeout in milliseconds (default: 10000) */
+  connectionTimeoutMillis?: number;
 };
 
 /**
@@ -84,11 +94,133 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
   private pool: Pool | null = null;
   private schema: string;
   private indexMetrics: Map<string, SimilarityMetric> = new Map();
+  private indexDimensions: Map<string, number> = new Map();
 
   constructor(config: PgvectorConfig) {
     super(config, "pgvector" as VectorStoreName);
     // Sanitize schema to prevent SQL injection
     this.schema = this.sanitizeIdentifier(config.schema || "public");
+  }
+
+  /**
+   * Validate index name for PostgreSQL constraints
+   */
+  private validateIndexName(name: string): void {
+    if (!name || name.trim().length === 0) {
+      throw new Error("Index name cannot be empty");
+    }
+    if (name.length > MAX_INDEX_NAME_LENGTH) {
+      throw new Error(
+        `Index name exceeds maximum length of ${MAX_INDEX_NAME_LENGTH} characters: "${name.slice(0, 20)}..."`,
+      );
+    }
+    // Check for reserved names
+    if (name.startsWith("_neurolink_")) {
+      throw new Error(
+        `Index name cannot start with "_neurolink_" (reserved for internal use)`,
+      );
+    }
+  }
+
+  /**
+   * Validate vector dimension
+   */
+  private validateVectorDimension(dimension: number, context: string): void {
+    if (!Number.isInteger(dimension)) {
+      throw new Error(
+        `${context}: dimension must be an integer, got ${dimension}`,
+      );
+    }
+    if (dimension < MIN_VECTOR_DIMENSION) {
+      throw new Error(
+        `${context}: dimension must be at least ${MIN_VECTOR_DIMENSION}, got ${dimension}`,
+      );
+    }
+    if (dimension > MAX_VECTOR_DIMENSION) {
+      throw new Error(
+        `${context}: dimension exceeds pgvector maximum of ${MAX_VECTOR_DIMENSION}, got ${dimension}`,
+      );
+    }
+  }
+
+  /**
+   * Validate a single vector
+   */
+  private validateVector(
+    vector: number[],
+    expectedDimension?: number,
+    context: string = "Vector",
+  ): void {
+    if (!Array.isArray(vector)) {
+      throw new Error(`${context}: must be an array`);
+    }
+    if (vector.length === 0) {
+      throw new Error(`${context}: cannot be empty`);
+    }
+    this.validateVectorDimension(vector.length, context);
+
+    // Check for invalid values
+    for (let i = 0; i < vector.length; i++) {
+      if (typeof vector[i] !== "number" || !Number.isFinite(vector[i])) {
+        throw new Error(
+          `${context}: contains invalid value at index ${i}: ${vector[i]}`,
+        );
+      }
+    }
+
+    if (
+      expectedDimension !== undefined &&
+      vector.length !== expectedDimension
+    ) {
+      throw new Error(
+        `${context}: dimension mismatch - expected ${expectedDimension}, got ${vector.length}`,
+      );
+    }
+  }
+
+  /**
+   * Validate metadata size
+   */
+  private validateMetadataSize(metadata: unknown, id: string): void {
+    if (!metadata) {return;}
+    const size = JSON.stringify(metadata).length;
+    if (size > MAX_METADATA_SIZE_BYTES) {
+      throw new Error(
+        `Metadata for record "${id}" exceeds maximum size of ${MAX_METADATA_SIZE_BYTES} bytes (got ${size} bytes)`,
+      );
+    }
+  }
+
+  /**
+   * Get the expected dimension for an index (cached)
+   */
+  private async getIndexDimension(
+    indexName: string,
+  ): Promise<number | undefined> {
+    const cached = this.indexDimensions.get(indexName);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    try {
+      const result = await this.pool!.query(
+        `
+        SELECT atttypmod - 4 as dimension
+        FROM pg_attribute
+        WHERE attrelid = $1::regclass
+          AND attname = 'embedding'
+        `,
+        [`${this.schema}.${this.sanitizeIdentifier(indexName)}`],
+      );
+      if (result.rows.length > 0 && result.rows[0].dimension) {
+        const dimension = result.rows[0].dimension as number;
+        this.indexDimensions.set(indexName, dimension);
+        return dimension;
+      }
+    } catch {
+      // Index might not exist yet
+    }
+    return undefined;
   }
 
   /**
@@ -99,6 +231,14 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
       return;
     }
 
+    // Validate configuration
+    if (!this.config.connectionString && !this.config.host) {
+      throw new Error(
+        "pgvector: Either connectionString or host must be provided",
+      );
+    }
+
+    let client: PoolClient | null = null;
     try {
       // Dynamically import pg
       const { Pool: PgPool } = await import("pg");
@@ -116,26 +256,69 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
 
       poolConfig.max = this.config.poolSize || 10;
       poolConfig.idleTimeoutMillis = 30000;
-      poolConfig.connectionTimeoutMillis = 5000;
+      poolConfig.connectionTimeoutMillis =
+        this.config.connectionTimeoutMillis || DEFAULT_CONNECTION_TIMEOUT_MS;
 
       this.pool = new PgPool(poolConfig) as unknown as Pool;
 
       // Test connection and ensure pgvector extension
-      const client = await this.pool.connect();
+      client = await this.pool.connect();
       try {
         await client.query("CREATE EXTENSION IF NOT EXISTS vector");
         this.logInfo("pgvector extension enabled");
       } finally {
         client.release();
+        client = null;
       }
 
       this.initialized = true;
       this.logInfo("Connected successfully");
     } catch (error) {
+      // Clean up on failure
+      if (client) {
+        try {
+          client.release();
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+      if (this.pool) {
+        try {
+          await this.pool.end();
+        } catch {
+          // Ignore cleanup errors
+        }
+        this.pool = null;
+      }
+
       this.logError("Failed to connect", error);
-      throw new Error(
-        `Failed to connect to PostgreSQL: ${error instanceof Error ? error.message : String(error)}`,
-      );
+
+      // Provide helpful error messages
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("ECONNREFUSED")) {
+        throw new Error(
+          `pgvector: Connection refused. Ensure PostgreSQL is running at ${this.config.host || "specified host"}:${this.config.port || 5432}`,
+        );
+      }
+      if (errorMessage.includes("timeout")) {
+        const timeoutMs =
+          this.config.connectionTimeoutMillis || DEFAULT_CONNECTION_TIMEOUT_MS;
+        throw new Error(
+          `pgvector: Connection timed out after ${timeoutMs}ms. Check network connectivity and firewall settings.`,
+        );
+      }
+      if (errorMessage.includes("authentication")) {
+        throw new Error(
+          `pgvector: Authentication failed. Verify username and password.`,
+        );
+      }
+      if (errorMessage.includes("does not exist")) {
+        throw new Error(
+          `pgvector: Database "${this.config.database}" does not exist. Create it first.`,
+        );
+      }
+      throw new Error(`pgvector: Failed to connect - ${errorMessage}`);
     }
   }
 
@@ -201,6 +384,10 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
   async createIndex(config: VectorIndexConfig): Promise<void> {
     this.ensureInitialized();
 
+    // Validate inputs
+    this.validateIndexName(config.name);
+    this.validateVectorDimension(config.dimension, "createIndex");
+
     const tableName = this.sanitizeIdentifier(config.name);
     const metric: SimilarityMetric = config.metric || "cosine";
     const indexType = this.config.indexType || "hnsw";
@@ -259,8 +446,9 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
       [tableName, metric, config.dimension, indexType],
     );
 
-    // Cache the metric
+    // Cache the metric and dimension
     this.indexMetrics.set(tableName, metric);
+    this.indexDimensions.set(tableName, config.dimension);
 
     this.logInfo(`Table and indexes created: ${tableName}`, {
       dimension: config.dimension,
@@ -274,6 +462,10 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
    */
   async deleteIndex(indexName: string): Promise<void> {
     this.ensureInitialized();
+
+    if (!indexName || indexName.trim().length === 0) {
+      throw new Error("Index name cannot be empty");
+    }
 
     const tableName = this.sanitizeIdentifier(indexName);
     await this.pool!.query(
@@ -290,6 +482,7 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
       // Metadata table might not exist
     }
     this.indexMetrics.delete(tableName);
+    this.indexDimensions.delete(tableName);
 
     this.logInfo(`Table deleted: ${tableName}`);
   }
@@ -338,8 +531,47 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
   ): Promise<{ upsertedCount: number }> {
     this.ensureInitialized();
 
+    // Handle empty records array
+    if (!records || records.length === 0) {
+      this.logDebug("Upsert called with empty records array, skipping");
+      return { upsertedCount: 0 };
+    }
+
     const tableName = this.sanitizeIdentifier(indexName);
-    const batchSize = options?.batchSize || 1000;
+
+    // Validate batch size
+    const requestedBatchSize = options?.batchSize || 1000;
+    const batchSize = Math.min(requestedBatchSize, MAX_BATCH_SIZE);
+    if (requestedBatchSize > MAX_BATCH_SIZE) {
+      this.logDebug(
+        `Batch size ${requestedBatchSize} exceeds maximum ${MAX_BATCH_SIZE}, using ${batchSize}`,
+      );
+    }
+
+    // Get expected dimension for validation
+    const expectedDimension = await this.getIndexDimension(indexName);
+
+    // Validate all records upfront
+    const firstVectorDim = records[0].vector.length;
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+
+      // Validate ID
+      if (!record.id || record.id.trim().length === 0) {
+        throw new Error(`Record at index ${i} has empty or missing ID`);
+      }
+
+      // Validate vector
+      this.validateVector(
+        record.vector,
+        expectedDimension || firstVectorDim,
+        `Record "${record.id}"`,
+      );
+
+      // Validate metadata size
+      this.validateMetadataSize(record.metadata, record.id);
+    }
+
     let totalUpserted = 0;
 
     // Process in batches
@@ -359,21 +591,44 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
         metadatas.push(JSON.stringify(record.metadata || {}));
       }
 
-      await this.pool!.query(
-        `
-        INSERT INTO ${this.schema}.${tableName} (id, embedding, content, metadata, updated_at)
-        SELECT * FROM UNNEST($1::text[], $2::vector[], $3::text[], $4::jsonb[], ARRAY_FILL(NOW(), ARRAY[${batch.length}])::timestamp[])
-        ON CONFLICT (id) DO UPDATE SET
-          embedding = EXCLUDED.embedding,
-          content = EXCLUDED.content,
-          metadata = EXCLUDED.metadata,
-          updated_at = NOW()
-      `,
-        [ids, embeddings, contents, metadatas],
-      );
+      try {
+        await this.pool!.query(
+          `
+          INSERT INTO ${this.schema}.${tableName} (id, embedding, content, metadata, updated_at)
+          SELECT * FROM UNNEST($1::text[], $2::vector[], $3::text[], $4::jsonb[], ARRAY_FILL(NOW(), ARRAY[${batch.length}])::timestamp[])
+          ON CONFLICT (id) DO UPDATE SET
+            embedding = EXCLUDED.embedding,
+            content = EXCLUDED.content,
+            metadata = EXCLUDED.metadata,
+            updated_at = NOW()
+        `,
+          [ids, embeddings, contents, metadatas],
+        );
 
-      totalUpserted += batch.length;
-      this.logDebug(`Upserted batch: ${totalUpserted}/${records.length}`);
+        totalUpserted += batch.length;
+        this.logDebug(`Upserted batch: ${totalUpserted}/${records.length}`);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        // Provide helpful error messages
+        if (errorMessage.includes("different vector dimensions")) {
+          throw new Error(
+            `pgvector: Vector dimension mismatch. Table "${indexName}" expects vectors of a specific dimension. Check that all vectors have the correct dimension.`,
+          );
+        }
+        if (
+          errorMessage.includes("relation") &&
+          errorMessage.includes("does not exist")
+        ) {
+          throw new Error(
+            `pgvector: Index "${indexName}" does not exist. Create it first with createIndex().`,
+          );
+        }
+        throw new Error(
+          `pgvector: Failed to upsert batch starting at index ${i} - ${errorMessage}`,
+        );
+      }
     }
 
     return { upsertedCount: totalUpserted };
@@ -387,6 +642,23 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
     options: VectorQueryOptions<TMetadata>,
   ): Promise<VectorQueryResult<TMetadata>[]> {
     this.ensureInitialized();
+
+    // Validate query vector
+    if (!options.vector || options.vector.length === 0) {
+      throw new Error("Query vector cannot be empty");
+    }
+
+    // Validate topK
+    if (!options.topK || options.topK < 1) {
+      throw new Error("topK must be a positive integer");
+    }
+    if (!Number.isInteger(options.topK)) {
+      throw new Error("topK must be an integer");
+    }
+
+    // Get expected dimension and validate
+    const expectedDimension = await this.getIndexDimension(indexName);
+    this.validateVector(options.vector, expectedDimension, "Query vector");
 
     const tableName = this.sanitizeIdentifier(indexName);
     const metric = await this.getIndexMetric(tableName);
@@ -434,21 +706,42 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
       LIMIT $2
     `;
 
-    const result = await this.pool!.query(query, params);
+    try {
+      const result = await this.pool!.query(query, params);
 
-    return result.rows
-      .filter(
-        (row) => !options.minScore || (row.score as number) >= options.minScore,
-      )
-      .map((row) => ({
-        id: row.id as string,
-        score: row.score as number,
-        vector: options.includeVectors
-          ? this.parseVector(row.vector as string)
-          : undefined,
-        metadata: row.metadata as TMetadata,
-        content: row.content as string | undefined,
-      }));
+      return result.rows
+        .filter(
+          (row) =>
+            !options.minScore || (row.score as number) >= options.minScore,
+        )
+        .map((row) => ({
+          id: row.id as string,
+          score: row.score as number,
+          vector: options.includeVectors
+            ? this.parseVector(row.vector as string)
+            : undefined,
+          metadata: row.metadata as TMetadata,
+          content: row.content as string | undefined,
+        }));
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      if (errorMessage.includes("different vector dimensions")) {
+        throw new Error(
+          `pgvector: Query vector dimension mismatch. Index "${indexName}" expects a different dimension.`,
+        );
+      }
+      if (
+        errorMessage.includes("relation") &&
+        errorMessage.includes("does not exist")
+      ) {
+        throw new Error(
+          `pgvector: Index "${indexName}" does not exist. Create it first with createIndex().`,
+        );
+      }
+      throw new Error(`pgvector: Query failed - ${errorMessage}`);
+    }
   }
 
   /**
@@ -460,33 +753,57 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
   ): Promise<VectorDeleteResult> {
     this.ensureInitialized();
 
+    if (!indexName || indexName.trim().length === 0) {
+      throw new Error("Index name cannot be empty");
+    }
+
     const tableName = this.sanitizeIdentifier(indexName);
 
-    if (options.deleteAll) {
-      const result = await this.pool!.query(
-        `DELETE FROM ${this.schema}.${tableName}`,
-      );
-      return { deletedCount: result.rowCount || 0, acknowledged: true };
-    }
+    try {
+      if (options.deleteAll) {
+        const result = await this.pool!.query(
+          `DELETE FROM ${this.schema}.${tableName}`,
+        );
+        return { deletedCount: result.rowCount || 0, acknowledged: true };
+      }
 
-    if (options.ids && options.ids.length > 0) {
-      const result = await this.pool!.query(
-        `DELETE FROM ${this.schema}.${tableName} WHERE id = ANY($1)`,
-        [options.ids],
-      );
-      return { deletedCount: result.rowCount || 0, acknowledged: true };
-    }
+      if (options.ids && options.ids.length > 0) {
+        // Validate IDs
+        for (const id of options.ids) {
+          if (!id || (typeof id === "string" && id.trim().length === 0)) {
+            throw new Error("Delete IDs cannot contain empty values");
+          }
+        }
 
-    if (options.filter) {
-      const filterResult = translateToPgvector(options.filter);
-      const result = await this.pool!.query(
-        `DELETE FROM ${this.schema}.${tableName} WHERE ${filterResult.sql}`,
-        filterResult.params,
-      );
-      return { deletedCount: result.rowCount || 0, acknowledged: true };
-    }
+        const result = await this.pool!.query(
+          `DELETE FROM ${this.schema}.${tableName} WHERE id = ANY($1)`,
+          [options.ids],
+        );
+        return { deletedCount: result.rowCount || 0, acknowledged: true };
+      }
 
-    return { deletedCount: 0, acknowledged: true };
+      if (options.filter) {
+        const filterResult = translateToPgvector(options.filter);
+        const result = await this.pool!.query(
+          `DELETE FROM ${this.schema}.${tableName} WHERE ${filterResult.sql}`,
+          filterResult.params,
+        );
+        return { deletedCount: result.rowCount || 0, acknowledged: true };
+      }
+
+      return { deletedCount: 0, acknowledged: true };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      if (
+        errorMessage.includes("relation") &&
+        errorMessage.includes("does not exist")
+      ) {
+        throw new Error(`pgvector: Index "${indexName}" does not exist.`);
+      }
+      throw new Error(`pgvector: Delete failed - ${errorMessage}`);
+    }
   }
 
   /**
@@ -499,8 +816,29 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
   ): Promise<void> {
     this.ensureInitialized();
 
+    // Validate ID
+    if (!id || id.trim().length === 0) {
+      throw new Error("Vector ID cannot be empty");
+    }
+
     if (!update.vector && !update.metadata) {
+      this.logDebug("updateVector called with no updates, skipping");
       return; // Nothing to update
+    }
+
+    // Validate vector if provided
+    if (update.vector) {
+      const expectedDimension = await this.getIndexDimension(indexName);
+      this.validateVector(
+        update.vector,
+        expectedDimension,
+        `Update vector for "${id}"`,
+      );
+    }
+
+    // Validate metadata if provided
+    if (update.metadata) {
+      this.validateMetadataSize(update.metadata, id);
     }
 
     const tableName = this.sanitizeIdentifier(indexName);
@@ -525,18 +863,35 @@ export class PgvectorStore extends BaseVectorStore<PgvectorConfig> {
 
     params.push(id);
 
-    const result = await this.pool!.query(
-      `UPDATE ${this.schema}.${tableName} SET ${setClauses.join(", ")} WHERE id = $${paramIndex}`,
-      params,
-    );
+    try {
+      const result = await this.pool!.query(
+        `UPDATE ${this.schema}.${tableName} SET ${setClauses.join(", ")} WHERE id = $${paramIndex}`,
+        params,
+      );
 
-    if (result.rowCount === 0) {
+      if (result.rowCount === 0) {
+        throw new Error(
+          `Vector with id '${id}' not found in index '${indexName}'`,
+        );
+      }
+
+      this.logDebug(`Updated vector: ${id}`);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      if (errorMessage.includes("different vector dimensions")) {
+        throw new Error(
+          `pgvector: Vector dimension mismatch when updating "${id}". Index "${indexName}" expects a different dimension.`,
+        );
+      }
+      if (errorMessage.includes("not found")) {
+        throw error; // Re-throw our own error
+      }
       throw new Error(
-        `Vector with id '${id}' not found in table '${indexName}'`,
+        `pgvector: Failed to update vector "${id}" - ${errorMessage}`,
       );
     }
-
-    this.logDebug(`Updated vector: ${id}`);
   }
 
   /**
