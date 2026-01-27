@@ -153,31 +153,19 @@ export class ModelRouter {
         modelName,
       );
 
-      // Access the AI SDK model via generate method which internally uses the model
+      // Use the public getLanguageModel() method to access the AI SDK model
       // All NeuroLink providers implement this through BaseProvider
-      // We use a minimal generate call to verify the provider works, then create
-      // the model through the same factory pattern used by OpenRouter
       const { BaseProvider } = await import("../core/baseProvider.js");
 
-      // Type guard to check if the provider extends BaseProvider
-      // BaseProvider has a protected getAISDKModel method that we need to access
-      // We use a typed interface to safely access the internal method
-      interface ProviderWithInternalModel {
-        getAISDKModel(): LanguageModelV1 | Promise<LanguageModelV1>;
-      }
-
-      // Verify the provider is a BaseProvider instance before accessing internal method
+      // Verify the provider is a BaseProvider instance
       if (!(aiProvider instanceof BaseProvider)) {
         throw new Error(
           `Provider ${neuroLinkProvider} is not a BaseProvider instance`,
         );
       }
 
-      // Access the protected method through reflection since we've verified the type
-      // This is safe because we've confirmed it's a BaseProvider
-      const model = await (
-        aiProvider as unknown as ProviderWithInternalModel
-      ).getAISDKModel();
+      // Access the AI SDK model via the public method
+      const model = await aiProvider.getLanguageModel();
 
       logger.debug(
         `Created direct model via NeuroLink provider ${neuroLinkProvider}`,

@@ -286,6 +286,41 @@ export type ModelsCommandArgs = Omit<BaseCommandArgs, "format"> & {
 };
 
 /**
+ * Gateway command arguments for unified model routing
+ */
+export type GatewayCommandArgs = Omit<BaseCommandArgs, "format"> & {
+  // Models command options
+  /** Filter by provider */
+  provider?: string;
+  /** Filter by capability (array) */
+  capability?: string[];
+  /** Maximum number of models to display */
+  limit?: number;
+  /** Registry source (all, openrouter, models.dev) */
+  source?: "all" | "openrouter" | "models.dev";
+
+  // Search command options
+  /** Search query */
+  query?: string;
+
+  // Info command options
+  /** Model ID in provider/model format */
+  model?: string;
+
+  // Providers command options
+  /** Check if API keys are configured */
+  checkKeys?: boolean;
+
+  // Cache command options
+  /** Clear the cache */
+  clear?: boolean;
+
+  // Output formatting (overrides BaseCommandArgs format)
+  /** Output format for gateway command */
+  format?: "table" | "json" | "compact";
+};
+
+/**
  * Ollama command arguments
  */
 export type OllamaCommandArgs = BaseCommandArgs & {

@@ -67,8 +67,9 @@ export {
   RoutingError,
 } from "./errors.js";
 export {
-  type FallbackManager,
+  FallbackManager,
   getGlobalFallbackManager,
+  resetGlobalFallbackManager,
 } from "./fallbackManager.js";
 // ==================
 // Client Utilities
@@ -78,7 +79,7 @@ export { GatewayClient, getGlobalGatewayClient } from "./gatewayClient.js";
 // Main Provider
 // ==================
 export { GatewayProvider } from "./gatewayProvider.js";
-export { getGlobalRouter, type ModelRouter } from "./modelRouter.js";
+export { getGlobalRouter, ModelRouter } from "./modelRouter.js";
 // ==================
 // Core Functions
 // ==================

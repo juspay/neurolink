@@ -31,6 +31,7 @@ import {
 } from "../../lib/types/contextTypes.js";
 import { ModelsCommandFactory } from "../commands/models.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
+import { GatewayCommandFactory } from "../commands/gateway.js";
 import { OllamaCommandFactory } from "./ollamaCommandFactory.js";
 import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
 import { ModelResolver } from "../../lib/models/modelResolver.js";
@@ -72,9 +73,11 @@ export class CLICommandFactory {
         "mistral",
         "litellm",
         "sagemaker",
+        "gateway",
       ],
       default: "auto",
-      description: "AI provider to use (auto-selects best available)",
+      description:
+        "AI provider to use (auto-selects best available, gateway for unified model routing)",
       alias: "p",
     },
     image: {
@@ -1154,6 +1157,13 @@ export class CLICommandFactory {
    */
   static createModelsCommands(): CommandModule {
     return ModelsCommandFactory.createModelsCommands();
+  }
+
+  /**
+   * Create gateway commands for unified model routing (Mastra-style)
+   */
+  static createGatewayCommands(): CommandModule {
+    return GatewayCommandFactory.createGatewayCommands();
   }
 
   /**

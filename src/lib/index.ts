@@ -328,6 +328,143 @@ export type {
 export type { LogLevel } from "./types/utilities.js";
 
 // ============================================================================
+// GATEWAY PROVIDER SYSTEM - Unified Model Routing (69+ providers)
+// ============================================================================
+
+/**
+ * Gateway Provider System
+ *
+ * Unified access to 69+ AI providers through a single "provider/model" string format.
+ * Inspired by Mastra's gateway architecture with smart routing, fallback handling,
+ * and dynamic model registry.
+ *
+ * @example Basic usage
+ * ```typescript
+ * import { GatewayProvider } from '@juspay/neurolink';
+ *
+ * // Create provider with "provider/model" format
+ * const provider = new GatewayProvider("anthropic/claude-3-5-sonnet");
+ * const result = await provider.generate({ prompt: "Hello!" });
+ * ```
+ *
+ * @example Using NeuroLink.gateway() shorthand
+ * ```typescript
+ * import { NeuroLink } from '@juspay/neurolink';
+ *
+ * const neurolink = new NeuroLink();
+ * const gateway = await neurolink.gateway("openai/gpt-4o");
+ * const result = await gateway.generate({ prompt: "Hello!" });
+ * ```
+ *
+ * @example With fallbacks
+ * ```typescript
+ * const gateway = await neurolink.gateway("openai/gpt-4o", {
+ *   fallback: {
+ *     models: ["anthropic/claude-3-5-sonnet", "google/gemini-1.5-pro"],
+ *     retries: 2,
+ *     retryDelayMs: 1000
+ *   }
+ * });
+ * ```
+ */
+export {
+  // Main Provider
+  GatewayProvider,
+  // Client utilities
+  GatewayClient,
+  getGlobalGatewayClient,
+  // Registry & Cache
+  RegistryFetcher,
+  RegistryCache,
+  getGlobalFetcher,
+  getGlobalCache,
+  resetGlobalFetcher,
+  resetGlobalCache,
+  // Model Router
+  ModelRouter,
+  getGlobalRouter,
+  // Fallback Manager
+  FallbackManager,
+  getGlobalFallbackManager,
+  resetGlobalFallbackManager,
+  // Model String Parser utilities
+  parseModelString,
+  createModelString,
+  normalizeProviderName,
+  normalizeModelName,
+  inferProvider,
+  hasProviderPrefix,
+  isKnownProvider,
+  getProviderConfig,
+  validateModelString,
+  // Provider Mapper utilities
+  getProviderMapping,
+  getRoutingStrategy,
+  getRoutingDecision,
+  hasDirectSupport,
+  isProviderConfigured,
+  isOpenRouterConfigured,
+  isLiteLLMConfigured,
+  getDirectProviders,
+  getGatewayProviders,
+  getAllKnownProviders,
+  getAvailableProviders as getGatewayAvailableProviders, // Renamed to avoid conflict
+  getAuthEnvVar,
+  getNeuroLinkProviderName,
+  shouldUseNeuroLinkProvider,
+  // Registry Parsers
+  parseModelsDevResponse,
+  parseOpenRouterResponse,
+  mergeModelSources,
+  // Errors
+  GatewayError,
+  ConfigurationError,
+  MissingApiKeyError,
+  RoutingError,
+  ModelNotFoundError,
+  RegistryFetchError,
+  FallbackExhaustedError,
+  GatewayDisabledError,
+  GATEWAY_ERROR_CODES,
+  // Constants
+  DEFAULT_GATEWAY_MODEL,
+  GATEWAY_ENABLED,
+  OPENROUTER_CONFIG,
+  LITELLM_CONFIG,
+  CACHE_TTL_MS,
+  DEFAULT_FALLBACK_CONFIG,
+  DEFAULT_REGISTRY_SOURCES,
+  DIRECT_PROVIDER_CONFIGS,
+  GATEWAY_PROVIDER_CONFIGS,
+  ALL_PROVIDER_CONFIGS,
+} from "./gateway/index.js";
+
+// Gateway Types (also exported via ./types/index.js)
+export type {
+  GatewayModelInfo,
+  GatewayPricing,
+  GatewayCapabilities,
+  GatewayProviderConfig,
+  RoutingStrategy,
+  GatewayOptions,
+  GatewayProviderOptions,
+  ModelSelector,
+  ModelSelectorContext,
+  ParsedModel,
+  RegistryConfig,
+  RegistrySource,
+  RegistryParser,
+  FallbackAttempt,
+  FallbackResult,
+  ModelSearchFilters,
+  ModelSearchResult,
+  SearchConstraints,
+  ModelComparison,
+  RoutingDecision,
+  GatewayErrorCode,
+} from "./gateway/index.js";
+
+// ============================================================================
 // REAL-TIME SERVICES & TELEMETRY - Enterprise Platform Features
 // ============================================================================
 

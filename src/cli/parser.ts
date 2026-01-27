@@ -162,6 +162,9 @@ export function initializeCliParser() {
       // Models Command Group - Using CLICommandFactory
       .command(CLICommandFactory.createModelsCommands())
 
+      // Gateway Command Group - Unified model routing (Mastra-style)
+      .command(CLICommandFactory.createGatewayCommands())
+
       // MCP Command Group - Using CLICommandFactory
       .command(CLICommandFactory.createMCPCommands())
 

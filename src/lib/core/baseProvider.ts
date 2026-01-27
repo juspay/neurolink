@@ -742,6 +742,29 @@ export abstract class BaseProvider implements AIProvider {
     | Promise<LanguageModelV1>;
 
   /**
+   * Get the underlying AI SDK Language Model for gateway routing.
+   *
+   * This method provides public access to the AI SDK model instance
+   * for use by the Gateway Provider System. It allows the gateway
+   * to use NeuroLink's existing provider infrastructure for direct routing
+   * while maintaining full compatibility with the AI SDK.
+   *
+   * @returns The AI SDK LanguageModelV1 instance
+   *
+   * @example
+   * ```typescript
+   * const provider = await ProviderFactory.createProvider("openai", "gpt-4o");
+   * const model = await provider.getLanguageModel();
+   * // Use model directly with AI SDK's generateText, streamText, etc.
+   * ```
+   *
+   * @since 2.0.0
+   */
+  public async getLanguageModel(): Promise<LanguageModelV1> {
+    return this.getAISDKModel();
+  }
+
+  /**
    * Get AI SDK model with middleware applied
    * This method wraps the base model with any configured middleware
    * TODO: Implement global level middlewares that can be used

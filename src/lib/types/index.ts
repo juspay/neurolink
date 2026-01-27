@@ -214,3 +214,34 @@ export type {
   CliAnalytics,
   CliEvaluation,
 } from "./actionTypes.js";
+
+// Gateway types - Unified model routing system
+export type {
+  GatewayModelInfo,
+  GatewayPricing,
+  GatewayCapabilities,
+  GatewayProviderConfig,
+  RoutingStrategy,
+  RateLimitConfig as GatewayRateLimitConfig, // Renamed to avoid conflict with mcpTypes
+  FallbackConfig as GatewayFallbackConfig, // Renamed to avoid conflict with configTypes
+  RegistryConfig,
+  RegistrySource,
+  RegistryParser,
+  GatewayOptions,
+  GatewayProviderOptions,
+  ModelSelector,
+  ModelSelectorContext,
+  ParsedModel,
+  CacheEntry,
+  CacheOptions,
+  CacheStats,
+  SearchOptions as GatewaySearchOptions, // Renamed to avoid potential conflicts
+  ModelSearchFilters,
+  ModelSearchResult,
+  SearchConstraints,
+  ModelComparison,
+  FallbackAttempt,
+  FallbackResult,
+  ModelsDevResponse,
+  OpenRouterModelsResponse,
+} from "../gateway/types.js";
