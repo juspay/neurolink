@@ -26,6 +26,7 @@ import { FileDetector } from "./fileDetector.js";
 import { PDFProcessor, PDFImageConverter } from "./pdfProcessor.js";
 import { urlDownloadRateLimiter } from "./rateLimiter.js";
 import { request, getGlobalDispatcher, interceptors } from "undici";
+import { getImageCache } from "./imageCache.js";
 import { readFileSync, existsSync } from "fs";
 import type {
   CoreMessage,
@@ -843,9 +844,18 @@ function isInternetUrl(input: string): boolean {
 /**
  * Download image from URL and convert to base64 data URI
  * Rate-limited to 10 downloads per second to prevent DoS
+ * Uses LRU cache to avoid redundant downloads of the same URL
  */
 async function downloadImageFromUrl(url: string): Promise<string> {
-  // Apply rate limiting before download
+  // Check cache first (before rate limiting)
+  const cache = getImageCache();
+  const cached = cache.get(url);
+  if (cached) {
+    logger.debug("Using cached image for URL", { url: url.substring(0, 50) });
+    return cached.dataUri;
+  }
+
+  // Apply rate limiting only if cache missed
   await urlDownloadRateLimiter.acquire();
 
   try {
@@ -893,6 +903,9 @@ async function downloadImageFromUrl(url: string): Promise<string> {
     // Convert to base64 data URI
     const base64 = buffer.toString("base64");
     const dataUri = `data:${contentType};base64,${base64}`;
+
+    // Store in cache for future use
+    cache.set(url, dataUri, contentType, buffer);
 
     return dataUri;
   } catch (error) {

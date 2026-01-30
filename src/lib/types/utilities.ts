@@ -227,3 +227,57 @@ export type EnvVarValidationResult = {
   invalidVars: string[];
   warnings: string[];
 };
+
+/**
+ * Cached image entry structure for image cache
+ */
+export type CachedImage = {
+  /** The image data as a base64 data URI */
+  dataUri: string;
+  /** Content type of the image (e.g., "image/jpeg") */
+  contentType: string;
+  /** Size of the image in bytes */
+  size: number;
+  /** SHA-256 hash of the image content for deduplication */
+  contentHash: string;
+  /** Timestamp when the entry was created */
+  createdAt: number;
+  /** Timestamp of last access */
+  lastAccessedAt: number;
+  /** Number of times this entry was accessed */
+  accessCount: number;
+};
+
+/**
+ * Configuration options for the image cache
+ */
+export type ImageCacheConfig = {
+  /** Maximum number of entries in the cache (default: 100) */
+  maxSize?: number;
+  /** Time-to-live in milliseconds (default: 30 minutes) */
+  ttlMs?: number;
+  /** Maximum size per image in bytes (default: 10MB) */
+  maxImageSize?: number;
+};
+
+/**
+ * Cache statistics for monitoring
+ */
+export type ImageCacheStats = {
+  /** Number of cache hits */
+  hits: number;
+  /** Number of cache misses */
+  misses: number;
+  /** Number of entries evicted due to size limits */
+  evictions: number;
+  /** Number of entries expired due to TTL */
+  expirations: number;
+  /** Total number of requests */
+  totalRequests: number;
+  /** Current number of entries in cache */
+  size: number;
+  /** Total size of cached images in bytes */
+  totalBytes: number;
+  /** Cache hit rate as percentage */
+  hitRate: number;
+};

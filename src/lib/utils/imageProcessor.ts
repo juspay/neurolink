@@ -7,6 +7,7 @@ import { logger } from "./logger.js";
 import { urlDownloadRateLimiter } from "./rateLimiter.js";
 import { withRetry } from "./retryHandler.js";
 import { SYSTEM_LIMITS } from "../core/constants.js";
+import { getImageCache } from "./imageCache.js";
 import type { ProcessedImage } from "../types/multimodal.js";
 import type { FileProcessingResult } from "../types/fileTypes.js";
 
@@ -655,6 +656,7 @@ export const imageUtils = {
    * @param options.maxAttempts - Maximum number of total attempts including initial attempt (default: 3)
    * @returns Promise<string> - Base64 data URI of the downloaded image
    * Rate-limited to 10 downloads per second to prevent DoS
+   * Uses LRU cache to avoid redundant downloads of the same URL
    */
   urlToBase64DataUri: async (
     url: string,
@@ -668,6 +670,14 @@ export const imageUtils = {
       maxAttempts?: number;
     } = {},
   ): Promise<string> => {
+    // Check cache first
+    const cache = getImageCache();
+    const cached = cache.get(url);
+    if (cached) {
+      logger.debug("Using cached image for URL", { url: url.substring(0, 50) });
+      return cached.dataUri;
+    }
+
     // Apply rate limiting before download
     await urlDownloadRateLimiter.acquire();
 
@@ -707,8 +717,14 @@ export const imageUtils = {
           );
         }
 
-        const base64 = Buffer.from(buffer).toString("base64");
-        return `data:${contentType || "image/jpeg"};base64,${base64}`;
+        const imageBuffer = Buffer.from(buffer);
+        const base64 = imageBuffer.toString("base64");
+        const dataUri = `data:${contentType || "image/jpeg"};base64,${base64}`;
+
+        // Store in cache for future use
+        cache.set(url, dataUri, contentType || "image/jpeg", imageBuffer);
+
+        return dataUri;
       } finally {
         clearTimeout(t);
       }
