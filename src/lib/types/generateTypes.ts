@@ -759,7 +759,7 @@ export type TextGenerationOptions = {
    * (NeuroLink.generate, BaseProvider.generate). Legacy `generateText()`
    * callers must still use the `prompt` field directly.
    *
-   * Supports text, images, and other multimodal inputs.
+   * Supports text, images, CSV, PDF, video, and other multimodal inputs.
    */
   input?: {
     text: string;

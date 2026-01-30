@@ -284,6 +284,33 @@ export type VideoGenerationResult = {
 };
 
 /**
+ * Result of saving video to file
+ *
+ * Mirrors AudioSaveResult from ttsTypes.ts for consistency.
+ * Used by CLI and SDK when persisting generated video to disk.
+ *
+ * @example
+ * ```typescript
+ * const result = await saveVideoToFile(videoResult, "./output/video.mp4");
+ * if (result.success) {
+ *   console.log(`Saved to ${result.path} (${result.size} bytes)`);
+ * } else {
+ *   console.error(`Failed: ${result.error}`);
+ * }
+ * ```
+ */
+export type VideoSaveResult = {
+  /** Whether the save was successful */
+  success: boolean;
+  /** Full path to the saved file */
+  path: string;
+  /** File size in bytes */
+  size: number;
+  /** Error message if failed */
+  error?: string;
+};
+
+/**
  * Video content type for multimodal messages
  *
  * NOTE: This is for FILE-BASED video input.
