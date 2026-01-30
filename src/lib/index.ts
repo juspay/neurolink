@@ -251,6 +251,292 @@ export async function createBestAIProvider(
 }
 
 // ============================================================================
+// VECTOR STORES - Unified Vector Database Integration
+// ============================================================================
+
+/**
+ * Vector Store Integration
+ *
+ * Provides unified access to 22+ vector stores for RAG, semantic search,
+ * and AI memory systems.
+ *
+ * @example
+ * ```typescript
+ * import { VectorStoreFactory, VectorStoreName } from '@juspay/neurolink';
+ *
+ * const store = await VectorStoreFactory.createStore(VectorStoreName.PGVECTOR, {
+ *   connectionString: process.env.PGVECTOR_CONNECTION_STRING
+ * });
+ *
+ * await store.connect();
+ * await store.createIndex({ name: 'documents', dimension: 1536 });
+ * ```
+ */
+export {
+  // Core classes
+  BaseVectorStore,
+  VectorStoreFactory,
+  VectorStoreRegistry,
+  // Cloud store implementations
+  PineconeStore,
+  type PineconeConfig,
+  QdrantStore,
+  type QdrantConfig,
+  WeaviateStore,
+  type WeaviateConfig,
+  UpstashStore,
+  type UpstashConfig,
+  CloudflareVectorizeStore,
+  type CloudflareVectorizeConfig,
+  AstraStore,
+  type AstraConfig,
+  // Database store implementations
+  ElasticsearchStore,
+  type ElasticsearchConfig,
+  MongoDBStore,
+  type MongoDBConfig,
+  OpenSearchStore,
+  type OpenSearchConfig,
+  PgvectorStore,
+  type PgvectorConfig,
+  // Embedded store implementations
+  ChromaStore,
+  type ChromaConfig,
+  DuckDBStore,
+  type DuckDBConfig,
+  LanceStore,
+  type LanceConfig,
+  LibSQLStore,
+  type LibSQLConfig,
+  // Enterprise store implementations
+  AzureAiSearchStore,
+  type AzureAiSearchConfig,
+  VertexVectorSearchStore,
+  type VertexVectorSearchConfig,
+  AwsOpensearchStore,
+  type AwsOpensearchConfig,
+  CouchbaseStore,
+  type CouchbaseConfig,
+  VespaStore,
+  type VespaConfig,
+  MarqoStore,
+  type MarqoConfig,
+  MilvusStore,
+  type MilvusConfig,
+  ZillizStore,
+  type ZillizConfig,
+  // Filter translation utilities
+  translateToChroma,
+  translateToDuckDB,
+  translateToElasticsearch,
+  translateToLance,
+  translateToLibSQL,
+  translateToMilvus,
+  translateToMongoDB,
+  translateToOpenSearch,
+  translateToPgvector,
+  translateToPinecone,
+  translateToQdrant,
+  translateToWeaviate,
+  translateToAzureAiSearch,
+  translateToVertexVectorSearch,
+  translateToAwsOpensearch,
+  translateToCouchbase,
+  translateToVespa,
+  translateToMarqo,
+  translateToUpstash,
+  translateToCloudflare,
+  translateToAstra,
+  type DuckDBFilterResult,
+  type LibSQLFilterResult,
+  type PgvectorFilterResult,
+  // Search optimization
+  reciprocalRankFusion,
+  linearCombination,
+  cosineSimilarity,
+  euclideanDistance,
+  dotProduct,
+  rescoreResults,
+  maximalMarginalRelevance,
+  normalizeScores,
+  zScoreNormalize,
+  scalarQuantize,
+  binaryQuantize,
+  hammingDistance,
+  splitIntoBatches,
+  processBatches,
+  toRankingMap,
+  sparseToRankingMap,
+  // Types re-exported for convenience
+  type VectorStoreConfig,
+  type RRFOptions,
+  type RankedResult,
+  type SparseSearchResult,
+  type HybridSearchOptions,
+} from "./stores/index.js";
+
+// ============================================================================
+// VECTOR STORE ADAPTERS - 22 Vector Store Implementations
+// ============================================================================
+
+/**
+ * Advanced Vector Store Adapters
+ *
+ * Additional vector store adapters with Factory+Registry pattern for
+ * comprehensive vector database support across cloud, database, embedded,
+ * and enterprise platforms.
+ *
+ * @example
+ * ```typescript
+ * import {
+ *   VectorStoreFactory as VSFactory,
+ *   VectorStoreRegistry as VSRegistry,
+ *   PineconeAdapter,
+ *   QdrantAdapter,
+ *   ChromaAdapter
+ * } from '@juspay/neurolink';
+ *
+ * // Use Factory pattern
+ * const store = await VSFactory.create('pinecone', {
+ *   apiKey: process.env.PINECONE_API_KEY
+ * });
+ *
+ * // Or use adapters directly
+ * const qdrant = new QdrantAdapter({ url: 'http://localhost:6333' });
+ * ```
+ */
+export {
+  // Core classes (aliased to avoid conflicts with stores/ exports)
+  BaseVectorStore as VectorBaseStore,
+  VectorStoreFactory as VectorAdapterFactory,
+  VectorStoreFactoryImpl,
+  VectorStoreRegistry as VectorAdapterRegistry,
+  VectorStoreRegistryImpl,
+  // Cloud adapters
+  PineconeAdapter,
+  type PineconeConfig as PineconeAdapterConfig,
+  type PineconeServerlessSpec,
+  type PineconePodsSpec,
+  type PineconeIndexSpec,
+  type PineconeIndexOptions,
+  type SparseVector,
+  type PineconeClientFactory,
+  QdrantAdapter,
+  type QdrantConfig as QdrantAdapterConfig,
+  type QdrantDistance,
+  type QdrantIndexOptions,
+  type QdrantQuantization,
+  type QdrantSearchParams,
+  type QdrantClientFactory,
+  WeaviateAdapter,
+  type WeaviateConfig as WeaviateAdapterConfig,
+  type WeaviateClientFactory,
+  AstraDBAdapter,
+  type AstraDBConfig,
+  UpstashVectorAdapter,
+  type UpstashVectorConfig,
+  CloudflareVectorizeAdapter,
+  type CloudflareVectorizeConfig as CloudflareAdapterConfig,
+  // Database adapters
+  PgvectorAdapter,
+  type PgvectorConfig as PgvectorAdapterConfig,
+  type PgvectorSSLConfig,
+  type PgvectorIndexType,
+  type PgvectorIndexOptions,
+  ElasticsearchAdapter,
+  type ElasticsearchConfig as ElasticsearchAdapterConfig,
+  OpenSearchAdapter,
+  type OpenSearchConfig as OpenSearchAdapterConfig,
+  type OpenSearchClient,
+  MongoDBAtlasAdapter,
+  type MongoDBAtlasConfig,
+  RedisVectorAdapter,
+  type RedisVectorConfig,
+  type RedisIndexAlgorithm,
+  type RedisIndexOptions,
+  // Embedded/Local adapters
+  ChromaAdapter,
+  type ChromaConfig as ChromaAdapterConfig,
+  FaissAdapter,
+  type FaissConfig as FaissAdapterConfig,
+  SQLiteVSSAdapter,
+  LibSQLAdapter,
+  type LibSQLConfig as LibSQLAdapterConfig,
+  DuckDBAdapter,
+  LanceDBAdapter,
+  // Enterprise adapters
+  AzureAISearchAdapter,
+  type AzureAISearchConfig as AzureSearchAdapterConfig,
+  VertexVectorSearchAdapter,
+  type VertexVectorSearchConfig as VertexSearchAdapterConfig,
+  MilvusAdapter,
+  type MilvusConfig as MilvusAdapterConfig,
+  type MilvusIndexType,
+  type MilvusIndexParams,
+  type MilvusSearchParams,
+  CouchbaseAdapter,
+  type CouchbaseConfig as CouchbaseAdapterConfig,
+  ZillizAdapter,
+  type ZillizConfig as ZillizAdapterConfig,
+} from "./vector/index.js";
+
+// Re-export vector types
+export type {
+  VectorStoreType,
+  VectorMetadata,
+  VectorSearchResult,
+  VectorStoreConfig as VectorAdapterStoreConfig,
+  CreateIndexOptions,
+  SearchOptions,
+  VectorEntry,
+  IndexInfo,
+  IndexStats,
+  BatchOperationResult,
+} from "./vector/types.js";
+
+// ============================================================================
+// EMBEDDING PROVIDERS - Multi-Provider Embedding Generation
+// ============================================================================
+
+/**
+ * Embedding Provider Integration
+ *
+ * Provides unified access to embedding providers for text-to-vector
+ * conversion, supporting OpenAI, Cohere, Voyage AI, and more.
+ *
+ * @example
+ * ```typescript
+ * import { createEmbeddingProvider, EmbeddingProviderName } from '@juspay/neurolink';
+ *
+ * const embedder = await createEmbeddingProvider('openai', {
+ *   apiKey: process.env.OPENAI_API_KEY
+ * });
+ *
+ * const result = await embedder.embed('Hello, world!');
+ * console.log(result.embedding); // [0.123, 0.456, ...]
+ * ```
+ */
+export {
+  // Core classes
+  BaseEmbeddingProvider,
+  EmbeddingProviderFactory,
+  EmbeddingProviderRegistry,
+  // Provider implementations
+  OpenAIEmbeddingProvider,
+  CohereEmbeddingProvider,
+  VoyageEmbeddingProvider,
+  // Convenience functions
+  createEmbeddingProvider,
+  embedText,
+  embedTexts,
+  // Constants
+  EMBEDDING_MODELS,
+  EMBEDDING_PRESETS,
+  getEmbeddingModelInfo,
+  getModelsForProvider,
+} from "./embeddings/index.js";
+
+// ============================================================================
 // MCP PLUGIN ECOSYSTEM - Universal AI Development Platform
 // ============================================================================
 
