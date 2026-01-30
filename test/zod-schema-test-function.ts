@@ -390,6 +390,12 @@ export async function testComplexZodSchemaMultiProvider(
 ): Promise<boolean> {
   logSection("Testing Complex Zod Schema Validation (Multi-Provider)");
 
+  // Log the provider/model configuration being used
+  log(
+    `Configuration: provider=${providerOverride || "vertex (default)"}, model=${modelOverride || "provider default"}`,
+    "blue",
+  );
+
   // Use provided provider/model or defaults
   const providerName = providerOverride || "vertex";
   const modelName = modelOverride; // undefined means use provider default

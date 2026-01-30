@@ -2,6 +2,8 @@
  * Model detection utilities for capability checking
  */
 
+import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
+
 /**
  * Check if model name is valid for detection functions
  */
@@ -85,3 +87,35 @@ export function getModelFamily(modelName: string): string {
   }
   return "unknown";
 }
+
+/**
+ * Check if a model has restricted output token limit (32768 max)
+ * This applies to:
+ * - All Gemini 3 models (gemini-3-flash, gemini-3-pro, etc.)
+ * - Image generation models (gemini-2.5-flash-image, gemini-3-pro-image-preview)
+ */
+export function hasRestrictedOutputLimit(modelName: string): boolean {
+  if (!isValidModelName(modelName)) {
+    return false;
+  }
+
+  // Check for Gemini 3 models (anchored regex for consistency)
+  if (/^gemini-3/i.test(modelName)) {
+    return true;
+  }
+
+  // Check for image generation models (anchored regex patterns)
+  const imageModelPatterns = IMAGE_GENERATION_MODELS.map(
+    (m) => new RegExp(`^${m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i"),
+  );
+  if (imageModelPatterns.some((pattern) => pattern.test(modelName))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Get the max output tokens for a model (32768 for restricted models)
+ */
+export const RESTRICTED_OUTPUT_TOKEN_LIMIT = 32768;

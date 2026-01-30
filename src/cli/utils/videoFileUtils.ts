@@ -10,21 +10,13 @@
 
 import fs from "fs";
 import path from "path";
-import type { VideoGenerationResult } from "../../lib/types/multimodal.js";
+import type {
+  VideoGenerationResult,
+  VideoSaveResult,
+} from "../../lib/types/multimodal.js";
 
-/**
- * Result of saving video to file
- */
-export type VideoSaveResult = {
-  /** Whether the save was successful */
-  success: boolean;
-  /** Full path to the saved file */
-  path: string;
-  /** File size in bytes */
-  size: number;
-  /** Error message if failed */
-  error?: string;
-};
+// Re-export VideoSaveResult for convenience (consumers can import from here or from types)
+export type { VideoSaveResult } from "../../lib/types/multimodal.js";
 
 /**
  * Format file size in human-readable format

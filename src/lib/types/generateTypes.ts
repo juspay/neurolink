@@ -443,7 +443,7 @@ export type TextGenerationOptions = {
    * (NeuroLink.generate, BaseProvider.generate). Legacy `generateText()`
    * callers must still use the `prompt` field directly.
    *
-   * Supports text, images, and other multimodal inputs.
+   * Supports text, images, CSV, PDF, video, and other multimodal inputs.
    */
   input?: {
     text: string;
@@ -452,7 +452,11 @@ export type TextGenerationOptions = {
      * For video generation, the first image is used as the source frame.
      */
     images?: Array<Buffer | string | import("./content.js").ImageWithAltText>;
-    pdfFiles?: Array<Buffer | string>; // Support for PDF inputs (for image generation with Vertex AI)
+    csvFiles?: Array<Buffer | string>; // Explicit CSV files (converted to text)
+    pdfFiles?: Array<Buffer | string>; // Support for PDF inputs
+    videoFiles?: Array<Buffer | string>; // Explicit video files
+    files?: Array<Buffer | string>; // Auto-detect file types
+    content?: import("./content.js").Content[]; // Advanced multimodal content
   };
   provider?: AIProviderName;
   model?: string;

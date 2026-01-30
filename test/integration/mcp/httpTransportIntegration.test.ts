@@ -764,7 +764,7 @@ describe("HTTP Transport Integration Tests", () => {
       trackingServer.close();
 
       // Should have made at least one request
-      expect(requestCount).toBeGreaterThanOrEqual(0);
+      expect(requestCount).toBeGreaterThanOrEqual(1);
     });
   });
 

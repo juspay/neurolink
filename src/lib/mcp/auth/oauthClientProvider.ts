@@ -20,6 +20,10 @@ import {
   calculateExpiresAt,
 } from "./tokenStorage.js";
 import { logger } from "../../utils/logger.js";
+import { withTimeout } from "../../utils/errorHandling.js";
+
+/** Default timeout for OAuth token operations (30 seconds) */
+const OAUTH_TOKEN_TIMEOUT_MS = 30000;
 
 /**
  * NeuroLink OAuth Provider for MCP HTTP Transport
@@ -194,15 +198,21 @@ export class NeuroLinkOAuthProvider {
       body.set("code_verifier", codeVerifier);
     }
 
-    // Request tokens
-    const response = await fetch(this.config.tokenUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: body.toString(),
-    });
+    // Request tokens with timeout protection
+    const response = await withTimeout(
+      fetch(this.config.tokenUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: body.toString(),
+      }),
+      OAUTH_TOKEN_TIMEOUT_MS,
+      new Error(
+        `OAuth token exchange timed out after ${OAUTH_TOKEN_TIMEOUT_MS}ms`,
+      ),
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -246,14 +256,21 @@ export class NeuroLinkOAuthProvider {
       body.set("client_secret", this.config.clientSecret);
     }
 
-    const response = await fetch(this.config.tokenUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: body.toString(),
-    });
+    // Refresh tokens with timeout protection
+    const response = await withTimeout(
+      fetch(this.config.tokenUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: body.toString(),
+      }),
+      OAUTH_TOKEN_TIMEOUT_MS,
+      new Error(
+        `OAuth token refresh timed out after ${OAUTH_TOKEN_TIMEOUT_MS}ms`,
+      ),
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -299,13 +316,20 @@ export class NeuroLinkOAuthProvider {
     }
 
     try {
-      await fetch(revocationUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
-      });
+      // Revoke tokens with timeout protection
+      await withTimeout(
+        fetch(revocationUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: body.toString(),
+        }),
+        OAUTH_TOKEN_TIMEOUT_MS,
+        new Error(
+          `OAuth token revocation timed out after ${OAUTH_TOKEN_TIMEOUT_MS}ms`,
+        ),
+      );
     } catch (error) {
       logger.warn(
         `[NeuroLinkOAuthProvider] Token revocation failed: ${error instanceof Error ? error.message : String(error)}`,

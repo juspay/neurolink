@@ -39,7 +39,7 @@ import {
   DEFAULT_TOOL_MAX_RETRIES,
 } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
-import { isGemini3Model } from "../utils/modelDetection.js";
+import { isGemini3Model, hasRestrictedOutputLimit, RESTRICTED_OUTPUT_TOKEN_LIMIT } from "../utils/modelDetection.js";
 import {
   convertZodToJsonSchema,
   ensureNestedSchemaTypes,
@@ -822,6 +822,19 @@ export class GoogleAIStudioProvider extends BaseProvider {
       maxOutputTokens: options.maxTokens,
     };
 
+    // Cap maxOutputTokens for models with restricted output token limits (32768)
+    // This applies to Gemini 3 models and image generation models (gemini-2.5-flash-image, gemini-3-pro-image-preview)
+    if (hasRestrictedOutputLimit(modelName)) {
+      if (config.maxOutputTokens && (config.maxOutputTokens as number) > RESTRICTED_OUTPUT_TOKEN_LIMIT) {
+        logger.warn(`[GoogleAIStudio] Capping maxOutputTokens from ${config.maxOutputTokens} to ${RESTRICTED_OUTPUT_TOKEN_LIMIT} for ${modelName}`);
+        config.maxOutputTokens = RESTRICTED_OUTPUT_TOKEN_LIMIT;
+      }
+      // If maxOutputTokens is undefined, set a safe default
+      if (!config.maxOutputTokens) {
+        config.maxOutputTokens = RESTRICTED_OUTPUT_TOKEN_LIMIT;
+      }
+    }
+
     // Add topP, topK, stopSequences if provided
     if (options.topP !== undefined) {
       config.topP = options.topP;
@@ -837,9 +850,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
       config.tools = tools;
     }
 
-    if (options.systemPrompt) {
-      config.systemInstruction = options.systemPrompt;
-    }
+    // Note: systemInstruction is set AFTER useFinalResultTool is determined (below)
 
     // Add thinking config for Gemini 3
     const nativeThinkingConfig = createNativeThinkingConfig(
@@ -852,17 +863,48 @@ export class GoogleAIStudioProvider extends BaseProvider {
     // Add JSON output format support for native SDK stream
     // CRITICAL: Google Gemini API does NOT allow combining responseMimeType with function calling.
     // Error: "Function calling with a response mime type: 'application/json' is unsupported"
-    // Only set responseMimeType when there are NO tools. Schema can still work without it.
+    // Additionally, responseSchema REQUIRES responseMimeType: "application/json" - they cannot be used separately.
+    // Error without it: "Response_schema with a response mime type 'text/plain' is unsupported"
+    //
+    // SOLUTION: "final_result tool" pattern - when tools AND schema are requested together,
+    // we add the schema as a special "final_result" tool. The model calls this tool with
+    // structured data when it has the final answer, allowing tools + structured output to work together.
     const streamOptions = options as TextGenerationOptions;
-    if (streamOptions.output?.format === "json" || streamOptions.schema) {
-      // Only set responseMimeType when NOT using tools - this is the key fix for tools + schema
-      if (!tools) {
-        config.responseMimeType = "application/json";
-      }
+    let useFinalResultTool = false;
 
-      // Convert schema to JSON schema format for the native SDK
-      // responseSchema can still be set with tools - it guides output structure
-      if (streamOptions.schema) {
+    if (streamOptions.output?.format === "json" || streamOptions.schema) {
+      if (!tools) {
+        // No tools - use native responseSchema with responseMimeType
+        config.responseMimeType = "application/json";
+
+        // Convert schema to JSON schema format for the native SDK
+        if (streamOptions.schema) {
+          const rawSchema = isZodSchema(streamOptions.schema)
+            ? (convertZodToJsonSchema(
+                streamOptions.schema as ZodUnknownSchema,
+              ) as Record<string, unknown>)
+            : (streamOptions.schema as Record<string, unknown>);
+          const inlinedSchema = inlineJsonSchema(rawSchema);
+          // Remove $schema if present - @google/genai doesn't need it
+          if (inlinedSchema.$schema) {
+            delete inlinedSchema.$schema;
+          }
+          // CRITICAL: Google Gemini requires ALL nested schemas to have a type field
+          // ensureNestedSchemaTypes recursively adds missing type fields
+          const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+          config.responseSchema = typedSchema;
+
+          logger.debug(
+            "[GoogleAIStudio] Added responseSchema for JSON output (stream)",
+            {
+              schemaKeys: Object.keys(typedSchema),
+            },
+          );
+        }
+      } else if (streamOptions.schema) {
+        // Tools AND schema - use final_result tool pattern
+        useFinalResultTool = true;
+
         const rawSchema = isZodSchema(streamOptions.schema)
           ? (convertZodToJsonSchema(
               streamOptions.schema as ZodUnknownSchema,
@@ -874,17 +916,39 @@ export class GoogleAIStudioProvider extends BaseProvider {
           delete inlinedSchema.$schema;
         }
         // CRITICAL: Google Gemini requires ALL nested schemas to have a type field
-        // ensureNestedSchemaTypes recursively adds missing type fields
         const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
-        config.responseSchema = typedSchema;
+
+        // Add final_result tool to existing function declarations
+        const existingDeclarations = tools[0]?.functionDeclarations || [];
+        existingDeclarations.push({
+          name: "final_result",
+          description:
+            "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
+          parametersJsonSchema: typedSchema,
+        });
+        tools = [{ functionDeclarations: existingDeclarations }];
+        config.tools = tools;
 
         logger.debug(
-          "[GoogleAIStudio] Added responseSchema for JSON output (stream)",
+          "[GoogleAIStudio] Added final_result tool for schema + tools (stream)",
           {
             schemaKeys: Object.keys(typedSchema),
+            totalTools: existingDeclarations.length,
           },
         );
       }
+    }
+
+    // Set system instruction AFTER useFinalResultTool is determined
+    // When using final_result tool pattern, we need to instruct the model to use it
+    let effectiveSystemPrompt = options.systemPrompt || "";
+    if (useFinalResultTool) {
+      const finalResultInstruction =
+        "\n\nIMPORTANT: When you have gathered all necessary information and are ready to provide your final answer, you MUST call the 'final_result' tool with the structured data. Do not return the final answer as plain text - always use the final_result tool.";
+      effectiveSystemPrompt = effectiveSystemPrompt + finalResultInstruction;
+    }
+    if (effectiveSystemPrompt) {
+      config.systemInstruction = effectiveSystemPrompt;
     }
 
     // Ensure maxSteps is a valid positive integer to prevent infinite loops
@@ -976,6 +1040,27 @@ export class GoogleAIStudioProvider extends BaseProvider {
         if (stepFunctionCalls.length === 0) {
           finalText = stepText;
           break;
+        }
+
+        // Check for final_result tool call - this is our structured output
+        if (useFinalResultTool) {
+          const finalResultCall = stepFunctionCalls.find(
+            (call) => call.name === "final_result",
+          );
+          if (finalResultCall) {
+            // Extract structured result from final_result tool arguments
+            logger.debug(
+              "[GoogleAIStudio] final_result tool called, extracting structured output (stream)",
+              { args: finalResultCall.args },
+            );
+            // Return the arguments as JSON string for structured output
+            finalText = JSON.stringify(finalResultCall.args, null, 2);
+            allToolCalls.push({
+              toolName: "final_result",
+              args: finalResultCall.args,
+            });
+            break;
+          }
         }
 
         // Track the last step text for maxSteps termination
@@ -1259,6 +1344,19 @@ export class GoogleAIStudioProvider extends BaseProvider {
       maxOutputTokens: options.maxTokens,
     };
 
+    // Cap maxOutputTokens for models with restricted output token limits (32768)
+    // This applies to Gemini 3 models and image generation models (gemini-2.5-flash-image, gemini-3-pro-image-preview)
+    if (hasRestrictedOutputLimit(modelName)) {
+      if (config.maxOutputTokens && (config.maxOutputTokens as number) > RESTRICTED_OUTPUT_TOKEN_LIMIT) {
+        logger.warn(`[GoogleAIStudio] Capping maxOutputTokens from ${config.maxOutputTokens} to ${RESTRICTED_OUTPUT_TOKEN_LIMIT} for ${modelName}`);
+        config.maxOutputTokens = RESTRICTED_OUTPUT_TOKEN_LIMIT;
+      }
+      // If maxOutputTokens is undefined, set a safe default
+      if (!config.maxOutputTokens) {
+        config.maxOutputTokens = RESTRICTED_OUTPUT_TOKEN_LIMIT;
+      }
+    }
+
     // Add topP, topK, stopSequences if provided
     if (options.topP !== undefined) {
       config.topP = options.topP;
@@ -1274,9 +1372,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
       config.tools = tools;
     }
 
-    if (options.systemPrompt) {
-      config.systemInstruction = options.systemPrompt;
-    }
+    // Note: systemInstruction is set AFTER useFinalResultTool is determined (below)
 
     // Add thinking config for Gemini 3
     const nativeThinkingConfig2 = createNativeThinkingConfig(
@@ -1289,16 +1385,47 @@ export class GoogleAIStudioProvider extends BaseProvider {
     // Add JSON output format support for native SDK generate (matching stream implementation)
     // CRITICAL: Google Gemini API does NOT allow combining responseMimeType with function calling.
     // Error: "Function calling with a response mime type: 'application/json' is unsupported"
-    // Only set responseMimeType when there are NO tools. Schema can still work without it.
-    if (options.output?.format === "json" || options.schema) {
-      // Only set responseMimeType when NOT using tools - this is the key fix for tools + schema
-      if (!tools) {
-        config.responseMimeType = "application/json";
-      }
+    // Additionally, responseSchema REQUIRES responseMimeType: "application/json" - they cannot be used separately.
+    // Error without it: "Response_schema with a response mime type 'text/plain' is unsupported"
+    //
+    // SOLUTION: "final_result tool" pattern - when tools AND schema are requested together,
+    // we add the schema as a special "final_result" tool. The model calls this tool with
+    // structured data when it has the final answer, allowing tools + structured output to work together.
+    let useFinalResultTool = false;
 
-      // Convert schema to JSON schema format for the native SDK
-      // responseSchema can still be set with tools - it guides output structure
-      if (options.schema) {
+    if (options.output?.format === "json" || options.schema) {
+      if (!tools) {
+        // No tools - use native responseSchema with responseMimeType
+        config.responseMimeType = "application/json";
+
+        // Convert schema to JSON schema format for the native SDK
+        if (options.schema) {
+          const rawSchema = isZodSchema(options.schema)
+            ? (convertZodToJsonSchema(
+                options.schema as ZodUnknownSchema,
+              ) as Record<string, unknown>)
+            : (options.schema as Record<string, unknown>);
+          const inlinedSchema = inlineJsonSchema(rawSchema);
+          // Remove $schema if present - @google/genai doesn't need it
+          if (inlinedSchema.$schema) {
+            delete inlinedSchema.$schema;
+          }
+          // CRITICAL: Google Gemini requires ALL nested schemas to have a type field
+          // ensureNestedSchemaTypes recursively adds missing type fields
+          const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+          config.responseSchema = typedSchema;
+
+          logger.debug(
+            "[GoogleAIStudio] Added responseSchema for JSON output (generate)",
+            {
+              schemaKeys: Object.keys(typedSchema),
+            },
+          );
+        }
+      } else if (options.schema) {
+        // Tools AND schema - use final_result tool pattern
+        useFinalResultTool = true;
+
         const rawSchema = isZodSchema(options.schema)
           ? (convertZodToJsonSchema(
               options.schema as ZodUnknownSchema,
@@ -1310,17 +1437,39 @@ export class GoogleAIStudioProvider extends BaseProvider {
           delete inlinedSchema.$schema;
         }
         // CRITICAL: Google Gemini requires ALL nested schemas to have a type field
-        // ensureNestedSchemaTypes recursively adds missing type fields
         const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
-        config.responseSchema = typedSchema;
+
+        // Add final_result tool to existing function declarations
+        const existingDeclarations = tools[0]?.functionDeclarations || [];
+        existingDeclarations.push({
+          name: "final_result",
+          description:
+            "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
+          parametersJsonSchema: typedSchema,
+        });
+        tools = [{ functionDeclarations: existingDeclarations }];
+        config.tools = tools;
 
         logger.debug(
-          "[GoogleAIStudio] Added responseSchema for JSON output (generate)",
+          "[GoogleAIStudio] Added final_result tool for schema + tools (generate)",
           {
             schemaKeys: Object.keys(typedSchema),
+            totalTools: existingDeclarations.length,
           },
         );
       }
+    }
+
+    // Set system instruction AFTER useFinalResultTool is determined
+    // When using final_result tool pattern, we need to instruct the model to use it
+    let effectiveSystemPrompt = options.systemPrompt || "";
+    if (useFinalResultTool) {
+      const finalResultInstruction =
+        "\n\nIMPORTANT: When you have gathered all necessary information and are ready to provide your final answer, you MUST call the 'final_result' tool with the structured data. Do not return the final answer as plain text - always use the final_result tool.";
+      effectiveSystemPrompt = effectiveSystemPrompt + finalResultInstruction;
+    }
+    if (effectiveSystemPrompt) {
+      config.systemInstruction = effectiveSystemPrompt;
     }
 
     const startTime = Date.now();
@@ -1420,6 +1569,32 @@ export class GoogleAIStudioProvider extends BaseProvider {
         if (stepFunctionCalls.length === 0) {
           finalText = stepText;
           break;
+        }
+
+        // Check for final_result tool call - this is our structured output
+        if (useFinalResultTool) {
+          const finalResultCall = stepFunctionCalls.find(
+            (call) => call.name === "final_result",
+          );
+          if (finalResultCall) {
+            // Extract structured result from final_result tool arguments
+            logger.debug(
+              "[GoogleAIStudio] final_result tool called, extracting structured output (generate)",
+              { args: finalResultCall.args },
+            );
+            // Return the arguments as JSON string for structured output
+            finalText = JSON.stringify(finalResultCall.args, null, 2);
+            allToolCalls.push({
+              toolName: "final_result",
+              args: finalResultCall.args,
+            });
+            toolExecutions.push({
+              name: "final_result",
+              input: finalResultCall.args,
+              output: finalResultCall.args, // The structured result itself
+            });
+            break;
+          }
         }
 
         // Track the last step text for maxSteps termination

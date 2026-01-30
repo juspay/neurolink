@@ -6,28 +6,6 @@
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
       "transport": "stdio"
     },
-    "github": {
-      "name": "github-copilot",
-      "transport": "http",
-      "url": "https://api.githubcopilot.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${GITHUB_COPILOT_TOKEN}"
-      },
-      "httpOptions": {
-        "connectionTimeout": 30000,
-        "requestTimeout": 60000
-      },
-      "retryConfig": {
-        "maxAttempts": 3,
-        "initialDelay": 1000,
-        "maxDelay": 30000
-      },
-      "rateLimiting": {
-        "requestsPerMinute": 60,
-        "maxBurst": 10
-      },
-      "description": "GitHub Copilot MCP API with full configuration"
-    },
     "bitbucket": {
       "name": "bitbucket",
       "command": "npx",

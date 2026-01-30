@@ -41,7 +41,9 @@ import {
   DEFAULT_MAX_STEPS,
   GLOBAL_LOCATION_MODELS,
   DEFAULT_TOOL_MAX_RETRIES,
+  IMAGE_GENERATION_MODELS,
 } from "../core/constants.js";
+import { hasRestrictedOutputLimit, RESTRICTED_OUTPUT_TOKEN_LIMIT } from "../utils/modelDetection.js";
 import { ModelConfigurationManager } from "../core/modelConfiguration.js";
 import {
   validateApiKey,
@@ -985,11 +987,60 @@ export class GoogleVertexProvider extends BaseProvider {
       });
     }
 
+    // Check if we need to use the final_result tool pattern for structured output with tools
+    // When both schema AND tools are present, we add final_result as a tool
+    const streamOptions = options as TextGenerationOptions;
+    let useFinalResultTool = false;
+    if (streamOptions.schema && tools) {
+      useFinalResultTool = true;
+
+      // Convert schema to JSON schema format
+      const schemaAsJson = convertZodToJsonSchema(
+        streamOptions.schema as ZodUnknownSchema,
+      ) as Record<string, unknown>;
+      const inlinedSchema = inlineJsonSchema(schemaAsJson);
+      if (inlinedSchema.$schema) {
+        delete inlinedSchema.$schema;
+      }
+      const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+
+      // Add final_result tool to the existing function declarations
+      const existingDeclarations = tools[0]?.functionDeclarations || [];
+      existingDeclarations.push({
+        name: "final_result",
+        description:
+          "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
+        parametersJsonSchema: typedSchema,
+      });
+      tools = [{ functionDeclarations: existingDeclarations }];
+
+      logger.debug(
+        "[GoogleVertex] Added final_result tool for structured output with tools (stream)",
+        {
+          schemaKeys: Object.keys(typedSchema),
+          totalTools: existingDeclarations.length,
+        },
+      );
+    }
+
     // Build config
     const config: Record<string, unknown> = {
       temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
       maxOutputTokens: options.maxTokens,
     };
+
+    // Cap maxOutputTokens for models with restricted output token limits (32768)
+    // This applies to Gemini 3 models and image generation models (gemini-2.5-flash-image, gemini-3-pro-image-preview)
+    if (hasRestrictedOutputLimit(modelName)) {
+      if (config.maxOutputTokens && (config.maxOutputTokens as number) > RESTRICTED_OUTPUT_TOKEN_LIMIT) {
+        logger.warn(`[GoogleVertex] Capping maxOutputTokens from ${config.maxOutputTokens} to ${RESTRICTED_OUTPUT_TOKEN_LIMIT} for ${modelName}`);
+        config.maxOutputTokens = RESTRICTED_OUTPUT_TOKEN_LIMIT;
+      }
+      // If maxOutputTokens is undefined, set a safe default
+      if (!config.maxOutputTokens) {
+        config.maxOutputTokens = RESTRICTED_OUTPUT_TOKEN_LIMIT;
+      }
+    }
 
     // Add topP, topK, stopSequences if provided
     if (options.topP !== undefined) {
@@ -1006,8 +1057,16 @@ export class GoogleVertexProvider extends BaseProvider {
       config.tools = tools;
     }
 
-    if (options.systemPrompt) {
-      config.systemInstruction = options.systemPrompt;
+    // Build system prompt, adding final_result instruction if needed
+    let effectiveSystemPrompt = options.systemPrompt || "";
+    if (useFinalResultTool) {
+      const finalResultInstruction =
+        "\n\nIMPORTANT: When you have gathered all necessary information and are ready to provide your final answer, you MUST call the 'final_result' tool with the structured data. Do not return the final answer as plain text - always use the final_result tool.";
+      effectiveSystemPrompt = effectiveSystemPrompt + finalResultInstruction;
+    }
+
+    if (effectiveSystemPrompt) {
+      config.systemInstruction = effectiveSystemPrompt;
     }
 
     // Add thinking config for Gemini 3
@@ -1021,37 +1080,42 @@ export class GoogleVertexProvider extends BaseProvider {
     // Add JSON output format support for native SDK stream
     // CRITICAL: Google Gemini API does NOT allow combining responseMimeType with function calling.
     // Error: "Function calling with a response mime type: 'application/json' is unsupported"
-    // Only set responseMimeType when there are NO tools. Schema can still work without it.
-    const streamOptions = options as TextGenerationOptions;
-    if (streamOptions.output?.format === "json" || streamOptions.schema) {
-      // Only set responseMimeType when NOT using tools - this is the key fix for tools + schema
+    // Additionally, responseSchema REQUIRES responseMimeType: "application/json" - they cannot be used separately.
+    // Error without it: "Response_schema with a response mime type 'text/plain' is unsupported"
+    // Therefore: When tools are present, we cannot use EITHER responseMimeType OR responseSchema.
+    // When using final_result tool pattern, we skip this entirely as schema is enforced via tool.
+    if (
+      (streamOptions.output?.format === "json" || streamOptions.schema) &&
+      !useFinalResultTool
+    ) {
+      // Only set responseMimeType AND responseSchema when NOT using tools
+      // Both must be set together, and neither can be used with function calling
       if (!tools) {
         config.responseMimeType = "application/json";
-      }
 
-      // Convert schema to JSON schema format for the native SDK
-      // responseSchema can still be set with tools - it guides output structure
-      if (streamOptions.schema) {
-        const rawSchema = convertZodToJsonSchema(
-          streamOptions.schema as ZodUnknownSchema,
-        ) as Record<string, unknown>;
-        const inlinedSchema = inlineJsonSchema(rawSchema);
-        // Remove $schema if present - @google/genai doesn't need it
-        if (inlinedSchema.$schema) {
-          delete inlinedSchema.$schema;
+        // Convert schema to JSON schema format for the native SDK
+        if (streamOptions.schema) {
+          const rawSchema = convertZodToJsonSchema(
+            streamOptions.schema as ZodUnknownSchema,
+          ) as Record<string, unknown>;
+          const inlinedSchema = inlineJsonSchema(rawSchema);
+          // Remove $schema if present - @google/genai doesn't need it
+          if (inlinedSchema.$schema) {
+            delete inlinedSchema.$schema;
+          }
+          // CRITICAL: Google Vertex AI requires ALL nested schemas to have a type field
+          // ensureNestedSchemaTypes recursively adds missing type fields
+          // Note: convertZodToJsonSchema now uses openApi3 target which produces nullable: true
+          const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+          config.responseSchema = typedSchema;
+
+          logger.debug(
+            "[GoogleVertex] Added responseSchema for JSON output (stream)",
+            {
+              schemaKeys: Object.keys(typedSchema),
+            },
+          );
         }
-        // CRITICAL: Google Vertex AI requires ALL nested schemas to have a type field
-        // ensureNestedSchemaTypes recursively adds missing type fields
-        // Note: convertZodToJsonSchema now uses openApi3 target which produces nullable: true
-        const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
-        config.responseSchema = typedSchema;
-
-        logger.debug(
-          "[GoogleVertex] Added responseSchema for JSON output (stream)",
-          {
-            schemaKeys: Object.keys(typedSchema),
-          },
-        );
       }
     }
 
@@ -1070,6 +1134,9 @@ export class GoogleVertexProvider extends BaseProvider {
       args: Record<string, unknown>;
     }> = [];
     let step = 0;
+
+    // Track structured output from final_result tool (when using final_result pattern)
+    let finalResultStructuredOutput: Record<string, unknown> | undefined;
 
     // Track failed tools to prevent infinite retry loops
     // Key: tool name, Value: { count: retry attempts, lastError: error message }
@@ -1160,6 +1227,27 @@ export class GoogleVertexProvider extends BaseProvider {
         if (stepFunctionCalls.length === 0) {
           finalText = stepText;
           break;
+        }
+
+        // Check for final_result tool call - this is our structured output pattern
+        if (useFinalResultTool) {
+          const finalResultCall = stepFunctionCalls.find(
+            (call) => call.name === "final_result",
+          );
+          if (finalResultCall) {
+            // Extract the structured output from final_result arguments
+            finalResultStructuredOutput =
+              finalResultCall.args as Record<string, unknown>;
+            logger.debug(
+              "[GoogleVertex] Received final_result tool call with structured output (stream)",
+              {
+                outputKeys: Object.keys(finalResultStructuredOutput),
+              },
+            );
+            // Return the structured output as JSON text
+            finalText = JSON.stringify(finalResultStructuredOutput);
+            break;
+          }
         }
 
         // Track the last step text for maxSteps termination
@@ -1304,7 +1392,12 @@ export class GoogleVertexProvider extends BaseProvider {
       yield { content: finalText };
     }
 
-    return {
+    // Filter out final_result from tool calls as it's an internal pattern
+    const externalToolCalls = allToolCalls.filter(
+      (tc) => tc.toolName !== "final_result",
+    );
+
+    const result: StreamResult = {
       stream: createTextStream(),
       provider: this.providerName,
       model: modelName,
@@ -1313,7 +1406,7 @@ export class GoogleVertexProvider extends BaseProvider {
         output: totalOutputTokens,
         total: totalInputTokens + totalOutputTokens,
       },
-      toolCalls: allToolCalls.map((tc) => ({
+      toolCalls: externalToolCalls.map((tc) => ({
         toolName: tc.toolName,
         args: tc.args,
       })),
@@ -1321,9 +1414,17 @@ export class GoogleVertexProvider extends BaseProvider {
         streamId: `native-vertex-${Date.now()}`,
         startTime,
         responseTime,
-        totalToolExecutions: allToolCalls.length,
+        totalToolExecutions: externalToolCalls.length,
       },
     };
+
+    // Add structured output if final_result tool was used
+    if (finalResultStructuredOutput) {
+      (result as StreamResult & { structuredOutput?: unknown }).structuredOutput =
+        finalResultStructuredOutput;
+    }
+
+    return result;
   }
 
   /**
@@ -1519,11 +1620,59 @@ export class GoogleVertexProvider extends BaseProvider {
       });
     }
 
+    // Check if we need to use the final_result tool pattern for structured output with tools
+    // When both schema AND tools are present, we add final_result as a tool
+    let useFinalResultTool = false;
+    if (options.schema && tools) {
+      useFinalResultTool = true;
+
+      // Convert schema to JSON schema format
+      const schemaAsJson = convertZodToJsonSchema(
+        options.schema as ZodUnknownSchema,
+      ) as Record<string, unknown>;
+      const inlinedSchema = inlineJsonSchema(schemaAsJson);
+      if (inlinedSchema.$schema) {
+        delete inlinedSchema.$schema;
+      }
+      const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+
+      // Add final_result tool to the existing function declarations
+      const existingDeclarations = tools[0]?.functionDeclarations || [];
+      existingDeclarations.push({
+        name: "final_result",
+        description:
+          "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
+        parametersJsonSchema: typedSchema,
+      });
+      tools = [{ functionDeclarations: existingDeclarations }];
+
+      logger.debug(
+        "[GoogleVertex] Added final_result tool for structured output with tools (generate)",
+        {
+          schemaKeys: Object.keys(typedSchema),
+          totalTools: existingDeclarations.length,
+        },
+      );
+    }
+
     // Build config
     const config: Record<string, unknown> = {
       temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
       maxOutputTokens: options.maxTokens,
     };
+
+    // Cap maxOutputTokens for models with restricted output token limits (32768)
+    // This applies to Gemini 3 models and image generation models (gemini-2.5-flash-image, gemini-3-pro-image-preview)
+    if (hasRestrictedOutputLimit(modelName)) {
+      if (config.maxOutputTokens && (config.maxOutputTokens as number) > RESTRICTED_OUTPUT_TOKEN_LIMIT) {
+        logger.warn(`[GoogleVertex] Capping maxOutputTokens from ${config.maxOutputTokens} to ${RESTRICTED_OUTPUT_TOKEN_LIMIT} for ${modelName}`);
+        config.maxOutputTokens = RESTRICTED_OUTPUT_TOKEN_LIMIT;
+      }
+      // If maxOutputTokens is undefined, set a safe default
+      if (!config.maxOutputTokens) {
+        config.maxOutputTokens = RESTRICTED_OUTPUT_TOKEN_LIMIT;
+      }
+    }
 
     // Add topP, topK, stopSequences if provided
     if (options.topP !== undefined) {
@@ -1540,8 +1689,16 @@ export class GoogleVertexProvider extends BaseProvider {
       config.tools = tools;
     }
 
-    if (options.systemPrompt) {
-      config.systemInstruction = options.systemPrompt;
+    // Build system prompt, adding final_result instruction if needed
+    let effectiveSystemPrompt = options.systemPrompt || "";
+    if (useFinalResultTool) {
+      const finalResultInstruction =
+        "\n\nIMPORTANT: When you have gathered all necessary information and are ready to provide your final answer, you MUST call the 'final_result' tool with the structured data. Do not return the final answer as plain text - always use the final_result tool.";
+      effectiveSystemPrompt = effectiveSystemPrompt + finalResultInstruction;
+    }
+
+    if (effectiveSystemPrompt) {
+      config.systemInstruction = effectiveSystemPrompt;
     }
 
     // Add thinking config for Gemini 3
@@ -1555,36 +1712,42 @@ export class GoogleVertexProvider extends BaseProvider {
     // Add JSON output format support for native SDK generate (matching stream implementation)
     // CRITICAL: Google Gemini API does NOT allow combining responseMimeType with function calling.
     // Error: "Function calling with a response mime type: 'application/json' is unsupported"
-    // Only set responseMimeType when there are NO tools. Schema can still work without it.
-    if (options.output?.format === "json" || options.schema) {
-      // Only set responseMimeType when NOT using tools - this is the key fix for tools + schema
+    // Additionally, responseSchema REQUIRES responseMimeType: "application/json" - they cannot be used separately.
+    // Error without it: "Response_schema with a response mime type 'text/plain' is unsupported"
+    // Therefore: When tools are present, we cannot use EITHER responseMimeType OR responseSchema.
+    // When using final_result tool pattern, we skip this entirely as schema is enforced via tool.
+    if (
+      (options.output?.format === "json" || options.schema) &&
+      !useFinalResultTool
+    ) {
+      // Only set responseMimeType AND responseSchema when NOT using tools
+      // Both must be set together, and neither can be used with function calling
       if (!tools) {
         config.responseMimeType = "application/json";
-      }
 
-      // Convert schema to JSON schema format for the native SDK
-      // responseSchema can still be set with tools - it guides output structure
-      if (options.schema) {
-        const rawSchema = convertZodToJsonSchema(
-          options.schema as ZodUnknownSchema,
-        ) as Record<string, unknown>;
-        const inlinedSchema = inlineJsonSchema(rawSchema);
-        // Remove $schema if present - @google/genai doesn't need it
-        if (inlinedSchema.$schema) {
-          delete inlinedSchema.$schema;
+        // Convert schema to JSON schema format for the native SDK
+        if (options.schema) {
+          const rawSchema = convertZodToJsonSchema(
+            options.schema as ZodUnknownSchema,
+          ) as Record<string, unknown>;
+          const inlinedSchema = inlineJsonSchema(rawSchema);
+          // Remove $schema if present - @google/genai doesn't need it
+          if (inlinedSchema.$schema) {
+            delete inlinedSchema.$schema;
+          }
+          // CRITICAL: Google Vertex AI requires ALL nested schemas to have a type field
+          // ensureNestedSchemaTypes recursively adds missing type fields
+          // Note: convertZodToJsonSchema now uses openApi3 target which produces nullable: true
+          const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+          config.responseSchema = typedSchema;
+
+          logger.debug(
+            "[GoogleVertex] Added responseSchema for JSON output (generate)",
+            {
+              schemaKeys: Object.keys(typedSchema),
+            },
+          );
         }
-        // CRITICAL: Google Vertex AI requires ALL nested schemas to have a type field
-        // ensureNestedSchemaTypes recursively adds missing type fields
-        // Note: convertZodToJsonSchema now uses openApi3 target which produces nullable: true
-        const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
-        config.responseSchema = typedSchema;
-
-        logger.debug(
-          "[GoogleVertex] Added responseSchema for JSON output (generate)",
-          {
-            schemaKeys: Object.keys(typedSchema),
-          },
-        );
       }
     }
 
@@ -1608,6 +1771,9 @@ export class GoogleVertexProvider extends BaseProvider {
       output: unknown;
     }> = [];
     let step = 0;
+
+    // Track structured output from final_result tool (when using final_result pattern)
+    let finalResultStructuredOutput: Record<string, unknown> | undefined;
 
     // Track failed tools to prevent infinite retry loops
     // Key: tool name, Value: { count: retry attempts, lastError: error message }
@@ -1702,6 +1868,27 @@ export class GoogleVertexProvider extends BaseProvider {
         if (stepFunctionCalls.length === 0) {
           finalText = stepText;
           break;
+        }
+
+        // Check for final_result tool call - this is our structured output pattern
+        if (useFinalResultTool) {
+          const finalResultCall = stepFunctionCalls.find(
+            (call) => call.name === "final_result",
+          );
+          if (finalResultCall) {
+            // Extract the structured output from final_result arguments
+            finalResultStructuredOutput =
+              finalResultCall.args as Record<string, unknown>;
+            logger.debug(
+              "[GoogleVertex] Received final_result tool call with structured output (generate)",
+              {
+                outputKeys: Object.keys(finalResultStructuredOutput),
+              },
+            );
+            // Return the structured output as JSON text
+            finalText = JSON.stringify(finalResultStructuredOutput);
+            break;
+          }
         }
 
         // Track the last step text for maxSteps termination
@@ -1875,8 +2062,16 @@ export class GoogleVertexProvider extends BaseProvider {
 
     const responseTime = Date.now() - startTime;
 
+    // Filter out final_result from tool calls and executions as it's an internal pattern
+    const externalToolCalls = allToolCalls.filter(
+      (tc) => tc.toolName !== "final_result",
+    );
+    const externalToolExecutions = toolExecutions.filter(
+      (te) => te.name !== "final_result",
+    );
+
     // Build EnhancedGenerateResult
-    return {
+    const result: EnhancedGenerateResult = {
       content: finalText,
       provider: this.providerName,
       model: modelName,
@@ -1886,10 +2081,19 @@ export class GoogleVertexProvider extends BaseProvider {
         total: totalInputTokens + totalOutputTokens,
       },
       responseTime,
-      toolsUsed: allToolCalls.map((tc) => tc.toolName),
-      toolExecutions: toolExecutions,
-      enhancedWithTools: allToolCalls.length > 0,
+      toolsUsed: externalToolCalls.map((tc) => tc.toolName),
+      toolExecutions: externalToolExecutions,
+      enhancedWithTools: externalToolCalls.length > 0,
     };
+
+    // Add structured output if final_result tool was used
+    if (finalResultStructuredOutput) {
+      (
+        result as EnhancedGenerateResult & { structuredOutput?: unknown }
+      ).structuredOutput = finalResultStructuredOutput;
+    }
+
+    return result;
   }
 
   /**
@@ -1929,7 +2133,14 @@ export class GoogleVertexProvider extends BaseProvider {
         | string
         | Array<
             | { type: "text"; text: string }
-            | { type: "image"; source: unknown }
+            | {
+                type: "image";
+                source: { type: "base64"; media_type: string; data: string };
+              }
+            | {
+                type: "document";
+                source: { type: "base64"; media_type: string; data: string };
+              }
             | { type: "tool_use"; id: string; name: string; input: unknown }
             | { type: "tool_result"; tool_use_id: string; content: string }
             | { type: "thinking"; thinking: string }
@@ -1957,10 +2168,125 @@ export class GoogleVertexProvider extends BaseProvider {
       }
     }
 
-    // Add current user input
+    // Add current user input with multimodal support
+    // Cast input to access multimodal properties that may exist at runtime
+    const multimodalInput = options.input as {
+      text: string;
+      pdfFiles?: Array<Buffer | string>;
+      images?: Array<Buffer | string>;
+    };
+
+    // Build content parts for the user message
+    const userContentParts: Array<
+      | { type: "text"; text: string }
+      | {
+          type: "image";
+          source: { type: "base64"; media_type: string; data: string };
+        }
+      | {
+          type: "document";
+          source: { type: "base64"; media_type: string; data: string };
+        }
+    > = [];
+
+    // Add PDF files as document parts if present
+    if (multimodalInput?.pdfFiles && multimodalInput.pdfFiles.length > 0) {
+      logger.debug(
+        `[GoogleVertex] Processing ${multimodalInput.pdfFiles.length} PDF file(s) for native Anthropic stream`,
+      );
+
+      for (const pdfFile of multimodalInput.pdfFiles) {
+        let pdfBuffer: Buffer;
+
+        if (typeof pdfFile === "string") {
+          // Check if it's a file path
+          if (fs.existsSync(pdfFile)) {
+            pdfBuffer = fs.readFileSync(pdfFile);
+          } else {
+            // Assume it's already base64 encoded
+            pdfBuffer = Buffer.from(pdfFile, "base64");
+          }
+        } else {
+          pdfBuffer = pdfFile;
+        }
+
+        // Convert to base64 for Anthropic's document format
+        const base64Data = pdfBuffer.toString("base64");
+        userContentParts.push({
+          type: "document",
+          source: {
+            type: "base64",
+            media_type: "application/pdf",
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    // Add images as image parts if present
+    if (multimodalInput?.images && multimodalInput.images.length > 0) {
+      logger.debug(
+        `[GoogleVertex] Processing ${multimodalInput.images.length} image(s) for native Anthropic stream`,
+      );
+
+      for (const image of multimodalInput.images) {
+        let imageBuffer: Buffer;
+        let mimeType = "image/jpeg"; // Default
+
+        if (typeof image === "string") {
+          if (fs.existsSync(image)) {
+            imageBuffer = fs.readFileSync(image);
+            // Detect mime type from extension
+            const ext = path.extname(image).toLowerCase();
+            if (ext === ".png") {
+              mimeType = "image/png";
+            } else if (ext === ".gif") {
+              mimeType = "image/gif";
+            } else if (ext === ".webp") {
+              mimeType = "image/webp";
+            }
+          } else if (image.startsWith("data:")) {
+            // Handle data URL
+            const matches = image.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+              mimeType = matches[1];
+              imageBuffer = Buffer.from(matches[2], "base64");
+            } else {
+              continue; // Skip invalid data URL
+            }
+          } else {
+            // Assume base64 string
+            imageBuffer = Buffer.from(image, "base64");
+          }
+        } else {
+          imageBuffer = image;
+        }
+
+        const base64Data = imageBuffer.toString("base64");
+        userContentParts.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: mimeType,
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    // Always add the text content
+    userContentParts.push({
+      type: "text",
+      text: multimodalInput.text,
+    });
+
+    // Add the user message with appropriate content format
     messages.push({
       role: "user",
-      content: options.input.text,
+      content:
+        userContentParts.length === 1 && userContentParts[0].type === "text"
+          ? multimodalInput.text
+          : userContentParts,
     });
 
     // Convert tools to Anthropic format if present
@@ -2026,7 +2352,60 @@ export class GoogleVertexProvider extends BaseProvider {
       });
     }
 
+    // Handle JSON schema support via final_result tool pattern
+    // Anthropic doesn't have native responseSchema, so we add a final_result tool
+    const streamOptions = options as StreamOptions & { schema?: ZodUnknownSchema };
+    let useFinalResultTool = false;
+    let schemaSystemPromptSuffix = "";
+
+    if (streamOptions.schema) {
+      useFinalResultTool = true;
+
+      // Convert schema to JSON schema format
+      const schemaAsJson = convertZodToJsonSchema(
+        streamOptions.schema as ZodUnknownSchema,
+      ) as Record<string, unknown>;
+      const inlinedSchema = inlineJsonSchema(schemaAsJson);
+      if (inlinedSchema.$schema) {
+        delete inlinedSchema.$schema;
+      }
+      const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+
+      // Create final_result tool
+      const finalResultTool: AnthropicTool = {
+        name: "final_result",
+        description:
+          "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
+        input_schema: {
+          type: "object",
+          properties: (typedSchema.properties as Record<string, unknown>) || typedSchema,
+          required: (typedSchema.required as string[]) || [],
+        },
+      };
+
+      // Add to tools array or create new array
+      if (!tools) {
+        tools = [];
+      }
+      tools.push(finalResultTool);
+
+      // Add instruction to system prompt
+      schemaSystemPromptSuffix = "\n\nIMPORTANT: You MUST call the 'final_result' tool to return your response in the required structured format. Do not respond with plain text - always use the final_result tool.";
+
+      logger.debug(
+        "[GoogleVertex] Added final_result tool for Anthropic structured output (stream)",
+        {
+          schemaKeys: Object.keys(typedSchema),
+          totalTools: tools.length,
+        },
+      );
+    }
+
     // Build request options
+    const systemPromptWithSchema = options.systemPrompt
+      ? options.systemPrompt + schemaSystemPromptSuffix
+      : (schemaSystemPromptSuffix ? schemaSystemPromptSuffix.trim() : undefined);
+
     const requestParams: Parameters<typeof client.messages.stream>[0] = {
       model: modelName,
       max_tokens: options.maxTokens || 4096,
@@ -2034,7 +2413,8 @@ export class GoogleVertexProvider extends BaseProvider {
         typeof client.messages.stream
       >[0]["messages"],
       ...(tools && tools.length > 0 && { tools }),
-      ...(options.systemPrompt && { system: options.systemPrompt }),
+      ...(useFinalResultTool && { tool_choice: { type: "any" as const } }),
+      ...(systemPromptWithSchema && { system: systemPromptWithSchema }),
       ...(options.temperature !== undefined && {
         temperature: options.temperature,
       }),
@@ -2049,6 +2429,7 @@ export class GoogleVertexProvider extends BaseProvider {
     const maxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
     let step = 0;
     let finalText = "";
+    let structuredOutput: Record<string, unknown> | undefined;
     const allToolCalls: Array<{
       toolName: string;
       args: Record<string, unknown>;
@@ -2100,6 +2481,23 @@ export class GoogleVertexProvider extends BaseProvider {
             input: Record<string, unknown>;
           } => block.type === "tool_use",
         );
+
+        // Check for final_result tool call (for structured output)
+        if (useFinalResultTool) {
+          const finalResultCall = toolUseBlocks.find(
+            (block) => block.name === "final_result"
+          );
+          if (finalResultCall) {
+            // Extract structured output and convert to JSON string for finalText
+            structuredOutput = finalResultCall.input;
+            finalText = JSON.stringify(structuredOutput);
+            logger.debug(
+              "[GoogleVertex] Extracted structured output from final_result tool (stream)",
+              { keys: Object.keys(structuredOutput) }
+            );
+            break; // We have the structured output, we're done
+          }
+        }
 
         // Extract text from response
         const textBlocks = (
@@ -2231,7 +2629,14 @@ export class GoogleVertexProvider extends BaseProvider {
         | string
         | Array<
             | { type: "text"; text: string }
-            | { type: "image"; source: unknown }
+            | {
+                type: "image";
+                source: { type: "base64"; media_type: string; data: string };
+              }
+            | {
+                type: "document";
+                source: { type: "base64"; media_type: string; data: string };
+              }
             | { type: "tool_use"; id: string; name: string; input: unknown }
             | { type: "tool_result"; tool_use_id: string; content: string }
             | { type: "thinking"; thinking: string }
@@ -2258,10 +2663,127 @@ export class GoogleVertexProvider extends BaseProvider {
       }
     }
 
-    // Add current user input
+    // Add current user input with multimodal support
+    // Cast input to access multimodal properties that may exist at runtime
+    const multimodalInput = options.input as
+      | {
+          text: string;
+          pdfFiles?: Array<Buffer | string>;
+          images?: Array<Buffer | string>;
+        }
+      | undefined;
+
+    // Build content parts for the user message
+    const userContentParts: Array<
+      | { type: "text"; text: string }
+      | {
+          type: "image";
+          source: { type: "base64"; media_type: string; data: string };
+        }
+      | {
+          type: "document";
+          source: { type: "base64"; media_type: string; data: string };
+        }
+    > = [];
+
+    // Add PDF files as document parts if present
+    if (multimodalInput?.pdfFiles && multimodalInput.pdfFiles.length > 0) {
+      logger.debug(
+        `[GoogleVertex] Processing ${multimodalInput.pdfFiles.length} PDF file(s) for native Anthropic generate`,
+      );
+
+      for (const pdfFile of multimodalInput.pdfFiles) {
+        let pdfBuffer: Buffer;
+
+        if (typeof pdfFile === "string") {
+          // Check if it's a file path
+          if (fs.existsSync(pdfFile)) {
+            pdfBuffer = fs.readFileSync(pdfFile);
+          } else {
+            // Assume it's already base64 encoded
+            pdfBuffer = Buffer.from(pdfFile, "base64");
+          }
+        } else {
+          pdfBuffer = pdfFile;
+        }
+
+        // Convert to base64 for Anthropic's document format
+        const base64Data = pdfBuffer.toString("base64");
+        userContentParts.push({
+          type: "document",
+          source: {
+            type: "base64",
+            media_type: "application/pdf",
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    // Add images as image parts if present
+    if (multimodalInput?.images && multimodalInput.images.length > 0) {
+      logger.debug(
+        `[GoogleVertex] Processing ${multimodalInput.images.length} image(s) for native Anthropic generate`,
+      );
+
+      for (const image of multimodalInput.images) {
+        let imageBuffer: Buffer;
+        let mimeType = "image/jpeg"; // Default
+
+        if (typeof image === "string") {
+          if (fs.existsSync(image)) {
+            imageBuffer = fs.readFileSync(image);
+            // Detect mime type from extension
+            const ext = path.extname(image).toLowerCase();
+            if (ext === ".png") {
+              mimeType = "image/png";
+            } else if (ext === ".gif") {
+              mimeType = "image/gif";
+            } else if (ext === ".webp") {
+              mimeType = "image/webp";
+            }
+          } else if (image.startsWith("data:")) {
+            // Handle data URL
+            const matches = image.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+              mimeType = matches[1];
+              imageBuffer = Buffer.from(matches[2], "base64");
+            } else {
+              continue; // Skip invalid data URL
+            }
+          } else {
+            // Assume base64 string
+            imageBuffer = Buffer.from(image, "base64");
+          }
+        } else {
+          imageBuffer = image;
+        }
+
+        const base64Data = imageBuffer.toString("base64");
+        userContentParts.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: mimeType,
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    // Always add the text content
+    userContentParts.push({
+      type: "text",
+      text: inputText,
+    });
+
+    // Add the user message with appropriate content format
     messages.push({
       role: "user",
-      content: inputText,
+      content:
+        userContentParts.length === 1 && userContentParts[0].type === "text"
+          ? inputText
+          : userContentParts,
     });
 
     // Convert tools to Anthropic format if present
@@ -2323,13 +2845,66 @@ export class GoogleVertexProvider extends BaseProvider {
       }
     }
 
+    // Handle JSON schema support via final_result tool pattern
+    // Anthropic doesn't have native responseSchema, so we add a final_result tool
+    let useFinalResultTool = false;
+    let schemaSystemPromptSuffix = "";
+
+    if (options.schema) {
+      useFinalResultTool = true;
+
+      // Convert schema to JSON schema format
+      const schemaAsJson = convertZodToJsonSchema(
+        options.schema as ZodUnknownSchema,
+      ) as Record<string, unknown>;
+      const inlinedSchema = inlineJsonSchema(schemaAsJson);
+      if (inlinedSchema.$schema) {
+        delete inlinedSchema.$schema;
+      }
+      const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+
+      // Create final_result tool
+      const finalResultTool: AnthropicTool = {
+        name: "final_result",
+        description:
+          "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
+        input_schema: {
+          type: "object",
+          properties: (typedSchema.properties as Record<string, unknown>) || typedSchema,
+          required: (typedSchema.required as string[]) || [],
+        },
+      };
+
+      // Add to tools array or create new array
+      if (!tools) {
+        tools = [];
+      }
+      tools.push(finalResultTool);
+
+      // Add instruction to system prompt
+      schemaSystemPromptSuffix = "\n\nIMPORTANT: You MUST call the 'final_result' tool to return your response in the required structured format. Do not respond with plain text - always use the final_result tool.";
+
+      logger.debug(
+        "[GoogleVertex] Added final_result tool for Anthropic structured output (generate)",
+        {
+          schemaKeys: Object.keys(typedSchema),
+          totalTools: tools.length,
+        },
+      );
+    }
+
     // Build request options
+    const systemPromptWithSchema = options.systemPrompt
+      ? options.systemPrompt + schemaSystemPromptSuffix
+      : (schemaSystemPromptSuffix ? schemaSystemPromptSuffix.trim() : undefined);
+
     const requestParams = {
       model: modelName,
       max_tokens: options.maxTokens || 4096,
       messages,
       ...(tools && tools.length > 0 && { tools }),
-      ...(options.systemPrompt && { system: options.systemPrompt }),
+      ...(useFinalResultTool && { tool_choice: { type: "any" as const } }),
+      ...(systemPromptWithSchema && { system: systemPromptWithSchema }),
       ...(options.temperature !== undefined && {
         temperature: options.temperature,
       }),
@@ -2344,6 +2919,7 @@ export class GoogleVertexProvider extends BaseProvider {
     const maxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
     let step = 0;
     let finalText = "";
+    let structuredOutput: Record<string, unknown> | undefined;
     const allToolCalls: Array<{
       toolName: string;
       args: Record<string, unknown>;
@@ -2391,6 +2967,23 @@ export class GoogleVertexProvider extends BaseProvider {
             input: Record<string, unknown>;
           } => block.type === "tool_use",
         );
+
+        // Check for final_result tool call (for structured output)
+        if (useFinalResultTool) {
+          const finalResultCall = toolUseBlocks.find(
+            (block) => block.name === "final_result"
+          );
+          if (finalResultCall) {
+            // Extract structured output and convert to JSON string for finalText
+            structuredOutput = finalResultCall.input;
+            finalText = JSON.stringify(structuredOutput);
+            logger.debug(
+              "[GoogleVertex] Extracted structured output from final_result tool (generate)",
+              { keys: Object.keys(structuredOutput) }
+            );
+            break; // We have the structured output, we're done
+          }
+        }
 
         // Extract text from response
         const textBlocks = (
@@ -2577,10 +3170,75 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Return new options with modified input (immutable pattern)
     // Preserve the full type of options.input by spreading options.input directly
+    // CRITICAL FIX: Also update 'prompt' field since executeNativeAnthropicGenerate
+    // uses `options.prompt || options.input?.text` to build messages, and `prompt`
+    // is already set from neurolink.ts baseOptions creation. Without updating both,
+    // the CSV-enhanced text won't be sent to the model.
     return {
       ...options,
+      prompt: modifiedText,
       input: { ...options.input, text: modifiedText },
     } as T;
+  }
+
+  /**
+   * Override stream to handle image generation models
+   * Image models don't support streaming, so we fall back to generate
+   */
+  async stream(
+    optionsOrPrompt: StreamOptions | string,
+  ): Promise<StreamResult> {
+    // Normalize options
+    const options =
+      typeof optionsOrPrompt === "string"
+        ? { input: { text: optionsOrPrompt } }
+        : optionsOrPrompt;
+
+    const modelName =
+      options.model || this.modelName || getDefaultVertexModel();
+
+    // Check if this is an image generation model - image models don't support streaming
+    const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
+      modelName.toLowerCase().includes(m.toLowerCase())
+    );
+
+    if (isImageModel) {
+      logger.warn(
+        "[GoogleVertex] Image generation models don't support streaming, falling back to generate",
+        { model: modelName }
+      );
+
+      // Convert stream options to text generation options
+      const generateOptions: TextGenerationOptions = {
+        prompt: options.input?.text || "",
+        model: options.model,
+        temperature: options.temperature,
+        maxTokens: options.maxTokens,
+        input: options.input,
+      };
+
+      const result = await this.executeImageGeneration(generateOptions);
+
+      // Return a mock stream result for compatibility
+      const textContent = result?.content || "";
+      const imageOutput = result?.imageOutput;
+
+      return {
+        stream: (async function* () {
+          if (imageOutput) {
+            yield { type: "image" as const, imageOutput: { base64: imageOutput.base64 || "" } };
+          }
+          yield { content: textContent };
+        })(),
+        provider: this.providerName,
+        model: modelName,
+        usage: result?.usage,
+        finishReason: "stop",
+      };
+    }
+
+    // For non-image models, call the parent stream method
+    return super.stream(optionsOrPrompt);
   }
 
   /**
@@ -2598,6 +3256,19 @@ export class GoogleVertexProvider extends BaseProvider {
 
     const modelName =
       options.model || this.modelName || getDefaultVertexModel();
+
+    // Check if this is an image generation model - route to executeImageGeneration without tools
+    const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
+      modelName.toLowerCase().includes(m.toLowerCase())
+    );
+
+    if (isImageModel) {
+      logger.info(
+        "[GoogleVertex] Routing image generation model to executeImageGeneration",
+        { model: modelName }
+      );
+      return this.executeImageGeneration(options);
+    }
 
     // Get tools from SDK and options
     const shouldUseTools = !options.disableTools && this.supportsTools();
