@@ -146,6 +146,31 @@ import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
 
 import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
 
+// Embedding provider imports
+import type { BaseEmbeddingProvider } from "./embeddings/baseEmbeddingProvider.js";
+import { EmbeddingProviderFactory } from "./embeddings/embeddingProviderFactory.js";
+import type {
+  EmbedOptions,
+  EmbedResult,
+  BatchEmbedResult,
+  EmbeddingProviderConfig,
+} from "./types/embeddingTypes.js";
+
+// Vector store imports
+import type { BaseVectorStore } from "./stores/baseVectorStore.js";
+import { VectorStoreFactory } from "./stores/vectorStoreFactory.js";
+import type {
+  VectorStoreConfig,
+  VectorIndexConfig,
+  VectorRecord,
+  VectorQueryOptions,
+  VectorQueryResult,
+  VectorUpsertOptions,
+  VectorDeleteOptions,
+  VectorDeleteResult,
+  VectorStoreStats,
+} from "./types/vectorTypes.js";
+
 /**
  * NeuroLink - Universal AI Development Platform
  *
@@ -301,6 +326,14 @@ export class NeuroLink {
   // Mem0 memory instance and config for conversation context
   private mem0Instance?: MemoryClient | null;
   private mem0Config?: Mem0Config;
+
+  // Embedding provider support
+  private embeddingProvider?: BaseEmbeddingProvider;
+  private embeddingProviderConfig?: EmbeddingProviderConfig;
+
+  // Vector store support
+  private vectorStore?: BaseVectorStore;
+  private vectorStoreConfig?: VectorStoreConfig;
 
   /**
    * Extract and set Langfuse context from options with proper async scoping
@@ -6240,6 +6273,484 @@ Current user's request: ${currentInput}`;
     }
   }
 
+  // ===========================================
+  // EMBEDDING PROVIDER METHODS
+  // ===========================================
+
+  /**
+   * Set the embedding provider for vector operations
+   *
+   * @param provider - Provider name (e.g., 'openai', 'cohere', 'voyage', 'google', 'huggingface', 'ollama', 'bedrock', 'mistral')
+   * @param config - Optional provider configuration
+   *
+   * @example
+   * ```typescript
+   * // Use OpenAI embeddings
+   * await neurolink.setEmbeddingProvider('openai', { apiKey: 'sk-...' });
+   *
+   * // Use local Ollama embeddings
+   * await neurolink.setEmbeddingProvider('ollama', { host: 'http://localhost:11434' });
+   *
+   * // Use Cohere embeddings
+   * await neurolink.setEmbeddingProvider('cohere');
+   * ```
+   */
+  async setEmbeddingProvider(
+    provider: string,
+    config?: EmbeddingProviderConfig,
+  ): Promise<void> {
+    logger.debug(`[NeuroLink] Setting embedding provider: ${provider}`);
+
+    try {
+      this.embeddingProvider = await EmbeddingProviderFactory.createProvider(
+        provider,
+        config || {},
+      );
+      await this.embeddingProvider.initialize();
+      this.embeddingProviderConfig = config;
+
+      logger.info(`[NeuroLink] Embedding provider set to: ${provider}`);
+    } catch (error) {
+      logger.error(`[NeuroLink] Failed to set embedding provider: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the current embedding provider
+   *
+   * @returns The current embedding provider or undefined if not set
+   */
+  getEmbeddingProvider(): BaseEmbeddingProvider | undefined {
+    return this.embeddingProvider;
+  }
+
+  /**
+   * Generate an embedding for a single text
+   *
+   * @param text - Text to embed
+   * @param options - Embedding options (model, dimensions, etc.)
+   * @returns Embedding result with vector, token count, and model info
+   *
+   * @example
+   * ```typescript
+   * // Generate embedding with default provider
+   * await neurolink.setEmbeddingProvider('openai');
+   * const result = await neurolink.embed('Hello, world!');
+   * console.log(result.embedding); // [0.123, -0.456, ...]
+   *
+   * // Generate with specific model
+   * const result = await neurolink.embed('Hello', { model: 'text-embedding-3-large' });
+   * ```
+   */
+  async embed(text: string, options?: EmbedOptions): Promise<EmbedResult> {
+    if (!this.embeddingProvider) {
+      // Auto-initialize with OpenAI as default
+      logger.debug(
+        "[NeuroLink] No embedding provider set, using OpenAI as default",
+      );
+      await this.setEmbeddingProvider("openai");
+    }
+
+    if (!this.embeddingProvider) {
+      throw new Error("Failed to initialize embedding provider");
+    }
+
+    return this.embeddingProvider.embed(text, options);
+  }
+
+  /**
+   * Generate embeddings for multiple texts in batch
+   *
+   * @param texts - Array of texts to embed
+   * @param options - Embedding options (model, batchSize, etc.)
+   * @returns Batch embedding result with all vectors
+   *
+   * @example
+   * ```typescript
+   * await neurolink.setEmbeddingProvider('openai');
+   * const result = await neurolink.embedBatch([
+   *   'First document',
+   *   'Second document',
+   *   'Third document'
+   * ], { batchSize: 100 });
+   *
+   * console.log(result.embeddings.length); // 3
+   * console.log(result.totalTokens); // Total tokens used
+   * ```
+   */
+  async embedBatch(
+    texts: string[],
+    options?: EmbedOptions,
+  ): Promise<BatchEmbedResult> {
+    if (!this.embeddingProvider) {
+      // Auto-initialize with OpenAI as default
+      logger.debug(
+        "[NeuroLink] No embedding provider set, using OpenAI as default",
+      );
+      await this.setEmbeddingProvider("openai");
+    }
+
+    if (!this.embeddingProvider) {
+      throw new Error("Failed to initialize embedding provider");
+    }
+
+    return this.embeddingProvider.embedBatch(texts, options);
+  }
+
+  /**
+   * Get embedding vector for a text (convenience method)
+   *
+   * @param text - Text to embed
+   * @param options - Embedding options
+   * @returns Just the embedding vector
+   *
+   * @example
+   * ```typescript
+   * const vector = await neurolink.getEmbedding('Hello world');
+   * console.log(vector); // [0.123, -0.456, ...]
+   * ```
+   */
+  async getEmbedding(text: string, options?: EmbedOptions): Promise<number[]> {
+    const result = await this.embed(text, options);
+    return result.embedding;
+  }
+
+  /**
+   * Get embeddings for multiple texts (convenience method)
+   *
+   * @param texts - Array of texts to embed
+   * @param options - Embedding options
+   * @returns Array of embedding vectors
+   *
+   * @example
+   * ```typescript
+   * const vectors = await neurolink.getEmbeddings(['doc1', 'doc2', 'doc3']);
+   * console.log(vectors.length); // 3
+   * ```
+   */
+  async getEmbeddings(
+    texts: string[],
+    options?: EmbedOptions,
+  ): Promise<number[][]> {
+    const result = await this.embedBatch(texts, options);
+    return result.embeddings.map((e) => e.embedding);
+  }
+
+  // ===========================================
+  // VECTOR STORE METHODS
+  // ===========================================
+
+  /**
+   * Set the vector store for RAG and vector search operations
+   *
+   * @param store - Store name (e.g., 'pinecone', 'qdrant', 'weaviate', 'pgvector', 'chroma')
+   * @param config - Store configuration
+   *
+   * @example
+   * ```typescript
+   * // Use Pinecone vector store
+   * await neurolink.setVectorStore('pinecone', { apiKey: 'pk-...' });
+   *
+   * // Use local Chroma store
+   * await neurolink.setVectorStore('chroma', { path: './data/chroma' });
+   *
+   * // Use pgvector with PostgreSQL
+   * await neurolink.setVectorStore('pgvector', { connectionString: 'postgresql://...' });
+   * ```
+   */
+  async setVectorStore(
+    store: string,
+    config: VectorStoreConfig = {},
+  ): Promise<void> {
+    logger.debug(`[NeuroLink] Setting vector store: ${store}`);
+
+    try {
+      this.vectorStore = await VectorStoreFactory.createStore(store, config);
+      await this.vectorStore.connect();
+      this.vectorStoreConfig = config;
+
+      logger.info(`[NeuroLink] Vector store set to: ${store}`);
+    } catch (error) {
+      logger.error(`[NeuroLink] Failed to set vector store: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the current vector store
+   *
+   * @returns The current vector store or undefined if not set
+   */
+  getVectorStore(): BaseVectorStore | undefined {
+    return this.vectorStore;
+  }
+
+  /**
+   * Create a new vector index
+   *
+   * @param config - Index configuration including name, dimension, and metric
+   *
+   * @example
+   * ```typescript
+   * await neurolink.setVectorStore('pinecone', { apiKey: '...' });
+   * await neurolink.createIndex({
+   *   name: 'documents',
+   *   dimension: 1536,
+   *   metric: 'cosine'
+   * });
+   * ```
+   */
+  async createIndex(config: VectorIndexConfig): Promise<void> {
+    if (!this.vectorStore) {
+      throw new Error("Vector store not set. Call setVectorStore() first.");
+    }
+
+    await this.vectorStore.createIndex(config);
+    logger.info(`[NeuroLink] Created vector index: ${config.name}`);
+  }
+
+  /**
+   * Delete a vector index
+   *
+   * @param indexName - Name of the index to delete
+   */
+  async deleteIndex(indexName: string): Promise<void> {
+    if (!this.vectorStore) {
+      throw new Error("Vector store not set. Call setVectorStore() first.");
+    }
+
+    await this.vectorStore.deleteIndex(indexName);
+    logger.info(`[NeuroLink] Deleted vector index: ${indexName}`);
+  }
+
+  /**
+   * List all vector indexes
+   *
+   * @returns Array of index names
+   */
+  async listIndexes(): Promise<string[]> {
+    if (!this.vectorStore) {
+      throw new Error("Vector store not set. Call setVectorStore() first.");
+    }
+
+    return this.vectorStore.listIndexes();
+  }
+
+  /**
+   * Upsert vectors into an index
+   *
+   * @param indexName - Name of the index
+   * @param records - Vector records to upsert
+   * @param options - Upsert options (namespace, batchSize)
+   * @returns Count of upserted records
+   *
+   * @example
+   * ```typescript
+   * await neurolink.setVectorStore('pinecone', { apiKey: '...' });
+   * await neurolink.setEmbeddingProvider('openai');
+   *
+   * const embedding = await neurolink.getEmbedding('Sample document text');
+   * await neurolink.upsert('documents', [{
+   *   id: 'doc-1',
+   *   vector: embedding,
+   *   metadata: { source: 'manual', category: 'tech' },
+   *   content: 'Sample document text'
+   * }]);
+   * ```
+   */
+  async upsert<TMetadata extends UnknownRecord = UnknownRecord>(
+    indexName: string,
+    records: VectorRecord<TMetadata>[],
+    options?: VectorUpsertOptions,
+  ): Promise<{ upsertedCount: number }> {
+    if (!this.vectorStore) {
+      throw new Error("Vector store not set. Call setVectorStore() first.");
+    }
+
+    return this.vectorStore.upsert(indexName, records, options);
+  }
+
+  /**
+   * Query vectors by similarity
+   *
+   * @param indexName - Name of the index to query
+   * @param options - Query options including vector, topK, filter
+   * @returns Array of matching records with scores
+   *
+   * @example
+   * ```typescript
+   * await neurolink.setVectorStore('pinecone', { apiKey: '...' });
+   * await neurolink.setEmbeddingProvider('openai');
+   *
+   * const queryVector = await neurolink.getEmbedding('What is machine learning?');
+   * const results = await neurolink.queryVectors('documents', {
+   *   vector: queryVector,
+   *   topK: 5,
+   *   filter: { category: { $eq: 'tech' } },
+   *   minScore: 0.7
+   * });
+   *
+   * for (const result of results) {
+   *   console.log(`${result.id}: ${result.score} - ${result.content}`);
+   * }
+   * ```
+   */
+  async queryVectors<TMetadata extends UnknownRecord = UnknownRecord>(
+    indexName: string,
+    options: VectorQueryOptions<TMetadata>,
+  ): Promise<VectorQueryResult<TMetadata>[]> {
+    if (!this.vectorStore) {
+      throw new Error("Vector store not set. Call setVectorStore() first.");
+    }
+
+    return this.vectorStore.query(indexName, options);
+  }
+
+  /**
+   * Semantic search using text query (embeds query and searches)
+   *
+   * @param indexName - Name of the index to search
+   * @param query - Text query to search for
+   * @param options - Search options (topK, filter, minScore)
+   * @returns Array of matching records with scores
+   *
+   * @example
+   * ```typescript
+   * await neurolink.setVectorStore('pinecone', { apiKey: '...' });
+   * await neurolink.setEmbeddingProvider('openai');
+   *
+   * const results = await neurolink.semanticSearch('documents', 'What is machine learning?', {
+   *   topK: 5,
+   *   filter: { category: { $eq: 'tech' } }
+   * });
+   * ```
+   */
+  async semanticSearch<TMetadata extends UnknownRecord = UnknownRecord>(
+    indexName: string,
+    query: string,
+    options: Omit<VectorQueryOptions<TMetadata>, "vector"> = { topK: 10 },
+  ): Promise<VectorQueryResult<TMetadata>[]> {
+    if (!this.vectorStore) {
+      throw new Error("Vector store not set. Call setVectorStore() first.");
+    }
+
+    // Get embedding for the query
+    const queryVector = await this.getEmbedding(query);
+
+    return this.vectorStore.query(indexName, {
+      ...options,
+      vector: queryVector,
+      topK: options.topK || 10,
+    });
+  }
+
+  /**
+   * Delete vectors from an index
+   *
+   * @param indexName - Name of the index
+   * @param options - Delete options (ids, filter, deleteAll)
+   * @returns Delete result with count
+   *
+   * @example
+   * ```typescript
+   * // Delete by IDs
+   * await neurolink.deleteVectors('documents', { ids: ['doc-1', 'doc-2'] });
+   *
+   * // Delete by filter
+   * await neurolink.deleteVectors('documents', {
+   *   filter: { category: { $eq: 'outdated' } }
+   * });
+   *
+   * // Delete all
+   * await neurolink.deleteVectors('documents', { deleteAll: true });
+   * ```
+   */
+  async deleteVectors(
+    indexName: string,
+    options: VectorDeleteOptions,
+  ): Promise<VectorDeleteResult> {
+    if (!this.vectorStore) {
+      throw new Error("Vector store not set. Call setVectorStore() first.");
+    }
+
+    return this.vectorStore.delete(indexName, options);
+  }
+
+  /**
+   * Get statistics for a vector index
+   *
+   * @param indexName - Name of the index
+   * @returns Index statistics including vector count and dimension
+   */
+  async getIndexStats(indexName: string): Promise<VectorStoreStats> {
+    if (!this.vectorStore) {
+      throw new Error("Vector store not set. Call setVectorStore() first.");
+    }
+
+    return this.vectorStore.getStats(indexName);
+  }
+
+  /**
+   * Index documents with automatic embedding generation
+   *
+   * @param indexName - Name of the index
+   * @param documents - Array of documents with id, content, and optional metadata
+   * @param options - Indexing options
+   * @returns Count of indexed documents
+   *
+   * @example
+   * ```typescript
+   * await neurolink.setVectorStore('pinecone', { apiKey: '...' });
+   * await neurolink.setEmbeddingProvider('openai');
+   *
+   * // Create index first
+   * await neurolink.createIndex({ name: 'docs', dimension: 1536 });
+   *
+   * // Index documents
+   * const result = await neurolink.indexDocuments('docs', [
+   *   { id: 'doc-1', content: 'Machine learning is...', metadata: { category: 'tech' } },
+   *   { id: 'doc-2', content: 'Neural networks are...', metadata: { category: 'tech' } },
+   * ]);
+   * console.log(`Indexed ${result.upsertedCount} documents`);
+   * ```
+   */
+  async indexDocuments<TMetadata extends UnknownRecord = UnknownRecord>(
+    indexName: string,
+    documents: Array<{ id: string; content: string; metadata?: TMetadata }>,
+    options?: VectorUpsertOptions,
+  ): Promise<{ upsertedCount: number }> {
+    if (!this.vectorStore) {
+      throw new Error("Vector store not set. Call setVectorStore() first.");
+    }
+
+    // Generate embeddings for all documents
+    const contents = documents.map((d) => d.content);
+    const embeddings = await this.getEmbeddings(contents);
+
+    // Create vector records
+    const records: VectorRecord<TMetadata>[] = documents.map((doc, i) => ({
+      id: doc.id,
+      vector: embeddings[i],
+      metadata: doc.metadata,
+      content: doc.content,
+    }));
+
+    return this.vectorStore.upsert(indexName, records, options);
+  }
+
+  /**
+   * Disconnect from the current vector store
+   */
+  async disconnectVectorStore(): Promise<void> {
+    if (this.vectorStore) {
+      await this.vectorStore.disconnect();
+      this.vectorStore = undefined;
+      this.vectorStoreConfig = undefined;
+      logger.info("[NeuroLink] Disconnected from vector store");
+    }
+  }
+
   /**
    * Dispose of all resources and cleanup connections
    * Call this method when done using the NeuroLink instance to prevent resource leaks
@@ -6284,6 +6795,24 @@ Current user's request: ${currentInput}`;
             "[NeuroLink] Error shutting down external MCP servers:",
             error,
           );
+        }
+      }
+
+      // 2b. Disconnect vector store if connected
+      if (this.vectorStore) {
+        try {
+          logger.debug("[NeuroLink] Disconnecting from vector store...");
+          await this.vectorStore.disconnect();
+          this.vectorStore = undefined;
+          this.vectorStoreConfig = undefined;
+          logger.debug("[NeuroLink] Vector store disconnected successfully");
+        } catch (error) {
+          const err =
+            error instanceof Error
+              ? error
+              : new Error(`Vector store disconnect error: ${String(error)}`);
+          cleanupErrors.push(err);
+          logger.warn("[NeuroLink] Error disconnecting vector store:", error);
         }
       }
 

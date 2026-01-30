@@ -31,6 +31,7 @@ import {
 } from "../../lib/types/contextTypes.js";
 import { ModelsCommandFactory } from "../commands/models.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
+import { VectorCommandFactory } from "../commands/vector.js";
 import { OllamaCommandFactory } from "./ollamaCommandFactory.js";
 import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
 import { ModelResolver } from "../../lib/models/modelResolver.js";
@@ -1161,6 +1162,13 @@ export class CLICommandFactory {
    */
   static createMCPCommands(): CommandModule {
     return MCPCommandFactory.createMCPCommands();
+  }
+
+  /**
+   * Create vector store and embedding commands
+   */
+  static createVectorCommands(): CommandModule {
+    return VectorCommandFactory.createVectorCommands();
   }
 
   /**

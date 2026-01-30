@@ -165,6 +165,9 @@ export function initializeCliParser() {
       // MCP Command Group - Using CLICommandFactory
       .command(CLICommandFactory.createMCPCommands())
 
+      // Vector Store & Embedding Commands - Using CLICommandFactory
+      .command(CLICommandFactory.createVectorCommands())
+
       // Discover Command - Using CLICommandFactory
       .command(CLICommandFactory.createDiscoverCommand())
 

@@ -96,13 +96,15 @@ export class VectorStoreFactory {
    */
   static getAvailableStores(): string[] {
     const uniqueNames = new Set<string>();
+    const seenRegistrations = new Set<StoreRegistration>();
 
     for (const [name, registration] of Array.from(
       VectorStoreFactory.stores.entries(),
     )) {
-      // Only include if it's not an alias
-      if (!registration.aliases.includes(name)) {
+      // Only include once per unique registration
+      if (!seenRegistrations.has(registration)) {
         uniqueNames.add(name);
+        seenRegistrations.add(registration);
       }
     }
 

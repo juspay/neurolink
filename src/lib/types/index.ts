@@ -215,3 +215,26 @@ export {
   type VectorStoreStats,
   type VectorUpsertOptions,
 } from "./vectorTypes.js";
+
+// Embedding Provider Types
+export {
+  EmbeddingProviderName,
+  EMBEDDING_MODELS,
+  EMBEDDING_PRESETS,
+  getEmbeddingModelInfo,
+  getModelsForProvider,
+  type BatchEmbedResult,
+  type BedrockEmbeddingConfig,
+  type CohereEmbeddingConfig,
+  type EmbedOptions,
+  type EmbedResult,
+  type EmbeddingModel,
+  type EmbeddingProviderConfig,
+  type EmbeddingProviderHealth,
+  type GoogleEmbeddingConfig,
+  type HuggingFaceEmbeddingConfig,
+  type MistralEmbeddingConfig,
+  type OllamaEmbeddingConfig,
+  type OpenAIEmbeddingConfig,
+  type VoyageEmbeddingConfig,
+} from "./embeddingTypes.js";
