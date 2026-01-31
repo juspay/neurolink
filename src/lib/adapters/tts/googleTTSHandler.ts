@@ -7,8 +7,7 @@
  * @see https://cloud.google.com/text-to-speech/docs
  */
 import { TextToSpeechClient } from "@google-cloud/text-to-speech";
-import { TTSError, TTS_ERROR_CODES } from "../../utils/ttsProcessor.js";
-import type { TTSHandler } from "../../utils/ttsProcessor.js";
+import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
 import type {
   Gender,
   GoogleAudioEncoding,
@@ -17,10 +16,13 @@ import type {
   TTSVoice,
   VoiceType,
 } from "../../types/ttsTypes.js";
-import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
+import type { TTSProvider, VoiceCapability } from "../../types/voiceTypes.js";
 import { logger } from "../../utils/logger.js";
+import type { TTSHandler } from "../../utils/ttsProcessor.js";
+import { TTS_ERROR_CODES, TTSError } from "../../utils/ttsProcessor.js";
 
-export class GoogleTTSHandler implements TTSHandler {
+export class GoogleTTSHandler implements TTSHandler, TTSProvider {
+  readonly name = "google-tts";
   private client: TextToSpeechClient | null = null;
   private voicesCache: { voices: TTSVoice[]; timestamp: number } | null = null;
   private static readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -59,12 +61,34 @@ export class GoogleTTSHandler implements TTSHandler {
   }
 
   /**
+   * Get provider capabilities
+   */
+  getCapabilities(): VoiceCapability[] {
+    return ["tts"];
+  }
+
+  /**
    * Validate that the provider is properly configured
    *
    * @returns True if provider can generate TTS
    */
   isConfigured(): boolean {
     return this.client !== null;
+  }
+
+  /**
+   * Validate provider configuration
+   */
+  async validateConfig(): Promise<{ valid: boolean; errors: string[] }> {
+    if (!this.client) {
+      return {
+        valid: false,
+        errors: [
+          "Google Cloud TTS client not initialized. Set GOOGLE_APPLICATION_CREDENTIALS or pass credentials path.",
+        ],
+      };
+    }
+    return { valid: true, errors: [] };
   }
 
   /**

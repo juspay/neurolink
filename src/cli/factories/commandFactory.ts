@@ -33,6 +33,7 @@ import { ModelsCommandFactory } from "../commands/models.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
 import { OllamaCommandFactory } from "./ollamaCommandFactory.js";
 import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
+import { createVoiceCommands } from "../commands/voice.js";
 import { ModelResolver } from "../../lib/models/modelResolver.js";
 import ora from "ora";
 import chalk from "chalk";
@@ -1410,8 +1411,12 @@ export class CLICommandFactory {
   }
 
   /**
-   * Create completion command
+   * Create voice commands (TTS, STT)
    */
+  static createVoiceCommands(): CommandModule {
+    return createVoiceCommands();
+  }
+
   /**
    * Create loop command
    */

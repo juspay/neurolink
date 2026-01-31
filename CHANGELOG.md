@@ -1,33 +1,3 @@
-## [8.41.0](https://github.com/juspay/neurolink/compare/v8.40.1...v8.41.0) (2026-01-29)
-
-### Features
-
-- **(docs):** migrate documentation from MkDocs to Docusaurus v3 ([2f70a32](https://github.com/juspay/neurolink/commit/2f70a32d930eae2756e7785b12ee5912dd4ed5e2))
-
-## [8.40.1](https://github.com/juspay/neurolink/compare/v8.40.0...v8.40.1) (2026-01-28)
-
-### Bug Fixes
-
-- **(orchestration):** changed model identifiers in modelRouter to match new claude identifiers ([e5fb153](https://github.com/juspay/neurolink/commit/e5fb153edbeace4a8fd13d416811ed37c2ea0459))
-
-## [8.40.0](https://github.com/juspay/neurolink/compare/v8.39.0...v8.40.0) (2026-01-28)
-
-### Features
-
-- **(events):** Emit event when title generation is finished ([aab4a1f](https://github.com/juspay/neurolink/commit/aab4a1f9d336a9b1fa20a5b6196155ab1d8673ed))
-
-## [8.39.0](https://github.com/juspay/neurolink/compare/v8.38.0...v8.39.0) (2026-01-27)
-
-### Features
-
-- **(ppt):** Implement SlideGenerator() for PPT Gen ([c804e97](https://github.com/juspay/neurolink/commit/c804e97ceda8d90bfc5ee5b976b1a8b3864f86ef))
-
-## [8.38.0](https://github.com/juspay/neurolink/compare/v8.37.0...v8.38.0) (2026-01-23)
-
-### Features
-
-- **(ppt):** Add PPT generation content planner ([695b92c](https://github.com/juspay/neurolink/commit/695b92c8d2c87556fcad3d5f437605ba934e8b5d))
-
 ## [8.37.0](https://github.com/juspay/neurolink/compare/v8.36.0...v8.37.0) (2026-01-22)
 
 ### Features

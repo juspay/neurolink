@@ -1,0 +1,330 @@
+/**
+ * Azure Cognitive Services Text-to-Speech Handler
+ *
+ * Implementation of TTS using Azure Speech Services.
+ *
+ * @module voice/providers/AzureTTS
+ */
+
+import type { TTSHandler } from "../../utils/ttsProcessor.js";
+import { TTSError, TTS_ERROR_CODES } from "../../utils/ttsProcessor.js";
+import type { TTSOptions, TTSResult, TTSVoice, AudioFormat } from "../../types/ttsTypes.js";
+import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
+import { logger } from "../../utils/logger.js";
+
+/**
+ * Azure-specific TTS options
+ */
+export type AzureTTSOptions = TTSOptions & {
+  /** Use SSML for advanced control */
+  useSSML?: boolean;
+  /** Custom SSML template */
+  ssmlTemplate?: string;
+  /** Output format string */
+  outputFormat?: string;
+  /** Enable word boundary events */
+  wordBoundary?: boolean;
+};
+
+/**
+ * Azure voice info from API
+ */
+type AzureVoiceInfo = {
+  Name: string;
+  DisplayName: string;
+  LocalName: string;
+  ShortName: string;
+  Gender: string;
+  Locale: string;
+  LocaleName: string;
+  VoiceType: string;
+  Status: string;
+  WordsPerMinute?: string;
+};
+
+/**
+ * Azure Cognitive Services Text-to-Speech Handler
+ *
+ * Supports neural voices with SSML and custom voice styles.
+ *
+ * @see https://docs.microsoft.com/azure/cognitive-services/speech-service/
+ */
+export class AzureTTSHandler implements TTSHandler {
+  private readonly apiKey: string | null;
+  private readonly region: string;
+  private voicesCache: { voices: TTSVoice[]; timestamp: number } | null = null;
+  private static readonly CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+  /**
+   * Maximum text length (10000 characters for Azure)
+   */
+  public readonly maxTextLength = 10000;
+
+  constructor(apiKey?: string, region?: string) {
+    this.apiKey = apiKey ?? process.env.AZURE_SPEECH_KEY ?? null;
+    this.region = region ?? process.env.AZURE_SPEECH_REGION ?? "eastus";
+  }
+
+  isConfigured(): boolean {
+    return this.apiKey !== null;
+  }
+
+  async getVoices(languageCode?: string): Promise<TTSVoice[]> {
+    if (!this.apiKey) {
+      throw new TTSError({
+        code: TTS_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
+        message: "Azure Speech key not configured",
+        category: ErrorCategory.CONFIGURATION,
+        severity: ErrorSeverity.HIGH,
+        retriable: false,
+      });
+    }
+
+    // Return cached voices if valid
+    if (
+      this.voicesCache &&
+      Date.now() - this.voicesCache.timestamp < AzureTTSHandler.CACHE_TTL_MS &&
+      !languageCode
+    ) {
+      return this.voicesCache.voices;
+    }
+
+    try {
+      const response = await fetch(
+        `https://${this.region}.tts.speech.microsoft.com/cognitiveservices/voices/list`,
+        {
+          method: "GET",
+          headers: {
+            "Ocp-Apim-Subscription-Key": this.apiKey,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = (await response.json()) as AzureVoiceInfo[];
+
+      let voices: TTSVoice[] = data.map((voice) => ({
+        id: voice.ShortName,
+        name: voice.DisplayName,
+        languageCode: voice.Locale,
+        languageCodes: [voice.Locale],
+        gender: this.mapGender(voice.Gender),
+        type: voice.VoiceType.toLowerCase().includes("neural") ? "neural" : "standard",
+        description: voice.LocaleName,
+      }));
+
+      // Filter by language if specified
+      if (languageCode) {
+        voices = voices.filter(
+          (v) =>
+            v.languageCode.toLowerCase().startsWith(languageCode.toLowerCase()) ||
+            v.languageCode.toLowerCase() === languageCode.toLowerCase(),
+        );
+      }
+
+      // Cache full list
+      if (!languageCode) {
+        this.voicesCache = { voices, timestamp: Date.now() };
+      }
+
+      return voices;
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : String(err || "Unknown error");
+      logger.error(`[AzureTTSHandler] Failed to get voices: ${errorMessage}`);
+      throw new TTSError({
+        code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
+        message: `Failed to get voices: ${errorMessage}`,
+        category: ErrorCategory.NETWORK,
+        severity: ErrorSeverity.MEDIUM,
+        retriable: true,
+        originalError: err instanceof Error ? err : undefined,
+      });
+    }
+  }
+
+  async synthesize(text: string, options: TTSOptions = {}): Promise<TTSResult> {
+    if (!this.apiKey) {
+      throw new TTSError({
+        code: TTS_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
+        message: "Azure Speech key not configured",
+        category: ErrorCategory.CONFIGURATION,
+        severity: ErrorSeverity.HIGH,
+        retriable: false,
+      });
+    }
+
+    const startTime = Date.now();
+    const azureOptions = options as AzureTTSOptions;
+
+    try {
+      // Get voice (default to a common neural voice)
+      const voice = options.voice ?? "en-US-JennyNeural";
+
+      // Determine output format
+      const outputFormat =
+        azureOptions.outputFormat ?? this.mapFormat(options.format ?? "mp3");
+
+      // Build SSML
+      const ssml = this.buildSSML(text, voice, options);
+
+      const response = await fetch(
+        `https://${this.region}.tts.speech.microsoft.com/cognitiveservices/v1`,
+        {
+          method: "POST",
+          headers: {
+            "Ocp-Apim-Subscription-Key": this.apiKey,
+            "Content-Type": "application/ssml+xml",
+            "X-Microsoft-OutputFormat": outputFormat,
+          },
+          body: ssml,
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const latency = Date.now() - startTime;
+
+      // Get audio buffer
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = Buffer.from(arrayBuffer);
+
+      const result: TTSResult = {
+        buffer: audioBuffer,
+        format: options.format ?? "mp3",
+        size: audioBuffer.length,
+        voice,
+        sampleRate: this.getSampleRate(outputFormat),
+        metadata: {
+          latency,
+          provider: "azure-tts",
+          outputFormat,
+          region: this.region,
+        },
+      };
+
+      logger.info(
+        `[AzureTTSHandler] Synthesized ${audioBuffer.length} bytes in ${latency}ms`,
+      );
+
+      return result;
+    } catch (err: unknown) {
+      if (err instanceof TTSError) {
+        throw err;
+      }
+
+      const errorMessage =
+        err instanceof Error ? err.message : String(err || "Unknown error");
+      logger.error(`[AzureTTSHandler] Synthesis failed: ${errorMessage}`);
+      throw new TTSError({
+        code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
+        message: `Synthesis failed: ${errorMessage}`,
+        category: ErrorCategory.EXECUTION,
+        severity: ErrorSeverity.HIGH,
+        retriable: true,
+        context: { textLength: text.length },
+        originalError: err instanceof Error ? err : undefined,
+      });
+    }
+  }
+
+  /**
+   * Build SSML from text and options
+   */
+  private buildSSML(text: string, voice: string, options: TTSOptions): string {
+    const azureOptions = options as AzureTTSOptions;
+
+    // If custom SSML template provided, use it
+    if (azureOptions.ssmlTemplate) {
+      return azureOptions.ssmlTemplate
+        .replace("{text}", this.escapeXml(text))
+        .replace("{voice}", voice);
+    }
+
+    // Check if text is already SSML
+    if (text.trim().startsWith("<speak")) {
+      return text;
+    }
+
+    // Build rate string
+    const rate = options.speed
+      ? `${Math.round((options.speed - 1) * 100)}%`
+      : "0%";
+
+    // Build pitch string
+    const pitch = options.pitch ? `${Math.round(options.pitch)}%` : "0%";
+
+    // Build SSML
+    return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${this.extractLanguage(voice)}">
+  <voice name="${voice}">
+    <prosody rate="${rate}" pitch="${pitch}">
+      ${this.escapeXml(text)}
+    </prosody>
+  </voice>
+</speak>`;
+  }
+
+  /**
+   * Extract language from voice name
+   */
+  private extractLanguage(voice: string): string {
+    // Voice names are like "en-US-JennyNeural"
+    const match = voice.match(/^([a-z]{2}-[A-Z]{2})/);
+    return match ? match[1] : "en-US";
+  }
+
+  /**
+   * Escape XML special characters
+   */
+  private escapeXml(text: string): string {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+  }
+
+  /**
+   * Map gender string to standard type
+   */
+  private mapGender(gender: string): "male" | "female" | "neutral" {
+    switch (gender?.toLowerCase()) {
+      case "male":
+        return "male";
+      case "female":
+        return "female";
+      default:
+        return "neutral";
+    }
+  }
+
+  /**
+   * Map AudioFormat to Azure output format
+   */
+  private mapFormat(format: AudioFormat): string {
+    const formats: Record<AudioFormat, string> = {
+      mp3: "audio-24khz-96kbitrate-mono-mp3",
+      wav: "riff-24khz-16bit-mono-pcm",
+      ogg: "ogg-24khz-16bit-mono-opus",
+      opus: "ogg-24khz-16bit-mono-opus",
+    };
+    return formats[format] ?? "audio-24khz-96kbitrate-mono-mp3";
+  }
+
+  /**
+   * Get sample rate from format string
+   */
+  private getSampleRate(format: string): number {
+    if (format.includes("24khz")) return 24000;
+    if (format.includes("16khz")) return 16000;
+    if (format.includes("48khz")) return 48000;
+    return 24000;
+  }
+}

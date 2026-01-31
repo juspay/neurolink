@@ -105,4 +105,4 @@ Real-world use cases and production code patterns.
 - **Building a chat app?** Try our [Chat Application Tutorial](../tutorials/chat-app.md)
 - **Need knowledge base Q&A?** Build a [RAG System](../tutorials/rag.md)
 - **Want practical code examples?** Check the [Cookbook](../cookbook/index.md)
-- **Migrating from another framework?** See our [Migration Guides](#-migration-guides)
+- **Migrating from another framework?** See our [Migration Guides](#migration-guides)

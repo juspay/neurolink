@@ -189,6 +189,9 @@ export function initializeCliParser() {
       // SageMaker Command Group - Using CLICommandFactory
       .command(CLICommandFactory.createSageMakerCommands())
 
+      // Voice Command Group - Using CLICommandFactory
+      .command(CLICommandFactory.createVoiceCommands())
+
       // Loop Command - Using CLICommandFactory
       .command(CLICommandFactory.createLoopCommand())
 

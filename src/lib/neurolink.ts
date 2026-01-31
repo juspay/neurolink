@@ -146,6 +146,26 @@ import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
 
 import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
 
+// Voice integration imports
+import type { TTSOptions, TTSResult } from "./types/ttsTypes.js";
+import type {
+  STTOptions,
+  STTResult,
+  TranscriptionSegment,
+} from "./types/sttTypes.js";
+import type { RealtimeConfig, RealtimeSession } from "./types/realtimeTypes.js";
+import type {
+  CompositeVoiceConfig,
+  VoiceProviderName,
+  TTSStreamChunk,
+  VoiceAgentConfig,
+} from "./types/voiceTypes.js";
+import { VoiceFactory } from "./voice/voiceFactory.js";
+import { CompositeVoice } from "./voice/compositeVoice.js";
+import { VoiceAgent } from "./voice/voiceAgent.js";
+import { VoiceError, VOICE_ERROR_CODES } from "./voice/errors.js";
+import { ErrorCategory, ErrorSeverity } from "./constants/enums.js";
+
 /**
  * NeuroLink - Universal AI Development Platform
  *
@@ -252,6 +272,10 @@ export class NeuroLink {
   private currentStreamToolExecutions: ToolExecutionContext[] = [];
   private toolExecutionHistory: ToolExecutionSummary[] = [];
   private activeToolExecutions: Map<string, ToolExecutionContext> = new Map();
+
+  // Voice integration
+  private voiceAgent: VoiceAgent | null = null;
+  private compositeVoice: CompositeVoice | null = null;
 
   /**
    * Helper method to emit tool end event in a consistent way
@@ -6194,7 +6218,6 @@ Current user's request: ${currentInput}`;
       // Use the integration module to create the appropriate memory manager
       const memoryManager = await initializeConversationMemory(
         this.conversationMemoryConfig,
-        this.emitter,
       );
       // Assign to conversationMemory with proper type to handle both memory manager types
       this.conversationMemory = memoryManager;
@@ -6241,6 +6264,449 @@ Current user's request: ${currentInput}`;
     }
   }
 
+  // ============================================================================
+  // VOICE INTEGRATION METHODS
+  // ============================================================================
+
+  /**
+   * Initialize voice capabilities for the SDK
+   *
+   * Sets up TTS, STT, and realtime voice providers based on configuration.
+   *
+   * @param config - Composite voice configuration
+   * @returns Configured CompositeVoice instance
+   *
+   * @example
+   * ```typescript
+   * const voice = await neurolink.initializeVoice({
+   *   ttsProvider: "elevenlabs",
+   *   sttProvider: "deepgram",
+   *   defaultTTSOptions: { voice: "rachel" },
+   * });
+   *
+   * // Use voice for synthesis
+   * const audio = await voice.synthesize("Hello, world!");
+   * ```
+   */
+  async initializeVoice(
+    config: CompositeVoiceConfig = {},
+  ): Promise<CompositeVoice> {
+    logger.debug("[NeuroLink] Initializing voice capabilities", { config });
+
+    this.compositeVoice = new CompositeVoice({
+      ttsProvider: config.ttsProvider,
+      sttProvider: config.sttProvider,
+      defaultTTSOptions: config.defaultTTSOptions,
+      defaultSTTOptions: config.defaultSTTOptions,
+      trackHistory: config.trackHistory ?? true,
+      maxHistoryTurns: config.maxHistoryTurns ?? 50,
+    });
+
+    logger.debug("[NeuroLink] Voice capabilities initialized");
+    return this.compositeVoice;
+  }
+
+  /**
+   * Get the current composite voice instance
+   *
+   * @returns CompositeVoice instance or null if not initialized
+   */
+  getVoice(): CompositeVoice | null {
+    return this.compositeVoice;
+  }
+
+  /**
+   * Synthesize text to speech (Text-to-Speech)
+   *
+   * Converts text into audio using the configured TTS provider.
+   *
+   * @param text - Text to synthesize
+   * @param options - TTS options (voice, format, speed, etc.)
+   * @returns TTS result with audio buffer
+   *
+   * @example
+   * ```typescript
+   * const result = await neurolink.synthesize("Hello, world!", {
+   *   voice: "en-US-Neural2-C",
+   *   format: "mp3",
+   *   speed: 1.0,
+   * });
+   *
+   * // Save to file
+   * fs.writeFileSync("output.mp3", result.buffer);
+   * ```
+   */
+  async synthesize(text: string, options?: TTSOptions): Promise<TTSResult> {
+    // Initialize voice if not already done
+    if (!this.compositeVoice) {
+      await this.initializeVoice();
+    }
+
+    if (!this.compositeVoice) {
+      throw new VoiceError({
+        code: VOICE_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
+        message: "Voice not initialized. Call initializeVoice() first.",
+        category: ErrorCategory.CONFIGURATION,
+        severity: ErrorSeverity.HIGH,
+        retriable: false,
+      });
+    }
+
+    return this.compositeVoice.synthesize(text, options);
+  }
+
+  /**
+   * Synthesize text to speech with streaming output
+   *
+   * Note: Streaming synthesis requires a TTS provider with streaming support
+   * (e.g., ElevenLabs, Azure Speech). If the provider doesn't support streaming,
+   * the full audio will be generated and yielded as a single chunk.
+   *
+   * @param text - Text to synthesize
+   * @param options - TTS options
+   * @param provider - Optional specific TTS provider to use for streaming
+   * @yields TTSStreamChunk - Audio chunks as they are generated
+   *
+   * @example
+   * ```typescript
+   * for await (const chunk of neurolink.synthesizeStream("Hello, world!")) {
+   *   // Process audio chunk in real-time
+   *   speaker.playChunk(chunk.data);
+   * }
+   * ```
+   */
+  async *synthesizeStream(
+    text: string,
+    options?: TTSOptions,
+    provider?: "elevenlabs" | "azure-tts" | "google-tts",
+  ): AsyncIterable<TTSStreamChunk> {
+    // Use specific provider with streaming support
+    const ttsProvider = await VoiceFactory.createTTSProvider(
+      provider ?? "elevenlabs",
+    );
+
+    // Check if provider supports streaming
+    if (ttsProvider.synthesizeStream) {
+      yield* ttsProvider.synthesizeStream(text, options ?? {});
+    } else {
+      // Fallback: synthesize full audio and yield as single chunk
+      const result = await ttsProvider.synthesize(text, options ?? {});
+      yield {
+        data: result.buffer,
+        index: 0,
+        isFinal: true,
+        format: result.format,
+        sampleRate: result.sampleRate,
+      };
+    }
+  }
+
+  /**
+   * Transcribe audio to text (Speech-to-Text)
+   *
+   * Converts audio input into text using the configured STT provider.
+   *
+   * @param audio - Audio buffer or ArrayBuffer
+   * @param options - STT options (language, diarization, etc.)
+   * @returns STT result with transcription
+   *
+   * @example
+   * ```typescript
+   * const audio = fs.readFileSync("recording.wav");
+   * const result = await neurolink.transcribe(audio, {
+   *   language: "en-US",
+   *   diarization: true,
+   *   punctuate: true,
+   * });
+   *
+   * console.log(result.text);
+   * console.log(`Confidence: ${result.confidence}`);
+   * ```
+   */
+  async transcribe(
+    audio: Buffer | ArrayBuffer,
+    options?: STTOptions,
+  ): Promise<STTResult> {
+    // Initialize voice if not already done
+    if (!this.compositeVoice) {
+      await this.initializeVoice();
+    }
+
+    if (!this.compositeVoice) {
+      throw new VoiceError({
+        code: VOICE_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
+        message: "Voice not initialized. Call initializeVoice() first.",
+        category: ErrorCategory.CONFIGURATION,
+        severity: ErrorSeverity.HIGH,
+        retriable: false,
+      });
+    }
+
+    return this.compositeVoice.transcribe(audio, options);
+  }
+
+  /**
+   * Transcribe audio stream in real-time
+   *
+   * Note: Streaming transcription requires an STT provider with streaming support
+   * (e.g., Deepgram, Gladia). The provider will be used directly.
+   *
+   * @param audioStream - Async iterable of audio buffers
+   * @param options - STT options
+   * @param provider - Optional specific STT provider to use for streaming
+   * @yields TranscriptionSegment - Transcription segments as they are recognized
+   *
+   * @example
+   * ```typescript
+   * const micStream = getMicrophoneStream();
+   * for await (const segment of neurolink.transcribeStream(micStream)) {
+   *   console.log(`${segment.isFinal ? '>' : '...'} ${segment.text}`);
+   * }
+   * ```
+   */
+  async *transcribeStream(
+    audioStream: AsyncIterable<Buffer>,
+    options?: STTOptions,
+    provider?: "deepgram" | "gladia",
+  ): AsyncIterable<TranscriptionSegment> {
+    // Use specific provider with streaming support
+    const sttProvider = await VoiceFactory.createSTTProvider(
+      provider ?? "deepgram",
+    );
+
+    // Check if provider supports streaming
+    if (sttProvider.transcribeStream) {
+      yield* sttProvider.transcribeStream(audioStream, options ?? {});
+    } else {
+      // Fallback: collect all audio and transcribe at once
+      const chunks: Buffer[] = [];
+      for await (const chunk of audioStream) {
+        chunks.push(chunk);
+      }
+      const fullAudio = Buffer.concat(chunks);
+      const result = await sttProvider.transcribe(fullAudio, options ?? {});
+
+      // Yield segments from result
+      for (const segment of result.segments) {
+        yield segment;
+      }
+    }
+  }
+
+  /**
+   * Create a voice agent for complete voice-to-voice interactions
+   *
+   * The voice agent combines STT, AI generation, and TTS into a seamless
+   * voice conversation pipeline.
+   *
+   * @param config - Voice agent configuration
+   * @returns Initialized VoiceAgent instance
+   *
+   * @example
+   * ```typescript
+   * const agent = await neurolink.createVoiceAgent({
+   *   sttProvider: "deepgram",
+   *   ttsProvider: "elevenlabs",
+   *   systemPrompt: "You are a helpful voice assistant.",
+   *   voiceSettings: {
+   *     voiceId: "rachel",
+   *     language: "en-US",
+   *   },
+   * });
+   *
+   * // Process voice input
+   * const result = await agent.processVoice(userAudioBuffer);
+   * // Play result.audio to user
+   * ```
+   */
+  async createVoiceAgent(
+    config: VoiceAgentConfig & {
+      sttProvider?: string;
+      ttsProvider?: string;
+      realtimeProvider?: string;
+    },
+  ): Promise<VoiceAgent> {
+    logger.debug("[NeuroLink] Creating voice agent", {
+      mode: config.mode ?? "batch",
+      sttProvider: config.sttProvider,
+      ttsProvider: config.ttsProvider,
+      realtimeProvider: config.realtimeProvider,
+    });
+
+    const agent = new VoiceAgent({
+      ...config,
+      neurolink: this,
+    });
+
+    await agent.initialize();
+    this.voiceAgent = agent;
+
+    logger.debug("[NeuroLink] Voice agent created and initialized");
+    return agent;
+  }
+
+  /**
+   * Get the current voice agent
+   *
+   * @returns VoiceAgent instance or null if not created
+   */
+  getVoiceAgent(): VoiceAgent | null {
+    return this.voiceAgent;
+  }
+
+  /**
+   * Start a realtime voice session for bidirectional audio
+   *
+   * Creates a low-latency WebSocket connection for real-time voice
+   * communication using providers like OpenAI Realtime or Gemini Live.
+   *
+   * @param config - Realtime session configuration
+   * @param provider - Realtime provider name (defaults to "openai-realtime")
+   * @returns Realtime session for bidirectional communication
+   *
+   * @example
+   * ```typescript
+   * const session = await neurolink.startRealtimeVoice({
+   *   voice: "alloy",
+   *   instructions: "You are a helpful assistant.",
+   *   turnDetection: "server_vad",
+   * });
+   *
+   * // Handle audio from the AI
+   * session.on("response.audio.delta", (event) => {
+   *   speaker.playChunk(Buffer.from(event.data.audio, "base64"));
+   * });
+   *
+   * // Send audio from microphone
+   * session.sendAudio(microphoneBuffer);
+   * ```
+   */
+  async startRealtimeVoice(
+    config: RealtimeConfig,
+    provider: VoiceProviderName = "openai-realtime",
+  ): Promise<RealtimeSession> {
+    logger.debug("[NeuroLink] Starting realtime voice session", {
+      provider,
+      voice: config.voice,
+    });
+
+    const realtimeProvider = await VoiceFactory.createRealtimeProvider(
+      provider as "openai-realtime" | "gemini-live",
+    );
+
+    const session = await realtimeProvider.connect(config);
+
+    logger.debug("[NeuroLink] Realtime voice session started", {
+      sessionId: session.id,
+      provider,
+    });
+
+    return session;
+  }
+
+  /**
+   * Get available TTS voices for a provider
+   *
+   * @param provider - TTS provider name (optional, uses default if not specified)
+   * @param languageCode - Filter voices by language (optional)
+   * @returns List of available voices
+   *
+   * @example
+   * ```typescript
+   * const voices = await neurolink.getAvailableVoices("elevenlabs");
+   * for (const voice of voices) {
+   *   console.log(`${voice.name} (${voice.gender}) - ${voice.languageCode}`);
+   * }
+   * ```
+   */
+  async getAvailableVoices(
+    provider?: VoiceProviderName,
+    languageCode?: string,
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      languageCode: string;
+      gender: string;
+    }>
+  > {
+    const ttsProvider = await VoiceFactory.createTTSProvider(
+      (provider ?? "openai-tts") as
+        | "google-tts"
+        | "elevenlabs"
+        | "openai-tts"
+        | "azure-tts"
+        | "sarvam",
+    );
+
+    const voices = await ttsProvider.getVoices(languageCode);
+    return voices.map((v) => ({
+      id: v.id,
+      name: v.name,
+      languageCode: v.languageCode,
+      gender: v.gender,
+    }));
+  }
+
+  /**
+   * Validate voice provider configuration
+   *
+   * @param provider - Voice provider to validate
+   * @returns Validation result with any errors
+   *
+   * @example
+   * ```typescript
+   * const result = await neurolink.validateVoiceProvider("deepgram");
+   * if (!result.valid) {
+   *   console.error("Provider errors:", result.errors);
+   * }
+   * ```
+   */
+  async validateVoiceProvider(
+    provider: VoiceProviderName,
+  ): Promise<{ valid: boolean; errors: string[] }> {
+    try {
+      // Determine provider type and create instance
+      if (
+        provider.includes("tts") ||
+        ["elevenlabs", "sarvam"].includes(provider)
+      ) {
+        const ttsProvider = await VoiceFactory.createTTSProvider(
+          provider as
+            | "google-tts"
+            | "elevenlabs"
+            | "openai-tts"
+            | "azure-tts"
+            | "sarvam",
+        );
+        return ttsProvider.validateConfig();
+      } else if (
+        ["deepgram", "gladia", "whisper", "assemblyai"].includes(provider)
+      ) {
+        const sttProvider = await VoiceFactory.createSTTProvider(
+          provider as "deepgram" | "gladia" | "whisper",
+        );
+        return sttProvider.validateConfig();
+      } else if (["openai-realtime", "gemini-live"].includes(provider)) {
+        const realtimeProvider = await VoiceFactory.createRealtimeProvider(
+          provider as "openai-realtime" | "gemini-live",
+        );
+        return realtimeProvider.validateConfig();
+      }
+
+      return { valid: false, errors: [`Unknown provider: ${provider}`] };
+    } catch (err) {
+      return {
+        valid: false,
+        errors: [err instanceof Error ? err.message : "Validation failed"],
+      };
+    }
+  }
+
+  // ============================================================================
+  // END VOICE INTEGRATION METHODS
+  // ============================================================================
+
   /**
    * Dispose of all resources and cleanup connections
    * Call this method when done using the NeuroLink instance to prevent resource leaks
@@ -6252,6 +6718,28 @@ Current user's request: ${currentInput}`;
     const cleanupErrors: Error[] = [];
 
     try {
+      // 0. Dispose voice resources
+      if (this.voiceAgent) {
+        try {
+          logger.debug("[NeuroLink] Disposing voice agent...");
+          await this.voiceAgent.dispose();
+          this.voiceAgent = null;
+          logger.debug("[NeuroLink] Voice agent disposed successfully");
+        } catch (error) {
+          const err =
+            error instanceof Error
+              ? error
+              : new Error(`Voice agent disposal error: ${String(error)}`);
+          cleanupErrors.push(err);
+          logger.warn("[NeuroLink] Error disposing voice agent:", error);
+        }
+      }
+
+      if (this.compositeVoice) {
+        this.compositeVoice = null;
+        logger.debug("[NeuroLink] CompositeVoice reference cleared");
+      }
+
       // 1. Flush and shutdown OpenTelemetry
       try {
         logger.debug("[NeuroLink] Flushing and shutting down OpenTelemetry...");

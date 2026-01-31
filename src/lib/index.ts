@@ -356,6 +356,147 @@ export async function getTelemetryStatus(): Promise<{
 }
 
 // ============================================================================
+// VOICE & SPEECH INTEGRATION - TTS, STT, and Realtime Voice
+// ============================================================================
+
+/**
+ * Voice Module for NeuroLink
+ *
+ * Provides unified voice capabilities including:
+ * - Text-to-Speech (TTS) with multiple providers (Google, ElevenLabs, OpenAI, Azure, Sarvam)
+ * - Speech-to-Text (STT) with providers like Deepgram, Whisper, Gladia
+ * - Realtime voice with OpenAI Realtime and Gemini Live
+ *
+ * @example
+ * ```typescript
+ * import { VoiceFactory, VoiceAgent, CompositeVoice } from '@juspay/neurolink';
+ *
+ * // Initialize voice providers
+ * await VoiceRegistry.registerAllProviders();
+ *
+ * // Create a TTS provider
+ * const tts = await VoiceFactory.createTTSProvider('elevenlabs');
+ * const audio = await tts.synthesize('Hello, world!', { voice: 'rachel' });
+ *
+ * // Create a composite voice for bidirectional conversations
+ * const voice = new CompositeVoice({
+ *   ttsProvider: 'elevenlabs',
+ *   sttProvider: 'deepgram',
+ * });
+ *
+ * // Use the voice agent for complete voice-to-voice interactions
+ * const agent = await neurolink.createVoiceAgent({
+ *   sttProvider: 'deepgram',
+ *   ttsProvider: 'elevenlabs',
+ *   systemPrompt: 'You are a helpful voice assistant.',
+ * });
+ * const result = await agent.processVoice(userAudioBuffer);
+ * ```
+ */
+export {
+  // Core voice components
+  VoiceFactory,
+  voiceFactory,
+  VoiceRegistry,
+  voiceRegistry,
+  CompositeVoice,
+  VoiceAgent,
+  // Processors
+  STTProcessor,
+  RealtimeProcessor,
+  BaseRealtimeHandler,
+  // Error handling
+  VoiceError,
+  STTError,
+  RealtimeError,
+  VOICE_ERROR_CODES,
+  STT_ERROR_CODES,
+  REALTIME_ERROR_CODES,
+  // Audio utilities
+  detectAudioFormat,
+  createWavHeader,
+  createWavFile,
+  calculateDuration,
+  convertAudioFormat,
+  createPcmBuffer,
+  extractPcmSamples,
+  resamplePcm,
+  normalizeAudio,
+  splitIntoChunks,
+  getMimeType,
+  getFileExtension,
+  AUDIO_SIGNATURES,
+  MIME_TYPES,
+  // Stream utilities
+  ChunkedAudioStream,
+  StreamMerger,
+  StreamSplitter,
+  streamToAsyncIterable,
+  asyncIterableToStream,
+  StreamHandler,
+  // Type guards and constants
+  isSTTResult,
+  isValidSTTOptions,
+  isValidRealtimeConfig,
+  isTranscriptionSegment,
+  AUDIO_FORMAT_DETAILS,
+  DEFAULT_STT_OPTIONS,
+  DEFAULT_REALTIME_CONFIG,
+} from "./voice/index.js";
+
+export type {
+  // Voice capability types
+  VoiceCapability,
+  VoiceProviderType,
+  VoiceProviderConfig,
+  VoiceProviderMetadata,
+  // Voice agent types
+  VoiceTurn,
+  VoiceProcessingResult,
+  VoiceAgentConfig,
+  // TTS types
+  AudioFormat,
+  TTSOptions,
+  TTSResult,
+  TTSVoice,
+  // STT types
+  STTOptions,
+  STTResult,
+  STTLanguage,
+  WordTiming,
+  TranscriptionSegment,
+  // Realtime types
+  RealtimeConfig,
+  RealtimeSession,
+  RealtimeSessionState,
+  RealtimeAudioChunk,
+  RealtimeMessage,
+  RealtimeMessageType,
+  RealtimeTool,
+  RealtimeEventHandlers,
+  // Composite voice types
+  CompositeVoiceConfig,
+  CompositeVoiceSession,
+  // Audio utility types
+  AudioFormatDetails,
+  AudioConversionOptions,
+  AudioStreamChunk,
+  // Handler types
+  VoiceHandler,
+  VoiceProviderEntry,
+  STTHandler,
+  RealtimeHandler,
+  StreamHandlerConfig,
+  StreamEvents,
+  VoiceErrorOptions,
+} from "./voice/index.js";
+
+export type {
+  VoiceAgentEvent,
+  VoiceAgentEventData,
+} from "./voice/voiceAgent.js";
+
+// ============================================================================
 // BACKWARD COMPATIBILITY: Legacy generateText Function Exports
 // ============================================================================
 

@@ -241,10 +241,6 @@ export default [
       // Exclude built documentation site and generated files
       "site/**",
       "_site/**",
-      ".docusaurus/**",
-      "**/docs-site/.docusaurus/**",
-      "**/docs-site/build/**",
-      "**/docs-site/babel.config.js",
     ],
   },
 ];

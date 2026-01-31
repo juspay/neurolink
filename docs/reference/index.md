@@ -32,12 +32,6 @@ This section provides comprehensive reference materials for advanced usage, conf
 
   Detailed comparison of all 12 supported AI providers with features, costs, and recommendations.
 
-- :material-compass: **[Provider Selection Guide](provider-selection.md)**
-
-  ***
-
-  Interactive guide to selecting the right AI provider based on use case, budget, and requirements.
-
 - :material-frequently-asked-questions: **[FAQ](faq.md)**
 
   ***
@@ -49,12 +43,6 @@ This section provides comprehensive reference materials for advanced usage, conf
   ***
 
   Complete error code reference with categorized codes, severity levels, and resolution guidance.
-
-- :material-chart-line: **[Analytics](analytics.md)**
-
-  ***
-
-  Comprehensive guide to NeuroLink analytics, metrics, token tracking, cost monitoring, and observability integration.
 
 </div>
 
