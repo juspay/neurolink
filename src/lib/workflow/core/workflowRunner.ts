@@ -122,6 +122,39 @@ export async function runWorkflow(
     );
   }
 
+  // Optional persistence — gracefully degrade if storage is not configured
+  type PersistenceManager =
+    import("../../storage/managers/workflowPersistenceManager.js").WorkflowPersistenceManager;
+  let persistenceManager: PersistenceManager | undefined;
+  let runId: string | undefined;
+
+  try {
+    const { createStorageFromEnv } = await import("../../storage/index.js");
+    const storage = await createStorageFromEnv();
+    const { WorkflowPersistenceManager } =
+      await import("../../storage/managers/workflowPersistenceManager.js");
+    persistenceManager = new WorkflowPersistenceManager(storage);
+  } catch {
+    // Storage not configured — run without persistence (existing behavior)
+  }
+
+  if (persistenceManager) {
+    try {
+      const run = await persistenceManager.startRun({
+        workflowId: config.id || config.name || "unnamed",
+        triggerData: {
+          prompt:
+            typeof options.prompt === "string"
+              ? options.prompt
+              : JSON.stringify(options.prompt),
+        },
+      });
+      runId = run.id;
+    } catch {
+      // Ignore — persistence is optional
+    }
+  }
+
   try {
     // Step 1: Execute models (layer-based or flat)
     const ensembleResult = await executeModels(config, options);
@@ -264,6 +297,20 @@ export async function runWorkflow(
     const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
     getMetricsAggregator().recordSpan(endedSpan);
 
+    if (persistenceManager && runId) {
+      await persistenceManager
+        .completeRun(
+          runId,
+          result as unknown as import("../../types/index.js").JsonValue,
+        )
+        .catch((err) => {
+          logger.warn(
+            "[WorkflowRunner] Failed to persist run completion:",
+            err,
+          );
+        });
+    }
+
     return result;
   } catch (error) {
     const executionTime = Date.now() - startTime;
@@ -280,6 +327,20 @@ export async function runWorkflow(
       errorMessage,
     );
     getMetricsAggregator().recordSpan(endedSpan);
+
+    if (persistenceManager && runId) {
+      await persistenceManager
+        .failRun(runId, {
+          message: errorMessage,
+          code: "WORKFLOW_EXECUTION_ERROR",
+        })
+        .catch((persistErr) => {
+          logger.warn(
+            "[WorkflowRunner] Failed to persist run failure:",
+            persistErr,
+          );
+        });
+    }
 
     // Return error result with dummy data
     const dummyResponse: EnsembleResponse = {

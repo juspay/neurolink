@@ -113,4 +113,11 @@ export const ATTR = {
   AR_DURATION_MS: "autoresearch.duration_ms",
   AR_DESCRIPTION: "autoresearch.description",
   AR_ERROR_CODE: "autoresearch.error_code",
+  // Storage
+  STORAGE_BACKEND: "storage.backend",
+  STORAGE_OPERATION: "storage.operation",
+  STORAGE_THREAD_ID: "storage.thread_id",
+  STORAGE_MESSAGE_ID: "storage.message_id",
+  STORAGE_RESOURCE_ID: "storage.resource_id",
+  STORAGE_RECORD_COUNT: "storage.record_count",
 } as const;

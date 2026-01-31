@@ -83,6 +83,8 @@
     "test:tts": "npx tsx test/continuous-test-suite-tts.ts",
     "test:credentials": "tsx test/continuous-test-suite-credentials.ts",
     "test:workflow": "npx tsx test/continuous-test-suite-workflow.ts",
+    "test:storage": "npx tsx test/continuous-test-suite-storage.ts",
+    "test:storage-sdk-cli": "npx tsx test/continuous-test-suite-storage-sdk-cli.ts",
     "test:ci": "pnpm run test && pnpm run test:client",
     "test:performance": "tsx tools/testing/performanceMonitor.ts",
     "// Content Generation (Cross-platform JS)": "",
@@ -266,8 +268,14 @@
     "zod-to-json-schema": "^3.25.1"
   },
   "peerDependencies": {
+    "@aws-sdk/client-s3": "^3.1030.0",
+    "@libsql/client": "^0.17.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-trace-node": "^2.0.0",
+    "better-sqlite3": "^11.0.0",
+    "ioredis": "^5.9.2",
+    "mongodb": "^7.0.0",
+    "pg": "^8.17.2",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
   },
@@ -276,6 +284,24 @@
       "optional": true
     },
     "react-dom": {
+      "optional": true
+    },
+    "@aws-sdk/client-s3": {
+      "optional": true
+    },
+    "@libsql/client": {
+      "optional": true
+    },
+    "better-sqlite3": {
+      "optional": true
+    },
+    "ioredis": {
+      "optional": true
+    },
+    "mongodb": {
+      "optional": true
+    },
+    "pg": {
       "optional": true
     }
   },
@@ -318,6 +344,7 @@
     "@sveltejs/package": "^2.5.7",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@types/adm-zip": "^0.5.7",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/fluent-ffmpeg": "^2.1.28",
@@ -326,6 +353,7 @@
     "@types/koa-bodyparser": "^4.3.13",
     "@types/koa__cors": "^5.0.1",
     "@types/node": "^25.3.3",
+    "@types/pg": "^8.11.10",
     "@types/react": "^19.2.10",
     "@types/tar-stream": "^3.1.4",
     "@types/ws": "^8.18.1",
@@ -400,13 +428,14 @@
   ],
   "pnpm": {
     "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "canvas",
       "esbuild",
+      "ffmpeg-static",
       "protobufjs",
       "puppeteer",
-      "sqlite3",
-      "canvas",
-      "ffmpeg-static",
-      "sharp"
+      "sharp",
+      "sqlite3"
     ],
     "overrides": {
       "esbuild@<=0.24.2": ">=0.25.0",

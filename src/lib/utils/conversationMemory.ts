@@ -13,8 +13,7 @@ import {
 } from "../config/conversationMemory.js";
 import { getAvailableInputTokens } from "../constants/contextWindows.js";
 import { buildSummarizationPrompt } from "../context/prompts/summarizationPrompt.js";
-import type { ConversationMemoryManager } from "../core/conversationMemoryManager.js";
-import type { RedisConversationMemoryManager } from "../core/redisConversationMemoryManager.js";
+import type { IConversationMemoryManager } from "../types/index.js";
 import type { NeuroLink } from "../neurolink.js";
 import type {
   ChatMessage,
@@ -50,11 +49,7 @@ export function applyConversationMemoryDefaults(
  * Get conversation history as message array, summarizing if needed.
  */
 export async function getConversationMessages(
-  conversationMemory:
-    | ConversationMemoryManager
-    | RedisConversationMemoryManager
-    | null
-    | undefined,
+  conversationMemory: IConversationMemoryManager | null | undefined,
   options: TextGenerationOptions,
 ): Promise<ChatMessage[]> {
   if (!conversationMemory || !options.context) {
@@ -146,11 +141,7 @@ export async function getConversationMessages(
  * Saves user messages and AI responses for conversation memory
  */
 export async function storeConversationTurn(
-  conversationMemory:
-    | ConversationMemoryManager
-    | RedisConversationMemoryManager
-    | null
-    | undefined,
+  conversationMemory: IConversationMemoryManager | null | undefined,
   originalOptions: TextGenerationOptions,
   result: TextGenerationResult,
   startTimeStamp?: Date | undefined,

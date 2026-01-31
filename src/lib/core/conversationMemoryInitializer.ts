@@ -3,7 +3,10 @@
  * Provides integration with Redis storage for conversation memory
  */
 
-import type { ConversationMemoryConfig } from "../types/index.js";
+import type {
+  ConversationMemoryConfig,
+  IConversationMemoryManager,
+} from "../types/index.js";
 import { applyConversationMemoryDefaults } from "../utils/conversationMemory.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -11,16 +14,14 @@ import {
   getRedisConfigFromEnv,
   getStorageType,
 } from "./conversationMemoryFactory.js";
-import type { ConversationMemoryManager } from "./conversationMemoryManager.js";
-import type { RedisConversationMemoryManager } from "./redisConversationMemoryManager.js";
 
 /**
  * Initialize conversation memory for NeuroLink
- * This function decides whether to use in-memory or Redis storage
+ * This function decides whether to use in-memory, Redis, or storage-abstraction backend
  */
 export async function initializeConversationMemory(config?: {
   conversationMemory?: Partial<ConversationMemoryConfig>;
-}): Promise<ConversationMemoryManager | RedisConversationMemoryManager | null> {
+}): Promise<IConversationMemoryManager | null> {
   logger.debug(
     "[conversationMemoryInitializer] Initialize conversation memory called",
     {
@@ -97,7 +98,7 @@ export async function initializeConversationMemory(config?: {
       logger.debug(
         "[conversationMemoryInitializer] Creating Redis conversation memory manager",
       );
-      const redisMemoryManager = createConversationMemoryManager(
+      const redisMemoryManager = await createConversationMemoryManager(
         memoryConfig,
         "redis",
         redisConfig,
@@ -107,9 +108,6 @@ export async function initializeConversationMemory(config?: {
         "[conversationMemoryInitializer] Checking Redis manager creation result",
         {
           managerType: redisMemoryManager?.constructor?.name || "unknown",
-          isRedisType:
-            redisMemoryManager?.constructor?.name ===
-            "RedisConversationMemoryManager",
           hasConfig: !!redisMemoryManager?.config,
         },
       );
@@ -118,44 +116,34 @@ export async function initializeConversationMemory(config?: {
         "[conversationMemoryInitializer] Redis conversation memory manager created successfully",
       );
 
-      // Perform basic validation
-      if (
-        redisMemoryManager?.constructor?.name !==
-        "RedisConversationMemoryManager"
-      ) {
-        logger.warn(
-          "[conversationMemoryInitializer] Created manager is not of RedisConversationMemoryManager type",
-          {
-            actualType: redisMemoryManager?.constructor?.name,
-          },
-        );
-      }
-
       return redisMemoryManager;
     } else {
       logger.info(
         "[conversationMemoryInitializer] Initializing in-memory conversation memory manager",
       );
 
-      // Create in-memory conversation memory manager
+      // Create in-memory (or storage-abstraction) conversation memory manager
       logger.debug(
-        "[conversationMemoryInitializer] Creating in-memory conversation memory manager",
+        "[conversationMemoryInitializer] Creating conversation memory manager",
+        { storageType },
       );
-      const memoryManager = createConversationMemoryManager(memoryConfig);
+      const memoryManager = await createConversationMemoryManager(
+        memoryConfig,
+        storageType,
+      );
 
       logger.debug(
         "[conversationMemoryInitializer] Checking memory manager creation result",
         {
           managerType: memoryManager?.constructor?.name || "unknown",
-          isInMemoryType:
-            memoryManager?.constructor?.name === "ConversationMemoryManager",
           hasConfig: !!memoryManager?.config,
         },
       );
 
       logger.info(
-        "[conversationMemoryInitializer] In-memory conversation memory manager created successfully",
+        "[conversationMemoryInitializer] Conversation memory manager created successfully",
         {
+          storageType,
           maxSessions: memoryConfig.maxSessions,
           maxTurnsPerSession: memoryConfig.maxTurnsPerSession,
           managerType: memoryManager?.constructor?.name,

@@ -3988,6 +3988,15 @@ export class CLICommandFactory {
   }
 
   /**
+   * Create storage commands
+   */
+  static createStorageCommands(): CommandModule {
+    // Dynamic import to avoid circular dependencies
+    const { storageCommand } = require("../commands/storage.js");
+    return storageCommand;
+  }
+
+  /**
    * Flush Langfuse traces before exit
    */
   private static async flushLangfuseTraces(): Promise<void> {

@@ -27,7 +27,15 @@ const config: VitestConfig = {
 
   // SSR configuration - externalize native dependencies
   ssr: {
-    external: ["canvas"],
+    external: [
+      "canvas",
+      "@aws-sdk/client-s3",
+      "@libsql/client",
+      "better-sqlite3",
+      "ioredis",
+      "mongodb",
+      "pg",
+    ],
     noExternal: [],
   },
 

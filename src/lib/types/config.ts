@@ -61,6 +61,12 @@ export type NeurolinkConstructorConfig = {
    * from this NeuroLink instance. Per-call credentials override these.
    */
   credentials?: NeurolinkCredentials;
+  /**
+   * Storage backend for the SDK. Pass any StorageProvider-compatible adapter
+   * (Memory, File, SQLite, Redis, PostgreSQL, etc.). When provided, the SDK
+   * manages the adapter lifecycle — calling close() on dispose()/shutdown().
+   */
+  storage?: import("./storage.js").StorageProvider;
 };
 
 /**

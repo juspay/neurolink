@@ -157,6 +157,81 @@ export function isTokenExpired(
   return tokens.expiresAt - bufferMs <= now;
 }
 
+// Lazy-loaded KV store type reference
+type KVStore = {
+  get<T>(key: string): Promise<T | null>;
+  set(key: string, value: unknown, options?: unknown): Promise<void>;
+  delete(key: string): Promise<boolean>;
+  has(key: string): Promise<boolean>;
+  clear(): Promise<number>;
+};
+
+/**
+ * Storage-backed token storage implementation
+ * Uses the KeyValueStore from the storage abstraction layer.
+ * Gracefully degrades to no-op if storage is not configured.
+ */
+export class StorageTokenStorage implements TokenStorage {
+  private kv: KVStore | null = null;
+  private readonly namespace = "mcp:oauth-tokens";
+
+  async getTokens(serverId: string): Promise<OAuthTokens | null> {
+    const kv = await this.getKV();
+    if (!kv) {
+      return null;
+    }
+    return kv.get<OAuthTokens>(serverId);
+  }
+
+  async saveTokens(serverId: string, tokens: OAuthTokens): Promise<void> {
+    const kv = await this.getKV();
+    if (!kv) {
+      return;
+    }
+    await kv.set(serverId, tokens);
+  }
+
+  async deleteTokens(serverId: string): Promise<void> {
+    const kv = await this.getKV();
+    if (!kv) {
+      return;
+    }
+    await kv.delete(serverId);
+  }
+
+  async hasTokens(serverId: string): Promise<boolean> {
+    const kv = await this.getKV();
+    if (!kv) {
+      return false;
+    }
+    return kv.has(serverId);
+  }
+
+  async clearAll(): Promise<void> {
+    const kv = await this.getKV();
+    if (!kv) {
+      return;
+    }
+    await kv.clear();
+  }
+
+  private async getKV(): Promise<KVStore | null> {
+    if (this.kv) {
+      return this.kv;
+    }
+    try {
+      const { createStorageFromEnv } = await import("../../storage/index.js");
+      const storage = await createStorageFromEnv();
+      const { KeyValueStore } =
+        await import("../../storage/managers/keyValueStore.js");
+      this.kv = new KeyValueStore(storage, { namespace: this.namespace });
+      return this.kv;
+    } catch {
+      return null;
+    }
+  }
+}
+
 /**
  * Calculate token expiration timestamp from expires_in value
  * @param expiresIn - Token lifetime in seconds

@@ -43,6 +43,7 @@ import type {
   SpanData,
   ConfirmationResponseEvent,
   HITLConfig,
+  IConversationMemoryManager,
   ObservabilityConfig,
   TaskManagerConfig,
   WorkflowConfig,
@@ -96,6 +97,7 @@ import type {
   OrchestrationResult,
   MCPTool,
   RoutingDecision,
+  StorageProvider,
 } from "./types/index.js";
 import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
 import {
@@ -128,6 +130,8 @@ import { LocalTempArtifactStore } from "./artifacts/artifactStore.js";
 import { ToolRouter } from "./mcp/routing/index.js";
 // Import direct tools server for automatic registration
 import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
+// Import storage server for automatic registration
+import { storageServer } from "./mcp/servers/storage/storageServer.js";
 import { inferAnnotations, isSafeToRetry } from "./mcp/toolAnnotations.js";
 import { MCPToolRegistry } from "./mcp/toolRegistry.js";
 import type { HippocampusConfig } from "@juspay/hippocampus";
@@ -531,10 +535,7 @@ export class NeuroLink {
     );
   }
   // Conversation memory support
-  public conversationMemory?:
-    | ConversationMemoryManager
-    | RedisConversationMemoryManager
-    | null;
+  public conversationMemory?: IConversationMemoryManager | null;
   private conversationMemoryNeedsInit = false;
   private conversationMemoryConfig?: {
     conversationMemory?: Partial<ConversationMemoryConfig>;
@@ -550,6 +551,9 @@ export class NeuroLink {
 
   // Per-provider credential overrides (instance-level default)
   private credentials?: NeurolinkCredentials;
+
+  // Storage backend — managed lifecycle (close on dispose/shutdown)
+  private storage?: StorageProvider;
 
   /**
    * Merge instance-level credentials with per-call credentials.
@@ -1071,6 +1075,11 @@ export class NeuroLink {
       this.credentials = config.credentials;
     }
 
+    // Wire storage backend
+    if (config?.storage) {
+      this.storage = config.storage;
+    }
+
     // Store task config for lazy initialization
     this._taskManagerConfig = config?.tasks;
 
@@ -1103,6 +1112,15 @@ export class NeuroLink {
       this.registerTaskTools(this._taskManager);
     }
     return this._taskManager;
+  }
+
+  /**
+   * Storage backend accessor for extensions and plugins.
+   * Returns the StorageProvider passed at construction time, or undefined
+   * if no storage was configured.
+   */
+  get storageProvider(): StorageProvider | undefined {
+    return this.storage;
   }
 
   /**
@@ -2279,6 +2297,7 @@ Current user's request: ${currentInput}`;
       mcpInitStartTime,
       mcpInitHrTimeStart,
     );
+    await this.registerStorageServerInternal();
     await this.loadMCPConfigurationInternal();
   }
 
@@ -2355,6 +2374,54 @@ Current user's request: ${currentInput}`;
       });
 
       mcpLogger.warn("[NeuroLink] Failed to register direct tools server", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * Register storage server for conversation thread and message lookup tools
+   */
+  private async registerStorageServerInternal(): Promise<void> {
+    try {
+      if (process.env.NEUROLINK_DISABLE_STORAGE_TOOLS === "true") {
+        mcpLogger.debug(
+          "Storage tools server is disabled via environment variable.",
+        );
+        return;
+      }
+
+      // Convert NeuroLinkMCPServer tools to MCPServerInfo format and register
+      const storageServerInfo = {
+        id: storageServer.id,
+        name: storageServer.title,
+        description:
+          storageServer.description ||
+          "Query conversation threads and message history",
+        transport: "stdio" as const,
+        status: "connected" as const,
+        tools: Object.values(storageServer.tools).map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: tool.inputSchema as object | undefined,
+          execute: tool.execute as (
+            params: unknown,
+            context?: unknown,
+          ) => Promise<unknown>,
+        })),
+        metadata: {
+          category: "in-memory" as const,
+        },
+      };
+
+      await this.toolRegistry.registerServer(storageServerInfo);
+
+      mcpLogger.debug("[NeuroLink] Storage server registered successfully", {
+        serverId: storageServer.id,
+        toolCount: Object.keys(storageServer.tools).length,
+      });
+    } catch (error) {
+      mcpLogger.warn("[NeuroLink] Failed to register storage server", {
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -3033,6 +3100,19 @@ Current user's request: ${currentInput}`;
           logger.warn(
             "[NeuroLink] Conversation memory shutdown failed:",
             error,
+          );
+        }
+      }
+
+      // Close storage backend
+      if (this.storage?.close) {
+        try {
+          await this.storage.close();
+          logger.debug("[NeuroLink] Storage backend closed");
+        } catch (err) {
+          logger.warn(
+            "[NeuroLink] Error closing storage during shutdown:",
+            err,
           );
         }
       }
@@ -12262,6 +12342,19 @@ Current user's request: ${currentInput}`;
         } finally {
           this._taskManager = undefined;
         }
+      }
+
+      // 5c. Storage cleanup
+      try {
+        if (this.storage?.close) {
+          await this.storage.close();
+          logger.debug("[NeuroLink] Storage backend closed");
+        }
+      } catch (error) {
+        cleanupErrors.push(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        logger.warn("[NeuroLink] Error closing storage:", error);
       }
 
       // 6. Reset initialization flags

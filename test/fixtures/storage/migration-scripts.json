@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Migration Test Cases for NeuroLink Storage Abstraction",
+  "version": "1.0.0",
+
+  "migrations": {
+    "builtIn": [
+      {
+        "version": "1.0.0",
+        "name": "initial_setup",
+        "description": "Creates core tables/collections for threads, messages, workflow runs, and custom records",
+        "tables": [
+          "threads",
+          "messages",
+          "workflow_runs",
+          "custom_records",
+          "migrations"
+        ],
+        "indexes": [
+          "threads_resource_id_idx",
+          "threads_status_idx",
+          "messages_thread_id_idx",
+          "workflow_runs_workflow_id_idx",
+          "custom_records_namespace_key_idx"
+        ],
+        "reversible": true,
+        "testCases": [
+          {
+            "name": "should_create_all_tables",
+            "assertions": ["tables_exist", "indexes_exist"]
+          },
+          {
+            "name": "should_rollback_cleanly",
+            "assertions": ["tables_removed", "indexes_removed"]
+          }
+        ]
+      },
+      {
+        "version": "1.1.0",
+        "name": "add_metadata_columns",
+        "description": "Adds metadata JSONB columns to all entity tables",
+        "changes": [
+          { "table": "threads", "add_column": "metadata JSONB" },
+          { "table": "messages", "add_column": "metadata JSONB" },
+          { "table": "workflow_runs", "add_column": "metadata JSONB" }
+        ],
+        "reversible": true
+      },
+      {
+        "version": "1.2.0",
+        "name": "add_ttl_support",
+        "description": "Adds TTL (time-to-live) support for custom records",
+        "changes": [
+          { "table": "custom_records", "add_column": "expires_at TIMESTAMP" },
+          { "index": "custom_records_expires_at_idx" }
+        ],
+        "reversible": true
+      },
+      {
+        "version": "2.0.0",
+        "name": "add_workflow_steps",
+        "description": "Adds step results tracking for workflow runs",
+        "changes": [
+          { "table": "workflow_runs", "add_column": "step_results JSONB" },
+          { "table": "workflow_runs", "add_column": "suspension_data JSONB" },
+          { "table": "workflow_runs", "add_column": "error JSONB" }
+        ],
+        "reversible": true
+      }
+    ],
+
+    "custom": [
+      {
+        "version": "custom-1.0.0",
+        "name": "add_custom_analytics",
+        "description": "Example custom migration for analytics tables",
+        "up": {
+          "sql": "CREATE TABLE IF NOT EXISTS analytics (id TEXT PRIMARY KEY, event_type TEXT, data JSONB, created_at TIMESTAMP DEFAULT NOW())",
+          "indexes": [
+            "CREATE INDEX analytics_event_type_idx ON analytics(event_type)"
+          ]
+        },
+        "down": {
+          "sql": "DROP TABLE IF EXISTS analytics"
+        },
+        "reversible": true
+      }
+    ]
+  },
+
+  "versionTracking": {
+    "description": "Migration version tracking configuration",
+    "tableName": "schema_migrations",
+    "columns": {
+      "version": "TEXT PRIMARY KEY",
+      "name": "TEXT NOT NULL",
+      "applied_at": "TIMESTAMP DEFAULT NOW()",
+      "checksum": "TEXT",
+      "execution_time_ms": "INTEGER"
+    },
+    "testCases": [
+      {
+        "name": "should_track_applied_migrations",
+        "setup": ["apply_migration_1.0.0"],
+        "assertions": ["version_recorded", "timestamp_set"]
+      },
+      {
+        "name": "should_prevent_duplicate_application",
+        "setup": ["apply_migration_1.0.0"],
+        "action": "apply_migration_1.0.0_again",
+        "expectedBehavior": "skip_or_error"
+      },
+      {
+        "name": "should_track_rollback",
+        "setup": ["apply_migration_1.0.0"],
+        "action": "rollback_migration_1.0.0",
+        "assertions": ["version_removed_from_tracking"]
+      }
+    ]
+  },
+
+  "upMigrations": {
+    "description": "Forward migration test cases",
+    "scenarios": [
+      {
+        "name": "migrate_all_pending",
+        "initialState": "empty_database",
+        "action": "migrateUp()",
+        "expectedResult": {
+          "appliedCount": 4,
+          "currentVersion": "2.0.0"
+        }
+      },
+      {
+        "name": "migrate_to_specific_version",
+        "initialState": "empty_database",
+        "action": "migrateUp('1.1.0')",
+        "expectedResult": {
+          "appliedCount": 2,
+          "currentVersion": "1.1.0",
+          "pendingCount": 2
+        }
+      },
+      {
+        "name": "migrate_incrementally",
+        "initialState": "at_version_1.0.0",
+        "action": "migrateUp('1.2.0')",
+        "expectedResult": {
+          "appliedCount": 2,
+          "currentVersion": "1.2.0"
+        }
+      },
+      {
+        "name": "no_op_when_current",
+        "initialState": "at_version_2.0.0",
+        "action": "migrateUp()",
+        "expectedResult": {
+          "appliedCount": 0,
+          "currentVersion": "2.0.0"
+        }
+      }
+    ]
+  },
+
+  "downMigrations": {
+    "description": "Rollback migration test cases",
+    "scenarios": [
+      {
+        "name": "rollback_one_version",
+        "initialState": "at_version_2.0.0",
+        "action": "migrateDown()",
+        "expectedResult": {
+          "revertedCount": 1,
+          "currentVersion": "1.2.0"
+        }
+      },
+      {
+        "name": "rollback_to_specific_version",
+        "initialState": "at_version_2.0.0",
+        "action": "migrateDown('1.0.0')",
+        "expectedResult": {
+          "revertedCount": 3,
+          "currentVersion": "1.0.0"
+        }
+      },
+      {
+        "name": "rollback_all",
+        "initialState": "at_version_2.0.0",
+        "action": "migrateDown(null)",
+        "expectedResult": {
+          "revertedCount": 4,
+          "currentVersion": null
+        }
+      },
+      {
+        "name": "fail_on_missing_down_migration",
+        "initialState": "has_irreversible_migration",
+        "action": "migrateDown()",
+        "expectedResult": {
+          "error": "Migration X.X.X does not have a down migration"
+        }
+      }
+    ]
+  },
+
+  "dryRunMode": {
+    "description": "Dry-run mode test cases - no actual changes applied",
+    "scenarios": [
+      {
+        "name": "dry_run_up",
+        "config": { "dryRun": true },
+        "initialState": "empty_database",
+        "action": "migrateUp()",
+        "expectedResult": {
+          "wouldApply": ["1.0.0", "1.1.0", "1.2.0", "2.0.0"],
+          "actuallyApplied": [],
+          "databaseUnchanged": true
+        }
+      },
+      {
+        "name": "dry_run_down",
+        "config": { "dryRun": true },
+        "initialState": "at_version_2.0.0",
+        "action": "migrateDown('1.0.0')",
+        "expectedResult": {
+          "wouldRevert": ["2.0.0", "1.2.0", "1.1.0"],
+          "actuallyReverted": [],
+          "databaseUnchanged": true
+        }
+      },
+      {
+        "name": "dry_run_with_callback",
+        "config": { "dryRun": true, "onMigration": "callback" },
+        "action": "migrateUp()",
+        "expectedResult": {
+          "callbackInvoked": true,
+          "callbackReceivedMigrationDetails": true
+        }
+      }
+    ]
+  },
+
+  "errorHandling": {
+    "description": "Migration error handling test cases",
+    "scenarios": [
+      {
+        "name": "fail_on_invalid_version",
+        "action": "register({ version: '', name: 'invalid' })",
+        "expectedError": "Invalid migration: version is required"
+      },
+      {
+        "name": "fail_on_duplicate_version",
+        "setup": ["register({ version: '1.0.0' })"],
+        "action": "register({ version: '1.0.0' })",
+        "expectedError": "Duplicate migration version: 1.0.0"
+      },
+      {
+        "name": "fail_on_migration_error",
+        "action": "run_failing_migration",
+        "expectedBehavior": {
+          "transactionRolledBack": true,
+          "versionNotRecorded": true,
+          "errorPropagated": true
+        }
+      },
+      {
+        "name": "recovery_from_partial_failure",
+        "setup": ["apply_migrations_1.0.0_and_1.1.0"],
+        "action": "apply_failing_migration_1.2.0",
+        "expectedState": {
+          "currentVersion": "1.1.0",
+          "failedMigrationNotApplied": true
+        }
+      }
+    ]
+  },
+
+  "resetOperation": {
+    "description": "Reset (down all, up all) test cases",
+    "scenarios": [
+      {
+        "name": "full_reset",
+        "initialState": "at_version_2.0.0_with_data",
+        "action": "reset()",
+        "expectedResult": {
+          "downMigrationsRun": 4,
+          "upMigrationsRun": 4,
+          "currentVersion": "2.0.0",
+          "dataCleared": true
+        }
+      },
+      {
+        "name": "reset_preserves_migration_order",
+        "action": "reset()",
+        "assertions": ["down_runs_in_reverse_order", "up_runs_in_forward_order"]
+      }
+    ]
+  },
+
+  "statusQueries": {
+    "description": "Migration status query test cases",
+    "methods": {
+      "getStatus": {
+        "returns": {
+          "applied": "Array of applied migration versions",
+          "pending": "Array of pending migration versions",
+          "current": "Current version or null"
+        }
+      },
+      "getAppliedMigrations": {
+        "returns": "Array of { version, name, appliedAt }"
+      },
+      "getPendingMigrations": {
+        "returns": "Array of { version, name }"
+      },
+      "getCurrentVersion": {
+        "returns": "Current version string or null"
+      }
+    }
+  }
+}
