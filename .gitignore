@@ -140,3 +140,5 @@ docs/mastra-features-implementation
 docs-site/static/search-index.json
 .claude/worktrees/
 .type-consolidation/
+.serena/
+FEATURE-STATUS.md

@@ -12,6 +12,7 @@ import type {
   RegistryEntry,
   RegistryStats,
   WorkflowMetadata,
+  StorageKeyValueStore,
 } from "../../types/index.js";
 import { validateForRegistration } from "../utils/workflowValidation.js";
 const functionTag = "WorkflowRegistry";
@@ -22,9 +23,31 @@ const functionTag = "WorkflowRegistry";
 
 /**
  * In-memory workflow registry
- * TODO: Consider persistent storage in future phases
+ * Backed by optional persistent KV store when storage is configured.
  */
 const workflowRegistry = new Map<string, RegistryEntry>();
+
+// ============================================================================
+// PERSISTENT KV STORE (optional, lazy-initialized)
+// ============================================================================
+
+let _kvStore: StorageKeyValueStore | null = null;
+
+async function getKVStore(): Promise<StorageKeyValueStore | null> {
+  if (_kvStore) {
+    return _kvStore;
+  }
+  try {
+    const { createStorageFromEnv } = await import("../../storage/index.js");
+    const storage = await createStorageFromEnv();
+    const { KeyValueStore } =
+      await import("../../storage/managers/keyValueStore.js");
+    _kvStore = new KeyValueStore(storage, { namespace: "workflow-registry" });
+    return _kvStore;
+  } catch {
+    return null;
+  }
+}
 
 // ============================================================================
 // REGISTRY OPERATIONS
@@ -86,6 +109,20 @@ export function registerWorkflow(
 
   workflowRegistry.set(config.id, entry);
 
+  // Persist to KV store if available (fire-and-forget, non-blocking)
+  getKVStore()
+    .then((kv) => {
+      if (kv) {
+        return kv.set(config.id, JSON.stringify(entry)).catch((err) => {
+          logger.debug(`[${functionTag}] KV persist failed:`, err);
+        });
+      }
+      return undefined;
+    })
+    .catch((err) => {
+      logger.debug(`[${functionTag}] KV store init failed:`, err);
+    });
+
   logger.info(`[${functionTag}] Workflow registered successfully`, {
     workflowId: config.id,
     name: config.name,
@@ -118,7 +155,7 @@ export function unregisterWorkflow(workflowId: string): boolean {
 }
 
 /**
- * Get workflow configuration by ID
+ * Get workflow configuration by ID (synchronous, in-memory only)
  * @param workflowId - ID of workflow to retrieve
  * @returns Workflow configuration or undefined
  */
@@ -136,6 +173,44 @@ export function getWorkflow(workflowId: string): WorkflowConfig | undefined {
     });
 
     return entry.config;
+  }
+
+  logger.warn(`[${functionTag}] Workflow not found`, { workflowId });
+  return undefined;
+}
+
+/**
+ * Get workflow configuration by ID, falling back to persistent KV store on miss.
+ * Hydrates the in-memory registry when a KV hit occurs.
+ * @param workflowId - ID of workflow to retrieve
+ * @returns Workflow configuration or undefined
+ */
+export async function getWorkflowAsync(
+  workflowId: string,
+): Promise<WorkflowConfig | undefined> {
+  let entry = workflowRegistry.get(workflowId);
+
+  if (entry) {
+    entry.lastUsed = new Date().toISOString();
+    entry.usageCount++;
+    return entry.config;
+  }
+
+  // Miss — try persistent KV store
+  const kv = await getKVStore();
+  if (kv) {
+    const stored = await kv.get<string>(workflowId).catch(() => null);
+    if (stored) {
+      try {
+        entry = JSON.parse(stored) as RegistryEntry;
+        workflowRegistry.set(workflowId, entry);
+        entry.lastUsed = new Date().toISOString();
+        entry.usageCount++;
+        return entry.config;
+      } catch {
+        // Corrupted KV entry — ignore
+      }
+    }
   }
 
   logger.warn(`[${functionTag}] Workflow not found`, { workflowId });

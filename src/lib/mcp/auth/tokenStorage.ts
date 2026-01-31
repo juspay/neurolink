@@ -4,7 +4,11 @@
  */
 
 import { logger } from "../../utils/logger.js";
-import type { OAuthTokens, TokenStorage } from "../../types/index.js";
+import type {
+  OAuthTokens,
+  TokenStorage,
+  StorageKVStoreContract,
+} from "../../types/index.js";
 
 /**
  * In-memory token storage implementation
@@ -155,6 +159,72 @@ export function isTokenExpired(
   const now = Date.now();
 
   return tokens.expiresAt - bufferMs <= now;
+}
+
+/**
+ * Storage-backed token storage implementation
+ * Uses the KeyValueStore from the storage abstraction layer.
+ * Gracefully degrades to no-op if storage is not configured.
+ */
+export class StorageTokenStorage implements TokenStorage {
+  private kv: StorageKVStoreContract | null = null;
+  private readonly namespace = "mcp:oauth-tokens";
+
+  async getTokens(serverId: string): Promise<OAuthTokens | null> {
+    const kv = await this.getKV();
+    if (!kv) {
+      return null;
+    }
+    return kv.get<OAuthTokens>(serverId);
+  }
+
+  async saveTokens(serverId: string, tokens: OAuthTokens): Promise<void> {
+    const kv = await this.getKV();
+    if (!kv) {
+      return;
+    }
+    await kv.set(serverId, tokens);
+  }
+
+  async deleteTokens(serverId: string): Promise<void> {
+    const kv = await this.getKV();
+    if (!kv) {
+      return;
+    }
+    await kv.delete(serverId);
+  }
+
+  async hasTokens(serverId: string): Promise<boolean> {
+    const kv = await this.getKV();
+    if (!kv) {
+      return false;
+    }
+    return kv.has(serverId);
+  }
+
+  async clearAll(): Promise<void> {
+    const kv = await this.getKV();
+    if (!kv) {
+      return;
+    }
+    await kv.clear();
+  }
+
+  private async getKV(): Promise<StorageKVStoreContract | null> {
+    if (this.kv) {
+      return this.kv;
+    }
+    try {
+      const { createStorageFromEnv } = await import("../../storage/index.js");
+      const storage = await createStorageFromEnv();
+      const { KeyValueStore } =
+        await import("../../storage/managers/keyValueStore.js");
+      this.kv = new KeyValueStore(storage, { namespace: this.namespace });
+      return this.kv;
+    } catch {
+      return null;
+    }
+  }
 }
 
 /**

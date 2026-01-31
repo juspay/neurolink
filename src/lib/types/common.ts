@@ -33,9 +33,19 @@ export type UnknownRecord = Record<string, unknown>;
 export type UnknownArray = unknown[];
 
 /**
- * Storage type for conversation memory factory
+ * Storage type for conversation memory factory.
+ * "memory" and "redis" are handled by the legacy in-process managers.
+ * All other values delegate to the storage abstraction layer.
  */
-export type StorageType = "memory" | "redis";
+export type StorageType =
+  | "memory"
+  | "redis"
+  | "postgresql"
+  | "mongodb"
+  | "sqlite"
+  | "libsql"
+  | "s3"
+  | "file";
 
 /**
  * JSON-serializable value type

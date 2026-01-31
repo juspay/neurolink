@@ -7,19 +7,39 @@ import type {
   StorageType,
   ConversationMemoryConfig,
   RedisStorageConfig,
+  IConversationMemoryManager,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { ConversationMemoryManager } from "./conversationMemoryManager.js";
 import { RedisConversationMemoryManager } from "./redisConversationMemoryManager.js";
 
 /**
- * Creates a conversation memory manager based on configuration
+ * Storage backend types that delegate to the storage abstraction layer.
+ * These are handled by StorageConversationMemoryManager.
  */
-export function createConversationMemoryManager(
+const STORAGE_ABSTRACTION_BACKENDS: StorageType[] = [
+  "postgresql",
+  "mongodb",
+  "sqlite",
+  "libsql",
+  "s3",
+  "file",
+];
+
+/**
+ * Creates a conversation memory manager based on configuration.
+ * Returns an async factory for storage-backed backends (those require await),
+ * and a synchronous instance for the legacy "memory" and "redis" backends.
+ *
+ * Note: When storageType is a storage-abstraction backend, this function is
+ * async and must be awaited. For "memory" and "redis" it returns synchronously
+ * wrapped in a resolved promise for uniform usage.
+ */
+export async function createConversationMemoryManager(
   config: ConversationMemoryConfig,
   storageType: StorageType = "memory",
   redisConfig?: RedisStorageConfig,
-): ConversationMemoryManager | RedisConversationMemoryManager {
+): Promise<IConversationMemoryManager> {
   logger.debug(
     "[conversationMemoryFactory] Creating conversation memory manager",
     {
@@ -50,7 +70,7 @@ export function createConversationMemoryManager(
     return memoryManager;
   }
 
-  // Redis storage
+  // Redis storage (legacy Redis-native manager — full-featured with summarization)
   if (storageType === "redis") {
     logger.debug(
       "[conversationMemoryFactory] Creating Redis conversation manager",
@@ -80,6 +100,35 @@ export function createConversationMemoryManager(
     );
 
     return redisManager;
+  }
+
+  // Storage abstraction layer backends
+  if (STORAGE_ABSTRACTION_BACKENDS.includes(storageType)) {
+    logger.debug(
+      "[conversationMemoryFactory] Creating storage-abstraction conversation manager",
+      { storageType },
+    );
+
+    const { createStorageFromEnv } = await import("../storage/index.js");
+    const storage = await createStorageFromEnv();
+
+    const { StorageConversationMemoryManager } =
+      await import("./storageConversationMemoryManager.js");
+
+    const storageManager = new StorageConversationMemoryManager(
+      storage,
+      config,
+    );
+
+    logger.debug(
+      "[conversationMemoryFactory] Storage-abstraction conversation manager created successfully",
+      {
+        managerType: storageManager.constructor.name,
+        backend: storage.type,
+      },
+    );
+
+    return storageManager;
   }
 
   // Fallback to memory storage for unknown types
@@ -119,7 +168,16 @@ export function getStorageType(): StorageType {
   const normalizedStorageType = rawStorageType.trim().toLowerCase();
 
   // Validate against allowed StorageType values
-  const validStorageTypes: StorageType[] = ["memory", "redis"];
+  const validStorageTypes: StorageType[] = [
+    "memory",
+    "redis",
+    "postgresql",
+    "mongodb",
+    "sqlite",
+    "libsql",
+    "s3",
+    "file",
+  ];
 
   if (validStorageTypes.includes(normalizedStorageType as StorageType)) {
     logger.debug("[conversationMemoryFactory] Determined storage type", {
