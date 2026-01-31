@@ -104,7 +104,19 @@ jobs:
       pull-requests: write
 
     steps:
+      - name: Check Comment Permissions
+        id: check-permissions
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.id }}" != "${{ github.event.repository.id }}" ]; then
+            echo "🔒 External contributor PR - comment posting skipped (GitHub security restrictions)"
+            echo "can_comment=false" >> $GITHUB_OUTPUT
+          else
+            echo "🏠 Internal PR - comment posting enabled"
+            echo "can_comment=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Post PR comment with results
+        if: steps.check-permissions.outputs.can_comment == 'true'
         uses: actions/github-script@v7
         with:
           script: |

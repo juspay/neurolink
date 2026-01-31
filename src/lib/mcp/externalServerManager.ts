@@ -1434,7 +1434,8 @@ export class ExternalServerManager extends EventEmitter {
   }
 
   /**
-   * Shutdown all servers
+   * Shutdown all servers and clean up resources
+   * This method should be called during application shutdown to prevent memory leaks
    */
   async shutdown(): Promise<void> {
     if (this.isShuttingDown) {
@@ -1456,7 +1457,24 @@ export class ExternalServerManager extends EventEmitter {
     await Promise.all(shutdownPromises);
     this.servers.clear();
 
-    mcpLogger.info("[ExternalServerManager] All servers shut down");
+    // Clean up the tool discovery service to prevent memory leaks
+    // from accumulated event listeners
+    this.toolDiscovery.destroy();
+
+    // Remove all event listeners from this manager
+    this.removeAllListeners();
+
+    mcpLogger.info(
+      "[ExternalServerManager] All servers shut down and resources cleaned up",
+    );
+  }
+
+  /**
+   * Destroy the manager and all associated resources
+   * Alias for shutdown() to match the pattern used by other components
+   */
+  async destroy(): Promise<void> {
+    return this.shutdown();
   }
 
   /**
