@@ -36,29 +36,25 @@
 import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
 
-// Export ALL types from the centralized type barrel
-export * from "./types/index.js";
-
-// Tool Registration utility
-export { validateTool } from "./sdk/toolRegistration.js";
-
 export {
   AIProviderName,
   BedrockModels,
   OpenAIModels,
   VertexModels,
 } from "./constants/enums.js";
-
-// Utility exports
-export {
-  getBestProvider,
-  getAvailableProviders,
-  isValidProvider,
-} from "./utils/providerUtils.js";
-
 // Dynamic Models exports
 export { dynamicModelProvider } from "./core/dynamicModels.js";
+// Tool Registration utility
+export { validateTool } from "./sdk/toolRegistration.js";
+// Export ALL types from the centralized type barrel
+export * from "./types/index.js";
 export type { DynamicModelConfig, ModelRegistry } from "./types/modelTypes.js";
+// Utility exports
+export {
+  getAvailableProviders,
+  getBestProvider,
+  isValidProvider,
+} from "./utils/providerUtils.js";
 
 // Main NeuroLink wrapper class and diagnostic types
 import { NeuroLink } from "./neurolink.js";
@@ -67,24 +63,21 @@ export type { MCPServerInfo } from "./types/mcpTypes.js";
 
 // Observability configuration types
 export type {
-  ObservabilityConfig,
   LangfuseConfig,
+  ObservabilityConfig,
   OpenTelemetryConfig,
 } from "./types/observability.js";
 
 export { buildObservabilityConfigFromEnv } from "./utils/observabilityHelpers.js";
 
 import {
-  initializeOpenTelemetry,
-  shutdownOpenTelemetry,
   flushOpenTelemetry,
   getLangfuseHealthStatus,
+  initializeOpenTelemetry,
   setLangfuseContext,
+  shutdownOpenTelemetry,
 } from "./services/server/ai/observability/instrumentation.js";
-import {
-  initializeTelemetry as init,
-  getTelemetryStatus as getStatus,
-} from "./telemetry/index.js";
+import { getTelemetryStatus as getStatus, initializeTelemetry as init } from "./telemetry/index.js";
 
 export {
   initializeOpenTelemetry,
@@ -94,15 +87,15 @@ export {
   setLangfuseContext,
 };
 
+export { MiddlewareFactory } from "./middleware/factory.js";
 // Middleware exports
 export type {
-  NeuroLinkMiddleware,
+  MiddlewareConfig,
   MiddlewareContext,
   MiddlewareFactoryOptions,
   MiddlewarePreset,
-  MiddlewareConfig,
+  NeuroLinkMiddleware,
 } from "./types/middlewareTypes.js";
-export { MiddlewareFactory } from "./middleware/factory.js";
 
 // Version
 export const VERSION = "1.0.0";
@@ -138,14 +131,8 @@ export const VERSION = "1.0.0";
  * @see {@link NeuroLink} for the main SDK class
  * @since 1.0.0
  */
-export async function createAIProvider(
-  providerName?: string,
-  modelName?: string,
-) {
-  return await AIProviderFactory.createProvider(
-    providerName || "bedrock",
-    modelName,
-  );
+export async function createAIProvider(providerName?: string, modelName?: string) {
+  return await AIProviderFactory.createProvider(providerName || "bedrock", modelName);
 }
 
 /**
@@ -240,14 +227,8 @@ export async function createAIProviderWithFallback(
  * @see {@link getBestProvider} for provider detection utility
  * @since 1.0.0
  */
-export async function createBestAIProvider(
-  requestedProvider?: string,
-  modelName?: string,
-) {
-  return await AIProviderFactory.createBestProvider(
-    requestedProvider,
-    modelName,
-  );
+export async function createBestAIProvider(requestedProvider?: string, modelName?: string) {
+  return await AIProviderFactory.createBestProvider(requestedProvider, modelName);
 }
 
 // ============================================================================
@@ -276,53 +257,53 @@ export async function createBestAIProvider(
  * ```
  */
 export {
+  CircuitBreakerManager,
+  calculateExpiresAt,
+  createOAuthProviderFromConfig,
+  DEFAULT_HTTP_RETRY_CONFIG,
+  DEFAULT_RATE_LIMIT_CONFIG,
+  executeMCP,
+  FileTokenStorage,
+  getMCPStats,
+  globalCircuitBreakerManager,
+  globalRateLimiterManager,
+  // HTTP Transport utilities
+  HTTPRateLimiter,
+  // OAuth Authentication
+  InMemoryTokenStorage,
   // Core MCP ecosystem
   // Simplified MCP exports
   initializeMCPEcosystem,
-  listMCPs,
-  executeMCP,
-  getMCPStats,
-  mcpLogger,
-  // HTTP Transport utilities
-  HTTPRateLimiter,
-  RateLimiterManager,
-  globalRateLimiterManager,
-  DEFAULT_RATE_LIMIT_CONFIG,
-  DEFAULT_HTTP_RETRY_CONFIG,
-  isRetryableStatusCode,
   isRetryableHTTPError,
-  withHTTPRetry,
-  // OAuth Authentication
-  InMemoryTokenStorage,
-  FileTokenStorage,
+  isRetryableStatusCode,
   isTokenExpired,
-  calculateExpiresAt,
-  NeuroLinkOAuthProvider,
-  createOAuthProviderFromConfig,
+  listMCPs,
   // Circuit Breaker
   MCPCircuitBreaker,
-  CircuitBreakerManager,
-  globalCircuitBreakerManager,
+  mcpLogger,
+  NeuroLinkOAuthProvider,
+  RateLimiterManager,
+  withHTTPRetry,
 } from "./mcp/index.js";
 
 export type {
-  McpMetadata,
+  AuthorizationUrlResult,
   DiscoveredMcp,
+  HTTPRetryConfig,
+  MCPOAuthConfig,
+  McpMetadata,
+  OAuthClientInformation,
+  OAuthTokens,
   // HTTP Transport types
   RateLimitConfig,
-  HTTPRetryConfig,
-  OAuthTokens,
-  TokenStorage,
-  MCPOAuthConfig,
-  OAuthClientInformation,
-  AuthorizationUrlResult,
   TokenExchangeRequest,
+  TokenStorage,
 } from "./types/mcpTypes.js";
 
 export type {
   ExecutionContext,
-  ToolInfo,
   ToolExecutionResult,
+  ToolInfo,
 } from "./types/tools.js";
 
 export type { LogLevel } from "./types/utilities.js";
@@ -361,10 +342,10 @@ export async function getTelemetryStatus(): Promise<{
 
 // Export legacy types for backward compatibility
 export type {
-  TextGenerationOptions,
-  TextGenerationResult,
   AnalyticsData,
   EvaluationData,
+  TextGenerationOptions,
+  TextGenerationResult,
 } from "./types/index.js";
 
 /**
@@ -417,3 +398,188 @@ export async function generateText(
   const neurolink = new NeuroLink();
   return await neurolink.generateText(options);
 }
+
+// ============================================================================
+// WORKFLOW SYSTEM - Declarative AI Orchestration
+// ============================================================================
+
+// Re-export workflow types (only types that exist in workflow/index.js)
+export type {
+  // Checkpoint Types
+  CheckpointCreatedEvent,
+  CheckpointStorage,
+  CheckpointStorageConfig,
+  // Control flow types
+  ConditionalBranch,
+  LoopDefinition,
+  ParallelGroup,
+  // Configuration types
+  RetryConfig,
+  // Step types
+  StepCompleteEvent,
+  StepConfig,
+  StepDefinition,
+  StepError,
+  StepFailedEvent,
+  StepMetadata,
+  StepResult,
+  StepRetryEvent,
+  StepStartEvent,
+  StepStatus,
+  SuspensionRequest,
+  // Workflow types
+  WorkflowCheckpoint,
+  WorkflowCompleteEvent,
+  WorkflowContext,
+  WorkflowDefinition,
+  WorkflowEdge,
+  WorkflowEventMap,
+  WorkflowEventType,
+  WorkflowExecutionResult,
+  WorkflowFailedEvent,
+  WorkflowGraph,
+  WorkflowStartEvent,
+  WorkflowStatus,
+  WorkflowSuspendedEvent,
+} from "./workflow/index.js";
+/**
+ * Workflow System Exports
+ *
+ * The workflow system provides declarative, type-safe orchestration of complex
+ * AI operations with features like graph-based execution, conditional branching,
+ * parallel execution, loops, and suspension/resumption.
+ *
+ * @example
+ * ```typescript
+ * import {
+ *   createWorkflow,
+ *   WorkflowExecutor,
+ *   WorkflowRegistry,
+ * } from '@juspay/neurolink';
+ *
+ * // Create a workflow using the fluent builder API
+ * const workflow = createWorkflow('data-pipeline')
+ *   .name('Data Processing Pipeline')
+ *   .step('fetch', {
+ *     execute: async (input, ctx) => {
+ *       const data = await fetch(input.url);
+ *       return { success: true, data: await data.json() };
+ *     }
+ *   })
+ *   .then('process', {
+ *     execute: async (input, ctx) => {
+ *       const result = await ctx.neurolink.generate({
+ *         input: { text: `Process: ${JSON.stringify(input)}` }
+ *       });
+ *       return { success: true, data: result };
+ *     }
+ *   })
+ *   .register();
+ *
+ * // Execute the workflow
+ * const neurolink = new NeuroLink();
+ * const result = await neurolink.executeWorkflow(workflow, { url: 'https://api.example.com' });
+ * ```
+ */
+export {
+  type AIStepConfig,
+  type ApprovalStepConfig,
+  // Step Helpers (specialized step factory functions)
+  aiStep,
+  type BatchParallelStepConfig,
+  BuilderError,
+  // Graph Utilities
+  buildGraph,
+  CheckpointError,
+  // Checkpoint Manager
+  CheckpointManager,
+  CheckpointRedisStorage,
+  type ConditionFunction,
+  type ConditionResult,
+  type ConditionStepConfig,
+  type ConditionWaitStepConfig,
+  conditionStep,
+  createApprovalStep,
+  createApprovalStepFactory,
+  createBackoffWaitStep,
+  createBatchParallelStepFactory,
+  createCheckpointManager,
+  createComparisonStep,
+  // Step Type factories (Condition)
+  createConditionStepFactory,
+  createConditionWaitStepFactory,
+  createConfirmationStep,
+  createDangerousActionConfirmation,
+  // Types exported inline from workflow/index.js
+  type GraphNode,
+  getAllPredecessors,
+  getAllSuccessors,
+  getExecutionOrder,
+  getWorkflow,
+  type HumanActionType,
+  type HumanInputStepConfig,
+  type HumanStepConfig,
+  type HumanStepResult,
+  hasCycles,
+  httpStep,
+  humanStep,
+  humanStepWithResume,
+  InMemoryCheckpointStorage,
+  type ItemsProviderFunction,
+  type LoopBodyFunction,
+  type LoopConditionFunction,
+  type LoopResult,
+  listWorkflows,
+  MemoryCheckpointStorage,
+  type MultiConditionStepConfig,
+  type ParallelResult,
+  type ParallelStepConfig,
+  type ParallelTaskFunction,
+  type PendingSuspension,
+  RedisCheckpointStorage,
+  RegistryError,
+  type RepeatLoopStepConfig,
+  type ReviewStepConfig,
+  registerWorkflow,
+  Step,
+  StepExecutionError,
+  // === NEW: Components from main implementation ===
+  // Step Registry
+  StepRegistry,
+  type Subscription,
+  // Suspend/Resume Manager
+  SuspendResumeManager,
+  SuspensionError,
+  SuspensionErrorBase,
+  type SuspensionTimeoutHandler,
+  // Step Types
+  type TransformFunction,
+  type TransformStepConfig,
+  toolStep,
+  topologicalSort,
+  transformStep,
+  validateGraph,
+  validateStep,
+  type WaitConditionFunction,
+  type WaitResult,
+  WorkflowBuilder,
+  WorkflowCancelledError,
+  // Error classes
+  WorkflowErrorCodes,
+  // Event Stream
+  WorkflowEventStream,
+  WorkflowExecutionError,
+  // Workflow Executor
+  WorkflowExecutor,
+  // Workflow Factory
+  WorkflowFactory,
+  type WorkflowInstance,
+  // Workflow Registry
+  WorkflowRegistry,
+  // Workflow State Manager
+  WorkflowStateManager,
+  WorkflowTimeoutError,
+  WorkflowTimeoutErrorBase,
+  WorkflowValidationError,
+  workflowErrorFactory,
+} from "./workflow/index.js";

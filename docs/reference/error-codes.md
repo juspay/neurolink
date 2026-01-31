@@ -511,6 +511,6 @@ Some providers have additional error codes:
 ## Related Documentation
 
 - [Troubleshooting Guide](/docs/reference/troubleshooting.md) - Common issues and solutions
-- [Configuration Reference](../deployment/configuration.md) - Environment variables and settings
+- [Configuration Reference](/docs/reference/configuration.md) - Environment variables and settings
 - [FAQ](/docs/reference/faq.md) - Frequently asked questions
 - [Provider Feature Compatibility](/docs/reference/provider-feature-compatibility.md) - Provider capabilities matrix

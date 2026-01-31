@@ -19,7 +19,7 @@ This guide provides reusable code patterns for building production-ready AI appl
 ## Table of Contents
 
 1. [Error Handling Patterns](#error-handling-patterns)
-2. [Retry & Backoff Strategies](#retry--backoff-strategies)
+2. [Retry & Backoff Strategies](#retry-backoff-strategies)
 3. [Streaming Patterns](#streaming-patterns)
 4. [Rate Limiting Patterns](#rate-limiting-patterns)
 5. [Caching Patterns](#caching-patterns)

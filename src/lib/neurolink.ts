@@ -15,136 +15,140 @@ try {
   // Environment variables should be set externally in production
 }
 
-import type {
-  TextGenerationOptions,
-  TextGenerationResult,
-  AnalyticsData,
-  ProviderStatus,
-} from "./types/index.js";
-import { AIProviderFactory } from "./core/factory.js";
-import { isNonNullObject } from "./utils/typeUtils.js";
-import { isZodSchema } from "./utils/schemaConversion.js";
+import { EventEmitter } from "events";
 import type { MemoryClient } from "mem0ai";
-import { AIProviderName } from "./constants/enums.js";
-import { mcpLogger } from "./utils/logger.js";
-import { SYSTEM_LIMITS } from "./core/constants.js";
+import pLimit from "p-limit";
+import type { AIProviderName } from "./constants/enums.js";
 import {
-  NANOSECOND_TO_MS_DIVISOR,
-  TOOL_TIMEOUTS,
-  RETRY_ATTEMPTS,
-  RETRY_DELAYS,
   CIRCUIT_BREAKER,
   CIRCUIT_BREAKER_RESET_MS,
   MEMORY_THRESHOLDS,
-  PROVIDER_TIMEOUTS,
+  NANOSECOND_TO_MS_DIVISOR,
   PERFORMANCE_THRESHOLDS,
+  PROVIDER_TIMEOUTS,
+  RETRY_ATTEMPTS,
+  RETRY_DELAYS,
+  TOOL_TIMEOUTS,
 } from "./constants/index.js";
-import pLimit from "p-limit";
-import { MCPToolRegistry } from "./mcp/toolRegistry.js";
-import { logger } from "./utils/logger.js";
-import { getBestProvider } from "./utils/providerUtils.js";
+import { SYSTEM_LIMITS } from "./core/constants.js";
+import type { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
+import { AIProviderFactory } from "./core/factory.js";
+import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
+import { HITLManager } from "./hitl/hitlManager.js";
+import { ExternalServerManager } from "./mcp/externalServerManager.js";
+// Import direct tools server for automatic registration
+import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
+import { MCPToolRegistry } from "./mcp/toolRegistry.js";
+import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
+import {
+  flushOpenTelemetry,
+  getLangfuseHealthStatus,
+  initializeOpenTelemetry,
+  setLangfuseContext,
+  shutdownOpenTelemetry,
+} from "./services/server/ai/observability/instrumentation.js";
+import type {
+  JsonObject,
+  JsonValue,
+  NeuroLinkEvents,
+  TypedEventEmitter,
+  UnknownRecord,
+} from "./types/common.js";
+import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
+import type {
+  ChatMessage,
+  ConversationMemoryConfig,
+  ProviderDetails,
+} from "./types/conversation.js";
+import type {
+  ExternalMCPOperationResult,
+  ExternalMCPServerInstance,
+  ExternalMCPToolInfo,
+} from "./types/externalMcp.js";
 // NEW: Generate function imports
 import type { GenerateOptions, GenerateResult } from "./types/generateTypes.js";
 import type {
-  StreamOptions,
-  StreamResult,
-  ToolCall,
-  ToolResult,
-  AudioChunk,
-} from "./types/streamTypes.js";
-import type { TokenUsage, EvaluationData } from "./types/index.js";
+  ConfirmationResponseEvent,
+  HITLConfig,
+} from "./types/hitlTypes.js";
+import type {
+  AnalyticsData,
+  EvaluationData,
+  ProviderStatus,
+  TextGenerationOptions,
+  TextGenerationResult,
+  TokenUsage,
+} from "./types/index.js";
 import type {
   MCPExecutableTool,
   MCPServerCategory,
   MCPServerInfo,
   MCPStatus,
 } from "./types/mcpTypes.js";
-import type { ToolInfo } from "./types/tools.js";
-import type { NeuroLinkEvents, TypedEventEmitter } from "./types/common.js";
-import {
-  createCustomToolServerInfo,
-  detectCategory,
-} from "./utils/mcpDefaults.js";
+import type { ObservabilityConfig } from "./types/observability.js";
+import type {
+  AudioChunk,
+  StreamOptions,
+  StreamResult,
+  ToolCall,
+  ToolResult,
+} from "./types/streamTypes.js";
 import type {
   ToolExecutionContext,
   ToolExecutionSummary,
+  ToolInfo,
 } from "./types/tools.js";
-import type { JsonValue, JsonObject, UnknownRecord } from "./types/common.js";
 import type {
-  ToolExecutionResult,
   BatchOperationResult,
+  ToolExecutionResult,
 } from "./types/typeAliases.js";
-// Factory processing imports
-import {
-  processFactoryOptions,
-  enhanceTextGenerationOptions,
-  validateFactoryConfig,
-  processStreamingFactoryOptions,
-  createCleanStreamOptions,
-} from "./utils/factoryProcessing.js";
-// Tool detection and execution imports
-// Transformation utilities
-import {
-  transformToolExecutions,
-  transformToolExecutionsForMCP,
-  transformAvailableTools,
-  transformToolsForMCP,
-  transformToolsToExpectedFormat,
-  transformToolsToDescriptions,
-  extractToolNames,
-  transformParamsForLogging,
-  optimizeToolForCollection,
-} from "./utils/transformationUtils.js";
-// Enhanced error handling imports
-import {
-  ErrorFactory,
-  NeuroLinkError,
-  withTimeout,
-  withRetry,
-  isRetriableError,
-  logStructuredError,
-  CircuitBreaker,
-} from "./utils/errorHandling.js";
-import { EventEmitter } from "events";
-import type {
-  ConversationMemoryConfig,
-  ChatMessage,
-  ProviderDetails,
-} from "./types/conversation.js";
-import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
-import { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import {
   getConversationMessages,
   storeConversationTurn,
 } from "./utils/conversationMemory.js";
-import { ExternalServerManager } from "./mcp/externalServerManager.js";
-import type {
-  HITLConfig,
-  ConfirmationResponseEvent,
-} from "./types/hitlTypes.js";
-import { HITLManager } from "./hitl/hitlManager.js";
-import type {
-  ExternalMCPServerInstance,
-  ExternalMCPOperationResult,
-  ExternalMCPToolInfo,
-} from "./types/externalMcp.js";
-// Import direct tools server for automatic registration
-import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
+// Enhanced error handling imports
+import {
+  CircuitBreaker,
+  ErrorFactory,
+  isRetriableError,
+  logStructuredError,
+  NeuroLinkError,
+  withRetry,
+  withTimeout,
+} from "./utils/errorHandling.js";
+// Factory processing imports
+import {
+  createCleanStreamOptions,
+  enhanceTextGenerationOptions,
+  processFactoryOptions,
+  processStreamingFactoryOptions,
+  validateFactoryConfig,
+} from "./utils/factoryProcessing.js";
+import { logger, mcpLogger } from "./utils/logger.js";
+import {
+  createCustomToolServerInfo,
+  detectCategory,
+} from "./utils/mcpDefaults.js";
 // Import orchestration components
 import { ModelRouter } from "./utils/modelRouter.js";
+import { getBestProvider } from "./utils/providerUtils.js";
+import { isZodSchema } from "./utils/schemaConversion.js";
 import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
+// Tool detection and execution imports
+// Transformation utilities
 import {
-  initializeOpenTelemetry,
-  shutdownOpenTelemetry,
-  flushOpenTelemetry,
-  getLangfuseHealthStatus,
-  setLangfuseContext,
-} from "./services/server/ai/observability/instrumentation.js";
-import type { ObservabilityConfig } from "./types/observability.js";
-import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
-
-import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
+  extractToolNames,
+  optimizeToolForCollection,
+  transformAvailableTools,
+  transformParamsForLogging,
+  transformToolExecutions,
+  transformToolExecutionsForMCP,
+  transformToolsForMCP,
+  transformToolsToDescriptions,
+  transformToolsToExpectedFormat,
+} from "./utils/transformationUtils.js";
+import { isNonNullObject } from "./utils/typeUtils.js";
 
 /**
  * NeuroLink - Universal AI Development Platform
@@ -1723,6 +1727,104 @@ Current user's request: ${currentInput}`;
     }
   }
 
+  // ==========================================
+  // Workflow Execution Methods
+  // ==========================================
+
+  /**
+   * Execute a workflow definition with the given input.
+   *
+   * Workflows provide declarative, type-safe orchestration of complex AI operations
+   * with support for:
+   * - Graph-based step execution with dependencies
+   * - Parallel execution with concurrency control
+   * - Conditional branching
+   * - Loops (forEach, doWhile, doUntil)
+   * - Suspension and resumption
+   * - Checkpoint persistence
+   *
+   * @category Workflow
+   *
+   * @param workflow - The workflow definition to execute
+   * @param input - Input data for the workflow
+   * @param options - Optional execution options
+   *
+   * @returns Promise resolving to workflow execution result
+   *
+   * @example
+   * ```typescript
+   * import { createWorkflow } from '@juspay/neurolink/workflow';
+   *
+   * const workflow = createWorkflow('data-pipeline')
+   *   .step('fetch', { execute: async (input) => { ... } })
+   *   .then('process', { execute: async (input) => { ... } })
+   *   .build();
+   *
+   * const result = await neurolink.executeWorkflow(workflow, { url: 'https://example.com' });
+   * console.log(result.output);
+   * ```
+   *
+   * @see {@link WorkflowBuilder} for creating workflows
+   * @see {@link resumeWorkflow} for resuming suspended workflows
+   * @since 1.0.0
+   */
+  async executeWorkflow<TInput, TOutput>(
+    workflow: import("./types/workflowTypes.js").WorkflowDefinition<
+      TInput,
+      TOutput
+    >,
+    input: TInput,
+    options?: import("./types/workflowTypes.js").WorkflowExecutionOptions,
+  ): Promise<
+    import("./types/workflowTypes.js").WorkflowExecutionResult<TOutput>
+  > {
+    const { WorkflowExecutor } = await import("./workflow/workflowExecutor.js");
+    const executor = new WorkflowExecutor(this);
+    return executor.execute(workflow, input, options);
+  }
+
+  /**
+   * Resume a suspended workflow from a checkpoint.
+   *
+   * When a workflow suspends (e.g., for human-in-the-loop approval),
+   * it creates a checkpoint that can be used to resume execution later.
+   *
+   * @category Workflow
+   *
+   * @param checkpoint - The workflow checkpoint to resume from
+   * @param resumeData - Optional data to merge into the workflow state before resuming
+   *
+   * @returns Promise resolving to workflow execution result
+   *
+   * @example
+   * ```typescript
+   * // First execution suspends for approval
+   * const result = await neurolink.executeWorkflow(workflow, input);
+   * if (result.status === 'suspended') {
+   *   // Store checkpoint for later
+   *   saveCheckpoint(result.checkpoint);
+   * }
+   *
+   * // Later, resume with approval
+   * const checkpoint = loadCheckpoint();
+   * const resumed = await neurolink.resumeWorkflow(checkpoint, { approved: true });
+   * console.log(resumed.output);
+   * ```
+   *
+   * @see {@link executeWorkflow} for starting workflows
+   * @since 1.0.0
+   */
+  async resumeWorkflow<TOutput>(
+    checkpoint: import("./types/workflowTypes.js").WorkflowCheckpoint,
+    resumeData?: Record<string, unknown>,
+  ): Promise<
+    import("./types/workflowTypes.js").WorkflowExecutionResult<TOutput>
+  > {
+    const { WorkflowExecutor } = await import("./workflow/workflowExecutor.js");
+    const executor = new WorkflowExecutor(this);
+    return executor.resume(checkpoint, resumeData);
+  }
+
   /**
    * Generate AI response with comprehensive feature support.
    *
@@ -3178,7 +3280,7 @@ Current user's request: ${currentInput}`;
               const userId = (
                 enhancedOptions.context as Record<string, unknown>
               )?.userId as string;
-              let providerDetails: ProviderDetails | undefined = undefined;
+              let providerDetails: ProviderDetails | undefined;
               if (enhancedOptions.model) {
                 providerDetails = {
                   provider: providerName,
@@ -3541,7 +3643,7 @@ Current user's request: ${currentInput}`;
           )?.sessionId as string;
           const userId = (enhancedOptions?.context as Record<string, unknown>)
             ?.userId as string;
-          let providerDetails: ProviderDetails | undefined = undefined;
+          let providerDetails: ProviderDetails | undefined;
           if (options.model) {
             providerDetails = {
               provider: providerName,
@@ -5220,7 +5322,10 @@ Current user's request: ${currentInput}`;
     try {
       const health = await ProviderHealthChecker.checkProviderHealth(
         providerName as AIProviderName,
-        { includeConnectivityTest: false, cacheResults: false },
+        {
+          includeConnectivityTest: false,
+          cacheResults: false,
+        },
       );
       return health.isConfigured && health.hasApiKey;
     } catch (error) {
@@ -6194,7 +6299,6 @@ Current user's request: ${currentInput}`;
       // Use the integration module to create the appropriate memory manager
       const memoryManager = await initializeConversationMemory(
         this.conversationMemoryConfig,
-        this.emitter,
       );
       // Assign to conversationMemory with proper type to handle both memory manager types
       this.conversationMemory = memoryManager;
@@ -6239,6 +6343,145 @@ Current user's request: ${currentInput}`;
         error,
       );
     }
+  }
+
+  // ============================================================================
+  // WORKFLOW SYSTEM INTEGRATION - workflow() builder method
+  // ============================================================================
+
+  /**
+   * Create a new workflow builder for defining AI workflows
+   *
+   * This is a convenience method that provides access to the workflow builder API
+   * directly from the NeuroLink instance. Use this to create declarative, type-safe
+   * workflows with features like step chaining, parallel execution, branching,
+   * and durable delays.
+   *
+   * @param workflowId - Unique identifier for the workflow
+   * @returns A new WorkflowBuilder instance
+   *
+   * @example
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   *
+   * const workflow = neurolink.workflow("data-pipeline")
+   *   .name("Data Processing Pipeline")
+   *   .step("fetch", {
+   *     execute: async (input, ctx) => {
+   *       const data = await fetch(input.url);
+   *       return { success: true, data: await data.json() };
+   *     }
+   *   })
+   *   .sleep(1000) // Wait 1 second between steps
+   *   .then("process", {
+   *     execute: async (input, ctx) => {
+   *       const result = await ctx.neurolink.generate({
+   *         input: { text: `Process: ${JSON.stringify(input)}` }
+   *       });
+   *       return { success: true, data: result };
+   *     }
+   *   })
+   *   .build();
+   * ```
+   *
+   * @see {@link WorkflowBuilder} for full builder API documentation
+   * @see {@link executeWorkflow} for executing workflows
+   * @since 1.0.0
+   */
+  workflow(
+    workflowId: string,
+  ): import("./workflow/workflowBuilder.js").WorkflowBuilder {
+    // Lazy import to avoid circular dependencies
+    const { WorkflowBuilder } = require("./workflow/workflowBuilder.js");
+    return new WorkflowBuilder(workflowId);
+  }
+
+  /**
+   * Create a new workflow builder for defining AI workflows.
+   *
+   * Alias for the {@link workflow} method. Creates a new WorkflowBuilder
+   * instance for declarative workflow construction with type-safe
+   * step chaining, parallel execution, branching, and durable delays.
+   *
+   * @category Workflow
+   *
+   * @param id - Unique identifier for the workflow
+   * @returns A new WorkflowBuilder instance
+   *
+   * @example
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   *
+   * const workflow = neurolink.createWorkflow("my-pipeline")
+   *   .name("My Pipeline")
+   *   .step("step1", {
+   *     execute: async (input, ctx) => {
+   *       return { success: true, data: { processed: input } };
+   *     }
+   *   })
+   *   .build();
+   *
+   * // Execute the workflow
+   * const result = await neurolink.executeWorkflow(workflow, { input: "data" });
+   * ```
+   *
+   * @see {@link workflow} for the primary method
+   * @see {@link WorkflowBuilder} for full builder API documentation
+   * @see {@link executeWorkflow} for executing workflows
+   * @since 1.0.0
+   */
+  createWorkflow(
+    id: string,
+  ): import("./workflow/workflowBuilder.js").WorkflowBuilder {
+    return this.workflow(id);
+  }
+
+  /**
+   * Get the global workflow registry instance.
+   *
+   * Returns the WorkflowRegistry class which provides static methods
+   * for registering, retrieving, and managing workflow definitions.
+   * Use this to access workflows that have been registered globally.
+   *
+   * @category Workflow
+   *
+   * @returns The WorkflowRegistry class for managing workflow definitions
+   *
+   * @example
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   *
+   * // Register a workflow
+   * const workflow = neurolink.createWorkflow("my-workflow")
+   *   .name("My Workflow")
+   *   .step("step1", { execute: async () => ({ success: true }) })
+   *   .register(); // Registers with global registry
+   *
+   * // Access the registry
+   * const registry = neurolink.getWorkflowRegistry();
+   *
+   * // List all registered workflows
+   * const workflows = registry.list();
+   * console.log(workflows);
+   *
+   * // Get a specific workflow
+   * const myWorkflow = registry.get("my-workflow");
+   *
+   * // Check if workflow exists
+   * if (registry.has("my-workflow")) {
+   *   // Execute it
+   *   await neurolink.executeWorkflow(registry.get("my-workflow")!, input);
+   * }
+   * ```
+   *
+   * @see {@link WorkflowRegistry} for full registry API documentation
+   * @see {@link createWorkflow} for creating new workflows
+   * @since 1.0.0
+   */
+  getWorkflowRegistry(): typeof import("./workflow/workflowRegistry.js").WorkflowRegistry {
+    // Lazy import to avoid circular dependencies
+    const { WorkflowRegistry } = require("./workflow/workflowRegistry.js");
+    return WorkflowRegistry;
   }
 
   /**

@@ -844,3 +844,31 @@ export namespace MistralSetup {
     help?: boolean;
   };
 }
+
+// ============================================================================
+// Workflow CLI Types
+// ============================================================================
+
+/**
+ * Workflow command arguments
+ */
+export type WorkflowCommandArgs = BaseCommandArgs & {
+  /** Workflow ID to operate on */
+  workflowId?: string;
+  /** Input data as JSON string */
+  input?: string;
+  /** Run ID for status lookup */
+  runId?: string;
+  /** Checkpoint ID for resume operation */
+  checkpointId?: string;
+  /** Filter by tag */
+  tag?: string;
+  /** Watch workflow events in real-time */
+  watch?: boolean;
+  /** Resume data as JSON string */
+  resumeData?: string;
+  /** Show all items (including completed) */
+  all?: boolean;
+  /** Execution timeout in milliseconds */
+  timeout?: number;
+};
