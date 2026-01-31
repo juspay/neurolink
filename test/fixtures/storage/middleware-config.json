@@ -1,0 +1,506 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Storage Middleware Configuration Fixtures for NeuroLink Storage Abstraction Tests",
+  "version": "1.0.0",
+
+  "middleware": {
+    "caching": {
+      "type": "CachingMiddleware",
+      "description": "Provides in-memory caching layer for storage operations",
+      "strategies": {
+        "LRU": {
+          "name": "Least Recently Used",
+          "description": "Evicts least recently accessed items when cache is full",
+          "config": {
+            "maxSize": 1000,
+            "maxAge": 300000,
+            "updateAgeOnGet": true,
+            "updateAgeOnHas": false
+          },
+          "testCases": [
+            {
+              "name": "should_evict_lru_item",
+              "setup": { "maxSize": 3 },
+              "operations": [
+                { "set": "key1" },
+                { "set": "key2" },
+                { "set": "key3" },
+                { "get": "key1" },
+                { "set": "key4" }
+              ],
+              "assertions": [
+                { "exists": "key1", "expected": true },
+                { "exists": "key2", "expected": false },
+                { "exists": "key3", "expected": true },
+                { "exists": "key4", "expected": true }
+              ]
+            }
+          ]
+        },
+        "LFU": {
+          "name": "Least Frequently Used",
+          "description": "Evicts least frequently accessed items when cache is full",
+          "config": {
+            "maxSize": 1000,
+            "maxAge": 300000
+          }
+        },
+        "FIFO": {
+          "name": "First In First Out",
+          "description": "Evicts oldest items regardless of access pattern",
+          "config": {
+            "maxSize": 1000,
+            "maxAge": 300000
+          }
+        }
+      },
+      "ttlConfig": {
+        "description": "Time-to-Live configuration for cached items",
+        "options": {
+          "defaultTtl": {
+            "type": "number",
+            "description": "Default TTL in milliseconds",
+            "default": 300000
+          },
+          "maxTtl": {
+            "type": "number",
+            "description": "Maximum allowed TTL",
+            "default": 3600000
+          },
+          "checkPeriod": {
+            "type": "number",
+            "description": "Interval for checking expired items",
+            "default": 60000
+          },
+          "deleteOnExpire": {
+            "type": "boolean",
+            "description": "Automatically delete expired items",
+            "default": true
+          }
+        },
+        "testCases": [
+          {
+            "name": "should_expire_after_ttl",
+            "config": { "defaultTtl": 100 },
+            "operations": [
+              { "set": "key1", "value": "data" },
+              { "wait": 150 },
+              { "get": "key1" }
+            ],
+            "assertions": [{ "result": null }]
+          },
+          {
+            "name": "should_respect_item_specific_ttl",
+            "config": { "defaultTtl": 1000 },
+            "operations": [
+              { "set": "key1", "value": "data", "ttl": 100 },
+              { "wait": 150 },
+              { "get": "key1" }
+            ],
+            "assertions": [{ "result": null }]
+          }
+        ]
+      },
+      "cacheKeys": {
+        "description": "Cache key generation patterns",
+        "patterns": {
+          "thread": "thread:{id}",
+          "message": "message:{id}",
+          "threadMessages": "thread:{threadId}:messages",
+          "workflowRun": "workflow-run:{id}",
+          "record": "record:{namespace}:{key}",
+          "list": "list:{entity}:{hash(queryOptions)}"
+        }
+      },
+      "invalidation": {
+        "description": "Cache invalidation strategies",
+        "strategies": {
+          "writeThrough": {
+            "description": "Update cache on every write",
+            "pros": ["Always consistent"],
+            "cons": ["Higher write latency"]
+          },
+          "writeBehind": {
+            "description": "Async cache update after write",
+            "pros": ["Lower write latency"],
+            "cons": ["Temporary inconsistency"]
+          },
+          "timeBasedExpiry": {
+            "description": "Expire after fixed time",
+            "pros": ["Simple", "Predictable"],
+            "cons": ["May serve stale data"]
+          }
+        },
+        "testCases": [
+          {
+            "name": "should_invalidate_on_update",
+            "operations": [
+              { "get": "thread:1", "result": "cached" },
+              { "update": "thread:1" },
+              { "get": "thread:1", "result": "fresh" }
+            ]
+          },
+          {
+            "name": "should_invalidate_list_on_item_change",
+            "operations": [
+              { "list": "threads", "result": "cached_list" },
+              { "create": "thread" },
+              { "list": "threads", "result": "fresh_list_with_new_item" }
+            ]
+          }
+        ]
+      }
+    },
+
+    "encryption": {
+      "type": "EncryptionMiddleware",
+      "description": "Provides at-rest encryption for stored data",
+      "algorithms": {
+        "AES-256-GCM": {
+          "name": "AES-256 Galois/Counter Mode",
+          "description": "Industry-standard authenticated encryption",
+          "keyLength": 256,
+          "ivLength": 12,
+          "tagLength": 16,
+          "config": {
+            "algorithm": "aes-256-gcm",
+            "keyDerivation": "pbkdf2",
+            "iterations": 100000,
+            "saltLength": 32
+          },
+          "testCases": [
+            {
+              "name": "should_encrypt_and_decrypt_data",
+              "plaintext": "sensitive data",
+              "assertions": [
+                { "encrypted": "not_equal_to_plaintext" },
+                { "decrypted": "equal_to_plaintext" }
+              ]
+            },
+            {
+              "name": "should_detect_tampering",
+              "operations": [
+                { "encrypt": "data" },
+                { "tamper": "ciphertext" },
+                { "decrypt": "tampered_ciphertext" }
+              ],
+              "assertions": [{ "error": "Authentication tag mismatch" }]
+            }
+          ]
+        },
+        "ChaCha20-Poly1305": {
+          "name": "ChaCha20 with Poly1305 MAC",
+          "description": "High-performance authenticated encryption",
+          "keyLength": 256,
+          "nonceLength": 12,
+          "tagLength": 16,
+          "config": {
+            "algorithm": "chacha20-poly1305",
+            "keyDerivation": "hkdf",
+            "info": "neurolink-storage-encryption"
+          },
+          "testCases": [
+            {
+              "name": "should_be_faster_than_aes_on_software",
+              "benchmark": true,
+              "iterations": 10000
+            }
+          ]
+        }
+      },
+      "keyManagement": {
+        "description": "Encryption key management options",
+        "sources": {
+          "environment": {
+            "description": "Key from environment variable",
+            "config": {
+              "keyEnvVar": "STORAGE_ENCRYPTION_KEY"
+            }
+          },
+          "file": {
+            "description": "Key from secure file",
+            "config": {
+              "keyFilePath": "/run/secrets/encryption_key",
+              "permissions": "0400"
+            }
+          },
+          "kms": {
+            "description": "Key from cloud KMS",
+            "config": {
+              "provider": "aws-kms",
+              "keyId": "arn:aws:kms:region:account:key/key-id",
+              "cacheDataKeys": true,
+              "cacheCapacity": 100
+            }
+          },
+          "vault": {
+            "description": "Key from HashiCorp Vault",
+            "config": {
+              "address": "https://vault.example.com",
+              "secretPath": "secret/data/neurolink/encryption",
+              "roleId": "${VAULT_ROLE_ID}",
+              "secretId": "${VAULT_SECRET_ID}"
+            }
+          }
+        },
+        "rotation": {
+          "description": "Key rotation configuration",
+          "config": {
+            "enabled": true,
+            "intervalDays": 90,
+            "keepOldKeys": 2,
+            "reencryptOnRotation": false
+          }
+        }
+      },
+      "fieldLevelEncryption": {
+        "description": "Encrypt specific fields only",
+        "config": {
+          "encryptFields": ["content", "metadata.sensitiveData", "value"],
+          "excludeFields": ["id", "createdAt", "updatedAt"]
+        },
+        "testCases": [
+          {
+            "name": "should_only_encrypt_specified_fields",
+            "input": {
+              "id": "123",
+              "content": "sensitive",
+              "metadata": { "sensitiveData": "secret", "public": "visible" }
+            },
+            "assertions": [
+              { "field": "id", "encrypted": false },
+              { "field": "content", "encrypted": true },
+              { "field": "metadata.sensitiveData", "encrypted": true },
+              { "field": "metadata.public", "encrypted": false }
+            ]
+          }
+        ]
+      }
+    },
+
+    "compression": {
+      "type": "CompressionMiddleware",
+      "description": "Provides compression for stored data to reduce storage size",
+      "algorithms": {
+        "gzip": {
+          "name": "GNU Zip",
+          "description": "Standard compression, good balance of speed and ratio",
+          "levels": {
+            "fast": {
+              "level": 1,
+              "description": "Fastest, lowest compression"
+            },
+            "default": {
+              "level": 6,
+              "description": "Balanced speed and ratio"
+            },
+            "best": { "level": 9, "description": "Best compression, slowest" }
+          },
+          "config": {
+            "algorithm": "gzip",
+            "level": 6,
+            "memLevel": 8,
+            "chunkSize": 16384
+          },
+          "testCases": [
+            {
+              "name": "should_compress_large_data",
+              "input": "LARGE_STRING_10000_CHARS",
+              "inputDescription": "10000 character string of 'x'",
+              "assertions": [
+                { "compressedSize": "less_than_input_size" },
+                { "decompressed": "equal_to_input" }
+              ]
+            },
+            {
+              "name": "should_skip_small_data",
+              "config": { "minSizeToCompress": 1000 },
+              "input": "small data",
+              "assertions": [{ "compressed": false }]
+            }
+          ]
+        },
+        "brotli": {
+          "name": "Brotli",
+          "description": "Modern compression with better ratio than gzip",
+          "levels": {
+            "fast": { "level": 1, "description": "Fast compression" },
+            "default": { "level": 4, "description": "Balanced" },
+            "best": { "level": 11, "description": "Maximum compression" }
+          },
+          "config": {
+            "algorithm": "brotli",
+            "quality": 4,
+            "lgwin": 22,
+            "mode": "generic"
+          },
+          "modes": {
+            "generic": "Default mode for any data",
+            "text": "Optimized for UTF-8 text",
+            "font": "Optimized for WOFF 2.0 fonts"
+          },
+          "testCases": [
+            {
+              "name": "should_achieve_better_ratio_than_gzip",
+              "input": "TEXT_DATA_1000_REPEATS",
+              "inputDescription": "'text data ' repeated 1000 times",
+              "compare": {
+                "gzip": { "ratio": 0.15 },
+                "brotli": { "ratio": 0.1 }
+              }
+            }
+          ]
+        },
+        "lz4": {
+          "name": "LZ4",
+          "description": "Extremely fast compression, lower ratio",
+          "config": {
+            "algorithm": "lz4",
+            "blockSize": 65536
+          },
+          "testCases": [
+            {
+              "name": "should_be_fastest",
+              "benchmark": true,
+              "assertions": [
+                { "speed": "faster_than_gzip" },
+                { "speed": "faster_than_brotli" }
+              ]
+            }
+          ]
+        },
+        "zstd": {
+          "name": "Zstandard",
+          "description": "Facebook's compression with excellent speed/ratio trade-off",
+          "levels": {
+            "fast": { "level": 1 },
+            "default": { "level": 3 },
+            "high": { "level": 19 },
+            "ultra": { "level": 22 }
+          },
+          "config": {
+            "algorithm": "zstd",
+            "level": 3,
+            "dictSize": 0
+          }
+        }
+      },
+      "adaptiveCompression": {
+        "description": "Automatically choose algorithm based on data characteristics",
+        "config": {
+          "enabled": true,
+          "sampleSize": 1024,
+          "rules": [
+            {
+              "condition": "size < 1000",
+              "action": "skip"
+            },
+            {
+              "condition": "contentType == 'json'",
+              "algorithm": "brotli",
+              "level": 4
+            },
+            {
+              "condition": "contentType == 'binary'",
+              "algorithm": "lz4"
+            },
+            {
+              "condition": "default",
+              "algorithm": "gzip",
+              "level": 6
+            }
+          ]
+        }
+      },
+      "thresholds": {
+        "description": "Compression thresholds configuration",
+        "config": {
+          "minSizeToCompress": 1024,
+          "maxSizeToCompress": 104857600,
+          "minCompressionRatio": 0.9,
+          "storeOriginalIfPoorRatio": true
+        }
+      }
+    }
+  },
+
+  "middlewareChaining": {
+    "description": "Middleware execution order and chaining",
+    "defaultOrder": [
+      "validation",
+      "caching",
+      "compression",
+      "encryption",
+      "storage"
+    ],
+    "testCases": [
+      {
+        "name": "should_execute_in_correct_order_on_write",
+        "order": ["validate", "compress", "encrypt", "store"],
+        "verify": "execution_order_tracked"
+      },
+      {
+        "name": "should_execute_in_reverse_order_on_read",
+        "order": ["fetch", "decrypt", "decompress", "validate"],
+        "verify": "execution_order_tracked"
+      }
+    ]
+  },
+
+  "middlewareConfiguration": {
+    "examples": {
+      "developmentConfig": {
+        "caching": {
+          "enabled": true,
+          "strategy": "LRU",
+          "maxSize": 100
+        },
+        "encryption": {
+          "enabled": false
+        },
+        "compression": {
+          "enabled": false
+        }
+      },
+      "productionConfig": {
+        "caching": {
+          "enabled": true,
+          "strategy": "LRU",
+          "maxSize": 10000,
+          "ttl": 300000
+        },
+        "encryption": {
+          "enabled": true,
+          "algorithm": "aes-256-gcm",
+          "keySource": "kms"
+        },
+        "compression": {
+          "enabled": true,
+          "algorithm": "brotli",
+          "level": 4,
+          "minSize": 1024
+        }
+      },
+      "highSecurityConfig": {
+        "caching": {
+          "enabled": false
+        },
+        "encryption": {
+          "enabled": true,
+          "algorithm": "aes-256-gcm",
+          "keySource": "vault",
+          "fieldLevelEncryption": true,
+          "keyRotation": {
+            "enabled": true,
+            "intervalDays": 30
+          }
+        },
+        "compression": {
+          "enabled": true,
+          "algorithm": "gzip",
+          "level": 9
+        }
+      }
+    }
+  }
+}

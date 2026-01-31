@@ -842,5 +842,5 @@ NeuroLink's TTS integration provides:
 1. Set up [Google Cloud credentials](#environment-setup)
 2. Discover available [voices](#voice-discovery)
 3. Try the [quick start examples](#quick-start)
-4. Explore [use cases](#use-cases--examples) for your application
+4. Explore [use cases](#use-cases-examples) for your application
 5. Check [troubleshooting](#troubleshooting) if needed

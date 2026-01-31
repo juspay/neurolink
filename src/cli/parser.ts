@@ -11,6 +11,7 @@ import { AuthCommandFactory } from "./factories/authCommandFactory.js";
 import { ServerCommandFactory } from "./commands/server.js";
 import { ServeCommandFactory } from "./commands/serve.js";
 import { ragCommand } from "./commands/rag.js";
+import { storageCommand } from "./commands/storage.js";
 import { ObservabilityCommandFactory } from "./commands/observability.js";
 import { TelemetryCommandFactory } from "./commands/telemetry.js";
 import {
@@ -230,6 +231,9 @@ export function initializeCliParser() {
 
       // RAG Document Processing Commands
       .command(ragCommand)
+
+      // Storage Commands - Database-backed storage abstraction layer
+      .command(storageCommand)
 
       // Observability Commands
       .command(ObservabilityCommandFactory.createObservabilityCommands())
