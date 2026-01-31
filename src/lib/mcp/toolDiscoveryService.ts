@@ -868,6 +868,70 @@ export class ToolDiscoveryService extends EventEmitter {
   }
 
   /**
+   * Destroy the tool discovery service and clean up all resources
+   * This method should be called when the service is no longer needed
+   * to prevent memory leaks from accumulated event listeners
+   *
+   * @example
+   * ```typescript
+   * const service = new ToolDiscoveryService();
+   * // ... use the service ...
+   * service.destroy(); // Clean up when done
+   * ```
+   */
+  destroy(): void {
+    mcpLogger.debug("[ToolDiscoveryService] Starting cleanup...");
+
+    // Clear all event listeners to prevent memory leaks
+    this.removeAllListeners();
+
+    // Clear all internal data structures
+    this.serverToolStorage.clear();
+    this.toolRegistry.clear();
+    this.serverTools.clear();
+    this.discoveryInProgress.clear();
+
+    mcpLogger.debug("[ToolDiscoveryService] Destroyed and cleaned up");
+  }
+
+  /**
+   * Reset statistics for all tools
+   * This clears execution counts, timing data, and other statistics
+   * while preserving the tool registrations themselves
+   */
+  resetStatistics(): void {
+    for (const toolInfo of this.toolRegistry.values()) {
+      toolInfo.stats = {
+        totalCalls: 0,
+        successfulCalls: 0,
+        failedCalls: 0,
+        averageExecutionTime: 0,
+        lastExecutionTime: 0,
+      };
+      toolInfo.lastCalled = undefined;
+    }
+    mcpLogger.debug("[ToolDiscoveryService] Statistics reset for all tools");
+  }
+
+  /**
+   * Get the count of active event listeners
+   * Useful for monitoring potential memory leaks
+   */
+  getListenerCount(): number {
+    const events = [
+      "discoveryCompleted",
+      "discoveryFailed",
+      "toolRegistered",
+      "toolUnregistered",
+    ];
+    let total = 0;
+    for (const event of events) {
+      total += this.listenerCount(event);
+    }
+    return total;
+  }
+
+  /**
    * Get discovery statistics
    */
   getStatistics(): {
