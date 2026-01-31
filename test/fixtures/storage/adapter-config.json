@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Storage Adapter Configuration Fixtures for NeuroLink Storage Abstraction Tests",
+  "version": "1.0.0",
+
+  "adapters": {
+    "memory": {
+      "type": "memory",
+      "aliases": ["mem", "in-memory", "inmemory"],
+      "category": "local",
+      "requiresExternalService": false,
+      "defaultConfig": {
+        "maxEntries": 10000,
+        "cleanupIntervalMs": 60000,
+        "enableCompression": false
+      },
+      "testConfig": {
+        "maxEntries": 1000,
+        "cleanupIntervalMs": 5000
+      },
+      "capabilities": {
+        "transactions": true,
+        "batchOperations": true,
+        "ttlSupport": true,
+        "namespaces": true,
+        "queryFiltering": true,
+        "pagination": true
+      },
+      "notes": "In-memory storage for development and testing. Data is lost on restart."
+    },
+
+    "file": {
+      "type": "file",
+      "aliases": ["fs", "filesystem", "local-file"],
+      "category": "local",
+      "requiresExternalService": false,
+      "defaultConfig": {
+        "basePath": "./data/storage",
+        "fileFormat": "json",
+        "enableCompression": false,
+        "maxFileSizeBytes": 10485760,
+        "flushIntervalMs": 1000
+      },
+      "testConfig": {
+        "basePath": "./test-data/storage",
+        "fileFormat": "json",
+        "flushIntervalMs": 100
+      },
+      "capabilities": {
+        "transactions": false,
+        "batchOperations": true,
+        "ttlSupport": true,
+        "namespaces": true,
+        "queryFiltering": true,
+        "pagination": true
+      },
+      "notes": "File-based storage for simple persistence. Not suitable for high-concurrency scenarios."
+    },
+
+    "sqlite": {
+      "type": "libsql",
+      "aliases": ["sqlite", "sqlite3"],
+      "category": "local",
+      "requiresExternalService": false,
+      "defaultConfig": {
+        "url": "file:./data/neurolink.db",
+        "syncInterval": 1000,
+        "journalMode": "WAL",
+        "busyTimeout": 5000
+      },
+      "testConfig": {
+        "url": "file::memory:",
+        "journalMode": "MEMORY"
+      },
+      "capabilities": {
+        "transactions": true,
+        "batchOperations": true,
+        "ttlSupport": true,
+        "namespaces": true,
+        "queryFiltering": true,
+        "pagination": true
+      },
+      "notes": "SQLite via LibSQL. Great for single-instance deployments."
+    },
+
+    "libsql": {
+      "type": "libsql",
+      "aliases": ["turso", "sqld"],
+      "category": "local",
+      "requiresExternalService": false,
+      "defaultConfig": {
+        "url": "file:./data/neurolink.db",
+        "authToken": null,
+        "syncUrl": null,
+        "syncInterval": 60000,
+        "encryptionKey": null
+      },
+      "testConfig": {
+        "url": "file::memory:"
+      },
+      "remoteConfig": {
+        "url": "${LIBSQL_URL}",
+        "authToken": "${LIBSQL_AUTH_TOKEN}",
+        "syncInterval": 30000
+      },
+      "capabilities": {
+        "transactions": true,
+        "batchOperations": true,
+        "ttlSupport": true,
+        "namespaces": true,
+        "queryFiltering": true,
+        "pagination": true,
+        "replication": true
+      },
+      "notes": "LibSQL with optional Turso cloud sync. Supports edge replication."
+    },
+
+    "redis": {
+      "type": "redis",
+      "aliases": ["ioredis", "cache", "redis-cache"],
+      "category": "external",
+      "requiresExternalService": true,
+      "defaultConfig": {
+        "host": "localhost",
+        "port": 6379,
+        "password": null,
+        "db": 0,
+        "keyPrefix": "neurolink:",
+        "maxRetriesPerRequest": 3,
+        "enableReadyCheck": true,
+        "connectTimeout": 10000,
+        "commandTimeout": 5000
+      },
+      "testConfig": {
+        "host": "localhost",
+        "port": 6379,
+        "db": 15,
+        "keyPrefix": "neurolink-test:"
+      },
+      "clusterConfig": {
+        "nodes": [
+          { "host": "localhost", "port": 7000 },
+          { "host": "localhost", "port": 7001 },
+          { "host": "localhost", "port": 7002 }
+        ],
+        "redisOptions": {
+          "password": "${REDIS_PASSWORD}"
+        }
+      },
+      "sentinelConfig": {
+        "sentinels": [{ "host": "localhost", "port": 26379 }],
+        "name": "mymaster",
+        "password": "${REDIS_PASSWORD}"
+      },
+      "capabilities": {
+        "transactions": true,
+        "batchOperations": true,
+        "ttlSupport": true,
+        "namespaces": true,
+        "queryFiltering": false,
+        "pagination": true,
+        "pubsub": true,
+        "clustering": true
+      },
+      "notes": "Redis for high-performance caching and session storage. Limited query capabilities."
+    },
+
+    "postgresql": {
+      "type": "postgresql",
+      "aliases": ["postgres", "pg", "psql"],
+      "category": "external",
+      "requiresExternalService": true,
+      "defaultConfig": {
+        "connectionString": "postgresql://localhost:5432/neurolink",
+        "ssl": false,
+        "poolSize": 10,
+        "idleTimeoutMs": 30000,
+        "connectionTimeoutMs": 10000,
+        "statementTimeout": 60000
+      },
+      "testConfig": {
+        "connectionString": "postgresql://localhost:5432/neurolink_test",
+        "poolSize": 5
+      },
+      "poolConfig": {
+        "min": 2,
+        "max": 20,
+        "acquireTimeoutMillis": 30000,
+        "createTimeoutMillis": 30000,
+        "destroyTimeoutMillis": 5000,
+        "idleTimeoutMillis": 30000,
+        "reapIntervalMillis": 1000,
+        "createRetryIntervalMillis": 200
+      },
+      "capabilities": {
+        "transactions": true,
+        "batchOperations": true,
+        "ttlSupport": true,
+        "namespaces": true,
+        "queryFiltering": true,
+        "pagination": true,
+        "fullTextSearch": true,
+        "jsonOperations": true
+      },
+      "notes": "PostgreSQL for full-featured relational storage. Best for complex queries."
+    },
+
+    "mongodb": {
+      "type": "mongodb",
+      "aliases": ["mongo", "documentdb"],
+      "category": "external",
+      "requiresExternalService": true,
+      "defaultConfig": {
+        "connectionString": "mongodb://localhost:27017/neurolink",
+        "database": "neurolink",
+        "maxPoolSize": 10,
+        "minPoolSize": 2,
+        "serverSelectionTimeoutMS": 5000,
+        "socketTimeoutMS": 30000,
+        "connectTimeoutMS": 10000,
+        "retryWrites": true,
+        "retryReads": true
+      },
+      "testConfig": {
+        "connectionString": "mongodb://localhost:27017/neurolink_test",
+        "database": "neurolink_test",
+        "maxPoolSize": 5
+      },
+      "replicaSetConfig": {
+        "connectionString": "mongodb://localhost:27017,localhost:27018,localhost:27019/neurolink?replicaSet=rs0",
+        "readPreference": "primaryPreferred",
+        "w": "majority"
+      },
+      "capabilities": {
+        "transactions": true,
+        "batchOperations": true,
+        "ttlSupport": true,
+        "namespaces": true,
+        "queryFiltering": true,
+        "pagination": true,
+        "fullTextSearch": true,
+        "aggregationPipeline": true
+      },
+      "notes": "MongoDB for flexible document storage. Excellent for unstructured data."
+    },
+
+    "s3": {
+      "type": "s3",
+      "aliases": ["aws-s3", "object-storage", "minio"],
+      "category": "external",
+      "requiresExternalService": true,
+      "defaultConfig": {
+        "bucket": "neurolink-storage",
+        "region": "us-east-1",
+        "prefix": "storage/",
+        "accessKeyId": "${AWS_ACCESS_KEY_ID}",
+        "secretAccessKey": "${AWS_SECRET_ACCESS_KEY}",
+        "endpoint": null,
+        "forcePathStyle": false
+      },
+      "testConfig": {
+        "bucket": "neurolink-test",
+        "region": "us-east-1",
+        "prefix": "test-storage/",
+        "endpoint": "http://localhost:9000",
+        "forcePathStyle": true
+      },
+      "minioConfig": {
+        "endpoint": "http://localhost:9000",
+        "accessKeyId": "minioadmin",
+        "secretAccessKey": "minioadmin",
+        "forcePathStyle": true,
+        "bucket": "neurolink-local"
+      },
+      "capabilities": {
+        "transactions": false,
+        "batchOperations": true,
+        "ttlSupport": true,
+        "namespaces": true,
+        "queryFiltering": false,
+        "pagination": true,
+        "versioning": true,
+        "encryption": true
+      },
+      "notes": "S3 for large object storage. Use for storing large files, not primary data."
+    }
+  },
+
+  "testScenarios": {
+    "unitTests": {
+      "adapter": "memory",
+      "description": "Fast in-memory tests for unit testing"
+    },
+    "integrationTests": {
+      "adapter": "libsql",
+      "config": {
+        "url": "file::memory:"
+      },
+      "description": "SQLite in-memory for integration tests"
+    },
+    "e2eTests": {
+      "adapter": "postgresql",
+      "description": "Full PostgreSQL for end-to-end tests",
+      "skipIfUnavailable": true
+    }
+  },
+
+  "environmentVariables": {
+    "STORAGE_TYPE": "Storage backend type (memory, postgresql, mongodb, redis, libsql, s3)",
+    "STORAGE_CONNECTION_STRING": "Connection string for database adapters",
+    "POSTGRESQL_URL": "PostgreSQL connection URL",
+    "MONGODB_URL": "MongoDB connection URL",
+    "REDIS_URL": "Redis connection URL",
+    "LIBSQL_URL": "LibSQL/Turso connection URL",
+    "LIBSQL_AUTH_TOKEN": "LibSQL/Turso authentication token",
+    "AWS_ACCESS_KEY_ID": "AWS access key for S3",
+    "AWS_SECRET_ACCESS_KEY": "AWS secret key for S3",
+    "S3_BUCKET": "S3 bucket name",
+    "S3_REGION": "S3 region"
+  }
+}

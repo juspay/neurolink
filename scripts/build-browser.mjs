@@ -25,6 +25,7 @@ const npmStubs = [
   'which','pdf-to-img','express-rate-limit','@hono/node-server','powershell-utils',
   'wsl-utils','default-browser','default-browser-id','run-applescript','open',
   '@langfuse/langfuse','undici','bullmq','croner','ioredis',
+  'mongodb','pg','@aws-sdk/client-s3','@libsql/client',
 ];
 
 // OTel packages
@@ -62,6 +63,10 @@ export const createHash = (algorithm) => {
   };
 };
 export const createHmac = (algorithm, key) => createHash(algorithm);
+export const createCipheriv = () => ({update:()=>Buffer.alloc(0),final:()=>Buffer.alloc(0),getAuthTag:()=>Buffer.alloc(16)});
+export const createDecipheriv = () => ({setAuthTag:noop,update:()=>Buffer.alloc(0),final:()=>Buffer.alloc(0)});
+export const scryptSync = () => Buffer.alloc(32);
+export const pbkdf2Sync = () => Buffer.alloc(32);
 export const randomBytes = (n) => new Uint8Array(n||32);
 export const randomUUID = () => globalThis.crypto?.randomUUID?.() || Math.random().toString(36);
 export const webcrypto = globalThis.crypto;
@@ -139,6 +144,8 @@ export const inflateSync = () => new Uint8Array();
 export const deflateSync = () => new Uint8Array();
 export const gunzipSync = () => new Uint8Array();
 export const gzipSync = () => new Uint8Array();
+export const brotliCompressSync = () => new Uint8Array();
+export const brotliDecompressSync = () => new Uint8Array();
 export const gzip = (b,cb) => cb?.(null,b);
 export const gunzip = (b,cb) => cb?.(null,b);
 export const createGunzip = () => ({});

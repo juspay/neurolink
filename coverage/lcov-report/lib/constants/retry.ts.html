@@ -1,0 +1,1075 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for lib/constants/retry.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">lib/constants</a> retry.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>0/188</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>1/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>1/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>0/188</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a>
+<a name='L253'></a><a href='#L253'>253</a>
+<a name='L254'></a><a href='#L254'>254</a>
+<a name='L255'></a><a href='#L255'>255</a>
+<a name='L256'></a><a href='#L256'>256</a>
+<a name='L257'></a><a href='#L257'>257</a>
+<a name='L258'></a><a href='#L258'>258</a>
+<a name='L259'></a><a href='#L259'>259</a>
+<a name='L260'></a><a href='#L260'>260</a>
+<a name='L261'></a><a href='#L261'>261</a>
+<a name='L262'></a><a href='#L262'>262</a>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a>
+<a name='L265'></a><a href='#L265'>265</a>
+<a name='L266'></a><a href='#L266'>266</a>
+<a name='L267'></a><a href='#L267'>267</a>
+<a name='L268'></a><a href='#L268'>268</a>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a>
+<a name='L298'></a><a href='#L298'>298</a>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a>
+<a name='L304'></a><a href='#L304'>304</a>
+<a name='L305'></a><a href='#L305'>305</a>
+<a name='L306'></a><a href='#L306'>306</a>
+<a name='L307'></a><a href='#L307'>307</a>
+<a name='L308'></a><a href='#L308'>308</a>
+<a name='L309'></a><a href='#L309'>309</a>
+<a name='L310'></a><a href='#L310'>310</a>
+<a name='L311'></a><a href='#L311'>311</a>
+<a name='L312'></a><a href='#L312'>312</a>
+<a name='L313'></a><a href='#L313'>313</a>
+<a name='L314'></a><a href='#L314'>314</a>
+<a name='L315'></a><a href='#L315'>315</a>
+<a name='L316'></a><a href='#L316'>316</a>
+<a name='L317'></a><a href='#L317'>317</a>
+<a name='L318'></a><a href='#L318'>318</a>
+<a name='L319'></a><a href='#L319'>319</a>
+<a name='L320'></a><a href='#L320'>320</a>
+<a name='L321'></a><a href='#L321'>321</a>
+<a name='L322'></a><a href='#L322'>322</a>
+<a name='L323'></a><a href='#L323'>323</a>
+<a name='L324'></a><a href='#L324'>324</a>
+<a name='L325'></a><a href='#L325'>325</a>
+<a name='L326'></a><a href='#L326'>326</a>
+<a name='L327'></a><a href='#L327'>327</a>
+<a name='L328'></a><a href='#L328'>328</a>
+<a name='L329'></a><a href='#L329'>329</a>
+<a name='L330'></a><a href='#L330'>330</a>
+<a name='L331'></a><a href='#L331'>331</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
+ * Retry and Circuit Breaker Constants for NeuroLink
+ *
+ * Centralized retry configuration to replace magic numbers throughout the codebase.
+ * Includes retry attempts, delays, backoff strategies, and circuit breaker settings.
+ *
+ * @fileoverview Retry and resilience constants for robust error handling
+ * @author NeuroLink Team
+ * @version 1.0.0
+ */
+&nbsp;
+/**
+ * Retry attempt configuration
+ * Balanced for reliability vs performance across different operation types
+ */
+<span class="cstat-no" title="statement not covered" >export const RETRY_ATTEMPTS = {</span>
+  /** Default retry attempts for most operations */
+<span class="cstat-no" title="statement not covered" >  DEFAULT: 3, // 3 attempts - Balance reliability vs speed</span>
+&nbsp;
+  /** Critical operations that must succeed */
+<span class="cstat-no" title="statement not covered" >  CRITICAL: 5, // 5 attempts - High-importance operations</span>
+&nbsp;
+  /** Quick operations that should fail fast */
+<span class="cstat-no" title="statement not covered" >  QUICK: 2, // 2 attempts - Fast operations, minimal retry</span>
+&nbsp;
+  /** Network operations prone to transient failures */
+<span class="cstat-no" title="statement not covered" >  NETWORK: 4, // 4 attempts - Network operations</span>
+&nbsp;
+  /** Authentication operations */
+<span class="cstat-no" title="statement not covered" >  AUTH: 2, // 2 attempts - Auth should fail fast for security</span>
+&nbsp;
+  /** Database operations */
+<span class="cstat-no" title="statement not covered" >  DATABASE: 3, // 3 attempts - Standard DB operations</span>
+&nbsp;
+  /** File I/O operations */
+<span class="cstat-no" title="statement not covered" >  FILE_IO: 2, // 2 attempts - File operations</span>
+<span class="cstat-no" title="statement not covered" >} as const;</span>
+&nbsp;
+/**
+ * Retry delay configuration
+ * Configured to prevent overwhelming services while providing quick recovery
+ */
+<span class="cstat-no" title="statement not covered" >export const RETRY_DELAYS = {</span>
+  /** Base delay for exponential backoff */
+<span class="cstat-no" title="statement not covered" >  BASE_MS: 1000, // 1s - Starting delay</span>
+&nbsp;
+  /** Minimum delay between retries */
+<span class="cstat-no" title="statement not covered" >  MIN_MS: 500, // 500ms - Minimum wait time</span>
+&nbsp;
+  /** Maximum delay between retries */
+<span class="cstat-no" title="statement not covered" >  MAX_MS: 30000, // 30s - Maximum wait time</span>
+&nbsp;
+  /** Quick retry delay for fast operations */
+<span class="cstat-no" title="statement not covered" >  QUICK_MS: 200, // 200ms - Fast retry for quick operations</span>
+&nbsp;
+  /** Network operation base delay */
+<span class="cstat-no" title="statement not covered" >  NETWORK_BASE_MS: 2000, // 2s - Network-specific base delay</span>
+&nbsp;
+  /** Authentication delay (security consideration) */
+<span class="cstat-no" title="statement not covered" >  AUTH_MS: 3000, // 3s - Auth retry delay for security</span>
+<span class="cstat-no" title="statement not covered" >} as const;</span>
+&nbsp;
+/**
+ * Exponential backoff configuration
+ * Controls how delays increase with each retry attempt
+ */
+<span class="cstat-no" title="statement not covered" >export const BACKOFF_CONFIG = {</span>
+  /** Standard exponential multiplier */
+<span class="cstat-no" title="statement not covered" >  MULTIPLIER: 2, // 2x - Standard exponential backoff</span>
+&nbsp;
+  /** Conservative multiplier for sensitive operations */
+<span class="cstat-no" title="statement not covered" >  CONSERVATIVE_MULTIPLIER: 1.5, // 1.5x - Gentler backoff</span>
+&nbsp;
+  /** Aggressive multiplier for operations that should back off quickly */
+<span class="cstat-no" title="statement not covered" >  AGGRESSIVE_MULTIPLIER: 3, // 3x - Rapid backoff</span>
+&nbsp;
+  /** Jitter factor to prevent thundering herd */
+<span class="cstat-no" title="statement not covered" >  JITTER_FACTOR: 0.1, // 10% - Random jitter</span>
+&nbsp;
+  /** Maximum jitter amount in milliseconds */
+<span class="cstat-no" title="statement not covered" >  MAX_JITTER_MS: 1000, // 1s - Cap on random jitter</span>
+<span class="cstat-no" title="statement not covered" >} as const;</span>
+&nbsp;
+/**
+ * Circuit breaker configuration
+ * Prevents cascading failures and provides automatic recovery
+ */
+<span class="cstat-no" title="statement not covered" >export const CIRCUIT_BREAKER = {</span>
+  /** Failure threshold before opening circuit */
+<span class="cstat-no" title="statement not covered" >  FAILURE_THRESHOLD: 5, // 5 failures - Balance sensitivity vs stability</span>
+&nbsp;
+  /** Success threshold for closing circuit from half-open */
+<span class="cstat-no" title="statement not covered" >  SUCCESS_THRESHOLD: 3, // 3 successes - Confirm recovery</span>
+&nbsp;
+  /** Minimum calls before calculating failure rate */
+<span class="cstat-no" title="statement not covered" >  MIN_CALLS: 10, // 10 calls - Statistical significance</span>
+&nbsp;
+  /** Failure rate threshold (0.0 to 1.0) */
+<span class="cstat-no" title="statement not covered" >  FAILURE_RATE_THRESHOLD: 0.5, // 50% - Failure rate to open circuit</span>
+&nbsp;
+  /** Monitoring window for failure tracking */
+<span class="cstat-no" title="statement not covered" >  MONITORING_WINDOW_MS: 300000, // 5m - Sliding window for statistics</span>
+&nbsp;
+  /** Half-open max calls for testing recovery */
+<span class="cstat-no" title="statement not covered" >  HALF_OPEN_MAX_CALLS: 3, // 3 calls - Limited test calls</span>
+<span class="cstat-no" title="statement not covered" >} as const;</span>
+&nbsp;
+/**
+ * Provider-specific retry configuration
+ * Different providers may need different retry strategies
+ */
+<span class="cstat-no" title="statement not covered" >export const PROVIDER_RETRY = {</span>
+  /** OpenAI retry configuration */
+<span class="cstat-no" title="statement not covered" >  OPENAI: {</span>
+<span class="cstat-no" title="statement not covered" >    maxAttempts: RETRY_ATTEMPTS.DEFAULT,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: RETRY_DELAYS.BASE_MS,</span>
+<span class="cstat-no" title="statement not covered" >    maxDelay: RETRY_DELAYS.MAX_MS,</span>
+<span class="cstat-no" title="statement not covered" >    multiplier: BACKOFF_CONFIG.MULTIPLIER,</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+&nbsp;
+  /** Anthropic retry configuration */
+<span class="cstat-no" title="statement not covered" >  ANTHROPIC: {</span>
+<span class="cstat-no" title="statement not covered" >    maxAttempts: RETRY_ATTEMPTS.DEFAULT,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: RETRY_DELAYS.BASE_MS,</span>
+<span class="cstat-no" title="statement not covered" >    maxDelay: RETRY_DELAYS.MAX_MS,</span>
+<span class="cstat-no" title="statement not covered" >    multiplier: BACKOFF_CONFIG.CONSERVATIVE_MULTIPLIER, // More conservative</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+&nbsp;
+  /** Google (Vertex/Google AI) retry configuration */
+<span class="cstat-no" title="statement not covered" >  GOOGLE: {</span>
+<span class="cstat-no" title="statement not covered" >    maxAttempts: RETRY_ATTEMPTS.NETWORK,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: RETRY_DELAYS.NETWORK_BASE_MS,</span>
+<span class="cstat-no" title="statement not covered" >    maxDelay: RETRY_DELAYS.MAX_MS,</span>
+<span class="cstat-no" title="statement not covered" >    multiplier: BACKOFF_CONFIG.MULTIPLIER,</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+&nbsp;
+  /** AWS Bedrock retry configuration */
+<span class="cstat-no" title="statement not covered" >  BEDROCK: {</span>
+<span class="cstat-no" title="statement not covered" >    maxAttempts: RETRY_ATTEMPTS.CRITICAL,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: RETRY_DELAYS.BASE_MS,</span>
+<span class="cstat-no" title="statement not covered" >    maxDelay: RETRY_DELAYS.MAX_MS,</span>
+<span class="cstat-no" title="statement not covered" >    multiplier: BACKOFF_CONFIG.CONSERVATIVE_MULTIPLIER,</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+&nbsp;
+  /** Azure OpenAI retry configuration */
+<span class="cstat-no" title="statement not covered" >  AZURE: {</span>
+<span class="cstat-no" title="statement not covered" >    maxAttempts: RETRY_ATTEMPTS.DEFAULT,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: RETRY_DELAYS.BASE_MS,</span>
+<span class="cstat-no" title="statement not covered" >    maxDelay: RETRY_DELAYS.MAX_MS,</span>
+<span class="cstat-no" title="statement not covered" >    multiplier: BACKOFF_CONFIG.MULTIPLIER,</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+&nbsp;
+  /** Ollama retry configuration (local service) */
+<span class="cstat-no" title="statement not covered" >  OLLAMA: {</span>
+<span class="cstat-no" title="statement not covered" >    maxAttempts: RETRY_ATTEMPTS.QUICK,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: RETRY_DELAYS.QUICK_MS,</span>
+<span class="cstat-no" title="statement not covered" >    maxDelay: 5000, // 5s max for local service</span>
+<span class="cstat-no" title="statement not covered" >    multiplier: BACKOFF_CONFIG.CONSERVATIVE_MULTIPLIER,</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+<span class="cstat-no" title="statement not covered" >} as const;</span>
+&nbsp;
+/**
+ * Operation-specific retry configuration
+ * Different operations may require different retry strategies
+ */
+<span class="cstat-no" title="statement not covered" >export const OPERATION_RETRY = {</span>
+  /** Tool execution retry config */
+<span class="cstat-no" title="statement not covered" >  TOOL_EXECUTION: {</span>
+<span class="cstat-no" title="statement not covered" >    maxAttempts: RETRY_ATTEMPTS.DEFAULT,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: RETRY_DELAYS.BASE_MS,</span>
+<span class="cstat-no" title="statement not covered" >    circuitBreaker: true,</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+&nbsp;
+  /** MCP operation retry config */
+<span class="cstat-no" title="statement not covered" >  MCP_OPERATION: {</span>
+<span class="cstat-no" title="statement not covered" >    maxAttempts: RETRY_ATTEMPTS.QUICK,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: RETRY_DELAYS.QUICK_MS,</span>
+<span class="cstat-no" title="statement not covered" >    circuitBreaker: false, // MCP operations are usually fast</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+&nbsp;
+  /** Network request retry config */
+<span class="cstat-no" title="statement not covered" >  NETWORK_REQUEST: {</span>
+<span class="cstat-no" title="statement not covered" >    maxAttempts: RETRY_ATTEMPTS.NETWORK,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: RETRY_DELAYS.NETWORK_BASE_MS,</span>
+<span class="cstat-no" title="statement not covered" >    circuitBreaker: true,</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+&nbsp;
+  /** Database operation retry config */
+<span class="cstat-no" title="statement not covered" >  DATABASE_OPERATION: {</span>
+<span class="cstat-no" title="statement not covered" >    maxAttempts: RETRY_ATTEMPTS.DATABASE,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: RETRY_DELAYS.BASE_MS,</span>
+<span class="cstat-no" title="statement not covered" >    circuitBreaker: true,</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+&nbsp;
+  /** Authentication retry config */
+<span class="cstat-no" title="statement not covered" >  AUTHENTICATION: {</span>
+<span class="cstat-no" title="statement not covered" >    maxAttempts: RETRY_ATTEMPTS.AUTH,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: RETRY_DELAYS.AUTH_MS,</span>
+<span class="cstat-no" title="statement not covered" >    circuitBreaker: false, // Don't circuit break auth for security</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+<span class="cstat-no" title="statement not covered" >} as const;</span>
+&nbsp;
+/**
+ * Retry utility functions
+ */
+<span class="cstat-no" title="statement not covered" >export const RetryUtils = {</span>
+  /**
+   * Calculate exponential backoff delay
+   * @param attempt - Current attempt number (0-based)
+   * @param baseDelay - Base delay in milliseconds
+   * @param multiplier - Exponential multiplier
+   * @param maxDelay - Maximum delay cap
+   * @param jitter - Whether to add random jitter
+   * @returns Calculated delay in milliseconds
+   */
+<span class="cstat-no" title="statement not covered" >  calculateBackoffDelay: (</span>
+<span class="cstat-no" title="statement not covered" >    attempt: number,</span>
+<span class="cstat-no" title="statement not covered" >    baseDelay: number = RETRY_DELAYS.BASE_MS,</span>
+<span class="cstat-no" title="statement not covered" >    multiplier: number = BACKOFF_CONFIG.MULTIPLIER,</span>
+<span class="cstat-no" title="statement not covered" >    maxDelay: number = RETRY_DELAYS.MAX_MS,</span>
+<span class="cstat-no" title="statement not covered" >    jitter: boolean = true,</span>
+<span class="cstat-no" title="statement not covered" >  ): number =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const safeAttempt = Math.max(0, attempt);</span>
+<span class="cstat-no" title="statement not covered" >    const base = Math.max(baseDelay, RETRY_DELAYS.MIN_MS);</span>
+<span class="cstat-no" title="statement not covered" >    const delay = Math.min(base * Math.pow(multiplier, safeAttempt), maxDelay);</span>
+<span class="cstat-no" title="statement not covered" >    if (!jitter) {</span>
+<span class="cstat-no" title="statement not covered" >      return delay;</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >    const jitterCap = Math.min(</span>
+<span class="cstat-no" title="statement not covered" >      BACKOFF_CONFIG.MAX_JITTER_MS,</span>
+<span class="cstat-no" title="statement not covered" >      delay * BACKOFF_CONFIG.JITTER_FACTOR,</span>
+<span class="cstat-no" title="statement not covered" >    );</span>
+<span class="cstat-no" title="statement not covered" >    return Math.min(maxDelay, Math.floor(delay + Math.random() * jitterCap));</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+&nbsp;
+  /**
+   * Check if an error is retriable
+   * @param error - The error to check
+   * @returns True if the error should be retried
+   */
+<span class="cstat-no" title="statement not covered" >  isRetriableError: (error: Error | unknown): boolean =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    if (!error) {</span>
+<span class="cstat-no" title="statement not covered" >      return false;</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    const err = error as Record&lt;string, unknown&gt;;</span>
+&nbsp;
+    // Network/system codes
+<span class="cstat-no" title="statement not covered" >    const code: string | undefined =</span>
+<span class="cstat-no" title="statement not covered" >      typeof err?.code === "string" ? err.code : undefined;</span>
+<span class="cstat-no" title="statement not covered" >    if (</span>
+<span class="cstat-no" title="statement not covered" >      code &amp;&amp;</span>
+<span class="cstat-no" title="statement not covered" >      ["ENOTFOUND", "ECONNRESET", "ETIMEDOUT", "ECONNREFUSED"].includes(code)</span>
+<span class="cstat-no" title="statement not covered" >    ) {</span>
+<span class="cstat-no" title="statement not covered" >      return true;</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+&nbsp;
+    // HTTP status
+<span class="cstat-no" title="statement not covered" >    const status: number | undefined =</span>
+<span class="cstat-no" title="statement not covered" >      typeof err?.status === "number"</span>
+<span class="cstat-no" title="statement not covered" >        ? err.status</span>
+<span class="cstat-no" title="statement not covered" >        : typeof err?.statusCode === "number"</span>
+<span class="cstat-no" title="statement not covered" >          ? err.statusCode</span>
+<span class="cstat-no" title="statement not covered" >          : undefined;</span>
+<span class="cstat-no" title="statement not covered" >    if (</span>
+<span class="cstat-no" title="statement not covered" >      typeof status === "number" &amp;&amp;</span>
+<span class="cstat-no" title="statement not covered" >      (status &gt;= 500 || status === 429 || status === 408)</span>
+<span class="cstat-no" title="statement not covered" >    ) {</span>
+<span class="cstat-no" title="statement not covered" >      return true;</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+&nbsp;
+    // Messages
+<span class="cstat-no" title="statement not covered" >    const msg: string =</span>
+<span class="cstat-no" title="statement not covered" >      typeof err?.message === "string" ? err.message.toLowerCase() : "";</span>
+<span class="cstat-no" title="statement not covered" >    if (</span>
+<span class="cstat-no" title="statement not covered" >      msg.includes("rate limit") ||</span>
+<span class="cstat-no" title="statement not covered" >      msg.includes("quota") ||</span>
+<span class="cstat-no" title="statement not covered" >      msg.includes("throttle")</span>
+<span class="cstat-no" title="statement not covered" >    ) {</span>
+<span class="cstat-no" title="statement not covered" >      return true;</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >    if (msg.includes("timeout")) {</span>
+<span class="cstat-no" title="statement not covered" >      return true;</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    return false;</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+&nbsp;
+  /**
+   * Get retry configuration for a specific provider
+   * @param provider - Provider name
+   * @returns Retry configuration object
+   */
+<span class="cstat-no" title="statement not covered" >  getProviderRetryConfig: (provider: string) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const normalizedProvider = provider.toLowerCase().replace(/[-_]/g, "");</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    switch (normalizedProvider) {</span>
+<span class="cstat-no" title="statement not covered" >      case "openai":</span>
+<span class="cstat-no" title="statement not covered" >        return PROVIDER_RETRY.OPENAI;</span>
+<span class="cstat-no" title="statement not covered" >      case "anthropic":</span>
+<span class="cstat-no" title="statement not covered" >        return PROVIDER_RETRY.ANTHROPIC;</span>
+<span class="cstat-no" title="statement not covered" >      case "googleai":</span>
+<span class="cstat-no" title="statement not covered" >      case "vertex":</span>
+<span class="cstat-no" title="statement not covered" >        return PROVIDER_RETRY.GOOGLE;</span>
+<span class="cstat-no" title="statement not covered" >      case "bedrock":</span>
+<span class="cstat-no" title="statement not covered" >        return PROVIDER_RETRY.BEDROCK;</span>
+<span class="cstat-no" title="statement not covered" >      case "azure":</span>
+<span class="cstat-no" title="statement not covered" >        return PROVIDER_RETRY.AZURE;</span>
+<span class="cstat-no" title="statement not covered" >      case "ollama":</span>
+<span class="cstat-no" title="statement not covered" >        return PROVIDER_RETRY.OLLAMA;</span>
+<span class="cstat-no" title="statement not covered" >      default:</span>
+<span class="cstat-no" title="statement not covered" >        return {</span>
+<span class="cstat-no" title="statement not covered" >          maxAttempts: RETRY_ATTEMPTS.DEFAULT,</span>
+<span class="cstat-no" title="statement not covered" >          baseDelay: RETRY_DELAYS.BASE_MS,</span>
+<span class="cstat-no" title="statement not covered" >          maxDelay: RETRY_DELAYS.MAX_MS,</span>
+<span class="cstat-no" title="statement not covered" >          multiplier: BACKOFF_CONFIG.MULTIPLIER,</span>
+<span class="cstat-no" title="statement not covered" >        };</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+<span class="cstat-no" title="statement not covered" >} as const;</span>
+&nbsp;
+// Legacy compatibility exports
+<span class="cstat-no" title="statement not covered" >export const DEFAULT_RETRY_ATTEMPTS = RETRY_ATTEMPTS.DEFAULT;</span>
+<span class="cstat-no" title="statement not covered" >export const DEFAULT_INITIAL_DELAY = RETRY_DELAYS.BASE_MS;</span>
+<span class="cstat-no" title="statement not covered" >export const DEFAULT_MAX_DELAY = RETRY_DELAYS.MAX_MS;</span>
+<span class="cstat-no" title="statement not covered" >export const DEFAULT_BACKOFF_MULTIPLIER = BACKOFF_CONFIG.MULTIPLIER;</span>
+<span class="cstat-no" title="statement not covered" >export const CIRCUIT_BREAKER_FAILURE_THRESHOLD =</span>
+<span class="cstat-no" title="statement not covered" >  CIRCUIT_BREAKER.FAILURE_THRESHOLD;</span>
+// Single source of truth: re-export from timeouts
+export { CIRCUIT_BREAKER_RESET_MS } from "./timeouts.js";
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-01-29T05:38:12.035Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    

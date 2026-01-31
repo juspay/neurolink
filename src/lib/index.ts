@@ -532,6 +532,93 @@ export { logger } from "./utils/logger.js";
 export { getPoolStats } from "./utils/redis.js";
 
 // ============================================================================
+// STORAGE ABSTRACTION - Unified Data Persistence
+// ============================================================================
+
+/**
+ * Storage Abstraction Module
+ *
+ * Provides unified data persistence across multiple backends:
+ * - PostgreSQL for production SQL databases
+ * - MongoDB for document storage
+ * - Redis for high-performance caching
+ * - LibSQL/SQLite for embedded databases
+ * - Memory for development and testing
+ *
+ * @example
+ * ```typescript
+ * import { createStorage, createThreadManager } from '@juspay/neurolink';
+ *
+ * // Create storage with PostgreSQL
+ * const storage = await createStorage('postgresql', {
+ *   connectionString: 'postgres://localhost/neurolink'
+ * });
+ * await storage.init();
+ *
+ * // Use high-level thread manager
+ * const threads = createThreadManager(storage);
+ * const thread = await threads.createThread('user-123', 'My Chat');
+ * await threads.addUserMessage(thread.id, 'Hello!');
+ * ```
+ */
+export {
+  // Factory functions
+  StorageFactory,
+  createStorage,
+  createStorageFromEnv,
+  getDefaultStorage,
+  // Base class for custom adapters
+  BaseStorageProvider,
+  // Adapters
+  MemoryAdapter,
+  PostgresAdapter,
+  MongoDBAdapter,
+  LibSQLAdapter,
+  RedisAdapter,
+  // Additional adapters (from main)
+  FileStorageAdapter,
+  S3StorageAdapter,
+  SQLiteStorageAdapter,
+  // High-level managers
+  ThreadManager,
+  createThreadManager,
+  WorkflowPersistenceManager,
+  createWorkflowPersistenceManager,
+  KeyValueStore,
+  createKeyValueStore,
+  // Migrations
+  MigrationRunner,
+  createMigrationRunner,
+  builtInMigrations,
+  // Utilities
+  ConnectionPool,
+  createConnectionPool,
+  TransactionalStorage,
+  withTransactions,
+  StorageHealthMonitor,
+  createHealthMonitor,
+  checkStorageHealth,
+  // Registry (Factory + Registry pattern)
+  StorageRegistry,
+  registerBackend,
+  unregisterBackend,
+  getBackend,
+  getAvailableBackends,
+  // Middleware
+  CachingMiddleware,
+  createCachingMiddleware,
+  EncryptionMiddleware,
+  createEncryptionMiddleware,
+  CompressionMiddleware,
+  createCompressionMiddleware as createStorageCompressionMiddleware,
+  // Constants
+  DEFAULT_STORAGE_TYPE,
+  SUPPORTED_STORAGE_BACKENDS,
+  isValidStorageType,
+  getStorageTypeFromEnv,
+} from "./storage/index.js";
+
+// ============================================================================
 // REAL-TIME SERVICES & TELEMETRY - Enterprise Platform Features
 // ============================================================================
 
