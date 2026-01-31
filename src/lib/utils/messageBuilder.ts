@@ -22,6 +22,7 @@ import {
   MultimodalLogger,
 } from "../adapters/providerImageAdapter.js";
 import { logger } from "./logger.js";
+import { ErrorFactory } from "./errorHandling.js";
 import { FileDetector } from "./fileDetector.js";
 import { PDFProcessor, PDFImageConverter } from "./pdfProcessor.js";
 import { urlDownloadRateLimiter } from "./rateLimiter.js";
@@ -432,7 +433,9 @@ export async function buildMessagesArray(
           logger.info(`[CSV] ✅ Processed: ${filename}`, result.metadata);
         } catch (error) {
           logger.error(`[CSV] ❌ Failed to process ${filename}:`, error);
-          csvContent += `\n\n## CSV Data Error: Failed to process "${filename}"\nReason: ${error instanceof Error ? error.message : "Unknown error"}`;
+          const csvError =
+            error instanceof Error ? error : new Error(String(error));
+          throw ErrorFactory.toolExecutionFailed("messageBuilder", csvError);
         }
       }
     }
@@ -592,10 +595,11 @@ export async function buildMultimodalMessagesArray(
         options.input.text += csvSection;
         logger.info(`[CSV] ✅ Processed: ${filename}`);
       } catch (error) {
-        logger.error(`[CSV] ❌ Failed:`, error);
         const filename = extractFilename(csvFile, i);
-        options.input.text += `\n\n## CSV Data Error: Failed to process "${filename}"`;
-        options.input.text += `\nReason: ${error instanceof Error ? error.message : "Unknown error"}`;
+        logger.error(`[CSV] ❌ Failed to process ${filename}:`, error);
+        const csvError =
+          error instanceof Error ? error : new Error(String(error));
+        throw ErrorFactory.toolExecutionFailed("messageBuilder", csvError);
       }
     }
   }
