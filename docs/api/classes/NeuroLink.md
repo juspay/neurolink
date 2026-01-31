@@ -482,12 +482,6 @@ emitter.on("externalMCP:toolDiscovered", (event) => {
   console.log(`New tool discovered: ${event.toolName} from ${event.serverId}`);
 });
 
-// Listen to conversation memory events
-emitter.on("conversation:titleGenerated", (event) => {
-  console.log(`Title generated for session ${event.sessionId}: ${event.title}`);
-  console.log(`User: ${event.userId}, Timestamp: ${event.timestamp}`);
-});
-
 // Advanced usage with error handling
 emitter.on("error", (error) => {
   console.error("NeuroLink error:", error);
@@ -585,11 +579,6 @@ setInterval(() => {
   - `{ serverId: string, config: MCPServerInfo, toolCount: number, timestamp: number }`
 - `externalMCP:serverRemoved` - Fired when external MCP server is removed
   - `{ serverId: string, timestamp: number }`
-
-**Conversation Memory Events:**
-
-- `conversation:titleGenerated` - Fired when a conversation title is automatically generated
-  - `{ sessionId: string, userId: string, title: string, timestamp: number }`
 
 **Error Events:**
 

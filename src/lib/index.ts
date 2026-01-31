@@ -36,29 +36,25 @@
 import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
 
-// Export ALL types from the centralized type barrel
-export * from "./types/index.js";
-
-// Tool Registration utility
-export { validateTool } from "./sdk/toolRegistration.js";
-
 export {
   AIProviderName,
   BedrockModels,
   OpenAIModels,
   VertexModels,
 } from "./constants/enums.js";
-
-// Utility exports
-export {
-  getBestProvider,
-  getAvailableProviders,
-  isValidProvider,
-} from "./utils/providerUtils.js";
-
 // Dynamic Models exports
 export { dynamicModelProvider } from "./core/dynamicModels.js";
+// Tool Registration utility
+export { validateTool } from "./sdk/toolRegistration.js";
+// Export ALL types from the centralized type barrel
+export * from "./types/index.js";
 export type { DynamicModelConfig, ModelRegistry } from "./types/modelTypes.js";
+// Utility exports
+export {
+  getAvailableProviders,
+  getBestProvider,
+  isValidProvider,
+} from "./utils/providerUtils.js";
 
 // Main NeuroLink wrapper class and diagnostic types
 import { NeuroLink } from "./neurolink.js";
@@ -67,24 +63,21 @@ export type { MCPServerInfo } from "./types/mcpTypes.js";
 
 // Observability configuration types
 export type {
-  ObservabilityConfig,
   LangfuseConfig,
+  ObservabilityConfig,
   OpenTelemetryConfig,
 } from "./types/observability.js";
 
 export { buildObservabilityConfigFromEnv } from "./utils/observabilityHelpers.js";
 
 import {
-  initializeOpenTelemetry,
-  shutdownOpenTelemetry,
   flushOpenTelemetry,
   getLangfuseHealthStatus,
+  initializeOpenTelemetry,
   setLangfuseContext,
+  shutdownOpenTelemetry,
 } from "./services/server/ai/observability/instrumentation.js";
-import {
-  initializeTelemetry as init,
-  getTelemetryStatus as getStatus,
-} from "./telemetry/index.js";
+import { getTelemetryStatus as getStatus, initializeTelemetry as init } from "./telemetry/index.js";
 
 export {
   initializeOpenTelemetry,
@@ -94,15 +87,128 @@ export {
   setLangfuseContext,
 };
 
+export type {
+  AggregatedTools,
+  BaseDeployerConfig,
+  BuildConfig,
+  BuildOutput,
+  BuildTarget,
+  BundlerMetadata,
+  BundlerType,
+  BundleSizeInfo,
+  CloudflareDeployerConfig,
+  DependencyAnalysis,
+  // Dependency analysis types
+  DependencyInfo,
+  // Configuration types
+  DeployConfig,
+  DeployerFactoryConfig,
+  // Registry metadata
+  DeployerMetadata,
+  DeploymentErrorCode,
+  // Event types
+  DeploymentEvents,
+  // Core types
+  DeploymentPlatform,
+  DeploymentStatus,
+  // Output types
+  DeployResult,
+  DiscoveredEntries,
+  // Tool discovery types
+  DiscoveredTool,
+  DockerDeployerConfig,
+  // Entry discovery types
+  EntryFile,
+  EnvironmentConfig,
+  // Environment types
+  EnvironmentVariable,
+  ESBuildOptions,
+  FlyioDeployerConfig,
+  GeneratedServer,
+  IBundler,
+  // Interface types
+  IDeployer,
+  LambdaDeployerConfig,
+  MiddlewareConfig as DeploymentMiddlewareConfig,
+  NetlifyDeployerConfig,
+  OpenAPIConfig,
+  OutputFile,
+  // Platform-specific configs
+  PlatformConfig,
+  // Factory config types
+  PlatformConfigMap,
+  ServerConfig,
+  ValidationError as DeploymentValidationErrorType,
+  // Validation types
+  ValidationResult,
+  ValidationRule,
+  ValidationWarning,
+  VercelDeployerConfig,
+  ViteOptions,
+} from "./deployment/index.js";
+// Deployment system exports (new comprehensive system)
+// Legacy deployer exports (for backward compatibility)
+// These will be deprecated in future versions
+export {
+  AuthorizationError,
+  AWSLambdaDeployer,
+  // Deployers
+  BaseDeployer,
+  BuildError,
+  BundlerError,
+  // Bundlers
+  BundlerFactory,
+  BundlerRegistry,
+  bundlerRegistry,
+  CloudflareDeployer,
+  ConfigurationError,
+  createBundler,
+  createDeployer,
+  createPlatformError,
+  DeployerRegistry,
+  // Errors
+  DeploymentError,
+  DeploymentErrorCodes,
+  DeploymentErrors,
+  // Factory and Registry
+  DeploymentFactory,
+  DeploymentFactory as DeployerFactory,
+  DeploymentNetworkError,
+  DeploymentTimeoutError,
+  DockerDeployer,
+  deploy,
+  deployerRegistry,
+  deploymentFactory,
+  detectOptimalBundler,
+  EnvironmentError,
+  // Environment Manager
+  EnvironmentManager,
+  ESBuildBundler,
+  environmentManager,
+  FlyioDeployer,
+  getRecommendedBuildConfig,
+  isDeploymentError,
+  isRetryableDeploymentError,
+  NEUROLINK_ENV_REQUIREMENTS,
+  NetlifyDeployer,
+  PLATFORM_ENV_REQUIREMENTS,
+  PlatformDeploymentError,
+  RateLimitError,
+  // Server Generator
+  ServerGenerator,
+  ValidationError as DeploymentValidationError,
+  VercelDeployer,
+  ViteBundler,
+} from "./deployment/index.js";
+export { MiddlewareFactory } from "./middleware/factory.js";
 // Middleware exports
 export type {
-  NeuroLinkMiddleware,
+  MiddlewareConfig,
   MiddlewareContext,
   MiddlewareFactoryOptions,
   MiddlewarePreset,
-  MiddlewareConfig,
+  NeuroLinkMiddleware,
 } from "./types/middlewareTypes.js";
-export { MiddlewareFactory } from "./middleware/factory.js";
 
 // Version
 export const VERSION = "1.0.0";
@@ -138,14 +244,8 @@ export const VERSION = "1.0.0";
  * @see {@link NeuroLink} for the main SDK class
  * @since 1.0.0
  */
-export async function createAIProvider(
-  providerName?: string,
-  modelName?: string,
-) {
-  return await AIProviderFactory.createProvider(
-    providerName || "bedrock",
-    modelName,
-  );
+export async function createAIProvider(providerName?: string, modelName?: string) {
+  return await AIProviderFactory.createProvider(providerName || "bedrock", modelName);
 }
 
 /**
@@ -240,14 +340,8 @@ export async function createAIProviderWithFallback(
  * @see {@link getBestProvider} for provider detection utility
  * @since 1.0.0
  */
-export async function createBestAIProvider(
-  requestedProvider?: string,
-  modelName?: string,
-) {
-  return await AIProviderFactory.createBestProvider(
-    requestedProvider,
-    modelName,
-  );
+export async function createBestAIProvider(requestedProvider?: string, modelName?: string) {
+  return await AIProviderFactory.createBestProvider(requestedProvider, modelName);
 }
 
 // ============================================================================
@@ -276,53 +370,53 @@ export async function createBestAIProvider(
  * ```
  */
 export {
+  CircuitBreakerManager,
+  calculateExpiresAt,
+  createOAuthProviderFromConfig,
+  DEFAULT_HTTP_RETRY_CONFIG,
+  DEFAULT_RATE_LIMIT_CONFIG,
+  executeMCP,
+  FileTokenStorage,
+  getMCPStats,
+  globalCircuitBreakerManager,
+  globalRateLimiterManager,
+  // HTTP Transport utilities
+  HTTPRateLimiter,
+  // OAuth Authentication
+  InMemoryTokenStorage,
   // Core MCP ecosystem
   // Simplified MCP exports
   initializeMCPEcosystem,
-  listMCPs,
-  executeMCP,
-  getMCPStats,
-  mcpLogger,
-  // HTTP Transport utilities
-  HTTPRateLimiter,
-  RateLimiterManager,
-  globalRateLimiterManager,
-  DEFAULT_RATE_LIMIT_CONFIG,
-  DEFAULT_HTTP_RETRY_CONFIG,
-  isRetryableStatusCode,
   isRetryableHTTPError,
-  withHTTPRetry,
-  // OAuth Authentication
-  InMemoryTokenStorage,
-  FileTokenStorage,
+  isRetryableStatusCode,
   isTokenExpired,
-  calculateExpiresAt,
-  NeuroLinkOAuthProvider,
-  createOAuthProviderFromConfig,
+  listMCPs,
   // Circuit Breaker
   MCPCircuitBreaker,
-  CircuitBreakerManager,
-  globalCircuitBreakerManager,
+  mcpLogger,
+  NeuroLinkOAuthProvider,
+  RateLimiterManager,
+  withHTTPRetry,
 } from "./mcp/index.js";
 
 export type {
-  McpMetadata,
+  AuthorizationUrlResult,
   DiscoveredMcp,
+  HTTPRetryConfig,
+  MCPOAuthConfig,
+  McpMetadata,
+  OAuthClientInformation,
+  OAuthTokens,
   // HTTP Transport types
   RateLimitConfig,
-  HTTPRetryConfig,
-  OAuthTokens,
-  TokenStorage,
-  MCPOAuthConfig,
-  OAuthClientInformation,
-  AuthorizationUrlResult,
   TokenExchangeRequest,
+  TokenStorage,
 } from "./types/mcpTypes.js";
 
 export type {
   ExecutionContext,
-  ToolInfo,
   ToolExecutionResult,
+  ToolInfo,
 } from "./types/tools.js";
 
 export type { LogLevel } from "./types/utilities.js";
@@ -356,15 +450,223 @@ export async function getTelemetryStatus(): Promise<{
 }
 
 // ============================================================================
+// AUTHENTICATION - Multi-Provider Authentication System
+// ============================================================================
+
+export type {
+  Auth0Config,
+  AuthEventType,
+  AuthenticatedContext,
+  AuthMiddlewareConfig,
+  AuthProviderConfig,
+  AuthProviderRegistration,
+  // Core types
+  AuthProviderType,
+  // Middleware types
+  AuthRequestContext,
+  AuthSession,
+  AuthUser,
+  // Provider-specific config types
+  BaseAuthProviderConfig,
+  BetterAuthConfig,
+  ClerkConfig,
+  CognitoConfig,
+  CustomAuthConfig,
+  FirebaseConfig,
+  KeycloakConfig,
+  // Provider interface
+  MastraAuthProvider,
+  RBACMiddlewareConfig,
+  // Session types
+  SessionStorage,
+  SupabaseConfig,
+  TokenValidationResult,
+  WorkOSConfig,
+} from "./auth/index.js";
+/**
+ * Authentication System
+ *
+ * Multi-provider authentication system supporting Better Auth, Auth0,
+ * Clerk, Firebase, Supabase, and WorkOS.
+ *
+ * @example
+ * ```typescript
+ * import { AuthProviderFactory, SessionManager, createAuthMiddleware } from '@juspay/neurolink';
+ *
+ * // Create an auth provider
+ * const authProvider = await AuthProviderFactory.createProvider('auth0', {
+ *   name: 'auth0',
+ *   domain: 'your-tenant.auth0.com',
+ *   clientId: 'your-client-id'
+ * });
+ *
+ * // Authenticate a user
+ * const result = await authProvider.authenticate({
+ *   email: 'user@example.com',
+ *   password: 'password123'
+ * });
+ *
+ * // Store session
+ * const sessionManager = new SessionManager({ storageType: 'file' });
+ * await sessionManager.createSession('auth0', result.session);
+ *
+ * // Create middleware for protecting endpoints
+ * const authMiddleware = createAuthMiddleware({ required: true });
+ * ```
+ */
+export {
+  Auth0Provider,
+  // Errors
+  AuthError,
+  AuthFactoryError,
+  AuthMiddlewareError,
+  AuthProviderError,
+  // Factory and Registry
+  AuthProviderFactory,
+  AuthProviderRegistry,
+  AuthRegistryError,
+  // Provider implementations (for advanced usage)
+  BaseAuthProvider,
+  BetterAuthProvider,
+  ClerkProvider,
+  CognitoProvider,
+  CustomAuthProvider,
+  // Middleware
+  createAuthMiddleware,
+  createAuthProvider,
+  createExpressAuthMiddleware,
+  createProtectedMiddleware,
+  createRateLimitByUserMiddleware,
+  createRBACMiddleware,
+  createSessionStorage,
+  FirebaseProvider,
+  getAuthContext,
+  getAuthProviderFactory,
+  getAuthProviderRegistry,
+  getCurrentUser,
+  hasPermission,
+  hasRole,
+  isAuthenticated,
+  KeycloakProvider,
+  MemorySessionStorage,
+  RedisSessionStorage,
+  registerAllAuthProviders,
+  requireAuth,
+  // Auth Context
+  runWithAuthContext,
+  // Session Management
+  SessionManager,
+  SupabaseProvider,
+  // Rate Limiting
+  UserRateLimiter,
+  WorkOSProvider,
+} from "./auth/index.js";
+
+// ============================================================================
+// STORAGE ABSTRACTION - Multi-Backend Storage System
+// ============================================================================
+
+// NOTE: Storage module is not yet implemented in this branch.
+// These exports are commented out until the storage module is available.
+/*
+export type {
+  // Config types
+  BaseStorageConfig,
+  InMemoryStorageConfig,
+  LibSQLStorageConfig,
+  // Migration types
+  Migration,
+  MigrationRecord,
+  MigrationResult,
+  MigrationRunnerOptions,
+  MigrationStatus,
+  MongoDBStorageConfig,
+  PostgresStorageConfig,
+  RedisStorageConfig,
+  // Core types
+  StorageAdapterType,
+  StorageConfig,
+  StorageConnectionStatus,
+  StorageDeleteOptions,
+  StorageDeleteResult,
+  StorageExistsResult,
+  // Export/Import types
+  StorageExportOptions,
+  StorageGetOptions,
+  // Result types
+  StorageGetResult,
+  StorageHealthResult,
+  StorageImportOptions,
+  StorageItem,
+  // Item types
+  StorageItemMetadata,
+  StorageListOptions,
+  StorageListResult,
+  StorageOperationStatus,
+  StorageProvider,
+  // Option types
+  StorageSetOptions,
+  StorageSetResult,
+  StorageStats,
+  StorageTransferResult,
+} from "./storage/index.js";
+*/
+/**
+ * Storage Abstraction System
+ *
+ * Unified storage abstraction layer with multiple backend adapters.
+ * Supports in-memory, Redis, PostgreSQL, MongoDB, and LibSQL storage.
+ *
+ * @example
+ * ```typescript
+ * import { StorageFactory, MigrationRunner } from '@juspay/neurolink';
+ *
+ * // Create a storage provider
+ * const storage = await StorageFactory.createAndConnect({
+ *   adapter: 'redis',
+ *   url: 'redis://localhost:6379',
+ *   namespace: 'myapp'
+ * });
+ *
+ * // Store and retrieve data
+ * await storage.set('user:1', { name: 'John', email: 'john@example.com' });
+ * const user = await storage.get('user:1');
+ *
+ * // Run migrations
+ * const runner = new MigrationRunner(storage);
+ * runner.registerMigration(myMigration);
+ * await runner.runMigrations();
+ * ```
+ */
+// NOTE: Storage module is not yet implemented in this branch.
+/*
+export {
+  createMigrationId,
+  createStorageFromEnv,
+  defineMigration,
+  // Adapters
+  InMemoryStorageAdapter,
+  LibSQLStorageAdapter,
+  // Migrations
+  MigrationRunner,
+  MongoDBStorageAdapter,
+  PostgresStorageAdapter,
+  RedisStorageAdapter,
+  // Factory
+  StorageFactory,
+} from "./storage/index.js";
+*/
+
+// ============================================================================
 // BACKWARD COMPATIBILITY: Legacy generateText Function Exports
 // ============================================================================
 
 // Export legacy types for backward compatibility
 export type {
-  TextGenerationOptions,
-  TextGenerationResult,
   AnalyticsData,
   EvaluationData,
+  TextGenerationOptions,
+  TextGenerationResult,
 } from "./types/index.js";
 
 /**

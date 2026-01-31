@@ -1,8 +1,3 @@
----
-title: Visual Demonstrations
-description: Experience NeuroLink's capabilities through comprehensive visual documentation including screenshots and videos
----
-
 # 🎬 Visual Demonstrations
 
 Experience NeuroLink's capabilities through comprehensive visual documentation. **No installation required!**
@@ -83,53 +78,59 @@ npm start
 
 ### Professional CLI Screenshots _(Latest: June 10, 2025)_
 
-| Command                     | Screenshot               | Description                                                 |
-| --------------------------- | ------------------------ | ----------------------------------------------------------- |
-| **CLI Help Overview**       | _Screenshot coming soon_ | Complete command reference and usage examples               |
-| **Provider Status Check**   | _Screenshot coming soon_ | All provider connectivity verification with response times  |
-| **Text Generation**         | _Screenshot coming soon_ | Real AI haiku generation with JSON output and usage metrics |
-| **Auto Provider Selection** | _Screenshot coming soon_ | Automatic provider selection algorithm demonstration        |
-| **Batch Processing**        | _Screenshot coming soon_ | Multi-prompt processing with progress tracking and results  |
+| Command                     | Screenshot                                                                                                | Description                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **CLI Help Overview**       | ![CLI Help](visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-10T12-00-00.png)               | Complete command reference and usage examples               |
+| **Provider Status Check**   | ![Provider Status](visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-10T12-00-00.png) | All provider connectivity verification with response times  |
+| **Text Generation**         | ![Text Generation](visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-10T12-00-00.png) | Real AI haiku generation with JSON output and usage metrics |
+| **Auto Provider Selection** | ![Best Provider](visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-10T12-00-00.png)     | Automatic provider selection algorithm demonstration        |
+| **Batch Processing**        | ![Batch Results](visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-10T12-00-00.png)     | Multi-prompt processing with progress tracking and results  |
 
 ### CLI Demonstration Videos
 
 **Real command execution with live AI generation**
 
-#### **CLI Help Overview** _(Video coming soon)_
+#### **CLI Help Overview** - [🎬 MP4](./visual-content/cli-videos/cli-01-cli-help.mp4)
 
 - Complete help system demonstration
 - Command reference and usage examples
 - Provider configuration overview
+- **Size**: 44KB - Professional MP4 with comprehensive command overview
 
-#### **Provider Status** _(Video coming soon)_
+#### **Provider Status** - [🎬 MP4](./visual-content/cli-videos/cli-02-provider-status.mp4)
 
 - All provider connectivity verification (now with authentication and model availability checks)
 - Response time measurements
 - Authentication status checking
+- **Size**: 496KB - Professional MP4 showing provider connectivity
 
-#### **Text Generation** _(Video coming soon)_
+#### **Text Generation** - [🎬 MP4](./visual-content/cli-videos/cli-03-text-generation.mp4)
 
 - Text generation with different providers
 - Temperature and token control demonstrations
 - JSON vs text output formats
+- **Size**: 100KB - Professional MP4 with real AI generation
 
-#### **Auto Provider Selection** _(Video coming soon)_
+#### **Auto Provider Selection** - [🎬 MP4](./visual-content/cli-videos/cli-04-auto-selection.mp4)
 
 - Automatic provider selection algorithm
 - Fallback mechanism demonstration
 - Performance-based selection
+- **Size**: Professional MP4 showing selection logic
 
-#### **Streaming Generation** _(Video coming soon)_
+#### **Streaming Generation** - [🎬 MP4](./visual-content/cli-videos/cli-05-streaming.mp4)
 
 - Live AI content streaming demonstration
 - Real-time text generation as it happens
 - Provider performance comparison
+- **Size**: Professional MP4 with live streaming
 
-#### **Advanced Features** _(Video coming soon)_
+#### **Advanced Features** - [🎬 MP4](./visual-content/cli-videos/cli-06-advanced-features.mp4)
 
 - Verbose diagnostics and debugging
 - Provider-specific command options
 - Advanced configuration and customization
+- **Size**: Professional MP4 with comprehensive advanced features
 
 ### CLI Recording Infrastructure
 
@@ -158,29 +159,27 @@ asciinema play docs/cli-recordings/latest/06-advanced-features.cast
 
 **Generated January 10, 2025** - Showcasing external server integration capabilities
 
-| Command                  | Screenshot                                                                                     | Description                                                |
-| ------------------------ | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| **MCP Help Overview**    | ![MCP Help](/docs/visual-content/screenshots/mcp-cli/01-mcp-help-2025-06-10.png)               | Complete MCP command reference and server management       |
-| **Server Installation**  | ![Install Server](/docs/visual-content/screenshots/mcp-cli/02-mcp-install-2025-06-10.png)      | Installing external MCP servers (filesystem, github, etc.) |
-| **Server Status Check**  | ![Server Status](/docs/visual-content/screenshots/mcp-cli/03-mcp-list-status-2025-06-10.png)   | MCP server connectivity and status verification            |
-| **Server Testing**       | ![Test Server](/docs/visual-content/screenshots/mcp-cli/04-mcp-test-server-2025-06-10.png)     | Testing MCP server connectivity and tool discovery         |
-| **Custom Server Setup**  | ![Custom Server](/docs/visual-content/screenshots/mcp-cli/05-mcp-custom-server-2025-06-10.png) | Adding custom MCP server configurations                    |
-| **Workflow Integration** | ![Workflow Demo](/docs/visual-content/screenshots/mcp-cli/06-mcp-workflow-demo-2025-06-10.png) | Complete MCP workflow demonstrations                       |
+| Command                  | Screenshot                                                                                 | Description                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| **MCP Help Overview**    | ![MCP Help](./visual-content/screenshots/mcp-cli/01-mcp-help-2025-06-10.png)               | Complete MCP command reference and server management       |
+| **Server Installation**  | ![Install Server](./visual-content/screenshots/mcp-cli/02-mcp-install-2025-06-10.png)      | Installing external MCP servers (filesystem, github, etc.) |
+| **Server Status Check**  | ![Server Status](./visual-content/screenshots/mcp-cli/03-mcp-list-status-2025-06-10.png)   | MCP server connectivity and status verification            |
+| **Server Testing**       | ![Test Server](./visual-content/screenshots/mcp-cli/04-mcp-test-server-2025-06-10.png)     | Testing MCP server connectivity and tool discovery         |
+| **Custom Server Setup**  | ![Custom Server](./visual-content/screenshots/mcp-cli/05-mcp-custom-server-2025-06-10.png) | Adding custom MCP server configurations                    |
+| **Workflow Integration** | ![Workflow Demo](./visual-content/screenshots/mcp-cli/06-mcp-workflow-demo-2025-06-10.png) | Complete MCP workflow demonstrations                       |
 
 ### MCP Demo Videos
 
 **Real external server integration demonstrations**
 
-#### **Server Management**
-
-_Video coming soon_
+#### **Server Management** - [🎬 MP4](videos/mcp-server-management-demo.mp4)
 
 - Installing and configuring MCP servers
 - Server lifecycle management
 - Status monitoring and health checks
 - **Duration**: ~45 seconds of real server management
 
-**Note**: MCP demo videos are in development and will showcase the core MCP integration capabilities.
+**Note**: Additional MCP demo videos are in development. The server management demo showcases the core MCP integration capabilities.
 
 ### MCP CLI Commands Demonstrated
 

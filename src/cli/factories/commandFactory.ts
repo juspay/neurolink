@@ -33,6 +33,8 @@ import { ModelsCommandFactory } from "../commands/models.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
 import { OllamaCommandFactory } from "./ollamaCommandFactory.js";
 import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
+import { StorageCommandFactory } from "../commands/storage.js";
+import { DeployCommandFactory } from "./deployCommandFactory.js";
 import { ModelResolver } from "../../lib/models/modelResolver.js";
 import ora from "ora";
 import chalk from "chalk";
@@ -1410,8 +1412,19 @@ export class CLICommandFactory {
   }
 
   /**
-   * Create completion command
+   * Create storage commands
    */
+  static createStorageCommands(): CommandModule {
+    return StorageCommandFactory.createStorageCommands();
+  }
+
+  /**
+   * Create deploy commands
+   */
+  static createDeployCommands(): CommandModule {
+    return DeployCommandFactory.createDeployCommands();
+  }
+
   /**
    * Create loop command
    */

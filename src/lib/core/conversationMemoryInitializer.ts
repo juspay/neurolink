@@ -14,18 +14,13 @@ import {
 import { applyConversationMemoryDefaults } from "../utils/conversationMemory.js";
 import { logger } from "../utils/logger.js";
 
-import type { TypedEventEmitter, NeuroLinkEvents } from "../types/common.js";
-
 /**
  * Initialize conversation memory for NeuroLink
  * This function decides whether to use in-memory or Redis storage
  */
-export async function initializeConversationMemory(
-  config?: {
-    conversationMemory?: Partial<ConversationMemoryConfig>;
-  },
-  eventEmitter?: TypedEventEmitter<NeuroLinkEvents>,
-): Promise<ConversationMemoryManager | RedisConversationMemoryManager | null> {
+export async function initializeConversationMemory(config?: {
+  conversationMemory?: Partial<ConversationMemoryConfig>;
+}): Promise<ConversationMemoryManager | RedisConversationMemoryManager | null> {
   logger.debug(
     "[conversationMemoryInitializer] Initialize conversation memory called",
     {
@@ -103,7 +98,6 @@ export async function initializeConversationMemory(
         memoryConfig,
         "redis",
         redisConfig,
-        eventEmitter,
       );
 
       logger.debug(

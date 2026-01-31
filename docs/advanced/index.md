@@ -242,5 +242,5 @@ Each advanced feature has comprehensive documentation with examples, best practi
 
 - **[Factory Pattern Migration Guide](../development/factory-migration.md)** - Upgrade from older architectures
 - **[MCP Testing Guide](../development/testing.md)** - Test tool integrations
-- **[Performance Tuning](../deployment/configuration-management.md)** - Optimize for your use case
+- **[Performance Tuning](../reference/configuration.md)** - Optimize for your use case
 - **[Production Deployment](../examples/business.md)** - Enterprise deployment patterns

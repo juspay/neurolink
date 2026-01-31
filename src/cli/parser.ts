@@ -7,6 +7,7 @@ import { globalSession } from "../lib/session/globalSessionState.js";
 import { handleError } from "./errorHandler.js";
 import { logger } from "../lib/utils/logger.js";
 import { SetupCommandFactory } from "./factories/setupCommandFactory.js";
+import { AuthCommandFactory } from "./commands/auth.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -194,5 +195,14 @@ export function initializeCliParser() {
 
       // Setup Commands - Using SetupCommandFactory
       .command(SetupCommandFactory.createSetupCommands())
+
+      // Auth Commands - Using AuthCommandFactory
+      .command(AuthCommandFactory.createAuthCommands())
+
+      // Storage Commands - Using CLICommandFactory
+      .command(CLICommandFactory.createStorageCommands())
+
+      // Deploy Commands - Using CLICommandFactory
+      .command(CLICommandFactory.createDeployCommands())
   ); // Close the main return statement
 }

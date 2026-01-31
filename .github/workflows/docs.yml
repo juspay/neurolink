@@ -1,0 +1,85 @@
+name: Deploy Documentation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [release]
+    paths:
+      - "**/*.md"
+      - "mkdocs.yml"
+      - "requirements.txt"
+      - "scripts/sync-readme.sh"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    branches: [release]
+    paths:
+      - "**/*.md"
+      - "mkdocs.yml"
+      - "requirements.txt"
+      - "scripts/sync-readme.sh"
+      - ".github/workflows/docs.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Setup Node.js for markdownlint
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 📝 Markdown Linting
+        run: |
+          echo "📝 Running markdownlint on documentation files..."
+          npx markdownlint-cli2 "docs/**/*.md" --config .markdownlint.json || echo "⚠️ Markdownlint found formatting issues - consider running 'npx markdownlint-cli2 --fix \"docs/**/*.md\"' locally"
+
+      - name: 🔄 Sync README to docs
+        run: |
+          echo "🔄 Syncing README.md to docs/index.md..."
+          bash scripts/sync-readme.sh
+
+      - name: Build documentation
+        run: |
+          mkdocs build --strict --clean
+
+      - name: Upload artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

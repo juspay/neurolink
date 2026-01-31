@@ -174,20 +174,6 @@ const result = await neurolink.generate({ input: { text: summary } });
 
 ---
 
-## AI Provider Issues
-
-Common issues when working with AI provider integrations, including connection problems, authentication failures, and configuration errors.
-
-**Related Sections:**
-
-- [Provider Connection Failures](#provider-connection-failures) - Network, DNS, and SSL issues
-- [Authentication Issues](#authentication-issues) - API keys and OAuth problems
-- [OAuth/Service Account Issues](#oauthservice-account-issues) - GCP, Azure, AWS credentials
-- [Timeout Errors](#timeout-errors) - Provider response timeouts
-- [Rate Limiting](#rate-limiting) - API quota and throttling
-
----
-
 ## Authentication Issues
 
 ### API Key Errors

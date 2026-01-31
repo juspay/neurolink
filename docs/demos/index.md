@@ -2,7 +2,7 @@
 
 Experience NeuroLink through comprehensive visual demonstrations, screenshots, and interactive examples.
 
-## What You'll See Here
+## 🎯 What You'll See Here
 
 This section showcases NeuroLink's capabilities through visual content, making it easy to understand features before implementation.
 
@@ -28,44 +28,39 @@ This section showcases NeuroLink's capabilities through visual content, making i
 
 </div>
 
-## Quick Preview
+## 🚀 Quick Preview
 
 ### CLI in Action
 
-<!-- Screenshot placeholder: CLI Help Command -->
-<!-- Image file exists but is empty: ../assets/images/cli-help-demo.png -->
+![CLI Help Command](../assets/images/cli-help-demo.png)
 
 The CLI provides a professional interface with comprehensive help, auto-completion, and rich output formatting.
 
 ### Web Interface
 
-<!-- Screenshot placeholder: Web Demo Overview -->
-<!-- Image file exists but is empty: ../assets/images/web-demo-overview.png -->
+![Interactive Demo](../assets/images/web-demo-overview.png)
 
 The interactive web demo showcases all features with live AI generation across multiple providers.
 
-## Featured Demonstrations
+## 🖥️ Featured Demonstrations
 
 ### Command Line Interface
 
 === "Basic Commands"
 
-    <!-- Screenshot placeholder: Provider Status -->
-    <!-- Image file exists but is empty: ../assets/images/provider-status.png -->
+    ![Provider Status](../assets/images/provider-status.png)
 
     Check the status of all configured AI providers with detailed diagnostics.
 
 === "Text Generation"
 
-    <!-- Screenshot placeholder: Text Generation -->
-    <!-- Image file exists but is empty: ../assets/images/text-generation.png -->
+    ![Text Generation](../assets/images/text-generation.png)
 
     Generate content with analytics and evaluation enabled.
 
 === "MCP Tools"
 
-    <!-- Screenshot placeholder: MCP Tools -->
-    <!-- Image file exists but is empty: ../assets/images/mcp-tools.png -->
+    ![MCP Tools](../assets/images/mcp-tools.png)
 
     Built-in tools working seamlessly across all providers.
 
@@ -73,49 +68,58 @@ The interactive web demo showcases all features with live AI generation across m
 
 === "Business Use Cases"
 
-    <!-- Screenshot placeholder: Business Use Cases -->
-    <!-- Image file exists but is empty: ../assets/images/business-use-cases.png -->
+    ![Business Demo](../assets/images/business-use-cases.png)
 
     Professional applications for business automation and content generation.
 
 === "Developer Tools"
 
-    <!-- Screenshot placeholder: Developer Tools -->
-    <!-- Image file exists but is empty: ../assets/images/developer-tools.png -->
+    ![Developer Tools](../assets/images/developer-tools.png)
 
     Code generation, API development, and technical documentation.
 
 === "Creative Applications"
 
-    <!-- Screenshot placeholder: Creative Tools -->
-    <!-- Image file exists but is empty: ../assets/images/creative-tools.png -->
+    ![Creative Tools](../assets/images/creative-tools.png)
 
     Content creation, storytelling, and creative writing assistance.
 
-## Video Highlights
+## 🎬 Video Highlights
 
 ### Quick Start (2 minutes)
 
-<!-- Video placeholder: Quick Start Demo -->
-<!-- Video file not available: ../assets/videos/quick-start-demo.mp4 -->
+<div class="video-container">
+  <video controls width="100%">
+    <source src="../assets/videos/quick-start-demo.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+</div>
 
 _Complete quick start demonstration from installation to first AI generation_
 
 ### Advanced Features (5 minutes)
 
-<!-- Video placeholder: Advanced Features -->
-<!-- Video file not available: ../assets/videos/advanced-features.mp4 -->
+<div class="video-container">
+  <video controls width="100%">
+    <source src="../assets/videos/advanced-features.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+</div>
 
 _Analytics, evaluation, custom tools, and MCP integration showcase_
 
 ### Enterprise Workflow (8 minutes)
 
-<!-- Video placeholder: Enterprise Workflow -->
-<!-- Video file not available: ../assets/videos/enterprise-workflow.mp4 -->
+<div class="video-container">
+  <video controls width="100%">
+    <source src="../assets/videos/enterprise-workflow.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+</div>
 
 _Production deployment, monitoring, and business automation examples_
 
-## Interactive Demo
+## 🌐 Interactive Demo
 
 Experience NeuroLink live without installation:
 
@@ -124,10 +128,10 @@ Experience NeuroLink live without installation:
     Visit our [Interactive Demo](https://neurolink-demo.vercel.app) to try NeuroLink with real AI providers.
 
     Features:
-    - **Live AI Generation** - All 9 providers functional
-    - **Real-time Analytics** - See costs and performance
-    - **Built-in Tools** - Experience MCP integration
-    - **Multiple Use Cases** - Business, creative, and technical examples
+    - ✅ **Live AI Generation** - All 9 providers functional
+    - ✅ **Real-time Analytics** - See costs and performance
+    - ✅ **Built-in Tools** - Experience MCP integration
+    - ✅ **Multiple Use Cases** - Business, creative, and technical examples
 
 ### Demo Highlights
 
@@ -136,7 +140,7 @@ Experience NeuroLink live without installation:
 - **Performance Metrics** - Real-time response times and costs
 - **Tool Integration** - Experience built-in tools in action
 
-## Platform Coverage
+## 📱 Platform Coverage
 
 ### Desktop/CLI Demos
 
@@ -158,7 +162,7 @@ Experience NeuroLink live without installation:
 - **Responsive layouts** for small screens
 - **Progressive enhancement** for all devices
 
-## Visual Assets
+## 🎨 Visual Assets
 
 All visual content is organized and optimized for:
 
@@ -167,12 +171,12 @@ All visual content is organized and optimized for:
 - **Consistent branding** across all materials
 - **Accessibility** with alt text and captions
 
-## Integration Examples
+## 🔗 Integration Examples
 
 ### Documentation Embedding
 
 ```markdown
-![NeuroLink CLI Demo](path/to/cli-demo.png)
+![NeuroLink CLI Demo](../assets/images/cli-demo.png)
 _NeuroLink CLI with provider status and text generation_
 ```
 
@@ -183,7 +187,7 @@ _NeuroLink CLI with provider status and text generation_
 - **Brand guidelines** for consistent usage
 - **Social media** preview images
 
-## Performance Demonstrations
+## 📊 Performance Demonstrations
 
 ### Before/After Comparisons
 
@@ -203,7 +207,7 @@ Visual representations of:
 - **Quality metrics** from evaluation system
 - **Resource usage** monitoring
 
-## Getting Help
+## 🆘 Getting Help
 
 If you have questions about any of the demonstrations:
 

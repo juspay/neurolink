@@ -13,7 +13,6 @@ The conversation memory system provides:
 - **In-memory storage**: Fast, lightweight storage for conversation history
 - **Universal Method Support**: Works seamlessly with both `generate()` and `stream()` methods
 - **Stream Integration**: Full conversation memory support for streaming responses
-- **Title Generation Events**: Automatic title generation with real-time event emission
 
 ## ⚙️ Configuration
 
@@ -160,96 +159,6 @@ await neurolink.generate({
 });
 // Response: "I don't have information about your favorite color..."
 ```
-
-## 🎯 Title Generation Events
-
-> **New in v8.38.0**: NeuroLink now automatically generates conversation titles and emits events when titles are created.
-
-When using Redis storage for conversation memory, NeuroLink automatically generates a descriptive title for new conversations. The `conversation:titleGenerated` event is emitted when a title is successfully generated, allowing you to react to title updates in real-time.
-
-### Listening to Title Generation Events
-
-```javascript
-import { NeuroLink } from "neurolink";
-
-const neurolink = new NeuroLink({
-  conversationMemory: { enabled: true },
-});
-
-// Get the event emitter
-const emitter = neurolink.getEventEmitter();
-
-// Listen for title generation events
-emitter.on("conversation:titleGenerated", (event) => {
-  console.log(`New title generated for session ${event.sessionId}`);
-  console.log(`Title: ${event.title}`);
-  console.log(`User: ${event.userId}`);
-  console.log(`Timestamp: ${new Date(event.timestamp)}`);
-
-  // Update your UI, database, or trigger other actions
-  updateConversationListUI(event.sessionId, event.title);
-});
-
-// Start a conversation - title will be auto-generated
-await neurolink.generate({
-  prompt: "How do I implement authentication in Node.js?",
-  context: {
-    sessionId: "auth-help-session",
-    userId: "developer-123",
-  },
-});
-// Event emitted: { sessionId: "auth-help-session", userId: "developer-123", title: "Node.js Auth Setup", timestamp: 1706025600000 }
-```
-
-### Customizing the Title Prompt
-
-You can customize the prompt used for title generation via the `NEUROLINK_TITLE_PROMPT` environment variable. Use `${userMessage}` as a placeholder that will be replaced with the user's actual message.
-
-```bash
-# Custom title prompt (use ${userMessage} as placeholder)
-NEUROLINK_TITLE_PROMPT="Generate a 3-5 word title for this conversation.\n\nUser message: \"${userMessage}\"\n\nTitle:"
-```
-
-#### Example Custom Prompts
-
-```bash
-# Short and concise titles (default behavior)
-NEUROLINK_TITLE_PROMPT="Generate a title under 18 characters for: \"${userMessage}\""
-
-# Longer, more descriptive titles
-NEUROLINK_TITLE_PROMPT="Create a descriptive 5-8 word title summarizing: \"${userMessage}\""
-
-# Domain-specific titles (e.g., for a support system)
-NEUROLINK_TITLE_PROMPT="Generate a support ticket title for this customer inquiry: \"${userMessage}\""
-
-# Emoji-prefixed titles
-NEUROLINK_TITLE_PROMPT="Generate a short title with a relevant emoji prefix for: \"${userMessage}\""
-```
-
-The default title prompt enforces:
-
-- Maximum 18 characters (including spaces)
-- Clear, descriptive titles
-- No quotes, punctuation, or explanations in output
-- Natural words with optional abbreviations for clarity
-
-### Event Payload
-
-The `conversation:titleGenerated` event includes the following data:
-
-| Property    | Type   | Description                                  |
-| ----------- | ------ | -------------------------------------------- |
-| `sessionId` | string | The session ID for the conversation          |
-| `userId`    | string | The user ID associated with the conversation |
-| `title`     | string | The auto-generated conversation title        |
-| `timestamp` | number | Unix timestamp when the title was generated  |
-
-### Use Cases
-
-- **Real-time UI updates**: Update conversation lists when new titles are generated
-- **Analytics tracking**: Log conversation topics for insights
-- **Notification systems**: Alert users about new conversation threads
-- **Search indexing**: Index conversation titles for searchability
 
 ## 📊 Memory Management
 
