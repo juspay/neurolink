@@ -33,6 +33,7 @@ import { logger } from "../../lib/utils/logger.js";
 import { createThinkingConfigFromRecord } from "../../lib/utils/thinkingConfig.js";
 import { configManager } from "../commands/config.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
+import { MemoryCommandFactory } from "../commands/memory.js";
 import { ModelsCommandFactory } from "../commands/models.js";
 import { handleSetup } from "../commands/setup.js";
 import { handleError } from "../errorHandler.js";
@@ -1587,76 +1588,10 @@ export class CLICommandFactory {
 
   /**
    * Create memory commands
+   * Delegates to MemoryCommandFactory for three-layer memory management
    */
   static createMemoryCommands(): CommandModule {
-    return {
-      command: "memory <subcommand>",
-      describe: "Manage conversation memory",
-      builder: (yargs) => {
-        return yargs
-          .command(
-            "stats",
-            "Show conversation memory statistics",
-            (y) =>
-              CLICommandFactory.buildOptions(y)
-                .example("$0 memory stats", "Show memory usage statistics")
-                .example(
-                  "$0 memory stats --format json",
-                  "Export stats as JSON",
-                ),
-            async (argv) =>
-              await CLICommandFactory.executeMemoryStats(
-                argv as BaseCommandArgs,
-              ),
-          )
-          .command(
-            "history <sessionId>",
-            "Show conversation history for a session",
-            (y) =>
-              CLICommandFactory.buildOptions(y)
-                .positional("sessionId", {
-                  type: "string" as const,
-                  description: "Session ID to retrieve history for",
-                  demandOption: true,
-                })
-                .example(
-                  "$0 memory history session-123",
-                  "Show conversation history",
-                )
-                .example(
-                  "$0 memory history session-123 --format json",
-                  "Export history as JSON",
-                ),
-            async (argv) =>
-              await CLICommandFactory.executeMemoryHistory(
-                argv as BaseCommandArgs & { sessionId: string },
-              ),
-          )
-          .command(
-            "clear [sessionId]",
-            "Clear conversation history",
-            (y) =>
-              CLICommandFactory.buildOptions(y)
-                .positional("sessionId", {
-                  type: "string" as const,
-                  description:
-                    "Session ID to clear (omit to clear all sessions)",
-                  demandOption: false,
-                })
-                .example("$0 memory clear", "Clear all conversation history")
-                .example(
-                  "$0 memory clear session-123",
-                  "Clear specific session",
-                ),
-            async (argv) =>
-              await CLICommandFactory.executeMemoryClear(
-                argv as BaseCommandArgs & { sessionId?: string },
-              ),
-          )
-          .demandCommand(1, "Please specify a memory subcommand");
-      },
-      handler: () => {}, // No-op handler as subcommands handle everything
-    };
+    return MemoryCommandFactory.createMemoryCommands();
   }
 
   /**

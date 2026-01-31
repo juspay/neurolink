@@ -1,0 +1,292 @@
+{
+  "description": "Sample user profile data for Working Memory Layer testing in Three-Layer Memory System",
+  "version": "1.0.0",
+
+  "profiles": {
+    "developer_profile": {
+      "userId": "user-dev-001",
+      "profileType": "template",
+      "data": {
+        "name": "Alex Chen",
+        "role": "Senior Software Engineer",
+        "department": "Platform Team",
+        "expertise": ["TypeScript", "Node.js", "React", "PostgreSQL", "AWS"],
+        "preferences": {
+          "codeStyle": "functional",
+          "framework": "React",
+          "testingFramework": "Vitest",
+          "preferredLanguage": "TypeScript",
+          "responseFormat": "detailed with examples"
+        },
+        "recentProjects": [
+          {
+            "name": "NeuroLink SDK",
+            "role": "Core Contributor",
+            "technologies": ["TypeScript", "Node.js", "AI/ML"]
+          },
+          {
+            "name": "Customer Portal",
+            "role": "Tech Lead",
+            "technologies": ["React", "GraphQL", "PostgreSQL"]
+          }
+        ],
+        "communicationStyle": {
+          "tone": "technical",
+          "verbosity": "concise",
+          "includeCodeExamples": true
+        }
+      },
+      "metadata": {
+        "createdAt": "2025-06-15T10:00:00Z",
+        "updatedAt": "2026-01-15T14:30:00Z",
+        "version": 5
+      }
+    },
+
+    "manager_profile": {
+      "userId": "user-mgr-001",
+      "profileType": "template",
+      "data": {
+        "name": "Jordan Martinez",
+        "role": "Engineering Manager",
+        "department": "Platform Team",
+        "directReports": 8,
+        "focus": ["team productivity", "technical roadmap", "hiring"],
+        "preferences": {
+          "reportFormat": "executive summary",
+          "metricsPreferred": ["velocity", "quality", "team health"],
+          "meetingStyle": "async-first"
+        },
+        "currentInitiatives": [
+          "Q1 Platform Modernization",
+          "Developer Experience Improvements",
+          "Team Growth Planning"
+        ],
+        "communicationStyle": {
+          "tone": "professional",
+          "verbosity": "summary",
+          "includeActionItems": true
+        }
+      },
+      "metadata": {
+        "createdAt": "2025-03-10T09:00:00Z",
+        "updatedAt": "2026-01-14T16:45:00Z",
+        "version": 12
+      }
+    },
+
+    "schema_profile": {
+      "userId": "user-schema-001",
+      "profileType": "schema",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "preferences": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": ["en", "es", "fr", "de", "ja"]
+              },
+              "timezone": { "type": "string" },
+              "notifications": { "type": "boolean" }
+            }
+          },
+          "skills": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "experienceLevel": {
+            "type": "string",
+            "enum": ["beginner", "intermediate", "advanced", "expert"]
+          }
+        },
+        "required": ["name", "email"]
+      },
+      "data": {
+        "name": "Sam Wilson",
+        "email": "sam.wilson@example.com",
+        "preferences": {
+          "language": "en",
+          "timezone": "America/Los_Angeles",
+          "notifications": true
+        },
+        "skills": ["Python", "Machine Learning", "Data Science"],
+        "experienceLevel": "advanced"
+      },
+      "metadata": {
+        "createdAt": "2025-09-01T11:00:00Z",
+        "updatedAt": "2026-01-10T09:15:00Z",
+        "version": 3
+      }
+    },
+
+    "minimal_profile": {
+      "userId": "user-min-001",
+      "profileType": "template",
+      "data": {
+        "name": "New User"
+      },
+      "metadata": {
+        "createdAt": "2026-01-15T10:00:00Z",
+        "updatedAt": "2026-01-15T10:00:00Z",
+        "version": 1
+      }
+    }
+  },
+
+  "templateModeExamples": {
+    "description": "Examples of template-based working memory (Markdown format)",
+    "templates": [
+      {
+        "name": "developer_template",
+        "template": "# User Profile: {{name}}\n\n## Role\n{{role}} at {{department}}\n\n## Expertise\n{{#each expertise}}\n- {{this}}\n{{/each}}\n\n## Preferences\n- Code Style: {{preferences.codeStyle}}\n- Framework: {{preferences.framework}}\n- Response Format: {{preferences.responseFormat}}"
+      },
+      {
+        "name": "simple_template",
+        "template": "Name: {{name}}\nRole: {{role}}\nPreferences: {{preferences.responseFormat}}"
+      }
+    ]
+  },
+
+  "schemaModeExamples": {
+    "description": "Examples of schema-based working memory (Zod/JSON Schema)",
+    "schemas": [
+      {
+        "name": "basic_user_schema",
+        "zodDefinition": "z.object({ name: z.string(), email: z.string().email(), age: z.number().optional() })",
+        "jsonSchema": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "email": { "type": "string", "format": "email" },
+            "age": { "type": "integer", "minimum": 0 }
+          },
+          "required": ["name", "email"]
+        }
+      },
+      {
+        "name": "preferences_schema",
+        "zodDefinition": "z.object({ theme: z.enum(['light', 'dark']), language: z.string(), notifications: z.boolean() })",
+        "jsonSchema": {
+          "type": "object",
+          "properties": {
+            "theme": { "type": "string", "enum": ["light", "dark"] },
+            "language": { "type": "string" },
+            "notifications": { "type": "boolean" }
+          },
+          "required": ["theme", "language", "notifications"]
+        }
+      }
+    ]
+  },
+
+  "testCases": {
+    "getProfile": {
+      "description": "Test retrieving user profile",
+      "input": {
+        "userId": "user-dev-001"
+      },
+      "expected": {
+        "profileFound": true,
+        "hasData": true,
+        "dataContains": ["name", "role", "expertise"]
+      }
+    },
+
+    "updateProfile": {
+      "description": "Test updating user profile data",
+      "input": {
+        "userId": "user-dev-001",
+        "updates": {
+          "recentProjects": [
+            {
+              "name": "New Project",
+              "role": "Lead Developer",
+              "technologies": ["Go", "Kubernetes"]
+            }
+          ]
+        }
+      },
+      "expected": {
+        "updated": true,
+        "versionIncremented": true
+      }
+    },
+
+    "createProfile": {
+      "description": "Test creating new user profile",
+      "input": {
+        "userId": "user-new-001",
+        "data": {
+          "name": "New Test User",
+          "role": "Junior Developer"
+        }
+      },
+      "expected": {
+        "created": true,
+        "version": 1
+      }
+    },
+
+    "deleteProfile": {
+      "description": "Test deleting user profile",
+      "input": {
+        "userId": "user-to-delete"
+      },
+      "expected": {
+        "deleted": true,
+        "notFoundAfterDelete": true
+      }
+    },
+
+    "schemaValidation": {
+      "description": "Test schema validation for schema-mode profiles",
+      "validInput": {
+        "userId": "user-schema-001",
+        "data": {
+          "name": "Valid User",
+          "email": "valid@example.com",
+          "experienceLevel": "intermediate"
+        }
+      },
+      "invalidInput": {
+        "userId": "user-schema-001",
+        "data": {
+          "name": "Invalid User",
+          "email": "not-an-email",
+          "experienceLevel": "not-a-valid-level"
+        }
+      },
+      "expected": {
+        "validInputAccepted": true,
+        "invalidInputRejected": true,
+        "errorContains": "validation"
+      }
+    },
+
+    "templateRendering": {
+      "description": "Test template rendering with profile data",
+      "input": {
+        "userId": "user-dev-001",
+        "templateName": "developer_template"
+      },
+      "expected": {
+        "renderedContains": [
+          "Alex Chen",
+          "Senior Software Engineer",
+          "TypeScript"
+        ]
+      }
+    }
+  },
+
+  "tokenAllocation": {
+    "description": "Working memory token allocation settings",
+    "defaultAllocation": 0.15,
+    "maxTokens": 2000,
+    "truncationStrategy": "preserve_recent"
+  }
+}

@@ -24,6 +24,7 @@ import type {
   KeycloakConfig,
   AuthenticatedContext,
 } from "./auth.js";
+import type { ThreeLayerMemoryConfig } from "./memory.js";
 import type { NeurolinkCredentials } from "./providers.js";
 
 /**
@@ -61,6 +62,8 @@ export type NeurolinkConstructorConfig = {
    * from this NeuroLink instance. Per-call credentials override these.
    */
   credentials?: NeurolinkCredentials;
+  /** Three-layer memory system configuration */
+  threeLayerMemory?: ThreeLayerMemoryConfig;
 };
 
 /**

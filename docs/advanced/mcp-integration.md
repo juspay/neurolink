@@ -579,7 +579,7 @@ neurolink workflow "
 
 - [MCP Testing Guide](mcp-testing-guide.md)
 - [CLI Command Reference](../cli/commands.md#mcp)
-- [API Integration](../sdk/api-reference.md)
+- [API Integration](../sdk/api-reference.md#mcp-integration)
 
 ### **Community Servers**
 

@@ -32,6 +32,7 @@ export * from "./guardrails.js";
 export * from "./hitl.js";
 export * from "./mcp.js";
 export * from "./mcpOutput.js";
+export * from "./memory.js";
 export * from "./middleware.js";
 export * from "./model.js";
 export * from "./multimodal.js";

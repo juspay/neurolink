@@ -1,42 +1,40 @@
-# Memory Integration with Hippocampus
+# Three-Layer Memory System
 
-Enhance your AI applications with persistent, context-aware memory using NeuroLink's integrated `@juspay/hippocampus` support. This feature enables your AI to remember user preferences, context, and conversation history across sessions while maintaining complete user isolation.
+NeuroLink's Three-Layer Memory System provides a comprehensive, Mastra-inspired memory architecture that enables AI applications to maintain context, recall relevant information semantically, and store structured knowledge about users and entities.
 
 ## Overview
 
-NeuroLink's Hippocampus integration provides:
+The three-layer memory system consists of:
 
-- **Cross-Session Memory**: AI remembers context across different conversations and sessions
-- **User Isolation**: Complete separation of memory contexts between different users
-- **LLM-Powered Condensation**: Memory is automatically summarized to stay within a configurable word limit
-- **Multiple Storage Backends**: Support for S3, Redis, and SQLite
-- **Non-blocking Storage**: Memory operations happen in the background without slowing down responses
-- **Crash-safe**: Every SDK method is wrapped in try-catch — errors are logged, never thrown
+1. **Conversation History Layer** - Persists recent messages with intelligent summarization
+2. **Semantic Recall Layer** - Vector-based similarity search for relevant historical context
+3. **Working Memory Layer** - Structured knowledge storage (user profiles, preferences, etc.)
 
-## Architecture
-
-```mermaid
-graph LR
-    A[NeuroLink SDK] --> B[Hippocampus Memory Layer]
-    B --> C[Storage Backend]
-    B --> D[Condensation LLM]
-    C --> E[S3 / Redis / SQLite]
-    D --> F[Any NeuroLink Provider]
-
-    A --> G[Generate / Stream]
-    G --> H[memory.get - userId]
-    H --> I[Context Enhancement]
-    I --> J[AI Response]
-    J --> K[Background: memory.add]
+```
+                                    NeuroLink Memory System
+                                           |
+                    +----------------------+----------------------+
+                    |                      |                      |
+            Conversation              Semantic                Working
+               History                 Recall                 Memory
+                    |                      |                      |
+            +-------+-------+       +------+------+       +-------+-------+
+            |               |       |             |       |               |
+        In-Memory       Redis    Vector Store  Embedder  Template      Schema
+                                     |             |       (MD)         (Zod)
+                              +------+------+      |
+                              |      |      |      |
+                           Qdrant  Redis  PGVector  +-- OpenAI
+                           Pinecone             +-- Vertex
+                                                +-- Mistral
+                                                +-- Cohere
+                                                +-- Ollama
+                                                +-- Bedrock
 ```
 
-The memory system operates in three phases:
-
-1. **Memory Retrieval**: The user's condensed memory is fetched before generating a response
-2. **Context Enhancement**: Retrieved memory is prepended to the user's prompt
-3. **Memory Storage**: The new conversation turn is condensed and stored asynchronously
-
 ## Quick Start
+
+### Basic Configuration
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
@@ -44,291 +42,487 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink({
   conversationMemory: {
     enabled: true,
-    memory: {
+  },
+  threeLayerMemory: {
+    enabled: true,
+    storage: { type: "memory" }, // or "redis"
+    conversationHistory: {
       enabled: true,
-      storage: {
-        type: "s3",
-        bucket: "my-memory-bucket",
-        prefix: "memory/condensed/",
-      },
-      neurolink: {
-        provider: "google-ai",
-        model: "gemini-2.5-flash",
-      },
-      maxWords: 50,
+      lastMessages: 40,
+      enableSummarization: true,
+      tokenThreshold: 8000,
     },
   },
 });
-
-// First conversation — stores context
-const response1 = await neurolink.generate({
-  input: {
-    text: "Hi! I'm Sarah, a frontend developer at TechCorp. I love React and TypeScript.",
-  },
-  context: {
-    userId: "user_sarah_123",
-    sessionId: "onboarding_session",
-  },
-  provider: "google-ai",
-  model: "gemini-2.5-flash",
-});
-
-// Later conversation — memory retrieved automatically
-const response2 = await neurolink.generate({
-  input: {
-    text: "What programming languages do I work with?",
-  },
-  context: {
-    userId: "user_sarah_123",
-    sessionId: "help_session",
-  },
-  provider: "google-ai",
-});
-
-// → "You work with React and TypeScript at TechCorp."
 ```
 
-## Configuration
-
-### Storage Backends
-
-#### S3 (Recommended for production)
+### With Semantic Recall
 
 ```typescript
-memory: {
+const neurolink = new NeuroLink({
+  conversationMemory: { enabled: true },
+  threeLayerMemory: {
+    enabled: true,
+    storage: { type: "redis", redis: { url: "redis://localhost:6379" } },
+    conversationHistory: { enabled: true, lastMessages: 40 },
+    semanticRecall: {
+      enabled: true,
+      vectorStore: {
+        provider: "qdrant",
+        config: {
+          url: "http://localhost:6333",
+          collectionName: "neurolink_memories",
+        },
+      },
+      embedder: {
+        provider: "openai",
+        model: "text-embedding-3-small",
+      },
+      topK: 5,
+      similarityThreshold: 0.7,
+    },
+  },
+});
+```
+
+### With Working Memory
+
+```typescript
+const neurolink = new NeuroLink({
+  conversationMemory: { enabled: true },
+  threeLayerMemory: {
+    enabled: true,
+    storage: { type: "redis", redis: { url: "redis://localhost:6379" } },
+    workingMemory: {
+      enabled: true,
+      scope: "resource", // Shared across all threads for a user
+      template: `# User Profile
+- Name: {{name}}
+- Role: {{role}}
+- Preferences: {{preferences}}
+- Goals: {{goals}}`,
+    },
+  },
+});
+```
+
+## Dynamic Memory Creation
+
+You can also create the three-layer memory system after NeuroLink instantiation:
+
+```typescript
+const neurolink = new NeuroLink({
+  conversationMemory: { enabled: true },
+});
+
+// Create memory system dynamically
+const memoryManager = await neurolink.createThreeLayerMemory({
   enabled: true,
-  storage: {
-    type: "s3",
-    bucket: "my-bucket",
-    prefix: "memory/condensed/",
+  storage: { type: "memory" },
+  conversationHistory: { enabled: true },
+  semanticRecall: {
+    enabled: true,
+    vectorStore: {
+      provider: "pinecone",
+      config: {
+        apiKey: process.env.PINECONE_API_KEY,
+        environment: "us-east-1",
+        indexName: "neurolink-memory",
+        namespace: "default",
+      },
+    },
+    embedder: {
+      provider: "cohere",
+      model: "embed-v4",
+    },
   },
-  neurolink: { provider: "google-ai", model: "gemini-2.5-flash" },
-  maxWords: 50,
+  workingMemory: {
+    enabled: true,
+    template: "# User Context\n{{context}}",
+  },
+});
+```
+
+## Working Memory Operations
+
+### Get Working Memory
+
+```typescript
+// Retrieve current working memory for a user
+const workingMemory = await neurolink.getWorkingMemory({
+  threadId: "session-123",
+  resourceId: "user-456",
+});
+
+if (workingMemory) {
+  console.log("User profile:", workingMemory);
 }
 ```
 
-Each user's memory is stored as a single S3 object at `{prefix}{userId}`.
-
-#### Redis
+### Update Working Memory
 
 ```typescript
-memory: {
+// Update user preferences
+await neurolink.updateWorkingMemory(
+  { threadId: "session-123", resourceId: "user-456" },
+  {
+    name: "Alice",
+    preferences: { theme: "dark", language: "en" },
+    goals: ["Learn TypeScript", "Build AI apps"],
+  },
+  "User updated their preferences",
+);
+```
+
+## Supported Embedding Providers
+
+| Provider    | Model Examples                      | Dimensions | Max Tokens |
+| ----------- | ----------------------------------- | ---------- | ---------- |
+| **OpenAI**  | text-embedding-3-small, ada-002     | 1536-3072  | 8191       |
+| **Vertex**  | text-embedding-004, gecko           | 768        | 2048       |
+| **Mistral** | mistral-embed                       | 1024       | 8192       |
+| **Cohere**  | embed-v4, embed-english-v3.0        | 384-1024   | 512-128000 |
+| **Ollama**  | nomic-embed-text, mxbai-embed-large | 384-1024   | 256-8192   |
+| **Bedrock** | titan-embed-text-v1/v2, cohere      | 1024-1536  | 512-8192   |
+
+### OpenAI Configuration
+
+```typescript
+embedder: {
+  provider: "openai",
+  model: "text-embedding-3-small",
+  config: {
+    apiKey: process.env.OPENAI_API_KEY,
+  },
+}
+```
+
+### Vertex AI Configuration
+
+```typescript
+embedder: {
+  provider: "vertex",
+  model: "text-embedding-004",
+  config: {
+    projectId: process.env.GOOGLE_CLOUD_PROJECT,
+    region: "us-central1",
+  },
+}
+```
+
+### Mistral Configuration
+
+```typescript
+embedder: {
+  provider: "mistral",
+  model: "mistral-embed",
+  config: {
+    apiKey: process.env.MISTRAL_API_KEY,
+  },
+}
+```
+
+### Cohere Configuration
+
+```typescript
+embedder: {
+  provider: "cohere",
+  model: "embed-v4",
+  config: {
+    apiKey: process.env.COHERE_API_KEY,
+  },
+}
+```
+
+### Ollama Configuration (Local)
+
+```typescript
+embedder: {
+  provider: "ollama",
+  model: "nomic-embed-text",
+  config: {
+    baseUrl: "http://localhost:11434",
+  },
+}
+```
+
+### AWS Bedrock Configuration
+
+```typescript
+embedder: {
+  provider: "bedrock",
+  model: "amazon.titan-embed-text-v2:0",
+  config: {
+    region: "us-east-1",
+    // Uses AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from environment
+  },
+}
+```
+
+## Supported Vector Stores
+
+| Provider     | Description                 | Use Case                      |
+| ------------ | --------------------------- | ----------------------------- |
+| **memory**   | In-memory storage           | Development, testing          |
+| **redis**    | Redis Stack with RediSearch | Production, existing Redis    |
+| **qdrant**   | High-performance vector DB  | Production, cloud/self-hosted |
+| **pinecone** | Fully managed vector DB     | Production, serverless        |
+| **pgvector** | PostgreSQL extension        | Production, existing Postgres |
+
+### Qdrant Configuration
+
+```typescript
+vectorStore: {
+  provider: "qdrant",
+  config: {
+    url: "http://localhost:6333",
+    apiKey: process.env.QDRANT_API_KEY, // Optional for cloud
+    collectionName: "memories",
+  },
+  dimensions: 1536,
+  metric: "cosine",
+}
+```
+
+### Pinecone Configuration
+
+```typescript
+vectorStore: {
+  provider: "pinecone",
+  config: {
+    apiKey: process.env.PINECONE_API_KEY,
+    environment: "us-east-1",
+    indexName: "neurolink-memory",
+    namespace: "production", // Optional namespace scoping
+  },
+}
+```
+
+### Redis Configuration
+
+```typescript
+vectorStore: {
+  provider: "redis",
+  config: {
+    url: "redis://localhost:6379",
+    password: process.env.REDIS_PASSWORD,
+    indexName: "memory_vectors",
+  },
+}
+```
+
+### PGVector Configuration
+
+```typescript
+vectorStore: {
+  provider: "pgvector",
+  config: {
+    connectionString: process.env.DATABASE_URL,
+    tableName: "memory_embeddings",
+    indexType: "hnsw", // or "ivfflat"
+  },
+}
+```
+
+## Memory Scoping
+
+The memory system supports two scoping levels:
+
+### Thread Scope (Default)
+
+Data is isolated to a single conversation/session:
+
+```typescript
+{
+  threadId: "conversation-123",
+  scope: "thread"
+}
+```
+
+### Resource Scope
+
+Data is shared across all conversations for a user/entity:
+
+```typescript
+{
+  threadId: "conversation-123",
+  resourceId: "user-alice-456",
+  scope: "resource"
+}
+```
+
+## Working Memory Templates
+
+Working memory supports two modes:
+
+### Template Mode (Markdown)
+
+```typescript
+workingMemory: {
   enabled: true,
-  storage: {
-    type: "redis",
-    url: process.env.REDIS_URL,
-  },
-  neurolink: { provider: "openai", model: "gpt-4o-mini" },
+  template: `# User Profile
+- Name: {{name}}
+- Email: {{email}}
+- Timezone: {{timezone}}
+
+## Preferences
+- Theme: {{theme}}
+- Language: {{language}}
+
+## Context
+{{current_context}}`,
 }
 ```
 
-#### SQLite (Development)
+### Schema Mode (Zod)
 
 ```typescript
-memory: {
+import { z } from "zod";
+
+workingMemory: {
   enabled: true,
-  storage: {
-    type: "sqlite",
-    path: "./memory.db",
-  },
-  neurolink: { provider: "google-ai", model: "gemini-2.5-flash" },
+  schema: z.object({
+    name: z.string(),
+    email: z.string().email(),
+    preferences: z.object({
+      theme: z.enum(["light", "dark"]),
+      language: z.string(),
+    }),
+    goals: z.array(z.string()),
+  }),
 }
 ```
 
-> **Note**: SQLite requires the `better-sqlite3` optional peer dependency: `pnpm add better-sqlite3`
+## Memory Processors
 
-### Condensation LLM
-
-The `neurolink` field configures which AI provider and model is used to condense memory. You can use any provider registered with your NeuroLink instance:
+Apply transformations to retrieved memory context:
 
 ```typescript
-neurolink: {
-  provider: "google-ai",   // or "openai", "anthropic", etc.
-  model: "gemini-2.5-flash",
+threeLayerMemory: {
+  processors: [
+    {
+      type: "tokenLimit",
+      options: { maxTokens: 4000 },
+    },
+    {
+      type: "roleFilter",
+      options: { excludeRoles: ["system", "tool_call", "tool_result"] },
+    },
+  ],
 }
 ```
 
-## Advanced Usage
+## Best Practices
 
-### User Isolation in Multi-Tenant Applications
+### 1. Choose the Right Embedding Provider
+
+- **OpenAI**: Best quality, cloud-only
+- **Cohere**: Excellent multilingual support
+- **Vertex**: Good for GCP deployments
+- **Ollama**: Best for local/private deployments
+
+### 2. Vector Store Selection
+
+- **Development**: Use `memory` for quick iteration
+- **Production with Redis**: Use `redis` if already using Redis
+- **Production standalone**: Use `qdrant` or `pinecone`
+- **PostgreSQL stack**: Use `pgvector`
+
+### 3. Dimension Matching
+
+Always ensure embedding dimensions match vector store configuration:
 
 ```typescript
-// User Alice
-await neurolink.generate({
-  input: { text: "I prefer dark mode and use VSCode." },
-  context: { userId: "tenant_1_alice_123" },
-});
+// OpenAI text-embedding-3-small = 1536 dimensions
+embedder: { provider: "openai", model: "text-embedding-3-small" },
+vectorStore: { dimensions: 1536 }
 
-// User Bob (completely isolated memory)
-await neurolink.generate({
-  input: { text: "I love light themes and use WebStorm." },
-  context: { userId: "tenant_2_bob_456" },
-});
-
-// Alice's query — only returns Alice's data
-const aliceQuery = await neurolink.generate({
-  input: { text: "What IDE do I use?" },
-  context: { userId: "tenant_1_alice_123" },
-});
-// → "You use VSCode with dark mode." (not Bob's data)
+// Cohere embed-v4 = 1024 dimensions
+embedder: { provider: "cohere", model: "embed-v4" },
+vectorStore: { dimensions: 1024 }
 ```
 
-### Streaming with Memory
+### 4. Resource Scoping for User Profiles
+
+Use resource scope for working memory to persist user profiles across sessions:
 
 ```typescript
-const stream = await neurolink.stream({
-  input: {
-    text: "Write me a personalized coding tutorial based on my experience.",
-  },
-  context: { userId: "developer_sarah" },
-  provider: "anthropic",
-  model: "claude-sonnet-4-5",
-});
-
-for await (const chunk of stream.stream) {
-  if (chunk.content) process.stdout.write(chunk.content);
-}
-
-// Tutorial is personalized based on Sarah's stored background
-```
-
-### Custom Condensation Prompt
-
-Control exactly how memory is condensed by providing a custom prompt:
-
-```typescript
-memory: {
+workingMemory: {
   enabled: true,
-  storage: { type: "s3", bucket: "my-bucket" },
-  neurolink: { provider: "google-ai", model: "gemini-2.5-flash" },
-  maxWords: 100,
-  prompt: `You are a memory engine. Merge the old memory with new facts into a summary of at most {{MAX_WORDS}} words. Focus on persistent facts: name, job, preferences, goals. Ignore conversational filler.
-
-OLD_MEMORY:
-{{OLD_MEMORY}}
-
-NEW_CONTENT:
-{{NEW_CONTENT}}
-
-Condensed memory:`,
+  scope: "resource", // Persists across threads
 }
 ```
 
-| Placeholder       | Replaced With                                            |
-| ----------------- | -------------------------------------------------------- |
-| `{{OLD_MEMORY}}`  | The user's existing condensed memory (may be empty)      |
-| `{{NEW_CONTENT}}` | The new conversation turn: `"User: ...\nAssistant: ..."` |
-| `{{MAX_WORDS}}`   | The configured `maxWords` value                          |
+### 5. Token Budget Management
 
-## Memory Lifecycle
-
-### When Memory Activates
-
-For memory to activate on a call, all three conditions must be met:
-
-1. `memory.enabled` is `true` in the config
-2. `options.context.userId` is provided in the generate/stream call
-3. The response has non-empty content (for storage)
-
-### Retrieval Flow
-
-1. `memory.get(userId)` fetches the condensed memory string
-2. If memory exists, it is prepended to the prompt:
-
-   ```
-   Context from previous conversations:
-   <condensed memory>
-
-   Current user's request: <original prompt>
-   ```
-
-3. The LLM generates a response using the enhanced prompt
-
-### Storage Flow
-
-After the LLM response completes:
-
-1. `setImmediate()` schedules background storage (non-blocking)
-2. A conversation turn is formed: `"User: ...\nAssistant: ..."`
-3. `memory.add(userId, content)` sends the old memory + new turn to the condensation LLM
-4. The condensed summary is written to the storage backend
-
-## Namespace and Tenant Isolation
-
-For multi-tenant apps, use tenant-scoped collection names or key prefixes:
+Use token-aware retrieval for optimal context assembly:
 
 ```typescript
-// Tenant-scoped S3 prefix
-const getMemoryConfig = (tenantId: string) => ({
-  storage: {
-    type: "s3" as const,
-    bucket: "my-bucket",
-    prefix: `tenants/${tenantId}/memory/`,
+const memoryManager = neurolink.getThreeLayerMemory();
+const context = await memoryManager.retrieveWithTokenBudget(
+  { threadId: "session-123", resourceId: "user-456" },
+  "What are my preferences?",
+  50000, // Max token budget
+);
+```
+
+## Migration from Mem0
+
+If you were using Mem0 integration, migrate to the three-layer memory system:
+
+```typescript
+// Old (deprecated)
+const neurolink = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    mem0Enabled: true,
+    mem0Config: { ... },
   },
-  neurolink: { provider: "google-ai", model: "gemini-2.5-flash" },
 });
 
-// User ID should also encode tenant context
-const userId = `${tenantId}::${localUserId}`;
+// New (three-layer memory)
+const neurolink = new NeuroLink({
+  conversationMemory: { enabled: true },
+  threeLayerMemory: {
+    enabled: true,
+    semanticRecall: {
+      enabled: true,
+      vectorStore: { provider: "qdrant", config: { ... } },
+      embedder: { provider: "openai", model: "text-embedding-3-small" },
+    },
+  },
+});
 ```
 
-## Environment Variables
+## Implementation Status
 
-| Variable                 | Default  | Description                                    |
-| ------------------------ | -------- | ---------------------------------------------- |
-| `HC_LOG_LEVEL`           | `warn`   | Log level: `debug`, `info`, `warn`, `error`    |
-| `HC_CONDENSATION_PROMPT` | built-in | Default prompt (overridden by config `prompt`) |
+> **Feature Status: 100% COMPLETE** | Last Updated: January 31, 2026
 
-## Error Handling
+| Component                  | Status   | Notes                                    |
+| -------------------------- | -------- | ---------------------------------------- |
+| Conversation History Layer | Complete | Full summarization support               |
+| Semantic Recall Layer      | Complete | All vector stores supported              |
+| Working Memory Layer       | Complete | Template and schema modes                |
+| OpenAI Embedder            | Complete | text-embedding-3-small/large, ada-002    |
+| Vertex Embedder            | Complete | text-embedding-004/005, gecko models     |
+| Mistral Embedder           | Complete | mistral-embed                            |
+| Cohere Embedder            | Complete | embed-v4, embed-english-v3.0             |
+| Ollama Embedder            | Complete | Local embedding models                   |
+| Bedrock Embedder           | Complete | Titan and Cohere on Bedrock              |
+| In-Memory Vector Store     | Complete | Development use                          |
+| Redis Vector Store         | Complete | Production ready                         |
+| Qdrant Vector Store        | Complete | Production ready                         |
+| Pinecone Vector Store      | Complete | Production ready                         |
+| PGVector Store             | Complete | Production ready                         |
+| NeuroLink Integration      | Complete | createThreeLayerMemory, getWorkingMemory |
+| MemoryCoordinator          | Complete | Core orchestration layer                 |
+| MemoryFactory              | Complete | Factory pattern implementation           |
+| MemoryRegistry             | Complete | Registry pattern implementation          |
+| CLI Integration            | Complete | memory stats/history/clear commands      |
+| Test Suite                 | Complete | Unit and integration tests               |
 
-Memory is designed to **never crash the host application**:
+## Additional Resources
 
-- Every public method is wrapped in try-catch
-- `get()` returns `null` on error — the call continues without memory context
-- `add()` silently fails on error — the generate/stream result is not affected
-- Storage initialization errors disable memory for that instance
-
-```typescript
-// These warnings appear in logs but never throw:
-// logger.warn("Memory retrieval failed:", error)
-// logger.warn("Memory storage failed:", error)
-```
-
-## Type Reference
-
-```typescript
-import type { Memory } from "@juspay/neurolink";
-
-// Memory = HippocampusConfig & { enabled?: boolean }
-type Memory = {
-  enabled?: boolean;
-  storage: {
-    type: "s3" | "redis" | "sqlite";
-    bucket?: string; // S3
-    prefix?: string; // S3
-    url?: string; // Redis
-    path?: string; // SQLite
-  };
-  neurolink: {
-    provider: string;
-    model: string;
-  };
-  maxWords?: number; // default: 50
-  prompt?: string; // custom condensation prompt
-};
-```
-
-## Production Checklist
-
-- [ ] Use S3 or Redis storage (not SQLite) in production
-- [ ] Set `HC_LOG_LEVEL=warn` or higher in production
-- [ ] Ensure `userId` is stable and unique per user across sessions
-- [ ] For multi-tenant: use tenant-scoped prefixes or collection names
-- [ ] Monitor `Memory retrieval failed` and `Memory storage failed` warnings in logs
-- [ ] Verify the condensation LLM provider is configured and has sufficient quota
-
-## See Also
-
-- **[Memory Guide](../features/memory.md)** - Quick start and configuration reference
-- **[Conversation Memory](../conversation-memory.md)** - Session-based conversation history
-- **[Context Compaction](../features/context-compaction.md)** - Automatic context window management
+- [Memory Types Reference](/docs/api/type-aliases/ThreeLayerMemoryConfig)
+- [Vector Store API](/docs/api/type-aliases/VectorStore)
+- [Embedder API](/docs/api/type-aliases/Embedder)
