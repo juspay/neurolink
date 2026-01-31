@@ -7,6 +7,7 @@ import { MCPToolRegistry } from "../mcp/toolRegistry.js";
 import type { HITLConfig } from "../types/hitlTypes.js";
 import type { ConversationMemoryConfig } from "./conversation.js";
 import type { ObservabilityConfig } from "./observability.js";
+import type { StorageConfig } from "../storage/types.js";
 
 /**
  * Main NeuroLink configuration type
@@ -30,6 +31,8 @@ export type NeurolinkConstructorConfig = {
   hitl?: HITLConfig;
   toolRegistry?: MCPToolRegistry;
   observability?: ObservabilityConfig;
+  /** Storage configuration for persistent data */
+  storage?: StorageConfig;
 };
 
 /**

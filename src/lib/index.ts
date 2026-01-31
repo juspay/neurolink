@@ -328,6 +328,161 @@ export type {
 export type { LogLevel } from "./types/utilities.js";
 
 // ============================================================================
+// STORAGE ABSTRACTION - Unified Data Persistence
+// ============================================================================
+
+/**
+ * Storage Abstraction Module
+ *
+ * Provides unified data persistence across multiple backends:
+ * - PostgreSQL for production SQL databases
+ * - MongoDB for document storage
+ * - Redis for high-performance caching
+ * - LibSQL/SQLite for embedded databases
+ * - Memory for development and testing
+ *
+ * @example
+ * ```typescript
+ * import { createStorage, createThreadManager } from '@juspay/neurolink';
+ *
+ * // Create storage with PostgreSQL
+ * const storage = await createStorage('postgresql', {
+ *   connectionString: 'postgres://localhost/neurolink'
+ * });
+ * await storage.init();
+ *
+ * // Use high-level thread manager
+ * const threads = createThreadManager(storage);
+ * const thread = await threads.createThread('user-123', 'My Chat');
+ * await threads.addUserMessage(thread.id, 'Hello!');
+ * ```
+ */
+export {
+  // Factory functions
+  StorageFactory,
+  createStorage,
+  createStorageFromEnv,
+  getDefaultStorage,
+  // Base class for custom adapters
+  BaseStorageProvider,
+  // Adapters
+  MemoryAdapter,
+  PostgresAdapter,
+  MongoDBAdapter,
+  LibSQLAdapter,
+  RedisAdapter,
+  // Additional adapters (from main)
+  FileStorageAdapter,
+  S3StorageAdapter,
+  SQLiteStorageAdapter,
+  // High-level managers
+  ThreadManager,
+  createThreadManager,
+  WorkflowPersistenceManager,
+  createWorkflowPersistenceManager,
+  KeyValueStore,
+  createKeyValueStore,
+  // Migrations
+  MigrationRunner,
+  createMigrationRunner,
+  builtInMigrations,
+  // Utilities
+  ConnectionPool,
+  createConnectionPool,
+  TransactionalStorage,
+  withTransactions,
+  StorageHealthMonitor,
+  createHealthMonitor,
+  checkStorageHealth,
+  // Registry (Factory + Registry pattern)
+  StorageRegistry,
+  registerBackend,
+  unregisterBackend,
+  getBackend,
+  getAvailableBackends,
+  // Middleware
+  CachingMiddleware,
+  createCachingMiddleware,
+  EncryptionMiddleware,
+  createEncryptionMiddleware,
+  CompressionMiddleware,
+  createCompressionMiddleware,
+  // Constants
+  DEFAULT_STORAGE_TYPE,
+  SUPPORTED_STORAGE_BACKENDS,
+  isValidStorageType,
+  getStorageTypeFromEnv,
+} from "./storage/index.js";
+
+export type {
+  // Core types
+  StorageProvider,
+  StorageBackendType,
+  StorageConfig,
+  StorageInitOptions,
+  StorageStats,
+  StorageHealthResult,
+  // Thread types
+  StorageThread,
+  CreateThreadInput,
+  UpdateThreadInput,
+  ThreadQueryOptions,
+  // Message types
+  StorageMessage,
+  CreateMessageInput,
+  UpdateMessageInput,
+  MessageQueryOptions,
+  // Workflow types
+  StorageWorkflowRun,
+  SaveWorkflowRunInput,
+  WorkflowRunQueryOptions,
+  WorkflowRunStatus,
+  StepRunResult,
+  WorkflowError,
+  // Custom record types
+  StorageCustomRecord,
+  SetRecordOptions,
+  // Query types
+  PaginatedResult,
+  QueryOptions,
+  // Configuration types
+  PostgresStorageConfig,
+  MongoDBStorageConfig,
+  LibSQLStorageConfig,
+  MemoryStorageConfig,
+  RedisStorageConfig,
+  FileStorageConfig,
+  S3StorageConfig,
+  SQLiteStorageConfig,
+  // Manager types
+  ThreadManagerOptions,
+  ThreadWithMessages,
+  WorkflowPersistenceManagerOptions,
+  WorkflowAnalytics,
+  KeyValueStoreOptions,
+  // Migration types
+  MigrationDefinition,
+  MigrationRecord,
+  MigrationStatus,
+  MigrationRunnerOptions,
+  // Registry types
+  StorageRegistryEntry,
+  HealthCheckResult,
+  RegistryStats,
+  StorageRegistryEvents,
+  // Middleware types
+  StorageMiddleware,
+  CachingMiddlewareConfig,
+  EncryptionMiddlewareConfig,
+  CompressionMiddlewareConfig,
+  // Backend metadata
+  StorageBackendMetadata,
+  StorageFeature,
+  // Interface
+  MastraStorage,
+} from "./storage/index.js";
+
+// ============================================================================
 // REAL-TIME SERVICES & TELEMETRY - Enterprise Platform Features
 // ============================================================================
 

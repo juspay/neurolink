@@ -302,6 +302,10 @@ export class NeuroLink {
   private mem0Instance?: MemoryClient | null;
   private mem0Config?: Mem0Config;
 
+  // Storage abstraction for persistent data
+  private storageProvider?: import("./storage/types.js").StorageProvider;
+  private storageConfig?: import("./storage/types.js").StorageConfig;
+
   /**
    * Extract and set Langfuse context from options with proper async scoping
    */
@@ -378,6 +382,71 @@ export class NeuroLink {
     this.mem0Instance = await initializeMem0(this.mem0Config);
     return this.mem0Instance;
   }
+
+  /**
+   * Get the storage provider, initializing it if necessary.
+   * Lazily initializes the storage provider on first access.
+   *
+   * @returns The storage provider instance
+   * @throws Error if storage is not configured
+   *
+   * @example
+   * ```typescript
+   * const neurolink = new NeuroLink({
+   *   storage: { type: 'postgresql', config: { connectionString: '...' } }
+   * });
+   *
+   * const storage = await neurolink.getStorage();
+   * const thread = await storage.createThread({ resourceId: 'user-123' });
+   * ```
+   */
+  public async getStorage(): Promise<
+    import("./storage/types.js").StorageProvider
+  > {
+    if (this.storageProvider) {
+      return this.storageProvider;
+    }
+
+    if (!this.storageConfig) {
+      // Default to memory storage if not configured
+      const { StorageFactory } = await import("./storage/storageFactory.js");
+      this.storageProvider = await StorageFactory.createProvider("memory");
+      await this.storageProvider.init();
+      return this.storageProvider;
+    }
+
+    const { StorageFactory } = await import("./storage/storageFactory.js");
+    this.storageProvider = await StorageFactory.createFromConfig(
+      this.storageConfig,
+    );
+    await this.storageProvider.init();
+
+    logger.info("[NeuroLink] Storage provider initialized", {
+      type: this.storageProvider.type,
+    });
+
+    return this.storageProvider;
+  }
+
+  /**
+   * Check if storage is configured and available.
+   */
+  public hasStorage(): boolean {
+    return !!this.storageConfig || !!this.storageProvider;
+  }
+
+  /**
+   * Close storage connections gracefully.
+   * Should be called when shutting down the NeuroLink instance.
+   */
+  public async closeStorage(): Promise<void> {
+    if (this.storageProvider) {
+      await this.storageProvider.close();
+      this.storageProvider = undefined;
+      logger.info("[NeuroLink] Storage provider closed");
+    }
+  }
+
   /**
    * Context storage for tool execution
    * This context will be merged with any runtime context passed by the AI model
@@ -440,6 +509,7 @@ export class NeuroLink {
   constructor(config?: NeurolinkConstructorConfig) {
     this.toolRegistry = config?.toolRegistry || new MCPToolRegistry();
     this.observabilityConfig = config?.observability;
+    this.storageConfig = config?.storage;
 
     // Initialize orchestration setting
     this.enableOrchestration = config?.enableOrchestration ?? false;
@@ -6194,7 +6264,6 @@ Current user's request: ${currentInput}`;
       // Use the integration module to create the appropriate memory manager
       const memoryManager = await initializeConversationMemory(
         this.conversationMemoryConfig,
-        this.emitter,
       );
       // Assign to conversationMemory with proper type to handle both memory manager types
       this.conversationMemory = memoryManager;

@@ -194,5 +194,8 @@ export function initializeCliParser() {
 
       // Setup Commands - Using SetupCommandFactory
       .command(SetupCommandFactory.createSetupCommands())
+
+      // Storage Commands - Using CLICommandFactory
+      .command(CLICommandFactory.createStorageCommands())
   ); // Close the main return statement
 }

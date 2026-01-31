@@ -7,11 +7,7 @@ import type {
   ConversationMemoryConfig,
   RedisStorageConfig,
 } from "../types/conversation.js";
-import type {
-  StorageType,
-  TypedEventEmitter,
-  NeuroLinkEvents,
-} from "../types/common.js";
+import type { StorageType } from "../types/common.js";
 import { ConversationMemoryManager } from "./conversationMemoryManager.js";
 import { RedisConversationMemoryManager } from "./redisConversationMemoryManager.js";
 import { logger } from "../utils/logger.js";
@@ -23,7 +19,6 @@ export function createConversationMemoryManager(
   config: ConversationMemoryConfig,
   storageType: StorageType = "memory",
   redisConfig?: RedisStorageConfig,
-  eventEmitter?: TypedEventEmitter<NeuroLinkEvents>,
 ): ConversationMemoryManager | RedisConversationMemoryManager {
   logger.debug(
     "[conversationMemoryFactory] Creating conversation memory manager",
@@ -71,7 +66,6 @@ export function createConversationMemoryManager(
     const redisManager = new RedisConversationMemoryManager(
       config,
       redisConfig,
-      eventEmitter,
     );
 
     logger.debug(
