@@ -33,6 +33,7 @@ import { ModelsCommandFactory } from "../commands/models.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
 import { OllamaCommandFactory } from "./ollamaCommandFactory.js";
 import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
+import { AgentCommandFactory } from "../commands/agent.js";
 import { ModelResolver } from "../../lib/models/modelResolver.js";
 import ora from "ora";
 import chalk from "chalk";
@@ -1168,6 +1169,20 @@ export class CLICommandFactory {
    */
   static createDiscoverCommand(): CommandModule {
     return MCPCommandFactory.createDiscoverCommand();
+  }
+
+  /**
+   * Create agent commands for multi-agent orchestration
+   */
+  static createAgentCommands(): CommandModule {
+    return AgentCommandFactory.createAgentCommands();
+  }
+
+  /**
+   * Create network commands for agent network orchestration
+   */
+  static createNetworkCommands(): CommandModule {
+    return AgentCommandFactory.createNetworkCommands();
   }
 
   /**

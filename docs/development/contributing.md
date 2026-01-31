@@ -4,15 +4,15 @@ Thank you for your interest in contributing to NeuroLink! We welcome contributio
 
 ## 📋 Table of Contents
 
-- [Code of Conduct](#-code-of-conduct)
-- [How to Contribute](#-how-to-contribute)
-- [Development Setup](#️-development-setup)
-- [Project Structure](#-project-structure)
-- [Coding Standards](#-coding-standards)
-- [Testing Guidelines](#-testing-guidelines)
-- [Pull Request Process](#-pull-request-process)
-- [Documentation](#-documentation)
-- [Community](#-community)
+- [Code of Conduct](#code-of-conduct)
+- [How to Contribute](#how-to-contribute)
+- [Development Setup](#development-setup)
+- [Project Structure](#project-structure)
+- [Coding Standards](#coding-standards)
+- [Testing Guidelines](#testing-guidelines)
+- [Pull Request Process](#pull-request-process)
+- [Documentation](#documentation)
+- [Community](#community)
 
 ## 📜 Code of Conduct
 
@@ -263,7 +263,7 @@ Fixes #123
 2. **Show examples** - Every feature needs examples
 3. **Explain why** - Not just what, but why
 4. **Test code snippets** - Ensure examples actually work
-5. **Update the matrix** - Mark documentation coverage when new user-facing work lands.
+5. **Update the matrix** - Mark coverage in `docs/tracking/FEATURE-DOC-MATRIX.md` when new user-facing work lands.
 
 ### Documentation Structure
 

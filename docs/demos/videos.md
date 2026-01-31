@@ -1,8 +1,3 @@
----
-title: Video Demonstrations
-description: Professional video demonstrations showcasing NeuroLink's capabilities in real-world scenarios
----
-
 # Video Demonstrations
 
 Professional video demonstrations showcasing NeuroLink's capabilities in real-world scenarios.
@@ -11,7 +6,8 @@ Professional video demonstrations showcasing NeuroLink's capabilities in real-wo
 
 ### Core Features Overview
 
-**CLI Help & Overview** _(Video coming soon)_
+**[CLI Help & Overview](../visual-content/cli-videos/cli-01-cli-help.mp4)**
+_Duration: 2:30 | Format: MP4_
 
 Complete walkthrough of NeuroLink CLI capabilities:
 
@@ -29,7 +25,8 @@ Complete walkthrough of NeuroLink CLI capabilities:
 
 ### Provider Management
 
-**Provider Status Check** _(Video coming soon)_
+**[Provider Status Check](../visual-content/cli-videos/cli-02-provider-status.mp4)**
+_Duration: 1:45 | Format: MP4_
 
 Demonstrates provider connectivity and health monitoring:
 
@@ -38,7 +35,8 @@ Demonstrates provider connectivity and health monitoring:
 - Error detection and reporting
 - Provider comparison metrics
 
-**Auto Provider Selection** _(Video coming soon)_
+**[Auto Provider Selection](../visual-content/cli-videos/cli-04-auto-selection.mp4)**
+_Duration: 2:15 | Format: MP4_
 
 Shows intelligent provider selection algorithm:
 
@@ -49,7 +47,8 @@ Shows intelligent provider selection algorithm:
 
 ### Text Generation Workflows
 
-**Real-time Text Generation** _(Video coming soon)_
+**[Real-time Text Generation](../visual-content/cli-videos/cli-03-text-generation.mp4)**
+_Duration: 3:20 | Format: MP4_
 
 Live demonstration of AI content generation:
 
@@ -58,7 +57,8 @@ Live demonstration of AI content generation:
 - Analytics tracking
 - Response time analysis
 
-**Streaming Responses** _(Video coming soon)_
+**[Streaming Responses](../visual-content/cli-videos/cli-05-streaming.mp4)**
+_Duration: 2:45 | Format: MP4_
 
 Real-time streaming capabilities:
 
@@ -69,7 +69,8 @@ Real-time streaming capabilities:
 
 ### Advanced Features
 
-**Advanced CLI Features** _(Video coming soon)_
+**[Advanced CLI Features](../visual-content/cli-videos/cli-06-advanced-features.mp4)**
+_Duration: 4:10 | Format: MP4_
 
 Comprehensive advanced functionality:
 
@@ -82,7 +83,8 @@ Comprehensive advanced functionality:
 
 ### MCP Server Management
 
-**MCP Help & Commands** _(Video coming soon)_
+**[MCP Help & Commands](../visual-content/cli-videos/cli-advanced-features/mcp-help.mp4)**
+_Duration: 2:00 | Format: MP4_
 
 Complete MCP command reference:
 
@@ -91,7 +93,8 @@ Complete MCP command reference:
 - Server configuration
 - Integration workflows
 
-**MCP Server Listing** _(Video coming soon)_
+**[MCP Server Listing](../visual-content/cli-videos/cli-advanced-features/mcp-list.mp4)**
+_Duration: 1:30 | Format: MP4_
 
 Demonstrates MCP server discovery:
 
@@ -102,7 +105,8 @@ Demonstrates MCP server discovery:
 
 ### AI Workflow Tools
 
-**AI Workflow Tools Demo** _(Video coming soon)_
+**[AI Workflow Tools Demo](../visual-content/cli-videos/ai-workflow-tools-demo/ai-workflow-tools-cli-demo.mp4)**
+_Duration: 5:25 | Format: MP4_
 
 Comprehensive workflow automation demonstration:
 
@@ -122,7 +126,7 @@ Comprehensive workflow automation demonstration:
 
 ### Executive Decision Support
 
-**Business Applications Demo** _(Video coming soon)_
+**[Business Applications Demo](../visual-content/videos/business/business-use-cases.mp4)** _(General Business Demo)_
 _Duration: 4:15 | Format: MP4_
 
 General business use cases demonstration covering strategic analysis, sales intelligence, and financial planning:
@@ -134,7 +138,7 @@ General business use cases demonstration covering strategic analysis, sales inte
 
 ### Marketing & Sales
 
-**Content Creation Workflow** _(Video coming soon)_
+**[Content Creation Workflow](../visual-content/videos/demo/creative-tools.mp4)**
 _Duration: 3:45 | Format: MP4_
 
 Marketing content generation pipeline:
@@ -144,7 +148,7 @@ Marketing content generation pipeline:
 - Email campaign development
 - SEO optimization
 
-**Same Business Demo - Sales Focus** _(Video coming soon)_
+**[Same Business Demo - Sales Focus](../visual-content/videos/business/business-use-cases.mp4)**
 _Duration: 3:20 | Format: MP4_
 
 Sales-focused section of the business applications demo:
@@ -156,7 +160,7 @@ Sales-focused section of the business applications demo:
 
 ### Operations & Analytics
 
-**Process Optimization** _(Video coming soon)_
+**[Process Optimization](../visual-content/videos/demo/monitoring-analytics.mp4)**
 _Duration: 4:00 | Format: MP4_
 
 Business process analysis and improvement:
@@ -170,7 +174,7 @@ Business process analysis and improvement:
 
 ### Software Development
 
-**Developer Tools Demo** _(Video coming soon)_
+**[Developer Tools Demo](../visual-content/videos/demo/developer-tools.mp4)** _(General Developer Demo)_
 _Duration: 5:30 | Format: MP4_
 
 General developer workflow demonstration covering multiple development scenarios:
@@ -189,7 +193,7 @@ General developer workflow demonstration covering multiple development scenarios
 
 ### Healthcare & Research
 
-**Medical Documentation Demo** _(Video coming soon)_
+**[Medical Documentation Demo](../visual-content/videos/demo/basic-examples.mp4)**
 _Duration: 3:15 | Format: MP4_
 
 Healthcare-specific applications:
@@ -201,7 +205,7 @@ Healthcare-specific applications:
 
 ### Financial Services
 
-**Business Demo - Financial Focus** _(Video coming soon)_
+**[Business Demo - Financial Focus](../visual-content/videos/business/business-use-cases.mp4)**
 _Duration: 4:30 | Format: MP4_
 
 Financial applications from the business use cases demo:
@@ -215,7 +219,7 @@ Financial applications from the business use cases demo:
 
 ### Architecture & Scalability
 
-**Developer Demo - Architecture Focus** _(Video coming soon)_
+**[Developer Demo - Architecture Focus](../visual-content/videos/demo/developer-tools.mp4)**
 _Duration: 6:00 | Format: MP4_
 
 Architecture-focused section of the developer tools demo:
@@ -227,7 +231,7 @@ Architecture-focused section of the developer tools demo:
 
 ### Integration Patterns
 
-**Developer Demo - Framework Integration** _(Video coming soon)_
+**[Developer Demo - Framework Integration](../visual-content/videos/demo/developer-tools.mp4)**
 _Duration: 4:45 | Format: MP4_
 
 Framework integration portion of the developer tools demo:
@@ -239,7 +243,7 @@ Framework integration portion of the developer tools demo:
 
 ### Security & Compliance
 
-**Security Implementation** _(Video coming soon)_
+**[Security Implementation](../visual-content/videos/demo/monitoring-analytics.mp4)**
 _Duration: 3:30 | Format: MP4_
 
 Security and compliance features:
@@ -253,7 +257,7 @@ Security and compliance features:
 
 ### Speed Comparisons
 
-**Provider Performance Comparison** _(Video coming soon)_
+**[Provider Performance Comparison](../visual-content/videos/demo/monitoring-analytics.mp4)**
 _Duration: 3:00 | Format: MP4_
 
 Real-time performance benchmarking:
@@ -265,7 +269,7 @@ Real-time performance benchmarking:
 
 ### Load Testing
 
-**Scalability Testing** _(Video coming soon)_
+**[Scalability Testing](../visual-content/videos/demo/monitoring-analytics.mp4)**
 _Duration: 2:45 | Format: MP4_
 
 High-load performance demonstration:
@@ -279,7 +283,7 @@ High-load performance demonstration:
 
 ### Onboarding & Setup
 
-**Getting Started Guide** _(Video coming soon)_
+**[Getting Started Guide](../visual-content/videos/demo/basic-examples.mp4)**
 _Duration: 4:20 | Format: MP4_
 
 New user onboarding experience:
@@ -291,7 +295,7 @@ New user onboarding experience:
 
 ### Advanced User Workflows
 
-**Developer Demo - Advanced Features** _(Video coming soon)_
+**[Developer Demo - Advanced Features](../visual-content/videos/demo/developer-tools.mp4)**
 _Duration: 5:15 | Format: MP4_
 
 Advanced features section of the developer tools demo:
@@ -305,7 +309,7 @@ Advanced features section of the developer tools demo:
 
 ### Before/After Improvements
 
-**Feature Evolution** _(Video coming soon)_
+**[Feature Evolution](../visual-content/videos/demo/monitoring-analytics.mp4)**
 _Duration: 3:30 | Format: MP4_
 
 Product improvement demonstration:
@@ -317,7 +321,7 @@ Product improvement demonstration:
 
 ### Competitive Analysis
 
-**Business Demo - Market Analysis** _(Video coming soon)_
+**[Business Demo - Market Analysis](../visual-content/videos/business/business-use-cases.mp4)**
 _Duration: 4:00 | Format: MP4_
 
 Market analysis section of the business use cases demo:
@@ -331,7 +335,7 @@ Market analysis section of the business use cases demo:
 
 ### Mobile Interface
 
-**Mobile Experience** _(Video coming soon)_
+**[Mobile Experience](../visual-content/videos/demo/basic-examples.mp4)**
 _Duration: 2:30 | Format: MP4_
 
 Mobile-optimized interface:
@@ -345,7 +349,7 @@ Mobile-optimized interface:
 
 ### Tutorial Series
 
-**Complete Tutorial Series** _(Video coming soon)_
+**[Complete Tutorial Series](../visual-content/videos/demo/ai-workflow-full-demo.mp4)**
 _Duration: 15:30 | Format: MP4_
 
 Comprehensive learning path:
@@ -357,7 +361,7 @@ Comprehensive learning path:
 
 ### Webinar Recordings
 
-**Business Demo - Extended Version** _(Video coming soon)_
+**[Business Demo - Extended Version](../visual-content/videos/business/business-use-cases.mp4)**
 _Duration: 45:00 | Format: MP4_
 
 Extended business use cases demonstration (note: same content as other business demos):

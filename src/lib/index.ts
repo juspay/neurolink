@@ -36,54 +36,136 @@
 import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
 
-// Export ALL types from the centralized type barrel
-export * from "./types/index.js";
-
-// Tool Registration utility
-export { validateTool } from "./sdk/toolRegistration.js";
-
 export {
   AIProviderName,
   BedrockModels,
   OpenAIModels,
   VertexModels,
 } from "./constants/enums.js";
-
-// Utility exports
-export {
-  getBestProvider,
-  getAvailableProviders,
-  isValidProvider,
-} from "./utils/providerUtils.js";
-
 // Dynamic Models exports
 export { dynamicModelProvider } from "./core/dynamicModels.js";
+// Tool Registration utility
+export { validateTool } from "./sdk/toolRegistration.js";
+// Export ALL types from the centralized type barrel
+export * from "./types/index.js";
 export type { DynamicModelConfig, ModelRegistry } from "./types/modelTypes.js";
+// Utility exports
+export {
+  getAvailableProviders,
+  getBestProvider,
+  isValidProvider,
+} from "./utils/providerUtils.js";
 
 // Main NeuroLink wrapper class and diagnostic types
 import { NeuroLink } from "./neurolink.js";
 export { NeuroLink };
+
+// Multi-Agent Orchestration exports
+export { Agent } from "./agent/agent.js";
+export { AgentNetwork } from "./agent/agentNetwork.js";
+export { RouterAgent } from "./agent/routerAgent.js";
+
+// Advanced agent orchestration exports
+export {
+  // Coordination
+  AgentCoordinator,
+  TaskDistributor,
+  // Communication
+  MessageBus,
+  ProtocolManager,
+  HandshakeProtocolHandler,
+  DelegationProtocolHandler,
+  ConsensusProtocolHandler,
+  HeartbeatProtocolHandler,
+  // Orchestration
+  NetworkOrchestrator,
+  NetworkTopology,
+  TopologyBuilder,
+  // Supervisor
+  SupervisorAgent,
+  createSupervisedAgent,
+  // Evaluation
+  AgentEvaluator,
+  ResultOptimizer,
+  createEvaluator,
+  createOptimizer,
+} from "./agent/index.js";
+
+// New Multi-Agent Networks (Factory+Registry Pattern) exports
+export {
+  // Core classes (aliased to avoid conflicts with ./agent/)
+  Agent as NetworkAgent,
+  AgentNetwork as NetworkAgentNetwork,
+  RoutingAgent,
+  scorePrimitive,
+  selectPrimitiveByHeuristics,
+  // Factory and Registry
+  AgentFactory,
+  getAgentFactory,
+  createAgent,
+  createNetwork,
+  createRoutingAgent,
+  AgentRegistry,
+  getAgentRegistry,
+  // Communication (aliased to avoid conflicts)
+  MessageBus as NetworkMessageBus,
+  ProtocolManager as NetworkProtocolManager,
+  HandshakeProtocolHandler as NetworkHandshakeProtocolHandler,
+  DelegationProtocolHandler as NetworkDelegationProtocolHandler,
+  ConsensusProtocolHandler as NetworkConsensusProtocolHandler,
+  HeartbeatProtocolHandler as NetworkHeartbeatProtocolHandler,
+  // Topologies
+  HubSpokeTopology,
+  MeshTopology,
+  HierarchicalTopology,
+  // Errors
+  AgentError,
+  AgentExecutionError,
+  AgentNotFoundError,
+  RoutingError,
+  DelegationError,
+  CoordinationError,
+  NetworkExecutionError,
+  NetworkTimeoutError,
+  MaxStepsExceededError,
+  MessageDeliveryError,
+  ProtocolError,
+  ValidationError,
+  AgentErrorCodes,
+  AgentErrorFactory,
+  isAgentError,
+  isRetryableAgentError,
+  createAgentError,
+  wrapAsAgentError,
+} from "./agents/index.js";
+
+// Agent topology config types
+export type {
+  HubSpokeConfig,
+  MeshConfig,
+  HierarchicalConfig,
+} from "./agents/index.js";
 export type { MCPServerInfo } from "./types/mcpTypes.js";
 
 // Observability configuration types
 export type {
-  ObservabilityConfig,
   LangfuseConfig,
+  ObservabilityConfig,
   OpenTelemetryConfig,
 } from "./types/observability.js";
 
 export { buildObservabilityConfigFromEnv } from "./utils/observabilityHelpers.js";
 
 import {
-  initializeOpenTelemetry,
-  shutdownOpenTelemetry,
   flushOpenTelemetry,
   getLangfuseHealthStatus,
+  initializeOpenTelemetry,
   setLangfuseContext,
+  shutdownOpenTelemetry,
 } from "./services/server/ai/observability/instrumentation.js";
 import {
-  initializeTelemetry as init,
   getTelemetryStatus as getStatus,
+  initializeTelemetry as init,
 } from "./telemetry/index.js";
 
 export {
@@ -94,15 +176,15 @@ export {
   setLangfuseContext,
 };
 
+export { MiddlewareFactory } from "./middleware/factory.js";
 // Middleware exports
 export type {
-  NeuroLinkMiddleware,
+  MiddlewareConfig,
   MiddlewareContext,
   MiddlewareFactoryOptions,
   MiddlewarePreset,
-  MiddlewareConfig,
+  NeuroLinkMiddleware,
 } from "./types/middlewareTypes.js";
-export { MiddlewareFactory } from "./middleware/factory.js";
 
 // Version
 export const VERSION = "1.0.0";
@@ -276,53 +358,53 @@ export async function createBestAIProvider(
  * ```
  */
 export {
+  CircuitBreakerManager,
+  calculateExpiresAt,
+  createOAuthProviderFromConfig,
+  DEFAULT_HTTP_RETRY_CONFIG,
+  DEFAULT_RATE_LIMIT_CONFIG,
+  executeMCP,
+  FileTokenStorage,
+  getMCPStats,
+  globalCircuitBreakerManager,
+  globalRateLimiterManager,
+  // HTTP Transport utilities
+  HTTPRateLimiter,
+  // OAuth Authentication
+  InMemoryTokenStorage,
   // Core MCP ecosystem
   // Simplified MCP exports
   initializeMCPEcosystem,
-  listMCPs,
-  executeMCP,
-  getMCPStats,
-  mcpLogger,
-  // HTTP Transport utilities
-  HTTPRateLimiter,
-  RateLimiterManager,
-  globalRateLimiterManager,
-  DEFAULT_RATE_LIMIT_CONFIG,
-  DEFAULT_HTTP_RETRY_CONFIG,
-  isRetryableStatusCode,
   isRetryableHTTPError,
-  withHTTPRetry,
-  // OAuth Authentication
-  InMemoryTokenStorage,
-  FileTokenStorage,
+  isRetryableStatusCode,
   isTokenExpired,
-  calculateExpiresAt,
-  NeuroLinkOAuthProvider,
-  createOAuthProviderFromConfig,
+  listMCPs,
   // Circuit Breaker
   MCPCircuitBreaker,
-  CircuitBreakerManager,
-  globalCircuitBreakerManager,
+  mcpLogger,
+  NeuroLinkOAuthProvider,
+  RateLimiterManager,
+  withHTTPRetry,
 } from "./mcp/index.js";
 
 export type {
-  McpMetadata,
+  AuthorizationUrlResult,
   DiscoveredMcp,
+  HTTPRetryConfig,
+  MCPOAuthConfig,
+  McpMetadata,
+  OAuthClientInformation,
+  OAuthTokens,
   // HTTP Transport types
   RateLimitConfig,
-  HTTPRetryConfig,
-  OAuthTokens,
-  TokenStorage,
-  MCPOAuthConfig,
-  OAuthClientInformation,
-  AuthorizationUrlResult,
   TokenExchangeRequest,
+  TokenStorage,
 } from "./types/mcpTypes.js";
 
 export type {
   ExecutionContext,
-  ToolInfo,
   ToolExecutionResult,
+  ToolInfo,
 } from "./types/tools.js";
 
 export type { LogLevel } from "./types/utilities.js";
@@ -361,10 +443,10 @@ export async function getTelemetryStatus(): Promise<{
 
 // Export legacy types for backward compatibility
 export type {
-  TextGenerationOptions,
-  TextGenerationResult,
   AnalyticsData,
   EvaluationData,
+  TextGenerationOptions,
+  TextGenerationResult,
 } from "./types/index.js";
 
 /**

@@ -187,9 +187,6 @@ export type NeuroLinkEvents = {
   "tools-register:start": unknown;
   "tools-register:end": unknown;
 
-  // Conversation memory events
-  "conversation:titleGenerated": unknown;
-
   // General events
   connected: unknown;
   message: unknown;

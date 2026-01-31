@@ -15,136 +15,151 @@ try {
   // Environment variables should be set externally in production
 }
 
-import type {
-  TextGenerationOptions,
-  TextGenerationResult,
-  AnalyticsData,
-  ProviderStatus,
-} from "./types/index.js";
-import { AIProviderFactory } from "./core/factory.js";
-import { isNonNullObject } from "./utils/typeUtils.js";
-import { isZodSchema } from "./utils/schemaConversion.js";
+import { EventEmitter } from "events";
 import type { MemoryClient } from "mem0ai";
-import { AIProviderName } from "./constants/enums.js";
-import { mcpLogger } from "./utils/logger.js";
-import { SYSTEM_LIMITS } from "./core/constants.js";
+import pLimit from "p-limit";
+// Multi-agent orchestration imports
+import { Agent } from "./agent/agent.js";
+import { AgentNetwork } from "./agent/agentNetwork.js";
+import type { AIProviderName } from "./constants/enums.js";
 import {
-  NANOSECOND_TO_MS_DIVISOR,
-  TOOL_TIMEOUTS,
-  RETRY_ATTEMPTS,
-  RETRY_DELAYS,
   CIRCUIT_BREAKER,
   CIRCUIT_BREAKER_RESET_MS,
   MEMORY_THRESHOLDS,
-  PROVIDER_TIMEOUTS,
+  NANOSECOND_TO_MS_DIVISOR,
   PERFORMANCE_THRESHOLDS,
+  PROVIDER_TIMEOUTS,
+  RETRY_ATTEMPTS,
+  RETRY_DELAYS,
+  TOOL_TIMEOUTS,
 } from "./constants/index.js";
-import pLimit from "p-limit";
-import { MCPToolRegistry } from "./mcp/toolRegistry.js";
-import { logger } from "./utils/logger.js";
-import { getBestProvider } from "./utils/providerUtils.js";
+import { SYSTEM_LIMITS } from "./core/constants.js";
+import type { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
+import { AIProviderFactory } from "./core/factory.js";
+import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
+import { HITLManager } from "./hitl/hitlManager.js";
+import { ExternalServerManager } from "./mcp/externalServerManager.js";
+// Import direct tools server for automatic registration
+import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
+import { MCPToolRegistry } from "./mcp/toolRegistry.js";
+import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
+import {
+  flushOpenTelemetry,
+  getLangfuseHealthStatus,
+  initializeOpenTelemetry,
+  setLangfuseContext,
+  shutdownOpenTelemetry,
+} from "./services/server/ai/observability/instrumentation.js";
+import type {
+  AgentDefinition,
+  AgentNetworkConfig,
+  NetworkExecutionInput,
+  NetworkExecutionOptions,
+  NetworkExecutionResult,
+  NetworkStreamChunk,
+} from "./types/agentNetworkTypes.js";
+import type {
+  JsonObject,
+  JsonValue,
+  NeuroLinkEvents,
+  TypedEventEmitter,
+  UnknownRecord,
+} from "./types/common.js";
+import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
+import type {
+  ChatMessage,
+  ConversationMemoryConfig,
+  ProviderDetails,
+} from "./types/conversation.js";
+import type {
+  ExternalMCPOperationResult,
+  ExternalMCPServerInstance,
+  ExternalMCPToolInfo,
+} from "./types/externalMcp.js";
 // NEW: Generate function imports
 import type { GenerateOptions, GenerateResult } from "./types/generateTypes.js";
 import type {
-  StreamOptions,
-  StreamResult,
-  ToolCall,
-  ToolResult,
-  AudioChunk,
-} from "./types/streamTypes.js";
-import type { TokenUsage, EvaluationData } from "./types/index.js";
+  ConfirmationResponseEvent,
+  HITLConfig,
+} from "./types/hitlTypes.js";
+import type {
+  AnalyticsData,
+  EvaluationData,
+  ProviderStatus,
+  TextGenerationOptions,
+  TextGenerationResult,
+  TokenUsage,
+} from "./types/index.js";
 import type {
   MCPExecutableTool,
   MCPServerCategory,
   MCPServerInfo,
   MCPStatus,
 } from "./types/mcpTypes.js";
-import type { ToolInfo } from "./types/tools.js";
-import type { NeuroLinkEvents, TypedEventEmitter } from "./types/common.js";
-import {
-  createCustomToolServerInfo,
-  detectCategory,
-} from "./utils/mcpDefaults.js";
+import type { ObservabilityConfig } from "./types/observability.js";
+import type {
+  AudioChunk,
+  StreamOptions,
+  StreamResult,
+  ToolCall,
+  ToolResult,
+} from "./types/streamTypes.js";
 import type {
   ToolExecutionContext,
   ToolExecutionSummary,
+  ToolInfo,
 } from "./types/tools.js";
-import type { JsonValue, JsonObject, UnknownRecord } from "./types/common.js";
 import type {
-  ToolExecutionResult,
   BatchOperationResult,
+  ToolExecutionResult,
 } from "./types/typeAliases.js";
-// Factory processing imports
-import {
-  processFactoryOptions,
-  enhanceTextGenerationOptions,
-  validateFactoryConfig,
-  processStreamingFactoryOptions,
-  createCleanStreamOptions,
-} from "./utils/factoryProcessing.js";
-// Tool detection and execution imports
-// Transformation utilities
-import {
-  transformToolExecutions,
-  transformToolExecutionsForMCP,
-  transformAvailableTools,
-  transformToolsForMCP,
-  transformToolsToExpectedFormat,
-  transformToolsToDescriptions,
-  extractToolNames,
-  transformParamsForLogging,
-  optimizeToolForCollection,
-} from "./utils/transformationUtils.js";
-// Enhanced error handling imports
-import {
-  ErrorFactory,
-  NeuroLinkError,
-  withTimeout,
-  withRetry,
-  isRetriableError,
-  logStructuredError,
-  CircuitBreaker,
-} from "./utils/errorHandling.js";
-import { EventEmitter } from "events";
-import type {
-  ConversationMemoryConfig,
-  ChatMessage,
-  ProviderDetails,
-} from "./types/conversation.js";
-import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
-import { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import {
   getConversationMessages,
   storeConversationTurn,
 } from "./utils/conversationMemory.js";
-import { ExternalServerManager } from "./mcp/externalServerManager.js";
-import type {
-  HITLConfig,
-  ConfirmationResponseEvent,
-} from "./types/hitlTypes.js";
-import { HITLManager } from "./hitl/hitlManager.js";
-import type {
-  ExternalMCPServerInstance,
-  ExternalMCPOperationResult,
-  ExternalMCPToolInfo,
-} from "./types/externalMcp.js";
-// Import direct tools server for automatic registration
-import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
+// Enhanced error handling imports
+import {
+  CircuitBreaker,
+  ErrorFactory,
+  isRetriableError,
+  logStructuredError,
+  NeuroLinkError,
+  withRetry,
+  withTimeout,
+} from "./utils/errorHandling.js";
+// Factory processing imports
+import {
+  createCleanStreamOptions,
+  enhanceTextGenerationOptions,
+  processFactoryOptions,
+  processStreamingFactoryOptions,
+  validateFactoryConfig,
+} from "./utils/factoryProcessing.js";
+import { logger, mcpLogger } from "./utils/logger.js";
+import {
+  createCustomToolServerInfo,
+  detectCategory,
+} from "./utils/mcpDefaults.js";
 // Import orchestration components
 import { ModelRouter } from "./utils/modelRouter.js";
+import { getBestProvider } from "./utils/providerUtils.js";
+import { isZodSchema } from "./utils/schemaConversion.js";
 import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
+// Tool detection and execution imports
+// Transformation utilities
 import {
-  initializeOpenTelemetry,
-  shutdownOpenTelemetry,
-  flushOpenTelemetry,
-  getLangfuseHealthStatus,
-  setLangfuseContext,
-} from "./services/server/ai/observability/instrumentation.js";
-import type { ObservabilityConfig } from "./types/observability.js";
-import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
-
-import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
+  extractToolNames,
+  optimizeToolForCollection,
+  transformAvailableTools,
+  transformParamsForLogging,
+  transformToolExecutions,
+  transformToolExecutionsForMCP,
+  transformToolsForMCP,
+  transformToolsToDescriptions,
+  transformToolsToExpectedFormat,
+} from "./utils/transformationUtils.js";
+import { isNonNullObject } from "./utils/typeUtils.js";
 
 /**
  * NeuroLink - Universal AI Development Platform
@@ -3178,7 +3193,7 @@ Current user's request: ${currentInput}`;
               const userId = (
                 enhancedOptions.context as Record<string, unknown>
               )?.userId as string;
-              let providerDetails: ProviderDetails | undefined = undefined;
+              let providerDetails: ProviderDetails | undefined;
               if (enhancedOptions.model) {
                 providerDetails = {
                   provider: providerName,
@@ -3541,7 +3556,7 @@ Current user's request: ${currentInput}`;
           )?.sessionId as string;
           const userId = (enhancedOptions?.context as Record<string, unknown>)
             ?.userId as string;
-          let providerDetails: ProviderDetails | undefined = undefined;
+          let providerDetails: ProviderDetails | undefined;
           if (options.model) {
             providerDetails = {
               provider: providerName,
@@ -5220,7 +5235,10 @@ Current user's request: ${currentInput}`;
     try {
       const health = await ProviderHealthChecker.checkProviderHealth(
         providerName as AIProviderName,
-        { includeConnectivityTest: false, cacheResults: false },
+        {
+          includeConnectivityTest: false,
+          cacheResults: false,
+        },
       );
       return health.isConfigured && health.hasApiKey;
     } catch (error) {
@@ -6194,7 +6212,6 @@ Current user's request: ${currentInput}`;
       // Use the integration module to create the appropriate memory manager
       const memoryManager = await initializeConversationMemory(
         this.conversationMemoryConfig,
-        this.emitter,
       );
       // Assign to conversationMemory with proper type to handle both memory manager types
       this.conversationMemory = memoryManager;
@@ -6239,6 +6256,471 @@ Current user's request: ${currentInput}`;
         error,
       );
     }
+  }
+
+  // ============================================================================
+  // MULTI-AGENT ORCHESTRATION METHODS
+  // ============================================================================
+
+  /**
+   * Create an Agent instance for multi-agent orchestration.
+   *
+   * Agents are specialized AI entities with defined instructions, tools, and behavior.
+   * They can be composed into networks for complex task orchestration.
+   *
+   * @param definition - Agent definition specifying behavior and capabilities
+   * @returns A new Agent instance
+   *
+   * @example
+   * ```typescript
+   * const researcher = neurolink.createAgent({
+   *   id: 'researcher',
+   *   name: 'Research Agent',
+   *   description: 'Searches and analyzes information from various sources',
+   *   instructions: 'You are a research assistant. Search thoroughly and cite sources.',
+   *   tools: ['websearchGrounding', 'readFile'],
+   *   model: 'gpt-4o'
+   * });
+   *
+   * const result = await researcher.execute('Find recent AI breakthroughs');
+   * ```
+   *
+   * @see {@link AgentDefinition} for definition options
+   * @see {@link Agent} for agent methods
+   * @since 8.38.0
+   */
+  createAgent(definition: AgentDefinition): Agent {
+    logger.debug("[NeuroLink] Creating agent", {
+      id: definition.id,
+      name: definition.name,
+      tools: definition.tools?.length || 0,
+    });
+    return new Agent(definition, this);
+  }
+
+  /**
+   * Create an AgentNetwork for multi-agent orchestration.
+   *
+   * Networks coordinate multiple agents, workflows, and tools with intelligent
+   * LLM-powered routing. The router agent analyzes tasks and delegates to
+   * the most appropriate primitive.
+   *
+   * @param config - Network configuration with agents, workflows, and routing settings
+   * @returns A new AgentNetwork instance
+   *
+   * @example
+   * ```typescript
+   * const network = neurolink.createNetwork({
+   *   name: 'Content Team',
+   *   description: 'Collaborative content creation pipeline',
+   *   agents: [
+   *     {
+   *       id: 'researcher',
+   *       name: 'Researcher',
+   *       description: 'Finds and verifies information',
+   *       instructions: 'Research topics thoroughly...',
+   *     },
+   *     {
+   *       id: 'writer',
+   *       name: 'Writer',
+   *       description: 'Creates engaging content',
+   *       instructions: 'Write clear, engaging content...',
+   *     },
+   *     {
+   *       id: 'editor',
+   *       name: 'Editor',
+   *       description: 'Reviews and improves content',
+   *       instructions: 'Review for clarity and accuracy...',
+   *     }
+   *   ],
+   *   router: {
+   *     model: 'gpt-4o',
+   *     confidenceThreshold: 0.7
+   *   }
+   * });
+   *
+   * const result = await network.execute({
+   *   message: 'Write an article about quantum computing'
+   * });
+   * ```
+   *
+   * @see {@link AgentNetworkConfig} for configuration options
+   * @see {@link AgentNetwork} for network methods
+   * @since 8.38.0
+   */
+  createNetwork(config: AgentNetworkConfig): AgentNetwork {
+    logger.debug("[NeuroLink] Creating agent network", {
+      name: config.name,
+      agentCount: config.agents.length,
+      workflowCount: config.workflows?.length || 0,
+      toolCount: config.tools?.length || 0,
+    });
+    return new AgentNetwork(config, this);
+  }
+
+  /**
+   * Execute an agent network with the given input.
+   *
+   * Convenience method that executes a network and returns the result.
+   * For streaming, use {@link streamNetwork} instead.
+   *
+   * @param network - The agent network to execute
+   * @param input - Execution input (message and context)
+   * @param options - Optional execution options
+   * @returns Network execution result with content, trace, and usage
+   *
+   * @example
+   * ```typescript
+   * const network = neurolink.createNetwork({ ... });
+   *
+   * const result = await neurolink.executeNetwork(network, {
+   *   message: 'Analyze market trends for Q4',
+   *   context: { industry: 'technology' }
+   * }, {
+   *   maxSteps: 5,
+   *   timeout: 60000
+   * });
+   *
+   * console.log(result.content);
+   * console.log('Steps taken:', result.trace.steps.length);
+   * ```
+   *
+   * @see {@link NetworkExecutionInput} for input options
+   * @see {@link NetworkExecutionOptions} for execution options
+   * @see {@link NetworkExecutionResult} for result structure
+   * @since 8.38.0
+   */
+  async executeNetwork(
+    network: AgentNetwork,
+    input: NetworkExecutionInput,
+    options?: NetworkExecutionOptions,
+  ): Promise<NetworkExecutionResult> {
+    logger.debug("[NeuroLink] Executing agent network", {
+      networkId: network.id,
+      networkName: network.name,
+      hasContext: !!input.context,
+    });
+    return network.execute(input, options);
+  }
+
+  /**
+   * Stream agent network execution with real-time events.
+   *
+   * Returns an async iterable that yields events as the network processes:
+   * - `network-start`: Network execution begins
+   * - `routing-decision`: Router selects a primitive
+   * - `primitive-start`/`primitive-end`: Primitive execution lifecycle
+   * - `agent-text`: Streaming text from agent
+   * - `agent-tool-call`/`agent-tool-result`: Tool execution events
+   * - `network-complete`: Final result
+   * - `network-error`: Error during execution
+   *
+   * @param network - The agent network to stream
+   * @param input - Execution input (message and context)
+   * @param options - Optional execution options
+   * @returns Async iterable of network stream chunks
+   *
+   * @example
+   * ```typescript
+   * const network = neurolink.createNetwork({ ... });
+   *
+   * for await (const chunk of neurolink.streamNetwork(network, {
+   *   message: 'Generate a comprehensive report'
+   * })) {
+   *   switch (chunk.type) {
+   *     case 'routing-decision':
+   *       console.log('Routing to:', chunk.decision.selectedPrimitive.name);
+   *       break;
+   *     case 'agent-text':
+   *       process.stdout.write(chunk.content);
+   *       break;
+   *     case 'network-complete':
+   *       console.log('Done! Total steps:', chunk.result.trace.steps.length);
+   *       break;
+   *   }
+   * }
+   * ```
+   *
+   * @see {@link NetworkStreamChunk} for chunk types
+   * @since 8.38.0
+   */
+  async *streamNetwork(
+    network: AgentNetwork,
+    input: NetworkExecutionInput,
+    options?: NetworkExecutionOptions,
+  ): AsyncIterable<NetworkStreamChunk> {
+    logger.debug("[NeuroLink] Streaming agent network", {
+      networkId: network.id,
+      networkName: network.name,
+      hasContext: !!input.context,
+    });
+    yield* network.stream(input, options);
+  }
+
+  // ============================================================================
+  // ADVANCED ORCHESTRATION METHODS
+  // ============================================================================
+
+  /**
+   * Create a NetworkOrchestrator for managing multiple agent networks.
+   *
+   * The orchestrator provides high-level network management including:
+   * - Network lifecycle management (create, start, stop, destroy)
+   * - Hierarchical network structures with parent-child relationships
+   * - Resource limits and execution queuing
+   * - Real-time network state monitoring
+   *
+   * @param config - Orchestrator configuration options
+   * @returns A new NetworkOrchestrator instance
+   *
+   * @example
+   * ```typescript
+   * import { NetworkOrchestrator } from '@juspay/neurolink';
+   *
+   * const orchestrator = neurolink.createOrchestrator({
+   *   maxConcurrentNetworks: 5,
+   *   defaultTimeout: 60000,
+   *   mode: 'parallel'
+   * });
+   *
+   * // Create and register networks
+   * const network1 = orchestrator.createNetwork({ name: 'Research', agents: [...] });
+   * const network2 = orchestrator.createNetwork({ name: 'Writing', agents: [...] });
+   *
+   * // Execute across networks
+   * const result = await orchestrator.execute({
+   *   networkId: network1.id,
+   *   input: { message: 'Research AI trends' }
+   * });
+   * ```
+   *
+   * @see {@link NetworkOrchestrator} for orchestrator methods
+   * @since 8.38.0
+   */
+  createOrchestrator(
+    config?: import("./agent/orchestration/index.js").OrchestratorConfig,
+  ): import("./agent/orchestration/index.js").NetworkOrchestrator {
+    const { NetworkOrchestrator } = require("./agent/orchestration/index.js");
+    logger.debug("[NeuroLink] Creating network orchestrator", {
+      maxConcurrentExecutions: config?.maxConcurrentExecutions,
+      defaultMode: config?.defaultMode,
+    });
+    return new NetworkOrchestrator(this, config);
+  }
+
+  /**
+   * Create a SupervisorAgent for oversight and control of agent execution.
+   *
+   * Supervisors provide:
+   * - Pre and post-execution review of agent actions
+   * - Human-in-the-loop (HITL) integration for critical decisions
+   * - Escalation handling for issues requiring human intervention
+   * - Action approval/rejection with feedback
+   *
+   * @param config - Supervisor configuration options
+   * @returns A new SupervisorAgent instance
+   *
+   * @example
+   * ```typescript
+   * const supervisor = neurolink.createSupervisor({
+   *   supervisionLevel: 'moderate',
+   *   reviewPolicy: {
+   *     requireApproval: ['tool_execution', 'external_api'],
+   *     autoApprove: ['text_generation']
+   *   }
+   * });
+   *
+   * // Supervise an agent
+   * const agent = neurolink.createAgent({ id: 'worker', ... });
+   * const supervisedResult = await supervisor.supervise(agent, 'Perform sensitive task');
+   * ```
+   *
+   * @see {@link SupervisorAgent} for supervisor methods
+   * @since 8.38.0
+   */
+  createSupervisor(
+    config?: import("./agent/supervisor/index.js").SupervisorConfig,
+  ): import("./agent/supervisor/index.js").SupervisorAgent {
+    const { SupervisorAgent } = require("./agent/supervisor/index.js");
+    logger.debug("[NeuroLink] Creating supervisor agent", {
+      supervisionLevel: config?.level,
+    });
+    return new SupervisorAgent(this, config);
+  }
+
+  /**
+   * Create an AgentEvaluator for assessing agent output quality.
+   *
+   * Evaluators provide:
+   * - Quality assessment of agent outputs against criteria
+   * - Breakdown scores for accuracy, completeness, relevance, coherence
+   * - Improvement suggestions with prioritized fixes
+   * - Threshold-based pass/fail determination
+   *
+   * @param config - Evaluator configuration options
+   * @returns A new AgentEvaluator instance
+   *
+   * @example
+   * ```typescript
+   * const evaluator = neurolink.createEvaluator({
+   *   model: 'gpt-4o',
+   *   temperature: 0.2
+   * });
+   *
+   * // Evaluate an agent result
+   * const agent = neurolink.createAgent({ id: 'writer', ... });
+   * const result = await agent.execute('Write a summary');
+   *
+   * const score = await evaluator.evaluate(result, {
+   *   accuracy: true,
+   *   completeness: true,
+   *   relevance: true
+   * }, 'Write a summary');
+   *
+   * console.log('Overall score:', score.overall);
+   * console.log('Feedback:', score.feedback);
+   * ```
+   *
+   * @see {@link AgentEvaluator} for evaluator methods
+   * @since 8.38.0
+   */
+  createEvaluator(
+    config?: import("./agent/evaluation/index.js").EvaluatorConfig,
+  ): import("./agent/evaluation/index.js").AgentEvaluator {
+    const { AgentEvaluator } = require("./agent/evaluation/index.js");
+    logger.debug("[NeuroLink] Creating agent evaluator", {
+      model: config?.model,
+      provider: config?.provider,
+    });
+    return new AgentEvaluator(this, config);
+  }
+
+  /**
+   * Create a ResultOptimizer for iteratively improving agent outputs.
+   *
+   * Optimizers provide:
+   * - Iterative improvement through evaluation feedback loops
+   * - Configurable quality thresholds and max iterations
+   * - Streaming optimization progress
+   * - Comparative evaluation across multiple agents
+   *
+   * @param evaluator - Optional evaluator instance (creates default if not provided)
+   * @returns A new ResultOptimizer instance
+   *
+   * @example
+   * ```typescript
+   * const optimizer = neurolink.createOptimizer();
+   *
+   * // Optimize an agent's output
+   * const agent = neurolink.createAgent({ id: 'writer', ... });
+   *
+   * const optimized = await optimizer.optimize(agent, 'Write a compelling intro', {
+   *   maxIterations: 3,
+   *   qualityThreshold: 0.85
+   * });
+   *
+   * console.log('Final score:', optimized.finalScore.overall);
+   * console.log('Iterations:', optimized.iterations.length);
+   * console.log('Optimized content:', optimized.finalResult.content);
+   * ```
+   *
+   * @see {@link ResultOptimizer} for optimizer methods
+   * @since 8.38.0
+   */
+  createOptimizer(
+    evaluator?: import("./agent/evaluation/index.js").AgentEvaluator,
+  ): import("./agent/evaluation/index.js").ResultOptimizer {
+    const { ResultOptimizer } = require("./agent/evaluation/index.js");
+    logger.debug("[NeuroLink] Creating result optimizer");
+    return new ResultOptimizer(this, evaluator);
+  }
+
+  /**
+   * Create an AgentCoordinator for managing agent coordination strategies.
+   *
+   * Coordinators provide:
+   * - Multiple coordination strategies (sequential, parallel, pipeline, etc.)
+   * - Agent lifecycle management within coordinated execution
+   * - Task distribution and load balancing
+   * - Custom coordination logic support
+   *
+   * @param config - Coordinator configuration options
+   * @returns A new AgentCoordinator instance
+   *
+   * @example
+   * ```typescript
+   * const coordinator = neurolink.createCoordinator({
+   *   strategy: 'pipeline',
+   *   maxConcurrent: 3
+   * });
+   *
+   * // Register agents
+   * coordinator.registerAgent(researchAgent);
+   * coordinator.registerAgent(writerAgent);
+   * coordinator.registerAgent(editorAgent);
+   *
+   * // Coordinate execution
+   * const result = await coordinator.coordinate('Create a blog post about AI');
+   * ```
+   *
+   * @see {@link AgentCoordinator} for coordinator methods
+   * @since 8.38.0
+   */
+  createCoordinator(
+    config?: import("./agent/coordination/index.js").CoordinatorConfig,
+  ): import("./agent/coordination/index.js").AgentCoordinator {
+    const { AgentCoordinator } = require("./agent/coordination/index.js");
+    logger.debug("[NeuroLink] Creating agent coordinator", {
+      strategy: config?.strategy,
+      maxConcurrency: config?.maxConcurrency,
+    });
+    return new AgentCoordinator(this, config);
+  }
+
+  /**
+   * Create a MessageBus for inter-agent communication.
+   *
+   * Message buses provide:
+   * - Publish/subscribe messaging patterns
+   * - Request/response communication
+   * - Broadcast messaging to all agents
+   * - Message history and dead letter queue
+   *
+   * @param config - Message bus configuration options
+   * @returns A new MessageBus instance
+   *
+   * @example
+   * ```typescript
+   * const messageBus = neurolink.createMessageBus({
+   *   maxHistory: 1000,
+   *   enableDeadLetterQueue: true
+   * });
+   *
+   * // Subscribe to messages
+   * messageBus.subscribe('research-results', (message) => {
+   *   console.log('Research completed:', message.payload);
+   * });
+   *
+   * // Publish messages
+   * messageBus.publish({
+   *   type: 'task',
+   *   topic: 'research-results',
+   *   senderId: 'researcher',
+   *   payload: { findings: [...] }
+   * });
+   * ```
+   *
+   * @see {@link MessageBus} for message bus methods
+   * @since 8.38.0
+   */
+  createMessageBus(
+    config?: import("./agent/communication/index.js").MessageBusConfig,
+  ): import("./agent/communication/index.js").MessageBus {
+    const { MessageBus } = require("./agent/communication/index.js");
+    logger.debug("[NeuroLink] Creating message bus", {
+      maxHistorySize: config?.maxHistorySize,
+    });
+    return new MessageBus(config);
   }
 
   /**

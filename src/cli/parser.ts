@@ -192,6 +192,12 @@ export function initializeCliParser() {
       // Loop Command - Using CLICommandFactory
       .command(CLICommandFactory.createLoopCommand())
 
+      // Agent Commands - Using CLICommandFactory (Multi-Agent Orchestration)
+      .command(CLICommandFactory.createAgentCommands())
+
+      // Network Commands - Using CLICommandFactory (Agent Network Orchestration)
+      .command(CLICommandFactory.createNetworkCommands())
+
       // Setup Commands - Using SetupCommandFactory
       .command(SetupCommandFactory.createSetupCommands())
   ); // Close the main return statement
