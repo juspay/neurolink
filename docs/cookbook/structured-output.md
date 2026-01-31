@@ -1,8 +1,3 @@
----
-title: Structured Output with JSON Schema
-description: Generate type-safe JSON responses using Zod schemas for validation and structure
----
-
 # Structured Output with JSON Schema
 
 ## Problem
@@ -533,5 +528,5 @@ const user = await generator.extractStructured<z.infer<typeof UserSchema>>(
 
 - [Batch Processing](batch-processing.md)
 - [Error Recovery](error-recovery.md)
-- [API Reference - Generate Method](../sdk/api-reference.md)
+- [API Reference - Generate Method](../sdk/api-reference.md#generate)
 - [Provider Comparison](../reference/provider-comparison.md)

@@ -19,6 +19,15 @@ import type { MiddlewareFactoryOptions } from "../types/middlewareTypes.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { JsonValue, UnknownRecord } from "../types/common.js";
 import { logger } from "../utils/logger.js";
+import { ProcessorPipeline } from "../processors/pipeline.js";
+import type {
+  InputProcessorData,
+  OutputProcessorData,
+  ProcessorMetadata,
+  ProcessorPipelineConfig,
+} from "../types/processorTypes.js";
+import type { ChatMessage } from "../types/conversation.js";
+import type { GenerateResult } from "../types/generateTypes.js";
 import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
 import { directAgentTools } from "../agent/directTools.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
@@ -577,13 +586,54 @@ export abstract class BaseProvider implements AIProvider {
       }
 
       // ===== Normal AI Generation Flow =====
-      const { tools, model } = await this.prepareGenerationContext(options);
-      const messages = await this.buildMessages(options);
+
+      // ===== INPUT PROCESSOR PIPELINE =====
+      // Run input processors before generation if configured
+      const inputProcessorResult = await this.executeInputProcessors(options);
+
+      if (inputProcessorResult.aborted) {
+        // Input processor aborted - return abort result
+        logger.info(
+          `[BaseProvider] Generation aborted by input processor pipeline`,
+          {
+            provider: this.providerName,
+            feedback: inputProcessorResult.abortFeedback,
+          },
+        );
+
+        // Return a result indicating the abort
+        const abortResult: EnhancedGenerateResult = {
+          content:
+            inputProcessorResult.abortFeedback?.join("\n") ||
+            "Request blocked by input processor",
+          provider: this.providerName,
+          model: this.modelName,
+          usage: { input: 0, output: 0, total: 0 },
+          factoryMetadata: {
+            enhancementApplied: true,
+            processorAborted: true,
+            processorFeedback: inputProcessorResult.abortFeedback,
+          },
+        };
+        return abortResult;
+      }
+
+      // Use potentially transformed text from input processors
+      const processedOptions = {
+        ...options,
+        prompt: inputProcessorResult.data.text || options.prompt,
+        systemPrompt:
+          inputProcessorResult.data.systemPrompt || options.systemPrompt,
+      };
+
+      const { tools, model } =
+        await this.prepareGenerationContext(processedOptions);
+      const messages = await this.buildMessages(processedOptions);
       const generateResult = await this.executeGeneration(
         model,
         messages,
         tools,
-        options,
+        processedOptions,
       );
 
       this.analyzeAIResponse(
@@ -601,8 +651,48 @@ export abstract class BaseProvider implements AIProvider {
         tools,
         toolsUsed,
         toolExecutions,
+        processedOptions,
+      );
+
+      // ===== OUTPUT PROCESSOR PIPELINE =====
+      // Run output processors after generation if configured
+      const outputProcessorResult = await this.executeOutputProcessors(
+        inputProcessorResult.data,
+        enhancedResult,
         options,
       );
+
+      if (outputProcessorResult.aborted) {
+        // Output processor aborted - return abort result
+        logger.info(
+          `[BaseProvider] Response rejected by output processor pipeline`,
+          {
+            provider: this.providerName,
+            feedback: outputProcessorResult.feedback,
+          },
+        );
+
+        const abortResult: EnhancedGenerateResult = {
+          content:
+            outputProcessorResult.feedback?.join("\n") ||
+            "Response blocked by output processor",
+          provider: this.providerName,
+          model: this.modelName,
+          usage: enhancedResult.usage,
+          factoryMetadata: {
+            enhancementApplied: true,
+            processorAborted: true,
+            processorFeedback: outputProcessorResult.feedback,
+          },
+        };
+        return abortResult;
+      }
+
+      // Note: retry is not implemented at this level to avoid infinite loops
+      // Retry logic should be handled by a higher-level orchestrator if needed
+
+      // Use processed result from output processors
+      enhancedResult = outputProcessorResult.result;
 
       // ===== TTS MODE 2: AI Response Synthesis (useAiResponse=true) =====
       // Synthesize AI-generated response after generation completes
@@ -1394,5 +1484,210 @@ export abstract class BaseProvider implements AIProvider {
     }
 
     return chunks;
+  }
+
+  // ===================
+  // PROCESSOR PIPELINE METHODS
+  // ===================
+
+  /**
+   * Create processor metadata for the pipeline
+   */
+  private createProcessorMetadata(
+    options: TextGenerationOptions,
+  ): ProcessorMetadata {
+    return {
+      requestId: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      timestamp: Date.now(),
+      provider: options.provider ?? this.providerName,
+      model: options.model ?? this.modelName,
+      sessionId: this.sessionId,
+      userId: this.userId,
+      custom: {},
+      issues: [],
+      processorTrace: [],
+    };
+  }
+
+  /**
+   * Execute input processor pipeline
+   *
+   * Runs all configured input processors before LLM generation.
+   * Can abort generation if a processor requests it.
+   *
+   * @param options - Generation options including processor config
+   * @returns Input processor data with potentially transformed content, or null if aborted
+   */
+  private async executeInputProcessors(
+    options: TextGenerationOptions,
+  ): Promise<{
+    data: InputProcessorData;
+    aborted: boolean;
+    abortFeedback?: string[];
+  }> {
+    const processorConfig = options.processors;
+    if (
+      !processorConfig ||
+      (!processorConfig.inputProcessors?.length &&
+        !processorConfig.outputProcessors?.length)
+    ) {
+      // No processors configured - return passthrough data
+      const metadata = this.createProcessorMetadata(options);
+      return {
+        data: {
+          options: {
+            input: { text: options.prompt || options.input?.text || "" },
+            ...options,
+          },
+          messages: [],
+          systemPrompt: options.systemPrompt,
+          text: options.prompt || options.input?.text,
+          metadata,
+        },
+        aborted: false,
+      };
+    }
+
+    const pipeline = new ProcessorPipeline(processorConfig);
+    const metadata = this.createProcessorMetadata(options);
+
+    // Build input data for processors
+    const inputData: InputProcessorData = {
+      options: {
+        input: { text: options.prompt || options.input?.text || "" },
+        ...options,
+      },
+      messages: [], // Messages will be built by buildMessages()
+      systemPrompt: options.systemPrompt,
+      text: options.prompt || options.input?.text,
+      metadata,
+    };
+
+    logger.debug(`[BaseProvider] Running input processors`, {
+      provider: this.providerName,
+      processorCount: processorConfig.inputProcessors?.length || 0,
+    });
+
+    const result = await pipeline.processInput(inputData);
+
+    if (result.action === "abort") {
+      logger.info(`[BaseProvider] Input processor aborted generation`, {
+        provider: this.providerName,
+        feedback: result.feedback,
+        issues: result.issues?.length || 0,
+      });
+
+      return {
+        data: inputData,
+        aborted: true,
+        abortFeedback: result.feedback,
+      };
+    }
+
+    return {
+      data: result.data || inputData,
+      aborted: false,
+    };
+  }
+
+  /**
+   * Execute output processor pipeline
+   *
+   * Runs all configured output processors after LLM generation.
+   * Can modify the result or request abort/retry.
+   *
+   * @param inputData - Original input data
+   * @param result - Generation result from LLM
+   * @param options - Generation options including processor config
+   * @returns Output processor data with potentially transformed content
+   */
+  private async executeOutputProcessors(
+    inputData: InputProcessorData,
+    result: EnhancedGenerateResult,
+    options: TextGenerationOptions,
+  ): Promise<{
+    result: EnhancedGenerateResult;
+    aborted: boolean;
+    retry: boolean;
+    feedback?: string[];
+  }> {
+    const processorConfig = options.processors;
+    if (!processorConfig?.outputProcessors?.length) {
+      // No output processors configured
+      return { result, aborted: false, retry: false };
+    }
+
+    const pipeline = new ProcessorPipeline(processorConfig);
+
+    // Build output data for processors
+    const outputData: OutputProcessorData = {
+      input: inputData,
+      result: result as GenerateResult,
+      responseText: result.content || "",
+      toolCalls: result.toolCalls?.map((tc) => ({
+        toolName: tc.toolName,
+        args: tc.args as Record<string, JsonValue>,
+        result: undefined,
+      })),
+      metadata: inputData.metadata,
+    };
+
+    logger.debug(`[BaseProvider] Running output processors`, {
+      provider: this.providerName,
+      processorCount: processorConfig.outputProcessors?.length || 0,
+      responseLength: result.content?.length || 0,
+    });
+
+    const pipelineResult = await pipeline.processOutput(outputData);
+
+    if (pipelineResult.action === "abort") {
+      logger.info(`[BaseProvider] Output processor aborted`, {
+        provider: this.providerName,
+        feedback: pipelineResult.feedback,
+        issues: pipelineResult.issues?.length || 0,
+      });
+
+      return {
+        result,
+        aborted: true,
+        retry: false,
+        feedback: pipelineResult.feedback,
+      };
+    }
+
+    if (pipelineResult.action === "retry") {
+      logger.info(`[BaseProvider] Output processor requested retry`, {
+        provider: this.providerName,
+        feedback: pipelineResult.feedback,
+        retryCount: pipelineResult.metadata?.custom?.retryCount,
+      });
+
+      return {
+        result,
+        aborted: false,
+        retry: true,
+        feedback: pipelineResult.feedback,
+      };
+    }
+
+    // Update result with processed content if available
+    if (pipelineResult.data) {
+      const processedResult: EnhancedGenerateResult = {
+        ...result,
+        content: pipelineResult.data.responseText,
+        // Preserve processor metadata for observability
+        factoryMetadata: {
+          enhancementApplied:
+            result.factoryMetadata?.enhancementApplied ?? true,
+          ...result.factoryMetadata,
+          processorApplied: true,
+          processorIssues: pipelineResult.issues?.length || 0,
+          processorTrace: pipelineResult.metadata?.processorTrace,
+        },
+      };
+      return { result: processedResult, aborted: false, retry: false };
+    }
+
+    return { result, aborted: false, retry: false };
   }
 }

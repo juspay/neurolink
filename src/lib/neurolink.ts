@@ -15,136 +15,140 @@ try {
   // Environment variables should be set externally in production
 }
 
-import type {
-  TextGenerationOptions,
-  TextGenerationResult,
-  AnalyticsData,
-  ProviderStatus,
-} from "./types/index.js";
-import { AIProviderFactory } from "./core/factory.js";
-import { isNonNullObject } from "./utils/typeUtils.js";
-import { isZodSchema } from "./utils/schemaConversion.js";
+import { EventEmitter } from "events";
 import type { MemoryClient } from "mem0ai";
-import { AIProviderName } from "./constants/enums.js";
-import { mcpLogger } from "./utils/logger.js";
-import { SYSTEM_LIMITS } from "./core/constants.js";
+import pLimit from "p-limit";
+import type { AIProviderName } from "./constants/enums.js";
 import {
-  NANOSECOND_TO_MS_DIVISOR,
-  TOOL_TIMEOUTS,
-  RETRY_ATTEMPTS,
-  RETRY_DELAYS,
   CIRCUIT_BREAKER,
   CIRCUIT_BREAKER_RESET_MS,
   MEMORY_THRESHOLDS,
-  PROVIDER_TIMEOUTS,
+  NANOSECOND_TO_MS_DIVISOR,
   PERFORMANCE_THRESHOLDS,
+  PROVIDER_TIMEOUTS,
+  RETRY_ATTEMPTS,
+  RETRY_DELAYS,
+  TOOL_TIMEOUTS,
 } from "./constants/index.js";
-import pLimit from "p-limit";
-import { MCPToolRegistry } from "./mcp/toolRegistry.js";
-import { logger } from "./utils/logger.js";
-import { getBestProvider } from "./utils/providerUtils.js";
+import { SYSTEM_LIMITS } from "./core/constants.js";
+import type { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
+import { AIProviderFactory } from "./core/factory.js";
+import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
+import { HITLManager } from "./hitl/hitlManager.js";
+import { ExternalServerManager } from "./mcp/externalServerManager.js";
+// Import direct tools server for automatic registration
+import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
+import { MCPToolRegistry } from "./mcp/toolRegistry.js";
+import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
+import {
+  flushOpenTelemetry,
+  getLangfuseHealthStatus,
+  initializeOpenTelemetry,
+  setLangfuseContext,
+  shutdownOpenTelemetry,
+} from "./services/server/ai/observability/instrumentation.js";
+import type {
+  JsonObject,
+  JsonValue,
+  NeuroLinkEvents,
+  TypedEventEmitter,
+  UnknownRecord,
+} from "./types/common.js";
+import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
+import type {
+  ChatMessage,
+  ConversationMemoryConfig,
+  ProviderDetails,
+} from "./types/conversation.js";
+import type {
+  ExternalMCPOperationResult,
+  ExternalMCPServerInstance,
+  ExternalMCPToolInfo,
+} from "./types/externalMcp.js";
 // NEW: Generate function imports
 import type { GenerateOptions, GenerateResult } from "./types/generateTypes.js";
 import type {
-  StreamOptions,
-  StreamResult,
-  ToolCall,
-  ToolResult,
-  AudioChunk,
-} from "./types/streamTypes.js";
-import type { TokenUsage, EvaluationData } from "./types/index.js";
+  ConfirmationResponseEvent,
+  HITLConfig,
+} from "./types/hitlTypes.js";
+import type {
+  AnalyticsData,
+  EvaluationData,
+  ProviderStatus,
+  TextGenerationOptions,
+  TextGenerationResult,
+  TokenUsage,
+} from "./types/index.js";
 import type {
   MCPExecutableTool,
   MCPServerCategory,
   MCPServerInfo,
   MCPStatus,
 } from "./types/mcpTypes.js";
-import type { ToolInfo } from "./types/tools.js";
-import type { NeuroLinkEvents, TypedEventEmitter } from "./types/common.js";
-import {
-  createCustomToolServerInfo,
-  detectCategory,
-} from "./utils/mcpDefaults.js";
+import type { ObservabilityConfig } from "./types/observability.js";
+import type {
+  AudioChunk,
+  StreamOptions,
+  StreamResult,
+  ToolCall,
+  ToolResult,
+} from "./types/streamTypes.js";
 import type {
   ToolExecutionContext,
   ToolExecutionSummary,
+  ToolInfo,
 } from "./types/tools.js";
-import type { JsonValue, JsonObject, UnknownRecord } from "./types/common.js";
 import type {
-  ToolExecutionResult,
   BatchOperationResult,
+  ToolExecutionResult,
 } from "./types/typeAliases.js";
-// Factory processing imports
-import {
-  processFactoryOptions,
-  enhanceTextGenerationOptions,
-  validateFactoryConfig,
-  processStreamingFactoryOptions,
-  createCleanStreamOptions,
-} from "./utils/factoryProcessing.js";
-// Tool detection and execution imports
-// Transformation utilities
-import {
-  transformToolExecutions,
-  transformToolExecutionsForMCP,
-  transformAvailableTools,
-  transformToolsForMCP,
-  transformToolsToExpectedFormat,
-  transformToolsToDescriptions,
-  extractToolNames,
-  transformParamsForLogging,
-  optimizeToolForCollection,
-} from "./utils/transformationUtils.js";
-// Enhanced error handling imports
-import {
-  ErrorFactory,
-  NeuroLinkError,
-  withTimeout,
-  withRetry,
-  isRetriableError,
-  logStructuredError,
-  CircuitBreaker,
-} from "./utils/errorHandling.js";
-import { EventEmitter } from "events";
-import type {
-  ConversationMemoryConfig,
-  ChatMessage,
-  ProviderDetails,
-} from "./types/conversation.js";
-import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
-import { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import {
   getConversationMessages,
   storeConversationTurn,
 } from "./utils/conversationMemory.js";
-import { ExternalServerManager } from "./mcp/externalServerManager.js";
-import type {
-  HITLConfig,
-  ConfirmationResponseEvent,
-} from "./types/hitlTypes.js";
-import { HITLManager } from "./hitl/hitlManager.js";
-import type {
-  ExternalMCPServerInstance,
-  ExternalMCPOperationResult,
-  ExternalMCPToolInfo,
-} from "./types/externalMcp.js";
-// Import direct tools server for automatic registration
-import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
+// Enhanced error handling imports
+import {
+  CircuitBreaker,
+  ErrorFactory,
+  isRetriableError,
+  logStructuredError,
+  NeuroLinkError,
+  withRetry,
+  withTimeout,
+} from "./utils/errorHandling.js";
+// Factory processing imports
+import {
+  createCleanStreamOptions,
+  enhanceTextGenerationOptions,
+  processFactoryOptions,
+  processStreamingFactoryOptions,
+  validateFactoryConfig,
+} from "./utils/factoryProcessing.js";
+import { logger, mcpLogger } from "./utils/logger.js";
+import {
+  createCustomToolServerInfo,
+  detectCategory,
+} from "./utils/mcpDefaults.js";
 // Import orchestration components
 import { ModelRouter } from "./utils/modelRouter.js";
+import { getBestProvider } from "./utils/providerUtils.js";
+import { isZodSchema } from "./utils/schemaConversion.js";
 import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
+// Tool detection and execution imports
+// Transformation utilities
 import {
-  initializeOpenTelemetry,
-  shutdownOpenTelemetry,
-  flushOpenTelemetry,
-  getLangfuseHealthStatus,
-  setLangfuseContext,
-} from "./services/server/ai/observability/instrumentation.js";
-import type { ObservabilityConfig } from "./types/observability.js";
-import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
-
-import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
+  extractToolNames,
+  optimizeToolForCollection,
+  transformAvailableTools,
+  transformParamsForLogging,
+  transformToolExecutions,
+  transformToolExecutionsForMCP,
+  transformToolsForMCP,
+  transformToolsToDescriptions,
+  transformToolsToExpectedFormat,
+} from "./utils/transformationUtils.js";
+import { isNonNullObject } from "./utils/typeUtils.js";
 
 /**
  * NeuroLink - Universal AI Development Platform
@@ -1666,6 +1670,76 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Record processor pipeline metrics via TelemetryService
+   * Tracks execution duration, action outcomes, and processor-level details
+   *
+   * @param phase - Whether this is an input or output processor pipeline
+   * @param result - The pipeline result containing action, issues, and trace
+   * @param duration - Total execution duration in milliseconds
+   */
+  private recordProcessorMetrics(
+    phase: "input" | "output",
+    result: {
+      action: "continue" | "abort" | "retry";
+      issues?: Array<{ category: string; severity: string; message: string }>;
+      metadata?: {
+        processorTrace?: Array<{
+          processorId: string;
+          processorName: string;
+          action: string;
+          executionTime: number;
+          feedback?: string;
+        }>;
+      };
+      totalTime?: number;
+    },
+    duration: number,
+  ): void {
+    // Import TelemetryService dynamically to avoid circular dependencies
+    import("./telemetry/telemetryService.js")
+      .then(({ TelemetryService }) => {
+        const telemetry = TelemetryService.getInstance();
+
+        // Record overall pipeline execution
+        const processorCount = result.metadata?.processorTrace?.length ?? 0;
+        const issueCount = result.issues?.length ?? 0;
+
+        telemetry.recordProcessorExecution(
+          phase,
+          result.action,
+          duration,
+          processorCount,
+          issueCount,
+        );
+
+        // Record individual processor executions from trace
+        if (result.metadata?.processorTrace) {
+          for (const trace of result.metadata.processorTrace) {
+            telemetry.recordIndividualProcessorExecution(
+              trace.processorId,
+              trace.processorName,
+              phase,
+              trace.action as "continue" | "abort" | "retry",
+              trace.executionTime,
+            );
+          }
+        }
+
+        logger.debug("Processor metrics recorded", {
+          phase,
+          action: result.action,
+          duration,
+          processorCount,
+          issueCount,
+        });
+      })
+      .catch((error) => {
+        // Silently fail if telemetry service is unavailable
+        logger.debug("Failed to record processor metrics", { error });
+      });
+  }
+
+  /**
    * Public method to initialize Langfuse observability
    * This method can be called externally to ensure Langfuse is properly initialized
    */
@@ -1977,8 +2051,277 @@ Current user's request: ${currentInput}`;
         });
       }
 
-      // Use redesigned generation logic
-      const textResult = await this.generateTextInternal(textOptions);
+      // Run input processors if configured
+      if (options.processors) {
+        const { ProcessorPipeline } = await import("./processors/pipeline.js");
+        const pipeline = new ProcessorPipeline(options.processors);
+
+        const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Build processor input data
+        const inputData = {
+          options: options,
+          messages: [
+            {
+              id: `msg-${Date.now()}`,
+              role: "user" as const,
+              content: textOptions.prompt || "",
+            },
+          ],
+          systemPrompt: textOptions.systemPrompt,
+          text: textOptions.prompt,
+          metadata: {
+            requestId,
+            timestamp: startTime,
+            provider: options.provider,
+            model: options.model,
+            sessionId: options.context?.sessionId as string | undefined,
+            userId: options.context?.userId as string | undefined,
+            custom: {},
+            issues: [],
+            processorTrace: [],
+          },
+        };
+
+        const inputProcessorStartTime = Date.now();
+        const inputResult = await pipeline.processInput(inputData);
+        const inputProcessorDuration = Date.now() - inputProcessorStartTime;
+
+        // Record processor metrics via telemetry
+        this.recordProcessorMetrics(
+          "input",
+          inputResult,
+          inputProcessorDuration,
+        );
+
+        if (inputResult.action === "abort") {
+          // Find the processor that triggered the abort from the trace
+          const abortingProcessor = inputResult.metadata?.processorTrace?.find(
+            (trace) => trace.action === "abort",
+          );
+
+          const abortError = ErrorFactory.processorAborted(
+            "input",
+            inputResult.feedback || [],
+            inputResult.issues || [],
+            inputResult.metadata?.processorTrace || [],
+            abortingProcessor?.processorId,
+            abortingProcessor?.processorName,
+          );
+
+          logger.warn("Input processor pipeline aborted", {
+            processorId: abortingProcessor?.processorId,
+            processorName: abortingProcessor?.processorName,
+            feedback: inputResult.feedback,
+            issues: inputResult.issues?.length || 0,
+            totalTime: inputResult.totalTime,
+          });
+
+          throw abortError;
+        }
+
+        // Update the prompt with processed data if modified
+        if (inputResult.data?.text) {
+          textOptions.prompt = inputResult.data.text;
+        }
+
+        logger.debug("Input processors completed", {
+          action: inputResult.action,
+          issueCount: inputResult.issues?.length || 0,
+          totalTime: inputResult.totalTime,
+        });
+      }
+
+      // Use redesigned generation logic with retry support for output processors
+      const maxRetries = options.processors?.settings?.maxTotalRetries ?? 3;
+      const baseRetryDelay = 1000; // 1 second base delay for exponential backoff
+      let retryAttempt = 0;
+      let textResult: TextGenerationResult;
+      let lastRetryFeedback: string | undefined;
+      const accumulatedFeedback: string[] = [];
+
+      // Retry loop for output processor retry requests
+      while (true) {
+        textResult = await this.generateTextInternal(textOptions);
+
+        // Run output processors if configured
+        if (options.processors && textResult) {
+          const { ProcessorPipeline } = await import(
+            "./processors/pipeline.js"
+          );
+          const pipeline = new ProcessorPipeline(options.processors);
+
+          const outputRequestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+          // Build processor output data
+          const outputData = {
+            input: {
+              options: options,
+              messages: [
+                {
+                  id: `msg-${Date.now()}-input`,
+                  role: "user" as const,
+                  content: textOptions.prompt || "",
+                },
+              ],
+              systemPrompt: textOptions.systemPrompt,
+              text: textOptions.prompt,
+              metadata: {
+                requestId: outputRequestId,
+                timestamp: startTime,
+                provider: textResult.provider,
+                model: textResult.model,
+                custom: {
+                  // Pass retry context to processors
+                  retryAttempt,
+                  isRetry: retryAttempt > 0,
+                  previousFeedback: lastRetryFeedback ?? "",
+                },
+                issues: [],
+                processorTrace: [],
+              },
+            },
+            result: {
+              content: textResult.content,
+              provider: textResult.provider,
+              model: textResult.model,
+              usage: textResult.usage,
+              responseTime: textResult.responseTime,
+              toolsUsed: textResult.toolsUsed,
+            },
+            responseText: textResult.content,
+            metadata: {
+              requestId: outputRequestId,
+              timestamp: Date.now(),
+              provider: textResult.provider,
+              model: textResult.model,
+              custom: {
+                retryAttempt,
+                isRetry: retryAttempt > 0,
+              },
+              issues: [],
+              processorTrace: [],
+            },
+          };
+
+          const outputProcessorStartTime = Date.now();
+          const outputResult = await pipeline.processOutput(outputData);
+          const outputProcessorDuration = Date.now() - outputProcessorStartTime;
+
+          // Record processor metrics via telemetry
+          this.recordProcessorMetrics(
+            "output",
+            outputResult,
+            outputProcessorDuration,
+          );
+
+          if (outputResult.action === "abort") {
+            // Find the processor that triggered the abort from the trace
+            const abortingProcessor =
+              outputResult.metadata?.processorTrace?.find(
+                (trace) => trace.action === "abort",
+              );
+
+            const abortError = ErrorFactory.processorAborted(
+              "output",
+              outputResult.feedback || [],
+              outputResult.issues || [],
+              outputResult.metadata?.processorTrace || [],
+              abortingProcessor?.processorId,
+              abortingProcessor?.processorName,
+            );
+
+            logger.warn("Output processor pipeline aborted", {
+              processorId: abortingProcessor?.processorId,
+              processorName: abortingProcessor?.processorName,
+              feedback: outputResult.feedback,
+              issues: outputResult.issues?.length || 0,
+              totalTime: outputResult.totalTime,
+              retryAttempt,
+            });
+
+            throw abortError;
+          }
+
+          if (outputResult.action === "retry") {
+            retryAttempt++;
+
+            // Accumulate feedback from all retry attempts
+            if (outputResult.feedback && outputResult.feedback.length > 0) {
+              accumulatedFeedback.push(...outputResult.feedback);
+              lastRetryFeedback = outputResult.feedback.join("; ");
+            }
+
+            if (retryAttempt <= maxRetries) {
+              // Calculate exponential backoff delay: baseDelay * 2^(attempt-1)
+              const retryDelay = baseRetryDelay * Math.pow(2, retryAttempt - 1);
+
+              const retryingProcessor =
+                outputResult.metadata?.processorTrace?.find(
+                  (trace) => trace.action === "retry",
+                );
+
+              logger.info("Output processor requested retry", {
+                attempt: retryAttempt,
+                maxRetries,
+                delayMs: retryDelay,
+                processorId: retryingProcessor?.processorId,
+                processorName: retryingProcessor?.processorName,
+                feedback: lastRetryFeedback,
+              });
+
+              // Wait with exponential backoff before retrying
+              await new Promise((resolve) => setTimeout(resolve, retryDelay));
+
+              // Continue to next iteration of retry loop
+              continue;
+            }
+
+            // Max retries exceeded - throw ProcessorRetryExhaustedError
+            const retryingProcessor =
+              outputResult.metadata?.processorTrace?.find(
+                (trace) => trace.action === "retry",
+              );
+
+            const retryExhaustedError = ErrorFactory.processorRetryExhausted(
+              retryAttempt,
+              maxRetries,
+              accumulatedFeedback,
+              lastRetryFeedback,
+              retryingProcessor?.processorId,
+              retryingProcessor?.processorName,
+            );
+
+            logger.error("Processor retry exhausted", {
+              attemptsMade: retryAttempt,
+              maxRetries,
+              processorId: retryingProcessor?.processorId,
+              processorName: retryingProcessor?.processorName,
+              accumulatedFeedback,
+            });
+
+            throw retryExhaustedError;
+          }
+
+          // Update result with processed content if modified
+          if (
+            outputResult.data?.responseText &&
+            outputResult.data.responseText !== textResult.content
+          ) {
+            textResult.content = outputResult.data.responseText;
+          }
+
+          logger.debug("Output processors completed", {
+            action: outputResult.action,
+            issueCount: outputResult.issues?.length || 0,
+            totalTime: outputResult.totalTime,
+            retryAttempts: retryAttempt,
+          });
+        }
+
+        // Break out of retry loop on success (action === "continue")
+        break;
+      }
 
       // Emit generation completion event (NeuroLink format - enhanced with content)
       this.emitter.emit("generation:end", {
@@ -2976,6 +3319,96 @@ Current user's request: ${currentInput}`;
           }
         }
 
+        // Run input processors if configured (before streaming begins)
+        let inputProcessorMetadata:
+          | import("./types/processorTypes.js").ProcessorMetadata
+          | undefined;
+        if (options.processors) {
+          const { ProcessorPipeline } = await import(
+            "./processors/pipeline.js"
+          );
+          const pipeline = new ProcessorPipeline(options.processors);
+
+          const requestId = `stream-req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+          // Build processor input data for streaming
+          const inputData = {
+            options: options,
+            messages: [
+              {
+                id: `msg-${Date.now()}`,
+                role: "user" as const,
+                content: options.input.text || "",
+              },
+            ],
+            systemPrompt: options.systemPrompt,
+            text: options.input.text,
+            metadata: {
+              requestId,
+              timestamp: startTime,
+              provider: options.provider,
+              model: options.model,
+              sessionId: options.context?.sessionId as string | undefined,
+              userId: options.context?.userId as string | undefined,
+              custom: {},
+              issues: [],
+              processorTrace: [],
+            },
+          };
+
+          const inputProcessorStartTime = Date.now();
+          const inputResult = await pipeline.processInput(inputData);
+          const inputProcessorDuration = Date.now() - inputProcessorStartTime;
+
+          // Record processor metrics via telemetry
+          this.recordProcessorMetrics(
+            "input",
+            inputResult,
+            inputProcessorDuration,
+          );
+
+          if (inputResult.action === "abort") {
+            // Find the processor that triggered the abort from the trace
+            const abortingProcessor =
+              inputResult.metadata?.processorTrace?.find(
+                (trace) => trace.action === "abort",
+              );
+
+            const abortError = ErrorFactory.processorAborted(
+              "input",
+              inputResult.feedback || [],
+              inputResult.issues || [],
+              inputResult.metadata?.processorTrace || [],
+              abortingProcessor?.processorId,
+              abortingProcessor?.processorName,
+            );
+
+            logger.warn("Stream input processor pipeline aborted", {
+              processorId: abortingProcessor?.processorId,
+              processorName: abortingProcessor?.processorName,
+              feedback: inputResult.feedback,
+              issues: inputResult.issues?.length || 0,
+              totalTime: inputResult.totalTime,
+            });
+
+            throw abortError;
+          }
+
+          // Update the input text with processed data if modified
+          if (inputResult.data?.text) {
+            options.input.text = inputResult.data.text;
+          }
+
+          // Store metadata for output processors
+          inputProcessorMetadata = inputResult.metadata;
+
+          logger.debug("Stream input processors completed", {
+            action: inputResult.action,
+            issueCount: inputResult.issues?.length || 0,
+            totalTime: inputResult.totalTime,
+          });
+        }
+
         factoryResult = processStreamingFactoryOptions(options);
         enhancedOptions = createCleanStreamOptions(options);
         if (options.input?.text) {
@@ -3170,6 +3603,116 @@ Current user's request: ${currentInput}`;
             self.emitter.off("hitl:confirmation-request", onHITLRequest);
             self.emitter.off("hitl:confirmation-response", onHITLResponse);
 
+            // Run output processors if configured (after stream consumption)
+            if (options.processors && accumulatedContent) {
+              try {
+                const { ProcessorPipeline } = await import(
+                  "./processors/pipeline.js"
+                );
+                const pipeline = new ProcessorPipeline(options.processors);
+
+                const outputRequestId = `stream-out-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+                // Build processor output data for streaming
+                const outputData = {
+                  input: {
+                    options: options,
+                    messages: [
+                      {
+                        id: `msg-${Date.now()}-input`,
+                        role: "user" as const,
+                        content: options.input.text || "",
+                      },
+                    ],
+                    systemPrompt: options.systemPrompt,
+                    text: options.input.text,
+                    metadata: inputProcessorMetadata || {
+                      requestId: outputRequestId,
+                      timestamp: startTime,
+                      provider: providerName,
+                      model: enhancedOptions.model,
+                      custom: {},
+                      issues: [],
+                      processorTrace: [],
+                    },
+                  },
+                  result: {
+                    content: accumulatedContent,
+                    provider: providerName,
+                    model: enhancedOptions.model,
+                  },
+                  responseText: accumulatedContent,
+                  metadata: {
+                    requestId: outputRequestId,
+                    timestamp: Date.now(),
+                    provider: providerName,
+                    model: enhancedOptions.model,
+                    custom: {
+                      isStreaming: true,
+                      chunkCount,
+                    },
+                    issues: [],
+                    processorTrace: [],
+                  },
+                };
+
+                const outputProcessorStartTime = Date.now();
+                const outputResult = await pipeline.processOutput(outputData);
+                const outputProcessorDuration =
+                  Date.now() - outputProcessorStartTime;
+
+                // Record processor metrics via telemetry
+                self.recordProcessorMetrics(
+                  "output",
+                  outputResult,
+                  outputProcessorDuration,
+                );
+
+                if (outputResult.action === "abort") {
+                  const abortingProcessor =
+                    outputResult.metadata?.processorTrace?.find(
+                      (trace) => trace.action === "abort",
+                    );
+
+                  logger.warn("Stream output processor pipeline aborted", {
+                    processorId: abortingProcessor?.processorId,
+                    processorName: abortingProcessor?.processorName,
+                    feedback: outputResult.feedback,
+                    issues: outputResult.issues?.length || 0,
+                    totalTime: outputResult.totalTime,
+                  });
+
+                  // For streaming, we log the abort but don't throw since content already delivered
+                  // The abort information is captured in metadata for the caller to handle
+                  metadata.error = `Output processor aborted: ${outputResult.feedback?.join("; ") || "Unknown reason"}`;
+                }
+
+                // Note: For streaming, retry is not supported as content is already delivered
+                // If retry is requested, we log a warning
+                if (outputResult.action === "retry") {
+                  logger.warn(
+                    "Output processor requested retry for streaming, which is not supported",
+                    {
+                      feedback: outputResult.feedback,
+                    },
+                  );
+                }
+
+                logger.debug("Stream output processors completed", {
+                  action: outputResult.action,
+                  issueCount: outputResult.issues?.length || 0,
+                  totalTime: outputResult.totalTime,
+                });
+              } catch (processorError) {
+                logger.warn("Stream output processor failed", {
+                  error:
+                    processorError instanceof Error
+                      ? processorError.message
+                      : String(processorError),
+                });
+              }
+            }
+
             // Store memory after stream consumption is complete
             if (self.conversationMemory && enhancedOptions.context?.sessionId) {
               const sessionId = (
@@ -3178,7 +3721,7 @@ Current user's request: ${currentInput}`;
               const userId = (
                 enhancedOptions.context as Record<string, unknown>
               )?.userId as string;
-              let providerDetails: ProviderDetails | undefined = undefined;
+              let providerDetails: ProviderDetails | undefined;
               if (enhancedOptions.model) {
                 providerDetails = {
                   provider: providerName,
@@ -3541,7 +4084,7 @@ Current user's request: ${currentInput}`;
           )?.sessionId as string;
           const userId = (enhancedOptions?.context as Record<string, unknown>)
             ?.userId as string;
-          let providerDetails: ProviderDetails | undefined = undefined;
+          let providerDetails: ProviderDetails | undefined;
           if (options.model) {
             providerDetails = {
               provider: providerName,
@@ -5220,7 +5763,10 @@ Current user's request: ${currentInput}`;
     try {
       const health = await ProviderHealthChecker.checkProviderHealth(
         providerName as AIProviderName,
-        { includeConnectivityTest: false, cacheResults: false },
+        {
+          includeConnectivityTest: false,
+          cacheResults: false,
+        },
       );
       return health.isConfigured && health.hasApiKey;
     } catch (error) {
@@ -6194,7 +6740,6 @@ Current user's request: ${currentInput}`;
       // Use the integration module to create the appropriate memory manager
       const memoryManager = await initializeConversationMemory(
         this.conversationMemoryConfig,
-        this.emitter,
       );
       // Assign to conversationMemory with proper type to handle both memory manager types
       this.conversationMemory = memoryManager;

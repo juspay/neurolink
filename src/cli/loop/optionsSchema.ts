@@ -27,6 +27,7 @@ export const textGenerationOptionsSchema: Record<
     | "csvOptions"
     | "tts"
     | "thinkingConfig" // Complex object, use thinking/thinkingBudget instead
+    | "processors" // Complex object, configured via SDK only
   >,
   OptionSchema
 > = {

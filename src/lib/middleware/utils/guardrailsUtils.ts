@@ -1,5 +1,11 @@
+import type { LanguageModelV1CallOptions } from "ai";
 import { AIProviderFactory } from "../../core/factory.js";
-import { logger } from "../../utils/logger.js";
+/**
+ * Import and re-export escapeRegExp from the centralized processor utils.
+ * This function was previously duplicated here. Now imported from the
+ * canonical location in processors/utils/validationUtils.ts
+ */
+import { escapeRegExp } from "../../processors/utils/validationUtils.js";
 import type {
   BadWordsConfig,
   ContentFilteringResult,
@@ -7,7 +13,8 @@ import type {
   PrecallEvaluationConfig,
   PrecallEvaluationResult,
 } from "../../types/guardrails.js";
-import type { LanguageModelV1CallOptions } from "ai";
+import { logger } from "../../utils/logger.js";
+export { escapeRegExp };
 
 export const DEFAULT_EVALUATION_PROMPT = `
 Evaluate the following user input for safety and appropriateness. Respond ONLY with valid JSON:
@@ -326,9 +333,8 @@ export function applySanitization(
   return sanitizedParams;
 }
 
-export function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+// escapeRegExp is now imported from processors/utils/validationUtils.js
+// and re-exported at the top of this file
 
 export function createBlockedResponse() {
   return {

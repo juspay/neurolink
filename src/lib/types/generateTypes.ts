@@ -1,22 +1,22 @@
-import type { Tool, Schema } from "ai";
-import type {
-  ValidationSchema,
-  StandardRecord,
-  ZodUnknownSchema,
-} from "./typeAliases.js";
-import { AIProviderName } from "../constants/enums.js";
+import type { Schema, Tool } from "ai";
+import type { AIProviderName } from "../constants/enums.js";
 import type { AnalyticsData, TokenUsage } from "./analytics.js";
-import type { EvaluationData } from "./evaluation.js";
-import type { ChatMessage, ConversationMemoryConfig } from "./conversation.js";
-import type { MiddlewareFactoryOptions } from "./middlewareTypes.js";
 import type { JsonValue } from "./common.js";
 import type { Content, ImageWithAltText } from "./content.js";
-import type { TTSOptions, TTSResult } from "./ttsTypes.js";
-import type { PPTOutputOptions, PPTGenerationResult } from "./pptTypes.js";
+import type { ChatMessage, ConversationMemoryConfig } from "./conversation.js";
+import type { EvaluationData } from "./evaluation.js";
+import type { MiddlewareFactoryOptions } from "./middlewareTypes.js";
 import type {
-  VideoOutputOptions,
   VideoGenerationResult,
+  VideoOutputOptions,
 } from "./multimodal.js";
+import type { PPTGenerationResult, PPTOutputOptions } from "./pptTypes.js";
+import type { TTSOptions, TTSResult } from "./ttsTypes.js";
+import type {
+  StandardRecord,
+  ValidationSchema,
+  ZodUnknownSchema,
+} from "./typeAliases.js";
 
 /**
  * Generate function options type - Primary method for content generation
@@ -283,6 +283,31 @@ export type GenerateOptions = {
     enableProgress?: boolean;
     fallbackToGenerate?: boolean;
   };
+
+  /**
+   * I/O Processor pipeline configuration
+   *
+   * Enables pre and post-processing of LLM requests/responses through
+   * a configurable pipeline of input and output processors.
+   *
+   * @example Basic processor usage
+   * ```typescript
+   * import { createPIIDetectionProcessor, createLengthValidationProcessor } from "@juspay/neurolink";
+   *
+   * const result = await neurolink.generate({
+   *   input: { text: "My email is john@example.com" },
+   *   processors: {
+   *     inputProcessors: [
+   *       { processor: createPIIDetectionProcessor({ action: "redact" }) },
+   *     ],
+   *     outputProcessors: [
+   *       { processor: createLengthValidationProcessor({ maxLength: 5000 }) },
+   *     ],
+   *   },
+   * });
+   * ```
+   */
+  processors?: import("./processorTypes.js").ProcessorPipelineConfig;
 };
 
 /**
@@ -407,6 +432,12 @@ export type GenerateResult = {
     configurationUsed?: StandardRecord;
     migrationPerformed?: boolean;
     legacyFieldsPreserved?: boolean;
+    // Processor pipeline metadata
+    processorAborted?: boolean;
+    processorFeedback?: string[];
+    processorApplied?: boolean;
+    processorIssues?: number;
+    processorTrace?: import("./processorTypes.js").ProcessorTraceEntry[];
   };
 
   // Streaming integration metadata
@@ -675,6 +706,31 @@ export type TextGenerationOptions = {
     /** Thinking level (Gemini 3: minimal|low|medium|high). Ignored for Anthropic. */
     thinkingLevel?: "minimal" | "low" | "medium" | "high";
   };
+
+  /**
+   * I/O Processor pipeline configuration
+   *
+   * Enables pre and post-processing of LLM requests/responses through
+   * a configurable pipeline of input and output processors.
+   *
+   * @example Basic processor usage
+   * ```typescript
+   * import { createPIIDetectionProcessor, createLengthValidationProcessor } from "@juspay/neurolink";
+   *
+   * const result = await provider.generate({
+   *   prompt: "My email is john@example.com",
+   *   processors: {
+   *     inputProcessors: [
+   *       { processor: createPIIDetectionProcessor({ action: "redact" }) },
+   *     ],
+   *     outputProcessors: [
+   *       { processor: createLengthValidationProcessor({ maxLength: 5000 }) },
+   *     ],
+   *   },
+   * });
+   * ```
+   */
+  processors?: import("./processorTypes.js").ProcessorPipelineConfig;
 };
 
 /**

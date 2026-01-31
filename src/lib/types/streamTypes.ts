@@ -406,6 +406,34 @@ export type StreamOptions = {
   middleware?: MiddlewareFactoryOptions;
 
   enableSummarization?: boolean; // Enable/disable summarization for this specific request
+
+  /**
+   * I/O Processor pipeline configuration
+   *
+   * Enables pre and post-processing of streaming requests/responses through
+   * a configurable pipeline of input and output processors.
+   *
+   * Note: For streaming, output processors run after the stream is fully consumed,
+   * processing the accumulated content. Input processors run before streaming begins.
+   *
+   * @example Basic processor usage with streaming
+   * ```typescript
+   * import { createPIIDetectionProcessor, createLengthValidationProcessor } from "@juspay/neurolink";
+   *
+   * const result = await neurolink.stream({
+   *   input: { text: "My email is john@example.com" },
+   *   processors: {
+   *     inputProcessors: [
+   *       { processor: createPIIDetectionProcessor({ action: "redact" }) },
+   *     ],
+   *     outputProcessors: [
+   *       { processor: createLengthValidationProcessor({ maxLength: 5000 }) },
+   *     ],
+   *   },
+   * });
+   * ```
+   */
+  processors?: import("./processorTypes.js").ProcessorPipelineConfig;
 };
 
 /**

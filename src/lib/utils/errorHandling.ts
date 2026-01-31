@@ -64,6 +64,12 @@ export const ERROR_CODES = {
   INVALID_PPT_LOGO_PATH: "INVALID_PPT_LOGO_PATH",
   INVALID_PPT_MODE: "INVALID_PPT_MODE",
   INVALID_PPT_PROMPT: "INVALID_PPT_PROMPT",
+
+  // Processor errors
+  PROCESSOR_ABORTED: "PROCESSOR_ABORTED",
+  PROCESSOR_RETRY_EXHAUSTED: "PROCESSOR_RETRY_EXHAUSTED",
+  PROCESSOR_TIMEOUT: "PROCESSOR_TIMEOUT",
+  PROCESSOR_EXECUTION_FAILED: "PROCESSOR_EXECUTION_FAILED",
 } as const;
 
 /**
@@ -797,6 +803,204 @@ export class ErrorFactory {
         ],
       },
     });
+  }
+}
+
+// ============================================================================
+// PROCESSOR ERROR CLASSES
+// ============================================================================
+
+import type {
+  ProcessorIssue,
+  ProcessorTraceEntry,
+} from "../types/processorTypes.js";
+
+/**
+ * Error thrown when a processor pipeline aborts execution
+ */
+export class ProcessorAbortError extends NeuroLinkError {
+  public readonly processorId?: string;
+  public readonly processorName?: string;
+  public readonly feedback: string[];
+  public readonly issues: ProcessorIssue[];
+  public readonly processorTrace: ProcessorTraceEntry[];
+  public readonly abortReason: string;
+  public readonly phase: "input" | "output";
+
+  constructor(options: {
+    message: string;
+    processorId?: string;
+    processorName?: string;
+    feedback: string[];
+    issues: ProcessorIssue[];
+    processorTrace: ProcessorTraceEntry[];
+    phase: "input" | "output";
+    context?: Record<string, unknown>;
+  }) {
+    super({
+      code: ERROR_CODES.PROCESSOR_ABORTED,
+      message: options.message,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        processorId: options.processorId,
+        processorName: options.processorName,
+        phase: options.phase,
+        feedbackCount: options.feedback.length,
+        issueCount: options.issues.length,
+        ...options.context,
+      },
+    });
+
+    this.name = "ProcessorAbortError";
+    this.processorId = options.processorId;
+    this.processorName = options.processorName;
+    this.feedback = options.feedback;
+    this.issues = options.issues;
+    this.processorTrace = options.processorTrace;
+    this.abortReason =
+      options.feedback.join("; ") || "Content validation failed";
+    this.phase = options.phase;
+  }
+
+  /**
+   * Get a structured abort result for API responses
+   */
+  getAbortResult(): {
+    aborted: true;
+    reason: string;
+    feedback: string[];
+    issues: ProcessorIssue[];
+    processorId?: string;
+    processorName?: string;
+    phase: "input" | "output";
+    trace: ProcessorTraceEntry[];
+  } {
+    return {
+      aborted: true,
+      reason: this.abortReason,
+      feedback: this.feedback,
+      issues: this.issues,
+      processorId: this.processorId,
+      processorName: this.processorName,
+      phase: this.phase,
+      trace: this.processorTrace,
+    };
+  }
+}
+
+/**
+ * Error thrown when processor retry attempts are exhausted
+ */
+export class ProcessorRetryExhaustedError extends NeuroLinkError {
+  public readonly processorId?: string;
+  public readonly processorName?: string;
+  public readonly feedback: string[];
+  public readonly attemptsMade: number;
+  public readonly maxAttempts: number;
+  public readonly lastRetryFeedback?: string;
+
+  constructor(options: {
+    message: string;
+    processorId?: string;
+    processorName?: string;
+    feedback: string[];
+    attemptsMade: number;
+    maxAttempts: number;
+    lastRetryFeedback?: string;
+    context?: Record<string, unknown>;
+  }) {
+    super({
+      code: ERROR_CODES.PROCESSOR_RETRY_EXHAUSTED,
+      message: options.message,
+      category: ErrorCategory.EXECUTION,
+      severity: ErrorSeverity.HIGH,
+      retriable: false,
+      context: {
+        processorId: options.processorId,
+        processorName: options.processorName,
+        attemptsMade: options.attemptsMade,
+        maxAttempts: options.maxAttempts,
+        lastRetryFeedback: options.lastRetryFeedback,
+        ...options.context,
+      },
+    });
+
+    this.name = "ProcessorRetryExhaustedError";
+    this.processorId = options.processorId;
+    this.processorName = options.processorName;
+    this.feedback = options.feedback;
+    this.attemptsMade = options.attemptsMade;
+    this.maxAttempts = options.maxAttempts;
+    this.lastRetryFeedback = options.lastRetryFeedback;
+  }
+}
+
+// Add processor error factory methods to ErrorFactory
+ErrorFactory.processorAborted = function (
+  phase: "input" | "output",
+  feedback: string[],
+  issues: ProcessorIssue[],
+  processorTrace: ProcessorTraceEntry[],
+  processorId?: string,
+  processorName?: string,
+): ProcessorAbortError {
+  const message =
+    phase === "input"
+      ? `Input processing aborted: ${feedback.join(", ") || "Content validation failed"}`
+      : `Output processing aborted: ${feedback.join(", ") || "Response validation failed"}`;
+
+  return new ProcessorAbortError({
+    message,
+    processorId,
+    processorName,
+    feedback,
+    issues,
+    processorTrace,
+    phase,
+  });
+};
+
+ErrorFactory.processorRetryExhausted = function (
+  attemptsMade: number,
+  maxAttempts: number,
+  feedback: string[],
+  lastRetryFeedback?: string,
+  processorId?: string,
+  processorName?: string,
+): ProcessorRetryExhaustedError {
+  return new ProcessorRetryExhaustedError({
+    message: `Processor retry exhausted after ${attemptsMade}/${maxAttempts} attempts: ${lastRetryFeedback || "Response regeneration failed"}`,
+    processorId,
+    processorName,
+    feedback,
+    attemptsMade,
+    maxAttempts,
+    lastRetryFeedback,
+  });
+};
+
+// Extend ErrorFactory type for processor methods
+declare module "./errorHandling.js" {
+  namespace ErrorFactory {
+    function processorAborted(
+      phase: "input" | "output",
+      feedback: string[],
+      issues: ProcessorIssue[],
+      processorTrace: ProcessorTraceEntry[],
+      processorId?: string,
+      processorName?: string,
+    ): ProcessorAbortError;
+
+    function processorRetryExhausted(
+      attemptsMade: number,
+      maxAttempts: number,
+      feedback: string[],
+      lastRetryFeedback?: string,
+      processorId?: string,
+      processorName?: string,
+    ): ProcessorRetryExhaustedError;
   }
 }
 

@@ -41,6 +41,12 @@ export class TelemetryService {
   private connectionCounter?: Counter;
   private responseTimeHistogram?: Histogram;
 
+  // Processor metrics
+  private processorExecutionCounter?: Counter;
+  private processorDuration?: Histogram;
+  private processorAbortCounter?: Counter;
+  private processorRetryCounter?: Counter;
+
   // Runtime metrics tracking
   private activeConnectionCount: number = 0;
   private errorCount: number = 0;
@@ -142,6 +148,35 @@ export class TelemetryService {
       "response_time_ms",
       {
         description: "Response time in milliseconds",
+      },
+    );
+
+    // Processor metrics
+    this.processorExecutionCounter = this.meter.createCounter(
+      "processor_executions_total",
+      {
+        description: "Total number of processor pipeline executions",
+      },
+    );
+
+    this.processorDuration = this.meter.createHistogram(
+      "processor_duration_ms",
+      {
+        description: "Processor pipeline execution duration in milliseconds",
+      },
+    );
+
+    this.processorAbortCounter = this.meter.createCounter(
+      "processor_aborts_total",
+      {
+        description: "Total number of processor pipeline aborts",
+      },
+    );
+
+    this.processorRetryCounter = this.meter.createCounter(
+      "processor_retries_total",
+      {
+        description: "Total number of processor retry requests",
       },
     );
   }
@@ -288,6 +323,82 @@ export class TelemetryService {
       endpoint,
       method,
       status_bucket: this.getStatusBucket(duration),
+    });
+  }
+
+  /**
+   * Record processor pipeline execution metrics
+   * @param phase - Whether this is an input or output processor
+   * @param action - The action taken (continue, abort, retry)
+   * @param duration - Execution duration in milliseconds
+   * @param processorCount - Number of processors executed
+   * @param issueCount - Number of issues detected
+   */
+  recordProcessorExecution(
+    phase: "input" | "output",
+    action: "continue" | "abort" | "retry",
+    duration: number,
+    processorCount: number,
+    issueCount: number,
+  ): void {
+    if (!this.enabled || !this.processorExecutionCounter) {
+      return;
+    }
+
+    const labels = {
+      phase,
+      action,
+      processor_count: processorCount.toString(),
+      has_issues: (issueCount > 0).toString(),
+    };
+
+    this.processorExecutionCounter.add(1, labels);
+    this.processorDuration?.record(duration, labels);
+
+    // Track aborts separately for alerting
+    if (action === "abort") {
+      this.processorAbortCounter?.add(1, { phase });
+    }
+
+    // Track retries separately
+    if (action === "retry") {
+      this.processorRetryCounter?.add(1, { phase });
+    }
+  }
+
+  /**
+   * Record individual processor execution within a pipeline
+   * @param processorId - Unique processor identifier
+   * @param processorName - Human-readable processor name
+   * @param phase - Whether this is an input or output processor
+   * @param action - The action taken by this processor
+   * @param duration - Execution duration in milliseconds
+   */
+  recordIndividualProcessorExecution(
+    processorId: string,
+    processorName: string,
+    phase: "input" | "output",
+    action: "continue" | "abort" | "retry",
+    duration: number,
+  ): void {
+    if (!this.enabled || !this.meter) {
+      return;
+    }
+
+    // Use custom metric for individual processor tracking
+    const histogram = this.meter.createHistogram(
+      "processor_individual_duration_ms",
+      {
+        description: "Individual processor execution duration in milliseconds",
+      },
+    );
+
+    histogram.record(duration, {
+      processor_id: processorId,
+      processor_name: processorName,
+      phase,
+      action,
+      duration_bucket: this.getDurationBucket(duration),
     });
   }
 
