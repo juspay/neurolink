@@ -107,6 +107,313 @@ export { MiddlewareFactory } from "./middleware/factory.js";
 // Version
 export const VERSION = "1.0.0";
 
+// ============================================================================
+// Dynamic Arguments Module - Mastra-style Dynamic Configuration
+// ============================================================================
+
+/**
+ * Dynamic Arguments Module
+ *
+ * Provides Mastra-style dynamic configuration capabilities for NeuroLink,
+ * enabling runtime resolution of configuration values through static values,
+ * synchronous functions, asynchronous functions, or context-aware callbacks.
+ *
+ * @example
+ * ```typescript
+ * import { withRequestContext, withFallback, RequestContextBuilder } from '@juspay/neurolink';
+ *
+ * // Context-aware model selection
+ * const dynamicModel = ({ requestContext }) =>
+ *   requestContext.tenant?.plan === "enterprise" ? "gpt-4o" : "gpt-4o-mini";
+ *
+ * // With fallback chain
+ * const modelWithFallback = withFallback(
+ *   ({ requestContext }) => requestContext.user?.preferences?.preferredModel,
+ *   ({ requestContext }) => requestContext.tenant?.settings?.defaultModel,
+ *   "gpt-4o-mini"
+ * );
+ *
+ * // Execute with context
+ * const result = await neurolink.withContext(
+ *   { user: { id: "user123" }, tenant: { id: "tenant456", plan: "enterprise" } },
+ *   () => neurolink.generate({ input: { text: "Hello" }, model: dynamicModel })
+ * );
+ * ```
+ */
+export {
+  // Type exports
+  type DynamicArgument,
+  type DynamicResolutionContext,
+  type RequestContext,
+  type ResolutionOptions,
+  type ResolutionResult,
+  type DynamicConfig,
+  type ResolvedConfig,
+  type DynamicGenerateOptions,
+  type DynamicStreamOptions,
+  type DynamicToolConfig,
+  type DynamicMiddlewareConfig,
+  type UserPreferences,
+  type TenantQuotas,
+  type TenantSettings,
+  type CacheEntry,
+  type CacheStrategy,
+  type DynamicCacheConfig,
+  type DynamicArgumentMetadata,
+
+  // Type guards
+  isDynamicFunction,
+  isContextAwareFunction,
+
+  // Resolution utilities
+  resolveDynamicArgument,
+  resolveDynamicArguments,
+  resolveDynamicConfig,
+  memoizeDynamicArgument,
+  withFallback,
+  conditional,
+  mapDynamicArgument,
+  combineDynamicArguments,
+  hasDynamicArgument,
+  hasDynamicProperties,
+  clearResolutionCache,
+  getResolutionCacheStats,
+  destroyResolver,
+  resolutionCache,
+  type Resolved,
+
+  // Environment variable interpolation
+  interpolateEnvVars,
+  fromEnv,
+  envVar,
+  envSwitch,
+  envJson,
+  envNumber,
+  envBoolean,
+  envList,
+
+  // Request context system
+  createRequestContext,
+  withRequestContext,
+  getCurrentContext,
+  requireContext,
+  hasContext,
+  updateCurrentContext,
+  setRuntimeValue,
+  getRuntimeValue,
+  deleteRuntimeValue,
+  clearRuntimeValues,
+  createResolutionContext,
+  createResolutionContextFromRequest,
+  createContextFromRequest,
+  RequestContextBuilder,
+  createChildContext,
+  withChildContext,
+
+  // Caching system
+  DynamicCache,
+  dynamicCache,
+  createCacheKey,
+  createStrategyCacheKey,
+  withCache,
+  invalidateCachePattern,
+  type CacheStats,
+} from "./dynamic/index.js";
+
+// ============================================================================
+// Arguments Module - Factory+Registry Pattern Dynamic Configuration
+// ============================================================================
+
+/**
+ * Arguments Module (Factory+Registry Pattern)
+ *
+ * Comprehensive dynamic argument resolution system with:
+ * - ArgumentResolver class with caching, events, and batch resolution
+ * - DynamicArgumentRegistry with Factory+Registry pattern
+ * - Built-in resolvers: Context, Environment, Secret
+ * - Full TypeScript type system for argument types
+ *
+ * @example
+ * ```typescript
+ * import {
+ *   ArgumentResolver,
+ *   DynamicArgumentRegistry,
+ *   fromEnv,
+ *   fromSecret,
+ *   withRequestContext as withContext,
+ * } from '@juspay/neurolink';
+ *
+ * // Register a custom resolver
+ * const registry = DynamicArgumentRegistry.getInstance();
+ * registry.register("tenant-model", ({ requestContext }) =>
+ *   requestContext.tenant?.plan === "enterprise" ? "claude-3-opus" : "gpt-4o"
+ * );
+ *
+ * // Use with request context
+ * const result = await withContext(
+ *   { user: { id: "user1" }, tenant: { id: "t1", plan: "enterprise" } },
+ *   async () => registry.resolve("tenant-model")
+ * );
+ * ```
+ */
+export {
+  // Type exports
+  type DynamicArgument as ArgumentsDynamicArgument,
+  type DynamicResolutionContext as ArgumentsResolutionContext,
+  type RequestContext as ArgumentsRequestContext,
+  type ResolutionResult as ArgumentsResolutionResult,
+  type ResolutionOptions as ArgumentsResolutionOptions,
+  type ResolutionType,
+  type UserPreferences as ArgumentsUserPreferences,
+  type TenantQuotas as ArgumentsTenantQuotas,
+  type TenantSettings as ArgumentsTenantSettings,
+  type RequestContextUser,
+  type RequestContextTenant,
+  type RequestContextSession,
+  type RequestContextResource,
+  type RequestContextEnvironment,
+  type SyncResolver,
+  type AsyncResolver,
+  type ContextAwareSyncResolver,
+  type ContextAwareAsyncResolver,
+  type ResolverFunction,
+  type ResolverMetadata,
+  type RegisteredResolver,
+  type CacheStrategy as ArgumentsCacheStrategy,
+  type CacheEntry as ArgumentsCacheEntry,
+  type CacheStats as ArgumentsCacheStats,
+  type DynamicConfig as ArgumentsDynamicConfig,
+  type ResolvedConfig as ArgumentsResolvedConfig,
+  type Resolved as ArgumentsResolved,
+  type BatchResolutionResult,
+  type ArgumentResolverConfig,
+  type CreateRequestContextOptions,
+  type RuntimeValueDescriptor,
+  type ArgumentResolutionEvents,
+  type ArgumentErrorCode,
+  ArgumentErrorCodes,
+
+  // Validators and type guards
+  isDynamicFunction as isArgumentDynamicFunction,
+  isContextAwareFunction as isArgumentContextAware,
+  isAsyncFunction as isArgumentAsync,
+  getResolutionType,
+  requiresContext as argumentRequiresContext,
+  isAsyncArgument,
+  isRequestContext,
+  isRequestContextUser,
+  isRequestContextTenant,
+  isRequestContextSession,
+  isDynamicResolutionContext,
+  validateRequestContext,
+  validateUser,
+  validateTenant,
+  validateSession,
+  generateRequestId,
+  generateSessionId,
+  createRequestContext as createArgumentsRequestContext,
+  createMinimalContext,
+  createResolutionContext as createArgumentsResolutionContext,
+  assertContextProvided,
+  assertDefined,
+  asStatic,
+  asFunction,
+
+  // ArgumentResolver class
+  ArgumentResolver,
+  resolveDynamicArgument as resolveArgument,
+  resolveDynamicArguments as resolveArguments,
+  resolveDynamicConfig as resolveArgumentsConfig,
+  withFallback as argumentWithFallback,
+  conditional as argumentConditional,
+  memoize as memoizeArgument,
+  lazy as lazyArgument,
+  transform as transformArgument,
+  all as allArguments,
+  any as anyArguments,
+  configureDefaultResolver,
+  resetDefaultResolver,
+
+  // DynamicArgumentRegistry
+  DynamicArgumentRegistry,
+  getArgumentRegistry,
+  registerResolver,
+  resolveRegistered,
+  resolverRef,
+  type RegisterResolverOptions,
+  type ResolverFilter,
+
+  // Context Resolver
+  getCurrentContext as getArgumentContext,
+  requireCurrentContext,
+  getContextValue,
+  withRequestContext as withArgumentContext,
+  withUpdatedContext,
+  withUser,
+  withTenant,
+  withSession,
+  setRuntimeValue as setArgumentRuntimeValue,
+  getRuntimeValue as getArgumentRuntimeValue,
+  deleteRuntimeValue as deleteArgumentRuntimeValue,
+  hasRuntimeValue as hasArgumentRuntimeValue,
+  RequestContextBuilder as ArgumentContextBuilder,
+  createContextFromRequest as createArgumentContextFromRequest,
+  getContextHeaders,
+  cloneContext,
+  createCurrentResolutionContext,
+  hasContext as hasArgumentContext,
+  getCurrentUserId,
+  getCurrentTenantId,
+  getCurrentTenantPlan,
+  hasRole,
+  hasPermission,
+  isEnterpriseTenant,
+
+  // Environment Resolver
+  getEnv,
+  requireEnv,
+  getEnvNumber,
+  getEnvBoolean,
+  getEnvJson,
+  getEnvArray,
+  fromEnv as fromEnvironment,
+  fromEnvRequired,
+  fromEnvNumber,
+  fromEnvBoolean,
+  fromEnvJson,
+  fromEnvArray,
+  envSelect,
+  byEnvironment,
+  createEnvResolver,
+  createPrefixedEnv,
+  fromEnvMultiple,
+  fromDescriptor,
+  validateEnvVars,
+  assertEnvVars,
+  type EnvConfigOptions,
+
+  // Secret Resolver
+  type SecretProvider,
+  type SecretResolutionResult,
+  type SecretManagerConfig,
+  envSecretProvider,
+  createFileSecretProvider,
+  createMockSecretProvider,
+  SecretManager,
+  fromSecret,
+  fromSecretOptional,
+  fromApiKey,
+  fromTenantSecret,
+  fromUserSecret,
+  fromSecretChain,
+  fromSecretWithTenantFallback,
+  validateSecrets,
+  assertSecrets,
+  getSecretSync,
+  requireSecretSync,
+  configureSecrets,
+} from "./arguments/index.js";
+
 /**
  * Quick start factory function for creating AI provider instances.
  *

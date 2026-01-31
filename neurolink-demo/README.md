@@ -2,7 +2,7 @@
 
 <!-- TOC -->
 
-- [🚀 Next Steps](#-next-steps)
+- [🚀 Next Steps](#[object Object])
 - [📞 Support](#-support)
 <!-- /TOC -->
 
@@ -252,17 +252,15 @@ curl http://localhost:9876/api/status
 
 ### 🖥️ **CLI Integration Visual Content** ✅
 
-#### **📸 Professional CLI Screenshots** _(Planned)_
+#### **📸 Professional CLI Screenshots** _(Latest: June 10, 2025)_
 
-<!-- NOTE: The CLI screenshots below are planned but not yet captured. These are placeholder entries. -->
-
-| Command                     | Screenshot                                                                          | Description                          |
-| --------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------ |
-| **CLI Help Overview**       | <!-- TODO: CLI screenshot placeholder - 01-cli-help needs to be captured -->        | Complete command reference           |
-| **Provider Status**         | <!-- TODO: CLI screenshot placeholder - 02-provider-status needs to be captured --> | All provider connectivity verified   |
-| **Text Generation**         | <!-- TODO: CLI screenshot placeholder - 03-text-generation needs to be captured --> | Real AI haiku generation with JSON   |
-| **Auto Provider Selection** | <!-- TODO: CLI screenshot placeholder - 04-best-provider needs to be captured -->   | Automatic provider selection working |
-| **Batch Processing**        | <!-- TODO: CLI screenshot placeholder - 05-batch-results needs to be captured -->   | Multi-prompt processing with results |
+| Command                     | Screenshot                                                                                                        | Description                          |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **CLI Help Overview**       | ![CLI Help](../docs/visual-content/screenshots/cli-screenshots/01-cli-help-2025-06-10T12-00-00.png)               | Complete command reference           |
+| **Provider Status**         | ![Provider Status](../docs/visual-content/screenshots/cli-screenshots/02-provider-status-2025-06-10T12-00-00.png) | All provider connectivity verified   |
+| **Text Generation**         | ![Text Generation](../docs/visual-content/screenshots/cli-screenshots/03-text-generation-2025-06-10T12-00-00.png) | Real AI haiku generation with JSON   |
+| **Auto Provider Selection** | ![Best Provider](../docs/visual-content/screenshots/cli-screenshots/04-best-provider-2025-06-10T12-00-00.png)     | Automatic provider selection working |
+| **Batch Processing**        | ![Batch Results](../docs/visual-content/screenshots/cli-screenshots/05-batch-results-2025-06-10T12-00-00.png)     | Multi-prompt processing with results |
 
 #### **🎥 CLI Demonstration Videos** _(Real command execution)_
 
@@ -305,7 +303,7 @@ curl http://localhost:9876/api/status
 
 ### 📊 **Visual Content Metrics**
 
-- **📸 Total Screenshots**: 6 professional captures (Web: 6, CLI: 5 planned - pending capture)
+- **📸 Total Screenshots**: 11 professional captures (Web: 6, CLI: 5)
 - **🎥 Total Videos**: 10 demonstration videos (Web: 5, CLI: 5)
 - **🤖 AI Content Generated**: 5,681+ tokens during video creation
 - **📁 Organization**: Structured folders with descriptive names

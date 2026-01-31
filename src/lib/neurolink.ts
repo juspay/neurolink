@@ -146,6 +146,21 @@ import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
 
 import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
 
+// Dynamic arguments support
+import {
+  withRequestContext,
+  getCurrentContext,
+  createRequestContext,
+  createResolutionContextFromRequest,
+  type RequestContext,
+  type DynamicResolutionContext,
+} from "./dynamic/index.js";
+import { resolveDynamicArgument } from "./dynamic/dynamicResolver.js";
+import type {
+  DynamicGenerateOptions,
+  DynamicStreamOptions,
+} from "./dynamic/types.js";
+
 /**
  * NeuroLink - Universal AI Development Platform
  *
@@ -1723,6 +1738,522 @@ Current user's request: ${currentInput}`;
     }
   }
 
+  // ============================================================================
+  // Dynamic Arguments Support
+  // ============================================================================
+
+  /**
+   * Run operations with request context for dynamic argument resolution.
+   *
+   * Enables context-aware dynamic configuration within the execution scope.
+   * The context is automatically propagated to all nested async operations
+   * using AsyncLocalStorage, making it available to dynamic argument resolvers.
+   *
+   * @category Dynamic Arguments
+   *
+   * @param context - Request context containing user, tenant, session info
+   * @param fn - Function to execute within the context
+   * @returns Promise resolving to the function's return value
+   *
+   * @example Basic usage
+   * ```typescript
+   * const result = await neurolink.withContext(
+   *   {
+   *     user: { id: "user123", preferences: { preferredModel: "claude-3-sonnet" } },
+   *     tenant: { id: "tenant456", plan: "enterprise" }
+   *   },
+   *   () => neurolink.generate({
+   *     input: { text: "Hello" },
+   *     model: ({ requestContext }) =>
+   *       requestContext.tenant?.plan === "enterprise" ? "gpt-4o" : "gpt-4o-mini"
+   *   })
+   * );
+   * ```
+   *
+   * @example With runtime values
+   * ```typescript
+   * const result = await neurolink.withContext(
+   *   {
+   *     user: { id: "user123" },
+   *     runtime: new Map([["taskComplexity", "high"]])
+   *   },
+   *   async () => {
+   *     // Context is available to all nested calls
+   *     return await neurolink.generate({ input: { text: "Complex analysis" } });
+   *   }
+   * );
+   * ```
+   *
+   * @since 8.39.0
+   */
+  async withContext<T>(
+    context: Partial<Omit<RequestContext, "requestId" | "timestamp">>,
+    fn: () => T | Promise<T>,
+  ): Promise<T> {
+    return withRequestContext(context, fn);
+  }
+
+  /**
+   * Get the current request context from AsyncLocalStorage.
+   *
+   * Returns the context set by `withContext()` or `withRequestContext()`.
+   * Returns undefined if called outside of a context scope.
+   *
+   * @category Dynamic Arguments
+   *
+   * @returns Current request context or undefined
+   *
+   * @example
+   * ```typescript
+   * await neurolink.withContext({ user: { id: "user123" } }, async () => {
+   *   const ctx = neurolink.getCurrentContext();
+   *   console.log(ctx?.user?.id); // "user123"
+   * });
+   * ```
+   *
+   * @since 8.39.0
+   */
+  getCurrentContext(): RequestContext | undefined {
+    return getCurrentContext();
+  }
+
+  /**
+   * Get runtime context map for dynamic argument resolution.
+   *
+   * Returns the runtime Map from the current request context.
+   * Runtime values can be used for ad-hoc context data like task complexity,
+   * estimated tokens, or other runtime-determined values.
+   *
+   * @category Dynamic Arguments
+   *
+   * @returns Runtime context Map or undefined if no context is active
+   *
+   * @example
+   * ```typescript
+   * await neurolink.withContext(
+   *   { runtime: new Map([["taskType", "analysis"]]) },
+   *   async () => {
+   *     const runtime = neurolink.getRuntimeContext();
+   *     console.log(runtime?.get("taskType")); // "analysis"
+   *   }
+   * );
+   * ```
+   *
+   * @since 8.39.0
+   */
+  getRuntimeContext(): Map<string, unknown> | undefined {
+    return getCurrentContext()?.runtime;
+  }
+
+  /**
+   * Generate AI response with explicit dynamic argument support.
+   *
+   * Unlike `generate()` which auto-detects dynamic arguments, this method
+   * explicitly resolves all arguments as dynamic, ensuring context-aware
+   * resolution regardless of whether the arguments are functions.
+   *
+   * Use this method when you want guaranteed dynamic resolution behavior,
+   * or when working with dynamically constructed option objects.
+   *
+   * @category Dynamic Arguments
+   *
+   * @param options - Generation options with dynamic arguments
+   * @param context - Optional request context (uses current context if not provided)
+   * @returns Promise resolving to generation result
+   *
+   * @example Context-aware model selection
+   * ```typescript
+   * const result = await neurolink.generateWithDynamic(
+   *   {
+   *     input: { text: "Analyze this document" },
+   *     model: ({ requestContext }) =>
+   *       requestContext.tenant?.plan === "enterprise" ? "claude-3-opus" : "claude-3-sonnet",
+   *     temperature: ({ requestContext }) =>
+   *       requestContext.runtime?.get("taskType") === "creative" ? 0.9 : 0.3,
+   *   },
+   *   { tenant: { id: "tenant123", plan: "enterprise" } }
+   * );
+   * ```
+   *
+   * @example With environment variable interpolation
+   * ```typescript
+   * import { fromEnv, envNumber } from '@juspay/neurolink';
+   *
+   * const result = await neurolink.generateWithDynamic({
+   *   input: { text: "Hello world" },
+   *   model: fromEnv("${PREFERRED_MODEL:-gpt-4o}"),
+   *   maxTokens: envNumber("MAX_TOKENS", 1000),
+   * });
+   * ```
+   *
+   * @example With fallback chain
+   * ```typescript
+   * import { withFallback } from '@juspay/neurolink';
+   *
+   * const result = await neurolink.generateWithDynamic({
+   *   input: { text: "Hello world" },
+   *   model: withFallback(
+   *     ({ requestContext }) => requestContext.user?.preferences?.preferredModel,
+   *     ({ requestContext }) => requestContext.tenant?.settings?.defaultModel,
+   *     "gpt-4o-mini"
+   *   ),
+   * });
+   * ```
+   *
+   * @since 8.39.0
+   */
+  async generateWithDynamic(
+    options: DynamicGenerateOptions,
+    context?: Partial<Omit<RequestContext, "requestId" | "timestamp">>,
+  ): Promise<GenerateResult> {
+    if (context) {
+      return this.withContext(context, () =>
+        this.generateWithDynamicResolution(options),
+      );
+    }
+    return this.generateWithDynamicResolution(options);
+  }
+
+  /**
+   * Stream AI response with explicit dynamic argument support.
+   *
+   * Unlike `stream()` which auto-detects dynamic arguments, this method
+   * explicitly resolves all arguments as dynamic, ensuring context-aware
+   * resolution regardless of whether the arguments are functions.
+   *
+   * @category Dynamic Arguments
+   *
+   * @param options - Stream options with dynamic arguments
+   * @param context - Optional request context (uses current context if not provided)
+   * @returns Promise resolving to stream result
+   *
+   * @example Context-aware streaming
+   * ```typescript
+   * const result = await neurolink.streamWithDynamic(
+   *   {
+   *     input: { text: "Tell me a story" },
+   *     model: ({ requestContext }) =>
+   *       requestContext.tenant?.plan === "enterprise" ? "gpt-4o" : "gpt-4o-mini",
+   *     temperature: 0.8,
+   *   },
+   *   { tenant: { id: "tenant123", plan: "pro" } }
+   * );
+   *
+   * for await (const chunk of result.stream) {
+   *   process.stdout.write(chunk.content);
+   * }
+   * ```
+   *
+   * @since 8.39.0
+   */
+  async streamWithDynamic(
+    options: DynamicStreamOptions,
+    context?: Partial<Omit<RequestContext, "requestId" | "timestamp">>,
+  ): Promise<StreamResult> {
+    if (context) {
+      return this.withContext(context, () =>
+        this.streamWithDynamicResolution(options),
+      );
+    }
+    return this.streamWithDynamicResolution(options);
+  }
+
+  /**
+   * Generate with dynamic argument support (internal method).
+   *
+   * Resolves all dynamic arguments before proceeding with generation.
+   * This method is called internally when dynamic arguments are detected.
+   *
+   * @private
+   */
+  private async generateWithDynamicResolution(
+    options: DynamicGenerateOptions,
+  ): Promise<GenerateResult> {
+    // Create resolution context
+    const requestContext =
+      options.context || getCurrentContext() || createRequestContext();
+
+    const resolutionContext: DynamicResolutionContext =
+      createResolutionContextFromRequest(requestContext, {
+        getAvailableTools: () => this.getAvailableToolNames(),
+        getProviderStatus: (provider) => this.isProviderAvailable(provider),
+        getRuntimeContext: () => this.getRuntimeContext(),
+      });
+
+    // Resolve all dynamic arguments in parallel
+    const [
+      resolvedModel,
+      resolvedProvider,
+      resolvedTemperature,
+      resolvedMaxTokens,
+      resolvedSystemPrompt,
+      resolvedTools,
+      resolvedTimeout,
+      resolvedThinkingLevel,
+    ] = await Promise.all([
+      options.model
+        ? resolveDynamicArgument(options.model, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.provider
+        ? resolveDynamicArgument(options.provider, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.temperature !== undefined
+        ? resolveDynamicArgument(options.temperature, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.maxTokens !== undefined
+        ? resolveDynamicArgument(options.maxTokens, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.systemPrompt
+        ? resolveDynamicArgument(options.systemPrompt, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.tools
+        ? resolveDynamicArgument(options.tools, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.timeout !== undefined
+        ? resolveDynamicArgument(options.timeout, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.thinkingLevel
+        ? resolveDynamicArgument(options.thinkingLevel, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+    ]);
+
+    logger.debug("Resolved dynamic arguments", {
+      requestId: requestContext.requestId,
+      resolvedModel: resolvedModel.value,
+      resolvedProvider: resolvedProvider.value,
+      resolutionTypes: {
+        model:
+          "resolutionType" in resolvedModel
+            ? resolvedModel.resolutionType
+            : "static",
+        provider:
+          "resolutionType" in resolvedProvider
+            ? resolvedProvider.resolutionType
+            : "static",
+        temperature:
+          "resolutionType" in resolvedTemperature
+            ? resolvedTemperature.resolutionType
+            : "static",
+      },
+    });
+
+    // Build resolved options
+    const resolvedOptions: GenerateOptions = {
+      input: options.input,
+      ...(resolvedModel.value && { model: resolvedModel.value }),
+      ...(resolvedProvider.value && { provider: resolvedProvider.value }),
+      ...(resolvedTemperature.value !== undefined && {
+        temperature: resolvedTemperature.value,
+      }),
+      ...(resolvedMaxTokens.value !== undefined && {
+        maxTokens: resolvedMaxTokens.value,
+      }),
+      ...(resolvedSystemPrompt.value && {
+        systemPrompt: resolvedSystemPrompt.value,
+      }),
+      ...(resolvedTimeout.value !== undefined && {
+        timeout: resolvedTimeout.value,
+      }),
+      ...(resolvedThinkingLevel.value && {
+        thinkingConfig: { thinkingLevel: resolvedThinkingLevel.value },
+      }),
+      ...(resolvedTools.value && { enabledToolNames: resolvedTools.value }),
+    };
+
+    // Continue with standard generation
+    return this.generate(resolvedOptions);
+  }
+
+  /**
+   * Check if options contain any dynamic arguments (functions)
+   *
+   * @private
+   */
+  private hasDynamicArguments(
+    options: GenerateOptions | DynamicGenerateOptions,
+  ): boolean {
+    const dynamicKeys = [
+      "model",
+      "provider",
+      "temperature",
+      "maxTokens",
+      "systemPrompt",
+      "tools",
+      "timeout",
+      "thinkingLevel",
+    ];
+
+    return dynamicKeys.some((key) => {
+      const value = (options as Record<string, unknown>)[key];
+      return typeof value === "function";
+    });
+  }
+
+  /**
+   * Get available tool names for dynamic resolution
+   *
+   * @private
+   */
+  private async getAvailableToolNames(): Promise<string[]> {
+    const tools = await this.getAllAvailableTools();
+    return tools.map((t: ToolInfo) => t.name);
+  }
+
+  /**
+   * Check if a provider is available
+   *
+   * @private
+   */
+  private async isProviderAvailable(provider: string): Promise<boolean> {
+    try {
+      const { ProviderFactory } = await import(
+        "./factories/providerFactory.js"
+      );
+      const providerInstance = await ProviderFactory.createProvider(provider);
+      // Check if isAvailable method exists, otherwise return true (provider creation succeeded)
+      const providerWithAvailable = providerInstance as unknown as {
+        isAvailable?: () => Promise<boolean>;
+      };
+      if (typeof providerWithAvailable.isAvailable === "function") {
+        return await providerWithAvailable.isAvailable();
+      }
+      return true; // If provider was created successfully, assume it's available
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if stream options contain any dynamic arguments (functions)
+   *
+   * @private
+   */
+  private hasDynamicStreamArguments(
+    options: StreamOptions | DynamicStreamOptions,
+  ): boolean {
+    const dynamicKeys = [
+      "model",
+      "provider",
+      "temperature",
+      "maxTokens",
+      "systemPrompt",
+      "disableTools",
+      "timeout",
+      "enableAnalytics",
+      "enableEvaluation",
+    ];
+
+    return dynamicKeys.some((key) => {
+      const value = (options as Record<string, unknown>)[key];
+      return typeof value === "function";
+    });
+  }
+
+  /**
+   * Stream with dynamic argument support (internal method).
+   *
+   * Resolves all dynamic arguments before proceeding with streaming.
+   * This method is called internally when dynamic arguments are detected.
+   *
+   * @private
+   */
+  private async streamWithDynamicResolution(
+    options: DynamicStreamOptions,
+  ): Promise<StreamResult> {
+    // Create resolution context
+    const requestContext =
+      options.context || getCurrentContext() || createRequestContext();
+
+    const resolutionContext: DynamicResolutionContext =
+      createResolutionContextFromRequest(requestContext, {
+        getAvailableTools: () => this.getAvailableToolNames(),
+        getProviderStatus: (provider) => this.isProviderAvailable(provider),
+        getRuntimeContext: () => this.getRuntimeContext(),
+      });
+
+    // Resolve all dynamic arguments in parallel
+    const [
+      resolvedModel,
+      resolvedProvider,
+      resolvedTemperature,
+      resolvedMaxTokens,
+      resolvedSystemPrompt,
+      resolvedDisableTools,
+      resolvedTimeout,
+      resolvedEnableAnalytics,
+      resolvedEnableEvaluation,
+    ] = await Promise.all([
+      options.model
+        ? resolveDynamicArgument(options.model, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.provider
+        ? resolveDynamicArgument(options.provider, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.temperature !== undefined
+        ? resolveDynamicArgument(options.temperature, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.maxTokens !== undefined
+        ? resolveDynamicArgument(options.maxTokens, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.systemPrompt
+        ? resolveDynamicArgument(options.systemPrompt, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.disableTools !== undefined
+        ? resolveDynamicArgument(options.disableTools, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.timeout !== undefined
+        ? resolveDynamicArgument(options.timeout, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.enableAnalytics !== undefined
+        ? resolveDynamicArgument(options.enableAnalytics, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+      options.enableEvaluation !== undefined
+        ? resolveDynamicArgument(options.enableEvaluation, resolutionContext)
+        : Promise.resolve({ value: undefined }),
+    ]);
+
+    logger.debug("Resolved dynamic stream arguments", {
+      requestId: requestContext.requestId,
+      resolvedModel: resolvedModel.value,
+      resolvedProvider: resolvedProvider.value,
+    });
+
+    // Build resolved options
+    const resolvedOptions: StreamOptions = {
+      input: options.input,
+      ...(resolvedModel.value && { model: resolvedModel.value }),
+      ...(resolvedProvider.value && { provider: resolvedProvider.value }),
+      ...(resolvedTemperature.value !== undefined && {
+        temperature: resolvedTemperature.value,
+      }),
+      ...(resolvedMaxTokens.value !== undefined && {
+        maxTokens: resolvedMaxTokens.value,
+      }),
+      ...(resolvedSystemPrompt.value && {
+        systemPrompt: resolvedSystemPrompt.value,
+      }),
+      ...(resolvedDisableTools.value !== undefined && {
+        disableTools: resolvedDisableTools.value,
+      }),
+      ...(resolvedTimeout.value !== undefined && {
+        timeout: resolvedTimeout.value,
+      }),
+      ...(resolvedEnableAnalytics.value !== undefined && {
+        enableAnalytics: resolvedEnableAnalytics.value,
+      }),
+      ...(resolvedEnableEvaluation.value !== undefined && {
+        enableEvaluation: resolvedEnableEvaluation.value,
+      }),
+    };
+
+    // Continue with standard streaming
+    return this.stream(resolvedOptions);
+  }
+
+  // ============================================================================
+  // Generation Methods
+  // ============================================================================
+
   /**
    * Generate AI response with comprehensive feature support.
    *
@@ -1824,14 +2355,29 @@ Current user's request: ${currentInput}`;
    * @since 1.0.0
    */
   async generate(
-    optionsOrPrompt: GenerateOptions | string,
+    optionsOrPrompt: GenerateOptions | DynamicGenerateOptions | string,
   ): Promise<GenerateResult> {
-    const originalPrompt = this._extractOriginalPrompt(optionsOrPrompt);
-    // Convert string prompt to full options
-    const options: GenerateOptions =
+    // Convert string prompt to full options first
+    const rawOptions =
       typeof optionsOrPrompt === "string"
         ? { input: { text: optionsOrPrompt } }
         : optionsOrPrompt;
+
+    // Check for dynamic arguments and route to dynamic resolution if needed
+    // This happens before validation since dynamic functions can't be validated statically
+    if (this.hasDynamicArguments(rawOptions)) {
+      logger.debug("Dynamic arguments detected, routing to dynamic resolution");
+      return this.generateWithDynamicResolution(
+        rawOptions as DynamicGenerateOptions,
+      );
+    }
+
+    // At this point we know the options don't contain dynamic arguments
+    // so we can safely cast to GenerateOptions
+    const options = rawOptions as GenerateOptions;
+    const originalPrompt = this._extractOriginalPrompt(
+      optionsOrPrompt as GenerateOptions | string,
+    );
 
     // Validate prompt
     if (!options.input?.text || typeof options.input.text !== "string") {
@@ -1938,6 +2484,7 @@ Current user's request: ${currentInput}`;
         schema: options.schema,
         output: options.output,
         disableTools: options.disableTools,
+        enabledToolNames: options.enabledToolNames,
         enableAnalytics: options.enableAnalytics,
         enableEvaluation: options.enableEvaluation,
         context: options.context as Record<string, JsonValue> | undefined,
@@ -2852,7 +3399,22 @@ Current user's request: ${currentInput}`;
    * @throws {Error} When all providers fail to generate content
    * @throws {Error} When conversation memory operations fail (if enabled)
    */
-  async stream(options: StreamOptions): Promise<StreamResult> {
+  async stream(
+    rawOptions: StreamOptions | DynamicStreamOptions,
+  ): Promise<StreamResult> {
+    // Check for dynamic arguments and route to dynamic resolution if needed
+    if (this.hasDynamicStreamArguments(rawOptions)) {
+      logger.debug(
+        "Dynamic arguments detected in stream, routing to dynamic resolution",
+      );
+      return this.streamWithDynamicResolution(
+        rawOptions as DynamicStreamOptions,
+      );
+    }
+
+    // At this point we know the options don't contain dynamic arguments
+    const options = rawOptions as StreamOptions;
+
     const startTime = Date.now();
     const hrTimeStart = process.hrtime.bigint();
     const streamId = `neurolink-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -6194,7 +6756,6 @@ Current user's request: ${currentInput}`;
       // Use the integration module to create the appropriate memory manager
       const memoryManager = await initializeConversationMemory(
         this.conversationMemoryConfig,
-        this.emitter,
       );
       // Assign to conversationMemory with proper type to handle both memory manager types
       this.conversationMemory = memoryManager;

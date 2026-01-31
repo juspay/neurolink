@@ -1,11 +1,12 @@
+import chalk from "chalk";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import chalk from "chalk";
 import packageJson from "../../package.json" with { type: "json" };
-import { CLICommandFactory } from "./factories/commandFactory.js";
 import { globalSession } from "../lib/session/globalSessionState.js";
-import { handleError } from "./errorHandler.js";
 import { logger } from "../lib/utils/logger.js";
+import { ContextCommandFactory } from "./commands/context.js";
+import { handleError } from "./errorHandler.js";
+import { CLICommandFactory } from "./factories/commandFactory.js";
 import { SetupCommandFactory } from "./factories/setupCommandFactory.js";
 
 // Enhanced CLI with Professional UX
@@ -44,10 +45,7 @@ export function initializeCliParser() {
         }
 
         // Keep existing quiet middleware
-        if (
-          process.env.NEUROLINK_QUIET === "true" &&
-          typeof argv.quiet === "undefined"
-        ) {
+        if (process.env.NEUROLINK_QUIET === "true" && typeof argv.quiet === "undefined") {
           argv.quiet = true;
         }
       })
@@ -79,8 +77,7 @@ export function initializeCliParser() {
           // _handleError already prints and calls process.exit(1).
           // If we're here, it means _handleError's process.exit might not have been caught by the top-level async IIFE.
           // Or, it's a synchronous yargs error during parsing that yargs itself throws.
-          const alreadyExitedByHandleError =
-            (err as Error & { exitCode?: number })?.exitCode !== undefined;
+          const alreadyExitedByHandleError = (err as Error & { exitCode?: number })?.exitCode !== undefined;
           // A simple heuristic: if the error message doesn't look like one of our handled generic messages,
           // it might be a direct yargs parsing error.
           const isLikelyYargsInternalError =
@@ -92,13 +89,7 @@ export function initializeCliParser() {
             !err.message.includes("Invalid or unparseable JSON"); // from config import
 
           if (!alreadyExitedByHandleError) {
-            process.stderr.write(
-              chalk.red(
-                `CLI Error: ${
-                  err.message || msg || "An unexpected error occurred."
-                }\n`,
-              ),
-            );
+            process.stderr.write(chalk.red(`CLI Error: ${err.message || msg || "An unexpected error occurred."}\n`));
             // If it's a yargs internal parsing error, show help.
             if (isLikelyYargsInternalError && msg) {
               yargsInstance.showHelp((h) => {
@@ -126,10 +117,7 @@ export function initializeCliParser() {
               exitProcess();
             });
             return; // Exit happens in callback
-          } else if (
-            msg.includes("Unknown argument") ||
-            msg.includes("Invalid values")
-          ) {
+          } else if (msg.includes("Unknown argument") || msg.includes("Invalid values")) {
             processedMsg = `Error: ${msg}\nUse --help to see available options.\n`;
           }
           process.stderr.write(chalk.red(processedMsg));
@@ -194,5 +182,8 @@ export function initializeCliParser() {
 
       // Setup Commands - Using SetupCommandFactory
       .command(SetupCommandFactory.createSetupCommands())
+
+      // Context Commands - For Dynamic Argument context management
+      .command(ContextCommandFactory.createContextCommands())
   ); // Close the main return statement
 }

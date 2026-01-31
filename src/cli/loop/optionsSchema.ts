@@ -67,6 +67,11 @@ export const textGenerationOptionsSchema: Record<
     type: "boolean",
     description: "Disable all tool usage for the AI.",
   },
+  enabledToolNames: {
+    type: "string",
+    description:
+      "Comma-separated list of tool names to enable (filter available tools).",
+  },
   maxSteps: {
     type: "number",
     description: "Maximum number of tool execution steps.",

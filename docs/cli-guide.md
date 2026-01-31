@@ -1232,21 +1232,21 @@ npx @juspay/neurolink generate "Performance critical task" --provider auto
 
 ### **Command Tutorials**
 
-- **Help & Overview** _(Video coming soon)_ - Complete command reference and usage examples
-- **Provider Status** _(Video coming soon)_ - Connectivity testing and response time measurement
-- **Text Generation** _(Video coming soon)_ - Real AI content generation with different providers
-- **Auto Selection** _(Video coming soon)_ - Automatic provider selection algorithm
-- **Streaming** _(Video coming soon)_ - Real-time text generation streaming
-- **Advanced Features** _(Video coming soon)_ - Verbose diagnostics and advanced options
+- **[Help & Overview](visual-content/cli-videos/cli-01-cli-help.mp4)** - Complete command reference and usage examples
+- **[Provider Status](visual-content/cli-videos/cli-02-provider-status.mp4)** - Connectivity testing and response time measurement
+- **[Text Generation](visual-content/cli-videos/cli-03-text-generation.mp4)** - Real AI content generation with different providers
+- **[Auto Selection](visual-content/cli-videos/cli-04-auto-selection.mp4)** - Automatic provider selection algorithm
+- **[Streaming](visual-content/cli-videos/cli-05-streaming.mp4)** - Real-time text generation streaming
+- **[Advanced Features](visual-content/cli-videos/cli-06-advanced-features.mp4)** - Verbose diagnostics and advanced options
 
 ### **MCP Integration Demos**
 
-- **MCP Help** _(Video coming soon)_ - MCP command reference and usage
-- **MCP List** _(Video coming soon)_ - MCP server listing and status
+- **[MCP Help](visual-content/cli-videos/cli-advanced-features/mcp-help.mp4)** - MCP command reference and usage
+- **[MCP List](visual-content/cli-videos/cli-advanced-features/mcp-list.mp4)** - MCP server listing and status
 
 ### **AI Workflow Tools Demo**
 
-- **AI Workflow Tools** _(Video coming soon)_ - Complete demonstration of AI workflow tools via CLI
+- **[AI Workflow Tools](visual-content/videos/demo/ai-workflow-full-demo.mp4)** - Complete demonstration of AI workflow tools via CLI
 
 **All videos feature:**
 

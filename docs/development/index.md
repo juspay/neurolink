@@ -32,6 +32,12 @@ This section covers everything needed for contributing to NeuroLink, understandi
 
   Guide for upgrading from older architectures to the new unified factory pattern system.
 
+- :material-package-variant: **[Package Overrides](package-overrides.md)**
+
+  ***
+
+  Documentation for package version overrides, security vulnerabilities, and maintenance procedures.
+
 - :material-tag-multiple: **[Documentation Versioning](versioning.md)**
 
   ***
@@ -295,7 +301,7 @@ git push origin feat/your-feature-name
 
 - **[Factory Pattern Guide](factory-migration.md)** - Understanding the core architecture
 - **[MCP Integration](../advanced/mcp-integration.md)** - Tool system implementation
-- **[Provider Development](../deployment/configuration.md)** - Adding new AI providers
+- **[Provider Development](../reference/configuration.md)** - Adding new AI providers
 
 ### Best Practices
 

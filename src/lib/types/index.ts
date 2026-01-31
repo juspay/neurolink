@@ -214,3 +214,25 @@ export type {
   CliAnalytics,
   CliEvaluation,
 } from "./actionTypes.js";
+
+// Dynamic Arguments types - Mastra-style dynamic configuration
+export type {
+  DynamicArgument,
+  DynamicResolutionContext,
+  RequestContext,
+  ResolutionOptions,
+  ResolutionResult,
+  DynamicConfig,
+  ResolvedConfig,
+  DynamicGenerateOptions,
+  DynamicStreamOptions,
+  DynamicToolConfig,
+  DynamicMiddlewareConfig,
+  UserPreferences,
+  TenantQuotas,
+  TenantSettings,
+  CacheEntry,
+  CacheStrategy,
+  DynamicCacheConfig,
+  DynamicArgumentMetadata,
+} from "../dynamic/types.js";

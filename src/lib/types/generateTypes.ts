@@ -231,6 +231,20 @@ export type GenerateOptions = {
    */
   schema?: ValidationSchema;
   tools?: Record<string, Tool>;
+  /**
+   * Filter available tools by name.
+   * Only tools with names in this array will be made available.
+   * Used by dynamic arguments to dynamically select which tools to enable.
+   *
+   * @example
+   * ```typescript
+   * await neurolink.generate({
+   *   input: { text: "Search for information" },
+   *   enabledToolNames: ["websearchGrounding", "readFile"]
+   * });
+   * ```
+   */
+  enabledToolNames?: string[];
   timeout?: number | string;
   /**
    * Disable tool execution (including built-in tools)
@@ -516,6 +530,7 @@ export type TextGenerationOptions = {
     ppt?: PPTOutputOptions;
   };
   tools?: Record<string, Tool>; // Enable MCP tools integration
+  enabledToolNames?: string[]; // Filter tools by name (used by dynamic arguments)
   timeout?: number | string; // Optional timeout (e.g., 30000, '30s', '2m', '1h')
   disableTools?: boolean; // Disable tools (tools are enabled by default)
   maxSteps?: number; // Maximum tool execution steps (default: 5)
