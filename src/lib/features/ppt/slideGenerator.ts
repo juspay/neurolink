@@ -21,9 +21,11 @@ import type {
   CompleteSlide,
   PresentationTheme,
   SlideType,
-  AspectRatioOption,
-  PptxSlide,
   PptxPresentation,
+  PptxSlide,
+  LogoConfig,
+  SlideGeneratorConfig,
+  SlideGenerationBatchResult,
 } from "./types.js";
 import { SLIDE_DIMENSIONS } from "./types.js";
 import {
@@ -59,63 +61,11 @@ import {
   renderFeaturesSlide,
   renderTeamSlide,
   renderConclusionSlide,
+  renderDashboardSlide,
+  renderMixedContentSlide,
+  renderStatsGridSlide,
+  renderIconGridSlide,
 } from "./slideRenderers.js";
-
-/**
- * Logo position options for slides
- */
-export type LogoPosition =
-  | "top-left"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-right"
-  | "title-only";
-
-/**
- * Logo configuration options
- */
-export type LogoConfig = {
-  /** Logo data - Buffer, base64 string, data URI, or file path */
-  data: Buffer | string;
-  /** Position on slides (default: "bottom-right") */
-  position?: LogoPosition;
-  /** Width in inches (default: 1) */
-  width?: number;
-  /** Height in inches (default: 0.4) */
-  height?: number;
-  /** Show on all slides or specific types (default: "all-slides") */
-  showOn?: "all-slides" | "title-only" | "title-and-closing";
-};
-
-/**
- * Configuration for slide generation
- */
-export type SlideGeneratorConfig = {
-  /** Theme name or custom theme */
-  theme: string | PresentationTheme;
-  /** Whether to generate AI images */
-  includeImages: boolean;
-  /** Aspect ratio for slides */
-  aspectRatio: AspectRatioOption;
-  /** Provider for image generation */
-  provider?: string;
-  /** Model for image generation */
-  imageModel?: string;
-  /** Logo configuration */
-  logo?: Buffer | string | LogoConfig;
-  /** NeuroLink instance for image generation */
-  neurolink?: NeuroLink;
-};
-
-/**
- * Result from generating a batch of slides
- */
-export type SlideGenerationBatchResult = {
-  slides: CompleteSlide[];
-  totalImages: number;
-  failedImages: number;
-  generationTime: number;
-};
 
 // ============================================================================
 // SLIDE GENERATOR CLASS
@@ -129,6 +79,7 @@ export class SlideGenerator {
   private config: SlideGeneratorConfig;
   private neurolink: NeuroLink | null;
   private imageLimit: ReturnType<typeof pLimit>;
+  private userImageIndex: number = 0;
 
   constructor(config: SlideGeneratorConfig) {
     this.config = config;
@@ -136,6 +87,55 @@ export class SlideGenerator {
       typeof config.theme === "string" ? getTheme(config.theme) : config.theme;
     this.neurolink = config.neurolink || null;
     this.imageLimit = pLimit(MAX_CONCURRENT_IMAGE_GENERATIONS);
+  }
+
+  /**
+   * Get next user-provided image (cycles through available images)
+   */
+  private getNextUserImage(): Buffer | string | undefined {
+    const userImages = this.config.userImages;
+    if (!userImages || userImages.length === 0) {
+      return undefined;
+    }
+    // Cycle through user images
+    const image = userImages[this.userImageIndex % userImages.length];
+    this.userImageIndex++;
+    return image;
+  }
+
+  /**
+   * Load user image to Buffer
+   */
+  private async loadUserImage(
+    image: Buffer | string,
+  ): Promise<Buffer | undefined> {
+    const USER_IMAGE_IO_TIMEOUT_MS = 15000;
+    try {
+      if (Buffer.isBuffer(image)) {
+        return image;
+      }
+      // String could be path or URL
+      if (image.startsWith("http://") || image.startsWith("https://")) {
+        const response = await withTimeout(
+          fetch(image),
+          USER_IMAGE_IO_TIMEOUT_MS,
+          ErrorFactory.toolTimeout("userImageFetch", USER_IMAGE_IO_TIMEOUT_MS),
+        );
+        if (!response.ok) {
+          logger.warn(`[SlideGenerator] Failed to fetch user image: ${image}`);
+          return undefined;
+        }
+        return Buffer.from(await response.arrayBuffer());
+      }
+      // File path - use async read
+      const fsPromises = await import("fs/promises");
+      return await fsPromises.readFile(image);
+    } catch (error) {
+      logger.warn(`[SlideGenerator] Failed to load user image`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
   }
 
   /**
@@ -148,22 +148,46 @@ export class SlideGenerator {
       let imageBuffer: Buffer | undefined;
       let imageMetadata: CompleteSlide["imageMetadata"];
 
-      if (
-        this.config.includeImages &&
-        slideSchema.imagePrompt &&
-        isImageSlideType(slideSchema.type)
-      ) {
-        const imageResult = await this.generateImage(
-          slideSchema.imagePrompt,
-          slideSchema.type,
-        );
-        if (imageResult) {
-          imageBuffer = imageResult.buffer;
-          imageMetadata = {
-            prompt: slideSchema.imagePrompt,
-            model: imageResult.model,
-            generatedAt: new Date(),
-          };
+      // Check if this slide type supports images
+      if (isImageSlideType(slideSchema.type)) {
+        // Priority 1: Use user-provided images if available (always used regardless of generateAIImages)
+        const userImage = this.getNextUserImage();
+        if (userImage) {
+          logger.info(
+            `[SlideGenerator] 📷 Using user-provided image for slide ${slideSchema.slideNumber}: "${slideSchema.title}"`,
+          );
+          imageBuffer = await this.loadUserImage(userImage);
+          if (imageBuffer) {
+            imageMetadata = {
+              prompt: "User-provided image",
+              model: "user-upload",
+              generatedAt: new Date(),
+            };
+          }
+        }
+
+        // Priority 2: Generate AI image only if generateAIImages is true, no user image, and imagePrompt exists
+        if (
+          !imageBuffer &&
+          this.config.generateAIImages &&
+          slideSchema.imagePrompt
+        ) {
+          logger.info(
+            `[SlideGenerator] ⏳ Generating AI image for slide ${slideSchema.slideNumber}: "${slideSchema.title}"...`,
+          );
+
+          const imageResult = await this.generateImage(
+            slideSchema.imagePrompt,
+            slideSchema.type,
+          );
+          if (imageResult) {
+            imageBuffer = imageResult.buffer;
+            imageMetadata = {
+              prompt: slideSchema.imagePrompt,
+              model: imageResult.model,
+              generatedAt: new Date(),
+            };
+          }
         }
       }
 
@@ -216,10 +240,23 @@ export class SlideGenerator {
   ): Promise<SlideGenerationBatchResult> {
     const startTime = Date.now();
 
+    // Count how many slides will need AI images
+    const slidesNeedingAIImages = this.config.generateAIImages
+      ? schemas.filter((s) => s.imagePrompt && isImageSlideType(s.type)).length
+      : 0;
+
+    // Count user-provided images
+    const userImagesCount = this.config.userImages?.length ?? 0;
+
     logger.info(`[SlideGenerator] Generating ${schemas.length} slides...`, {
       theme: this.theme.name,
-      includeImages: this.config.includeImages,
+      generateAIImages: this.config.generateAIImages,
+      slidesNeedingAIImages,
+      userImagesProvided: userImagesCount,
     });
+
+    // Reset image index for fresh generation
+    this.userImageIndex = 0;
 
     const slidePromises = schemas.map((schema) =>
       this.imageLimit(() => this.generateSlide(schema)),
@@ -227,7 +264,7 @@ export class SlideGenerator {
     const slides = await Promise.all(slidePromises);
 
     const totalImages = slides.filter((s) => s.imageBuffer).length;
-    const failedImages = this.config.includeImages
+    const failedImages = this.config.generateAIImages
       ? schemas.filter(
           (s) =>
             s.imagePrompt &&
@@ -317,8 +354,58 @@ export class SlideGenerator {
         return null;
       }
 
+      // Decode and validate the image buffer
+      const buffer = Buffer.from(result.imageOutput.base64, "base64");
+
+      // Validate minimum size (corrupted or empty images)
+      if (buffer.length < 100) {
+        logger.warn(
+          `[SlideGenerator] Image buffer too small (${buffer.length} bytes) for ${slideType}`,
+        );
+        return null;
+      }
+
+      // Validate image format by checking magic bytes
+      const isValidFormat =
+        // JPEG
+        (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) ||
+        // PNG
+        (buffer[0] === 0x89 &&
+          buffer[1] === 0x50 &&
+          buffer[2] === 0x4e &&
+          buffer[3] === 0x47) ||
+        // GIF
+        (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) ||
+        // WebP
+        (buffer[0] === 0x52 &&
+          buffer[1] === 0x49 &&
+          buffer[2] === 0x46 &&
+          buffer[3] === 0x46);
+
+      if (!isValidFormat) {
+        logger.warn(
+          `[SlideGenerator] Unknown image format for ${slideType}, magic bytes: ${buffer.slice(0, 4).toString("hex")}`,
+        );
+        // Still try to use it - might work
+      }
+
+      logger.debug(
+        `[SlideGenerator] Image generated successfully for ${slideType}`,
+        {
+          size: buffer.length,
+          format:
+            buffer[0] === 0xff
+              ? "JPEG"
+              : buffer[0] === 0x89
+                ? "PNG"
+                : buffer[0] === 0x47
+                  ? "GIF"
+                  : "unknown",
+        },
+      );
+
       return {
-        buffer: Buffer.from(result.imageOutput.base64, "base64"),
+        buffer,
         model: result.model || this.config.imageModel,
       };
     } catch (error) {
@@ -363,14 +450,15 @@ export class SlideGenerator {
       case "bullets":
       case "agenda":
       case "numbered-list":
-        renderContentSlide(
+        renderContentSlide({
           slide,
           title,
           content,
           layout,
-          this.theme,
+          theme: this.theme,
           imageBuffer,
-        );
+          slideType: type,
+        });
         break;
       case "image-focus":
       case "image-left":
@@ -437,17 +525,54 @@ export class SlideGenerator {
       case "closing":
         renderThankYouSlide(slide, title, content, this.theme, imageBuffer);
         break;
+      // Composite/Dashboard slides - multiple content types on one slide
+      case "dashboard":
+        if (content.dashboard) {
+          renderDashboardSlide(
+            slide,
+            title,
+            content.dashboard as {
+              layout:
+                | "left-right"
+                | "top-bottom"
+                | "three-cols"
+                | "quadrants"
+                | "five-boxes"
+                | "six-boxes"
+                | "main-sidebar"
+                | "top-three";
+              zones: Array<{
+                type: "bullets" | "chart" | "stats" | "icon-box" | "text-box";
+                title?: string;
+                data?: unknown;
+                isPrimary?: boolean;
+              }>;
+            },
+            this.theme,
+          );
+        }
+        break;
+      case "mixed-content":
+        renderMixedContentSlide(slide, title, content, this.theme);
+        break;
+      case "stats-grid":
+        renderStatsGridSlide(slide, title, content, this.theme);
+        break;
+      case "icon-grid":
+        renderIconGridSlide(slide, title, content, this.theme);
+        break;
       case "blank":
         break;
       default:
-        renderContentSlide(
+        renderContentSlide({
           slide,
           title,
           content,
           layout,
-          this.theme,
+          theme: this.theme,
           imageBuffer,
-        );
+          slideType: type,
+        });
     }
   }
 

@@ -11,7 +11,12 @@ import type {
 } from "../types/generateTypes.js";
 import type { NeuroLinkMCPTool } from "../types/mcpTypes.js";
 import type { VideoOutputOptions } from "../types/multimodal.js";
-import type { PPTOutputOptions } from "../types/pptTypes.js";
+import type {
+  PPTOutputOptions,
+  ThemeOption,
+  AudienceOption,
+  ToneOption,
+} from "../types/pptTypes.js";
 import type { StreamOptions } from "../types/streamTypes.js";
 import type { EnhancedValidationResult } from "../types/tools.js";
 import type {
@@ -719,9 +724,13 @@ export function validateToolBatch(tools: Record<string, unknown>): {
  * Used to maintain consistent error types in validation results
  */
 function toValidationError(error: NeuroLinkError): ValidationError {
+  // Field can be on error directly or in context (from ErrorFactory methods)
+  const field =
+    (error as { field?: string }).field ??
+    (error.context as { field?: string } | undefined)?.field;
   return new ValidationError(
     error.message,
-    (error as { field?: string }).field,
+    field,
     error.code,
     (error as { suggestions?: StringArray }).suggestions,
   );
@@ -1016,13 +1025,9 @@ export const MAX_PPT_PROMPT_LENGTH = 1000;
 export function validatePPTOutputOptions(
   options: PPTOutputOptions,
 ): NeuroLinkError | null {
-  // Validate pages (slide count) - REQUIRED FIELD
+  // Validate pages (slide count) - REQUIRED
   if (options.pages === undefined || options.pages === null) {
-    return ErrorFactory.missingPPTProperty("output.ppt.pages", [
-      "Provide the number of slides: output.ppt.pages = 10",
-      "Valid range: 5 to 50 slides",
-      "Recommended: 10 slides for most presentations",
-    ]);
+    return ErrorFactory.invalidPPTPages(undefined, "pages is required");
   }
 
   if (typeof options.pages !== "number") {
@@ -1048,10 +1053,10 @@ export function validatePPTOutputOptions(
     return ErrorFactory.invalidPPTFormat(options.format);
   }
 
-  // Validate theme
+  // Validate theme - optional (if not provided, AI will decide)
   if (
     options.theme !== undefined &&
-    !VALID_PPT_THEMES.includes(options.theme)
+    !VALID_PPT_THEMES.includes(options.theme as ThemeOption)
   ) {
     return ErrorFactory.invalidPPTOutputOptions(
       "theme",
@@ -1060,10 +1065,10 @@ export function validatePPTOutputOptions(
     );
   }
 
-  // Validate audience
+  // Validate audience - optional (if not provided, AI will decide)
   if (
     options.audience !== undefined &&
-    !VALID_PPT_AUDIENCES.includes(options.audience)
+    !VALID_PPT_AUDIENCES.includes(options.audience as AudienceOption)
   ) {
     return ErrorFactory.invalidPPTOutputOptions(
       "audience",
@@ -1072,8 +1077,11 @@ export function validatePPTOutputOptions(
     );
   }
 
-  // Validate tone
-  if (options.tone !== undefined && !VALID_PPT_TONES.includes(options.tone)) {
+  // Validate tone - optional (if not provided, AI will decide)
+  if (
+    options.tone !== undefined &&
+    !VALID_PPT_TONES.includes(options.tone as ToneOption)
+  ) {
     return ErrorFactory.invalidPPTOutputOptions(
       "tone",
       options.tone,
@@ -1093,14 +1101,14 @@ export function validatePPTOutputOptions(
     );
   }
 
-  // Validate includeImages (must be boolean if provided)
+  // Validate generateAIImages (must be boolean if provided)
   if (
-    options.includeImages !== undefined &&
-    typeof options.includeImages !== "boolean"
+    options.generateAIImages !== undefined &&
+    typeof options.generateAIImages !== "boolean"
   ) {
     return ErrorFactory.invalidPPTOutputOptions(
-      "includeImages",
-      options.includeImages,
+      "generateAIImages",
+      options.generateAIImages,
       ["true", "false"],
     );
   }
@@ -1158,7 +1166,19 @@ export function validatePPTOutputOptions(
   return null;
 }
 
-function validatePPTProvider(
+/**
+ * Validate PPT provider (supports vertex, openai, azure, anthropic, google-ai, bedrock)
+ *
+ * @param provider - Provider name to validate
+ * @returns NeuroLinkError if invalid, null if valid
+ *
+ * @example
+ * ```typescript
+ * const error = validatePPTProvider("unsupported-provider");
+ * // error.code === "INVALID_PPT_PROVIDER"
+ * ```
+ */
+export function validatePPTProvider(
   provider: AIProviderName | string,
 ): NeuroLinkError | null {
   // PPT generation supported providers (subset of all AIProviderName values)
@@ -1211,6 +1231,17 @@ export function validatePPTGenerationInput(
   const warnings: string[] = [];
   const suggestions: StringArray = [];
 
+  // Validate prompt/text - must exist first
+  if (!options.input?.text) {
+    errors.push(
+      toValidationError(
+        ErrorFactory.invalidPPTPrompt("input.text is required"),
+      ),
+    );
+    // Return early since we can't validate further
+    return { isValid: false, errors, warnings, suggestions };
+  }
+
   // Validate prompt/text - trim once for consistency
   const trimmedPrompt = options.input.text.trim();
   if (trimmedPrompt === "") {
@@ -1221,7 +1252,7 @@ export function validatePPTGenerationInput(
     errors.push(
       toValidationError(
         ErrorFactory.invalidPPTPrompt(
-          `prompt too short (${trimmedPrompt.length} characters, min ${MIN_PPT_PROMPT_LENGTH})`,
+          `prompt too short (${trimmedPrompt.length} characters, minimum ${MIN_PPT_PROMPT_LENGTH} required)`,
         ),
       ),
     );
@@ -1267,41 +1298,43 @@ export function validatePPTGenerationInput(
 
     // Add specific warnings
     const pages = options.output.ppt.pages;
-    if (pages > 30) {
+    if (pages !== undefined && pages > 30) {
       warnings.push(
         `Generating ${pages} slides may take significant time (estimated: ${Math.ceil(pages * 3)}-${Math.ceil(pages * 5)} seconds)`,
       );
     }
 
     if (
-      options.output.ppt.includeImages === undefined ||
-      options.output.ppt.includeImages === true
+      options.output.ppt.generateAIImages === undefined ||
+      options.output.ppt.generateAIImages === true
     ) {
       suggestions.push(
-        "Image generation is enabled. Each slide with images will take additional time (~2-5 seconds per image).",
+        "AI image generation is enabled. Each slide with images will take additional time (~2-5 seconds per image).",
       );
     }
 
-    // Add suggestion about defaults being used
-    const missingDefaults: string[] = [];
+    // Add suggestion about AI selection being used for undefined values
+    const aiSelections: string[] = [];
     if (options.output.ppt.theme === undefined) {
-      missingDefaults.push('theme: "modern"');
+      aiSelections.push("theme");
     }
     if (options.output.ppt.audience === undefined) {
-      missingDefaults.push('audience: "general"');
+      aiSelections.push("audience");
     }
     if (options.output.ppt.tone === undefined) {
-      missingDefaults.push('tone: "professional"');
+      aiSelections.push("tone");
     }
-    if (missingDefaults.length > 0) {
-      suggestions.push(`Using defaults: ${missingDefaults.join(", ")}`);
+    if (aiSelections.length > 0) {
+      suggestions.push(
+        `AI will decide: ${aiSelections.join(", ")} (based on topic analysis)`,
+      );
     }
   } else {
     errors.push(
       toValidationError(
         ErrorFactory.missingPPTProperty("output.ppt", [
           "Provide PPT generation options under output.ppt",
-          "Specify number of slides, theme, and other preferences",
+          "pages is required, theme/audience/tone are optional (AI will decide if not specified)",
         ]),
       ),
     );

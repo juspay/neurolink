@@ -19,6 +19,9 @@ import type {
   SlideType,
   SlideLayout,
   PPTGenerationContext,
+  BulletPoint,
+  SlideContent,
+  BulletStyle,
 } from "./types.js";
 import { PPTError, PPT_ERROR_CODES } from "./types.js";
 import {
@@ -27,6 +30,10 @@ import {
   CONTENT_PLANNING_TIMEOUT_MS,
   SLIDE_TYPE_TO_LAYOUT,
 } from "./constants.js";
+import {
+  normalizeSlideWithInference,
+  applyBulletStyleToContent,
+} from "./slideTypeInference.js";
 import { logger } from "../../utils/logger.js";
 
 // ============================================================================
@@ -74,6 +81,11 @@ const VALID_SLIDE_TYPES: Set<SlideType> = new Set([
   "icons",
   "conclusion",
   "blank",
+  // Composite/Dashboard (multiple content types)
+  "dashboard",
+  "mixed-content",
+  "stats-grid",
+  "icon-grid",
 ]);
 
 /**
@@ -166,6 +178,183 @@ function validateSlideLayout(
 }
 
 // ============================================================================
+// CONTENT NORMALIZATION (Hybrid Bullet Formatting)
+// Handles various AI output formats and converts to expected structure
+// ============================================================================
+
+/** Valid bullet styles for validation */
+const VALID_BULLET_STYLES: Set<BulletStyle> = new Set([
+  "disc",
+  "number",
+  "checkmark",
+  "arrow",
+  "dash",
+  "none",
+]);
+
+/**
+ * Normalize a single bullet item from AI output
+ * Handles: string, {text: string}, or malformed objects
+ */
+function normalizeBulletItem(item: unknown): BulletPoint | null {
+  // Case 1: Already a valid BulletPoint object
+  if (item && typeof item === "object" && "text" in item) {
+    const obj = item as Record<string, unknown>;
+    const normalized: BulletPoint = {
+      text: String(obj.text || ""),
+    };
+
+    // Preserve optional fields if valid
+    if (Array.isArray(obj.subBullets)) {
+      normalized.subBullets = obj.subBullets.map((s) => String(s));
+    }
+    if (typeof obj.icon === "string") {
+      normalized.icon = obj.icon;
+    }
+    if (typeof obj.emphasis === "boolean") {
+      normalized.emphasis = obj.emphasis;
+    }
+
+    // Preserve AI-specified formatting if valid
+    if (
+      typeof obj.fontSize === "number" &&
+      obj.fontSize >= 8 &&
+      obj.fontSize <= 48
+    ) {
+      normalized.fontSize = obj.fontSize;
+    }
+    if (
+      typeof obj.bulletStyle === "string" &&
+      VALID_BULLET_STYLES.has(obj.bulletStyle as BulletStyle)
+    ) {
+      normalized.bulletStyle = obj.bulletStyle as BulletStyle;
+    }
+    if (
+      typeof obj.color === "string" &&
+      obj.color.match(/^#?[0-9A-Fa-f]{6}$/)
+    ) {
+      normalized.color = obj.color.startsWith("#")
+        ? obj.color
+        : `#${obj.color}`;
+    }
+    if (typeof obj.bold === "boolean") {
+      normalized.bold = obj.bold;
+    }
+
+    return normalized.text ? normalized : null;
+  }
+
+  // Case 2: Plain string - convert to BulletPoint
+  if (typeof item === "string" && item.trim()) {
+    return { text: item.trim() };
+  }
+
+  // Case 3: Invalid - skip
+  return null;
+}
+
+/**
+ * Normalize an array of bullets from AI output
+ * Handles: string[], {text: string}[], or mixed arrays
+ */
+function normalizeBullets(bullets: unknown): BulletPoint[] {
+  if (!Array.isArray(bullets)) {
+    return [];
+  }
+
+  const normalized: BulletPoint[] = [];
+  for (const item of bullets) {
+    const bullet = normalizeBulletItem(item);
+    if (bullet) {
+      normalized.push(bullet);
+    }
+  }
+
+  return normalized;
+}
+
+/**
+ * Normalize slide content from AI output
+ * Ensures bullets are in correct format, preserves other content fields
+ */
+function normalizeSlideContent(content: unknown): SlideContent {
+  if (!content || typeof content !== "object") {
+    return {};
+  }
+
+  const raw = content as Record<string, unknown>;
+  const normalized: SlideContent = {};
+
+  // Normalize main bullets array
+  if (raw.bullets) {
+    normalized.bullets = normalizeBullets(raw.bullets);
+  }
+
+  // Normalize column bullets (for two-column, three-column layouts)
+  if (raw.leftColumn && typeof raw.leftColumn === "object") {
+    const col = raw.leftColumn as Record<string, unknown>;
+    normalized.leftColumn = {
+      title: typeof col.title === "string" ? col.title : undefined,
+      bullets: col.bullets ? normalizeBullets(col.bullets) : undefined,
+      image: typeof col.image === "string" ? col.image : undefined,
+    };
+  }
+  if (raw.rightColumn && typeof raw.rightColumn === "object") {
+    const col = raw.rightColumn as Record<string, unknown>;
+    normalized.rightColumn = {
+      title: typeof col.title === "string" ? col.title : undefined,
+      bullets: col.bullets ? normalizeBullets(col.bullets) : undefined,
+      image: typeof col.image === "string" ? col.image : undefined,
+    };
+  }
+  if (raw.centerColumn && typeof raw.centerColumn === "object") {
+    const col = raw.centerColumn as Record<string, unknown>;
+    normalized.centerColumn = {
+      title: typeof col.title === "string" ? col.title : undefined,
+      bullets: col.bullets ? normalizeBullets(col.bullets) : undefined,
+      image: typeof col.image === "string" ? col.image : undefined,
+    };
+  }
+
+  // Pass through other content fields as-is (quote, statistics, chartData, etc.)
+  // Using keyof SlideContent for type safety
+  const passThrough: (keyof SlideContent)[] = [
+    "subtitle",
+    "body",
+    "sectionNumber",
+    "quote",
+    "quoteAuthor",
+    "quoteAuthorTitle",
+    "caption",
+    "galleryImages",
+    "statistics",
+    "chartData",
+    "tableData",
+    "timeline",
+    "processSteps",
+    "features",
+    "icons",
+    "teamMembers",
+    "comparison",
+    "nextSteps",
+    "cta",
+    "ctaButton",
+    "contactInfo",
+    "layoutOptions",
+    "dashboard",
+  ];
+
+  for (const key of passThrough) {
+    if (raw[key] !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (normalized as any)[key] = raw[key];
+    }
+  }
+
+  return normalized;
+}
+
+// ============================================================================
 // CONTENT PLAN VALIDATION
 // ============================================================================
 
@@ -234,13 +423,41 @@ function validateContentPlan(
     // Validate and normalize type with proper type checking
     const validatedType = validateSlideType(slide.type, "content");
 
-    // Validate and normalize layout based on type
-    const validatedLayout = validateSlideLayout(slide.layout, validatedType);
+    // Normalize content - handles string bullets, mixed formats, etc.
+    const normalizedContent = normalizeSlideContent(slide.content);
 
-    // Ensure content object exists
-    if (!slide.content || typeof slide.content !== "object") {
-      slide.content = {};
+    // Smart inference: Infer slide type and bullet style from title keywords
+    // This helps when AI doesn't explicitly specify the right type
+    const {
+      type: inferredType,
+      bulletStyle,
+      wasInferred,
+    } = normalizeSlideWithInference(
+      slide.title as string,
+      validatedType,
+      normalizedContent,
+    );
+
+    // Use inferred type if different from what AI provided
+    const finalType =
+      wasInferred && inferredType !== validatedType
+        ? inferredType
+        : validatedType;
+
+    if (wasInferred && inferredType !== validatedType) {
+      logger.debug(
+        `[ContentPlanner] Slide ${i + 1} type inferred from title: "${slide.title}" → ${finalType}`,
+      );
     }
+
+    // Apply bullet style to content based on slide type
+    const contentWithBulletStyle = applyBulletStyleToContent(
+      normalizedContent,
+      bulletStyle,
+    );
+
+    // Validate and normalize layout based on final type
+    const validatedLayout = validateSlideLayout(slide.layout, finalType);
 
     // Ensure speakerNotes is a string
     if (typeof slide.speakerNotes !== "string") {
@@ -254,10 +471,10 @@ function validateContentPlan(
 
     validatedSlides.push({
       slideNumber: i + 1,
-      type: validatedType,
+      type: finalType,
       layout: validatedLayout,
       title: slide.title as string,
-      content: slide.content as SlideSchema["content"],
+      content: contentWithBulletStyle,
       imagePrompt: slide.imagePrompt as string | null,
       speakerNotes: slide.speakerNotes as string,
     });
@@ -333,6 +550,7 @@ export async function generateContentPlan(
   provider: AIProvider,
 ): Promise<ContentPlan> {
   const startTime = Date.now();
+  const sessionId = `session-${Date.now()}`;
 
   logger.info("[ContentPlanner] Starting content planning", {
     topic: context.topic.substring(0, 100),
@@ -340,19 +558,25 @@ export async function generateContentPlan(
     audience: context.audience,
     tone: context.tone,
     theme: context.theme,
-    includeImages: context.includeImages,
+    generateAIImages: context.generateAIImages,
     provider: context.provider,
+    model: context.model,
+    sessionId,
   });
 
-  // Build the prompt
-  const userPrompt = buildContentPlanningPrompt(
-    context.topic,
-    context.pages,
-    context.audience,
-    context.tone,
-    context.theme,
-    context.includeImages,
-  );
+  // Build the prompt with model info for tier detection (basic vs advanced)
+  const userPrompt = buildContentPlanningPrompt({
+    topic: context.topic,
+    pages: context.pages,
+    audience: context.audience,
+    tone: context.tone,
+    theme: context.theme,
+    generateAIImages: context.generateAIImages,
+    modelInfo: {
+      name: context.model || "unknown",
+      provider: context.provider || "auto-selected",
+    },
+  });
 
   try {
     // Call AI provider

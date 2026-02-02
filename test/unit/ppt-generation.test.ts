@@ -8,7 +8,6 @@ import {
   type PPTOutputOptions,
   PPTError,
   PPT_ERROR_CODES,
-  extractPPTContext,
   type SlideType,
   type SlideLayout,
   type SlideSchema,
@@ -32,6 +31,7 @@ import {
   isValidHexColor,
   normalizeHexColor,
 } from "../../src/lib/types/pptTypes.js";
+import { extractPPTContext } from "../../src/lib/features/ppt/utils.js";
 import {
   THEMES,
   getTheme,
@@ -77,7 +77,7 @@ describe("PPT Validation", () => {
         theme: "modern",
         audience: "business",
         tone: "professional",
-        includeImages: true,
+        generateAIImages: true,
       };
       expect(validatePPTOutputOptions(validOptions)).toBeNull();
     });
@@ -85,7 +85,7 @@ describe("PPT Validation", () => {
     it("should reject missing pages field", () => {
       const error = validatePPTOutputOptions({} as PPTOutputOptions);
       expect(error).not.toBeNull();
-      expect(error?.code).toBe("MISSING_PPT_PROPERTIES");
+      expect(error?.code).toBe("INVALID_PPT_PAGES");
     });
 
     it("should accept minimal valid options (pages only)", () => {
@@ -198,17 +198,17 @@ describe("PPT Validation", () => {
       expect(result.isValid).toBe(true);
     });
 
-    it("should suggest defaults when theme/audience/tone not specified", () => {
+    it("should suggest AI selection when theme/audience/tone not specified", () => {
       const options: GenerateOptions = {
         input: { text: "Test presentation topic" },
         output: { mode: "ppt", ppt: { pages: 10 } },
       };
       const result = validatePPTGenerationInput(options);
       expect(result.isValid).toBe(true);
-      const defaultSuggestion = result.suggestions.find((s) =>
-        s.includes("Using defaults"),
+      const aiSelectionSuggestion = result.suggestions.find((s) =>
+        s.includes("AI will decide"),
       );
-      expect(defaultSuggestion).toBeDefined();
+      expect(aiSelectionSuggestion).toBeDefined();
     });
   });
 });
@@ -321,44 +321,45 @@ describe("PPT Themes", () => {
 
 describe("PPT Prompt Building", () => {
   it("should include topic and slide count in prompt", () => {
-    const prompt = buildContentPlanningPrompt(
-      "AI in Healthcare",
-      15,
-      "business",
-      "professional",
-      "modern",
-      true,
-    );
+    const prompt = buildContentPlanningPrompt({
+      topic: "AI in Healthcare",
+      pages: 15,
+      audience: "business",
+      tone: "professional",
+      theme: "modern",
+      generateAIImages: true,
+    });
     expect(prompt).toContain("AI in Healthcare");
     expect(prompt).toContain("15-slide");
   });
 
   it("should include audience and tone guidelines", () => {
-    const prompt = buildContentPlanningPrompt(
-      "Test",
-      10,
-      "technical",
-      "educational",
-      "modern",
-      true,
-    );
+    const prompt = buildContentPlanningPrompt({
+      topic: "Test",
+      pages: 10,
+      audience: "technical",
+      tone: "educational",
+      theme: "modern",
+      generateAIImages: true,
+    });
     expect(prompt).toContain("technical");
     expect(prompt).toContain("educational");
   });
 
   it("should include all slide type documentation", () => {
-    const prompt = buildContentPlanningPrompt(
-      "Test",
-      10,
-      "general",
-      "professional",
-      "modern",
-      true,
-    );
+    const prompt = buildContentPlanningPrompt({
+      topic: "Test",
+      pages: 10,
+      audience: "general",
+      tone: "professional",
+      theme: "modern",
+      generateAIImages: true,
+    });
+    // Basic tier includes these types
     expect(prompt).toContain('"title"');
     expect(prompt).toContain('"chart-bar"');
     expect(prompt).toContain('"statistics"');
-    expect(prompt).toContain('"timeline"');
+    expect(prompt).toContain('"content"');
   });
 
   it("should enhance image prompts with theme style", () => {
@@ -425,9 +426,9 @@ describe("PPT Context Extraction", () => {
       output: { mode: "ppt", ppt: { pages: 8 } },
     };
     const context = extractPPTContext(options);
-    expect(context.theme).toBe("modern");
-    expect(context.audience).toBe("general");
-    expect(context.tone).toBe("professional");
+    expect(context.theme).toBe("AI will decide");
+    expect(context.audience).toBe("AI will decide");
+    expect(context.tone).toBe("AI will decide");
   });
 
   it("should throw PPTError when ppt options missing", () => {
@@ -774,7 +775,7 @@ const createMockConfig = (
   overrides: Partial<SlideGeneratorConfig> = {},
 ): SlideGeneratorConfig => ({
   theme: "modern",
-  includeImages: false,
+  generateAIImages: false,
   aspectRatio: "16:9",
   ...overrides,
 });
@@ -887,9 +888,9 @@ describe("SlideGenerator", () => {
       }
     });
 
-    it("should skip images when includeImages=false", async () => {
+    it("should skip images when generateAIImages=false", async () => {
       const gen = createSlideGenerator(
-        createMockConfig({ includeImages: false }),
+        createMockConfig({ generateAIImages: false }),
       );
       const result = await gen.generateSlide(
         createMockSlideSchema({ imagePrompt: "test" }),
@@ -1116,8 +1117,10 @@ describe("Slide Content Rendering", () => {
 describe("Image Generation", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("should skip when no neurolink or includeImages=false", async () => {
-    const gen = createSlideGenerator(createMockConfig({ includeImages: true }));
+  it("should skip when no neurolink or generateAIImages=false", async () => {
+    const gen = createSlideGenerator(
+      createMockConfig({ generateAIImages: true }),
+    );
     const r = await gen.generateSlide(
       createMockSlideSchema({ type: "image-focus", imagePrompt: "test" }),
     );
@@ -1125,13 +1128,19 @@ describe("Image Generation", () => {
   });
 
   it("should generate images with neurolink", async () => {
+    // Create a minimal valid PNG buffer (PNG magic bytes + enough data)
+    const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47]); // PNG magic bytes
+    const padding = Buffer.alloc(100); // Ensure minimum size
+    const validPngBuffer = Buffer.concat([pngHeader, padding]);
+    const validBase64 = validPngBuffer.toString("base64");
+
     mockNeuroLink.generate.mockResolvedValue({
-      imageOutput: { base64: "abc123" },
+      imageOutput: { base64: validBase64 },
       model: "gemini",
     });
     const gen = createSlideGenerator(
       createMockConfig({
-        includeImages: true,
+        generateAIImages: true,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         neurolink: mockNeuroLink as any,
       }),
@@ -1149,7 +1158,7 @@ describe("Image Generation", () => {
     mockNeuroLink.generate.mockRejectedValue(new Error("Failed"));
     const gen = createSlideGenerator(
       createMockConfig({
-        includeImages: true,
+        generateAIImages: true,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         neurolink: mockNeuroLink as any,
       }),
@@ -1211,5 +1220,324 @@ describe("E2E Integration", () => {
     result.slides.forEach((s, i) =>
       expect(() => gen.renderSlide(ppt, s, i + 1, 3)).not.toThrow(),
     );
+  });
+});
+// -----------------------------------------------------------------------
+// Presentation Orchestrator Tests (Stage 4)
+// -----------------------------------------------------------------------
+
+import {
+  validatePPTGenerationInput as orchestratorValidateInput,
+  type PPTValidationResult,
+} from "../../src/lib/features/ppt/index.js";
+
+describe("Presentation Orchestrator", () => {
+  describe("validatePPTGenerationInput", () => {
+    it("should validate valid PPT generation options", () => {
+      const options = {
+        input: { text: "Introduction to Machine Learning" },
+        output: {
+          mode: "ppt",
+          ppt: { pages: 10, theme: "modern" },
+        },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("should reject missing input.text", () => {
+      const options = {
+        input: {},
+        output: { mode: "ppt", ppt: { pages: 10 } },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(
+          (e: { field: string; message: string }) => e.field === "input.text",
+        ),
+      ).toBe(true);
+    });
+
+    it("should reject topic too short", () => {
+      const options = {
+        input: { text: "Hi" },
+        output: { mode: "ppt", ppt: { pages: 10 } },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some((e: { field: string; message: string }) =>
+          e.message.includes("minimum 10 required"),
+        ),
+      ).toBe(true);
+    });
+
+    it("should reject topic too long", () => {
+      const options = {
+        input: { text: "x".repeat(1001) },
+        output: { mode: "ppt", ppt: { pages: 10 } },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some((e: { field: string; message: string }) =>
+          e.message.includes("1000"),
+        ),
+      ).toBe(true);
+    });
+
+    it("should reject missing output.ppt", () => {
+      const options = {
+        input: { text: "Valid topic for presentation" },
+        output: { mode: "ppt" },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(
+          (e: { field: string; message: string }) => e.field === "output.ppt",
+        ),
+      ).toBe(true);
+    });
+
+    it("should reject pages less than 5", () => {
+      const options = {
+        input: { text: "Valid topic for presentation" },
+        output: { mode: "ppt", ppt: { pages: 4 } },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(
+          (e: { field: string; message: string }) =>
+            e.field === "output.ppt.pages",
+        ),
+      ).toBe(true);
+    });
+
+    it("should reject pages greater than 50", () => {
+      const options = {
+        input: { text: "Valid topic for presentation" },
+        output: { mode: "ppt", ppt: { pages: 51 } },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some((e: { field: string; message: string }) =>
+          e.message.includes("50"),
+        ),
+      ).toBe(true);
+    });
+
+    it("should reject invalid theme", () => {
+      const options = {
+        input: { text: "Valid topic for presentation" },
+        output: { mode: "ppt", ppt: { pages: 10, theme: "invalid-theme" } },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(
+          (e: { field: string; message: string }) =>
+            e.field === "output.ppt.theme",
+        ),
+      ).toBe(true);
+    });
+
+    it("should accept all valid themes", () => {
+      const validThemes = [
+        "modern",
+        "corporate",
+        "creative",
+        "minimal",
+        "dark",
+      ];
+
+      for (const theme of validThemes) {
+        const options = {
+          input: { text: "Valid topic for presentation" },
+          output: { mode: "ppt", ppt: { pages: 10, theme } },
+        };
+        expect(orchestratorValidateInput(options).isValid).toBe(true);
+      }
+    });
+
+    it("should reject invalid aspect ratio", () => {
+      const options = {
+        input: { text: "Valid topic for presentation" },
+        output: { mode: "ppt", ppt: { pages: 10, aspectRatio: "21:9" } },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(
+          (e: { field: string; message: string }) =>
+            e.field === "output.ppt.aspectRatio",
+        ),
+      ).toBe(true);
+    });
+
+    it("should accept all valid aspect ratios", () => {
+      const validRatios = ["16:9", "4:3"];
+
+      for (const aspectRatio of validRatios) {
+        const options = {
+          input: { text: "Valid topic for presentation" },
+          output: { mode: "ppt", ppt: { pages: 10, aspectRatio } },
+        };
+        expect(orchestratorValidateInput(options).isValid).toBe(true);
+      }
+    });
+
+    it("should reject invalid format", () => {
+      const options = {
+        input: { text: "Valid topic for presentation" },
+        output: { mode: "ppt", ppt: { pages: 10, format: "pdf" } },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(
+          (e: { field: string; message: string }) =>
+            e.field === "output.ppt.format",
+        ),
+      ).toBe(true);
+    });
+
+    it("should reject invalid audience", () => {
+      const options = {
+        input: { text: "Valid topic for presentation" },
+        output: { mode: "ppt", ppt: { pages: 10, audience: "aliens" } },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(
+          (e: { field: string; message: string }) =>
+            e.field === "output.ppt.audience",
+        ),
+      ).toBe(true);
+    });
+
+    it("should reject invalid tone", () => {
+      const options = {
+        input: { text: "Valid topic for presentation" },
+        output: { mode: "ppt", ppt: { pages: 10, tone: "mysterious" } },
+      };
+
+      const result = orchestratorValidateInput(options);
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(
+          (e: { field: string; message: string }) =>
+            e.field === "output.ppt.tone",
+        ),
+      ).toBe(true);
+    });
+
+    it("should accept valid audiences without warnings", () => {
+      const validAudiences = ["general", "business", "technical", "students"];
+
+      for (const audience of validAudiences) {
+        const options = {
+          input: { text: "Valid topic for presentation" },
+          output: { mode: "ppt", ppt: { pages: 10, audience } },
+        };
+        const result = orchestratorValidateInput(options);
+        expect(result.isValid).toBe(true);
+        expect(result.warnings).toHaveLength(0);
+      }
+    });
+
+    it("should accept valid tones without warnings", () => {
+      const validTones = [
+        "professional",
+        "casual",
+        "educational",
+        "persuasive",
+      ];
+
+      for (const tone of validTones) {
+        const options = {
+          input: { text: "Valid topic for presentation" },
+          output: { mode: "ppt", ppt: { pages: 10, tone } },
+        };
+        const result = orchestratorValidateInput(options);
+        expect(result.isValid).toBe(true);
+        expect(result.warnings).toHaveLength(0);
+      }
+    });
+  });
+
+  describe("PPTGenerationContext extraction", () => {
+    it("should extract context with all defaults", () => {
+      const options: GenerateOptions = {
+        input: { text: "Machine Learning Basics" },
+        output: { mode: "ppt", ppt: { pages: 10 } },
+      };
+
+      const context = extractPPTContext(options);
+      expect(context.topic).toBe("Machine Learning Basics");
+      expect(context.pages).toBe(10);
+      expect(context.theme).toBe("AI will decide");
+      expect(context.audience).toBe("AI will decide");
+      expect(context.tone).toBe("AI will decide");
+      expect(context.generateAIImages).toBe(false);
+      expect(context.aspectRatio).toBe("16:9");
+    });
+
+    it("should extract context with custom options", () => {
+      const options: GenerateOptions = {
+        input: { text: "Business Analytics" },
+        output: {
+          mode: "ppt",
+          ppt: {
+            pages: 15,
+            theme: "corporate",
+            audience: "business",
+            tone: "professional",
+            generateAIImages: false,
+            aspectRatio: "4:3",
+            outputPath: "/custom/path/pres.pptx",
+          },
+        },
+        provider: "vertex",
+        model: "gemini-2.0-flash",
+      };
+
+      const context = extractPPTContext(options);
+      expect(context.topic).toBe("Business Analytics");
+      expect(context.pages).toBe(15);
+      expect(context.theme).toBe("corporate");
+      expect(context.audience).toBe("business");
+      expect(context.tone).toBe("professional");
+      expect(context.generateAIImages).toBe(false);
+      expect(context.aspectRatio).toBe("4:3");
+      expect(context.outputPath).toBe("/custom/path/pres.pptx");
+      expect(context.provider).toBe("vertex");
+      expect(context.model).toBe("gemini-2.0-flash");
+    });
+
+    it("should throw PPTError when ppt options are missing", () => {
+      const options: GenerateOptions = {
+        input: { text: "No PPT options" },
+        output: { mode: "text" },
+      };
+
+      expect(() => extractPPTContext(options)).toThrow(PPTError);
+    });
   });
 });

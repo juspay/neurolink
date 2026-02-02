@@ -3,16 +3,14 @@
  *
  * All PPT types are now centralized in types/pptTypes.ts
  * This file re-exports for backwards compatibility within the presentation module.
+ *
+ * Only types that are actually used within src/lib/features/ppt/ are exported here.
  */
 
 export {
   // External API types
   type PPTOutputOptions,
   type PPTGenerationResult,
-  type ThemeOption,
-  type AudienceOption,
-  type ToneOption,
-  type OutputFormatOption,
   type AspectRatioOption,
 
   // Error types
@@ -25,75 +23,65 @@ export {
 
   // Content plan types
   type BulletPoint,
+  type BulletStyle,
+  type SlideFormattingConfig,
   type SlideContent,
   type SlideSchema,
   type ContentPlan,
 
-  // Data types for slides
-  type TableCell,
+  // Data types for slides (used in slideRenderers.ts)
   type TableRow,
-  type ChartDataPoint,
   type ChartSeries,
   type Statistic,
   type TimelineItem,
   type ProcessStep,
-  type TeamMember,
   type FeatureItem,
   type ComparisonColumn,
 
   // Theme types
-  type ThemeColors,
-  type ThemeFonts,
   type PresentationTheme,
 
   // Context types
   type PPTGenerationContext,
-  extractPPTContext,
 
   // Completed slide type
   type CompleteSlide,
 
-  // pptxgenjs-compatible types
-  type PositionValue,
-  type PositionProps,
-  type ShadowProps,
-  type HyperlinkProps,
-  type ShapeFillProps,
-  type ShapeLineProps,
-  type TextUnderlineProps,
-  type TextFormatOptions,
-  type BulletOptions,
-  type ImageSizingOptions,
-  type ImageProps,
-  type PptxChartType,
-  type ChartOptions,
-  type TableBorderOptions,
-  type TableOptions,
-  type ShapeProps,
-  type SlideNumberProps,
-
-  // Validation constants and helpers
-  MIN_SLIDES,
-  MAX_SLIDES,
-  VALID_THEMES,
-  VALID_AUDIENCES,
-  VALID_TONES,
-  VALID_ASPECT_RATIOS,
+  // Validation constants
   SLIDE_DIMENSIONS,
-  isValidHexColor,
-  normalizeHexColor,
 
-  // PptxGenJS slide and presentation interfaces
+  // PptxGenJS slide and presentation interfaces (used in slideRenderers/slideGenerator)
   type PptxSlide,
   type PptxPresentation,
-  type PptxTextProps,
+  type PptxRichTextProps,
   type PptxTableRow,
   type PptxChartName,
-  type PptxChartData,
-  type PptxBackgroundOptions,
-  type PptxTextOptions,
-  type PptxImageOptions,
-  type PptxShapeOptions,
-  type PptxChartOptions,
-  type PptxTableOptions,
+
+  // Slide renderer types
+  type BackgroundStyle,
+  type RenderContentSlideOptions,
+  type ColumnData,
+  type GridPosition,
+  type BackgroundColors,
+
+  // Generator config types
+  type LogoConfig,
+  type SlideGeneratorConfig,
+  type SlideGenerationBatchResult,
+
+  // Orchestrator types
+  type PresentationGenerationOptions,
+  type OrchestrationState,
+
+  // Provider utilities
+  type EffectivePPTProviderResult,
+
+  // Prompt tier types
+  type PromptTier,
+  type PPTModelInfo,
+  type BuildContentPlanningPromptOptions,
+
+  // Helper types (used in utils.ts)
+  type ImageValidationResult,
+  type TextSegment,
 } from "../../types/pptTypes.js";

@@ -2058,6 +2058,7 @@ Current user's request: ${currentInput}`;
           : undefined,
         audio: textResult.audio,
         video: textResult.video,
+        ppt: textResult.ppt,
       };
 
       if (
@@ -2542,6 +2543,7 @@ Current user's request: ${currentInput}`;
         ),
         audio: result.audio,
         video: result.video,
+        ppt: result.ppt,
         // Include analytics and evaluation from BaseProvider
         analytics: result.analytics,
         evaluation: result.evaluation,
@@ -2668,6 +2670,7 @@ Current user's request: ${currentInput}`;
           evaluation: result.evaluation,
           audio: result.audio,
           video: result.video,
+          ppt: result.ppt,
           // CRITICAL FIX: Include imageOutput for image generation models
           imageOutput: result.imageOutput,
         };

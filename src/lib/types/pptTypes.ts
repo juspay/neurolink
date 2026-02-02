@@ -12,9 +12,10 @@
  */
 
 import type { ImageWithAltText } from "./content.js";
-import type { GenerateOptions } from "./generateTypes.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import { NeuroLinkError } from "../utils/errorHandling.js";
+import type { AIProvider } from "./providers.js";
+import type { NeuroLink } from "../neurolink.js";
 
 // ============================================================================
 // EXTERNAL API TYPES (Used in GenerateOptions)
@@ -49,7 +50,7 @@ export type AspectRatioOption = "16:9" | "4:3";
  *   theme: "modern",
  *   audience: "business",
  *   tone: "professional",
- *   includeImages: true
+ *   generateAIImages: true
  * };
  * ```
  */
@@ -58,14 +59,14 @@ export type PPTOutputOptions = {
   pages: number;
   /** Output format - only PPTX supported currently (default: "pptx") */
   format?: OutputFormatOption;
-  /** Presentation theme/style (default: "modern") */
+  /** Presentation theme/style (default: "AI will decide" - AI chooses based on topic) */
   theme?: ThemeOption;
-  /** Target audience for content customization */
+  /** Target audience for content customization (default: "AI will decide" - AI chooses based on topic) */
   audience?: AudienceOption;
-  /** Presentation tone/style */
+  /** Presentation tone/style (default: "AI will decide" - AI chooses based on topic) */
   tone?: ToneOption;
-  /** Whether to generate AI images for slides (default: true) */
-  includeImages?: boolean;
+  /** Whether to generate AI images for slides (user-provided images via input.images are always used) */
+  generateAIImages?: boolean;
   /** Custom output file path (default: auto-generated in ./output/) */
   outputPath?: string;
   /** Aspect ratio for slides (default: "16:9") */
@@ -102,13 +103,17 @@ export type PPTGenerationResult = {
   totalSlides: number;
   /** Output format (always "pptx" currently) */
   format: OutputFormatOption;
+  /** Provider used for PPT generation */
+  provider: string;
+  /** Model used for PPT generation */
+  model: string;
   /** Presentation metadata */
   metadata?: {
-    /** Theme/style used */
+    /** Theme/style used (may be AI-selected if "AI will decide" was used) */
     theme?: string;
-    /** Target audience */
+    /** Target audience (may be AI-selected if "AI will decide" was used) */
     audience?: string;
-    /** Presentation tone */
+    /** Presentation tone (may be AI-selected if "AI will decide" was used) */
     tone?: string;
     /** Model used for image generation */
     imageModel?: string;
@@ -174,7 +179,7 @@ export class PPTError extends NeuroLinkError {
 // ============================================================================
 
 /**
- * Slide types (31 total)
+ * Slide types (35 total)
  * Defines the purpose/content type of a slide
  */
 export type SlideType =
@@ -219,7 +224,13 @@ export type SlideType =
   | "team" // Team member profiles
   | "icons" // Icon grid with labels
   | "conclusion" // Summary with key takeaways
-  | "blank"; // Empty slide for custom content
+  | "blank" // Empty slide for custom content
+
+  // Composite/Dashboard (4) - Multiple content types on one slide
+  | "dashboard" // Flexible grid with multiple zones
+  | "mixed-content" // Left bullets + right chart/stats
+  | "stats-grid" // Multiple stat boxes in grid
+  | "icon-grid"; // Multiple icon boxes in grid
 
 /**
  * Slide layouts (32 total)
@@ -280,8 +291,28 @@ export type SlideLayout =
 // ============================================================================
 
 /**
+ * Bullet style options for formatting
+ * - "disc": Standard bullet point (•)
+ * - "number": Numbered list (1. 2. 3.)
+ * - "checkmark": Checkmark symbol (✓)
+ * - "arrow": Arrow symbol (→)
+ * - "dash": Dash symbol (–)
+ * - "none": No bullet marker
+ */
+export type BulletStyle =
+  | "disc"
+  | "number"
+  | "checkmark"
+  | "arrow"
+  | "dash"
+  | "none";
+
+/**
  * Bullet point with optional sub-bullets and styling
  * Maps to: addText with bullet: true option
+ *
+ * HYBRID APPROACH: AI can optionally specify formatting, otherwise hardcoded defaults apply.
+ * Priority: bullet-level > slide-level > type-defaults > theme-defaults
  */
 export type BulletPoint = {
   text: string;
@@ -290,6 +321,29 @@ export type BulletPoint = {
   icon?: string;
   /** Highlight/emphasis for this bullet */
   emphasis?: boolean;
+
+  // === Optional AI-specified formatting (hybrid approach) ===
+  /** Font size override (default calculated based on bullet count) */
+  fontSize?: number;
+  /** Bullet style override (default based on slide type) */
+  bulletStyle?: BulletStyle;
+  /** Text color override (hex, e.g., "#FF0000") */
+  color?: string;
+  /** Bold text override */
+  bold?: boolean;
+};
+
+/**
+ * Slide-level formatting config (can be specified by AI or use defaults)
+ * Applied to all bullets in the slide unless overridden at bullet level
+ */
+export type SlideFormattingConfig = {
+  /** Base font size for bullets (default calculated based on bullet count) */
+  baseFontSize?: number;
+  /** Default bullet style for this slide */
+  bulletStyle?: BulletStyle;
+  /** Line spacing multiplier (default 1.2) */
+  lineSpacing?: number;
 };
 
 /**
@@ -314,17 +368,6 @@ export type TableCell = {
  * Table row (array of cells)
  */
 export type TableRow = TableCell[];
-
-/**
- * Chart data point
- * Maps to: addChart data format
- */
-export type ChartDataPoint = {
-  label: string;
-  value: number;
-  /** Optional color for this data point (hex) */
-  color?: string;
-};
 
 /**
  * Chart data series
@@ -563,6 +606,131 @@ export type SlideContent = {
     label: string;
     description?: string;
   }>;
+
+  // ---- Layout/Sizing Options (AI can customize) ----
+  /** Custom layout overrides - AI can specify positions/sizes */
+  layoutOptions?: {
+    /** Title positioning */
+    title?: {
+      x?: number; // inches from left
+      y?: number; // inches from top
+      w?: number; // width in inches
+      h?: number; // height in inches
+      fontSize?: number; // font size in points
+      align?: "left" | "center" | "right";
+      color?: string; // hex color override
+    };
+    /** Subtitle/description positioning */
+    subtitle?: {
+      x?: number;
+      y?: number;
+      w?: number;
+      h?: number;
+      fontSize?: number;
+      align?: "left" | "center" | "right";
+      color?: string;
+    };
+    /** Content area positioning (for bullets, body text) */
+    content?: {
+      x?: number;
+      y?: number;
+      w?: number;
+      h?: number;
+      fontSize?: number;
+    };
+    /** Background style */
+    background?: {
+      color?: string; // hex color
+      useThemePrimary?: boolean; // use theme.colors.primary
+      useThemeSecondary?: boolean; // use theme.colors.secondary
+    };
+    /** Section number styling (for section-header) */
+    sectionNumber?: {
+      x?: number;
+      y?: number;
+      fontSize?: number;
+      style?: "large" | "small" | "watermark"; // watermark = 200pt, 70% transparent
+      color?: string;
+    };
+    /** Quote styling */
+    quote?: {
+      x?: number;
+      y?: number;
+      w?: number;
+      fontSize?: number;
+      align?: "left" | "center" | "right";
+    };
+    /** Statistics layout */
+    statistics?: {
+      columns?: number; // 2, 3, or 4 columns
+      startY?: number;
+      valueSize?: number; // font size for values
+      labelSize?: number; // font size for labels
+    };
+    /** Chart positioning */
+    chart?: {
+      x?: number;
+      y?: number;
+      w?: number;
+      h?: number;
+      showLegend?: boolean;
+      showLabels?: boolean;
+    };
+    /** Table styling */
+    table?: {
+      x?: number;
+      y?: number;
+      w?: number;
+      headerBgColor?: string;
+      altRowColor?: string;
+    };
+    /** Column layouts (two-column, three-column) */
+    columns?: {
+      gap?: number; // gap between columns in inches
+      leftWidth?: number; // percentage (0.4 = 40%)
+      rightWidth?: number;
+    };
+    /** Image positioning */
+    image?: {
+      x?: number;
+      y?: number;
+      w?: number;
+      h?: number;
+      position?: "left" | "right" | "center" | "full";
+    };
+    /** Timeline/Process flow */
+    timeline?: {
+      orientation?: "horizontal" | "vertical";
+      connectorColor?: string;
+      nodeSize?: number;
+    };
+  };
+
+  // ---- Dashboard/Composite Content ----
+  /** Dashboard configuration for composite slides with multiple content zones */
+  dashboard?: {
+    /** Layout preset: left-right, top-bottom, three-cols, quadrants, five-boxes, six-boxes, main-sidebar, top-three */
+    layout:
+      | "left-right"
+      | "top-bottom"
+      | "three-cols"
+      | "quadrants"
+      | "five-boxes"
+      | "six-boxes"
+      | "main-sidebar"
+      | "top-three";
+    /** Content zones - each zone can have different content type */
+    zones: Array<{
+      /** Type of content in this zone */
+      type: "bullets" | "chart" | "stats" | "icon-box" | "text-box";
+      /** Optional zone title */
+      title?: string;
+      /** Zone data - varies by type */
+      data?: unknown;
+      /** Highlight this zone with primary color */
+      isPrimary?: boolean;
+    }>;
+  };
 };
 
 /**
@@ -661,103 +829,33 @@ export type PresentationTheme = {
 export type PPTGenerationContext = {
   /** Original topic/prompt from user */
   topic: string;
-  /** Number of slides requested */
+  /** Number of slides requested (required) */
   pages: number;
-  /** Selected theme name */
+  /** Selected theme name ("AI will decide" means AI chooses) */
   theme: string;
-  /** Target audience */
+  /** Target audience ("AI will decide" means AI chooses) */
   audience: string;
-  /** Presentation tone */
+  /** Presentation tone ("AI will decide" means AI chooses) */
   tone: string;
-  /** Whether to generate images */
-  includeImages: boolean;
+  /** Whether to generate AI images (user-provided images via input.images are always used) */
+  generateAIImages: boolean;
   /** Aspect ratio */
   aspectRatio: AspectRatioOption;
   /** Custom output path */
   outputPath?: string;
   /** Logo data or path if provided */
   logo?: Buffer | string;
+  /** User-provided images for slides (from input.images) */
+  images?: (Buffer | string)[];
   /** Provider name (for logging) */
   provider?: string;
   /** Model name (for logging) */
   model?: string;
 };
 
-/**
- * Extract PPT generation context from GenerateOptions
- */
-export function extractPPTContext(
-  options: GenerateOptions,
-): PPTGenerationContext {
-  const pptOptions = options.output?.ppt;
-
-  if (!pptOptions) {
-    throw new PPTError(
-      "PPT options are required when mode is 'ppt'",
-      PPT_ERROR_CODES.INVALID_INPUT,
-      { field: "output.ppt" },
-    );
-  }
-
-  // Handle logo from input.images[0] if not in logoPath
-  let logo: Buffer | string | undefined;
-  if (pptOptions.logoPath) {
-    if (
-      Buffer.isBuffer(pptOptions.logoPath) ||
-      typeof pptOptions.logoPath === "string"
-    ) {
-      logo = pptOptions.logoPath;
-    } else if (
-      typeof pptOptions.logoPath === "object" &&
-      "data" in pptOptions.logoPath
-    ) {
-      const data = pptOptions.logoPath.data;
-      logo =
-        Buffer.isBuffer(data) || typeof data === "string" ? data : undefined;
-    }
-  }
-
-  return {
-    topic: options.input.text,
-    pages: pptOptions.pages,
-    theme: pptOptions.theme || "modern",
-    audience: pptOptions.audience || "general",
-    tone: pptOptions.tone || "professional",
-    includeImages: pptOptions.includeImages ?? true,
-    aspectRatio: pptOptions.aspectRatio || "16:9",
-    outputPath: pptOptions.outputPath,
-    logo,
-    provider: options.provider,
-    model: options.model,
-  };
-}
-
 // ============================================================================
-// PPTXGENJS COMPATIBLE TYPES - COMPREHENSIVE DOCUMENTATION
-// These types document the full pptxgenjs API surface for reference and testing.
-// For actual slide rendering, use the simplified Pptx* types at the end of this file.
+// PPTXGENJS COMPATIBLE TYPES - USED BY RUNTIME TYPES
 // ============================================================================
-
-/**
- * Position value - can be number (inches) or percentage string
- * Maps to: pptxgenjs PositionProps
- */
-export type PositionValue = number | `${number}%`;
-
-/**
- * Position and size properties for slide elements
- * Maps to: pptxgenjs PositionProps
- */
-export type PositionProps = {
-  /** Horizontal position (inches or percentage) */
-  x?: PositionValue;
-  /** Vertical position (inches or percentage) */
-  y?: PositionValue;
-  /** Width (inches or percentage) */
-  w?: PositionValue;
-  /** Height (inches or percentage) */
-  h?: PositionValue;
-};
 
 /**
  * Shadow properties for elements
@@ -792,287 +890,6 @@ export type HyperlinkProps = {
 };
 
 /**
- * Shape fill properties
- * Maps to: pptxgenjs ShapeFillProps
- */
-export type ShapeFillProps = {
-  /** Fill color (hex without #) */
-  color?: string;
-  /** Transparency percentage (0-100) */
-  transparency?: number;
-  /** Fill type */
-  type?: "solid" | "none";
-};
-
-/**
- * Shape line/border properties
- * Maps to: pptxgenjs ShapeLineProps
- */
-export type ShapeLineProps = {
-  /** Line color (hex without #) */
-  color?: string;
-  /** Line width in points (1-256) */
-  width?: number;
-  /** Line dash style */
-  dashType?:
-    | "solid"
-    | "dash"
-    | "dashDot"
-    | "lgDash"
-    | "lgDashDot"
-    | "lgDashDotDot"
-    | "sysDash"
-    | "sysDot";
-  /** Line transparency (0-100) */
-  transparency?: number;
-  /** Beginning arrow type */
-  beginArrowType?:
-    | "arrow"
-    | "diamond"
-    | "oval"
-    | "stealth"
-    | "triangle"
-    | "none";
-  /** Ending arrow type */
-  endArrowType?: "arrow" | "diamond" | "oval" | "stealth" | "triangle" | "none";
-};
-
-/**
- * Text underline properties
- * Maps to: pptxgenjs TextUnderlineProps
- */
-export type TextUnderlineProps = {
-  /** Underline color (hex without #) */
-  color?: string;
-  /** Underline style */
-  style?:
-    | "sng"
-    | "dbl"
-    | "heavy"
-    | "dotted"
-    | "dottedHeavy"
-    | "dash"
-    | "dashHeavy"
-    | "dashLong"
-    | "dashLongHeavy"
-    | "dotDash"
-    | "dotDashHeavy"
-    | "dotDotDash"
-    | "dotDotDashHeavy"
-    | "wavy"
-    | "wavyHeavy"
-    | "wavyDbl"
-    | "none";
-};
-
-/**
- * Text formatting options
- * Maps to: pptxgenjs TextPropsOptions
- */
-export type TextFormatOptions = {
-  /** Text alignment */
-  align?: "left" | "center" | "right";
-  /** Bold text */
-  bold?: boolean;
-  /** Italic text */
-  italic?: boolean;
-  /** Text color (hex without #) */
-  color?: string;
-  /** Font face name */
-  fontFace?: string;
-  /** Font size in points (1-256) */
-  fontSize?: number;
-  /** Character spacing in points */
-  charSpacing?: number;
-  /** Line spacing in points */
-  lineSpacing?: number;
-  /** Strike-through style */
-  strike?: "sngStrike" | "dblStrike";
-  /** Subscript */
-  subscript?: boolean;
-  /** Superscript */
-  superscript?: boolean;
-  /** Underline options */
-  underline?: TextUnderlineProps | boolean;
-  /** Vertical alignment */
-  valign?: "top" | "middle" | "bottom";
-  /** Text direction */
-  vert?:
-    | "horz"
-    | "vert"
-    | "vert270"
-    | "eaVert"
-    | "mongolianVert"
-    | "wordArtVert";
-  /** Text wrapping */
-  wrap?: boolean;
-  /** Rotation in degrees (0-360) */
-  rotate?: number;
-  /** Transparency percentage (0-100) */
-  transparency?: number;
-  /** Shadow properties */
-  shadow?: ShadowProps;
-  /** Text glow effect */
-  glow?: {
-    size: number;
-    opacity: number;
-    color?: string;
-  };
-  /** Text outline */
-  outline?: {
-    size: number;
-    color: string;
-  };
-  /** Hyperlink */
-  hyperlink?: HyperlinkProps;
-  /** Highlight color (hex without #) */
-  highlight?: string;
-};
-
-/**
- * Bullet options for text
- * Maps to: pptxgenjs bullet options
- */
-export type BulletOptions = {
-  /** Bullet type */
-  type?: "bullet" | "number";
-  /** Bullet character code (Unicode hex) */
-  code?: string;
-  /** Numbered list style */
-  style?:
-    | "arabicPeriod"
-    | "arabicParenBoth"
-    | "arabicParenR"
-    | "alphaLcPeriod"
-    | "alphaLcParenBoth"
-    | "alphaLcParenR"
-    | "alphaUcPeriod"
-    | "alphaUcParenBoth"
-    | "alphaUcParenR"
-    | "romanLcPeriod"
-    | "romanLcParenBoth"
-    | "romanLcParenR"
-    | "romanUcPeriod"
-    | "romanUcParenBoth"
-    | "romanUcParenR";
-  /** Indent level (0-8) */
-  indentLevel?: number;
-  /** Start number for numbered lists */
-  startAt?: number;
-};
-
-/**
- * Image sizing options
- * Maps to: pptxgenjs sizing options
- */
-export type ImageSizingOptions = {
-  /** Sizing algorithm type */
-  type: "contain" | "cover" | "crop";
-  /** Width for sizing area */
-  w?: number;
-  /** Height for sizing area */
-  h?: number;
-  /** X position for crop (crop only) */
-  x?: number;
-  /** Y position for crop (crop only) */
-  y?: number;
-};
-
-/**
- * Image properties for addImage
- * Maps to: pptxgenjs ImageProps
- */
-export type ImageProps = PositionProps & {
-  /** Image data as base64 string (prefixed with data:image/...) */
-  data?: string;
-  /** Image path (URL or local path) */
-  path?: string;
-  /** Alt text for accessibility */
-  altText?: string;
-  /** Flip horizontally */
-  flipH?: boolean;
-  /** Flip vertically */
-  flipV?: boolean;
-  /** Rotation in degrees (0-359) */
-  rotate?: number;
-  /** Round image to circle */
-  rounding?: boolean;
-  /** Image sizing options */
-  sizing?: ImageSizingOptions;
-  /** Transparency (0-100) */
-  transparency?: number;
-  /** Hyperlink */
-  hyperlink?: HyperlinkProps;
-  /** Shadow */
-  shadow?: ShadowProps;
-};
-
-/**
- * Chart types supported by pptxgenjs
- * @deprecated Use PptxChartName instead (defined below in runtime types section)
- */
-export type PptxChartType =
-  | "area"
-  | "bar"
-  | "bar3d"
-  | "bubble"
-  | "bubble3d"
-  | "doughnut"
-  | "line"
-  | "pie"
-  | "radar"
-  | "scatter";
-
-/**
- * Chart options for addChart
- * Maps to: pptxgenjs IChartOpts (subset)
- */
-export type ChartOptions = PositionProps & {
-  /** Chart title */
-  title?: string;
-  /** Show chart title */
-  showTitle?: boolean;
-  /** Title color (hex) */
-  titleColor?: string;
-  /** Title font face */
-  titleFontFace?: string;
-  /** Title font size */
-  titleFontSize?: number;
-  /** Chart colors array (hex values) */
-  chartColors?: string[];
-  /** Show legend */
-  showLegend?: boolean;
-  /** Legend position */
-  legendPos?: "b" | "l" | "r" | "t" | "tr";
-  /** Show data labels */
-  showLabel?: boolean;
-  /** Show value on data points */
-  showValue?: boolean;
-  /** Show percentage (pie/doughnut) */
-  showPercent?: boolean;
-  /** Bar direction */
-  barDir?: "bar" | "col";
-  /** Bar grouping */
-  barGrouping?: "clustered" | "stacked" | "percentStacked";
-  /** Doughnut hole size (1-100) */
-  holeSize?: number;
-  /** Line smoothing */
-  lineSmooth?: boolean;
-  /** Line size in points */
-  lineSize?: number;
-  /** Category axis hidden */
-  catAxisHidden?: boolean;
-  /** Value axis hidden */
-  valAxisHidden?: boolean;
-  /** Category axis title */
-  catAxisTitle?: string;
-  /** Value axis title */
-  valAxisTitle?: string;
-  /** Alt text */
-  altText?: string;
-};
-
-/**
  * Table border options
  * Maps to: pptxgenjs IBorderOptions
  */
@@ -1083,87 +900,6 @@ export type TableBorderOptions = {
   pt?: number;
   /** Border color (hex) */
   color?: string;
-};
-
-/**
- * Table options for addTable
- * Maps to: pptxgenjs ITableOptions (subset)
- */
-export type TableOptions = PositionProps & {
-  /** Text alignment */
-  align?: "left" | "center" | "right";
-  /** Bold text */
-  bold?: boolean;
-  /** Italic text */
-  italic?: boolean;
-  /** Text color (hex) */
-  color?: string;
-  /** Font face */
-  fontFace?: string;
-  /** Font size */
-  fontSize?: number;
-  /** Cell fill color (hex) */
-  fill?: string;
-  /** Cell border */
-  border?: TableBorderOptions | TableBorderOptions[];
-  /** Cell margin in points or [T, R, B, L] */
-  margin?: number | [number, number, number, number];
-  /** Vertical alignment */
-  valign?: "top" | "middle" | "bottom";
-  /** Column widths (uniform or per-column) */
-  colW?: number | number[];
-  /** Row heights (uniform or per-row) */
-  rowH?: number | number[];
-  /** Auto-page long tables */
-  autoPage?: boolean;
-  /** Repeat header on auto-page */
-  autoPageRepeatHeader?: boolean;
-  /** Number of header rows to repeat */
-  autoPageHeaderRows?: number;
-  /** New slide starting Y position */
-  newSlideStartY?: number | `${number}%`;
-};
-
-/**
- * Shape properties
- * Maps to: pptxgenjs ShapeProps
- */
-export type ShapeProps = PositionProps & {
-  /** Shape name/type */
-  shapeName?: string;
-  /** Fill properties */
-  fill?: ShapeFillProps;
-  /** Line/border properties */
-  line?: ShapeLineProps;
-  /** Flip horizontally */
-  flipH?: boolean;
-  /** Flip vertically */
-  flipV?: boolean;
-  /** Rotation in degrees */
-  rotate?: number;
-  /** Shadow */
-  shadow?: ShadowProps;
-  /** Hyperlink */
-  hyperlink?: HyperlinkProps;
-  /** Rounding radius for rounded rectangles */
-  rectRadius?: number;
-};
-
-/**
- * Slide number display options
- * Maps to: pptxgenjs SlideNumberProps
- */
-export type SlideNumberProps = {
-  /** Text color (hex) */
-  color?: string;
-  /** Font face */
-  fontFace?: string;
-  /** Font size (8-256) */
-  fontSize?: number;
-  /** X position */
-  x?: PositionValue;
-  /** Y position */
-  y?: PositionValue;
 };
 
 // ============================================================================
@@ -1189,40 +925,6 @@ export type CompleteSlide = {
 // VALIDATION CONSTANTS
 // ============================================================================
 
-/** Minimum number of slides allowed */
-export const MIN_SLIDES = 5;
-
-/** Maximum number of slides allowed */
-export const MAX_SLIDES = 50;
-
-/** Valid theme names */
-export const VALID_THEMES: ThemeOption[] = [
-  "modern",
-  "corporate",
-  "creative",
-  "minimal",
-  "dark",
-];
-
-/** Valid audience options */
-export const VALID_AUDIENCES: AudienceOption[] = [
-  "business",
-  "students",
-  "technical",
-  "general",
-];
-
-/** Valid tone options */
-export const VALID_TONES: ToneOption[] = [
-  "professional",
-  "casual",
-  "educational",
-  "persuasive",
-];
-
-/** Valid aspect ratios */
-export const VALID_ASPECT_RATIOS: AspectRatioOption[] = ["16:9", "4:3"];
-
 /** Slide dimensions in inches by aspect ratio */
 export const SLIDE_DIMENSIONS: Record<
   AspectRatioOption,
@@ -1231,20 +933,6 @@ export const SLIDE_DIMENSIONS: Record<
   "16:9": { width: 10, height: 5.625 },
   "4:3": { width: 10, height: 7.5 },
 };
-
-/**
- * Check if a color string is valid hex format
- */
-export function isValidHexColor(color: string): boolean {
-  return /^[0-9A-Fa-f]{6}$/.test(color);
-}
-
-/**
- * Normalize hex color (remove # if present)
- */
-export function normalizeHexColor(color: string): string {
-  return color.replace(/^#/, "");
-}
 
 // ============================================================================
 // PPTXGENJS SLIDE & PRESENTATION INTERFACES - RUNTIME TYPES
@@ -1260,7 +948,33 @@ export function normalizeHexColor(color: string): string {
 export type PptxTextProps = {
   text: string;
   options?: {
-    bullet?: boolean | { type?: string; code?: string };
+    bullet?:
+      | boolean
+      | {
+          type?: "bullet" | "number";
+          characterCode?: string;
+          indent?: number;
+          numberType?:
+            | "alphaLcParenBoth"
+            | "alphaLcParenR"
+            | "alphaLcPeriod"
+            | "alphaUcParenBoth"
+            | "alphaUcParenR"
+            | "alphaUcPeriod"
+            | "arabicParenBoth"
+            | "arabicParenR"
+            | "arabicPeriod"
+            | "romanLcParenBoth"
+            | "romanLcParenR"
+            | "romanLcPeriod"
+            | "romanUcParenBoth"
+            | "romanUcParenR"
+            | "romanUcPeriod";
+          numberStartAt?: number;
+          color?: string;
+          rtlMode?: boolean;
+          style?: string;
+        };
     fontSize?: number;
     fontFace?: string;
     color?: string;
@@ -1271,6 +985,30 @@ export type PptxTextProps = {
     paraSpaceBefore?: number;
     paraSpaceAfter?: number;
   };
+};
+
+/**
+ * Rich text run for pptxgenjs
+ * Represents a single formatted text segment within a text block
+ */
+export type PptxTextRun = {
+  text: string;
+  options?: {
+    bold?: boolean;
+    italic?: boolean;
+    fontSize?: number;
+    fontFace?: string;
+    color?: string;
+  };
+};
+
+/**
+ * Text props that supports both plain string and rich text runs
+ * pptxgenjs accepts both formats for the text property
+ */
+export type PptxRichTextProps = {
+  text: string | PptxTextRun[];
+  options?: PptxTextProps["options"];
 };
 
 /**
@@ -1342,6 +1080,8 @@ export type PptxTextOptions = {
   lineSpacing?: number;
   margin?: number;
   autoFit?: boolean;
+  /** Text fit options: 'none' = Do not Autofit, 'shrink' = Shrink text to fit, 'resize' = Resize shape to fit text */
+  fit?: "none" | "shrink" | "resize";
 };
 
 /**
@@ -1444,29 +1184,23 @@ export type PptxTableOptions = {
 export type PptxSlide = {
   /** Slide background */
   background?: PptxBackgroundOptions;
-
-  /** Add text to the slide */
+  /** Add text to the slide - supports plain text, text props array, or rich text props array */
   addText: (
-    text: string | PptxTextProps[],
+    text: string | PptxTextProps[] | PptxRichTextProps[],
     options?: PptxTextOptions,
   ) => PptxSlide;
-
   /** Add an image to the slide */
   addImage: (options: PptxImageOptions) => PptxSlide;
-
   /** Add a shape to the slide */
   addShape: (shapeName: string, options?: PptxShapeOptions) => PptxSlide;
-
   /** Add a chart to the slide */
   addChart: (
     chartType: PptxChartName,
     data: PptxChartData[],
     options?: PptxChartOptions,
   ) => PptxSlide;
-
   /** Add a table to the slide */
   addTable: (rows: PptxTableRow[], options?: PptxTableOptions) => PptxSlide;
-
   /** Add speaker notes to the slide */
   addNotes: (notes: string) => PptxSlide;
 };
@@ -1478,20 +1212,223 @@ export type PptxSlide = {
 export type PptxPresentation = {
   /** Add a new slide to the presentation */
   addSlide: () => PptxSlide;
-
   /** Define a custom layout */
   defineLayout: (layout: {
     name: string;
     width: number;
     height: number;
   }) => void;
-
   /** Current layout name */
   layout: string;
-
+  /** Presentation title metadata */
+  title?: string;
+  /** Presentation subject metadata */
+  subject?: string;
+  /** Presentation author metadata */
+  author?: string;
+  /** Presentation company metadata */
+  company?: string;
   /** Write presentation to file */
   writeFile: (options: { fileName: string }) => Promise<string>;
-
   /** Write presentation to buffer/stream */
   write: (options: { outputType: string }) => Promise<unknown>;
+};
+
+/**
+ * Prompt tier levels
+ */
+export type PromptTier = "basic" | "advanced";
+
+/**
+ * Model info for prompt tier detection.
+ * Both name and provider are required.
+ */
+export type PPTModelInfo = {
+  name: string;
+  provider: string;
+};
+
+/** Options for buildContentPlanningPrompt */
+export type BuildContentPlanningPromptOptions = {
+  topic: string;
+  pages: number;
+  audience: string;
+  tone: string;
+  theme: string;
+  generateAIImages: boolean;
+  modelInfo: PPTModelInfo;
+};
+
+/**
+ * Result from getEffectivePPTProvider
+ */
+export type EffectivePPTProviderResult = {
+  /** The provider to use for PPT generation */
+  provider: unknown;
+  /** Provider name */
+  providerName: string;
+  /** Model name */
+  modelName: string;
+  /** Whether auto-selection was performed */
+  wasAutoSelected: boolean;
+};
+
+/**
+ * Result of image buffer validation
+ */
+export type ImageValidationResult = {
+  isValid: boolean;
+  mimeType: string;
+  format: string;
+  error?: string;
+};
+
+/**
+ * Text segment with optional formatting
+ */
+export type TextSegment = {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+};
+
+/**
+ * Background style options
+ */
+export type BackgroundStyle =
+  | "gradient-blue" // Blue to purple gradient
+  | "gradient-corporate" // Dark blue to teal gradient
+  | "gradient-warm" // Orange to pink gradient
+  | "gradient-dark" // Dark with accent glow
+  | "gradient-subtle" // Very subtle gradient
+  | "geometric" // Geometric shapes pattern
+  | "corner-accent" // Large corner accent shapes
+  | "wave" // Curved wave pattern
+  | "split" // Split diagonal background
+  | "solid"; // Simple solid color
+
+/** Theme colors extracted for background rendering */
+export type BackgroundColors = {
+  primary: string;
+  secondary: string;
+  accent: string;
+  background: string;
+};
+
+/** Options for renderContentSlide */
+export type RenderContentSlideOptions = {
+  slide: PptxSlide;
+  title: string;
+  content: SlideContent;
+  layout: SlideLayout;
+  theme: PresentationTheme;
+  imageBuffer?: Buffer;
+  slideType?: SlideType;
+};
+
+/**
+ * Column data structure for generic column rendering
+ */
+export type ColumnData = {
+  title?: string;
+  bullets?: BulletPoint[];
+  image?: string;
+};
+
+/**
+ * Grid position for zones
+ */
+export type GridPosition = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+/**
+ * Logo position options for slides
+ */
+export type LogoPosition =
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right"
+  | "title-only";
+
+/**
+ * Logo configuration options
+ */
+export type LogoConfig = {
+  /** Logo data - Buffer, base64 string, data URI, or file path */
+  data: Buffer | string;
+  /** Position on slides (default: "bottom-right") */
+  position?: LogoPosition;
+  /** Width in inches (default: 1) */
+  width?: number;
+  /** Height in inches (default: 0.4) */
+  height?: number;
+  /** Show on all slides or specific types (default: "all-slides") */
+  showOn?: "all-slides" | "title-only" | "title-and-closing";
+};
+
+/**
+ * Configuration for slide generation
+ */
+export type SlideGeneratorConfig = {
+  /** Theme name or custom theme */
+  theme: string | PresentationTheme;
+  /** Whether to generate AI images (user-provided images are always used) */
+  generateAIImages: boolean;
+  /** Aspect ratio for slides */
+  aspectRatio: AspectRatioOption;
+  /** Provider for image generation */
+  provider?: string;
+  /** Model for image generation */
+  imageModel?: string;
+  /** Logo configuration */
+  logo?: Buffer | string | LogoConfig;
+  /** User-provided images for slides (takes priority over AI generation) */
+  userImages?: (Buffer | string)[];
+  /** NeuroLink instance for image generation */
+  neurolink?: NeuroLink;
+};
+
+/**
+ * Result from generating a batch of slides
+ */
+export type SlideGenerationBatchResult = {
+  slides: CompleteSlide[];
+  totalImages: number;
+  failedImages: number;
+  generationTime: number;
+};
+
+/**
+ * Options for presentation generation
+ */
+export type PresentationGenerationOptions = {
+  /** PPT generation context (validated) */
+  context: PPTGenerationContext;
+  /** AI provider for content planning */
+  provider: AIProvider;
+  /** Provider name (for result reporting) */
+  providerName: string;
+  /** Model name (for result reporting) */
+  modelName: string;
+  /** NeuroLink instance for image generation */
+  neurolink?: NeuroLink;
+  /** Provider name for image generation */
+  imageProvider?: string;
+  /** Model for image generation */
+  imageModel?: string;
+};
+
+/**
+ * Internal orchestration state
+ */
+export type OrchestrationState = {
+  startTime: number;
+  contentPlan: ContentPlan | null;
+  slides: CompleteSlide[] | null;
+  outputPath: string | null;
 };

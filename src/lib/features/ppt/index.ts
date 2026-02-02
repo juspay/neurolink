@@ -11,7 +11,7 @@
  * - orchestrator.ts: Main orchestration logic (Step 4)
  */
 
-// Types
+// Types - only types actually used in the PPT module
 export type {
   SlideType,
   SlideLayout,
@@ -19,54 +19,71 @@ export type {
   SlideContent,
   SlideSchema,
   ContentPlan,
-  // Data types for slides
-  TableCell,
+  // Data types for slides (used in slideRenderers.ts)
   TableRow,
-  ChartDataPoint,
   ChartSeries,
   Statistic,
   TimelineItem,
   ProcessStep,
-  TeamMember,
   FeatureItem,
   ComparisonColumn,
   // Theme types
-  ThemeColors,
-  ThemeFonts,
   PresentationTheme,
   PPTGenerationContext,
   CompleteSlide,
-  // pptxgenjs-compatible types
-  PositionValue,
-  PositionProps,
-  ShadowProps,
-  HyperlinkProps,
-  ShapeFillProps,
-  ShapeLineProps,
-  TextUnderlineProps,
-  TextFormatOptions,
-  BulletOptions,
-  ImageSizingOptions,
-  ImageProps,
-  PptxChartType,
-  ChartOptions,
-  TableBorderOptions,
-  TableOptions,
-  ShapeProps,
-  SlideNumberProps,
 } from "./types.js";
 
 export {
   PPTError,
   PPT_ERROR_CODES,
-  extractPPTContext,
   // Validation helpers from pptTypes
-  MIN_SLIDES,
-  MAX_SLIDES,
   SLIDE_DIMENSIONS,
-  isValidHexColor,
-  normalizeHexColor,
 } from "./types.js";
+
+export { extractPPTContext } from "./utils.js";
+
+// Slide Renderers
+export {
+  renderColumnSlide,
+  renderTwoColumnSlide,
+  renderThreeColumnSlide,
+  renderComparisonSlide,
+  renderContentSlide,
+  renderTitleSlide,
+  addTitle,
+  addBullets,
+  addIndividualBullets,
+  addImage,
+  addEnhancedBackground,
+  addColoredBackground,
+  LAYOUT_POSITIONS,
+  // Composite/Dashboard slide renderers
+  renderDashboardSlide,
+  renderMixedContentSlide,
+  renderStatsGridSlide,
+  renderIconGridSlide,
+  COMPOSITE_LAYOUTS,
+} from "./slideRenderers.js";
+
+// Re-export types from the types module (not from implementation files)
+export type {
+  BackgroundStyle,
+  SlideGeneratorConfig,
+  SlideGenerationBatchResult,
+  LogoConfig,
+  PresentationGenerationOptions,
+} from "./types.js";
+
+// Slide Type Inference
+export {
+  inferFromTitle,
+  inferBulletStyleFromContent,
+  getBulletStyleForSlideType,
+  normalizeSlideWithInference,
+  applyBulletStyleToContent,
+  SLIDE_TYPE_GUIDANCE,
+  getSlideTypeGuidanceForAI,
+} from "./slideTypeInference.js";
 
 // Constants
 export {
@@ -115,8 +132,33 @@ export {
   createSlideGenerator,
   generateSlidesFromPlan,
   PptxGenJS,
-  type SlideGeneratorConfig,
-  type SlideGenerationBatchResult,
-  type LogoConfig,
-  type LogoPosition,
 } from "./slideGenerator.js";
+// Presentation Orchestrator (Stage 4)
+export { generatePresentation } from "./presentationOrchestrator.js";
+
+// Validation (re-export from parameterValidation for convenience)
+export {
+  validatePPTGenerationInput,
+  validatePPTOutputOptions,
+  validatePPTProvider,
+} from "../../utils/parameterValidation.js";
+
+// Re-export EnhancedValidationResult for PPT validation results
+export type { EnhancedValidationResult as PPTValidationResult } from "../../types/tools.js";
+
+// PPT Provider Utilities and Helper Functions
+export {
+  PPT_VALID_PROVIDERS,
+  getEffectivePPTProvider,
+  generateOutputPath,
+  ensureOutputDirectory,
+  normalizeLogoConfig,
+  getLayoutName,
+  getFailureStage,
+  toError,
+  isObject,
+  isLogoConfig,
+} from "./utils.js";
+
+// Re-export EffectivePPTProviderResult type from types
+export type { EffectivePPTProviderResult } from "./types.js";

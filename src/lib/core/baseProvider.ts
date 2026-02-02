@@ -11,6 +11,7 @@ import type {
   TextGenerationResult,
   EnhancedGenerateResult,
   AnalyticsData,
+  GenerateOptions,
 } from "../types/index.js";
 import { AIProviderName } from "../constants/enums.js";
 import type { EvaluationData } from "../index.js";
@@ -520,8 +521,15 @@ export abstract class BaseProvider implements AIProvider {
     try {
       // ===== VIDEO GENERATION MODE =====
       // Generate video from image + prompt using Veo 3.1
-      if (options.output?.mode === "video") {
+      if (options.output?.mode === "video" || options.output?.video) {
         return await this.handleVideoGeneration(options, startTime);
+      }
+
+      // ===== PPT GENERATION MODE =====
+      // Generate PowerPoint presentation from topic using AI content planning
+      // Triggered by mode="ppt" OR presence of ppt config block
+      if (options.output?.mode === "ppt" || options.output?.ppt) {
+        return await this.handlePPTGeneration(options, startTime);
       }
 
       // ===== IMAGE GENERATION MODE =====
@@ -1048,8 +1056,9 @@ export abstract class BaseProvider implements AIProvider {
   ): Promise<EnhancedGenerateResult> {
     const responseTime = Date.now() - startTime;
 
-    // CRITICAL FIX: Store imageOutput separately to ensure it's preserved
     const imageOutput = result.imageOutput;
+    const ppt = result.ppt;
+    const video = result.video;
 
     let enhancedResult = { ...result };
 
@@ -1060,8 +1069,14 @@ export abstract class BaseProvider implements AIProvider {
           responseTime,
           options,
         );
-        // Preserve ALL fields including imageOutput when adding analytics
-        enhancedResult = { ...enhancedResult, analytics, imageOutput };
+        // Preserve ALL fields when adding analytics
+        enhancedResult = {
+          ...enhancedResult,
+          analytics,
+          imageOutput,
+          ppt,
+          video,
+        };
       } catch (error) {
         logger.warn(
           `Analytics creation failed for ${this.providerName}:`,
@@ -1073,8 +1088,14 @@ export abstract class BaseProvider implements AIProvider {
     if (options.enableEvaluation) {
       try {
         const evaluation = await this.createEvaluation(result, options);
-        // Preserve ALL fields including imageOutput when adding evaluation
-        enhancedResult = { ...enhancedResult, evaluation, imageOutput };
+        // Preserve ALL fields when adding evaluation
+        enhancedResult = {
+          ...enhancedResult,
+          evaluation,
+          imageOutput,
+          ppt,
+          video,
+        };
       } catch (error) {
         logger.warn(
           `Evaluation creation failed for ${this.providerName}:`,
@@ -1083,9 +1104,14 @@ export abstract class BaseProvider implements AIProvider {
       }
     }
 
-    // CRITICAL FIX: Always restore imageOutput if it existed in the original result
     if (imageOutput) {
       enhancedResult.imageOutput = imageOutput;
+    }
+    if (ppt) {
+      enhancedResult.ppt = ppt;
+    }
+    if (video) {
+      enhancedResult.video = video;
     }
 
     return enhancedResult;
@@ -1289,6 +1315,146 @@ export abstract class BaseProvider implements AIProvider {
     };
 
     return await this.enhanceResult(baseResult, options, startTime);
+  }
+
+  /**
+   * Handle PPT generation mode
+   *
+   * Generates a complete PowerPoint presentation using AI content planning
+   * and slide generation. This method orchestrates:
+   * 1. Input validation
+   * 2. Content planning via AI
+   * 3. Individual slide generation (with optional images)
+   * 4. PPTX assembly and file output
+   *
+   * @param options - Text generation options with PPT config
+   * @param startTime - Generation start timestamp for metrics
+   * @returns Enhanced result with PPT data
+   *
+   * @example
+   * ```typescript
+   * const result = await provider.generate({
+   *   input: { text: "Introducing Our New Product" },
+   *   output: { mode: "ppt", ppt: { pages: 10, theme: "modern" } }
+   * });
+   * // result.ppt contains the generated presentation info
+   * ```
+   */
+  private async handlePPTGeneration(
+    options: TextGenerationOptions,
+    startTime: number,
+  ): Promise<EnhancedGenerateResult> {
+    // Dynamic imports to avoid loading PPT dependencies unless needed
+    const { generatePresentation } = await import(
+      "../features/ppt/presentationOrchestrator.js"
+    );
+    const { PPT_GENERATION_TIMEOUT_MS } = await import(
+      "../features/ppt/constants.js"
+    );
+    const { validatePPTGenerationInput } = await import(
+      "../utils/parameterValidation.js"
+    );
+    const { ErrorFactory, withTimeout } = await import(
+      "../utils/errorHandling.js"
+    );
+    const { extractPPTContext, getEffectivePPTProvider } = await import(
+      "../features/ppt/utils.js"
+    );
+
+    // Get effective PPT provider (handles validation and auto-selection)
+    const effective = await getEffectivePPTProvider(
+      this,
+      this.providerName,
+      this.modelName,
+      this.neurolink,
+    );
+
+    // Build input from prompt or input.text (preserve images for logo)
+    const inputText = options.input?.text || options.prompt || "";
+    const generateOptions: GenerateOptions = {
+      input: {
+        text: inputText,
+        images: options.input?.images, // Pass through images for logo
+      },
+      output: options.output,
+      provider: effective.providerName,
+      model: options.model,
+    };
+
+    // Validate PPT generation input
+    const validation = validatePPTGenerationInput(generateOptions);
+
+    if (!validation.isValid) {
+      const errorMessages = validation.errors.map((e) => e.message).join("; ");
+      throw ErrorFactory.invalidParameters(
+        "ppt-generation",
+        new Error(errorMessages),
+        { errors: validation.errors },
+      );
+    }
+
+    // Log warnings
+    for (const warning of validation.warnings) {
+      logger.warn(`PPT generation warning: ${warning}`);
+    }
+
+    // Extract context with all PPT options (including images for logo)
+    const context = extractPPTContext({
+      input: {
+        text: inputText,
+        images: options.input?.images, // Pass through images for logo
+      },
+      output: generateOptions.output,
+      provider: effective.providerName,
+      model: effective.modelName,
+    });
+
+    logger.info("Starting PPT generation", {
+      provider: effective.providerName,
+      model: effective.modelName,
+      topic: context.topic.substring(0, 100),
+      pages: context.pages,
+      theme: context.theme,
+      generateAIImages: context.generateAIImages,
+    });
+
+    // Generate presentation using orchestrator (with timeout)
+    const pptResult = await withTimeout(
+      generatePresentation({
+        context,
+        provider: effective.provider as AIProvider,
+        providerName: effective.providerName,
+        modelName: effective.modelName,
+        neurolink: this.neurolink,
+        imageProvider: effective.providerName,
+        imageModel: effective.modelName,
+      }),
+      PPT_GENERATION_TIMEOUT_MS,
+      ErrorFactory.toolTimeout("pptGeneration", PPT_GENERATION_TIMEOUT_MS),
+    );
+
+    logger.info("PPT generation complete", {
+      filePath: pptResult.filePath,
+      totalSlides: pptResult.totalSlides,
+      processingTime: Date.now() - startTime,
+    });
+
+    // Ensure we always have model name - fallback to this provider's modelName or default
+    const finalModelName =
+      effective.modelName || this.modelName || this.getDefaultModel();
+
+    // Build result
+    return await this.enhanceResult(
+      {
+        content: context.topic,
+        provider: effective.providerName,
+        model: finalModelName,
+        usage: { input: 0, output: 0, total: 0 },
+        ppt: pptResult,
+      },
+      options,
+      startTime,
+    );
   }
 
   /**
