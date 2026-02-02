@@ -819,23 +819,37 @@ async function convertContentToProviderFormat(
 ): Promise<unknown> {
   const textContent = content.find((c) => c.type === "text");
   const imageContent = content.filter((c) => c.type === "image");
+  const pdfContent = content.filter((c) => c.type === "pdf");
 
-  if (!textContent) {
-    throw new Error(
-      "Multimodal content must include at least one text element",
-    );
+  // Allow empty text when multimodal content is present (enables image-only or PDF-only queries)
+  const text = textContent?.text || "";
+  const hasMultimodal = imageContent.length > 0 || pdfContent.length > 0;
+
+  // Validate that we have at least some content
+  if (!hasMultimodal && !text) {
+    throw new Error("Content must include either text or multimodal content");
   }
 
-  if (imageContent.length === 0) {
-    return textContent.text;
+  // Text-only case
+  if (imageContent.length === 0 && pdfContent.length === 0) {
+    return text;
   }
 
   // Extract images as Buffer | string array
   const images = imageContent.map((img) => img.data);
 
-  return await convertSimpleImagesToProviderFormat(
-    textContent.text,
+  // Extract PDFs in the expected format
+  const pdfFiles = pdfContent.map((pdf) => ({
+    buffer:
+      typeof pdf.data === "string" ? Buffer.from(pdf.data, "base64") : pdf.data,
+    filename: pdf.metadata?.filename || "document.pdf",
+    pageCount: pdf.metadata?.pages ?? null,
+  }));
+
+  return await convertMultimodalToProviderFormat(
+    text,
     images,
+    pdfFiles,
     provider,
     _model,
   );
