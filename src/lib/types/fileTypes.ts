@@ -128,6 +128,11 @@ export type PDFProcessorOptions = {
   model?: string;
   maxSizeMB?: number;
   bedrockApiMode?: "converse" | "invokeModel";
+  /**
+   * Whether to enforce page limits by throwing an error (default: true)
+   * Set to false to bypass limit enforcement (logs warning instead)
+   */
+  enforceLimits?: boolean;
 };
 
 /**

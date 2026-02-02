@@ -15,6 +15,7 @@ import type {
 } from "../types/fileTypes.js";
 import { PDF_LIMITS } from "../core/constants.js";
 import { logger } from "./logger.js";
+import { ErrorFactory } from "./errorHandling.js";
 
 /**
  * Provider configurations for PDF handling
@@ -201,10 +202,21 @@ export class PDFProcessor {
     const metadata = this.extractBasicMetadata(content);
 
     if (metadata.estimatedPages && metadata.estimatedPages > config.maxPages) {
-      logger.warn(
-        `[PDF] PDF appears to have ${metadata.estimatedPages}+ pages. ` +
-          `${provider} supports up to ${config.maxPages} pages.`,
-      );
+      const enforceLimits = options?.enforceLimits !== false;
+
+      if (enforceLimits) {
+        throw ErrorFactory.pdfPageLimitExceeded(
+          metadata.estimatedPages,
+          config.maxPages,
+          provider,
+        );
+      } else {
+        logger.warn(
+          `[PDF] ⚠️ LIMIT BYPASS: Processing ${metadata.estimatedPages}-page PDF despite ${config.maxPages}-page limit for ${provider}. ` +
+            `This may cause API rejection, token errors, or unexpected costs. ` +
+            `Consider splitting the PDF or using a different provider.`,
+        );
+      }
     }
 
     if (provider === "bedrock" && options?.bedrockApiMode === "converse") {

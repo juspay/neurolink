@@ -49,6 +49,9 @@ export const ERROR_CODES = {
   IMAGE_TOO_SMALL: "IMAGE_TOO_SMALL",
   INVALID_IMAGE_FORMAT: "INVALID_IMAGE_FORMAT",
 
+  // PDF validation errors
+  PDF_PAGE_LIMIT_EXCEEDED: "PDF_PAGE_LIMIT_EXCEEDED",
+
   // Rate limiter errors
   RATE_LIMITER_QUEUE_FULL: "RATE_LIMITER_QUEUE_FULL",
   RATE_LIMITER_QUEUE_TIMEOUT: "RATE_LIMITER_QUEUE_TIMEOUT",
@@ -488,6 +491,44 @@ export class ErrorFactory {
           "Or as file path string: './image.jpg'",
           "Or as URL: 'https://example.com/image.jpg'",
         ],
+      },
+    });
+  }
+
+  // ============================================================================
+  // PDF VALIDATION ERRORS
+  // ============================================================================
+
+  /**
+   * Create a PDF page limit exceeded error
+   */
+  static pdfPageLimitExceeded(
+    estimatedPages: number,
+    maxPages: number,
+    provider: string,
+  ): NeuroLinkError {
+    const alternatives = [
+      `Split the PDF into smaller files (max ${maxPages} pages each)`,
+      "Extract only the pages you need using a PDF editor",
+      "For large files, consider Google AI Studio which supports up to 2000MB file size (though page limits still apply)",
+      "Convert specific pages to images manually before processing",
+      "Bypass this limit with { enforceLimits: false } (not recommended - may cause API errors or unexpected costs)",
+    ];
+
+    return new NeuroLinkError({
+      code: ERROR_CODES.PDF_PAGE_LIMIT_EXCEEDED,
+      message:
+        `PDF page limit exceeded: ${estimatedPages} pages detected, but ${provider} supports maximum ${maxPages} pages.\n\n` +
+        `Alternatives:\n` +
+        alternatives.map((alt, i) => `${i + 1}. ${alt}`).join("\n"),
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        estimatedPages,
+        maxPages,
+        provider,
+        alternatives,
       },
     });
   }
