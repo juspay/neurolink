@@ -35,12 +35,35 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q1 2026)
 
-| Feature                            | Version | Description                                                                                                                                    | Guide                                                   |
-| ---------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| **Image Generation with Gemini**   | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI. | [Image Generation Guide](image-generation-streaming.md) |
-| **HTTP/Streamable HTTP Transport** | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.  | [HTTP Transport Guide](mcp-http-transport.md)           |
+| Feature                            | Version | Description                                                                                                                                          | Guide                                                                            |
+| ---------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Workflow Engine**                | v8.42.0 | Multi-model orchestration with consensus, multi-judge, fallback, and adaptive workflows. Ensemble execution with intelligent scoring and evaluation. | [Workflow HLD](WORKFLOW-ENGINE-HLD.md) \| [Workflow LLD](WORKFLOW-ENGINE-LLD.md) |
+| **Docusaurus Documentation**       | v8.41.0 | Migrated from MkDocs to Docusaurus v3 with enhanced search, versioning, and modern UI. Automated doc syncing and LLM-friendly documentation.         | [Documentation Site](https://docs.neurolink.ink)                                 |
+| **Image Generation with Gemini**   | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.       | [Image Generation Guide](image-generation-streaming.md)                          |
+| **HTTP/Streamable HTTP Transport** | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.        | [HTTP Transport Guide](mcp-http-transport.md)                                    |
 
 ```typescript
+// Multi-Model Workflow Engine (v8.42.0)
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// Run a consensus workflow with multiple models
+const result = await neurolink.runConsensusWorkflow({
+  prompt: "Explain quantum computing",
+  models: [
+    { provider: "anthropic", modelId: "claude-3-5-sonnet-20241022" },
+    { provider: "openai", modelId: "gpt-4" },
+    { provider: "google-ai", modelId: "gemini-2.0-flash-exp" },
+  ],
+  judgeModel: { provider: "anthropic", modelId: "claude-3-5-sonnet-20241022" },
+  options: { temperature: 0.7 },
+});
+
+console.log(result.response); // Best response selected by judge
+console.log(result.score); // Quality score (0-100)
+console.log(result.metrics); // Detailed performance metrics
+
 // Image Generation with Gemini (v8.31.0)
 const image = await neurolink.generateImage({
   prompt: "A futuristic cityscape",
@@ -152,14 +175,14 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 **6 Core Tools** (work across all providers, zero configuration):
 
-| Tool                 | Purpose                  | Auto-Available          | Documentation                                        |
-| -------------------- | ------------------------ | ----------------------- | ---------------------------------------------------- |
-| `getCurrentTime`     | Real-time clock access   | ✅                      | [Tool Reference](sdk/custom-tools.md#getCurrentTime) |
-| `readFile`           | File system reading      | ✅                      | [Tool Reference](sdk/custom-tools.md#readFile)       |
-| `writeFile`          | File system writing      | ✅                      | [Tool Reference](sdk/custom-tools.md#writeFile)      |
-| `listDirectory`      | Directory listing        | ✅                      | [Tool Reference](sdk/custom-tools.md#listDirectory)  |
-| `calculateMath`      | Mathematical operations  | ✅                      | [Tool Reference](sdk/custom-tools.md#calculateMath)  |
-| `websearchGrounding` | Google Vertex web search | ⚠️ Requires credentials | [Tool Reference](sdk/custom-tools.md#websearch)      |
+| Tool                 | Purpose                  | Auto-Available          | Documentation                         |
+| -------------------- | ------------------------ | ----------------------- | ------------------------------------- |
+| `getCurrentTime`     | Real-time clock access   | ✅                      | [Tool Reference](sdk/custom-tools.md) |
+| `readFile`           | File system reading      | ✅                      | [Tool Reference](sdk/custom-tools.md) |
+| `writeFile`          | File system writing      | ✅                      | [Tool Reference](sdk/custom-tools.md) |
+| `listDirectory`      | Directory listing        | ✅                      | [Tool Reference](sdk/custom-tools.md) |
+| `calculateMath`      | Mathematical operations  | ✅                      | [Tool Reference](sdk/custom-tools.md) |
+| `websearchGrounding` | Google Vertex web search | ⚠️ Requires credentials | [Tool Reference](sdk/custom-tools.md) |
 
 **58+ External MCP Servers** supported (GitHub, PostgreSQL, Google Drive, Slack, and more):
 

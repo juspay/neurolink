@@ -229,3 +229,21 @@ export type {
 export * from "./ttsTypes.js";
 // Utilities Types - Utility module types (selective export to avoid conflicts)
 export * from "./utilities.js";
+
+// Middleware Types - Middleware system types
+export * from "./middlewareTypes.js";
+
+// File detection and processing types
+export * from "./fileTypes.js";
+
+// Content types for multimodal support (includes multimodal re-exports for backward compatibility)
+export * from "./content.js";
+
+// TTS (Text-to-Speech) types
+export * from "./ttsTypes.js";
+
+// HITL (Human-in-the-Loop) types
+export * from "./hitlTypes.js";
+
+// Workflow types
+export * from "./workflowTypes.js";

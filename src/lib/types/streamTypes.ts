@@ -406,6 +406,10 @@ export type StreamOptions = {
   // NEW: Middleware related config
   middleware?: MiddlewareFactoryOptions;
 
+  // Workflow engine integration
+  workflow?: string; // Use predefined workflow ID
+  workflowConfig?: import("../workflow/types.js").WorkflowConfig; // Or inline workflow config
+
   enableSummarization?: boolean; // Enable/disable summarization for this specific request
 
   /**
@@ -438,7 +442,9 @@ export type StreamResult = {
     | { content: string }
     | { type: "audio"; audio: AudioChunk }
     | { type: "image"; imageOutput: { base64: string } }
-  >; // text chunks, audio events, or image output
+    | { content: string; type?: "preliminary" | "final" }
+    | { type: "audio"; audio: AudioChunk }
+  >; // text chunks (with optional workflow stage) or audio events
 
   // Provider information
   provider?: string;
@@ -466,6 +472,7 @@ export type StreamResult = {
     totalChunks?: number;
     estimatedDuration?: number;
     responseTime?: number;
+    preliminaryTime?: number; // Time to first (preliminary) response
     fallback?: boolean;
     // Enhanced with tool metadata
     totalToolExecutions?: number;
@@ -489,6 +496,34 @@ export type StreamResult = {
     timestamp: number;
     [key: string]: unknown;
   }>;
+
+  // Workflow engine integration data
+  workflow?: {
+    originalResponse: string; // Raw best response before processing
+    processedResponse: string; // After conditioning (currently same as original)
+    ensembleResponses: Array<{
+      provider: string;
+      model: string;
+      content: string;
+      responseTime: number;
+      status: "success" | "failure" | "timeout" | "partial";
+      error?: string;
+    }>;
+    judgeScores?: {
+      scores: Record<string, number>; // 0-100 scale
+      reasoning?: string;
+      selectedModel: string;
+    };
+    selectedModel: string; // Which model was chosen as best
+    metrics: {
+      totalTime: number;
+      ensembleTime: number;
+      judgeTime?: number;
+      conditioningTime?: number;
+    };
+    workflowId: string;
+    workflowName: string;
+  };
 };
 
 /**

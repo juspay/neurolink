@@ -28,8 +28,9 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build && pnpm run prepack",
-    "build:cli": "echo 'Building CLI...' && svelte-kit sync && tsc --project tsconfig.cli.json && pnpm link --global",
+    "build:cli": "echo 'Building CLI...' && svelte-kit sync && tsc --project tsconfig.cli.json",
     "build:action": "ncc build src/action/index.ts -o action-dist --source-map",
+    "build:cli:link": "pnpm run build:cli && pnpm link --global",
     "cli": "node dist/cli/index.js",
     "preview": "vite preview",
     "prepare": "git rev-parse --git-dir > /dev/null 2>&1 && husky install || echo 'Skipping husky in non-git environment'",

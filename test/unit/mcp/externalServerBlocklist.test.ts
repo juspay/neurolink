@@ -632,6 +632,7 @@ describe("ExternalServerManager - Tool Blocklist", () => {
           duration: 100,
           serverId: "test-server",
         }),
+        destroy: vi.fn(),
       };
       // Add destroy method so shutdown() works in afterEach
       mockToolDiscovery.destroy = vi.fn();

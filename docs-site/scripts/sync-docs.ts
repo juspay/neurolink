@@ -1223,7 +1223,8 @@ function transformLinkPath(linkPath: string): string {
   }
 
   // No mapping found, return with /docs/ prefix and clean up .md extension
-  return "/docs/" + pathWithoutExt;
+  // Lowercase the path to match Docusaurus URL generation
+  return "/docs/" + pathWithoutExt.toLowerCase();
 }
 
 /**

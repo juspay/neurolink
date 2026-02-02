@@ -178,14 +178,14 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 **6 Core Tools** (work across all providers, zero configuration):
 
-| Tool                 | Purpose                  | Auto-Available          | Documentation                                             |
-| -------------------- | ------------------------ | ----------------------- | --------------------------------------------------------- |
-| `getCurrentTime`     | Real-time clock access   | ✅                      | [Tool Reference](docs/sdk/custom-tools.md#getCurrentTime) |
-| `readFile`           | File system reading      | ✅                      | [Tool Reference](docs/sdk/custom-tools.md#readFile)       |
-| `writeFile`          | File system writing      | ✅                      | [Tool Reference](docs/sdk/custom-tools.md#writeFile)      |
-| `listDirectory`      | Directory listing        | ✅                      | [Tool Reference](docs/sdk/custom-tools.md#listDirectory)  |
-| `calculateMath`      | Mathematical operations  | ✅                      | [Tool Reference](docs/sdk/custom-tools.md#calculateMath)  |
-| `websearchGrounding` | Google Vertex web search | ⚠️ Requires credentials | [Tool Reference](docs/sdk/custom-tools.md#websearch)      |
+| Tool                 | Purpose                  | Auto-Available          | Documentation                              |
+| -------------------- | ------------------------ | ----------------------- | ------------------------------------------ |
+| `getCurrentTime`     | Real-time clock access   | ✅                      | [Tool Reference](docs/sdk/custom-tools.md) |
+| `readFile`           | File system reading      | ✅                      | [Tool Reference](docs/sdk/custom-tools.md) |
+| `writeFile`          | File system writing      | ✅                      | [Tool Reference](docs/sdk/custom-tools.md) |
+| `listDirectory`      | Directory listing        | ✅                      | [Tool Reference](docs/sdk/custom-tools.md) |
+| `calculateMath`      | Mathematical operations  | ✅                      | [Tool Reference](docs/sdk/custom-tools.md) |
+| `websearchGrounding` | Google Vertex web search | ⚠️ Requires credentials | [Tool Reference](docs/sdk/custom-tools.md) |
 
 **58+ External MCP Servers** supported (GitHub, PostgreSQL, Google Drive, Slack, and more):
 

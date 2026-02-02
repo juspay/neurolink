@@ -2,7 +2,7 @@
 
 > Enterprise AI Development Platform - Unified provider access, MCP integration, professional CLI
 
-Generated: 2026-02-02T15:12:46.394Z
+Generated: 2026-02-08T20:46:14.402Z
 Full documentation: https://docs.neurolink.ink/llms-full.txt
 
 ---
@@ -104,6 +104,7 @@ NeuroLink is an enterprise AI development platform that provides:
 - Redis Conversation History Export
 - CSV File Support
 - Enterprise Human-in-the-Loop System
+- File Processors Guide
 - Guardrails AI Integration with Middleware
 - Guardrails Implementation Guide
 - Guardrails Middleware
@@ -113,9 +114,11 @@ NeuroLink is an enterprise AI development platform that provides:
 - MCP Tools Ecosystem - 58+ Integrations
 - Multimodal Chat Experiences
 - Multimodal Capabilities Guide
+- Observability Guide
 - Office Documents Support
 - PDF File Support
 - Provider Orchestration Brain
+- RAG Document Processing Guide
 - Real-time Services Guide
 - Regional Streaming Controls
 - Speech-to-Speech Agents: Architecture and Gemini Live Integration Plan
@@ -800,7 +803,7 @@ npm install @juspay/neurolink
 
 Comprehensive guides for all NeuroLink features organized by category. Each guide includes setup, usage patterns, configuration, and troubleshooting.
 
------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 
 
 [Content truncated - see llms-full.txt for complete documentation]
@@ -920,6 +923,26 @@ are not yet implemented and represent the target API design for future releases.
 
     **Currently Available:** Basic HITL with `dangerousActions`, `timeout`, `autoApproveOnTimeout`,
     `allowArgumentModification`, and `auditLogging`.
+
+[Content truncated - see llms-full.txt for complete documentation]
+
+---
+
+## File Processors Guide
+
+<!-- Source: features/file-processors.md -->
+
+# File Processors Guide
+
+NeuroLink includes a comprehensive file processing system that supports 17+ file types with intelligent content extraction, security sanitization, and provider-agnostic formatting. This system enables seamless multimodal AI interactions across all 13 supported providers.
+
+## Overview
+
+The file processor system consists of **52 TypeScript files** organized into a modular architecture:
+
+```
+src/lib/processors/
+
 
 [Content truncated - see llms-full.txt for complete documentation]
 
@@ -1094,6 +1117,26 @@ NeuroLink provides comprehensive multimodal support, allowing you to combine tex
 
 ---
 
+## Observability Guide
+
+<!-- Source: features/observability.md -->
+
+# Observability Guide
+
+Enterprise-grade observability for AI operations with Langfuse and OpenTelemetry integration.
+
+## Overview
+
+NeuroLink provides comprehensive observability features for monitoring AI operations in production:
+
+- **Langfuse Integration**: LLM-specific observability with token tracking, cost analysis, and trace visualization
+- **OpenTelemetry Support**: Standard distributed tracing compatible with Jaeger, Zipkin, and other backends
+
+
+[Content truncated - see llms-full.txt for complete documentation]
+
+---
+
 ## Office Documents Support
 
 <!-- Source: features/office-documents.md -->
@@ -1141,6 +1184,26 @@ The orchestration engine introduced in 7.42.0 pairs a task classifier with a pro
 ## Highlights
 
 - **Binary task classifier** – categorises prompts (analysis vs. creative, etc.) before routing.
+
+
+[Content truncated - see llms-full.txt for complete documentation]
+
+---
+
+## RAG Document Processing Guide
+
+<!-- Source: features/rag.md -->
+
+# RAG Document Processing Guide
+
+> **Since**: v8.44.0 | **Status**: Stable | **Availability**: SDK + CLI
+
+> **Provider Defaults:** When `--provider` (CLI) or `provider` (SDK) is not specified, NeuroLink defaults to **Vertex AI** with **gemini-2.5-flash**. Set the `NEUROLINK_PROVIDER` or `AI_PROVIDER` environment variable to change the default provider.
+
+## Overview
+
+NeuroLink provides enterprise-grade RAG (Retrieval-Augmented Generation) capabilities for building production AI applications:
+
 
 
 [Content truncated - see llms-full.txt for complete documentation]

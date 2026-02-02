@@ -16,6 +16,12 @@ try {
 }
 
 import { EventEmitter } from "events";
+import type {
+  TextGenerationOptions,
+  TextGenerationResult,
+  AnalyticsData,
+} from "./types/index.js";
+import { isNonNullObject } from "./utils/typeUtils.js";
 import type { MemoryClient } from "mem0ai";
 import pLimit from "p-limit";
 import type { AIProviderName } from "./constants/enums.js";
@@ -74,11 +80,8 @@ import type {
   HITLConfig,
 } from "./types/hitlTypes.js";
 import type {
-  AnalyticsData,
   EvaluationData,
   ProviderStatus,
-  TextGenerationOptions,
-  TextGenerationResult,
   TokenUsage,
 } from "./types/index.js";
 import type {
@@ -149,7 +152,11 @@ import {
   transformToolsToDescriptions,
   transformToolsToExpectedFormat,
 } from "./utils/transformationUtils.js";
-import { isNonNullObject } from "./utils/typeUtils.js";
+import type { WorkflowConfig } from "./workflow/types.js";
+import { runWorkflow } from "./workflow/core/workflowRunner.js";
+import { getWorkflow } from "./workflow/core/workflowRegistry.js";
+
+// Core types imported from core/types.js
 
 /**
  * NeuroLink - Universal AI Development Platform
@@ -1606,9 +1613,23 @@ Current user's request: ${currentInput}`;
   private _extractOriginalPrompt(
     optionsOrPrompt: GenerateOptions | string,
   ): string {
-    return typeof optionsOrPrompt === "string"
-      ? optionsOrPrompt
-      : optionsOrPrompt.input.text;
+    if (typeof optionsOrPrompt === "string") {
+      return optionsOrPrompt;
+    }
+
+    // Handle messages format (for workflow compatibility)
+    const anyOptions = optionsOrPrompt as {
+      messages?: Array<{ content: string | unknown }>;
+    };
+    if (anyOptions.messages && anyOptions.messages.length > 0) {
+      const lastMessage = anyOptions.messages[anyOptions.messages.length - 1];
+      return typeof lastMessage.content === "string"
+        ? lastMessage.content
+        : JSON.stringify(lastMessage.content);
+    }
+
+    // Handle input.text format
+    return optionsOrPrompt.input?.text || "";
   }
 
   /**
@@ -1851,6 +1872,11 @@ Current user's request: ${currentInput}`;
     // Validate prompt
     if (!options.input?.text || typeof options.input.text !== "string") {
       throw new Error("Input text is required and must be a non-empty string");
+    }
+
+    // Check if workflow is requested
+    if (options.workflow || options.workflowConfig) {
+      return await this.generateWithWorkflow(options);
     }
 
     // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
@@ -2140,6 +2166,296 @@ Current user's request: ${currentInput}`;
 
       return generateResult;
     });
+  }
+
+  /**
+   * Generate with workflow engine integration
+   * Returns both original and processed responses for AB testing
+   */
+  private async generateWithWorkflow(
+    options: GenerateOptions,
+  ): Promise<GenerateResult> {
+    const workflowStartTime = Date.now();
+
+    logger.debug("[NeuroLink] Executing workflow generation", {
+      workflowId: options.workflow,
+      hasInlineConfig: !!options.workflowConfig,
+      prompt: options.input.text.substring(0, 100),
+      startTime: workflowStartTime,
+    });
+
+    // Determine workflow configuration
+    let workflowConfig: WorkflowConfig | undefined;
+
+    if (options.workflowConfig) {
+      // Use inline config
+      workflowConfig = options.workflowConfig;
+    } else if (options.workflow) {
+      // Look up predefined workflow
+      workflowConfig = getWorkflow(options.workflow);
+      if (!workflowConfig) {
+        throw new Error(`Workflow '${options.workflow}' not found in registry`);
+      }
+    } else {
+      throw new Error("Either workflow or workflowConfig must be provided");
+    }
+
+    // Execute workflow
+    const workflowResult = await runWorkflow(workflowConfig, {
+      prompt: options.input.text,
+      conversationHistory: options.conversationHistory as
+        | Array<{ role: "user" | "assistant"; content: string }>
+        | undefined,
+      timeout: options.timeout as number | undefined,
+      verbose: false,
+      metadata: options.context as Record<string, JsonValue> | undefined,
+    });
+
+    // Build GenerateResult with workflow data
+    const generateResult: GenerateResult = {
+      // Primary output (backward compatible) - use the original best response
+      content: workflowResult.content,
+
+      // Provider info from selected response
+      provider:
+        workflowResult.selectedResponse?.provider ||
+        workflowConfig.models[0]?.provider,
+      model:
+        workflowResult.selectedResponse?.model ||
+        workflowConfig.models[0]?.model,
+
+      // Basic usage info
+      usage: workflowResult.usage
+        ? {
+            input: workflowResult.usage.totalInputTokens,
+            output: workflowResult.usage.totalOutputTokens,
+            total: workflowResult.usage.totalTokens,
+          }
+        : undefined,
+
+      // Performance
+      responseTime: workflowResult.totalTime,
+
+      // Workflow-specific data
+      workflow: {
+        originalResponse:
+          workflowResult.originalContent || workflowResult.content, // Original unmodified best response
+        processedResponse: workflowResult.content, // After conditioning (with metadata)
+        ensembleResponses: workflowResult.ensembleResponses.map((r) => ({
+          provider: r.provider,
+          model: r.model,
+          content: r.content,
+          responseTime: r.responseTime,
+          status: r.status,
+          error: r.error,
+        })),
+        judgeScores: workflowResult.judgeScores
+          ? {
+              scores: workflowResult.judgeScores.scores,
+              reasoning: workflowResult.reasoning,
+              selectedModel: `${workflowResult.selectedResponse?.provider}-${workflowResult.selectedResponse?.model}`,
+            }
+          : undefined,
+        selectedModel: `${workflowResult.selectedResponse?.provider}-${workflowResult.selectedResponse?.model}`,
+        metrics: {
+          totalTime: workflowResult.totalTime,
+          ensembleTime: workflowResult.ensembleTime,
+          judgeTime: workflowResult.judgeTime,
+          conditioningTime: workflowResult.conditioningTime,
+        },
+        workflowId: workflowResult.workflow,
+        workflowName: workflowResult.workflowName,
+      },
+    };
+
+    logger.debug("[NeuroLink] Workflow generation complete", {
+      workflowId: workflowResult.workflow,
+      selectedModel: generateResult.workflow?.selectedModel,
+      score: workflowResult.score,
+      totalTime: workflowResult.totalTime,
+    });
+
+    return generateResult;
+  }
+
+  /**
+   * Stream with workflow engine integration
+   * Progressive streaming: yields preliminary response (first model) then final synthesis
+   */
+  private async streamWithWorkflow(
+    options: StreamOptions,
+    startTime: number,
+  ): Promise<StreamResult> {
+    logger.debug("[NeuroLink] Executing workflow streaming (progressive)", {
+      workflowId: options.workflow,
+      hasInlineConfig: !!options.workflowConfig,
+      prompt: options.input.text.substring(0, 100),
+    });
+
+    // Determine workflow configuration
+    let workflowConfig: WorkflowConfig | undefined;
+
+    if (options.workflowConfig) {
+      workflowConfig = options.workflowConfig;
+    } else if (options.workflow) {
+      workflowConfig = getWorkflow(options.workflow);
+      if (!workflowConfig) {
+        throw new Error(`Workflow '${options.workflow}' not found in registry`);
+      }
+    } else {
+      throw new Error("Either workflow or workflowConfig must be provided");
+    }
+
+    // Import streaming workflow runner
+    const { runWorkflowWithStreaming } = await import(
+      "./workflow/core/workflowRunner.js"
+    );
+
+    // Execute workflow with progressive streaming
+    const workflowStream = runWorkflowWithStreaming(workflowConfig, {
+      prompt: options.input.text,
+      conversationHistory: options.conversationHistory as
+        | Array<{ role: "user" | "assistant"; content: string }>
+        | undefined,
+      timeout: options.timeout as number | undefined,
+      verbose: false,
+      metadata: options.context as Record<string, JsonValue> | undefined,
+      streaming: true,
+    });
+
+    // Store final result for metadata
+    let finalResult: Partial<
+      import("./workflow/types.js").WorkflowResult
+    > | null = null;
+    let preliminaryTime = 0;
+
+    // Create a generator that yields progressive chunks
+    const stream = (async function* (): AsyncGenerator<
+      { content: string; type: "preliminary" | "final" },
+      void,
+      undefined
+    > {
+      for await (const chunk of workflowStream) {
+        if (chunk.type === "preliminary") {
+          preliminaryTime = Date.now() - startTime;
+          logger.debug("[NeuroLink] Streaming preliminary response", {
+            responseTime: preliminaryTime,
+            contentLength: chunk.content.length,
+          });
+          yield {
+            content: chunk.content,
+            type: "preliminary" as const,
+          };
+        } else if (chunk.type === "final") {
+          finalResult = chunk.partialResult ?? null;
+          const finalTime = Date.now() - startTime;
+          logger.debug("[NeuroLink] Streaming final synthesis", {
+            responseTime: finalTime,
+            contentLength: chunk.content.length,
+          });
+          yield {
+            content: chunk.content,
+            type: "final" as const,
+          };
+        }
+      }
+    })();
+
+    const streamResult: StreamResult = {
+      stream,
+
+      // Provider info (will be from final result)
+      provider: workflowConfig.models[0]?.provider,
+      model: workflowConfig.models[0]?.model,
+
+      // Metadata
+      metadata: {
+        streamId: `workflow-${workflowConfig.id}-${Date.now()}`,
+        startTime,
+        responseTime: 0, // Will be updated after stream completes
+      },
+
+      // Note: Workflow data will be populated after stream completes
+      // For now, return placeholder that will be updated via stream metadata
+    };
+
+    // Wrap stream to capture final result and populate metadata
+    const originalStream = streamResult.stream;
+    streamResult.stream = (async function* () {
+      for await (const chunk of originalStream) {
+        yield chunk;
+      }
+
+      // After stream completes, update result with final workflow data
+      if (finalResult) {
+        const result = finalResult as Partial<
+          import("./workflow/types.js").WorkflowResult
+        >;
+        const responseTime = Date.now() - startTime;
+
+        // Update usage if available
+        if (result.usage) {
+          streamResult.usage = {
+            input: result.usage.totalInputTokens,
+            output: result.usage.totalOutputTokens,
+            total: result.usage.totalTokens,
+          };
+        }
+
+        // Update metadata
+        streamResult.metadata = {
+          ...streamResult.metadata,
+          totalChunks: 2, // Preliminary + final
+          responseTime,
+          preliminaryTime,
+        };
+
+        // Build workflow data with proper type safety
+        const ensembleResponses =
+          result.ensembleResponses?.map((r) => ({
+            provider: r.provider,
+            model: r.model,
+            content: r.content,
+            responseTime: r.responseTime,
+            status: r.status,
+            error: r.error,
+          })) ?? [];
+
+        const judgeScores = result.judgeScores
+          ? {
+              scores: result.judgeScores.scores,
+              reasoning: result.reasoning ?? "",
+              selectedModel: result.selectedResponse
+                ? `${result.selectedResponse.provider}-${result.selectedResponse.model}`
+                : "unknown",
+            }
+          : undefined;
+
+        streamResult.workflow = {
+          originalResponse: result.originalContent ?? result.content ?? "",
+          processedResponse: result.content ?? "",
+          ensembleResponses,
+          judgeScores,
+          selectedModel: result.selectedResponse
+            ? `${result.selectedResponse.provider}-${result.selectedResponse.model}`
+            : "unknown",
+          metrics: {
+            totalTime: result.totalTime ?? responseTime,
+            ensembleTime: result.ensembleTime ?? 0,
+            judgeTime: result.judgeTime,
+            conditioningTime: result.conditioningTime,
+          },
+          workflowId: result.workflow ?? workflowConfig.id,
+          workflowName: result.workflowName ?? workflowConfig.name,
+        };
+      }
+    })();
+
+    logger.debug("[NeuroLink] Workflow streaming initialized", {
+      workflowId: workflowConfig.id,
+    });
+
+    return streamResult;
   }
 
   /**
@@ -2921,6 +3237,11 @@ Current user's request: ${currentInput}`;
 
     await this.validateStreamInput(options);
     this.emitStreamStartEvents(options, startTime);
+
+    // Check if workflow is requested
+    if (options.workflow || options.workflowConfig) {
+      return await this.streamWithWorkflow(options, startTime);
+    }
 
     // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
     return await this.setLangfuseContextFromOptions(options, async () => {

@@ -285,6 +285,10 @@ export type GenerateOptions = {
     fallbackToGenerate?: boolean;
   };
 
+  // Workflow engine integration
+  workflow?: string; // Use predefined workflow ID
+  workflowConfig?: import("../workflow/types.js").WorkflowConfig; // Or inline workflow config
+
   /**
    * RAG (Retrieval-Augmented Generation) configuration.
    *
@@ -452,6 +456,34 @@ export type GenerateResult = {
     streamingDuration?: number;
     streamId?: string;
     bufferOptimization?: boolean;
+  };
+
+  // Workflow engine integration data
+  workflow?: {
+    originalResponse: string; // Raw best response before processing
+    processedResponse: string; // After conditioning (currently same as original)
+    ensembleResponses: Array<{
+      provider: string;
+      model: string;
+      content: string;
+      responseTime: number;
+      status: "success" | "failure" | "timeout" | "partial";
+      error?: string;
+    }>;
+    judgeScores?: {
+      scores: Record<string, number>; // 0-100 scale
+      reasoning?: string;
+      selectedModel: string;
+    };
+    selectedModel: string; // Which model was chosen as best
+    metrics: {
+      totalTime: number;
+      ensembleTime: number;
+      judgeTime?: number;
+      conditioningTime?: number;
+    };
+    workflowId: string;
+    workflowName: string;
   };
 };
 

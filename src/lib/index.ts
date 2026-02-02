@@ -451,6 +451,105 @@ export async function generateText(
 }
 
 // ============================================================================
+// WORKFLOW ENGINE - Multi-Model Orchestration with Judge Scoring
+// ============================================================================
+
+/**
+ * Workflow Engine for multi-model ensembles with judge-based evaluation
+ *
+ * Enables sophisticated AI orchestration patterns:
+ * - Ensemble execution (parallel multi-model)
+ * - Chain execution (sequential fallback)
+ * - Adaptive execution (tier-based quality/cost optimization)
+ * - Multi-judge voting for consensus
+ *
+ * @example
+ * ```typescript
+ * import { neurolink, CONSENSUS_3_WORKFLOW } from '@juspay/neurolink';
+ *
+ * // Use workflow via generate() with workflowConfig option
+ * const result = await neurolink.generate({
+ *   input: { text: 'Explain quantum computing' },
+ *   workflowConfig: CONSENSUS_3_WORKFLOW,
+ * });
+ *
+ * console.log('Best response:', result.content);
+ * console.log('Selected model:', result.workflow?.selectedModel);
+ * console.log('Total time:', result.workflow?.metrics?.totalTime);
+ * ```
+ */
+
+// Core workflow types
+export type {
+  WorkflowConfig,
+  WorkflowResult,
+  ModelConfig,
+  JudgeConfig,
+  ModelGroup,
+  EnsembleResponse,
+  JudgeScores,
+  MultiJudgeScores,
+  WorkflowType,
+  ExecutionStrategy,
+  WorkflowValidationResult,
+} from "./workflow/types.js";
+
+// Workflow execution
+export { runWorkflow } from "./workflow/core/workflowRunner.js";
+export type { RunWorkflowOptions } from "./workflow/core/workflowRunner.js";
+
+// Workflow registry
+export {
+  registerWorkflow,
+  getWorkflow,
+  listWorkflows,
+  clearRegistry as clearWorkflowRegistry,
+} from "./workflow/core/workflowRegistry.js";
+
+// Pre-built workflows - Consensus
+export {
+  CONSENSUS_3_WORKFLOW,
+  CONSENSUS_3_FAST_WORKFLOW,
+  createConsensus3WithPrompt,
+} from "./workflow/workflows/consensusWorkflow.js";
+
+// Pre-built workflows - Fallback
+export {
+  FAST_FALLBACK_WORKFLOW,
+  AGGRESSIVE_FALLBACK_WORKFLOW,
+} from "./workflow/workflows/fallbackWorkflow.js";
+
+// Pre-built workflows - Multi-judge
+export {
+  MULTI_JUDGE_5_WORKFLOW,
+  MULTI_JUDGE_3_WORKFLOW,
+  createMultiJudgeWorkflow,
+} from "./workflow/workflows/multiJudgeWorkflow.js";
+
+// Pre-built workflows - Adaptive
+export {
+  QUALITY_MAX_WORKFLOW,
+  SPEED_FIRST_WORKFLOW,
+  BALANCED_ADAPTIVE_WORKFLOW,
+  createAdaptiveWorkflow,
+} from "./workflow/workflows/adaptiveWorkflow.js";
+
+// Validation and metrics
+export { validateWorkflow } from "./workflow/utils/workflowValidation.js";
+
+export {
+  calculateModelMetrics,
+  compareWorkflows,
+  generateSummaryStats,
+} from "./workflow/utils/workflowMetrics.js";
+
+// Workflow constants
+export {
+  WORKFLOW_ENGINE_VERSION,
+  DEFAULT_SCORE_SCALE,
+} from "./workflow/index.js";
+
+// ============================================================================
 // SERVER ADAPTERS - HTTP API Framework Integration
 // ============================================================================
 

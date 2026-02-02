@@ -81,6 +81,8 @@ class NeuroLinkBuildValidator {
       
       for (const file of srcFiles) {
         if (file.includes('logger.ts')) continue;
+        // Skip CLI command files - console.log is appropriate for CLI output
+        if (file.includes('src/cli/commands/') || file.includes('src\\cli\\commands\\')) continue;
         
         const fullPath = path.join(this.rootDir, file);
         if (!fs.existsSync(fullPath)) continue;
