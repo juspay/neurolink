@@ -70,6 +70,8 @@ export type {
   ObservabilityConfig,
   LangfuseConfig,
   OpenTelemetryConfig,
+  LangfuseSpanAttributes,
+  TraceNameFormat,
 } from "./types/observability.js";
 
 export { buildObservabilityConfigFromEnv } from "./utils/observabilityHelpers.js";
@@ -80,6 +82,16 @@ import {
   flushOpenTelemetry,
   getLangfuseHealthStatus,
   setLangfuseContext,
+  getLangfuseSpanProcessor,
+  getTracerProvider,
+  isOpenTelemetryInitialized,
+  // NEW EXPORTS - External TracerProvider Support
+  getSpanProcessors,
+  createContextEnricher,
+  isUsingExternalTracerProvider,
+  // Enhanced context and tracing
+  getLangfuseContext,
+  getTracer,
 } from "./services/server/ai/observability/instrumentation.js";
 import {
   initializeTelemetry as init,
@@ -92,6 +104,16 @@ export {
   flushOpenTelemetry,
   getLangfuseHealthStatus,
   setLangfuseContext,
+  getLangfuseSpanProcessor,
+  getTracerProvider,
+  isOpenTelemetryInitialized,
+  // NEW EXPORTS - External TracerProvider Support
+  getSpanProcessors,
+  createContextEnricher,
+  isUsingExternalTracerProvider,
+  // Enhanced context and tracing
+  getLangfuseContext,
+  getTracer,
 };
 
 // Middleware exports

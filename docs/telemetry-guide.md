@@ -18,6 +18,133 @@ NeuroLink includes optional OpenTelemetry integration for enterprise monitoring 
 
 ---
 
+## 🎯 Langfuse Integration
+
+NeuroLink provides native integration with [Langfuse](https://langfuse.com/) for LLM-specific observability.
+
+### Quick Setup
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  observability: {
+    langfuse: {
+      enabled: true,
+      publicKey: process.env.LANGFUSE_PUBLIC_KEY!,
+      secretKey: process.env.LANGFUSE_SECRET_KEY!,
+      baseUrl: "https://cloud.langfuse.com", // or self-hosted URL
+      environment: "production",
+      release: "1.0.0",
+    },
+  },
+});
+```
+
+### Context Enrichment
+
+Add user, session, and custom metadata to your traces:
+
+```typescript
+import { setLangfuseContext, getLangfuseContext } from "@juspay/neurolink";
+
+// Set context with all available fields
+await setLangfuseContext({
+  userId: "user-123",
+  sessionId: "session-456",
+  conversationId: "conv-789",
+  requestId: "req-abc",
+  traceName: "customer-support-chat",
+  metadata: {
+    feature: "support",
+    tier: "premium",
+    region: "us-east-1",
+  },
+});
+
+// Read current context
+const context = getLangfuseContext();
+console.log(context?.conversationId);
+```
+
+### Custom Spans
+
+Create your own spans for detailed tracing:
+
+```typescript
+import { getTracer, setLangfuseContext } from "@juspay/neurolink";
+
+const tracer = getTracer("my-app");
+
+await setLangfuseContext({ userId: "user-123" }, async () => {
+  const span = tracer.startSpan("process-request");
+  try {
+    const result = await neurolink.generate({ prompt: "Hello" });
+    span.setAttribute("tokens.total", result.usage?.totalTokens);
+    return result;
+  } finally {
+    span.end();
+  }
+});
+```
+
+### External TracerProvider Mode
+
+If your application already has OpenTelemetry instrumentation, use external provider mode:
+
+```typescript
+import { NeuroLink, getSpanProcessors } from "@juspay/neurolink";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+
+// Initialize NeuroLink without creating its own TracerProvider
+const neurolink = new NeuroLink({
+  observability: {
+    langfuse: {
+      enabled: true,
+      publicKey: process.env.LANGFUSE_PUBLIC_KEY!,
+      secretKey: process.env.LANGFUSE_SECRET_KEY!,
+      useExternalTracerProvider: true, // Don't create TracerProvider
+    },
+  },
+});
+
+// Create your existing exporter wrapped in BatchSpanProcessor
+const exporter = new OTLPTraceExporter({
+  url: "http://localhost:4318/v1/traces",
+});
+
+// Add NeuroLink's processors to your existing OTEL setup
+const sdk = new NodeSDK({
+  spanProcessors: [
+    new BatchSpanProcessor(exporter),
+    ...getSpanProcessors(), // [ContextEnricher, LangfuseSpanProcessor]
+  ],
+});
+sdk.start();
+```
+
+### Vercel AI SDK Integration
+
+NeuroLink automatically captures GenAI semantic convention attributes from Vercel AI SDK:
+
+```typescript
+import { generateText } from "ai";
+import { setLangfuseContext } from "@juspay/neurolink";
+
+await setLangfuseContext({ userId: "user-123" }, async () => {
+  const result = await generateText({
+    model: openai("gpt-4"),
+    prompt: "Hello",
+    experimental_telemetry: { isEnabled: true },
+  });
+  // Token usage and model info automatically captured
+});
+```
+
+---
+
 ## 🔧 Basic Setup
 
 ### Environment Configuration

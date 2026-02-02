@@ -171,6 +171,8 @@ export class TelemetryHandler {
         isEnabled: boolean;
         functionId?: string;
         metadata?: Record<string, string | number | boolean>;
+        recordInputs?: boolean;
+        recordOutputs?: boolean;
       }
     | undefined {
     // Check if telemetry is enabled via NeuroLink observability config
@@ -209,6 +211,8 @@ export class TelemetryHandler {
       isEnabled: true,
       functionId,
       metadata,
+      recordInputs: true,
+      recordOutputs: true,
     };
   }
 

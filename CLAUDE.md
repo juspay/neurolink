@@ -448,6 +448,165 @@ neurolink generate "Complex task" --thinking-level high
 
 Note: When `thinkingLevel` is enabled, some providers may have limitations (see Important Constraints).
 
+### External TracerProvider Support
+
+NeuroLink supports integration with applications that have existing OpenTelemetry instrumentation:
+
+**Configuration Options:**
+
+- `useExternalTracerProvider: true` - Skip TracerProvider creation/registration
+- `autoDetectExternalProvider: true` - Auto-detect existing provider
+
+**Exports for External Provider Integration:**
+
+- `getSpanProcessors()` - Returns [ContextEnricher, LangfuseSpanProcessor]
+- `createContextEnricher()` - Factory for ContextEnricher
+- `isUsingExternalTracerProvider()` - Check if in external mode
+
+**Context Management Exports:**
+
+- `setLangfuseContext<T>(context, callback?)` - Set context with extended fields, returns callback result
+- `getLangfuseContext()` - Read current context from AsyncLocalStorage
+- `getTracer(name?, version?)` - Get OpenTelemetry Tracer for custom spans
+
+**Extended Context Fields:**
+
+- `userId`, `sessionId` - User and session identification
+- `conversationId` - Group related traces by conversation/thread
+- `requestId` - Correlate with application logs
+- `traceName` - Custom trace names in Langfuse UI
+- `metadata` - Custom key-value metadata on spans
+
+**Type Exports:**
+
+- `LangfuseSpanAttributes` - GenAI semantic convention attributes from Vercel AI SDK
+
+**Use Case:** When your application already initializes OpenTelemetry (e.g., for HTTP/DB tracing to Jaeger), enable external mode to avoid "duplicate registration" errors.
+
+**Example - External Provider Mode:**
+
+```typescript
+import { NeuroLink, getSpanProcessors } from "@juspay/neurolink";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+
+// Initialize NeuroLink with external provider mode
+const neurolink = new NeuroLink({
+  observability: {
+    langfuse: {
+      enabled: true,
+      publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+      secretKey: process.env.LANGFUSE_SECRET_KEY,
+      useExternalTracerProvider: true,
+    },
+  },
+});
+
+// Add NeuroLink's processors to your existing OTEL setup
+import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+
+const sdk = new NodeSDK({
+  spanProcessors: [
+    new BatchSpanProcessor(yourExistingExporter),
+    ...getSpanProcessors(),
+  ],
+});
+```
+
+**Example - Enhanced Context with Callback:**
+
+```typescript
+import {
+  setLangfuseContext,
+  getLangfuseContext,
+  getTracer,
+} from "@juspay/neurolink";
+
+// Set context and get result from callback
+const result = await setLangfuseContext(
+  {
+    userId: "user-123",
+    sessionId: "session-456",
+    conversationId: "conv-789",
+    requestId: "req-abc",
+    traceName: "chat-completion",
+    metadata: { feature: "customer-support", tier: "premium" },
+  },
+  async () => {
+    return await neurolink.generate({ prompt: "Hello" });
+  },
+);
+
+// Read current context
+const context = getLangfuseContext();
+console.log(context?.userId, context?.conversationId);
+
+// Create custom spans
+const tracer = getTracer("my-app");
+const span = tracer.startSpan("custom-operation");
+try {
+  // ... do work
+} finally {
+  span.end();
+}
+```
+
+### Operation Name Support
+
+NeuroLink automatically detects and includes operation names in trace naming for better observability in Langfuse.
+
+**Auto-detection:**
+
+- Automatically detects operation names from Vercel AI SDK spans (`ai.streamText`, `ai.generateText`, etc.)
+- Falls back to `unknown` if no operation can be detected
+
+**Trace Name Format:**
+
+- Default format: `userId:operationName` (e.g., `user@email.com:ai.streamText`)
+- When userId is not set: uses just the operation name
+- Customizable via `traceNameFormat` function
+
+**Configuration Options:**
+
+- `autoDetectOperationName: boolean` (default: `true`) - Enable/disable automatic operation detection from spans
+- `traceNameFormat: TraceNameFormat` - Custom function to format trace names
+- `operationName` in context - Explicit operation name override (takes precedence over auto-detection)
+
+**Example - Custom Trace Name Format:**
+
+```typescript
+import { NeuroLink, setLangfuseContext } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  observability: {
+    langfuse: {
+      enabled: true,
+      publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+      secretKey: process.env.LANGFUSE_SECRET_KEY,
+      autoDetectOperationName: true, // default
+      traceNameFormat: (context) => {
+        // Custom format: "op/streamText/user@email.com"
+        return `op/${context.operationName}/${context.userId || "anonymous"}`;
+      },
+    },
+  },
+});
+
+// Explicit operation name override in context
+await setLangfuseContext(
+  {
+    userId: "user@email.com",
+    operationName: "customer-support-chat", // overrides auto-detected operation
+  },
+  async () => {
+    return await neurolink.stream({ prompt: "Hello" });
+  },
+);
+```
+
+**Wrapper Span Support:**
+
+When host apps create wrapper spans before AI operations, auto-detection in `onStart()` fails because the AI span does not exist yet. NeuroLink handles this automatically by detecting operations from child spans and updating the trace name in `onEnd()` of the wrapper span. No code changes required.
+
 ### Memory Management
 
 - Redis for distributed memory (production)

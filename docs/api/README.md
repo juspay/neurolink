@@ -1,8 +1,8 @@
-**NeuroLink API Reference v8.32.0**
+**NeuroLink API Reference v8.42.0**
 
 ---
 
-# NeuroLink API Reference v8.32.0
+# NeuroLink API Reference v8.42.0
 
 NeuroLink AI Toolkit
 
@@ -88,6 +88,8 @@ console.log(result.content);
 - [DynamicModelConfig](type-aliases/DynamicModelConfig.md)
 - [ModelRegistry](type-aliases/ModelRegistry.md)
 - [LangfuseConfig](type-aliases/LangfuseConfig.md)
+- [LangfuseSpanAttributes](type-aliases/LangfuseSpanAttributes.md)
+- [TraceNameFormat](type-aliases/TraceNameFormat.md)
 - [OpenTelemetryConfig](type-aliases/OpenTelemetryConfig.md)
 - [ObservabilityConfig](type-aliases/ObservabilityConfig.md)
 - [SupportedModelName](type-aliases/SupportedModelName.md)
@@ -146,6 +148,13 @@ console.log(result.content);
 - [shutdownOpenTelemetry](functions/shutdownOpenTelemetry.md)
 - [getLangfuseHealthStatus](functions/getLangfuseHealthStatus.md)
 - [setLangfuseContext](functions/setLangfuseContext.md)
+- [getLangfuseContext](functions/getLangfuseContext.md)
+- [getTracer](functions/getTracer.md)
+- [getSpanProcessors](functions/getSpanProcessors.md)
+- [createContextEnricher](functions/createContextEnricher.md)
+- [isUsingExternalTracerProvider](functions/isUsingExternalTracerProvider.md)
+- [getTracerProvider](functions/getTracerProvider.md)
+- [getLangfuseSpanProcessor](functions/getLangfuseSpanProcessor.md)
 - [buildObservabilityConfigFromEnv](functions/buildObservabilityConfigFromEnv.md)
 - [getBestProvider](functions/getBestProvider.md)
 - [getAvailableProviders](functions/getAvailableProviders.md)

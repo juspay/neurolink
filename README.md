@@ -35,30 +35,32 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q1 2026)
 
-| Feature                            | Version | Description                                                                                                                                    | Guide                                                         |
-| ---------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| **Server Adapters**                | v8.41.0 | Multi-framework HTTP server with Hono, Express, Fastify, Koa support. Full CLI for server management with foreground/background modes.         | [Server Adapters Guide](docs/guides/server-adapters/index.md) |
-| **Title Generation Events**        | v8.38.0 | Emit `conversation:titleGenerated` event when conversation title is generated. Supports custom title prompts via `NEUROLINK_TITLE_PROMPT`.     | [Conversation Memory Guide](docs/conversation-memory.md)      |
-| **Video Generation with Veo**      | v8.32.0 | Video generation using Veo 3.1 (`veo-3.1`). Realistic video generation with many parameter options                                             | [Video Generation Guide](docs/features/video-generation.md)   |
-| **Image Generation with Gemini**   | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI. | [Image Generation Guide](docs/image-generation-streaming.md)  |
-| **HTTP/Streamable HTTP Transport** | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.  | [HTTP Transport Guide](docs/mcp-http-transport.md)            |
+| Feature                             | Version | Description                                                                                                                                    | Guide                                                         |
+| ----------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| **External TracerProvider Support** | v8.43.0 | Integrate NeuroLink with existing OpenTelemetry instrumentation. Prevents duplicate registration conflicts.                                    | [Observability Guide](docs/features/observability.md)         |
+| **Server Adapters**                 | v8.43.0 | Multi-framework HTTP server with Hono, Express, Fastify, Koa support. Full CLI for server management with foreground/background modes.         | [Server Adapters Guide](docs/guides/server-adapters/index.md) |
+| **Title Generation Events**         | v8.38.0 | Emit `conversation:titleGenerated` event when conversation title is generated. Supports custom title prompts via `NEUROLINK_TITLE_PROMPT`.     | [Conversation Memory Guide](docs/conversation-memory.md)      |
+| **Video Generation with Veo**       | v8.32.0 | Video generation using Veo 3.1 (`veo-3.1`). Realistic video generation with many parameter options                                             | [Video Generation Guide](docs/features/video-generation.md)   |
+| **Image Generation with Gemini**    | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI. | [Image Generation Guide](docs/image-generation-streaming.md)  |
+| **HTTP/Streamable HTTP Transport**  | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.  | [HTTP Transport Guide](docs/mcp-http-transport.md)            |
 
+- **External TracerProvider Support** – Integrate NeuroLink with applications that already have OpenTelemetry instrumentation. Supports auto-detection and manual configuration. → [Observability Guide](docs/features/observability.md)
 - **Server Adapters** – Deploy NeuroLink as an HTTP API server with your framework of choice (Hono, Express, Fastify, Koa). Full CLI support with `serve` and `server` commands for foreground/background modes, route management, and OpenAPI generation. → [Server Adapters Guide](docs/guides/server-adapters/index.md)
 - **Title Generation Events** – Emit real-time events when conversation titles are auto-generated. Listen to `conversation:titleGenerated` for session tracking. → [Conversation Memory Guide](docs/conversation-memory.md#title-generation-events)
 - **Custom Title Prompts** – Customize conversation title generation with `NEUROLINK_TITLE_PROMPT` environment variable. Use `${userMessage}` placeholder for dynamic prompts. → [Conversation Memory Guide](docs/conversation-memory.md#customizing-the-title-prompt)
 - **Video Generation** – Transform images into 8-second videos with synchronized audio using Google Veo 3.1 via Vertex AI. Supports 720p/1080p resolutions, portrait/landscape aspect ratios. → [Video Generation Guide](docs/features/video-generation.md)
-- **Image Generation** – Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio. Supports streaming mode with automatic file saving. → [Image Generation Guide](docs/IMAGE-GENERATION-STREAMING.md)
-- **HTTP/Streamable HTTP Transport for MCP** – Connect to remote MCP servers via HTTP with authentication headers, retry logic, and rate limiting. → [HTTP Transport Guide](docs/MCP-HTTP-TRANSPORT.md)
+- **Image Generation** – Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio. Supports streaming mode with automatic file saving. → [Image Generation Guide](docs/image-generation-streaming.md)
+- **HTTP/Streamable HTTP Transport for MCP** – Connect to remote MCP servers via HTTP with authentication headers, retry logic, and rate limiting. → [HTTP Transport Guide](docs/mcp-http-transport.md)
 - 🧠 **Gemini 3 Preview Support** - Full support for gemini-3-flash-preview and gemini-3-pro-preview with extended thinking capabilities
 - **Structured Output with Zod Schemas** – Type-safe JSON generation with automatic validation using `schema` + `output.format: "json"` in `generate()`. → [Structured Output Guide](docs/features/structured-output.md)
 - **CSV File Support** – Attach CSV files to prompts for AI-powered data analysis with auto-detection. → [CSV Guide](docs/features/multimodal-chat.md#csv-file-support)
 - **PDF File Support** – Process PDF documents with native visual analysis for Vertex AI, Anthropic, Bedrock, AI Studio. → [PDF Guide](docs/features/pdf-support.md)
-- **LiteLLM Integration** – Access 100+ AI models from all major providers through unified interface. → [Setup Guide](docs/LITELLM-INTEGRATION.md)
-- **SageMaker Integration** – Deploy and use custom trained models on AWS infrastructure. → [Setup Guide](docs/SAGEMAKER-INTEGRATION.md)
+- **LiteLLM Integration** – Access 100+ AI models from all major providers through unified interface. → [Setup Guide](docs/litellm-integration.md)
+- **SageMaker Integration** – Deploy and use custom trained models on AWS infrastructure. → [Setup Guide](docs/sagemaker-integration.md)
 - **OpenRouter Integration** – Access 300+ models from OpenAI, Anthropic, Google, Meta, and more through a single unified API. → [Setup Guide](docs/getting-started/providers/openrouter.md)
 - **Human-in-the-loop workflows** – Pause generation for user approval/input before tool execution. → [HITL Guide](docs/features/hitl.md)
 - **Guardrails middleware** – Block PII, profanity, and unsafe content with built-in filtering. → [Guardrails Guide](docs/features/guardrails.md)
-- **Context summarization** – Automatic conversation compression for long-running sessions. → [Summarization Guide](docs/CONTEXT-SUMMARIZATION.md)
+- **Context summarization** – Automatic conversation compression for long-running sessions. → [Summarization Guide](docs/context-summarization.md)
 - **Redis conversation export** – Export full session history as JSON for analytics and debugging. → [History Guide](docs/features/conversation-history.md)
 
 ```typescript

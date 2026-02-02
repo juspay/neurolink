@@ -140,6 +140,7 @@ import {
   flushOpenTelemetry,
   getLangfuseHealthStatus,
   setLangfuseContext,
+  isOpenTelemetryInitialized,
 } from "./services/server/ai/observability/instrumentation.js";
 import type { ObservabilityConfig } from "./types/observability.js";
 import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
@@ -929,7 +930,12 @@ Current user's request: ${currentInput}`;
     try {
       const langfuseConfig = this.observabilityConfig?.langfuse;
 
-      if (langfuseConfig?.enabled) {
+      // Check if we should use external provider mode - bypass enabled check
+      const useExternalProvider =
+        langfuseConfig?.autoDetectExternalProvider === true ||
+        langfuseConfig?.useExternalTracerProvider === true;
+
+      if (langfuseConfig?.enabled || useExternalProvider) {
         logger.debug(`[NeuroLink] 📊 LOG_POINT_C019_LANGFUSE_INIT_START`, {
           logPoint: "C019_LANGFUSE_INIT_START",
           constructorId,
@@ -1662,7 +1668,12 @@ Current user's request: ${currentInput}`;
    * Centralized utility to avoid duplication across providers
    */
   isTelemetryEnabled(): boolean {
-    return this.observabilityConfig?.langfuse?.enabled || false;
+    // Check if observability config enables telemetry
+    if (this.observabilityConfig?.langfuse?.enabled) {
+      return true;
+    }
+    // Check if OpenTelemetry was initialized (by this or external app)
+    return isOpenTelemetryInitialized();
   }
 
   /**
