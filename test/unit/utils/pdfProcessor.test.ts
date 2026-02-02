@@ -1,5 +1,218 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PDFProcessor } from "../../../src/lib/utils/pdfProcessor.js";
+import { logger } from "../../../src/lib/utils/logger.js";
+import { NeuroLinkError } from "../../../src/lib/utils/errorHandling.js";
+
+// Mock the logger
+vi.mock("../../../src/lib/utils/logger.js", () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+describe("PDFProcessor.process", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /**
+   * Helper to create a minimal valid PDF buffer with specified page count
+   * The extractBasicMetadata function counts `/Type /Page` occurrences (not `/Type /Pages`)
+   * so we need to include that many page object references
+   */
+  const createPdfWithPageCount = (pageCount: number): Buffer => {
+    // Build page objects - each /Type /Page entry counts as a page
+    let pageObjects = "";
+    for (let i = 0; i < pageCount; i++) {
+      pageObjects += `/Type /Page `;
+    }
+    const pdfContent =
+      `%PDF-1.4\n` +
+      `1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj ` +
+      `2 0 obj<</Type/Pages/Count ${pageCount}/Kids[]>>endobj ` +
+      `${pageObjects}\n` +
+      `xref\n0 3\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n` +
+      `trailer<</Size 3/Root 1 0 R>>\nstartxref\n150\n%%EOF`;
+    return Buffer.from(pdfContent);
+  };
+
+  describe("page limit enforcement", () => {
+    it("should succeed for PDF under page limit", async () => {
+      const pdfBuffer = createPdfWithPageCount(50);
+
+      const result = await PDFProcessor.process(pdfBuffer, {
+        provider: "openai",
+      });
+
+      expect(result.type).toBe("pdf");
+      expect(result.mimeType).toBe("application/pdf");
+      expect(logger.info).toHaveBeenCalledWith(
+        "[PDF] ✅ Validated PDF file",
+        expect.objectContaining({
+          provider: "openai",
+        }),
+      );
+    });
+
+    it("should succeed for PDF at exactly the page limit", async () => {
+      const pdfBuffer = createPdfWithPageCount(100);
+
+      const result = await PDFProcessor.process(pdfBuffer, {
+        provider: "openai",
+      });
+
+      expect(result.type).toBe("pdf");
+      expect(result.metadata?.estimatedPages).toBe(100);
+    });
+
+    it("should throw NeuroLinkError with correct error code for page limit exceeded", async () => {
+      const pdfBuffer = createPdfWithPageCount(150);
+
+      try {
+        await PDFProcessor.process(pdfBuffer, { provider: "openai" });
+        expect.fail("Should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(NeuroLinkError);
+        const neuroLinkError = error as NeuroLinkError;
+        expect(neuroLinkError.code).toBe("PDF_PAGE_LIMIT_EXCEEDED");
+        expect(neuroLinkError.context).toMatchObject({
+          estimatedPages: 150,
+          maxPages: 100,
+          provider: "openai",
+        });
+        expect(neuroLinkError.context.alternatives).toBeDefined();
+        expect(Array.isArray(neuroLinkError.context.alternatives)).toBe(true);
+      }
+    });
+
+    it("should throw error with correct page counts in message", async () => {
+      const pdfBuffer = createPdfWithPageCount(200);
+
+      await expect(
+        PDFProcessor.process(pdfBuffer, { provider: "anthropic" }),
+      ).rejects.toThrow(/200 pages detected.*maximum 100 pages/);
+    });
+
+    it("should include actionable alternatives in error message", async () => {
+      const pdfBuffer = createPdfWithPageCount(150);
+
+      try {
+        await PDFProcessor.process(pdfBuffer, { provider: "openai" });
+        expect.fail("Should have thrown an error");
+      } catch (error) {
+        const errorMessage = (error as Error).message;
+        expect(errorMessage).toContain("Alternatives:");
+        expect(errorMessage).toContain("Split the PDF into smaller files");
+        expect(errorMessage).toContain("Extract only the pages you need");
+        expect(errorMessage).toContain(
+          "Google AI Studio which supports up to 2000MB file size",
+        );
+        expect(errorMessage).toContain("page limits still apply");
+        expect(errorMessage).toContain("Convert specific pages to images");
+        expect(errorMessage).toContain("enforceLimits: false");
+      }
+    });
+
+    it("should not mislead about provider-specific page limits", async () => {
+      const pdfBuffer = createPdfWithPageCount(150);
+
+      try {
+        await PDFProcessor.process(pdfBuffer, { provider: "openai" });
+        expect.fail("Should have thrown an error");
+      } catch (error) {
+        const errorMessage = (error as Error).message;
+        // Should use generic suggestion, not claim specific providers have higher limits
+        expect(errorMessage).not.toContain("Google AI Studio supports");
+      }
+    });
+
+    it("should bypass limit with enforceLimits: false and continue processing", async () => {
+      const pdfBuffer = createPdfWithPageCount(150);
+
+      const result = await PDFProcessor.process(pdfBuffer, {
+        provider: "openai",
+        enforceLimits: false,
+      });
+
+      expect(result.type).toBe("pdf");
+      expect(result.mimeType).toBe("application/pdf");
+      expect(result.metadata?.estimatedPages).toBe(150);
+    });
+
+    it("should log prominent warning when bypassing limit", async () => {
+      const pdfBuffer = createPdfWithPageCount(200);
+
+      await PDFProcessor.process(pdfBuffer, {
+        provider: "anthropic",
+        enforceLimits: false,
+      });
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("LIMIT BYPASS"),
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("200-page PDF"),
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("100-page limit"),
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("anthropic"),
+      );
+    });
+
+    it("should warn about potential consequences when bypassing limit", async () => {
+      const pdfBuffer = createPdfWithPageCount(150);
+
+      await PDFProcessor.process(pdfBuffer, {
+        provider: "openai",
+        enforceLimits: false,
+      });
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("API rejection"),
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("unexpected costs"),
+      );
+    });
+
+    it("should enforce limits by default when enforceLimits is not specified", async () => {
+      const pdfBuffer = createPdfWithPageCount(150);
+
+      await expect(
+        PDFProcessor.process(pdfBuffer, { provider: "openai" }),
+      ).rejects.toThrow("PDF page limit exceeded");
+    });
+
+    it("should enforce limits when enforceLimits is explicitly true", async () => {
+      const pdfBuffer = createPdfWithPageCount(150);
+
+      await expect(
+        PDFProcessor.process(pdfBuffer, {
+          provider: "openai",
+          enforceLimits: true,
+        }),
+      ).rejects.toThrow("PDF page limit exceeded");
+    });
+
+    it("should respect different provider page limits", async () => {
+      const pdfBuffer = createPdfWithPageCount(150);
+
+      // All providers have 100 page limits, so this should throw for any
+      await expect(
+        PDFProcessor.process(pdfBuffer, { provider: "anthropic" }),
+      ).rejects.toThrow("PDF page limit exceeded");
+
+      await expect(
+        PDFProcessor.process(pdfBuffer, { provider: "google-vertex" }),
+      ).rejects.toThrow("PDF page limit exceeded");
+    });
+  });
+});
 
 describe("PDFProcessor.convertToImages", () => {
   describe("empty PDF validation", () => {
