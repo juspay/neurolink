@@ -1,3 +1,15 @@
+## [9.0.0](https://github.com/juspay/neurolink/compare/v8.43.0...v9.0.0) (2026-02-03)
+
+### ⚠ BREAKING CHANGES
+
+- **(observability):** @opentelemetry/api, @opentelemetry/sdk-trace-node, and
+  @opentelemetry/sdk-trace-base are now peerDependencies. Host applications
+  must install these packages directly.
+
+### Features
+
+- **(observability):** add external TracerProvider support with operation name auto-detection ([25e3230](https://github.com/juspay/neurolink/commit/25e32301269b45b493df17f94b7e38af2bd7ef36))
+
 ## [8.43.0](https://github.com/juspay/neurolink/compare/v8.42.0...v8.43.0) (2026-02-02)
 
 ### Features
