@@ -181,7 +181,7 @@
     "@google/generative-ai": "^0.24.1",
     "@huggingface/inference": "^2.8.1",
     "@langfuse/otel": "^4.2.0",
-    "@modelcontextprotocol/sdk": "^1.17.5",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@openrouter/ai-sdk-provider": "^0.7.5",
     "@opentelemetry/auto-instrumentations-node": "^0.56.0",
     "@opentelemetry/core": "^2.1.0",
