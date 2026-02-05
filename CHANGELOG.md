@@ -1,3 +1,9 @@
+## [9.1.1](https://github.com/juspay/neurolink/compare/v9.1.0...v9.1.1) (2026-02-05)
+
+### Bug Fixes
+
+- **(csv-processor):** enhance metadata detection with data types and quality analysis ([2d27c5c](https://github.com/juspay/neurolink/commit/2d27c5cc4cd99b52da079fba741006216c0282ea))
+
 ## [9.1.0](https://github.com/juspay/neurolink/compare/v9.0.1...v9.1.0) (2026-02-05)
 
 ### Features
