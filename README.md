@@ -55,6 +55,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 - **Structured Output with Zod Schemas** – Type-safe JSON generation with automatic validation using `schema` + `output.format: "json"` in `generate()`. → [Structured Output Guide](docs/features/structured-output.md)
 - **CSV File Support** – Attach CSV files to prompts for AI-powered data analysis with auto-detection. → [CSV Guide](docs/features/multimodal-chat.md#csv-file-support)
 - **PDF File Support** – Process PDF documents with native visual analysis for Vertex AI, Anthropic, Bedrock, AI Studio. → [PDF Guide](docs/features/pdf-support.md)
+- **50+ File Types** – Process Excel, Word, RTF, JSON, YAML, XML, HTML, SVG, Markdown, and 50+ code languages with intelligent content extraction. → [File Processors Guide](docs/features/file-processors.md)
 - **LiteLLM Integration** – Access 100+ AI models from all major providers through unified interface. → [Setup Guide](docs/litellm-integration.md)
 - **SageMaker Integration** – Deploy and use custom trained models on AWS infrastructure. → [Setup Guide](docs/sagemaker-integration.md)
 - **OpenRouter Integration** – Access 300+ models from OpenAI, Anthropic, Google, Meta, and more through a single unified API. → [Setup Guide](docs/getting-started/providers/openrouter.md)
@@ -242,6 +243,48 @@ const result = await neurolink.generate({
 
 ---
 
+### 📁 Multimodal & File Processing
+
+**17+ file categories supported** (50+ total file types including code languages) with intelligent content extraction and provider-agnostic processing:
+
+| Category      | Supported Types                                            | Processing                          |
+| ------------- | ---------------------------------------------------------- | ----------------------------------- |
+| **Documents** | Excel (`.xlsx`, `.xls`), Word (`.docx`), RTF, OpenDocument | Sheet extraction, text extraction   |
+| **Data**      | JSON, YAML, XML                                            | Validation, syntax highlighting     |
+| **Markup**    | HTML, SVG, Markdown, Text                                  | OWASP-compliant sanitization        |
+| **Code**      | 50+ languages (TypeScript, Python, Java, Go, etc.)         | Language detection, syntax metadata |
+| **Config**    | `.env`, `.ini`, `.toml`, `.cfg`                            | Secure parsing                      |
+| **Media**     | Images (PNG, JPEG, WebP, GIF), PDFs, CSV                   | Provider-specific formatting        |
+
+```typescript
+// Process any supported file type
+const result = await neurolink.generate({
+  input: {
+    text: "Analyze this data and code",
+    files: [
+      "./data.xlsx", // Excel spreadsheet
+      "./config.yaml", // YAML configuration
+      "./diagram.svg", // SVG (injected as sanitized text)
+      "./main.py", // Python source code
+    ],
+  },
+});
+
+// CLI: Use --file for any supported type
+// neurolink generate "Analyze this" --file ./report.xlsx --file ./config.json
+```
+
+**Key Features:**
+
+- **ProcessorRegistry** - Priority-based processor selection with fallback
+- **OWASP Security** - HTML/SVG sanitization prevents XSS attacks
+- **Auto-detection** - FileDetector identifies file types by extension and content
+- **Provider-agnostic** - All processors work across all 13 AI providers
+
+**[📖 File Processors Guide](docs/features/file-processors.md)** - Complete reference for all file types
+
+---
+
 ### 🏢 Enterprise & Production Features
 
 **Production-ready capabilities for regulated industries:**
@@ -373,13 +416,13 @@ Run AI-powered workflows directly in GitHub Actions with 13 provider support and
     post_comment: true
 ```
 
-| Feature                | Description                                     |
-| ---------------------- | ----------------------------------------------- |
-| **Multi-Provider**     | 13 providers with unified interface             |
-| **PR/Issue Comments**  | Auto-post AI responses with intelligent updates |
-| **Multimodal Support** | Attach images, PDFs, CSVs to prompts            |
-| **Cost Tracking**      | Built-in analytics and quality evaluation       |
-| **Extended Thinking**  | Deep reasoning with thinking tokens             |
+| Feature                | Description                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| **Multi-Provider**     | 13 providers with unified interface                                                       |
+| **PR/Issue Comments**  | Auto-post AI responses with intelligent updates                                           |
+| **Multimodal Support** | Attach images, PDFs, CSVs, Excel, Word, JSON, YAML, XML, HTML, SVG, code files to prompts |
+| **Cost Tracking**      | Built-in analytics and quality evaluation                                                 |
+| **Extended Thinking**  | Deep reasoning with thinking tokens                                                       |
 
 **[📖 GitHub Action Guide](docs/guides/github-action.md)** - Complete setup and examples
 
@@ -506,6 +549,10 @@ const result = await neurolink.generate({
       "./sales_data.csv", // Auto-detected as CSV
       "examples/data/invoice.pdf", // Auto-detected as PDF
       "./diagrams/architecture.png", // Auto-detected as image
+      "./report.xlsx", // Auto-detected as Excel
+      "./config.json", // Auto-detected as JSON
+      "./diagram.svg", // Auto-detected as SVG (injected as text)
+      "./app.ts", // Auto-detected as TypeScript code
     ],
   },
   provider: "vertex", // PDF-capable provider (see docs/features/pdf-support.md)

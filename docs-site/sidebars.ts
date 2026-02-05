@@ -78,6 +78,7 @@ const sidebars: SidebarsConfig = {
         "features/auto-evaluation",
         "features/enterprise-hitl",
         "features/multimodal-chat",
+        "features/file-processors",
       ],
     },
     {
