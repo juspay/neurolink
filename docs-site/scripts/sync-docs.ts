@@ -13,7 +13,7 @@ import * as fs from "fs";
 import { glob } from "glob";
 import matter from "gray-matter";
 import * as path from "path";
-import { GitChangeDetector, GitChangeInfo } from "./gitChangeDetector.js";
+import { GitChangeDetector, type GitChangeInfo } from "./gitChangeDetector.js";
 
 // Configuration
 const SOURCE_DIR = path.resolve(__dirname, "../../docs");
@@ -375,9 +375,12 @@ function removeAttributeSyntax(content: string): string {
 function convertGridCards(content: string): string {
   // Unwrap <div class="grid cards" markdown> containers, keeping inner content
   // This preserves the content while removing the container divs
-  return content.replace(/<div\s+class="grid\s+cards"[^>]*markdown>\s*([\s\S]*?)\s*<\/div>/gi, (match, innerContent) => {
-    return innerContent.trim();
-  });
+  return content.replace(
+    /<div\s+class="grid\s+cards"[^>]*markdown>\s*([\s\S]*?)\s*<\/div>/gi,
+    (match, innerContent) => {
+      return innerContent.trim();
+    },
+  );
 }
 
 /**
@@ -423,11 +426,7 @@ function processTitleBadges(title: string): { title: string; badges: string[] } 
  * Generate sidebar_position based on file order or special rules
  * Uses deterministic positioning based on alphabetical order within each directory
  */
-function generateSidebarPosition(
-  relativePath: string,
-  existingPosition?: number,
-  allFiles?: string[]
-): number {
+function generateSidebarPosition(relativePath: string, existingPosition?: number, allFiles?: string[]): number {
   if (existingPosition !== undefined) {
     return existingPosition;
   }
@@ -464,9 +463,7 @@ function generateSidebarPosition(
   // Deterministic positioning based on sorted sibling files
   if (allFiles && allFiles.length > 0) {
     // Get all files in the same directory
-    const siblingFiles = allFiles
-      .filter(f => path.dirname(f) === directory)
-      .sort();
+    const siblingFiles = allFiles.filter((f) => path.dirname(f) === directory).sort();
 
     // Find position in sorted list (with gaps of 10 for flexibility)
     const index = siblingFiles.indexOf(relativePath);
@@ -582,7 +579,7 @@ function processFrontmatter(
   data: Record<string, unknown>,
   relativePath: string,
   content: string,
-  allFiles?: string[]
+  allFiles?: string[],
 ): Record<string, unknown> {
   const processed: Record<string, unknown> = { ...data };
 
@@ -631,7 +628,7 @@ function processFrontmatter(
   processed.sidebar_position = generateSidebarPosition(
     relativePath,
     processed.sidebar_position as number | undefined,
-    allFiles
+    allFiles,
   );
 
   // Generate slug if not present
@@ -683,7 +680,7 @@ function processFrontmatter(
 function addAutoBadges(
   frontmatter: Record<string, unknown>,
   relativePath: string,
-  gitChanges: GitChangeInfo | null
+  gitChanges: GitChangeInfo | null,
 ): Record<string, unknown> {
   if (!ENABLE_AUTO_BADGES || !gitChanges) {
     return frontmatter;
@@ -698,7 +695,7 @@ function addAutoBadges(
 
   // Skip if manual badges already exist in tags
   const manualBadges = ["new", "updated", "beta", "deprecated", "experimental"];
-  if (existingTags.some(tag => manualBadges.includes(tag))) {
+  if (existingTags.some((tag) => manualBadges.includes(tag))) {
     return processed;
   }
 
@@ -871,6 +868,7 @@ const LINK_MAPPINGS: Record<string, string> = {
   "multimodal-chat": "/features/multimodal-chat",
   tts: "/features/tts",
   "audio-input": "/features/audio-input",
+  "file-processors": "/features/file-processors",
   "office-documents": "/features/office-documents",
   "pdf-support": "/features/pdf-support",
   "csv-support": "/features/csv-support",
@@ -1290,7 +1288,10 @@ function fixInternalLinks(content: string): string {
   // Links with /docs prefix should keep it (docs are served from /docs/)
   // IMPORTANT: Use negative lookbehind (?<!!) to exclude image syntax ![alt](/docs/...)
   // Just clean up any .md extension
-  result = result.replace(/(?<!!)\]\(\/docs\/((?!http)[^)]+)\)/g, (match, path) => `](/docs/${path.replace(/\.md$/, "")})`);
+  result = result.replace(
+    /(?<!!)\]\(\/docs\/((?!http)[^)]+)\)/g,
+    (match, path) => `](/docs/${path.replace(/\.md$/, "")})`,
+  );
 
   // Transform relative links to match new file structure
   // Matches: [text](./path.md), [text](../path.md), [text](path.md)
@@ -1387,11 +1388,7 @@ function fixInternalLinks(content: string): string {
 /**
  * Transform markdown content from MkDocs to Docusaurus format
  */
-function transformContent(
-  content: string,
-  relativePath: string,
-  allFiles?: string[]
-): TransformResult {
+function transformContent(content: string, relativePath: string, allFiles?: string[]): TransformResult {
   // Parse frontmatter
   const { data, content: markdownContent } = matter(content);
 
@@ -1460,7 +1457,7 @@ function applyFileMapping(relativePath: string): string {
   // Check if the file should NOT be remapped based on its parent directory
   // Files in certain directories (like guides/server-adapters) should keep their location
   const preservedPrefixes = ["guides/server-adapters/", "guides/migration/", "guides/frameworks/"];
-  if (preservedPrefixes.some(prefix => normalizedPath.startsWith(prefix))) {
+  if (preservedPrefixes.some((prefix) => normalizedPath.startsWith(prefix))) {
     return relativePath;
   }
 
@@ -1542,7 +1539,7 @@ async function syncDocs(): Promise<void> {
   directorySidebarCounters.clear();
 
   // Extract all target relative paths for deterministic sidebar positioning
-  const allTargetPaths = files.map(f => path.relative(TARGET_DIR, f.targetPath));
+  const allTargetPaths = files.map((f) => path.relative(TARGET_DIR, f.targetPath));
 
   // Initialize git change detector for auto-badges (tag-based detection)
   let gitChanges: GitChangeInfo | null = null;

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExternalServerManager } from "../../../src/lib/mcp/externalServerManager.js";
 import type { MCPServerInfo } from "../../../src/lib/types/mcpTypes.js";
 import type {
@@ -509,6 +509,9 @@ describe("ExternalServerManager - Tool Blocklist", () => {
       const mockToolDiscovery = {
         executeTool: vi.fn().mockResolvedValue(mockToolResult),
         discoverTools: vi.fn(),
+        destroy: vi.fn(),
+        clearServerTools: vi.fn(),
+        removeAllListeners: vi.fn(),
       };
       (manager as unknown as ExternalServerManagerInternal).toolDiscovery =
         mockToolDiscovery;
@@ -630,6 +633,10 @@ describe("ExternalServerManager - Tool Blocklist", () => {
           serverId: "test-server",
         }),
       };
+      // Add destroy method so shutdown() works in afterEach
+      mockToolDiscovery.destroy = vi.fn();
+      mockToolDiscovery.clearServerTools = vi.fn();
+      mockToolDiscovery.removeAllListeners = vi.fn();
 
       (manager as unknown as ExternalServerManagerInternal).toolDiscovery =
         mockToolDiscovery;

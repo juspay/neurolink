@@ -46,7 +46,10 @@ Key flags:
 
 - `--provider`, `-p` – provider slug (default `auto`).
 - `--model`, `-m` – model name for the chosen provider.
-- `--image`, `-i` – attach one or more files/URLs for multimodal prompts.
+- `--image`, `-i` – attach one or more image files/URLs for multimodal prompts.
+- `--pdf` – attach one or more PDF files for document analysis.
+- `--csv` – attach one or more CSV files for data analysis.
+- `--file` – attach any supported file type (auto-detected: Excel, Word, RTF, JSON, YAML, XML, HTML, SVG, Markdown, code files, and more).
 - `--temperature`, `-t` – creativity (default `0.7`).
 - `--maxTokens` – response limit (default `1000`).
 - `--system`, `-s` – system prompt.
@@ -59,6 +62,24 @@ Key flags:
 - `--timeout` – seconds before aborting the request (default `120`).
 - `--debug` – verbose logging and full JSON payloads.
 - `--quiet` – suppress spinners.
+
+**File Input Examples:**
+
+```bash
+# Attach multiple file types
+npx @juspay/neurolink generate "Analyze this data" \
+  --file ./report.xlsx \
+  --file ./config.yaml \
+  --file ./diagram.svg
+
+# Mix file types with images and PDFs
+npx @juspay/neurolink generate "Compare architecture" \
+  --file ./main.ts \
+  --pdf ./spec.pdf \
+  --image ./screenshot.png
+```
+
+See [File Processors Guide](../features/file-processors.md) for all 17+ supported file types.
 
 **Video Generation (Veo 3.1):**
 

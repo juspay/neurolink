@@ -11,11 +11,11 @@
  * - PPTError: Error handling (follows VideoError pattern)
  */
 
-import type { ImageWithAltText } from "./content.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
-import { NeuroLinkError } from "../utils/errorHandling.js";
-import type { AIProvider } from "./providers.js";
 import type { NeuroLink } from "../neurolink.js";
+import { NeuroLinkError } from "../utils/errorHandling.js";
+import type { ImageWithAltText } from "./content.js";
+import type { AIProvider } from "./providers.js";
 
 // ============================================================================
 // EXTERNAL API TYPES (Used in GenerateOptions)
@@ -925,6 +925,12 @@ export type CompleteSlide = {
 // VALIDATION CONSTANTS
 // ============================================================================
 
+/** Minimum number of slides allowed */
+export const MIN_SLIDES = 5;
+
+/** Maximum number of slides allowed */
+export const MAX_SLIDES = 50;
+
 /** Slide dimensions in inches by aspect ratio */
 export const SLIDE_DIMENSIONS: Record<
   AspectRatioOption,
@@ -933,6 +939,20 @@ export const SLIDE_DIMENSIONS: Record<
   "16:9": { width: 10, height: 5.625 },
   "4:3": { width: 10, height: 7.5 },
 };
+
+/**
+ * Validate a hex color string (6 hex characters, no # prefix).
+ */
+export function isValidHexColor(color: string): boolean {
+  return /^[0-9A-Fa-f]{6}$/.test(color);
+}
+
+/**
+ * Normalize a hex color by stripping leading # if present.
+ */
+export function normalizeHexColor(color: string): string {
+  return color.startsWith("#") ? color.slice(1) : color;
+}
 
 // ============================================================================
 // PPTXGENJS SLIDE & PRESENTATION INTERFACES - RUNTIME TYPES

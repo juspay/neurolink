@@ -16,8 +16,14 @@ NeuroLink provides comprehensive multimodal support, allowing you to combine tex
 - **PDFs** - Document analysis and content extraction
 - **CSV/Spreadsheets** - Data analysis and tabular content processing
 - **Audio** - Transcription, analysis, and real-time voice input ([Audio Input Guide](audio-input.md))
+- **Documents** - Excel, Word, RTF, OpenDocument formats ([File Processors Guide](file-processors.md))
+- **Data Files** - JSON, YAML, XML with validation and formatting
+- **Markup** - HTML, SVG, Markdown with security sanitization
+- **Source Code** - 50+ programming languages with syntax detection
 
 All multimodal inputs work seamlessly across both the CLI and SDK, with automatic format detection and provider-specific optimization.
+
+> **New in 2026:** NeuroLink now supports 17+ file types through the ProcessorRegistry system. See the [File Processors Guide](file-processors.md) for comprehensive documentation.
 
 ---
 
@@ -541,6 +547,7 @@ const result = await neurolink.generate({
 
 **Document Processing:**
 
+- [File Processors Guide](file-processors.md) - Complete guide to 17+ file types (Excel, Word, JSON, YAML, XML, HTML, SVG, code, etc.)
 - [Office Documents](office-documents.md) - DOCX, PPTX, XLSX for Bedrock, Vertex, Anthropic
 - [PDF Support](pdf-support.md) - Detailed PDF processing guide
 - [CSV Support](csv-support.md) - Advanced CSV processing techniques

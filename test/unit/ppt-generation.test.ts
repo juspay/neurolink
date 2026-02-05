@@ -1,69 +1,69 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AIProviderName } from "../../src/lib/constants/enums.js";
 import {
-  validatePPTOutputOptions,
-  validatePPTGenerationInput,
-} from "../../src/lib/utils/parameterValidation.js";
-import type { GenerateOptions } from "../../src/lib/types/index.js";
-import {
-  type PPTOutputOptions,
-  PPTError,
-  PPT_ERROR_CODES,
-  type SlideType,
-  type SlideLayout,
-  type SlideSchema,
-  type ContentPlan,
-  type BulletPoint,
-  type TableCell,
-  type ChartSeries,
-  type Statistic,
-  type TimelineItem,
-  type ProcessStep,
-  type ComparisonColumn,
-  type PositionProps,
-  type ShadowProps,
-  type ImageProps,
-  type ChartOptions,
-  type TableOptions,
-  type ShapeProps,
-  MIN_SLIDES,
-  MAX_SLIDES,
-  SLIDE_DIMENSIONS,
-  isValidHexColor,
-  normalizeHexColor,
-} from "../../src/lib/types/pptTypes.js";
-import { extractPPTContext } from "../../src/lib/features/ppt/utils.js";
-import {
-  THEMES,
-  getTheme,
-  SLIDE_TYPE_TO_LAYOUT,
-  SLIDE_TYPE_CATEGORIES,
-  getLayoutForType,
   AUDIENCE_GUIDELINES,
-  TONE_GUIDELINES,
   buildContentPlanningPrompt,
-  enhanceImagePrompt,
-  VALID_THEMES,
-  VALID_AUDIENCES,
-  VALID_TONES,
   DIAGRAM_SLIDE_TYPES,
+  enhanceImagePrompt,
+  getLayoutForType,
+  getTheme,
   IMAGE_SLIDE_TYPES,
   isDiagramSlideType,
   isImageSlideType,
+  SLIDE_TYPE_CATEGORIES,
+  SLIDE_TYPE_TO_LAYOUT,
+  THEMES,
+  TONE_GUIDELINES,
+  VALID_AUDIENCES,
+  VALID_THEMES,
+  VALID_TONES,
 } from "../../src/lib/features/ppt/constants.js";
-import { AIProviderName } from "../../src/lib/constants/enums.js";
 import {
-  SlideGenerator,
   createSlideGenerator,
   generateSlidesFromPlan,
-  PptxGenJS,
-  type SlideGeneratorConfig,
   type LogoConfig,
   type LogoPosition,
+  PptxGenJS,
+  SlideGenerator,
+  type SlideGeneratorConfig,
 } from "../../src/lib/features/ppt/slideGenerator.js";
 import type {
   CompleteSlide,
   PresentationTheme,
 } from "../../src/lib/features/ppt/types.js";
+import { extractPPTContext } from "../../src/lib/features/ppt/utils.js";
+import type { GenerateOptions } from "../../src/lib/types/index.js";
+import {
+  type BulletPoint,
+  type ChartOptions,
+  type ChartSeries,
+  type ComparisonColumn,
+  type ContentPlan,
+  type ImageProps,
+  isValidHexColor,
+  MAX_SLIDES,
+  MIN_SLIDES,
+  normalizeHexColor,
+  type PositionProps,
+  PPT_ERROR_CODES,
+  PPTError,
+  type PPTOutputOptions,
+  type ProcessStep,
+  type ShadowProps,
+  type ShapeProps,
+  SLIDE_DIMENSIONS,
+  type SlideLayout,
+  type SlideSchema,
+  type SlideType,
+  type Statistic,
+  type TableCell,
+  type TableOptions,
+  type TimelineItem,
+} from "../../src/lib/types/pptTypes.js";
+import {
+  validatePPTGenerationInput,
+  validatePPTOutputOptions,
+} from "../../src/lib/utils/parameterValidation.js";
 
 // -----------------------------------------------------------------------
 // PPT Validation Tests
@@ -328,6 +328,7 @@ describe("PPT Prompt Building", () => {
       tone: "professional",
       theme: "modern",
       generateAIImages: true,
+      modelInfo: { name: "gemini-2.5-flash", provider: "vertex" },
     });
     expect(prompt).toContain("AI in Healthcare");
     expect(prompt).toContain("15-slide");
@@ -341,6 +342,7 @@ describe("PPT Prompt Building", () => {
       tone: "educational",
       theme: "modern",
       generateAIImages: true,
+      modelInfo: { name: "gemini-2.5-flash", provider: "vertex" },
     });
     expect(prompt).toContain("technical");
     expect(prompt).toContain("educational");
@@ -354,6 +356,7 @@ describe("PPT Prompt Building", () => {
       tone: "professional",
       theme: "modern",
       generateAIImages: true,
+      modelInfo: { name: "gemini-2.5-flash", provider: "vertex" },
     });
     // Basic tier includes these types
     expect(prompt).toContain('"title"');
@@ -1222,6 +1225,7 @@ describe("E2E Integration", () => {
     );
   });
 });
+
 // -----------------------------------------------------------------------
 // Presentation Orchestrator Tests (Stage 4)
 // -----------------------------------------------------------------------

@@ -11,6 +11,7 @@ export type FileType =
   | "pdf"
   | "audio"
   | "text"
+  | "svg"
   | "docx"
   | "pptx"
   | "xlsx"

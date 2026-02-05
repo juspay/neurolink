@@ -11,7 +11,7 @@ NeuroLink is an enterprise AI development platform that provides unified access 
 - Extracted from production systems at Juspay
 - Battle-tested at enterprise scale
 - Opinionated factory architecture with provider registry pattern
-- Comprehensive multimodal support (text, images, PDFs, CSV)
+- Comprehensive multimodal support (text, images, PDFs, CSV, Excel, Word, RTF, JSON, YAML, XML, HTML, SVG, Markdown, 50+ code languages)
 - Full MCP (Model Context Protocol) integration with 58+ external servers
 - Multiple MCP transports: stdio (local), HTTP/Streamable HTTP (remote), SSE, WebSocket
 - Production-ready enterprise features (Redis memory, failover, telemetry)
@@ -182,19 +182,21 @@ ProviderFactory.registerProvider(
 
 **MessageBuilder** (`src/lib/utils/messageBuilder.ts`) is the central component for constructing messages:
 
-- Handles text, images, PDFs, and CSV files
+- Handles text, images, PDFs, CSV, and 17+ file types via ProcessorRegistry
 - Converts between different message formats (NeuroLink → CoreMessage for ai SDK)
 - Integrates with `FileDetector` to automatically detect file types
 - Uses `ProviderImageAdapter` for provider-specific image formatting
 - Processes PDFs with `PDFProcessor` for native document support
+- Delegates to specialized file processors for documents, data, markup, and code files
 
 **Flow:**
 
 1. User provides input (text + files)
-2. `MessageBuilder` detects file types
-3. Files are processed (images → base64, PDFs → structured content, CSV → parsed data)
-4. Provider-specific adapters format content for each provider's API
-5. Messages are sent to the AI provider
+2. `MessageBuilder` detects file types via `FileDetector`
+3. `ProcessorRegistry` selects appropriate processor based on MIME type and priority
+4. Files are processed (images → base64, PDFs → structured content, documents → extracted text)
+5. Provider-specific adapters format content for each provider's API
+6. Messages are sent to the AI provider
 
 **Key files:**
 
@@ -203,6 +205,8 @@ ProviderFactory.registerProvider(
 - `src/lib/utils/fileDetector.ts` - File type detection
 - `src/lib/utils/pdfProcessor.ts` - PDF processing
 - `src/lib/utils/imageProcessor.ts` - Image processing
+- `src/lib/processors/registry/` - ProcessorRegistry for file processor selection
+- `src/lib/processors/base/` - BaseFileProcessor abstract class
 
 ### Tool System (MCP Integration)
 
@@ -379,6 +383,49 @@ When changing how messages are constructed:
 - Modify `FileDetector` for CSV detection
 - Update message builder to handle CSV content
 - Test with `--csv` flag in CLI
+
+**For Documents (Excel, Word, RTF, OpenDocument):**
+
+- Processors in `src/lib/processors/document/`
+- `ExcelProcessor` - Handles `.xlsx`, `.xls` files with sheet extraction
+- `WordProcessor` - Handles `.docx` files with text extraction
+- `RtfProcessor` - Handles `.rtf` files
+- `OpenDocumentProcessor` - Handles `.odt`, `.ods`, `.odp` files
+- Test with `--file` flag in CLI
+
+**For Data Files (JSON, YAML, XML):**
+
+- Processors in `src/lib/processors/data/`
+- Auto-validates and formats data for AI consumption
+- Supports syntax highlighting in prompts
+- Test with `--file` flag in CLI
+
+**For Markup (HTML, SVG, Markdown, Text):**
+
+- Processors in `src/lib/processors/markup/`
+- `SvgProcessor` - Sanitizes SVG and injects as text (not binary image)
+- `HtmlProcessor` - OWASP-compliant HTML sanitization
+- `MarkdownProcessor` - Preserves formatting
+- `TextProcessor` - Plain text handling
+- Test with `--file` flag in CLI
+
+**For Source Code (50+ languages):**
+
+- Processors in `src/lib/processors/code/`
+- `SourceCodeProcessor` - Handles `.ts`, `.js`, `.py`, `.java`, `.go`, etc.
+- `ConfigProcessor` - Handles `.env`, `.ini`, `.toml`, `.cfg` files
+- Auto-detects language from extension
+- Adds syntax metadata for AI context
+- Test with `--file` flag in CLI
+
+**Adding a New File Processor:**
+
+1. Create processor class extending `BaseFileProcessor` in appropriate category folder
+2. Implement `canProcess()`, `process()`, and `getInfo()` methods
+3. Register in `ProcessorRegistry` with priority (lower = higher priority)
+4. Add MIME type mappings in `src/lib/processors/config/mimeTypes.ts`
+5. Update `FileDetector` if new file type detection needed
+6. Add tests in `test/file-processor-test-suite.ts`
 
 ## Testing Strategy
 
@@ -651,33 +698,33 @@ When host apps create wrapper spans before AI operations, auto-detection in `onS
 | `src/lib/types/index.ts`                   | Main type definitions and exports             |
 | `src/lib/types/externalMcp.ts`             | External MCP server types (HTTP config, etc.) |
 
-## Mastra-Inspired Features
+## New set of Features
 
-NeuroLink has been enhanced with Mastra-inspired features to transform it from a unified AI provider SDK into a comprehensive AI application development platform. **ALL 19 features are now at 100%** as verified via worktree analysis (January 31, 2026).
+NeuroLink has been enhanced with new set of features to transform it from a unified AI provider SDK into a comprehensive AI application development platform. **ALL 19 features are now at 100%** as verified via worktree analysis (January 31, 2026).
 
 ### Implementation Status
 
-| Feature                      | Progress | Status      | Notes                                                                   |
-| ---------------------------- | -------- | ----------- | ----------------------------------------------------------------------- |
-| **Gateway Provider**         | 100%     | ✅ Complete | 69+ providers, CLI support, full integration                            |
-| **Workflow System**          | 100%     | ✅ Complete | Full engine with fluent API, checkpointing, HITL, all step types        |
-| **Three-Layer Memory**       | 100%     | ✅ Complete | All 3 layers, 6 embedders, 5 vector stores, MemoryCoordinator, 97 tests |
-| **Vector Stores**            | 100%     | ✅ Complete | 22 of 22 adapters implemented with 23,119 test lines                    |
-| **I/O Processors**           | 100%     | ✅ Complete | 10 processors (5 input + 5 output), 74 tests, ProcessorPipeline         |
-| **Evaluation/Scoring**       | 100%     | ✅ Complete | 14 scorers (10 LLM + 4 rule), unit tests, CLI complete                  |
-| **Multi-Agent Networks**     | 100%     | ✅ Complete | Agent, AgentNetwork, RoutingAgent, 3 topologies, 190 tests              |
-| **Voice/Speech**             | 100%     | ✅ Complete | 8 TTS, 6 STT, 2 Realtime providers, audio-utils, stream-handler         |
-| **Observability**            | 100%     | ✅ Complete | 100% pattern compliance, 9 exporters, 9 samplers                        |
-| **Server Adapters**          | 100%     | ✅ Complete | 4 adapters (Hono, Express, Fastify, Koa), 5 route groups                |
-| **RAG Processing**           | 100%     | ✅ Complete | 9 chunkers, hybrid search, RerankerFactory/Registry                     |
-| **MCP Enhancements**         | 100%     | ✅ Complete | ToolRouter, ToolCache, RequestBatcher (1,702 new lines)                 |
-| **Streaming Architecture**   | 100%     | ✅ Complete | All 4 Mastra patterns, 24 event types, backpressure                     |
-| **Hooks/Events**             | 100%     | ✅ Complete | HooksManager (518 lines), PubSubManager (378 lines), 117 tests          |
-| **Storage Abstraction**      | 100%     | ✅ Complete | 8 adapters, 3 middleware, MigrationRunner, 282 tests                    |
-| **Dynamic Arguments**        | 100%     | ✅ Complete | CLI context flags, runtime resolution, 269 tests                        |
-| **Authentication Providers** | 100%     | ✅ Complete | 8 providers + middleware, session management                            |
-| **Client SDKs**              | 100%     | ✅ Complete | 6 React hooks, AI SDK adapter, 226 tests                                |
-| **Deployment System**        | 100%     | ✅ Complete | 6 deployers, 2 bundlers, 3 CLI commands                                 |
+| Feature                      | Progress | Status      | Notes                                                                        |
+| ---------------------------- | -------- | ----------- | ---------------------------------------------------------------------------- |
+| **Gateway Provider**         | 100%     | ✅ Complete | 69+ providers, CLI support, full integration                                 |
+| **Workflow System**          | 100%     | ✅ Complete | Full engine with fluent API, checkpointing, HITL, all step types             |
+| **Three-Layer Memory**       | 100%     | ✅ Complete | All 3 layers, 6 embedders, 5 vector stores, MemoryCoordinator, 97 tests      |
+| **Vector Stores**            | 100%     | ✅ Complete | 22 of 22 adapters implemented with 23,119 test lines                         |
+| **I/O Processors**           | 100%     | ✅ Complete | 52 files, 17+ file type processors, ProcessorRegistry, security sanitization |
+| **Evaluation/Scoring**       | 100%     | ✅ Complete | 14 scorers (10 LLM + 4 rule), unit tests, CLI complete                       |
+| **Multi-Agent Networks**     | 100%     | ✅ Complete | Agent, AgentNetwork, RoutingAgent, 3 topologies, 190 tests                   |
+| **Voice/Speech**             | 100%     | ✅ Complete | 8 TTS, 6 STT, 2 Realtime providers, audio-utils, stream-handler              |
+| **Observability**            | 100%     | ✅ Complete | 100% pattern compliance, 9 exporters, 9 samplers                             |
+| **Server Adapters**          | 100%     | ✅ Complete | 4 adapters (Hono, Express, Fastify, Koa), 5 route groups                     |
+| **RAG Processing**           | 100%     | ✅ Complete | 9 chunkers, hybrid search, RerankerFactory/Registry                          |
+| **MCP Enhancements**         | 100%     | ✅ Complete | ToolRouter, ToolCache, RequestBatcher (1,702 new lines)                      |
+| **Streaming Architecture**   | 100%     | ✅ Complete | All 4 Mastra patterns, 24 event types, backpressure                          |
+| **Hooks/Events**             | 100%     | ✅ Complete | HooksManager (518 lines), PubSubManager (378 lines), 117 tests               |
+| **Storage Abstraction**      | 100%     | ✅ Complete | 8 adapters, 3 middleware, MigrationRunner, 282 tests                         |
+| **Dynamic Arguments**        | 100%     | ✅ Complete | CLI context flags, runtime resolution, 269 tests                             |
+| **Authentication Providers** | 100%     | ✅ Complete | 8 providers + middleware, session management                                 |
+| **Client SDKs**              | 100%     | ✅ Complete | 6 React hooks, AI SDK adapter, 226 tests                                     |
+| **Deployment System**        | 100%     | ✅ Complete | 6 deployers, 2 bundlers, 3 CLI commands                                      |
 
 ### Key New Capabilities
 

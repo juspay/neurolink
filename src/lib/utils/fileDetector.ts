@@ -4,20 +4,20 @@
  * Uses multi-strategy approach for reliable type identification
  */
 
-import { request, getGlobalDispatcher, interceptors } from "undici";
 import { readFile, stat } from "fs/promises";
+import { getGlobalDispatcher, interceptors, request } from "undici";
 import type {
-  FileType,
-  FileInput,
-  FileDetectionResult,
-  FileProcessingResult,
-  FileDetectorOptions,
-  FileSource,
   CSVProcessorOptions,
+  FileDetectionResult,
+  FileDetectorOptions,
+  FileInput,
+  FileProcessingResult,
+  FileSource,
+  FileType,
 } from "../types/fileTypes.js";
-import { logger } from "./logger.js";
 import { CSVProcessor } from "./csvProcessor.js";
 import { ImageProcessor } from "./imageProcessor.js";
+import { logger } from "./logger.js";
 import { PDFProcessor } from "./pdfProcessor.js";
 
 /**
@@ -133,7 +133,7 @@ async function withRetry<T>(
       }
 
       // Calculate exponential backoff delay
-      const delay = retryDelay * Math.pow(2, attempt);
+      const delay = retryDelay * 2 ** attempt;
 
       logger.debug("Retrying network operation after transient error", {
         attempt: attempt + 1,
@@ -233,7 +233,7 @@ export class FileDetector {
     input: FileInput,
     options?: FileDetectorOptions,
   ): Promise<FileProcessingResult> {
-    const detection = await this.detect(input, options);
+    const detection = await FileDetector.detect(input, options);
 
     // FD-018: Comprehensive fallback parsing for extension-less files
     // When file detection returns "unknown" or doesn't match allowedTypes,
@@ -244,13 +244,13 @@ export class FileDetector {
       !options.allowedTypes.includes(detection.type)
     ) {
       // Try fallback parsing for both "unknown" types and when detection doesn't match allowed types
-      const content = await this.loadContent(input, detection, options);
+      const content = await FileDetector.loadContent(input, detection, options);
       const errors: string[] = [];
 
       // Try each allowed type in order of specificity
       for (const allowedType of options.allowedTypes) {
         try {
-          const result = await this.tryFallbackParsing(
+          const result = await FileDetector.tryFallbackParsing(
             content,
             allowedType,
             options,
@@ -277,12 +277,12 @@ export class FileDetector {
       );
     }
 
-    const content = await this.loadContent(input, detection, options);
+    const content = await FileDetector.loadContent(input, detection, options);
 
     // Extract CSV-specific options from FileDetectorOptions
     const csvOptions: CSVProcessorOptions | undefined = options?.csvOptions;
 
-    return await this.processFile(
+    return await FileDetector.processFile(
       content,
       detection,
       csvOptions,
@@ -318,11 +318,11 @@ export class FileDetector {
         // Try text parsing - check if content is valid UTF-8 text
         const textContent = content.toString("utf-8");
         // Validate it's actually text (no null bytes, mostly printable)
-        if (this.isValidText(textContent)) {
+        if (FileDetector.isValidText(textContent)) {
           return {
             type: "text",
             content: textContent,
-            mimeType: this.guessTextMimeType(textContent),
+            mimeType: FileDetector.guessTextMimeType(textContent),
             metadata: {
               confidence: 70,
               size: content.length,
@@ -406,7 +406,7 @@ export class FileDetector {
     }
 
     // Check for XML/HTML using stricter detection
-    if (this.looksLikeXMLStrict(trimmed)) {
+    if (FileDetector.looksLikeXMLStrict(trimmed)) {
       const isHTML =
         trimmed.includes("<!DOCTYPE html") ||
         trimmed.toLowerCase().includes("<html") ||
@@ -416,7 +416,7 @@ export class FileDetector {
     }
 
     // Check for YAML using robust multi-indicator detection
-    if (this.looksLikeYAMLStrict(trimmed)) {
+    if (FileDetector.looksLikeYAMLStrict(trimmed)) {
       return "application/yaml";
     }
 
@@ -564,13 +564,13 @@ export class FileDetector {
 
     switch (source) {
       case "url":
-        return await this.loadFromURL(input as string, options);
+        return await FileDetector.loadFromURL(input as string, options);
       case "path":
-        return await this.loadFromPath(input as string, options);
+        return await FileDetector.loadFromPath(input as string, options);
       case "buffer":
         return input as Buffer;
       case "datauri":
-        return this.loadFromDataURI(input as string);
+        return FileDetector.loadFromDataURI(input as string);
       default:
         throw new Error(`Unknown source: ${source}`);
     }
@@ -597,6 +597,10 @@ export class FileDetector {
         return await ImageProcessor.process(content);
       case "pdf":
         return await PDFProcessor.process(content, { provider });
+      case "svg":
+        // SVG is processed as text content (sanitized XML markup)
+        // AI providers don't support SVG as image format, so we extract text content
+        return await FileDetector.processSvgAsText(content, detection);
       case "text":
         return {
           type: "text",
@@ -610,6 +614,80 @@ export class FileDetector {
   }
 
   /**
+   * Process SVG file as text content
+   * Uses SvgProcessor for security sanitization (removes XSS vectors)
+   * Returns sanitized SVG markup as text for AI analysis
+   */
+  private static async processSvgAsText(
+    content: Buffer,
+    detection: FileDetectionResult,
+  ): Promise<FileProcessingResult> {
+    try {
+      // Dynamic import to avoid circular dependencies
+      const { processSvg } = await import(
+        "../processors/markup/SvgProcessor.js"
+      );
+
+      const result = await processSvg({
+        id: "svg-file",
+        name: detection.metadata.filename || "image.svg",
+        mimetype: "image/svg+xml",
+        size: content.length,
+        buffer: content,
+      });
+
+      if (result.success && result.data) {
+        logger.info(
+          `[FileDetector] SVG processed as text: ${detection.metadata.filename || "image.svg"}`,
+        );
+        return {
+          type: "svg",
+          content: result.data.textContent, // Sanitized SVG content
+          mimeType: "image/svg+xml",
+          metadata: {
+            confidence: detection.metadata.confidence,
+            size: content.length,
+            filename: detection.metadata.filename,
+            extension: detection.extension,
+          },
+        };
+      } else {
+        // Fail closed: return safe empty SVG instead of raw unsanitized content
+        logger.warn(
+          `[FileDetector] SVG processor failed, returning safe empty SVG: ${result.error?.userMessage}`,
+        );
+        return {
+          type: "svg",
+          content: '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+          mimeType: "image/svg+xml",
+          metadata: {
+            confidence: detection.metadata.confidence,
+            size: content.length,
+            filename: detection.metadata.filename,
+            extension: detection.extension,
+          },
+        };
+      }
+    } catch (error) {
+      // Fail closed: return safe empty SVG instead of raw unsanitized content
+      logger.warn(
+        `[FileDetector] SVG processor not available, returning safe empty SVG: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        type: "svg",
+        content: '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+        mimeType: "image/svg+xml",
+        metadata: {
+          confidence: detection.metadata.confidence,
+          size: content.length,
+          filename: detection.metadata.filename,
+          extension: detection.extension,
+        },
+      };
+    }
+  }
+
+  /**
    * Load file from URL with automatic retry on transient network errors
    */
   private static async loadFromURL(
@@ -617,7 +695,7 @@ export class FileDetector {
     options?: FileDetectorOptions,
   ): Promise<Buffer> {
     const maxSize = options?.maxSize || 10 * 1024 * 1024;
-    const timeout = options?.timeout || this.DEFAULT_NETWORK_TIMEOUT;
+    const timeout = options?.timeout || FileDetector.DEFAULT_NETWORK_TIMEOUT;
     const maxRetries = options?.maxRetries ?? DEFAULT_MAX_RETRIES;
     const retryDelay = options?.retryDelay ?? DEFAULT_RETRY_DELAY;
 
@@ -823,6 +901,11 @@ class MimeTypeStrategy implements DetectionStrategy {
     if (mime.includes("text/tab-separated-values")) {
       return "csv";
     }
+    // SVG is processed as text/markup, NOT as image
+    // Must check before generic image/ check
+    if (mime.includes("image/svg+xml")) {
+      return "svg";
+    }
     if (mime.includes("image/")) {
       return "image";
     }
@@ -876,7 +959,9 @@ class ExtensionStrategy implements DetectionStrategy {
       bmp: "image",
       tiff: "image",
       tif: "image",
-      svg: "image",
+      // SVG is handled as text/markup, NOT as image
+      // AI providers don't support SVG format, so we process it as sanitized text
+      svg: "svg",
       avif: "image",
       pdf: "pdf",
       txt: "text",
@@ -1093,7 +1178,7 @@ class ContentHeuristicStrategy implements DetectionStrategy {
       const lengths = lines.map((l) => l.length);
       const avgLength = lengths.reduce((a, b) => a + b, 0) / lengths.length;
       const variance =
-        lengths.reduce((sum, len) => sum + Math.pow(len - avgLength, 2), 0) /
+        lengths.reduce((sum, len) => sum + (len - avgLength) ** 2, 0) /
         lengths.length;
       const stdDev = Math.sqrt(variance);
       // Single-column CSVs can contain varied data (names, cities, emails, etc.)
