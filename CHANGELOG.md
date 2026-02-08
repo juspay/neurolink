@@ -1,3 +1,9 @@
+## [9.3.0](https://github.com/juspay/neurolink/compare/v9.2.0...v9.3.0) (2026-02-08)
+
+### Features
+
+- **(rag):** add RAG document processing with generate()/stream() integration ([e595419](https://github.com/juspay/neurolink/commit/e59541962f05efb64a95fd1c6a1e821733232d3c))
+
 ## [9.2.0](https://github.com/juspay/neurolink/compare/v9.1.1...v9.2.0) (2026-02-06)
 
 ### Features
