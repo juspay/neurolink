@@ -1,10 +1,3 @@
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
-}
-
 interface RevealOptions {
   y?: number;
   x?: number;
@@ -17,11 +10,10 @@ interface RevealOptions {
   stagger?: number;
 }
 
+let registered = false;
+
 export function reveal(node: HTMLElement, options: RevealOptions = {}) {
-  if (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  ) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     return { destroy() {} };
   }
 
@@ -37,24 +29,36 @@ export function reveal(node: HTMLElement, options: RevealOptions = {}) {
     stagger,
   } = options;
 
-  const target = stagger ? node.children : node;
+  let tween: any;
 
-  const tween = gsap.from(target, {
-    y,
-    x,
-    scale,
-    opacity,
-    duration,
-    delay,
-    ease,
-    stagger: stagger || 0,
-    scrollTrigger: { trigger: node, start, once: true },
-  });
+  (async () => {
+    const { gsap } = await import("gsap");
+    const { ScrollTrigger } = await import("gsap/ScrollTrigger");
+
+    if (!registered) {
+      gsap.registerPlugin(ScrollTrigger);
+      registered = true;
+    }
+
+    const target = stagger ? node.children : node;
+
+    tween = gsap.from(target, {
+      y,
+      x,
+      scale,
+      opacity,
+      duration,
+      delay,
+      ease,
+      stagger: stagger || 0,
+      scrollTrigger: { trigger: node, start, once: true },
+    });
+  })();
 
   return {
     destroy() {
-      tween.scrollTrigger?.kill();
-      tween.kill();
+      tween?.scrollTrigger?.kill();
+      tween?.kill();
     },
   };
 }
