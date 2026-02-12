@@ -67,12 +67,12 @@ export type CacheEntry = {
 /**
  * Cache store interface
  */
-export interface CacheStore {
+export type CacheStore = {
   get(key: string): Promise<CacheEntry | undefined>;
   set(key: string, entry: CacheEntry): Promise<void>;
   delete(key: string): Promise<void>;
   clear(): Promise<void>;
-}
+};
 
 /**
  * In-memory LRU cache store

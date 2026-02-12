@@ -6,192 +6,183 @@
  * comprehensive TypeScript support across the NeuroLink ecosystem.
  */
 
-// Core streaming and tool execution types - PRIORITY 1
-export type {
-  StreamResult,
-  StreamingProgressData,
-  StreamingMetadata,
-  ProgressCallback,
-  ToolCall as StreamToolCall, // Note: Renamed in main index to avoid conflict with tools.js ToolCall
-  ToolResult as StreamToolResult, // Note: Renamed in main index to avoid conflict with tools.js ToolResult
-  ToolCallResults,
-  ToolCalls,
-  StreamOptions,
-  StreamingOptions,
-  EnhancedStreamProvider,
-  StreamTextResult,
-  AISDKUsage,
-  StreamAnalyticsCollector,
-  ResponseMetadata,
-  AudioInputSpec,
-  AudioChunk,
-  PCMEncoding,
-} from "./streamTypes.js";
-
 // Event system types - PRIORITY 2
 export type {
-  TypedEventEmitter,
+  AnyFunction,
+  AsyncFunction,
   NeuroLinkEvents,
   StreamEvent,
-  AsyncFunction,
   SyncFunction,
-  AnyFunction,
+  TypedEventEmitter,
 } from "./common.js";
-
 // Configuration types - PRIORITY 3
 export type {
-  NeuroLinkConfig,
-  ProviderConfig,
-  PerformanceConfig,
-  CacheConfig,
-  FallbackConfig,
-  RetryConfig,
   AnalyticsConfig,
-  ToolConfig,
   BackupInfo,
   BackupMetadata,
-  ConfigValidationResult,
+  CacheConfig,
   ConfigUpdateOptions,
+  ConfigValidationResult,
+  FallbackConfig,
+  NeuroLinkConfig,
+  PerformanceConfig,
+  ProviderConfig,
+  RetryConfig,
+  ToolConfig,
 } from "./configTypes.js";
+// Core streaming and tool execution types - PRIORITY 1
+export type {
+  AISDKUsage,
+  AudioChunk,
+  AudioInputSpec,
+  EnhancedStreamProvider,
+  PCMEncoding,
+  ProgressCallback,
+  ResponseMetadata,
+  StreamAnalyticsCollector,
+  StreamingMetadata,
+  StreamingOptions,
+  StreamingProgressData,
+  StreamOptions,
+  StreamResult,
+  StreamTextResult,
+  ToolCall as StreamToolCall, // Note: Renamed in main index to avoid conflict with tools.js ToolCall
+  ToolCallResults,
+  ToolCalls,
+  ToolResult as StreamToolResult, // Note: Renamed in main index to avoid conflict with tools.js ToolResult
+} from "./streamTypes.js";
 
 // Tool system types are exported directly from tools.js via index.ts
 // Do not re-export here to avoid duplicate export conflicts
 
-// Provider types - Complete provider interface
-export type {
-  AISDKModel,
-  ProviderError,
-  AIModelProviderConfig,
-  ProviderName,
-  ModelCapability,
-  ModelUseCase,
-  ModelFilter,
-  ModelResolutionContext,
-  ModelStats,
-  ModelPricing,
-  ProviderCapabilities,
-} from "./providers.js";
-
-// Generation types - Core generation interface
-export type {
-  GenerateOptions,
-  GenerateResult as GenerateApiResult, // Renamed to avoid conflict with cli.js GenerateResult
-  UnifiedGenerationOptions,
-  EnhancedProvider,
-  FactoryEnhancedProvider,
-  TextGenerationOptions,
-  TextGenerationResult,
-  EnhancedGenerateResult,
-} from "./generateTypes.js";
-
 // Analytics and monitoring types
-export type { TokenUsage, AnalyticsData } from "./analytics.js";
-
-// Content types for multimodal support
-export type {
-  TextContent,
-  ImageContent,
-  Content,
-  VisionCapability,
-  ProviderImageFormat,
-  ProcessedImage,
-  MultimodalMessage,
-  ProviderMultimodalPayload,
-} from "./content.js";
-
-// MCP types - External MCP integration
-export type {
-  MCPTransportType,
-  MCPServerConnectionStatus,
-  MCPServerCategory,
-  MCPServerStatus,
-  MCPDiscoveredServer,
-  MCPConnectedServer,
-  MCPToolInfo,
-  MCPExecutableTool,
-  MCPServerMetadata,
-  MCPToolMetadata,
-  MCPServerRegistryEntry,
-} from "./mcpTypes.js";
-
-// External MCP types
-export type {
-  ExternalMCPServerInstance,
-  ExternalMCPServerStatus,
-  ExternalMCPToolInfo,
-  ExternalMCPServerHealth,
-  ExternalMCPConfigValidation,
-  ExternalMCPOperationResult,
-  ExternalMCPToolContext,
-  ExternalMCPToolResult,
-  ExternalMCPServerEvents,
-  ExternalMCPManagerConfig,
-} from "./externalMcp.js";
-
+export type { AnalyticsData, TokenUsage } from "./analytics.js";
 // CLI types
 export type {
   BaseCommandArgs,
+  CommandResult,
   GenerateCommandArgs,
+  GenerateResult as CLIGenerateResult,
   MCPCommandArgs,
   ModelsCommandArgs,
-  CommandResult,
-  GenerateResult as CLIGenerateResult,
   StreamChunk,
 } from "./cli.js";
-
 // Essential utility types
 export type {
-  Unknown,
-  UnknownRecord,
-  UnknownArray,
-  JsonValue,
-  JsonObject,
-  JsonArray,
   ErrorInfo,
-  Result,
   FunctionParameters,
+  JsonArray,
+  JsonObject,
+  JsonValue,
+  ProcessResult,
+  Result,
+  TestFunction,
+  TestResult,
+  Unknown,
+  UnknownArray,
+  UnknownRecord,
 } from "./common.js";
 
+// Content types for multimodal support
+export type {
+  Content,
+  ImageContent,
+  MultimodalMessage,
+  ProcessedImage,
+  ProviderImageFormat,
+  ProviderMultimodalPayload,
+  TextContent,
+  VisionCapability,
+} from "./content.js";
+// Conversation Memory types
+export type {
+  ChatMessage,
+  ConversationMemoryConfig,
+  ConversationMemoryError,
+  ConversationMemoryEvents,
+  MessageContent,
+  MultimodalChatMessage,
+  RedisConversationObject,
+  RedisStorageConfig,
+  SessionIdentifier,
+  SessionMemory,
+  SessionMetadata,
+  StoreConversationTurnOptions,
+} from "./conversation.js";
+// Domain types
+export type {
+  DomainConfig,
+  DomainConfigOptions,
+  DomainEvaluationCriteria,
+  DomainTemplate,
+  DomainType,
+  DomainValidationRule,
+} from "./domainTypes.js";
 // Evaluation types
 export type {
-  EvaluationData,
-  EvaluationContext,
   EnhancedEvaluationResult,
-  EvaluationRequest,
+  EvaluationContext,
   EvaluationCriteria,
+  EvaluationData,
+  EvaluationRequest,
 } from "./evaluation.js";
-
+// External MCP types
+export type {
+  ExternalMCPConfigValidation,
+  ExternalMCPManagerConfig,
+  ExternalMCPOperationResult,
+  ExternalMCPServerEvents,
+  ExternalMCPServerHealth,
+  ExternalMCPServerInstance,
+  ExternalMCPServerStatus,
+  ExternalMCPToolContext,
+  ExternalMCPToolInfo,
+  ExternalMCPToolResult,
+} from "./externalMcp.js";
+// Generation types - Core generation interface
+export type {
+  EnhancedGenerateResult,
+  EnhancedProvider,
+  FactoryEnhancedProvider,
+  GenerateOptions,
+  GenerateResult as GenerateApiResult, // Renamed to avoid conflict with cli.js GenerateResult
+  TextGenerationOptions,
+  TextGenerationResult,
+  UnifiedGenerationOptions,
+} from "./generateTypes.js";
+// MCP types - External MCP integration
+export type {
+  MCPConnectedServer,
+  MCPDiscoveredServer,
+  MCPExecutableTool,
+  MCPServerCategory,
+  MCPServerConnectionStatus,
+  MCPServerMetadata,
+  MCPServerRegistryEntry,
+  MCPServerStatus,
+  MCPToolInfo,
+  MCPToolMetadata,
+  MCPTransportType,
+} from "./mcpTypes.js";
+// Provider types - Complete provider interface
+export type {
+  AIModelProviderConfig,
+  AISDKModel,
+  ModelCapability,
+  ModelFilter,
+  ModelPricing,
+  ModelResolutionContext,
+  ModelStats,
+  ModelUseCase,
+  ProviderCapabilities,
+  ProviderError,
+  ProviderName,
+} from "./providers.js";
 // Task classification types
 export type {
-  TaskType,
-  TaskClassification,
   ClassificationScores,
   ClassificationStats,
   ClassificationValidation,
+  TaskClassification,
+  TaskType,
 } from "./taskClassificationTypes.js";
-
-// Domain types
-export type {
-  DomainType,
-  DomainConfig,
-  DomainTemplate,
-  DomainConfigOptions,
-  DomainEvaluationCriteria,
-  DomainValidationRule,
-} from "./domainTypes.js";
-
-// Conversation Memory types
-export type {
-  ConversationMemoryConfig,
-  SessionMemory,
-  ChatMessage,
-  MessageContent,
-  MultimodalChatMessage,
-  ConversationMemoryEvents,
-  ConversationMemoryError,
-  SessionIdentifier,
-  SessionMetadata,
-  RedisConversationObject,
-  RedisStorageConfig,
-  StoreConversationTurnOptions,
-} from "./conversation.js";

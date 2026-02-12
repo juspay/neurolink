@@ -987,7 +987,7 @@ switch (error.severity) {
 
 ## Related Documentation
 
-- **[Server Adapters Overview](/guides/server-adapters)** - Getting started with server adapters
-- **[Security Best Practices](/guides/server-adapters/security)** - Authentication and authorization
-- **[Configuration Reference](/reference/server-configuration)** - Full configuration options
-- **[Deployment Guide](/guides/server-adapters/deployment)** - Production deployment strategies
+- **[Server Adapters Overview](./index.md)** - Getting started with server adapters
+- **[Security Best Practices](./security.md)** - Authentication and authorization
+- **[Configuration Reference](../../reference/server-configuration.md)** - Full configuration options
+- **[Deployment Guide](./deployment.md)** - Production deployment strategies

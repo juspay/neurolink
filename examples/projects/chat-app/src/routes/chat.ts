@@ -12,12 +12,12 @@ export const chatRouter = Router();
 // Initialize AI service
 const aiService = new AIService();
 
-interface ChatRequest {
+type ChatRequest = {
   message: string;
   provider?: string;
   model?: string;
   systemPrompt?: string;
-}
+};
 
 /**
  * POST /api/chat

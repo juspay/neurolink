@@ -1,10 +1,10 @@
 # File Processors Guide
 
-NeuroLink includes a comprehensive file processing system that supports 17+ file types with intelligent content extraction, security sanitization, and provider-agnostic formatting. This system enables seamless multimodal AI interactions across all 13 supported providers.
+NeuroLink includes a comprehensive file processing system that supports 20+ file types with intelligent content extraction, security sanitization, and provider-agnostic formatting. This system enables seamless multimodal AI interactions across all 13 supported providers.
 
 ## Overview
 
-The file processor system consists of **52 TypeScript files** organized into a modular architecture:
+The file processor system is organized into a modular architecture:
 
 ```
 src/lib/processors/
@@ -13,6 +13,8 @@ src/lib/processors/
 ├── config/         # MIME types, extensions, language maps, size limits
 ├── errors/         # FileErrorCode enum and error helpers
 ├── document/       # Excel, Word, RTF, OpenDocument processors
+├── media/          # Video and Audio processors (metadata extraction)
+├── archive/        # ZIP, TAR, GZ archive processors (file listing + content extraction)
 ├── markup/         # SVG, HTML, Markdown, Text processors
 ├── code/           # SourceCode, Config processors
 ├── data/           # JSON, YAML, XML processors
@@ -77,6 +79,56 @@ src/lib/processors/
 | **INI**         | `.ini`, `.cfg`   | `ConfigProcessor` | Section parsing                    |
 | **TOML**        | `.toml`          | `ConfigProcessor` | Cargo.toml, pyproject.toml support |
 | **Properties**  | `.properties`    | `ConfigProcessor` | Java properties format             |
+
+### Media Files
+
+| Type      | Extensions                                              | Processor        | Features                                                                         |
+| --------- | ------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------- |
+| **Video** | `.mp4`, `.mkv`, `.webm`, `.avi`, `.mov`, `.m4v`         | `VideoProcessor` | Duration, resolution, codec, frame rate, bitrate extraction via `music-metadata` |
+| **Audio** | `.mp3`, `.wav`, `.ogg`, `.flac`, `.aac`, `.m4a`, `.wma` | `AudioProcessor` | Codec, bitrate, sample rate, channels, duration extraction via `music-metadata`  |
+
+Video and audio files are **not** sent as binary to the AI provider. Instead, the processors extract structured metadata and return it as formatted text, keeping token usage minimal (~50-200 tokens per file).
+
+**Example video output:**
+
+```
+Video File: presentation.mp4
+Duration: 13s | Resolution: 640x360 | Video Codec: h264
+Frame Rate: 29.97 fps | Bitrate: 345 kbps
+Audio: aac, 48000 Hz, 2 channels
+```
+
+**Example audio output:**
+
+```
+Audio File: recording.mp3
+Codec: MPEG 1 Layer 3 | Bitrate: 128 kbps
+Sample Rate: 44100 Hz | Channels: 2 (Stereo) | Duration: 1:46
+```
+
+### Archives
+
+| Type    | Extensions               | Processor          | Features                                                               |
+| ------- | ------------------------ | ------------------ | ---------------------------------------------------------------------- |
+| **ZIP** | `.zip`                   | `ArchiveProcessor` | File listing with sizes, nested content extraction, ZIP bomb detection |
+| **TAR** | `.tar`                   | `ArchiveProcessor` | File listing with sizes                                                |
+| **GZ**  | `.gz`, `.tar.gz`, `.tgz` | `ArchiveProcessor` | Gzip decompression, tar content listing                                |
+
+Archive files return a structured listing of their contents with file sizes and optionally extract text from contained files (routing through existing processors).
+
+**Example archive output:**
+
+```
+Archive: project.tar.gz
+Total entries: 6
+
+Files:
+- code/sample.json (60 B)
+- code/sample.py (195 B)
+- document/sample.txt (607 B)
+```
+
+**Security:** Archive processing includes ZIP bomb detection (compression ratio limits), path traversal prevention, symlink blocking, entry count limits, and aggregate decompression size limits.
 
 ## Usage
 

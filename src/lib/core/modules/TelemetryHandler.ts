@@ -14,23 +14,23 @@
  * @module core/modules/TelemetryHandler
  */
 
+import { nanoid } from "nanoid";
+import type { NeuroLink } from "../../neurolink.js";
+import type { Context } from "../../types/common.js";
 import type {
   AIProviderName,
-  EnhancedGenerateResult,
-  TextGenerationOptions,
   AnalyticsData,
+  EnhancedGenerateResult,
+  EvaluationData,
+  TextGenerationOptions,
 } from "../../types/index.js";
-import type { Context } from "../../types/common.js";
-import type { EvaluationData } from "../../types/index.js";
 import type { StreamOptions } from "../../types/streamTypes.js";
 import { logger } from "../../utils/logger.js";
-import { nanoid } from "nanoid";
-import { modelConfig } from "../modelConfiguration.js";
 import {
-  recordProviderPerformanceFromMetrics,
   getPerformanceOptimizedProvider,
+  recordProviderPerformanceFromMetrics,
 } from "../evaluationProviders.js";
-import type { NeuroLink } from "../../neurolink.js";
+import { modelConfig } from "../modelConfiguration.js";
 
 /**
  * TelemetryHandler class - Handles analytics and telemetry for AI providers
@@ -211,7 +211,7 @@ export class TelemetryHandler {
       isEnabled: true,
       functionId,
       metadata,
-      recordInputs: true,
+      recordInputs: false,
       recordOutputs: true,
     };
   }

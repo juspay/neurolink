@@ -6,6 +6,9 @@
 
 import { readFile, stat } from "fs/promises";
 import { getGlobalDispatcher, interceptors, request } from "undici";
+import { archiveProcessor } from "../processors/archive/ArchiveProcessor.js";
+import { audioProcessor } from "../processors/media/AudioProcessor.js";
+import { videoProcessor } from "../processors/media/VideoProcessor.js";
 import type {
   CSVProcessorOptions,
   FileDetectionResult,
@@ -271,9 +274,19 @@ export class FileDetector {
         }
       }
 
-      // All fallbacks failed
-      throw new Error(
-        `File type detection failed and all fallback parsing attempts failed. Original detection: ${detection.type}. Attempted types: ${options.allowedTypes.join(", ")}. Errors: ${errors.join("; ")}`,
+      // All fallbacks failed — fall through to processFile() which handles
+      // "unknown" types gracefully by extracting binary metadata and printable
+      // strings instead of throwing.
+      logger.warn(
+        `[FileDetector] All fallback parsing failed for type "${detection.type}". ` +
+          `Attempted: ${options.allowedTypes.join(", ")}. Falling through to universal handler.`,
+      );
+      const csvOptions: CSVProcessorOptions | undefined = options?.csvOptions;
+      return await FileDetector.processFile(
+        content,
+        detection,
+        csvOptions,
+        options?.provider,
       );
     }
 
@@ -351,6 +364,56 @@ export class FileDetector {
         throw new Error(
           "Audio type requires binary detection, cannot fallback parse",
         );
+      }
+
+      case "video": {
+        // Video requires magic bytes - can't fallback without detection
+        throw new Error(
+          "Video type requires binary detection, cannot fallback parse",
+        );
+      }
+
+      case "archive": {
+        // Archive requires magic bytes - can't fallback without detection
+        throw new Error(
+          "Archive type requires binary detection, cannot fallback parse",
+        );
+      }
+
+      case "xlsx": {
+        // Document formats require binary detection
+        throw new Error(
+          "Excel type requires binary detection, cannot fallback parse",
+        );
+      }
+
+      case "docx": {
+        throw new Error(
+          "Word type requires binary detection, cannot fallback parse",
+        );
+      }
+
+      case "pptx": {
+        throw new Error(
+          "PowerPoint type requires binary detection, cannot fallback parse",
+        );
+      }
+
+      case "svg": {
+        // SVG can be detected from text content
+        const svgContent = content.toString("utf-8");
+        if (svgContent.includes("<svg") && svgContent.includes("</svg>")) {
+          return {
+            type: "svg",
+            content: svgContent,
+            mimeType: "image/svg+xml",
+            metadata: {
+              confidence: 70,
+              size: content.length,
+            },
+          };
+        }
+        throw new Error("Content does not appear to be valid SVG");
       }
 
       default:
@@ -577,6 +640,320 @@ export class FileDetector {
   }
 
   /**
+   * SDK-8: Format an informative placeholder when a file processor fails.
+   * Instead of bare "[Video file: name]" strings, include size, format, and
+   * the reason for failure so the LLM can acknowledge the attachment.
+   */
+  private static formatInformativePlaceholder(
+    typeName: string,
+    filename: string,
+    content: Buffer,
+    detection: FileDetectionResult,
+    error?: unknown,
+  ): string {
+    const sizeStr =
+      content.length < 1024
+        ? `${content.length} bytes`
+        : content.length < 1024 * 1024
+          ? `${(content.length / 1024).toFixed(1)} KB`
+          : `${(content.length / (1024 * 1024)).toFixed(1)} MB`;
+    const errorMsg =
+      error instanceof Error
+        ? error.message
+        : error
+          ? String(error)
+          : "Processing returned no usable content";
+    return (
+      `[${typeName} File: "${filename}"]\n` +
+      `Size: ${sizeStr}\n` +
+      `Format: ${detection.mimeType || "unknown"}\n` +
+      `Error: Could not extract content (${errorMsg}).\n` +
+      `The file was attached but could not be fully analyzed.`
+    );
+  }
+
+  /**
+   * Extract metadata and printable strings from an unrecognized binary file.
+   * This is the "extract what you can" path for unknown file types.
+   *
+   * Extracts:
+   * - File size (human-readable)
+   * - MIME type / detected format
+   * - First N bytes as hex dump (for identification)
+   * - Printable ASCII/UTF-8 strings found in the binary (like `strings` command)
+   * - Known file signatures that we don't have full processors for
+   *
+   * @param content  Raw file buffer
+   * @param detection  Detection result (may be "unknown")
+   * @param filename  Original filename (if known)
+   * @returns Formatted text summary suitable for LLM consumption
+   */
+  private static extractBinaryMetadata(
+    content: Buffer,
+    detection: FileDetectionResult,
+    filename: string,
+  ): string {
+    const parts: string[] = [];
+
+    // Header
+    const ext = detection.extension
+      ? `.${detection.extension}`
+      : filename.includes(".")
+        ? filename.slice(filename.lastIndexOf("."))
+        : "";
+    const typeLabel = ext
+      ? `${ext.toUpperCase().slice(1)} file`
+      : "Binary file";
+    parts.push(`[${typeLabel}: "${filename}"]`);
+
+    // Basic metadata
+    const sizeStr = formatFileSize(content.length);
+    parts.push(`Size: ${sizeStr}`);
+    if (
+      detection.mimeType &&
+      detection.mimeType !== "application/octet-stream"
+    ) {
+      parts.push(`Format: ${detection.mimeType}`);
+    }
+
+    // Known binary signature identification (broader than our processing capabilities)
+    const sigLabel = FileDetector.identifyBinarySignature(content);
+    if (sigLabel) {
+      parts.push(`Identified as: ${sigLabel}`);
+    }
+
+    // Hex dump of first 32 bytes for identification
+    const hexPreview = content
+      .subarray(0, Math.min(32, content.length))
+      .toString("hex")
+      .match(/.{1,2}/g)
+      ?.join(" ");
+    if (hexPreview) {
+      parts.push(`Header bytes: ${hexPreview}`);
+    }
+
+    // Extract printable strings (similar to Unix `strings` command)
+    const strings = FileDetector.extractPrintableStrings(content, 4, 50);
+    if (strings.length > 0) {
+      parts.push(
+        `\nEmbedded text found (${strings.length} string${strings.length > 1 ? "s" : ""}):`,
+      );
+      for (const s of strings) {
+        parts.push(`  "${s}"`);
+      }
+    }
+
+    parts.push(
+      `\nThis file was attached but its format is not fully supported for content extraction.`,
+    );
+    parts.push(
+      `The above metadata and any embedded text have been extracted for context.`,
+    );
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Identify known binary file signatures beyond what we can process.
+   * Returns a human-readable description, or null if unrecognized.
+   */
+  private static identifyBinarySignature(buf: Buffer): string | null {
+    if (buf.length < 4) {
+      return null;
+    }
+
+    // SQLite: "SQLite format 3\0"
+    if (
+      buf.length >= 16 &&
+      buf.subarray(0, 15).toString("ascii") === "SQLite format 3"
+    ) {
+      return "SQLite database";
+    }
+    // WOFF: "wOFF"
+    if (
+      buf[0] === 0x77 &&
+      buf[1] === 0x4f &&
+      buf[2] === 0x46 &&
+      buf[3] === 0x46
+    ) {
+      return "WOFF font";
+    }
+    // WOFF2: "wOF2"
+    if (
+      buf[0] === 0x77 &&
+      buf[1] === 0x4f &&
+      buf[2] === 0x46 &&
+      buf[3] === 0x32
+    ) {
+      return "WOFF2 font";
+    }
+    // TrueType/OpenType: starts with 0x00010000 or "OTTO"
+    if (
+      (buf[0] === 0x00 &&
+        buf[1] === 0x01 &&
+        buf[2] === 0x00 &&
+        buf[3] === 0x00) ||
+      (buf[0] === 0x4f && buf[1] === 0x54 && buf[2] === 0x54 && buf[3] === 0x4f)
+    ) {
+      return "TrueType/OpenType font";
+    }
+    // ELF executable: \x7fELF
+    if (
+      buf[0] === 0x7f &&
+      buf[1] === 0x45 &&
+      buf[2] === 0x4c &&
+      buf[3] === 0x46
+    ) {
+      return "ELF executable/library";
+    }
+    // Mach-O: 0xFEEDFACE or 0xFEEDFACF (64-bit) or 0xCAFEBABE (universal)
+    if (
+      (buf[0] === 0xfe &&
+        buf[1] === 0xed &&
+        buf[2] === 0xfa &&
+        buf[3] === 0xce) ||
+      (buf[0] === 0xfe &&
+        buf[1] === 0xed &&
+        buf[2] === 0xfa &&
+        buf[3] === 0xcf) ||
+      (buf[0] === 0xca && buf[1] === 0xfe && buf[2] === 0xba && buf[3] === 0xbe)
+    ) {
+      return "Mach-O executable/library";
+    }
+    // PE/Windows executable: "MZ"
+    if (buf[0] === 0x4d && buf[1] === 0x5a) {
+      return "Windows PE executable/DLL";
+    }
+    // WebAssembly: "\0asm"
+    if (
+      buf[0] === 0x00 &&
+      buf[1] === 0x61 &&
+      buf[2] === 0x73 &&
+      buf[3] === 0x6d
+    ) {
+      return "WebAssembly binary";
+    }
+    // DWG (AutoCAD): starts with "AC10"
+    if (
+      buf[0] === 0x41 &&
+      buf[1] === 0x43 &&
+      buf[2] === 0x31 &&
+      buf[3] === 0x30
+    ) {
+      return "AutoCAD DWG drawing";
+    }
+    // BZ2: "BZ" + 'h'
+    if (buf[0] === 0x42 && buf[1] === 0x5a && buf[2] === 0x68) {
+      return "BZip2 compressed archive";
+    }
+    // XZ: 0xFD + "7zXZ"
+    if (
+      buf.length >= 6 &&
+      buf[0] === 0xfd &&
+      buf[1] === 0x37 &&
+      buf[2] === 0x7a &&
+      buf[3] === 0x58 &&
+      buf[4] === 0x5a &&
+      buf[5] === 0x00
+    ) {
+      return "XZ compressed archive";
+    }
+    // 7z: "7z" + BC AF 27 1C
+    if (
+      buf.length >= 6 &&
+      buf[0] === 0x37 &&
+      buf[1] === 0x7a &&
+      buf[2] === 0xbc &&
+      buf[3] === 0xaf &&
+      buf[4] === 0x27 &&
+      buf[5] === 0x1c
+    ) {
+      return "7-Zip archive";
+    }
+    // ISO 9660: "CD001" at offset 32769
+    if (
+      buf.length > 32773 &&
+      buf.subarray(32769, 32774).toString("ascii") === "CD001"
+    ) {
+      return "ISO 9660 disc image";
+    }
+    // Apache Parquet: "PAR1"
+    if (
+      buf[0] === 0x50 &&
+      buf[1] === 0x41 &&
+      buf[2] === 0x52 &&
+      buf[3] === 0x31
+    ) {
+      return "Apache Parquet data file";
+    }
+    // Protocol Buffers compiled: (no fixed magic, skip)
+    // TIFF (already handled as image, but including for completeness)
+    if (
+      (buf[0] === 0x49 &&
+        buf[1] === 0x49 &&
+        buf[2] === 0x2a &&
+        buf[3] === 0x00) ||
+      (buf[0] === 0x4d && buf[1] === 0x4d && buf[2] === 0x00 && buf[3] === 0x2a)
+    ) {
+      return "TIFF image";
+    }
+    // ICO: 00 00 01 00
+    if (
+      buf[0] === 0x00 &&
+      buf[1] === 0x00 &&
+      buf[2] === 0x01 &&
+      buf[3] === 0x00
+    ) {
+      return "ICO icon image";
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract printable ASCII strings from a binary buffer.
+   * Similar to the Unix `strings` utility.
+   *
+   * @param buf        Buffer to scan
+   * @param minLength  Minimum string length to include (default 4)
+   * @param maxStrings Maximum number of strings to return (default 50)
+   * @returns Array of printable strings found in the binary
+   */
+  private static extractPrintableStrings(
+    buf: Buffer,
+    minLength: number = 4,
+    maxStrings: number = 50,
+  ): string[] {
+    const strings: string[] = [];
+    let current = "";
+
+    // Only scan first 64KB to avoid huge processing time
+    const scanLimit = Math.min(buf.length, 64 * 1024);
+
+    for (let i = 0; i < scanLimit; i++) {
+      const byte = buf[i];
+      // Printable ASCII range (space through tilde) plus tab
+      if ((byte >= 0x20 && byte <= 0x7e) || byte === 0x09) {
+        current += String.fromCharCode(byte);
+      } else {
+        if (current.length >= minLength) {
+          strings.push(current);
+          if (strings.length >= maxStrings) {
+            break;
+          }
+        }
+        current = "";
+      }
+    }
+    // Flush last string
+    if (current.length >= minLength && strings.length < maxStrings) {
+      strings.push(current);
+    }
+
+    return strings;
+  }
+
+  /**
    * Route to appropriate processor
    */
   private static async processFile(
@@ -601,6 +978,18 @@ export class FileDetector {
         // SVG is processed as text content (sanitized XML markup)
         // AI providers don't support SVG as image format, so we extract text content
         return await FileDetector.processSvgAsText(content, detection);
+      case "video":
+        return await FileDetector.processVideoFile(content, detection);
+      case "audio":
+        return await FileDetector.processAudioFile(content, detection);
+      case "archive":
+        return await FileDetector.processArchiveFile(content, detection);
+      case "xlsx":
+        return await FileDetector.processXlsxFile(content, detection);
+      case "docx":
+        return await FileDetector.processDocxFile(content, detection);
+      case "pptx":
+        return await FileDetector.processPptxFile(content, detection);
       case "text":
         return {
           type: "text",
@@ -608,9 +997,531 @@ export class FileDetector {
           mimeType: detection.mimeType || "text/plain",
           metadata: detection.metadata,
         };
-      default:
-        throw new Error(`Unsupported file type: ${detection.type}`);
+      default: {
+        // Graceful degradation: try to treat unknown types as text if content is valid UTF-8
+        const unknownContent = content.toString("utf-8");
+        if (FileDetector.isValidText(unknownContent)) {
+          logger.warn(
+            `[FileDetector] Unknown type "${detection.type}", treating as text`,
+          );
+          return {
+            type: "text",
+            content: unknownContent,
+            mimeType: detection.mimeType || "text/plain",
+            metadata: detection.metadata,
+          };
+        }
+        // Binary file that we can't fully process — extract what we can
+        // (metadata, printable strings, signature identification)
+        const filename = detection.metadata.filename || "file";
+        logger.warn(
+          `[FileDetector] Unknown binary type "${detection.type}", extracting metadata for "${filename}"`,
+        );
+        return {
+          type: "unknown",
+          content: FileDetector.extractBinaryMetadata(
+            content,
+            detection,
+            filename,
+          ),
+          mimeType: detection.mimeType || "application/octet-stream",
+          metadata: detection.metadata,
+        };
+      }
     }
+  }
+
+  /**
+   * Process video file: extract metadata, keyframes, and subtitles via VideoProcessor
+   */
+  private static async processVideoFile(
+    content: Buffer,
+    detection: FileDetectionResult,
+  ): Promise<FileProcessingResult> {
+    const videoFilename = detection.metadata.filename || "video";
+    try {
+      const videoResult = await videoProcessor.processFile({
+        id: videoFilename,
+        name: videoFilename,
+        mimetype: detection.mimeType || "video/mp4",
+        size: content.length,
+        buffer: content,
+      });
+      if (videoResult.success && videoResult.data) {
+        return {
+          type: "video",
+          content:
+            videoResult.data.textContent ||
+            FileDetector.formatInformativePlaceholder(
+              "Video",
+              videoFilename,
+              content,
+              detection,
+            ),
+          mimeType: detection.mimeType,
+          images:
+            videoResult.data.keyframes && videoResult.data.keyframes.length > 0
+              ? videoResult.data.keyframes
+              : undefined,
+          metadata: {
+            ...detection.metadata,
+            frameCount: videoResult.data.frameCount,
+            hasKeyframes: videoResult.data.hasKeyframes,
+          },
+        };
+      }
+    } catch (videoError) {
+      logger.warn(
+        `[FileDetector] VideoProcessor failed for ${videoFilename}, using fallback`,
+        videoError instanceof Error ? videoError.message : String(videoError),
+      );
+      return {
+        type: "video",
+        content: FileDetector.formatInformativePlaceholder(
+          "Video",
+          videoFilename,
+          content,
+          detection,
+          videoError,
+        ),
+        mimeType: detection.mimeType,
+        metadata: detection.metadata,
+      };
+    }
+    // Fallback if processor returned no data
+    return {
+      type: "video",
+      content: FileDetector.formatInformativePlaceholder(
+        "Video",
+        videoFilename,
+        content,
+        detection,
+      ),
+      mimeType: detection.mimeType,
+      metadata: detection.metadata,
+    };
+  }
+
+  /**
+   * Process audio file: extract metadata, tags, and cover art via AudioProcessor
+   */
+  private static async processAudioFile(
+    content: Buffer,
+    detection: FileDetectionResult,
+  ): Promise<FileProcessingResult> {
+    const audioFilename = detection.metadata.filename || "audio";
+    try {
+      const audioResult = await audioProcessor.processFile({
+        id: audioFilename,
+        name: audioFilename,
+        mimetype: detection.mimeType || "audio/mpeg",
+        size: content.length,
+        buffer: content,
+      });
+      if (audioResult.success && audioResult.data) {
+        return {
+          type: "audio",
+          content:
+            audioResult.data.textContent ||
+            FileDetector.formatInformativePlaceholder(
+              "Audio",
+              audioFilename,
+              content,
+              detection,
+            ),
+          mimeType: detection.mimeType,
+          // Surface embedded cover art as an image content block
+          images: audioResult.data.coverArt
+            ? [audioResult.data.coverArt]
+            : undefined,
+          metadata: detection.metadata,
+        };
+      }
+    } catch (audioError) {
+      logger.warn(
+        `[FileDetector] AudioProcessor failed for ${audioFilename}, using fallback`,
+        audioError instanceof Error ? audioError.message : String(audioError),
+      );
+      return {
+        type: "audio",
+        content: FileDetector.formatInformativePlaceholder(
+          "Audio",
+          audioFilename,
+          content,
+          detection,
+          audioError,
+        ),
+        mimeType: detection.mimeType,
+        metadata: detection.metadata,
+      };
+    }
+    // Fallback if processor returned no data
+    return {
+      type: "audio",
+      content: FileDetector.formatInformativePlaceholder(
+        "Audio",
+        audioFilename,
+        content,
+        detection,
+      ),
+      mimeType: detection.mimeType,
+      metadata: detection.metadata,
+    };
+  }
+
+  /**
+   * Process archive file: list contents and extract metadata via ArchiveProcessor
+   */
+  private static async processArchiveFile(
+    content: Buffer,
+    detection: FileDetectionResult,
+  ): Promise<FileProcessingResult> {
+    const archiveFilename = detection.metadata.filename || "archive";
+    try {
+      const archiveResult = await archiveProcessor.processFile({
+        id: archiveFilename,
+        name: archiveFilename,
+        mimetype: detection.mimeType || "application/zip",
+        size: content.length,
+        buffer: content,
+      });
+      if (archiveResult.success && archiveResult.data) {
+        return {
+          type: "archive",
+          content:
+            archiveResult.data.textContent ||
+            FileDetector.formatInformativePlaceholder(
+              "Archive",
+              archiveFilename,
+              content,
+              detection,
+            ),
+          mimeType: detection.mimeType,
+          metadata: detection.metadata,
+        };
+      }
+    } catch (archiveError) {
+      logger.warn(
+        `[FileDetector] ArchiveProcessor failed for ${archiveFilename}, using fallback`,
+        archiveError instanceof Error
+          ? archiveError.message
+          : String(archiveError),
+      );
+      return {
+        type: "archive",
+        content: FileDetector.formatInformativePlaceholder(
+          "Archive",
+          archiveFilename,
+          content,
+          detection,
+          archiveError,
+        ),
+        mimeType: detection.mimeType,
+        metadata: detection.metadata,
+      };
+    }
+    // Fallback if processor returned no data
+    return {
+      type: "archive",
+      content: FileDetector.formatInformativePlaceholder(
+        "Archive",
+        archiveFilename,
+        content,
+        detection,
+      ),
+      mimeType: detection.mimeType,
+      metadata: detection.metadata,
+    };
+  }
+
+  /**
+   * Process Excel/OpenDocument spreadsheet file via ExcelProcessor or OpenDocumentProcessor
+   */
+  private static async processXlsxFile(
+    content: Buffer,
+    detection: FileDetectionResult,
+  ): Promise<FileProcessingResult> {
+    const xlsxFilename = detection.metadata.filename || "spreadsheet";
+    try {
+      const ext = detection.extension?.toLowerCase();
+      if (ext === "ods") {
+        const { openDocumentProcessor } = await import(
+          "../processors/document/OpenDocumentProcessor.js"
+        );
+        const odsResult = await openDocumentProcessor.processFile({
+          id: xlsxFilename,
+          name: xlsxFilename,
+          mimetype:
+            detection.mimeType ||
+            "application/vnd.oasis.opendocument.spreadsheet",
+          size: content.length,
+          buffer: content,
+        });
+        if (odsResult.success && odsResult.data) {
+          return {
+            type: "xlsx",
+            content:
+              odsResult.data.textContent ||
+              FileDetector.formatInformativePlaceholder(
+                "Spreadsheet",
+                xlsxFilename,
+                content,
+                detection,
+              ),
+            mimeType: detection.mimeType,
+            metadata: detection.metadata,
+          };
+        }
+      } else {
+        const { excelProcessor } = await import(
+          "../processors/document/ExcelProcessor.js"
+        );
+        const xlsxResult = await excelProcessor.processFile({
+          id: xlsxFilename,
+          name: xlsxFilename,
+          mimetype:
+            detection.mimeType ||
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          size: content.length,
+          buffer: content,
+        });
+        if (xlsxResult.success && xlsxResult.data) {
+          // Build text content from worksheets
+          const sheets = xlsxResult.data.worksheets || [];
+          let textContent = `Spreadsheet: ${sheets.length} sheet(s), ${xlsxResult.data.totalRows} total rows\n`;
+          for (const sheet of sheets) {
+            textContent += `\n### Sheet: ${sheet.name}\n`;
+            textContent += `Columns (${sheet.columnCount}): ${sheet.headers.join(", ")}\n`;
+            textContent += `Rows: ${sheet.rowCount}\n`;
+            // Include first rows as sample data
+            const sampleRows = sheet.rows.slice(0, 20);
+            const rowText = sampleRows
+              .map((row) => row.map((c) => String(c ?? "")).join("\t"))
+              .join("\n");
+            if (!rowText) {
+              continue;
+            }
+            textContent += `\nData:\n${sheet.headers.join("\t")}\n${rowText}\n`;
+            const remaining = sheet.rowCount - 20;
+            if (remaining > 0) {
+              textContent += `... (${remaining} more rows)\n`;
+            }
+          }
+          return {
+            type: "xlsx",
+            content: textContent,
+            mimeType: detection.mimeType,
+            metadata: detection.metadata,
+          };
+        }
+      }
+    } catch (xlsxError) {
+      logger.warn(
+        `[FileDetector] ExcelProcessor failed for ${xlsxFilename}, using fallback`,
+        xlsxError instanceof Error ? xlsxError.message : String(xlsxError),
+      );
+      return {
+        type: "xlsx",
+        content: FileDetector.formatInformativePlaceholder(
+          "Spreadsheet",
+          xlsxFilename,
+          content,
+          detection,
+          xlsxError,
+        ),
+        mimeType: detection.mimeType,
+        metadata: detection.metadata,
+      };
+    }
+    // Fallback if processor returned no data
+    return {
+      type: "xlsx",
+      content: FileDetector.formatInformativePlaceholder(
+        "Spreadsheet",
+        xlsxFilename,
+        content,
+        detection,
+      ),
+      mimeType: detection.mimeType,
+      metadata: detection.metadata,
+    };
+  }
+
+  /**
+   * Process Word/OpenDocument/RTF document via WordProcessor, OpenDocumentProcessor, or RtfProcessor
+   */
+  private static async processDocxFile(
+    content: Buffer,
+    detection: FileDetectionResult,
+  ): Promise<FileProcessingResult> {
+    const docxFilename = detection.metadata.filename || "document";
+    const ext = detection.extension?.toLowerCase();
+    try {
+      if (ext === "odt") {
+        const { openDocumentProcessor } = await import(
+          "../processors/document/OpenDocumentProcessor.js"
+        );
+        const odtResult = await openDocumentProcessor.processFile({
+          id: docxFilename,
+          name: docxFilename,
+          mimetype:
+            detection.mimeType || "application/vnd.oasis.opendocument.text",
+          size: content.length,
+          buffer: content,
+        });
+        if (odtResult.success && odtResult.data) {
+          return {
+            type: "docx",
+            content:
+              odtResult.data.textContent ||
+              FileDetector.formatInformativePlaceholder(
+                "Document",
+                docxFilename,
+                content,
+                detection,
+              ),
+            mimeType: detection.mimeType,
+            metadata: detection.metadata,
+          };
+        }
+      } else if (ext === "rtf") {
+        const { rtfProcessor } = await import(
+          "../processors/document/RtfProcessor.js"
+        );
+        const rtfResult = await rtfProcessor.processFile({
+          id: docxFilename,
+          name: docxFilename,
+          mimetype: detection.mimeType || "application/rtf",
+          size: content.length,
+          buffer: content,
+        });
+        if (rtfResult.success && rtfResult.data) {
+          return {
+            type: "docx",
+            content:
+              rtfResult.data.textContent ||
+              FileDetector.formatInformativePlaceholder(
+                "Document",
+                docxFilename,
+                content,
+                detection,
+              ),
+            mimeType: detection.mimeType,
+            metadata: detection.metadata,
+          };
+        }
+      } else {
+        const { wordProcessor } = await import(
+          "../processors/document/WordProcessor.js"
+        );
+        const docxResult = await wordProcessor.processFile({
+          id: docxFilename,
+          name: docxFilename,
+          mimetype:
+            detection.mimeType ||
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          size: content.length,
+          buffer: content,
+        });
+        if (docxResult.success && docxResult.data) {
+          return {
+            type: "docx",
+            content:
+              docxResult.data.textContent ||
+              FileDetector.formatInformativePlaceholder(
+                "Document",
+                docxFilename,
+                content,
+                detection,
+              ),
+            mimeType: detection.mimeType,
+            metadata: detection.metadata,
+          };
+        }
+      }
+    } catch (docxError) {
+      logger.warn(
+        `[FileDetector] Document processor failed for ${docxFilename}, using fallback`,
+        docxError instanceof Error ? docxError.message : String(docxError),
+      );
+      return {
+        type: "docx",
+        content: FileDetector.formatInformativePlaceholder(
+          "Document",
+          docxFilename,
+          content,
+          detection,
+          docxError,
+        ),
+        mimeType: detection.mimeType,
+        metadata: detection.metadata,
+      };
+    }
+    // Fallback if processor returned no data
+    return {
+      type: "docx",
+      content: FileDetector.formatInformativePlaceholder(
+        "Document",
+        docxFilename,
+        content,
+        detection,
+      ),
+      mimeType: detection.mimeType,
+      metadata: detection.metadata,
+    };
+  }
+
+  /**
+   * Process PowerPoint/OpenDocument presentation via PptxProcessor
+   */
+  private static async processPptxFile(
+    content: Buffer,
+    detection: FileDetectionResult,
+  ): Promise<FileProcessingResult> {
+    const pptxFilename = detection.metadata.filename || "presentation";
+    try {
+      const { PptxProcessor } = await import(
+        "../processors/document/PptxProcessor.js"
+      );
+      const pptxResult = await PptxProcessor.extractText(content);
+      if (pptxResult) {
+        return {
+          type: "pptx",
+          content: pptxResult,
+          mimeType: detection.mimeType,
+          metadata: detection.metadata,
+        };
+      }
+    } catch (pptxError) {
+      logger.warn(
+        `[FileDetector] PptxProcessor failed for ${pptxFilename}, using fallback`,
+        pptxError instanceof Error ? pptxError.message : String(pptxError),
+      );
+      return {
+        type: "pptx",
+        content: FileDetector.formatInformativePlaceholder(
+          "Presentation",
+          pptxFilename,
+          content,
+          detection,
+          pptxError,
+        ),
+        mimeType: detection.mimeType,
+        metadata: detection.metadata,
+      };
+    }
+    // Fallback if processor returned no content
+    return {
+      type: "pptx",
+      content: FileDetector.formatInformativePlaceholder(
+        "Presentation",
+        pptxFilename,
+        content,
+        detection,
+      ),
+      mimeType: detection.mimeType,
+      metadata: detection.metadata,
+    };
   }
 
   /**
@@ -694,7 +1605,7 @@ export class FileDetector {
     url: string,
     options?: FileDetectorOptions,
   ): Promise<Buffer> {
-    const maxSize = options?.maxSize || 10 * 1024 * 1024;
+    const maxSize = options?.maxSize || 200 * 1024 * 1024; // 200MB default (matches Curator memory-safety cap)
     const timeout = options?.timeout || FileDetector.DEFAULT_NETWORK_TIMEOUT;
     const maxRetries = options?.maxRetries ?? DEFAULT_MAX_RETRIES;
     const retryDelay = options?.retryDelay ?? DEFAULT_RETRY_DELAY;
@@ -740,7 +1651,7 @@ export class FileDetector {
     path: string,
     options?: FileDetectorOptions,
   ): Promise<Buffer> {
-    const maxSize = options?.maxSize || 10 * 1024 * 1024;
+    const maxSize = options?.maxSize || 200 * 1024 * 1024; // 200MB default (matches Curator memory-safety cap)
     const statInfo = await stat(path);
 
     if (!statInfo.isFile()) {
@@ -792,6 +1703,117 @@ class MagicBytesStrategy implements DetectionStrategy {
     }
     if (this.isPDF(input)) {
       return this.result("pdf", "application/pdf", 95);
+    }
+
+    // MP4/MOV: "ftyp" at offset 4
+    if (
+      input.length >= 8 &&
+      input[4] === 0x66 &&
+      input[5] === 0x74 &&
+      input[6] === 0x79 &&
+      input[7] === 0x70
+    ) {
+      return this.result("video", "video/mp4", 95);
+    }
+    // MKV/WebM: EBML header
+    if (
+      input.length >= 4 &&
+      input[0] === 0x1a &&
+      input[1] === 0x45 &&
+      input[2] === 0xdf &&
+      input[3] === 0xa3
+    ) {
+      return this.result("video", "video/x-matroska", 90);
+    }
+    // AVI: "RIFF" + "AVI "
+    if (
+      input.length >= 12 &&
+      input[0] === 0x52 &&
+      input[1] === 0x49 &&
+      input[2] === 0x46 &&
+      input[3] === 0x46 &&
+      input[8] === 0x41 &&
+      input[9] === 0x56 &&
+      input[10] === 0x49 &&
+      input[11] === 0x20
+    ) {
+      return this.result("video", "video/x-msvideo", 95);
+    }
+    // WAV: "RIFF" + "WAVE"
+    if (
+      input.length >= 12 &&
+      input[0] === 0x52 &&
+      input[1] === 0x49 &&
+      input[2] === 0x46 &&
+      input[3] === 0x46 &&
+      input[8] === 0x57 &&
+      input[9] === 0x41 &&
+      input[10] === 0x56 &&
+      input[11] === 0x45
+    ) {
+      return this.result("audio", "audio/wav", 95);
+    }
+    // MP3: ID3 tag
+    if (
+      input.length >= 3 &&
+      input[0] === 0x49 &&
+      input[1] === 0x44 &&
+      input[2] === 0x33
+    ) {
+      return this.result("audio", "audio/mpeg", 95);
+    }
+    // MP3: sync word
+    if (input.length >= 2 && input[0] === 0xff && (input[1] & 0xe0) === 0xe0) {
+      return this.result("audio", "audio/mpeg", 80);
+    }
+    // FLAC: "fLaC"
+    if (
+      input.length >= 4 &&
+      input[0] === 0x66 &&
+      input[1] === 0x4c &&
+      input[2] === 0x61 &&
+      input[3] === 0x43
+    ) {
+      return this.result("audio", "audio/flac", 95);
+    }
+    // OGG: "OggS"
+    if (
+      input.length >= 4 &&
+      input[0] === 0x4f &&
+      input[1] === 0x67 &&
+      input[2] === 0x67 &&
+      input[3] === 0x53
+    ) {
+      return this.result("audio", "audio/ogg", 90);
+    }
+    // ZIP: "PK\x03\x04"
+    // NOTE: Many document formats (OOXML: .xlsx, .docx, .pptx; ODF: .odt, .ods)
+    // are internally ZIP archives and share these magic bytes. We return a lower
+    // confidence (70%) so the ExtensionStrategy (85%) can override with the correct
+    // document type when a file path with extension is available. For raw buffers
+    // without path info, this falls through to archive as a safe default.
+    if (
+      input.length >= 4 &&
+      input[0] === 0x50 &&
+      input[1] === 0x4b &&
+      input[2] === 0x03 &&
+      input[3] === 0x04
+    ) {
+      return this.result("archive", "application/zip", 70);
+    }
+    // GZIP: 1F 8B
+    if (input.length >= 2 && input[0] === 0x1f && input[1] === 0x8b) {
+      return this.result("archive", "application/gzip", 90);
+    }
+    // RAR: "Rar!"
+    if (
+      input.length >= 4 &&
+      input[0] === 0x52 &&
+      input[1] === 0x61 &&
+      input[2] === 0x72 &&
+      input[3] === 0x21
+    ) {
+      return this.result("archive", "application/x-rar-compressed", 95);
     }
 
     return this.unknown();
@@ -895,26 +1917,112 @@ class MimeTypeStrategy implements DetectionStrategy {
   }
 
   private mimeToFileType(mime: string): FileType {
-    if (mime.includes("text/csv")) {
-      return "csv";
-    }
-    if (mime.includes("text/tab-separated-values")) {
+    const lower = mime.toLowerCase().split(";")[0].trim();
+
+    // CSV
+    if (lower === "text/csv" || lower === "text/tab-separated-values") {
       return "csv";
     }
     // SVG is processed as text/markup, NOT as image
     // Must check before generic image/ check
-    if (mime.includes("image/svg+xml")) {
+    if (lower === "image/svg+xml") {
       return "svg";
     }
-    if (mime.includes("image/")) {
+    // Images
+    if (lower.startsWith("image/")) {
       return "image";
     }
-    if (mime.includes("application/pdf")) {
+    // PDF
+    if (lower === "application/pdf") {
       return "pdf";
     }
-    if (mime.includes("text/plain")) {
+    // Video
+    if (lower.startsWith("video/")) {
+      return "video";
+    }
+    // Audio
+    if (lower.startsWith("audio/")) {
+      return "audio";
+    }
+
+    // Office documents — OOXML
+    if (
+      lower ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      lower === "application/msword"
+    ) {
+      return "docx";
+    }
+    if (
+      lower ===
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      lower === "application/vnd.ms-excel"
+    ) {
+      return "xlsx";
+    }
+    if (
+      lower ===
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+      lower === "application/vnd.ms-powerpoint"
+    ) {
+      return "pptx";
+    }
+    // OpenDocument formats
+    if (lower === "application/vnd.oasis.opendocument.text") {
+      return "docx";
+    }
+    if (lower === "application/vnd.oasis.opendocument.spreadsheet") {
+      return "xlsx";
+    }
+    if (lower === "application/vnd.oasis.opendocument.presentation") {
+      return "pptx";
+    }
+    // RTF
+    if (lower === "application/rtf" || lower === "text/rtf") {
+      return "docx";
+    }
+
+    // Archive formats
+    if (
+      lower === "application/zip" ||
+      lower === "application/x-zip-compressed" ||
+      lower === "application/gzip" ||
+      lower === "application/x-gzip" ||
+      lower === "application/x-tar" ||
+      lower === "application/x-compressed-tar" ||
+      lower === "application/java-archive" ||
+      lower === "application/x-rar-compressed" ||
+      lower === "application/vnd.rar" ||
+      lower === "application/x-7z-compressed"
+    ) {
+      return "archive";
+    }
+
+    // Text/markup/source code — broad matching
+    if (
+      lower === "text/plain" ||
+      lower === "text/markdown" ||
+      lower === "text/html" ||
+      lower === "text/css" ||
+      lower === "text/javascript" ||
+      lower === "text/typescript" ||
+      lower === "application/json" ||
+      lower === "application/xml" ||
+      lower === "text/xml" ||
+      lower === "application/yaml" ||
+      lower === "application/x-yaml"
+    ) {
       return "text";
     }
+    // Source code MIME types (text/x-*)
+    if (lower.startsWith("text/x-")) {
+      return "text";
+    }
+    // Generic text types we may not have listed explicitly
+    if (lower.startsWith("text/")) {
+      return "text";
+    }
+
     return "unknown";
   }
 
@@ -964,18 +2072,109 @@ class ExtensionStrategy implements DetectionStrategy {
       svg: "svg",
       avif: "image",
       pdf: "pdf",
+      // Video formats
+      mp4: "video",
+      mkv: "video",
+      mov: "video",
+      avi: "video",
+      webm: "video",
+      wmv: "video",
+      flv: "video",
+      // Audio formats
+      mp3: "audio",
+      wav: "audio",
+      ogg: "audio",
+      flac: "audio",
+      m4a: "audio",
+      aac: "audio",
+      wma: "audio",
+      opus: "audio",
+      // Archive formats
+      zip: "archive",
+      tar: "archive",
+      gz: "archive",
+      tgz: "archive",
+      rar: "archive",
+      "7z": "archive",
+      jar: "archive",
+      // Document formats (ZIP-based internally)
+      xlsx: "xlsx",
+      xls: "xlsx",
+      docx: "docx",
+      doc: "docx",
+      pptx: "pptx",
+      ppt: "pptx",
+      odt: "docx", // OpenDocument text → processed like docx
+      ods: "xlsx", // OpenDocument spreadsheet → processed like xlsx
+      odp: "pptx", // OpenDocument presentation → processed like pptx
+      rtf: "docx", // RTF → processed like docx (text extraction)
+      // Text/markup formats
       txt: "text",
       md: "text",
+      markdown: "text",
       json: "text",
       xml: "text",
       yaml: "text",
       yml: "text",
       html: "text",
       htm: "text",
+      css: "text",
       log: "text",
       conf: "text",
       cfg: "text",
       ini: "text",
+      env: "text",
+      toml: "text",
+      properties: "text",
+      gitignore: "text",
+      dockerignore: "text",
+      editorconfig: "text",
+      prettierrc: "text",
+      eslintrc: "text",
+      babelrc: "text",
+      // Source code formats
+      js: "text",
+      mjs: "text",
+      cjs: "text",
+      jsx: "text",
+      ts: "text",
+      tsx: "text",
+      py: "text",
+      java: "text",
+      go: "text",
+      rs: "text",
+      rb: "text",
+      php: "text",
+      c: "text",
+      cpp: "text",
+      cc: "text",
+      h: "text",
+      hpp: "text",
+      cs: "text",
+      swift: "text",
+      kt: "text",
+      kts: "text",
+      scala: "text",
+      sh: "text",
+      bash: "text",
+      zsh: "text",
+      ps1: "text",
+      sql: "text",
+      r: "text",
+      lua: "text",
+      pl: "text",
+      perl: "text",
+      dart: "text",
+      ex: "text",
+      exs: "text",
+      erl: "text",
+      hs: "text",
+      clj: "text",
+      lisp: "text",
+      vim: "text",
+      // Additional video/image
+      m4v: "video",
+      ico: "image",
     };
 
     const type = typeMap[ext.toLowerCase()];
@@ -1028,18 +2227,109 @@ class ExtensionStrategy implements DetectionStrategy {
       svg: "image/svg+xml",
       avif: "image/avif",
       pdf: "application/pdf",
+      // Video MIME types
+      mp4: "video/mp4",
+      mkv: "video/x-matroska",
+      mov: "video/quicktime",
+      avi: "video/x-msvideo",
+      webm: "video/webm",
+      wmv: "video/x-ms-wmv",
+      flv: "video/x-flv",
+      // Audio MIME types
+      mp3: "audio/mpeg",
+      wav: "audio/wav",
+      ogg: "audio/ogg",
+      flac: "audio/flac",
+      m4a: "audio/mp4",
+      aac: "audio/aac",
+      wma: "audio/x-ms-wma",
+      opus: "audio/opus",
+      // Archive MIME types
+      zip: "application/zip",
+      tar: "application/x-tar",
+      gz: "application/gzip",
+      tgz: "application/gzip",
+      rar: "application/x-rar-compressed",
+      "7z": "application/x-7z-compressed",
+      jar: "application/java-archive",
+      // Document MIME types
+      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      xls: "application/vnd.ms-excel",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      doc: "application/msword",
+      pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      ppt: "application/vnd.ms-powerpoint",
+      odt: "application/vnd.oasis.opendocument.text",
+      ods: "application/vnd.oasis.opendocument.spreadsheet",
+      odp: "application/vnd.oasis.opendocument.presentation",
+      rtf: "application/rtf",
+      // Text/markup MIME types
       txt: "text/plain",
       md: "text/markdown",
+      markdown: "text/markdown",
       json: "application/json",
       xml: "application/xml",
       yaml: "application/yaml",
       yml: "application/yaml",
       html: "text/html",
       htm: "text/html",
+      css: "text/css",
       log: "text/plain",
       conf: "text/plain",
       cfg: "text/plain",
       ini: "text/plain",
+      env: "text/plain",
+      toml: "text/plain",
+      properties: "text/plain",
+      gitignore: "text/plain",
+      dockerignore: "text/plain",
+      editorconfig: "text/plain",
+      prettierrc: "application/json",
+      eslintrc: "application/json",
+      babelrc: "application/json",
+      // Source code MIME types
+      js: "text/javascript",
+      mjs: "text/javascript",
+      cjs: "text/javascript",
+      jsx: "text/javascript",
+      ts: "text/typescript",
+      tsx: "text/typescript",
+      py: "text/x-python",
+      java: "text/x-java-source",
+      go: "text/x-go",
+      rs: "text/x-rustsrc",
+      rb: "text/x-ruby",
+      php: "text/x-php",
+      c: "text/x-c",
+      cpp: "text/x-c++",
+      cc: "text/x-c++",
+      h: "text/x-c",
+      hpp: "text/x-c++",
+      cs: "text/x-csharp",
+      swift: "text/x-swift",
+      kt: "text/x-kotlin",
+      kts: "text/x-kotlin",
+      scala: "text/x-scala",
+      sh: "text/x-shellscript",
+      bash: "text/x-shellscript",
+      zsh: "text/x-shellscript",
+      ps1: "text/x-powershell",
+      sql: "text/x-sql",
+      r: "text/x-r",
+      lua: "text/x-lua",
+      pl: "text/x-perl",
+      perl: "text/x-perl",
+      dart: "text/x-dart",
+      ex: "text/x-elixir",
+      exs: "text/x-elixir",
+      erl: "text/x-erlang",
+      hs: "text/x-haskell",
+      clj: "text/x-clojure",
+      lisp: "text/x-lisp",
+      vim: "text/plain",
+      // Additional video/image
+      m4v: "video/mp4",
+      ico: "image/x-icon",
     };
     return mimeMap[ext.toLowerCase()] || "application/octet-stream";
   }

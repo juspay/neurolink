@@ -32,7 +32,7 @@ import type {
 /**
  * Tool definition interface compatible with AI SDK / MCP
  */
-export interface ImageGenToolDefinition {
+export type ImageGenToolDefinition = {
   name: string;
   description: string;
   inputSchema: {
@@ -51,7 +51,7 @@ export interface ImageGenToolDefinition {
     params: ImageGenToolParams,
     context?: ImageGenToolContext,
   ) => Promise<ImageGenToolResponse>;
-}
+};
 
 /**
  * Create an image generation tool for use with AI models

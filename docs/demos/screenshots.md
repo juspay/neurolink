@@ -466,7 +466,8 @@ docs/
 Every screenshot must include descriptive alt text:
 
 ```markdown
-![CLI Help Command](../assets/images/cli-help-overview.png)
+<!-- ![CLI Help Command](../assets/images/cli-help-overview.png) -->
+
 _Complete CLI help output showing all available commands, options, and usage examples with color-coded syntax highlighting_
 ```
 

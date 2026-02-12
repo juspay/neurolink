@@ -69,17 +69,23 @@ export class GraphRAG {
     // Create edges based on semantic similarity
     for (let i = 0; i < nodeIds.length; i++) {
       const edges: GraphEdge[] = [];
-      const nodeA = this.nodes.get(nodeIds[i])!;
+      const nodeA = this.nodes.get(nodeIds[i]);
+      if (!nodeA?.embedding) {
+        continue;
+      }
 
       for (let j = 0; j < nodeIds.length; j++) {
         if (i === j) {
           continue;
         }
 
-        const nodeB = this.nodes.get(nodeIds[j])!;
+        const nodeB = this.nodes.get(nodeIds[j]);
+        if (!nodeB?.embedding) {
+          continue;
+        }
         const similarity = this.cosineSimilarity(
-          nodeA.embedding!,
-          nodeB.embedding!,
+          nodeA.embedding,
+          nodeB.embedding,
         );
 
         if (similarity >= this.threshold) {
@@ -184,14 +190,19 @@ export class GraphRAG {
     const rankedNodes = Array.from(scores.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, topK)
-      .map(([id, score]): RankedNode => {
-        const node = this.nodes.get(id)!;
-        return {
-          id,
-          content: node.content,
-          metadata: node.metadata,
-          score,
-        };
+      .flatMap(([id, score]): RankedNode[] => {
+        const node = this.nodes.get(id);
+        if (!node) {
+          return [];
+        }
+        return [
+          {
+            id,
+            content: node.content,
+            metadata: node.metadata,
+            score,
+          },
+        ];
       });
 
     logger.debug("[GraphRAG] Query completed", {
@@ -227,9 +238,12 @@ export class GraphRAG {
         continue;
       }
 
+      if (!existingNode.embedding) {
+        continue;
+      }
       const similarity = this.cosineSimilarity(
         embedding.vector,
-        existingNode.embedding!,
+        existingNode.embedding,
       );
 
       if (similarity >= this.threshold) {
@@ -337,8 +351,8 @@ export class GraphRAG {
       const queue = [nodeId];
 
       while (queue.length > 0) {
-        const current = queue.shift()!;
-        if (visited.has(current)) {
+        const current = queue.shift();
+        if (current === undefined || visited.has(current)) {
           continue;
         }
 
@@ -421,15 +435,18 @@ export class GraphRAG {
 
     for (let i = 0; i < nodeIds.length; i++) {
       const edges: GraphEdge[] = [];
-      const nodeA = this.nodes.get(nodeIds[i])!;
+      const nodeA = this.nodes.get(nodeIds[i]);
+      if (!nodeA?.embedding) {
+        continue;
+      }
 
       for (let j = 0; j < nodeIds.length; j++) {
         if (i === j) {
           continue;
         }
 
-        const nodeB = this.nodes.get(nodeIds[j])!;
-        if (!nodeA.embedding || !nodeB.embedding) {
+        const nodeB = this.nodes.get(nodeIds[j]);
+        if (!nodeB?.embedding) {
           continue;
         }
 

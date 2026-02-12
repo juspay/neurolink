@@ -120,14 +120,14 @@ neurolink/
 
 ```typescript
 // ✅ Good: Clear interfaces with documentation
-interface GenerateOptions {
+type GenerateOptions = {
   /** The input text to process */
   input: { text: string };
   /** Temperature for randomness (0-1) */
   temperature?: number;
   /** Maximum tokens to generate */
   maxTokens?: number;
-}
+};
 
 // ✅ Good: Proper error handling
 async function generate(options: GenerateOptions): Promise<GenerateResult> {

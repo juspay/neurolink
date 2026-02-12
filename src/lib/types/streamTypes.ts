@@ -237,7 +237,7 @@ export type StreamOptions = {
     csvFiles?: Array<Buffer | string>; // Explicit CSV files (converted to text)
     pdfFiles?: Array<Buffer | string>; // Explicit PDF files (processed as binary documents, not converted to text)
     videoFiles?: Array<Buffer | string>; // Explicit video files
-    files?: Array<Buffer | string>; // Auto-detect file types
+    files?: Array<Buffer | string | import("./fileTypes.js").FileWithMetadata>; // Auto-detect file types
     content?: Content[]; // Advanced multimodal content
   };
   output?: {
@@ -431,6 +431,17 @@ export type StreamOptions = {
    * ```
    */
   rag?: RAGConfig;
+
+  /**
+   * File reference registry for on-demand file processing (internal).
+   *
+   * When set, files above the "tiny" size tier (>10KB) will be registered
+   * as lightweight references instead of being fully loaded into the prompt.
+   * The LLM can then access file content on-demand via file tools.
+   *
+   * @internal Set by NeuroLink SDK — not typically used directly by consumers.
+   */
+  fileRegistry?: unknown;
 };
 
 /**

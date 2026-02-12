@@ -23,7 +23,7 @@ const auditLogger = winston.createLogger({
   ],
 });
 
-interface AuditEntry {
+type AuditEntry = {
   timestamp: string;
   requestId: string;
   userId: string | null;
@@ -36,7 +36,7 @@ interface AuditEntry {
   statusCode?: number;
   duration?: number;
   metadata?: Record<string, any>;
-}
+};
 
 export function auditMiddleware(
   req: Request,

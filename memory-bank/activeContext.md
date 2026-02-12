@@ -191,7 +191,7 @@ const neurolink = new NeuroLink({
 - Aligns Azure provider registration with factory pattern used across all providers
 
 ### **🎯 Technical Implementation**
-- **File Modified**: [src/lib/factories/providerRegistry.ts:122-137](src/lib/factories/providerRegistry.ts#L122-L137)
+- **File Modified**: `src/lib/factories/providerRegistry.ts:122-137`
 - **Pattern**: Factory method signature enhancement with optional SDK parameter
 - **Type Safety**: SDK typed as `UnknownRecord`, cast to `NeuroLink | undefined` when passed to constructor
 - **Zero Breaking Changes**: All existing Azure provider usage remains functional

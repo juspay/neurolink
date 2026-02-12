@@ -564,7 +564,7 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
     // Classify the final error
     return {
       success: false,
-      error: this.classifyDownloadError(lastError!),
+      error: this.classifyDownloadError(lastError as Error),
     };
   }
 

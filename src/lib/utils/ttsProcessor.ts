@@ -83,7 +83,7 @@ export class TTSError extends NeuroLinkError {
  * }
  * ```
  */
-export interface TTSHandler {
+export type TTSHandler = {
   /**
    * Generate audio from text using provider-specific TTS API
    *
@@ -120,7 +120,7 @@ export interface TTSHandler {
    * @default 3000 if not specified
    */
   maxTextLength?: number;
-}
+};
 
 /**
  * TTS processor class for orchestrating text-to-speech operations

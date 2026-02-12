@@ -9,27 +9,29 @@
  *   neurolink serve status
  */
 
-import type { CommandModule, Argv } from "yargs";
 import chalk from "chalk";
-import ora from "ora";
 import fs from "fs";
+import ora from "ora";
 import path from "path";
-import { logger } from "../../lib/utils/logger.js";
+import type { Argv, CommandModule } from "yargs";
 import { NeuroLink } from "../../lib/neurolink.js";
-import { withTimeout } from "../../lib/utils/errorHandling.js";
-import type {
-  ServerFramework,
-  ServerAdapterConfig,
-} from "../../lib/server/types.js";
-import {
-  isProcessRunning,
-  formatUptime,
-  StateFileManager,
-} from "../utils/serverUtils.js";
 import {
   ConfigurationError,
   ServerStartError,
 } from "../../lib/server/errors.js";
+import type {
+  RouteDefinition,
+  RouteGroup,
+  ServerAdapterConfig,
+  ServerFramework,
+} from "../../lib/server/types.js";
+import { withTimeout } from "../../lib/utils/errorHandling.js";
+import { logger } from "../../lib/utils/logger.js";
+import {
+  formatUptime,
+  isProcessRunning,
+  StateFileManager,
+} from "../utils/serverUtils.js";
 
 // ============================================
 // Types
@@ -94,6 +96,18 @@ type ServerConfigFile = {
 };
 
 /**
+ * Minimal interface for the server instance returned by createServer.
+ * Avoids importing BaseServerAdapter (which is dynamically loaded).
+ */
+type ServerInstance = {
+  initialize: () => Promise<void>;
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+  registerRouteGroup: (group: RouteGroup) => void;
+  listRoutes?: () => RouteDefinition[];
+};
+
+/**
  * Server state stored in state file
  */
 type ServeState = {
@@ -146,7 +160,10 @@ function loadConfigFile(configPath: string): ServerConfigFile {
 
   throw new ConfigurationError(
     "Only JSON config files are supported. Use .json extension.",
-    { configPath, absolutePath },
+    {
+      configPath,
+      absolutePath,
+    },
   );
 }
 
@@ -262,8 +279,9 @@ export class ServeCommandFactory {
           .command(
             "status",
             "Show server status",
-            (yargs) => this.buildStatusOptions(yargs),
-            (argv) => this.executeStatus(argv as ServeCommandArgs),
+            (yargs) => ServeCommandFactory.buildStatusOptions(yargs),
+            (argv) =>
+              ServeCommandFactory.executeStatus(argv as ServeCommandArgs),
           )
           .option("port", {
             type: "number",
@@ -361,7 +379,7 @@ export class ServeCommandFactory {
         // If subcommand is provided (like 'status'), it will be handled by the subcommand
         // Otherwise, start the server
         if (!argv.subcommand || argv.subcommand === "serve") {
-          await this.executeServe(argv as ServeCommandArgs);
+          await ServeCommandFactory.executeServe(argv as ServeCommandArgs);
         }
       },
     };
@@ -396,388 +414,545 @@ export class ServeCommandFactory {
 
     try {
       // Check if server is already running
-      const existingState = loadServeState();
-      if (existingState && isProcessRunning(existingState.pid)) {
-        if (spinner) {
-          spinner.fail(
-            chalk.red(
-              `Server already running on port ${existingState.port} (PID: ${existingState.pid})`,
-            ),
-          );
-        }
-        logger.always(
-          chalk.yellow(
-            "Use 'neurolink server stop' or kill the process to stop it first",
-          ),
-        );
-        process.exit(1);
-      }
+      ServeCommandFactory.guardAlreadyRunning(spinner);
 
       // Load config file if provided
-      let fileConfig: ServerConfigFile = {};
-      if (argv.config) {
-        try {
-          fileConfig = loadConfigFile(argv.config);
-          if (spinner) {
-            spinner.text = `Loading config from ${argv.config}...`;
-          }
-        } catch (configError) {
-          if (spinner) {
-            spinner.fail(chalk.red("Failed to load config file"));
-          }
-          logger.error(
-            chalk.red(
-              `Error: ${configError instanceof Error ? configError.message : String(configError)}`,
-            ),
-          );
-          process.exit(1);
-        }
-      }
+      const fileConfig = ServeCommandFactory.loadFileConfig(argv, spinner);
 
       // Merge CLI args with file config (CLI takes precedence)
       const port = argv.port ?? fileConfig.port ?? 3000;
       const host = argv.host ?? fileConfig.host ?? "0.0.0.0";
       const framework = argv.framework ?? fileConfig.framework ?? "hono";
       const basePath = argv.basePath ?? fileConfig.basePath ?? "/api";
-      const corsEnabled = argv.cors ?? fileConfig.cors?.enabled ?? true;
 
-      // Rate limit: argv.rateLimit is a number (0 to disable, >0 for max requests)
-      const rateLimitValue =
-        argv.rateLimit ?? fileConfig.rateLimit?.maxRequests ?? 100;
-      const rateLimitEnabled = rateLimitValue > 0;
-
-      // Swagger/OpenAPI documentation
-      const swaggerEnabled = argv.swagger ?? fileConfig.enableSwagger ?? false;
-
-      // Create NeuroLink instance
-      const neurolink = new NeuroLink();
-
-      // Dynamically import server module
-      const { createServer, registerAllRoutes } = await import(
-        "../../lib/server/index.js"
+      // Build server adapter config from merged values
+      const serverConfig = ServeCommandFactory.buildServerConfig(
+        argv,
+        fileConfig,
+        {
+          port,
+          host,
+          basePath,
+        },
       );
-
-      // Build server adapter config
-      // Default config values
-      const defaultConfig = {
-        cors: { enabled: true },
-        rateLimit: { enabled: true, maxRequests: 100 },
-      };
-
-      const serverConfig: ServerAdapterConfig = {
-        port,
-        host,
-        basePath,
-        cors: {
-          ...defaultConfig.cors,
-          ...(fileConfig.cors || {}),
-          // CLI flag should override config file
-          enabled:
-            argv.cors !== undefined
-              ? argv.cors
-              : (fileConfig.cors?.enabled ?? defaultConfig.cors.enabled),
-        },
-        rateLimit: {
-          ...defaultConfig.rateLimit,
-          ...(fileConfig.rateLimit || {}),
-          // CLI flags should override config file
-          enabled:
-            argv.rateLimit !== undefined
-              ? argv.rateLimit > 0
-              : (fileConfig.rateLimit?.enabled ??
-                defaultConfig.rateLimit.enabled),
-          maxRequests:
-            argv.rateLimit !== undefined
-              ? argv.rateLimit
-              : (fileConfig.rateLimit?.maxRequests ??
-                defaultConfig.rateLimit.maxRequests),
-        },
-        bodyParser: fileConfig.bodyParser,
-        logging: fileConfig.logging,
-        timeout: fileConfig.timeout,
-        enableMetrics: fileConfig.enableMetrics ?? true,
-        enableSwagger:
-          argv.swagger !== undefined
-            ? argv.swagger
-            : (fileConfig.enableSwagger ?? false),
-        disableBuiltInHealth: true, // We register health routes separately
-      };
 
       if (spinner) {
         spinner.text = `Creating ${framework} server...`;
       }
 
-      // Create server using ServerAdapterFactory
-      // Use a mutable reference wrapper so signal handlers always access the current server
-      // This is necessary because watch mode replaces the server on restart
-      const serverRef: { current: Awaited<ReturnType<typeof createServer>> } = {
-        current: await createServer(neurolink, {
-          framework: framework as ServerFramework,
-          config: serverConfig,
-        }),
-      };
-
-      // Register all routes
-      registerAllRoutes(serverRef.current, basePath);
-
-      if (spinner) {
-        spinner.text = "Initializing server...";
-      }
-
-      // Initialize and start with timeout
-      await withTimeout(
-        serverRef.current.initialize(),
-        30000,
-        new ServerStartError(
-          "Server initialization timed out after 30 seconds",
-          undefined,
-          port,
-          host,
-        ),
-      );
-      await withTimeout(
-        serverRef.current.start(),
-        30000,
-        new ServerStartError(
-          "Server startup timed out after 30 seconds",
-          undefined,
-          port,
-          host,
-        ),
+      // Create, register routes, initialize and start server
+      const serverRef = await ServeCommandFactory.createAndStartServer(
+        { framework, serverConfig, basePath, port, host },
+        spinner,
       );
 
-      // Save state
-      const state: ServeState = {
-        pid: process.pid,
-        port,
-        host,
-        framework,
-        startTime: new Date().toISOString(),
-        basePath,
-        configFile: argv.config,
-      };
-      saveServeState(state);
-
-      if (spinner) {
-        spinner.succeed(chalk.green("NeuroLink server started successfully"));
-      }
-
-      const url = `http://${host === "0.0.0.0" ? "localhost" : host}:${port}`;
-
-      logger.always("");
-      logger.always(chalk.bold.cyan("NeuroLink Server"));
-      logger.always(chalk.gray("=".repeat(50)));
-      logger.always("");
-      logger.always(`  ${chalk.bold("URL:")}        ${chalk.cyan(url)}`);
-      logger.always(`  ${chalk.bold("Framework:")}  ${chalk.cyan(framework)}`);
-      logger.always(`  ${chalk.bold("Base Path:")}  ${chalk.cyan(basePath)}`);
-      logger.always(`  ${chalk.bold("PID:")}        ${chalk.cyan(state.pid)}`);
-      if (argv.config) {
-        logger.always(
-          `  ${chalk.bold("Config:")}     ${chalk.cyan(argv.config)}`,
-        );
-      }
-      logger.always("");
-
-      logger.always(chalk.bold("Middleware:"));
-      logger.always(
-        `  CORS:        ${corsEnabled ? chalk.green("enabled") : chalk.yellow("disabled")}`,
+      // Save state and print startup banner
+      ServeCommandFactory.saveAndPrintStartupInfo(
+        { argv, port, host, framework, basePath, serverConfig },
+        spinner,
       );
-      logger.always(
-        `  Rate Limit:  ${rateLimitEnabled ? chalk.green(`enabled (${rateLimitValue} req/15min)`) : chalk.yellow("disabled")}`,
-      );
-      logger.always(
-        `  Swagger:     ${swaggerEnabled ? chalk.green("enabled") : chalk.yellow("disabled")}`,
-      );
-      if (argv.watch) {
-        logger.always(`  Watch Mode:  ${chalk.green("enabled")}`);
-      }
-      logger.always("");
-
-      logger.always(chalk.bold("Available Endpoints:"));
-      logger.always(chalk.gray("  Health & Monitoring:"));
-      logger.always(`    ${chalk.green("GET")}  ${basePath}/health`);
-      logger.always(`    ${chalk.green("GET")}  ${basePath}/ready`);
-      logger.always(`    ${chalk.green("GET")}  ${basePath}/metrics`);
-      logger.always("");
-      logger.always(chalk.gray("  Agent API:"));
-      logger.always(`    ${chalk.blue("POST")} ${basePath}/agent/execute`);
-      logger.always(`    ${chalk.blue("POST")} ${basePath}/agent/stream`);
-      logger.always(`    ${chalk.green("GET")}  ${basePath}/agent/providers`);
-      logger.always("");
-      logger.always(chalk.gray("  Tools & MCP:"));
-      logger.always(`    ${chalk.green("GET")}  ${basePath}/tools`);
-      logger.always(
-        `    ${chalk.blue("POST")} ${basePath}/tools/:name/execute`,
-      );
-      logger.always(`    ${chalk.green("GET")}  ${basePath}/mcp/servers`);
-      logger.always("");
-      logger.always(chalk.gray("  Memory:"));
-      logger.always(`    ${chalk.green("GET")}  ${basePath}/memory/sessions`);
-      logger.always(
-        `    ${chalk.green("GET")}  ${basePath}/memory/sessions/:id`,
-      );
-
-      if (swaggerEnabled) {
-        logger.always("");
-        logger.always(chalk.gray("  OpenAPI Documentation:"));
-        logger.always(`    ${chalk.green("GET")}  ${basePath}/openapi.json`);
-        logger.always(
-          `    ${chalk.cyan("INFO")} Swagger UI available at ${url}${basePath}/docs`,
-        );
-      }
-      logger.always("");
-
-      logger.always(chalk.gray("Press Ctrl+C to stop the server"));
-      logger.always("");
 
       // Set up watch mode if enabled
-      let stopWatcher: (() => void) | null = null;
-      if (argv.watch) {
-        const restartServer = async () => {
-          try {
-            // Stop current server with timeout
-            await withTimeout(
-              serverRef.current.stop(),
-              30000,
-              new ServerStartError(
-                "Server stop timed out during restart",
-                undefined,
-                port,
-                host,
-              ),
-            );
-
-            // Re-import server module with cache busting for watch mode
-            // Append timestamp query to force ESM to re-evaluate the module
-            const timestamp = Date.now();
-            const {
-              createServer: createNewServer,
-              registerAllRoutes: registerNewRoutes,
-            } = await import(`../../lib/server/index.js?t=${timestamp}`);
-
-            // Create new server
-            const newServer = await createNewServer(new NeuroLink(), {
-              framework: framework as ServerFramework,
-              config: serverConfig,
-            });
-
-            registerNewRoutes(newServer, basePath);
-
-            // Initialize and start with timeouts
-            await withTimeout(
-              newServer.initialize(),
-              30000,
-              new ServerStartError(
-                "Server initialization timed out during restart",
-                undefined,
-                port,
-                host,
-              ),
-            );
-            await withTimeout(
-              newServer.start(),
-              30000,
-              new ServerStartError(
-                "Server startup timed out during restart",
-                undefined,
-                port,
-                host,
-              ),
-            );
-
-            // Update the reference so signal handlers use the new server instance
-            serverRef.current = newServer;
-
-            logger.always(chalk.green("Server restarted successfully"));
-          } catch (restartError) {
-            logger.error(
-              chalk.red(
-                `Error restarting server: ${restartError instanceof Error ? restartError.message : String(restartError)}`,
-              ),
-            );
-          }
-        };
-
-        stopWatcher = createFileWatcher(restartServer, argv.quiet ?? false);
-        logger.always(
-          chalk.gray("Watching for file changes in src/ and lib/..."),
-        );
-        logger.always("");
-      }
-
-      // Keep process running and handle graceful shutdown
-      // Signal handlers access serverRef.current to always get the latest server instance
-      process.on("SIGINT", async () => {
-        logger.always("");
-        logger.always(chalk.yellow("Shutting down server..."));
-        try {
-          // Stop file watcher if active
-          if (stopWatcher) {
-            stopWatcher();
-          }
-          await serverRef.current.stop();
-          clearServeState();
-          logger.always(chalk.green("Server stopped gracefully"));
-          process.exit(0);
-        } catch (error) {
-          logger.error(
-            chalk.red(
-              `Error stopping server: ${error instanceof Error ? error.message : String(error)}`,
-            ),
-          );
-          process.exit(1);
-        }
+      const stopWatcher = ServeCommandFactory.setupWatchMode(argv, {
+        serverRef,
+        framework,
+        serverConfig,
+        basePath,
+        port,
+        host,
       });
 
-      process.on("SIGTERM", async () => {
-        try {
-          if (stopWatcher) {
-            stopWatcher();
-          }
-          await withTimeout(
-            serverRef.current.stop(),
-            30000,
-            new Error("Server stop timed out during SIGTERM"),
-          );
-          clearServeState();
-          process.exit(0);
-        } catch (error) {
-          logger.error(
-            chalk.red(
-              `Error stopping server: ${error instanceof Error ? error.message : String(error)}`,
-            ),
-          );
-          clearServeState();
-          process.exit(1);
-        }
-      });
+      // Register signal handlers for graceful shutdown
+      ServeCommandFactory.registerSignalHandlers(serverRef, stopWatcher);
     } catch (error) {
+      ServeCommandFactory.handleStartupError(error, argv, spinner);
+    }
+  }
+
+  // ============================================
+  // executeServe Helpers
+  // ============================================
+
+  /**
+   * Guard against a server that is already running. Exits the process if so.
+   */
+  private static guardAlreadyRunning(
+    spinner: ReturnType<typeof ora> | null,
+  ): void {
+    const existingState = loadServeState();
+    if (existingState && isProcessRunning(existingState.pid)) {
       if (spinner) {
-        spinner.fail(chalk.red("Failed to start server"));
+        spinner.fail(
+          chalk.red(
+            `Server already running on port ${existingState.port} (PID: ${existingState.pid})`,
+          ),
+        );
+      }
+      logger.always(
+        chalk.yellow(
+          "Use 'neurolink server stop' or kill the process to stop it first",
+        ),
+      );
+      process.exit(1);
+    }
+  }
+
+  /**
+   * Load a config file if one was specified in argv. Returns empty object otherwise.
+   */
+  private static loadFileConfig(
+    argv: ServeCommandArgs,
+    spinner: ReturnType<typeof ora> | null,
+  ): ServerConfigFile {
+    if (!argv.config) {
+      return {};
+    }
+    try {
+      const config = loadConfigFile(argv.config);
+      if (spinner) {
+        spinner.text = `Loading config from ${argv.config}...`;
+      }
+      return config;
+    } catch (configError) {
+      if (spinner) {
+        spinner.fail(chalk.red("Failed to load config file"));
       }
       logger.error(
         chalk.red(
-          `Error: ${error instanceof Error ? error.message : String(error)}`,
+          `Error: ${configError instanceof Error ? configError.message : String(configError)}`,
         ),
       );
-
-      if (argv.debug && error instanceof Error && error.stack) {
-        logger.error(chalk.gray(error.stack));
-      }
-
-      logger.always("");
-      logger.always(chalk.bold("Troubleshooting:"));
-      logger.always("  1. Check if the port is already in use");
-      logger.always(
-        "  2. Verify the framework is installed (npm install hono/express/fastify/koa)",
-      );
-      logger.always("  3. Check your config file format if using --config");
-      logger.always("  4. Run with --debug for more information");
-      logger.always("");
-
       process.exit(1);
     }
+  }
+
+  /**
+   * Merge CLI args with file config to produce a ServerAdapterConfig.
+   */
+  private static buildServerConfig(
+    argv: ServeCommandArgs,
+    fileConfig: ServerConfigFile,
+    merged: { port: number; host: string; basePath: string },
+  ): ServerAdapterConfig {
+    const defaultConfig = {
+      cors: { enabled: true },
+      rateLimit: { enabled: true, maxRequests: 100 },
+    };
+
+    return {
+      port: merged.port,
+      host: merged.host,
+      basePath: merged.basePath,
+      cors: {
+        ...defaultConfig.cors,
+        ...(fileConfig.cors || {}),
+        enabled:
+          argv.cors !== undefined
+            ? argv.cors
+            : (fileConfig.cors?.enabled ?? defaultConfig.cors.enabled),
+      },
+      rateLimit: {
+        ...defaultConfig.rateLimit,
+        ...(fileConfig.rateLimit || {}),
+        enabled:
+          argv.rateLimit !== undefined
+            ? argv.rateLimit > 0
+            : (fileConfig.rateLimit?.enabled ??
+              defaultConfig.rateLimit.enabled),
+        maxRequests:
+          argv.rateLimit !== undefined
+            ? argv.rateLimit
+            : (fileConfig.rateLimit?.maxRequests ??
+              defaultConfig.rateLimit.maxRequests),
+      },
+      bodyParser: fileConfig.bodyParser,
+      logging: fileConfig.logging,
+      timeout: fileConfig.timeout,
+      enableMetrics: fileConfig.enableMetrics ?? true,
+      enableSwagger:
+        argv.swagger !== undefined
+          ? argv.swagger
+          : (fileConfig.enableSwagger ?? false),
+      disableBuiltInHealth: true, // We register health routes separately
+    };
+  }
+
+  /**
+   * Create server, register routes, initialize and start it.
+   * Returns a mutable reference wrapper so signal handlers always access the current server.
+   */
+  private static async createAndStartServer(
+    opts: {
+      framework: string;
+      serverConfig: ServerAdapterConfig;
+      basePath: string;
+      port: number;
+      host: string;
+    },
+    spinner: ReturnType<typeof ora> | null,
+  ): Promise<{ current: ServerInstance }> {
+    const { createServer, registerAllRoutes } = await import(
+      "../../lib/server/index.js"
+    );
+
+    const neurolink = new NeuroLink();
+
+    const serverRef: { current: ServerInstance } = {
+      current: await createServer(neurolink, {
+        framework: opts.framework as ServerFramework,
+        config: opts.serverConfig,
+      }),
+    };
+
+    registerAllRoutes(serverRef.current, opts.basePath);
+
+    if (spinner) {
+      spinner.text = "Initializing server...";
+    }
+
+    await withTimeout(
+      serverRef.current.initialize(),
+      30000,
+      new ServerStartError(
+        "Server initialization timed out after 30 seconds",
+        undefined,
+        opts.port,
+        opts.host,
+      ),
+    );
+    await withTimeout(
+      serverRef.current.start(),
+      30000,
+      new ServerStartError(
+        "Server startup timed out after 30 seconds",
+        undefined,
+        opts.port,
+        opts.host,
+      ),
+    );
+
+    return serverRef;
+  }
+
+  /**
+   * Save server state and print the startup info banner.
+   */
+  private static saveAndPrintStartupInfo(
+    opts: {
+      argv: ServeCommandArgs;
+      port: number;
+      host: string;
+      framework: string;
+      basePath: string;
+      serverConfig: ServerAdapterConfig;
+    },
+    spinner: ReturnType<typeof ora> | null,
+  ): ServeState {
+    const state: ServeState = {
+      pid: process.pid,
+      port: opts.port,
+      host: opts.host,
+      framework: opts.framework,
+      startTime: new Date().toISOString(),
+      basePath: opts.basePath,
+      configFile: opts.argv.config,
+    };
+    saveServeState(state);
+
+    if (spinner) {
+      spinner.succeed(chalk.green("NeuroLink server started successfully"));
+    }
+
+    const url = `http://${opts.host === "0.0.0.0" ? "localhost" : opts.host}:${opts.port}`;
+
+    const corsEnabled =
+      opts.argv.cors ?? opts.serverConfig.cors?.enabled ?? true;
+    const rateLimitValue =
+      opts.argv.rateLimit ?? opts.serverConfig.rateLimit?.maxRequests ?? 100;
+    const rateLimitEnabled = rateLimitValue > 0;
+    const swaggerEnabled =
+      opts.argv.swagger ?? opts.serverConfig.enableSwagger ?? false;
+
+    ServeCommandFactory.printStartupBanner({
+      url,
+      framework: opts.framework,
+      basePath: opts.basePath,
+      pid: state.pid,
+      configFile: opts.argv.config,
+      corsEnabled,
+      rateLimitEnabled,
+      rateLimitValue,
+      swaggerEnabled,
+      watchEnabled: opts.argv.watch ?? false,
+    });
+
+    return state;
+  }
+
+  /**
+   * Print the server startup banner with server info, middleware status and endpoints.
+   */
+  private static printStartupBanner(info: {
+    url: string;
+    framework: string;
+    basePath: string;
+    pid: number;
+    configFile?: string;
+    corsEnabled: boolean;
+    rateLimitEnabled: boolean;
+    rateLimitValue: number;
+    swaggerEnabled: boolean;
+    watchEnabled: boolean;
+  }): void {
+    logger.always("");
+    logger.always(chalk.bold.cyan("NeuroLink Server"));
+    logger.always(chalk.gray("=".repeat(50)));
+    logger.always("");
+    logger.always(`  ${chalk.bold("URL:")}        ${chalk.cyan(info.url)}`);
+    logger.always(
+      `  ${chalk.bold("Framework:")}  ${chalk.cyan(info.framework)}`,
+    );
+    logger.always(
+      `  ${chalk.bold("Base Path:")}  ${chalk.cyan(info.basePath)}`,
+    );
+    logger.always(`  ${chalk.bold("PID:")}        ${chalk.cyan(info.pid)}`);
+    if (info.configFile) {
+      logger.always(
+        `  ${chalk.bold("Config:")}     ${chalk.cyan(info.configFile)}`,
+      );
+    }
+    logger.always("");
+
+    logger.always(chalk.bold("Middleware:"));
+    logger.always(
+      `  CORS:        ${info.corsEnabled ? chalk.green("enabled") : chalk.yellow("disabled")}`,
+    );
+    logger.always(
+      `  Rate Limit:  ${info.rateLimitEnabled ? chalk.green(`enabled (${info.rateLimitValue} req/15min)`) : chalk.yellow("disabled")}`,
+    );
+    logger.always(
+      `  Swagger:     ${info.swaggerEnabled ? chalk.green("enabled") : chalk.yellow("disabled")}`,
+    );
+    if (info.watchEnabled) {
+      logger.always(`  Watch Mode:  ${chalk.green("enabled")}`);
+    }
+    logger.always("");
+
+    logger.always(chalk.bold("Available Endpoints:"));
+    logger.always(chalk.gray("  Health & Monitoring:"));
+    logger.always(`    ${chalk.green("GET")}  ${info.basePath}/health`);
+    logger.always(`    ${chalk.green("GET")}  ${info.basePath}/ready`);
+    logger.always(`    ${chalk.green("GET")}  ${info.basePath}/metrics`);
+    logger.always("");
+    logger.always(chalk.gray("  Agent API:"));
+    logger.always(`    ${chalk.blue("POST")} ${info.basePath}/agent/execute`);
+    logger.always(`    ${chalk.blue("POST")} ${info.basePath}/agent/stream`);
+    logger.always(
+      `    ${chalk.green("GET")}  ${info.basePath}/agent/providers`,
+    );
+    logger.always("");
+    logger.always(chalk.gray("  Tools & MCP:"));
+    logger.always(`    ${chalk.green("GET")}  ${info.basePath}/tools`);
+    logger.always(
+      `    ${chalk.blue("POST")} ${info.basePath}/tools/:name/execute`,
+    );
+    logger.always(`    ${chalk.green("GET")}  ${info.basePath}/mcp/servers`);
+    logger.always("");
+    logger.always(chalk.gray("  Memory:"));
+    logger.always(
+      `    ${chalk.green("GET")}  ${info.basePath}/memory/sessions`,
+    );
+    logger.always(
+      `    ${chalk.green("GET")}  ${info.basePath}/memory/sessions/:id`,
+    );
+
+    if (info.swaggerEnabled) {
+      logger.always("");
+      logger.always(chalk.gray("  OpenAPI Documentation:"));
+      logger.always(`    ${chalk.green("GET")}  ${info.basePath}/openapi.json`);
+      logger.always(
+        `    ${chalk.cyan("INFO")} Swagger UI available at ${info.url}${info.basePath}/docs`,
+      );
+    }
+    logger.always("");
+
+    logger.always(chalk.gray("Press Ctrl+C to stop the server"));
+    logger.always("");
+  }
+
+  /**
+   * Set up watch mode if enabled. Returns the stop-watcher function, or null if not enabled.
+   */
+  private static setupWatchMode(
+    argv: ServeCommandArgs,
+    ctx: {
+      serverRef: { current: ServerInstance };
+      framework: string;
+      serverConfig: ServerAdapterConfig;
+      basePath: string;
+      port: number;
+      host: string;
+    },
+  ): (() => void) | null {
+    if (!argv.watch) {
+      return null;
+    }
+
+    const restartServer = async () => {
+      try {
+        // Stop current server with timeout
+        await withTimeout(
+          ctx.serverRef.current.stop(),
+          30000,
+          new ServerStartError(
+            "Server stop timed out during restart",
+            undefined,
+            ctx.port,
+            ctx.host,
+          ),
+        );
+
+        // Re-import server module with cache busting for watch mode
+        const timestamp = Date.now();
+        const {
+          createServer: createNewServer,
+          registerAllRoutes: registerNewRoutes,
+        } = await import(`../../lib/server/index.js?t=${timestamp}`);
+
+        // Create new server
+        const newServer = await createNewServer(new NeuroLink(), {
+          framework: ctx.framework as ServerFramework,
+          config: ctx.serverConfig,
+        });
+
+        registerNewRoutes(newServer, ctx.basePath);
+
+        // Initialize and start with timeouts
+        await withTimeout(
+          newServer.initialize(),
+          30000,
+          new ServerStartError(
+            "Server initialization timed out during restart",
+            undefined,
+            ctx.port,
+            ctx.host,
+          ),
+        );
+        await withTimeout(
+          newServer.start(),
+          30000,
+          new ServerStartError(
+            "Server startup timed out during restart",
+            undefined,
+            ctx.port,
+            ctx.host,
+          ),
+        );
+
+        // Update the reference so signal handlers use the new server instance
+        ctx.serverRef.current = newServer;
+
+        logger.always(chalk.green("Server restarted successfully"));
+      } catch (restartError) {
+        logger.error(
+          chalk.red(
+            `Error restarting server: ${restartError instanceof Error ? restartError.message : String(restartError)}`,
+          ),
+        );
+      }
+    };
+
+    const stopWatcher = createFileWatcher(restartServer, argv.quiet ?? false);
+    logger.always(chalk.gray("Watching for file changes in src/ and lib/..."));
+    logger.always("");
+
+    return stopWatcher;
+  }
+
+  /**
+   * Register SIGINT and SIGTERM handlers for graceful shutdown.
+   */
+  private static registerSignalHandlers(
+    serverRef: { current: ServerInstance },
+    stopWatcher: (() => void) | null,
+  ): void {
+    process.on("SIGINT", async () => {
+      logger.always("");
+      logger.always(chalk.yellow("Shutting down server..."));
+      try {
+        if (stopWatcher) {
+          stopWatcher();
+        }
+        await serverRef.current.stop();
+        clearServeState();
+        logger.always(chalk.green("Server stopped gracefully"));
+        process.exit(0);
+      } catch (error) {
+        logger.error(
+          chalk.red(
+            `Error stopping server: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
+        process.exit(1);
+      }
+    });
+
+    process.on("SIGTERM", async () => {
+      try {
+        if (stopWatcher) {
+          stopWatcher();
+        }
+        await withTimeout(
+          serverRef.current.stop(),
+          30000,
+          new Error("Server stop timed out during SIGTERM"),
+        );
+        clearServeState();
+        process.exit(0);
+      } catch (error) {
+        logger.error(
+          chalk.red(
+            `Error stopping server: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
+        clearServeState();
+        process.exit(1);
+      }
+    });
+  }
+
+  /**
+   * Handle errors during server startup: print error, troubleshooting tips, and exit.
+   */
+  private static handleStartupError(
+    error: unknown,
+    argv: ServeCommandArgs,
+    spinner: ReturnType<typeof ora> | null,
+  ): never {
+    if (spinner) {
+      spinner.fail(chalk.red("Failed to start server"));
+    }
+    logger.error(
+      chalk.red(
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
+      ),
+    );
+
+    if (argv.debug && error instanceof Error && error.stack) {
+      logger.error(chalk.gray(error.stack));
+    }
+
+    logger.always("");
+    logger.always(chalk.bold("Troubleshooting:"));
+    logger.always("  1. Check if the port is already in use");
+    logger.always(
+      "  2. Verify the framework is installed (npm install hono/express/fastify/koa)",
+    );
+    logger.always("  3. Check your config file format if using --config");
+    logger.always("  4. Run with --debug for more information");
+    logger.always("");
+
+    process.exit(1);
   }
 
   private static async executeStatus(argv: ServeCommandArgs): Promise<void> {

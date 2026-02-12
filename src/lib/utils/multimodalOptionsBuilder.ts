@@ -66,5 +66,6 @@ export function buildMultimodalOptions(
     enableAnalytics: options.enableAnalytics,
     enableEvaluation: options.enableEvaluation,
     context: options.context,
+    fileRegistry: (options as Record<string, unknown>).fileRegistry,
   };
 }

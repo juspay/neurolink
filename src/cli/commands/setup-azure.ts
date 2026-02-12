@@ -22,22 +22,22 @@ import {
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
 import { AIProviderName } from "../../lib/types/index.js";
 
-interface AzureSetupOptions {
+type AzureSetupOptions = {
   checkOnly?: boolean;
   interactive?: boolean;
-}
+};
 
-interface AzureSetupArgv {
+type AzureSetupArgv = {
   check?: boolean;
   nonInteractive?: boolean;
-}
+};
 
-interface AzureConfig {
+type AzureConfig = {
   apiKey?: string;
   endpoint?: string;
   model?: string;
   isReconfiguring?: boolean;
-}
+};
 
 export async function handleAzureSetup(argv: AzureSetupArgv): Promise<void> {
   try {

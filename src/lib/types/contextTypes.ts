@@ -5,6 +5,8 @@
 
 import type { JsonValue, JsonObject } from "./common.js";
 import type { ExecutionContext } from "../types/tools.js";
+import type { ChatMessage, ConversationMemoryConfig } from "./conversation.js";
+import type { CompactionStage } from "../context/contextCompactor.js";
 
 /**
  * Base context type for all AI operations
@@ -593,3 +595,281 @@ export class ContextConverter {
 
 // Framework fields configuration loading moved to lazy initialization
 // Call ContextFactory.loadFrameworkFieldsFromEnv() explicitly in application entrypoint or test setup
+
+// ---------------------------------------------------------------------------
+// Context Compaction Types
+// ---------------------------------------------------------------------------
+
+/** Result of multi-stage context compaction. */
+export type CompactionResult = {
+  compacted: boolean;
+  stagesUsed: CompactionStage[];
+  tokensBefore: number;
+  tokensAfter: number;
+  tokensSaved: number;
+  messages: ChatMessage[];
+};
+
+/** Configuration for the context compaction pipeline. */
+export type CompactionConfig = {
+  enablePrune?: boolean;
+  enableDeduplicate?: boolean;
+  enableSummarize?: boolean;
+  enableTruncate?: boolean;
+  pruneProtectTokens?: number;
+  pruneMinimumSavings?: number;
+  pruneProtectedTools?: string[];
+  summarizationProvider?: string;
+  summarizationModel?: string;
+  keepRecentRatio?: number;
+  truncationFraction?: number;
+  provider?: string;
+};
+
+/** Result of a context budget check. */
+export type BudgetCheckResult = {
+  /** Whether the request fits within the context window */
+  withinBudget: boolean;
+  /** Estimated total input tokens */
+  estimatedInputTokens: number;
+  /** Available input tokens for this model */
+  availableInputTokens: number;
+  /** Usage ratio (0.0 - 1.0+) */
+  usageRatio: number;
+  /** Whether auto-compaction should trigger */
+  shouldCompact: boolean;
+  /** Breakdown of token usage by category */
+  breakdown: {
+    systemPrompt: number;
+    conversationHistory: number;
+    currentPrompt: number;
+    toolDefinitions: number;
+    fileAttachments: number;
+  };
+};
+
+/** Parameters for budget checking. */
+export type BudgetCheckParams = {
+  provider: string;
+  model?: string;
+  maxTokens?: number;
+  systemPrompt?: string;
+  conversationMessages?: Array<{ role: string; content: string }>;
+  currentPrompt?: string;
+  toolDefinitions?: unknown[];
+  fileAttachments?: Array<{ content: string }>;
+  /** Compaction trigger threshold (0.0-1.0). Default: 0.80 */
+  compactionThreshold?: number;
+};
+
+/** A file prepared for potential summarization. */
+export type FileForSummarization = {
+  /** Display name (e.g. "report.pdf") */
+  fileName: string;
+  /** Human-readable type label (e.g. "PDF Document") */
+  fileType: string;
+  /** Extracted text content */
+  content: string;
+  /** Estimated token count (provider-adjusted) */
+  estimatedTokens: number;
+  /** Optional MIME type */
+  mimeType?: string;
+  /** Original byte size on disk */
+  originalSize?: number;
+};
+
+/** Parameters for `shouldSummarizeFiles()`. */
+export type FileSummarizationCheckParams = {
+  /** AI provider name (e.g. "vertex", "anthropic") */
+  provider: string;
+  /** Model name (optional -- falls back to provider default) */
+  model?: string;
+  /** Token estimate for the system prompt */
+  systemPromptTokens: number;
+  /** Token estimate for conversation history */
+  conversationHistoryTokens: number;
+  /** Token estimate for the current user prompt */
+  currentPromptTokens: number;
+  /** Token estimate for tool definitions */
+  toolDefinitionTokens: number;
+  /** Token estimate for all attached files (sum) */
+  fileTokens: number;
+  /** Number of attached files */
+  fileCount?: number;
+  /** Explicit maxTokens (output reserve) from user config */
+  maxTokens?: number;
+  /** Context usage fraction that triggers summarization (0.0-1.0, default 0.80) */
+  threshold?: number;
+  /** Minimum tokens per file in the summarization plan */
+  minTokensPerFile?: number;
+  /** Maximum tokens per file in the summarization plan */
+  maxTokensPerFile?: number;
+};
+
+/** Result of `shouldSummarizeFiles()`. */
+export type FileSummarizationCheckResult = {
+  /** Whether summarization is needed */
+  needsSummarization: boolean;
+  /** Total estimated input tokens (all categories) */
+  totalEstimatedTokens: number;
+  /** Available input tokens for the model */
+  availableInputTokens: number;
+  /** Budget remaining for files after non-file content */
+  availableBudgetForFiles: number;
+  /** If summarizing, the per-file token budget (undefined when not needed) */
+  perFileBudget?: number;
+};
+
+/** Parameters for `buildFileSummarizationPrompt()`. */
+export type FileSummarizationPromptParams = {
+  /** File display name */
+  fileName: string;
+  /** File type label */
+  fileType: string;
+  /** Full extracted text of the file */
+  fileContent: string;
+  /** The user's original prompt / question */
+  userPrompt: string;
+  /** Target output token count for the summary */
+  targetTokens: number;
+};
+
+/** Result item from `planFileSummarization()`. */
+export type SummarizedFile = {
+  /** File display name */
+  fileName: string;
+  /** File type label */
+  fileType: string;
+  /** Summary text (or original content if not summarized) */
+  summary: string;
+  /** Original token estimate */
+  originalTokens: number;
+  /** Token estimate of the summary */
+  summaryTokens: number;
+  /** Whether this file was actually summarized */
+  wasSummarized: boolean;
+};
+
+/** Plan entry for a single file. */
+export type FileSummarizationPlanEntry = {
+  file: FileForSummarization;
+  action: "summarize" | "keep";
+  targetTokens?: number;
+};
+
+/** Raw file input before text extraction. */
+export type RawFileInput = {
+  /** File content -- either a UTF-8 string or a raw Buffer */
+  content: string | Buffer;
+  /** MIME type (e.g. "application/pdf", "text/plain") */
+  mimeType: string;
+  /** Display file name */
+  fileName: string;
+  /** Original byte size on disk (optional) */
+  originalSize?: number;
+};
+
+/** Input file for aggregate budget enforcement. */
+export type BudgetFileInput = {
+  name: string;
+  sizeBytes: number;
+  /** Optional file type hint for type-aware token estimation */
+  fileType?: string;
+};
+
+/** Options for tool output truncation. */
+export type TruncateOptions = {
+  maxBytes?: number;
+  maxLines?: number;
+  direction?: "head" | "tail";
+  saveToDisk?: boolean;
+  saveDir?: string;
+};
+
+/** Result of tool output truncation. */
+export type TruncateResult = {
+  content: string;
+  truncated: boolean;
+  savedPath?: string;
+  originalSize: number;
+};
+
+/** Result of tool pair repair. */
+export type RepairResult = {
+  repaired: boolean;
+  messages: ChatMessage[];
+  orphanedCallsFixed: number;
+  orphanedResultsFixed: number;
+};
+
+/** Options for summarization prompt building. */
+export type SummarizationPromptOptions = {
+  /**
+   * Whether this is an incremental update to an existing summary
+   */
+  isIncremental: boolean;
+
+  /**
+   * The previous summary to merge with (required for incremental mode)
+   */
+  previousSummary?: string;
+
+  /**
+   * List of files that have been read during the conversation
+   */
+  filesRead?: string[];
+
+  /**
+   * List of files that have been modified during the conversation
+   */
+  filesModified?: string[];
+};
+
+/** Configuration for tool output pruning (Stage 1). */
+export type PruneConfig = {
+  protectTokens?: number;
+  minimumSavings?: number;
+  protectedTools?: string[];
+  provider?: string;
+};
+
+/** Result of tool output pruning (Stage 1). */
+export type PruneResult = {
+  pruned: boolean;
+  messages: ChatMessage[];
+  tokensSaved: number;
+};
+
+/** Configuration for sliding window truncation (Stage 4). */
+export type TruncationConfig = {
+  fraction?: number; // Default: 0.5 (hide oldest 50%)
+};
+
+/** Result of sliding window truncation (Stage 4). */
+export type TruncationResult = {
+  truncated: boolean;
+  messages: ChatMessage[];
+  messagesRemoved: number;
+};
+
+/** Configuration for structured LLM summarization (Stage 3). */
+export type SummarizeConfig = {
+  provider?: string;
+  model?: string;
+  keepRecentRatio?: number;
+  memoryConfig?: Partial<ConversationMemoryConfig>;
+};
+
+/** Result of structured LLM summarization (Stage 3). */
+export type SummarizeResult = {
+  summarized: boolean;
+  messages: ChatMessage[];
+  summaryText?: string;
+};
+
+/** Result of file read deduplication (Stage 2). */
+export type DeduplicationResult = {
+  deduplicated: boolean;
+  messages: ChatMessage[];
+  filesDeduped: number;
+};

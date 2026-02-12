@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { RedisService } from "../services/redis.service";
 
-export interface RateLimitConfig {
+export type RateLimitConfig = {
   /** Time window in milliseconds (default: 60000 = 1 minute) */
   windowMs: number;
   /** Maximum number of requests per window (default: 100) */
@@ -14,12 +14,12 @@ export interface RateLimitConfig {
   headers?: boolean;
   /** Skip rate limiting for certain requests */
   skip?: (req: Request) => boolean;
-}
+};
 
-interface RateLimitRecord {
+type RateLimitRecord = {
   count: number;
   resetTime: number;
-}
+};
 
 // In-memory store for rate limiting
 const inMemoryStore = new Map<string, RateLimitRecord>();
@@ -205,7 +205,7 @@ export function redisRateLimitMiddleware(
 /**
  * Tiered rate limiting for different user types
  */
-export interface TieredRateLimitConfig {
+export type TieredRateLimitConfig = {
   /** Rate limit for unauthenticated users */
   anonymous: { windowMs: number; maxRequests: number };
   /** Rate limit for authenticated users */
@@ -214,7 +214,7 @@ export interface TieredRateLimitConfig {
   premium?: { windowMs: number; maxRequests: number };
   /** Function to determine user tier from request */
   getTier: (req: Request) => "anonymous" | "authenticated" | "premium";
-}
+};
 
 export function tieredRateLimitMiddleware(config: TieredRateLimitConfig) {
   const stores = {
@@ -295,11 +295,11 @@ function setRateLimitHeaders(
 /**
  * Create rate limiter with custom store
  */
-export interface RateLimitStore {
+export type RateLimitStore = {
   increment(key: string): Promise<{ count: number; resetTime: number }>;
   get(key: string): Promise<RateLimitRecord | null>;
   reset(key: string): Promise<void>;
-}
+};
 
 export function createRateLimiter(
   store: RateLimitStore,

@@ -1,21 +1,21 @@
 import { randomUUID } from "crypto";
 import Redis from "ioredis";
 
-interface ConversationMessage {
+type ConversationMessage = {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: string;
   metadata?: Record<string, any>;
-}
+};
 
-interface ConversationSession {
+type ConversationSession = {
   id: string;
   userId: string;
   messages: ConversationMessage[];
   createdAt: string;
   updatedAt: string;
   metadata?: Record<string, any>;
-}
+};
 
 export class RedisService {
   private client: Redis | null = null;

@@ -30,12 +30,12 @@ const MIN_JSON_OBJECT_LENGTH = 2; // Minimum length for JSON object "{}"
  * Shared bracket counting state and utilities
  * Used by both validateJSONCompleteness and StructuredOutputParser
  */
-export interface BracketCountingState {
+export type BracketCountingState = {
   braceCount: number;
   bracketCount: number;
   inString: boolean;
   escapeNext: boolean;
-}
+};
 
 /**
  * Process a single character for bracket counting logic
@@ -196,7 +196,7 @@ export function parseToolCallArguments(args: string): {
 /**
  * Base interface for streaming response parsers
  */
-export interface StreamingParser {
+export type StreamingParser = {
   /** Parse a chunk of streaming data */
   parse(chunk: Uint8Array): SageMakerStreamChunk[];
 
@@ -211,7 +211,7 @@ export interface StreamingParser {
 
   /** Reset parser state for new stream */
   reset(): void;
-}
+};
 
 /**
  * Abstract base parser with common functionality

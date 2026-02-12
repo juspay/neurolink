@@ -21,7 +21,7 @@ export type { FileProcessingError };
 /**
  * Summary of file processing operations.
  */
-export interface FileProcessingSummary {
+export type FileProcessingSummary = {
   /** Total number of files attempted */
   totalFiles: number;
   /** Successfully processed files */
@@ -46,7 +46,7 @@ export interface FileProcessingSummary {
     filename: string;
     message: string;
   }>;
-}
+};
 
 /**
  * Create a structured file processing error with user-friendly messaging.

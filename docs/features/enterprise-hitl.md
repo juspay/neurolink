@@ -370,7 +370,7 @@ const neurolink = new NeuroLink({
 Complete configuration interface:
 
 ```typescript
-interface HITLConfiguration {
+type HITLConfiguration = {
   // Core settings
   enabled: boolean;
   mode?: "synchronous" | "asynchronous"; // (Planned feature)
@@ -401,29 +401,29 @@ interface HITLConfiguration {
     storage: "file" | "database" | "custom";
     customLogger?: (entry: AuditEntry) => Promise<void>;
   };
-}
+};
 
-interface HITLAction {
+type HITLAction = {
   tool: string;
   args: Record<string, any>;
   timestamp: Date;
   sessionId: string;
-}
+};
 
-interface HITLContext {
+type HITLContext = {
   aiConfidence?: number;
   provider: string;
   model: string;
   escalationLevel?: number;
-}
+};
 
-interface HITLReviewResult {
+type HITLReviewResult = {
   approved: boolean;
   reason?: string;
   reviewer?: string;
   modifications?: Record<string, any>;
   escalate?: boolean;
-}
+};
 ```
 
 ### Approval Callback Patterns
@@ -945,7 +945,7 @@ const result = await codeAI.generate({
 Complete TypeScript interface with all available options:
 
 ```typescript
-interface HITLConfiguration {
+type HITLConfiguration = {
   // === Core Settings ===
   enabled: boolean;
   mode?: "synchronous" | "asynchronous"; // (Planned feature)
@@ -991,7 +991,7 @@ interface HITLConfiguration {
     requireMFA?: boolean;
     ipWhitelist?: string[];
   };
-}
+};
 ```
 
 ### Environment Variables

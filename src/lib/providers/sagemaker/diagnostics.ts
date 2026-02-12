@@ -11,19 +11,19 @@ import { createSageMakerProvider } from "./index.js";
 /**
  * Simple diagnostic result interface
  */
-export interface DiagnosticResult {
+export type DiagnosticResult = {
   name: string;
   category: "configuration" | "connectivity" | "streaming";
   status: "pass" | "fail" | "warning";
   message: string;
   details?: string;
   recommendation?: string;
-}
+};
 
 /**
  * Diagnostic report interface
  */
-export interface DiagnosticReport {
+export type DiagnosticReport = {
   overallStatus: "healthy" | "issues" | "critical";
   results: DiagnosticResult[];
   summary: {
@@ -32,7 +32,7 @@ export interface DiagnosticReport {
     failed: number;
     warnings: number;
   };
-}
+};
 
 /**
  * Run quick diagnostics for SageMaker configuration

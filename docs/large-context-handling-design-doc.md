@@ -1,5 +1,12 @@
 # Design Doc: Large Context Handling via Map-Reduce Summarization
 
+> **Note:** The map-reduce approach described in this design document is a proposed
+> architecture that has **not been implemented** in the codebase. None of the artifacts
+> it specifies (`_summarizeLargeText`, `largeTextHandling` option, `textUtils.ts`)
+> exist in production code. The production implementation uses a different approach —
+> see the [Context Compaction System](features/context-compaction.md) and
+> `src/lib/context/contextCompactor.ts`.
+
 ## 1. Overview
 
 This document outlines the design and implementation plan for adding large context handling capabilities to the `NeuroLink` SDK. The core of this proposal is a map-reduce summarization strategy to process text inputs that exceed the context window limits of underlying Large Language Models (LLMs).
@@ -328,3 +335,39 @@ export type GenerateOptions = {
     - Create a script that reads a large text file from the disk.
     - Calls `neurolink.generate()` with the file content and `largeTextHandling: { mode: 'summarize' }`.
     - Prints the final summary to the console for manual validation of quality.
+
+## Section 8: Production Implementation
+
+The map-reduce design described in this document has been complemented by a
+production context compaction system. See
+the [Context Compaction Guide](./features/context-compaction.md) for the full
+specification.
+
+The production implementation adds:
+
+- **ContextCompactor** (`src/lib/context/contextCompactor.ts`) -- a multi-stage
+  compaction orchestrator with four sequential stages: tool-output pruning,
+  file-read deduplication, LLM summarization (structured 9-section summaries with
+  iterative merging), and sliding-window truncation.
+- **BudgetChecker** (`src/lib/context/budgetChecker.ts`) -- pre-generation validation
+  that checks token usage against per-model context windows (maintained in
+  `src/lib/constants/contextWindows.ts`) and triggers auto-compaction at 80 % usage.
+- **Error Detection** (`src/lib/context/errorDetection.ts`) -- cross-provider
+  detection of context-overflow errors so compaction can be retried transparently.
+- **`getContextStats()` API** -- returns live token estimates, remaining capacity,
+  and per-stage reduction metrics for runtime observability.
+
+### Distinguishing This Design Doc from the Context Compaction System
+
+These two systems address fundamentally different problems:
+
+| Aspect                    | This Design Doc (Map-Reduce)                                                                                                                        | Context Compaction System                                                                                                                                                             |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Problem**               | A **single input document** exceeds the model's context window before generation even begins.                                                       | **Conversation history** grows beyond the context window over the course of a multi-turn session.                                                                                     |
+| **Trigger**               | User opts in via `largeTextHandling: { mode: 'summarize' }` on a `generate()` call.                                                                 | Automatic — `BudgetChecker` fires before every LLM call when token usage exceeds 80% of the model's context window.                                                                   |
+| **Technique**             | Map-reduce chunking: split the document into overlapping pieces, summarize each piece in parallel, then reduce the summaries into one final output. | A 4-stage pipeline applied to the message history: (1) tool-output pruning, (2) file-read deduplication, (3) LLM summarization with iterative merging, (4) sliding-window truncation. |
+| **Scope**                 | One-shot — processes the large text and returns a result.                                                                                           | Ongoing — continuously manages history as the conversation evolves.                                                                                                                   |
+| **Implementation status** | **Proposed only** — no code exists in the repository.                                                                                               | **Fully implemented** in `src/lib/context/`.                                                                                                                                          |
+
+For full details on the production context compaction system, see
+[docs/features/context-compaction.md](features/context-compaction.md).

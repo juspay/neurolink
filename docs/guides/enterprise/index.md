@@ -9,14 +9,14 @@ This section covers enterprise-grade features, compliance, and production deploy
 
 ## Available Guides
 
-- [Multi-Provider Failover](./multi-provider-failover) - Configure automatic failover between providers
-- [Multi-Region Deployment](./multi-region) - Deploy across multiple regions
-- [Load Balancing](./load-balancing) - Distribute load across providers
-- [Cost Optimization](./cost-optimization) - Optimize costs in production
-- [Compliance](./compliance) - Security and compliance requirements
-- [Monitoring](./monitoring) - Enterprise monitoring setup
-- [Audit Trails](./audit-trails) - Audit logging and compliance
+- [Multi-Provider Failover](./multi-provider-failover.md) - Configure automatic failover between providers
+- [Multi-Region Deployment](./multi-region.md) - Deploy across multiple regions
+- [Load Balancing](./load-balancing.md) - Distribute load across providers
+- [Cost Optimization](./cost-optimization.md) - Optimize costs in production
+- [Compliance](./compliance.md) - Security and compliance requirements
+- [Monitoring](./monitoring.md) - Enterprise monitoring setup
+- [Audit Trails](./audit-trails.md) - Audit logging and compliance
 
 ## Getting Started
 
-For basic setup, start with the [Multi-Provider Failover](./multi-provider-failover) guide to ensure high availability.
+For basic setup, start with the [Multi-Provider Failover](./multi-provider-failover.md) guide to ensure high availability.

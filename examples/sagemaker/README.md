@@ -44,7 +44,7 @@ Demonstrates fundamental SageMaker provider usage including:
 
 **Run**: `npx tsx basic-usage.ts`
 
-### 🚀 [advanced-features.ts](./advanced-features.ts)
+### 🚀 advanced-features.ts
 
 Showcases advanced capabilities:
 
@@ -383,7 +383,7 @@ app.post("/generate", async (req, res) => {
 
 ### Getting Help
 
-- Check the [main documentation](../../docs/providers/sagemaker.md)
+- Check the [main documentation](../../docs/getting-started/providers/index.md)
 - Review [AWS SageMaker documentation](https://docs.aws.amazon.com/sagemaker/)
 - Open an issue on [GitHub](https://github.com/juspay/neurolink/issues)
 

@@ -15,28 +15,34 @@
 export const SIZE_LIMITS_MB = {
   /** Maximum image file size (10MB) */
   IMAGE_MAX_MB: 10,
-  /** Maximum PDF file size (20MB) */
-  PDF_MAX_MB: 20,
-  /** Maximum document file size (10MB) */
-  DOCUMENT_MAX_MB: 10,
-  /** Maximum Word document size (10MB) */
-  WORD_MAX_MB: 10,
-  /** Maximum text file size (5MB) */
-  TEXT_MAX_MB: 5,
-  /** Maximum CSV file size (10MB) */
-  CSV_MAX_MB: 10,
-  /** Maximum Excel file size (10MB) */
-  EXCEL_MAX_MB: 10,
-  /** Maximum source code file size (5MB) */
-  SOURCE_CODE_MAX_MB: 5,
-  /** Maximum JSON file size (5MB) */
-  JSON_MAX_MB: 5,
-  /** Maximum YAML file size (5MB) */
-  YAML_MAX_MB: 5,
-  /** Maximum XML file size (5MB) */
-  XML_MAX_MB: 5,
-  /** Maximum general file size (50MB) */
-  GENERAL_MAX_MB: 50,
+  /** Maximum PDF file size (100MB — enterprise reports, long research papers) */
+  PDF_MAX_MB: 100,
+  /** Maximum document file size (100MB — enterprise docs with embedded images) */
+  DOCUMENT_MAX_MB: 100,
+  /** Maximum Word document size (100MB — PRDs, specs with embedded media) */
+  WORD_MAX_MB: 100,
+  /** Maximum text file size (50MB — large log files, build output) */
+  TEXT_MAX_MB: 50,
+  /** Maximum CSV file size (50MB — large data exports) */
+  CSV_MAX_MB: 50,
+  /** Maximum Excel file size (100MB — enterprise spreadsheets, data exports) */
+  EXCEL_MAX_MB: 100,
+  /** Maximum source code file size (20MB — large codebases) */
+  SOURCE_CODE_MAX_MB: 20,
+  /** Maximum JSON file size (20MB — large API response dumps) */
+  JSON_MAX_MB: 20,
+  /** Maximum YAML file size (20MB — large config files) */
+  YAML_MAX_MB: 20,
+  /** Maximum XML file size (20MB — large config/data files) */
+  XML_MAX_MB: 20,
+  /** Maximum video file size (500MB — long meeting recordings, screen captures) */
+  VIDEO_MAX_MB: 500,
+  /** Maximum audio file size (500MB — long meeting recordings, call recordings) */
+  AUDIO_MAX_MB: 500,
+  /** Maximum archive file size (200MB — large project archives) */
+  ARCHIVE_MAX_MB: 200,
+  /** Maximum general file size (200MB — matches Curator's memory-safety cap) */
+  GENERAL_MAX_MB: 200,
 } as const;
 
 // =============================================================================
@@ -49,28 +55,34 @@ export const SIZE_LIMITS_MB = {
 export const SIZE_LIMITS_BYTES = {
   /** Maximum image file size (10MB) */
   IMAGE_MAX: 10 * 1024 * 1024,
-  /** Maximum PDF file size (20MB) */
-  PDF_MAX: 20 * 1024 * 1024,
-  /** Maximum document file size (10MB) */
-  DOCUMENT_MAX: 10 * 1024 * 1024,
-  /** Maximum Word document size (10MB) */
-  WORD_MAX: 10 * 1024 * 1024,
-  /** Maximum text file size (5MB) */
-  TEXT_MAX: 5 * 1024 * 1024,
-  /** Maximum CSV file size (10MB) */
-  CSV_MAX: 10 * 1024 * 1024,
-  /** Maximum Excel file size (10MB) */
-  EXCEL_MAX: 10 * 1024 * 1024,
-  /** Maximum source code file size (5MB) */
-  SOURCE_CODE_MAX: 5 * 1024 * 1024,
-  /** Maximum JSON file size (5MB) */
-  JSON_MAX: 5 * 1024 * 1024,
-  /** Maximum YAML file size (5MB) */
-  YAML_MAX: 5 * 1024 * 1024,
-  /** Maximum XML file size (5MB) */
-  XML_MAX: 5 * 1024 * 1024,
-  /** Maximum general file size (50MB) */
-  GENERAL_MAX: 50 * 1024 * 1024,
+  /** Maximum PDF file size (100MB) */
+  PDF_MAX: 100 * 1024 * 1024,
+  /** Maximum document file size (100MB) */
+  DOCUMENT_MAX: 100 * 1024 * 1024,
+  /** Maximum Word document size (100MB) */
+  WORD_MAX: 100 * 1024 * 1024,
+  /** Maximum text file size (50MB) */
+  TEXT_MAX: 50 * 1024 * 1024,
+  /** Maximum CSV file size (50MB) */
+  CSV_MAX: 50 * 1024 * 1024,
+  /** Maximum Excel file size (100MB) */
+  EXCEL_MAX: 100 * 1024 * 1024,
+  /** Maximum source code file size (20MB) */
+  SOURCE_CODE_MAX: 20 * 1024 * 1024,
+  /** Maximum JSON file size (20MB) */
+  JSON_MAX: 20 * 1024 * 1024,
+  /** Maximum YAML file size (20MB) */
+  YAML_MAX: 20 * 1024 * 1024,
+  /** Maximum XML file size (20MB) */
+  XML_MAX: 20 * 1024 * 1024,
+  /** Maximum video file size (500MB) */
+  VIDEO_MAX: 500 * 1024 * 1024,
+  /** Maximum audio file size (500MB) */
+  AUDIO_MAX: 500 * 1024 * 1024,
+  /** Maximum archive file size (200MB) */
+  ARCHIVE_MAX: 200 * 1024 * 1024,
+  /** Maximum general file size (200MB) */
+  GENERAL_MAX: 200 * 1024 * 1024,
 } as const;
 
 // =============================================================================

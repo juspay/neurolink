@@ -55,7 +55,7 @@
  * }
  *
  * // Register with the registry
- * const registry = getProcessorRegistry();
+ * const registry = await getProcessorRegistry();
  * registry.register({
  *   name: "custom",
  *   priority: 100,
@@ -245,6 +245,7 @@ export {
 
 export {
   getProcessorRegistry,
+  getProcessorRegistrySync,
   type ProcessorRegistration,
   ProcessorRegistry,
 } from "./registry/index.js";
@@ -343,6 +344,37 @@ export {
   WordProcessor,
   wordProcessor,
 } from "./document/index.js";
+
+// =============================================================================
+// MEDIA PROCESSORS
+// =============================================================================
+
+export type { ProcessedAudio } from "./media/AudioProcessor.js";
+export {
+  AudioProcessor,
+  audioProcessor,
+  isAudioFile,
+  processAudio,
+} from "./media/AudioProcessor.js";
+export type { ProcessedVideo } from "./media/VideoProcessor.js";
+export {
+  isVideoFile,
+  processVideo,
+  VideoProcessor,
+  videoProcessor,
+} from "./media/VideoProcessor.js";
+
+// =============================================================================
+// ARCHIVE PROCESSORS
+// =============================================================================
+
+export type { ProcessedArchive } from "./archive/ArchiveProcessor.js";
+export {
+  ArchiveProcessor,
+  archiveProcessor,
+  isArchiveFile,
+  processArchive,
+} from "./archive/ArchiveProcessor.js";
 
 // =============================================================================
 // FILE PROCESSOR INTEGRATION

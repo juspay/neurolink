@@ -27,7 +27,7 @@
  */
 
 import { randomUUID } from "crypto";
-import type { Chunk, ChunkingStrategy, VectorQueryResult } from "../types.js";
+import type { Chunk, VectorQueryResult } from "../types.js";
 import { MDocument } from "../document/MDocument.js";
 import { loadDocument } from "../document/loaders.js";
 import {
@@ -44,136 +44,21 @@ import { rerank } from "../reranker/reranker.js";
 import { ProviderFactory } from "../../factories/providerFactory.js";
 import type { AIProvider } from "../../types/providers.js";
 import { logger } from "../../utils/logger.js";
+import type {
+  RAGPipelineConfig,
+  IngestOptions,
+  QueryOptions,
+  RAGResponse,
+  PipelineStats,
+} from "../../types/ragTypes.js";
 
-/**
- * Embedding model configuration
- */
-export interface EmbeddingModelConfig {
-  provider: string;
-  modelName: string;
-}
-
-/**
- * Generation model configuration
- */
-export interface GenerationModelConfig {
-  provider: string;
-  modelName: string;
-  temperature?: number;
-  maxTokens?: number;
-}
-
-/**
- * RAG pipeline configuration
- */
-export interface RAGPipelineConfig {
-  /** Pipeline identifier */
-  id?: string;
-  /** Vector store instance (defaults to in-memory) */
-  vectorStore?: VectorStore;
-  /** BM25 index for hybrid search (defaults to in-memory) */
-  bm25Index?: BM25Index;
-  /** Index name for vector store */
-  indexName?: string;
-  /** Embedding model configuration */
-  embeddingModel: EmbeddingModelConfig;
-  /** Generation model configuration (for RAG responses) */
-  generationModel?: GenerationModelConfig;
-  /** Default chunking strategy */
-  defaultChunkingStrategy?: ChunkingStrategy;
-  /** Default chunk size */
-  defaultChunkSize?: number;
-  /** Default chunk overlap */
-  defaultChunkOverlap?: number;
-  /** Enable hybrid search (vector + BM25) */
-  enableHybridSearch?: boolean;
-  /** Enable Graph RAG */
-  enableGraphRAG?: boolean;
-  /** Graph RAG similarity threshold */
-  graphThreshold?: number;
-  /** Default number of results to retrieve */
-  defaultTopK?: number;
-  /** Enable reranking */
-  enableReranking?: boolean;
-  /** Reranking model configuration */
-  rerankingModel?: EmbeddingModelConfig;
-}
-
-/**
- * Ingestion options
- */
-export interface IngestOptions {
-  /** Chunking strategy override */
-  strategy?: ChunkingStrategy;
-  /** Chunk size override */
-  chunkSize?: number;
-  /** Chunk overlap override */
-  chunkOverlap?: number;
-  /** Custom metadata to add */
-  metadata?: Record<string, unknown>;
-  /** Extract metadata using LLM */
-  extractMetadata?: boolean;
-}
-
-/**
- * Query options
- */
-export interface QueryOptions {
-  /** Number of chunks to retrieve */
-  topK?: number;
-  /** Use hybrid search */
-  hybrid?: boolean;
-  /** Use Graph RAG */
-  graph?: boolean;
-  /** Enable reranking */
-  rerank?: boolean;
-  /** Metadata filter */
-  filter?: Record<string, unknown>;
-  /** Include sources in response */
-  includeSources?: boolean;
-  /** Generate response (vs just retrieve) */
-  generate?: boolean;
-  /** Custom system prompt for generation */
-  systemPrompt?: string;
-  /** Temperature for generation */
-  temperature?: number;
-}
-
-/**
- * Query response
- */
-export interface RAGResponse {
-  /** Generated answer (if generate=true) */
-  answer?: string;
-  /** Retrieved context chunks */
-  context: string;
-  /** Source documents/chunks */
-  sources: Array<{
-    id: string;
-    text: string;
-    score: number;
-    metadata?: Record<string, unknown>;
-  }>;
-  /** Query metadata */
-  metadata: {
-    queryTime: number;
-    retrievalMethod: string;
-    chunksRetrieved: number;
-    reranked: boolean;
-  };
-}
-
-/**
- * Pipeline statistics
- */
-export interface PipelineStats {
-  totalDocuments: number;
-  totalChunks: number;
-  indexName: string;
-  embeddingDimension?: number;
-  hybridSearchEnabled: boolean;
-  graphRAGEnabled: boolean;
-}
+export type { EmbeddingModelConfig } from "../../types/ragTypes.js";
+export type { GenerationModelConfig } from "../../types/ragTypes.js";
+export type { RAGPipelineConfig } from "../../types/ragTypes.js";
+export type { IngestOptions } from "../../types/ragTypes.js";
+export type { QueryOptions } from "../../types/ragTypes.js";
+export type { RAGResponse } from "../../types/ragTypes.js";
+export type { PipelineStats } from "../../types/ragTypes.js";
 
 /**
  * RAG Pipeline Orchestrator
@@ -242,7 +127,7 @@ export class RAGPipeline {
       this.hybridSearch = createHybridSearch({
         vectorStore: this.vectorStore,
         bm25Index: this.bm25Index,
-        indexName: this.config.indexName!,
+        indexName: this.config.indexName ?? "default",
         embeddingModel: this.config.embeddingModel,
       });
     }
@@ -262,10 +147,12 @@ export class RAGPipeline {
   ): Promise<{ documentsProcessed: number; chunksCreated: number }> {
     await this.ensureInitialized();
 
-    const strategy = options?.strategy || this.config.defaultChunkingStrategy!;
-    const chunkSize = options?.chunkSize || this.config.defaultChunkSize!;
+    const strategy =
+      options?.strategy || this.config.defaultChunkingStrategy || "recursive";
+    const chunkSize =
+      options?.chunkSize || this.config.defaultChunkSize || 1000;
     const chunkOverlap =
-      options?.chunkOverlap || this.config.defaultChunkOverlap!;
+      options?.chunkOverlap || this.config.defaultChunkOverlap || 200;
 
     let documentsProcessed = 0;
     let chunksCreated = 0;
@@ -308,7 +195,7 @@ export class RAGPipeline {
 
         // Store in vector store
         await this.vectorStore.query({
-          indexName: this.config.indexName!,
+          indexName: this.config.indexName ?? "default",
           queryVector: embeddings[0],
           topK: 1,
         }); // Warm up
@@ -316,7 +203,7 @@ export class RAGPipeline {
         // Upsert into vector store
         if ("upsert" in this.vectorStore) {
           await (this.vectorStore as InMemoryVectorStore).upsert(
-            this.config.indexName!,
+            this.config.indexName ?? "default",
             chunks.map((chunk, i) => ({
               id: chunk.id,
               vector: embeddings[i],
@@ -385,7 +272,7 @@ export class RAGPipeline {
     await this.ensureInitialized();
 
     const startTime = Date.now();
-    const topK = options?.topK || this.config.defaultTopK!;
+    const topK = options?.topK || this.config.defaultTopK || 5;
     const useHybrid = options?.hybrid ?? this.config.enableHybridSearch;
     const useGraph = options?.graph ?? this.config.enableGraphRAG;
     const useRerank = options?.rerank ?? this.config.enableReranking;
@@ -422,7 +309,7 @@ export class RAGPipeline {
     } else {
       // Vector search
       results = await this.vectorStore.query({
-        indexName: this.config.indexName!,
+        indexName: this.config.indexName ?? "default",
         queryVector: queryEmbedding,
         topK: topK * 2,
         filter: options?.filter,
@@ -499,10 +386,10 @@ export class RAGPipeline {
     return {
       totalDocuments: this.documents.size,
       totalChunks: this.allChunks.length,
-      indexName: this.config.indexName!,
+      indexName: this.config.indexName ?? "default",
       embeddingDimension: this.allChunks[0]?.embedding?.length,
-      hybridSearchEnabled: this.config.enableHybridSearch!,
-      graphRAGEnabled: this.config.enableGraphRAG!,
+      hybridSearchEnabled: this.config.enableHybridSearch ?? false,
+      graphRAGEnabled: this.config.enableGraphRAG ?? false,
     };
   }
 

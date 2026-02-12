@@ -26,6 +26,6 @@ NeuroLink offers several advantages over other AI SDKs:
 
 If you encounter issues during migration:
 
-1. Check the [Troubleshooting Guide](/reference/troubleshooting)
-2. Review the [API Reference](/sdk/api-reference)
+1. Check the [Troubleshooting Guide](../../reference/troubleshooting.md)
+2. Review the [API Reference](../../sdk/api-reference.md)
 3. Join our [community discussions](https://github.com/juspay/neurolink/discussions)

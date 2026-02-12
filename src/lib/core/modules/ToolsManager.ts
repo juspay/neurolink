@@ -32,14 +32,14 @@ import type { NeuroLink } from "../../neurolink.js";
 /**
  * Utility functions interface for ToolsManager
  */
-export interface ToolUtilities {
+export type ToolUtilities = {
   isZodSchema?: (schema: unknown) => boolean;
   convertToolResult?: (result: unknown) => Promise<unknown>;
   createPermissiveZodSchema?: () => z.ZodSchema;
   fixSchemaForOpenAIStrictMode?: (
     schema: Record<string, unknown>,
   ) => Record<string, unknown>;
-}
+};
 
 /**
  * ToolsManager class - Handles all tool management operations

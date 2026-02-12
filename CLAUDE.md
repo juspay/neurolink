@@ -11,7 +11,7 @@ NeuroLink is an enterprise AI development platform that provides unified access 
 - Extracted from production systems at Juspay
 - Battle-tested at enterprise scale
 - Opinionated factory architecture with provider registry pattern
-- Comprehensive multimodal support (text, images, PDFs, CSV, Excel, Word, RTF, JSON, YAML, XML, HTML, SVG, Markdown, 50+ code languages)
+- Comprehensive multimodal support (text, images, PDFs, CSV, Excel, Word, RTF, JSON, YAML, XML, HTML, SVG, Markdown, video, audio, archives, 50+ code languages)
 - Full MCP (Model Context Protocol) integration with 58+ external servers
 - Multiple MCP transports: stdio (local), HTTP/Streamable HTTP (remote), SSE, WebSocket
 - Production-ready enterprise features (Redis memory, failover, telemetry)
@@ -34,23 +34,28 @@ pnpm run build:complete
 ### Testing
 
 ```bash
-# Run all tests
+# Run all tests (once)
 pnpm test
 
-# Run tests once (CI mode)
-pnpm run test:run
-
-# Run specific test suites
-pnpm run test:suites           # All suites
-pnpm run test:integration      # Integration tests only
-pnpm run test:tool-discovery   # Tool discovery tests
-pnpm run test:consistency      # Provider consistency tests
-
-# Smart test runner (adaptive)
-pnpm run test:smart
+# Watch mode
+pnpm run test:watch
 
 # Coverage report
 pnpm run test:coverage
+
+# Run specific test subsets
+pnpm run test:providers        # Provider unit tests
+pnpm run test:cli              # CLI integration tests
+pnpm run test:sdk              # SDK unit tests
+pnpm run test:integration      # Integration tests only
+pnpm run test:e2e              # End-to-end tests
+
+# CI mode (coverage + reporters)
+pnpm run test:ci
+
+# Debugging
+pnpm run test:debug            # Debug with inspector
+pnpm run test:ui               # Vitest UI
 ```
 
 ### Linting and Formatting
@@ -118,6 +123,7 @@ src/
 │   ├── types/             # TypeScript type definitions (28+ type files)
 │   ├── mcp/              # MCP tool registry and integration
 │   ├── memory/           # Conversation memory (Redis, in-memory)
+│   ├── context/          # Context compaction, budget management, file summarization
 │   ├── middleware/       # Request/response middleware system
 │   ├── core/             # Core factory and constants
 │   │   └── infrastructure/ # Base factories, registries, errors
@@ -131,8 +137,7 @@ src/
 │   └── utils/            # CLI-specific utilities
 └── test/                  # Test suites
 
-docs/
-└── implementation-guides/  # Feature implementation docs and guides
+feature docs and guides
 
 dist/                      # Build output (generated)
 ```
@@ -418,6 +423,28 @@ When changing how messages are constructed:
 - Adds syntax metadata for AI context
 - Test with `--file` flag in CLI
 
+**For Video (.mp4, .mkv, .webm, .avi, .mov, .m4v):**
+
+- Processor in `src/lib/processors/media/VideoProcessor.ts`
+- Extracts metadata via `music-metadata`: duration, resolution, codec, frame rate, bitrate
+- Returns structured text (~50-200 tokens), not binary data
+- Test with `--file` flag in CLI
+
+**For Audio (.mp3, .wav, .ogg, .flac, .aac, .m4a, .wma):**
+
+- Processor in `src/lib/processors/media/AudioProcessor.ts`
+- Extracts metadata via `music-metadata`: codec, bitrate, sample rate, channels, duration
+- Returns structured text (~50-150 tokens), not binary data
+- Test with `--file` flag in CLI
+
+**For Archives (.zip, .tar, .gz, .tar.gz, .tgz):**
+
+- Processor in `src/lib/processors/archive/ArchiveProcessor.ts`
+- Lists archive contents with file sizes
+- Optionally extracts text from contained files via existing processors
+- Security: ZIP bomb detection, path traversal prevention, entry count limits
+- Test with `--file` flag in CLI
+
 **Adding a New File Processor:**
 
 1. Create processor class extending `BaseFileProcessor` in appropriate category folder
@@ -659,6 +686,30 @@ When host apps create wrapper spans before AI operations, auto-detection in `onS
 - Redis for distributed memory (production)
 - In-memory store for development
 - Conversation summarization for long contexts
+- Token-based context compaction via SummarizationEngine and BudgetChecker (replaces turn-based limits)
+
+### Context Compaction System
+
+**ContextCompactor** (`src/lib/context/contextCompactor.ts`) manages context window size through a multi-stage reduction pipeline:
+
+1. **Tool Output Pruning** - Replace old tool results with placeholders (protect recent 40K tokens)
+2. **File Read Deduplication** - Keep only latest read of each file
+3. **LLM Summarization** - Structured 9-section summary with iterative merging
+4. **Sliding Window Truncation** - Non-destructive tagging of oldest messages
+
+**BudgetChecker** (`src/lib/context/budgetChecker.ts`) validates context fits within model's window before every LLM call, triggering auto-compaction when usage exceeds 80%.
+
+**Key files:**
+
+- `src/lib/constants/contextWindows.ts` - Per-provider, per-model context window sizes
+- `src/lib/context/budgetChecker.ts` - Pre-generation budget validation
+- `src/lib/context/contextCompactor.ts` - Multi-stage compaction orchestrator
+- `src/lib/context/errorDetection.ts` - Cross-provider overflow detection
+- `src/lib/context/effectiveHistory.ts` - Non-destructive message filtering
+- `src/lib/context/fileTokenBudget.ts` - Aggregate file budget enforcement
+- `src/lib/context/fileSummarizer.ts` - File content budget planning
+- `src/lib/context/fileSummarizationService.ts` - LLM-based file summarization
+- `src/lib/utils/tokenEstimation.ts` - Token estimation with provider multipliers
 
 ### RAG Document Processing
 
@@ -916,28 +967,36 @@ const result = await neurolink.generate({
 1. Make changes in `src/`
 2. Run `pnpm run check` to validate types
 3. Run `pnpm run lint` and `pnpm run format` for code quality
-4. Run relevant tests with `pnpm test` or `pnpm run test:run`
+4. Run relevant tests with `pnpm test` or `pnpm run test:coverage`
 5. Build with `pnpm run build`
 6. Test CLI with `pnpm run build:cli && pnpm run cli <command>`
 7. Validate all changes with `pnpm run validate:all`
 
 ## Key Files to Know
 
-| File                                       | Purpose                                       |
-| ------------------------------------------ | --------------------------------------------- |
-| `src/lib/neurolink.ts`                     | Main SDK class, orchestrates everything       |
-| `src/lib/factories/providerRegistry.ts`    | Provider registration with dynamic imports    |
-| `src/lib/utils/messageBuilder.ts`          | Central message construction logic            |
-| `src/lib/adapters/providerImageAdapter.ts` | Multimodal content adaptation                 |
-| `src/lib/mcp/toolRegistry.ts`              | Tool management and MCP integration           |
-| `src/lib/mcp/mcpClientFactory.ts`          | MCP client creation for all transports        |
-| `src/lib/mcp/externalServerManager.ts`     | External MCP server lifecycle management      |
-| `src/lib/processors/index.ts`              | I/O Processor exports (pipeline, registry)    |
-| `src/lib/processors/pipeline.ts`           | ProcessorPipeline for input/output processing |
-| `src/lib/processors/registry.ts`           | ProcessorRegistry for processor management    |
-| `src/cli/factories/commandFactory.ts`      | CLI command creation                          |
-| `src/lib/types/index.ts`                   | Main type definitions and exports             |
-| `src/lib/types/externalMcp.ts`             | External MCP server types (HTTP config, etc.) |
+| File                                               | Purpose                                         |
+| -------------------------------------------------- | ----------------------------------------------- |
+| `src/lib/neurolink.ts`                             | Main SDK class, orchestrates everything         |
+| `src/lib/factories/providerRegistry.ts`            | Provider registration with dynamic imports      |
+| `src/lib/utils/messageBuilder.ts`                  | Central message construction logic              |
+| `src/lib/adapters/providerImageAdapter.ts`         | Multimodal content adaptation                   |
+| `src/lib/mcp/toolRegistry.ts`                      | Tool management and MCP integration             |
+| `src/lib/mcp/mcpClientFactory.ts`                  | MCP client creation for all transports          |
+| `src/lib/mcp/externalServerManager.ts`             | External MCP server lifecycle management        |
+| `src/lib/processors/index.ts`                      | I/O Processor exports (pipeline, registry)      |
+| `src/lib/processors/registry/ProcessorRegistry.ts` | ProcessorRegistry for processor management      |
+| `src/cli/factories/commandFactory.ts`              | CLI command creation                            |
+| `src/lib/types/index.ts`                           | Main type definitions and exports               |
+| `src/lib/types/externalMcp.ts`                     | External MCP server types (HTTP config, etc.)   |
+| `src/lib/constants/contextWindows.ts`              | Per-provider context window registry            |
+| `src/lib/context/contextCompactor.ts`              | Multi-stage context compaction orchestrator     |
+| `src/lib/context/budgetChecker.ts`                 | Pre-generation context budget validation        |
+| `src/lib/context/errorDetection.ts`                | Cross-provider context overflow detection       |
+| `src/lib/context/summarizationEngine.ts`           | Shared summarization engine for memory managers |
+| `src/lib/context/fileTokenBudget.ts`               | Aggregate file budget enforcement               |
+| `src/lib/context/fileSummarizer.ts`                | File content budget planning                    |
+| `src/lib/context/fileSummarizationService.ts`      | LLM-based file summarization                    |
+| `src/lib/utils/tokenEstimation.ts`                 | Token estimation with provider multipliers      |
 
 ## New set of Features
 
@@ -1004,31 +1063,19 @@ NeuroLink has been enhanced with new set of features to transform it from a unif
 ### New Directory Structure
 
 ```
-src/lib/core/infrastructure/    # Base factories, registries, errors
-src/lib/workflow/               # Workflow engine (100% complete)
-src/lib/vector/                 # Vector store integrations (100% complete)
-src/lib/agents/                 # Multi-agent system (100% complete)
+src/lib/core/infrastructure/    # Base factories, registries, errors (available on feature branches)
+src/lib/workflow/               # Workflow engine (available on feature branches)
+src/lib/vector/                 # Vector store integrations (available on feature branches)
+src/lib/agents/                 # Multi-agent system (available on feature branches)
 src/lib/processors/             # I/O processors (100% complete)
-src/lib/voice/                  # Voice/speech integration (100% complete)
-src/lib/rag/                    # RAG processing pipeline (100% complete)
-src/lib/hooks/                  # Event hooks system (100% complete)
-src/lib/storage/                # Storage abstraction layer (100% complete)
-src/lib/auth/                   # Authentication providers (100% complete)
-src/lib/deployment/             # Deployment system (100% complete)
+src/lib/voice/                  # Voice/speech integration (available on feature branches)
+src/lib/rag/                    # RAG processing pipeline (available on feature branches)
+src/lib/hooks/                  # Event hooks system (available on feature branches)
+src/lib/storage/                # Storage abstraction layer (available on feature branches)
+src/lib/auth/                   # Authentication providers (available on feature branches)
+src/lib/deployment/             # Deployment system (available on feature branches)
+src/lib/context/                # Context compaction system (100% complete)
 ```
-
-### Feature Documentation
-
-Full implementation guides in `docs/implementation-guides/`:
-
-| Document                            | Purpose                                        |
-| ----------------------------------- | ---------------------------------------------- |
-| `00-MASTER-IMPLEMENTATION-GUIDE.md` | Comprehensive reference with progress tracking |
-| `02-advanced-workflow-system.md`    | Workflow engine design and API                 |
-| `03-three-layer-memory-system.md`   | Memory architecture details                    |
-| `04-vector-store-integrations.md`   | Vector store adapter patterns                  |
-| `07-multi-agent-networks.md`        | Agent orchestration design                     |
-| `20-implementation-roadmap.md`      | Phase timeline and dependencies                |
 
 ### Core Infrastructure (Implemented)
 
@@ -1060,6 +1107,5 @@ New core infrastructure in `src/lib/core/infrastructure/`:
 - Full documentation in `docs/` directory
 - README.md has comprehensive feature overview
 - Each major feature has dedicated guide in `docs/features/`
-- Implementation guides in `docs/implementation-guides/`
 - API reference in `docs/sdk/api-reference.md`
 - CLI reference in `docs/cli/commands.md`

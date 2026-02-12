@@ -534,13 +534,13 @@ const results = await hybridSearch.search("neural network training", {
 ### BM25 Configuration
 
 ```typescript
-interface BM25Config {
+type BM25Config = {
   k1: number; // Term frequency saturation (default: 1.2)
   b: number; // Document length normalization (default: 0.75)
   lowercase: boolean; // Normalize to lowercase (default: true)
   stemming: boolean; // Apply stemming (default: false)
   stopwords: string[]; // Words to ignore (default: English stopwords)
-}
+};
 ```
 
 ## Reranking

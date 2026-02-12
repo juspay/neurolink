@@ -179,8 +179,8 @@ export class RecursiveChunker extends BaseChunker {
       let chunk = chunks[i] ?? "";
 
       // Add overlap from previous chunk
-      if (i > 0 && chunks[i - 1]) {
-        const prevChunk = chunks[i - 1]!;
+      const prevChunk = i > 0 ? chunks[i - 1] : undefined;
+      if (prevChunk) {
         const overlapText = prevChunk.slice(
           -Math.min(overlap, prevChunk.length),
         );

@@ -55,7 +55,10 @@ import {
   convertZodToJsonSchema,
   inlineJsonSchema,
 } from "../utils/schemaConversion.js";
-import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
+import {
+  createNativeThinkingConfig,
+  type ThinkingConfig,
+} from "../utils/thinkingConfig.js";
 import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
 
 // Import proper types for multimodal message handling
@@ -1179,6 +1182,479 @@ export class GoogleVertexProvider extends BaseProvider {
     });
   }
 
+  // ── Shared helpers for native Gemini 3 SDK methods ──
+
+  /**
+   * Build multimodal content parts (user message) from input text, PDFs, and images.
+   * Shared by both stream and generate native Gemini 3 paths.
+   */
+  private buildNativeContentParts(
+    inputText: string,
+    multimodalInput:
+      | {
+          text?: string;
+          pdfFiles?: Array<Buffer | string>;
+          images?: Array<Buffer | string>;
+        }
+      | undefined,
+    logLabel: string,
+  ): Array<{
+    role: string;
+    parts: Array<
+      { text: string } | { inlineData: { mimeType: string; data: string } }
+    >;
+  }> {
+    type NativePart =
+      | { text: string }
+      | { inlineData: { mimeType: string; data: string } };
+
+    const userParts: NativePart[] = [{ text: inputText }];
+
+    // Add PDF files as inlineData parts if present
+    if (multimodalInput?.pdfFiles && multimodalInput.pdfFiles.length > 0) {
+      logger.debug(
+        `[GoogleVertex] Processing ${multimodalInput.pdfFiles.length} PDF file(s) for ${logLabel}`,
+      );
+
+      for (const pdfFile of multimodalInput.pdfFiles) {
+        let pdfBuffer: Buffer;
+
+        if (typeof pdfFile === "string") {
+          if (fs.existsSync(pdfFile)) {
+            pdfBuffer = fs.readFileSync(pdfFile);
+          } else {
+            pdfBuffer = Buffer.from(pdfFile, "base64");
+          }
+        } else {
+          pdfBuffer = pdfFile;
+        }
+
+        const base64Data = pdfBuffer.toString("base64");
+        userParts.push({
+          inlineData: {
+            mimeType: "application/pdf",
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    // Add images as inlineData parts if present
+    if (multimodalInput?.images && multimodalInput.images.length > 0) {
+      logger.debug(
+        `[GoogleVertex] Processing ${multimodalInput.images.length} image(s) for ${logLabel}`,
+      );
+
+      for (const image of multimodalInput.images) {
+        let imageBuffer: Buffer;
+        let mimeType = "image/jpeg"; // Default
+
+        if (typeof image === "string") {
+          if (fs.existsSync(image)) {
+            imageBuffer = fs.readFileSync(image);
+            const ext = path.extname(image).toLowerCase();
+            if (ext === ".png") {
+              mimeType = "image/png";
+            } else if (ext === ".gif") {
+              mimeType = "image/gif";
+            } else if (ext === ".webp") {
+              mimeType = "image/webp";
+            }
+          } else if (image.startsWith("data:")) {
+            const matches = image.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+              mimeType = matches[1];
+              imageBuffer = Buffer.from(matches[2], "base64");
+            } else {
+              continue; // Skip invalid data URL
+            }
+          } else {
+            imageBuffer = Buffer.from(image, "base64");
+          }
+        } else {
+          imageBuffer = image;
+        }
+
+        const base64Data = imageBuffer.toString("base64");
+        userParts.push({
+          inlineData: {
+            mimeType,
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    return [
+      {
+        role: "user",
+        parts: userParts,
+      },
+    ];
+  }
+
+  /**
+   * Convert Vercel AI SDK tools to @google/genai FunctionDeclarations and build an execute map.
+   * Shared by both stream and generate native Gemini 3 paths.
+   */
+  private convertToolsToNativeFunctionDeclarations(
+    toolsMap: Record<string, Tool>,
+    logLabel: string,
+  ): {
+    tools:
+      | Array<{
+          functionDeclarations: Array<{
+            name: string;
+            description: string;
+            parametersJsonSchema?: Record<string, unknown>;
+          }>;
+        }>
+      | undefined;
+    executeMap: Map<string, Tool["execute"]>;
+  } {
+    type FunctionDeclaration = {
+      name: string;
+      description: string;
+      parametersJsonSchema?: Record<string, unknown>;
+    };
+
+    if (Object.keys(toolsMap).length === 0) {
+      return { tools: undefined, executeMap: new Map() };
+    }
+
+    const functionDeclarations: FunctionDeclaration[] = [];
+    const executeMap = new Map<string, Tool["execute"]>();
+
+    for (const [name, tool] of Object.entries(toolsMap)) {
+      const decl: FunctionDeclaration = {
+        name,
+        description: tool.description || `Tool: ${name}`,
+      };
+
+      if (tool.parameters) {
+        const rawSchema = convertZodToJsonSchema(
+          tool.parameters as ZodUnknownSchema,
+        ) as Record<string, unknown>;
+        decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
+        if (decl.parametersJsonSchema.$schema) {
+          delete decl.parametersJsonSchema.$schema;
+        }
+      }
+
+      functionDeclarations.push(decl);
+
+      if (tool.execute) {
+        executeMap.set(name, tool.execute);
+      }
+    }
+
+    logger.debug(`[GoogleVertex] Converted tools for ${logLabel}`, {
+      toolCount: functionDeclarations.length,
+      toolNames: functionDeclarations.map((t) => t.name),
+    });
+
+    return {
+      tools: [{ functionDeclarations }],
+      executeMap,
+    };
+  }
+
+  /**
+   * Build the native @google/genai config object for generate/stream calls.
+   * Shared by both stream and generate native Gemini 3 paths.
+   */
+  private buildNativeGenerateConfig(
+    options: {
+      temperature?: number;
+      maxTokens?: number;
+      systemPrompt?: string;
+      thinkingConfig?: ThinkingConfig;
+    },
+    tools:
+      | Array<{
+          functionDeclarations: Array<{
+            name: string;
+            description: string;
+            parametersJsonSchema?: Record<string, unknown>;
+          }>;
+        }>
+      | undefined,
+  ): Record<string, unknown> {
+    const config: Record<string, unknown> = {
+      temperature: options.temperature ?? 1.0,
+      maxOutputTokens: options.maxTokens,
+    };
+
+    if (tools) {
+      config.tools = tools;
+    }
+
+    if (options.systemPrompt) {
+      config.systemInstruction = options.systemPrompt;
+    }
+
+    const nativeThinkingConfig = createNativeThinkingConfig(
+      options.thinkingConfig,
+    );
+    if (nativeThinkingConfig) {
+      config.thinkingConfig = nativeThinkingConfig;
+    }
+
+    return config;
+  }
+
+  /**
+   * Compute a safe maxSteps value from raw input.
+   */
+  private computeMaxSteps(rawMaxSteps: number | undefined): number {
+    const raw = rawMaxSteps || DEFAULT_MAX_STEPS;
+    return Number.isFinite(raw) && raw > 0
+      ? Math.min(Math.floor(raw), 100)
+      : Math.min(DEFAULT_MAX_STEPS, 100);
+  }
+
+  /**
+   * Extract text from raw native SDK response parts, filtering out non-text parts
+   * (thoughtSignature, functionCall) to avoid SDK warnings.
+   */
+  private extractTextFromRawParts(rawParts: unknown[]): string {
+    return rawParts
+      .filter(
+        (part): part is { text: string } =>
+          typeof (part as Record<string, unknown>).text === "string",
+      )
+      .map((part) => part.text)
+      .join("");
+  }
+
+  /**
+   * Execute a set of function calls from the model, tracking failures and retries.
+   * Returns function response parts to be added to conversation history.
+   * Shared by both stream and generate native Gemini 3 paths.
+   */
+  private async executeNativeFunctionCalls(
+    calls: Array<{ name: string; args: Record<string, unknown> }>,
+    executeMap: Map<string, Tool["execute"]>,
+    failedTools: Map<string, { count: number; lastError: string }>,
+    allToolCalls: Array<{
+      toolName: string;
+      args: Record<string, unknown>;
+    }>,
+    toolExecutions?: Array<{
+      name: string;
+      input: Record<string, unknown>;
+      output: unknown;
+    }>,
+  ): Promise<Array<{ functionResponse: { name: string; response: unknown } }>> {
+    const functionResponses: Array<{
+      functionResponse: { name: string; response: unknown };
+    }> = [];
+
+    for (const call of calls) {
+      allToolCalls.push({ toolName: call.name, args: call.args });
+
+      // Check if this tool has already exceeded retry limit
+      const failedInfo = failedTools.get(call.name);
+      if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
+        logger.warn(
+          `[GoogleVertex] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
+        );
+
+        const errorOutput = {
+          error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
+          status: "permanently_failed",
+          do_not_retry: true,
+        };
+
+        toolExecutions?.push({
+          name: call.name,
+          input: call.args,
+          output: errorOutput,
+        });
+
+        functionResponses.push({
+          functionResponse: { name: call.name, response: errorOutput },
+        });
+        continue;
+      }
+
+      const execute = executeMap.get(call.name);
+      if (execute) {
+        try {
+          const toolOptions = {
+            toolCallId: `${call.name}-${Date.now()}`,
+            messages: [],
+            abortSignal: undefined as AbortSignal | undefined,
+          };
+          const result = await execute(call.args, toolOptions);
+
+          toolExecutions?.push({
+            name: call.name,
+            input: call.args,
+            output: result,
+          });
+
+          functionResponses.push({
+            functionResponse: {
+              name: call.name,
+              response: { result },
+            },
+          });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+
+          const currentFailInfo = failedTools.get(call.name) || {
+            count: 0,
+            lastError: "",
+          };
+          currentFailInfo.count++;
+          currentFailInfo.lastError = errorMessage;
+          failedTools.set(call.name, currentFailInfo);
+
+          logger.warn(
+            `[GoogleVertex] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
+          );
+
+          const isPermanentFailure =
+            currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
+
+          const errorOutput = {
+            error: isPermanentFailure
+              ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
+              : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
+            status: isPermanentFailure ? "permanently_failed" : "failed",
+            do_not_retry: isPermanentFailure,
+            retry_count: currentFailInfo.count,
+            max_retries: DEFAULT_TOOL_MAX_RETRIES,
+          };
+
+          toolExecutions?.push({
+            name: call.name,
+            input: call.args,
+            output: errorOutput,
+          });
+
+          functionResponses.push({
+            functionResponse: { name: call.name, response: errorOutput },
+          });
+        }
+      } else {
+        // Tool not found is a permanent error
+        const errorOutput = {
+          error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
+          status: "permanently_failed",
+          do_not_retry: true,
+        };
+
+        toolExecutions?.push({
+          name: call.name,
+          input: call.args,
+          output: errorOutput,
+        });
+
+        functionResponses.push({
+          functionResponse: { name: call.name, response: errorOutput },
+        });
+      }
+    }
+
+    return functionResponses;
+  }
+
+  /**
+   * Collect raw response parts and function calls from a native SDK content stream chunk.
+   * Also accumulates token usage metadata.
+   * Returns updated token counts.
+   */
+  private processNativeStreamChunk(
+    chunk: {
+      functionCalls?: Array<{ name: string; args: Record<string, unknown> }>;
+    } & Record<string, unknown>,
+    rawResponseParts: unknown[],
+    stepFunctionCalls: Array<{ name: string; args: Record<string, unknown> }>,
+    tokenUsage: { input: number; output: number },
+  ): void {
+    const chunkRecord = chunk as Record<string, unknown>;
+    const candidates = chunkRecord.candidates as
+      | Array<Record<string, unknown>>
+      | undefined;
+    const firstCandidate = candidates?.[0];
+    const chunkContent = firstCandidate?.content as
+      | Record<string, unknown>
+      | undefined;
+    if (chunkContent && Array.isArray(chunkContent.parts)) {
+      rawResponseParts.push(...chunkContent.parts);
+    }
+    if (chunk.functionCalls) {
+      stepFunctionCalls.push(...chunk.functionCalls);
+    }
+
+    const usageMetadata = chunkRecord.usageMetadata as
+      | {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+        }
+      | undefined;
+    if (usageMetadata) {
+      if (
+        usageMetadata.promptTokenCount !== undefined &&
+        usageMetadata.promptTokenCount > 0
+      ) {
+        tokenUsage.input = usageMetadata.promptTokenCount;
+      }
+      if (
+        usageMetadata.candidatesTokenCount !== undefined &&
+        usageMetadata.candidatesTokenCount > 0
+      ) {
+        tokenUsage.output = usageMetadata.candidatesTokenCount;
+      }
+    }
+  }
+
+  /**
+   * Push model response parts to conversation history, preserving thoughtSignature
+   * for Gemini 3 multi-turn tool calling.
+   */
+  private pushModelResponseToHistory(
+    currentContents: Array<{ role: string; parts: unknown[] }>,
+    rawResponseParts: unknown[],
+    stepFunctionCalls: Array<{ name: string; args: Record<string, unknown> }>,
+  ): void {
+    currentContents.push({
+      role: "model",
+      parts:
+        rawResponseParts.length > 0
+          ? rawResponseParts
+          : stepFunctionCalls.map((fc) => ({ functionCall: fc })),
+    });
+  }
+
+  /**
+   * Compute final text for maxSteps termination when the model was still calling tools.
+   */
+  private computeMaxStepsTerminationText(
+    step: number,
+    maxSteps: number,
+    finalText: string,
+    lastStepText: string,
+  ): string {
+    if (step >= maxSteps && !finalText) {
+      logger.warn(
+        `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
+          `Model was still calling tools. Using accumulated text from last step.`,
+      );
+      return (
+        lastStepText ||
+        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`
+      );
+    }
+    return finalText;
+  }
+
+  // ── End shared helpers ──
+
   /**
    * Execute stream using native @google/genai SDK for Gemini 3 models on Vertex AI
    * This bypasses @ai-sdk/google-vertex to properly handle thought_signature
@@ -1200,199 +1676,42 @@ export class GoogleVertexProvider extends BaseProvider {
     });
 
     // Build contents from input with multimodal support
-    // Type for native SDK content parts (text, inlineData for PDFs/images)
-    type NativeStreamPart =
-      | { text: string }
-      | { inlineData: { mimeType: string; data: string } };
-
-    const contents: Array<{
-      role: string;
-      parts: NativeStreamPart[];
-    }> = [];
-
-    // Build user message parts - start with text
-    const userParts: NativeStreamPart[] = [{ text: options.input.text }];
-
-    // Add PDF files as inlineData parts if present
-    // Cast input to access multimodal properties that may exist at runtime
     const multimodalInput = options.input as {
       text: string;
       pdfFiles?: Array<Buffer | string>;
       images?: Array<Buffer | string>;
     };
+    const contents = this.buildNativeContentParts(
+      options.input.text,
+      multimodalInput,
+      "native stream",
+    );
 
-    if (multimodalInput?.pdfFiles && multimodalInput.pdfFiles.length > 0) {
-      logger.debug(
-        `[GoogleVertex] Processing ${multimodalInput.pdfFiles.length} PDF file(s) for native stream`,
-      );
-
-      for (const pdfFile of multimodalInput.pdfFiles) {
-        let pdfBuffer: Buffer;
-
-        if (typeof pdfFile === "string") {
-          // Check if it's a file path
-          if (fs.existsSync(pdfFile)) {
-            pdfBuffer = fs.readFileSync(pdfFile);
-          } else {
-            // Assume it's already base64 encoded
-            pdfBuffer = Buffer.from(pdfFile, "base64");
-          }
-        } else {
-          pdfBuffer = pdfFile;
-        }
-
-        // Convert to base64 for the native SDK
-        const base64Data = pdfBuffer.toString("base64");
-        userParts.push({
-          inlineData: {
-            mimeType: "application/pdf",
-            data: base64Data,
-          },
-        });
-      }
-    }
-
-    // Add images as inlineData parts if present
-    if (multimodalInput?.images && multimodalInput.images.length > 0) {
-      logger.debug(
-        `[GoogleVertex] Processing ${multimodalInput.images.length} image(s) for native stream`,
-      );
-
-      for (const image of multimodalInput.images) {
-        let imageBuffer: Buffer;
-        let mimeType = "image/jpeg"; // Default
-
-        if (typeof image === "string") {
-          if (fs.existsSync(image)) {
-            imageBuffer = fs.readFileSync(image);
-            // Detect mime type from extension
-            const ext = path.extname(image).toLowerCase();
-            if (ext === ".png") {
-              mimeType = "image/png";
-            } else if (ext === ".gif") {
-              mimeType = "image/gif";
-            } else if (ext === ".webp") {
-              mimeType = "image/webp";
-            }
-          } else if (image.startsWith("data:")) {
-            // Handle data URL
-            const matches = image.match(/^data:([^;]+);base64,(.+)$/);
-            if (matches) {
-              mimeType = matches[1];
-              imageBuffer = Buffer.from(matches[2], "base64");
-            } else {
-              continue; // Skip invalid data URL
-            }
-          } else {
-            // Assume base64 string
-            imageBuffer = Buffer.from(image, "base64");
-          }
-        } else {
-          imageBuffer = image;
-        }
-
-        const base64Data = imageBuffer.toString("base64");
-        userParts.push({
-          inlineData: {
-            mimeType,
-            data: base64Data,
-          },
-        });
-      }
-    }
-
-    contents.push({
-      role: "user",
-      parts: userParts,
-    });
-
-    // Convert Vercel AI SDK tools to @google/genai FunctionDeclarations
-    type FunctionDeclaration = {
-      name: string;
-      description: string;
-      parametersJsonSchema?: Record<string, unknown>;
-    };
-
-    let tools:
-      | Array<{ functionDeclarations: FunctionDeclaration[] }>
-      | undefined;
-    const executeMap = new Map<string, Tool["execute"]>();
-
-    if (
+    // Convert tools to native format
+    const toolsInput =
       options.tools &&
       Object.keys(options.tools).length > 0 &&
       !options.disableTools
-    ) {
-      const functionDeclarations: FunctionDeclaration[] = [];
-
-      for (const [name, tool] of Object.entries(options.tools)) {
-        const decl: FunctionDeclaration = {
-          name,
-          description: tool.description || `Tool: ${name}`,
-        };
-
-        if (tool.parameters) {
-          // Convert and inline schema to resolve $ref/definitions
-          const rawSchema = convertZodToJsonSchema(
-            tool.parameters as ZodUnknownSchema,
-          ) as Record<string, unknown>;
-          decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
-          // Remove $schema if present - @google/genai doesn't need it
-          if (decl.parametersJsonSchema.$schema) {
-            delete decl.parametersJsonSchema.$schema;
-          }
-        }
-
-        functionDeclarations.push(decl);
-
-        if (tool.execute) {
-          executeMap.set(name, tool.execute);
-        }
-      }
-
-      tools = [{ functionDeclarations }];
-
-      logger.debug("[GoogleVertex] Converted tools for native SDK", {
-        toolCount: functionDeclarations.length,
-        toolNames: functionDeclarations.map((t) => t.name),
-      });
-    }
+        ? options.tools
+        : {};
+    const { tools, executeMap } = this.convertToolsToNativeFunctionDeclarations(
+      toolsInput as Record<string, Tool>,
+      "native SDK",
+    );
 
     // Build config
-    const config: Record<string, unknown> = {
-      temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
-      maxOutputTokens: options.maxTokens,
-    };
-
-    if (tools) {
-      config.tools = tools;
-    }
-
-    if (options.systemPrompt) {
-      config.systemInstruction = options.systemPrompt;
-    }
-
-    // Add thinking config for Gemini 3
-    const nativeThinkingConfig = createNativeThinkingConfig(
-      options.thinkingConfig,
-    );
-    if (nativeThinkingConfig) {
-      config.thinkingConfig = nativeThinkingConfig;
-    }
+    const config = this.buildNativeGenerateConfig(options, tools);
 
     // Add JSON output format support for native SDK stream
-    // Note: Combining tools + schema may have limitations with Gemini models
     const streamOptions = options as TextGenerationOptions;
     if (streamOptions.output?.format === "json" || streamOptions.schema) {
       config.responseMimeType = "application/json";
 
-      // Convert schema to JSON schema format for the native SDK
       if (streamOptions.schema) {
         const rawSchema = convertZodToJsonSchema(
           streamOptions.schema as ZodUnknownSchema,
         ) as Record<string, unknown>;
         const inlinedSchema = inlineJsonSchema(rawSchema);
-        // Remove $schema if present - @google/genai doesn't need it
         if (inlinedSchema.$schema) {
           delete inlinedSchema.$schema;
         }
@@ -1408,29 +1727,17 @@ export class GoogleVertexProvider extends BaseProvider {
     }
 
     const startTime = Date.now();
-    // Ensure maxSteps is a valid positive integer to prevent infinite loops
-    const rawMaxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
-    const maxSteps =
-      Number.isFinite(rawMaxSteps) && rawMaxSteps > 0
-        ? Math.min(Math.floor(rawMaxSteps), 100) // Cap at 100 for safety
-        : Math.min(DEFAULT_MAX_STEPS, 100);
+    const maxSteps = this.computeMaxSteps(options.maxSteps);
     const currentContents = [...contents];
     let finalText = "";
-    let lastStepText = ""; // Track text from last step for maxSteps termination
+    let lastStepText = "";
     const allToolCalls: Array<{
       toolName: string;
       args: Record<string, unknown>;
     }> = [];
     let step = 0;
-
-    // Track failed tools to prevent infinite retry loops
-    // Key: tool name, Value: { count: retry attempts, lastError: error message }
     const failedTools = new Map<string, { count: number; lastError: string }>();
-
-    // Track token usage across all steps
-    // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
+    const tokenUsage = { input: 0, output: 0 };
 
     // Agentic loop for tool calling
     while (step < maxSteps) {
@@ -1448,184 +1755,47 @@ export class GoogleVertexProvider extends BaseProvider {
           name: string;
           args: Record<string, unknown>;
         }> = [];
-
-        // Capture raw response parts including thoughtSignature
         const rawResponseParts: unknown[] = [];
 
         for await (const chunk of stream) {
-          // Extract raw parts from candidates FIRST
-          // This avoids using chunk.text which triggers SDK warning when
-          // non-text parts (thoughtSignature, functionCall) are present
-          const chunkRecord = chunk as Record<string, unknown>;
-          const candidates = chunkRecord.candidates as
-            | Array<Record<string, unknown>>
-            | undefined;
-          const firstCandidate = candidates?.[0];
-          const chunkContent = firstCandidate?.content as
-            | Record<string, unknown>
-            | undefined;
-          if (chunkContent && Array.isArray(chunkContent.parts)) {
-            rawResponseParts.push(...chunkContent.parts);
-          }
-          if (chunk.functionCalls) {
-            stepFunctionCalls.push(...chunk.functionCalls);
-          }
-
-          // Extract usage metadata from chunk
-          // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
-          const usageMetadata = chunkRecord.usageMetadata as
-            | {
-                promptTokenCount?: number;
-                candidatesTokenCount?: number;
-                totalTokenCount?: number;
-              }
-            | undefined;
-          if (usageMetadata) {
-            // Take the latest promptTokenCount (usually only in final chunk)
-            if (
-              usageMetadata.promptTokenCount !== undefined &&
-              usageMetadata.promptTokenCount > 0
-            ) {
-              totalInputTokens = usageMetadata.promptTokenCount;
-            }
-            // Take the latest candidatesTokenCount (accumulates through chunks)
-            if (
-              usageMetadata.candidatesTokenCount !== undefined &&
-              usageMetadata.candidatesTokenCount > 0
-            ) {
-              totalOutputTokens = usageMetadata.candidatesTokenCount;
-            }
-          }
+          this.processNativeStreamChunk(
+            chunk as {
+              functionCalls?: Array<{
+                name: string;
+                args: Record<string, unknown>;
+              }>;
+            } & Record<string, unknown>,
+            rawResponseParts,
+            stepFunctionCalls,
+            tokenUsage,
+          );
         }
 
-        // Extract text from raw parts after stream completes
-        // This avoids SDK warning about non-text parts (thoughtSignature, functionCall)
-        const stepText = rawResponseParts
-          .filter(
-            (part): part is { text: string } =>
-              typeof (part as Record<string, unknown>).text === "string",
-          )
-          .map((part) => part.text)
-          .join("");
+        const stepText = this.extractTextFromRawParts(rawResponseParts);
 
-        // If no function calls, we're done
         if (stepFunctionCalls.length === 0) {
           finalText = stepText;
           break;
         }
 
-        // Track the last step text for maxSteps termination
         lastStepText = stepText;
 
-        // Execute function calls
         logger.debug(
           `[GoogleVertex] Executing ${stepFunctionCalls.length} function calls`,
         );
 
-        // Add model response with ALL parts (including thoughtSignature) to history
-        // This preserves the thought_signature which is required for Gemini 3 multi-turn tool calling
-        currentContents.push({
-          role: "model",
-          parts:
-            rawResponseParts.length > 0
-              ? (rawResponseParts as Array<{ text: string }>)
-              : (stepFunctionCalls.map((fc) => ({
-                  functionCall: fc,
-                })) as unknown as Array<{ text: string }>),
-        });
+        this.pushModelResponseToHistory(
+          currentContents,
+          rawResponseParts,
+          stepFunctionCalls,
+        );
 
-        // Execute each function and collect responses
-        const functionResponses: Array<{
-          functionResponse: { name: string; response: unknown };
-        }> = [];
-
-        for (const call of stepFunctionCalls) {
-          allToolCalls.push({ toolName: call.name, args: call.args });
-
-          // Check if this tool has already exceeded retry limit
-          const failedInfo = failedTools.get(call.name);
-          if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
-            logger.warn(
-              `[GoogleVertex] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
-            );
-            functionResponses.push({
-              functionResponse: {
-                name: call.name,
-                response: {
-                  error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
-                  status: "permanently_failed",
-                  do_not_retry: true,
-                },
-              },
-            });
-            continue;
-          }
-
-          const execute = executeMap.get(call.name);
-          if (execute) {
-            try {
-              // AI SDK Tool execute requires (args, options) - provide minimal options
-              const toolOptions = {
-                toolCallId: `${call.name}-${Date.now()}`,
-                messages: [],
-                abortSignal: undefined as AbortSignal | undefined,
-              };
-              const result = await execute(call.args, toolOptions);
-              functionResponses.push({
-                functionResponse: { name: call.name, response: { result } },
-              });
-            } catch (error) {
-              const errorMessage =
-                error instanceof Error ? error.message : "Unknown error";
-
-              // Track this failure
-              const currentFailInfo = failedTools.get(call.name) || {
-                count: 0,
-                lastError: "",
-              };
-              currentFailInfo.count++;
-              currentFailInfo.lastError = errorMessage;
-              failedTools.set(call.name, currentFailInfo);
-
-              logger.warn(
-                `[GoogleVertex] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
-              );
-
-              // Determine if this is a permanent failure
-              const isPermanentFailure =
-                currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
-
-              functionResponses.push({
-                functionResponse: {
-                  name: call.name,
-                  response: {
-                    error: isPermanentFailure
-                      ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
-                      : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
-                    status: isPermanentFailure
-                      ? "permanently_failed"
-                      : "failed",
-                    do_not_retry: isPermanentFailure,
-                    retry_count: currentFailInfo.count,
-                    max_retries: DEFAULT_TOOL_MAX_RETRIES,
-                  },
-                },
-              });
-            }
-          } else {
-            // Tool not found is a permanent error
-            functionResponses.push({
-              functionResponse: {
-                name: call.name,
-                response: {
-                  error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
-                  status: "permanently_failed",
-                  do_not_retry: true,
-                },
-              },
-            });
-          }
-        }
+        const functionResponses = await this.executeNativeFunctionCalls(
+          stepFunctionCalls,
+          executeMap,
+          failedTools,
+          allToolCalls,
+        );
 
         // Add function responses to history
         currentContents.push({
@@ -1638,16 +1808,12 @@ export class GoogleVertexProvider extends BaseProvider {
       }
     }
 
-    // Handle maxSteps termination - if we exited the loop due to maxSteps being reached
-    if (step >= maxSteps && !finalText) {
-      logger.warn(
-        `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
-          `Model was still calling tools. Using accumulated text from last step.`,
-      );
-      finalText =
-        lastStepText ||
-        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
-    }
+    finalText = this.computeMaxStepsTerminationText(
+      step,
+      maxSteps,
+      finalText,
+      lastStepText,
+    );
 
     const responseTime = Date.now() - startTime;
 
@@ -1661,9 +1827,9 @@ export class GoogleVertexProvider extends BaseProvider {
       provider: this.providerName,
       model: modelName,
       usage: {
-        input: totalInputTokens,
-        output: totalOutputTokens,
-        total: totalInputTokens + totalOutputTokens,
+        input: tokenUsage.input,
+        output: tokenUsage.output,
+        total: tokenUsage.input + tokenUsage.output,
       },
       toolCalls: allToolCalls.map((tc) => ({
         toolName: tc.toolName,
@@ -1703,22 +1869,6 @@ export class GoogleVertexProvider extends BaseProvider {
     // Build contents from input with multimodal support
     const inputText =
       options.prompt || options.input?.text || "Please respond.";
-
-    // Type for native SDK content parts (text, inlineData for PDFs/images)
-    type NativePart =
-      | { text: string }
-      | { inlineData: { mimeType: string; data: string } };
-
-    const contents: Array<{
-      role: string;
-      parts: NativePart[];
-    }> = [];
-
-    // Build user message parts - start with text
-    const userParts: NativePart[] = [{ text: inputText }];
-
-    // Add PDF files as inlineData parts if present
-    // Cast input to access multimodal properties that may exist at runtime
     const multimodalInput = options.input as
       | {
           text?: string;
@@ -1726,181 +1876,34 @@ export class GoogleVertexProvider extends BaseProvider {
           images?: Array<Buffer | string>;
         }
       | undefined;
-
-    if (multimodalInput?.pdfFiles && multimodalInput.pdfFiles.length > 0) {
-      logger.debug(
-        `[GoogleVertex] Processing ${multimodalInput.pdfFiles.length} PDF file(s) for native generate`,
-      );
-
-      for (const pdfFile of multimodalInput.pdfFiles) {
-        let pdfBuffer: Buffer;
-
-        if (typeof pdfFile === "string") {
-          // Check if it's a file path
-          if (fs.existsSync(pdfFile)) {
-            pdfBuffer = fs.readFileSync(pdfFile);
-          } else {
-            // Assume it's already base64 encoded
-            pdfBuffer = Buffer.from(pdfFile, "base64");
-          }
-        } else {
-          pdfBuffer = pdfFile;
-        }
-
-        // Convert to base64 for the native SDK
-        const base64Data = pdfBuffer.toString("base64");
-        userParts.push({
-          inlineData: {
-            mimeType: "application/pdf",
-            data: base64Data,
-          },
-        });
-      }
-    }
-
-    // Add images as inlineData parts if present
-    if (multimodalInput?.images && multimodalInput.images.length > 0) {
-      logger.debug(
-        `[GoogleVertex] Processing ${multimodalInput.images.length} image(s) for native generate`,
-      );
-
-      for (const image of multimodalInput.images) {
-        let imageBuffer: Buffer;
-        let mimeType = "image/jpeg"; // Default
-
-        if (typeof image === "string") {
-          if (fs.existsSync(image)) {
-            imageBuffer = fs.readFileSync(image);
-            // Detect mime type from extension
-            const ext = path.extname(image).toLowerCase();
-            if (ext === ".png") {
-              mimeType = "image/png";
-            } else if (ext === ".gif") {
-              mimeType = "image/gif";
-            } else if (ext === ".webp") {
-              mimeType = "image/webp";
-            }
-          } else if (image.startsWith("data:")) {
-            // Handle data URL
-            const matches = image.match(/^data:([^;]+);base64,(.+)$/);
-            if (matches) {
-              mimeType = matches[1];
-              imageBuffer = Buffer.from(matches[2], "base64");
-            } else {
-              continue; // Skip invalid data URL
-            }
-          } else {
-            // Assume base64 string
-            imageBuffer = Buffer.from(image, "base64");
-          }
-        } else {
-          imageBuffer = image;
-        }
-
-        const base64Data = imageBuffer.toString("base64");
-        userParts.push({
-          inlineData: {
-            mimeType,
-            data: base64Data,
-          },
-        });
-      }
-    }
-
-    contents.push({
-      role: "user",
-      parts: userParts,
-    });
+    const contents = this.buildNativeContentParts(
+      inputText,
+      multimodalInput,
+      "native generate",
+    );
 
     // Get tools from SDK and options
     const shouldUseTools = !options.disableTools && this.supportsTools();
     const sdkTools = shouldUseTools ? await this.getAllTools() : {};
     const combinedTools = { ...sdkTools, ...(options.tools || {}) };
 
-    // Convert Vercel AI SDK tools to @google/genai FunctionDeclarations
-    type FunctionDeclaration = {
-      name: string;
-      description: string;
-      parametersJsonSchema?: Record<string, unknown>;
-    };
-
-    let tools:
-      | Array<{ functionDeclarations: FunctionDeclaration[] }>
-      | undefined;
-    const executeMap = new Map<string, Tool["execute"]>();
-
-    if (Object.keys(combinedTools).length > 0) {
-      const functionDeclarations: FunctionDeclaration[] = [];
-
-      for (const [name, tool] of Object.entries(combinedTools)) {
-        const decl: FunctionDeclaration = {
-          name,
-          description: tool.description || `Tool: ${name}`,
-        };
-
-        if (tool.parameters) {
-          // Convert and inline schema to resolve $ref/definitions
-          const rawSchema = convertZodToJsonSchema(
-            tool.parameters as ZodUnknownSchema,
-          ) as Record<string, unknown>;
-          decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
-          // Remove $schema if present - @google/genai doesn't need it
-          if (decl.parametersJsonSchema.$schema) {
-            delete decl.parametersJsonSchema.$schema;
-          }
-        }
-
-        functionDeclarations.push(decl);
-
-        if (tool.execute) {
-          executeMap.set(name, tool.execute);
-        }
-      }
-
-      tools = [{ functionDeclarations }];
-
-      logger.debug("[GoogleVertex] Converted tools for native SDK generate", {
-        toolCount: functionDeclarations.length,
-        toolNames: functionDeclarations.map((t) => t.name),
-      });
-    }
+    const { tools, executeMap } = this.convertToolsToNativeFunctionDeclarations(
+      combinedTools as Record<string, Tool>,
+      "native SDK generate",
+    );
 
     // Build config
-    const config: Record<string, unknown> = {
-      temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
-      maxOutputTokens: options.maxTokens,
-    };
-
-    if (tools) {
-      config.tools = tools;
-    }
-
-    if (options.systemPrompt) {
-      config.systemInstruction = options.systemPrompt;
-    }
-
-    // Add thinking config for Gemini 3
-    const nativeThinkingConfig2 = createNativeThinkingConfig(
-      options.thinkingConfig,
-    );
-    if (nativeThinkingConfig2) {
-      config.thinkingConfig = nativeThinkingConfig2;
-    }
+    const config = this.buildNativeGenerateConfig(options, tools);
 
     // Note: Schema/JSON output for Gemini 3 native SDK is complex due to $ref resolution issues
     // For now, schemas are handled via the AI SDK fallback path, not native SDK
     // TODO: Implement proper $ref resolution for complex nested schemas
 
     const startTime = Date.now();
-    // Ensure maxSteps is a valid positive integer to prevent infinite loops
-    const rawMaxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
-    const maxSteps =
-      Number.isFinite(rawMaxSteps) && rawMaxSteps > 0
-        ? Math.min(Math.floor(rawMaxSteps), 100) // Cap at 100 for safety
-        : Math.min(DEFAULT_MAX_STEPS, 100);
+    const maxSteps = this.computeMaxSteps(options.maxSteps);
     const currentContents = [...contents];
     let finalText = "";
-    let lastStepText = ""; // Track text from last step for maxSteps termination
+    let lastStepText = "";
     const allToolCalls: Array<{
       toolName: string;
       args: Record<string, unknown>;
@@ -1911,15 +1914,8 @@ export class GoogleVertexProvider extends BaseProvider {
       output: unknown;
     }> = [];
     let step = 0;
-
-    // Track failed tools to prevent infinite retry loops
-    // Key: tool name, Value: { count: retry attempts, lastError: error message }
     const failedTools = new Map<string, { count: number; lastError: string }>();
-
-    // Track token usage across all steps
-    // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
+    const tokenUsage = { input: 0, output: 0 };
 
     // Agentic loop for tool calling
     while (step < maxSteps) {
@@ -1940,224 +1936,56 @@ export class GoogleVertexProvider extends BaseProvider {
           name: string;
           args: Record<string, unknown>;
         }> = [];
-
-        // Capture raw response parts including thoughtSignature
         const rawResponseParts: unknown[] = [];
 
-        // Collect all chunks from stream
         for await (const chunk of stream) {
-          // Extract raw parts from candidates FIRST
-          // This avoids using chunk.text which triggers SDK warning when
-          // non-text parts (thoughtSignature, functionCall) are present
-          const chunkRecord = chunk as Record<string, unknown>;
-          const candidates = chunkRecord.candidates as
-            | Array<Record<string, unknown>>
-            | undefined;
-          const firstCandidate = candidates?.[0];
-          const chunkContent = firstCandidate?.content as
-            | Record<string, unknown>
-            | undefined;
-          if (chunkContent && Array.isArray(chunkContent.parts)) {
-            rawResponseParts.push(...chunkContent.parts);
-          }
-          if (chunk.functionCalls) {
-            stepFunctionCalls.push(...chunk.functionCalls);
-          }
-
-          // Extract usage metadata from chunk
-          // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
-          const usageMetadata = chunkRecord.usageMetadata as
-            | {
-                promptTokenCount?: number;
-                candidatesTokenCount?: number;
-                totalTokenCount?: number;
-              }
-            | undefined;
-          if (usageMetadata) {
-            // Take the latest promptTokenCount (usually only in final chunk)
-            if (
-              usageMetadata.promptTokenCount !== undefined &&
-              usageMetadata.promptTokenCount > 0
-            ) {
-              totalInputTokens = usageMetadata.promptTokenCount;
-            }
-            // Take the latest candidatesTokenCount (accumulates through chunks)
-            if (
-              usageMetadata.candidatesTokenCount !== undefined &&
-              usageMetadata.candidatesTokenCount > 0
-            ) {
-              totalOutputTokens = usageMetadata.candidatesTokenCount;
-            }
-          }
+          this.processNativeStreamChunk(
+            chunk as {
+              functionCalls?: Array<{
+                name: string;
+                args: Record<string, unknown>;
+              }>;
+            } & Record<string, unknown>,
+            rawResponseParts,
+            stepFunctionCalls,
+            tokenUsage,
+          );
         }
 
-        // Extract text from raw parts after stream completes
-        // This avoids SDK warning about non-text parts (thoughtSignature, functionCall)
-        const stepText = rawResponseParts
-          .filter(
-            (part): part is { text: string } =>
-              typeof (part as Record<string, unknown>).text === "string",
-          )
-          .map((part) => part.text)
-          .join("");
+        const stepText = this.extractTextFromRawParts(rawResponseParts);
 
-        // If no function calls, we're done
         if (stepFunctionCalls.length === 0) {
           finalText = stepText;
           break;
         }
 
-        // Track the last step text for maxSteps termination
         lastStepText = stepText;
 
-        // Execute function calls
         logger.debug(
           `[GoogleVertex] Generate executing ${stepFunctionCalls.length} function calls`,
         );
 
-        // Add model response with ALL parts (including thoughtSignature) to history
-        // This preserves the thought_signature which is required for Gemini 3 multi-turn tool calling
-        currentContents.push({
-          role: "model",
-          parts:
-            rawResponseParts.length > 0
-              ? (rawResponseParts as Array<{ text: string }>)
-              : (stepFunctionCalls.map((fc) => ({
-                  functionCall: fc,
-                })) as unknown as Array<{ text: string }>),
-        });
+        this.pushModelResponseToHistory(
+          currentContents,
+          rawResponseParts,
+          stepFunctionCalls,
+        );
 
-        // Execute each function and collect responses
-        const functionResponses: Array<{
-          functionResponse: { name: string; response: unknown };
-        }> = [];
-
-        for (const call of stepFunctionCalls) {
-          allToolCalls.push({ toolName: call.name, args: call.args });
-
-          // Check if this tool has already exceeded retry limit
-          const failedInfo = failedTools.get(call.name);
-          if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
-            logger.warn(
-              `[GoogleVertex] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
-            );
-
-            const errorOutput = {
-              error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
-              status: "permanently_failed",
-              do_not_retry: true,
-            };
-
-            toolExecutions.push({
-              name: call.name,
-              input: call.args,
-              output: errorOutput,
-            });
-
-            functionResponses.push({
-              functionResponse: {
-                name: call.name,
-                response: errorOutput,
-              },
-            });
-            continue;
-          }
-
-          const execute = executeMap.get(call.name);
-          if (execute) {
-            try {
-              // AI SDK Tool execute requires (args, options) - provide minimal options
-              const toolOptions = {
-                toolCallId: `${call.name}-${Date.now()}`,
-                messages: [],
-                abortSignal: undefined as AbortSignal | undefined,
-              };
-              const execResult = await execute(call.args, toolOptions);
-
-              // Track execution
-              toolExecutions.push({
-                name: call.name,
-                input: call.args,
-                output: execResult,
-              });
-
-              functionResponses.push({
-                functionResponse: {
-                  name: call.name,
-                  response: { result: execResult },
-                },
-              });
-            } catch (error) {
-              const errorMessage =
-                error instanceof Error ? error.message : "Unknown error";
-
-              // Track this failure
-              const currentFailInfo = failedTools.get(call.name) || {
-                count: 0,
-                lastError: "",
-              };
-              currentFailInfo.count++;
-              currentFailInfo.lastError = errorMessage;
-              failedTools.set(call.name, currentFailInfo);
-
-              logger.warn(
-                `[GoogleVertex] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
-              );
-
-              // Determine if this is a permanent failure
-              const isPermanentFailure =
-                currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
-
-              const errorOutput = {
-                error: isPermanentFailure
-                  ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
-                  : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
-                status: isPermanentFailure ? "permanently_failed" : "failed",
-                do_not_retry: isPermanentFailure,
-                retry_count: currentFailInfo.count,
-                max_retries: DEFAULT_TOOL_MAX_RETRIES,
-              };
-
-              toolExecutions.push({
-                name: call.name,
-                input: call.args,
-                output: errorOutput,
-              });
-
-              functionResponses.push({
-                functionResponse: {
-                  name: call.name,
-                  response: errorOutput,
-                },
-              });
-            }
-          } else {
-            // Tool not found is a permanent error
-            const errorOutput = {
-              error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
-              status: "permanently_failed",
-              do_not_retry: true,
-            };
-
-            toolExecutions.push({
-              name: call.name,
-              input: call.args,
-              output: errorOutput,
-            });
-
-            functionResponses.push({
-              functionResponse: {
-                name: call.name,
-                response: errorOutput,
-              },
-            });
-          }
-        }
+        const functionResponses = await this.executeNativeFunctionCalls(
+          stepFunctionCalls,
+          executeMap,
+          failedTools,
+          allToolCalls,
+          toolExecutions,
+        );
 
         // Add function responses to history
         currentContents.push({
           role: "function",
-          parts: functionResponses as unknown as NativePart[],
+          parts: functionResponses as unknown as Array<
+            | { text: string }
+            | { inlineData: { mimeType: string; data: string } }
+          >,
         });
       } catch (error) {
         logger.error("[GoogleVertex] Native SDK generate error", error);
@@ -2165,16 +1993,12 @@ export class GoogleVertexProvider extends BaseProvider {
       }
     }
 
-    // Handle maxSteps termination - if we exited the loop due to maxSteps being reached
-    if (step >= maxSteps && !finalText) {
-      logger.warn(
-        `[GoogleVertex] Generate tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
-          `Model was still calling tools. Using accumulated text from last step.`,
-      );
-      finalText =
-        lastStepText ||
-        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
-    }
+    finalText = this.computeMaxStepsTerminationText(
+      step,
+      maxSteps,
+      finalText,
+      lastStepText,
+    );
 
     const responseTime = Date.now() - startTime;
 
@@ -2184,9 +2008,9 @@ export class GoogleVertexProvider extends BaseProvider {
       provider: this.providerName,
       model: modelName,
       usage: {
-        input: totalInputTokens,
-        output: totalOutputTokens,
-        total: totalInputTokens + totalOutputTokens,
+        input: tokenUsage.input,
+        output: tokenUsage.output,
+        total: tokenUsage.input + tokenUsage.output,
       },
       responseTime,
       toolsUsed: allToolCalls.map((tc) => tc.toolName),
@@ -3334,8 +3158,241 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
-   * Build image parts for multimodal content
+   * Obtain a Google Auth access token for Vertex AI REST API calls.
    */
+  private async getImageGenerationAccessToken(): Promise<string> {
+    const { GoogleAuth } = await import("google-auth-library");
+
+    // Priority: GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK > GOOGLE_APPLICATION_CREDENTIALS
+    const credentialsPath =
+      process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK ||
+      process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+    const auth = new GoogleAuth({
+      ...(credentialsPath && { keyFilename: credentialsPath }),
+      scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+    });
+
+    const client = await auth.getClient();
+    const accessToken = await client.getAccessToken();
+
+    if (!accessToken.token) {
+      throw new AuthenticationError(
+        "Failed to obtain access token from Google Auth",
+        this.providerName,
+      );
+    }
+
+    return accessToken.token;
+  }
+
+  /**
+   * Build request parts for image generation from prompt, PDFs, and images.
+   */
+  private buildImageGenerationParts(
+    prompt: string,
+    pdfFiles: Array<Buffer | string>,
+    inputImages: Array<Buffer | string>,
+  ): Array<{
+    text?: string;
+    inlineData?: { mimeType: string; data: string };
+  }> {
+    const parts: Array<{
+      text?: string;
+      inlineData?: { mimeType: string; data: string };
+    }> = [];
+
+    if (prompt) {
+      parts.push({ text: prompt });
+    }
+
+    // Add PDF files as inline data
+    for (const pdfFile of pdfFiles) {
+      let pdfBase64: string;
+
+      if (Buffer.isBuffer(pdfFile)) {
+        pdfBase64 = pdfFile.toString("base64");
+      } else if (typeof pdfFile === "string") {
+        const isFilePath =
+          pdfFile.startsWith("/") ||
+          /^[a-zA-Z]:\\/.test(pdfFile) ||
+          pdfFile.startsWith("./") ||
+          pdfFile.startsWith("../") ||
+          pdfFile.startsWith("..\\") ||
+          pdfFile.startsWith(".\\");
+        if (isFilePath) {
+          const normalizedPath = path.resolve(pdfFile);
+          const cwd = process.cwd();
+
+          if (
+            !normalizedPath.startsWith(cwd + path.sep) &&
+            normalizedPath !== cwd
+          ) {
+            throw new ProviderError(
+              `PDF file path must be within current directory for security`,
+              this.providerName,
+            );
+          }
+
+          if (!fs.existsSync(normalizedPath)) {
+            throw new ProviderError(
+              `PDF file not found: ${normalizedPath}`,
+              this.providerName,
+            );
+          }
+
+          const pdfBuffer = fs.readFileSync(normalizedPath);
+          pdfBase64 = pdfBuffer.toString("base64");
+        } else {
+          pdfBase64 = pdfFile;
+        }
+      } else {
+        logger.warn("Invalid PDF file format, skipping", {
+          type: typeof pdfFile,
+        });
+        continue;
+      }
+      parts.push({
+        inlineData: {
+          mimeType: "application/pdf",
+          data: pdfBase64,
+        },
+      });
+      logger.debug("Added PDF file to request", {
+        dataLength: pdfBase64.length,
+      });
+    }
+
+    // Add images (including those converted from PDF by baseProvider)
+    for (let i = 0; i < inputImages.length; i++) {
+      const image = inputImages[i];
+      let imageBase64: string;
+      let mimeType: string;
+
+      if (Buffer.isBuffer(image)) {
+        imageBase64 = image.toString("base64");
+        mimeType = this.detectImageType(image);
+      } else if (typeof image === "string") {
+        const isFilePath =
+          image.startsWith("/") ||
+          /^[a-zA-Z]:\\/.test(image) ||
+          image.startsWith("./") ||
+          image.startsWith("../") ||
+          image.startsWith("..\\") ||
+          image.startsWith(".\\");
+
+        if (isFilePath) {
+          const normalizedPath = path.resolve(image);
+          if (!fs.existsSync(normalizedPath)) {
+            logger.warn(`Image file not found: ${normalizedPath}, skipping`);
+            continue;
+          }
+          const imageBuffer = fs.readFileSync(normalizedPath);
+          imageBase64 = imageBuffer.toString("base64");
+          mimeType = this.detectImageType(imageBuffer);
+        } else if (image.startsWith("data:")) {
+          const matches = image.match(/^data:([^;]+);base64,(.+)$/);
+          if (matches) {
+            mimeType = matches[1];
+            imageBase64 = matches[2];
+          } else {
+            logger.warn("Invalid data URL format, skipping image", {
+              index: i,
+            });
+            continue;
+          }
+        } else {
+          imageBase64 = image;
+          const decodedBuffer = Buffer.from(imageBase64, "base64");
+          mimeType = this.detectImageType(decodedBuffer);
+        }
+      } else {
+        logger.warn("Invalid image format, skipping", {
+          type: typeof image,
+          index: i,
+        });
+        continue;
+      }
+
+      parts.push({
+        inlineData: {
+          mimeType: mimeType,
+          data: imageBase64,
+        },
+      });
+
+      logger.debug("Added image to request", {
+        index: i,
+        mimeType,
+        dataLength: imageBase64.length,
+      });
+    }
+
+    return parts;
+  }
+
+  /**
+   * Parse the Vertex AI image generation REST API response and extract image data.
+   */
+  private parseImageGenerationResponse(
+    data: {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            inlineData?: { data: string; mimeType?: string };
+            inline_data?: { data: string; mime_type?: string };
+            text?: string;
+          }>;
+        };
+      }>;
+    },
+    imageModelName: string,
+  ): { imageData: string; mimeType: string } {
+    const candidate = data.candidates?.[0];
+    if (!candidate?.content?.parts) {
+      throw new ProviderError(
+        "No content parts in Vertex AI response",
+        this.providerName,
+      );
+    }
+
+    // Find image part (check both camelCase and snake_case)
+    const imagePart = candidate.content.parts.find(
+      (part) =>
+        (part.inlineData || part.inline_data) &&
+        ((part.inlineData && part.inlineData.mimeType) ||
+          (part.inline_data && part.inline_data.mime_type)) &&
+        ((part.inlineData && part.inlineData.mimeType?.startsWith("image/")) ||
+          (part.inline_data &&
+            part.inline_data.mime_type?.startsWith("image/"))),
+    );
+
+    if (!imagePart) {
+      const hasTextContent = candidate.content.parts.some((part) => part.text);
+
+      throw new ProviderError(
+        hasTextContent
+          ? `Image generation completed but model returned text instead of image data. Model: ${imageModelName}`
+          : `Image generation completed but no image data was returned. Model: ${imageModelName}`,
+        this.providerName,
+      );
+    }
+
+    const imageData = imagePart.inlineData?.data || imagePart.inline_data?.data;
+    const mimeType =
+      imagePart.inlineData?.mimeType ||
+      imagePart.inline_data?.mime_type ||
+      "image/png";
+
+    if (!imageData) {
+      throw new ProviderError(
+        "Image part found but no data available",
+        this.providerName,
+      );
+    }
+
+    return { imageData, mimeType };
+  }
 
   /**
    * Overrides the BaseProvider's image generation method to implement it for Vertex AI.
@@ -3353,7 +3410,6 @@ export class GoogleVertexProvider extends BaseProvider {
     const hasPdfInput = pdfFiles.length > 0;
     const hasImageInput = inputImages.length > 0;
 
-    // Validate that we have at least a prompt or PDF/image input
     if (!prompt.trim() && !hasPdfInput && !hasImageInput) {
       throw new ProviderError(
         "Image generation requires either a prompt, PDF file, or image as input",
@@ -3361,17 +3417,15 @@ export class GoogleVertexProvider extends BaseProvider {
       );
     }
 
-    // Select appropriate model - use gemini-3-pro-image-preview for PDF input
+    // Select appropriate model
     let imageModelName =
       options.model || this.modelName || "gemini-3-pro-image-preview";
 
-    // If PDF files are provided, ensure we use a model that supports PDF input
     if (hasPdfInput && !imageModelName.includes("gemini-3-pro-image")) {
       imageModelName = "gemini-3-pro-image-preview";
     }
 
     // Determine location - some image models require 'global' location
-    // Check if the model is in GLOBAL_LOCATION_MODELS array (includes gemini-3-pro-image-preview, gemini-2.5-flash-image, etc.)
     const imageLocation = process.env.GOOGLE_VERTEX_IMAGE_LOCATION || "global";
     const requiresGlobalLocation = GLOBAL_LOCATION_MODELS.some(
       (model) =>
@@ -3394,204 +3448,27 @@ export class GoogleVertexProvider extends BaseProvider {
     });
 
     try {
-      // Import google-auth-library dynamically
-      const { GoogleAuth } = await import("google-auth-library");
+      const token = await this.getImageGenerationAccessToken();
 
-      // Determine which credentials file to use
-      // Priority: GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK > GOOGLE_APPLICATION_CREDENTIALS
-      const credentialsPath =
-        process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK ||
-        process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-      // Initialize GoogleAuth with credentials
-      // Use keyFilename to explicitly specify the credentials file to avoid using wrong service account
-      const auth = new GoogleAuth({
-        ...(credentialsPath && { keyFilename: credentialsPath }),
-        scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-      });
-
-      // Get access token
-      const client = await auth.getClient();
-      const accessToken = await client.getAccessToken();
-
-      if (!accessToken.token) {
-        throw new AuthenticationError(
-          "Failed to obtain access token from Google Auth",
-          this.providerName,
-        );
-      }
-
-      // Build parts array - supports text prompt and optional PDF files
-      const parts: Array<{
-        text?: string;
-        inlineData?: { mimeType: string; data: string };
-      }> = [];
-
-      // Add text prompt
-      if (prompt) {
-        parts.push({ text: prompt });
-      }
-
-      // Add PDF files as inline data (for gemini-3-pro-image-preview)
-      if (hasPdfInput) {
-        for (const pdfFile of pdfFiles) {
-          let pdfBase64: string;
-
-          if (Buffer.isBuffer(pdfFile)) {
-            pdfBase64 = pdfFile.toString("base64");
-          } else if (typeof pdfFile === "string") {
-            // Check if it's already base64 or a file path
-            // Supports absolute paths, Windows paths, and relative paths
-            const isFilePath =
-              pdfFile.startsWith("/") ||
-              /^[a-zA-Z]:\\/.test(pdfFile) ||
-              pdfFile.startsWith("./") ||
-              pdfFile.startsWith("../") ||
-              pdfFile.startsWith("..\\") ||
-              pdfFile.startsWith(".\\");
-            if (isFilePath) {
-              // Validate and normalize the path for security
-              const normalizedPath = path.resolve(pdfFile);
-              const cwd = process.cwd();
-
-              // Security: Ensure path is within current working directory
-              if (
-                !normalizedPath.startsWith(cwd + path.sep) &&
-                normalizedPath !== cwd
-              ) {
-                throw new ProviderError(
-                  `PDF file path must be within current directory for security`,
-                  this.providerName,
-                );
-              }
-
-              // Security: Validate file exists before reading
-              if (!fs.existsSync(normalizedPath)) {
-                throw new ProviderError(
-                  `PDF file not found: ${normalizedPath}`,
-                  this.providerName,
-                );
-              }
-
-              // Read the file
-              const pdfBuffer = fs.readFileSync(normalizedPath);
-              pdfBase64 = pdfBuffer.toString("base64");
-            } else {
-              // Assume it's already base64
-              pdfBase64 = pdfFile;
-            }
-          } else {
-            logger.warn("Invalid PDF file format, skipping", {
-              type: typeof pdfFile,
-            });
-            continue;
-          }
-          parts.push({
-            inlineData: {
-              mimeType: "application/pdf",
-              data: pdfBase64,
-            },
-          });
-          logger.debug("Added PDF file to request", {
-            dataLength: pdfBase64.length,
-          });
-        }
-      }
-
-      // Add images (including those converted from PDF by baseProvider)
-      // This handles the case where PDFs are converted to images for models that don't support native PDF
-      if (hasImageInput) {
-        for (let i = 0; i < inputImages.length; i++) {
-          const image = inputImages[i];
-          let imageBase64: string;
-          let mimeType: string;
-
-          if (Buffer.isBuffer(image)) {
-            imageBase64 = image.toString("base64");
-            mimeType = this.detectImageType(image);
-          } else if (typeof image === "string") {
-            // Check if it's a file path or already base64
-            const isFilePath =
-              image.startsWith("/") ||
-              /^[a-zA-Z]:\\/.test(image) ||
-              image.startsWith("./") ||
-              image.startsWith("../") ||
-              image.startsWith("..\\") ||
-              image.startsWith(".\\");
-
-            if (isFilePath) {
-              // Read from file path
-              const normalizedPath = path.resolve(image);
-              if (!fs.existsSync(normalizedPath)) {
-                logger.warn(
-                  `Image file not found: ${normalizedPath}, skipping`,
-                );
-                continue;
-              }
-              const imageBuffer = fs.readFileSync(normalizedPath);
-              imageBase64 = imageBuffer.toString("base64");
-              mimeType = this.detectImageType(imageBuffer);
-            } else if (image.startsWith("data:")) {
-              // Data URL format: data:image/png;base64,<base64data>
-              const matches = image.match(/^data:([^;]+);base64,(.+)$/);
-              if (matches) {
-                mimeType = matches[1];
-                imageBase64 = matches[2];
-              } else {
-                logger.warn("Invalid data URL format, skipping image", {
-                  index: i,
-                });
-                continue;
-              }
-            } else {
-              // Assume it's already base64 encoded
-              imageBase64 = image;
-              // Try to detect type from base64 data
-              const decodedBuffer = Buffer.from(imageBase64, "base64");
-              mimeType = this.detectImageType(decodedBuffer);
-            }
-          } else {
-            logger.warn("Invalid image format, skipping", {
-              type: typeof image,
-              index: i,
-            });
-            continue;
-          }
-
-          parts.push({
-            inlineData: {
-              mimeType: mimeType,
-              data: imageBase64,
-            },
-          });
-
-          logger.debug("Added image to request", {
-            index: i,
-            mimeType,
-            dataLength: imageBase64.length,
-          });
-        }
-      }
+      const parts = this.buildImageGenerationParts(
+        prompt,
+        pdfFiles,
+        inputImages as Array<Buffer | string>,
+      );
 
       // Build request body with CRITICAL response_modalities setting
       const requestBody = {
-        contents: [
-          {
-            role: "user",
-            parts: parts,
-          },
-        ],
+        contents: [{ role: "user", parts }],
         generation_config: {
-          response_modalities: ["TEXT", "IMAGE"], // CRITICAL for image generation
+          response_modalities: ["TEXT", "IMAGE"],
           temperature: options.temperature || 0.7,
           candidate_count: 1,
         },
       };
 
-      // Construct Vertex AI endpoint - use appropriate base URL for location
+      // Construct Vertex AI endpoint
       let url: string;
       if (location === "global") {
-        // Global endpoint doesn't have region prefix
         url = `https://aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/global/publishers/google/models/${imageModelName}:generateContent`;
       } else {
         url = `https://${location}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${location}/publishers/google/models/${imageModelName}:generateContent`;
@@ -3600,21 +3477,16 @@ export class GoogleVertexProvider extends BaseProvider {
       logger.debug("Making REST API call to Vertex AI", {
         url,
         model: imageModelName,
-        hasAccessToken: !!accessToken.token,
+        hasAccessToken: true,
       });
 
       // Add timeout protection (120 seconds for image generation)
-      // Note: Using Promise.race instead of createTimeoutController because:
-      // 1. This is a one-off REST API call (not streaming) where fetch completion is atomic
-      // 2. AbortController mid-request cancellation isn't beneficial for image generation
-      //    since the server generates the full image before responding
-      // 3. The simpler Promise.race pattern is sufficient for this use case
       const timeoutMs = 120000;
 
       const fetchPromise = fetch(url, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${accessToken.token}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
@@ -3653,55 +3525,10 @@ export class GoogleVertexProvider extends BaseProvider {
         }>;
       };
 
-      // Extract image from response (handle both inlineData and inline_data formats)
-      const candidate = data.candidates?.[0];
-      if (!candidate?.content?.parts) {
-        throw new ProviderError(
-          "No content parts in Vertex AI response",
-          this.providerName,
-        );
-      }
-
-      // Find image part (check both camelCase and snake_case)
-      const imagePart = candidate.content.parts.find(
-        (part) =>
-          (part.inlineData || part.inline_data) &&
-          ((part.inlineData && part.inlineData.mimeType) ||
-            (part.inline_data && part.inline_data.mime_type)) &&
-          ((part.inlineData &&
-            part.inlineData.mimeType?.startsWith("image/")) ||
-            (part.inline_data &&
-              part.inline_data.mime_type?.startsWith("image/"))),
+      const { imageData, mimeType } = this.parseImageGenerationResponse(
+        data,
+        imageModelName,
       );
-
-      if (!imagePart) {
-        // Check if response contains text instead of image (don't expose text content in error for security)
-        const hasTextContent = candidate.content.parts.some(
-          (part) => part.text,
-        );
-
-        throw new ProviderError(
-          hasTextContent
-            ? `Image generation completed but model returned text instead of image data. Model: ${imageModelName}`
-            : `Image generation completed but no image data was returned. Model: ${imageModelName}`,
-          this.providerName,
-        );
-      }
-
-      // Extract image data (handle both formats)
-      const imageData =
-        imagePart.inlineData?.data || imagePart.inline_data?.data;
-      const mimeType =
-        imagePart.inlineData?.mimeType ||
-        imagePart.inline_data?.mime_type ||
-        "image/png";
-
-      if (!imageData) {
-        throw new ProviderError(
-          "Image part found but no data available",
-          this.providerName,
-        );
-      }
 
       logger.info("Image generation successful", {
         model: imageModelName,
@@ -3710,7 +3537,6 @@ export class GoogleVertexProvider extends BaseProvider {
         responseTime: Date.now() - startTime,
       });
 
-      // Return result structure
       const result: EnhancedGenerateResult = {
         content: `Generated image using ${imageModelName} (${mimeType})`,
         imageOutput: {

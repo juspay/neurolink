@@ -44,7 +44,7 @@ export type StylePreset =
 /**
  * Options for image generation requests
  */
-export interface ImageGenOptions {
+export type ImageGenOptions = {
   /**
    * Text prompt describing the image to generate
    * Should be detailed and specific for best results
@@ -110,12 +110,12 @@ export interface ImageGenOptions {
    * Higher values = more creative/random
    */
   temperature?: number;
-}
+};
 
 /**
  * Result of an image generation request
  */
-export interface ImageGenResult {
+export type ImageGenResult = {
   /**
    * Whether generation was successful
    */
@@ -161,12 +161,12 @@ export interface ImageGenResult {
    * Additional metadata from the provider
    */
   metadata?: Record<string, unknown>;
-}
+};
 
 /**
  * Configuration for the ImageGenService
  */
-export interface ImageGenConfig {
+export type ImageGenConfig = {
   /**
    * Whether image generation is enabled
    */
@@ -211,7 +211,7 @@ export interface ImageGenConfig {
    * Maximum number of reference PDFs allowed
    */
   maxReferencePdfs?: number;
-}
+};
 
 /**
  * Default configuration for image generation
@@ -231,7 +231,7 @@ export const DEFAULT_IMAGE_GEN_CONFIG: ImageGenConfig = {
 /**
  * Tool parameters for AI model use
  */
-export interface ImageGenToolParams {
+export type ImageGenToolParams = {
   /**
    * Detailed description of the image to generate
    */
@@ -251,12 +251,12 @@ export interface ImageGenToolParams {
    * Style like "realistic", "artistic", "cartoon" (optional)
    */
   style?: StylePreset | string;
-}
+};
 
 /**
  * Response from the image generation tool
  */
-export interface ImageGenToolResponse {
+export type ImageGenToolResponse = {
   /**
    * Whether the tool execution was successful
    */
@@ -277,12 +277,12 @@ export interface ImageGenToolResponse {
    * Error message if execution failed
    */
   error?: string;
-}
+};
 
 /**
  * Context for tool execution (optional)
  */
-export interface ImageGenToolContext {
+export type ImageGenToolContext = {
   /**
    * Reference images to use for generation
    */
@@ -307,4 +307,4 @@ export interface ImageGenToolContext {
    * Additional metadata
    */
   metadata?: Record<string, unknown>;
-}
+};

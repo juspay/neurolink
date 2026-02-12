@@ -34,9 +34,9 @@ import type { ProcessedFileBase } from "../base/types.js";
  * };
  * ```
  */
-export interface ProcessorRegistration<
+export type ProcessorRegistration<
   T extends ProcessedFileBase = ProcessedFileBase,
-> {
+> = {
   /** Unique name for the processor */
   name: string;
 
@@ -63,4 +63,4 @@ export interface ProcessorRegistration<
 
   /** Alternative names that can be used to look up this processor */
   aliases?: string[];
-}
+};

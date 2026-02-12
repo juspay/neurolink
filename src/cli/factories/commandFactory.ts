@@ -25,7 +25,9 @@ import type {
   ConversationSummary,
 } from "../../lib/types/conversation.js";
 import type { AnalyticsData, TokenUsage } from "../../lib/types/index.js";
-import { checkRedisAvailability } from "../../lib/utils/conversationMemoryUtils.js";
+
+import { checkRedisAvailability } from "../../lib/utils/conversationMemory.js";
+
 import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";
 import { logger } from "../../lib/utils/logger.js";
 import { createThinkingConfigFromRecord } from "../../lib/utils/thinkingConfig.js";
@@ -1509,6 +1511,16 @@ export class CLICommandFactory {
             description: "List available conversations and exit",
             alias: "l",
           },
+          "compact-threshold": {
+            describe: "Context compaction trigger threshold (0.0-1.0)",
+            type: "number",
+            default: 0.8,
+          },
+          "disable-compaction": {
+            describe: "Disable automatic context compaction",
+            type: "boolean",
+            default: false,
+          },
         })
           .example(
             "$0 loop",
@@ -1541,6 +1553,8 @@ export class CLICommandFactory {
           maxTurnsPerSession,
           autoRedis,
           listConversations,
+          compactThreshold,
+          disableCompaction,
         } = argv;
 
         if (enableConversationMemory) {
@@ -1570,6 +1584,10 @@ export class CLICommandFactory {
             enabled: true,
             maxSessions: maxSessions as number,
             maxTurnsPerSession: maxTurnsPerSession as number,
+            contextCompaction: {
+              enabled: !disableCompaction,
+              threshold: compactThreshold as number,
+            },
           };
         }
 

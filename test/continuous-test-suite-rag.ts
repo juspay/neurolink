@@ -103,25 +103,25 @@ type ColorName = keyof typeof colors;
 // Load fixtures from JSON files
 const FIXTURES_DIR = path.join(__dirname, "fixtures", "rag");
 
-interface ChunkerConfigFixture {
+type ChunkerConfigFixture = {
   strategy: ChunkingStrategy;
   config: Record<string, unknown>;
   description: string;
-}
+};
 
-interface SearchQueryFixture {
+type SearchQueryFixture = {
   query: string;
   expectedKeywords: string[];
   minResults: number;
-}
+};
 
-interface RerankerConfigFixture {
+type RerankerConfigFixture = {
   type: string;
   config: Record<string, unknown>;
   description: string;
-}
+};
 
-interface GenerateStreamTestFixture {
+type GenerateStreamTestFixture = {
   id: string;
   description: string;
   prompt: string;
@@ -134,16 +134,16 @@ interface GenerateStreamTestFixture {
     stream?: boolean;
     rerank?: boolean;
   };
-}
+};
 
-interface CLITestFixture {
+type CLITestFixture = {
   id: string;
   command: string;
   expectedMinChunks?: number;
   expectedMaxChunks?: number;
   expectedOutput?: string;
   description: string;
-}
+};
 
 let chunkerConfigs: ChunkerConfigFixture[] = [];
 let searchQueries: SearchQueryFixture[] = [];
@@ -365,12 +365,12 @@ function logTest(
 // Test Results Tracking
 // ============================================================================
 
-interface TestResult {
+type TestResult = {
   name: string;
   status: "PASS" | "FAIL" | "SKIP";
   details?: string;
   duration?: number;
-}
+};
 
 const testResults: TestResult[] = [];
 

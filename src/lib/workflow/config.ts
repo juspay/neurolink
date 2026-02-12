@@ -354,11 +354,11 @@ export function mergeWithDefaults(config: WorkflowConfig): WorkflowConfig {
 /**
  * Validation result for workflow configuration
  */
-export interface WorkflowConfigValidationResult {
+export type WorkflowConfigValidationResult = {
   success: boolean;
   data?: WorkflowConfig;
   error?: z.ZodError;
-}
+};
 
 /**
  * Validate workflow configuration
@@ -406,11 +406,11 @@ export function createWorkflowConfig(
 /**
  * Validation result for model configuration
  */
-export interface ModelConfigValidationResult {
+export type ModelConfigValidationResult = {
   success: boolean;
   data?: ModelConfig;
   error?: z.ZodError;
-}
+};
 
 /**
  * Validate model configuration
@@ -431,11 +431,11 @@ export function validateModelConfig(
 /**
  * Validation result for judge configuration
  */
-export interface JudgeConfigValidationResult {
+export type JudgeConfigValidationResult = {
   success: boolean;
   data?: JudgeConfig;
   error?: z.ZodError;
-}
+};
 
 /**
  * Validate judge configuration

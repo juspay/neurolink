@@ -46,19 +46,19 @@ import { getProcessorRegistry } from "../registry/index.js";
 /**
  * Options for CLI file processing
  */
-export interface CliFileProcessingOptions {
+export type CliFileProcessingOptions = {
   /** Verbose output - shows processing details */
   verbose?: boolean;
   /** Processor to use (bypasses auto-detection) */
   processor?: string;
   /** Output format: json, text, or raw */
   outputFormat?: "json" | "text" | "raw";
-}
+};
 
 /**
  * Result of CLI file processing
  */
-export interface CliProcessingResult {
+export type CliProcessingResult = {
   /** Whether processing succeeded */
   success: boolean;
   /** Name of the processor that was used */
@@ -67,12 +67,12 @@ export interface CliProcessingResult {
   output: string;
   /** Error message if processing failed */
   error?: string;
-}
+};
 
 /**
  * Information about a supported file type
  */
-export interface SupportedFileTypeInfo {
+export type SupportedFileTypeInfo = {
   /** Processor name */
   name: string;
   /** Priority (lower = processed first) */
@@ -83,7 +83,7 @@ export interface SupportedFileTypeInfo {
   mimeTypes: string[];
   /** Optional description */
   description?: string;
-}
+};
 
 // =============================================================================
 // MIME TYPE MAPPING
@@ -178,7 +178,7 @@ export async function processFileFromPath(
       logger.info(`  MIME: ${fileInfo.mimetype}`);
     }
 
-    const registry = getProcessorRegistry();
+    const registry = await getProcessorRegistry();
 
     // If a specific processor is requested, use it directly
     if (options?.processor) {
@@ -334,8 +334,10 @@ function formatOutput(
  * }
  * ```
  */
-export function getSupportedFileTypes(): SupportedFileTypeInfo[] {
-  const registry = getProcessorRegistry();
+export async function getSupportedFileTypes(): Promise<
+  SupportedFileTypeInfo[]
+> {
+  const registry = await getProcessorRegistry();
   const processors = registry.listProcessors();
 
   return processors.map((proc) => {
@@ -362,8 +364,8 @@ export function getSupportedFileTypes(): SupportedFileTypeInfo[] {
  * console.log(listSupportedFileTypes());
  * ```
  */
-export function listSupportedFileTypes(): string {
-  const types = getSupportedFileTypes();
+export async function listSupportedFileTypes(): Promise<string> {
+  const types = await getSupportedFileTypes();
 
   if (types.length === 0) {
     return "No processors registered. Initialize the processor registry first.";

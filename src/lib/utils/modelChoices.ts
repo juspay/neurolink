@@ -22,11 +22,11 @@ import {
 /**
  * Model choice for CLI prompts (inquirer format)
  */
-export interface ModelChoice {
+export type ModelChoice = {
   name: string;
   value: string;
   description?: string;
-}
+};
 
 /**
  * Top models per provider with descriptions for CLI prompts

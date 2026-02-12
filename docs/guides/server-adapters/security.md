@@ -923,10 +923,10 @@ console.log("Secure server running on port 3000");
 
 ## Related Documentation
 
-- **[Server Adapters Overview](/guides/server-adapters)** - Getting started with server adapters
-- **[Deployment Guide](/guides/server-adapters/deployment)** - Production deployment strategies
-- **[Hono Adapter](/guides/server-adapters/hono)** - Hono-specific security features
-- **[Enterprise Monitoring](/features/observability)** - Security monitoring
+- **[Server Adapters Overview](./index.md)** - Getting started with server adapters
+- **[Deployment Guide](./deployment.md)** - Production deployment strategies
+- **[Hono Adapter](./hono.md)** - Hono-specific security features
+- **[Enterprise Monitoring](../../features/observability.md)** - Security monitoring
 
 ---
 

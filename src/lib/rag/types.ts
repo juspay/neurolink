@@ -262,9 +262,9 @@ export type ChunkerConfig =
   | SemanticChunkerConfig;
 
 /**
- * Chunker interface - all chunking strategies implement this
+ * Chunker type - all chunking strategies implement this
  */
-export interface Chunker {
+export type Chunker = {
   /** Strategy name for identification */
   readonly strategy: ChunkingStrategy;
 
@@ -275,7 +275,7 @@ export interface Chunker {
    * @returns Array of chunks
    */
   chunk(text: string, config?: BaseChunkerConfig): Promise<Chunk[]>;
-}
+};
 
 /**
  * Chunker metadata for factory registration

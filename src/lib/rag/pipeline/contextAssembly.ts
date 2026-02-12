@@ -13,6 +13,10 @@
  */
 
 import type { Chunk, VectorQueryResult } from "../types.js";
+import type {
+  ContextAssemblyOptions,
+  ContextWindow,
+} from "../../types/ragTypes.js";
 import { logger } from "../../utils/logger.js";
 
 /**
@@ -20,49 +24,8 @@ import { logger } from "../../utils/logger.js";
  */
 export type CitationFormat = "inline" | "footnote" | "numbered" | "none";
 
-/**
- * Context assembly options
- */
-export interface ContextAssemblyOptions {
-  /** Maximum characters in assembled context */
-  maxChars?: number;
-  /** Maximum tokens (approximate, 4 chars/token) */
-  maxTokens?: number;
-  /** Citation format to use */
-  citationFormat?: CitationFormat;
-  /** Separator between chunks */
-  separator?: string;
-  /** Include chunk metadata in context */
-  includeMetadata?: boolean;
-  /** Deduplicate overlapping content */
-  deduplicate?: boolean;
-  /** Similarity threshold for deduplication (0-1) */
-  dedupeThreshold?: number;
-  /** Order by relevance score */
-  orderByRelevance?: boolean;
-  /** Include section headers */
-  includeSectionHeaders?: boolean;
-  /** Header template (use {index}, {source}, {score} placeholders) */
-  headerTemplate?: string;
-}
-
-/**
- * Context window representation
- */
-export interface ContextWindow {
-  /** Assembled context text */
-  text: string;
-  /** Number of chunks included */
-  chunkCount: number;
-  /** Total character count */
-  charCount: number;
-  /** Estimated token count */
-  tokenCount: number;
-  /** Chunks that were truncated/excluded */
-  truncatedChunks: number;
-  /** Citation map (id -> citation text) */
-  citations: Map<string, string>;
-}
+export type { ContextAssemblyOptions } from "../../types/ragTypes.js";
+export type { ContextWindow } from "../../types/ragTypes.js";
 
 /**
  * Assemble context from retrieved results
@@ -470,10 +433,12 @@ export function orderByDocumentStructure(chunks: Chunk[]): Chunk[] {
 
   for (const chunk of chunks) {
     const docId = chunk.metadata.documentId;
-    if (!byDocument.has(docId)) {
-      byDocument.set(docId, []);
+    const group = byDocument.get(docId);
+    if (group) {
+      group.push(chunk);
+    } else {
+      byDocument.set(docId, [chunk]);
     }
-    byDocument.get(docId)!.push(chunk);
   }
 
   // Sort each document's chunks by position

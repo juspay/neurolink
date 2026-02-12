@@ -8,11 +8,11 @@
 /**
  * Result type for safe JSON parsing operations
  */
-export interface SafeParseResult<T> {
+export type SafeParseResult<T> = {
   success: boolean;
   data: T | null;
   error: Error | null;
-}
+};
 
 /**
  * Safely parse a JSON string without throwing.

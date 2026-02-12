@@ -13,34 +13,34 @@ export type ThinkingLevel = "minimal" | "low" | "medium" | "high";
 /**
  * ThinkingConfig interface matching the SDK's expected structure
  */
-export interface ThinkingConfig {
+export type ThinkingConfig = {
   enabled?: boolean;
   type?: "enabled" | "disabled";
   /** Token budget for thinking (Anthropic models: 5000-100000) */
   budgetTokens?: number;
   /** Thinking level for Gemini 3 models */
   thinkingLevel?: ThinkingLevel;
-}
+};
 
 /**
  * Options for creating a thinkingConfig from CLI-style options
  */
-export interface CreateThinkingConfigOptions {
+export type CreateThinkingConfigOptions = {
   /** Enable thinking mode */
   thinking?: boolean;
   /** Token budget for thinking (defaults to 10000) */
   thinkingBudget?: number;
   /** Thinking level for Gemini 3 models */
   thinkingLevel?: ThinkingLevel;
-}
+};
 
 /**
  * Native SDK thinkingConfig structure for Gemini native SDK.
  */
-export interface NativeThinkingConfig {
+export type NativeThinkingConfig = {
   includeThoughts: boolean;
   thinkingLevel: ThinkingLevel;
-}
+};
 
 /**
  * Default token budget for thinking operations

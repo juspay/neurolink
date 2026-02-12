@@ -19,21 +19,21 @@ import { logger } from "../../lib/utils/logger.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
 import { AIProviderName } from "../../lib/types/index.js";
 
-interface AnthropicSetupOptions {
+type AnthropicSetupOptions = {
   checkOnly?: boolean;
   interactive?: boolean;
-}
+};
 
-interface AnthropicSetupArgv {
+type AnthropicSetupArgv = {
   check?: boolean;
   nonInteractive?: boolean;
-}
+};
 
-interface AnthropicConfig {
+type AnthropicConfig = {
   apiKey?: string;
   model?: string;
   isReconfiguring?: boolean;
-}
+};
 
 export async function handleAnthropicSetup(
   argv: AnthropicSetupArgv,

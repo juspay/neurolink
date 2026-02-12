@@ -571,11 +571,11 @@ describe("API Server", () => {
 
 ## Related Documentation
 
-- **[Server Adapters Overview](/guides/server-adapters)** - Getting started with server adapters
-- **[Configuration Reference](/reference/server-configuration)** - Full configuration options
-- **[Express Adapter](/guides/server-adapters/express)** - Compare with Express adapter
-- **[Security Best Practices](/guides/server-adapters/security)** - Authentication patterns
-- **[Streaming Guide](/guides/server-adapters/streaming)** - Real-time streaming with SSE and NDJSON
+- **[Server Adapters Overview](./index.md)** - Getting started with server adapters
+- **[Configuration Reference](../../reference/server-configuration.md)** - Full configuration options
+- **[Express Adapter](./express.md)** - Compare with Express adapter
+- **[Security Best Practices](./security.md)** - Authentication patterns
+- **[Streaming Guide](./streaming.md)** - Real-time streaming with SSE and NDJSON
 
 ---
 

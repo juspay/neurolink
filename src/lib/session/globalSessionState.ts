@@ -9,13 +9,13 @@ import { buildObservabilityConfigFromEnv } from "../utils/observabilityHelpers.j
 // Define a specific type for session variable values
 type SessionVariableValue = string | number | boolean;
 
-interface LoopSessionState {
+type LoopSessionState = {
   neurolinkInstance: NeuroLink;
   sessionId: string;
   isActive: boolean;
   conversationMemoryConfig?: ConversationMemoryConfig;
   sessionVariables: Record<string, SessionVariableValue>;
-}
+};
 
 export class GlobalSessionManager {
   private static instance: GlobalSessionManager;

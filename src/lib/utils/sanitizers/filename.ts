@@ -98,7 +98,7 @@ const DANGEROUS_EXTENSIONS = new Set([
 /**
  * Options for filename sanitization.
  */
-export interface SanitizeFileNameOptions {
+export type SanitizeFileNameOptions = {
   /** Maximum length for the filename (default: 255) */
   maxLength?: number;
   /** Replacement character for invalid chars (default: '_') */
@@ -107,17 +107,17 @@ export interface SanitizeFileNameOptions {
   blockDangerousExtensions?: boolean;
   /** Whether to allow hidden files starting with dot (default: false) */
   allowHiddenFiles?: boolean;
-}
+};
 
 /**
  * Options for display name sanitization.
  */
-export interface SanitizeDisplayNameOptions {
+export type SanitizeDisplayNameOptions = {
   /** Maximum length for the name (default: 100) */
   maxLength?: number;
   /** Whether to allow unicode characters (default: true) */
   allowUnicode?: boolean;
-}
+};
 
 /**
  * Sanitize a filename for safe filesystem storage.

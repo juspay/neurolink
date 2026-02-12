@@ -114,15 +114,15 @@ const debugAIOutputSchema = z.object({
 });
 
 // Type definitions for tool results
-interface _TestCase {
+type _TestCase = {
   name: string;
   type: string;
   code: string;
   description: string;
   assertions: number;
-}
+};
 
-interface RefactoringResult {
+type RefactoringResult = {
   refactoredCode: string;
   changes: string[];
   improvements: string[];
@@ -131,16 +131,16 @@ interface RefactoringResult {
     complexityReduction: number;
     readabilityScore: number;
   };
-}
+};
 
-interface DocumentationResult {
+type DocumentationResult = {
   documentation: string;
   sections: string[];
   examples: string[];
   coverage: number;
-}
+};
 
-interface DebugResult {
+type DebugResult = {
   issues: Array<{
     type: string;
     severity: "low" | "medium" | "high";
@@ -150,7 +150,7 @@ interface DebugResult {
   suggestions: string[];
   possibleCauses: string[];
   fixedOutput?: string;
-}
+};
 
 /**
  * Generate test cases for code functions

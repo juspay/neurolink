@@ -12,7 +12,7 @@ import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
 
 // Provider configuration definitions
-export interface ProviderConfig {
+export type ProviderConfig = {
   id: AIProviderName;
   name: string;
   description: string;
@@ -23,7 +23,7 @@ export interface ProviderConfig {
     default?: string;
     optional?: boolean;
   }>;
-}
+};
 
 export const PROVIDER_CONFIGS: ProviderConfig[] = [
   {
@@ -223,7 +223,7 @@ export const PROVIDER_CONFIGS: ProviderConfig[] = [
   },
 ];
 
-export interface SetupResult {
+export type SetupResult = {
   selectedProviders: AIProviderName[];
   credentials: Record<string, string>;
   envFileBackup?: string;
@@ -233,7 +233,7 @@ export interface SetupResult {
     error?: string;
     responseTime?: number;
   }>;
-}
+};
 
 /**
  * Run the interactive setup wizard

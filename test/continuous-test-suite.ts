@@ -15,11 +15,11 @@
  * Run with: npx tsx test/continuous-test-suite.ts
  */
 
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { spawn } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 // Read package.json dynamically for version and main script
 const packageJsonPath = "package.json";
@@ -31,15 +31,20 @@ try {
   console.warn("Could not read package.json, using fallback values");
   packageData = { version: "unknown", main: "dist/index.js" };
 }
-import { NeuroLink } from "../dist/index.js";
-import { testComplexZodSchemaMultiProvider } from "./zod-schema-test-function.js";
+
+import {
+  NeuroLink,
+  type ProcessResult,
+  type TestFunction,
+  type TestResult,
+} from "../dist/index.js";
 import type {
+  ColorName,
+  DestroyInventoryParams,
   PurgeQuarterlyDataParams,
   TerminateEmployeesParams,
-  DestroyInventoryParams,
-  ColorName,
-  CommandResult,
 } from "./types/mcp.js";
+import { testComplexZodSchemaMultiProvider } from "./zod-schema-test-function.js";
 
 // Provider-specific token limits
 const PROVIDER_MAX_TOKENS: Record<string, number> = {
@@ -392,7 +397,7 @@ function runCommand(
   command: string,
   args: string[] = [],
   options: Record<string, unknown> = {},
-): Promise<CommandResult> {
+): Promise<ProcessResult> {
   return new Promise((resolve, reject) => {
     let proc: ReturnType<typeof spawn>;
     let timeoutId: NodeJS.Timeout;
@@ -478,7 +483,7 @@ function runCommand(
       clearTimeout(timeoutId);
 
       // Enhanced result with signal information
-      const result: CommandResult = {
+      const result: ProcessResult = {
         code: typeof code === "number" ? code : -1,
         stdout: stdout.trim(),
         stderr: stderr.trim(),
@@ -1005,16 +1010,16 @@ async function testSDKStream(sdk: NeuroLink): Promise<boolean> {
   }
 }
 
-interface BusinessTool {
+type BusinessTool = {
   name: string;
   description: string;
   inputSchema: { type: string; properties: Record<string, unknown> };
   execute: () => Promise<Record<string, unknown>>;
-}
+};
 
-interface BusinessTools {
+type BusinessTools = {
   [key: string]: BusinessTool;
-}
+};
 
 // Business Tools Tests - Custom tools that provide data AI cannot know
 async function testSDKBusinessTools(): Promise<boolean> {
@@ -3643,16 +3648,7 @@ async function testGoogleAIStudioImageGeneration(): Promise<boolean> {
   }
 }
 
-interface TestFunction {
-  name: string;
-  fn: () => Promise<boolean>;
-}
-
-interface TestResult {
-  name: string;
-  result: boolean;
-  error: string | null;
-}
+// Types imported from @juspay/neurolink: ProcessResult, TestFunction, TestResult
 
 // Main test runner
 async function runAllTests(): Promise<void> {

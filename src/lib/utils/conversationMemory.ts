@@ -3,26 +3,27 @@
  * Handles configuration merging and conversation memory operations
  */
 
-import type {
-  ConversationMemoryConfig,
-  ChatMessage,
-  SessionMemory,
-  ProviderDetails,
-} from "../types/conversation.js";
+import {
+  DEFAULT_FALLBACK_THRESHOLD,
+  getConversationMemoryDefaults,
+  MEMORY_THRESHOLD_PERCENTAGE,
+} from "../config/conversationMemory.js";
+import { getAvailableInputTokens } from "../constants/contextWindows.js";
+import { buildSummarizationPrompt } from "../context/prompts/summarizationPrompt.js";
 import type { ConversationMemoryManager } from "../core/conversationMemoryManager.js";
 import type { RedisConversationMemoryManager } from "../core/redisConversationMemoryManager.js";
+import { NeuroLink } from "../neurolink.js";
+import type {
+  ChatMessage,
+  ConversationMemoryConfig,
+  ProviderDetails,
+  SessionMemory,
+} from "../types/conversation.js";
 import type {
   TextGenerationOptions,
   TextGenerationResult,
 } from "../types/generateTypes.js";
-import {
-  getConversationMemoryDefaults,
-  MEMORY_THRESHOLD_PERCENTAGE,
-  DEFAULT_FALLBACK_THRESHOLD,
-} from "../config/conversationMemory.js";
-import { TokenUtils } from "../constants/tokens.js";
 import { logger } from "./logger.js";
-import { NeuroLink } from "../neurolink.js";
 
 /**
  * Apply conversation memory defaults to user configuration
@@ -183,7 +184,7 @@ export async function storeConversationTurn(
     originalOptions.originalPrompt || originalOptions.prompt || "";
 
   const aiResponse = result.content ?? "";
-  let providerDetails: ProviderDetails | undefined = undefined;
+  let providerDetails: ProviderDetails | undefined;
   if (result.provider && result.model) {
     providerDetails = {
       provider: result.provider,
@@ -199,6 +200,15 @@ export async function storeConversationTurn(
       startTimeStamp,
       providerDetails,
       enableSummarization: originalOptions.enableSummarization,
+      tokenUsage: result.usage
+        ? {
+            inputTokens: result.usage.input,
+            outputTokens: result.usage.output,
+            totalTokens: result.usage.total,
+            cacheReadTokens: result.usage.cacheReadTokens,
+            cacheWriteTokens: result.usage.cacheCreationTokens,
+          }
+        : undefined,
     });
 
     logger.debug(
@@ -286,54 +296,43 @@ export function createSummarizationPrompt(
     .map((msg) => `${msg.role}: ${msg.content}`)
     .join("\n\n");
 
-  const previousSummarySection = previousSummary
-    ? `Previous Summary:
----
-${previousSummary}
----
+  const structuredPrompt = buildSummarizationPrompt({
+    isIncremental: !!previousSummary,
+    previousSummary,
+  });
 
-`
-    : "";
+  return `${structuredPrompt}
 
-  return `
-You are a context summarization AI. Your task is to condense the following conversation history for another AI assistant.
-${previousSummary ? "Build upon the previous summary and incorporate the new conversation turns below." : ""}
-The summary must be a concise, third-person narrative that retains all critical information, including key entities, technical details, decisions made, and any specific dates or times mentioned.
-Ensure the summary flows logically and is ready to be used as context for the next turn in the conversation.
-
-${previousSummarySection}Conversation History to Summarize:
+Conversation History to Summarize:
 ---
 ${formattedHistory}
----
-`.trim();
+---`;
 }
 
 /**
- * Calculate token threshold based on model's output token limit
- * Uses existing provider token limits as proxy for context window
+ * Calculate token threshold based on model's context window and available input tokens
+ * Uses context window registry for accurate per-provider, per-model limits
  * @param provider - AI provider name
  * @param model - Model name
- * @returns Token threshold (80% of model's token limit)
+ * @param maxTokens - Optional explicit maxTokens for output reserve calculation
+ * @returns Token threshold (80% of available input tokens)
  */
 export function calculateTokenThreshold(
-  provider: string,
-  model: string,
+  provider?: string,
+  model?: string,
+  maxTokens?: number,
 ): number {
-  try {
-    // Get model's token limit from existing TokenUtils
-    const modelTokenLimit = TokenUtils.getProviderTokenLimit(provider, model);
-
-    // Return 80% of token limit for conversation memory
-    // This is conservative since output limits are typically smaller than input limits
-    return Math.floor(modelTokenLimit * MEMORY_THRESHOLD_PERCENTAGE);
-  } catch (error) {
-    logger.warn("Failed to calculate model threshold, using fallback", {
-      provider,
-      model,
-      error: error instanceof Error ? error.message : String(error),
-    });
+  if (!provider) {
     return DEFAULT_FALLBACK_THRESHOLD;
   }
+
+  const availableInput = getAvailableInputTokens(provider, model, maxTokens);
+
+  if (availableInput <= 0) {
+    return DEFAULT_FALLBACK_THRESHOLD;
+  }
+
+  return Math.floor(availableInput * MEMORY_THRESHOLD_PERCENTAGE);
 }
 
 /**
@@ -386,7 +385,7 @@ export function getEffectiveTokenThreshold(
  */
 export async function generateSummary(
   messages: ChatMessage[],
-  config: ConversationMemoryConfig,
+  config: Partial<ConversationMemoryConfig>,
   logPrefix = "[ConversationMemory]",
   previousSummary?: string,
 ): Promise<string | null> {
@@ -415,5 +414,49 @@ export async function generateSummary(
   } catch (error) {
     logger.error(`${logPrefix} Error generating summary`, { error });
     return null;
+  }
+}
+
+/**
+ * Check if Redis is available for conversation memory.
+ * Migrated from the deprecated conversationMemoryUtils.ts.
+ */
+export async function checkRedisAvailability(): Promise<boolean> {
+  const { createRedisClient, getNormalizedConfig } = await import("./redis.js");
+  let testClient = null;
+  try {
+    const testConfig = getNormalizedConfig({
+      host: process.env.REDIS_HOST,
+      port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : undefined,
+      password: process.env.REDIS_PASSWORD,
+      db: process.env.REDIS_DB ? Number(process.env.REDIS_DB) : undefined,
+      keyPrefix: process.env.REDIS_KEY_PREFIX,
+      ttl: process.env.REDIS_TTL ? Number(process.env.REDIS_TTL) : undefined,
+      connectionOptions: {
+        connectTimeout: 5000,
+        maxRetriesPerRequest: 1,
+        retryDelayOnFailover: 100,
+      },
+    });
+    testClient = await createRedisClient(testConfig);
+    await testClient.ping();
+    logger.debug("Redis connection test successful");
+    return true;
+  } catch (error) {
+    logger.debug("Redis connection test failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  } finally {
+    if (testClient) {
+      try {
+        await testClient.quit();
+      } catch (quitError) {
+        logger.debug("Error during Redis test client disconnect", {
+          error:
+            quitError instanceof Error ? quitError.message : String(quitError),
+        });
+      }
+    }
   }
 }

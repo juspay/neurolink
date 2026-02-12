@@ -8,10 +8,10 @@ import { logger } from "../../lib/utils/logger.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
 import { AIProviderName } from "../../lib/types/index.js";
 
-interface SetupMistralArgs {
+type SetupMistralArgs = {
   check?: boolean;
   "non-interactive"?: boolean;
-}
+};
 
 /**
  * Validates Mistral API key format

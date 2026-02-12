@@ -15,27 +15,27 @@ import type { MCPToolRegistry } from "../../../../src/lib/mcp/toolRegistry.js";
 /**
  * Mock tool definition used in tests
  */
-interface MockTool {
+type MockTool = {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
   source?: string;
-}
+};
 
 /**
  * Mock tool registry interface for testing
  */
-interface MockToolRegistry {
+type MockToolRegistry = {
   listTools: Mock<() => Promise<MockTool[]>>;
   executeTool: Mock<
     (name: string, args: Record<string, unknown>) => Promise<unknown>
   >;
-}
+};
 
 /**
  * Response type for list tools endpoint
  */
-interface ListToolsResponse {
+type ListToolsResponse = {
   tools: Array<{
     name: string;
     description: string;
@@ -43,22 +43,22 @@ interface ListToolsResponse {
     source: string;
   }>;
   total: number;
-}
+};
 
 /**
  * Response type for get tool endpoint
  */
-interface GetToolResponse {
+type GetToolResponse = {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
   source: string;
-}
+};
 
 /**
  * Response type for search tools endpoint
  */
-interface SearchToolsResponse {
+type SearchToolsResponse = {
   tools: Array<{
     name: string;
     description: string;
@@ -66,12 +66,12 @@ interface SearchToolsResponse {
   }>;
   total: number;
   query: string | null;
-}
+};
 
 /**
  * Response type for execute tool endpoint
  */
-interface ExecuteToolResponse {
+type ExecuteToolResponse = {
   success: boolean;
   data?: unknown;
   error?: string;
@@ -80,18 +80,18 @@ interface ExecuteToolResponse {
     toolName: string;
     sessionId?: string | null;
   };
-}
+};
 
 /**
  * Error response structure
  */
-interface ErrorResponse {
+type ErrorResponse = {
   error: {
     code: string;
     message: string;
     details?: Record<string, unknown>;
   };
-}
+};
 
 describe("Tool Routes", () => {
   const basePath = "/api";

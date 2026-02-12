@@ -4,6 +4,11 @@
  * Central registry for file processors with priority-based selection.
  * Uses singleton pattern to ensure a single source of truth for processor registration.
  *
+ * All 16 BaseFileProcessor-based processors are auto-registered on first access
+ * via getProcessorRegistry(). Legacy processors (CSV, Image, PDF, PPTX) that use
+ * static methods and don't extend BaseFileProcessor are excluded — they continue
+ * to be routed via the switch/case in FileDetector.processFile().
+ *
  * Key features:
  * - Priority-based processor selection (lower number = higher priority)
  * - Confidence scoring for match quality
@@ -17,7 +22,7 @@
  * ```typescript
  * import { ProcessorRegistry, getProcessorRegistry, PROCESSOR_PRIORITIES } from "./registry/index.js";
  *
- * const registry = getProcessorRegistry();
+ * const registry = await getProcessorRegistry();
  *
  * // Register a processor
  * registry.register({
@@ -645,13 +650,13 @@ export class ProcessorRegistry {
       return "Convert ICO files to PNG format before uploading.";
     }
     if ([".zip", ".rar", ".7z", ".tar", ".gz"].includes(ext)) {
-      return "Extract files from the archive and upload individual files.";
+      return "Archive files are now supported. NeuroLink will list contents and extract metadata.";
     }
     if ([".mp4", ".avi", ".mov", ".mkv", ".wmv"].includes(ext)) {
-      return "Video files are not supported. For video transcripts, use a transcription service first.";
+      return "Video files are now supported. NeuroLink will extract metadata and keyframes.";
     }
     if ([".mp3", ".wav", ".aac", ".ogg", ".flac"].includes(ext)) {
-      return "Audio files are not supported. For audio transcripts, use a transcription service first.";
+      return "Audio files are now supported. NeuroLink will extract metadata and tags.";
     }
     if ([".psd", ".ai", ".sketch"].includes(ext)) {
       return "Export design files to PNG, PDF, or SVG format before uploading.";
@@ -670,22 +675,237 @@ export class ProcessorRegistry {
 }
 
 // =============================================================================
-// CONVENIENCE EXPORT
+// DEFAULT PROCESSOR REGISTRATION
 // =============================================================================
 
 /**
+ * Register all 16 BaseFileProcessor-based processors with the registry.
+ *
+ * Legacy processors (CSV, Image, PDF, PPTX) that use static methods and don't
+ * extend BaseFileProcessor are excluded — they continue to be routed via the
+ * switch/case in FileDetector.processFile().
+ *
+ * Uses dynamic imports to avoid circular dependencies and enable tree-shaking.
+ * Each processor is registered with its priority from PROCESSOR_PRIORITIES,
+ * and uses the processor's own isFileSupported() method for detection.
+ *
+ * @param registry - The ProcessorRegistry instance to register processors into
+ */
+async function initializeDefaultProcessors(
+  registry: ProcessorRegistry,
+): Promise<void> {
+  // Import all processor singletons via barrel exports
+  // Use dynamic import to avoid circular dependency issues
+  const [markup, code, data, document, media, archive, priorities] =
+    await Promise.all([
+      import("../markup/index.js"),
+      import("../code/index.js"),
+      import("../data/index.js"),
+      import("../document/index.js"),
+      import("../media/AudioProcessor.js"),
+      import("../archive/ArchiveProcessor.js"),
+      import("../base/types.js"),
+    ]);
+
+  // Also import video separately (same pattern as audio)
+  const video = await import("../media/VideoProcessor.js");
+
+  const { PROCESSOR_PRIORITIES: P } = priorities;
+
+  // Registration helper — wraps register() with allowDuplicates to be idempotent
+  const reg = (
+    name: string,
+    priority: number,
+    processor: BaseFileProcessor<ProcessedFileBase>,
+    description: string,
+    aliases?: string[],
+  ) => {
+    registry.register(
+      {
+        name,
+        priority,
+        processor,
+        isSupported: (mimetype: string, filename: string) =>
+          processor.isFileSupported(mimetype, filename),
+        description,
+        aliases,
+      },
+      { allowDuplicates: true },
+    );
+  };
+
+  // ── Markup processors ────────────────────────────────────────────────────
+  reg(
+    "svg",
+    P.SVG,
+    markup.svgProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "SVG vector graphics (processed as text, not image)",
+    ["svgz"],
+  );
+  reg(
+    "html",
+    P.HTML,
+    markup.htmlProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "HTML web content with OWASP-compliant sanitization",
+    ["htm", "xhtml"],
+  );
+  reg(
+    "markdown",
+    P.MARKDOWN,
+    markup.markdownProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "Markdown structured text",
+    ["md", "mdx"],
+  );
+  reg(
+    "text",
+    P.TEXT,
+    markup.textProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "Plain text files",
+    ["txt", "log"],
+  );
+
+  // ── Code processors ──────────────────────────────────────────────────────
+  reg(
+    "source_code",
+    P.SOURCE_CODE,
+    code.sourceCodeProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "Source code files (50+ languages)",
+    ["ts", "js", "py", "java", "go", "rs", "cpp"],
+  );
+  reg(
+    "config",
+    P.CONFIG,
+    code.configProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "Configuration files (.env, .ini, .toml, .cfg)",
+    ["env", "ini", "toml", "cfg"],
+  );
+
+  // ── Data processors ──────────────────────────────────────────────────────
+  reg(
+    "json",
+    P.JSON,
+    data.jsonProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "JSON data files",
+    ["json", "jsonl", "geojson"],
+  );
+  reg(
+    "yaml",
+    P.YAML,
+    data.yamlProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "YAML configuration and data files",
+    ["yaml", "yml"],
+  );
+  reg(
+    "xml",
+    P.XML,
+    data.xmlProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "XML data files",
+    ["xml", "xsd", "xsl"],
+  );
+
+  // ── Document processors ──────────────────────────────────────────────────
+  reg(
+    "excel",
+    P.EXCEL,
+    document.excelProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "Excel spreadsheets with sheet extraction",
+    ["xlsx", "xls"],
+  );
+  reg(
+    "word",
+    P.WORD,
+    document.wordProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "Word documents with text extraction",
+    ["docx"],
+  );
+  reg(
+    "rtf",
+    P.RTF,
+    document.rtfProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "RTF documents",
+    ["rtf"],
+  );
+  reg(
+    "opendocument",
+    P.OPENDOCUMENT,
+    document.openDocumentProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "OpenDocument format files",
+    ["odt", "ods", "odp"],
+  );
+
+  // ── Media processors ─────────────────────────────────────────────────────
+  reg(
+    "audio",
+    P.AUDIO,
+    media.audioProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "Audio files with metadata and tag extraction",
+    ["mp3", "wav", "ogg", "flac", "aac", "m4a", "wma"],
+  );
+  reg(
+    "video",
+    P.VIDEO,
+    video.videoProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "Video files with metadata and keyframe extraction",
+    ["mp4", "mkv", "webm", "avi", "mov", "m4v"],
+  );
+
+  // ── Archive processors ───────────────────────────────────────────────────
+  reg(
+    "archive",
+    P.ARCHIVE,
+    archive.archiveProcessor as BaseFileProcessor<ProcessedFileBase>,
+    "Archive files with content listing",
+    ["zip", "tar", "gz", "tgz"],
+  );
+
+  registry.markInitialized();
+}
+
+// =============================================================================
+// CONVENIENCE EXPORT
+// =============================================================================
+
+/** Promise tracking the ongoing initialization (prevents double-init races) */
+let initPromise: Promise<void> | null = null;
+
+/**
  * Get the ProcessorRegistry singleton instance.
+ * On first call, auto-initializes with all 16 default processors.
  * Convenience function for shorter imports.
  *
- * @returns The ProcessorRegistry singleton
+ * @returns The ProcessorRegistry singleton (auto-initialized with default processors)
  *
  * @example
  * ```typescript
  * import { getProcessorRegistry } from "./registry/index.js";
  *
- * const registry = getProcessorRegistry();
- * registry.register(myProcessor);
+ * const registry = await getProcessorRegistry();
+ * const match = registry.findProcessor("image/svg+xml", "icon.svg");
  * ```
  */
-export const getProcessorRegistry = (): ProcessorRegistry =>
+export const getProcessorRegistry = async (): Promise<ProcessorRegistry> => {
+  const registry = ProcessorRegistry.getInstance();
+
+  if (!registry.isInitialized()) {
+    if (!initPromise) {
+      initPromise = initializeDefaultProcessors(registry).catch((err) => {
+        // Reset so next call retries
+        initPromise = null;
+        throw err;
+      });
+    }
+    await initPromise;
+  }
+
+  return registry;
+};
+
+/**
+ * Get the ProcessorRegistry singleton instance synchronously (without auto-initialization).
+ * Use this when you know the registry is already initialized, or when you only
+ * need the raw registry instance (e.g., for manual registration in tests).
+ *
+ * @returns The ProcessorRegistry singleton (may be empty if not yet initialized)
+ */
+export const getProcessorRegistrySync = (): ProcessorRegistry =>
   ProcessorRegistry.getInstance();

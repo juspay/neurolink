@@ -36,7 +36,7 @@ import type {
 /**
  * Document processing state
  */
-interface DocumentState {
+type DocumentState = {
   /** Raw document content */
   content: string;
   /** Document type */
@@ -49,7 +49,7 @@ interface DocumentState {
   embeddings: number[][];
   /** Processing history */
   history: string[];
-}
+};
 
 /**
  * MDocument class for comprehensive document processing

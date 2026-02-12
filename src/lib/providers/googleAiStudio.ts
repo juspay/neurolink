@@ -676,109 +676,37 @@ export class GoogleAIStudioProvider extends BaseProvider {
     });
 
     // Build contents from input
-    const contents: Array<{
+    const currentContents: Array<{
       role: string;
       parts: Array<{ text: string }>;
-    }> = [];
+    }> = [{ role: "user", parts: [{ text: options.input.text }] }];
 
-    contents.push({
-      role: "user",
-      parts: [{ text: options.input.text }],
-    });
-
-    // Convert Vercel AI SDK tools to @google/genai FunctionDeclarations
-    type FunctionDeclaration = {
-      name: string;
-      description: string;
-      parametersJsonSchema?: Record<string, unknown>;
-    };
-
-    let tools:
-      | Array<{ functionDeclarations: FunctionDeclaration[] }>
+    // Convert tools
+    let toolsConfig:
+      | ReturnType<typeof this.buildNativeToolDeclarations>["toolsConfig"]
       | undefined;
-    const executeMap = new Map<string, Tool["execute"]>();
+    let executeMap = new Map<string, Tool["execute"]>();
 
     if (
       options.tools &&
       Object.keys(options.tools).length > 0 &&
       !options.disableTools
     ) {
-      const functionDeclarations: FunctionDeclaration[] = [];
-
-      for (const [name, tool] of Object.entries(options.tools)) {
-        const decl: FunctionDeclaration = {
-          name,
-          description: tool.description || `Tool: ${name}`,
-        };
-
-        if (tool.parameters) {
-          let rawSchema: Record<string, unknown>;
-
-          if (isZodSchema(tool.parameters)) {
-            // It's a Zod schema - convert it
-            rawSchema = convertZodToJsonSchema(
-              tool.parameters as ZodUnknownSchema,
-            ) as Record<string, unknown>;
-          } else if (typeof tool.parameters === "object") {
-            // Already JSON schema (jsonSchema() wrapper) - use directly
-            rawSchema = tool.parameters as Record<string, unknown>;
-          } else {
-            rawSchema = { type: "object", properties: {} };
-          }
-
-          decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
-          // Remove $schema if present - @google/genai doesn't need it
-          if (decl.parametersJsonSchema.$schema) {
-            delete decl.parametersJsonSchema.$schema;
-          }
-        }
-
-        functionDeclarations.push(decl);
-
-        if (tool.execute) {
-          executeMap.set(name, tool.execute);
-        }
-      }
-
-      tools = [{ functionDeclarations }];
+      const result = this.buildNativeToolDeclarations(options.tools);
+      toolsConfig = result.toolsConfig;
+      executeMap = result.executeMap;
 
       logger.debug("[GoogleAIStudio] Converted tools for native SDK", {
-        toolCount: functionDeclarations.length,
-        toolNames: functionDeclarations.map((t) => t.name),
+        toolCount: toolsConfig[0].functionDeclarations.length,
+        toolNames: toolsConfig[0].functionDeclarations.map((t) => t.name),
       });
     }
 
-    // Build config
-    const config: Record<string, unknown> = {
-      temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
-      maxOutputTokens: options.maxTokens,
-    };
+    const config = this.buildNativeConfig(options, toolsConfig);
+    const maxSteps = this.computeMaxSteps(options.maxSteps);
 
-    if (tools) {
-      config.tools = tools;
-    }
-
-    if (options.systemPrompt) {
-      config.systemInstruction = options.systemPrompt;
-    }
-
-    // Add thinking config for Gemini 3
-    const nativeThinkingConfig = createNativeThinkingConfig(
-      options.thinkingConfig,
-    );
-    if (nativeThinkingConfig) {
-      config.thinkingConfig = nativeThinkingConfig;
-    }
-
-    // Ensure maxSteps is a valid positive integer to prevent infinite loops
-    const rawMaxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
-    const maxSteps =
-      Number.isFinite(rawMaxSteps) && rawMaxSteps > 0
-        ? Math.min(Math.floor(rawMaxSteps), 100) // Cap at 100 for safety
-        : Math.min(DEFAULT_MAX_STEPS, 100);
-    const currentContents = [...contents];
     let finalText = "";
-    let lastStepText = ""; // Track text from last step for maxSteps termination
+    let lastStepText = "";
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     const allToolCalls: Array<{
@@ -786,9 +714,6 @@ export class GoogleAIStudioProvider extends BaseProvider {
       args: Record<string, unknown>;
     }> = [];
     let step = 0;
-
-    // Track failed tools to prevent infinite retry loops
-    // Key: tool name, Value: { count: retry attempts, lastError: error message }
     const failedTools = new Map<string, { count: number; lastError: string }>();
 
     // Agentic loop for tool calling
@@ -803,175 +728,46 @@ export class GoogleAIStudioProvider extends BaseProvider {
           config,
         });
 
-        const stepFunctionCalls: Array<{
-          name: string;
-          args: Record<string, unknown>;
-        }> = [];
-        // Capture all raw parts including thoughtSignature for history
-        const rawResponseParts: unknown[] = [];
+        const chunkResult = await this.collectStreamChunks(stream);
+        totalInputTokens = Math.max(totalInputTokens, chunkResult.inputTokens);
+        totalOutputTokens = Math.max(
+          totalOutputTokens,
+          chunkResult.outputTokens,
+        );
 
-        for await (const chunk of stream) {
-          // Extract raw parts from candidates FIRST
-          // This avoids using chunk.text which triggers SDK warning when
-          // non-text parts (thoughtSignature, functionCall) are present
-          const chunkRecord = chunk as Record<string, unknown>;
-          const candidates = chunkRecord.candidates as
-            | Array<Record<string, unknown>>
-            | undefined;
-          const firstCandidate = candidates?.[0];
-          const chunkContent = firstCandidate?.content as
-            | Record<string, unknown>
-            | undefined;
-          if (chunkContent && Array.isArray(chunkContent.parts)) {
-            rawResponseParts.push(...chunkContent.parts);
-          }
-          if (chunk.functionCalls) {
-            stepFunctionCalls.push(...chunk.functionCalls);
-          }
-
-          // Accumulate usage metadata from chunks
-          const usage = chunkRecord.usageMetadata as
-            | { promptTokenCount?: number; candidatesTokenCount?: number }
-            | undefined;
-          if (usage) {
-            totalInputTokens = Math.max(
-              totalInputTokens,
-              usage.promptTokenCount || 0,
-            );
-            totalOutputTokens = Math.max(
-              totalOutputTokens,
-              usage.candidatesTokenCount || 0,
-            );
-          }
-        }
-
-        // Extract text from raw parts after stream completes
-        // This avoids SDK warning about non-text parts (thoughtSignature, functionCall)
-        const stepText = rawResponseParts
-          .filter(
-            (part): part is { text: string } =>
-              typeof (part as Record<string, unknown>).text === "string",
-          )
-          .map((part) => part.text)
-          .join("");
+        const stepText = this.extractTextFromParts(
+          chunkResult.rawResponseParts,
+        );
 
         // If no function calls, we're done
-        if (stepFunctionCalls.length === 0) {
+        if (chunkResult.stepFunctionCalls.length === 0) {
           finalText = stepText;
           break;
         }
 
-        // Track the last step text for maxSteps termination
         lastStepText = stepText;
 
-        // Execute function calls
         logger.debug(
-          `[GoogleAIStudio] Executing ${stepFunctionCalls.length} function calls`,
+          `[GoogleAIStudio] Executing ${chunkResult.stepFunctionCalls.length} function calls`,
         );
 
         // Add model response with ALL parts (including thoughtSignature) to history
         currentContents.push({
           role: "model",
           parts:
-            rawResponseParts.length > 0
-              ? (rawResponseParts as Array<{ text: string }>)
-              : (stepFunctionCalls.map((fc) => ({
+            chunkResult.rawResponseParts.length > 0
+              ? (chunkResult.rawResponseParts as Array<{ text: string }>)
+              : (chunkResult.stepFunctionCalls.map((fc) => ({
                   functionCall: fc,
                 })) as unknown as Array<{ text: string }>),
         });
 
-        // Execute each function and collect responses
-        const functionResponses: Array<{
-          functionResponse: { name: string; response: unknown };
-        }> = [];
-
-        for (const call of stepFunctionCalls) {
-          allToolCalls.push({ toolName: call.name, args: call.args });
-
-          // Check if this tool has already exceeded retry limit
-          const failedInfo = failedTools.get(call.name);
-          if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
-            logger.warn(
-              `[GoogleAIStudio] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
-            );
-            functionResponses.push({
-              functionResponse: {
-                name: call.name,
-                response: {
-                  error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
-                  status: "permanently_failed",
-                  do_not_retry: true,
-                },
-              },
-            });
-            continue;
-          }
-
-          const execute = executeMap.get(call.name);
-          if (execute) {
-            try {
-              // AI SDK Tool execute requires (args, options) - provide minimal options
-              const toolOptions = {
-                toolCallId: `${call.name}-${Date.now()}`,
-                messages: [],
-                abortSignal: undefined as AbortSignal | undefined,
-              };
-              const result = await execute(call.args, toolOptions);
-              functionResponses.push({
-                functionResponse: { name: call.name, response: { result } },
-              });
-            } catch (error) {
-              const errorMessage =
-                error instanceof Error ? error.message : "Unknown error";
-
-              // Track this failure
-              const currentFailInfo = failedTools.get(call.name) || {
-                count: 0,
-                lastError: "",
-              };
-              currentFailInfo.count++;
-              currentFailInfo.lastError = errorMessage;
-              failedTools.set(call.name, currentFailInfo);
-
-              logger.warn(
-                `[GoogleAIStudio] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
-              );
-
-              // Determine if this is a permanent failure
-              const isPermanentFailure =
-                currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
-
-              functionResponses.push({
-                functionResponse: {
-                  name: call.name,
-                  response: {
-                    error: isPermanentFailure
-                      ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
-                      : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
-                    status: isPermanentFailure
-                      ? "permanently_failed"
-                      : "failed",
-                    do_not_retry: isPermanentFailure,
-                    retry_count: currentFailInfo.count,
-                    max_retries: DEFAULT_TOOL_MAX_RETRIES,
-                  },
-                },
-              });
-            }
-          } else {
-            // Tool not found is a permanent error
-            functionResponses.push({
-              functionResponse: {
-                name: call.name,
-                response: {
-                  error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
-                  status: "permanently_failed",
-                  do_not_retry: true,
-                },
-              },
-            });
-          }
-        }
+        const functionResponses = await this.executeNativeToolCalls(
+          chunkResult.stepFunctionCalls,
+          executeMap,
+          failedTools,
+          allToolCalls,
+        );
 
         // Add function responses to history
         currentContents.push({
@@ -986,16 +782,12 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     timeoutController?.cleanup();
 
-    // Handle maxSteps termination - if we exited the loop due to maxSteps being reached
-    if (step >= maxSteps && !finalText) {
-      logger.warn(
-        `[GoogleAIStudio] Tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
-          `Model was still calling tools. Using accumulated text from last step.`,
-      );
-      finalText =
-        lastStepText ||
-        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
-    }
+    finalText = this.handleMaxStepsTermination(
+      step,
+      maxSteps,
+      finalText,
+      lastStepText,
+    );
 
     const responseTime = Date.now() - startTime;
 
@@ -1052,111 +844,45 @@ export class GoogleAIStudioProvider extends BaseProvider {
     );
 
     // Build contents from input
-    const contents: Array<{
+    const promptText = options.prompt || options.input?.text || "";
+    const currentContents: Array<{
       role: string;
       parts: unknown[];
-    }> = [];
+    }> = [{ role: "user", parts: [{ text: promptText }] }];
 
-    const promptText = options.prompt || options.input?.text || "";
-    contents.push({
-      role: "user",
-      parts: [{ text: promptText }],
-    });
-
-    // Convert Vercel AI SDK tools to @google/genai FunctionDeclarations
-    type FunctionDeclaration = {
-      name: string;
-      description: string;
-      parametersJsonSchema?: Record<string, unknown>;
-    };
-
-    let tools:
-      | Array<{ functionDeclarations: FunctionDeclaration[] }>
+    // Convert tools (merge SDK tools with options.tools)
+    let toolsConfig:
+      | ReturnType<typeof this.buildNativeToolDeclarations>["toolsConfig"]
       | undefined;
-    const executeMap = new Map<string, Tool["execute"]>();
-    const allToolsForResult: Record<string, Tool> = {};
+    let executeMap = new Map<string, Tool["execute"]>();
 
-    // Merge SDK tools with options.tools
     const shouldUseTools = !options.disableTools;
     if (shouldUseTools) {
       const sdkTools = await this.getAllTools();
       const mergedTools = { ...sdkTools, ...(options.tools || {}) };
 
       if (Object.keys(mergedTools).length > 0) {
-        const functionDeclarations: FunctionDeclaration[] = [];
-
-        for (const [name, tool] of Object.entries(mergedTools)) {
-          allToolsForResult[name] = tool;
-          const decl: FunctionDeclaration = {
-            name,
-            description: tool.description || `Tool: ${name}`,
-          };
-
-          if (tool.parameters) {
-            let rawSchema: Record<string, unknown>;
-
-            if (isZodSchema(tool.parameters)) {
-              // It's a Zod schema - convert it
-              rawSchema = convertZodToJsonSchema(
-                tool.parameters as ZodUnknownSchema,
-              ) as Record<string, unknown>;
-            } else if (typeof tool.parameters === "object") {
-              // Already JSON schema (jsonSchema() wrapper) - use directly
-              rawSchema = tool.parameters as Record<string, unknown>;
-            } else {
-              rawSchema = { type: "object", properties: {} };
-            }
-
-            decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
-            // Remove $schema if present - @google/genai doesn't need it
-            if (decl.parametersJsonSchema.$schema) {
-              delete decl.parametersJsonSchema.$schema;
-            }
-          }
-
-          functionDeclarations.push(decl);
-
-          if (tool.execute) {
-            executeMap.set(name, tool.execute);
-          }
-        }
-
-        tools = [{ functionDeclarations }];
+        const result = this.buildNativeToolDeclarations(mergedTools);
+        toolsConfig = result.toolsConfig;
+        executeMap = result.executeMap;
 
         logger.debug(
           "[GoogleAIStudio] Converted tools for native SDK generate",
           {
-            toolCount: functionDeclarations.length,
-            toolNames: functionDeclarations.map((t) => t.name),
+            toolCount: toolsConfig[0].functionDeclarations.length,
+            toolNames: toolsConfig[0].functionDeclarations.map((t) => t.name),
           },
         );
       }
     }
 
-    // Build config
-    const config: Record<string, unknown> = {
-      temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
-      maxOutputTokens: options.maxTokens,
-    };
-
-    if (tools) {
-      config.tools = tools;
-    }
-
-    if (options.systemPrompt) {
-      config.systemInstruction = options.systemPrompt;
-    }
+    const config = this.buildNativeConfig(options, toolsConfig);
 
     const startTime = Date.now();
-    // Ensure maxSteps is a valid positive integer to prevent infinite loops
-    const rawMaxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
-    const maxSteps =
-      Number.isFinite(rawMaxSteps) && rawMaxSteps > 0
-        ? Math.min(Math.floor(rawMaxSteps), 100) // Cap at 100 for safety
-        : Math.min(DEFAULT_MAX_STEPS, 100);
-    const currentContents = [...contents];
+    const maxSteps = this.computeMaxSteps(options.maxSteps);
+
     let finalText = "";
-    let lastStepText = ""; // Track text from last step for maxSteps termination
+    let lastStepText = "";
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     const allToolCalls: Array<{
@@ -1169,9 +895,6 @@ export class GoogleAIStudioProvider extends BaseProvider {
       output: unknown;
     }> = [];
     let step = 0;
-
-    // Track failed tools to prevent infinite retry loops
-    // Key: tool name, Value: { count: retry attempts, lastError: error message }
     const failedTools = new Map<string, { count: number; lastError: string }>();
 
     // Agentic loop for tool calling
@@ -1188,70 +911,27 @@ export class GoogleAIStudioProvider extends BaseProvider {
           config,
         });
 
-        const stepFunctionCalls: Array<{
-          name: string;
-          args: Record<string, unknown>;
-        }> = [];
-        // Capture all raw parts including thoughtSignature for history
-        const rawResponseParts: unknown[] = [];
+        const chunkResult = await this.collectStreamChunks(stream);
+        totalInputTokens = Math.max(totalInputTokens, chunkResult.inputTokens);
+        totalOutputTokens = Math.max(
+          totalOutputTokens,
+          chunkResult.outputTokens,
+        );
 
-        for await (const chunk of stream) {
-          // Extract raw parts from candidates FIRST
-          // This avoids using chunk.text which triggers SDK warning when
-          // non-text parts (thoughtSignature, functionCall) are present
-          const chunkRecord = chunk as Record<string, unknown>;
-          const candidates = chunkRecord.candidates as
-            | Array<Record<string, unknown>>
-            | undefined;
-          const firstCandidate = candidates?.[0];
-          const chunkContent = firstCandidate?.content as
-            | Record<string, unknown>
-            | undefined;
-          if (chunkContent && Array.isArray(chunkContent.parts)) {
-            rawResponseParts.push(...chunkContent.parts);
-          }
-          if (chunk.functionCalls) {
-            stepFunctionCalls.push(...chunk.functionCalls);
-          }
-
-          // Accumulate usage metadata from chunks
-          const usage = chunkRecord.usageMetadata as
-            | { promptTokenCount?: number; candidatesTokenCount?: number }
-            | undefined;
-          if (usage) {
-            totalInputTokens = Math.max(
-              totalInputTokens,
-              usage.promptTokenCount || 0,
-            );
-            totalOutputTokens = Math.max(
-              totalOutputTokens,
-              usage.candidatesTokenCount || 0,
-            );
-          }
-        }
-
-        // Extract text from raw parts after stream completes
-        // This avoids SDK warning about non-text parts (thoughtSignature, functionCall)
-        const stepText = rawResponseParts
-          .filter(
-            (part): part is { text: string } =>
-              typeof (part as Record<string, unknown>).text === "string",
-          )
-          .map((part) => part.text)
-          .join("");
+        const stepText = this.extractTextFromParts(
+          chunkResult.rawResponseParts,
+        );
 
         // If no function calls, we're done
-        if (stepFunctionCalls.length === 0) {
+        if (chunkResult.stepFunctionCalls.length === 0) {
           finalText = stepText;
           break;
         }
 
-        // Track the last step text for maxSteps termination
         lastStepText = stepText;
 
-        // Execute function calls
         logger.debug(
-          `[GoogleAIStudio] Executing ${stepFunctionCalls.length} function calls in generate`,
+          `[GoogleAIStudio] Executing ${chunkResult.stepFunctionCalls.length} function calls in generate`,
         );
 
         // Add model response with ALL parts (including thoughtSignature) to history
@@ -1259,130 +939,20 @@ export class GoogleAIStudioProvider extends BaseProvider {
         currentContents.push({
           role: "model",
           parts:
-            rawResponseParts.length > 0
-              ? (rawResponseParts as Array<{ text: string }>)
-              : (stepFunctionCalls.map((fc) => ({
+            chunkResult.rawResponseParts.length > 0
+              ? (chunkResult.rawResponseParts as Array<{ text: string }>)
+              : (chunkResult.stepFunctionCalls.map((fc) => ({
                   functionCall: fc,
                 })) as unknown as Array<{ text: string }>),
         });
 
-        // Execute each function and collect responses
-        const functionResponses: Array<{
-          functionResponse: { name: string; response: unknown };
-        }> = [];
-
-        for (const call of stepFunctionCalls) {
-          allToolCalls.push({ toolName: call.name, args: call.args });
-
-          // Check if this tool has already exceeded retry limit
-          const failedInfo = failedTools.get(call.name);
-          if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
-            logger.warn(
-              `[GoogleAIStudio] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
-            );
-
-            const errorOutput = {
-              error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
-              status: "permanently_failed",
-              do_not_retry: true,
-            };
-
-            functionResponses.push({
-              functionResponse: {
-                name: call.name,
-                response: errorOutput,
-              },
-            });
-            toolExecutions.push({
-              name: call.name,
-              input: call.args,
-              output: errorOutput,
-            });
-            continue;
-          }
-
-          const execute = executeMap.get(call.name);
-          if (execute) {
-            try {
-              // AI SDK Tool execute requires (args, options) - provide minimal options
-              const toolOptions = {
-                toolCallId: `${call.name}-${Date.now()}`,
-                messages: [],
-                abortSignal: undefined as AbortSignal | undefined,
-              };
-              const result = await execute(call.args, toolOptions);
-              functionResponses.push({
-                functionResponse: { name: call.name, response: { result } },
-              });
-              toolExecutions.push({
-                name: call.name,
-                input: call.args,
-                output: result,
-              });
-            } catch (error) {
-              const errorMessage =
-                error instanceof Error ? error.message : "Unknown error";
-
-              // Track this failure
-              const currentFailInfo = failedTools.get(call.name) || {
-                count: 0,
-                lastError: "",
-              };
-              currentFailInfo.count++;
-              currentFailInfo.lastError = errorMessage;
-              failedTools.set(call.name, currentFailInfo);
-
-              logger.warn(
-                `[GoogleAIStudio] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
-              );
-
-              // Determine if this is a permanent failure
-              const isPermanentFailure =
-                currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
-
-              const errorOutput = {
-                error: isPermanentFailure
-                  ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
-                  : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
-                status: isPermanentFailure ? "permanently_failed" : "failed",
-                do_not_retry: isPermanentFailure,
-                retry_count: currentFailInfo.count,
-                max_retries: DEFAULT_TOOL_MAX_RETRIES,
-              };
-
-              functionResponses.push({
-                functionResponse: {
-                  name: call.name,
-                  response: errorOutput,
-                },
-              });
-              toolExecutions.push({
-                name: call.name,
-                input: call.args,
-                output: errorOutput,
-              });
-            }
-          } else {
-            // Tool not found is a permanent error
-            const errorOutput = {
-              error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
-              status: "permanently_failed",
-              do_not_retry: true,
-            };
-
-            functionResponses.push({
-              functionResponse: {
-                name: call.name,
-                response: errorOutput,
-              },
-            });
-            toolExecutions.push({
-              name: call.name,
-              input: call.args,
-              output: errorOutput,
-            });
-          }
-        }
+        const functionResponses = await this.executeNativeToolCalls(
+          chunkResult.stepFunctionCalls,
+          executeMap,
+          failedTools,
+          allToolCalls,
+          toolExecutions,
+        );
 
         // Add function responses to history
         currentContents.push({
@@ -1395,16 +965,12 @@ export class GoogleAIStudioProvider extends BaseProvider {
       }
     }
 
-    // Handle maxSteps termination - if we exited the loop due to maxSteps being reached
-    if (step >= maxSteps && !finalText) {
-      logger.warn(
-        `[GoogleAIStudio] Generate tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
-          `Model was still calling tools. Using accumulated text from last step.`,
-      );
-      finalText =
-        lastStepText ||
-        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
-    }
+    finalText = this.handleMaxStepsTermination(
+      step,
+      maxSteps,
+      finalText,
+      lastStepText,
+    );
 
     const responseTime = Date.now() - startTime;
 
@@ -1469,6 +1035,342 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     // Fall back to BaseProvider implementation
     return super.generate(optionsOrPrompt);
+  }
+
+  // ===================
+  // NATIVE GEMINI 3 HELPER METHODS
+  // ===================
+
+  /**
+   * Convert Vercel AI SDK tools to @google/genai FunctionDeclarations and an execute map.
+   * Shared by executeNativeGemini3Stream and executeNativeGemini3Generate.
+   */
+  private buildNativeToolDeclarations(tools: Record<string, Tool>): {
+    toolsConfig: Array<{
+      functionDeclarations: Array<{
+        name: string;
+        description: string;
+        parametersJsonSchema?: Record<string, unknown>;
+      }>;
+    }>;
+    executeMap: Map<string, Tool["execute"]>;
+  } {
+    type FunctionDeclaration = {
+      name: string;
+      description: string;
+      parametersJsonSchema?: Record<string, unknown>;
+    };
+
+    const functionDeclarations: FunctionDeclaration[] = [];
+    const executeMap = new Map<string, Tool["execute"]>();
+
+    for (const [name, tool] of Object.entries(tools)) {
+      const decl: FunctionDeclaration = {
+        name,
+        description: tool.description || `Tool: ${name}`,
+      };
+
+      if (tool.parameters) {
+        let rawSchema: Record<string, unknown>;
+
+        if (isZodSchema(tool.parameters)) {
+          rawSchema = convertZodToJsonSchema(
+            tool.parameters as ZodUnknownSchema,
+          ) as Record<string, unknown>;
+        } else if (typeof tool.parameters === "object") {
+          rawSchema = tool.parameters as Record<string, unknown>;
+        } else {
+          rawSchema = { type: "object", properties: {} };
+        }
+
+        decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
+        if (decl.parametersJsonSchema.$schema) {
+          delete decl.parametersJsonSchema.$schema;
+        }
+      }
+
+      functionDeclarations.push(decl);
+
+      if (tool.execute) {
+        executeMap.set(name, tool.execute);
+      }
+    }
+
+    return { toolsConfig: [{ functionDeclarations }], executeMap };
+  }
+
+  /**
+   * Build the native @google/genai config object shared by stream and generate.
+   */
+  private buildNativeConfig(
+    options: {
+      temperature?: number;
+      maxTokens?: number;
+      systemPrompt?: string;
+      thinkingConfig?: StreamOptions["thinkingConfig"];
+    },
+    toolsConfig?: Array<{
+      functionDeclarations: Array<{
+        name: string;
+        description: string;
+        parametersJsonSchema?: Record<string, unknown>;
+      }>;
+    }>,
+  ): Record<string, unknown> {
+    const config: Record<string, unknown> = {
+      temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
+      maxOutputTokens: options.maxTokens,
+    };
+
+    if (toolsConfig) {
+      config.tools = toolsConfig;
+    }
+
+    if (options.systemPrompt) {
+      config.systemInstruction = options.systemPrompt;
+    }
+
+    // Add thinking config for Gemini 3
+    const nativeThinkingConfig = createNativeThinkingConfig(
+      options.thinkingConfig,
+    );
+    if (nativeThinkingConfig) {
+      config.thinkingConfig = nativeThinkingConfig;
+    }
+
+    return config;
+  }
+
+  /**
+   * Compute a safe, clamped maxSteps value.
+   */
+  private computeMaxSteps(rawMaxSteps?: number): number {
+    const value = rawMaxSteps || DEFAULT_MAX_STEPS;
+    return Number.isFinite(value) && value > 0
+      ? Math.min(Math.floor(value), 100)
+      : Math.min(DEFAULT_MAX_STEPS, 100);
+  }
+
+  /**
+   * Process stream chunks to extract raw response parts, function calls, and usage metadata.
+   * Shared by executeNativeGemini3Stream and executeNativeGemini3Generate.
+   */
+  private async collectStreamChunks(
+    stream: AsyncIterable<{
+      functionCalls?: Array<{ name: string; args: Record<string, unknown> }>;
+      [key: string]: unknown;
+    }>,
+  ): Promise<{
+    rawResponseParts: unknown[];
+    stepFunctionCalls: Array<{ name: string; args: Record<string, unknown> }>;
+    inputTokens: number;
+    outputTokens: number;
+  }> {
+    const rawResponseParts: unknown[] = [];
+    const stepFunctionCalls: Array<{
+      name: string;
+      args: Record<string, unknown>;
+    }> = [];
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    for await (const chunk of stream) {
+      // Extract raw parts from candidates FIRST
+      // This avoids using chunk.text which triggers SDK warning when
+      // non-text parts (thoughtSignature, functionCall) are present
+      const chunkRecord = chunk as Record<string, unknown>;
+      const candidates = chunkRecord.candidates as
+        | Array<Record<string, unknown>>
+        | undefined;
+      const firstCandidate = candidates?.[0];
+      const chunkContent = firstCandidate?.content as
+        | Record<string, unknown>
+        | undefined;
+      if (chunkContent && Array.isArray(chunkContent.parts)) {
+        rawResponseParts.push(...chunkContent.parts);
+      }
+      if (chunk.functionCalls) {
+        stepFunctionCalls.push(...chunk.functionCalls);
+      }
+
+      // Accumulate usage metadata from chunks
+      const usage = chunkRecord.usageMetadata as
+        | { promptTokenCount?: number; candidatesTokenCount?: number }
+        | undefined;
+      if (usage) {
+        inputTokens = Math.max(inputTokens, usage.promptTokenCount || 0);
+        outputTokens = Math.max(outputTokens, usage.candidatesTokenCount || 0);
+      }
+    }
+
+    return { rawResponseParts, stepFunctionCalls, inputTokens, outputTokens };
+  }
+
+  /**
+   * Extract text from raw response parts. Used after collectStreamChunks.
+   */
+  private extractTextFromParts(rawResponseParts: unknown[]): string {
+    return rawResponseParts
+      .filter(
+        (part): part is { text: string } =>
+          typeof (part as Record<string, unknown>).text === "string",
+      )
+      .map((part) => part.text)
+      .join("");
+  }
+
+  /**
+   * Execute a batch of function calls with retry tracking and permanent failure detection.
+   * Shared by executeNativeGemini3Stream and executeNativeGemini3Generate.
+   *
+   * Returns function responses for history and optional tool execution records for generate.
+   */
+  private async executeNativeToolCalls(
+    stepFunctionCalls: Array<{ name: string; args: Record<string, unknown> }>,
+    executeMap: Map<string, Tool["execute"]>,
+    failedTools: Map<string, { count: number; lastError: string }>,
+    allToolCalls: Array<{
+      toolName: string;
+      args: Record<string, unknown>;
+    }>,
+    toolExecutions?: Array<{
+      name: string;
+      input: Record<string, unknown>;
+      output: unknown;
+    }>,
+  ): Promise<Array<{ functionResponse: { name: string; response: unknown } }>> {
+    const functionResponses: Array<{
+      functionResponse: { name: string; response: unknown };
+    }> = [];
+
+    for (const call of stepFunctionCalls) {
+      allToolCalls.push({ toolName: call.name, args: call.args });
+
+      // Check if this tool has already exceeded retry limit
+      const failedInfo = failedTools.get(call.name);
+      if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
+        logger.warn(
+          `[GoogleAIStudio] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
+        );
+
+        const errorOutput = {
+          error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
+          status: "permanently_failed",
+          do_not_retry: true,
+        };
+
+        functionResponses.push({
+          functionResponse: { name: call.name, response: errorOutput },
+        });
+        toolExecutions?.push({
+          name: call.name,
+          input: call.args,
+          output: errorOutput,
+        });
+        continue;
+      }
+
+      const execute = executeMap.get(call.name);
+      if (execute) {
+        try {
+          // AI SDK Tool execute requires (args, options) - provide minimal options
+          const toolOptions = {
+            toolCallId: `${call.name}-${Date.now()}`,
+            messages: [],
+            abortSignal: undefined as AbortSignal | undefined,
+          };
+          const result = await execute(call.args, toolOptions);
+          functionResponses.push({
+            functionResponse: { name: call.name, response: { result } },
+          });
+          toolExecutions?.push({
+            name: call.name,
+            input: call.args,
+            output: result,
+          });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+
+          // Track this failure
+          const currentFailInfo = failedTools.get(call.name) || {
+            count: 0,
+            lastError: "",
+          };
+          currentFailInfo.count++;
+          currentFailInfo.lastError = errorMessage;
+          failedTools.set(call.name, currentFailInfo);
+
+          logger.warn(
+            `[GoogleAIStudio] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
+          );
+
+          // Determine if this is a permanent failure
+          const isPermanentFailure =
+            currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
+
+          const errorOutput = {
+            error: isPermanentFailure
+              ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
+              : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
+            status: isPermanentFailure ? "permanently_failed" : "failed",
+            do_not_retry: isPermanentFailure,
+            retry_count: currentFailInfo.count,
+            max_retries: DEFAULT_TOOL_MAX_RETRIES,
+          };
+
+          functionResponses.push({
+            functionResponse: { name: call.name, response: errorOutput },
+          });
+          toolExecutions?.push({
+            name: call.name,
+            input: call.args,
+            output: errorOutput,
+          });
+        }
+      } else {
+        // Tool not found is a permanent error
+        const errorOutput = {
+          error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
+          status: "permanently_failed",
+          do_not_retry: true,
+        };
+
+        functionResponses.push({
+          functionResponse: { name: call.name, response: errorOutput },
+        });
+        toolExecutions?.push({
+          name: call.name,
+          input: call.args,
+          output: errorOutput,
+        });
+      }
+    }
+
+    return functionResponses;
+  }
+
+  /**
+   * Handle maxSteps termination by producing a final text when the model
+   * was still calling tools when the step limit was reached.
+   */
+  private handleMaxStepsTermination(
+    step: number,
+    maxSteps: number,
+    finalText: string,
+    lastStepText: string,
+  ): string {
+    if (step >= maxSteps && !finalText) {
+      logger.warn(
+        `[GoogleAIStudio] Tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
+          `Model was still calling tools. Using accumulated text from last step.`,
+      );
+      return (
+        lastStepText ||
+        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`
+      );
+    }
+    return finalText;
   }
 
   // ===================

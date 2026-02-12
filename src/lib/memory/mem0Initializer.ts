@@ -9,7 +9,7 @@ import { logger } from "../utils/logger.js";
 /**
  * Mem0 cloud API configuration
  */
-export interface Mem0Config {
+export type Mem0Config = {
   apiKey: string;
   /**
    * Optional organization ID - if not provided, will be auto-populated from ping() response
@@ -42,7 +42,7 @@ export interface Mem0Config {
      */
     custom_categories?: Array<Record<string, unknown>>;
   };
-}
+};
 
 /**
  * Initialize mem0 memory instance with cloud API and optional project settings

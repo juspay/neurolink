@@ -728,12 +728,12 @@ async function streamWithFetch(input: string): Promise<void> {
 ```typescript
 import { useState, useCallback } from "react";
 
-interface StreamState {
+type StreamState = {
   content: string;
   isStreaming: boolean;
   error: string | null;
   toolCalls: Array<{ name: string; arguments: unknown; result?: unknown }>;
-}
+};
 
 function useStream() {
   const [state, setState] = useState<StreamState>({
@@ -982,10 +982,10 @@ controller.abort();
 
 ## Related Documentation
 
-- **[Server Adapters Overview](/guides/server-adapters)** - Getting started with server adapters
-- **[Hono Adapter](/guides/server-adapters/hono)** - Framework-specific streaming examples
-- **[Configuration Reference](/reference/server-configuration)** - Full configuration options
-- **[Security Best Practices](/guides/server-adapters/security)** - Securing streaming endpoints
+- **[Server Adapters Overview](./index.md)** - Getting started with server adapters
+- **[Hono Adapter](./hono.md)** - Framework-specific streaming examples
+- **[Configuration Reference](../../reference/server-configuration.md)** - Full configuration options
+- **[Security Best Practices](./security.md)** - Securing streaming endpoints
 
 ---
 

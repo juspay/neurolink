@@ -18,6 +18,7 @@ import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import type { TestFunction, TestResult } from "../dist/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,15 +97,8 @@ function logTest(
 }
 
 // ============================================
-// Test Result Tracking
+// Test Result Tracking (types imported from @juspay/neurolink)
 // ============================================
-
-interface TestResult {
-  name: string;
-  result: boolean;
-  error: string | null;
-  duration: number;
-}
 
 const testResults: TestResult[] = [];
 
@@ -112,12 +106,12 @@ const testResults: TestResult[] = [];
 // HTTP Request Helpers
 // ============================================
 
-interface HttpResponse {
+type HttpResponse = {
   status: number;
   headers: http.IncomingHttpHeaders;
   body: string;
   json?: unknown;
-}
+};
 
 function httpRequest(
   method: string,
@@ -3022,11 +3016,6 @@ async function testValidationUtilities(): Promise<boolean> {
 // ============================================
 // Main Test Runner
 // ============================================
-
-interface TestFunction {
-  name: string;
-  fn: () => Promise<boolean>;
-}
 
 async function runAllTests(): Promise<void> {
   logSection("NeuroLink Server Adapters Test Suite");

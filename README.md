@@ -1,7 +1,7 @@
 <div align="center">
   <h1>🧠 NeuroLink</h1>
   <p><strong>The Enterprise AI SDK for Production Applications</strong></p>
-  <p>12 Providers | 58+ MCP Tools | HITL Security | Redis Persistence</p>
+  <p>13 Providers | 58+ MCP Tools | HITL Security | Redis Persistence</p>
 </div>
 
 <div align="center">
@@ -35,15 +35,17 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q1 2026)
 
-| Feature                             | Version | Description                                                                                                                                                   | Guide                                                         |
-| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| **External TracerProvider Support** | v8.43.0 | Integrate NeuroLink with existing OpenTelemetry instrumentation. Prevents duplicate registration conflicts.                                                   | [Observability Guide](docs/features/observability.md)         |
-| **Server Adapters**                 | v8.43.0 | Multi-framework HTTP server with Hono, Express, Fastify, Koa support. Full CLI for server management with foreground/background modes.                        | [Server Adapters Guide](docs/guides/server-adapters/index.md) |
-| **Title Generation Events**         | v8.38.0 | Emit `conversation:titleGenerated` event when conversation title is generated. Supports custom title prompts via `NEUROLINK_TITLE_PROMPT`.                    | [Conversation Memory Guide](docs/conversation-memory.md)      |
-| **Video Generation with Veo**       | v8.32.0 | Video generation using Veo 3.1 (`veo-3.1`). Realistic video generation with many parameter options                                                            | [Video Generation Guide](docs/features/video-generation.md)   |
-| **Image Generation with Gemini**    | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.                | [Image Generation Guide](docs/image-generation-streaming.md)  |
-| **RAG with generate()/stream()**    | v9.2.0  | Pass `rag: { files }` to generate/stream for automatic document chunking, embedding, and AI-powered search. 10 chunking strategies, hybrid search, reranking. | [RAG Guide](docs/features/rag.md)                             |
-| **HTTP/Streamable HTTP Transport**  | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.                 | [HTTP Transport Guide](docs/mcp-http-transport.md)            |
+| Feature                             | Version | Description                                                                                                                                                   | Guide                                                           |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **Context Window Management**       | v9.2.0  | 4-stage compaction pipeline with auto-detection, budget gate at 80% usage, per-provider token estimation                                                      | [Context Compaction Guide](docs/features/context-compaction.md) |
+| **File Processor System**           | v9.1.0  | 17+ file type processors with ProcessorRegistry, security sanitization, SVG text injection                                                                    | [File Processors Guide](docs/features/file-processors.md)       |
+| **RAG with generate()/stream()**    | v9.2.0  | Pass `rag: { files }` to generate/stream for automatic document chunking, embedding, and AI-powered search. 10 chunking strategies, hybrid search, reranking. | [RAG Guide](docs/features/rag.md)                               |
+| **External TracerProvider Support** | v8.43.0 | Integrate NeuroLink with existing OpenTelemetry instrumentation. Prevents duplicate registration conflicts.                                                   | [Observability Guide](docs/features/observability.md)           |
+| **Server Adapters**                 | v8.43.0 | Multi-framework HTTP server with Hono, Express, Fastify, Koa support. Full CLI for server management with foreground/background modes.                        | [Server Adapters Guide](docs/guides/server-adapters/index.md)   |
+| **Title Generation Events**         | v8.38.0 | Emit `conversation:titleGenerated` event when conversation title is generated. Supports custom title prompts via `NEUROLINK_TITLE_PROMPT`.                    | [Conversation Memory Guide](docs/conversation-memory.md)        |
+| **Video Generation with Veo**       | v8.32.0 | Video generation using Veo 3.1 (`veo-3.1`). Realistic video generation with many parameter options                                                            | [Video Generation Guide](docs/features/video-generation.md)     |
+| **Image Generation with Gemini**    | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.                | [Image Generation Guide](docs/image-generation-streaming.md)    |
+| **HTTP/Streamable HTTP Transport**  | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.                 | [HTTP Transport Guide](docs/mcp-http-transport.md)              |
 
 - **External TracerProvider Support** – Integrate NeuroLink with applications that already have OpenTelemetry instrumentation. Supports auto-detection and manual configuration. → [Observability Guide](docs/features/observability.md)
 - **Server Adapters** – Deploy NeuroLink as an HTTP API server with your framework of choice (Hono, Express, Fastify, Koa). Full CLI support with `serve` and `server` commands for foreground/background modes, route management, and OpenAPI generation. → [Server Adapters Guide](docs/guides/server-adapters/index.md)
@@ -154,20 +156,21 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 **13 providers unified under one API** - Switch providers with a single parameter change.
 
-| Provider              | Models                             | Free Tier       | Tool Support | Status        | Documentation                                                           |
-| --------------------- | ---------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------- |
-| **OpenAI**            | GPT-4o, GPT-4o-mini, o1            | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai)            |
-| **Anthropic**         | Claude 3.5/3.7 Sonnet, Opus        | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#anthropic)         |
-| **Google AI Studio**  | Gemini 2.5 Flash/Pro               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#google-ai)         |
-| **AWS Bedrock**       | Claude, Titan, Llama, Nova         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)           |
-| **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview) | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)            |
-| **Azure OpenAI**      | GPT-4, GPT-4o, o1                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)             |
-| **LiteLLM**           | 100+ models unified                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/litellm-integration.md)                              |
-| **AWS SageMaker**     | Custom deployed models             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/sagemaker-integration.md)                            |
-| **Mistral AI**        | Mistral Large, Small               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)           |
-| **Hugging Face**      | 100,000+ models                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)       |
-| **Ollama**            | Local models (Llama, Mistral)      | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)            |
-| **OpenAI Compatible** | Any OpenAI-compatible endpoint     | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible) |
+| Provider              | Models                                             | Free Tier       | Tool Support | Status        | Documentation                                                           |
+| --------------------- | -------------------------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------- |
+| **OpenAI**            | GPT-4o, GPT-4o-mini, o1                            | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai)            |
+| **Anthropic**         | Claude 4.5 Opus/Sonnet/Haiku, Claude 4 Opus/Sonnet | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#anthropic)         |
+| **Google AI Studio**  | Gemini 3 Flash/Pro, Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#google-ai)         |
+| **AWS Bedrock**       | Claude, Titan, Llama, Nova                         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)           |
+| **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview)                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)            |
+| **Azure OpenAI**      | GPT-4, GPT-4o, o1                                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)             |
+| **LiteLLM**           | 100+ models unified                                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/litellm-integration.md)                              |
+| **AWS SageMaker**     | Custom deployed models                             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/sagemaker-integration.md)                            |
+| **Mistral AI**        | Mistral Large, Small                               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)           |
+| **Hugging Face**      | 100,000+ models                                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)       |
+| **Ollama**            | Local models (Llama, Mistral)                      | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)            |
+| **OpenAI Compatible** | Any OpenAI-compatible endpoint                     | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible) |
+| **OpenRouter**        | 200+ Models via OpenRouter                         | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/providers/openrouter.md)             |
 
 **[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
 **[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 13 providers
@@ -312,6 +315,7 @@ const result = await neurolink.generate({
 - ✅ Hardened OS verified (SELinux, AppArmor)
 - ✅ Zero credential logging
 - ✅ Encrypted configuration storage
+- ✅ Automatic context window management with 4-stage compaction pipeline and 80% budget gate
 
 **[📖 Enterprise Deployment Guide](docs/advanced/enterprise.md)** - Complete production checklist
 
@@ -346,7 +350,7 @@ const neurolink = new NeuroLink({
 });
 
 // Or explicit configuration
-const neuriolinkExplicit = new NeuroLink({
+const neurolinkExplicit = new NeuroLink({
   conversationMemory: {
     enabled: true,
     store: "redis",

@@ -509,6 +509,232 @@ fi
 
 ---
 
+## Context Compaction Configuration
+
+### Overview
+
+Context compaction automatically manages conversation history to keep it within a model's context window. When the estimated input tokens exceed a configurable threshold (default: 80% of available input space), a multi-stage reduction pipeline runs before the next LLM call. The four stages, in order, are:
+
+1. **Tool Output Pruning** -- Replace old, large tool results with compact placeholders (no LLM call)
+2. **File Read Deduplication** -- Keep only the latest read of each file path (no LLM call)
+3. **LLM Summarization** -- Produce a structured summary of older messages (requires LLM call)
+4. **Sliding Window Truncation** -- Tag the oldest messages as truncated (no LLM call)
+
+Each stage only runs if the previous stage did not bring token usage below the target. The pipeline exits early once the context fits.
+
+### SDK Configuration
+
+Configure context compaction through the `contextCompaction` field inside `conversationMemory`:
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    enableSummarization: true,
+
+    contextCompaction: {
+      // Enable auto-compaction (default: true when summarization enabled)
+      enabled: true,
+
+      // Compaction trigger threshold as fraction of available input tokens.
+      // When usage ratio >= this value, compaction runs automatically.
+      // Range: 0.0 - 1.0. Default: 0.80
+      threshold: 0.8,
+
+      // Enable Stage 1: tool output pruning (default: true)
+      enablePruning: true,
+
+      // Enable Stage 2: file read deduplication (default: true)
+      enableDeduplication: true,
+
+      // Enable Stage 4: sliding window truncation fallback (default: true)
+      enableSlidingWindow: true,
+
+      // Maximum tool output size in bytes before truncation.
+      // Default: 51200 (50 KB)
+      maxToolOutputBytes: 51200,
+
+      // Maximum tool output lines before truncation.
+      // Default: 2000
+      maxToolOutputLines: 2000,
+
+      // Fraction of remaining context budget allocated to file reads.
+      // Range: 0.0 - 1.0. Default: 0.60
+      fileReadBudgetPercent: 0.6,
+    },
+
+    // Provider and model used for Stage 3 (LLM summarization).
+    // These are top-level conversationMemory fields, not inside contextCompaction.
+    summarizationProvider: "vertex",
+    summarizationModel: "gemini-2.5-flash",
+  },
+});
+```
+
+**Field Reference:**
+
+| Field                   | Type      | Default                             | Description                                     |
+| ----------------------- | --------- | ----------------------------------- | ----------------------------------------------- |
+| `enabled`               | `boolean` | `true` (when summarization enabled) | Master switch for auto-compaction               |
+| `threshold`             | `number`  | `0.80`                              | Usage ratio that triggers compaction (0.0--1.0) |
+| `enablePruning`         | `boolean` | `true`                              | Enable Stage 1: tool output pruning             |
+| `enableDeduplication`   | `boolean` | `true`                              | Enable Stage 2: file read deduplication         |
+| `enableSlidingWindow`   | `boolean` | `true`                              | Enable Stage 4: sliding window truncation       |
+| `maxToolOutputBytes`    | `number`  | `51200`                             | Tool output byte limit (50 KB)                  |
+| `maxToolOutputLines`    | `number`  | `2000`                              | Tool output line limit                          |
+| `fileReadBudgetPercent` | `number`  | `0.60`                              | Fraction of remaining context for file reads    |
+
+Summarization provider/model are configured at the `conversationMemory` level:
+
+| Field                   | Type     | Default              | Description                            |
+| ----------------------- | -------- | -------------------- | -------------------------------------- |
+| `summarizationProvider` | `string` | `"vertex"`           | Provider for Stage 3 LLM summarization |
+| `summarizationModel`    | `string` | `"gemini-2.5-flash"` | Model for Stage 3 LLM summarization    |
+
+### CLI Flags
+
+The `loop` command accepts two context compaction flags:
+
+```bash
+# Set compaction threshold (0.0-1.0, default: 0.8)
+npx neurolink loop --compact-threshold 0.70
+
+# Disable automatic compaction entirely
+npx neurolink loop --disable-compaction
+```
+
+| Flag                   | Type      | Default | Description                                     |
+| ---------------------- | --------- | ------- | ----------------------------------------------- |
+| `--compact-threshold`  | `number`  | `0.8`   | Context compaction trigger threshold (0.0--1.0) |
+| `--disable-compaction` | `boolean` | `false` | Disable automatic context compaction            |
+
+These flags map to `contextCompaction.threshold` and `contextCompaction.enabled` respectively.
+
+### Per-Provider Context Windows
+
+The budget checker uses per-provider, per-model context window sizes to calculate available input tokens. The available input space is:
+
+```
+availableInput = contextWindow - outputReserve
+```
+
+Where `outputReserve` defaults to 35% of the context window (capped at 64,000 tokens), or the explicit `maxTokens` value if provided.
+
+| Provider         | Model                                                                             | Input Token Limit |
+| ---------------- | --------------------------------------------------------------------------------- | ----------------- |
+| **Anthropic**    | claude-opus-4, claude-sonnet-4, claude-3.5-sonnet, claude-3-opus (all variants)   | 200,000           |
+| **OpenAI**       | gpt-4o, gpt-4o-mini, gpt-4-turbo, o1-mini                                         | 128,000           |
+| **OpenAI**       | o1, o1-pro, o3, o3-mini, o4-mini                                                  | 200,000           |
+| **OpenAI**       | gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-5                                        | 1,047,576         |
+| **OpenAI**       | gpt-4                                                                             | 8,192             |
+| **OpenAI**       | gpt-3.5-turbo                                                                     | 16,385            |
+| **Google AI**    | gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash, gemini-3-\* | 1,048,576         |
+| **Google AI**    | gemini-1.5-pro                                                                    | 2,097,152         |
+| **Vertex**       | gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash              | 1,048,576         |
+| **Vertex**       | gemini-1.5-pro                                                                    | 2,097,152         |
+| **Bedrock**      | anthropic.claude-3-\* (all variants)                                              | 200,000           |
+| **Bedrock**      | amazon.nova-pro-v1:0, amazon.nova-lite-v1:0                                       | 300,000           |
+| **Azure**        | gpt-4o, gpt-4o-mini, gpt-4-turbo                                                  | 128,000           |
+| **Azure**        | gpt-4                                                                             | 8,192             |
+| **Mistral**      | mistral-large-latest, mistral-small-latest                                        | 128,000           |
+| **Mistral**      | codestral-latest                                                                  | 256,000           |
+| **Mistral**      | mistral-medium-latest                                                             | 32,000            |
+| **Ollama**       | (default)                                                                         | 128,000           |
+| **LiteLLM**      | (default)                                                                         | 128,000           |
+| **Hugging Face** | (default)                                                                         | 32,000            |
+| **SageMaker**    | (default)                                                                         | 128,000           |
+
+Unknown providers or models fall back to a global default of 128,000 tokens.
+
+### Advanced Configuration
+
+#### Manual Compaction with `compactSession()`
+
+You can trigger compaction manually on any session using the `CompactionConfig` interface, which provides per-stage control beyond what the SDK-level `contextCompaction` field exposes:
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+import type { CompactionConfig, CompactionResult } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  conversationMemory: { enabled: true },
+});
+
+const result: CompactionResult | null = await neurolink.compactSession(
+  "session-abc-123",
+  {
+    // Per-stage toggles
+    enablePrune: true,
+    enableDeduplicate: true,
+    enableSummarize: true,
+    enableTruncate: true,
+
+    // Stage 1 (prune) options
+    pruneProtectTokens: 40_000, // Protect recent N tokens from pruning
+    pruneMinimumSavings: 20_000, // Only prune if savings exceed this
+    pruneProtectedTools: ["skill"], // Tool names to never prune
+
+    // Stage 3 (summarize) options
+    summarizationProvider: "vertex",
+    summarizationModel: "gemini-2.5-flash",
+    keepRecentRatio: 0.3, // Fraction of messages to keep verbatim
+
+    // Stage 4 (truncate) options
+    truncationFraction: 0.5, // Fraction of messages to truncate
+
+    // Provider hint for token estimation
+    provider: "anthropic",
+  },
+);
+
+if (result?.compacted) {
+  console.log(`Saved ${result.tokensSaved} tokens`);
+  console.log(`Stages used: ${result.stagesUsed.join(", ")}`);
+  // result.stagesUsed is an array of: "prune" | "deduplicate" | "summarize" | "truncate"
+}
+```
+
+**`CompactionConfig` Field Reference:**
+
+| Field                   | Type       | Default              | Description                                             |
+| ----------------------- | ---------- | -------------------- | ------------------------------------------------------- |
+| `enablePrune`           | `boolean`  | `true`               | Enable Stage 1: tool output pruning                     |
+| `enableDeduplicate`     | `boolean`  | `true`               | Enable Stage 2: file read deduplication                 |
+| `enableSummarize`       | `boolean`  | `true`               | Enable Stage 3: LLM summarization                       |
+| `enableTruncate`        | `boolean`  | `true`               | Enable Stage 4: sliding window truncation               |
+| `pruneProtectTokens`    | `number`   | `40000`              | Number of recent tokens protected from pruning          |
+| `pruneMinimumSavings`   | `number`   | `20000`              | Minimum token savings required to apply pruning         |
+| `pruneProtectedTools`   | `string[]` | `["skill"]`          | Tool names whose outputs are never pruned               |
+| `summarizationProvider` | `string`   | `"vertex"`           | Provider for LLM summarization                          |
+| `summarizationModel`    | `string`   | `"gemini-2.5-flash"` | Model for LLM summarization                             |
+| `keepRecentRatio`       | `number`   | `0.3`                | Fraction of messages kept verbatim during summarization |
+| `truncationFraction`    | `number`   | `0.5`                | Fraction of oldest messages tagged as truncated         |
+| `provider`              | `string`   | `""`                 | Provider hint for token estimation multipliers          |
+
+#### File Token Budget Constants
+
+These constants in `src/lib/context/fileTokenBudget.ts` control how file reads interact with the context budget:
+
+| Constant                   | Value    | Description                                                    |
+| -------------------------- | -------- | -------------------------------------------------------------- |
+| `FILE_READ_BUDGET_PERCENT` | `0.6`    | Fraction of remaining context allocated for file reads         |
+| `FILE_FAST_PATH_SIZE`      | `100 KB` | Files below this size skip budget validation                   |
+| `FILE_PREVIEW_MODE_SIZE`   | `5 MB`   | Files above this size get preview-only mode (first 2000 chars) |
+| `FILE_PREVIEW_CHARS`       | `2000`   | Number of characters shown in preview mode                     |
+
+#### Tool Output Limits Constants
+
+These constants in `src/lib/context/toolOutputLimits.ts` control tool output truncation:
+
+| Constant                | Value           | Description                                 |
+| ----------------------- | --------------- | ------------------------------------------- |
+| `MAX_TOOL_OUTPUT_BYTES` | `51200` (50 KB) | Maximum tool output size before truncation  |
+| `MAX_TOOL_OUTPUT_LINES` | `2000`          | Maximum tool output lines before truncation |
+
+---
+
 ## 🔧 **Advanced Configuration**
 
 ### **Custom Provider Configuration**

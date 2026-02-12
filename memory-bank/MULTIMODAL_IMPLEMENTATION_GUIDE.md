@@ -465,8 +465,6 @@ export class AudioProcessor {
 }
 ```
 
-**AI Analysis**: Focused on agent workflows, limited multimodal (images + PDFs via data URIs). No significant patterns to adopt for file processing.
-
 ---
 
 ## Actual Message Building Flow

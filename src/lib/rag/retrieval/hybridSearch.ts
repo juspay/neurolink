@@ -13,33 +13,9 @@ import type {
   HybridSearchConfig,
   HybridSearchResult,
 } from "../types.js";
-import type { VectorStore } from "./vectorQueryTool.js";
+import type { BM25Index, HybridSearchOptions } from "../../types/ragTypes.js";
 
-/**
- * BM25 Index interface
- * Implementations should provide sparse retrieval capabilities
- */
-export interface BM25Index {
-  /**
-   * Search documents using BM25 algorithm
-   * @param query - Search query string
-   * @param topK - Number of results to return
-   * @returns Array of BM25 results
-   */
-  search(query: string, topK?: number): Promise<BM25Result[]>;
-
-  /**
-   * Add documents to the index
-   * @param documents - Documents to index
-   */
-  addDocuments(
-    documents: Array<{
-      id: string;
-      text: string;
-      metadata?: Record<string, unknown>;
-    }>,
-  ): Promise<void>;
-}
+export type { BM25Index } from "../../types/ragTypes.js";
 
 /**
  * In-memory BM25 implementation for testing and development
@@ -235,24 +211,7 @@ function normalizeScores(scores: Map<string, number>): Map<string, number> {
   return normalized;
 }
 
-/**
- * Hybrid search configuration for creating a search function
- */
-export interface HybridSearchOptions {
-  /** Vector store instance */
-  vectorStore: VectorStore;
-  /** BM25 index instance */
-  bm25Index: BM25Index;
-  /** Index name for vector store */
-  indexName: string;
-  /** Embedding model configuration (optional - uses defaults from ProviderFactory if not specified) */
-  embeddingModel?: {
-    provider?: string;
-    modelName?: string;
-  };
-  /** Default search configuration */
-  defaultConfig?: HybridSearchConfig;
-}
+export type { HybridSearchOptions } from "../../types/ragTypes.js";
 
 /**
  * Create a hybrid search function

@@ -22,7 +22,7 @@ const DETECTION_RATE_LIMIT_BACKOFF_MS = 200; // Initial backoff on rate limit de
 /**
  * Streaming capability information for an endpoint
  */
-export interface StreamingCapability {
+export type StreamingCapability = {
   /** Whether streaming is supported */
   supported: boolean;
   /** Detected streaming protocol */
@@ -42,12 +42,12 @@ export interface StreamingCapability {
     version?: string;
     tags?: string[];
   };
-}
+};
 
 /**
  * Model type detection result
  */
-export interface ModelDetectionResult {
+export type ModelDetectionResult = {
   /** Primary model type */
   type: StreamingCapability["modelType"];
   /** Detection confidence (0-1) */
@@ -56,12 +56,12 @@ export interface ModelDetectionResult {
   evidence: string[];
   /** Suggested configuration */
   suggestedConfig?: Partial<SageMakerModelConfig>;
-}
+};
 
 /**
  * Endpoint health and metadata information
  */
-export interface EndpointHealth {
+export type EndpointHealth = {
   /** Health status */
   status: "healthy" | "unhealthy" | "unknown";
   /** Response time in milliseconds */
@@ -75,13 +75,13 @@ export interface EndpointHealth {
     framework?: string;
     architecture?: string;
   };
-}
+};
 
 /**
  * Configuration object for detection test wrapper
  * Replaces multiple callback parameters for better maintainability
  */
-interface DetectionTestConfig {
+type DetectionTestConfig = {
   test: () => Promise<void>;
   index: number;
   testName: string;
@@ -93,17 +93,17 @@ interface DetectionTestConfig {
   incrementRateLimit: () => void;
   maxRateLimitRetries: number;
   rateLimitState: { count: number }; // Use mutable object to prevent closure issues
-}
+};
 
 /**
  * Configuration object for parallel detection test execution
  * Centralizes rate limiting and execution parameters
  */
-interface ParallelDetectionConfig {
+type ParallelDetectionConfig = {
   maxConcurrentTests: number;
   maxRateLimitRetries: number;
   initialRateLimitCount: number;
-}
+};
 
 /**
  * SageMaker Model Detection and Capability Discovery Service

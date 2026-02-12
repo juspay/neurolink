@@ -8,11 +8,11 @@
  * - Error handling for unsupported file types
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { FileDetector } from "../../../src/lib/utils/fileDetector.js";
-import { logger } from "../../../src/lib/utils/logger.js";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FileDetector } from "../../../src/lib/utils/fileDetector.js";
+import { logger } from "../../../src/lib/utils/logger.js";
 
 // Mock the logger
 vi.mock("../../../src/lib/utils/logger.js", () => ({
@@ -63,16 +63,18 @@ describe("FileDetector", () => {
         expect(result.type).toBe("csv");
       });
 
-      it("should throw error when file type not in allowedTypes", async () => {
+      it("should gracefully process file even when type not in allowedTypes", async () => {
+        // After universal file handling: instead of throwing, the system
+        // falls through to processFile() which processes the file based on
+        // its detected type (CSV in this case).
         const csvPath = join(fixturesPath, "basic.csv");
 
-        await expect(
-          FileDetector.detectAndProcess(csvPath, {
-            allowedTypes: ["pdf"],
-          }),
-        ).rejects.toThrow(
-          /File type detection failed and all fallback parsing attempts failed/,
-        );
+        const result = await FileDetector.detectAndProcess(csvPath, {
+          allowedTypes: ["pdf"],
+        });
+        // The file is valid CSV and gets processed as such via processFile()
+        expect(result).toBeDefined();
+        expect(result.type).toBe("csv");
       });
     });
 
@@ -257,16 +259,17 @@ describe("FileDetector", () => {
     });
 
     describe("Error messages", () => {
-      it("should provide clear error message when type not allowed", async () => {
+      it("should gracefully process file even when type not in allowedTypes list", async () => {
+        // After universal file handling: instead of throwing, the system
+        // falls through to processFile() which processes the file based on
+        // its detected type.
         const csvPath = join(fixturesPath, "basic.csv");
 
-        await expect(
-          FileDetector.detectAndProcess(csvPath, {
-            allowedTypes: ["image", "pdf"],
-          }),
-        ).rejects.toThrow(
-          /File type detection failed and all fallback parsing attempts failed/,
-        );
+        const result = await FileDetector.detectAndProcess(csvPath, {
+          allowedTypes: ["image", "pdf"],
+        });
+        expect(result).toBeDefined();
+        expect(result.type).toBe("csv");
       });
 
       it("should successfully parse extension-less files via CSV fallback", async () => {
@@ -413,18 +416,22 @@ describe("FileDetector", () => {
       expect(result.mimeType).toBe("application/json");
     });
 
-    it("should fail when no allowed type matches binary content", async () => {
+    it("should gracefully handle binary content that doesn't match any allowed type", async () => {
       // Binary content with null bytes - can't be parsed as text
+      // After universal file handling: returns type "unknown" with
+      // extracted metadata instead of throwing.
       const binaryBuffer = Buffer.from([
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x00, 0x00,
       ]);
 
-      // Request image/pdf which require actual binary magic bytes
-      await expect(
-        FileDetector.detectAndProcess(binaryBuffer, {
-          allowedTypes: ["image", "pdf"],
-        }),
-      ).rejects.toThrow(/fallback parsing attempts failed/);
+      const result = await FileDetector.detectAndProcess(binaryBuffer, {
+        allowedTypes: ["image", "pdf"],
+      });
+      expect(result).toBeDefined();
+      expect(result.type).toBe("unknown");
+      expect(typeof result.content).toBe("string");
+      expect(result.content).toContain("Size:");
+      expect(result.content).toContain("Header bytes:");
     });
   });
 
@@ -492,6 +499,520 @@ describe("FileDetector", () => {
       });
 
       expect(result.type).toBe("pdf");
+    });
+  });
+
+  // ================================================================
+  // FILE TYPE ROUTING + CONTENT EXTRACTION:
+  // Deterministic tests that verify every file type is correctly
+  // detected, processed, and returns the EXACT expected content.
+  // No LLM involved. Content is compared against known values from
+  // the fixture files themselves.
+  // ================================================================
+
+  describe("File type routing and content extraction", () => {
+    const allAllowedTypes = [
+      "csv",
+      "image",
+      "pdf",
+      "svg",
+      "video",
+      "audio",
+      "archive",
+      "xlsx",
+      "docx",
+      "pptx",
+      "text",
+    ] as const;
+
+    const detectOpts = {
+      maxSize: 100 * 1024 * 1024,
+      allowedTypes: [...allAllowedTypes],
+    };
+
+    // -- Excel (.xlsx): exact structural verification -----------
+
+    describe("Excel (.xlsx) — exact content verification", () => {
+      it("detects as xlsx, not archive or unknown", async () => {
+        const file = join(fixturesPath, "document", "sample.xlsx");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("xlsx");
+        expect(result.type).not.toBe("archive");
+      });
+
+      it("reports exactly 1 sheet, 391 rows, 5 columns", async () => {
+        const file = join(fixturesPath, "document", "sample.xlsx");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        const content = result.content as string;
+        expect(content).toContain("1 sheet(s)");
+        expect(content).toContain("391 total rows");
+        expect(content).toContain("Columns (5)");
+      });
+
+      it("extracts exact column headers: Postcode, Sales_Rep_ID, Sales_Rep_Name, Year, Value", async () => {
+        const file = join(fixturesPath, "document", "sample.xlsx");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        const content = result.content as string;
+        const headerLine = content
+          .split("\n")
+          .find((l) => l.startsWith("Columns (5):"));
+        expect(headerLine).toBeDefined();
+        expect(headerLine).toContain("Postcode");
+        expect(headerLine).toContain("Sales_Rep_ID");
+        expect(headerLine).toContain("Sales_Rep_Name");
+        expect(headerLine).toContain("Year");
+        expect(headerLine).toContain("Value");
+      });
+
+      it("extracts exact cell values from row 1: 2121, 456, Jane, 2011", async () => {
+        const file = join(fixturesPath, "document", "sample.xlsx");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        const content = result.content as string;
+        // Row data is tab-separated; find the line with 2121
+        const dataLine = content
+          .split("\n")
+          .find((l) => l.startsWith("2121\t"));
+        expect(dataLine).toBeDefined();
+        expect(dataLine).toContain("456");
+        expect(dataLine).toContain("Jane");
+        expect(dataLine).toContain("2011");
+      });
+
+      it("does NOT return placeholder text", async () => {
+        const file = join(fixturesPath, "document", "sample.xlsx");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).not.toContain("[Spreadsheet file:");
+      });
+
+      it("xlsx buffer (no path) starts with PK magic bytes and does not crash", async () => {
+        const file = join(fixturesPath, "document", "sample.xlsx");
+        const buffer = await readFile(file);
+        expect(buffer[0]).toBe(0x50); // P
+        expect(buffer[1]).toBe(0x4b); // K
+        const result = await FileDetector.detectAndProcess(buffer, detectOpts);
+        // Buffer without extension: archive at 70% is the expected fallback
+        expect(["archive", "xlsx"]).toContain(result.type);
+      });
+    });
+
+    // -- Word (.docx): exact text verification ------------------
+
+    describe("Word (.docx) — exact content verification", () => {
+      it("detects as docx, not archive", async () => {
+        const file = join(fixturesPath, "document", "sample.docx");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("docx");
+      });
+
+      it("extracted text starts with 'Sample Document'", async () => {
+        const file = join(fixturesPath, "document", "sample.docx");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        const content = result.content as string;
+        expect(content.trimStart().startsWith("Sample Document")).toBe(true);
+      });
+
+      it("contains the heading 'Headings' and paragraph about eight section headings", async () => {
+        const file = join(fixturesPath, "document", "sample.docx");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        const content = result.content as string;
+        expect(content).toContain("Headings");
+        expect(content).toContain("eight section headings");
+      });
+
+      it("contains the 'Lists' section", async () => {
+        const file = join(fixturesPath, "document", "sample.docx");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Lists");
+      });
+
+      it("content is exactly 2702 characters", async () => {
+        const file = join(fixturesPath, "document", "sample.docx");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect((result.content as string).length).toBe(2702);
+      });
+
+      it("does NOT return placeholder text", async () => {
+        const file = join(fixturesPath, "document", "sample.docx");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).not.toContain("[Document file:");
+      });
+    });
+
+    // -- OpenDocument (.odt): exact text verification -----------
+
+    describe("OpenDocument (.odt) — exact content verification", () => {
+      it("detects as docx (document), not archive", async () => {
+        const file = join(fixturesPath, "document", "sample.odt");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("docx");
+        expect(result.type).not.toBe("archive");
+      });
+
+      it("extracted text contains 'UOML Sample-en'", async () => {
+        const file = join(fixturesPath, "document", "sample.odt");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("UOML Sample-en");
+      });
+
+      it("contains UOML case studies content", async () => {
+        const file = join(fixturesPath, "document", "sample.odt");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        const content = result.content as string;
+        expect(content).toContain("Case studies");
+        expect(content).toContain("Full text search");
+      });
+
+      it("content is exactly 12911 characters", async () => {
+        const file = join(fixturesPath, "document", "sample.odt");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect((result.content as string).length).toBe(12911);
+      });
+    });
+
+    // -- RTF (.rtf): exact text verification --------------------
+
+    describe("RTF (.rtf) — exact content verification", () => {
+      it("detects as docx (document)", async () => {
+        const file = join(fixturesPath, "document", "sample.rtf");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("docx");
+      });
+
+      it("extracted text contains 'example test rtf-file'", async () => {
+        const file = join(fixturesPath, "document", "sample.rtf");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("example test rtf-file");
+      });
+
+      it("contains table content: '1st column' and '2nd column'", async () => {
+        const file = join(fixturesPath, "document", "sample.rtf");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        const content = result.content as string;
+        expect(content).toContain("1st column");
+        expect(content).toContain("2nd column");
+      });
+
+      it("content is exactly 1643 characters", async () => {
+        const file = join(fixturesPath, "document", "sample.rtf");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect((result.content as string).length).toBe(1643);
+      });
+    });
+
+    // -- Text files: byte-exact match against raw file ----------
+
+    describe("Text files — byte-exact content match", () => {
+      it(".py content is byte-exact match with fs.readFileSync", async () => {
+        const file = join(fixturesPath, "code", "sample.py");
+        const raw = (await readFile(file)).toString("utf-8");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("text");
+        expect(result.content).toBe(raw);
+      });
+
+      it(".js content is byte-exact match with fs.readFileSync", async () => {
+        const file = join(fixturesPath, "code", "sample.js");
+        const raw = (await readFile(file)).toString("utf-8");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("text");
+        expect(result.content).toBe(raw);
+      });
+
+      it(".json content is byte-exact match and valid JSON", async () => {
+        const file = join(fixturesPath, "code", "sample.json");
+        const raw = (await readFile(file)).toString("utf-8");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("text");
+        expect(result.content).toBe(raw);
+        // Also verify it's valid JSON
+        const parsed = JSON.parse(result.content as string);
+        expect(parsed.fruit).toBe("Apple");
+        expect(parsed.size).toBe("Large");
+        expect(parsed.color).toBe("Red");
+      });
+
+      it(".sql content is byte-exact match", async () => {
+        const file = join(fixturesPath, "code", "sample.sql");
+        const raw = (await readFile(file)).toString("utf-8");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("text");
+        expect(result.content).toBe(raw);
+      });
+
+      it(".yaml content is byte-exact match", async () => {
+        const file = join(fixturesPath, "code", "sample.yaml");
+        const raw = (await readFile(file)).toString("utf-8");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("text");
+        expect(result.content).toBe(raw);
+      });
+
+      it(".html content is byte-exact match", async () => {
+        const file = join(fixturesPath, "code", "sample.html");
+        const raw = (await readFile(file)).toString("utf-8");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("text");
+        expect(result.content).toBe(raw);
+      });
+
+      it(".txt content is byte-exact match", async () => {
+        const file = join(fixturesPath, "document", "sample.txt");
+        const raw = (await readFile(file)).toString("utf-8");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("text");
+        expect(result.content).toBe(raw);
+      });
+
+      it(".xml content is byte-exact match", async () => {
+        const file = join(
+          fixturesPath,
+          "document",
+          "file_example_XML_24kb.xml",
+        );
+        const raw = (await readFile(file)).toString("utf-8");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("text");
+        expect(result.content).toBe(raw);
+      });
+    });
+
+    // -- Video: exact metadata field verification ---------------
+
+    describe("Video (.mp4) — exact metadata verification", () => {
+      it("detects as video", async () => {
+        const file = join(fixturesPath, "video", "sample_640x360.mp4");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("video");
+      });
+
+      it("extracts exact duration: 13s", async () => {
+        const file = join(fixturesPath, "video", "sample_640x360.mp4");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Duration: 13s");
+      });
+
+      it("extracts exact resolution: 640x360", async () => {
+        const file = join(fixturesPath, "video", "sample_640x360.mp4");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Resolution: 640x360");
+      });
+
+      it("extracts exact codec: h264", async () => {
+        const file = join(fixturesPath, "video", "sample_640x360.mp4");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Video Codec: h264");
+      });
+
+      it("extracts exact frame rate: 29.97 fps", async () => {
+        const file = join(fixturesPath, "video", "sample_640x360.mp4");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Frame Rate: 29.97 fps");
+      });
+
+      it("extracts exact bitrate: 345 kbps", async () => {
+        const file = join(fixturesPath, "video", "sample_640x360.mp4");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Bitrate: 345 kbps");
+      });
+
+      it("does NOT return placeholder text", async () => {
+        const file = join(fixturesPath, "video", "sample_640x360.mp4");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).not.toBe("[Video file: video]");
+      });
+
+      it(".mkv detects as video", async () => {
+        const file = join(fixturesPath, "video", "sample_640x360.mkv");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("video");
+        expect(result.content as string).not.toBe("[Video file: video]");
+      });
+
+      it(".webm detects as video", async () => {
+        const file = join(fixturesPath, "video", "sample_640x360.webm");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("video");
+        expect(result.content as string).not.toBe("[Video file: video]");
+      });
+    });
+
+    // -- Audio: exact metadata field verification ---------------
+
+    describe("Audio (.mp3) — exact metadata verification", () => {
+      it("detects as audio", async () => {
+        const file = join(fixturesPath, "audio", "sample3.mp3");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("audio");
+      });
+
+      it("extracts exact codec: MPEG 1 Layer 3", async () => {
+        const file = join(fixturesPath, "audio", "sample3.mp3");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Codec: MPEG 1 Layer 3");
+      });
+
+      it("extracts exact bitrate: 128 kbps", async () => {
+        const file = join(fixturesPath, "audio", "sample3.mp3");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Bitrate: 128 kbps");
+      });
+
+      it("extracts exact sample rate: 44100 Hz", async () => {
+        const file = join(fixturesPath, "audio", "sample3.mp3");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Sample Rate: 44100 Hz");
+      });
+
+      it("extracts exact channels: 2 (Stereo)", async () => {
+        const file = join(fixturesPath, "audio", "sample3.mp3");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Channels: 2 (Stereo)");
+      });
+
+      it("extracts exact duration: 1:46", async () => {
+        const file = join(fixturesPath, "audio", "sample3.mp3");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Duration: 1:46");
+      });
+
+      it("does NOT return placeholder text", async () => {
+        const file = join(fixturesPath, "audio", "sample3.mp3");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).not.toBe("[Audio file: audio]");
+      });
+
+      it(".wav detects as audio with metadata", async () => {
+        const file = join(fixturesPath, "audio", "sample3.wav");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("audio");
+        expect(result.content as string).not.toBe("[Audio file: audio]");
+      });
+
+      it(".ogg detects as audio with metadata", async () => {
+        const file = join(fixturesPath, "audio", "sample3.ogg");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("audio");
+        expect(result.content as string).not.toBe("[Audio file: audio]");
+      });
+
+      it(".flac detects as audio with metadata", async () => {
+        const file = join(fixturesPath, "audio", "sample1.flac");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("audio");
+        expect(result.content as string).not.toBe("[Audio file: audio]");
+      });
+    });
+
+    // -- Archive: exact file listing verification ---------------
+
+    describe("Archive — exact file listing verification", () => {
+      it(".tar.gz detects as archive", async () => {
+        const file = join(fixturesPath, "archive", "sample.tar.gz");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("archive");
+      });
+
+      it(".tar.gz lists exactly 6 entries", async () => {
+        const file = join(fixturesPath, "archive", "sample.tar.gz");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.content as string).toContain("Total entries:** 6");
+      });
+
+      it(".tar.gz lists the exact files: sample.json, sample.py, sample.txt", async () => {
+        const file = join(fixturesPath, "archive", "sample.tar.gz");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        const content = result.content as string;
+        expect(content).toContain("code/sample.json");
+        expect(content).toContain("code/sample.py");
+        expect(content).toContain("document/sample.txt");
+      });
+
+      it(".tar.gz lists exact file sizes", async () => {
+        const file = join(fixturesPath, "archive", "sample.tar.gz");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        const content = result.content as string;
+        expect(content).toContain("code/sample.json (60 B)");
+        expect(content).toContain("code/sample.py (195 B)");
+        expect(content).toContain("document/sample.txt (607 B)");
+      });
+
+      it(".zip detects as archive (not xlsx/docx)", async () => {
+        const file = join(fixturesPath, "archive", "sample.zip");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("archive");
+        expect(result.type).not.toBe("xlsx");
+        expect(result.type).not.toBe("docx");
+      });
+    });
+
+    // -- ZIP-based format disambiguation (regression tests) -----
+
+    describe("ZIP-based format disambiguation (regression)", () => {
+      it(".xlsx path → xlsx, not archive", async () => {
+        const result = await FileDetector.detectAndProcess(
+          join(fixturesPath, "document", "sample.xlsx"),
+          detectOpts,
+        );
+        expect(result.type).toBe("xlsx");
+      });
+
+      it(".docx path → docx, not archive", async () => {
+        const result = await FileDetector.detectAndProcess(
+          join(fixturesPath, "document", "sample.docx"),
+          detectOpts,
+        );
+        expect(result.type).toBe("docx");
+      });
+
+      it(".odt path → docx, not archive", async () => {
+        const result = await FileDetector.detectAndProcess(
+          join(fixturesPath, "document", "sample.odt"),
+          detectOpts,
+        );
+        expect(result.type).toBe("docx");
+      });
+
+      it(".zip path → archive, not xlsx or docx", async () => {
+        const result = await FileDetector.detectAndProcess(
+          join(fixturesPath, "archive", "sample.zip"),
+          detectOpts,
+        );
+        expect(result.type).toBe("archive");
+      });
+    });
+
+    // -- CSV ---------------------------------------------------
+
+    describe("CSV — content verification", () => {
+      it(".csv detects as csv with row/column metadata", async () => {
+        const file = join(fixturesPath, "basic.csv");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("csv");
+        expect(result.metadata.rowCount).toBeGreaterThan(0);
+        expect(result.metadata.columnCount).toBeGreaterThan(0);
+      });
+
+      it(".tsv detects as csv", async () => {
+        const file = join(fixturesPath, "sample.tsv");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("csv");
+      });
+    });
+
+    // -- Image -------------------------------------------------
+
+    describe("Image — content verification", () => {
+      it(".png detects as image with base64 content > 100 chars", async () => {
+        const file = join(fixturesPath, "image", "sample.png");
+        const result = await FileDetector.detectAndProcess(file, detectOpts);
+        expect(result.type).toBe("image");
+        // ImageProcessor returns base64 string
+        const contentLen =
+          typeof result.content === "string"
+            ? result.content.length
+            : (result.content as Buffer).length;
+        expect(contentLen).toBeGreaterThan(100);
+      });
     });
   });
 });

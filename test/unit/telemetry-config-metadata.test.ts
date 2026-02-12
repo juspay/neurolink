@@ -7,9 +7,9 @@ import type { NeuroLink } from "../../src/lib/neurolink";
 /**
  * Mock interface for NeuroLink that only includes the methods used by TelemetryHandler
  */
-interface MockNeuroLink extends Pick<NeuroLink, "isTelemetryEnabled"> {
+type MockNeuroLink = Pick<NeuroLink, "isTelemetryEnabled"> & {
   isTelemetryEnabled: () => boolean;
-}
+};
 
 // Mock NeuroLink instance
 const mockNeurolink: MockNeuroLink = {

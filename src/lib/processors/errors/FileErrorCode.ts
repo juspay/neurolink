@@ -112,7 +112,7 @@ export enum FileErrorCode {
 /**
  * Error message template with user-friendly messaging and retry information.
  */
-export interface ErrorMessageTemplate {
+export type ErrorMessageTemplate = {
   /** Technical error message */
   message: string;
   /** User-friendly error message */
@@ -121,7 +121,7 @@ export interface ErrorMessageTemplate {
   suggestedAction: string;
   /** Whether this error is potentially retryable */
   retryable: boolean;
-}
+};
 
 /**
  * Error messages map with technical and user-friendly messaging for each error code.

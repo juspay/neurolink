@@ -69,14 +69,14 @@ import { getProcessorRegistry } from "../registry/index.js";
  * };
  * ```
  */
-export interface FileProcessingOptions extends ProcessOptions {
+export type FileProcessingOptions = ProcessOptions & {
   /** Preferred processor name (bypasses auto-detection) */
   preferredProcessor?: string;
   /** Whether to fall back to default processing if no processor found */
   allowFallback?: boolean;
   /** Maximum number of files to process (default: 100) */
   maxFiles?: number;
-}
+};
 
 // =============================================================================
 // BATCH PROCESSING RESULT
@@ -106,7 +106,7 @@ export interface FileProcessingOptions extends ProcessOptions {
  * }
  * ```
  */
-export interface BatchFileProcessingResult {
+export type BatchFileProcessingResult = {
   /** Successfully processed files */
   successful: Array<{
     fileInfo: FileInfo;
@@ -123,7 +123,7 @@ export interface BatchFileProcessingResult {
     fileInfo: FileInfo;
     reason: string;
   }>;
-}
+};
 
 // =============================================================================
 // SINGLE FILE PROCESSING
@@ -171,7 +171,7 @@ export async function processFileWithRegistry(
   processorName: string | null;
   result: FileProcessingResult<ProcessedFileBase> | null;
 }> {
-  const registry = getProcessorRegistry();
+  const registry = await getProcessorRegistry();
 
   const timeout = options?.timeout ?? 30000;
 
@@ -329,13 +329,15 @@ export async function processBatchWithRegistry(
  * }
  * ```
  */
-export function getSupportedFileTypes(): Array<{
-  name: string;
-  mimeTypes: string[];
-  extensions: string[];
-  priority: number;
-}> {
-  const registry = getProcessorRegistry();
+export async function getSupportedFileTypes(): Promise<
+  Array<{
+    name: string;
+    mimeTypes: string[];
+    extensions: string[];
+    priority: number;
+  }>
+> {
+  const registry = await getProcessorRegistry();
   const processors = registry.listProcessors();
 
   return processors.map((p) => ({
@@ -366,11 +368,11 @@ export function getSupportedFileTypes(): Array<{
  * }
  * ```
  */
-export function isFileTypeSupported(
+export async function isFileTypeSupported(
   mimetype: string,
   filename: string,
-): boolean {
-  const registry = getProcessorRegistry();
+): Promise<boolean> {
+  const registry = await getProcessorRegistry();
   return registry.findProcessor(mimetype, filename) !== null;
 }
 
@@ -395,10 +397,10 @@ export function isFileTypeSupported(
  * }
  * ```
  */
-export function getProcessorForFile(
+export async function getProcessorForFile(
   mimetype: string,
   filename: string,
-): ProcessorMatch | null {
-  const registry = getProcessorRegistry();
+): Promise<ProcessorMatch | null> {
+  const registry = await getProcessorRegistry();
   return registry.findProcessor(mimetype, filename);
 }

@@ -103,11 +103,11 @@ neurolink.registerTool("goodTool", {
 All custom tools implement the `SimpleTool` interface:
 
 ```typescript
-interface SimpleTool<T = any, R = any> {
+type SimpleTool<T = any, R = any> = {
   description: string; // What the tool does
   parameters?: ZodSchema<T>; // Input validation schema
   execute: (args: T) => Promise<R>; // Tool implementation
-}
+};
 ```
 
 ### Interface Components

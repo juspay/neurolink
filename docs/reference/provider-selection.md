@@ -399,14 +399,14 @@ import { NeuroLink } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink();
 
-interface RequestContext {
+type RequestContext = {
   prompt: string;
   hasImages?: boolean;
   hasPDFs?: boolean;
   requiresReasoning?: boolean;
   isSensitive?: boolean;
   maxBudget?: "free" | "low" | "medium" | "high";
-}
+};
 
 function selectProvider(context: RequestContext): {
   provider: string;
@@ -481,11 +481,11 @@ import { NeuroLink } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink();
 
-interface ProviderConfig {
+type ProviderConfig = {
   provider: string;
   model: string;
   priority: number;
-}
+};
 
 const providerChain: ProviderConfig[] = [
   { provider: "openai", model: "gpt-4o", priority: 1 },
@@ -550,14 +550,14 @@ import { NeuroLink } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink();
 
-interface ProviderStats {
+type ProviderStats = {
   provider: string;
   model: string;
   costPer1MTokens: number;
   currentLoad: number;
   maxLoad: number;
   isHealthy: boolean;
-}
+};
 
 class CostAwareLoadBalancer {
   private providers: ProviderStats[] = [

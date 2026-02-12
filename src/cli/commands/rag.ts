@@ -207,27 +207,27 @@ async function getEmbeddingModel(
 /**
  * Chunk subcommand arguments
  */
-interface ChunkArgs extends RAGCommandArgs {
+type ChunkArgs = RAGCommandArgs & {
   file: string;
   output?: string;
   extract?: boolean;
-}
+};
 
 /**
  * Index subcommand arguments
  */
-interface IndexArgs extends RAGCommandArgs {
+type IndexArgs = RAGCommandArgs & {
   file: string;
   indexName?: string;
-}
+};
 
 /**
  * Query subcommand arguments
  */
-interface QueryArgs extends RAGCommandArgs {
+type QueryArgs = RAGCommandArgs & {
   query: string;
   indexName?: string;
-}
+};
 
 /**
  * In-memory storage for indexed documents

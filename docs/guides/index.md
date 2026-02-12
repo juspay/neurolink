@@ -81,13 +81,13 @@ Deploy NeuroLink as production-ready HTTP APIs.
 
 | Guide                                                      | Description                                                         |
 | ---------------------------------------------------------- | ------------------------------------------------------------------- |
-| **[Server Adapters Overview](/guides/server-adapters)**    | Quick start guide for exposing AI agents as HTTP APIs               |
-| **[Hono Adapter](/guides/server-adapters/hono)**           | Recommended lightweight adapter for serverless and edge deployments |
-| **[Express Adapter](/guides/server-adapters/express)**     | Integration with existing Express applications                      |
-| **[Fastify Adapter](/guides/server-adapters/fastify)**     | High-performance adapter with built-in schema validation            |
-| **[Koa Adapter](/guides/server-adapters/koa)**             | Modern, minimalist adapter with clean middleware composition        |
-| **[Security Guide](/guides/server-adapters/security)**     | Authentication, authorization, and security best practices          |
-| **[Deployment Guide](/guides/server-adapters/deployment)** | Production deployment patterns with Docker and Kubernetes           |
+| **[Server Adapters Overview](./server-adapters/index.md)** | Quick start guide for exposing AI agents as HTTP APIs               |
+| **[Hono Adapter](./server-adapters/hono.md)**              | Recommended lightweight adapter for serverless and edge deployments |
+| **[Express Adapter](./server-adapters/express.md)**        | Integration with existing Express applications                      |
+| **[Fastify Adapter](./server-adapters/fastify.md)**        | High-performance adapter with built-in schema validation            |
+| **[Koa Adapter](./server-adapters/koa.md)**                | Modern, minimalist adapter with clean middleware composition        |
+| **[Security Guide](./server-adapters/security.md)**        | Authentication, authorization, and security best practices          |
+| **[Deployment Guide](./server-adapters/deployment.md)**    | Production deployment patterns with Docker and Kubernetes           |
 
 ---
 

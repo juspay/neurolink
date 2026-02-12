@@ -968,10 +968,10 @@ wsManager.registerHandler("/ws", {
 
 ## Related Documentation
 
-- **[Server Adapters Overview](/guides/server-adapters)** - Getting started with server adapters
-- **[Security Best Practices](/guides/server-adapters/security)** - Authentication patterns
-- **[Hono Adapter](/guides/server-adapters/hono)** - Using WebSocket with Hono
-- **[Configuration Reference](/reference/server-configuration)** - Full configuration options
+- **[Server Adapters Overview](./index.md)** - Getting started with server adapters
+- **[Security Best Practices](./security.md)** - Authentication patterns
+- **[Hono Adapter](./hono.md)** - Using WebSocket with Hono
+- **[Configuration Reference](../../reference/server-configuration.md)** - Full configuration options
 
 ---
 

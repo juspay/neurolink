@@ -14,7 +14,7 @@ import type {
 /**
  * Test-specific type for tool call chunks with flexible data structure
  */
-interface TestToolCallChunk {
+type TestToolCallChunk = {
   type: "tool-call";
   timestamp: number;
   data: {
@@ -22,12 +22,12 @@ interface TestToolCallChunk {
     name: string;
     arguments: Record<string, unknown>;
   };
-}
+};
 
 /**
  * Test-specific type for tool result chunks
  */
-interface TestToolResultChunk {
+type TestToolResultChunk = {
   type: "tool-result";
   timestamp: number;
   data: {
@@ -35,31 +35,31 @@ interface TestToolResultChunk {
     name: string;
     result: unknown;
   };
-}
+};
 
 /**
  * Test-specific type for error chunks
  */
-interface TestErrorChunk {
+type TestErrorChunk = {
   type: "error";
   timestamp: number;
   data: {
     message: string;
     stack?: string;
   };
-}
+};
 
 /**
  * Test-specific type for text-delta chunks with additional fields
  */
-interface TestTextDeltaChunk {
+type TestTextDeltaChunk = {
   type: "text-delta";
   timestamp: number;
   data: {
     text: string;
     [key: string]: unknown;
   };
-}
+};
 
 describe("redactStreamChunk", () => {
   describe("disabled by default", () => {

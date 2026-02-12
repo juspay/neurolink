@@ -31,7 +31,7 @@ The RAG processing system consists of three main components:
 ### Common Configuration Options
 
 ```typescript
-interface ChunkerConfig {
+type ChunkerConfig = {
   // Maximum chunk size (characters or tokens)
   maxSize: number; // Default: 1000
 
@@ -49,7 +49,7 @@ interface ChunkerConfig {
 
   // Whether to preserve metadata from source document
   preserveMetadata?: boolean; // Default: true
-}
+};
 ```
 
 ### Strategy-Specific Configuration
@@ -205,7 +205,7 @@ const chunks = await chunker.chunk(documentText, {
 ### Common Configuration Options
 
 ```typescript
-interface RerankerConfig {
+type RerankerConfig = {
   // Number of top results to return
   topK: number; // Default: 10
 
@@ -214,7 +214,7 @@ interface RerankerConfig {
 
   // Include original scores in output
   includeOriginalScores?: boolean; // Default: false
-}
+};
 ```
 
 ### Type-Specific Configuration
@@ -305,7 +305,7 @@ const reranked = await reranker.rerank(searchResults, query, { topK: 5 });
 ### BM25 Index Configuration
 
 ```typescript
-interface BM25Config {
+type BM25Config = {
   // BM25 parameters
   k1: number; // Default: 1.2 (term frequency saturation)
   b: number; // Default: 0.75 (document length normalization)
@@ -314,7 +314,7 @@ interface BM25Config {
   lowercase: boolean; // Default: true
   stemming: boolean; // Default: false
   stopwords: string[]; // Default: English stopwords
-}
+};
 ```
 
 ### Fusion Methods
@@ -383,7 +383,7 @@ The RAG system includes resilience patterns to handle failures gracefully.
 Circuit breakers prevent cascading failures by stopping operations when error rates are too high.
 
 ```typescript
-interface RAGCircuitBreakerConfig {
+type RAGCircuitBreakerConfig = {
   // Number of failures before opening circuit
   failureThreshold: number; // Default: 5
 
@@ -401,7 +401,7 @@ interface RAGCircuitBreakerConfig {
 
   // Time window for statistics in ms
   statisticsWindowSize: number; // Default: 300000 (5 minutes)
-}
+};
 ```
 
 #### Circuit Breaker Usage
@@ -448,7 +448,7 @@ const stats = breaker.getStats();
 Retry handlers provide automatic retries with exponential backoff for transient failures.
 
 ```typescript
-interface RAGRetryConfig {
+type RAGRetryConfig = {
   // Maximum number of retry attempts
   maxRetries: number; // Default: 3
 
@@ -466,7 +466,7 @@ interface RAGRetryConfig {
 
   // Retryable HTTP status codes
   retryableStatusCodes?: number[]; // Default: [408, 429, 500, 502, 503, 504]
-}
+};
 ```
 
 #### Retry Handler Usage
@@ -531,7 +531,7 @@ The RAG system supports extracting metadata from document chunks using LLMs.
 ### Base Extractor Configuration
 
 ```typescript
-interface BaseExtractorConfig {
+type BaseExtractorConfig = {
   // Language model to use
   modelName?: string; // e.g., "gpt-4", "claude-3-sonnet"
 
@@ -546,7 +546,7 @@ interface BaseExtractorConfig {
 
   // Temperature for LLM generation
   temperature?: number;
-}
+};
 ```
 
 ### Title Extractor

@@ -14,7 +14,7 @@ import type { TokenUsage } from "../types/analytics.js";
  * Raw usage object that may come from various AI providers
  * Supports multiple naming conventions and nested structures
  */
-export interface RawUsageObject {
+export type RawUsageObject = {
   // BaseProvider normalized format
   input?: number;
   output?: number;
@@ -46,12 +46,12 @@ export interface RawUsageObject {
 
   // Nested usage object (some providers wrap usage)
   usage?: RawUsageObject;
-}
+};
 
 /**
  * Options for token extraction behavior
  */
-export interface TokenExtractionOptions {
+export type TokenExtractionOptions = {
   /**
    * Whether to calculate cache savings percentage
    * @default true
@@ -64,7 +64,7 @@ export interface TokenExtractionOptions {
    * - "undefined": Return undefined for missing optional fields (default)
    */
   missingOptionalBehavior?: "zero" | "undefined";
-}
+};
 
 /**
  * Extract input token count from various provider formats

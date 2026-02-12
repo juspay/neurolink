@@ -8,18 +8,18 @@ import type { ServerContext } from "../../../src/lib/server/types.js";
 /**
  * Mock Fastify request type for testing fastifyMCPBodyHook
  */
-interface MockFastifyRequest {
+type MockFastifyRequest = {
   raw: { body?: unknown };
   body?: unknown;
-}
+};
 
 /**
  * Mock rawRequest structure used by the middleware
  */
-interface MockRawRequest {
+type MockRawRequest = {
   raw?: { body?: unknown };
   body?: unknown;
-}
+};
 
 /**
  * Partial ServerContext for middleware testing

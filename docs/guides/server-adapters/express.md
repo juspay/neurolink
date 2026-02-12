@@ -597,11 +597,11 @@ describe("API Server", () => {
 
 ## Related Documentation
 
-- **[Server Adapters Overview](/guides/server-adapters)** - Getting started with server adapters
-- **[Configuration Reference](/reference/server-configuration)** - Full configuration options
-- **[Hono Adapter](/guides/server-adapters/hono)** - Compare with Hono adapter
-- **[Fastify Adapter](/guides/server-adapters/fastify)** - Compare with Fastify adapter
-- **[Security Best Practices](/guides/server-adapters/security)** - Authentication patterns
+- **[Server Adapters Overview](./index.md)** - Getting started with server adapters
+- **[Configuration Reference](../../reference/server-configuration.md)** - Full configuration options
+- **[Hono Adapter](./hono.md)** - Compare with Hono adapter
+- **[Fastify Adapter](./fastify.md)** - Compare with Fastify adapter
+- **[Security Best Practices](./security.md)** - Authentication patterns
 
 ---
 

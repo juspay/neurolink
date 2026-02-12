@@ -13,7 +13,7 @@ import { ErrorFactory } from "./errorHandling.js";
 /**
  * Configuration options for the rate limiter
  */
-export interface RateLimiterConfig {
+export type RateLimiterConfig = {
   /** Maximum tokens (downloads) allowed per interval */
   maxTokens: number;
   /** Refill interval in milliseconds */
@@ -24,7 +24,7 @@ export interface RateLimiterConfig {
   maxQueueSize: number;
   /** Timeout for queued requests in milliseconds */
   queueTimeoutMs: number;
-}
+};
 
 /**
  * Default configuration: 10 downloads per second
@@ -40,12 +40,12 @@ const DEFAULT_CONFIG: RateLimiterConfig = {
 /**
  * Pending request in the queue
  */
-interface PendingRequest {
+type PendingRequest = {
   resolve: () => void;
   reject: (error: Error) => void;
   timestamp: number;
   timeoutTimer?: ReturnType<typeof setTimeout>;
-}
+};
 
 /**
  * Token Bucket Rate Limiter

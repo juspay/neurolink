@@ -344,6 +344,34 @@ export const EXTENSION_MIME_MAP: Record<string, string> = {
   ".perl": "text/x-perl",
   ".pl": "text/x-perl",
 
+  // Video
+  ".mp4": VIDEO_MIME_TYPES.MP4,
+  ".m4v": VIDEO_MIME_TYPES.MP4,
+  ".mkv": VIDEO_MIME_TYPES.MKV,
+  ".mov": VIDEO_MIME_TYPES.MOV,
+  ".avi": VIDEO_MIME_TYPES.AVI,
+  ".webm": VIDEO_MIME_TYPES.WEBM,
+  ".wmv": VIDEO_MIME_TYPES.WMV,
+  ".flv": VIDEO_MIME_TYPES.FLV,
+
+  // Audio
+  ".mp3": AUDIO_MIME_TYPES.MP3,
+  ".wav": AUDIO_MIME_TYPES.WAV,
+  ".ogg": AUDIO_MIME_TYPES.OGG,
+  ".flac": AUDIO_MIME_TYPES.FLAC,
+  ".m4a": AUDIO_MIME_TYPES.M4A,
+  ".aac": AUDIO_MIME_TYPES.AAC,
+  ".wma": AUDIO_MIME_TYPES.WMA,
+
+  // Archives
+  ".zip": ARCHIVE_MIME_TYPES.ZIP,
+  ".tar": ARCHIVE_MIME_TYPES.TAR,
+  ".gz": ARCHIVE_MIME_TYPES.GZIP,
+  ".tgz": ARCHIVE_MIME_TYPES.GZIP,
+  ".rar": ARCHIVE_MIME_TYPES.RAR,
+  ".7z": ARCHIVE_MIME_TYPES.SEVEN_ZIP,
+  ".jar": "application/java-archive",
+
   // Config files
   ".env": TEXT_MIME_TYPES.PLAIN,
   ".ini": TEXT_MIME_TYPES.PLAIN,

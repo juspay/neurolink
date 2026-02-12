@@ -7,14 +7,14 @@
 
 import { NeuroLink } from "@juspay/neurolink";
 
-export interface ChatOptions {
+export type ChatOptions = {
   provider?: string;
   model?: string;
   systemPrompt?: string;
   temperature?: number;
-}
+};
 
-export interface ChatResult {
+export type ChatResult = {
   text: string;
   provider: string;
   model: string;
@@ -23,15 +23,15 @@ export interface ChatResult {
     completionTokens?: number;
     totalTokens?: number;
   };
-}
+};
 
-export interface StreamChunk {
+export type StreamChunk = {
   text?: string;
   done?: boolean;
   provider?: string;
   model?: string;
   usage?: ChatResult["usage"];
-}
+};
 
 /**
  * AI Service class that wraps NeuroLink SDK

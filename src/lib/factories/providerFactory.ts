@@ -28,11 +28,11 @@ type ProviderConstructor =
 /**
  * Provider registration entry
  */
-interface ProviderRegistration {
+type ProviderRegistration = {
   constructor: ProviderConstructor;
   defaultModel?: string; // Optional - provider can read from env
   aliases?: string[];
-}
+};
 
 /**
  * True Factory Pattern implementation for AI Providers

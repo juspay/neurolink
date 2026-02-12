@@ -18,28 +18,28 @@ import { updateEnvFile as envUpdate } from "../utils/envManager.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
 import { AIProviderName } from "../../lib/types/index.js";
 
-interface BedrockSetupOptions {
+type BedrockSetupOptions = {
   checkOnly?: boolean;
   interactive?: boolean;
-}
+};
 
-interface BedrockSetupArgv {
+type BedrockSetupArgv = {
   check?: boolean;
   nonInteractive?: boolean;
-}
+};
 
-interface ConfigData {
+type ConfigData = {
   accessKeyId?: string;
   secretAccessKey?: string;
   region?: string;
   model?: string;
-}
+};
 
-interface ConfigStatus {
+type ConfigStatus = {
   hasAccessKey: boolean;
   hasSecretKey: boolean;
   hasRegion: boolean;
-}
+};
 
 export async function handleBedrockSetup(
   argv: BedrockSetupArgv,

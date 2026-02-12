@@ -188,9 +188,9 @@ app.post("/api/generate", apiKeyAuth, async (req, res) => {
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 
-interface AuthRequest extends Request {
+type AuthRequest = Request & {
   user?: any;
-}
+};
 
 export function jwtAuth(req: AuthRequest, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.replace("Bearer ", "");
@@ -584,9 +584,9 @@ export default router;
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../db";
 
-interface AuthRequest extends Request {
+type AuthRequest = Request & {
   user?: any;
-}
+};
 
 export function trackUsage(
   req: AuthRequest,

@@ -67,6 +67,6 @@ neurolink server config --set rateLimit.maxRequests=200
 neurolink server openapi -o openapi.yaml --format yaml
 ```
 
-For detailed server adapter documentation, see the [Server Adapters Guide](/guides/server-adapters/).
+For detailed server adapter documentation, see the [Server Adapters Guide](../guides/server-adapters/index.md).
 
 For detailed command reference, see [Commands Reference](../cli/commands.md).

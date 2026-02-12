@@ -47,7 +47,7 @@ export type GenerateOptions = {
     csvFiles?: Array<Buffer | string>; // Explicit CSV files
     pdfFiles?: Array<Buffer | string>; // Explicit PDF files
     videoFiles?: Array<Buffer | string>; // Explicit video files
-    files?: Array<Buffer | string>; // Auto-detect file types
+    files?: Array<Buffer | string | import("./fileTypes.js").FileWithMetadata>; // Auto-detect file types
     content?: Content[]; // Advanced multimodal content
   };
   /**
@@ -322,6 +322,18 @@ export type GenerateOptions = {
    * ```
    */
   rag?: RAGConfig;
+
+  /**
+   * File reference registry for on-demand file processing.
+   *
+   * When set, files above the "tiny" size tier (>10KB) will be registered
+   * as lightweight references instead of being fully loaded into the prompt.
+   * The LLM can then access file content on-demand via file tools
+   * (list_attached_files, read_file_section, search_in_file).
+   *
+   * @internal Set by NeuroLink SDK — not typically used directly by consumers.
+   */
+  fileRegistry?: unknown;
 };
 
 /**
@@ -650,6 +662,17 @@ export type TextGenerationOptions = {
   };
 
   enableSummarization?: boolean; // Enable/disable summarization for this specific request
+
+  /**
+   * File reference registry for on-demand file processing (internal).
+   *
+   * When set, files above the "tiny" size tier (>10KB) will be registered
+   * as lightweight references instead of being fully loaded into the prompt.
+   * The LLM can then access file content on-demand via file tools.
+   *
+   * @internal Set by NeuroLink SDK — not typically used directly by consumers.
+   */
+  fileRegistry?: unknown;
 
   /**
    * ## Extended Thinking Options

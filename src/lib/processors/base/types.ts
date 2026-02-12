@@ -28,7 +28,7 @@ import type { FileErrorCode } from "../errors/FileErrorCode.js";
  * };
  * ```
  */
-export interface FileInfo {
+export type FileInfo = {
   /** Unique identifier for the file */
   id: string;
   /** Original filename */
@@ -43,7 +43,7 @@ export interface FileInfo {
   buffer?: Buffer;
   /** Extensibility - additional provider-specific metadata */
   metadata?: Record<string, unknown>;
-}
+};
 
 // =============================================================================
 // PROCESSOR CONFIGURATION
@@ -53,7 +53,7 @@ export interface FileInfo {
  * Configuration for file processors.
  * Defines constraints and defaults for a specific file type processor.
  */
-export interface FileProcessorConfig {
+export type FileProcessorConfig = {
   /** Maximum file size in megabytes */
   maxSizeMB: number;
   /** Download/processing timeout in milliseconds */
@@ -66,7 +66,7 @@ export interface FileProcessorConfig {
   fileTypeName: string;
   /** Default filename when original name is not available */
   defaultFilename: string;
-}
+};
 
 // =============================================================================
 // PROCESSED FILE RESULTS
@@ -76,7 +76,7 @@ export interface FileProcessorConfig {
  * Base interface for processed file data.
  * All specific processed types should extend this interface.
  */
-export interface ProcessedFileBase {
+export type ProcessedFileBase = {
   /** File content as a Buffer */
   buffer: Buffer;
   /** MIME type of the processed content */
@@ -85,7 +85,7 @@ export interface ProcessedFileBase {
   size: number;
   /** Filename (may be normalized or sanitized) */
   filename: string;
-}
+};
 
 // =============================================================================
 // ERROR TYPES
@@ -95,7 +95,7 @@ export interface ProcessedFileBase {
  * Structured file processing error with user-friendly messaging.
  * This is the canonical error type used across all processor infrastructure.
  */
-export interface FileProcessingError {
+export type FileProcessingError = {
   /** Error code from FileErrorCode enum */
   code: FileErrorCode | string;
   /** Technical error message */
@@ -112,7 +112,7 @@ export interface FileProcessingError {
   technicalDetails?: string;
   /** Original error that caused this failure */
   originalError?: Error;
-}
+};
 
 // =============================================================================
 // OPERATION RESULTS
@@ -122,14 +122,14 @@ export interface FileProcessingError {
  * Generic result type for internal operations.
  * Used for validation and download operations that don't return ProcessedFileBase.
  */
-export interface OperationResult<T = void> {
+export type OperationResult<T = void> = {
   /** Whether the operation was successful */
   success: boolean;
   /** Operation result data (present when success is true) */
   data?: T;
   /** Error information (present when success is false) */
   error?: FileProcessingError;
-}
+};
 
 /**
  * Result of a file processing operation.
@@ -145,16 +145,16 @@ export interface OperationResult<T = void> {
  * }
  * ```
  */
-export interface FileProcessingResult<
+export type FileProcessingResult<
   T extends ProcessedFileBase = ProcessedFileBase,
-> {
+> = {
   /** Whether the processing was successful */
   success: boolean;
   /** Processed file data (present when success is true) */
   data?: T;
   /** Error information (present when success is false) */
   error?: FileProcessingError;
-}
+};
 
 // =============================================================================
 // PROCESSING OPTIONS
@@ -164,7 +164,7 @@ export interface FileProcessingResult<
  * Configuration for retry behavior on transient failures.
  * Implements exponential backoff with optional custom retry predicate.
  */
-export interface RetryConfig {
+export type RetryConfig = {
   /** Maximum number of retry attempts */
   maxRetries: number;
   /** Base delay between retries in milliseconds */
@@ -173,20 +173,20 @@ export interface RetryConfig {
   maxDelayMs: number;
   /** Optional custom function to determine if an error is retryable */
   retryOn?: (error: Error) => boolean;
-}
+};
 
 /**
  * Options for file processing operations.
  * Allows customization of download behavior and retry logic.
  */
-export interface ProcessOptions {
+export type ProcessOptions = {
   /** Authentication headers for download requests */
   authHeaders?: Record<string, string>;
   /** Override default timeout (in milliseconds) */
   timeout?: number;
   /** Retry configuration for transient failures */
   retryConfig?: RetryConfig;
-}
+};
 
 // =============================================================================
 // CONSTANTS
@@ -221,7 +221,7 @@ export const DEFAULT_IMAGE_MAX_SIZE_MB = 10;
 /**
  * Information about a successfully processed file.
  */
-export interface ProcessedFileInfo {
+export type ProcessedFileInfo = {
   /** File identifier */
   fileId: string;
   /** Filename */
@@ -232,12 +232,12 @@ export interface ProcessedFileInfo {
   size: number;
   /** Type of processor used */
   processorType: string;
-}
+};
 
 /**
  * Information about a file that failed to process.
  */
-export interface FailedFileInfo {
+export type FailedFileInfo = {
   /** File identifier */
   fileId: string;
   /** Filename */
@@ -248,12 +248,12 @@ export interface FailedFileInfo {
   size: number;
   /** Error that caused the failure */
   error: FileProcessingError;
-}
+};
 
 /**
  * Information about a file that was skipped.
  */
-export interface SkippedFileInfo {
+export type SkippedFileInfo = {
   /** File identifier */
   fileId: string;
   /** Filename */
@@ -266,26 +266,26 @@ export interface SkippedFileInfo {
   reason: string;
   /** Suggested alternative action */
   suggestedAlternative?: string;
-}
+};
 
 /**
  * Warning about a file (non-fatal issue).
  */
-export interface FileWarning {
+export type FileWarning = {
   /** File identifier */
   fileId: string;
   /** Filename */
   filename: string;
   /** Warning message */
   message: string;
-}
+};
 
 /**
  * Summary of batch file processing operations.
  */
-export interface BatchProcessingSummary<
+export type BatchProcessingSummary<
   T extends ProcessedFileBase = ProcessedFileBase,
-> {
+> = {
   /** Total number of files attempted */
   totalFiles: number;
   /** Successfully processed files */
@@ -298,7 +298,7 @@ export interface BatchProcessingSummary<
   warnings: FileWarning[];
   /** Processed results (parallel array with processedFiles) */
   results: T[];
-}
+};
 
 // =============================================================================
 // REGISTRY TYPES
@@ -311,9 +311,7 @@ export interface BatchProcessingSummary<
  * Note: `processor` is typed as `unknown` here to avoid circular dependency
  * on BaseFileProcessor. The registry module uses the properly typed version.
  */
-export interface ProcessorMatch<
-  _T extends ProcessedFileBase = ProcessedFileBase,
-> {
+export type ProcessorMatch<_T extends ProcessedFileBase = ProcessedFileBase> = {
   /** Name of the matched processor */
   name: string;
 
@@ -332,13 +330,13 @@ export interface ProcessorMatch<
    * - 40: Generic/fallback match
    */
   confidence: number;
-}
+};
 
 /**
  * Options for registry operations.
  * Controls behavior when registering processors.
  */
-export interface RegistryOptions {
+export type RegistryOptions = {
   /**
    * Allow registering processors with duplicate names.
    * If false (default), an error is thrown on duplicate names.
@@ -350,13 +348,13 @@ export interface RegistryOptions {
    * Takes precedence over allowDuplicates.
    */
   overwriteExisting?: boolean;
-}
+};
 
 /**
  * Detailed error information for unsupported file types.
  * Provides helpful suggestions for the user.
  */
-export interface UnsupportedFileError {
+export type UnsupportedFileError = {
   /** Error code for programmatic handling */
   code: "NO_PROCESSOR_FOUND" | "PROCESSING_FAILED";
 
@@ -374,13 +372,13 @@ export interface UnsupportedFileError {
 
   /** List of supported file types */
   supportedTypes: string[];
-}
+};
 
 /**
  * Result of processing a file through the registry.
  * Includes type information for tracking which processor was used.
  */
-export interface RegistryProcessResult<T = unknown> {
+export type RegistryProcessResult<T = unknown> = {
   /** Type/name of the processor that handled the file */
   type: string;
 
@@ -389,7 +387,7 @@ export interface RegistryProcessResult<T = unknown> {
 
   /** Error information if processing failed */
   error?: UnsupportedFileError;
-}
+};
 
 // =============================================================================
 // PRIORITY CONSTANTS
@@ -439,6 +437,12 @@ export const PROCESSOR_PRIORITIES = {
   RTF: 140,
   /** OpenDocument format files */
   OPENDOCUMENT: 150,
+  /** Video files */
+  VIDEO: 160,
+  /** Audio files */
+  AUDIO: 170,
+  /** Archive files */
+  ARCHIVE: 180,
 } as const;
 
 /**
@@ -460,7 +464,7 @@ export type ProcessorPriorityValue =
  * Information about a registered processor.
  * Used for discovery and documentation.
  */
-export interface ProcessorInfo {
+export type ProcessorInfo = {
   /** Unique name for the processor */
   name: string;
   /** Human-readable description */
@@ -471,7 +475,7 @@ export interface ProcessorInfo {
   supportedExtensions: string[];
   /** Priority level (lower = higher priority) */
   priority?: number;
-}
+};
 
 // =============================================================================
 // ERROR MESSAGE TEMPLATE
@@ -494,7 +498,7 @@ export type {
  * Processed SVG result.
  * Extends ProcessedFileBase with SVG-specific fields.
  */
-export interface ProcessedSvg extends ProcessedFileBase {
+export type ProcessedSvg = ProcessedFileBase & {
   /** Sanitized SVG content as text for AI processing */
   textContent: string;
   /** Original raw content (only included if sanitization modified the content) */
@@ -503,12 +507,12 @@ export interface ProcessedSvg extends ProcessedFileBase {
   sanitized: boolean;
   /** Security warnings found during processing */
   securityWarnings: string[];
-}
+};
 
 /**
  * Processed XML file result.
  */
-export interface ProcessedXml extends ProcessedFileBase {
+export type ProcessedXml = ProcessedFileBase & {
   /** Original XML content */
   content: string;
   /** Parsed XML content (as JavaScript object) */
@@ -519,12 +523,12 @@ export interface ProcessedXml extends ProcessedFileBase {
   errorMessage?: string;
   /** Name of the root element */
   rootElement?: string;
-}
+};
 
 /**
  * Processed Markdown result.
  */
-export interface ProcessedMarkdown extends ProcessedFileBase {
+export type ProcessedMarkdown = ProcessedFileBase & {
   /** Original Markdown content */
   content: string;
   /** Total number of lines in the document */
@@ -535,12 +539,12 @@ export interface ProcessedMarkdown extends ProcessedFileBase {
   hasTables: boolean;
   /** List of headings extracted from the document */
   headings: string[];
-}
+};
 
 /**
  * Processed source code result.
  */
-export interface ProcessedSourceCode extends ProcessedFileBase {
+export type ProcessedSourceCode = ProcessedFileBase & {
   /** The source code content (may be truncated) */
   content: string;
   /** Detected programming language (e.g., "TypeScript", "Python") */
@@ -551,12 +555,12 @@ export interface ProcessedSourceCode extends ProcessedFileBase {
   truncated: boolean;
   /** Character encoding used to decode the file */
   encoding: string;
-}
+};
 
 /**
  * Processed configuration file result.
  */
-export interface ProcessedConfig extends ProcessedFileBase {
+export type ProcessedConfig = ProcessedFileBase & {
   /** The configuration file content with redacted sensitive values */
   content: string;
   /** Detected configuration format */
@@ -565,12 +569,12 @@ export interface ProcessedConfig extends ProcessedFileBase {
   keyValues: Record<string, string>;
   /** List of keys that were redacted for security */
   redactedKeys: string[];
-}
+};
 
 /**
  * Processed OpenDocument result.
  */
-export interface ProcessedOpenDocument extends ProcessedFileBase {
+export type ProcessedOpenDocument = ProcessedFileBase & {
   /** Extracted text content */
   textContent: string;
   /** Document format type */
@@ -579,12 +583,12 @@ export interface ProcessedOpenDocument extends ProcessedFileBase {
   paragraphCount: number;
   /** Whether content was truncated */
   truncated: boolean;
-}
+};
 
 /**
  * Processed JSON file result.
  */
-export interface ProcessedJson extends ProcessedFileBase {
+export type ProcessedJson = ProcessedFileBase & {
   /** Pretty-printed JSON content (or original content if invalid) */
   content: string;
   /** Original raw content before pretty-printing */
@@ -601,12 +605,12 @@ export interface ProcessedJson extends ProcessedFileBase {
   arrayLength?: number;
   /** Whether content was truncated */
   truncated: boolean;
-}
+};
 
 /**
  * Processed plain text file result.
  */
-export interface ProcessedText extends ProcessedFileBase {
+export type ProcessedText = ProcessedFileBase & {
   /** Text content (may be truncated if file is too large) */
   content: string;
   /** Total number of lines in the original file */
@@ -617,12 +621,12 @@ export interface ProcessedText extends ProcessedFileBase {
   encoding: string;
   /** Whether the content was truncated due to size limits */
   truncated: boolean;
-}
+};
 
 /**
  * Processed HTML file result.
  */
-export interface ProcessedHtml extends ProcessedFileBase {
+export type ProcessedHtml = ProcessedFileBase & {
   /** Original HTML content */
   content: string;
   /** Text extracted from HTML (all tags stripped) */
@@ -635,12 +639,12 @@ export interface ProcessedHtml extends ProcessedFileBase {
   title?: string;
   /** Whether the HTML contains potentially dangerous content (XSS vectors) */
   hasDangerousContent: boolean;
-}
+};
 
 /**
  * Processed YAML file result.
  */
-export interface ProcessedYaml extends ProcessedFileBase {
+export type ProcessedYaml = ProcessedFileBase & {
   /** Original YAML content */
   content: string;
   /** Parsed YAML content (as JavaScript object) */
@@ -651,12 +655,12 @@ export interface ProcessedYaml extends ProcessedFileBase {
   errorMessage?: string;
   /** YAML content converted to JSON string for AI consumption */
   asJson: string | null;
-}
+};
 
 /**
  * Single worksheet extracted from an Excel file.
  */
-export interface ExcelWorksheet {
+export type ExcelWorksheet = {
   /** Name of the worksheet (tab name in Excel) */
   name: string;
   /** Row data as a 2D array. Each inner array represents a row. */
@@ -667,12 +671,12 @@ export interface ExcelWorksheet {
   rowCount: number;
   /** Number of columns (based on headers or first row) */
   columnCount: number;
-}
+};
 
 /**
  * Processed Excel file result.
  */
-export interface ProcessedExcel extends ProcessedFileBase {
+export type ProcessedExcel = ProcessedFileBase & {
   /** Array of processed worksheets */
   worksheets: ExcelWorksheet[];
   /** Number of sheets processed (may be less than total if truncated) */
@@ -683,29 +687,29 @@ export interface ProcessedExcel extends ProcessedFileBase {
   truncated: boolean;
   /** Names of sheets that were truncated */
   truncatedSheets: string[];
-}
+};
 
 /**
  * Processed Word document result.
  */
-export interface ProcessedWord extends ProcessedFileBase {
+export type ProcessedWord = ProcessedFileBase & {
   /** Extracted plain text content from the Word document */
   textContent: string;
   /** HTML representation of the Word document */
   htmlContent: string;
   /** Warnings from mammoth extraction (e.g., unsupported elements) */
   warnings: string[];
-}
+};
 
 /**
  * Processed RTF document result.
  */
-export interface ProcessedRtf extends ProcessedFileBase {
+export type ProcessedRtf = ProcessedFileBase & {
   /** Extracted plain text content from the RTF document */
   textContent: string;
   /** Raw RTF content (preserved for debugging/analysis) */
   rawContent: string;
-}
+};
 
 /**
  * Type guard function signature for JSON parsing.

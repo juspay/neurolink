@@ -15,13 +15,13 @@ import { handleHuggingFaceSetup } from "../commands/setup-huggingface.js";
 import { handleMistralSetup } from "../commands/setup-mistral.js";
 import { handleSetup } from "../commands/setup.js";
 
-interface SetupCommandArgs extends BaseCommandArgs {
+type SetupCommandArgs = BaseCommandArgs & {
   check?: boolean;
   nonInteractive?: boolean;
   provider?: string;
   list?: boolean;
   status?: boolean;
-}
+};
 
 /**
  * Setup Command Factory

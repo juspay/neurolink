@@ -20,6 +20,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 | :material-microphone: **[Audio Input](audio-input.md)**                                            | Real-time voice conversations with Gemini Live and audio streaming capabilities.                                                            |
 | :material-server: **[Server Adapters](../guides/server-adapters/index.md)**                        | Expose NeuroLink AI agents as HTTP APIs with Hono, Express, Fastify, and Koa. Production-ready with auth, rate limiting, and streaming.     |
 | :material-database-search: **[RAG Document Processing](rag.md)**                                   | Comprehensive document chunking (10 strategies), hybrid search (BM25 + vector), and reranking (5 types) for retrieval-augmented generation. |
+| :material-compress-arrows: **[Context Compaction](context-compaction.md)**                         | 4-stage context compaction pipeline with automatic budget management, per-provider token estimation, and non-destructive message tagging.   |
 
 **Q1 2026 Highlights:**
 
@@ -73,7 +74,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 | **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging                        | [Auto Evaluation](auto-evaluation.md), [Guardrails](guardrails.md), [HITL](hitl.md)                                                      |
 | **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4)                       | [Conversation Memory](../conversation-memory.md), [Redis Export](conversation-history.md)                                                |
 | **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output                                | [CLI Loop](cli-loop-sessions.md), [CLI Commands](../cli/commands.md)                                                                     |
-| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management                                    | [Enterprise Proxy](../enterprise-proxy-setup.md), [Telemetry](../telemetry-guide.md)                                                     |
+| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management                                    | [Enterprise Proxy](../enterprise-proxy-setup.md), [Observability](observability.md)                                                      |
 | **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search                                    | [MCP Integration](../advanced/mcp-integration.md), [MCP Catalog](../guides/mcp/server-catalog.md)                                        |
 
 ---
@@ -372,7 +373,7 @@ neurolink » exit
 | **Redis Memory**             | Distributed conversation state      | Multi-instance deployment    | [Redis Guide](../getting-started/provider-setup.md#redis)         |
 | **Cost Optimization**        | Automatic cheapest model selection  | Budget control               | [Cost Guide](../guides/enterprise/cost-optimization.md)           |
 | **Multi-Provider Failover**  | Automatic provider switching        | High availability            | [Failover Guide](../guides/enterprise/multi-provider-failover.md) |
-| **Telemetry & Monitoring**   | OpenTelemetry integration           | Observability                | [Telemetry Guide](../telemetry-guide.md)                          |
+| **Telemetry & Monitoring**   | OpenTelemetry integration           | Observability                | [Observability Guide](observability.md)                           |
 | **Security Hardening**       | Credential management, auditing     | Compliance                   | [Security Guide](../guides/enterprise/compliance.md)              |
 | **Custom Model Hosting**     | SageMaker integration               | Private models               | [SageMaker Guide](../sagemaker-integration.md)                    |
 | **Load Balancing**           | LiteLLM proxy integration           | Scale & routing              | [Load Balancing Guide](../guides/enterprise/load-balancing.md)    |
@@ -536,10 +537,13 @@ Production-grade fault tolerance:
 | :material-database-cog: **[Conversation Memory](../conversation-memory.md)**              | Deep dive into memory management, Redis integration, and Mem0 support.             |
 | :material-middleware: **[Custom Middleware](../custom-middleware-guide.md)**              | Build request/response hooks for logging, filtering, and custom processing.        |
 | :material-speedometer: **[Performance Optimization](../performance-optimization.md)**     | Caching, connection pooling, and latency optimization strategies.                  |
-| :material-chart-timeline: **[Telemetry & Observability](../telemetry-guide.md)**          | OpenTelemetry integration for distributed tracing and monitoring.                  |
+| :material-chart-timeline: **[Telemetry & Observability](observability.md)**               | OpenTelemetry integration for distributed tracing and monitoring.                  |
 | :material-test-tube: **[Testing Guide](../testing.md)**                                   | Provider-agnostic testing, mocking, and quality assurance strategies.              |
 | :material-chart-box: **[Analytics & Evaluation](../advanced/analytics.md)**               | Usage tracking, cost monitoring, and quality scoring for AI responses.             |
 | :material-flash: **[Streaming](../advanced/streaming.md)**                                | Real-time token streaming with provider-specific optimizations.                    |
+| :material-head-cog: **[Thinking Configuration](thinking-configuration.md)**               | Configure extended thinking levels for supported models (Anthropic, Gemini 2.5+).  |
+| :material-code-json: **[Structured Output](structured-output.md)**                        | JSON schema-based structured output with provider-specific formatting.             |
+| :material-text-to-speech: **[Text-to-Speech (TTS)](tts.md)**                              | Multi-provider TTS with 8 providers, streaming audio, and voice selection.         |
 
 ---
 

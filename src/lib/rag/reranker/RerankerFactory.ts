@@ -14,79 +14,17 @@ import type {
   RerankResult,
   VectorQueryResult,
 } from "../types.js";
+import type {
+  Reranker,
+  RerankerConfig,
+  RerankerMetadata,
+  RerankerType,
+} from "../../types/ragTypes.js";
 
-/**
- * Supported reranker types
- */
-export type RerankerType =
-  | "llm"
-  | "cross-encoder"
-  | "cohere"
-  | "simple"
-  | "batch";
-
-/**
- * Reranker interface - all rerankers implement this
- */
-export interface Reranker {
-  /** Reranker type identifier */
-  readonly type: RerankerType;
-
-  /**
-   * Rerank results based on query relevance
-   * @param results - Vector search results to rerank
-   * @param query - Original search query
-   * @param options - Reranking options
-   * @returns Reranked results with scores
-   */
-  rerank(
-    results: VectorQueryResult[],
-    query: string,
-    options?: RerankerOptions,
-  ): Promise<RerankResult[]>;
-}
-
-/**
- * Reranker configuration
- */
-export interface RerankerConfig {
-  /** Reranker type */
-  type: RerankerType;
-  /** Model name for LLM-based rerankers */
-  model?: string;
-  /** Provider for the model */
-  provider?: string;
-  /** Number of results to return after reranking */
-  topK?: number;
-  /** Scoring weights */
-  weights?: {
-    semantic?: number;
-    vector?: number;
-    position?: number;
-  };
-  /** API key for external services (e.g., Cohere) */
-  apiKey?: string;
-}
-
-/**
- * Reranker metadata for discovery and documentation
- */
-export interface RerankerMetadata {
-  /** Human-readable description */
-  description: string;
-  /** Default configuration */
-  defaultConfig: Partial<RerankerConfig>;
-  /** Supported configuration options */
-  supportedOptions: string[];
-  /** Recommended use cases */
-  useCases: string[];
-  /** Alternative names for this reranker */
-  aliases: string[];
-  /** Whether this reranker requires an AI model */
-  requiresModel: boolean;
-  /** Whether this reranker requires external API */
-  requiresExternalAPI: boolean;
-}
+export type { RerankerType } from "../../types/ragTypes.js";
+export type { Reranker } from "../../types/ragTypes.js";
+export type { RerankerConfig } from "../../types/ragTypes.js";
+export type { RerankerMetadata } from "../../types/ragTypes.js";
 
 /**
  * Default reranker metadata entries

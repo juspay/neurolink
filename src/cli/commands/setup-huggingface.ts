@@ -8,10 +8,10 @@ import {
   displayEnvUpdateSummary,
 } from "../utils/envManager.js";
 
-interface SetupHuggingFaceArgs {
+type SetupHuggingFaceArgs = {
   check?: boolean;
   "non-interactive"?: boolean;
-}
+};
 
 /**
  * Validates Hugging Face API key format

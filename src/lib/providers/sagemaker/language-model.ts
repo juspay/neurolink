@@ -27,14 +27,14 @@ import type { UnknownRecord } from "../../types/common.js";
 /**
  * Interface for SageMaker tool call results
  */
-interface SageMakerToolCall {
+type SageMakerToolCall = {
   type: "function";
   id: string;
   function: {
     name: string;
     arguments: string;
   };
-}
+};
 
 /**
  * Base synthetic streaming delay in milliseconds for simulating real-time response

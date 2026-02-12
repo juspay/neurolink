@@ -571,10 +571,10 @@ class WindowRateLimitedService {
 ### Pattern 1: In-Memory Cache with TTL
 
 ```typescript
-interface CacheEntry<T> {
+type CacheEntry<T> = {
   value: T;
   expiry: number;
-}
+};
 
 class CachedAIService {
   private cache: Map<string, CacheEntry<string>> = new Map();

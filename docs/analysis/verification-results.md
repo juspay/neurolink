@@ -258,18 +258,18 @@
 #### Enhanced Generation Options Claims:
 
 ```typescript
-interface GenerateOptions {
+type GenerateOptions = {
   input: { text: string };
   enableAnalytics?: boolean; // Enable usage analytics
   enableEvaluation?: boolean; // Enable AI quality scoring
   context?: Record<string, any>; // Custom context for analytics
-}
+};
 ```
 
 #### Enhanced Result Interface Claims:
 
 ```typescript
-interface GenerateResult {
+type GenerateResult = {
   analytics?: {
     provider: string;
     model: string;
@@ -284,7 +284,7 @@ interface GenerateResult {
     completenessScore: number; // 1-10 scale
     overallScore: number; // 1-10 scale
   };
-}
+};
 ```
 
 #### Enterprise Features Documented:

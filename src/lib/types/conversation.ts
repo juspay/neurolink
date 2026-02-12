@@ -66,6 +66,36 @@ export type ConversationMemoryConfig = {
   /** Redis configuration (optional) - overrides environment variables */
   redisConfig?: RedisStorageConfig;
 
+  /** Context compaction configuration */
+  contextCompaction?: {
+    /** Enable auto-compaction (default: true when summarization enabled) */
+    enabled?: boolean;
+    /** Compaction trigger threshold (0.0-1.0, default: 0.80) */
+    threshold?: number;
+    /** Enable tool output pruning (default: true) */
+    enablePruning?: boolean;
+    /** Enable file read deduplication (default: true) */
+    enableDeduplication?: boolean;
+    /** Enable sliding window fallback (default: true) */
+    enableSlidingWindow?: boolean;
+    /** Tool output max size in bytes (default: 50KB) */
+    maxToolOutputBytes?: number;
+    /** Tool output max lines (default: 2000) */
+    maxToolOutputLines?: number;
+    /** File read budget as fraction of remaining context (default: 0.60) */
+    fileReadBudgetPercent?: number;
+  };
+
+  /** Configuration for automatic file content summarization when files exceed context budget */
+  fileSummarization?: {
+    enabled?: boolean;
+    provider?: string;
+    model?: string;
+    threshold?: number;
+    minTokensPerFile?: number;
+    maxTokensPerFile?: number;
+  };
+
   /** @deprecated Use tokenThreshold instead - Maximum number of conversation turns to keep per session (default: 20) */
   maxTurnsPerSession?: number;
 
@@ -120,6 +150,15 @@ export type SessionMemory = {
 
   /** When token count was last calculated (NEW - for token-based memory) */
   lastCountedAt?: number;
+
+  /** API-reported token count from last request (most accurate) */
+  lastApiTokenCount?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    cacheReadTokens?: number;
+    cacheWriteTokens?: number;
+  };
 
   /** Optional session metadata */
   metadata?: {
@@ -237,6 +276,17 @@ export type ChatMessage = {
     /** Whether extended thinking was used for this message */
     thinkingExpanded?: boolean;
   };
+
+  /** UUID identifying this condensation group */
+  condenseId?: string;
+  /** Points to summary that replaces this message */
+  condenseParent?: string;
+  /** UUID identifying this truncation group */
+  truncationId?: string;
+  /** Points to truncation marker that hides this message */
+  truncationParent?: string;
+  /** Marks this message as a truncation boundary marker */
+  isTruncationMarker?: boolean;
 };
 
 /**
@@ -335,6 +385,14 @@ export type StoreConversationTurnOptions = {
   providerDetails?: ProviderDetails;
   enableSummarization?: boolean;
   events?: StreamEventSequence[];
+  /** API-reported token usage from provider response */
+  tokenUsage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    cacheReadTokens?: number;
+    cacheWriteTokens?: number;
+  };
 };
 
 /**
@@ -385,6 +443,15 @@ export type ConversationBase = {
 
   /** Timestamp of last token count */
   lastCountedAt?: number;
+
+  /** API-reported token count from last request */
+  lastApiTokenCount?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    cacheReadTokens?: number;
+    cacheWriteTokens?: number;
+  };
 };
 
 /**

@@ -265,7 +265,7 @@ Add version-specific warnings in `docs/index.md`:
 ```markdown
 !!! warning "Deprecated Version"
 You're viewing documentation for version 1.0, which is no longer supported.
-Please upgrade to [version 2.0](../latest/).
+Please upgrade to the latest version.
 ```
 
 ---

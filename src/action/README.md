@@ -42,7 +42,7 @@ Run AI-powered workflows with 13 providers directly in GitHub Actions.
 
 ## Inputs
 
-See [action.yml](action.yml) for complete input documentation.
+See [action.yml](../../action.yml) for complete input documentation.
 
 ## Outputs
 

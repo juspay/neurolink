@@ -16,12 +16,6 @@ try {
 }
 
 import { EventEmitter } from "events";
-import type {
-  TextGenerationOptions,
-  TextGenerationResult,
-  AnalyticsData,
-} from "./types/index.js";
-import { isNonNullObject } from "./utils/typeUtils.js";
 import type { MemoryClient } from "mem0ai";
 import pLimit from "p-limit";
 import type { AIProviderName } from "./constants/enums.js";
@@ -36,11 +30,21 @@ import {
   RETRY_DELAYS,
   TOOL_TIMEOUTS,
 } from "./constants/index.js";
+import { checkContextBudget } from "./context/budgetChecker.js";
+import {
+  type CompactionConfig,
+  type CompactionResult,
+  ContextCompactor,
+} from "./context/contextCompactor.js";
+import { isContextOverflowError } from "./context/errorDetection.js";
+import { repairToolPairs } from "./context/toolPairRepair.js";
 import { SYSTEM_LIMITS } from "./core/constants.js";
 import type { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
 import { AIProviderFactory } from "./core/factory.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
+import { FileReferenceRegistry } from "./files/fileReferenceRegistry.js";
+import { createFileTools } from "./files/fileTools.js";
 import { HITLManager } from "./hitl/hitlManager.js";
 import { ExternalServerManager } from "./mcp/externalServerManager.js";
 // Import direct tools server for automatic registration
@@ -80,8 +84,11 @@ import type {
   HITLConfig,
 } from "./types/hitlTypes.js";
 import type {
+  AnalyticsData,
   EvaluationData,
   ProviderStatus,
+  TextGenerationOptions,
+  TextGenerationResult,
   TokenUsage,
 } from "./types/index.js";
 import type {
@@ -152,11 +159,10 @@ import {
   transformToolsToDescriptions,
   transformToolsToExpectedFormat,
 } from "./utils/transformationUtils.js";
-import type { WorkflowConfig } from "./workflow/types.js";
-import { runWorkflow } from "./workflow/core/workflowRunner.js";
+import { isNonNullObject } from "./utils/typeUtils.js";
 import { getWorkflow } from "./workflow/core/workflowRegistry.js";
-
-// Core types imported from core/types.js
+import { runWorkflow } from "./workflow/core/workflowRunner.js";
+import type { WorkflowConfig } from "./workflow/types.js";
 
 /**
  * NeuroLink - Universal AI Development Platform
@@ -314,6 +320,12 @@ export class NeuroLink {
   private mem0Instance?: MemoryClient | null;
   private mem0Config?: Mem0Config;
 
+  // File Reference Registry for lazy on-demand file processing
+  private fileRegistry: FileReferenceRegistry;
+
+  // Cached file tools to avoid redundant createFileTools() calls per generate/stream
+  private cachedFileTools: ReturnType<typeof createFileTools> | null = null;
+
   /**
    * Extract and set Langfuse context from options with proper async scoping
    */
@@ -451,6 +463,7 @@ export class NeuroLink {
 
   constructor(config?: NeurolinkConstructorConfig) {
     this.toolRegistry = config?.toolRegistry || new MCPToolRegistry();
+    this.fileRegistry = new FileReferenceRegistry();
     this.observabilityConfig = config?.observability;
 
     // Initialize orchestration setting
@@ -490,6 +503,7 @@ export class NeuroLink {
       constructorStartTime,
       constructorHrTimeStart,
     );
+    this.registerFileTools();
     this.initializeLangfuse(
       constructorId,
       constructorStartTime,
@@ -710,6 +724,68 @@ export class NeuroLink {
           "HITL (Human-in-the-Loop) not enabled - skipping initialization",
       });
     }
+  }
+
+  /**
+   * Register file reference tools with the MCP tool registry.
+   *
+   * Creates file access tools (list_attached_files, read_file_section,
+   * search_in_file, get_file_preview) bound to the FileReferenceRegistry
+   * and registers them as direct tools so they're available to LLMs.
+   */
+  private registerFileTools(): void {
+    const fileTools = createFileTools(this.fileRegistry);
+
+    // Use void to handle async registration without blocking constructor
+    const registrations = Object.entries(fileTools).map(
+      async ([toolName, toolDef]) => {
+        const toolId = `direct.${toolName}`;
+        const toolInfo: ToolInfo = {
+          name: toolName,
+          description: toolDef.description || `File tool: ${toolName}`,
+          inputSchema: {},
+          serverId: "direct",
+          category: "built-in" as MCPServerCategory,
+        };
+
+        await this.toolRegistry.registerTool(toolId, toolInfo, {
+          execute: async (params: unknown) => {
+            try {
+              const result = await (
+                toolDef.execute as (
+                  params: unknown,
+                  ctx: unknown,
+                ) => Promise<unknown>
+              )(params, {
+                toolCallId: "file-tool",
+                messages: [],
+              });
+              return {
+                success: true,
+                data: result,
+                metadata: { toolName, serverId: "direct", executionTime: 0 },
+              };
+            } catch (error) {
+              return {
+                success: false,
+                error: error instanceof Error ? error.message : String(error),
+                metadata: { toolName, serverId: "direct", executionTime: 0 },
+              };
+            }
+          },
+          description: toolDef.description,
+          inputSchema: {},
+        });
+      },
+    );
+
+    // Fire-and-forget: registrations complete before any generate/stream call
+    // because those calls await initializeMCP() which is slower
+    void Promise.all(registrations).then(() => {
+      logger.debug(
+        `[NeuroLink] Registered ${Object.keys(fileTools).length} file reference tools`,
+      );
+    });
   }
 
   /** Format memory context for prompt inclusion */
@@ -2030,6 +2106,7 @@ Current user's request: ${currentInput}`;
         input: options.input, // This includes text, images, and content arrays
         region: options.region,
         tts: options.tts,
+        fileRegistry: this.fileRegistry,
       };
 
       // Apply factory enhancement using centralized utilities
@@ -2134,38 +2211,45 @@ Current user's request: ${currentInput}`;
         ppt: textResult.ppt,
       };
 
-      if (
-        this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
-        options.context?.userId &&
-        generateResult.content
-      ) {
-        // Non-blocking memory storage - run in background
-        setImmediate(async () => {
-          try {
-            const mem0 = await this.ensureMem0Ready();
-            if (mem0) {
-              await this.storeMem0ConversationTurn(
-                mem0,
-                originalPrompt,
-                generateResult.content,
-                options.context?.userId as string,
-                {
-                  timestamp: new Date().toISOString(),
-                  provider: generateResult.provider,
-                  model: generateResult.model,
-                  type: "conversation_turn",
-                },
-              );
-            }
-          } catch (error) {
-            // Non-blocking: Log error but don't fail the generation
-            logger.warn("Mem0 memory storage failed:", error);
-          }
-        });
-      }
+      this.scheduleGenerateMem0Storage(options, originalPrompt, generateResult);
 
       return generateResult;
     });
+  }
+
+  /**
+   * Schedule non-blocking Mem0 memory storage after generate completes.
+   */
+  private scheduleGenerateMem0Storage(
+    options: GenerateOptions,
+    originalPrompt: string | undefined,
+    generateResult: GenerateResult,
+  ): void {
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
+      options.context?.userId &&
+      generateResult.content.trim()
+    ) {
+      setImmediate(async () => {
+        try {
+          const mem0 = await this.ensureMem0Ready();
+          if (mem0) {
+            await this.storeMem0ConversationTurn(
+              mem0,
+              originalPrompt ?? "",
+              generateResult.content.trim(),
+              options.context?.userId as string,
+              {
+                timestamp: new Date().toISOString(),
+                type: "conversation_turn_generate",
+              },
+            );
+          }
+        } catch (error) {
+          logger.warn("Mem0 memory storage failed:", error);
+        }
+      });
+    }
   }
 
   /**
@@ -2546,6 +2630,68 @@ Current user's request: ${currentInput}`;
 
       return directResult;
     } catch (error) {
+      // Check if this is a context overflow error - attempt recovery
+      if (isContextOverflowError(error) && this.conversationMemory) {
+        logger.warn(
+          `[${functionTag}] Context overflow detected, attempting aggressive compaction`,
+          {
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
+
+        try {
+          const conversationMessages = await getConversationMessages(
+            this.conversationMemory,
+            options,
+          );
+
+          // Calculate a meaningful compaction target from the model's budget
+          const recoveryBudget = checkContextBudget({
+            provider: options.provider || "openai",
+            model: options.model,
+            maxTokens: options.maxTokens,
+            currentPrompt: options.prompt,
+            systemPrompt: options.systemPrompt,
+          });
+          const compactionTarget = Math.floor(
+            recoveryBudget.availableInputTokens * 0.7,
+          );
+
+          const compactor = new ContextCompactor({
+            enableSummarize: false, // Skip LLM call for recovery
+            truncationFraction: 0.75, // Aggressive truncation
+          });
+
+          const compactionResult = await compactor.compact(
+            conversationMessages as import("./types/conversation.js").ChatMessage[],
+            compactionTarget,
+          );
+
+          if (compactionResult.compacted) {
+            const repairedResult = repairToolPairs(compactionResult.messages);
+            logger.info(
+              `[${functionTag}] Aggressive compaction complete, retrying`,
+              {
+                tokensSaved: compactionResult.tokensSaved,
+                compactionTarget,
+              },
+            );
+            // Retry with compacted context - pass compacted messages to avoid re-fetching
+            return await this.directProviderGeneration({
+              ...options,
+              conversationMessages: repairedResult.messages,
+            } as TextGenerationOptions);
+          }
+        } catch (retryError) {
+          logger.error(`[${functionTag}] Recovery attempt also failed`, {
+            error:
+              retryError instanceof Error
+                ? retryError.message
+                : String(retryError),
+          });
+        }
+      }
+
       logger.error(`[${functionTag}] All generation methods failed`, {
         error: error instanceof Error ? error.message : String(error),
       });
@@ -2728,6 +2874,33 @@ Current user's request: ${currentInput}`;
           },
         );
 
+        // Check for non-retryable errors — skip remaining retries immediately
+        // NoSuchToolError / InvalidToolArgumentsError from Vercel AI SDK are never
+        // retryable — the model hallucinated a tool name or gave bad params, and
+        // the same tools would be passed on every retry.
+        const isToolError =
+          error instanceof Error &&
+          (error.name === "AI_NoSuchToolError" ||
+            error.name === "AI_InvalidToolArgumentsError" ||
+            error.message.includes("NoSuchToolError") ||
+            error.message.includes("Model tried to call unavailable tool"));
+
+        const isNonRetryable =
+          isContextOverflowError(error) ||
+          isToolError ||
+          (error instanceof Error &&
+            (error as Error & { isRetryable?: boolean }).isRetryable ===
+              false) ||
+          (error instanceof Error &&
+            (error as Error & { statusCode?: number }).statusCode === 400);
+
+        if (isNonRetryable) {
+          logger.debug(
+            `[${functionTag}] Non-retryable error detected, skipping remaining retries`,
+          );
+          break;
+        }
+
         if (attempt >= maxAttempts) {
           logger.debug(
             `[${functionTag}] All MCP attempts exhausted, falling back to direct generation`,
@@ -2818,10 +2991,60 @@ Current user's request: ${currentInput}`;
       });
 
       // Get conversation messages for context
-      const conversationMessages = await getConversationMessages(
+      let conversationMessages = await getConversationMessages(
         this.conversationMemory,
         options,
       );
+
+      // Pre-generation budget check
+      const budgetResult = checkContextBudget({
+        provider: providerName,
+        model: options.model,
+        maxTokens: options.maxTokens,
+        systemPrompt: enhancedSystemPrompt,
+        conversationMessages: conversationMessages as Array<{
+          role: string;
+          content: string;
+        }>,
+        currentPrompt: options.prompt,
+        toolDefinitions: availableTools,
+      });
+
+      if (budgetResult.shouldCompact && this.conversationMemory) {
+        logger.info(
+          "[NeuroLink] Context budget exceeded, triggering auto-compaction",
+          {
+            usageRatio: budgetResult.usageRatio,
+            estimatedTokens: budgetResult.estimatedInputTokens,
+            availableTokens: budgetResult.availableInputTokens,
+          },
+        );
+
+        const compactor = new ContextCompactor({
+          provider: providerName,
+          summarizationProvider:
+            this.conversationMemoryConfig?.conversationMemory
+              ?.summarizationProvider,
+          summarizationModel:
+            this.conversationMemoryConfig?.conversationMemory
+              ?.summarizationModel,
+        });
+
+        const compactionResult = await compactor.compact(
+          conversationMessages as import("./types/conversation.js").ChatMessage[],
+          budgetResult.availableInputTokens,
+          this.conversationMemoryConfig?.conversationMemory,
+        );
+
+        if (compactionResult.compacted) {
+          const repairedResult = repairToolPairs(compactionResult.messages);
+          conversationMessages = repairedResult.messages;
+          logger.info("[NeuroLink] Context compacted successfully", {
+            stagesUsed: compactionResult.stagesUsed,
+            tokensSaved: compactionResult.tokensSaved,
+          });
+        }
+      }
 
       // Create provider and generate
       const provider = await AIProviderFactory.createProvider(
@@ -2976,11 +3199,42 @@ Current user's request: ${currentInput}`;
       try {
         logger.debug(`[${functionTag}] Attempting provider: ${providerName}`);
 
-        // Get conversation messages for context
-        const conversationMessages = await getConversationMessages(
-          this.conversationMemory,
-          options,
-        );
+        // Get conversation messages for context (use pre-compacted if provided)
+        const optionsWithMessages = options as TextGenerationOptions & {
+          conversationMessages?: unknown[];
+        };
+        let conversationMessages = optionsWithMessages.conversationMessages
+          ?.length
+          ? optionsWithMessages.conversationMessages
+          : await getConversationMessages(this.conversationMemory, options);
+
+        // Pre-generation budget check
+        const budgetCheck = checkContextBudget({
+          provider: providerName,
+          model: options.model,
+          maxTokens: options.maxTokens,
+          systemPrompt: options.systemPrompt,
+          conversationMessages: conversationMessages as Array<{
+            role: string;
+            content: string;
+          }>,
+          currentPrompt: options.prompt,
+          toolDefinitions: options.tools
+            ? Object.values(options.tools)
+            : undefined,
+        });
+
+        if (budgetCheck.shouldCompact && this.conversationMemory) {
+          const compactor = new ContextCompactor({ provider: providerName });
+          const compactionResult = await compactor.compact(
+            conversationMessages as import("./types/conversation.js").ChatMessage[],
+            budgetCheck.availableInputTokens,
+          );
+          if (compactionResult.compacted) {
+            const repairedResult = repairToolPairs(compactionResult.messages);
+            conversationMessages = repairedResult.messages;
+          }
+        }
 
         const provider = await AIProviderFactory.createProvider(
           providerName as AIProviderName,
@@ -3235,6 +3489,9 @@ Current user's request: ${currentInput}`;
     const streamId = `neurolink-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const originalPrompt = options.input.text; // Store the original prompt for memory storage
 
+    // Inject file registry for lazy on-demand file processing
+    options.fileRegistry = this.fileRegistry;
+
     await this.validateStreamInput(options);
     this.emitStreamStartEvents(options, startTime);
 
@@ -3245,170 +3502,15 @@ Current user's request: ${currentInput}`;
 
     // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
     return await this.setLangfuseContextFromOptions(options, async () => {
-      let enhancedOptions: StreamOptions;
-      let factoryResult: {
-        hasStreamingConfig: boolean;
-        streamingEnabled?: boolean;
-        enhancedConfig?: StreamOptions["streaming"];
-      };
-
       try {
-        // Initialize conversation memory if needed (for lazy loading)
-        await this.initializeConversationMemoryForGeneration(
-          streamId,
-          startTime,
-          hrTimeStart,
-        );
-
-        // Initialize MCP
-        await this.initializeMCP();
-        const _originalPrompt = options.input.text;
-
-        if (
-          this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
-          options.context?.userId
-        ) {
-          try {
-            const mem0 = await this.ensureMem0Ready();
-            if (!mem0) {
-              // Continue without memories if mem0 is not available
-              logger.debug(
-                "Mem0 not available, continuing without memory retrieval",
-              );
-            } else {
-              const memories = await mem0.search(options.input.text, {
-                user_id: options.context.userId as string,
-                limit: 5,
-              });
-
-              if (memories && memories.length > 0) {
-                // Enhance the input with memory context
-                const memoryContext = this.extractMemoryContext(memories);
-
-                options.input.text = this.formatMemoryContext(
-                  memoryContext,
-                  options.input.text,
-                );
-              }
-            }
-          } catch (error) {
-            // Non-blocking: Log error but continue with streaming
-            logger.warn("Mem0 memory retrieval failed:", error);
-          }
-        }
-
-        // Apply orchestration if enabled and no specific provider/model requested
-        if (this.enableOrchestration && !options.provider && !options.model) {
-          try {
-            const orchestratedOptions =
-              await this.applyStreamOrchestration(options);
-            logger.debug("Stream orchestration applied", {
-              originalProvider: options.provider || "auto",
-              orchestratedProvider: orchestratedOptions.provider,
-              orchestratedModel: orchestratedOptions.model,
-              prompt: options.input.text?.substring(0, 100),
-            });
-
-            // Use orchestrated options
-            Object.assign(options, orchestratedOptions);
-          } catch (error) {
-            logger.warn(
-              "Stream orchestration failed, continuing with original options",
-              {
-                error: error instanceof Error ? error.message : String(error),
-                originalProvider: options.provider || "auto",
-              },
-            );
-            // Continue with original options if orchestration fails
-          }
-        }
-
-        // 🔧 AUTO-DISABLE TOOLS: For Ollama models that don't support tools (same logic as generate())
-        // This prevents overwhelming smaller models with massive tool descriptions in the system message
-        if (
-          (options.provider === "ollama" ||
-            options.provider?.toLowerCase().includes("ollama")) &&
-          !options.disableTools
-        ) {
-          const { ModelConfigurationManager } = await import(
-            "./core/modelConfiguration.js"
+        // Prepare options: init memory, MCP, Mem0, orchestration, Ollama auto-disable, tool detection
+        const { enhancedOptions, factoryResult } =
+          await this.prepareStreamOptions(
+            options,
+            streamId,
+            startTime,
+            hrTimeStart,
           );
-          const modelConfig = ModelConfigurationManager.getInstance();
-          const ollamaConfig = modelConfig.getProviderConfiguration("ollama");
-          const toolCapableModels =
-            (ollamaConfig?.modelBehavior?.toolCapableModels as string[]) || [];
-
-          // Only disable tools if we have explicit evidence the model doesn't support them
-          // If toolCapableModels is empty or model is not specified, don't make assumptions
-          const modelName = options.model;
-          if (toolCapableModels.length > 0 && modelName) {
-            const modelSupportsTools = toolCapableModels.some((capableModel) =>
-              modelName.toLowerCase().includes(capableModel.toLowerCase()),
-            );
-            if (!modelSupportsTools) {
-              options.disableTools = true;
-              logger.debug(
-                "Auto-disabled tools for Ollama model that doesn't support them (stream)",
-                {
-                  model: options.model,
-                  toolCapableModels: toolCapableModels.slice(0, 3), // Show first 3 for brevity
-                },
-              );
-            }
-          }
-        }
-
-        // RAG Integration: If rag config is provided, prepare the RAG search tool (stream)
-        if (options.rag?.files?.length) {
-          try {
-            const { prepareRAGTool } = await import("./rag/ragIntegration.js");
-            const ragResult = await prepareRAGTool(
-              options.rag,
-              options.provider as string | undefined,
-            );
-
-            // Inject the RAG tool into the tools record
-            if (!options.tools) {
-              options.tools = {};
-            }
-            (options.tools as Record<string, unknown>)[ragResult.toolName] =
-              ragResult.tool;
-
-            // Inject RAG-aware system prompt so the AI uses the RAG tool first
-            const ragStreamInstruction = [
-              `\n\nIMPORTANT: You have a tool called "${ragResult.toolName}" that searches through`,
-              `${ragResult.filesLoaded} loaded document(s) containing ${ragResult.chunksIndexed} indexed chunks.`,
-              `ALWAYS use the "${ragResult.toolName}" tool FIRST to answer the user's question before using any other tools.`,
-              `This tool searches your local knowledge base of pre-loaded documents and is the primary source of truth.`,
-              `Do NOT use websearchGrounding or any web search tools when the answer can be found in the loaded documents.`,
-            ].join(" ");
-            options.systemPrompt =
-              (options.systemPrompt || "") + ragStreamInstruction;
-
-            logger.info("[RAG] Tool injected into stream()", {
-              toolName: ragResult.toolName,
-              filesLoaded: ragResult.filesLoaded,
-              chunksIndexed: ragResult.chunksIndexed,
-            });
-          } catch (error) {
-            logger.warn(
-              "[RAG] Failed to prepare RAG tool, continuing without RAG",
-              {
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
-          }
-        }
-
-        factoryResult = processStreamingFactoryOptions(options);
-        enhancedOptions = createCleanStreamOptions(options);
-        if (options.input?.text) {
-          const { toolResults: _toolResults, enhancedPrompt } =
-            await this.detectAndExecuteTools(options.input.text, undefined);
-          if (enhancedPrompt !== options.input.text) {
-            enhancedOptions.input.text = enhancedPrompt;
-          }
-        }
 
         const { stream: mcpStream, provider: providerName } =
           await this.createMCPStream(enhancedOptions);
@@ -3416,65 +3518,9 @@ Current user's request: ${currentInput}`;
         let accumulatedContent = "";
         let chunkCount = 0;
 
-        const eventSequence: Array<{
-          type: string;
-          seq: number;
-          timestamp: number;
-          [key: string]: unknown;
-        }> = [];
-        let eventSeqCounter = 0;
-
-        const captureEvent = (type: string, data?: unknown) => {
-          eventSequence.push({
-            type,
-            seq: eventSeqCounter++,
-            timestamp: Date.now(),
-            ...(data && typeof data === "object" ? data : { data }),
-          });
-        };
-
-        const onResponseChunk = (...args: unknown[]) => {
-          const chunk = args[0] as string;
-          captureEvent("response:chunk", { content: chunk });
-        };
-        const onToolStart = (...args: unknown[]) => {
-          const data = args[0] as { toolName: string; timestamp: number };
-          captureEvent("tool:start", data);
-        };
-        const onToolEnd = (...args: unknown[]) => {
-          const data = args[0] as {
-            toolName: string;
-            success: boolean;
-            responseTime: number;
-            result?: { uiComponent?: boolean; [key: string]: unknown };
-            [key: string]: unknown;
-          };
-          captureEvent("tool:end", data);
-
-          if (data.result && data.result.uiComponent === true) {
-            captureEvent("ui-component", {
-              toolName: data.toolName,
-              componentData: data.result,
-              timestamp: Date.now(),
-            });
-          }
-        };
-        const onUIComponent = (...args: unknown[]) => {
-          captureEvent("ui-component", args[0]);
-        };
-        const onHITLRequest = (...args: unknown[]) => {
-          captureEvent("hitl:confirmation-request", args[0]);
-        };
-        const onHITLResponse = (...args: unknown[]) => {
-          captureEvent("hitl:confirmation-response", args[0]);
-        };
-
-        this.emitter.on("response:chunk", onResponseChunk);
-        this.emitter.on("tool:start", onToolStart);
-        this.emitter.on("tool:end", onToolEnd);
-        this.emitter.on("ui-component", onUIComponent);
-        this.emitter.on("hitl:confirmation-request", onHITLRequest);
-        this.emitter.on("hitl:confirmation-response", onHITLResponse);
+        // Set up event capture listeners
+        const { eventSequence, cleanup: cleanupListeners } =
+          this.setupStreamEventListeners();
 
         const metadata = {
           fallbackAttempted: false,
@@ -3499,170 +3545,28 @@ Current user's request: ${currentInput}`;
             }
 
             if (chunkCount === 0 && !metadata.fallbackAttempted) {
-              metadata.fallbackAttempted = true;
-              const errorMsg =
-                "Stream completed with 0 chunks (possible guardrails block)";
-              metadata.error = errorMsg;
-
-              const fallbackRoute = ModelRouter.getFallbackRoute(
-                originalPrompt || enhancedOptions.input.text || "",
-                {
-                  provider: providerName,
-                  model: enhancedOptions.model || "gpt-4o",
-                  reasoning: "primary failed",
-                  confidence: 0.5,
+              yield* self.handleStreamFallback(
+                metadata,
+                originalPrompt,
+                enhancedOptions,
+                providerName,
+                accumulatedContent,
+                (content: string) => {
+                  accumulatedContent += content;
                 },
-                { fallbackStrategy: "auto" },
               );
-
-              logger.warn("Retrying with fallback provider", {
-                originalProvider: providerName,
-                fallbackProvider: fallbackRoute.provider,
-                reason: errorMsg,
-              });
-
-              try {
-                const fallbackProvider = await AIProviderFactory.createProvider(
-                  fallbackRoute.provider,
-                  fallbackRoute.model,
-                );
-
-                // Ensure fallback provider can execute tools
-                fallbackProvider.setupToolExecutor(
-                  {
-                    customTools: self.getCustomTools(),
-                    executeTool: self.executeTool.bind(self),
-                  },
-                  "NeuroLink.fallbackStream",
-                );
-
-                // Get conversation messages for context (same as primary stream)
-                const conversationMessages = await getConversationMessages(
-                  self.conversationMemory,
-                  {
-                    prompt: enhancedOptions.input.text,
-                    context: enhancedOptions.context as Record<string, unknown>,
-                  } as TextGenerationOptions,
-                );
-
-                const fallbackResult = await fallbackProvider.stream({
-                  ...enhancedOptions,
-                  model: fallbackRoute.model,
-                  conversationMessages,
-                });
-
-                let fallbackChunkCount = 0;
-                for await (const fallbackChunk of fallbackResult.stream) {
-                  fallbackChunkCount++;
-                  if (
-                    fallbackChunk &&
-                    "content" in fallbackChunk &&
-                    typeof fallbackChunk.content === "string"
-                  ) {
-                    accumulatedContent += fallbackChunk.content;
-                    self.emitter.emit("response:chunk", fallbackChunk.content);
-                  }
-                  yield fallbackChunk;
-                }
-
-                if (fallbackChunkCount === 0) {
-                  throw new Error(
-                    `Fallback provider ${fallbackRoute.provider} also returned 0 chunks`,
-                  );
-                }
-
-                // Fallback succeeded - likely guardrails blocked primary
-                metadata.guardrailsBlocked = true;
-              } catch (fallbackError) {
-                const fallbackErrorMsg =
-                  fallbackError instanceof Error
-                    ? fallbackError.message
-                    : String(fallbackError);
-                metadata.error = `${errorMsg}; Fallback failed: ${fallbackErrorMsg}`;
-                logger.error("Fallback provider failed", {
-                  fallbackProvider: fallbackRoute.provider,
-                  error: fallbackErrorMsg,
-                });
-                throw fallbackError;
-              }
             }
           } finally {
-            self.emitter.off("response:chunk", onResponseChunk);
-            self.emitter.off("tool:start", onToolStart);
-            self.emitter.off("tool:end", onToolEnd);
-            self.emitter.off("ui-component", onUIComponent);
-            self.emitter.off("hitl:confirmation-request", onHITLRequest);
-            self.emitter.off("hitl:confirmation-response", onHITLResponse);
+            cleanupListeners();
 
-            // Store memory after stream consumption is complete
-            if (self.conversationMemory && enhancedOptions.context?.sessionId) {
-              const sessionId = (
-                enhancedOptions.context as Record<string, unknown>
-              )?.sessionId as string;
-              const userId = (
-                enhancedOptions.context as Record<string, unknown>
-              )?.userId as string;
-              let providerDetails: ProviderDetails | undefined;
-              if (enhancedOptions.model) {
-                providerDetails = {
-                  provider: providerName,
-                  model: enhancedOptions.model,
-                };
-              }
-
-              try {
-                await self.conversationMemory.storeConversationTurn({
-                  sessionId,
-                  userId,
-                  userMessage: originalPrompt ?? "",
-                  aiResponse: accumulatedContent,
-                  startTimeStamp: new Date(startTime),
-                  providerDetails,
-                  enableSummarization: enhancedOptions.enableSummarization,
-                  events: eventSequence.length > 0 ? eventSequence : undefined,
-                });
-
-                logger.debug(
-                  "[NeuroLink.stream] Stored conversation turn with events",
-                  {
-                    sessionId,
-                    eventCount: eventSequence.length,
-                    eventTypes: [...new Set(eventSequence.map((e) => e.type))],
-                  },
-                );
-              } catch (error) {
-                logger.warn("Failed to store stream conversation turn", {
-                  error: error instanceof Error ? error.message : String(error),
-                });
-              }
-            }
-
-            if (
-              self.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
-              enhancedOptions.context?.userId &&
-              accumulatedContent.trim()
-            ) {
-              // Non-blocking memory storage - run in background
-              setImmediate(async () => {
-                try {
-                  const mem0 = await self.ensureMem0Ready();
-                  if (mem0) {
-                    await self.storeMem0ConversationTurn(
-                      mem0,
-                      originalPrompt,
-                      accumulatedContent.trim(),
-                      enhancedOptions.context?.userId as string,
-                      {
-                        timestamp: new Date().toISOString(),
-                        type: "conversation_turn_stream",
-                      },
-                    );
-                  }
-                } catch (error) {
-                  logger.warn("Mem0 memory storage failed:", error);
-                }
-              });
-            }
+            await self.storeStreamConversationMemory({
+              enhancedOptions,
+              providerName,
+              originalPrompt,
+              accumulatedContent,
+              startTime,
+              eventSequence,
+            });
           }
         })();
         const streamResult = await this.processStreamResult(
@@ -3696,6 +3600,436 @@ Current user's request: ${currentInput}`;
         );
       }
     });
+  }
+
+  /**
+   * Prepare stream options: initialize memory, MCP, Mem0 retrieval, orchestration,
+   * Ollama tool auto-disable, factory processing, and tool detection.
+   */
+  private async prepareStreamOptions(
+    options: StreamOptions,
+    streamId: string,
+    startTime: number,
+    hrTimeStart: bigint,
+  ): Promise<{
+    enhancedOptions: StreamOptions;
+    factoryResult: {
+      hasStreamingConfig: boolean;
+      streamingEnabled?: boolean;
+      enhancedConfig?: StreamOptions["streaming"];
+    };
+  }> {
+    // Initialize conversation memory if needed (for lazy loading)
+    await this.initializeConversationMemoryForGeneration(
+      streamId,
+      startTime,
+      hrTimeStart,
+    );
+
+    // Initialize MCP
+    await this.initializeMCP();
+
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
+      options.context?.userId
+    ) {
+      try {
+        const mem0 = await this.ensureMem0Ready();
+        if (!mem0) {
+          // Continue without memories if mem0 is not available
+          logger.debug(
+            "Mem0 not available, continuing without memory retrieval",
+          );
+        } else {
+          const memories = await mem0.search(options.input.text, {
+            user_id: options.context.userId as string,
+            limit: 5,
+          });
+
+          if (memories && memories.length > 0) {
+            // Enhance the input with memory context
+            const memoryContext = this.extractMemoryContext(memories);
+
+            options.input.text = this.formatMemoryContext(
+              memoryContext,
+              options.input.text,
+            );
+          }
+        }
+      } catch (error) {
+        // Non-blocking: Log error but continue with streaming
+        logger.warn("Mem0 memory retrieval failed:", error);
+      }
+    }
+
+    // Apply orchestration if enabled and no specific provider/model requested
+    if (this.enableOrchestration && !options.provider && !options.model) {
+      try {
+        const orchestratedOptions =
+          await this.applyStreamOrchestration(options);
+        logger.debug("Stream orchestration applied", {
+          originalProvider: options.provider || "auto",
+          orchestratedProvider: orchestratedOptions.provider,
+          orchestratedModel: orchestratedOptions.model,
+          prompt: options.input.text?.substring(0, 100),
+        });
+
+        // Use orchestrated options
+        Object.assign(options, orchestratedOptions);
+      } catch (error) {
+        logger.warn(
+          "Stream orchestration failed, continuing with original options",
+          {
+            error: error instanceof Error ? error.message : String(error),
+            originalProvider: options.provider || "auto",
+          },
+        );
+        // Continue with original options if orchestration fails
+      }
+    }
+
+    // Auto-disable tools for Ollama models that don't support them
+    await this.autoDisableOllamaStreamTools(options);
+
+    const factoryResult = processStreamingFactoryOptions(options);
+    const enhancedOptions = createCleanStreamOptions(options);
+    if (options.input?.text) {
+      const { toolResults: _toolResults, enhancedPrompt } =
+        await this.detectAndExecuteTools(options.input.text, undefined);
+      if (enhancedPrompt !== options.input.text) {
+        enhancedOptions.input.text = enhancedPrompt;
+      }
+    }
+
+    return { enhancedOptions, factoryResult };
+  }
+
+  /**
+   * Auto-disable tools for Ollama models that don't support them (stream mode).
+   * Prevents overwhelming smaller models with massive tool descriptions in the system message.
+   */
+  private async autoDisableOllamaStreamTools(
+    options: StreamOptions,
+  ): Promise<void> {
+    if (
+      (options.provider === "ollama" ||
+        options.provider?.toLowerCase().includes("ollama")) &&
+      !options.disableTools
+    ) {
+      const { ModelConfigurationManager } = await import(
+        "./core/modelConfiguration.js"
+      );
+      const modelConfig = ModelConfigurationManager.getInstance();
+      const ollamaConfig = modelConfig.getProviderConfiguration("ollama");
+      const toolCapableModels =
+        (ollamaConfig?.modelBehavior?.toolCapableModels as string[]) || [];
+
+      // Only disable tools if we have explicit evidence the model doesn't support them
+      // If toolCapableModels is empty or model is not specified, don't make assumptions
+      const modelName = options.model;
+      if (toolCapableModels.length > 0 && modelName) {
+        const modelSupportsTools = toolCapableModels.some((capableModel) =>
+          modelName.toLowerCase().includes(capableModel.toLowerCase()),
+        );
+        if (!modelSupportsTools) {
+          options.disableTools = true;
+          logger.debug(
+            "Auto-disabled tools for Ollama model that doesn't support them (stream)",
+            {
+              model: options.model,
+              toolCapableModels: toolCapableModels.slice(0, 3), // Show first 3 for brevity
+            },
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * Set up event listeners for stream event capture (tool calls, HITL, UI components).
+   * Returns the shared event sequence array and a cleanup function to remove all listeners.
+   */
+  private setupStreamEventListeners(): {
+    eventSequence: Array<{
+      type: string;
+      seq: number;
+      timestamp: number;
+      [key: string]: unknown;
+    }>;
+    cleanup: () => void;
+  } {
+    const eventSequence: Array<{
+      type: string;
+      seq: number;
+      timestamp: number;
+      [key: string]: unknown;
+    }> = [];
+    let eventSeqCounter = 0;
+
+    const captureEvent = (type: string, data?: unknown) => {
+      eventSequence.push({
+        type,
+        seq: eventSeqCounter++,
+        timestamp: Date.now(),
+        ...(data && typeof data === "object" ? data : { data }),
+      });
+    };
+
+    const onResponseChunk = (...args: unknown[]) => {
+      const chunk = args[0] as string;
+      captureEvent("response:chunk", { content: chunk });
+    };
+    const onToolStart = (...args: unknown[]) => {
+      const data = args[0] as { toolName: string; timestamp: number };
+      captureEvent("tool:start", data);
+    };
+    const onToolEnd = (...args: unknown[]) => {
+      const data = args[0] as {
+        toolName: string;
+        success: boolean;
+        responseTime: number;
+        result?: { uiComponent?: boolean; [key: string]: unknown };
+        [key: string]: unknown;
+      };
+      captureEvent("tool:end", data);
+
+      if (data.result && data.result.uiComponent === true) {
+        captureEvent("ui-component", {
+          toolName: data.toolName,
+          componentData: data.result,
+          timestamp: Date.now(),
+        });
+      }
+    };
+    const onUIComponent = (...args: unknown[]) => {
+      captureEvent("ui-component", args[0]);
+    };
+    const onHITLRequest = (...args: unknown[]) => {
+      captureEvent("hitl:confirmation-request", args[0]);
+    };
+    const onHITLResponse = (...args: unknown[]) => {
+      captureEvent("hitl:confirmation-response", args[0]);
+    };
+
+    this.emitter.on("response:chunk", onResponseChunk);
+    this.emitter.on("tool:start", onToolStart);
+    this.emitter.on("tool:end", onToolEnd);
+    this.emitter.on("ui-component", onUIComponent);
+    this.emitter.on("hitl:confirmation-request", onHITLRequest);
+    this.emitter.on("hitl:confirmation-response", onHITLResponse);
+
+    const cleanup = () => {
+      this.emitter.off("response:chunk", onResponseChunk);
+      this.emitter.off("tool:start", onToolStart);
+      this.emitter.off("tool:end", onToolEnd);
+      this.emitter.off("ui-component", onUIComponent);
+      this.emitter.off("hitl:confirmation-request", onHITLRequest);
+      this.emitter.off("hitl:confirmation-response", onHITLResponse);
+    };
+
+    return { eventSequence, cleanup };
+  }
+
+  /**
+   * Handle fallback when the primary stream returns 0 chunks.
+   * Yields chunks from a fallback provider and updates metadata accordingly.
+   */
+  private async *handleStreamFallback(
+    metadata: {
+      fallbackAttempted: boolean;
+      guardrailsBlocked: boolean;
+      error: string | undefined;
+    },
+    originalPrompt: string | undefined,
+    enhancedOptions: StreamOptions,
+    providerName: string,
+    _accumulatedContent: string,
+    appendContent: (content: string) => void,
+  ): AsyncGenerator<
+    | { content: string }
+    | { type: "audio"; audio: AudioChunk }
+    | { type: "image"; imageOutput: { base64: string } }
+  > {
+    metadata.fallbackAttempted = true;
+    const errorMsg =
+      "Stream completed with 0 chunks (possible guardrails block)";
+    metadata.error = errorMsg;
+
+    const fallbackRoute = ModelRouter.getFallbackRoute(
+      originalPrompt || enhancedOptions.input.text || "",
+      {
+        provider: providerName,
+        model: enhancedOptions.model || "gpt-4o",
+        reasoning: "primary failed",
+        confidence: 0.5,
+      },
+      { fallbackStrategy: "auto" },
+    );
+
+    logger.warn("Retrying with fallback provider", {
+      originalProvider: providerName,
+      fallbackProvider: fallbackRoute.provider,
+      reason: errorMsg,
+    });
+
+    try {
+      const fallbackProvider = await AIProviderFactory.createProvider(
+        fallbackRoute.provider,
+        fallbackRoute.model,
+      );
+
+      // Ensure fallback provider can execute tools
+      fallbackProvider.setupToolExecutor(
+        {
+          customTools: this.getCustomTools(),
+          executeTool: this.executeTool.bind(this),
+        },
+        "NeuroLink.fallbackStream",
+      );
+
+      // Get conversation messages for context (same as primary stream)
+      const conversationMessages = await getConversationMessages(
+        this.conversationMemory,
+        {
+          prompt: enhancedOptions.input.text,
+          context: enhancedOptions.context as Record<string, unknown>,
+        } as TextGenerationOptions,
+      );
+
+      const fallbackResult = await fallbackProvider.stream({
+        ...enhancedOptions,
+        model: fallbackRoute.model,
+        conversationMessages,
+      });
+
+      let fallbackChunkCount = 0;
+      for await (const fallbackChunk of fallbackResult.stream) {
+        fallbackChunkCount++;
+        if (
+          fallbackChunk &&
+          "content" in fallbackChunk &&
+          typeof fallbackChunk.content === "string"
+        ) {
+          appendContent(fallbackChunk.content);
+          this.emitter.emit("response:chunk", fallbackChunk.content);
+        }
+        yield fallbackChunk;
+      }
+
+      if (fallbackChunkCount === 0) {
+        throw new Error(
+          `Fallback provider ${fallbackRoute.provider} also returned 0 chunks`,
+        );
+      }
+
+      // Fallback succeeded - likely guardrails blocked primary
+      metadata.guardrailsBlocked = true;
+    } catch (fallbackError) {
+      const fallbackErrorMsg =
+        fallbackError instanceof Error
+          ? fallbackError.message
+          : String(fallbackError);
+      metadata.error = `${errorMsg}; Fallback failed: ${fallbackErrorMsg}`;
+      logger.error("Fallback provider failed", {
+        fallbackProvider: fallbackRoute.provider,
+        error: fallbackErrorMsg,
+      });
+      throw fallbackError;
+    }
+  }
+
+  /**
+   * Store conversation memory after stream consumption is complete (called from finally block).
+   * Handles both conversation memory storage and Mem0 background storage.
+   */
+  private async storeStreamConversationMemory(params: {
+    enhancedOptions: StreamOptions;
+    providerName: string;
+    originalPrompt: string | undefined;
+    accumulatedContent: string;
+    startTime: number;
+    eventSequence: Array<{
+      type: string;
+      seq: number;
+      timestamp: number;
+      [key: string]: unknown;
+    }>;
+  }): Promise<void> {
+    const {
+      enhancedOptions,
+      providerName,
+      originalPrompt,
+      accumulatedContent,
+      startTime,
+      eventSequence,
+    } = params;
+
+    // Store memory after stream consumption is complete
+    if (this.conversationMemory && enhancedOptions.context?.sessionId) {
+      const sessionId = (enhancedOptions.context as Record<string, unknown>)
+        ?.sessionId as string;
+      const userId = (enhancedOptions.context as Record<string, unknown>)
+        ?.userId as string;
+      let providerDetails: ProviderDetails | undefined;
+      if (enhancedOptions.model) {
+        providerDetails = {
+          provider: providerName,
+          model: enhancedOptions.model,
+        };
+      }
+
+      try {
+        await this.conversationMemory.storeConversationTurn({
+          sessionId,
+          userId,
+          userMessage: originalPrompt ?? "",
+          aiResponse: accumulatedContent,
+          startTimeStamp: new Date(startTime),
+          providerDetails,
+          enableSummarization: enhancedOptions.enableSummarization,
+          events: eventSequence.length > 0 ? eventSequence : undefined,
+        });
+
+        logger.debug(
+          "[NeuroLink.stream] Stored conversation turn with events",
+          {
+            sessionId,
+            eventCount: eventSequence.length,
+            eventTypes: [...new Set(eventSequence.map((e) => e.type))],
+          },
+        );
+      } catch (error) {
+        logger.warn("Failed to store stream conversation turn", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
+      enhancedOptions.context?.userId &&
+      accumulatedContent.trim()
+    ) {
+      setImmediate(async () => {
+        try {
+          const mem0 = await this.ensureMem0Ready();
+          if (mem0) {
+            await this.storeMem0ConversationTurn(
+              mem0,
+              originalPrompt ?? "",
+              accumulatedContent.trim(),
+              enhancedOptions.context?.userId as string,
+              {
+                timestamp: new Date().toISOString(),
+                type: "conversation_turn_stream",
+              },
+            );
+          }
+        } catch (error) {
+          logger.warn("Mem0 memory storage failed:", error);
+        }
+      });
+    }
   }
 
   /**
@@ -3785,7 +4119,7 @@ Current user's request: ${currentInput}`;
     );
 
     // Get conversation messages for context
-    const conversationMessages = await getConversationMessages(
+    let conversationMessages = await getConversationMessages(
       this.conversationMemory,
       {
         ...options,
@@ -3793,6 +4127,32 @@ Current user's request: ${currentInput}`;
         context: options.context,
       } as TextGenerationOptions,
     );
+
+    // Pre-generation budget check for streaming
+    const streamBudget = checkContextBudget({
+      provider: providerName,
+      model: options.model,
+      maxTokens: options.maxTokens,
+      systemPrompt: enhancedSystemPrompt,
+      conversationMessages: conversationMessages as Array<{
+        role: string;
+        content: string;
+      }>,
+      currentPrompt: options.input.text,
+      toolDefinitions: availableTools,
+    });
+
+    if (streamBudget.shouldCompact && this.conversationMemory) {
+      const compactor = new ContextCompactor({ provider: providerName });
+      const compactionResult = await compactor.compact(
+        conversationMessages as import("./types/conversation.js").ChatMessage[],
+        streamBudget.availableInputTokens,
+      );
+      if (compactionResult.compacted) {
+        const repairedResult = repairToolPairs(compactionResult.messages);
+        conversationMessages = repairedResult.messages;
+      }
+    }
 
     // 🔧 FIX: Pass enhanced system prompt to real streaming
     // Tools will be accessed through the streamText call in executeStream
@@ -4591,6 +4951,42 @@ Current user's request: ${currentInput}`;
           );
         },
       });
+    }
+
+    // Inject file reference tools so they reach the Vercel AI SDK's tools parameter.
+    // These tools are bound to this.fileRegistry and allow the LLM to read/search
+    // files on demand instead of having all file content dumped into the prompt.
+    //
+    // createFileTools() returns Vercel AI SDK tool() objects with Zod `parameters`.
+    // We pass `parameters` as `inputSchema` so processCustomTools() in ToolsManager
+    // recognises it as a Zod schema (priority 2) and serialises it correctly for
+    // every provider — including Vertex AI which rejects bare `{}` schemas.
+    // Cache to avoid redundant allocations per generate/stream call (FRT-6).
+    if (!this.cachedFileTools) {
+      this.cachedFileTools = createFileTools(this.fileRegistry);
+    }
+    const fileTools = this.cachedFileTools;
+    for (const [toolName, toolDef] of Object.entries(fileTools)) {
+      if (!toolMap.has(toolName)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const toolParams = (toolDef as any).parameters;
+        toolMap.set(toolName, {
+          name: toolName,
+          description: toolDef.description || `File tool: ${toolName}`,
+          inputSchema: toolParams ?? { type: "object", properties: {} },
+          execute: async (params: unknown) => {
+            return await (
+              toolDef.execute as (
+                params: unknown,
+                ctx: unknown,
+              ) => Promise<unknown>
+            )(params, {
+              toolCallId: `file-tool-${Date.now()}`,
+              messages: [],
+            });
+          },
+        });
+      }
     }
 
     return toolMap;
@@ -6836,6 +7232,113 @@ Current user's request: ${currentInput}`;
    */
   getToolRegistry(): MCPToolRegistry {
     return this.toolRegistry;
+  }
+
+  /**
+   * Manually trigger context compaction for a session.
+   * Runs the full 4-stage compaction pipeline.
+   */
+  async compactSession(
+    sessionId: string,
+    config?: CompactionConfig,
+  ): Promise<CompactionResult | null> {
+    if (!this.conversationMemory) {
+      return null;
+    }
+
+    const messages =
+      await this.conversationMemory.buildContextMessages(sessionId);
+    if (!messages || messages.length === 0) {
+      return null;
+    }
+
+    const compactor = new ContextCompactor(config);
+    const targetTokens = Math.floor(messages.length * 100); // Rough target
+    const result = await compactor.compact(
+      messages,
+      targetTokens,
+      this.conversationMemoryConfig?.conversationMemory,
+    );
+
+    if (result.compacted) {
+      repairToolPairs(result.messages);
+    }
+
+    return result;
+  }
+
+  /**
+   * Get context usage statistics for a session.
+   * Returns token counts, usage ratio, and breakdown by category.
+   */
+  async getContextStats(
+    sessionId: string,
+    provider?: string,
+    model?: string,
+  ): Promise<{
+    estimatedInputTokens: number;
+    availableInputTokens: number;
+    usageRatio: number;
+    shouldCompact: boolean;
+    messageCount: number;
+  } | null> {
+    if (!this.conversationMemory) {
+      return null;
+    }
+
+    const messages =
+      await this.conversationMemory.buildContextMessages(sessionId);
+    if (!messages || messages.length === 0) {
+      return null;
+    }
+
+    const budgetResult = checkContextBudget({
+      provider: provider || "openai",
+      model,
+      conversationMessages: messages as Array<{
+        role: string;
+        content: string;
+      }>,
+    });
+
+    return {
+      estimatedInputTokens: budgetResult.estimatedInputTokens,
+      availableInputTokens: budgetResult.availableInputTokens,
+      usageRatio: budgetResult.usageRatio,
+      shouldCompact: budgetResult.shouldCompact,
+      messageCount: messages.length,
+    };
+  }
+
+  /**
+   * Check if a session needs compaction.
+   */
+  needsCompaction(
+    sessionId: string,
+    provider?: string,
+    model?: string,
+  ): boolean {
+    if (!this.conversationMemory) {
+      return false;
+    }
+
+    const session = (
+      this.conversationMemory as ConversationMemoryManager
+    ).getSession?.(sessionId);
+    if (!session) {
+      return false;
+    }
+
+    const budgetResult = checkContextBudget({
+      provider: provider || "openai",
+      model,
+      conversationMessages: session.messages as Array<{
+        role: string;
+        content: string;
+      }>,
+    });
+
+    return budgetResult.shouldCompact;
   }
 
   /**

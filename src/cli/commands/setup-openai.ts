@@ -19,21 +19,21 @@ import { logger } from "../../lib/utils/logger.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
 import { AIProviderName } from "../../lib/types/index.js";
 
-interface OpenAISetupOptions {
+type OpenAISetupOptions = {
   checkOnly?: boolean;
   interactive?: boolean;
-}
+};
 
-interface OpenAISetupArgv {
+type OpenAISetupArgv = {
   check?: boolean;
   nonInteractive?: boolean;
-}
+};
 
-interface OpenAIConfig {
+type OpenAIConfig = {
   apiKey?: string;
   model?: string;
   isReconfiguring?: boolean;
-}
+};
 
 export async function handleOpenAISetup(argv: OpenAISetupArgv): Promise<void> {
   try {

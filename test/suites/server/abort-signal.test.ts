@@ -17,11 +17,11 @@ type TestServerContext = Partial<ServerContext> & {
 /**
  * Express-like response mock for testing
  */
-interface MockExpressResponse {
+type MockExpressResponse = {
   on: (event: string, cb: () => void) => void;
   writableFinished: boolean;
   locals: Record<string, unknown>;
-}
+};
 
 describe("createAbortSignalMiddleware", () => {
   it("should attach abort signal to context", async () => {

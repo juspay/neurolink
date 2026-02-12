@@ -15,11 +15,11 @@
 
 import type { CoreMessage } from "ai";
 import type {
-  TextGenerationOptions,
   AIProviderName,
+  TextGenerationOptions,
 } from "../../types/index.js";
-import type { StreamOptions } from "../../types/streamTypes.js";
 import type { MultimodalInput } from "../../types/multimodal.js";
+import type { StreamOptions } from "../../types/streamTypes.js";
 import { logger } from "../../utils/logger.js";
 import {
   buildMessagesArray,
@@ -80,6 +80,7 @@ export class MessageBuilder {
         conversationHistory: options.conversationMessages,
         schema: options.schema,
         output: options.output,
+        fileRegistry: options.fileRegistry,
       };
 
       messages = await buildMultimodalMessagesArray(
@@ -177,6 +178,7 @@ export class MessageBuilder {
           .conversationMessages,
         schema: options.schema,
         output: options.output,
+        fileRegistry: (options as Record<string, unknown>).fileRegistry,
       };
 
       messages = await buildMultimodalMessagesArray(

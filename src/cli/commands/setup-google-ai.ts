@@ -23,21 +23,21 @@ import {
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
 import { AIProviderName } from "../../lib/types/index.js";
 
-interface GoogleAISetupOptions {
+type GoogleAISetupOptions = {
   checkOnly?: boolean;
   interactive?: boolean;
-}
+};
 
-interface GoogleAISetupArgv {
+type GoogleAISetupArgv = {
   check?: boolean;
   nonInteractive?: boolean;
-}
+};
 
-interface GoogleAIConfig {
+type GoogleAIConfig = {
   apiKey?: string;
   model?: string;
   isReconfiguring?: boolean;
-}
+};
 
 /**
  * Get the runtime default model that matches the provider implementation

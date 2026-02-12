@@ -1053,10 +1053,10 @@ volumes:
 
 ## Related Documentation
 
-- [Express.js Integration Guide](/docs/guides/frameworks/express) - Lightweight REST API setup
-- [Next.js Integration Guide](/docs/guides/frameworks/nextjs) - Full-stack React applications
-- [Streaming Guide](/docs/advanced/streaming) - SSE and WebSocket streaming
-- [API Reference](/docs/sdk/api-reference) - Complete SDK documentation
+- [Express.js Integration Guide](../guides/frameworks/express.md) - Lightweight REST API setup
+- [Next.js Integration Guide](../guides/frameworks/nextjs.md) - Full-stack React applications
+- [Streaming Guide](../advanced/streaming.md) - SSE and WebSocket streaming
+- [API Reference](./api-reference.md) - Complete SDK documentation
 
 ---
 

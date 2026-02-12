@@ -969,7 +969,7 @@ neurolink.registerLighthouseServer(juspayAnalyticsServer, {
 - **Battle-Tested**: Production-ready tools with real API integrations
 - **Minimal Maintenance**: Lighthouse team maintains tool implementations
 
-**📄 Complete Integration Plan**: [docs/LIGHTHOUSE_INTEGRATION_MASTER_PLAN.md](../docs/LIGHTHOUSE_INTEGRATION_MASTER_PLAN.md)
+**📄 Complete Integration Plan**: `docs/LIGHTHOUSE_INTEGRATION_MASTER_PLAN.md`
 
 ## 🚀 **WHAT'S NEXT: IMMEDIATE PRIORITIES**
 

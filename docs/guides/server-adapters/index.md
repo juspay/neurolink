@@ -109,13 +109,13 @@ For complete CLI reference, see the [CLI Commands Reference](../../cli/commands.
 
 ## Supported Frameworks
 
-| Framework                                          | Status      | Description                                                                                                 |
-| -------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------- |
-| **[Hono](/guides/server-adapters/hono)**           | Recommended | Lightweight, multi-runtime framework with excellent performance. Ideal for serverless and edge deployments. |
-| **[Express](/guides/server-adapters/express)**     | Supported   | The most popular Node.js web framework. Great ecosystem and middleware compatibility.                       |
-| **[Fastify](/guides/server-adapters/fastify)**     | Supported   | High-performance framework with built-in schema validation. Excellent for TypeScript projects.              |
-| **[Koa](/guides/server-adapters/koa)**             | Supported   | Modern, minimalist framework from the Express team. Clean middleware composition.                           |
-| **[WebSocket](/guides/server-adapters/websocket)** | Supported   | Real-time bidirectional communication with built-in connection management and authentication.               |
+| Framework                       | Status      | Description                                                                                                 |
+| ------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------- |
+| **[Hono](./hono.md)**           | Recommended | Lightweight, multi-runtime framework with excellent performance. Ideal for serverless and edge deployments. |
+| **[Express](./express.md)**     | Supported   | The most popular Node.js web framework. Great ecosystem and middleware compatibility.                       |
+| **[Fastify](./fastify.md)**     | Supported   | High-performance framework with built-in schema validation. Excellent for TypeScript projects.              |
+| **[Koa](./koa.md)**             | Supported   | Modern, minimalist framework from the Express team. Clean middleware composition.                           |
+| **[WebSocket](./websocket.md)** | Supported   | Real-time bidirectional communication with built-in connection management and authentication.               |
 
 ### Framework Selection Guide
 
@@ -498,27 +498,27 @@ services:
 
 ## Next Steps
 
-- **[Hono Adapter Guide](/guides/server-adapters/hono)** - Recommended framework for most use cases
-- **[Express Adapter Guide](/guides/server-adapters/express)** - For existing Express applications
-- **[Fastify Adapter Guide](/guides/server-adapters/fastify)** - For maximum performance and type safety
-- **[Koa Adapter Guide](/guides/server-adapters/koa)** - For modern, minimalist applications
-- **[WebSocket Guide](/guides/server-adapters/websocket)** - Real-time bidirectional communication
-- **[Middleware Reference](/guides/server-adapters/middleware)** - Complete middleware documentation
-- **[Streaming Guide](/guides/server-adapters/streaming)** - Real-time streaming with SSE and NDJSON
-- **[Error Handling](/guides/server-adapters/errors)** - Comprehensive error handling guide
-- **[Configuration Reference](/reference/server-configuration)** - Full configuration options
-- **[OpenAPI Customization](/reference/server-configuration#openapi-customization)** - Customize API documentation
-- **[Security Best Practices](/guides/server-adapters/security)** - Authentication and authorization patterns
-- **[Deployment Guide](/guides/server-adapters/deployment)** - Production deployment strategies
+- **[Hono Adapter Guide](./hono.md)** - Recommended framework for most use cases
+- **[Express Adapter Guide](./express.md)** - For existing Express applications
+- **[Fastify Adapter Guide](./fastify.md)** - For maximum performance and type safety
+- **[Koa Adapter Guide](./koa.md)** - For modern, minimalist applications
+- **[WebSocket Guide](./websocket.md)** - Real-time bidirectional communication
+- **[Middleware Reference](./middleware.md)** - Complete middleware documentation
+- **[Streaming Guide](./streaming.md)** - Real-time streaming with SSE and NDJSON
+- **[Error Handling](./errors.md)** - Comprehensive error handling guide
+- **[Configuration Reference](../../reference/server-configuration.md)** - Full configuration options
+- **[OpenAPI Customization](../../reference/server-configuration.md#openapi-customization)** - Customize API documentation
+- **[Security Best Practices](./security.md)** - Authentication and authorization patterns
+- **[Deployment Guide](./deployment.md)** - Production deployment strategies
 
 ---
 
 ## Related Documentation
 
-- **[API Reference](/sdk/api-reference)** - NeuroLink SDK documentation
-- **[MCP Integration](/mcp/integration)** - Model Context Protocol tools
-- **[Streaming Guide](/guides/server-adapters/streaming)** - Real-time streaming with SSE and NDJSON
-- **[Enterprise Monitoring](/features/observability)** - Observability setup
+- **[API Reference](../../sdk/api-reference.md)** - NeuroLink SDK documentation
+- **[MCP Integration](../../mcp-integration.md)** - Model Context Protocol tools
+- **[Streaming Guide](./streaming.md)** - Real-time streaming with SSE and NDJSON
+- **[Enterprise Monitoring](../../features/observability.md)** - Observability setup
 
 ---
 

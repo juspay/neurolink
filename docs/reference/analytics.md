@@ -706,7 +706,7 @@ async function loggedGenerate(options: GenerateOptions) {
 Build usage dashboards with aggregated statistics:
 
 ```typescript
-interface UsageStats {
+type UsageStats = {
   totalRequests: number;
   totalTokens: number;
   totalCost: number;
@@ -727,7 +727,7 @@ interface UsageStats {
       cost: number;
     }
   >;
-}
+};
 
 class UsageTracker {
   private stats: UsageStats = {

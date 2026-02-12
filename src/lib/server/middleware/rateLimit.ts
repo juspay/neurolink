@@ -52,7 +52,7 @@ export type RateLimitEntry = {
  * Rate limit store interface
  * Implement this for custom storage (Redis, etc.)
  */
-export interface RateLimitStore {
+export type RateLimitStore = {
   /**
    * Get the current entry for a key
    */
@@ -73,7 +73,7 @@ export interface RateLimitStore {
    * Reset the counter for a key
    */
   reset(key: string): Promise<void>;
-}
+};
 
 /**
  * In-memory rate limit store

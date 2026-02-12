@@ -1067,8 +1067,8 @@ for (const middleware of middlewares) {
 
 ## Next Steps
 
-- **[Configuration Reference](/reference/server-configuration)** - Full server configuration options
-- **[Security Best Practices](/guides/server-adapters/security)** - Authentication and authorization patterns
-- **[Deployment Guide](/guides/server-adapters/deployment)** - Production deployment strategies
-- **[Express Adapter](/guides/server-adapters/express)** - Express-specific middleware integration
-- **[Fastify Adapter](/guides/server-adapters/fastify)** - Fastify-specific hooks and plugins
+- **[Configuration Reference](../../reference/server-configuration.md)** - Full server configuration options
+- **[Security Best Practices](./security.md)** - Authentication and authorization patterns
+- **[Deployment Guide](./deployment.md)** - Production deployment strategies
+- **[Express Adapter](./express.md)** - Express-specific middleware integration
+- **[Fastify Adapter](./fastify.md)** - Fastify-specific hooks and plugins

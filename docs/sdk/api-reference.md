@@ -8,61 +8,44 @@ The `NeuroLink` class is the main entry point for all SDK functionality.
 
 ### Constructor: `new NeuroLink(config?)`
 
-Create a new NeuroLink instance with optional configuration for conversation memory, middleware, and orchestration.
+Create a new NeuroLink instance with optional configuration for conversation memory, orchestration, HITL, and observability.
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 
-const neurolink = new NeuroLink(config?: NeuroLinkConstructorConfig)
+const neurolink = new NeuroLink(config?: NeurolinkConstructorConfig)
 ```
 
 **Parameters:**
 
 ```typescript
-type NeuroLinkConstructorConfig = {
+type NeurolinkConstructorConfig = {
   // Conversation Memory
-  conversationMemory?: {
-    enabled: boolean;
-    store?: "memory" | "redis"; // Default: 'memory'
-    redis?: {
-      host?: string;
-      port?: number;
-      password?: string;
-      ttl?: number; // Time-to-live in seconds
-    };
-    maxSessions?: number;
-    maxTurnsPerSession?: number;
-  };
-
-  // Middleware Configuration
-  middleware?: {
-    preset?: "default" | "security" | "all";
-    middlewareConfig?: {
-      guardrails?: {
-        enabled: boolean;
-        config?: {
-          badWords?: {
-            enabled: boolean;
-            list?: string[];
-          };
-          modelFilter?: {
-            enabled: boolean;
-            filterModel?: string;
-          };
-        };
-      };
-      analytics?: {
-        enabled: boolean;
-      };
-    };
-  };
+  conversationMemory?: Partial<ConversationMemoryConfig>;
+  // See ConversationMemoryConfig for full options:
+  //   enabled: boolean
+  //   maxSessions?: number
+  //   enableSummarization?: boolean
+  //   tokenThreshold?: number
+  //   summarizationProvider?: string
+  //   summarizationModel?: string
+  //   mem0Enabled?: boolean
+  //   mem0Config?: Mem0Config
+  //   redisConfig?: RedisStorageConfig
+  //   contextCompaction?: { enabled?, threshold?, enablePruning?, ... }
+  //   maxTurnsPerSession?: number  // @deprecated - use tokenThreshold instead
 
   // Provider Orchestration
   enableOrchestration?: boolean;
-  orchestrationConfig?: {
-    fallbackChain?: string[]; // Provider fallback order
-    preferCheap?: boolean;
-  };
+
+  // Human-in-the-Loop safety features
+  hitl?: HITLConfig;
+
+  // Custom tool registry (advanced)
+  toolRegistry?: MCPToolRegistry;
+
+  // Observability (Langfuse integration)
+  observability?: ObservabilityConfig;
 };
 ```
 
@@ -78,31 +61,22 @@ const neurolink = new NeuroLink();
 const neurolinkWithMemory = new NeuroLink({
   conversationMemory: {
     enabled: true,
-    store: "redis",
-    redis: {
+    redisConfig: {
       host: "localhost",
       port: 6379,
       ttl: 7 * 24 * 60 * 60, // 7 days
     },
-    maxTurnsPerSession: 100,
+    tokenThreshold: 100000, // Token threshold to trigger summarization
   },
 });
 
-// With guardrails middleware
-const neurolinkWithGuardrails = new NeuroLink({
-  middleware: {
-    preset: "security", // Enables guardrails automatically
-    middlewareConfig: {
-      guardrails: {
-        enabled: true,
-        config: {
-          badWords: {
-            enabled: true,
-            list: ["profanity1", "profanity2"],
-          },
-        },
-      },
-    },
+// With HITL safety features
+const neurolinkWithHITL = new NeuroLink({
+  hitl: {
+    enabled: true,
+    dangerousActions: ["delete", "remove", "drop"],
+    timeout: 30000,
+    allowArgumentModification: true,
   },
 });
 
@@ -110,19 +84,25 @@ const neurolinkWithGuardrails = new NeuroLink({
 const neurolinkComplete = new NeuroLink({
   conversationMemory: {
     enabled: true,
-    store: "redis",
-  },
-  middleware: {
-    preset: "all", // Analytics + Guardrails
+    redisConfig: { host: "localhost", port: 6379 },
+    enableSummarization: true,
   },
   enableOrchestration: true,
+  hitl: { enabled: true },
+  observability: {
+    langfuse: {
+      enabled: true,
+      publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+      secretKey: process.env.LANGFUSE_SECRET_KEY,
+    },
+  },
 });
 ```
 
 See also:
 
 - [Redis Conversation Export](../features/conversation-history.md)
-- [Guardrails Middleware](../features/guardrails.md)
+- [Human-in-the-Loop (HITL)](../features/hitl.md)
 - [Provider Orchestration](../features/provider-orchestration.md)
 
 ---
@@ -183,12 +163,12 @@ type GenerateOptions = {
 };
 
 // Video output configuration (for Veo 3.1 via Vertex AI)
-interface VideoOutputOptions {
+type VideoOutputOptions = {
   resolution?: "720p" | "1080p"; // Video resolution (default: "720p")
   length?: 4 | 6 | 8; // Video duration in seconds (default: 6)
   aspectRatio?: "9:16" | "16:9"; // Aspect ratio (default: "16:9")
   audio?: boolean; // Include synchronized audio (default: true)
-}
+};
 ```
 
 **Returns:**
@@ -501,58 +481,15 @@ import {
 
 ## MCP Server Management
 
-### `addMCPServer(serverId, config)`
+### `addExternalMCPServer(serverId, config)`
 
-Programmatically add MCP servers at runtime. Supports stdio, SSE, WebSocket, and HTTP transports.
+Programmatically add external MCP servers at runtime. Supports stdio, SSE, WebSocket, and HTTP transports.
 
 ```typescript
-async addMCPServer(
+async addExternalMCPServer(
   serverId: string,
-  config: {
-    // For stdio transport
-    command?: string;
-    args?: string[];
-    env?: Record<string, string>;
-    cwd?: string;
-    // For HTTP transport
-    transport?: "stdio" | "sse" | "websocket" | "http";
-    url?: string;
-    headers?: Record<string, string>;
-    httpOptions?: {
-      connectionTimeout?: number;
-      requestTimeout?: number;
-      idleTimeout?: number;
-      keepAliveTimeout?: number;
-    };
-    retryConfig?: {
-      maxAttempts?: number;
-      initialDelay?: number;
-      maxDelay?: number;
-      backoffMultiplier?: number;
-    };
-    rateLimiting?: {
-      requestsPerMinute?: number;
-      requestsPerHour?: number;
-      maxBurst?: number;
-      useTokenBucket?: boolean;
-    };
-    auth?: {
-      type: "oauth2" | "bearer" | "api-key";
-      token?: string;
-      apiKey?: string;
-      apiKeyHeader?: string;
-      oauth?: {
-        clientId: string;
-        clientSecret?: string;
-        authorizationUrl: string;
-        tokenUrl: string;
-        redirectUrl: string;
-        scope?: string;
-        usePKCE?: boolean;
-      };
-    };
-  }
-): Promise<void>
+  config: MCPServerInfo
+): Promise<ExternalMCPOperationResult<ExternalMCPServerInstance>>
 ```
 
 **Examples:**
@@ -563,7 +500,7 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink();
 
 // Add Bitbucket integration (stdio transport)
-await neurolink.addMCPServer("bitbucket", {
+await neurolink.addExternalMCPServer("bitbucket", {
   command: "npx",
   args: ["-y", "@nexus2520/bitbucket-mcp-server"],
   env: {
@@ -573,7 +510,7 @@ await neurolink.addMCPServer("bitbucket", {
 });
 
 // Add HTTP remote server with full configuration
-await neurolink.addMCPServer("remote-api", {
+await neurolink.addExternalMCPServer("remote-api", {
   transport: "http",
   url: "https://api.example.com/mcp",
   headers: {
@@ -600,7 +537,7 @@ await neurolink.addMCPServer("remote-api", {
 });
 
 // Add HTTP server with OAuth 2.1 authentication
-await neurolink.addMCPServer("oauth-api", {
+await neurolink.addExternalMCPServer("oauth-api", {
   transport: "http",
   url: "https://api.enterprise.com/mcp",
   auth: {
@@ -618,7 +555,7 @@ await neurolink.addMCPServer("oauth-api", {
 });
 
 // Add SSE server
-await neurolink.addMCPServer("sse-server", {
+await neurolink.addExternalMCPServer("sse-server", {
   transport: "sse",
   url: "https://api.example.com/mcp/sse",
   headers: { Authorization: "Bearer YOUR_TOKEN" },
@@ -659,16 +596,6 @@ console.log(`Total tools: ${status.totalTools}`);
 
 ---
 
-### `getUnifiedRegistry()`
-
-Access the unified MCP registry for advanced server management.
-
-```typescript
-getUnifiedRegistry(): UnifiedMCPRegistry
-```
-
----
-
 ## Conversation History Management
 
 ### Currently Available Methods
@@ -705,7 +632,7 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink({
   conversationMemory: {
     enabled: true,
-    store: "redis", // or 'memory'
+    redisConfig: { host: "localhost", port: 6379 }, // omit for in-memory
   },
 });
 
@@ -1008,11 +935,7 @@ const analysis = await neurolink.generate({
 import { NeuroLink } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink({
-  enableOrchestration: true,
-  orchestrationConfig: {
-    fallbackChain: ["openai", "anthropic", "bedrock"],
-    preferCheap: false,
-  },
+  enableOrchestration: true, // Enables smart model routing via ModelRouter
 });
 
 // Will automatically fallback if primary provider fails

@@ -15,14 +15,14 @@ import {
 } from "@opentelemetry/semantic-conventions";
 import { logger } from "../utils/logger.js";
 
-export interface HealthMetrics {
+export type HealthMetrics = {
   timestamp: number;
   memoryUsage: NodeJS.MemoryUsage;
   uptime: number;
   activeConnections: number;
   errorRate: number;
   averageResponseTime: number;
-}
+};
 
 export class TelemetryService {
   private static instance: TelemetryService;

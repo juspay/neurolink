@@ -160,16 +160,4 @@ export type ColorName =
   | "magenta"
   | "cyan";
 
-/**
- * Result of executing a CLI command in tests
- */
-export type CommandResult = {
-  /** Exit code of the command */
-  code: number;
-  /** Standard output content */
-  stdout: string;
-  /** Standard error content */
-  stderr: string;
-  /** Whether the command succeeded (code === 0) */
-  success: boolean;
-};
+// CommandResult has been replaced by ProcessResult in @juspay/neurolink types

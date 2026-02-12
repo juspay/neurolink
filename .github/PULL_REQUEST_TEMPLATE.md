@@ -210,7 +210,7 @@ For reviewers:
 
 Before submitting, ensure you have:
 
-- [ ] Read and followed the [Contributing Guidelines](../../CONTRIBUTING.md)
+- [ ] Read and followed the [Contributing Guidelines](../CONTRIBUTING.md)
 - [ ] Verified all automated pre-commit checks pass
 - [ ] Tested changes locally with `pnpm test`
 - [ ] Built the project successfully with `pnpm build`

@@ -510,7 +510,7 @@ Some providers have additional error codes:
 
 ## Related Documentation
 
-- [Troubleshooting Guide](/docs/reference/troubleshooting.md) - Common issues and solutions
-- [Configuration Reference](../deployment/configuration.md) - Environment variables and settings
-- [FAQ](/docs/reference/faq.md) - Frequently asked questions
-- [Provider Feature Compatibility](/docs/reference/provider-feature-compatibility.md) - Provider capabilities matrix
+- [Troubleshooting Guide](./troubleshooting.md) - Common issues and solutions
+- [Configuration Reference](./configuration.md) - Environment variables and settings
+- [FAQ](./faq.md) - Frequently asked questions
+- [Provider Feature Compatibility](./provider-feature-compatibility.md) - Provider capabilities matrix

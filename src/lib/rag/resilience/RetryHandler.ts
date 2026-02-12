@@ -20,27 +20,9 @@ import {
   VectorQueryError,
 } from "../errors/RAGError.js";
 
-/**
- * RAG-specific retry configuration
- */
-export interface RAGRetryConfig {
-  /** Maximum number of retry attempts (default: 3) */
-  maxRetries: number;
-  /** Initial delay in ms (default: 1000) */
-  initialDelay: number;
-  /** Maximum delay in ms (default: 30000) */
-  maxDelay: number;
-  /** Backoff multiplier (default: 2) */
-  backoffMultiplier: number;
-  /** Whether to add jitter (default: true) */
-  jitter: boolean;
-  /** Custom function to determine if error is retryable */
-  shouldRetry?: (error: Error) => boolean;
-  /** Retryable error codes */
-  retryableErrorCodes?: string[];
-  /** Retryable HTTP status codes */
-  retryableStatusCodes?: number[];
-}
+import type { RAGRetryConfig } from "../../types/ragTypes.js";
+
+export type { RAGRetryConfig } from "../../types/ragTypes.js";
 
 /**
  * Default retry configuration

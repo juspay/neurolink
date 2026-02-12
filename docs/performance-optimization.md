@@ -754,13 +754,13 @@ async function robustVideoGeneration(prompt: string, image: Buffer) {
 ### Monitoring Video Generation Performance
 
 ```typescript
-interface VideoMetrics {
+type VideoMetrics = {
   totalGenerated: number;
   avgGenerationTime: number;
   cacheHitRate: number;
   failureRate: number;
   costEstimate: number;
-}
+};
 
 class VideoPerformanceMonitor {
   private metrics: VideoMetrics = {

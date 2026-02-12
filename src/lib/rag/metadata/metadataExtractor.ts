@@ -154,10 +154,12 @@ export class LLMMetadataExtractor {
 
     for (const chunk of chunks) {
       const docId = chunk.metadata.documentId;
-      if (!groups.has(docId)) {
-        groups.set(docId, []);
+      const group = groups.get(docId);
+      if (group) {
+        group.push(chunk);
+      } else {
+        groups.set(docId, [chunk]);
       }
-      groups.get(docId)!.push(chunk);
     }
 
     return groups;

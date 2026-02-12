@@ -10,6 +10,8 @@ export type FileType =
   | "image"
   | "pdf"
   | "audio"
+  | "video"
+  | "archive"
   | "text"
   | "svg"
   | "docx"
@@ -23,9 +25,29 @@ export type FileType =
 export type OfficeDocumentType = "docx" | "pptx" | "xlsx";
 
 /**
- * File input can be Buffer or string (path/URL/data URI)
+ * File with metadata — allows callers to pass filename alongside a Buffer.
+ *
+ * This is the recommended way for applications (e.g. Slack bots) to pass
+ * files that were downloaded as Buffers but still have original filenames.
+ *
+ * @example
+ * ```typescript
+ * files: [
+ *   { buffer: pdfBuffer, filename: "quarterly-report.pdf" },
+ *   { buffer: videoBuffer, filename: "meeting-recording.mov", mimetype: "video/quicktime" }
+ * ]
+ * ```
  */
-export type FileInput = Buffer | string;
+export type FileWithMetadata = {
+  buffer: Buffer;
+  filename: string;
+  mimetype?: string;
+};
+
+/**
+ * File input can be Buffer, string (path/URL/data URI), or an object with metadata.
+ */
+export type FileInput = Buffer | string | FileWithMetadata;
 
 /**
  * File source type for tracking input origin
@@ -54,6 +76,8 @@ export type FileProcessingResult = {
   type: FileType;
   content: string | Buffer;
   mimeType: string;
+  /** Additional images extracted from the file (e.g., video keyframes, audio cover art) */
+  images?: Array<Buffer | string>;
   metadata: {
     confidence: number;
     size?: number;
@@ -92,6 +116,9 @@ export type FileProcessingResult = {
     modifiedDate?: string;
     hasFormulas?: boolean;
     hasImages?: boolean;
+    // Video-specific metadata
+    frameCount?: number;
+    hasKeyframes?: boolean;
   };
 };
 

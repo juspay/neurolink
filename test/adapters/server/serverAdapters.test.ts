@@ -23,10 +23,10 @@ import type {
 /**
  * Mock socket interface for WebSocket tests
  */
-interface MockWebSocket {
+type MockWebSocket = {
   send: ReturnType<typeof vi.fn>;
   close: ReturnType<typeof vi.fn>;
-}
+};
 
 /**
  * Creates a minimal mock NeuroLink instance for testing

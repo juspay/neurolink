@@ -17,7 +17,7 @@ import type {
 /**
  * Options for extractChunks method
  */
-interface ExtractChunksOptions {
+type ExtractChunksOptions = {
   data: unknown;
   path: string;
   depth: number;
@@ -26,7 +26,7 @@ interface ExtractChunksOptions {
   splitKeys: string[];
   preserveKeys: string[];
   includeJsonPath: boolean;
-}
+};
 
 /**
  * JSON-aware chunker implementation

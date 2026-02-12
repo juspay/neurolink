@@ -20,17 +20,17 @@ import chalk from "chalk";
 import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
 
-interface GCPSetupOptions {
+type GCPSetupOptions = {
   checkOnly?: boolean;
   interactive?: boolean;
-}
+};
 
-interface GCPSetupArgv {
+type GCPSetupArgv = {
   check?: boolean;
   nonInteractive?: boolean;
-}
+};
 
-interface AuthMethodStatus {
+type AuthMethodStatus = {
   method1: {
     complete: boolean;
     hasCredentials: boolean;
@@ -52,7 +52,7 @@ interface AuthMethodStatus {
     hasLocation: boolean;
     missingVars: string[];
   };
-}
+};
 
 enum AuthMethod {
   FILE_PATH = "file-path",

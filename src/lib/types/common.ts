@@ -229,3 +229,45 @@ export type Context = {
   sessionId?: string;
   metadata?: Record<string, string | number | boolean>;
 };
+
+/**
+ * Result of executing a child process (shell command).
+ */
+export type ProcessResult = {
+  /** Exit code of the process */
+  code: number | null;
+  /** Standard output */
+  stdout: string;
+  /** Standard error output */
+  stderr: string;
+  /** Whether the process exited successfully (code === 0) */
+  success: boolean;
+};
+
+/**
+ * A named test function with an optional category.
+ */
+export type TestFunction = {
+  /** Display name of the test */
+  name: string;
+  /** Async function that returns true on pass, false on fail */
+  fn: () => Promise<boolean>;
+  /** Optional grouping category */
+  category?: string;
+};
+
+/**
+ * Result of a single test execution.
+ */
+export type TestResult = {
+  /** Display name of the test */
+  name: string;
+  /** Whether the test passed */
+  result: boolean;
+  /** Error message if the test failed, null otherwise */
+  error: string | null;
+  /** Optional grouping category */
+  category?: string;
+  /** Optional execution duration in milliseconds */
+  duration?: number;
+};

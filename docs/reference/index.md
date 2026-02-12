@@ -44,6 +44,18 @@ This section provides comprehensive reference materials for advanced usage, conf
 
   Complete error code reference with categorized codes, severity levels, and resolution guidance.
 
+- :material-chart-line: **[Analytics](analytics.md)**
+
+  ***
+
+  Comprehensive guide to NeuroLink analytics, metrics, token tracking, cost monitoring, and observability integration.
+
+- :material-server: **[Server Configuration](./server-configuration.md)** :material-new-box:{ .new-badge }
+
+  ***
+
+  Configuration reference for server adapters including Hono, Express, Fastify, and Koa framework integration.
+
 </div>
 
 ## 🔧 Quick Reference

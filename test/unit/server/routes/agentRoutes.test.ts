@@ -16,22 +16,22 @@ import type { MCPToolRegistry } from "../../../../src/lib/mcp/toolRegistry.js";
 /**
  * Mock NeuroLink interface for testing agent routes
  */
-interface MockNeuroLinkForAgentRoutes {
+type MockNeuroLinkForAgentRoutes = {
   generate: Mock;
   stream?: Mock;
-}
+};
 
 /**
  * Mock tool registry interface for testing
  */
-interface MockToolRegistry {
+type MockToolRegistry = {
   listTools: Mock;
-}
+};
 
 /**
  * Agent execute response structure for test assertions
  */
-interface AgentExecuteTestResponse {
+type AgentExecuteTestResponse = {
   content?: string;
   provider?: string;
   model?: string;
@@ -48,15 +48,15 @@ interface AgentExecuteTestResponse {
     code: string;
     message?: string;
   };
-}
+};
 
 /**
  * Agent providers list response structure
  */
-interface AgentProvidersTestResponse {
+type AgentProvidersTestResponse = {
   providers: string[];
   total: number;
-}
+};
 
 // Mock ProviderFactory
 vi.mock("../../../../src/lib/factories/providerFactory.js", () => ({

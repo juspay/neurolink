@@ -4,14 +4,14 @@ import { NeuroLink } from "@juspay/neurolink";
 // Tools that require human approval
 const SENSITIVE_TOOLS = ["writeFile", "executeCode", "sendEmail", "deleteData"];
 
-interface PendingApproval {
+type PendingApproval = {
   id: string;
   action: string;
   params: any;
   timestamp: Date;
   status: "pending" | "approved" | "rejected";
   userId: string;
-}
+};
 
 // In-memory store for demo; use Redis in production
 const pendingApprovals = new Map<string, PendingApproval>();

@@ -9,72 +9,17 @@ import { BaseFactory } from "../../core/infrastructure/index.js";
 import { logger } from "../../utils/logger.js";
 import { MetadataExtractionError, RAGErrorCodes } from "../errors/RAGError.js";
 import type { Chunk, ExtractionResult, ExtractParams } from "../types.js";
+import type {
+  MetadataExtractor,
+  MetadataExtractorConfig,
+  MetadataExtractorMetadata,
+  MetadataExtractorType,
+} from "../../types/ragTypes.js";
 
-/**
- * Supported metadata extractor types
- */
-export type MetadataExtractorType =
-  | "llm"
-  | "title"
-  | "summary"
-  | "keywords"
-  | "questions"
-  | "custom"
-  | "composite";
-
-/**
- * Metadata Extractor interface - all extractors implement this
- */
-export interface MetadataExtractor {
-  /** Extractor type identifier */
-  readonly type: MetadataExtractorType;
-
-  /**
-   * Extract metadata from chunks
-   * @param chunks - Array of chunks to extract metadata from
-   * @param params - Extraction parameters
-   * @returns Array of extraction results
-   */
-  extract(chunks: Chunk[], params?: ExtractParams): Promise<ExtractionResult[]>;
-}
-
-/**
- * Metadata extractor configuration
- */
-export interface MetadataExtractorConfig {
-  /** Extractor type */
-  type: MetadataExtractorType;
-  /** Language model provider */
-  provider?: string;
-  /** Model name for LLM-based extraction */
-  modelName?: string;
-  /** Custom prompt template */
-  promptTemplate?: string;
-  /** Maximum tokens for LLM response */
-  maxTokens?: number;
-  /** Temperature for LLM generation */
-  temperature?: number;
-}
-
-/**
- * Metadata extractor metadata for discovery and documentation
- */
-export interface MetadataExtractorMetadata {
-  /** Human-readable description */
-  description: string;
-  /** Default configuration */
-  defaultConfig: Partial<MetadataExtractorConfig>;
-  /** Supported configuration options */
-  supportedOptions: string[];
-  /** Recommended use cases */
-  useCases: string[];
-  /** Alternative names for this extractor */
-  aliases: string[];
-  /** Whether this extractor requires an AI model */
-  requiresModel: boolean;
-  /** Extraction types this extractor can produce */
-  extractionTypes: string[];
-}
+export type { MetadataExtractorType } from "../../types/ragTypes.js";
+export type { MetadataExtractor } from "../../types/ragTypes.js";
+export type { MetadataExtractorConfig } from "../../types/ragTypes.js";
+export type { MetadataExtractorMetadata } from "../../types/ragTypes.js";
 
 /**
  * Default metadata extractor metadata entries

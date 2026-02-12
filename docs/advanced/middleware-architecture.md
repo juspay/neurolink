@@ -499,7 +499,7 @@ type NeuroLinkMiddleware = LanguageModelV1Middleware & {
 The underlying middleware interface from Vercel AI SDK:
 
 ```typescript
-interface LanguageModelV1Middleware {
+type LanguageModelV1Middleware = {
   // Transform request parameters before provider call
   transformParams?: (options: {
     params: LanguageModelV1CallOptions;
@@ -516,7 +516,7 @@ interface LanguageModelV1Middleware {
     doStream: () => PromiseLike<LanguageModelV1StreamResult>;
     params: LanguageModelV1CallOptions;
   }) => PromiseLike<LanguageModelV1StreamResult>;
-}
+};
 ```
 
 ### MiddlewareContext

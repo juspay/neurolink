@@ -62,7 +62,7 @@ const MAX_DEPTH = 5;
 /**
  * Serialized error representation with full context.
  */
-export interface SerializedError {
+export type SerializedError = {
   /** Unique error instance ID */
   errorId: string;
   /** Deterministic fingerprint for error aggregation */
@@ -89,12 +89,12 @@ export interface SerializedError {
   cause?: SerializedError;
   /** ISO timestamp of when the error was serialized */
   timestamp: string;
-}
+};
 
 /**
  * Options for error serialization.
  */
-export interface SerializeOptions {
+export type SerializeOptions = {
   /** Include stack trace in output (default: true) */
   includeStack?: boolean;
   /** Max depth for nested object serialization (default: 5) */
@@ -103,7 +103,7 @@ export interface SerializeOptions {
   filterStacks?: boolean;
   /** Additional context to include */
   context?: Record<string, unknown>;
-}
+};
 
 /**
  * Safely serialize an error with full context preservation.

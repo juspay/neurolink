@@ -15,50 +15,23 @@ import { RAGCircuitBreakerError, RAGErrorCodes } from "../errors/RAGError.js";
  */
 export type CircuitState = "closed" | "open" | "half-open";
 
-/**
- * Circuit breaker configuration
- */
-export interface RAGCircuitBreakerConfig {
-  /** Number of failures before opening circuit (default: 5) */
-  failureThreshold: number;
-  /** Time in ms before attempting reset (default: 60000) */
-  resetTimeout: number;
-  /** Max calls allowed in half-open state (default: 3) */
-  halfOpenMaxCalls: number;
-  /** Operation timeout in ms (default: 30000) */
-  operationTimeout: number;
-  /** Minimum calls before calculating failure rate (default: 10) */
-  minimumCallsBeforeCalculation: number;
-  /** Time window for statistics in ms (default: 300000 - 5 minutes) */
-  statisticsWindowSize: number;
-}
+import type {
+  RAGCircuitBreakerConfig,
+  RAGCircuitBreakerStats,
+} from "../../types/ragTypes.js";
+
+export type { RAGCircuitBreakerConfig } from "../../types/ragTypes.js";
+export type { RAGCircuitBreakerStats } from "../../types/ragTypes.js";
 
 /**
  * Call record for statistics
  */
-interface CallRecord {
+type CallRecord = {
   timestamp: number;
   success: boolean;
   duration: number;
   operationType?: string;
-}
-
-/**
- * Circuit breaker statistics
- */
-export interface RAGCircuitBreakerStats {
-  state: CircuitState;
-  totalCalls: number;
-  successfulCalls: number;
-  failedCalls: number;
-  failureRate: number;
-  windowCalls: number;
-  lastStateChange: Date;
-  nextRetryTime?: Date;
-  halfOpenCalls: number;
-  averageLatency: number;
-  p95Latency: number;
-}
+};
 
 /**
  * Circuit breaker events

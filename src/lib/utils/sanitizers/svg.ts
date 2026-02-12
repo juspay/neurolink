@@ -231,14 +231,14 @@ const DANGEROUS_SVG_ATTRIBUTES = new Set([
 /**
  * Result of SVG sanitization including metadata about removed content
  */
-export interface SvgSanitizationResult {
+export type SvgSanitizationResult = {
   /** Sanitized SVG content */
   content: string;
   /** Items that were removed during sanitization */
   removedItems: string[];
   /** Whether any content was modified */
   wasModified: boolean;
-}
+};
 
 /**
  * Sanitize SVG content by removing dangerous elements and attributes.

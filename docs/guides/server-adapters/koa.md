@@ -536,11 +536,11 @@ describe("Koa API Server", () => {
 
 ## Related Documentation
 
-- **[Server Adapters Overview](/guides/server-adapters)** - Getting started with server adapters
-- **[Hono Adapter](/guides/server-adapters/hono)** - Recommended framework for most use cases
-- **[Express Adapter](/guides/server-adapters/express)** - Compare with Express adapter
-- **[Security Best Practices](/guides/server-adapters/security)** - Authentication patterns
-- **[Deployment Guide](/guides/server-adapters/deployment)** - Production deployment strategies
+- **[Server Adapters Overview](./index.md)** - Getting started with server adapters
+- **[Hono Adapter](./hono.md)** - Recommended framework for most use cases
+- **[Express Adapter](./express.md)** - Compare with Express adapter
+- **[Security Best Practices](./security.md)** - Authentication patterns
+- **[Deployment Guide](./deployment.md)** - Production deployment strategies
 
 ---
 

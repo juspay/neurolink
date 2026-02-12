@@ -354,11 +354,11 @@ try {
 **Promise-Based Analytics**: Updated StreamResult interface to support analytics and evaluation promises:
 
 ```typescript
-export interface StreamResult {
+export type StreamResult = {
   stream: AsyncIterable<{ content: string }>;
   analytics?: AnalyticsData | Promise<AnalyticsData>; // Resolves after stream completion
   evaluation?: EvaluationData | Promise<EvaluationData>;
-}
+};
 ```
 
 **Rich Analytics Data**: Real streaming now provides comprehensive analytics:

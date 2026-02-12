@@ -84,7 +84,7 @@ onFinish: (event) => {
 #### 2.1: Create Analytics Collection Interface
 
 ```typescript
-export interface StreamAnalyticsCollector {
+export type StreamAnalyticsCollector = {
   collectUsage(result: StreamTextResult): Promise<TokenUsage>;
   collectMetadata(result: StreamTextResult): Promise<ResponseMetadata>;
   collectToolData(result: StreamTextResult): Promise<ToolUsageData>;
@@ -95,7 +95,7 @@ export interface StreamAnalyticsCollector {
     responseTime: number,
     metadata?: Record<string, unknown>,
   ): AnalyticsData;
-}
+};
 ```
 
 #### 2.2: Base Analytics Collector Implementation
@@ -188,14 +188,14 @@ Same pattern - only returns textStream without analytics.
 #### 4.1: Update StreamResult Interface
 
 ```typescript
-export interface StreamResult {
+export type StreamResult = {
   stream: AsyncGenerator<StreamChunk>;
   provider: AIProviderName;
   model: string;
   metadata?: Record<string, unknown>;
   analytics?: Promise<AnalyticsData>; // NEW: Analytics available after stream completion
   evaluation?: Promise<EvaluationResult>; // NEW: Evaluation after completion
-}
+};
 ```
 
 #### 4.2: Update BaseProvider.stream() Logic

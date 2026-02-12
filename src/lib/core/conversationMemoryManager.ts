@@ -3,33 +3,34 @@
  * Handles in-memory conversation storage, session management, and context injection
  */
 
-import type {
-  ConversationMemoryConfig,
-  SessionMemory,
-  ConversationMemoryStats,
-  ChatMessage,
-  StoreConversationTurnOptions,
-} from "../types/conversation.js";
-import { ConversationMemoryError } from "../types/conversation.js";
+import { randomUUID } from "crypto";
 import {
   DEFAULT_MAX_SESSIONS,
   MEMORY_THRESHOLD_PERCENTAGE,
-  RECENT_MESSAGES_RATIO,
   MESSAGES_PER_TURN,
 } from "../config/conversationMemory.js";
-import { logger } from "../utils/logger.js";
-import { randomUUID } from "crypto";
 import { TokenUtils } from "../constants/tokens.js";
+import { SummarizationEngine } from "../context/summarizationEngine.js";
+import type {
+  ChatMessage,
+  ConversationMemoryConfig,
+  ConversationMemoryStats,
+  SessionMemory,
+  StoreConversationTurnOptions,
+} from "../types/conversation.js";
+import { ConversationMemoryError } from "../types/conversation.js";
+import type { IConversationMemoryManager } from "../types/conversationMemoryInterface.js";
 import {
   buildContextFromPointer,
   getEffectiveTokenThreshold,
-  generateSummary,
 } from "../utils/conversationMemory.js";
+import { logger } from "../utils/logger.js";
 
-export class ConversationMemoryManager {
+export class ConversationMemoryManager implements IConversationMemoryManager {
   private sessions: Map<string, SessionMemory> = new Map();
   public config: ConversationMemoryConfig;
   private isInitialized: boolean = false;
+  private summarizationEngine: SummarizationEngine = new SummarizationEngine();
 
   /**
    * Track sessions currently being summarized to prevent race conditions
@@ -58,7 +59,9 @@ export class ConversationMemoryManager {
       throw new ConversationMemoryError(
         "Failed to initialize conversation memory",
         "CONFIG_ERROR",
-        { error: error instanceof Error ? error.message : String(error) },
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
       );
     }
   }
@@ -106,6 +109,11 @@ export class ConversationMemoryManager {
 
       session.messages.push(userMsg, assistantMsg);
       session.lastActivity = Date.now();
+
+      // Store API-reported token counts if available
+      if (options.tokenUsage) {
+        session.lastApiTokenCount = options.tokenUsage;
+      }
 
       const shouldSummarize =
         options.enableSummarization !== undefined
@@ -215,22 +223,12 @@ export class ConversationMemoryManager {
     this.summarizationInProgress.add(session.sessionId);
 
     try {
-      const contextMessages = buildContextFromPointer(session);
-      const tokenCount = this.estimateTokens(contextMessages);
-
-      session.lastTokenCount = tokenCount;
-      session.lastCountedAt = Date.now();
-
-      logger.debug("Token count check", {
-        sessionId: session.sessionId,
-        tokenCount,
+      await this.summarizationEngine.checkAndSummarize(
+        session,
         threshold,
-        needsSummarization: tokenCount >= threshold,
-      });
-
-      if (tokenCount >= threshold) {
-        await this.summarizeSessionTokenBased(session, threshold);
-      }
+        this.config,
+        "[ConversationMemory]",
+      );
     } catch (error) {
       logger.error("Token counting or summarization failed", {
         sessionId: session.sessionId,
@@ -243,15 +241,6 @@ export class ConversationMemoryManager {
   }
 
   /**
-   * Estimate total tokens for a list of messages
-   */
-  private estimateTokens(messages: ChatMessage[]): number {
-    return messages.reduce((total, msg) => {
-      return total + TokenUtils.estimateTokenCount(msg.content);
-    }, 0);
-  }
-
-  /**
    * Build context messages for AI prompt injection (TOKEN-BASED)
    * Returns messages from pointer onwards (or all if no pointer)
    * Now consistently async to match Redis implementation
@@ -261,7 +250,10 @@ export class ConversationMemoryManager {
     return session ? buildContextFromPointer(session) : [];
   }
 
-  public getSession(sessionId: string): SessionMemory | undefined {
+  public getSession(
+    sessionId: string,
+    _userId?: string,
+  ): SessionMemory | undefined {
     return this.sessions.get(sessionId);
   }
 
@@ -281,88 +273,6 @@ export class ConversationMemoryManager {
         summarizesTo,
       },
     };
-  }
-
-  /**
-   * Token-based summarization (pointer-based, non-destructive)
-   */
-  private async summarizeSessionTokenBased(
-    session: SessionMemory,
-    threshold: number,
-  ): Promise<void> {
-    const startIndex = session.summarizedUpToMessageId
-      ? session.messages.findIndex(
-          (m) => m.id === session.summarizedUpToMessageId,
-        ) + 1
-      : 0;
-
-    const recentMessages = session.messages.slice(startIndex);
-    if (recentMessages.length === 0) {
-      return;
-    }
-
-    const targetRecentTokens = threshold * RECENT_MESSAGES_RATIO;
-    const splitIndex = await this.findSplitIndexByTokens(
-      recentMessages,
-      targetRecentTokens,
-    );
-    const messagesToSummarize = recentMessages.slice(0, splitIndex);
-
-    if (messagesToSummarize.length === 0) {
-      return;
-    }
-
-    const summary = await generateSummary(
-      messagesToSummarize,
-      this.config,
-      "[ConversationMemory]",
-      session.summarizedMessage,
-    );
-
-    if (!summary) {
-      logger.warn(
-        `[ConversationMemory] Summary generation failed for session ${session.sessionId}`,
-      );
-      return;
-    }
-
-    const lastSummarized = messagesToSummarize[messagesToSummarize.length - 1];
-    session.summarizedUpToMessageId = lastSummarized.id;
-    session.summarizedMessage = summary; // Store summary separately
-
-    logger.info(
-      `[ConversationMemory] Summarization complete for session ${session.sessionId}`,
-      {
-        summarizedCount: messagesToSummarize.length,
-        totalMessages: session.messages.length,
-        pointer: session.summarizedUpToMessageId,
-      },
-    );
-  }
-
-  /**
-   * Find split index to keep recent messages within target token count
-   */
-  private async findSplitIndexByTokens(
-    messages: ChatMessage[],
-    targetRecentTokens: number,
-  ): Promise<number> {
-    let recentTokens = 0;
-    let splitIndex = messages.length;
-
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msgTokens = TokenUtils.estimateTokenCount(messages[i].content);
-
-      if (recentTokens + msgTokens > targetRecentTokens) {
-        splitIndex = i + 1;
-        break;
-      }
-
-      recentTokens += msgTokens;
-    }
-
-    // To ensure at least one message is summarized
-    return Math.max(1, splitIndex);
   }
 
   private async ensureInitialized(): Promise<void> {

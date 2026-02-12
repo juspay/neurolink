@@ -24,88 +24,25 @@
  * ```
  */
 
-import { readFile } from "fs/promises";
 import { existsSync } from "fs";
-import { extname, basename } from "path";
-import { MDocument } from "./MDocument.js";
-import type { DocumentType } from "../types.js";
+import { readFile } from "fs/promises";
+import { basename, extname } from "path";
 import { logger } from "../../utils/logger.js";
+import type { DocumentType } from "../types.js";
+import { MDocument } from "./MDocument.js";
+import type {
+  LoaderOptions,
+  WebLoaderOptions,
+  PDFLoaderOptions,
+  CSVLoaderOptions,
+  DocumentLoader,
+} from "../../types/ragTypes.js";
 
-/**
- * Document loader options
- */
-export interface LoaderOptions {
-  /** Custom metadata to add to document */
-  metadata?: Record<string, unknown>;
-  /** Encoding for text files */
-  encoding?: BufferEncoding;
-  /** Document type override */
-  type?: DocumentType;
-}
-
-/**
- * Web loader options
- */
-export interface WebLoaderOptions extends LoaderOptions {
-  /** Request timeout in milliseconds */
-  timeout?: number;
-  /** Custom headers for request */
-  headers?: Record<string, string>;
-  /** Extract only main content (remove navigation, ads, etc.) */
-  extractMainContent?: boolean;
-  /** Selector for main content (CSS selector) */
-  contentSelector?: string;
-  /** User agent string */
-  userAgent?: string;
-}
-
-/**
- * PDF loader options
- */
-export interface PDFLoaderOptions extends LoaderOptions {
-  /** Page range to extract (e.g., "1-5" or "1,3,5") */
-  pageRange?: string;
-  /** Extract images as base64 */
-  extractImages?: boolean;
-  /** OCR for scanned documents */
-  enableOCR?: boolean;
-  /** Preserve layout formatting */
-  preserveLayout?: boolean;
-}
-
-/**
- * CSV loader options
- */
-export interface CSVLoaderOptions extends LoaderOptions {
-  /** Delimiter character */
-  delimiter?: string;
-  /** Whether first row is header */
-  hasHeader?: boolean;
-  /** Column names (if no header) */
-  columns?: string[];
-  /** Output format */
-  outputFormat?: "text" | "json" | "markdown";
-}
-
-/**
- * Abstract document loader interface
- */
-export interface DocumentLoader {
-  /**
-   * Load document from source
-   * @param source - File path, URL, or content
-   * @param options - Loader options
-   * @returns Promise resolving to MDocument
-   */
-  load(source: string, options?: LoaderOptions): Promise<MDocument>;
-
-  /**
-   * Check if loader can handle the source
-   * @param source - File path, URL, or content
-   * @returns True if loader can handle the source
-   */
-  canHandle(source: string): boolean;
-}
+export type { LoaderOptions } from "../../types/ragTypes.js";
+export type { WebLoaderOptions } from "../../types/ragTypes.js";
+export type { PDFLoaderOptions } from "../../types/ragTypes.js";
+export type { CSVLoaderOptions } from "../../types/ragTypes.js";
+export type { DocumentLoader } from "../../types/ragTypes.js";
 
 /**
  * Text file loader
@@ -387,8 +324,18 @@ export class PDFLoader implements DocumentLoader {
     }>
   > {
     try {
-      // @ts-expect-error pdf-parse is an optional dependency
-      const pdfParse = await import("pdf-parse");
+      // pdf-parse is an optional dependency - use dynamic import with type assertion
+      const pdfParse = (await import("pdf-parse")) as unknown as {
+        default?: (dataBuffer: Buffer) => Promise<{
+          numpages: number;
+          text: string;
+          info: Record<string, unknown>;
+        }>;
+      } & ((dataBuffer: Buffer) => Promise<{
+        numpages: number;
+        text: string;
+        info: Record<string, unknown>;
+      }>);
       return pdfParse.default || pdfParse;
     } catch {
       throw new Error("pdf-parse module not available");

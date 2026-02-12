@@ -16,49 +16,49 @@ import type {
 // ============================================
 
 /** Mock tool registry interface for testing */
-interface MockToolRegistry {
+type MockToolRegistry = {
   listTools: Mock<[], Promise<MockTool[]>>;
-}
+};
 
 /** Mock tool interface */
-interface MockTool {
+type MockTool = {
   name: string;
   description?: string;
   inputSchema?: Record<string, unknown>;
   source?: string;
   serverId?: string;
-}
+};
 
 /** Mock external server status */
-interface MockServerStatus {
+type MockServerStatus = {
   serverId: string;
   status: string;
   toolCount: number;
-}
+};
 
 /** Mock external server manager interface for testing */
-interface MockExternalServerManager {
+type MockExternalServerManager = {
   getServerStatuses: Mock<[], MockServerStatus[]>;
-}
+};
 
 /** Mock conversation memory interface */
-interface MockConversationMemory {
+type MockConversationMemory = {
   constructor: { name: string };
-}
+};
 
 /** Mock NeuroLink interface for testing */
-interface MockNeuroLink {
+type MockNeuroLink = {
   conversationMemory?: MockConversationMemory;
-}
+};
 
 /** Liveness response type */
-interface LivenessResponse {
+type LivenessResponse = {
   status: string;
   timestamp: string;
-}
+};
 
 /** Startup response type */
-interface StartupResponse {
+type StartupResponse = {
   started: boolean;
   timestamp: string;
   services: {
@@ -66,10 +66,10 @@ interface StartupResponse {
     toolsLoaded: number;
     externalServerManager: boolean;
   };
-}
+};
 
 /** Detailed health response type */
-interface DetailedHealthResponse {
+type DetailedHealthResponse = {
   status: string;
   timestamp: string;
   uptime: number;
@@ -100,15 +100,15 @@ interface DetailedHealthResponse {
       toolCount: number;
     }>;
   };
-}
+};
 
 /** Version response type */
-interface VersionResponse {
+type VersionResponse = {
   name: string;
   version: string;
   node: string;
   timestamp: string;
-}
+};
 
 describe("Health Routes", () => {
   const basePath = "/api";

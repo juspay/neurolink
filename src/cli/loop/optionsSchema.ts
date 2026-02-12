@@ -1,6 +1,6 @@
 import { AIProviderName } from "../../lib/constants/enums.js";
-import type { TextGenerationOptions } from "../../lib/types/generateTypes.js";
 import type { OptionSchema } from "../../lib/types/cli.js";
+import type { TextGenerationOptions } from "../../lib/types/generateTypes.js";
 
 /**
  * Master schema for all text generation options.
@@ -27,6 +27,7 @@ export const textGenerationOptionsSchema: Record<
     | "csvOptions"
     | "tts"
     | "thinkingConfig" // Complex object, use thinking/thinkingBudget instead
+    | "fileRegistry" // Internal: set by SDK, not by CLI
   >,
   OptionSchema
 > = {

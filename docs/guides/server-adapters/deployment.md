@@ -898,10 +898,10 @@ Use `neurolink server routes --group health` to list all health endpoints.
 
 ## Related Documentation
 
-- **[Server Adapters Overview](/guides/server-adapters)** - Getting started with server adapters
-- **[Security Best Practices](/guides/server-adapters/security)** - Securing your deployment
-- **[Hono Adapter](/guides/server-adapters/hono)** - Recommended for serverless deployments
-- **[Enterprise Monitoring](/features/observability)** - Production monitoring
+- **[Server Adapters Overview](./index.md)** - Getting started with server adapters
+- **[Security Best Practices](./security.md)** - Securing your deployment
+- **[Hono Adapter](./hono.md)** - Recommended for serverless deployments
+- **[Enterprise Monitoring](../../features/observability.md)** - Production monitoring
 
 ---
 

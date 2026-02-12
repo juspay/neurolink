@@ -4,10 +4,10 @@
 
 AI models have limited context windows (token limits):
 
-- GPT-3.5: 16K tokens (~12K words)
-- GPT-4: 128K tokens (~96K words)
-- Claude 3: 200K tokens (~150K words)
-- Gemini 1.5 Pro: 1M tokens (~750K words)
+- GPT-4o: 128K tokens (~96K words)
+- Claude 4 Sonnet: 200K tokens (~150K words)
+- Gemini 2.5 Flash: 1M tokens (~750K words)
+- GPT-4.1: 1M tokens (~750K words)
 
 Long conversations exceed these limits, causing:
 
@@ -165,7 +165,7 @@ class ContextWindowManager {
         text: `Summarize this conversation concisely, preserving key information:\n\n${conversationText}`,
       },
       provider: "anthropic",
-      model: "claude-3-haiku-20240307", // Fast, cheap model for summaries
+      model: "claude-3-5-haiku-20241022", // Fast, cheap model for summaries
       maxTokens: 500,
     });
 
@@ -357,16 +357,19 @@ Different models, different limits:
 
 ```typescript
 const CONTEXT_LIMITS = {
-  "gpt-3.5-turbo": 16000,
-  "gpt-4": 128000,
-  "claude-3-opus-20240229": 200000,
-  "claude-3-sonnet-20240229": 200000,
-  "claude-3-haiku-20240307": 200000,
-  "gemini-1.5-pro": 1000000,
+  "gpt-4o": 128000,
+  "gpt-4o-mini": 128000,
+  "gpt-4.1": 1047576,
+  "o3": 200000,
+  "claude-opus-4-20250514": 200000,
+  "claude-sonnet-4-20250514": 200000,
+  "claude-3-5-sonnet-20241022": 200000,
+  "gemini-2.5-flash": 1048576,
+  "gemini-2.5-pro": 1048576,
 };
 
 constructor(model: string) {
-  this.maxTokens = CONTEXT_LIMITS[model] || 8000;
+  this.maxTokens = CONTEXT_LIMITS[model] || 128000;
   // Leave 20% buffer for response
   this.maxTokens = Math.floor(this.maxTokens * 0.8);
 }
@@ -404,6 +407,153 @@ class RollingSummaryManager extends ContextWindowManager {
 | Document analysis | 32K-100K tokens   | Large documents                 |
 | Long-form writing | 8K-16K tokens     | Story continuity                |
 | Customer support  | 4K tokens         | Short interactions              |
+
+## Using Built-in Context Compaction
+
+The manual patterns shown above (token estimation, sliding windows, summarization)
+are now available as built-in components in NeuroLink. See
+[Context Compaction Guide](../features/context-compaction.md) for full details.
+
+- **ContextCompactor** (`src/lib/context/contextCompactor.ts`) implements a 4-stage
+  pipeline: tool-output pruning, file-read deduplication, LLM summarization, and
+  sliding-window truncation. It replaces the need to build custom
+  `ContextWindowManager` classes.
+- **BudgetChecker** (`src/lib/context/budgetChecker.ts`) validates context size against
+  per-model token limits before every generation call. Compaction is triggered
+  automatically when usage exceeds the configured threshold.
+- **`getContextStats()`** provides live token counts, remaining capacity, and a
+  `shouldCompact` flag -- a production-grade replacement for the manual
+  `getStats()` helper shown in this cookbook.
+- **`compactSession()`** runs the full 4-stage pipeline on demand and returns
+  a `CompactionResult` with the compacted messages and token savings.
+
+Provider-specific context window sizes are maintained in
+`src/lib/constants/contextWindows.ts`, removing the need for hard-coded
+`CONTEXT_LIMITS` maps.
+
+### Configuration
+
+Enable context compaction through the `conversationMemory.contextCompaction`
+config when creating a NeuroLink instance:
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    contextCompaction: {
+      enabled: true,
+      // Trigger compaction when context usage exceeds 80% (default: 0.80)
+      threshold: 0.8,
+      // Enable individual compaction stages (all default to true)
+      enablePruning: true, // Replace old tool outputs with placeholders
+      enableDeduplication: true, // Keep only the latest read of each file
+      enableSlidingWindow: true, // Tag oldest messages for removal as last resort
+      // Fine-tune limits
+      maxToolOutputBytes: 50_000, // Max tool output size before pruning (default: 50KB)
+      maxToolOutputLines: 2000, // Max tool output lines before pruning
+      fileReadBudgetPercent: 0.6, // File reads share of remaining context (default: 60%)
+    },
+  },
+});
+```
+
+### Checking Context Usage
+
+Use `getContextStats()` to inspect how much of the context window a session
+is consuming. The method returns token estimates, a usage ratio, and a
+`shouldCompact` flag based on the configured threshold:
+
+```typescript
+// Get context usage for a session against a specific provider/model
+const stats = await neurolink.getContextStats(
+  "session-1",
+  "vertex",
+  "gemini-2.5-flash",
+);
+
+if (stats) {
+  console.log(`Messages:       ${stats.messageCount}`);
+  console.log(`Input tokens:   ${stats.estimatedInputTokens}`);
+  console.log(`Available:      ${stats.availableInputTokens}`);
+  console.log(`Context usage:  ${(stats.usageRatio * 100).toFixed(1)}%`);
+  console.log(`Needs compact:  ${stats.shouldCompact}`);
+}
+```
+
+### Manual Compaction
+
+When `shouldCompact` is `true`, or at any time you want to free up context
+space, call `compactSession()`:
+
+```typescript
+const result = await neurolink.compactSession("session-1");
+
+if (result?.compacted) {
+  const tokensSaved = result.originalTokenCount - result.compactedTokenCount;
+  console.log(`Compaction saved ${tokensSaved} tokens`);
+  console.log(`Stages applied: ${result.stagesApplied.join(", ")}`);
+}
+```
+
+### Full Example: Auto-Monitoring Loop
+
+Combining the APIs above into a conversation loop that monitors context
+usage and compacts automatically:
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  conversationMemory: {
+    enabled: true,
+    contextCompaction: {
+      enabled: true,
+      threshold: 0.8,
+    },
+  },
+});
+
+const sessionId = "demo-session";
+
+async function chat(userMessage: string) {
+  // Check context budget before generating
+  const stats = await neurolink.getContextStats(
+    sessionId,
+    "anthropic",
+    "claude-sonnet-4-20250514",
+  );
+
+  if (stats?.shouldCompact) {
+    console.log(
+      `Context at ${(stats.usageRatio * 100).toFixed(1)}% — compacting...`,
+    );
+    const result = await neurolink.compactSession(sessionId);
+    if (result?.compacted) {
+      const saved = result.originalTokenCount - result.compactedTokenCount;
+      console.log(
+        `Freed ${saved} tokens via ${result.stagesApplied.join(", ")}`,
+      );
+    }
+  }
+
+  const response = await neurolink.generate({
+    input: { text: userMessage },
+    provider: "anthropic",
+    model: "claude-sonnet-4-20250514",
+    sessionId,
+  });
+
+  return response.content;
+}
+
+// Simulate a long conversation
+for (let i = 1; i <= 50; i++) {
+  const reply = await chat(`Tell me fact #${i} about distributed systems.`);
+  console.log(`[${i}] ${reply.slice(0, 120)}...`);
+}
+```
 
 ## See Also
 

@@ -795,7 +795,6 @@ type FileProcessingResult = {
 
 Planned features for PDF support:
 
-- **OpenAI Support**: PDF-to-text conversion for GPT models
 - **OCR Integration**: Extract text from scanned PDFs
 - **Page Selection**: Analyze specific pages only
 - **PDF Generation**: Create PDFs from AI responses
@@ -814,7 +813,7 @@ Found a bug or have a feature request? Please:
 
 ## Changelog
 
-### Version 7.50.0 (Current)
+### Version 9.2.0 (Current)
 
 - ✅ Initial PDF support for Vertex AI, Anthropic, Bedrock, AI Studio
 - ✅ Auto-detection via `--file` flag

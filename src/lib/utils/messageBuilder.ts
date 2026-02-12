@@ -13,7 +13,7 @@ import type {
   ImagePart,
   TextPart,
 } from "ai";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, statSync } from "fs";
 import { getGlobalDispatcher, interceptors, request } from "undici";
 import {
   MultimodalLogger,
@@ -23,11 +23,19 @@ import {
   CONVERSATION_INSTRUCTIONS,
   STRUCTURED_OUTPUT_INSTRUCTIONS,
 } from "../config/conversationMemory.js";
+import { getAvailableInputTokens } from "../constants/contextWindows.js";
+import {
+  enforceAggregateFileBudget,
+  FILE_READ_BUDGET_PERCENT,
+} from "../context/fileTokenBudget.js";
+import type { FileReferenceRegistry } from "../files/fileReferenceRegistry.js";
+import { SIZE_TIER_THRESHOLDS } from "../files/types.js";
 import type {
   ChatMessage,
   MessageContent,
   MultimodalChatMessage,
 } from "../types/conversation.js";
+import type { FileWithMetadata } from "../types/fileTypes.js";
 import type { GenerateOptions } from "../types/generateTypes.js";
 import type { TextGenerationOptions } from "../types/index.js";
 import type { Content, ImageWithAltText } from "../types/multimodal.js";
@@ -37,6 +45,231 @@ import { getImageCache } from "./imageCache.js";
 import { logger } from "./logger.js";
 import { PDFImageConverter, PDFProcessor } from "./pdfProcessor.js";
 import { urlDownloadRateLimiter } from "./rateLimiter.js";
+import { estimateTokens } from "./tokenEstimation.js";
+
+// ---------------------------------------------------------------------------
+// SDK-7: Lightweight file-type inference helpers for budget estimation
+// These avoid calling the full FileDetector pipeline — they only need to
+// classify files into broad categories (video, audio, image, etc.) so
+// estimatePostProcessingTokens() can use type-aware estimates.
+// ---------------------------------------------------------------------------
+
+/** Extension → file type mapping for budget estimation */
+const EXTENSION_TYPE_MAP: Record<string, string> = {
+  // Video
+  mp4: "video",
+  mkv: "video",
+  mov: "video",
+  avi: "video",
+  webm: "video",
+  wmv: "video",
+  flv: "video",
+  m4v: "video",
+  // Audio
+  mp3: "audio",
+  wav: "audio",
+  ogg: "audio",
+  flac: "audio",
+  m4a: "audio",
+  aac: "audio",
+  wma: "audio",
+  opus: "audio",
+  // Image
+  jpg: "image",
+  jpeg: "image",
+  png: "image",
+  gif: "image",
+  webp: "image",
+  bmp: "image",
+  tiff: "image",
+  tif: "image",
+  avif: "image",
+  // Archive
+  zip: "archive",
+  tar: "archive",
+  gz: "archive",
+  tgz: "archive",
+  rar: "archive",
+  "7z": "archive",
+  jar: "archive",
+  // Documents
+  xlsx: "xlsx",
+  xls: "xlsx",
+  ods: "xlsx",
+  docx: "docx",
+  doc: "docx",
+  odt: "docx",
+  rtf: "docx",
+  pptx: "pptx",
+  ppt: "pptx",
+  odp: "pptx",
+  // PDF
+  pdf: "pdf",
+  // SVG
+  svg: "svg",
+  // CSV
+  csv: "csv",
+  tsv: "csv",
+};
+
+/**
+ * Infer file type from extension in a file path or URL.
+ * Returns undefined if no extension or unrecognized.
+ */
+function inferFileTypeFromExtension(filePath: string): string | undefined {
+  // Strip query string / fragment for URLs
+  const cleaned = filePath.split("?")[0].split("#")[0];
+  const lastDot = cleaned.lastIndexOf(".");
+  if (lastDot === -1) {
+    return undefined;
+  }
+  const ext = cleaned.slice(lastDot + 1).toLowerCase();
+  return EXTENSION_TYPE_MAP[ext];
+}
+
+/**
+ * Infer file type from the first few magic bytes of a Buffer.
+ * Only checks the most common binary types — text types default to undefined.
+ */
+function inferFileTypeFromBuffer(buf: Buffer): string | undefined {
+  if (buf.length < 4) {
+    return undefined;
+  }
+
+  // PNG
+  if (
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47
+  ) {
+    return "image";
+  }
+  // JPEG
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return "image";
+  }
+  // GIF
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) {
+    return "image";
+  }
+  // WebP (RIFF + WEBP)
+  if (
+    buf.length >= 12 &&
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x57 &&
+    buf[9] === 0x45 &&
+    buf[10] === 0x42 &&
+    buf[11] === 0x50
+  ) {
+    return "image";
+  }
+  // PDF
+  if (
+    buf[0] === 0x25 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x44 &&
+    buf[3] === 0x46
+  ) {
+    return "pdf";
+  }
+  // MP4/MOV (ftyp at offset 4)
+  if (
+    buf.length >= 8 &&
+    buf[4] === 0x66 &&
+    buf[5] === 0x74 &&
+    buf[6] === 0x79 &&
+    buf[7] === 0x70
+  ) {
+    return "video";
+  }
+  // MKV/WebM (EBML)
+  if (
+    buf[0] === 0x1a &&
+    buf[1] === 0x45 &&
+    buf[2] === 0xdf &&
+    buf[3] === 0xa3
+  ) {
+    return "video";
+  }
+  // AVI (RIFF + AVI)
+  if (
+    buf.length >= 12 &&
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x41 &&
+    buf[9] === 0x56 &&
+    buf[10] === 0x49 &&
+    buf[11] === 0x20
+  ) {
+    return "video";
+  }
+  // WAV (RIFF + WAVE)
+  if (
+    buf.length >= 12 &&
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x57 &&
+    buf[9] === 0x41 &&
+    buf[10] === 0x56 &&
+    buf[11] === 0x45
+  ) {
+    return "audio";
+  }
+  // MP3 (ID3 tag)
+  if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) {
+    return "audio";
+  }
+  // FLAC
+  if (
+    buf[0] === 0x66 &&
+    buf[1] === 0x4c &&
+    buf[2] === 0x61 &&
+    buf[3] === 0x43
+  ) {
+    return "audio";
+  }
+  // OGG
+  if (
+    buf[0] === 0x4f &&
+    buf[1] === 0x67 &&
+    buf[2] === 0x67 &&
+    buf[3] === 0x53
+  ) {
+    return "audio";
+  }
+  // ZIP (also .xlsx, .docx, .pptx — but without extension we default to archive)
+  if (
+    buf[0] === 0x50 &&
+    buf[1] === 0x4b &&
+    buf[2] === 0x03 &&
+    buf[3] === 0x04
+  ) {
+    return "archive";
+  }
+  // GZIP
+  if (buf[0] === 0x1f && buf[1] === 0x8b) {
+    return "archive";
+  }
+  // RAR
+  if (
+    buf[0] === 0x52 &&
+    buf[1] === 0x61 &&
+    buf[2] === 0x72 &&
+    buf[3] === 0x21
+  ) {
+    return "archive";
+  }
+
+  return undefined;
+}
 
 /**
  * Type guard to check if an image input has alt text
@@ -490,6 +723,499 @@ export async function buildMessagesArray(
 }
 
 /**
+ * Enforce aggregate file budget, excluding files that would exceed the context window.
+ * Mutates options.input.files and options.input.text as needed.
+ */
+function enforceFileBudget(
+  options: GenerateOptions,
+  provider: string,
+  model: string,
+): void {
+  if (!options.input.files || options.input.files.length === 0) {
+    return;
+  }
+
+  const availableTokens = getAvailableInputTokens(provider, model);
+  const budgetFiles = options.input.files.map((file, idx) => {
+    let sizeBytes: number;
+    let fileType: string | undefined;
+
+    if (Buffer.isBuffer(file)) {
+      sizeBytes = file.length;
+      fileType = inferFileTypeFromBuffer(file);
+    } else if (typeof file === "string") {
+      if (existsSync(file)) {
+        try {
+          sizeBytes = statSync(file).size;
+        } catch {
+          sizeBytes = 0;
+        }
+      } else {
+        sizeBytes = file.length;
+      }
+      fileType = inferFileTypeFromExtension(file);
+    } else {
+      sizeBytes = 0;
+    }
+
+    return {
+      name: typeof file === "string" ? file : `file-${idx}`,
+      sizeBytes,
+      fileType,
+      originalIndex: idx,
+    };
+  });
+
+  const budgetResult = enforceAggregateFileBudget(
+    budgetFiles.map((f) => ({
+      name: f.name,
+      sizeBytes: f.sizeBytes,
+      fileType: f.fileType,
+    })),
+    availableTokens,
+  );
+
+  if (budgetResult.excluded.length > 0) {
+    const includedNames = new Set(budgetResult.included.map((f) => f.name));
+    options.input.files = options.input.files.filter((_file, idx) => {
+      const entry = budgetFiles[idx];
+      return includedNames.has(entry.name);
+    });
+    options.input.text =
+      (options.input.text || "") + "\n\n" + budgetResult.notices.join("\n");
+    logger.warn(
+      `[FileDetector] Aggregate file budget enforcement: excluded ${budgetResult.excluded.length} file(s)`,
+    );
+  }
+}
+
+/**
+ * Append a detected file result to options.input based on its type.
+ * Handles CSV, SVG, image, PDF, video, audio, archive, xlsx, docx, pptx, text, and unknown types.
+ */
+function appendDetectedFileResult(
+  result: {
+    type: string;
+    content: string | Buffer;
+    mimeType: string;
+    metadata?: Record<string, unknown>;
+    images?: Array<Buffer | string | ImageWithAltText>;
+  },
+  file: AnyFileInput,
+  options: GenerateOptions,
+): void {
+  const filename = extractFilename(file);
+
+  if (result.type === "csv") {
+    const filePath = typeof file === "string" ? file : filename;
+    let csvSection = `\n\n## CSV Data from "${filename}":\n`;
+    if (result.metadata) {
+      const metadataText = formatCSVMetadata(result.metadata);
+      if (metadataText) {
+        csvSection += metadataText + `\n\n`;
+      }
+    }
+    csvSection += buildCSVToolInstructions(filePath);
+    csvSection += result.content;
+    options.input.text += csvSection;
+    logger.info(`[FileDetector] ✅ CSV: ${filename}`);
+  } else if (result.type === "svg") {
+    const svgSection = `\n\n## SVG Content from "${filename}":\n\`\`\`xml\n${result.content}\n\`\`\`\n`;
+    options.input.text += svgSection;
+    logger.info(`[FileDetector] ✅ SVG (as text): ${filename}`);
+  } else if (result.type === "image") {
+    options.input.images = [...(options.input.images || []), result.content];
+    logger.info(`[FileDetector] ✅ Image: ${result.mimeType}`);
+  } else if (result.type === "pdf") {
+    options.input.pdfFiles = [
+      ...(options.input.pdfFiles || []),
+      result.content,
+    ];
+    logger.info(`[FileDetector] ✅ PDF: ${filename}`);
+  } else if (result.type === "video") {
+    if (result.content) {
+      options.input.text += `\n\n## Video File: "${filename}"\n${result.content}\n`;
+    }
+    if (result.images && result.images.length > 0) {
+      options.input.images = [
+        ...(options.input.images || []),
+        ...result.images,
+      ];
+      logger.info(
+        `[FileDetector] Added ${result.images.length} video keyframes as images`,
+      );
+    }
+    logger.info(`[FileDetector] ✅ Video: ${filename}`);
+  } else if (result.type === "audio") {
+    if (result.content) {
+      options.input.text += `\n\n## Audio File: "${filename}"\n${result.content}\n`;
+    }
+    if (result.images && result.images.length > 0) {
+      options.input.images = [
+        ...(options.input.images || []),
+        ...result.images,
+      ];
+      logger.info(`[FileDetector] Added audio cover art as image`);
+    }
+    logger.info(`[FileDetector] ✅ Audio: ${filename}`);
+  } else if (result.type === "archive") {
+    if (result.content) {
+      options.input.text += `\n\n## Archive File: "${filename}"\n${result.content}\n`;
+    }
+    logger.info(`[FileDetector] ✅ Archive: ${filename}`);
+  } else if (result.type === "xlsx") {
+    if (result.content) {
+      options.input.text += `\n\n## Spreadsheet: "${filename}"\n${result.content}\n`;
+    }
+    logger.info(`[FileDetector] ✅ Spreadsheet: ${filename}`);
+  } else if (result.type === "docx") {
+    if (result.content) {
+      options.input.text += `\n\n## Document: "${filename}"\n${result.content}\n`;
+    }
+    logger.info(`[FileDetector] ✅ Document: ${filename}`);
+  } else if (result.type === "pptx") {
+    if (result.content) {
+      options.input.text += `\n\n## Presentation: "${filename}"\n${result.content}\n`;
+    }
+    logger.info(`[FileDetector] ✅ Presentation: ${filename}`);
+  } else if (result.type === "text") {
+    if (result.content) {
+      const langHint = getLanguageHint(result.mimeType, filename);
+      const MAX_TEXT_FILE_CHARS = 200_000;
+      let fileContent = result.content as string;
+      let truncated = false;
+
+      if (fileContent.length > MAX_TEXT_FILE_CHARS) {
+        const headChars = Math.floor(MAX_TEXT_FILE_CHARS * 0.75);
+        const tailChars = Math.floor(MAX_TEXT_FILE_CHARS * 0.25);
+        const omittedChars = fileContent.length - headChars - tailChars;
+        fileContent =
+          fileContent.slice(0, headChars) +
+          `\n\n... [${omittedChars.toLocaleString()} characters omitted — file truncated to fit context window] ...\n\n` +
+          fileContent.slice(-tailChars);
+        truncated = true;
+      }
+
+      const textSection = langHint
+        ? `\n\n## File: "${filename}"\n\`\`\`${langHint}\n${fileContent}\n\`\`\`\n`
+        : `\n\n## File: "${filename}"\n${fileContent}\n`;
+      options.input.text += textSection;
+
+      if (truncated) {
+        logger.warn(
+          `[FileDetector] Large text file "${filename}" truncated from ${(result.content as string).length.toLocaleString()} to ${MAX_TEXT_FILE_CHARS.toLocaleString()} chars`,
+        );
+      }
+    }
+    logger.info(`[FileDetector] ✅ Text: ${filename}`);
+  } else if (result.type === "unknown") {
+    if (result.content) {
+      options.input.text += `\n\n## Attached File: "${filename}"\n${result.content}\n`;
+    }
+    logger.info(
+      `[FileDetector] ⚠️ Unknown format (metadata extracted): ${filename}`,
+    );
+  }
+}
+
+/**
+ * Process the unified files array with auto-detection.
+ * Handles lazy file registration, full processing, and preview injection.
+ */
+async function processUnifiedFilesArray(
+  options: GenerateOptions,
+  maxSize: number,
+  provider: string,
+): Promise<void> {
+  if (!options.input.files || options.input.files.length === 0) {
+    return;
+  }
+
+  logger.info(
+    `[FileDetector] Processing ${options.input.files.length} file(s) with auto-detection`,
+  );
+
+  options.input.text = options.input.text || "";
+
+  const fileRegistry = options.fileRegistry as
+    | FileReferenceRegistry
+    | undefined;
+
+  for (let fileIdx = 0; fileIdx < options.input.files.length; fileIdx++) {
+    const file = options.input.files[fileIdx];
+    try {
+      // ─── Lazy file registration path ──────────────────────────────
+      const fileSize = fileRegistry ? getFileSize(file) : 0;
+      if (fileRegistry && fileSize > SIZE_TIER_THRESHOLDS.TINY_MAX) {
+        const registered = await tryRegisterFileReference(
+          file,
+          fileSize,
+          fileRegistry,
+          fileIdx,
+        );
+        if (registered) {
+          continue;
+        }
+      }
+
+      // ─── Full processing path (current behavior) ──────────────────
+      const genericFileMaxSize = Math.max(maxSize, 100 * 1024 * 1024);
+      const rawFileInput = isFileWithMetadata(file) ? file.buffer : file;
+      const result = await FileDetector.detectAndProcess(rawFileInput, {
+        maxSize: genericFileMaxSize,
+        allowedTypes: [
+          "csv",
+          "image",
+          "pdf",
+          "svg",
+          "video",
+          "audio",
+          "archive",
+          "xlsx",
+          "docx",
+          "pptx",
+          "text",
+          "unknown",
+        ],
+        csvOptions: options.csvOptions,
+        provider: provider,
+      });
+
+      appendDetectedFileResult(result, file, options);
+    } catch (error) {
+      logger.error(`[FileDetector] ❌ Failed to process file:`, error);
+    }
+  }
+
+  // After processing all files, inject previews for any lazily-registered files
+  if (fileRegistry && fileRegistry.size > 0) {
+    const previewText = await fileRegistry.generatePromptPreview();
+    if (previewText) {
+      options.input.text = (options.input.text || "") + previewText;
+      logger.info(
+        `[FileDetector] Injected previews for ${fileRegistry.size} lazily-registered file(s)`,
+      );
+    }
+    const registeredFiles = fileRegistry.list();
+    for (const ref of registeredFiles) {
+      if (ref.extractedImages && ref.extractedImages.length > 0) {
+        options.input.images = [
+          ...(options.input.images || []),
+          ...ref.extractedImages,
+        ];
+        logger.info(
+          `[FileDetector] Injected ${ref.extractedImages.length} extracted images from "${ref.filename}"`,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Process explicit CSV files array and append to options.input.text.
+ */
+async function processExplicitCsvFiles(
+  options: GenerateOptions,
+): Promise<void> {
+  if (!options.input.csvFiles || options.input.csvFiles.length === 0) {
+    return;
+  }
+
+  logger.info(
+    `[CSV] Processing ${options.input.csvFiles.length} explicit CSV file(s)`,
+  );
+
+  options.input.text = options.input.text || "";
+
+  for (let i = 0; i < options.input.csvFiles.length; i++) {
+    const csvFile = options.input.csvFiles[i];
+
+    try {
+      const result = await FileDetector.detectAndProcess(csvFile, {
+        allowedTypes: ["csv"],
+        csvOptions: options.csvOptions,
+      });
+
+      const filename = extractFilename(csvFile, i);
+      const filePath = typeof csvFile === "string" ? csvFile : filename;
+      let csvSection = `\n\n## CSV Data from "${filename}":\n`;
+
+      if (result.metadata) {
+        const metadataText = formatCSVMetadata(result.metadata);
+        if (metadataText) {
+          csvSection += metadataText + `\n\n`;
+        }
+      }
+
+      csvSection += buildCSVToolInstructions(filePath);
+      csvSection += result.content;
+      options.input.text += csvSection;
+      logger.info(`[CSV] ✅ Processed: ${filename}`);
+    } catch (error) {
+      logger.error(`[CSV] ❌ Failed:`, error);
+      const filename = extractFilename(csvFile, i);
+      options.input.text += `\n\n## CSV Data Error: Failed to process "${filename}"`;
+      options.input.text += `\nReason: ${error instanceof Error ? error.message : "Unknown error"}`;
+    }
+  }
+}
+
+/**
+ * Enforce post-processing budget on accumulated text content and log token usage.
+ */
+function enforcePostProcessingBudget(
+  options: GenerateOptions,
+  provider: string,
+  model: string,
+): void {
+  if (!options.input.text) {
+    return;
+  }
+
+  const availableTokens = getAvailableInputTokens(provider, model);
+  const textTokenBudget = Math.floor(
+    availableTokens * FILE_READ_BUDGET_PERCENT,
+  );
+  const actualTextTokens = estimateTokens(options.input.text, provider);
+
+  if (actualTextTokens > textTokenBudget && textTokenBudget > 0) {
+    const maxChars = textTokenBudget * 4;
+    if (options.input.text.length > maxChars) {
+      const headChars = Math.floor(maxChars * 0.75);
+      const tailChars = Math.floor(maxChars * 0.25);
+      const head = options.input.text.slice(0, headChars);
+      const tail = options.input.text.slice(-tailChars);
+      const truncatedTokens = actualTextTokens - textTokenBudget;
+      options.input.text =
+        head +
+        `\n\n[... ${truncatedTokens.toLocaleString()} tokens of file content truncated to fit context window ...]\n\n` +
+        tail;
+      logger.warn(
+        `[FileDetector] Post-processing budget enforcement: truncated ~${truncatedTokens.toLocaleString()} tokens of file content to fit ${textTokenBudget.toLocaleString()} token budget`,
+      );
+    }
+  }
+
+  // Token usage breakdown logging
+  const textTokens = estimateTokens(options.input.text, provider);
+  const imageCount =
+    (options.input.images?.length ?? 0) +
+    (options.input.content?.filter((c) => c.type === "image").length ?? 0);
+  const imageTokens = imageCount * 1500;
+  const totalContentTokens = textTokens + imageTokens;
+  const contextWindow = getAvailableInputTokens(provider, model);
+
+  logger.info(
+    `[TokenUsage] Content breakdown: text=${textTokens.toLocaleString()} tokens, ` +
+      `images=${imageCount} (~${imageTokens.toLocaleString()} tokens), ` +
+      `total=${totalContentTokens.toLocaleString()} tokens, ` +
+      `budget=${contextWindow.toLocaleString()} tokens, ` +
+      `utilization=${contextWindow > 0 ? ((totalContentTokens / contextWindow) * 100).toFixed(1) : "N/A"}%`,
+  );
+}
+
+/**
+ * Process explicit PDF files and return structured PDF entries for multimodal processing.
+ */
+async function processExplicitPdfFiles(
+  options: GenerateOptions,
+  maxSize: number,
+  provider: string,
+): Promise<
+  Array<{ buffer: Buffer; filename: string; pageCount?: number | null }>
+> {
+  const pdfFiles: Array<{
+    buffer: Buffer;
+    filename: string;
+    pageCount?: number | null;
+  }> = [];
+
+  if (!options.input.pdfFiles || options.input.pdfFiles.length === 0) {
+    return pdfFiles;
+  }
+
+  logger.info(
+    `[PDF] Processing ${options.input.pdfFiles.length} explicit PDF file(s) for ${provider}`,
+  );
+
+  for (let i = 0; i < options.input.pdfFiles.length; i++) {
+    const pdfFile = options.input.pdfFiles[i];
+    const filename = extractFilename(pdfFile, i);
+
+    try {
+      const result = await FileDetector.detectAndProcess(pdfFile, {
+        maxSize,
+        allowedTypes: ["pdf"],
+        provider: provider,
+      });
+
+      if (Buffer.isBuffer(result.content)) {
+        pdfFiles.push({
+          buffer: result.content,
+          filename,
+          pageCount: result.metadata?.estimatedPages ?? null,
+        });
+        logger.info(
+          `[PDF] ✅ Queued for multimodal: ${filename} (${result.metadata?.estimatedPages ?? "unknown"} pages)`,
+        );
+      }
+    } catch (error) {
+      logger.error(`[PDF] ❌ Failed to process ${filename}:`, error);
+      throw error;
+    }
+  }
+
+  return pdfFiles;
+}
+
+/**
+ * Build the enhanced system prompt for multimodal messages, including
+ * conversation instructions, structured output instructions, and file handling guidance.
+ */
+function buildMultimodalSystemPrompt(
+  options: GenerateOptions,
+  hasPDFFiles: boolean,
+): string {
+  let systemPrompt = options.systemPrompt?.trim() || "";
+
+  const hasConversationHistory =
+    options.conversationHistory && options.conversationHistory.length > 0;
+  if (hasConversationHistory) {
+    systemPrompt = `${systemPrompt.trim()}${CONVERSATION_INSTRUCTIONS}`;
+  }
+
+  if (shouldUseStructuredOutput(options)) {
+    systemPrompt = `${systemPrompt.trim()}${STRUCTURED_OUTPUT_INSTRUCTIONS}`;
+  }
+
+  const hasCSVFiles =
+    (options.input.csvFiles && options.input.csvFiles.length > 0) ||
+    (options.input.files &&
+      options.input.files.some((f) =>
+        typeof f === "string" ? f.toLowerCase().endsWith(".csv") : false,
+      ));
+
+  if (hasCSVFiles || hasPDFFiles) {
+    const fileTypes = [];
+    if (hasPDFFiles) {
+      fileTypes.push("PDFs");
+    }
+    if (hasCSVFiles) {
+      fileTypes.push("CSVs");
+    }
+
+    systemPrompt += `\n\nIMPORTANT FILE HANDLING INSTRUCTIONS:
+- File content (${fileTypes.join(", ")}, images) is already processed and included in this message
+- DO NOT use GitHub tools (get_file_contents, search_code, etc.) for local files - they only work for remote repository files
+- Analyze the provided file content directly without attempting to fetch or read files using tools
+- GitHub MCP tools are ONLY for remote repository operations, not local filesystem access
+- Use the file content shown in this message for your analysis`;
+  }
+
+  return systemPrompt;
+}
+
+/**
  * Build multimodal message array with image support
  * Detects when images are present and routes through provider adapter
  */
@@ -504,150 +1230,20 @@ export async function buildMultimodalMessagesArray(
     ? pdfConfig.maxSizeMB * 1024 * 1024
     : 10 * 1024 * 1024;
 
+  // Aggregate file budget enforcement
+  enforceFileBudget(options, provider, model);
+
   // Process unified files array (auto-detect)
-  if (options.input.files && options.input.files.length > 0) {
-    logger.info(
-      `[FileDetector] Processing ${options.input.files.length} file(s) with auto-detection`,
-    );
-
-    options.input.text = options.input.text || "";
-
-    for (const file of options.input.files) {
-      try {
-        const result = await FileDetector.detectAndProcess(file, {
-          maxSize,
-          allowedTypes: ["csv", "image", "pdf", "svg"],
-          csvOptions: options.csvOptions,
-          provider: provider,
-        });
-
-        if (result.type === "csv") {
-          const filename = extractFilename(file);
-          const filePath = typeof file === "string" ? file : filename;
-          let csvSection = `\n\n## CSV Data from "${filename}":\n`;
-
-          // Add metadata from csv-parser library
-          if (result.metadata) {
-            const metadataText = formatCSVMetadata(result.metadata);
-            if (metadataText) {
-              csvSection += metadataText + `\n\n`;
-            }
-          }
-
-          csvSection += buildCSVToolInstructions(filePath);
-
-          csvSection += result.content;
-          options.input.text += csvSection;
-          logger.info(`[FileDetector] ✅ CSV: ${filename}`);
-        } else if (result.type === "svg") {
-          // SVG is processed as text content (sanitized XML markup)
-          // Inject into text prompt instead of sending as image
-          const filename = extractFilename(file);
-          const svgSection = `\n\n## SVG Content from "${filename}":\n\`\`\`xml\n${result.content}\n\`\`\`\n`;
-          options.input.text += svgSection;
-          logger.info(`[FileDetector] ✅ SVG (as text): ${filename}`);
-        } else if (result.type === "image") {
-          options.input.images = [
-            ...(options.input.images || []),
-            result.content,
-          ];
-          logger.info(`[FileDetector] ✅ Image: ${result.mimeType}`);
-        } else if (result.type === "pdf") {
-          options.input.pdfFiles = [
-            ...(options.input.pdfFiles || []),
-            result.content,
-          ];
-          logger.info(`[FileDetector] ✅ PDF: ${extractFilename(file)}`);
-        }
-      } catch (error) {
-        logger.error(`[FileDetector] ❌ Failed to process file:`, error);
-      }
-    }
-  }
+  await processUnifiedFilesArray(options, maxSize, provider);
 
   // Process explicit CSV files array
-  if (options.input.csvFiles && options.input.csvFiles.length > 0) {
-    logger.info(
-      `[CSV] Processing ${options.input.csvFiles.length} explicit CSV file(s)`,
-    );
+  await processExplicitCsvFiles(options);
 
-    options.input.text = options.input.text || "";
+  // Post-processing budget enforcement and token usage logging
+  enforcePostProcessingBudget(options, provider, model);
 
-    for (let i = 0; i < options.input.csvFiles.length; i++) {
-      const csvFile = options.input.csvFiles[i];
-
-      try {
-        const result = await FileDetector.detectAndProcess(csvFile, {
-          allowedTypes: ["csv"],
-          csvOptions: options.csvOptions,
-        });
-
-        const filename = extractFilename(csvFile, i);
-        const filePath = typeof csvFile === "string" ? csvFile : filename;
-        let csvSection = `\n\n## CSV Data from "${filename}":\n`;
-
-        // Add metadata from csv-parser library
-        if (result.metadata) {
-          const metadataText = formatCSVMetadata(result.metadata);
-          if (metadataText) {
-            csvSection += metadataText + `\n\n`;
-          }
-        }
-
-        csvSection += buildCSVToolInstructions(filePath);
-
-        csvSection += result.content;
-        options.input.text += csvSection;
-        logger.info(`[CSV] ✅ Processed: ${filename}`);
-      } catch (error) {
-        logger.error(`[CSV] ❌ Failed:`, error);
-        const filename = extractFilename(csvFile, i);
-        options.input.text += `\n\n## CSV Data Error: Failed to process "${filename}"`;
-        options.input.text += `\nReason: ${error instanceof Error ? error.message : "Unknown error"}`;
-      }
-    }
-  }
-
-  // Track PDF files for multimodal processing (NOT text conversion)
-  const pdfFiles: Array<{
-    buffer: Buffer;
-    filename: string;
-    pageCount?: number | null;
-  }> = [];
-
-  // Process explicit PDF files array
-  if (options.input.pdfFiles && options.input.pdfFiles.length > 0) {
-    logger.info(
-      `[PDF] Processing ${options.input.pdfFiles.length} explicit PDF file(s) for ${provider}`,
-    );
-
-    for (let i = 0; i < options.input.pdfFiles.length; i++) {
-      const pdfFile = options.input.pdfFiles[i];
-      const filename = extractFilename(pdfFile, i);
-
-      try {
-        const result = await FileDetector.detectAndProcess(pdfFile, {
-          maxSize,
-          allowedTypes: ["pdf"],
-          provider: provider,
-        });
-
-        if (Buffer.isBuffer(result.content)) {
-          pdfFiles.push({
-            buffer: result.content,
-            filename,
-            pageCount: result.metadata?.estimatedPages ?? null,
-          });
-          logger.info(
-            `[PDF] ✅ Queued for multimodal: ${filename} (${result.metadata?.estimatedPages ?? "unknown"} pages)`,
-          );
-        }
-      } catch (error) {
-        logger.error(`[PDF] ❌ Failed to process ${filename}:`, error);
-        throw error;
-      }
-    }
-  }
+  // Process explicit PDF files
+  const pdfFiles = await processExplicitPdfFiles(options, maxSize, provider);
 
   // Check if this is a multimodal request
   const hasImages =
@@ -659,8 +1255,6 @@ export async function buildMultimodalMessagesArray(
 
   // If no images or PDFs, use standard message building and convert to MultimodalChatMessage[]
   if (!hasImages && !hasPDFs) {
-    // Clear csvFiles, pdfFiles, and files arrays to prevent duplication
-    // (already processed and added to options.input.text above)
     if (options.input.csvFiles) {
       options.input.csvFiles = [];
     }
@@ -694,47 +1288,11 @@ export async function buildMultimodalMessagesArray(
   const messages: MultimodalChatMessage[] = [];
 
   // Build enhanced system prompt
-  let systemPrompt = options.systemPrompt?.trim() || "";
+  const systemPrompt = buildMultimodalSystemPrompt(
+    options,
+    pdfFiles.length > 0,
+  );
 
-  // Add conversation-aware instructions when history exists
-  const hasConversationHistory =
-    options.conversationHistory && options.conversationHistory.length > 0;
-  if (hasConversationHistory) {
-    systemPrompt = `${systemPrompt.trim()}${CONVERSATION_INSTRUCTIONS}`;
-  }
-
-  // Add structured output instructions when schema is provided with json/structured format
-  if (shouldUseStructuredOutput(options)) {
-    systemPrompt = `${systemPrompt.trim()}${STRUCTURED_OUTPUT_INSTRUCTIONS}`;
-  }
-
-  // Add file handling guidance when multimodal files are present
-  const hasCSVFiles =
-    (options.input.csvFiles && options.input.csvFiles.length > 0) ||
-    (options.input.files &&
-      options.input.files.some((f) =>
-        typeof f === "string" ? f.toLowerCase().endsWith(".csv") : false,
-      ));
-  const hasPDFFiles = pdfFiles.length > 0;
-
-  if (hasCSVFiles || hasPDFFiles) {
-    const fileTypes = [];
-    if (hasPDFFiles) {
-      fileTypes.push("PDFs");
-    }
-    if (hasCSVFiles) {
-      fileTypes.push("CSVs");
-    }
-
-    systemPrompt += `\n\nIMPORTANT FILE HANDLING INSTRUCTIONS:
-- File content (${fileTypes.join(", ")}, images) is already processed and included in this message
-- DO NOT use GitHub tools (get_file_contents, search_code, etc.) for local files - they only work for remote repository files
-- Analyze the provided file content directly without attempting to fetch or read files using tools
-- GitHub MCP tools are ONLY for remote repository operations, not local filesystem access
-- Use the file content shown in this message for your analysis`;
-  }
-
-  // Add system message if we have one
   if (systemPrompt.trim()) {
     messages.push({
       role: "system",
@@ -743,8 +1301,9 @@ export async function buildMultimodalMessagesArray(
   }
 
   // Add conversation history if available
+  const hasConversationHistory =
+    options.conversationHistory && options.conversationHistory.length > 0;
   if (hasConversationHistory && options.conversationHistory) {
-    // Convert conversation history to MultimodalChatMessage format
     options.conversationHistory.forEach((msg) => {
       messages.push({
         role: msg.role as "user" | "assistant" | "system",
@@ -758,7 +1317,6 @@ export async function buildMultimodalMessagesArray(
     let userContent: string | unknown;
 
     if (options.input.content && options.input.content.length > 0) {
-      // Advanced content format - convert to provider-specific format
       userContent = await convertContentToProviderFormat(
         options.input.content,
         provider,
@@ -768,7 +1326,6 @@ export async function buildMultimodalMessagesArray(
       (options.input.images && options.input.images.length > 0) ||
       pdfFiles.length > 0
     ) {
-      // Simple images/PDFs format - convert to provider-specific format
       userContent = await convertMultimodalToProviderFormat(
         options.input.text,
         options.input.images || [],
@@ -777,20 +1334,15 @@ export async function buildMultimodalMessagesArray(
         model,
       );
     } else {
-      // Text-only fallback
       userContent = options.input.text;
     }
 
-    // 🔧 CRITICAL FIX: Handle multimodal content properly for Vercel AI SDK
     if (typeof userContent === "string") {
-      // Simple text content - use standard MultimodalChatMessage format
       messages.push({
         role: "user",
         content: userContent,
       });
     } else {
-      // 🔧 MULTIMODAL CONTENT: Wrap the content array in a proper message object
-      // The Vercel AI SDK expects messages with multimodal content arrays
       messages.push({
         role: "user",
         content: userContent as MessageContent[],
@@ -1198,10 +1750,29 @@ async function convertMultimodalToProviderFormat(
   return content;
 }
 
+/** Union type for file inputs: raw Buffer, path/URL string, or object with metadata */
+type AnyFileInput = Buffer | string | FileWithMetadata;
+
 /**
- * Extract filename from file input
+ * Type guard for FileWithMetadata objects.
  */
-function extractFilename(file: Buffer | string, index: number = 0): string {
+function isFileWithMetadata(file: AnyFileInput): file is FileWithMetadata {
+  return (
+    typeof file === "object" &&
+    !Buffer.isBuffer(file) &&
+    "buffer" in file &&
+    "filename" in file
+  );
+}
+
+/**
+ * Extract filename from file input.
+ * Supports Buffers (generic name), strings (path/URL), and FileWithMetadata objects.
+ */
+function extractFilename(file: AnyFileInput, index: number = 0): string {
+  if (isFileWithMetadata(file)) {
+    return file.filename;
+  }
   if (typeof file === "string") {
     if (file.startsWith("http")) {
       try {
@@ -1216,6 +1787,223 @@ function extractFilename(file: Buffer | string, index: number = 0): string {
     );
   }
   return `file-${index + 1}`;
+}
+
+/**
+ * Get the byte size of a file input.
+ * For FileWithMetadata: returns buffer.length.
+ * For Buffers: returns buffer.length.
+ * For strings that are file paths: returns the stat size.
+ * For URLs/data URIs: returns a rough estimate from string length.
+ */
+function getFileSize(file: AnyFileInput): number {
+  if (isFileWithMetadata(file)) {
+    return file.buffer.length;
+  }
+  if (Buffer.isBuffer(file)) {
+    return file.length;
+  }
+  if (typeof file === "string" && existsSync(file)) {
+    try {
+      return statSync(file).size;
+    } catch {
+      return 0;
+    }
+  }
+  // For URLs and data URIs, use string length as rough estimate
+  return typeof file === "string" ? file.length : 0;
+}
+
+/**
+ * Get a Buffer from a file input.
+ * For FileWithMetadata: returns the buffer property.
+ * For Buffers: returns as-is.
+ * For file paths: reads the file.
+ * For URLs/data URIs: returns null (not supported for lazy registration).
+ */
+async function getFileBuffer(file: AnyFileInput): Promise<Buffer | null> {
+  if (isFileWithMetadata(file)) {
+    return file.buffer;
+  }
+  if (Buffer.isBuffer(file)) {
+    return file;
+  }
+  if (typeof file === "string" && existsSync(file)) {
+    try {
+      return readFileSync(file) as Buffer;
+    } catch {
+      return null;
+    }
+  }
+  // URLs and data URIs can't be lazily registered (need download first)
+  return null;
+}
+
+/**
+ * Determine the source type of a file input.
+ */
+function getFileSource(
+  file: AnyFileInput,
+): "buffer" | "path" | "url" | "datauri" {
+  if (isFileWithMetadata(file)) {
+    return "buffer";
+  }
+  if (Buffer.isBuffer(file)) {
+    return "buffer";
+  }
+  if (typeof file === "string") {
+    if (file.startsWith("data:")) {
+      return "datauri";
+    }
+    if (file.startsWith("http://") || file.startsWith("https://")) {
+      return "url";
+    }
+    if (existsSync(file)) {
+      return "path";
+    }
+  }
+  return "buffer";
+}
+
+/**
+ * Try to register a file with the FileReferenceRegistry for lazy processing.
+ * Returns true if registration succeeded, false if it failed (caller should
+ * fall through to full processing).
+ */
+async function tryRegisterFileReference(
+  file: AnyFileInput,
+  fileSize: number,
+  registry: FileReferenceRegistry,
+  index: number = 0,
+): Promise<boolean> {
+  try {
+    const buffer = await getFileBuffer(file);
+    if (!buffer) {
+      return false;
+    }
+    const filename = extractFilename(file, index);
+    await registry.register(buffer, getFileSource(file), { filename });
+    logger.info(
+      `[FileDetector] Registered "${filename}" (${(fileSize / 1024).toFixed(0)} KB) ` +
+        `as lazy reference — skipping upfront processing`,
+    );
+    return true;
+  } catch (regError) {
+    logger.warn(
+      `[FileDetector] Failed to register file as reference, falling back to full processing: ${
+        regError instanceof Error ? regError.message : String(regError)
+      }`,
+    );
+    return false;
+  }
+}
+
+/**
+ * Get a language hint for code fencing based on MIME type or filename extension.
+ * Returns the language identifier for markdown code blocks, or null for generic text.
+ */
+function getLanguageHint(mimeType: string, filename: string): string | null {
+  // Try MIME type first
+  const mimeMap: Record<string, string> = {
+    "text/javascript": "javascript",
+    "text/typescript": "typescript",
+    "text/x-python": "python",
+    "text/x-java-source": "java",
+    "text/x-go": "go",
+    "text/x-rustsrc": "rust",
+    "text/x-ruby": "ruby",
+    "text/x-php": "php",
+    "text/x-c": "c",
+    "text/x-c++": "cpp",
+    "text/x-csharp": "csharp",
+    "text/x-swift": "swift",
+    "text/x-kotlin": "kotlin",
+    "text/x-scala": "scala",
+    "text/x-shellscript": "bash",
+    "text/x-powershell": "powershell",
+    "text/x-sql": "sql",
+    "text/x-r": "r",
+    "text/x-lua": "lua",
+    "text/x-perl": "perl",
+    "text/x-dart": "dart",
+    "text/x-elixir": "elixir",
+    "text/x-erlang": "erlang",
+    "text/x-haskell": "haskell",
+    "text/x-clojure": "clojure",
+    "text/x-lisp": "lisp",
+    "text/html": "html",
+    "text/css": "css",
+    "text/markdown": "markdown",
+    "application/json": "json",
+    "application/xml": "xml",
+    "text/xml": "xml",
+    "application/yaml": "yaml",
+    "application/x-yaml": "yaml",
+  };
+  const lower = mimeType.toLowerCase().split(";")[0].trim();
+  if (mimeMap[lower]) {
+    return mimeMap[lower];
+  }
+
+  // Fallback: try extension from filename
+  const ext = filename.split(".").pop()?.toLowerCase();
+  if (!ext) {
+    return null;
+  }
+  const extMap: Record<string, string> = {
+    js: "javascript",
+    mjs: "javascript",
+    cjs: "javascript",
+    jsx: "javascript",
+    ts: "typescript",
+    tsx: "typescript",
+    py: "python",
+    java: "java",
+    go: "go",
+    rs: "rust",
+    rb: "ruby",
+    php: "php",
+    c: "c",
+    cpp: "cpp",
+    cc: "cpp",
+    h: "c",
+    hpp: "cpp",
+    cs: "csharp",
+    swift: "swift",
+    kt: "kotlin",
+    kts: "kotlin",
+    scala: "scala",
+    sh: "bash",
+    bash: "bash",
+    zsh: "bash",
+    ps1: "powershell",
+    sql: "sql",
+    r: "r",
+    lua: "lua",
+    pl: "perl",
+    perl: "perl",
+    dart: "dart",
+    ex: "elixir",
+    exs: "elixir",
+    erl: "erlang",
+    hs: "haskell",
+    clj: "clojure",
+    lisp: "lisp",
+    vim: "vim",
+    html: "html",
+    htm: "html",
+    css: "css",
+    md: "markdown",
+    markdown: "markdown",
+    json: "json",
+    xml: "xml",
+    yaml: "yaml",
+    yml: "yaml",
+    toml: "toml",
+    ini: "ini",
+    cfg: "ini",
+  };
+  return extMap[ext] || null;
 }
 
 function buildCSVToolInstructions(filePath: string): string {

@@ -36,7 +36,10 @@
  * ```
  */
 
-import { type CellValue, Workbook } from "exceljs";
+import ExcelJS from "exceljs";
+
+const { Workbook } = ExcelJS;
+type CellValue = ExcelJS.CellValue;
 
 import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
 import type {
@@ -300,7 +303,9 @@ export class ExcelProcessor extends BaseFileProcessor<ProcessedExcel> {
    * @param buffer - Excel file content
    * @returns Parsed ExcelJS Workbook
    */
-  private async parseWorkbook(buffer: Buffer): Promise<Workbook> {
+  private async parseWorkbook(
+    buffer: Buffer,
+  ): Promise<InstanceType<typeof Workbook>> {
     const workbook = new Workbook();
     // ExcelJS load() types expect Buffer but Node 22+ Buffer<ArrayBufferLike>
     // is not directly assignable. Extract a clean ArrayBuffer for the exact
@@ -320,7 +325,7 @@ export class ExcelProcessor extends BaseFileProcessor<ProcessedExcel> {
    * @param workbook - Parsed ExcelJS Workbook
    * @returns Extracted worksheets with truncation metadata
    */
-  private extractWorksheets(workbook: Workbook): {
+  private extractWorksheets(workbook: InstanceType<typeof Workbook>): {
     worksheets: ExcelWorksheet[];
     truncated: boolean;
     truncatedSheets: string[];
@@ -346,7 +351,7 @@ export class ExcelProcessor extends BaseFileProcessor<ProcessedExcel> {
       let rowIndex = 0;
       let hitLimit = false;
 
-      worksheet.eachRow((row, rowNumber) => {
+      worksheet.eachRow((row: ExcelJS.Row, rowNumber: number) => {
         if (hitLimit) {
           return;
         }
@@ -490,6 +495,91 @@ export class ExcelProcessor extends BaseFileProcessor<ProcessedExcel> {
         return "";
       })
       .join("");
+  }
+
+  // ===========================================================================
+  // TARGETED EXTRACTION API
+  // ===========================================================================
+
+  /**
+   * Extract a specific range from a spreadsheet.
+   *
+   * Called by the `extract_file_content` tool for targeted data access.
+   * Returns TSV-formatted text for the specified sheet, row range, and columns.
+   *
+   * @param buffer - Excel file buffer
+   * @param sheet - Sheet name or 0-based index (default: first sheet)
+   * @param rowStart - Starting row (1-indexed, default: 1)
+   * @param rowEnd - Ending row (1-indexed, default: all rows)
+   * @param columns - Specific column letters to include (e.g., ["A", "B", "D"])
+   * @returns TSV-formatted string with the extracted data
+   */
+  async extractSheetRange(
+    buffer: Buffer,
+    sheet?: string | number,
+    rowStart: number = 1,
+    rowEnd?: number,
+    columns?: string[],
+  ): Promise<string> {
+    const workbook = await this.parseWorkbook(buffer);
+
+    // Resolve the target worksheet
+    let worksheet: ExcelJS.Worksheet | undefined;
+    if (typeof sheet === "number") {
+      // exceljs worksheets are 1-indexed
+      worksheet = workbook.worksheets[sheet];
+    } else if (typeof sheet === "string") {
+      worksheet = workbook.getWorksheet(sheet);
+    } else {
+      worksheet = workbook.worksheets[0];
+    }
+
+    if (!worksheet) {
+      const sheetNames = workbook.worksheets.map((ws) => ws.name).join(", ");
+      return `Sheet not found. Available sheets: ${sheetNames}`;
+    }
+
+    // Convert column letters to 1-based column indices if specified
+    const columnIndices: number[] | undefined = columns?.map((col) => {
+      let index = 0;
+      for (let i = 0; i < col.length; i++) {
+        index = index * 26 + col.toUpperCase().charCodeAt(i) - 64;
+      }
+      return index;
+    });
+
+    const lines: string[] = [];
+    lines.push(`## Sheet: ${worksheet.name}`);
+
+    const actualRowEnd = rowEnd ?? worksheet.rowCount;
+    let rowCount = 0;
+
+    worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber < rowStart || rowNumber > actualRowEnd) {
+        return;
+      }
+      rowCount++;
+
+      const values: string[] = [];
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        if (columnIndices && !columnIndices.includes(colNumber)) {
+          return;
+        }
+        const val = this.getCellValue(cell.value as CellValue);
+        values.push(val === null ? "" : String(val));
+      });
+
+      // Add row number prefix for easy reference
+      lines.push(`${rowNumber}\t${values.join("\t")}`);
+    });
+
+    if (rowCount === 0) {
+      lines.push(`(No data in rows ${rowStart}-${actualRowEnd})`);
+    } else {
+      lines.push(`\n(${rowCount} rows, range ${rowStart}-${actualRowEnd})`);
+    }
+
+    return lines.join("\n");
   }
 }
 

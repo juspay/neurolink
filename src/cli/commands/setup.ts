@@ -23,15 +23,15 @@ import { handleGCPSetup } from "./setup-gcp.js";
 import { handleHuggingFaceSetup } from "./setup-huggingface.js";
 import { handleMistralSetup } from "./setup-mistral.js";
 
-interface SetupArgs {
+type SetupArgs = {
   provider?: string;
   list?: boolean;
   status?: boolean;
   interactive?: boolean;
   help?: boolean;
-}
+};
 
-interface ProviderInfo {
+type ProviderInfo = {
   id: string;
   name: string;
   emoji: string;
@@ -43,7 +43,7 @@ interface ProviderInfo {
   strengths: string;
   pricing: string;
   setupCommand: string;
-}
+};
 
 // Provider information database
 const PROVIDERS: ProviderInfo[] = [

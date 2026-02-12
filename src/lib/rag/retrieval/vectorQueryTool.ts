@@ -17,20 +17,9 @@ import type {
   VectorQueryResult,
   VectorQueryToolConfig,
 } from "../types.js";
+import type { VectorStore } from "../../types/ragTypes.js";
 
-/**
- * Abstract vector store interface
- * Vector stores should implement this interface to work with the query tool
- */
-export interface VectorStore {
-  query(params: {
-    indexName: string;
-    queryVector: number[];
-    topK?: number;
-    filter?: MetadataFilter;
-    includeVectors?: boolean;
-  }): Promise<VectorQueryResult[]>;
-}
+export type { VectorStore } from "../../types/ragTypes.js";
 
 /**
  * Creates a vector query tool for semantic search
@@ -210,11 +199,11 @@ export class InMemoryVectorStore implements VectorStore {
       metadata?: Record<string, unknown>;
     }>,
   ): Promise<void> {
-    if (!this.vectors.has(indexName)) {
-      this.vectors.set(indexName, new Map());
+    let index = this.vectors.get(indexName);
+    if (!index) {
+      index = new Map();
+      this.vectors.set(indexName, index);
     }
-
-    const index = this.vectors.get(indexName)!;
     for (const item of items) {
       index.set(item.id, {
         vector: item.vector,

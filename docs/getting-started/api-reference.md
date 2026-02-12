@@ -103,7 +103,7 @@ All AI providers inherit from BaseProvider, which provides unified tool support 
 Every provider automatically includes these tools:
 
 ```typescript
-interface BuiltInTools {
+type BuiltInTools = {
   getCurrentTime: {
     description: "Get the current date and time";
     parameters: { timezone?: string };
@@ -128,7 +128,7 @@ interface BuiltInTools {
     description: "Search for files by pattern";
     parameters: { pattern: string; path?: string };
   };
-}
+};
 ```
 
 ### Example Usage
@@ -226,13 +226,13 @@ static createProviderWithFallback(
 All providers implement the `AIProvider` interface with these methods:
 
 ```typescript
-interface AIProvider {
+type AIProvider = {
   generate(options: GenerateOptions): Promise<GenerateResult>;
   stream(options: StreamOptions): Promise<StreamResult>; // PRIMARY streaming method
 
   // Legacy compatibility
   gen?(options: GenerateOptions): Promise<GenerateResult>;
-}
+};
 ```
 
 ### 🔗 CLI-SDK Consistency
@@ -347,7 +347,7 @@ async generate(options: GenerateOptions): Promise<GenerateResult>
 **Parameters:**
 
 ```typescript
-interface GenerateOptions {
+type GenerateOptions = {
   input: { text: string };
   temperature?: number;
   maxTokens?: number;
@@ -358,13 +358,13 @@ interface GenerateOptions {
   enableAnalytics?: boolean; // Enable usage analytics
   enableEvaluation?: boolean; // Enable AI quality scoring
   context?: Record<string, any>; // Custom context for analytics
-}
+};
 ```
 
 **Returns:**
 
 ```typescript
-interface GenerateResult {
+type GenerateResult = {
   content: string;
   provider: string;
   model: string;
@@ -404,7 +404,7 @@ interface GenerateResult {
       domainKnowledgeUsed: boolean;
     };
   };
-}
+};
 ```
 
 ## 🆕 Enterprise Configuration Interfaces
@@ -414,13 +414,13 @@ interface GenerateResult {
 Main configuration interface for enterprise features:
 
 ```typescript
-interface NeuroLinkConfig {
+type NeuroLinkConfig = {
   providers: ProviderConfig;
   performance: PerformanceConfig;
   analytics: AnalyticsConfig;
   backup: BackupConfig;
   validation: ValidationConfig;
-}
+};
 ```
 
 ### `ExecutionContext`
@@ -428,7 +428,7 @@ interface NeuroLinkConfig {
 Rich context interface for all MCP operations:
 
 ```typescript
-interface ExecutionContext {
+type ExecutionContext = {
   sessionId?: string;
   userId?: string;
   aiProvider?: string;
@@ -444,7 +444,7 @@ interface ExecutionContext {
   userAgent?: string;
   clientVersion?: string;
   environment?: string;
-}
+};
 ```
 
 ### `ToolInfo`
@@ -452,7 +452,7 @@ interface ExecutionContext {
 Comprehensive tool metadata interface:
 
 ```typescript
-interface ToolInfo {
+type ToolInfo = {
   name: string;
   description?: string;
   serverId?: string;
@@ -463,7 +463,7 @@ interface ToolInfo {
   lastUsed?: Date;
   usageCount?: number;
   averageExecutionTime?: number;
-}
+};
 ```
 
 ### `ConfigUpdateOptions`
@@ -471,14 +471,14 @@ interface ToolInfo {
 Flexible configuration update options:
 
 ```typescript
-interface ConfigUpdateOptions {
+type ConfigUpdateOptions = {
   createBackup?: boolean;
   validateBeforeUpdate?: boolean;
   mergeStrategy?: "replace" | "merge" | "deep-merge";
   backupRetention?: number;
   onValidationError?: (errors: ValidationError[]) => void;
   onBackupCreated?: (backupPath: string) => void;
-}
+};
 ```
 
 ### `McpRegistry`
@@ -486,15 +486,25 @@ interface ConfigUpdateOptions {
 Registry interface with optional methods for maximum flexibility:
 
 ```typescript
-interface McpRegistry {
-  registerServer?(serverId: string, config?: unknown, context?: ExecutionContext): Promise<void>;
-  executeTool?<T>(toolName: string, args?: unknown, context?: ExecutionContext): Promise<T>;
+type McpRegistry = {
+  registerServer?(
+    serverId: string,
+    config?: unknown,
+    context?: ExecutionContext,
+  ): Promise<void>;
+  executeTool?<T>(
+    toolName: string,
+    args?: unknown,
+    context?: ExecutionContext,
+  ): Promise<T>;
   listTools?(context?: ExecutionContext): Promise<ToolInfo[]>;
-  getStats?(): Record<string, { count: number; averageTime: number; totalTime: number }>;
+  getStats?(): Record<
+    string,
+    { count: number; averageTime: number; totalTime: number }
+  >;
   unregisterServer?(serverId: string): Promise<void>;
   getServerInfo?(serverId: string): Promise<unknown>;
-}
-}
+};
 ```
 
 ## 🌐 Enterprise Real-time Services API
@@ -515,7 +525,7 @@ function createEnhancedChatService(options: {
 **Parameters:**
 
 ```typescript
-interface EnhancedChatServiceOptions {
+type EnhancedChatServiceOptions = {
   provider: AIProvider; // AI provider instance
   enableSSE?: boolean; // Enable Server-Sent Events (default: true)
   enableWebSocket?: boolean; // Enable WebSocket support (default: false)
@@ -524,7 +534,7 @@ interface EnhancedChatServiceOptions {
     compressionEnabled?: boolean; // Enable compression (default: true)
     latencyTarget?: number; // Target latency in ms (default: 100)
   };
-}
+};
 ```
 
 **Returns:** `EnhancedChatService` instance
@@ -578,13 +588,13 @@ class NeuroLinkWebSocketServer {
 **Constructor Options:**
 
 ```typescript
-interface WebSocketOptions {
+type WebSocketOptions = {
   port?: number; // Server port (default: 8080)
   maxConnections?: number; // Max concurrent connections (default: 1000)
   heartbeatInterval?: number; // Heartbeat interval in ms (default: 30000)
   enableCompression?: boolean; // Enable WebSocket compression (default: true)
   bufferSize?: number; // Message buffer size (default: 8192)
-}
+};
 ```
 
 **Example:**
@@ -628,27 +638,27 @@ function initializeTelemetry(config: TelemetryConfig): TelemetryResult;
 **Parameters:**
 
 ```typescript
-interface TelemetryConfig {
+type TelemetryConfig = {
   serviceName: string; // Service name for telemetry
   endpoint?: string; // OpenTelemetry endpoint
   enableTracing?: boolean; // Enable distributed tracing (default: true)
   enableMetrics?: boolean; // Enable metrics collection (default: true)
   enableLogs?: boolean; // Enable log collection (default: true)
   samplingRate?: number; // Trace sampling rate 0-1 (default: 0.1)
-}
+};
 ```
 
 **Returns:**
 
 ```typescript
-interface TelemetryResult {
+type TelemetryResult = {
   success: boolean;
   tracingEnabled: boolean;
   metricsEnabled: boolean;
   logsEnabled: boolean;
   endpoint?: string;
   error?: string;
-}
+};
 ```
 
 **Example:**
@@ -683,7 +693,7 @@ function getTelemetryStatus(): Promise<TelemetryStatus>;
 **Returns:**
 
 ```typescript
-interface TelemetryStatus {
+type TelemetryStatus = {
   enabled: boolean; // Whether telemetry is active
   endpoint?: string; // Current endpoint
   service: string; // Service name
@@ -698,7 +708,7 @@ interface TelemetryStatus {
     metricsCollected: number;
     logsCollected: number;
   };
-}
+};
 ```
 
 **Example:**
@@ -722,7 +732,7 @@ if (status.stats) {
 The base `GenerateOptions` interface now supports enterprise features:
 
 ```typescript
-interface GenerateOptions {
+type GenerateOptions = {
   input: { text: string };
   temperature?: number;
   maxTokens?: number;
@@ -735,7 +745,7 @@ interface GenerateOptions {
   enableAnalytics?: boolean; // Enable usage analytics
   enableEvaluation?: boolean; // Enable AI quality scoring
   context?: Record<string, any>; // Custom context for analytics
-}
+};
 ```
 
 **Enhanced Usage Example:**
@@ -786,7 +796,7 @@ async stream(options: StreamOptions): Promise<StreamResult>
 **Parameters:**
 
 ```typescript
-interface StreamOptions {
+type StreamOptions = {
   input: { text: string }; // Current scope: text input (future: multi-modal)
   output?: {
     format?: "text" | "structured" | "json";
@@ -801,13 +811,13 @@ interface StreamOptions {
   temperature?: number;
   maxTokens?: number;
   timeout?: number | string;
-}
+};
 ```
 
 **Returns:**
 
 ```typescript
-interface StreamResult {
+type StreamResult = {
   stream: AsyncIterable<{ content: string }>;
   provider?: string;
   model?: string;
@@ -816,7 +826,7 @@ interface StreamResult {
     startTime?: number;
     totalChunks?: number;
   };
-}
+};
 ```
 
 **Example:**
@@ -1212,7 +1222,7 @@ npm run start:model-server
 Models are defined in `config/models.json` with comprehensive metadata:
 
 ```typescript
-interface ModelConfig {
+type ModelConfig = {
   id: string; // Unique model identifier
   name: string; // Display name
   provider: string; // Provider name (anthropic, openai, etc.)
@@ -1230,7 +1240,7 @@ interface ModelConfig {
     speed: "fast" | "medium" | "slow";
     quality: "high" | "medium" | "low";
   };
-}
+};
 ```
 
 ### Smart Model Resolution
@@ -1368,7 +1378,7 @@ neurolink generate "Describe this" --capability vision --optimize-cost
 ### Type Definitions for Dynamic Models
 
 ```typescript
-interface DynamicModelOptions {
+type DynamicModelOptions = {
   // Specify exact model ID
   model?: string;
 
@@ -1377,9 +1387,9 @@ interface DynamicModelOptions {
   maxPrice?: number; // Maximum cost per 1K tokens
   optimizeFor?: "cost" | "speed" | "quality";
   provider?: string; // Preferred provider
-}
+};
 
-interface ModelResolutionResult {
+type ModelResolutionResult = {
   modelId: string; // Resolved model ID
   provider: string; // Provider name
   reasoning: string; // Why this model was selected
@@ -1388,15 +1398,15 @@ interface ModelResolutionResult {
     output: number;
   };
   capabilities: string[];
-}
+};
 
-interface ModelSearchOptions {
+type ModelSearchOptions = {
   capability?: string;
   provider?: string;
   maxPrice?: number;
   minContextWindow?: number;
   excludeDeprecated?: boolean;
-}
+};
 ```
 
 ### Migration from Static Models
@@ -1524,12 +1534,12 @@ type ProviderName =
   | "mistral"
   | "litellm";
 
-interface AIProvider {
+type AIProvider = {
   generate(options: GenerateOptions): Promise<GenerateResult>;
   stream(options: StreamOptions | string): Promise<StreamResult>; // PRIMARY streaming method
-}
+};
 
-interface GenerateOptions {
+type GenerateOptions = {
   input: { text: string };
   temperature?: number; // 0.0 to 1.0, default: 0.7
   maxTokens?: number; // Default: 1000
@@ -1540,9 +1550,9 @@ interface GenerateOptions {
   enableAnalytics?: boolean; // Enable usage analytics
   enableEvaluation?: boolean; // Enable AI quality scoring
   context?: Record<string, any>; // Custom context for analytics
-}
+};
 
-interface GenerateResult {
+type GenerateResult = {
   content: string;
   provider: string;
   model: string;
@@ -1564,19 +1574,19 @@ interface GenerateResult {
     alertLevel?: string; // 'none', 'low', 'medium', 'high'
     reasoning?: string; // AI reasoning for the evaluation
   };
-}
+};
 
-interface TokenUsage {
+type TokenUsage = {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
-}
+};
 ```
 
 ### Dynamic Model Types (v1.8.0+)
 
 ```typescript
-interface ModelConfig {
+type ModelConfig = {
   id: string; // Unique model identifier
   name: string; // Display name
   provider: string; // Provider name (anthropic, openai, etc.)
@@ -1594,9 +1604,9 @@ interface ModelConfig {
     speed: "fast" | "medium" | "slow";
     quality: "high" | "medium" | "low";
   };
-}
+};
 
-interface DynamicModelOptions {
+type DynamicModelOptions = {
   // Specify exact model ID
   model?: string;
 
@@ -1605,9 +1615,9 @@ interface DynamicModelOptions {
   maxPrice?: number; // Maximum cost per 1K tokens
   optimizeFor?: "cost" | "speed" | "quality";
   provider?: string; // Preferred provider
-}
+};
 
-interface ModelResolutionResult {
+type ModelResolutionResult = {
   modelId: string; // Resolved model ID
   provider: string; // Provider name
   reasoning: string; // Why this model was selected
@@ -1616,17 +1626,17 @@ interface ModelResolutionResult {
     output: number;
   };
   capabilities: string[];
-}
+};
 
-interface ModelSearchOptions {
+type ModelSearchOptions = {
   capability?: string;
   provider?: string;
   maxPrice?: number;
   minContextWindow?: number;
   excludeDeprecated?: boolean;
-}
+};
 
-interface DynamicModelRegistry {
+type DynamicModelRegistry = {
   resolveModel(alias: string): Promise<string>;
   findBestModel(options: DynamicModelOptions): Promise<ModelResolutionResult>;
   getModelsByCapability(capability: string): Promise<ModelConfig[]>;
@@ -1635,7 +1645,7 @@ interface DynamicModelRegistry {
   searchModels(options: ModelSearchOptions): Promise<ModelConfig[]>;
   getModelConfig(modelId: string): Promise<ModelConfig | null>;
   getAllModels(): Promise<ModelConfig[]>;
-}
+};
 ```
 
 ### Provider Tool Support Status
@@ -1658,39 +1668,39 @@ Due to the factory pattern refactoring, all providers now have consistent tool s
 
 ```typescript
 // OpenAI specific
-interface OpenAIOptions extends GenerateOptions {
+type OpenAIOptions = GenerateOptions & {
   user?: string; // User identifier
   stop?: string | string[]; // Stop sequences
   topP?: number; // Nucleus sampling
   frequencyPenalty?: number; // Reduce repetition
   presencePenalty?: number; // Encourage diversity
-}
+};
 
 // Bedrock specific
-interface BedrockOptions extends GenerateOptions {
+type BedrockOptions = GenerateOptions & {
   region?: string; // AWS region override
   inferenceProfile?: string; // Inference profile ARN
-}
+};
 
 // SageMaker specific
-interface SageMakerOptions extends GenerateOptions {
+type SageMakerOptions = GenerateOptions & {
   endpoint?: string; // Override default endpoint
   region?: string; // AWS region override
   contentType?: string; // Request content type (default: application/json)
   accept?: string; // Response accept type (default: application/json)
   customAttributes?: string; // Custom attributes for the request
   targetModel?: string; // Target model for multi-model endpoints
-}
+};
 
 // Vertex AI specific
-interface VertexOptions extends GenerateOptions {
+type VertexOptions = GenerateOptions & {
   project?: string; // GCP project override
   location?: string; // GCP location override
   safetySettings?: any[]; // Safety filter settings
-}
+};
 
 // Google AI Studio specific
-interface GoogleAIOptions extends GenerateOptions {
+type GoogleAIOptions = GenerateOptions & {
   safetySettings?: any[]; // Safety filter settings
   generationConfig?: {
     // Additional generation settings
@@ -1699,26 +1709,26 @@ interface GoogleAIOptions extends GenerateOptions {
     topK?: number;
     topP?: number;
   };
-}
+};
 
 // Anthropic specific
-interface AnthropicOptions extends GenerateOptions {
+type AnthropicOptions = GenerateOptions & {
   stopSequences?: string[]; // Custom stop sequences
   metadata?: {
     // Usage tracking
     userId?: string;
   };
-}
+};
 
 // Azure OpenAI specific
-interface AzureOptions extends GenerateOptions {
+type AzureOptions = GenerateOptions & {
   deploymentId?: string; // Override deployment
   apiVersion?: string; // API version override
   user?: string; // User tracking
-}
+};
 
 // Hugging Face specific
-interface HuggingFaceOptions extends GenerateOptions {
+type HuggingFaceOptions = GenerateOptions & {
   waitForModel?: boolean; // Wait for model to load
   useCache?: boolean; // Use cached responses
   options?: {
@@ -1726,24 +1736,24 @@ interface HuggingFaceOptions extends GenerateOptions {
     useGpu?: boolean;
     precision?: string;
   };
-}
+};
 
 // Ollama specific
-interface OllamaOptions extends GenerateOptions {
+type OllamaOptions = GenerateOptions & {
   format?: string; // Response format (e.g., 'json')
   context?: number[]; // Conversation context
   stream?: boolean; // Enable streaming
   raw?: boolean; // Raw mode (no templating)
   keepAlive?: string; // Model keep-alive duration
-}
+};
 
 // Mistral AI specific
-interface MistralOptions extends GenerateOptions {
+type MistralOptions = GenerateOptions & {
   topP?: number; // Nucleus sampling
   randomSeed?: number; // Reproducible outputs
   safeMode?: boolean; // Enable safe mode
   safePrompt?: boolean; // Add safe prompt
-}
+};
 ```
 
 ## Error Handling
@@ -1819,9 +1829,9 @@ try {
 ### Custom Provider Selection
 
 ```typescript
-interface ProviderSelector {
+type ProviderSelector = {
   selectProvider(available: ProviderName[]): ProviderName;
-}
+};
 
 class CustomSelector implements ProviderSelector {
   selectProvider(available: ProviderName[]): ProviderName {
@@ -1839,11 +1849,11 @@ const provider = createBestAIProvider(); // Uses default selection logic
 ### Middleware Support
 
 ```typescript
-interface AIMiddleware {
+type AIMiddleware = {
   beforeRequest?(options: GenerateOptions): GenerateOptions;
   afterResponse?(result: GenerateResult): GenerateResult;
   onError?(error: Error): Error;
-}
+};
 
 class LoggingMiddleware implements AIMiddleware {
   beforeRequest(options: GenerateOptions): GenerateOptions {
@@ -1943,14 +1953,14 @@ const cachedProvider = new CachedProvider(baseProvider);
 ### Type-Safe Configuration
 
 ```typescript
-interface NeuroLinkConfig {
+type NeuroLinkConfig = {
   defaultProvider?: ProviderName;
   fallbackProvider?: ProviderName;
   defaultOptions?: Partial<GenerateOptions>;
   enableFallback?: boolean;
   enableStreaming?: boolean;
   debug?: boolean;
-}
+};
 
 const config: NeuroLinkConfig = {
   defaultProvider: "openai",
@@ -1967,21 +1977,18 @@ const config: NeuroLinkConfig = {
 ### Generic Provider Interface
 
 ```typescript
-interface TypedAIProvider<
-  TOptions = GenerateOptions,
-  TResult = GenerateResult,
-> {
+type TypedAIProvider<TOptions = GenerateOptions, TResult = GenerateResult> = {
   generate(options: TOptions): Promise<TResult>;
-}
+};
 
 // Custom typed provider
-interface CustomOptions extends GenerateOptions {
+type CustomOptions = GenerateOptions & {
   customParameter?: string;
-}
+};
 
-interface CustomResult extends GenerateResult {
+type CustomResult = GenerateResult & {
   customData?: any;
-}
+};
 
 const typedProvider: TypedAIProvider<CustomOptions, CustomResult> =
   createBestAIProvider() as any;
@@ -2099,7 +2106,7 @@ neurolink mcp add sseserver "sse://https://api.example.com/mcp"
 MCP servers are configured in `.mcp-config.json`:
 
 ```typescript
-interface MCPConfig {
+type MCPConfig = {
   mcpServers: {
     [serverName: string]: {
       command: string; // Command to start server
@@ -2116,7 +2123,7 @@ interface MCPConfig {
     maxConnections?: number; // Max concurrent connections
     logLevel?: "debug" | "info" | "warn" | "error";
   };
-}
+};
 ```
 
 #### **Example Configuration**
@@ -2162,7 +2169,7 @@ GOOGLE_API_KEY=AIza...
 #### **Available Tool Categories**
 
 ```typescript
-interface MCPToolCategory {
+type MCPToolCategory = {
   filesystem: {
     read_file: { path: string };
     write_file: { path: string; content: string };
@@ -2195,7 +2202,7 @@ interface MCPToolCategory {
     type: { selector: string; text: string };
     screenshot: { name?: string };
   };
-}
+};
 ```
 
 #### **Tool Execution Examples**
@@ -2239,7 +2246,7 @@ curl -X POST http://localhost:9876/api/mcp/install -d '{"serverName": "filesyste
 
 ```typescript
 // ALL ENDPOINTS WORKING IN DEMO SERVER
-interface MCPDemoEndpoints {
+type MCPDemoEndpoints = {
   "GET /api/mcp/servers": {
     // List all configured MCP servers with live status
     response: {
@@ -2350,7 +2357,7 @@ interface MCPDemoEndpoints {
       data: any;
     };
   };
-}
+};
 ```
 
 #### **Real-World Usage Examples**

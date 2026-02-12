@@ -446,8 +446,8 @@ await testNewFeature(provider);
 
 ## 🔗 Related Documentation
 
-- [`../COMPREHENSIVE_REFACTORING_PLAN.md`](../COMPREHENSIVE_REFACTORING_PLAN.md) - Architecture and refactoring details
-- [`../PHASE_1_COMPLETION.md`](../PHASE_1_COMPLETION.md) - Phase 1 completion status
+- `../COMPREHENSIVE_REFACTORING_PLAN.md` - Architecture and refactoring details
+- `../PHASE_1_COMPLETION.md` - Phase 1 completion status
 - [`../CLAUDE.md`](../CLAUDE.md) - Developer guide for Claude Code
 - [`../README.md`](../README.md) - Main project documentation
 

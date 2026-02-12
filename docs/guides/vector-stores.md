@@ -224,7 +224,7 @@ class ChromaVectorStore implements VectorStore {
 All vector stores implement this interface:
 
 ```typescript
-interface VectorStore {
+type VectorStore = {
   query(params: {
     indexName: string;
     queryVector: number[];
@@ -232,7 +232,7 @@ interface VectorStore {
     filter?: MetadataFilter;
     includeVectors?: boolean;
   }): Promise<VectorQueryResult[]>;
-}
+};
 ```
 
 ### VectorQueryResult

@@ -35,5 +35,6 @@ export { PROCESSOR_PRIORITIES } from "../base/types.js";
 
 export {
   getProcessorRegistry,
+  getProcessorRegistrySync,
   ProcessorRegistry,
 } from "./ProcessorRegistry.js";

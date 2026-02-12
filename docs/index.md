@@ -1,7 +1,7 @@
 <div align="center">
   <h1>🧠 NeuroLink</h1>
   <p><strong>The Enterprise AI SDK for Production Applications</strong></p>
-  <p>12 Providers | 58+ MCP Tools | HITL Security | Redis Persistence</p>
+  <p>13 Providers | 58+ MCP Tools | HITL Security | Redis Persistence</p>
 </div>
 
 <div align="center">
@@ -37,10 +37,32 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 | Feature                            | Version | Description                                                                                                                                          | Guide                                                                            |
 | ---------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Context Window Management**      | v9.2.0  | 4-stage compaction pipeline with auto-detection, budget gate at 80% usage, per-provider token estimation                                             | [Context Compaction Guide](features/context-compaction.md)                       |
+| **File Processor System**          | v9.1.0  | 17+ file type processors with ProcessorRegistry, security sanitization, SVG text injection                                                           | [File Processors Guide](features/file-processors.md)                             |
 | **Workflow Engine**                | v8.42.0 | Multi-model orchestration with consensus, multi-judge, fallback, and adaptive workflows. Ensemble execution with intelligent scoring and evaluation. | [Workflow HLD](WORKFLOW-ENGINE-HLD.md) \| [Workflow LLD](WORKFLOW-ENGINE-LLD.md) |
 | **Docusaurus Documentation**       | v8.41.0 | Migrated from MkDocs to Docusaurus v3 with enhanced search, versioning, and modern UI. Automated doc syncing and LLM-friendly documentation.         | [Documentation Site](https://docs.neurolink.ink)                                 |
 | **Image Generation with Gemini**   | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.       | [Image Generation Guide](image-generation-streaming.md)                          |
 | **HTTP/Streamable HTTP Transport** | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.        | [HTTP Transport Guide](mcp-http-transport.md)                                    |
+
+- **External TracerProvider Support** -- Integrate NeuroLink with applications that already have OpenTelemetry instrumentation. Supports auto-detection and manual configuration. -> [Observability Guide](features/observability.md)
+- **Server Adapters** -- Deploy NeuroLink as an HTTP API server with your framework of choice (Hono, Express, Fastify, Koa). Full CLI support with `serve` and `server` commands for foreground/background modes, route management, and OpenAPI generation. -> [Server Adapters Guide](guides/server-adapters/index.md)
+- **Title Generation Events** -- Emit real-time events when conversation titles are auto-generated. Listen to `conversation:titleGenerated` for session tracking. -> [Conversation Memory Guide](conversation-memory.md#title-generation-events)
+- **Custom Title Prompts** -- Customize conversation title generation with `NEUROLINK_TITLE_PROMPT` environment variable. Use `${userMessage}` placeholder for dynamic prompts. -> [Conversation Memory Guide](conversation-memory.md#customizing-the-title-prompt)
+- **Video Generation** -- Transform images into 8-second videos with synchronized audio using Google Veo 3.1 via Vertex AI. Supports 720p/1080p resolutions, portrait/landscape aspect ratios. -> [Video Generation Guide](features/video-generation.md)
+- **Image Generation** -- Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio. Supports streaming mode with automatic file saving. -> [Image Generation Guide](image-generation-streaming.md)
+- **HTTP/Streamable HTTP Transport for MCP** -- Connect to remote MCP servers via HTTP with authentication headers, retry logic, and rate limiting. -> [HTTP Transport Guide](mcp-http-transport.md)
+- **Gemini 3 Preview Support** - Full support for gemini-3-flash-preview and gemini-3-pro-preview with extended thinking capabilities
+- **Structured Output with Zod Schemas** -- Type-safe JSON generation with automatic validation using `schema` + `output.format: "json"` in `generate()`. -> [Structured Output Guide](features/structured-output.md)
+- **CSV File Support** -- Attach CSV files to prompts for AI-powered data analysis with auto-detection. -> [CSV Guide](features/multimodal-chat.md#csv-file-support)
+- **PDF File Support** -- Process PDF documents with native visual analysis for Vertex AI, Anthropic, Bedrock, AI Studio. -> [PDF Guide](features/pdf-support.md)
+- **50+ File Types** -- Process Excel, Word, RTF, JSON, YAML, XML, HTML, SVG, Markdown, and 50+ code languages with intelligent content extraction. -> [File Processors Guide](features/file-processors.md)
+- **LiteLLM Integration** -- Access 100+ AI models from all major providers through unified interface. -> [Setup Guide](litellm-integration.md)
+- **SageMaker Integration** -- Deploy and use custom trained models on AWS infrastructure. -> [Setup Guide](sagemaker-integration.md)
+- **OpenRouter Integration** -- Access 300+ models from OpenAI, Anthropic, Google, Meta, and more through a single unified API. -> [Setup Guide](getting-started/providers/openrouter.md)
+- **Human-in-the-loop workflows** -- Pause generation for user approval/input before tool execution. -> [HITL Guide](features/hitl.md)
+- **Guardrails middleware** -- Block PII, profanity, and unsafe content with built-in filtering. -> [Guardrails Guide](features/guardrails.md)
+- **Context summarization** -- Automatic conversation compression for long-running sessions. -> [Summarization Guide](context-summarization.md)
+- **Redis conversation export** -- Export full session history as JSON for analytics and debugging. -> [History Guide](features/conversation-history.md)
 
 ```typescript
 // Multi-Model Workflow Engine (v8.42.0)
@@ -151,20 +173,21 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 **13 providers unified under one API** - Switch providers with a single parameter change.
 
-| Provider              | Models                             | Free Tier       | Tool Support | Status        | Documentation                                                      |
-| --------------------- | ---------------------------------- | --------------- | ------------ | ------------- | ------------------------------------------------------------------ |
-| **OpenAI**            | GPT-4o, GPT-4o-mini, o1            | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openai)            |
-| **Anthropic**         | Claude 3.5/3.7 Sonnet, Opus        | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#anthropic)         |
-| **Google AI Studio**  | Gemini 2.5 Flash/Pro               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#google-ai)         |
-| **AWS Bedrock**       | Claude, Titan, Llama, Nova         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#bedrock)           |
-| **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview) | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#vertex)            |
-| **Azure OpenAI**      | GPT-4, GPT-4o, o1                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#azure)             |
-| **LiteLLM**           | 100+ models unified                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](litellm-integration.md)                              |
-| **AWS SageMaker**     | Custom deployed models             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](sagemaker-integration.md)                            |
-| **Mistral AI**        | Mistral Large, Small               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#mistral)           |
-| **Hugging Face**      | 100,000+ models                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](getting-started/provider-setup.md#huggingface)       |
-| **Ollama**            | Local models (Llama, Mistral)      | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](getting-started/provider-setup.md#ollama)            |
-| **OpenAI Compatible** | Any OpenAI-compatible endpoint     | Varies          | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openai-compatible) |
+| Provider              | Models                                             | Free Tier       | Tool Support | Status        | Documentation                                                      |
+| --------------------- | -------------------------------------------------- | --------------- | ------------ | ------------- | ------------------------------------------------------------------ |
+| **OpenAI**            | GPT-4o, GPT-4o-mini, o1                            | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openai)            |
+| **Anthropic**         | Claude 4.5 Opus/Sonnet/Haiku, Claude 4 Opus/Sonnet | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#anthropic)         |
+| **Google AI Studio**  | Gemini 3 Flash/Pro, Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#google-ai)         |
+| **AWS Bedrock**       | Claude, Titan, Llama, Nova                         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#bedrock)           |
+| **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview)                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#vertex)            |
+| **Azure OpenAI**      | GPT-4, GPT-4o, o1                                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#azure)             |
+| **LiteLLM**           | 100+ models unified                                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](litellm-integration.md)                              |
+| **AWS SageMaker**     | Custom deployed models                             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](sagemaker-integration.md)                            |
+| **Mistral AI**        | Mistral Large, Small                               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#mistral)           |
+| **Hugging Face**      | 100,000+ models                                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](getting-started/provider-setup.md#huggingface)       |
+| **Ollama**            | Local models (Llama, Mistral)                      | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](getting-started/provider-setup.md#ollama)            |
+| **OpenAI Compatible** | Any OpenAI-compatible endpoint                     | Varies          | ✅ Full      | ✅ Production | [Setup Guide](getting-started/provider-setup.md#openai-compatible) |
+| **OpenRouter**        | 200+ Models via OpenRouter                         | Varies          | ✅ Full      | ✅ Production | [Setup Guide](getting-started/providers/openrouter.md)             |
 
 **[📖 Provider Comparison Guide](reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
 **[🔬 Provider Feature Compatibility](reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 13 providers
@@ -242,6 +265,48 @@ const result = await neurolink.generate({
 
 ---
 
+### 📁 Multimodal & File Processing
+
+**17+ file categories supported** (50+ total file types including code languages) with intelligent content extraction and provider-agnostic processing:
+
+| Category      | Supported Types                                            | Processing                          |
+| ------------- | ---------------------------------------------------------- | ----------------------------------- |
+| **Documents** | Excel (`.xlsx`, `.xls`), Word (`.docx`), RTF, OpenDocument | Sheet extraction, text extraction   |
+| **Data**      | JSON, YAML, XML                                            | Validation, syntax highlighting     |
+| **Markup**    | HTML, SVG, Markdown, Text                                  | OWASP-compliant sanitization        |
+| **Code**      | 50+ languages (TypeScript, Python, Java, Go, etc.)         | Language detection, syntax metadata |
+| **Config**    | `.env`, `.ini`, `.toml`, `.cfg`                            | Secure parsing                      |
+| **Media**     | Images (PNG, JPEG, WebP, GIF), PDFs, CSV                   | Provider-specific formatting        |
+
+```typescript
+// Process any supported file type
+const result = await neurolink.generate({
+  input: {
+    text: "Analyze this data and code",
+    files: [
+      "./data.xlsx", // Excel spreadsheet
+      "./config.yaml", // YAML configuration
+      "./diagram.svg", // SVG (injected as sanitized text)
+      "./main.py", // Python source code
+    ],
+  },
+});
+
+// CLI: Use --file for any supported type
+// neurolink generate "Analyze this" --file ./report.xlsx --file ./config.json
+```
+
+**Key Features:**
+
+- **ProcessorRegistry** - Priority-based processor selection with fallback
+- **OWASP Security** - HTML/SVG sanitization prevents XSS attacks
+- **Auto-detection** - FileDetector identifies file types by extension and content
+- **Provider-agnostic** - All processors work across all 13 AI providers
+
+**[📖 File Processors Guide](features/file-processors.md)** - Complete reference for all file types
+
+---
+
 ### 🏢 Enterprise & Production Features
 
 **Production-ready capabilities for regulated industries:**
@@ -266,6 +331,7 @@ const result = await neurolink.generate({
 - ✅ Hardened OS verified (SELinux, AppArmor)
 - ✅ Zero credential logging
 - ✅ Encrypted configuration storage
+- ✅ Automatic context window management with 4-stage compaction pipeline and 80% budget gate
 
 **[📖 Enterprise Deployment Guide](advanced/enterprise.md)** - Complete production checklist
 
@@ -300,7 +366,7 @@ const neurolink = new NeuroLink({
 });
 
 // Or explicit configuration
-const neuriolinkExplicit = new NeuroLink({
+const neurolinkExplicit = new NeuroLink({
   conversationMemory: {
     enabled: true,
     store: "redis",
@@ -339,16 +405,23 @@ node your-app.js
 
 **15+ commands** for every workflow:
 
-| Command    | Purpose                            | Example                    | Documentation                        |
-| ---------- | ---------------------------------- | -------------------------- | ------------------------------------ |
-| `setup`    | Interactive provider configuration | `neurolink setup`          | [Setup Guide](cli/index.md)          |
-| `generate` | Text generation                    | `neurolink gen "Hello"`    | [Generate](cli/commands.md#generate) |
-| `stream`   | Streaming generation               | `neurolink stream "Story"` | [Stream](cli/commands.md#stream)     |
-| `status`   | Provider health check              | `neurolink status`         | [Status](cli/commands.md#status)     |
-| `loop`     | Interactive session                | `neurolink loop`           | [Loop](cli/commands.md#loop)         |
-| `mcp`      | MCP server management              | `neurolink mcp discover`   | [MCP CLI](cli/commands.md#mcp)       |
-| `models`   | Model listing                      | `neurolink models`         | [Models](cli/commands.md#models)     |
-| `eval`     | Model evaluation                   | `neurolink eval`           | [Eval](cli/commands.md#eval)         |
+| Command          | Purpose                              | Example                    | Documentation                        |
+| ---------------- | ------------------------------------ | -------------------------- | ------------------------------------ |
+| `setup`          | Interactive provider configuration   | `neurolink setup`          | [Setup Guide](cli/index.md)          |
+| `generate`       | Text generation                      | `neurolink gen "Hello"`    | [Generate](cli/commands.md#generate) |
+| `stream`         | Streaming generation                 | `neurolink stream "Story"` | [Stream](cli/commands.md#stream)     |
+| `status`         | Provider health check                | `neurolink status`         | [Status](cli/commands.md#status)     |
+| `loop`           | Interactive session                  | `neurolink loop`           | [Loop](cli/commands.md#loop)         |
+| `mcp`            | MCP server management                | `neurolink mcp discover`   | [MCP CLI](cli/commands.md#mcp)       |
+| `models`         | Model listing                        | `neurolink models`         | [Models](cli/commands.md#models)     |
+| `eval`           | Model evaluation                     | `neurolink eval`           | [Eval](cli/commands.md#eval)         |
+| `serve`          | Start HTTP server in foreground mode | `neurolink serve`          | [Serve](cli/commands.md#serve)       |
+| `server start`   | Start HTTP server in background mode | `neurolink server start`   | [Server](cli/commands.md#server)     |
+| `server stop`    | Stop running background server       | `neurolink server stop`    | [Server](cli/commands.md#server)     |
+| `server status`  | Show server status information       | `neurolink server status`  | [Server](cli/commands.md#server)     |
+| `server routes`  | List all registered API routes       | `neurolink server routes`  | [Server](cli/commands.md#server)     |
+| `server config`  | View or modify server configuration  | `neurolink server config`  | [Server](cli/commands.md#server)     |
+| `server openapi` | Generate OpenAPI specification       | `neurolink server openapi` | [Server](cli/commands.md#server)     |
 
 **[📖 Complete CLI Reference](cli/commands.md)** - All commands and options
 
@@ -366,13 +439,13 @@ Run AI-powered workflows directly in GitHub Actions with 13 provider support and
     post_comment: true
 ```
 
-| Feature                | Description                                     |
-| ---------------------- | ----------------------------------------------- |
-| **Multi-Provider**     | 13 providers with unified interface             |
-| **PR/Issue Comments**  | Auto-post AI responses with intelligent updates |
-| **Multimodal Support** | Attach images, PDFs, CSVs to prompts            |
-| **Cost Tracking**      | Built-in analytics and quality evaluation       |
-| **Extended Thinking**  | Deep reasoning with thinking tokens             |
+| Feature                | Description                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| **Multi-Provider**     | 13 providers with unified interface                                                       |
+| **PR/Issue Comments**  | Auto-post AI responses with intelligent updates                                           |
+| **Multimodal Support** | Attach images, PDFs, CSVs, Excel, Word, JSON, YAML, XML, HTML, SVG, code files to prompts |
+| **Cost Tracking**      | Built-in analytics and quality evaluation                                                 |
+| **Extended Thinking**  | Deep reasoning with thinking tokens                                                       |
 
 **[📖 GitHub Action Guide](guides/github-action.md)** - Complete setup and examples
 
@@ -499,6 +572,10 @@ const result = await neurolink.generate({
       "./sales_data.csv", // Auto-detected as CSV
       "examples/data/invoice.pdf", // Auto-detected as PDF
       "./diagrams/architecture.png", // Auto-detected as image
+      "./report.xlsx", // Auto-detected as Excel
+      "./config.json", // Auto-detected as JSON
+      "./diagram.svg", // Auto-detected as SVG (injected as text)
+      "./app.ts", // Auto-detected as TypeScript code
     ],
   },
   provider: "vertex", // PDF-capable provider (see docs/features/pdf-support.md)
@@ -608,7 +685,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](cli/commands.md
 
 - Bug reports and feature requests → [GitHub Issues](https://github.com/juspay/neurolink/issues)
 - Development workflow, testing, and pull request guidelines → [`docs/development/contributing.md`](development/contributing.md)
-- Documentation improvements → open a PR referencing the documentation matrix.
+- Documentation improvements → open a PR referencing the [documentation matrix](tracking/FEATURE-DOC-MATRIX.md).
 
 ---
 

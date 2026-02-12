@@ -9,7 +9,7 @@ import { delay } from "./delay.js";
 /**
  * Configuration options for retry operations.
  */
-export interface RetryOptions {
+export type RetryOptions = {
   /**
    * Maximum number of retry attempts (not including the initial attempt).
    * @default 3
@@ -45,7 +45,7 @@ export interface RetryOptions {
    * Useful for logging or metrics.
    */
   onRetry?: (error: Error, attempt: number, delayMs: number) => void;
-}
+};
 
 /**
  * Default retry configuration.

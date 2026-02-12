@@ -15,8 +15,9 @@
 
 import { spawn } from "child_process";
 import * as fs from "fs";
-import * as path from "path";
 import * as os from "os";
+import * as path from "path";
+import type { ProcessResult } from "../dist/index.js";
 
 // ==================== Configuration ====================
 
@@ -32,13 +33,6 @@ const TEST_CONFIG = {
 const originalEnv = { ...process.env };
 
 // ==================== Utilities ====================
-
-interface CommandResult {
-  success: boolean;
-  stdout: string;
-  stderr: string;
-  code: number | null;
-}
 
 function logSection(title: string): void {
   console.log(`\n${"=".repeat(70)}`);
@@ -68,7 +62,7 @@ function runCommand(
   command: string,
   args: string[],
   env?: NodeJS.ProcessEnv,
-): Promise<CommandResult> {
+): Promise<ProcessResult> {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       env: { ...process.env, ...env },
