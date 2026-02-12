@@ -8,6 +8,7 @@
     { label: "Docs", href: "https://docs.neurolink.ink/docs/getting-started" },
     { label: "SDK", href: "https://docs.neurolink.ink/docs/sdk/api-reference" },
     { label: "CLI", href: "https://docs.neurolink.ink/docs/cli/commands" },
+    { label: "Blog", href: "https://blog.neurolink.ink" },
     { label: "GitHub", href: "https://github.com/juspay/neurolink" },
   ];
 

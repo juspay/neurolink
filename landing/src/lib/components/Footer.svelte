@@ -45,6 +45,7 @@
           label: "Discussions",
           href: "https://github.com/juspay/neurolink/discussions",
         },
+        { label: "Blog", href: "https://blog.neurolink.ink" },
         {
           label: "NPM Package",
           href: "https://www.npmjs.com/package/@juspay/neurolink",
