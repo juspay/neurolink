@@ -1,3 +1,9 @@
+## [9.5.3](https://github.com/juspay/neurolink/compare/v9.5.2...v9.5.3) (2026-02-13)
+
+### Bug Fixes
+
+- **(landing):** improve mobile responsiveness with aurora hero, interleaved StickyDemo, and WCAG touch targets ([a014e9e](https://github.com/juspay/neurolink/commit/a014e9e04b02872b013102a5dfbf8428e4d4eb5a))
+
 ## [9.5.2](https://github.com/juspay/neurolink/compare/v9.5.1...v9.5.2) (2026-02-12)
 
 ### Bug Fixes
