@@ -12,7 +12,7 @@
   </div>
 
   <div
-    class="relative max-w-[1200px] mx-auto px-6 py-32"
+    class="relative max-w-[1200px] mx-auto px-4 md:px-6 py-16 md:py-32"
     use:reveal={{ y: 40 }}
   >
     <div class="text-center max-w-[700px] mx-auto">

@@ -255,6 +255,13 @@ export default [
       // Exclude built documentation site and generated files
       "site/**",
       "_site/**",
+      // Exclude landing build outputs and Svelte files (handled by landing workspace)
+      "landing/.vercel/**",
+      "landing/.svelte-kit/**",
+      "landing/**/*.svelte",
+      // Exclude Docusaurus build output
+      "docs-site/.docusaurus/**",
+      "docs-site/build/**",
     ],
   },
 ];

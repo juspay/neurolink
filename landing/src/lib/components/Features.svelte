@@ -61,8 +61,8 @@
   ];
 </script>
 
-<section class="max-w-[1200px] mx-auto px-6 py-24">
-  <div use:reveal={{ y: 40 }} class="mb-14">
+<section class="max-w-[1200px] mx-auto px-4 md:px-6 py-16 md:py-24">
+  <div use:reveal={{ y: 40 }} class="mb-8 md:mb-14">
     <p class="eyebrow text-ds-text-muted mb-4">02 — Capabilities</p>
     <h2 class="section-headline text-ds-text-primary">
       Everything you need to ship AI
@@ -79,7 +79,7 @@
   >
     {#each features as feature}
       <div
-        class="group bg-ds-surface-2 border border-ds-border rounded-xl p-6 hover:-translate-y-1 hover:border-ds-border-hover hover:shadow-card-hover transition-all duration-300 cursor-default"
+        class="group bg-ds-surface-2 border border-ds-border rounded-xl p-5 md:p-6 hover:-translate-y-1 hover:border-ds-border-hover hover:shadow-card-hover transition-all duration-300 cursor-default"
       >
         <!-- Icon -->
         <div

@@ -107,7 +107,7 @@
   <!-- Mobile hamburger -->
   <button
     onclick={toggleMobile}
-    class="md:hidden flex items-center justify-center w-9 h-9 rounded-ds-md text-ds-text-tertiary hover:text-ds-text-primary hover:bg-ds-surface-3 transition-colors duration-200"
+    class="md:hidden flex items-center justify-center w-11 h-11 rounded-ds-md text-ds-text-tertiary hover:text-ds-text-primary hover:bg-ds-surface-3 transition-colors duration-200"
     aria-label="Toggle navigation menu"
     aria-expanded={mobileOpen}
   >
@@ -147,57 +147,64 @@
 </nav>
 
 <!-- Mobile menu overlay -->
-{#if mobileOpen}
-  <div class="fixed inset-0 z-40 md:hidden" role="presentation">
-    <!-- Backdrop -->
-    <button
-      class="absolute inset-0 bg-black/60 backdrop-blur-sm"
-      onclick={closeMobile}
-      aria-label="Close navigation menu"
-      tabindex="-1"
-    ></button>
+<div
+  class="fixed inset-0 z-40 md:hidden transition-opacity duration-200"
+  class:opacity-0={!mobileOpen}
+  class:pointer-events-none={!mobileOpen}
+  class:opacity-100={mobileOpen}
+  role="presentation"
+  inert={!mobileOpen}
+>
+  <!-- Backdrop -->
+  <button
+    class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+    onclick={closeMobile}
+    aria-label="Close navigation menu"
+    tabindex="-1"
+  ></button>
 
-    <!-- Panel -->
-    <div
-      class="absolute top-16 left-0 right-0 bg-ds-surface-1 border-b border-ds-border p-4 flex flex-col gap-1 animate-slide-up"
-    >
-      {#each navLinks as link}
-        <a
-          href={link.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          onclick={closeMobile}
-          class="px-4 py-3 text-sm text-ds-text-tertiary hover:text-ds-text-primary hover:bg-ds-surface-3 rounded-ds-md transition-colors duration-200"
-        >
-          {link.label}
-        </a>
-      {/each}
+  <!-- Panel -->
+  <div
+    class="absolute top-16 left-0 right-0 bg-ds-surface-1 border-b border-ds-border p-4 flex flex-col gap-1 max-h-[calc(100dvh-4rem)] overflow-y-auto transition-all duration-200"
+    class:translate-y-0={mobileOpen}
+    class:-translate-y-2={!mobileOpen}
+  >
+    {#each navLinks as link}
+      <a
+        href={link.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onclick={closeMobile}
+        class="px-4 py-3 text-sm text-ds-text-tertiary hover:text-ds-text-primary hover:bg-ds-surface-3 rounded-ds-md transition-colors duration-200"
+      >
+        {link.label}
+      </a>
+    {/each}
 
-      <div class="mt-2 pt-3 border-t border-ds-border">
-        <a
-          href="https://docs.neurolink.ink/docs/getting-started"
-          target="_blank"
-          rel="noopener noreferrer"
-          onclick={closeMobile}
-          class="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-white bg-nl-accent hover:bg-nl-accent-dark rounded-ds-full transition-colors duration-200"
+    <div class="mt-2 pt-3 border-t border-ds-border">
+      <a
+        href="https://docs.neurolink.ink/docs/getting-started"
+        target="_blank"
+        rel="noopener noreferrer"
+        onclick={closeMobile}
+        class="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-white bg-nl-accent hover:bg-nl-accent-dark rounded-ds-full transition-colors duration-200"
+      >
+        Get Started
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
-          Get Started
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M5 12h14" />
-            <path d="m12 5 7 7-7 7" />
-          </svg>
-        </a>
-      </div>
+          <path d="M5 12h14" />
+          <path d="m12 5 7 7-7 7" />
+        </svg>
+      </a>
     </div>
   </div>
-{/if}
+</div>

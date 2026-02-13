@@ -98,12 +98,12 @@
       >
         <!-- Tab bar -->
         <div
-          class="flex border-b border-ds-border bg-ds-surface-2"
+          class="flex border-b border-ds-border bg-ds-surface-2 overflow-x-auto scrollbar-hide tab-scroll-fade"
           role="tablist"
         >
           {#each tabs as tab, i}
             <button
-              class="px-4 py-3 text-sm font-mono transition-colors duration-200 border-b-2"
+              class="px-3 md:px-4 py-3 text-xs md:text-sm font-mono whitespace-nowrap shrink-0 transition-colors duration-200 border-b-2"
               class:text-nl-accent={activeTab === i}
               class:border-nl-accent={activeTab === i}
               class:text-ds-text-muted={activeTab !== i}
@@ -121,7 +121,7 @@
 
         <!-- Code content -->
         <div
-          class="p-6 font-mono text-sm leading-7 overflow-x-auto"
+          class="p-4 md:p-6 font-mono text-xs md:text-sm leading-6 md:leading-7 overflow-x-auto"
           role="tabpanel"
           id="code-tabpanel"
           aria-labelledby="code-tab-{activeTab}"
@@ -135,3 +135,21 @@
     </div>
   </div>
 </section>
+
+<style>
+  :global(.tab-scroll-fade) {
+    mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
+    -webkit-mask-image: linear-gradient(
+      to right,
+      black calc(100% - 2rem),
+      transparent
+    );
+  }
+
+  @media (min-width: 768px) {
+    :global(.tab-scroll-fade) {
+      mask-image: none;
+      -webkit-mask-image: none;
+    }
+  }
+</style>

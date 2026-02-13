@@ -68,7 +68,10 @@
   }
 </script>
 
-<section bind:this={sectionEl} class="max-w-[1200px] mx-auto px-6 py-16">
+<section
+  bind:this={sectionEl}
+  class="max-w-[1200px] mx-auto px-4 md:px-6 py-12 md:py-16"
+>
   <div
     class="grid grid-cols-2 lg:grid-cols-4 gap-4"
     use:reveal={{ y: 40, stagger: 0.12 }}
@@ -76,10 +79,10 @@
     {#each stats as stat, i}
       <div class="shine-border-hover group cursor-default">
         <div
-          class="bg-ds-surface-2 rounded-xl p-6 text-center hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover"
+          class="bg-ds-surface-2 rounded-xl p-4 md:p-6 text-center hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover"
         >
           <div
-            class="text-4xl font-bold text-nl-accent mb-2"
+            class="text-2xl sm:text-3xl md:text-4xl font-bold text-nl-accent mb-2"
             style="text-shadow: 0 0 40px rgb(1 111 185 / 30%);"
           >
             <span bind:this={counterEls[i]}>0</span>{stat.suffix}

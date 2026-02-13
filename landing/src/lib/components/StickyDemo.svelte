@@ -53,8 +53,11 @@
   });
 </script>
 
-<section bind:this={sectionEl} class="max-w-[1200px] mx-auto px-6 py-24">
-  <div use:reveal={{ y: 40 }} class="mb-14">
+<section
+  bind:this={sectionEl}
+  class="max-w-[1200px] mx-auto px-4 md:px-6 py-16 md:py-24"
+>
+  <div use:reveal={{ y: 40 }} class="mb-8 md:mb-14">
     <p class="eyebrow text-ds-text-muted mb-4">03 — How it works</p>
     <h2 class="section-headline text-ds-text-primary">
       Four lines to production
@@ -65,7 +68,37 @@
     </p>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+  <!-- Mobile: interleaved description + code pairs -->
+  <div class="lg:hidden space-y-10">
+    {#each useCases as useCase, i}
+      <div use:reveal={{ y: 40 }}>
+        <span class="eyebrow text-nl-accent">0{i + 1}</span>
+        <h3
+          class="text-2xl font-semibold text-ds-text-primary mt-3 tracking-tight"
+        >
+          {useCase.title}
+        </h3>
+        <p class="mt-3 text-ds-text-tertiary leading-relaxed">
+          {useCase.description}
+        </p>
+
+        <div
+          class="mt-5 bg-ds-surface-1 border border-ds-border rounded-xl overflow-hidden"
+        >
+          <div class="flex items-center border-b border-ds-border px-4 py-2">
+            <span class="text-xs font-mono text-nl-accent">{useCase.title}</span
+            >
+          </div>
+          <div class="p-4 font-mono text-xs leading-6 overflow-x-auto">
+            <pre><code>{@html useCase.code}</code></pre>
+          </div>
+        </div>
+      </div>
+    {/each}
+  </div>
+
+  <!-- Desktop: sticky parallax layout -->
+  <div class="hidden lg:grid lg:grid-cols-2 gap-12">
     <!-- Left: scrolling content blocks -->
     <div class="space-y-[40vh] pb-[20vh]">
       {#each useCases as useCase, i}
@@ -89,14 +122,26 @@
       {/each}
     </div>
 
-    <!-- Right: sticky code block (desktop) -->
-    <div class="hidden lg:block">
+    <!-- Right: sticky code block -->
+    <div>
       <div class="sticky top-[25vh]">
         <div
           class="bg-ds-surface-1 border border-ds-border rounded-xl overflow-hidden"
         >
           <!-- Tab bar -->
-          <div class="flex border-b border-ds-border" role="tablist">
+          <div
+            class="flex border-b border-ds-border"
+            role="tablist"
+            tabindex="0"
+            onkeydown={(e) => {
+              if (e.key === "ArrowRight") {
+                activeIndex = (activeIndex + 1) % useCases.length;
+              } else if (e.key === "ArrowLeft") {
+                activeIndex =
+                  (activeIndex - 1 + useCases.length) % useCases.length;
+              }
+            }}
+          >
             {#each useCases as uc, i}
               <button
                 class="px-4 py-3 text-xs font-mono transition-colors duration-200 border-b-2"
@@ -106,6 +151,7 @@
                 class:border-transparent={activeIndex !== i}
                 role="tab"
                 aria-selected={activeIndex === i}
+                tabindex={activeIndex === i ? 0 : -1}
                 id="sticky-tab-{i}"
                 aria-controls="sticky-tabpanel"
                 onclick={() => (activeIndex = i)}
@@ -131,21 +177,5 @@
         </div>
       </div>
     </div>
-  </div>
-
-  <!-- Mobile code blocks (shown below each description on small screens) -->
-  <div class="lg:hidden -mt-[20vh] space-y-10 pb-4">
-    {#each useCases as uc, i}
-      <div
-        class="bg-ds-surface-1 border border-ds-border rounded-xl overflow-hidden"
-      >
-        <div class="flex items-center border-b border-ds-border px-4 py-2">
-          <span class="text-xs font-mono text-nl-accent">{uc.title}</span>
-        </div>
-        <div class="p-4 font-mono text-xs leading-6 overflow-x-auto">
-          <pre><code>{@html uc.code}</code></pre>
-        </div>
-      </div>
-    {/each}
   </div>
 </section>

@@ -22,12 +22,17 @@
 
       gsapRef = gsap;
       gsap.registerPlugin(ScrollTrigger);
+      ScrollTrigger.config({ ignoreMobileResize: true });
 
-      lenis = new Lenis({ lerp: 0.1, duration: 1.2 });
-      lenis.on("scroll", ScrollTrigger.update);
-      onTick = (time: number) => lenis?.raf(time * 1000);
-      gsap.ticker.add(onTick);
-      gsap.ticker.lagSmoothing(0);
+      const isDesktop = window.innerWidth >= 1024;
+
+      if (isDesktop) {
+        lenis = new Lenis({ lerp: 0.1, duration: 1.2 });
+        lenis.on("scroll", ScrollTrigger.update);
+        onTick = (time: number) => lenis?.raf(time * 1000);
+        gsap.ticker.add(onTick);
+        gsap.ticker.lagSmoothing(0);
+      }
     })();
 
     return () => {

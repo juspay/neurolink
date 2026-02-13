@@ -52,24 +52,43 @@ function formatFiles(files) {
     console.log('✅ No files to format');
     return;
   }
-  
+
   try {
     console.log('🎨 Formatting changed files...');
-    
-    // Split files into chunks to avoid command line length limits
+
+    // Separate Svelte files (need the plugin) from regular files
+    const svelteFiles = files.filter(f => f.endsWith('.svelte'));
+    const regularFiles = files.filter(f => !f.endsWith('.svelte'));
+
+    // Format regular files in chunks
     const chunkSize = 50;
-    for (let i = 0; i < files.length; i += chunkSize) {
-      const chunk = files.slice(i, i + chunkSize);
+    for (let i = 0; i < regularFiles.length; i += chunkSize) {
+      const chunk = regularFiles.slice(i, i + chunkSize);
       const filesArg = chunk.map(f => `"${f}"`).join(' ');
-      
-      console.log(`Formatting chunk ${Math.floor(i/chunkSize) + 1}/${Math.ceil(files.length/chunkSize)}: ${chunk.length} files`);
-      
-      execSync(`npx prettier --write ${filesArg}`, { 
+
+      console.log(`Formatting chunk ${Math.floor(i/chunkSize) + 1}/${Math.ceil(regularFiles.length/chunkSize)}: ${chunk.length} files`);
+
+      execSync(`npx prettier --write ${filesArg}`, {
         stdio: 'inherit',
         cwd: process.cwd()
       });
     }
-    
+
+    // Format Svelte files with the plugin from the landing workspace
+    if (svelteFiles.length > 0) {
+      const rootDir = process.cwd();
+      const landingDir = path.join(rootDir, 'landing');
+      // Convert paths to be relative to the landing directory
+      const relFiles = svelteFiles.map(f => path.relative(landingDir, path.resolve(rootDir, f)));
+      const filesArg = relFiles.map(f => `"${f}"`).join(' ');
+      console.log(`Formatting ${svelteFiles.length} Svelte files with prettier-plugin-svelte...`);
+
+      execSync(`npx prettier --write --plugin prettier-plugin-svelte ${filesArg}`, {
+        stdio: 'inherit',
+        cwd: landingDir
+      });
+    }
+
     console.log(`✅ Successfully formatted ${files.length} changed files`);
   } catch (error) {
     console.error('❌ Error formatting files:', error.message);

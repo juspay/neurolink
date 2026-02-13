@@ -15,7 +15,7 @@
 </script>
 
 <section
-  class="py-12 border-y border-ds-border-subtle overflow-hidden"
+  class="py-8 md:py-12 border-y border-ds-border-subtle overflow-hidden"
   use:reveal={{ y: 30 }}
 >
   <p class="text-center eyebrow text-ds-text-muted mb-8">
@@ -31,7 +31,7 @@
       {#each { length: 2 } as _}
         {#each brands as brand, i}
           <span
-            class="text-ds-text-muted text-lg font-semibold px-8 shrink-0 select-none hover:text-ds-text-secondary transition-colors duration-200"
+            class="text-ds-text-muted text-base md:text-lg font-semibold px-4 md:px-8 shrink-0 select-none hover:text-ds-text-secondary transition-colors duration-200"
           >
             {brand}
           </span>

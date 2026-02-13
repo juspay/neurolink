@@ -284,7 +284,7 @@ pre,
 }
 
 /* ===========================================
-   HERO GRADIENT MESH
+   HERO GRADIENT MESH (Desktop)
    =========================================== */
 
 .hero-bg {
@@ -303,6 +303,130 @@ pre,
     ),
     radial-gradient(ellipse at 60% 80%, rgb(236 78 32 / 4%) 0%, transparent 50%);
   animation: mesh-shift 20s ease infinite;
+}
+
+/* ===========================================
+   HERO AURORA BACKGROUND (Mobile)
+   =========================================== */
+
+.hero-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(50px);
+  will-change: transform, opacity;
+}
+
+.hero-aurora-blob--blue {
+  width: 320px;
+  height: 320px;
+  top: 10%;
+  left: -10%;
+  background: radial-gradient(circle, rgb(1 111 185 / 30%) 0%, transparent 70%);
+  animation: aurora-drift-1 12s ease-in-out infinite;
+}
+
+.hero-aurora-blob--orange {
+  width: 250px;
+  height: 250px;
+  top: 50%;
+  right: -15%;
+  background: radial-gradient(circle, rgb(255 149 5 / 20%) 0%, transparent 70%);
+  animation: aurora-drift-2 15s ease-in-out infinite;
+}
+
+.hero-aurora-blob--purple {
+  width: 280px;
+  height: 280px;
+  bottom: 5%;
+  left: 20%;
+  background: radial-gradient(
+    circle,
+    rgb(168 85 247 / 18%) 0%,
+    transparent 70%
+  );
+  animation: aurora-drift-3 18s ease-in-out infinite;
+}
+
+@keyframes aurora-drift-1 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.8;
+  }
+  33% {
+    transform: translate(30px, 20px) scale(1.1);
+    opacity: 1;
+  }
+  66% {
+    transform: translate(-20px, -10px) scale(0.95);
+    opacity: 0.7;
+  }
+}
+
+@keyframes aurora-drift-2 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate(-25px, -30px) scale(1.15);
+    opacity: 1;
+  }
+}
+
+@keyframes aurora-drift-3 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.6;
+  }
+  40% {
+    transform: translate(20px, -25px) scale(1.1);
+    opacity: 0.9;
+  }
+  70% {
+    transform: translate(-15px, 10px) scale(0.9);
+    opacity: 0.7;
+  }
+}
+
+/* Mobile feature pills floating animation */
+@keyframes pill-float-1 {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes pill-float-2 {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(5px);
+  }
+}
+
+@keyframes pill-float-3 {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
 }
 
 /* ===========================================
@@ -325,6 +449,19 @@ pre,
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-ds-border-hover);
+}
+
+/* ===========================================
+   HIDDEN SCROLLBAR UTILITY
+   =========================================== */
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* ===========================================

@@ -29,6 +29,47 @@ export function reveal(node: HTMLElement, options: RevealOptions = {}) {
     stagger,
   } = options;
 
+  const isMobile = window.matchMedia("(max-width: 767px)").matches;
+
+  if (isMobile) {
+    const mobileY = Math.min(y, 30);
+    const targets = stagger
+      ? (Array.from(node.children) as HTMLElement[])
+      : [node];
+    const cssDuration = `${duration}s`;
+    const cssEase = "cubic-bezier(0.22, 1, 0.36, 1)";
+
+    targets.forEach((el, i) => {
+      el.style.opacity = String(opacity);
+      el.style.transform = `translate(${x}px, ${mobileY}px) scale(${scale})`;
+      el.style.transition = `opacity ${cssDuration} ${cssEase}, transform ${cssDuration} ${cssEase}`;
+      el.style.transitionDelay = `${delay + (stagger ? i * stagger : 0)}s`;
+    });
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            targets.forEach((el) => {
+              el.style.opacity = "1";
+              el.style.transform = "translate(0, 0) scale(1)";
+            });
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.1 },
+    );
+
+    observer.observe(node);
+    return {
+      destroy() {
+        observer.disconnect();
+      },
+    };
+  }
+
+  // Desktop: GSAP ScrollTrigger path (unchanged)
   let tween: any;
 
   (async () => {

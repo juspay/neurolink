@@ -66,9 +66,11 @@
   ];
 </script>
 
-<footer class="border-t border-ds-border-subtle pt-12 pb-8 px-6">
+<footer
+  class="border-t border-ds-border-subtle pt-10 md:pt-12 pb-8 px-4 md:px-6"
+>
   <div
-    class="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-[1200px] mx-auto"
+    class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-8 md:gap-8 max-w-[1200px] mx-auto"
     use:reveal={{ y: 30, stagger: 0.08 }}
   >
     {#each columns as col}
