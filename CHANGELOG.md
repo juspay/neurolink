@@ -1,3 +1,13 @@
+## [9.6.0](https://github.com/juspay/neurolink/compare/v9.5.3...v9.6.0) (2026-02-14)
+
+### Features
+
+- **(context):** implement context compaction system with multi-stage pipeline, file reference registry, and codebase-wide interface-to-type migration ([c67c09b](https://github.com/juspay/neurolink/commit/c67c09ba2224a67e2e64c4ca734e055ab6cc9ccf))
+
+### Bug Fixes
+
+- add ffprobe-static type reference for ncc build ([1f1a11c](https://github.com/juspay/neurolink/commit/1f1a11c7d3b8c443e1d9641ab1755f7d021fc743))
+
 ## [9.5.3](https://github.com/juspay/neurolink/compare/v9.5.2...v9.5.3) (2026-02-13)
 
 ### Bug Fixes
