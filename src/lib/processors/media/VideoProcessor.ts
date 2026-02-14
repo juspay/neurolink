@@ -43,6 +43,8 @@
  * ```
  */
 
+/// <reference path="./ffprobe-static.d.ts" />
+
 import { randomUUID } from "crypto";
 import type { FfprobeData, FfprobeStream } from "fluent-ffmpeg";
 import ffmpegCommand from "fluent-ffmpeg";
