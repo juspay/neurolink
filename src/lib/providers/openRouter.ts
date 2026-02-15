@@ -1,5 +1,11 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { type LanguageModelV1, Output, type Schema, streamText } from "ai";
+import {
+  type LanguageModelV1,
+  Output,
+  type Schema,
+  streamText,
+  type Tool,
+} from "ai";
 import type { ZodType, ZodTypeDef } from "zod";
 import { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -14,9 +20,14 @@ import type {
   OpenRouterModelsResponse,
 } from "../types/providers.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import { getProviderModel } from "../utils/providerConfig.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import {
+  composeAbortSignals,
+  createTimeoutController,
+  TimeoutError,
+} from "../utils/timeout.js";
 
 // Constants
 const MODELS_DISCOVERY_TIMEOUT_MS = 5000; // 5 seconds for model discovery
@@ -290,9 +301,8 @@ export class OpenRouterProvider extends BaseProvider {
       // Get all available tools (direct + MCP + external) for streaming
       // BaseProvider.stream() pre-merges base tools + external tools into options.tools
       const shouldUseTools = !options.disableTools && this.supportsTools();
-      const tools: Record<string, import("ai").Tool> = shouldUseTools
-        ? (options.tools as Record<string, import("ai").Tool>) ||
-          (await this.getAllTools())
+      const tools: Record<string, Tool> = shouldUseTools
+        ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
         : {};
 
       logger.debug(`OpenRouter: Tools for streaming`, {
@@ -316,7 +326,12 @@ export class OpenRouterProvider extends BaseProvider {
             toolChoice: "auto",
             maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
           }),
-        abortSignal: timeoutController?.controller.signal,
+        abortSignal: composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        ),
+        experimental_telemetry:
+          this.telemetryHandler.getTelemetryConfig(options),
 
         onError: (event: { error: unknown }) => {
           const error = event.error;
@@ -380,7 +395,7 @@ export class OpenRouterProvider extends BaseProvider {
 
       const result = await streamText(streamOptions);
 
-      timeoutController?.cleanup();
+      result.text.finally(() => timeoutController?.cleanup());
 
       // Transform stream to content object stream using fullStream (handles both text and tool calls)
       const transformedStream = (async function* () {
@@ -587,7 +602,7 @@ export class OpenRouterProvider extends BaseProvider {
     } catch (error) {
       clearTimeout(timeoutId);
 
-      if (error instanceof Error && error.name === "AbortError") {
+      if (isAbortError(error)) {
         throw new Error(
           `Request timed out after ${MODELS_DISCOVERY_TIMEOUT_MS / 1000} seconds`,
         );

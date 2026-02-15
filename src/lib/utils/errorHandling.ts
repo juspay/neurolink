@@ -958,6 +958,28 @@ export class CircuitBreaker {
 }
 
 /**
+ * Detect AbortError from any source (DOMException, plain Error, or message-based).
+ * Used to short-circuit retry/fallback loops when an abort signal fires.
+ */
+export function isAbortError(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return true;
+  }
+  if (error instanceof Error && error.name === "AbortError") {
+    return true;
+  }
+  if (
+    error instanceof Error &&
+    (error.message === "This operation was aborted" ||
+      error.message === "The operation was aborted" ||
+      error.message?.includes("The user aborted a request"))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Error handler that decides whether to retry based on error type
  */
 export function isRetriableError(error: Error): boolean {

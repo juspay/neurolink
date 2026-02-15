@@ -1,11 +1,15 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import type { ZodType, ZodTypeDef } from "zod";
-import { streamText, type Schema, type LanguageModelV1 } from "ai";
+import { streamText, type Schema, type LanguageModelV1, type Tool } from "ai";
 import { AIProviderName, AnthropicModels } from "../constants/enums.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import {
+  composeAbortSignals,
+  createTimeoutController,
+  TimeoutError,
+} from "../utils/timeout.js";
 import {
   validateApiKey,
   createAnthropicBaseConfig,
@@ -98,15 +102,26 @@ export class AnthropicProviderV2 extends BaseProvider {
     );
 
     try {
+      // Get tools - options.tools is pre-merged by BaseProvider.stream()
+      const shouldUseTools = !options.disableTools && this.supportsTools();
+      const tools = shouldUseTools
+        ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
+        : {};
+
       const result = await streamText({
         model,
         prompt: options.input.text,
         system: options.systemPrompt,
         temperature: options.temperature,
         maxTokens: options.maxTokens, // No default limit - unlimited unless specified
-        tools: options.tools,
-        toolChoice: "auto",
-        abortSignal: timeoutController?.controller.signal,
+        tools,
+        toolChoice: shouldUseTools ? "auto" : "none",
+        abortSignal: composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        ),
+        experimental_telemetry:
+          this.telemetryHandler.getTelemetryConfig(options),
         onStepFinish: ({ toolCalls, toolResults }) => {
           this.handleToolExecutionStorage(
             toolCalls,

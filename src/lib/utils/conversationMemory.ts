@@ -184,6 +184,28 @@ export async function storeConversationTurn(
     originalOptions.originalPrompt || originalOptions.prompt || "";
 
   const aiResponse = result.content ?? "";
+
+  // Guard: skip storing conversation turn if AI response is empty AND no tools were used.
+  // Empty assistant messages cause "text content blocks must be non-empty" errors
+  // when loaded as conversation history on the next interaction.
+  // However, tool-only turns (empty text but tools were invoked) must still be stored
+  // to preserve tool-calling conversation history.
+  const hasToolActivity =
+    (result.toolsUsed && result.toolsUsed.length > 0) ||
+    (result.toolExecutions && result.toolExecutions.length > 0);
+
+  if (!aiResponse.trim() && !hasToolActivity) {
+    logger.warn(
+      "[conversationMemoryUtils] Skipping conversation turn storage — AI response is empty and no tool activity",
+      {
+        sessionId,
+        userId,
+        userMessageLength: userMessage.length,
+      },
+    );
+    return;
+  }
+
   let providerDetails: ProviderDetails | undefined;
   if (result.provider && result.model) {
     providerDetails = {

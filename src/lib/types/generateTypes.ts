@@ -233,6 +233,8 @@ export type GenerateOptions = {
   schema?: ValidationSchema;
   tools?: Record<string, Tool>;
   timeout?: number | string;
+  /** AbortSignal for external cancellation of the AI call */
+  abortSignal?: AbortSignal;
   /**
    * Disable tool execution (including built-in tools)
    *
@@ -251,6 +253,20 @@ export type GenerateOptions = {
    * ```
    */
   disableTools?: boolean;
+
+  /** Include only these tools by name (whitelist). If set, only matching tools are available. */
+  toolFilter?: string[];
+
+  /** Exclude these tools by name (blacklist). Applied after toolFilter. */
+  excludeTools?: string[];
+
+  /**
+   * Skip injecting tool schemas into the system prompt.
+   * When true, tools are ONLY passed natively via the provider's `tools` parameter,
+   * avoiding duplicate tool definitions (~30K tokens savings per call).
+   * Default: false (backward compatible — tool schemas are injected into system prompt).
+   */
+  skipToolPromptInjection?: boolean;
 
   // Analytics and Evaluation
   enableEvaluation?: boolean;
@@ -420,6 +436,9 @@ export type GenerateResult = {
   // Provider information
   provider?: string;
   model?: string;
+
+  // Finish reason from the AI provider (e.g., "stop", "length", "tool-calls")
+  finishReason?: string;
 
   // Usage and performance
   usage?: TokenUsage;
@@ -596,8 +615,16 @@ export type TextGenerationOptions = {
   };
   tools?: Record<string, Tool>; // Enable MCP tools integration
   timeout?: number | string; // Optional timeout (e.g., 30000, '30s', '2m', '1h')
+  /** AbortSignal for external cancellation of the AI call */
+  abortSignal?: AbortSignal;
   disableTools?: boolean; // Disable tools (tools are enabled by default)
   maxSteps?: number; // Maximum tool execution steps (default: 5)
+
+  /** Include only these tools by name (whitelist). If set, only matching tools are available. */
+  toolFilter?: string[];
+
+  /** Exclude these tools by name (blacklist). Applied after toolFilter. */
+  excludeTools?: string[];
 
   /**
    * Text-to-Speech (TTS) configuration
@@ -673,6 +700,13 @@ export type TextGenerationOptions = {
    * @internal Set by NeuroLink SDK — not typically used directly by consumers.
    */
   fileRegistry?: unknown;
+  /**
+   * Skip injecting tool schemas into the system prompt.
+   * When true, tools are ONLY passed natively via the provider's `tools` parameter,
+   * avoiding duplicate tool definitions (~30K tokens savings per call).
+   * Default: false (backward compatible — tool schemas are injected into system prompt).
+   */
+  skipToolPromptInjection?: boolean;
 
   /**
    * ## Extended Thinking Options
@@ -772,6 +806,7 @@ export type TextGenerationOptions = {
  */
 export type TextGenerationResult = {
   content: string;
+  finishReason?: string;
   provider?: string;
   model?: string;
   usage?: TokenUsage;

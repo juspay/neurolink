@@ -57,6 +57,10 @@ export {
   getBestProvider,
   isValidProvider,
 } from "./utils/providerUtils.js";
+// Pricing utilities
+export { calculateCost, hasPricing } from "./utils/pricing.js";
+// Error utilities
+export { isAbortError } from "./utils/errorHandling.js";
 
 // Main NeuroLink wrapper class and diagnostic types
 import { NeuroLink } from "./neurolink.js";
@@ -91,6 +95,7 @@ import {
   setLangfuseContext,
   shutdownOpenTelemetry,
 } from "./services/server/ai/observability/instrumentation.js";
+export type { LangfuseContext } from "./services/server/ai/observability/instrumentation.js";
 import {
   getTelemetryStatus as getStatus,
   initializeTelemetry as init,
@@ -358,6 +363,7 @@ export type {
 
 export type { LogLevel } from "./types/utilities.js";
 export { logger } from "./utils/logger.js";
+export { getPoolStats } from "./utils/redis.js";
 
 // ============================================================================
 // REAL-TIME SERVICES & TELEMETRY - Enterprise Platform Features

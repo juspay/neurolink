@@ -10,6 +10,7 @@ import {
   type RetryOptions as _RetryOptions,
   withRetry,
 } from "../../core/infrastructure/index.js";
+import { isAbortError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
 import {
   EmbeddingError,
@@ -75,6 +76,11 @@ export function isRetryable(
   error: unknown,
   config: RAGRetryConfig = DEFAULT_RAG_RETRY_CONFIG,
 ): boolean {
+  // Never retry abort errors - the operation was intentionally cancelled
+  if (isAbortError(error)) {
+    return false;
+  }
+
   // Use custom shouldRetry if provided
   if (config.shouldRetry) {
     return config.shouldRetry(error as Error);
@@ -100,8 +106,7 @@ export function isRetryable(
     if (
       errorObj.name === "TimeoutError" ||
       errorObj.code === "TIMEOUT" ||
-      errorObj.code === "ETIMEDOUT" ||
-      errorObj.name === "AbortError"
+      errorObj.code === "ETIMEDOUT"
     ) {
       return true;
     }

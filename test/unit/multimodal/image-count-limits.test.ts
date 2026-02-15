@@ -436,7 +436,7 @@ describe("Provider Image Count Limits", () => {
           "anthropic",
           "claude-3-5-sonnet",
         );
-        expect.fail("Should have thrown an error");
+        throw new Error("should have thrown");
       } catch (error) {
         expect((error as Error).message).toContain("Image count (25)");
         expect((error as Error).message).toContain("anthropic");

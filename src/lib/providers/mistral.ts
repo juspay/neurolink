@@ -15,7 +15,11 @@ import {
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import {
+  composeAbortSignals,
+  createTimeoutController,
+  TimeoutError,
+} from "../utils/timeout.js";
 
 // Configuration helpers - now using consolidated utility
 const getMistralApiKey = (): string => {
@@ -97,7 +101,12 @@ export class MistralProvider extends BaseProvider {
         tools,
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         toolChoice: shouldUseTools ? "auto" : "none",
-        abortSignal: timeoutController?.controller.signal,
+        abortSignal: composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        ),
+        experimental_telemetry:
+          this.telemetryHandler.getTelemetryConfig(options),
         onStepFinish: ({ toolCalls, toolResults }) => {
           this.handleToolExecutionStorage(
             toolCalls,

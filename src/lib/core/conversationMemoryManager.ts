@@ -66,6 +66,24 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
     }
   }
 
+  /** Whether this memory manager can persist data (always true for in-memory within process) */
+  public get canPersist(): boolean {
+    return true;
+  }
+
+  /** Whether Redis client is configured (always false for in-memory) */
+  public get isRedisConfigured(): boolean {
+    return false;
+  }
+
+  /** Get health status for monitoring */
+  public getHealthStatus(): { initialized: boolean; connected: boolean } {
+    return {
+      initialized: this.isInitialized,
+      connected: false,
+    };
+  }
+
   /**
    * Store a conversation turn for a session
    * TOKEN-BASED: Validates message size and triggers summarization based on tokens
@@ -238,6 +256,20 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
       // Release lock when done
       this.summarizationInProgress.delete(session.sessionId);
     }
+  }
+
+  /**
+   * Estimate total tokens for a list of messages
+   */
+  private estimateTokens(messages: ChatMessage[]): number {
+    return messages.reduce((total, msg) => {
+      let msgTokens = TokenUtils.estimateTokenCount(msg.content);
+      if (msg.events && Array.isArray(msg.events) && msg.events.length > 0) {
+        const eventsJson = JSON.stringify(msg.events);
+        msgTokens += TokenUtils.estimateTokenCount(eventsJson);
+      }
+      return total + msgTokens;
+    }, 0);
   }
 
   /**

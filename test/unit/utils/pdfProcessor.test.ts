@@ -73,8 +73,10 @@ describe("PDFProcessor.process", () => {
 
       try {
         await PDFProcessor.process(pdfBuffer, { provider: "openai" });
-        expect.fail("Should have thrown an error");
+        throw new Error("should have thrown");
       } catch (error) {
+        const errorMessage = (error as Error).message;
+        expect(errorMessage).not.toBe("should have thrown");
         expect(error).toBeInstanceOf(NeuroLinkError);
         const neuroLinkError = error as NeuroLinkError;
         expect(neuroLinkError.code).toBe("PDF_PAGE_LIMIT_EXCEEDED");
@@ -101,9 +103,10 @@ describe("PDFProcessor.process", () => {
 
       try {
         await PDFProcessor.process(pdfBuffer, { provider: "openai" });
-        expect.fail("Should have thrown an error");
+        throw new Error("should have thrown");
       } catch (error) {
         const errorMessage = (error as Error).message;
+        expect(errorMessage).not.toBe("should have thrown");
         expect(errorMessage).toContain("Alternatives:");
         expect(errorMessage).toContain("Split the PDF into smaller files");
         expect(errorMessage).toContain("Extract only the pages you need");
@@ -121,9 +124,10 @@ describe("PDFProcessor.process", () => {
 
       try {
         await PDFProcessor.process(pdfBuffer, { provider: "openai" });
-        expect.fail("Should have thrown an error");
+        throw new Error("should have thrown");
       } catch (error) {
         const errorMessage = (error as Error).message;
+        expect(errorMessage).not.toBe("should have thrown");
         // Should use generic suggestion, not claim specific providers have higher limits
         expect(errorMessage).not.toContain("Google AI Studio supports");
       }
@@ -287,9 +291,10 @@ describe("PDFProcessor.convertToImages", () => {
 
       try {
         await MockedPDFProcessor.convertToImages(validPdfHeader);
-        expect.fail("Should have thrown an error");
+        throw new Error("should have thrown");
       } catch (error) {
         const errorMessage = (error as Error).message;
+        expect(errorMessage).not.toBe("should have thrown");
         expect(errorMessage).toContain("0 pages");
         expect(errorMessage).toContain("empty PDF");
       }

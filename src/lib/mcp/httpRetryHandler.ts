@@ -5,6 +5,7 @@
  * specifically designed for HTTP-based MCP transport connections.
  */
 
+import { isAbortError } from "../utils/errorHandling.js";
 import { calculateBackoffDelay } from "../utils/retryHandler.js";
 import { logger } from "../utils/logger.js";
 import type { HTTPRetryConfig } from "../types/mcpTypes.js";
@@ -64,12 +65,16 @@ export function isRetryableHTTPError(
 
   const errorObj = error as Record<string, unknown>;
 
+  // User-initiated aborts are NOT retryable — the caller explicitly cancelled
+  if (isAbortError(error)) {
+    return false;
+  }
+
   // Check for timeout errors
   if (
     errorObj.name === "TimeoutError" ||
     errorObj.code === "TIMEOUT" ||
-    errorObj.code === "ETIMEDOUT" ||
-    errorObj.name === "AbortError"
+    errorObj.code === "ETIMEDOUT"
   ) {
     return true;
   }

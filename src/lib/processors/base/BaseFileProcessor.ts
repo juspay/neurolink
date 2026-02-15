@@ -48,6 +48,7 @@ import { promisify } from "util";
 import { gunzip } from "zlib";
 
 import { SIZE_LIMITS } from "../config/index.js";
+import { isAbortError } from "../../utils/errorHandling.js";
 import {
   createFileError,
   extractHttpStatus,
@@ -688,7 +689,7 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
    * @returns Structured file processing error
    */
   protected classifyDownloadError(error: Error): FileProcessingError {
-    if (error.name === "AbortError") {
+    if (isAbortError(error)) {
       return this.createError(
         FileErrorCode.DOWNLOAD_TIMEOUT,
         { timeoutMs: this.config.timeoutMs },

@@ -4,6 +4,7 @@ import {
   streamText,
   type Schema,
   type LanguageModelV1,
+  type Tool,
   type ToolSet,
   type ToolChoice,
 } from "ai";
@@ -11,7 +12,11 @@ import { AIProviderName } from "../constants/enums.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import {
+  composeAbortSignals,
+  createTimeoutController,
+  TimeoutError,
+} from "../utils/timeout.js";
 import type { UnknownRecord } from "../types/common.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import {
@@ -159,12 +164,23 @@ export class HuggingFaceProvider extends BaseProvider {
     );
 
     try {
+      // Get tools - options.tools is pre-merged by BaseProvider.stream()
+      const shouldUseTools = !options.disableTools && this.supportsTools();
+      const allTools = shouldUseTools
+        ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
+        : {};
+
       // Enhanced tool handling for HuggingFace models
       const streamOptions = this.prepareStreamOptions(options, analysisSchema);
 
       // Build message array from options with multimodal support
       // Using protected helper from BaseProvider to eliminate code duplication
-      const messages = await this.buildMessagesForStream(options);
+      // Pass the enhanced system prompt (with tool-calling instructions) so it
+      // actually reaches the model instead of being silently discarded.
+      const messagesOptions = streamOptions.system
+        ? { ...options, systemPrompt: streamOptions.system }
+        : options;
+      const messages = await this.buildMessagesForStream(messagesOptions);
 
       const result = await streamText({
         model: this.model,
@@ -172,9 +188,18 @@ export class HuggingFaceProvider extends BaseProvider {
         temperature: options.temperature,
         maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-        tools: streamOptions.tools as ToolSet, // Tools format conversion handled by prepareStreamOptions
-        toolChoice: streamOptions.toolChoice as ToolChoice<ToolSet>, // Tool choice handled by prepareStreamOptions
-        abortSignal: timeoutController?.controller.signal,
+        tools: (shouldUseTools
+          ? streamOptions.tools || allTools
+          : {}) as ToolSet,
+        toolChoice: (shouldUseTools
+          ? streamOptions.toolChoice || "auto"
+          : "none") as ToolChoice<ToolSet>,
+        abortSignal: composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        ),
+        experimental_telemetry:
+          this.telemetryHandler.getTelemetryConfig(options),
         onStepFinish: ({ toolCalls, toolResults }) => {
           this.handleToolExecutionStorage(
             toolCalls,

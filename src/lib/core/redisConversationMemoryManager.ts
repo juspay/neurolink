@@ -8,10 +8,6 @@ import { MESSAGES_PER_TURN } from "../config/conversationMemory.js";
 import { SummarizationEngine } from "../context/summarizationEngine.js";
 import { NeuroLink } from "../neurolink.js";
 import type {
-  NeuroLinkEvents as _NeuroLinkEvents,
-  TypedEventEmitter as _TypedEventEmitter,
-} from "../types/common.js";
-import type {
   ChatMessage,
   ConversationMemoryConfig,
   ConversationMemoryStats,
@@ -33,8 +29,10 @@ import {
   createRedisClient,
   deserializeConversation,
   getNormalizedConfig,
+  getPooledRedisClient,
   getSessionKey,
   getUserSessionsKey,
+  releasePooledRedisClient,
   scanKeys,
   serializeConversation,
 } from "../utils/redis.js";
@@ -102,7 +100,7 @@ export class RedisConversationMemoryManager
         },
       );
 
-      this.redisClient = await createRedisClient(this.redisConfig);
+      this.redisClient = await getPooledRedisClient(this.redisConfig);
       this.isInitialized = true;
 
       logger.info("RedisConversationMemoryManager initialized", {
@@ -138,6 +136,33 @@ export class RedisConversationMemoryManager
         },
       );
     }
+  }
+
+  /** Whether this memory manager can persist data (Redis connected and initialized) */
+  public get canPersist(): boolean {
+    return (
+      this.isInitialized && this.redisClient !== null && this.redisClient.isOpen
+    );
+  }
+
+  /** Whether Redis client is configured and connected */
+  public get isRedisConfigured(): boolean {
+    return this.redisClient !== null && this.redisClient.isOpen;
+  }
+
+  /** Get health status for monitoring */
+  public getHealthStatus(): {
+    initialized: boolean;
+    connected: boolean;
+    host: string;
+    keyPrefix: string;
+  } {
+    return {
+      initialized: this.isInitialized,
+      connected: this.redisClient?.isOpen ?? false,
+      host: this.redisConfig.host,
+      keyPrefix: this.redisConfig.keyPrefix,
+    };
   }
 
   /**
@@ -964,7 +989,7 @@ export class RedisConversationMemoryManager
    * Uses AI to create a concise, descriptive title (5-8 words)
    */
   async generateConversationTitle(userMessage: string): Promise<string> {
-    logger.debug(
+    logger.info(
       "[RedisConversationMemoryManager] Generating conversation title",
       {
         userMessageLength: userMessage.length,
@@ -978,12 +1003,12 @@ export class RedisConversationMemoryManager
         conversationMemory: { enabled: false },
       });
 
-      const titlePrompt = `Generate a clear, concise, and descriptive title (5–8 words maximum) for a conversation based on the following user message. 
-The title must meaningfully reflect the topic or intent of the message. 
-Do not output anything unrelated, vague, or generic. 
+      const titlePrompt = `Generate a clear, concise, and descriptive title (5–8 words maximum) for a conversation based on the following user message.
+The title must meaningfully reflect the topic or intent of the message.
+Do not output anything unrelated, vague, or generic.
 Do not say you cannot create a title. Always return a valid title.
 
-User message: "${userMessage}`;
+User message: "${userMessage}"`;
 
       const result = await titleGenerator.generate({
         input: { text: titlePrompt },
@@ -1008,7 +1033,7 @@ User message: "${userMessage}`;
         title = "New Conversation";
       }
 
-      logger.debug(
+      logger.info(
         "[RedisConversationMemoryManager] Generated conversation title",
         {
           originalLength: result.content?.length || 0,
@@ -1063,7 +1088,7 @@ User message: "${userMessage}`;
    */
   public async close(): Promise<void> {
     if (this.redisClient) {
-      await this.redisClient.quit();
+      await releasePooledRedisClient(this.redisConfig);
       this.redisClient = null;
       this.isInitialized = false;
       logger.info("Redis connection closed");

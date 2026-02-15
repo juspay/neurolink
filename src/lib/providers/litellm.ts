@@ -15,9 +15,14 @@ import type { NeuroLink } from "../neurolink.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type { UnknownRecord } from "../types/common.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import { getProviderModel } from "../utils/providerConfig.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import {
+  composeAbortSignals,
+  createTimeoutController,
+  TimeoutError,
+} from "../utils/timeout.js";
 
 // Configuration helpers
 const getLiteLLMConfig = () => {
@@ -227,7 +232,12 @@ export class LiteLLMProvider extends BaseProvider {
             toolChoice: "auto",
             maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
           }),
-        abortSignal: timeoutController?.controller.signal,
+        abortSignal: composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        ),
+        experimental_telemetry:
+          this.telemetryHandler.getTelemetryConfig(options),
 
         onError: (event: { error: unknown }) => {
           const error = event.error;
@@ -265,7 +275,7 @@ export class LiteLLMProvider extends BaseProvider {
             options,
             new Date(),
           ).catch((error: unknown) => {
-            logger.warn("LiteLLMProvider] Failed to store tool executions", {
+            logger.warn("[LiteLLMProvider] Failed to store tool executions", {
               provider: this.providerName,
               error: error instanceof Error ? error.message : String(error),
             });
@@ -491,7 +501,7 @@ export class LiteLLMProvider extends BaseProvider {
     } catch (error) {
       clearTimeout(timeoutId);
 
-      if (error instanceof Error && error.name === "AbortError") {
+      if (isAbortError(error)) {
         throw new Error("Request timed out after 5 seconds");
       }
 

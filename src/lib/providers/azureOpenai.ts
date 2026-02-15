@@ -1,5 +1,5 @@
 import { createAzure } from "@ai-sdk/azure";
-import { streamText, type LanguageModelV1 } from "ai";
+import { streamText, type LanguageModelV1, type Tool } from "ai";
 import { BaseProvider } from "../core/baseProvider.js";
 import { AIProviderName, APIVersions } from "../constants/enums.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
@@ -13,6 +13,11 @@ import {
 import { logger } from "../utils/logger.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
+import {
+  composeAbortSignals,
+  createTimeoutController,
+  TimeoutError,
+} from "../utils/timeout.js";
 
 export class AzureOpenAIProvider extends BaseProvider {
   private apiKey: string;
@@ -79,6 +84,9 @@ export class AzureOpenAIProvider extends BaseProvider {
   }
 
   public handleProviderError(error: unknown): Error {
+    if (error instanceof TimeoutError) {
+      return new Error(`Azure OpenAI request timed out: ${error.message}`);
+    }
     const errorObj = error as UnknownRecord;
     if (
       errorObj?.message &&
@@ -100,41 +108,27 @@ export class AzureOpenAIProvider extends BaseProvider {
     options: StreamOptions,
     _analysisSchema?: unknown,
   ): Promise<StreamResult> {
-    try {
-      // Get ALL available tools (direct + MCP + external from options) - EXACTLY like BaseProvider
-      const shouldUseTools = !options.disableTools && this.supportsTools();
-      const baseTools = shouldUseTools ? await this.getAllTools() : {};
-      const tools = shouldUseTools
-        ? {
-            ...baseTools,
-            ...(options.tools || {}), // Include external tools passed from NeuroLink
-          }
-        : undefined;
+    const timeout = this.getTimeout(options);
+    const timeoutController = createTimeoutController(
+      timeout,
+      this.providerName,
+      "stream",
+    );
 
-      // DEBUG: Log detailed tool information
+    try {
+      // Get tools - options.tools is pre-merged by BaseProvider.stream()
+      const shouldUseTools = !options.disableTools && this.supportsTools();
+      const tools = shouldUseTools
+        ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
+        : {};
+
       logger.debug("Azure Stream - Tool Loading Debug", {
         shouldUseTools,
-        baseToolsProvided: !!baseTools,
-        baseToolCount: baseTools ? Object.keys(baseTools).length : 0,
-        finalToolCount: tools ? Object.keys(tools).length : 0,
-        toolNames: tools ? Object.keys(tools).slice(0, 10) : [],
+        toolCount: Object.keys(tools).length,
+        toolNames: Object.keys(tools).slice(0, 10),
         disableTools: options.disableTools,
         supportsTools: this.supportsTools(),
-        externalToolsCount: options.tools
-          ? Object.keys(options.tools).length
-          : 0,
       });
-
-      if (tools && Object.keys(tools).length > 0) {
-        logger.debug("Azure Stream - First 5 Tools Detail", {
-          tools: Object.keys(tools)
-            .slice(0, 5)
-            .map((name) => ({
-              name,
-              description: tools[name]?.description?.substring(0, 100),
-            })),
-        });
-      }
 
       // Build message array from options with multimodal support
       // Using protected helper from BaseProvider to eliminate code duplication
@@ -152,6 +146,10 @@ export class AzureOpenAIProvider extends BaseProvider {
           : {}),
         tools,
         toolChoice: shouldUseTools ? "auto" : "none",
+        abortSignal: composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        ),
         experimental_telemetry:
           this.telemetryHandler.getTelemetryConfig(options),
         onStepFinish: ({ toolCalls, toolResults }) => {
@@ -173,6 +171,8 @@ export class AzureOpenAIProvider extends BaseProvider {
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
       });
 
+      timeoutController?.cleanup();
+
       // Transform string stream to content object stream using BaseProvider method
       const transformedStream = this.createTextStream(stream);
 
@@ -186,6 +186,7 @@ export class AzureOpenAIProvider extends BaseProvider {
         },
       };
     } catch (error: unknown) {
+      timeoutController?.cleanup();
       throw this.handleProviderError(error);
     }
   }

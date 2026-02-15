@@ -177,10 +177,10 @@ describe("HTTP Retry Handler", () => {
       expect(isRetryableHTTPError(error)).toBe(true);
     });
 
-    it("should return true for AbortError (via error.name)", () => {
+    it("should return false for AbortError — user-initiated aborts are not retryable", () => {
       const error = new Error("Request aborted");
       error.name = "AbortError";
-      expect(isRetryableHTTPError(error)).toBe(true);
+      expect(isRetryableHTTPError(error)).toBe(false);
     });
 
     it("should return true for TIMEOUT error code", () => {

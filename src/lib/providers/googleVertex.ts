@@ -27,7 +27,6 @@ import {
 import { BaseProvider } from "../core/baseProvider.js";
 import {
   DEFAULT_MAX_STEPS,
-  DEFAULT_TOOL_MAX_RETRIES,
   GLOBAL_LOCATION_MODELS,
 } from "../core/constants.js";
 import { ModelConfigurationManager } from "../core/modelConfiguration.js";
@@ -56,10 +55,21 @@ import {
   inlineJsonSchema,
 } from "../utils/schemaConversion.js";
 import {
-  createNativeThinkingConfig,
-  type ThinkingConfig,
-} from "../utils/thinkingConfig.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+  composeAbortSignals,
+  createTimeoutController,
+  TimeoutError,
+} from "../utils/timeout.js";
+import {
+  buildNativeToolDeclarations,
+  buildNativeConfig,
+  computeMaxSteps as computeMaxStepsShared,
+  collectStreamChunks,
+  extractTextFromParts,
+  executeNativeToolCalls,
+  handleMaxStepsTermination,
+  pushModelResponseToHistory,
+  type NativeToolsConfig,
+} from "./googleNativeGemini3.js";
 
 // Import proper types for multimodal message handling
 
@@ -1024,7 +1034,10 @@ export class GoogleVertexProvider extends BaseProvider {
             toolChoice: "auto",
             maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
           }),
-        abortSignal: timeoutController?.controller.signal,
+        abortSignal: composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        ),
         experimental_telemetry:
           this.telemetryHandler.getTelemetryConfig(options),
         // Gemini 3: use thinkingLevel via providerOptions (Vertex AI)
@@ -1111,7 +1124,8 @@ export class GoogleVertexProvider extends BaseProvider {
 
       const result = streamText(streamOptions);
 
-      timeoutController?.cleanup();
+      // Defer timeout cleanup until the stream completes or errors
+      result.text.finally(() => timeoutController?.cleanup());
 
       // Transform string stream to content object stream using BaseProvider method
       const transformedStream = this.createTextStream(result);
@@ -1293,367 +1307,7 @@ export class GoogleVertexProvider extends BaseProvider {
     ];
   }
 
-  /**
-   * Convert Vercel AI SDK tools to @google/genai FunctionDeclarations and build an execute map.
-   * Shared by both stream and generate native Gemini 3 paths.
-   */
-  private convertToolsToNativeFunctionDeclarations(
-    toolsMap: Record<string, Tool>,
-    logLabel: string,
-  ): {
-    tools:
-      | Array<{
-          functionDeclarations: Array<{
-            name: string;
-            description: string;
-            parametersJsonSchema?: Record<string, unknown>;
-          }>;
-        }>
-      | undefined;
-    executeMap: Map<string, Tool["execute"]>;
-  } {
-    type FunctionDeclaration = {
-      name: string;
-      description: string;
-      parametersJsonSchema?: Record<string, unknown>;
-    };
-
-    if (Object.keys(toolsMap).length === 0) {
-      return { tools: undefined, executeMap: new Map() };
-    }
-
-    const functionDeclarations: FunctionDeclaration[] = [];
-    const executeMap = new Map<string, Tool["execute"]>();
-
-    for (const [name, tool] of Object.entries(toolsMap)) {
-      const decl: FunctionDeclaration = {
-        name,
-        description: tool.description || `Tool: ${name}`,
-      };
-
-      if (tool.parameters) {
-        const rawSchema = convertZodToJsonSchema(
-          tool.parameters as ZodUnknownSchema,
-        ) as Record<string, unknown>;
-        decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
-        if (decl.parametersJsonSchema.$schema) {
-          delete decl.parametersJsonSchema.$schema;
-        }
-      }
-
-      functionDeclarations.push(decl);
-
-      if (tool.execute) {
-        executeMap.set(name, tool.execute);
-      }
-    }
-
-    logger.debug(`[GoogleVertex] Converted tools for ${logLabel}`, {
-      toolCount: functionDeclarations.length,
-      toolNames: functionDeclarations.map((t) => t.name),
-    });
-
-    return {
-      tools: [{ functionDeclarations }],
-      executeMap,
-    };
-  }
-
-  /**
-   * Build the native @google/genai config object for generate/stream calls.
-   * Shared by both stream and generate native Gemini 3 paths.
-   */
-  private buildNativeGenerateConfig(
-    options: {
-      temperature?: number;
-      maxTokens?: number;
-      systemPrompt?: string;
-      thinkingConfig?: ThinkingConfig;
-    },
-    tools:
-      | Array<{
-          functionDeclarations: Array<{
-            name: string;
-            description: string;
-            parametersJsonSchema?: Record<string, unknown>;
-          }>;
-        }>
-      | undefined,
-  ): Record<string, unknown> {
-    const config: Record<string, unknown> = {
-      temperature: options.temperature ?? 1.0,
-      maxOutputTokens: options.maxTokens,
-    };
-
-    if (tools) {
-      config.tools = tools;
-    }
-
-    if (options.systemPrompt) {
-      config.systemInstruction = options.systemPrompt;
-    }
-
-    const nativeThinkingConfig = createNativeThinkingConfig(
-      options.thinkingConfig,
-    );
-    if (nativeThinkingConfig) {
-      config.thinkingConfig = nativeThinkingConfig;
-    }
-
-    return config;
-  }
-
-  /**
-   * Compute a safe maxSteps value from raw input.
-   */
-  private computeMaxSteps(rawMaxSteps: number | undefined): number {
-    const raw = rawMaxSteps || DEFAULT_MAX_STEPS;
-    return Number.isFinite(raw) && raw > 0
-      ? Math.min(Math.floor(raw), 100)
-      : Math.min(DEFAULT_MAX_STEPS, 100);
-  }
-
-  /**
-   * Extract text from raw native SDK response parts, filtering out non-text parts
-   * (thoughtSignature, functionCall) to avoid SDK warnings.
-   */
-  private extractTextFromRawParts(rawParts: unknown[]): string {
-    return rawParts
-      .filter(
-        (part): part is { text: string } =>
-          typeof (part as Record<string, unknown>).text === "string",
-      )
-      .map((part) => part.text)
-      .join("");
-  }
-
-  /**
-   * Execute a set of function calls from the model, tracking failures and retries.
-   * Returns function response parts to be added to conversation history.
-   * Shared by both stream and generate native Gemini 3 paths.
-   */
-  private async executeNativeFunctionCalls(
-    calls: Array<{ name: string; args: Record<string, unknown> }>,
-    executeMap: Map<string, Tool["execute"]>,
-    failedTools: Map<string, { count: number; lastError: string }>,
-    allToolCalls: Array<{
-      toolName: string;
-      args: Record<string, unknown>;
-    }>,
-    toolExecutions?: Array<{
-      name: string;
-      input: Record<string, unknown>;
-      output: unknown;
-    }>,
-  ): Promise<Array<{ functionResponse: { name: string; response: unknown } }>> {
-    const functionResponses: Array<{
-      functionResponse: { name: string; response: unknown };
-    }> = [];
-
-    for (const call of calls) {
-      allToolCalls.push({ toolName: call.name, args: call.args });
-
-      // Check if this tool has already exceeded retry limit
-      const failedInfo = failedTools.get(call.name);
-      if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
-        logger.warn(
-          `[GoogleVertex] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
-        );
-
-        const errorOutput = {
-          error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
-          status: "permanently_failed",
-          do_not_retry: true,
-        };
-
-        toolExecutions?.push({
-          name: call.name,
-          input: call.args,
-          output: errorOutput,
-        });
-
-        functionResponses.push({
-          functionResponse: { name: call.name, response: errorOutput },
-        });
-        continue;
-      }
-
-      const execute = executeMap.get(call.name);
-      if (execute) {
-        try {
-          const toolOptions = {
-            toolCallId: `${call.name}-${Date.now()}`,
-            messages: [],
-            abortSignal: undefined as AbortSignal | undefined,
-          };
-          const result = await execute(call.args, toolOptions);
-
-          toolExecutions?.push({
-            name: call.name,
-            input: call.args,
-            output: result,
-          });
-
-          functionResponses.push({
-            functionResponse: {
-              name: call.name,
-              response: { result },
-            },
-          });
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : "Unknown error";
-
-          const currentFailInfo = failedTools.get(call.name) || {
-            count: 0,
-            lastError: "",
-          };
-          currentFailInfo.count++;
-          currentFailInfo.lastError = errorMessage;
-          failedTools.set(call.name, currentFailInfo);
-
-          logger.warn(
-            `[GoogleVertex] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
-          );
-
-          const isPermanentFailure =
-            currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
-
-          const errorOutput = {
-            error: isPermanentFailure
-              ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
-              : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
-            status: isPermanentFailure ? "permanently_failed" : "failed",
-            do_not_retry: isPermanentFailure,
-            retry_count: currentFailInfo.count,
-            max_retries: DEFAULT_TOOL_MAX_RETRIES,
-          };
-
-          toolExecutions?.push({
-            name: call.name,
-            input: call.args,
-            output: errorOutput,
-          });
-
-          functionResponses.push({
-            functionResponse: { name: call.name, response: errorOutput },
-          });
-        }
-      } else {
-        // Tool not found is a permanent error
-        const errorOutput = {
-          error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
-          status: "permanently_failed",
-          do_not_retry: true,
-        };
-
-        toolExecutions?.push({
-          name: call.name,
-          input: call.args,
-          output: errorOutput,
-        });
-
-        functionResponses.push({
-          functionResponse: { name: call.name, response: errorOutput },
-        });
-      }
-    }
-
-    return functionResponses;
-  }
-
-  /**
-   * Collect raw response parts and function calls from a native SDK content stream chunk.
-   * Also accumulates token usage metadata.
-   * Returns updated token counts.
-   */
-  private processNativeStreamChunk(
-    chunk: {
-      functionCalls?: Array<{ name: string; args: Record<string, unknown> }>;
-    } & Record<string, unknown>,
-    rawResponseParts: unknown[],
-    stepFunctionCalls: Array<{ name: string; args: Record<string, unknown> }>,
-    tokenUsage: { input: number; output: number },
-  ): void {
-    const chunkRecord = chunk as Record<string, unknown>;
-    const candidates = chunkRecord.candidates as
-      | Array<Record<string, unknown>>
-      | undefined;
-    const firstCandidate = candidates?.[0];
-    const chunkContent = firstCandidate?.content as
-      | Record<string, unknown>
-      | undefined;
-    if (chunkContent && Array.isArray(chunkContent.parts)) {
-      rawResponseParts.push(...chunkContent.parts);
-    }
-    if (chunk.functionCalls) {
-      stepFunctionCalls.push(...chunk.functionCalls);
-    }
-
-    const usageMetadata = chunkRecord.usageMetadata as
-      | {
-          promptTokenCount?: number;
-          candidatesTokenCount?: number;
-          totalTokenCount?: number;
-        }
-      | undefined;
-    if (usageMetadata) {
-      if (
-        usageMetadata.promptTokenCount !== undefined &&
-        usageMetadata.promptTokenCount > 0
-      ) {
-        tokenUsage.input = usageMetadata.promptTokenCount;
-      }
-      if (
-        usageMetadata.candidatesTokenCount !== undefined &&
-        usageMetadata.candidatesTokenCount > 0
-      ) {
-        tokenUsage.output = usageMetadata.candidatesTokenCount;
-      }
-    }
-  }
-
-  /**
-   * Push model response parts to conversation history, preserving thoughtSignature
-   * for Gemini 3 multi-turn tool calling.
-   */
-  private pushModelResponseToHistory(
-    currentContents: Array<{ role: string; parts: unknown[] }>,
-    rawResponseParts: unknown[],
-    stepFunctionCalls: Array<{ name: string; args: Record<string, unknown> }>,
-  ): void {
-    currentContents.push({
-      role: "model",
-      parts:
-        rawResponseParts.length > 0
-          ? rawResponseParts
-          : stepFunctionCalls.map((fc) => ({ functionCall: fc })),
-    });
-  }
-
-  /**
-   * Compute final text for maxSteps termination when the model was still calling tools.
-   */
-  private computeMaxStepsTerminationText(
-    step: number,
-    maxSteps: number,
-    finalText: string,
-    lastStepText: string,
-  ): string {
-    if (step >= maxSteps && !finalText) {
-      logger.warn(
-        `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
-          `Model was still calling tools. Using accumulated text from last step.`,
-      );
-      return (
-        lastStepText ||
-        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`
-      );
-    }
-    return finalText;
-  }
-
-  // ── End shared helpers ──
+  // ── Shared Gemini 3 helpers are now in ./googleNativeGemini3.ts ──
 
   /**
    * Execute stream using native @google/genai SDK for Gemini 3 models on Vertex AI
@@ -1688,22 +1342,42 @@ export class GoogleVertexProvider extends BaseProvider {
     );
 
     // Convert tools to native format
-    const toolsInput =
+    let hasToolsInput =
       options.tools &&
       Object.keys(options.tools).length > 0 &&
-      !options.disableTools
-        ? options.tools
-        : {};
-    const { tools, executeMap } = this.convertToolsToNativeFunctionDeclarations(
-      toolsInput as Record<string, Tool>,
-      "native SDK",
-    );
+      !options.disableTools;
+
+    // Guard: Gemini cannot use tools + JSON schema simultaneously
+    const streamOptions = options as TextGenerationOptions;
+    const wantsJsonOutput =
+      streamOptions.output?.format === "json" || streamOptions.schema;
+    if (wantsJsonOutput && hasToolsInput) {
+      logger.warn(
+        "[GoogleVertex] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
+      );
+      hasToolsInput = false;
+    }
+
+    let toolsConfig: NativeToolsConfig | undefined;
+    let executeMap = new Map<string, Tool["execute"]>();
+
+    if (hasToolsInput) {
+      const result = buildNativeToolDeclarations(
+        options.tools as Record<string, Tool>,
+      );
+      toolsConfig = result.toolsConfig;
+      executeMap = result.executeMap;
+
+      logger.debug("[GoogleVertex] Converted tools for native SDK", {
+        toolCount: toolsConfig[0].functionDeclarations.length,
+        toolNames: toolsConfig[0].functionDeclarations.map((t) => t.name),
+      });
+    }
 
     // Build config
-    const config = this.buildNativeGenerateConfig(options, tools);
+    const config = buildNativeConfig(options, toolsConfig);
 
     // Add JSON output format support for native SDK stream
-    const streamOptions = options as TextGenerationOptions;
     if (streamOptions.output?.format === "json" || streamOptions.schema) {
       config.responseMimeType = "application/json";
 
@@ -1727,88 +1401,99 @@ export class GoogleVertexProvider extends BaseProvider {
     }
 
     const startTime = Date.now();
-    const maxSteps = this.computeMaxSteps(options.maxSteps);
-    const currentContents = [...contents];
+    const timeout = this.getTimeout(options);
+    const timeoutController = createTimeoutController(
+      timeout,
+      this.providerName,
+      "stream",
+    );
+    const composedSignal = composeAbortSignals(
+      options.abortSignal,
+      timeoutController?.controller.signal,
+    );
+    const maxSteps = computeMaxStepsShared(options.maxSteps);
+    const currentContents = [...contents] as Array<{
+      role: string;
+      parts: unknown[];
+    }>;
     let finalText = "";
     let lastStepText = "";
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
     const allToolCalls: Array<{
       toolName: string;
       args: Record<string, unknown>;
     }> = [];
     let step = 0;
     const failedTools = new Map<string, { count: number; lastError: string }>();
-    const tokenUsage = { input: 0, output: 0 };
 
     // Agentic loop for tool calling
-    while (step < maxSteps) {
-      step++;
-      logger.debug(`[GoogleVertex] Native SDK step ${step}/${maxSteps}`);
-
-      try {
-        const stream = await client.models.generateContentStream({
-          model: modelName,
-          contents: currentContents,
-          config,
-        });
-
-        const stepFunctionCalls: Array<{
-          name: string;
-          args: Record<string, unknown>;
-        }> = [];
-        const rawResponseParts: unknown[] = [];
-
-        for await (const chunk of stream) {
-          this.processNativeStreamChunk(
-            chunk as {
-              functionCalls?: Array<{
-                name: string;
-                args: Record<string, unknown>;
-              }>;
-            } & Record<string, unknown>,
-            rawResponseParts,
-            stepFunctionCalls,
-            tokenUsage,
-          );
-        }
-
-        const stepText = this.extractTextFromRawParts(rawResponseParts);
-
-        if (stepFunctionCalls.length === 0) {
-          finalText = stepText;
+    try {
+      while (step < maxSteps) {
+        if (timeoutController?.controller.signal.aborted) {
           break;
         }
+        step++;
+        logger.debug(`[GoogleVertex] Native SDK step ${step}/${maxSteps}`);
 
-        lastStepText = stepText;
+        try {
+          const stream = await client.models.generateContentStream({
+            model: modelName,
+            contents: currentContents,
+            config,
+            ...(composedSignal
+              ? { httpOptions: { signal: composedSignal } }
+              : {}),
+          });
 
-        logger.debug(
-          `[GoogleVertex] Executing ${stepFunctionCalls.length} function calls`,
-        );
+          const chunkResult = await collectStreamChunks(stream);
+          totalInputTokens += chunkResult.inputTokens;
+          totalOutputTokens += chunkResult.outputTokens;
 
-        this.pushModelResponseToHistory(
-          currentContents,
-          rawResponseParts,
-          stepFunctionCalls,
-        );
+          const stepText = extractTextFromParts(chunkResult.rawResponseParts);
 
-        const functionResponses = await this.executeNativeFunctionCalls(
-          stepFunctionCalls,
-          executeMap,
-          failedTools,
-          allToolCalls,
-        );
+          if (chunkResult.stepFunctionCalls.length === 0) {
+            finalText = stepText;
+            break;
+          }
 
-        // Add function responses to history
-        currentContents.push({
-          role: "function",
-          parts: functionResponses as unknown as Array<{ text: string }>,
-        });
-      } catch (error) {
-        logger.error("[GoogleVertex] Native SDK error", error);
-        throw this.handleProviderError(error);
+          lastStepText = stepText;
+
+          logger.debug(
+            `[GoogleVertex] Executing ${chunkResult.stepFunctionCalls.length} function calls`,
+          );
+
+          pushModelResponseToHistory(
+            currentContents,
+            chunkResult.rawResponseParts,
+            chunkResult.stepFunctionCalls,
+          );
+
+          const functionResponses = await executeNativeToolCalls(
+            "[GoogleVertex]",
+            chunkResult.stepFunctionCalls,
+            executeMap,
+            failedTools,
+            allToolCalls,
+            { abortSignal: composedSignal },
+          );
+
+          // Add function responses to history
+          currentContents.push({
+            role: "function",
+            parts: functionResponses as unknown[],
+          });
+        } catch (error) {
+          logger.error("[GoogleVertex] Native SDK error", error);
+          throw this.handleProviderError(error);
+        }
       }
+    } finally {
+      timeoutController?.cleanup();
     }
 
-    finalText = this.computeMaxStepsTerminationText(
+    finalText = handleMaxStepsTermination(
+      "[GoogleVertex]",
       step,
       maxSteps,
       finalText,
@@ -1827,9 +1512,9 @@ export class GoogleVertexProvider extends BaseProvider {
       provider: this.providerName,
       model: modelName,
       usage: {
-        input: tokenUsage.input,
-        output: tokenUsage.output,
-        total: tokenUsage.input + tokenUsage.output,
+        input: totalInputTokens,
+        output: totalOutputTokens,
+        total: totalInputTokens + totalOutputTokens,
       },
       toolCalls: allToolCalls.map((tc) => ({
         toolName: tc.toolName,
@@ -1883,27 +1568,66 @@ export class GoogleVertexProvider extends BaseProvider {
     );
 
     // Get tools from SDK and options
-    const shouldUseTools = !options.disableTools && this.supportsTools();
-    const sdkTools = shouldUseTools ? await this.getAllTools() : {};
-    const combinedTools = { ...sdkTools, ...(options.tools || {}) };
+    let shouldUseTools = !options.disableTools && this.supportsTools();
 
-    const { tools, executeMap } = this.convertToolsToNativeFunctionDeclarations(
-      combinedTools as Record<string, Tool>,
-      "native SDK generate",
-    );
+    // Guard: Gemini cannot use tools + JSON schema simultaneously
+    const wantsJsonOutputGen =
+      options.output?.format === "json" || options.schema;
+    if (wantsJsonOutputGen && shouldUseTools) {
+      logger.warn(
+        "[GoogleVertex] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
+      );
+      shouldUseTools = false;
+    }
+
+    const sdkTools = shouldUseTools ? await this.getAllTools() : {};
+    const combinedTools = shouldUseTools
+      ? { ...sdkTools, ...(options.tools || {}) }
+      : {};
+
+    let toolsConfig: NativeToolsConfig | undefined;
+    let executeMap = new Map<string, Tool["execute"]>();
+
+    if (Object.keys(combinedTools).length > 0) {
+      const result = buildNativeToolDeclarations(
+        combinedTools as Record<string, Tool>,
+      );
+      toolsConfig = result.toolsConfig;
+      executeMap = result.executeMap;
+
+      logger.debug("[GoogleVertex] Converted tools for native SDK generate", {
+        toolCount: toolsConfig[0].functionDeclarations.length,
+        toolNames: toolsConfig[0].functionDeclarations.map((t) => t.name),
+      });
+    }
 
     // Build config
-    const config = this.buildNativeGenerateConfig(options, tools);
+    const config = buildNativeConfig(options, toolsConfig);
 
     // Note: Schema/JSON output for Gemini 3 native SDK is complex due to $ref resolution issues
     // For now, schemas are handled via the AI SDK fallback path, not native SDK
     // TODO: Implement proper $ref resolution for complex nested schemas
 
     const startTime = Date.now();
-    const maxSteps = this.computeMaxSteps(options.maxSteps);
-    const currentContents = [...contents];
+    const timeout = this.getTimeout(options);
+    const timeoutController = createTimeoutController(
+      timeout,
+      this.providerName,
+      "generate",
+    );
+    const composedSignal = composeAbortSignals(
+      options.abortSignal,
+      timeoutController?.controller.signal,
+    );
+    const maxSteps = computeMaxStepsShared(options.maxSteps);
+    const currentContents = [...contents] as Array<{
+      role: string;
+      parts: unknown[];
+    }>;
     let finalText = "";
     let lastStepText = "";
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
     const allToolCalls: Array<{
       toolName: string;
       args: Record<string, unknown>;
@@ -1915,85 +1639,77 @@ export class GoogleVertexProvider extends BaseProvider {
     }> = [];
     let step = 0;
     const failedTools = new Map<string, { count: number; lastError: string }>();
-    const tokenUsage = { input: 0, output: 0 };
 
-    // Agentic loop for tool calling
-    while (step < maxSteps) {
-      step++;
-      logger.debug(
-        `[GoogleVertex] Native SDK generate step ${step}/${maxSteps}`,
-      );
-
-      try {
-        // Use generateContentStream and collect all chunks (same as GoogleAIStudio)
-        const stream = await client.models.generateContentStream({
-          model: modelName,
-          contents: currentContents,
-          config,
-        });
-
-        const stepFunctionCalls: Array<{
-          name: string;
-          args: Record<string, unknown>;
-        }> = [];
-        const rawResponseParts: unknown[] = [];
-
-        for await (const chunk of stream) {
-          this.processNativeStreamChunk(
-            chunk as {
-              functionCalls?: Array<{
-                name: string;
-                args: Record<string, unknown>;
-              }>;
-            } & Record<string, unknown>,
-            rawResponseParts,
-            stepFunctionCalls,
-            tokenUsage,
-          );
-        }
-
-        const stepText = this.extractTextFromRawParts(rawResponseParts);
-
-        if (stepFunctionCalls.length === 0) {
-          finalText = stepText;
+    try {
+      // Agentic loop for tool calling
+      while (step < maxSteps) {
+        if (timeoutController?.controller.signal.aborted) {
           break;
         }
-
-        lastStepText = stepText;
-
+        step++;
         logger.debug(
-          `[GoogleVertex] Generate executing ${stepFunctionCalls.length} function calls`,
+          `[GoogleVertex] Native SDK generate step ${step}/${maxSteps}`,
         );
 
-        this.pushModelResponseToHistory(
-          currentContents,
-          rawResponseParts,
-          stepFunctionCalls,
-        );
+        try {
+          // Use generateContentStream and collect all chunks (same as GoogleAIStudio)
+          const stream = await client.models.generateContentStream({
+            model: modelName,
+            contents: currentContents,
+            config,
+            ...(composedSignal
+              ? { httpOptions: { signal: composedSignal } }
+              : {}),
+          });
 
-        const functionResponses = await this.executeNativeFunctionCalls(
-          stepFunctionCalls,
-          executeMap,
-          failedTools,
-          allToolCalls,
-          toolExecutions,
-        );
+          const chunkResult = await collectStreamChunks(stream);
+          totalInputTokens += chunkResult.inputTokens;
+          totalOutputTokens += chunkResult.outputTokens;
 
-        // Add function responses to history
-        currentContents.push({
-          role: "function",
-          parts: functionResponses as unknown as Array<
-            | { text: string }
-            | { inlineData: { mimeType: string; data: string } }
-          >,
-        });
-      } catch (error) {
-        logger.error("[GoogleVertex] Native SDK generate error", error);
-        throw this.handleProviderError(error);
+          const stepText = extractTextFromParts(chunkResult.rawResponseParts);
+
+          if (chunkResult.stepFunctionCalls.length === 0) {
+            finalText = stepText;
+            break;
+          }
+
+          lastStepText = stepText;
+
+          logger.debug(
+            `[GoogleVertex] Generate executing ${chunkResult.stepFunctionCalls.length} function calls`,
+          );
+
+          pushModelResponseToHistory(
+            currentContents,
+            chunkResult.rawResponseParts,
+            chunkResult.stepFunctionCalls,
+          );
+
+          const functionResponses = await executeNativeToolCalls(
+            "[GoogleVertex]",
+            chunkResult.stepFunctionCalls,
+            executeMap,
+            failedTools,
+            allToolCalls,
+            { toolExecutions, abortSignal: composedSignal },
+          );
+
+          // Add function responses to history
+          currentContents.push({
+            role: "function",
+            parts: functionResponses as unknown[],
+          });
+        } catch (error) {
+          logger.error("[GoogleVertex] Native SDK generate error", error);
+          throw this.handleProviderError(error);
+        }
       }
+    } finally {
+      timeoutController?.cleanup();
     }
 
-    finalText = this.computeMaxStepsTerminationText(
+    finalText = handleMaxStepsTermination(
+      "[GoogleVertex]",
       step,
       maxSteps,
       finalText,
@@ -2008,9 +1724,9 @@ export class GoogleVertexProvider extends BaseProvider {
       provider: this.providerName,
       model: modelName,
       usage: {
-        input: tokenUsage.input,
-        output: tokenUsage.output,
-        total: tokenUsage.input + tokenUsage.output,
+        input: totalInputTokens,
+        output: totalOutputTokens,
+        total: totalInputTokens + totalOutputTokens,
       },
       responseTime,
       toolsUsed: allToolCalls.map((tc) => tc.toolName),

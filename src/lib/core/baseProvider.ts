@@ -20,8 +20,13 @@ import type {
   ValidationSchema,
   ZodUnknownSchema,
 } from "../types/typeAliases.js";
+import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import {
+  composeAbortSignals,
+  createTimeoutController,
+  TimeoutError,
+} from "../utils/timeout.js";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
 import { getKeyCount, getKeysAsString } from "../utils/transformationUtils.js";
 import { TTSProcessor } from "../utils/ttsProcessor.js";
@@ -178,16 +183,10 @@ export abstract class BaseProvider implements AIProvider {
     // executeStream() can simply use options.tools (or getAllTools() + options.tools)
     // and get the complete tool set without needing per-provider merge logic.
     if (!options.disableTools && this.supportsTools()) {
-      const baseTools = await this.getAllTools();
-      const externalTools = (options.tools || {}) as Record<string, Tool>;
-      const mergedTools = { ...baseTools, ...externalTools };
+      const mergedTools = await this.getToolsForStream(options);
       options = { ...options, tools: mergedTools };
-      logger.debug(`Central tool merge for stream`, {
-        provider: this.providerName,
-        baseToolCount: Object.keys(baseTools).length,
-        externalToolCount: Object.keys(externalTools).length,
-        totalToolCount: Object.keys(mergedTools).length,
-      });
+    } else {
+      options = { ...options, tools: {} };
     }
 
     // CRITICAL FIX: Always prefer real streaming over fake streaming
@@ -270,6 +269,13 @@ export abstract class BaseProvider implements AIProvider {
         toolUsageContext: options.toolUsageContext,
         context: options.context as Record<string, JsonValue> | undefined,
         csvOptions: options.csvOptions,
+        // Forward abort, tool filtering, and timeout options to prevent
+        // silent bypass when falling back from real streaming to fake streaming
+        abortSignal: options.abortSignal,
+        toolFilter: options.toolFilter,
+        excludeTools: options.excludeTools,
+        skipToolPromptInjection: options.skipToolPromptInjection,
+        timeout: options.timeout,
       };
 
       logger.debug(`Calling generate for fake streaming`, {
@@ -364,6 +370,59 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   /**
+   * Apply per-call tool filtering (whitelist/blacklist) to a tools record.
+   * If toolFilter is set, only tools whose names are in the list are kept.
+   * If excludeTools is set, matching tools are removed. excludeTools is applied after toolFilter.
+   */
+  private applyToolFiltering(
+    tools: Record<string, Tool>,
+    options: { toolFilter?: string[]; excludeTools?: string[] },
+  ): Record<string, Tool> {
+    if (
+      (!options.toolFilter || options.toolFilter.length === 0) &&
+      (!options.excludeTools || options.excludeTools.length === 0)
+    ) {
+      return tools;
+    }
+
+    const beforeCount = Object.keys(tools).length;
+    let filtered = { ...tools };
+
+    if (options.toolFilter && options.toolFilter.length > 0) {
+      const allowSet = new Set(options.toolFilter);
+      const result: Record<string, Tool> = {};
+      for (const [name, tool] of Object.entries(filtered)) {
+        if (allowSet.has(name)) {
+          result[name] = tool;
+        }
+      }
+      filtered = result;
+    }
+
+    if (options.excludeTools && options.excludeTools.length > 0) {
+      const denySet = new Set(options.excludeTools);
+      for (const name of Object.keys(filtered)) {
+        if (denySet.has(name)) {
+          delete filtered[name];
+        }
+      }
+    }
+
+    const afterCount = Object.keys(filtered).length;
+    if (beforeCount !== afterCount) {
+      logger.debug(`Tool filtering applied`, {
+        provider: this.providerName,
+        beforeCount,
+        afterCount,
+        toolFilter: options.toolFilter,
+        excludeTools: options.excludeTools,
+      });
+    }
+
+    return filtered;
+  }
+
+  /**
    * Prepare generation context including tools and model
    */
   private async prepareGenerationContext(
@@ -374,12 +433,15 @@ export abstract class BaseProvider implements AIProvider {
   }> {
     const shouldUseTools = !options.disableTools && this.supportsTools();
     const baseTools = shouldUseTools ? await this.getAllTools() : {};
-    const tools = shouldUseTools
+    let tools = shouldUseTools
       ? {
           ...baseTools,
           ...(options.tools || {}),
         }
       : {};
+
+    // Apply per-call tool filtering (whitelist/blacklist)
+    tools = this.applyToolFiltering(tools, options);
 
     logger.debug(`Final tools prepared for AI`, {
       provider: this.providerName,
@@ -413,7 +475,10 @@ export abstract class BaseProvider implements AIProvider {
     }
     const baseTools = await this.getAllTools();
     const externalTools = (options.tools || {}) as Record<string, Tool>;
-    const merged = { ...baseTools, ...externalTools };
+    let merged = { ...baseTools, ...externalTools };
+
+    // Apply per-call tool filtering (whitelist/blacklist)
+    merged = this.applyToolFiltering(merged, options);
 
     logger.debug(`Tools prepared for streaming`, {
       provider: this.providerName,
@@ -623,12 +688,32 @@ export abstract class BaseProvider implements AIProvider {
       // ===== Normal AI Generation Flow =====
       const { tools, model } = await this.prepareGenerationContext(options);
       const messages = await this.buildMessages(options);
-      const generateResult = await this.executeGeneration(
-        model,
-        messages,
-        tools,
-        options,
+
+      // Compose timeout signal with user-provided abort signal (mirrors stream path)
+      const timeoutController = createTimeoutController(
+        options.timeout,
+        this.providerName,
+        "generate",
       );
+      const composedSignal = composeAbortSignals(
+        options.abortSignal,
+        timeoutController?.controller.signal,
+      );
+      const composedOptions = composedSignal
+        ? { ...options, abortSignal: composedSignal }
+        : options;
+
+      let generateResult: Awaited<ReturnType<typeof generateText>>;
+      try {
+        generateResult = await this.executeGeneration(
+          model,
+          messages,
+          tools,
+          composedOptions,
+        );
+      } finally {
+        timeoutController?.cleanup();
+      }
 
       this.analyzeAIResponse(
         generateResult as unknown as Record<string, unknown>,
@@ -695,7 +780,14 @@ export abstract class BaseProvider implements AIProvider {
 
       return await this.enhanceResult(enhancedResult, options, startTime);
     } catch (error) {
-      logger.error(`Generate failed for ${this.providerName}:`, error);
+      // Abort errors are expected when a generation is cancelled — log at info, not error
+      if (isAbortError(error)) {
+        logger.info(`Generate aborted for ${this.providerName}`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      } else {
+        logger.error(`Generate failed for ${this.providerName}:`, error);
+      }
       throw this.handleProviderError(error);
     }
   }

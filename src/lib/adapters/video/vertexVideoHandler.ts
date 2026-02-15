@@ -17,7 +17,11 @@ import type {
   VideoGenerationResult,
   VideoOutputOptions,
 } from "../../types/multimodal.js";
-import { NeuroLinkError, withTimeout } from "../../utils/errorHandling.js";
+import {
+  isAbortError,
+  NeuroLinkError,
+  withTimeout,
+} from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
 
 // ============================================================================
@@ -459,7 +463,7 @@ export async function generateVideoWithVertex(
       });
     } catch (error) {
       clearTimeout(requestTimeout);
-      if (error instanceof Error && error.name === "AbortError") {
+      if (isAbortError(error)) {
         throw new VideoError({
           code: VIDEO_ERROR_CODES.GENERATION_FAILED,
           message: "Video generation request timed out after 30 seconds",
@@ -682,7 +686,7 @@ async function makePollRequest(
     });
   } catch (error) {
     clearTimeout(requestTimeout);
-    if (error instanceof Error && error.name === "AbortError") {
+    if (isAbortError(error)) {
       throw new VideoError({
         code: VIDEO_ERROR_CODES.GENERATION_FAILED,
         message: `Poll request timed out after ${timeoutMs}ms`,

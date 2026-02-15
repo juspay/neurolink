@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { streamText, type Schema, type LanguageModelV1 } from "ai";
+import { streamText, type Schema, type LanguageModelV1, type Tool } from "ai";
 import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import { AIProviderName } from "../constants/enums.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
@@ -8,7 +8,11 @@ import type { ModelsResponse } from "../types/providers.js";
 import type { NeuroLink } from "../neurolink.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { logger } from "../utils/logger.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import {
+  composeAbortSignals,
+  createTimeoutController,
+  TimeoutError,
+} from "../utils/timeout.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
@@ -228,6 +232,12 @@ export class OpenAICompatibleProvider extends BaseProvider {
     );
 
     try {
+      // Get tools - options.tools is pre-merged by BaseProvider.stream()
+      const shouldUseTools = !options.disableTools && this.supportsTools();
+      const tools = shouldUseTools
+        ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
+        : {};
+
       // Build message array from options with multimodal support
       // Using protected helper from BaseProvider to eliminate code duplication
       const messages = await this.buildMessagesForStream(options);
@@ -243,9 +253,14 @@ export class OpenAICompatibleProvider extends BaseProvider {
           ? { temperature: options.temperature }
           : {}),
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-        tools: options.tools,
-        toolChoice: "auto",
-        abortSignal: timeoutController?.controller.signal,
+        tools,
+        toolChoice: shouldUseTools ? "auto" : "none",
+        abortSignal: composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        ),
+        experimental_telemetry:
+          this.telemetryHandler.getTelemetryConfig(options),
         onStepFinish: ({ toolCalls, toolResults }) => {
           this.handleToolExecutionStorage(
             toolCalls,

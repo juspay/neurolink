@@ -14,6 +14,130 @@ import type {
 // Redis client type
 type RedisClient = ReturnType<typeof createClient>;
 
+// Connection pool - keyed by host:port:db
+const connectionPool = new Map<
+  string,
+  { client: RedisClient; refCount: number }
+>();
+const pendingConnections = new Map<string, Promise<RedisClient>>();
+
+/**
+ * Get a pooled Redis connection. Multiple callers with the same host:port:db
+ * share a single connection, reducing connection count.
+ */
+export async function getPooledRedisClient(
+  config: Required<RedisStorageConfig>,
+): Promise<RedisClient> {
+  const key = `${config.host}:${config.port}:${config.db}:${config.password ? "auth" : "noauth"}`;
+  const existing = connectionPool.get(key);
+
+  if (existing && existing.client.isOpen) {
+    existing.refCount++;
+    logger.debug("[Redis] Reusing pooled connection", {
+      key,
+      refCount: existing.refCount,
+    });
+    return existing.client;
+  }
+
+  // Check pending BEFORE cleaning up stale entries to prevent TOCTOU race:
+  // Two callers seeing a stale entry could both skip this check and both
+  // attempt to create new connections if we cleaned up first.
+  const pending = pendingConnections.get(key);
+  if (pending) {
+    const client = await pending;
+    const entry = connectionPool.get(key);
+    if (entry) {
+      if (!entry.client.isOpen) {
+        // Client was closed while awaiting; clean up and create fresh
+        connectionPool.delete(key);
+        const freshClient = await createRedisClient(config);
+        connectionPool.set(key, { client: freshClient, refCount: 1 });
+        return freshClient;
+      }
+      entry.refCount++;
+    } else if (client.isOpen) {
+      // Entry was released while we awaited; re-register
+      connectionPool.set(key, { client, refCount: 1 });
+    } else {
+      // Client was closed while we awaited; create fresh connection
+      const freshClient = await createRedisClient(config);
+      connectionPool.set(key, { client: freshClient, refCount: 1 });
+      return freshClient;
+    }
+    return client;
+  }
+
+  // Clean up stale entry if exists (connection closed)
+  if (existing) {
+    connectionPool.delete(key);
+  }
+
+  // Create the promise and register it in pendingConnections atomically
+  // (synchronous) before any await, so concurrent callers will find it.
+  const connectPromise = createRedisClient(config);
+  pendingConnections.set(key, connectPromise);
+
+  try {
+    const client = await connectPromise;
+    connectionPool.set(key, { client, refCount: 1 });
+    logger.info("[Redis] Created pooled connection", { key, refCount: 1 });
+    return client;
+  } finally {
+    pendingConnections.delete(key);
+  }
+}
+
+/**
+ * Release a pooled Redis connection. Only closes when refCount reaches 0.
+ */
+export async function releasePooledRedisClient(
+  config: Required<RedisStorageConfig>,
+): Promise<void> {
+  const key = `${config.host}:${config.port}:${config.db}:${config.password ? "auth" : "noauth"}`;
+  const entry = connectionPool.get(key);
+
+  if (!entry) {
+    return;
+  }
+
+  entry.refCount--;
+  logger.debug("[Redis] Released pooled connection", {
+    key,
+    refCount: entry.refCount,
+  });
+
+  if (entry.refCount <= 0) {
+    try {
+      if (entry.client.isOpen) {
+        await entry.client.quit();
+      }
+    } catch (e) {
+      logger.warn("[Redis] Error closing pooled connection", {
+        key,
+        error: String(e),
+      });
+    }
+    connectionPool.delete(key);
+    logger.info("[Redis] Closed pooled connection", { key });
+  }
+}
+
+/**
+ * Get stats about the connection pool
+ */
+export function getPoolStats(): Array<{
+  key: string;
+  refCount: number;
+  isOpen: boolean;
+}> {
+  return Array.from(connectionPool.entries()).map(([key, entry]) => ({
+    key,
+    refCount: entry.refCount,
+    isOpen: entry.client.isOpen,
+  }));
+}
+
 /**
  * Creates a Redis client with the provided configuration
  */

@@ -28,6 +28,9 @@ export const textGenerationOptionsSchema: Record<
     | "tts"
     | "thinkingConfig" // Complex object, use thinking/thinkingBudget instead
     | "fileRegistry" // Internal: set by SDK, not by CLI
+    | "abortSignal" // Runtime object, not CLI-settable
+    | "toolFilter" // Array type, not simple CLI option
+    | "excludeTools" // Array type, not simple CLI option
   >,
   OptionSchema
 > = {
@@ -107,5 +110,10 @@ export const textGenerationOptionsSchema: Record<
     description:
       "Thinking level for Gemini 3 models: minimal, low, medium, high.",
     allowedValues: ["minimal", "low", "medium", "high"],
+  },
+  skipToolPromptInjection: {
+    type: "boolean",
+    description:
+      "Skip injecting tool descriptions into the system prompt. Useful when tool info is already provided.",
   },
 };

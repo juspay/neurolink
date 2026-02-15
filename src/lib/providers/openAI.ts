@@ -23,7 +23,11 @@ import {
   validateApiKey,
 } from "../utils/providerConfig.js";
 import { isZodSchema } from "../utils/schemaConversion.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import {
+  composeAbortSignals,
+  createTimeoutController,
+  TimeoutError,
+} from "../utils/timeout.js";
 
 // Configuration helpers - now using consolidated utility
 const getOpenAIApiKey = (): string => {
@@ -385,7 +389,10 @@ export class OpenAIProvider extends BaseProvider {
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         toolChoice:
           shouldUseTools && Object.keys(tools).length > 0 ? "auto" : "none",
-        abortSignal: timeoutController?.controller.signal,
+        abortSignal: composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        ),
         experimental_telemetry:
           this.telemetryHandler.getTelemetryConfig(options),
         onStepFinish: ({ toolCalls, toolResults }) => {

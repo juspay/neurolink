@@ -181,7 +181,15 @@ export type RAGRetryConfig = {
   backoffMultiplier: number;
   /** Whether to add jitter (default: true) */
   jitter: boolean;
-  /** Custom function to determine if error is retryable */
+  /**
+   * Custom function to determine if error is retryable.
+   *
+   * Note: In `isRetryable()`, this callback is invoked *before* the built-in
+   * abort-error check. If you provide a custom `shouldRetry`, it should
+   * explicitly handle abort errors (e.g. return `false` for them) when
+   * cancellation correctness is required. Otherwise an aborted operation
+   * could be retried instead of propagating immediately.
+   */
   shouldRetry?: (error: Error) => boolean;
   /** Retryable error codes */
   retryableErrorCodes?: string[];

@@ -459,6 +459,25 @@ export function createTimeoutController(
 }
 
 /**
+ * Compose an external abort signal with a timeout controller's signal.
+ * Returns a single AbortSignal that fires when either signal aborts.
+ * If only one signal is present, returns it directly without wrapping.
+ *
+ * @param externalSignal - User-provided AbortSignal (e.g., from options.abortSignal)
+ * @param timeoutSignal - Timeout controller's signal
+ * @returns Combined AbortSignal, or undefined if neither is present
+ */
+export function composeAbortSignals(
+  externalSignal?: AbortSignal,
+  timeoutSignal?: AbortSignal,
+): AbortSignal | undefined {
+  if (externalSignal && timeoutSignal) {
+    return AbortSignal.any([externalSignal, timeoutSignal]);
+  }
+  return externalSignal ?? timeoutSignal;
+}
+
+/**
  * Merge abort signals (for combining user abort with timeout)
  * @param signals - Array of abort signals to merge
  * @returns Combined abort controller

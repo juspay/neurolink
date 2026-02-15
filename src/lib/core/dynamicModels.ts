@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import type {
   DynamicModelConfig as ModelConfig,
@@ -167,7 +168,7 @@ export class DynamicModelProvider {
       } catch (error) {
         clearTimeout(timeoutId);
 
-        if (error instanceof Error && error.name === "AbortError") {
+        if (isAbortError(error)) {
           throw new Error(`Request timeout after ${timeoutMs}ms`);
         }
 
@@ -232,7 +233,7 @@ export class DynamicModelProvider {
     } catch (error) {
       clearTimeout(timeoutId);
 
-      if (error instanceof Error && error.name === "AbortError") {
+      if (isAbortError(error)) {
         throw new Error(
           `Localhost health check timeout - server may not be running`,
         );

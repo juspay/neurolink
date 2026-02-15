@@ -364,8 +364,24 @@ export type StreamOptions = {
   schema?: ValidationSchema;
   tools?: Record<string, Tool>;
   timeout?: number | string;
+  /** AbortSignal for external cancellation of the AI call */
+  abortSignal?: AbortSignal;
   disableTools?: boolean;
   maxSteps?: number; // Maximum tool execution steps. Defaults to 5 in the implementation if not specified.
+
+  /** Include only these tools by name (whitelist). If set, only matching tools are available. */
+  toolFilter?: string[];
+
+  /** Exclude these tools by name (blacklist). Applied after toolFilter. */
+  excludeTools?: string[];
+
+  /**
+   * Skip injecting tool schemas into the system prompt.
+   * When true, tools are ONLY passed natively via the provider's `tools` parameter,
+   * avoiding duplicate tool definitions (~30K tokens savings per call).
+   * Default: false (backward compatible — tool schemas are injected into system prompt).
+   */
+  skipToolPromptInjection?: boolean;
 
   // Analytics and Evaluation
   enableEvaluation?: boolean;

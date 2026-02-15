@@ -122,6 +122,7 @@ import {
 import {
   CircuitBreaker,
   ErrorFactory,
+  isAbortError,
   isRetriableError,
   logStructuredError,
   NeuroLinkError,
@@ -2098,6 +2099,8 @@ Current user's request: ${currentInput}`;
         output: options.output,
         tools: options.tools, // Includes RAG tools if rag config was provided
         disableTools: options.disableTools,
+        toolFilter: options.toolFilter,
+        excludeTools: options.excludeTools,
         enableAnalytics: options.enableAnalytics,
         enableEvaluation: options.enableEvaluation,
         context: options.context as Record<string, JsonValue> | undefined,
@@ -2107,6 +2110,8 @@ Current user's request: ${currentInput}`;
         region: options.region,
         tts: options.tts,
         fileRegistry: this.fileRegistry,
+        abortSignal: options.abortSignal,
+        skipToolPromptInjection: options.skipToolPromptInjection,
       };
 
       // Apply factory enhancement using centralized utilities
@@ -2162,6 +2167,7 @@ Current user's request: ${currentInput}`;
       // Convert back to GenerateResult
       const generateResult: GenerateResult = {
         content: textResult.content,
+        finishReason: textResult.finishReason,
         provider: textResult.provider,
         model: textResult.model,
         usage: textResult.usage
@@ -2606,6 +2612,16 @@ Current user's request: ${currentInput}`;
       );
 
       if (mcpResult) {
+        logger.info(
+          `[NeuroLink.generateTextInternal] generate() - COMPLETE SUCCESS (MCP path)`,
+          {
+            provider: mcpResult.provider,
+            model: mcpResult.model,
+            responseTimeMs: Date.now() - generateInternalStartTime,
+            tokensUsed: mcpResult.usage?.total || 0,
+            toolsUsed: mcpResult.toolsUsed?.length || 0,
+          },
+        );
         await storeConversationTurn(
           this.conversationMemory,
           options,
@@ -2618,6 +2634,16 @@ Current user's request: ${currentInput}`;
 
       const directResult = await this.directProviderGeneration(options);
       logger.debug(`[${functionTag}] Direct generation successful`);
+      logger.info(
+        `[NeuroLink.generateTextInternal] generate() - COMPLETE SUCCESS`,
+        {
+          provider: directResult.provider,
+          model: directResult.model,
+          responseTimeMs: Date.now() - generateInternalStartTime,
+          tokensUsed: directResult.usage?.total || 0,
+          toolsUsed: directResult.toolsUsed?.length || 0,
+        },
+      );
 
       await storeConversationTurn(
         this.conversationMemory,
@@ -2692,9 +2718,55 @@ Current user's request: ${currentInput}`;
         }
       }
 
-      logger.error(`[${functionTag}] All generation methods failed`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      // If the generation was aborted (e.g., coding task short-circuit via AbortController),
+      // still store the conversation turn so that:
+      // 1. The Redis conversation entry is created (if first turn)
+      // 2. setImmediate triggers generateConversationTitle() for the session
+      // 3. The caller's syncTitleFromRedis() can find the SDK-generated title
+      if (isAbortError(error)) {
+        logger.info(
+          `[${functionTag}] Generation aborted — storing conversation turn for title generation`,
+          {
+            hasMemory: !!this.conversationMemory,
+            memoryType: this.conversationMemory?.constructor?.name || "NONE",
+            sessionId:
+              (options.context as Record<string, unknown>)?.sessionId ||
+              "unknown",
+          },
+        );
+
+        try {
+          const abortedResult: TextGenerationResult = {
+            content: "[generation was interrupted]",
+            provider: options.provider || "unknown",
+            model: options.model || "unknown",
+            responseTime: Date.now() - generateInternalStartTime,
+          };
+          await withTimeout(
+            storeConversationTurn(
+              this.conversationMemory,
+              options,
+              abortedResult,
+              new Date(generateInternalStartTime),
+            ),
+            5000, // 5 second timeout for Redis storage
+          );
+        } catch (storeError) {
+          logger.warn(
+            `[${functionTag}] Failed to store conversation turn after abort`,
+            {
+              error:
+                storeError instanceof Error
+                  ? storeError.message
+                  : String(storeError),
+            },
+          );
+        }
+      } else {
+        logger.error(`[${functionTag}] All generation methods failed`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
 
       this.emitter.emit("response:end", "");
       this.emitter.emit(
@@ -2866,6 +2938,14 @@ Current user's request: ${currentInput}`;
           );
         }
       } catch (error) {
+        // Immediately propagate AbortError — never retry aborted requests
+        if (isAbortError(error)) {
+          logger.debug(
+            `[${functionTag}] AbortError detected on attempt ${attempt}, stopping retries`,
+          );
+          throw error;
+        }
+
         logger.debug(
           `[${functionTag}] MCP generation failed on attempt ${attempt}/${maxAttempts}`,
           {
@@ -2960,7 +3040,11 @@ Current user's request: ${currentInput}`;
           : options.provider;
 
       // Get available tools
-      const availableTools = await this.getAllAvailableTools();
+      let availableTools = await this.getAllAvailableTools();
+
+      // Apply per-call tool filtering for system prompt tool descriptions
+      availableTools = this.applyToolInfoFiltering(availableTools, options);
+
       const targetTool = availableTools.find(
         (t) =>
           t.name.includes("SuccessRateSRByTime") ||
@@ -2979,14 +3063,17 @@ Current user's request: ${currentInput}`;
           : null,
       });
 
-      // Create tool-aware system prompt
-      const enhancedSystemPrompt = this.createToolAwareSystemPrompt(
-        options.systemPrompt,
-        availableTools,
-      );
+      // Create tool-aware system prompt (skip if skipToolPromptInjection is true)
+      const enhancedSystemPrompt = options.skipToolPromptInjection
+        ? options.systemPrompt || ""
+        : this.createToolAwareSystemPrompt(
+            options.systemPrompt,
+            availableTools,
+          );
       logger.debug("Tool-aware system prompt created", {
         originalPromptLength: options.systemPrompt?.length || 0,
         enhancedPromptLength: enhancedSystemPrompt.length,
+        skippedToolInjection: !!options.skipToolPromptInjection,
         enhancedPromptPreview: enhancedSystemPrompt.substring(0, 500) + "...",
       });
 
@@ -3119,8 +3206,10 @@ Current user's request: ${currentInput}`;
       return {
         content: result.content || "", // Ensure content is never undefined
         provider: providerName,
+        model: result.model,
         usage: result.usage,
         responseTime,
+        finishReason: result.finishReason,
         toolsUsed: result.toolsUsed || [],
         toolExecutions: transformedToolExecutions,
         enhancedWithTools: Boolean(hasToolExecutions), // Mark as enhanced if tools were actually used
@@ -3135,6 +3224,32 @@ Current user's request: ${currentInput}`;
         evaluation: result.evaluation,
       };
     } catch (error) {
+      // Immediately propagate AbortError — never swallow aborted requests
+      if (isAbortError(error)) {
+        mcpLogger.debug(`[${functionTag}] AbortError detected, rethrowing`);
+        throw error;
+      }
+
+      // Propagate non-retryable errors (NoSuchToolError, InvalidToolArgumentsError)
+      // so the caller's retry loop can detect them and break immediately instead
+      // of retrying the same deterministic failure.
+      const isToolError =
+        error instanceof Error &&
+        (error.name === "AI_NoSuchToolError" ||
+          error.name === "AI_InvalidToolArgumentsError" ||
+          (error.message &&
+            (error.message.includes("NoSuchToolError") ||
+              error.message.includes("Model tried to call unavailable tool"))));
+      if (isToolError) {
+        mcpLogger.warn(
+          `[${functionTag}] Non-retryable tool error, rethrowing`,
+          {
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
+        throw error;
+      }
+
       mcpLogger.warn(`[${functionTag}] MCP generation failed`, {
         error: error instanceof Error ? error.message : String(error),
       });
@@ -3281,6 +3396,7 @@ Current user's request: ${currentInput}`;
           model: result.model,
           usage: result.usage,
           responseTime,
+          finishReason: result.finishReason,
           toolsUsed: result.toolsUsed || [],
           enhancedWithTools: false,
           analytics: result.analytics,
@@ -3292,6 +3408,14 @@ Current user's request: ${currentInput}`;
           imageOutput: result.imageOutput,
         };
       } catch (error) {
+        // Immediately propagate AbortError — never fall back to next provider on abort
+        if (isAbortError(error)) {
+          logger.debug(
+            `[${functionTag}] AbortError detected on provider ${providerName}, stopping fallback`,
+          );
+          throw error;
+        }
+
         lastError = error instanceof Error ? error : new Error(String(error));
         logger.warn(`[${functionTag}] Provider ${providerName} failed`, {
           error: lastError.message,
@@ -3316,6 +3440,45 @@ Current user's request: ${currentInput}`;
   /**
    * Create tool-aware system prompt that informs AI about available tools
    */
+  /**
+   * Apply per-call tool filtering (whitelist/blacklist) to a ToolInfo array.
+   * Used to filter the tool list before building the system prompt.
+   */
+  private applyToolInfoFiltering(
+    tools: ToolInfo[],
+    options: { toolFilter?: string[]; excludeTools?: string[] },
+  ): ToolInfo[] {
+    if (
+      (!options.toolFilter || options.toolFilter.length === 0) &&
+      (!options.excludeTools || options.excludeTools.length === 0)
+    ) {
+      return tools;
+    }
+
+    let filtered = tools;
+
+    if (options.toolFilter && options.toolFilter.length > 0) {
+      const allowSet = new Set(options.toolFilter);
+      filtered = filtered.filter((t) => allowSet.has(t.name));
+    }
+
+    if (options.excludeTools && options.excludeTools.length > 0) {
+      const denySet = new Set(options.excludeTools);
+      filtered = filtered.filter((t) => !denySet.has(t.name));
+    }
+
+    if (filtered.length !== tools.length) {
+      logger.debug(`Tool info filtering applied for system prompt`, {
+        beforeCount: tools.length,
+        afterCount: filtered.length,
+        toolFilter: options.toolFilter,
+        excludeTools: options.excludeTools,
+      });
+    }
+
+    return filtered;
+  }
+
   private createToolAwareSystemPrompt(
     originalSystemPrompt: string | undefined,
     availableTools: ToolInfo[],
@@ -3558,6 +3721,16 @@ Current user's request: ${currentInput}`;
             }
           } finally {
             cleanupListeners();
+
+            if (accumulatedContent.trim()) {
+              logger.info(`[NeuroLink.stream] stream() - COMPLETE SUCCESS`, {
+                provider: providerName,
+                model: enhancedOptions.model,
+                responseTimeMs: Date.now() - startTime,
+                contentLength: accumulatedContent.length,
+                fallback: metadata.fallbackAttempted,
+              });
+            }
 
             await self.storeStreamConversationMemory({
               enhancedOptions,
@@ -3964,6 +4137,21 @@ Current user's request: ${currentInput}`;
       eventSequence,
     } = params;
 
+    // Guard: skip storing if no meaningful content was produced (no text AND no tool activity)
+    const hasToolEvents = eventSequence.some(
+      (e) => e.type === "tool:start" || e.type === "tool:end",
+    );
+    if (!accumulatedContent.trim() && !hasToolEvents) {
+      logger.warn(
+        "[NeuroLink.stream] Skipping conversation turn storage — no text content or tool activity",
+        {
+          sessionId: (enhancedOptions.context as Record<string, unknown>)
+            ?.sessionId,
+        },
+      );
+      return;
+    }
+
     // Store memory after stream consumption is complete
     if (this.conversationMemory && enhancedOptions.context?.sessionId) {
       const sessionId = (enhancedOptions.context as Record<string, unknown>)
@@ -4112,11 +4300,15 @@ Current user's request: ${currentInput}`;
 
     // 🔧 FIX: Get available tools and create tool-aware system prompt
     // Use SAME pattern as tryMCPGeneration (generate mode)
-    const availableTools = await this.getAllAvailableTools();
-    const enhancedSystemPrompt = this.createToolAwareSystemPrompt(
-      options.systemPrompt,
-      availableTools,
-    );
+    let availableTools = await this.getAllAvailableTools();
+
+    // Apply per-call tool filtering for system prompt tool descriptions
+    availableTools = this.applyToolInfoFiltering(availableTools, options);
+
+    // Skip tool prompt injection if skipToolPromptInjection is true
+    const enhancedSystemPrompt = options.skipToolPromptInjection
+      ? options.systemPrompt || ""
+      : this.createToolAwareSystemPrompt(options.systemPrompt, availableTools);
 
     // Get conversation messages for context
     let conversationMessages = await getConversationMessages(
@@ -4318,8 +4510,25 @@ Current user's request: ${currentInput}`;
           yield chunk; // Preserve original streaming behavior
         }
       } finally {
+        if (fallbackAccumulatedContent.trim()) {
+          logger.info(
+            `[NeuroLink.handleStreamError] stream() - COMPLETE SUCCESS (fallback)`,
+            {
+              provider: providerName,
+              model: options.model,
+              responseTimeMs: Date.now() - startTime,
+              contentLength: fallbackAccumulatedContent.length,
+            },
+          );
+        }
+
         // Store memory after fallback stream consumption is complete
-        if (self.conversationMemory && enhancedOptions?.context?.sessionId) {
+        // Guard: skip storing if fallback accumulated content is empty
+        if (
+          self.conversationMemory &&
+          enhancedOptions?.context?.sessionId &&
+          fallbackAccumulatedContent.trim()
+        ) {
           const sessionId = (
             enhancedOptions?.context as Record<string, unknown>
           )?.sessionId as string;

@@ -89,6 +89,7 @@ export class GenerationHandler {
       ...(shouldUseTools && { toolChoice: "auto" }),
       temperature: options.temperature,
       maxTokens: options.maxTokens,
+      abortSignal: options.abortSignal,
       ...(useStructuredOutput &&
         options.schema && {
           experimental_output: Output.object({ schema: options.schema }),
@@ -385,6 +386,7 @@ export class GenerationHandler {
     return {
       content,
       usage,
+      finishReason: generateResult.finishReason,
       provider: this.providerName,
       model: this.modelName,
       toolCalls: generateResult.toolCalls

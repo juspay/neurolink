@@ -10,6 +10,7 @@ import type { JsonValue, UnknownRecord } from "../types/common.js";
 import { modelConfig } from "./modelConfiguration.js";
 import type { TokenUsage, AnalyticsData } from "../types/analytics.js";
 import { extractTokenUsage as extractTokenUsageUtil } from "../utils/tokenUtils.js";
+import { calculateCost, hasPricing } from "../utils/pricing.js";
 
 /**
  * Create analytics data structure from AI response
@@ -79,7 +80,9 @@ function extractTokenUsage(result: UnknownRecord): TokenUsage {
 }
 
 /**
- * Estimate cost based on provider, model, and token usage
+ * Estimate cost based on provider, model, and token usage.
+ * Uses the per-model pricing table first (which includes cache token rates),
+ * then falls back to the provider-level configuration system.
  */
 function estimateCost(
   provider: string,
@@ -87,17 +90,22 @@ function estimateCost(
   tokens: TokenUsage,
 ): number | undefined {
   try {
-    // Use the new configuration system instead of hardcoded costs
+    // Try the per-model pricing table first (includes cache token rates)
+    if (hasPricing(provider, model)) {
+      return calculateCost(provider, model, tokens);
+    }
+
+    // Fall back to the configuration system for providers/models not in the pricing table
     const costInfo = modelConfig.getCostInfo(provider.toLowerCase(), model);
     if (!costInfo) {
       return undefined;
     }
 
-    // Calculate cost using the configuration system
+    // Calculate cost using the configuration system (per-1K-token rates)
     const inputCost = (tokens.input / 1000) * costInfo.input;
     const outputCost = (tokens.output / 1000) * costInfo.output;
 
-    return Math.round((inputCost + outputCost) * 100000) / 100000; // Round to 5 decimal places
+    return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000; // Round to 6 decimal places
   } catch (error) {
     logger.debug("Cost estimation failed", { provider, model, error });
     return undefined;

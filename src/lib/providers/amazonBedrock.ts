@@ -41,6 +41,7 @@ import type {
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { ToolArgs, ToolDefinition } from "../types/tools.js";
 import type { ZodUnknownSchema } from "../types/typeAliases.js";
+import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import { buildMultimodalMessagesArray } from "../utils/messageBuilder.js";
 import { buildMultimodalOptions } from "../utils/multimodalOptionsBuilder.js";
@@ -1633,7 +1634,7 @@ export class AmazonBedrockProvider extends BaseProvider {
 
       const errorObj = error as Record<string, unknown>;
 
-      if (errorObj.name === "AbortError") {
+      if (isAbortError(error)) {
         throw new Error("Bedrock health check timed out after 10 seconds");
       }
 
