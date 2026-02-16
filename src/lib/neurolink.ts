@@ -2168,6 +2168,7 @@ Current user's request: ${currentInput}`;
       const generateResult: GenerateResult = {
         content: textResult.content,
         finishReason: textResult.finishReason,
+        structuredOutputAchieved: textResult.structuredOutputAchieved,
         provider: textResult.provider,
         model: textResult.model,
         usage: textResult.usage
@@ -3208,6 +3209,7 @@ Current user's request: ${currentInput}`;
         provider: providerName,
         model: result.model,
         usage: result.usage,
+        structuredOutputAchieved: result.structuredOutputAchieved,
         responseTime,
         finishReason: result.finishReason,
         toolsUsed: result.toolsUsed || [],

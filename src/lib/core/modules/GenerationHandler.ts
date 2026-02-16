@@ -13,8 +13,15 @@
  * @module core/modules/GenerationHandler
  */
 
-import type { LanguageModelV1, CoreMessage, Tool } from "ai";
-import { generateText, Output, NoObjectGeneratedError } from "ai";
+import type {
+  LanguageModelV1,
+  CoreMessage,
+  Tool,
+  ToolCallPart,
+  ToolResultPart,
+} from "ai";
+import { generateText, generateObject } from "ai";
+import type { z } from "zod";
 import type {
   TextGenerationOptions,
   EnhancedGenerateResult,
@@ -28,6 +35,8 @@ import type { UnknownRecord } from "../../types/common.js";
 import { logger } from "../../utils/logger.js";
 import { extractTokenUsage } from "../../utils/tokenUtils.js";
 import { DEFAULT_MAX_STEPS } from "../constants.js";
+import { addToolContextToMessages } from "./Utilities.js";
+import type { GenerationResult } from "$lib/types/generateTypes.js";
 
 /**
  * GenerationHandler class - Handles text generation operations for AI providers
@@ -56,16 +65,16 @@ export class GenerationHandler {
   ) {}
 
   /**
-   * Helper method to call generateText with optional structured output
-   * @private
+   * Execute the generation with AI SDK
+   *
+   * This method performs basic text generation with optional tool support.
+   * Structured output orchestration is handled by BaseProvider.executeGeneration().
    */
-  private async callGenerateText(
+  async executeGeneration(
     model: LanguageModelV1,
     messages: CoreMessage[],
     tools: Record<string, Tool>,
     options: TextGenerationOptions,
-    shouldUseTools: boolean,
-    includeStructuredOutput: boolean,
   ): Promise<Awaited<ReturnType<typeof generateText>>> {
     // Check if this is a Google provider (for provider-specific options)
     const isGoogleProvider =
@@ -75,11 +84,7 @@ export class GenerationHandler {
     const isAnthropicProvider =
       this.providerName === "anthropic" || this.providerName === "bedrock";
 
-    const useStructuredOutput =
-      includeStructuredOutput &&
-      !!options.schema &&
-      (options.output?.format === "json" ||
-        options.output?.format === "structured");
+    const shouldUseTools = !options.disableTools && this.supportsToolsFn();
 
     return await generateText({
       model,
@@ -90,10 +95,6 @@ export class GenerationHandler {
       temperature: options.temperature,
       maxTokens: options.maxTokens,
       abortSignal: options.abortSignal,
-      ...(useStructuredOutput &&
-        options.schema && {
-          experimental_output: Output.object({ schema: options.schema }),
-        }),
       // Add thinking configuration for extended reasoning
       // Gemini 3 models use providerOptions.google.thinkingConfig with thinkingLevel
       // Gemini 2.5 models use thinkingBudget
@@ -148,66 +149,69 @@ export class GenerationHandler {
   }
 
   /**
-   * Execute the generation with AI SDK
+   * Execute object generation with AI SDK generateObject()
+   *
+   * This method is used for Phase 3 of the structured output system,
+   * providing guaranteed schema compliance using the AI SDK's generateObject function.
+   *
+   * Key differences from executeGeneration():
+   * - Uses generateObject() instead of generateText()
+   * - Does not support NEW tool calling (Phase 1 tools are already executed)
+   * - Requires a Zod schema for validation
+   * - Returns typed object data
+   * - Preserves tool context from Phase 1 via native AI SDK types
+   *
+   * @param model - The language model to use for generation
+   * @param messages - Array of messages forming the conversation context
+   * @param schema - Zod schema defining the expected output structure
+   * @param options - Generation options (temperature, maxTokens, etc.)
+   * @param toolCalls - Optional AI SDK ToolCallPart[] from Phase 1
+   * @param toolResults - Optional AI SDK ToolResultPart[] from Phase 1
+   * @returns Promise resolving to generateObject result with validated typed data
    */
-  async executeGeneration(
+  async executeObjectGeneration(
     model: LanguageModelV1,
     messages: CoreMessage[],
-    tools: Record<string, Tool>,
+    schema: z.ZodSchema,
     options: TextGenerationOptions,
-  ): Promise<Awaited<ReturnType<typeof generateText>>> {
-    const shouldUseTools = !options.disableTools && this.supportsToolsFn();
+    toolCalls?: ToolCallPart[],
+    toolResults?: ToolResultPart[],
+  ): Promise<Awaited<ReturnType<typeof generateObject>>> {
+    logger.debug("[GenerationHandler] Executing object generation (Phase 3)", {
+      provider: this.providerName,
+      model: this.modelName,
+      preservingToolContext: !!(toolCalls?.length || toolResults?.length),
+    });
 
-    const useStructuredOutput =
-      !!options.schema &&
-      (options.output?.format === "json" ||
-        options.output?.format === "structured");
-
-    try {
-      return await this.callGenerateText(
-        model,
+    // Preserve tool context from Phase 1 by adding to messages
+    let enhancedMessages = messages;
+    if (toolCalls?.length || toolResults?.length) {
+      enhancedMessages = addToolContextToMessages(
         messages,
-        tools,
-        options,
-        shouldUseTools,
-        true, // includeStructuredOutput
+        toolCalls || [],
+        toolResults || [],
       );
-    } catch (error) {
-      // If NoObjectGeneratedError is thrown when using schema + tools together,
-      // fall back to generating without experimental_output and extract JSON manually
-      if (error instanceof NoObjectGeneratedError && useStructuredOutput) {
-        logger.debug(
-          "[GenerationHandler] NoObjectGeneratedError caught - falling back to manual JSON extraction",
-          {
-            provider: this.providerName,
-            model: this.modelName,
-            error: error.message,
-          },
-        );
-
-        // Retry without experimental_output - the formatEnhancedResult method
-        // will extract JSON from the text response
-        return await this.callGenerateText(
-          model,
-          messages,
-          tools,
-          options,
-          shouldUseTools,
-          false, // includeStructuredOutput - intentionally omitted
-        );
-      }
-
-      // Re-throw other errors
-      throw error;
     }
+
+    return await generateObject({
+      model,
+      messages: enhancedMessages,
+      schema,
+      mode: "tool", // 'auto', 'tool', or 'json'
+      temperature: options.temperature ?? 0,
+      maxTokens: options.maxTokens,
+      experimental_telemetry: this.getTelemetryConfigFn(
+        options,
+        "generate-object",
+      ),
+      //No need to pass the callback for handling storage, as tool calls and results are already set in-memory beforing calling this function during executeGeneration
+    });
   }
 
   /**
    * Log generation completion information
    */
-  logGenerationComplete(
-    generateResult: Awaited<ReturnType<typeof generateText>>,
-  ): void {
+  logGenerationComplete(generateResult: GenerationResult): void {
     logger.debug(`generateText completed`, {
       provider: this.providerName,
       model: this.modelName,
@@ -215,6 +219,7 @@ export class GenerationHandler {
       toolResultsCount: generateResult.toolResults?.length || 0,
       finishReason: generateResult.finishReason,
       usage: generateResult.usage,
+      structuredOutputGenerated: !!generateResult.structuredOutputAchieved,
       timestamp: Date.now(),
     });
   }
@@ -322,9 +327,10 @@ export class GenerationHandler {
 
   /**
    * Format the enhanced result
+   * Extracts structuredOutputAchieved if present in the generation result
    */
   formatEnhancedResult(
-    generateResult: Awaited<ReturnType<typeof generateText>>,
+    generateResult: GenerationResult,
     tools: Record<string, Tool>,
     toolsUsed: string[],
     toolExecutions: Array<{
@@ -385,6 +391,7 @@ export class GenerationHandler {
 
     return {
       content,
+      structuredOutputAchieved: generateResult.structuredOutputAchieved,
       usage,
       finishReason: generateResult.finishReason,
       provider: this.providerName,

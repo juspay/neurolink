@@ -1,4 +1,5 @@
 import type { Schema, Tool } from "ai";
+import { generateText } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import type { RAGConfig } from "../rag/types.js";
 import type { AnalyticsData, TokenUsage } from "./analytics.js";
@@ -359,6 +360,7 @@ export type GenerateOptions = {
 export type GenerateResult = {
   content: string; // Primary output
   outputs?: { text: string }; // Future extensible for multi-modal
+  structuredOutputAchieved?: boolean; // Parsed structured output (if schema provided)
 
   /**
    * Text-to-Speech audio result
@@ -807,6 +809,7 @@ export type TextGenerationOptions = {
 export type TextGenerationResult = {
   content: string;
   finishReason?: string;
+  structuredOutputAchieved?: boolean;
   provider?: string;
   model?: string;
   usage?: TokenUsage;
@@ -843,4 +846,17 @@ export type TextGenerationResult = {
 export type EnhancedGenerateResult = GenerateResult & {
   analytics?: AnalyticsData;
   evaluation?: EvaluationData;
+};
+
+/**
+ * Structured output generation result type
+ *
+ * Extends the standard Vercel AI SDK generateText result with structured output tracking.
+ * Used internally by the 3-phase structured output orchestration system.
+ *
+ * @property structuredOutputAchieved - Boolean indicating if schema validation succeeded
+ * @property structuredOutputPhase - Which phase succeeded (1=extract, 2=repair, 3=generateObject)
+ */
+export type GenerationResult = Awaited<ReturnType<typeof generateText>> & {
+  structuredOutputAchieved: boolean;
 };
