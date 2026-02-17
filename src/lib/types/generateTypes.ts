@@ -576,6 +576,7 @@ export type TextGenerationOptions = {
      */
     images?: Array<Buffer | string | import("./content.js").ImageWithAltText>;
     pdfFiles?: Array<Buffer | string>; // Support for PDF inputs (for image generation with Vertex AI)
+    files?: Array<Buffer | string | import("./fileTypes.js").FileWithMetadata>; // Auto-detect file types (including video for analysis)
   };
   provider?: AIProviderName;
   model?: string;

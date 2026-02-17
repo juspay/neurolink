@@ -672,7 +672,12 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     const framesDir = join(tempDir, "frames");
     await fs.mkdir(framesDir, { recursive: true });
 
-    await this.runFfmpegFrameExtraction(videoPath, framesDir, timestamps);
+    await this.runFfmpegFrameExtraction(
+      videoPath,
+      framesDir,
+      timestamps,
+      intervalSec,
+    );
 
     // Read extracted frames and resize with sharp
     const keyframes: Buffer[] = [];
@@ -721,16 +726,12 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     videoPath: string,
     outputDir: string,
     timestamps: number[],
+    intervalSec: number,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
-      // Build select filter expression: select='eq(n,0)+eq(n,250)+...'
-      // Instead, use fps filter for simpler approach - extract at regular intervals
-      // using -vf fps=1/interval approach which is more reliable
-
-      // Build timestamp-based filter
-      const selectExpr = timestamps
-        .map((t) => `gte(t\\,${t})*lt(t\\,${t + 0.5})`)
-        .join("+");
+      // Improved select expression to pick exactly one frame per interval
+      // instead of multiple frames within a 0.5s window.
+      const selectExpr = `isnan(prev_selected_t)+gte(t-prev_selected_t,${intervalSec}-0.001)`;
 
       const timeoutId = setTimeout(() => {
         reject(
@@ -1085,19 +1086,26 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
 
       const clampedCount = Math.min(frameCount, VIDEO_CONFIG.MAX_FRAMES);
       const timestamps: number[] = [];
+      let interval = duration;
+
       if (clampedCount === 1) {
         timestamps.push(startSec);
       } else {
-        const step = duration / (clampedCount - 1);
+        interval = duration / (clampedCount - 1);
         for (let i = 0; i < clampedCount; i++) {
-          timestamps.push(startSec + step * i);
+          timestamps.push(startSec + interval * i);
         }
       }
 
       // Extract frames
       const framesDir = join(tempDir, "frames");
       await fs.mkdir(framesDir, { recursive: true });
-      await this.runFfmpegFrameExtraction(tempVideoPath, framesDir, timestamps);
+      await this.runFfmpegFrameExtraction(
+        tempVideoPath,
+        framesDir,
+        timestamps,
+        interval,
+      );
 
       // Read and resize frames
       const keyframes: Buffer[] = [];

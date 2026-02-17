@@ -30,6 +30,10 @@ import {
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
 import { getKeyCount, getKeysAsString } from "../utils/transformationUtils.js";
 import { TTSProcessor } from "../utils/ttsProcessor.js";
+import {
+  hasVideoFrames,
+  executeVideoAnalysis,
+} from "../utils/videoAnalysisProcessor.js";
 import { GenerationHandler } from "./modules/GenerationHandler.js";
 // Import modules for composition
 import { MessageBuilder } from "./modules/MessageBuilder.js";
@@ -689,6 +693,28 @@ export abstract class BaseProvider implements AIProvider {
       const { tools, model } = await this.prepareGenerationContext(options);
       const messages = await this.buildMessages(options);
 
+      // ===== VIDEO ANALYSIS FROM MESSAGES CONTENT =====
+      // Check if video files are present in messages content array
+      // If video analysis is needed, perform it and return early to avoid running generation
+      if (hasVideoFrames(messages)) {
+        const videoAnalysisResult = await executeVideoAnalysis(messages, {
+          provider: options.provider,
+          providerName: this.providerName,
+          region: options.region,
+          model: options.model,
+        });
+
+        // Return video analysis result directly without running generation
+        const videoResult: EnhancedGenerateResult = {
+          content: videoAnalysisResult,
+          provider: options.provider ?? this.providerName,
+          model: this.modelName,
+          usage: { input: 0, output: 0, total: 0 }, // Video analysis doesn't use standard token counting
+        };
+
+        return await this.enhanceResult(videoResult, options, startTime);
+      }
+
       // Compose timeout signal with user-provided abort signal (mirrors stream path)
       const timeoutController = createTimeoutController(
         options.timeout,
@@ -719,7 +745,6 @@ export abstract class BaseProvider implements AIProvider {
         generateResult as unknown as Record<string, unknown>,
       );
       this.logGenerationComplete(generateResult);
-
       const responseTime = Date.now() - startTime;
       await this.recordPerformanceMetrics(generateResult.usage, responseTime);
 
@@ -1270,7 +1295,6 @@ export abstract class BaseProvider implements AIProvider {
     if (imageOutput) {
       enhancedResult.imageOutput = imageOutput;
     }
-
     return enhancedResult;
   }
 
