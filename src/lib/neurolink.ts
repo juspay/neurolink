@@ -3433,6 +3433,12 @@ Current user's request: ${currentInput}`;
         enhancedPromptPreview: enhancedSystemPrompt.substring(0, 500) + "...",
       });
 
+      logger.debug("[Observability] Full system prompt", {
+        requestId,
+        systemPromptLength: enhancedSystemPrompt.length,
+        systemPrompt: enhancedSystemPrompt,
+      });
+
       // Get conversation messages for context
       let conversationMessages = await getConversationMessages(
         this.conversationMemory,

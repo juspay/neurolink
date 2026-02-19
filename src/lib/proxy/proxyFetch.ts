@@ -329,6 +329,7 @@ export function createProxyFetch(): typeof fetch {
     });
   }
 
+
   // If no proxy configured, return instrumented standard fetch
   if (!httpsProxy && !httpProxy && !allProxy && !socksProxy) {
     logger.debug(
