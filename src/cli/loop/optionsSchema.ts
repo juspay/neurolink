@@ -31,6 +31,8 @@ export const textGenerationOptionsSchema: Record<
     | "abortSignal" // Runtime object, not CLI-settable
     | "toolFilter" // Array type, not simple CLI option
     | "excludeTools" // Array type, not simple CLI option
+    | "toolChoice" // Complex type, not suitable for simple CLI input
+    | "prepareStep" // Callback function, only usable via SDK
   >,
   OptionSchema
 > = {

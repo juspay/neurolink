@@ -178,6 +178,61 @@ Defined in: [types/generateTypes.ts:490](https://github.com/juspay/neurolink/blo
 
 Defined in: [types/generateTypes.ts:491](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L491)
 
+Maximum number of tool execution steps (default: 5).
+
+---
+
+### toolChoice?
+
+> `optional` **toolChoice**: `"auto"` \| `"none"` \| `"required"` \| \{ `type`: `"tool"`; `toolName`: `string` \}
+
+Defined in: [types/generateTypes.ts:506](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L506)
+
+Tool choice configuration for the generation.
+Controls whether and which tools the model must call.
+
+- `"auto"` (default): the model can choose whether and which tools to call
+- `"none"`: no tool calls allowed
+- `"required"`: the model must call at least one tool and calls indefinitely until maxSteps is reached and outputs empty string.
+- `{ type: "tool", toolName: string }`: the model must and only call the specified tool and calls indefinitely until maxSteps is reached and outputs empty string.
+
+> **Note:** When used without `prepareStep`, this applies to **every step** in the
+> `maxSteps` loop. Using `"required"` or `{ type: "tool" }` without `prepareStep`
+> will cause infinite tool calls until `maxSteps` is exhausted.
+
+---
+
+### prepareStep?
+
+> `optional` **prepareStep**: (`options`: \{ `steps`: `StepResult`[]; `stepNumber`: `number`; `maxSteps`: `number`; `model`: `LanguageModel` \}) => `PromiseLike`\<\{ `model?`: `LanguageModel`; `toolChoice?`: `ToolChoice`; `experimental_activeTools?`: `string`[] \} \| `undefined`\>
+
+Defined in: [types/generateTypes.ts:531](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/generateTypes.ts#L531)
+
+Optional callback that runs before each step in a multi-step generation.
+Allows dynamically changing `toolChoice` and available tools per step.
+
+This is the recommended way to enforce specific tool calls on certain steps
+while allowing the model freedom on others.
+
+Maps to Vercel AI SDK's `experimental_prepareStep`.
+
+#### Example
+
+```typescript
+prepareStep: async ({ stepNumber }) => {
+  if (stepNumber === 0) {
+    return {
+      toolChoice: { type: "tool", toolName: "sequentialThinking" },
+    };
+  }
+  return { toolChoice: "auto" };
+};
+```
+
+#### See
+
+[SDK Custom Tools Guide — Controlling Tool Execution](../../sdk-custom-tools.md#-controlling-tool-execution)
+
 ---
 
 ### tts?

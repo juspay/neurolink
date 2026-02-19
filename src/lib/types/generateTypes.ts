@@ -1,4 +1,4 @@
-import type { Schema, Tool } from "ai";
+import type { Schema, Tool, ToolChoice, StepResult, LanguageModel } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import type { RAGConfig } from "../rag/types.js";
 import type { AnalyticsData, TokenUsage } from "./analytics.js";
@@ -267,6 +267,61 @@ export type GenerateOptions = {
    * Default: false (backward compatible — tool schemas are injected into system prompt).
    */
   skipToolPromptInjection?: boolean;
+
+  /** Maximum number of tool execution steps (default: 200) */
+  maxSteps?: number;
+
+  /**
+   * Tool choice configuration for the generation.
+   * Controls whether and which tools the model must call.
+   *
+   * - `"auto"` (default): the model can choose whether and which tools to call
+   * - `"none"`: no tool calls allowed
+   * - `"required"`: the model must call at least one tool
+   * - `{ type: "tool", toolName: string }`: the model must call the specified tool
+   *
+   * Note: When used without `prepareStep`, this applies to **every step** in the
+   * `maxSteps` loop. Using `"required"` or `{ type: "tool" }` without `prepareStep`
+   * will cause infinite tool calls until `maxSteps` is exhausted.
+   */
+  toolChoice?: ToolChoice<Record<string, Tool>>;
+
+  /**
+   * Optional callback that runs before each step in a multi-step generation.
+   * Allows dynamically changing `toolChoice` and available tools per step.
+   *
+   * This is the recommended way to enforce specific tool calls on certain steps
+   * while allowing the model freedom on others.
+   *
+   * Maps to Vercel AI SDK's `experimental_prepareStep`.
+   *
+   * @example Force a specific tool on step 0, then switch to auto:
+   * ```typescript
+   * prepareStep: ({ stepNumber, steps }) => {
+   *   if (stepNumber === 0) {
+   *     return {
+   *       toolChoice: { type: 'tool', toolName: 'myTool' }
+   *     };
+   *   }
+   *   return { toolChoice: 'auto' };
+   * }
+   * ```
+   *
+   * @see https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#parameters
+   */
+  prepareStep?: (options: {
+    steps: StepResult<Record<string, Tool>>[];
+    stepNumber: number;
+    maxSteps: number;
+    model: LanguageModel;
+  }) => PromiseLike<
+    | {
+        model?: LanguageModel;
+        toolChoice?: ToolChoice<Record<string, Tool>>;
+        experimental_activeTools?: string[];
+      }
+    | undefined
+  >;
 
   // Analytics and Evaluation
   enableEvaluation?: boolean;
@@ -619,13 +674,65 @@ export type TextGenerationOptions = {
   /** AbortSignal for external cancellation of the AI call */
   abortSignal?: AbortSignal;
   disableTools?: boolean; // Disable tools (tools are enabled by default)
-  maxSteps?: number; // Maximum tool execution steps (default: 5)
+  maxSteps?: number; // Maximum tool execution steps (default: 200)
 
   /** Include only these tools by name (whitelist). If set, only matching tools are available. */
   toolFilter?: string[];
 
   /** Exclude these tools by name (blacklist). Applied after toolFilter. */
   excludeTools?: string[];
+
+  /**
+   * Tool choice configuration for the generation.
+   * Controls whether and which tools the model must call.
+   *
+   * - `"auto"` (default): the model can choose whether and which tools to call
+   * - `"none"`: no tool calls allowed
+   * - `"required"`: the model must call at least one tool
+   * - `{ type: "tool", toolName: string }`: the model must call the specified tool
+   *
+   * Note: When used without `prepareStep`, this applies to **every step** in the
+   * `maxSteps` loop. Using `"required"` or `{ type: "tool" }` without `prepareStep`
+   * will cause infinite tool calls until `maxSteps` is exhausted.
+   */
+  toolChoice?: ToolChoice<Record<string, Tool>>;
+
+  /**
+   * Optional callback that runs before each step in a multi-step generation.
+   * Allows dynamically changing `toolChoice` and available tools per step.
+   *
+   * This is the recommended way to enforce specific tool calls on certain steps
+   * while allowing the model freedom on others.
+   *
+   * Maps to Vercel AI SDK's `experimental_prepareStep`.
+   *
+   * @example Force a specific tool on step 0, then switch to auto:
+   * ```typescript
+   * prepareStep: ({ stepNumber, steps }) => {
+   *   if (stepNumber === 0) {
+   *     return {
+   *       toolChoice: { type: 'tool', toolName: 'myTool' }
+   *     };
+   *   }
+   *   return { toolChoice: 'auto' };
+   * }
+   * ```
+   *
+   * @see https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#parameters
+   */
+  prepareStep?: (options: {
+    steps: StepResult<Record<string, Tool>>[];
+    stepNumber: number;
+    maxSteps: number;
+    model: LanguageModel;
+  }) => PromiseLike<
+    | {
+        model?: LanguageModel;
+        toolChoice?: ToolChoice<Record<string, Tool>>;
+        experimental_activeTools?: string[];
+      }
+    | undefined
+  >;
 
   /**
    * Text-to-Speech (TTS) configuration

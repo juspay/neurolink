@@ -140,6 +140,9 @@ type GenerateOptions = {
   tools?: Record<string, Tool>; // Optional tool overrides
   timeout?: number | string; // 120 (seconds) or '2m', '1h'
   disableTools?: boolean;
+  maxSteps?: number; // Max tool execution steps (default: 5)
+  toolChoice?: ToolChoice; // 'auto' | 'none' | 'required' | { type: 'tool', toolName: string }
+  prepareStep?: PrepareStepCallback; // Per-step tool choice — see SDK Custom Tools Guide
   enableAnalytics?: boolean;
   enableEvaluation?: boolean;
   evaluationDomain?: string;
