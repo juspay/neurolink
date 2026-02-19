@@ -37,15 +37,20 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q1 2026)
 
-| Feature                             | Version | Description                                                                                                                                                   | Guide                                                         |
-| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| **External TracerProvider Support** | v8.43.0 | Integrate NeuroLink with existing OpenTelemetry instrumentation. Prevents duplicate registration conflicts.                                                   | [Observability Guide](docs/features/observability.md)         |
-| **Server Adapters**                 | v8.43.0 | Multi-framework HTTP server with Hono, Express, Fastify, Koa support. Full CLI for server management with foreground/background modes.                        | [Server Adapters Guide](docs/guides/server-adapters/index.md) |
-| **Title Generation Events**         | v8.38.0 | Emit `conversation:titleGenerated` event when conversation title is generated. Supports custom title prompts via `NEUROLINK_TITLE_PROMPT`.                    | [Conversation Memory Guide](docs/conversation-memory.md)      |
-| **Video Generation with Veo**       | v8.32.0 | Video generation using Veo 3.1 (`veo-3.1`). Realistic video generation with many parameter options                                                            | [Video Generation Guide](docs/features/video-generation.md)   |
-| **Image Generation with Gemini**    | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.                | [Image Generation Guide](docs/image-generation-streaming.md)  |
-| **RAG with generate()/stream()**    | v9.2.0  | Pass `rag: { files }` to generate/stream for automatic document chunking, embedding, and AI-powered search. 10 chunking strategies, hybrid search, reranking. | [RAG Guide](docs/features/rag.md)                             |
-| **HTTP/Streamable HTTP Transport**  | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.                 | [HTTP Transport Guide](docs/mcp-http-transport.md)            |
+| Feature                             | Version | Description                                                                                                                                                   | Guide                                                                 |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **MCP Enhancements**                | v9.16.0 | Advanced MCP features: tool routing, result caching, request batching, annotations, elicitation, custom server base, multi-server management                  | [MCP Enhancements Guide](docs/features/mcp-enhancements.md)           |
+| **Memory**                          | v9.12.0 | Per-user condensed memory that persists across conversations. LLM-powered condensation with S3, Redis, or SQLite backends.                                    | [Memory Guide](docs/features/memory.md)                               |
+| **Context Window Management**       | v9.2.0  | 4-stage compaction pipeline with auto-detection, budget gate at 80% usage, per-provider token estimation                                                      | [Context Compaction Guide](docs/features/context-compaction.md)       |
+| **Tool Execution Control**          | v9.3.0  | `prepareStep` and `toolChoice` support for per-step tool enforcement in multi-step agentic loops. API-level control over tool calls.                          | [API Reference](docs/api/type-aliases/GenerateOptions.md#preparestep) |
+| **File Processor System**           | v9.1.0  | 17+ file type processors with ProcessorRegistry, security sanitization, SVG text injection                                                                    | [File Processors Guide](docs/features/file-processors.md)             |
+| **RAG with generate()/stream()**    | v9.2.0  | Pass `rag: { files }` to generate/stream for automatic document chunking, embedding, and AI-powered search. 10 chunking strategies, hybrid search, reranking. | [RAG Guide](docs/features/rag.md)                                     |
+| **External TracerProvider Support** | v8.43.0 | Integrate NeuroLink with existing OpenTelemetry instrumentation. Prevents duplicate registration conflicts.                                                   | [Observability Guide](docs/features/observability.md)                 |
+| **Server Adapters**                 | v8.43.0 | Multi-framework HTTP server with Hono, Express, Fastify, Koa support. Full CLI for server management with foreground/background modes.                        | [Server Adapters Guide](docs/guides/server-adapters/index.md)         |
+| **Title Generation Events**         | v8.38.0 | Emit `conversation:titleGenerated` event when conversation title is generated. Supports custom title prompts via `NEUROLINK_TITLE_PROMPT`.                    | [Conversation Memory Guide](docs/conversation-memory.md)              |
+| **Video Generation with Veo**       | v8.32.0 | Video generation using Veo 3.1 (`veo-3.1`). Realistic video generation with many parameter options                                                            | [Video Generation Guide](docs/features/video-generation.md)           |
+| **Image Generation with Gemini**    | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.                | [Image Generation Guide](docs/image-generation-streaming.md)          |
+| **HTTP/Streamable HTTP Transport**  | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.                 | [HTTP Transport Guide](docs/mcp-http-transport.md)                    |
 
 - **Memory** – Per-user condensed memory that persists across all conversations. Automatically retrieves and stores memory on each `generate()`/`stream()` call. Supports S3, Redis, and SQLite storage with LLM-powered condensation. → [Memory Guide](docs/features/memory.md)
 - **External TracerProvider Support** – Integrate NeuroLink with applications that already have OpenTelemetry instrumentation. Supports auto-detection and manual configuration. → [Observability Guide](docs/features/observability.md)
@@ -69,6 +74,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 - **Human-in-the-loop workflows** – Pause generation for user approval/input before tool execution. → [HITL Guide](docs/features/hitl.md)
 - **Guardrails middleware** – Block PII, profanity, and unsafe content with built-in filtering. → [Guardrails Guide](docs/features/guardrails.md)
 - **Context summarization** – Automatic conversation compression for long-running sessions. → [Summarization Guide](docs/context-summarization.md)
+- **MCP Enhancements** – 14 production-grade modules: tool routing (6 strategies), result caching (LRU/FIFO/LFU), request batching, tool annotations with auto-inference, middleware chain, elicitation protocol, multi-server management, and more. → [MCP Enhancements Guide](docs/features/mcp-enhancements.md)
 - **Redis conversation export** – Export full session history as JSON for analytics and debugging. → [History Guide](docs/features/conversation-history.md)
 
 ```typescript
@@ -230,6 +236,50 @@ const result = await neurolink.generate({
 
 **[📖 MCP Integration Guide](docs/advanced/mcp-integration.md)** - Setup external servers
 **[📖 HTTP Transport Guide](docs/mcp-http-transport.md)** - Remote MCP server configuration
+
+---
+
+### 🔌 MCP Enhancements
+
+**Production-grade MCP capabilities** for managing tool calls at scale across multi-server environments:
+
+| Module                        | Purpose                                                    |
+| ----------------------------- | ---------------------------------------------------------- |
+| **Tool Router**               | Intelligent routing across servers with 6 strategies       |
+| **Tool Cache**                | Result caching with LRU, FIFO, and LFU eviction            |
+| **Request Batcher**           | Automatic batching of tool calls for throughput            |
+| **Tool Annotations**          | Safety metadata and behavior hints for MCP tools           |
+| **Tool Converter**            | Bidirectional conversion between NeuroLink and MCP formats |
+| **Elicitation Protocol**      | Interactive user input during tool execution (HITL)        |
+| **Multi-Server Manager**      | Load balancing and failover across server groups           |
+| **MCP Server Base**           | Abstract base class for building custom MCP servers        |
+| **Enhanced Tool Discovery**   | Advanced search and filtering across servers               |
+| **Agent & Workflow Exposure** | Expose agents and workflows as MCP tools                   |
+| **Server Capabilities**       | Resource and prompt management per MCP spec                |
+| **Registry Client**           | Discover and connect to MCP servers from registries        |
+| **Tool Integration**          | End-to-end tool lifecycle with middleware chain            |
+| **Elicitation Manager**       | Manages elicitation flows with validation and timeouts     |
+
+```typescript
+import { ToolRouter, ToolCache, RequestBatcher } from "@juspay/neurolink";
+
+// Route tool calls across multiple MCP servers
+const router = new ToolRouter({
+  strategy: "capability-based",
+  servers: [
+    { name: "github", url: "https://mcp-github.example.com" },
+    { name: "db", url: "https://mcp-postgres.example.com" },
+  ],
+});
+
+// Cache repeated tool results (LRU, FIFO, or LFU)
+const cache = new ToolCache({ strategy: "lru", maxSize: 500, ttl: 60_000 });
+
+// Batch concurrent tool calls for throughput
+const batcher = new RequestBatcher({ maxBatchSize: 10, maxWaitMs: 50 });
+```
+
+**[📖 MCP Enhancements Guide](docs/features/mcp-enhancements.md)** - Full reference for all 14 modules
 
 ---
 

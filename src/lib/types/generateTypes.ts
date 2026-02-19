@@ -282,6 +282,9 @@ export type GenerateOptions = {
    */
   skipToolPromptInjection?: boolean;
 
+  /** Disable tool result caching for this request (overrides global mcp.cache.enabled) */
+  disableToolCache?: boolean;
+
   /** Maximum number of tool execution steps (default: 200) */
   maxSteps?: number;
 
@@ -729,6 +732,9 @@ export type TextGenerationOptions = {
 
   /** Exclude these tools by name (blacklist). Applied after toolFilter. */
   excludeTools?: string[];
+
+  /** Disable tool result caching for this request (overrides global mcp.cache.enabled) */
+  disableToolCache?: boolean;
 
   /**
    * Tool choice configuration for the generation.

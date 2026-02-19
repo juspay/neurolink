@@ -119,4 +119,9 @@ export const textGenerationOptionsSchema: Record<
     description:
       "Skip injecting tool descriptions into the system prompt. Useful when tool info is already provided.",
   },
+  disableToolCache: {
+    type: "boolean",
+    description:
+      "Disable tool result caching for this request (overrides global mcp.cache.enabled).",
+  },
 };

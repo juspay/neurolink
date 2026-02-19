@@ -56,9 +56,18 @@ import { ProviderRegistry } from "./factories/providerRegistry.js";
 import { FileReferenceRegistry } from "./files/fileReferenceRegistry.js";
 import { createFileTools } from "./files/fileTools.js";
 import { HITLManager } from "./hitl/hitlManager.js";
+import { ToolCallBatcher } from "./mcp/batching/index.js";
+// MCP Enhancement modules - wired into core execution path
+import { ToolResultCache } from "./mcp/caching/index.js";
+import { EnhancedToolDiscovery } from "./mcp/enhancedToolDiscovery.js";
 import { ExternalServerManager } from "./mcp/externalServerManager.js";
+import type { MCPTool, RoutingDecision } from "./mcp/routing/index.js";
+import { ToolRouter } from "./mcp/routing/index.js";
 // Import direct tools server for automatic registration
 import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
+import type { MCPToolAnnotations } from "./mcp/toolAnnotations.js";
+import { inferAnnotations, isSafeToRetry } from "./mcp/toolAnnotations.js";
+import type { ToolMiddleware } from "./mcp/toolIntegration.js";
 import { MCPToolRegistry } from "./mcp/toolRegistry.js";
 import {
   type HippocampusConfig,
@@ -94,7 +103,10 @@ import type {
   TypedEventEmitter,
   UnknownRecord,
 } from "./types/common.js";
-import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
+import type {
+  MCPEnhancementsConfig,
+  NeurolinkConstructorConfig,
+} from "./types/configTypes.js";
 import type {
   ChatMessage,
   ConversationMemoryConfig,
@@ -433,6 +445,15 @@ export class NeuroLink {
         ?.sessionId as string) || "__default__"
     );
   }
+
+  // MCP Enhancement modules - wired into core execution path
+  private mcpToolResultCache?: ToolResultCache;
+  private mcpToolRouter?: ToolRouter;
+  private mcpToolBatcher?: ToolCallBatcher;
+  private mcpEnhancedDiscovery?: EnhancedToolDiscovery;
+  private mcpToolMiddlewares: ToolMiddleware[] = [];
+  private _disableToolCacheForCurrentRequest = false;
+  private mcpEnhancementsConfig?: MCPEnhancementsConfig;
 
   // Enhanced error handling support
   private toolCircuitBreakers: Map<string, CircuitBreaker> = new Map();
@@ -784,6 +805,7 @@ export class NeuroLink {
       constructorStartTime,
       constructorHrTimeStart,
     );
+    this.initializeMCPEnhancements(config);
     this.registerFileTools();
     this.registerMemoryRetrievalTools();
     this.initializeLangfuse(
@@ -1007,6 +1029,64 @@ export class NeuroLink {
           "HITL (Human-in-the-Loop) not enabled - skipping initialization",
       });
     }
+  }
+
+  /**
+   * Initialize MCP enhancement modules (cache, router, batcher, discovery).
+   * Wires standalone MCP modules into the core SDK execution path.
+   */
+  private initializeMCPEnhancements(config?: NeurolinkConstructorConfig): void {
+    const mcpConfig = config?.mcp;
+    this.mcpEnhancementsConfig = mcpConfig;
+
+    // ToolCache — disabled by default, opt-in
+    if (mcpConfig?.cache?.enabled) {
+      this.mcpToolResultCache = new ToolResultCache({
+        ttl: mcpConfig.cache.ttl ?? 300_000,
+        maxSize: mcpConfig.cache.maxSize ?? 500,
+        strategy: mcpConfig.cache.strategy ?? "lru",
+      });
+      logger.debug("[NeuroLink] MCP tool result cache initialized", {
+        ttl: mcpConfig.cache.ttl ?? 300_000,
+        maxSize: mcpConfig.cache.maxSize ?? 500,
+        strategy: mcpConfig.cache.strategy ?? "lru",
+      });
+    }
+
+    // ToolCallBatcher — disabled by default, opt-in
+    if (mcpConfig?.batcher?.enabled) {
+      this.mcpToolBatcher = new ToolCallBatcher({
+        maxBatchSize: mcpConfig.batcher.maxBatchSize ?? 10,
+        maxWaitMs: mcpConfig.batcher.maxWaitMs ?? 100,
+      });
+      // Wire batcher to execute tools via the internal execution path (bypass batcher itself)
+      this.mcpToolBatcher.setToolExecutor(
+        async (tool: string, args: unknown) => {
+          return this.executeToolInternal(tool, args, {
+            timeout: TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS,
+            maxRetries: RETRY_ATTEMPTS.DEFAULT,
+            retryDelayMs: RETRY_DELAYS.BASE_MS,
+          });
+        },
+      );
+      logger.debug("[NeuroLink] MCP tool call batcher initialized");
+    }
+
+    // EnhancedToolDiscovery — enabled by default
+    if (mcpConfig?.discovery?.enabled !== false) {
+      this.mcpEnhancedDiscovery = new EnhancedToolDiscovery();
+      logger.debug("[NeuroLink] Enhanced tool discovery initialized");
+    }
+
+    // Middleware — store from config (empty by default)
+    if (mcpConfig?.middleware?.length) {
+      this.mcpToolMiddlewares = [...mcpConfig.middleware];
+      logger.debug("[NeuroLink] MCP tool middlewares registered", {
+        count: this.mcpToolMiddlewares.length,
+      });
+    }
+
+    // ToolRouter — lazy-initialized when 2+ external servers exist (see addExternalMCPServer)
   }
 
   /**
@@ -2889,6 +2969,10 @@ Current user's request: ${currentInput}`;
                 this.modelAliasConfig,
               );
 
+              // MCP Enhancement: propagate disableToolCache to tool execution
+              this._disableToolCacheForCurrentRequest =
+                !!options.disableToolCache;
+
               // Set span attributes for observability
               generateSpan.setAttribute(
                 "neurolink.provider",
@@ -3363,6 +3447,7 @@ Current user's request: ${currentInput}`;
               }
               throw error;
             } finally {
+              this._disableToolCacheForCurrentRequest = false;
               generateSpan.end();
             }
           },
@@ -4836,7 +4921,10 @@ Current user's request: ${currentInput}`;
       provider.setupToolExecutor(
         {
           customTools: this.getCustomTools(),
-          executeTool: this.executeTool.bind(this),
+          executeTool: (toolName: string, params: unknown) =>
+            this.executeTool(toolName, params, {
+              disableToolCache: options.disableToolCache,
+            }),
         },
         functionTag,
       );
@@ -5160,7 +5248,10 @@ Current user's request: ${currentInput}`;
         provider.setupToolExecutor(
           {
             customTools: this.getCustomTools(),
-            executeTool: this.executeTool.bind(this),
+            executeTool: (toolName: string, params: unknown) =>
+              this.executeTool(toolName, params, {
+                disableToolCache: options.disableToolCache,
+              }),
           },
           functionTag,
         );
@@ -5481,6 +5572,8 @@ Current user's request: ${currentInput}`;
           },
         });
         const spanStartTime = Date.now();
+        // MCP Enhancement: propagate disableToolCache to tool execution
+        this._disableToolCacheForCurrentRequest = !!options.disableToolCache;
 
         try {
           // NL-004: Resolve model aliases/deprecations before processing
@@ -5523,6 +5616,7 @@ Current user's request: ${currentInput}`;
 
             // Wrap the workflow stream so the span stays open until fully consumed
             const originalWorkflowStream = result.stream;
+            const selfWorkflow = this;
             result.stream = (async function* () {
               try {
                 for await (const chunk of originalWorkflowStream) {
@@ -5537,6 +5631,7 @@ Current user's request: ${currentInput}`;
                 });
                 throw error;
               } finally {
+                selfWorkflow._disableToolCacheForCurrentRequest = false;
                 streamSpan.setAttribute(
                   "neurolink.response_time_ms",
                   Date.now() - spanStartTime,
@@ -5702,6 +5797,7 @@ Current user's request: ${currentInput}`;
 
                   throw error;
                 } finally {
+                  self._disableToolCacheForCurrentRequest = false;
                   cleanupListeners();
 
                   // Finalize span now that the stream is fully consumed
@@ -6188,7 +6284,10 @@ Current user's request: ${currentInput}`;
       fallbackProvider.setupToolExecutor(
         {
           customTools: this.getCustomTools(),
-          executeTool: this.executeTool.bind(this),
+          executeTool: (toolName: string, params: unknown) =>
+            this.executeTool(toolName, params, {
+              disableToolCache: enhancedOptions.disableToolCache,
+            }),
         },
         "NeuroLink.fallbackStream",
       );
@@ -6463,7 +6562,10 @@ Current user's request: ${currentInput}`;
     provider.setupToolExecutor(
       {
         customTools: this.getCustomTools(),
-        executeTool: this.executeTool.bind(this),
+        executeTool: (toolName: string, params: unknown) =>
+          this.executeTool(toolName, params, {
+            disableToolCache: options.disableToolCache,
+          }),
       },
       "NeuroLink.createMCPStream",
     );
@@ -7376,6 +7478,47 @@ Current user's request: ${currentInput}`;
     return removed;
   }
 
+  // ==================== MCP Enhancement Public APIs ====================
+
+  /**
+   * Register a global tool middleware that runs on every tool execution.
+   * Middleware receives the tool, params, context, and a next() function.
+   * @param middleware - The middleware function to register
+   * @returns this (for chaining)
+   */
+  useToolMiddleware(
+    middleware: import("./mcp/toolIntegration.js").ToolMiddleware,
+  ): this {
+    this.mcpToolMiddlewares.push(middleware);
+    logger.debug(
+      `[NeuroLink] Registered tool middleware (total: ${this.mcpToolMiddlewares.length})`,
+    );
+    return this;
+  }
+
+  /**
+   * Get all registered tool middlewares
+   */
+  getToolMiddlewares(): import("./mcp/toolIntegration.js").ToolMiddleware[] {
+    return [...this.mcpToolMiddlewares];
+  }
+
+  /**
+   * Flush any pending batched tool calls immediately
+   */
+  async flushToolBatch(): Promise<void> {
+    if (this.mcpToolBatcher) {
+      await this.mcpToolBatcher.flush();
+    }
+  }
+
+  /**
+   * Get the current MCP enhancements configuration
+   */
+  getMCPEnhancementsConfig(): MCPEnhancementsConfig | undefined {
+    return this.mcpEnhancementsConfig;
+  }
+
   /**
    * Update agentic loop report metadata for a conversation session.
    * Upserts a report entry by reportId — updates existing or adds new.
@@ -7666,6 +7809,10 @@ Current user's request: ${currentInput}`;
       timeout?: number;
       maxRetries?: number;
       retryDelayMs?: number;
+      /** Disable tool result caching for this call */
+      disableToolCache?: boolean;
+      /** Bypass the request batcher for this call */
+      bypassBatcher?: boolean;
       authContext?: {
         userId?: string;
         sessionId?: string;
@@ -7676,6 +7823,11 @@ Current user's request: ${currentInput}`;
   ): Promise<T> {
     const functionTag = "NeuroLink.executeTool";
     const executionStartTime = Date.now();
+
+    // === MCP ENHANCEMENT: RequestBatcher — batch programmatic tool calls ===
+    if (this.mcpToolBatcher && !options?.bypassBatcher) {
+      return this.mcpToolBatcher.execute(toolName, params) as Promise<T>;
+    }
 
     // Determine tool type for span attributes
     const externalTools = this.externalServerManager.getAllTools();
@@ -7757,6 +7909,7 @@ Current user's request: ${currentInput}`;
             maxRetries: options?.maxRetries || RETRY_ATTEMPTS.DEFAULT, // Default 2 retries for retriable errors
             retryDelayMs: options?.retryDelayMs || RETRY_DELAYS.BASE_MS, // 1 second delay between retries
             authContext: options?.authContext, // Pass through authentication context
+            disableToolCache: options?.disableToolCache, // Pass through cache bypass flag
           };
 
           // Track memory usage for tool execution
@@ -8071,7 +8224,11 @@ Current user's request: ${currentInput}`;
   }
 
   /**
-   * Internal tool execution method (extracted for better error handling)
+   * Internal tool execution method with MCP enhancements wired in:
+   * - ToolCache: check/store cached results for non-destructive tools
+   * - ToolRouter: route to best server when same tool exists on multiple servers
+   * - Annotations: skip cache for destructive tools, retry safe tools on failure
+   * - Middleware: apply global middleware chain before execution
    */
   private async executeToolInternal<T = unknown>(
     toolName: string,
@@ -8080,6 +8237,7 @@ Current user's request: ${currentInput}`;
       timeout: number;
       maxRetries: number;
       retryDelayMs: number;
+      disableToolCache?: boolean;
       authContext?: {
         userId?: string;
         sessionId?: string;
@@ -8090,109 +8248,268 @@ Current user's request: ${currentInput}`;
   ): Promise<T> {
     const functionTag = "NeuroLink.executeToolInternal";
 
-    // Check external MCP servers
-    const externalTools = this.externalServerManager.getAllTools();
-    const externalTool = externalTools.find((tool) => tool.name === toolName);
+    // === MCP ENHANCEMENT: Infer annotations for cache/retry decisions ===
+    const toolAnnotations = this.getToolAnnotationsForExecution(toolName);
+    const isCacheEnabled =
+      this.mcpToolResultCache &&
+      !options.disableToolCache &&
+      !this._disableToolCacheForCurrentRequest &&
+      !toolAnnotations?.destructiveHint;
 
-    logger.debug(`[${functionTag}] External MCP tool search:`, {
-      toolName,
-      externalToolsCount: externalTools.length,
-      foundTool: !!externalTool,
-      isAvailable: externalTool?.isAvailable,
-      serverId: externalTool?.serverId,
-    });
-
-    if (externalTool && externalTool.isAvailable) {
-      try {
-        mcpLogger.debug(
-          `[${functionTag}] Executing external MCP tool: ${toolName} from ${externalTool.serverId}`,
-        );
-
-        const result = await this.externalServerManager.executeTool(
-          externalTool.serverId,
-          toolName,
-          params as JsonObject,
-          { timeout: options.timeout },
-        );
-
-        logger.debug(
-          `[${functionTag}] External MCP tool execution successful:`,
-          {
-            toolName,
-            serverId: externalTool.serverId,
-            resultType: typeof result,
-          },
-        );
-
-        return result as T;
-      } catch (error) {
-        logger.error(`[${functionTag}] External MCP tool execution failed:`, {
-          toolName,
-          serverId: externalTool.serverId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw ErrorFactory.toolExecutionFailed(
-          toolName,
-          error instanceof Error ? error : new Error(String(error)),
-          externalTool.serverId,
-        );
+    // === MCP ENHANCEMENT: Cache check (before execution) ===
+    if (isCacheEnabled) {
+      const cached = this.mcpToolResultCache!.getCachedResult(toolName, params);
+      if (cached !== undefined) {
+        logger.debug(`[${functionTag}] Cache HIT for tool: ${toolName}`);
+        return cached as T;
       }
     }
 
-    try {
-      const storedContext = this.toolExecutionContext || {};
-      const passedAuthContext = options.authContext || {};
+    // === MCP ENHANCEMENT: Middleware chain wrapper ===
+    const executeWithMiddleware = async (
+      executeFn: () => Promise<T>,
+    ): Promise<T> => {
+      if (this.mcpToolMiddlewares.length === 0) {
+        return executeFn();
+      }
 
-      const context = {
-        ...storedContext,
-        ...passedAuthContext,
+      // Build middleware chain: each middleware calls next() to proceed
+      let index = 0;
+      const next = async (): Promise<unknown> => {
+        if (index < this.mcpToolMiddlewares.length) {
+          const middleware = this.mcpToolMiddlewares[index++];
+          // Cast to MCPServerTool — middleware only inspects name/description/annotations
+          const toolStub = {
+            name: toolName,
+            description: "",
+            inputSchema: {},
+            annotations: toolAnnotations,
+            execute: async () => ({}),
+          } as import("./mcp/toolAnnotations.js").MCPServerTool;
+          // Provide minimal context — elicitation is optional for most middleware
+          const middlewareContext = {
+            toolMeta: { name: toolName, annotations: toolAnnotations },
+          } as unknown as import("./mcp/toolIntegration.js").EnhancedExecutionContext;
+          return middleware(toolStub, params, middlewareContext, next);
+        }
+        return executeFn();
       };
 
-      logger.debug(`[Using merged context for unified registry tool:`, {
+      return (await next()) as T;
+    };
+
+    // === Execute the tool (with middleware wrapper) ===
+    const executeCore = async (): Promise<T> => {
+      // Check external MCP servers
+      const externalTools = this.externalServerManager.getAllTools();
+
+      // === MCP ENHANCEMENT: ToolRouter for multi-server routing ===
+      const matchingTools = externalTools.filter(
+        (tool) => tool.name === toolName && tool.isAvailable,
+      );
+
+      let externalTool: ExternalMCPToolInfo | undefined;
+
+      if (matchingTools.length > 1 && this.mcpToolRouter) {
+        // Multiple servers have this tool — use router to pick the best one
+        try {
+          const mcpTool: MCPTool = {
+            name: toolName,
+            description: matchingTools[0].description ?? "",
+            serverId: matchingTools[0].serverId,
+            inputSchema: {},
+          };
+          const decision: RoutingDecision = this.mcpToolRouter.route(mcpTool);
+          externalTool =
+            matchingTools.find((t) => t.serverId === decision.serverId) ||
+            matchingTools[0];
+          logger.debug(
+            `[${functionTag}] Router selected server: ${decision.serverId}`,
+            {
+              strategy: decision.strategy,
+              confidence: decision.confidence,
+            },
+          );
+        } catch (routerError) {
+          logger.warn(
+            `[${functionTag}] Router failed, falling back to first match`,
+            { error: routerError },
+          );
+          externalTool = matchingTools[0];
+        }
+      } else {
+        externalTool = matchingTools[0];
+      }
+
+      logger.debug(`[${functionTag}] External MCP tool search:`, {
         toolName,
-        storedContextKeys: Object.keys(storedContext),
-        finalContextKeys: Object.keys(context),
+        externalToolsCount: externalTools.length,
+        foundTool: !!externalTool,
+        isAvailable: externalTool?.isAvailable,
+        serverId: externalTool?.serverId,
       });
 
-      const result = (await this.toolRegistry.executeTool(
-        toolName,
-        params,
-        context,
-      )) as T;
+      if (externalTool && externalTool.isAvailable) {
+        try {
+          mcpLogger.debug(
+            `[${functionTag}] Executing external MCP tool: ${toolName} from ${externalTool.serverId}`,
+          );
 
-      // ADD: Check if result indicates a failure and emit error event
-      if (
-        result &&
-        typeof result === "object" &&
-        "success" in result &&
-        result.success === false
-      ) {
-        const errorMessage =
-          (result as { error?: string }).error || "Tool execution failed";
-        const errorToEmit = new Error(errorMessage);
+          const result = await this.externalServerManager.executeTool(
+            externalTool.serverId,
+            toolName,
+            params as JsonObject,
+            { timeout: options.timeout },
+          );
+
+          logger.debug(
+            `[${functionTag}] External MCP tool execution successful:`,
+            {
+              toolName,
+              serverId: externalTool.serverId,
+              resultType: typeof result,
+            },
+          );
+
+          return result as T;
+        } catch (error) {
+          logger.error(`[${functionTag}] External MCP tool execution failed:`, {
+            toolName,
+            serverId: externalTool.serverId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          throw ErrorFactory.toolExecutionFailed(
+            toolName,
+            error instanceof Error ? error : new Error(String(error)),
+            externalTool.serverId,
+          );
+        }
+      }
+
+      // Execute via tool registry (custom/built-in tools)
+      try {
+        const storedContext = this.toolExecutionContext || {};
+        const passedAuthContext = options.authContext || {};
+
+        const context = {
+          ...storedContext,
+          ...passedAuthContext,
+        };
+
+        logger.debug(`[Using merged context for unified registry tool:`, {
+          toolName,
+          storedContextKeys: Object.keys(storedContext),
+          finalContextKeys: Object.keys(context),
+        });
+
+        const result = (await this.toolRegistry.executeTool(
+          toolName,
+          params,
+          context,
+        )) as T;
+
+        // Check if result indicates a failure and emit error event
+        if (
+          result &&
+          typeof result === "object" &&
+          "success" in result &&
+          result.success === false
+        ) {
+          const errorMessage =
+            (result as { error?: string }).error || "Tool execution failed";
+          const errorToEmit = new Error(errorMessage);
+          this.emitter.emit("error", errorToEmit);
+        }
+
+        return result;
+      } catch (error) {
+        const errorToEmit =
+          error instanceof Error ? error : new Error(String(error));
         this.emitter.emit("error", errorToEmit);
+
+        // Check if tool was not found
+        if (error instanceof Error && error.message.includes("not found")) {
+          const availableTools = await this.getAllAvailableTools();
+          throw ErrorFactory.toolNotFound(
+            toolName,
+            availableTools.map((t) => t.name),
+          );
+        }
+
+        throw ErrorFactory.toolExecutionFailed(
+          toolName,
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      }
+    };
+
+    // Execute with middleware chain
+    try {
+      const result = await executeWithMiddleware(executeCore);
+
+      // === MCP ENHANCEMENT: Cache store (after successful execution) ===
+      if (isCacheEnabled && result !== undefined) {
+        this.mcpToolResultCache!.cacheResult(toolName, params, result);
+        logger.debug(`[${functionTag}] Cached result for tool: ${toolName}`);
       }
 
       return result;
     } catch (error) {
-      const errorToEmit =
-        error instanceof Error ? error : new Error(String(error));
-      this.emitter.emit("error", errorToEmit);
-
-      // Check if tool was not found
-      if (error instanceof Error && error.message.includes("not found")) {
-        const availableTools = await this.getAllAvailableTools();
-        throw ErrorFactory.toolNotFound(
-          toolName,
-          availableTools.map((t) => t.name),
+      // === MCP ENHANCEMENT: Retry safe tools on failure ===
+      const toolStubForRetry = toolAnnotations
+        ? ({
+            name: toolName,
+            description: "",
+            annotations: toolAnnotations,
+            execute: async () => ({}),
+          } as import("./mcp/toolAnnotations.js").MCPServerTool)
+        : undefined;
+      if (
+        toolStubForRetry &&
+        isSafeToRetry(toolStubForRetry) &&
+        error instanceof Error &&
+        isRetriableError(error)
+      ) {
+        logger.debug(
+          `[${functionTag}] Tool ${toolName} is safe to retry, attempting once more`,
         );
+        try {
+          const retryResult = await executeWithMiddleware(executeCore);
+
+          // Cache the retry result
+          if (isCacheEnabled && retryResult !== undefined) {
+            this.mcpToolResultCache!.cacheResult(toolName, params, retryResult);
+          }
+
+          return retryResult;
+        } catch {
+          // Retry failed, throw original error
+        }
       }
 
-      throw ErrorFactory.toolExecutionFailed(
-        toolName,
-        error instanceof Error ? error : new Error(String(error)),
-      );
+      throw error;
     }
+  }
+
+  /**
+   * Get tool annotations for execution decisions (cache, retry).
+   * Checks cached tool list first, falls back to inference from tool name.
+   */
+  private getToolAnnotationsForExecution(
+    toolName: string,
+  ): MCPToolAnnotations | undefined {
+    // Check tool cache for stored annotations
+    if (this.toolCache?.tools) {
+      const tool = this.toolCache.tools.find((t) => t.name === toolName);
+      if (tool?.annotations) {
+        return tool.annotations as MCPToolAnnotations;
+      }
+    }
+    // Fallback: infer from tool name if annotations are enabled
+    if (this.mcpEnhancementsConfig?.annotations?.autoInfer !== false) {
+      return inferAnnotations({ name: toolName, description: "" });
+    }
+    return undefined;
   }
 
   /**
@@ -8342,6 +8659,18 @@ Current user's request: ${currentInput}`;
           mcpLogger.debug(
             "💡 Tool collection optimized for large sets. Memory usage reduced through efficient object reuse.",
           );
+        }
+      }
+
+      // === MCP ENHANCEMENT: Auto-infer annotations for all tools ===
+      if (this.mcpEnhancementsConfig?.annotations?.autoInfer !== false) {
+        for (const tool of uniqueTools) {
+          if (!tool.annotations) {
+            tool.annotations = inferAnnotations({
+              name: tool.name,
+              description: tool.description || "",
+            });
+          }
         }
       }
 
@@ -9540,6 +9869,28 @@ Current user's request: ${currentInput}`;
           },
         );
 
+        // === MCP ENHANCEMENT: Lazy-init ToolRouter when 2+ servers exist ===
+        if (this.mcpEnhancementsConfig?.router?.enabled !== false) {
+          const servers = this.externalServerManager.listServers();
+          if (servers.length >= 2 && !this.mcpToolRouter) {
+            this.mcpToolRouter = new ToolRouter({
+              strategy:
+                this.mcpEnhancementsConfig?.router?.strategy ?? "least-loaded",
+              enableAffinity:
+                this.mcpEnhancementsConfig?.router?.enableAffinity ?? false,
+            });
+            // Register all existing servers
+            for (const server of servers) {
+              this.mcpToolRouter.registerServer(server.id || serverId);
+            }
+            logger.debug(
+              "[NeuroLink] ToolRouter auto-initialized (2+ external servers)",
+            );
+          } else if (this.mcpToolRouter) {
+            this.mcpToolRouter.registerServer(serverId);
+          }
+        }
+
         // Emit server added event
         this.emitter.emit("externalMCP:serverAdded", {
           serverId,
@@ -9714,7 +10065,10 @@ Current user's request: ${currentInput}`;
     config: MCPServerInfo,
   ): Promise<BatchOperationResult> {
     try {
-      const { MCPClientFactory } = await import("./mcp/mcpClientFactory.js");
+      const { MCPClientFactory } = await withTimeout(
+        import("./mcp/mcpClientFactory.js"),
+        10000,
+      );
 
       const testResult = await MCPClientFactory.testConnection(config, 10000);
 
@@ -9767,6 +10121,346 @@ Current user's request: ${currentInput}`;
       );
       throw error;
     }
+  }
+
+  // ===== MCP ENHANCEMENTS SDK METHODS =====
+
+  /**
+   * Get the global elicitation manager for interactive tool input
+   * Elicitation allows tools to request additional information from users during execution
+   * @returns The global ElicitationManager instance
+   * @example
+   * ```typescript
+   * const elicitationManager = neurolink.getElicitationManager();
+   *
+   * // Register a handler for confirmations
+   * elicitationManager.registerHandler(async (request) => {
+   *   if (request.type === 'confirmation') {
+   *     const answer = await askUser(request.message);
+   *     return { confirmed: answer === 'yes' };
+   *   }
+   * });
+   * ```
+   */
+  async getElicitationManager() {
+    // Dynamically import to avoid circular dependencies
+    const mod = (await withTimeout(
+      import("./mcp/elicitation/index.js"),
+      10000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    )) as any;
+    return mod.globalElicitationManager;
+  }
+
+  /**
+   * Register an elicitation handler for interactive tool input
+   * Handlers are called when tools need user input during execution
+   * @param handler - Function to handle elicitation requests
+   * @example
+   * ```typescript
+   * neurolink.registerElicitationHandler(async (request) => {
+   *   switch (request.type) {
+   *     case 'confirmation':
+   *       return { confirmed: await confirmWithUser(request.message) };
+   *     case 'text':
+   *       return { value: await promptUser(request.message) };
+   *     case 'select':
+   *       return { value: await selectFromOptions(request.options) };
+   *   }
+   * });
+   * ```
+   */
+  async registerElicitationHandler(
+    handler: (request: unknown) => Promise<unknown>,
+  ): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const elicitationManager = (await this.getElicitationManager()) as any;
+    elicitationManager.registerHandler(handler);
+  }
+
+  /**
+   * Get the multi-server manager for load balancing and coordination
+   * Allows managing multiple MCP servers with failover and load balancing
+   * @returns The global MultiServerManager instance
+   * @example
+   * ```typescript
+   * const multiServer = neurolink.getMultiServerManager();
+   *
+   * // Create a server group with load balancing
+   * await multiServer.createServerGroup('ai-tools', {
+   *   servers: ['openai-server', 'anthropic-server'],
+   *   strategy: 'round-robin'
+   * });
+   * ```
+   */
+  async getMultiServerManager() {
+    const mod = (await withTimeout(
+      import("./mcp/multiServerManager.js"),
+      10000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    )) as any;
+    return mod.globalMultiServerManager;
+  }
+
+  /**
+   * Get the enhanced tool discovery service
+   * Provides advanced search, filtering, and compatibility checking for tools
+   * @returns EnhancedToolDiscovery instance
+   * @example
+   * ```typescript
+   * const discovery = neurolink.getEnhancedToolDiscovery();
+   *
+   * // Search for tools by criteria
+   * const results = await discovery.searchTools({
+   *   category: 'data-processing',
+   *   capabilities: ['streaming', 'batch'],
+   *   minReliability: 0.9
+   * });
+   * ```
+   */
+  async getEnhancedToolDiscovery() {
+    const mod = (await withTimeout(
+      import("./mcp/enhancedToolDiscovery.js"),
+      10000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    )) as any;
+    return new mod.EnhancedToolDiscovery(this.toolRegistry);
+  }
+
+  /**
+   * Get the MCP registry client for discovering servers from registries
+   * Supports multiple registry sources (official, community, custom)
+   * @returns The global MCPRegistryClient instance
+   * @example
+   * ```typescript
+   * const registryClient = neurolink.getMCPRegistryClient();
+   *
+   * // Search for servers
+   * const servers = await registryClient.searchServers({
+   *   query: 'database',
+   *   categories: ['data', 'storage']
+   * });
+   *
+   * // Get a well-known server config
+   * const githubServer = registryClient.getWellKnownServer('github');
+   * ```
+   */
+  async getMCPRegistryClient() {
+    const mod = (await withTimeout(
+      import("./mcp/mcpRegistryClient.js"),
+      10000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    )) as any;
+    return mod.globalMCPRegistryClient;
+  }
+
+  /**
+   * Expose a NeuroLink agent as an MCP tool
+   * This allows agents to be called by other systems via MCP
+   * @param agent - The agent to expose (must include id, name, description, and execute)
+   * @param options - Exposure configuration options (prefix, defaultAnnotations, etc.)
+   * @returns The exposed tool definition
+   * @example
+   * ```typescript
+   * const agent = {
+   *   id: 'my-agent',
+   *   name: 'My Agent',
+   *   description: 'An agent that processes data',
+   *   execute: async (params) => { ... }
+   * };
+   * const tool = await neurolink.exposeAgentAsTool(agent, {
+   *   prefix: 'agent_'
+   * });
+   * ```
+   */
+  async exposeAgentAsTool(
+    agent: {
+      id: string;
+      name: string;
+      description: string;
+      execute: (params: unknown, context?: unknown) => Promise<unknown>;
+    },
+    options?: {
+      prefix?: string;
+      includeMetadataInDescription?: boolean;
+      wrapWithContext?: boolean;
+      executionTimeout?: number;
+      enableLogging?: boolean;
+    },
+  ) {
+    const agentExposure = await withTimeout(
+      import("./mcp/agentExposure.js"),
+      10000,
+    );
+    return agentExposure.exposeAgentAsTool(agent, options);
+  }
+
+  /**
+   * Expose a workflow as an MCP tool
+   * This allows workflows to be called by other systems via MCP
+   * @param workflow - The workflow to expose (must include id, name, description, and execute)
+   * @param options - Exposure configuration options (prefix, defaultAnnotations, etc.)
+   * @returns The exposed tool definition
+   * @example
+   * ```typescript
+   * const workflow = {
+   *   id: 'data-pipeline',
+   *   name: 'Data Pipeline',
+   *   description: 'Runs the data processing pipeline',
+   *   execute: async (params) => { ... }
+   * };
+   * const tool = await neurolink.exposeWorkflowAsTool(workflow, {
+   *   prefix: 'workflow_'
+   * });
+   * ```
+   */
+  async exposeWorkflowAsTool(
+    workflow: {
+      id: string;
+      name: string;
+      description: string;
+      execute: (params: unknown, context?: unknown) => Promise<unknown>;
+      steps?: Array<{ id: string; name: string; description?: string }>;
+    },
+    options?: {
+      prefix?: string;
+      includeMetadataInDescription?: boolean;
+      wrapWithContext?: boolean;
+      executionTimeout?: number;
+      enableLogging?: boolean;
+    },
+  ) {
+    const agentExposure = await withTimeout(
+      import("./mcp/agentExposure.js"),
+      10000,
+    );
+    return agentExposure.exposeWorkflowAsTool(workflow, options);
+  }
+
+  /**
+   * Get the tool integration manager for middleware and elicitation
+   * Provides advanced tool wrapping with confirmation, timeout, retry, etc.
+   * @returns The global ToolIntegrationManager instance
+   * @example
+   * ```typescript
+   * const integration = neurolink.getToolIntegrationManager();
+   *
+   * // Register a tool with middleware
+   * integration.registerTool(myTool, {
+   *   timeout: 30000,
+   *   retries: 3,
+   *   requireConfirmation: true
+   * });
+   * ```
+   */
+  async getToolIntegrationManager() {
+    const mod = (await withTimeout(
+      import("./mcp/toolIntegration.js"),
+      10000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    )) as any;
+    return mod.globalToolIntegrationManager;
+  }
+
+  /**
+   * Convert NeuroLink tools to MCP format
+   * Useful for exposing local tools to external MCP clients
+   * @param tools - Array of NeuroLink tool definitions
+   * @param options - Conversion options
+   * @returns Array of MCP-formatted tools
+   * @example
+   * ```typescript
+   * const mcpTools = neurolink.convertToolsToMCPFormat([
+   *   { name: 'myTool', description: 'Does something', execute: async () => {} }
+   * ]);
+   * ```
+   */
+  async convertToolsToMCPFormat(
+    tools: Array<{
+      name: string;
+      description: string;
+      execute?: (params: unknown) => unknown;
+    }>,
+    options: { namespacePrefix?: string } = {},
+  ) {
+    const mod = (await withTimeout(
+      import("./mcp/toolConverter.js"),
+      10000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    )) as any;
+    // Ensure all tools have an execute function (required by NeuroLinkTool)
+    const normalizedTools = tools.map((tool) => ({
+      ...tool,
+      execute:
+        tool.execute ??
+        (async () => ({
+          success: false,
+          error: "No execute function provided",
+        })),
+    }));
+    return mod.batchConvertToMCP(normalizedTools, options);
+  }
+
+  /**
+   * Convert MCP tools to NeuroLink format
+   * Useful for importing tools from external MCP servers
+   * @param tools - Array of MCP tool definitions
+   * @param options - Conversion options
+   * @returns Array of NeuroLink-formatted tools
+   * @example
+   * ```typescript
+   * const neurolinkTools = neurolink.convertToolsFromMCPFormat(externalTools, {
+   *   removeNamespacePrefix: 'external_'
+   * });
+   * ```
+   */
+  async convertToolsFromMCPFormat(
+    tools: Array<{ name: string; description: string; inputSchema?: unknown }>,
+    options: { removeNamespacePrefix?: string } = {},
+  ) {
+    const mod = (await withTimeout(
+      import("./mcp/toolConverter.js"),
+      10000,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    )) as any;
+    return mod.batchConvertToNeuroLink(tools, options);
+  }
+
+  /**
+   * Get tool annotations and safety information
+   * Provides insights about tool behavior, safety levels, and retry-ability
+   * @param toolName - Name of the tool to analyze
+   * @returns Tool annotation summary
+   * @example
+   * ```typescript
+   * const annotations = await neurolink.getToolAnnotations('deleteFile');
+   * // Returns: { destructive: true, requiresConfirmation: true, safeToRetry: false }
+   * ```
+   */
+  async getToolAnnotations(toolName: string) {
+    const { inferAnnotations, mergeAnnotations, getAnnotationSummary } =
+      await withTimeout(import("./mcp/toolAnnotations.js"), 10000);
+    const toolInfo = this.toolRegistry.getToolInfo(toolName);
+    if (!toolInfo) {
+      return null;
+    }
+    // Check for explicit annotations set on the tool first
+    const explicitAnnotations = (toolInfo.tool as Record<string, unknown>)
+      .annotations as Record<string, unknown> | undefined;
+    // Infer annotations from the tool name/description as fallback
+    const inferredAnnotations = inferAnnotations({
+      name: toolInfo.tool.name,
+      description: toolInfo.tool.description ?? "",
+    });
+    // Merge: inferred first, then explicit overrides (explicit takes precedence)
+    const annotations = mergeAnnotations(
+      inferredAnnotations,
+      explicitAnnotations,
+    );
+    return {
+      annotations,
+      summary: getAnnotationSummary(annotations),
+    };
   }
 
   /**
@@ -10056,6 +10750,16 @@ Current user's request: ${currentInput}`;
           this.toolCache.tools = [];
           this.toolCache.timestamp = 0;
         }
+
+        // Cleanup MCP enhancement modules
+        this.mcpToolResultCache?.destroy();
+        this.mcpToolRouter?.destroy();
+        this.mcpToolBatcher?.destroy();
+        this.mcpToolResultCache = undefined;
+        this.mcpToolRouter = undefined;
+        this.mcpToolBatcher = undefined;
+        this.mcpEnhancedDiscovery = undefined;
+        this.mcpToolMiddlewares = [];
 
         logger.debug("[NeuroLink] Maps and caches cleared successfully");
       } catch (error) {

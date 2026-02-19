@@ -136,54 +136,82 @@ export function inlineJsonSchema(
 }
 
 /**
- * Convert Zod schema to JSON Schema format for Claude AI
+ * Convert Zod schema to JSON Schema format for provider APIs.
+ *
+ * Handles three input types:
+ * 1. Zod schemas (have `_def.typeName`) — converted via zod-to-json-schema
+ * 2. AI SDK `jsonSchema()` wrappers (have `.jsonSchema` property) — extracted directly
+ * 3. Plain JSON Schema objects (have `type`/`properties` but no `_def`) — returned as-is
  */
 export function convertZodToJsonSchema(zodSchema: ZodUnknownSchema): object {
+  const schema = zodSchema as unknown as Record<string, unknown>;
+
+  if (!schema || typeof schema !== "object") {
+    return { type: "object", properties: {} };
+  }
+
+  // AI SDK jsonSchema() wrapper — extract the inner JSON Schema directly
+  if (
+    "jsonSchema" in schema &&
+    schema.jsonSchema !== null &&
+    typeof schema.jsonSchema === "object"
+  ) {
+    const extracted = schema.jsonSchema as Record<string, unknown>;
+    return ensureTypeField(extracted);
+  }
+
+  // Plain JSON Schema object (from external MCP tools) — no Zod internals
+  if (!isZodSchema(schema)) {
+    return ensureTypeField(schema as Record<string, unknown>);
+  }
+
+  // Actual Zod schema — convert via zod-to-json-schema
   try {
-    // Use a type assertion that bypasses the infinite recursion check
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const jsonSchema = zodToJsonSchema(zodSchema as any, {
+    const jsonSchema = zodToJsonSchema(zodSchema, {
       name: "ToolParameters",
       target: "jsonSchema7",
       errorMessages: true,
     }) as Record<string, unknown>;
 
-    // CRITICAL FIX: Ensure schema always has a proper type field for Google Vertex AI
-    if (!jsonSchema.type) {
-      // Default to "object" type if not specified, as most tool schemas are objects
-      jsonSchema.type = "object";
-
-      // If no properties, ensure it's at least an empty object schema
-      if (!jsonSchema.properties) {
-        jsonSchema.properties = {};
-      }
-
-      logger.info(`[SCHEMA-TYPE-FIX] Added missing type field to JSON Schema`, {
-        originalType: undefined,
-        fixedType: jsonSchema.type,
-        hasProperties: !!jsonSchema.properties,
-        addedEmptyProperties: !jsonSchema.properties,
-      });
-    }
-
-    logger.debug("Converted Zod schema to JSON Schema", {
-      hasProperties: !!jsonSchema.properties,
-      propertiesCount: Object.keys(jsonSchema.properties || {}).length,
-      schemaType: jsonSchema.type,
-      hasTypeField: !!jsonSchema.type,
-    });
-
-    return jsonSchema;
+    // zodToJsonSchema with 'name' produces { $ref: "#/definitions/ToolParameters", definitions: {...} }
+    // Inline the $ref to produce a flat schema before passing to ensureTypeField
+    const inlined = inlineJsonSchema(jsonSchema);
+    return ensureTypeField(inlined);
   } catch (error) {
     logger.warn("Failed to convert Zod schema to JSON Schema", {
       error: error instanceof Error ? error.message : String(error),
     });
-    // Return a valid empty object schema instead of empty object
-    return {
-      type: "object",
-      properties: {},
-    };
+    return { type: "object", properties: {} };
   }
+}
+
+/**
+ * Ensure a JSON Schema object has a `type` field (required by Vertex/Gemini).
+ */
+function ensureTypeField(
+  schema: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!schema.type) {
+    // Schemas using composition keywords (anyOf/oneOf/allOf) deliberately omit type
+    if (schema.anyOf || schema.oneOf || schema.allOf) {
+      return schema;
+    }
+
+    const hadProperties = !!schema.properties;
+    const result: Record<string, unknown> = {
+      ...schema,
+      type: "object" as const,
+    };
+    if (!result.properties) {
+      result.properties = {};
+    }
+    logger.debug("[SCHEMA-TYPE-FIX] Added missing type field to JSON Schema", {
+      fixedType: "object",
+      addedProperties: !hadProperties,
+    });
+    return result;
+  }
+  return schema;
 }
 
 /**

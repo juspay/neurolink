@@ -100,6 +100,8 @@ export type ToolInfo = {
   serverId?: string;
   inputSchema?: StandardRecord;
   outputSchema?: StandardRecord;
+  /** MCP tool annotations (safety hints, metadata). Auto-inferred when mcp.annotations.autoInfer is enabled. */
+  annotations?: import("../mcp/toolAnnotations.js").MCPToolAnnotations;
   [key: string]: unknown; // Generic extensibility
 };
 

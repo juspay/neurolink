@@ -17,6 +17,7 @@ export type {
   ConfigUpdateOptions,
   ConfigValidationResult,
   FallbackConfig,
+  MCPEnhancementsConfig,
   NeuroLinkConfig,
   PerformanceConfig,
   RetryConfig,

@@ -281,6 +281,38 @@ await neurolink.addExternalMCPServer("github-copilot", {
 - `src/lib/types/externalMcp.ts` - External MCP server types
 - `src/lib/types/tools.ts` - Tool type definitions
 
+### MCP Enhancement Modules
+
+NeuroLink includes 14 MCP enhancement modules that extend the core MCP infrastructure:
+
+| Module                | File                                            | Purpose                                    |
+| --------------------- | ----------------------------------------------- | ------------------------------------------ |
+| ToolRouter            | `src/lib/mcp/routing/toolRouter.ts`             | Multi-server routing (6 strategies)        |
+| ToolResultCache       | `src/lib/mcp/caching/toolCache.ts`              | LRU/FIFO/LFU caching with TTL              |
+| RequestBatcher        | `src/lib/mcp/batching/requestBatcher.ts`        | Automatic request batching                 |
+| Tool Annotations      | `src/lib/mcp/toolAnnotations.ts`                | Auto-infer safety metadata                 |
+| ToolIntegration       | `src/lib/mcp/toolIntegration.ts`                | Middleware chain (logging, retry, timeout) |
+| EnhancedToolDiscovery | `src/lib/mcp/enhancedToolDiscovery.ts`          | Search/filter tools                        |
+| MCPServerBase         | `src/lib/mcp/mcpServerBase.ts`                  | Abstract base for custom servers           |
+| AgentExposure         | `src/lib/mcp/agentExposure.ts`                  | Expose agents as MCP tools                 |
+| ServerCapabilities    | `src/lib/mcp/serverCapabilities.ts`             | Resource/prompt management                 |
+| ToolConverter         | `src/lib/mcp/toolConverter.ts`                  | NeuroLink ↔ MCP format conversion         |
+| MCPRegistryClient     | `src/lib/mcp/mcpRegistryClient.ts`              | Registry search/discovery                  |
+| MultiServerManager    | `src/lib/mcp/multiServerManager.ts`             | Load balancing and failover                |
+| ElicitationManager    | `src/lib/mcp/elicitation/elicitationManager.ts` | Interactive user input                     |
+| ElicitationProtocol   | `src/lib/mcp/elicitationProtocol.ts`            | Wire protocol for elicitation              |
+
+**SDK Configuration** via `NeurolinkConstructorConfig.mcp`:
+
+- `cache.enabled` (default: false) — Tool result caching
+- `annotations.autoInfer` (default: true) — Auto-infer safety hints from tool names
+- `router` — Lazy-initialized when 2+ external servers exist
+- `batcher.enabled` (default: false) — Request batching
+- `discovery.enabled` (default: true) — Enhanced tool discovery
+- `middleware` (default: []) — Composable middleware chain
+
+**Architecture**: `ToolsManager` routes custom tool execution through `NeuroLink.executeTool()` (not direct `toolInfo.execute()`), so cache/middleware/annotations apply automatically during `generate()`/`stream()`.
+
 ### Type System
 
 NeuroLink has a comprehensive TypeScript type system with 28+ type definition files:
@@ -313,6 +345,10 @@ NeuroLink has a comprehensive TypeScript type system with 28+ type definition fi
 - Persistent conversation memory
 - Session-wide configuration (set provider, set temperature, etc.)
 - Command history and context preservation
+
+**MCP CLI Subcommands** (`src/cli/commands/mcp.ts`):
+
+12 MCP subcommands: list, servers, tools, discover, create-server, annotate, install, add, test, exec, remove, registry
 
 **Key CLI files:**
 
@@ -997,29 +1033,30 @@ const result = await neurolink.generate({
 
 ## Key Files to Know
 
-| File                                               | Purpose                                         |
-| -------------------------------------------------- | ----------------------------------------------- |
-| `src/lib/neurolink.ts`                             | Main SDK class, orchestrates everything         |
-| `src/lib/factories/providerRegistry.ts`            | Provider registration with dynamic imports      |
-| `src/lib/utils/messageBuilder.ts`                  | Central message construction logic              |
-| `src/lib/adapters/providerImageAdapter.ts`         | Multimodal content adaptation                   |
-| `src/lib/mcp/toolRegistry.ts`                      | Tool management and MCP integration             |
-| `src/lib/mcp/mcpClientFactory.ts`                  | MCP client creation for all transports          |
-| `src/lib/mcp/externalServerManager.ts`             | External MCP server lifecycle management        |
-| `src/lib/processors/index.ts`                      | I/O Processor exports (pipeline, registry)      |
-| `src/lib/processors/registry/ProcessorRegistry.ts` | ProcessorRegistry for processor management      |
-| `src/cli/factories/commandFactory.ts`              | CLI command creation                            |
-| `src/lib/types/index.ts`                           | Main type definitions and exports               |
-| `src/lib/types/externalMcp.ts`                     | External MCP server types (HTTP config, etc.)   |
-| `src/lib/constants/contextWindows.ts`              | Per-provider context window registry            |
-| `src/lib/context/contextCompactor.ts`              | Multi-stage context compaction orchestrator     |
-| `src/lib/context/budgetChecker.ts`                 | Pre-generation context budget validation        |
-| `src/lib/context/errorDetection.ts`                | Cross-provider context overflow detection       |
-| `src/lib/context/summarizationEngine.ts`           | Shared summarization engine for memory managers |
-| `src/lib/context/fileTokenBudget.ts`               | Aggregate file budget enforcement               |
-| `src/lib/context/fileSummarizer.ts`                | File content budget planning                    |
-| `src/lib/context/fileSummarizationService.ts`      | LLM-based file summarization                    |
-| `src/lib/utils/tokenEstimation.ts`                 | Token estimation with provider multipliers      |
+| File                                               | Purpose                                                   |
+| -------------------------------------------------- | --------------------------------------------------------- |
+| `src/lib/neurolink.ts`                             | Main SDK class, orchestrates everything                   |
+| `src/lib/factories/providerRegistry.ts`            | Provider registration with dynamic imports                |
+| `src/lib/utils/messageBuilder.ts`                  | Central message construction logic                        |
+| `src/lib/adapters/providerImageAdapter.ts`         | Multimodal content adaptation                             |
+| `src/lib/mcp/toolRegistry.ts`                      | Tool management and MCP integration                       |
+| `src/lib/mcp/mcpClientFactory.ts`                  | MCP client creation for all transports                    |
+| `src/lib/mcp/externalServerManager.ts`             | External MCP server lifecycle management                  |
+| `src/lib/core/modules/ToolsManager.ts`             | Custom tool execution routing for MCP enhancement support |
+| `src/lib/processors/index.ts`                      | I/O Processor exports (pipeline, registry)                |
+| `src/lib/processors/registry/ProcessorRegistry.ts` | ProcessorRegistry for processor management                |
+| `src/cli/factories/commandFactory.ts`              | CLI command creation                                      |
+| `src/lib/types/index.ts`                           | Main type definitions and exports                         |
+| `src/lib/types/externalMcp.ts`                     | External MCP server types (HTTP config, etc.)             |
+| `src/lib/constants/contextWindows.ts`              | Per-provider context window registry                      |
+| `src/lib/context/contextCompactor.ts`              | Multi-stage context compaction orchestrator               |
+| `src/lib/context/budgetChecker.ts`                 | Pre-generation context budget validation                  |
+| `src/lib/context/errorDetection.ts`                | Cross-provider context overflow detection                 |
+| `src/lib/context/summarizationEngine.ts`           | Shared summarization engine for memory managers           |
+| `src/lib/context/fileTokenBudget.ts`               | Aggregate file budget enforcement                         |
+| `src/lib/context/fileSummarizer.ts`                | File content budget planning                              |
+| `src/lib/context/fileSummarizationService.ts`      | LLM-based file summarization                              |
+| `src/lib/utils/tokenEstimation.ts`                 | Token estimation with provider multipliers                |
 
 ## New set of Features
 
@@ -1027,20 +1064,20 @@ NeuroLink has been enhanced with new features beyond the core unified AI provide
 
 ### Implementation Status
 
-| Feature                    | Status                    | Notes                                                                        |
-| -------------------------- | ------------------------- | ---------------------------------------------------------------------------- |
-| **Gateway Provider**       | ✅ Complete               | 69+ providers, CLI support, full integration                                 |
-| **I/O Processors**         | ✅ Complete               | 52 files, 17+ file type processors, ProcessorRegistry, security sanitization |
-| **Evaluation/Scoring**     | ⚠️ Code complete, 0 tests | RAGAS-based evaluator (~663 lines), ~5 scoring dimensions, CLI — no tests    |
-| **Observability**          | ✅ Complete               | 100% pattern compliance, 9 exporters, 9 samplers                             |
-| **Server Adapters**        | ✅ Complete               | 4 adapters (Hono, Express, Fastify, Koa), 5 route groups                     |
-| **RAG Processing**         | ✅ Complete               | 9 chunkers, hybrid search, RerankerFactory/Registry                          |
-| **MCP Enhancements**       | ✅ Complete               | ToolRouter, ToolCache, RequestBatcher (1,702 new lines)                      |
-| **Streaming Architecture** | ✅ Complete               | All 4 streaming patterns, 24 event types, backpressure                       |
-| **Dynamic Arguments**      | ✅ Complete               | CLI context flags, runtime resolution, 269 tests                             |
-| **Context Compaction**     | ✅ Complete               | 4-stage pipeline, BudgetChecker, file summarization                          |
-| **Workflow System**        | ✅ Complete               | Full engine with fluent API, checkpointing, HITL, 26 files (~20K lines)      |
-| **Basic TTS**              | ✅ Complete               | TTSProcessor (~398 lines), Google TTS handler, TTS in generate/stream paths  |
+| Feature                    | Status                    | Notes                                                                                                                                                                                                                                                          |
+| -------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Gateway Provider**       | ✅ Complete               | 69+ providers, CLI support, full integration                                                                                                                                                                                                                   |
+| **I/O Processors**         | ✅ Complete               | 52 files, 17+ file type processors, ProcessorRegistry, security sanitization                                                                                                                                                                                   |
+| **Evaluation/Scoring**     | ⚠️ Code complete, 0 tests | RAGAS-based evaluator (~663 lines), ~5 scoring dimensions, CLI — no tests                                                                                                                                                                                      |
+| **Observability**          | ✅ Complete               | 100% pattern compliance, 9 exporters, 9 samplers                                                                                                                                                                                                               |
+| **Server Adapters**        | ✅ Complete               | 4 adapters (Hono, Express, Fastify, Koa), 5 route groups                                                                                                                                                                                                       |
+| **RAG Processing**         | ✅ Complete               | 9 chunkers, hybrid search, RerankerFactory/Registry                                                                                                                                                                                                            |
+| **MCP Enhancements**       | ✅ Complete               | 14 modules (~19K lines), 172+ test assertions (`pnpm vitest run test/mcp/`): ToolRouter, ToolCache, RequestBatcher, Annotations, Converter, Discovery, Elicitation, MultiServer, ServerBase, AgentExposure, Capabilities, RegistryClient, Integration, Factory |
+| **Streaming Architecture** | ✅ Complete               | All 4 streaming patterns, 24 event types, backpressure                                                                                                                                                                                                         |
+| **Dynamic Arguments**      | ✅ Complete               | CLI context flags, runtime resolution, 269 tests                                                                                                                                                                                                               |
+| **Context Compaction**     | ✅ Complete               | 4-stage pipeline, BudgetChecker, file summarization                                                                                                                                                                                                            |
+| **Workflow System**        | ✅ Complete               | Full engine with fluent API, checkpointing, HITL, 26 files (~20K lines)                                                                                                                                                                                        |
+| **Basic TTS**              | ✅ Complete               | TTSProcessor (~398 lines), Google TTS handler, TTS in generate/stream paths                                                                                                                                                                                    |
 
 ### New Feature Directories
 

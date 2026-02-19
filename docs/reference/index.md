@@ -56,6 +56,12 @@ This section provides comprehensive reference materials for advanced usage, conf
 
   Configuration reference for server adapters including Hono, Express, Fastify, and Koa framework integration.
 
+- :material-tools: **[MCP Enhancements API](../features/mcp-enhancements.md#api-reference)** :material-new-box:{ .new-badge }
+
+  ***
+
+  Complete API reference for MCP enhancements including ToolRouter, ToolCache, RequestBatcher, tool annotations, elicitation protocol, and MCPServerBase.
+
 </div>
 
 ## 🔧 Quick Reference

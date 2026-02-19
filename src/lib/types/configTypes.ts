@@ -7,6 +7,9 @@ import { MCPToolRegistry } from "../mcp/toolRegistry.js";
 import type { HITLConfig } from "../types/hitlTypes.js";
 import type { ConversationMemoryConfig } from "./conversation.js";
 import type { ObservabilityConfig } from "./observability.js";
+import type { RoutingStrategy } from "../mcp/routing/index.js";
+import type { CacheStrategy } from "../mcp/caching/index.js";
+import type { ToolMiddleware } from "../mcp/toolIntegration.js";
 
 /**
  * Main NeuroLink configuration type
@@ -31,6 +34,60 @@ export type NeurolinkConstructorConfig = {
   toolRegistry?: MCPToolRegistry;
   observability?: ObservabilityConfig;
   modelAliasConfig?: import("./generateTypes.js").ModelAliasConfig;
+  /** MCP enhancement modules configuration (cache, router, batcher, annotations, middleware) */
+  mcp?: MCPEnhancementsConfig;
+};
+
+/**
+ * Configuration for MCP enhancement modules wired into generate()/stream() paths.
+ *
+ * These modules are automatically applied during tool execution when configured:
+ * - cache: Tool result caching (disabled by default)
+ * - annotations: Auto-infer tool safety metadata (enabled by default)
+ * - router: Multi-server tool routing (auto-activates with 2+ servers)
+ * - batcher: Batch programmatic tool calls (disabled by default)
+ * - discovery: Enhanced tool search and filtering (enabled by default)
+ * - middleware: Global tool execution middleware chain (empty by default)
+ */
+export type MCPEnhancementsConfig = {
+  /** Tool result caching. Default: disabled. Enable to cache read-only tool results. */
+  cache?: {
+    enabled?: boolean;
+    /** Cache TTL in milliseconds. Default: 300000 (5 min) */
+    ttl?: number;
+    /** Maximum cache entries. Default: 500 */
+    maxSize?: number;
+    /** Eviction strategy. Default: 'lru' */
+    strategy?: CacheStrategy;
+  };
+  /** Tool annotation auto-inference. Default: enabled. */
+  annotations?: {
+    enabled?: boolean;
+    /** Auto-infer annotations from tool name/description. Default: true */
+    autoInfer?: boolean;
+  };
+  /** Tool routing for multi-server environments. Auto-activates when 2+ external servers exist. */
+  router?: {
+    enabled?: boolean;
+    /** Routing strategy. Default: 'least-loaded' */
+    strategy?: RoutingStrategy;
+    /** Enable session affinity. Default: false */
+    enableAffinity?: boolean;
+  };
+  /** Request batching for programmatic executeTool() calls. Default: disabled. */
+  batcher?: {
+    enabled?: boolean;
+    /** Max requests per batch. Default: 10 */
+    maxBatchSize?: number;
+    /** Max wait before flushing batch in ms. Default: 100 */
+    maxWaitMs?: number;
+  };
+  /** Enhanced tool discovery. Default: enabled. */
+  discovery?: {
+    enabled?: boolean;
+  };
+  /** Global tool middleware applied to every tool execution. Default: empty. */
+  middleware?: ToolMiddleware[];
 };
 
 /**

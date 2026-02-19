@@ -975,6 +975,10 @@ const LINK_MAPPINGS: Record<string, string> = {
   "claude-subscription.md": "/features/claude-subscription",
   "claude-subscription-testing": "/features/claude-subscription-testing",
   "claude-subscription-testing.md": "/features/claude-subscription-testing",
+  "mcp-enhancements": "/features/mcp-enhancements",
+  "mcp-enhancements.md": "/features/mcp-enhancements",
+  "mcp-enhancements-diagrams": "/features/mcp-enhancements-diagrams",
+  "mcp-enhancements-diagrams.md": "/features/mcp-enhancements-diagrams",
 
   // Cookbook - absolute paths
   "batch-processing": "/cookbook/batch-processing",

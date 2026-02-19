@@ -375,6 +375,9 @@ export type StreamOptions = {
   /** Exclude these tools by name (blacklist). Applied after toolFilter. */
   excludeTools?: string[];
 
+  /** Disable tool result caching for this request (overrides global mcp.cache.enabled) */
+  disableToolCache?: boolean;
+
   /**
    * Skip injecting tool schemas into the system prompt.
    * When true, tools are ONLY passed natively via the provider's `tools` parameter,

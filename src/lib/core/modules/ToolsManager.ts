@@ -436,6 +436,48 @@ export class ToolsManager {
           let executionId: string | undefined;
 
           try {
+            // Route through NeuroLink.executeTool() when available for MCP enhancement support
+            // (cache, middleware, annotations, circuit breaker, routing)
+            if (this.toolExecutor) {
+              const result = await this.toolExecutor(toolName, params);
+
+              const convertedResult = this.utilities?.convertToolResult
+                ? await this.utilities.convertToolResult(result)
+                : result;
+              const endTime = Date.now();
+
+              customToolSpan.setAttribute(
+                "tool.duration_ms",
+                endTime - startTime,
+              );
+
+              let errorResult: string | undefined = undefined;
+              if (
+                convertedResult &&
+                typeof convertedResult === "object" &&
+                "isError" in convertedResult &&
+                convertedResult.isError
+              ) {
+                try {
+                  errorResult = JSON.stringify(convertedResult);
+                } catch (error) {
+                  logger.error(
+                    `Failed to serialize error result for ${toolName}`,
+                    error,
+                  );
+                }
+              }
+
+              customToolSpan.setAttribute(
+                "tool.result.status",
+                errorResult ? "error" : "success",
+              );
+              customToolSpan.setStatus({ code: SpanStatusCode.OK });
+
+              return convertedResult;
+            }
+
+            // Fallback: direct execution (standalone usage without NeuroLink SDK)
             if (this.neurolink?.emitToolStart) {
               executionId = this.neurolink.emitToolStart(
                 toolName,
@@ -496,8 +538,9 @@ export class ToolsManager {
             const errorMsg =
               error instanceof Error ? error.message : String(error);
 
-            // Emit tool end event (error)
-            if (this.neurolink?.emitToolEnd) {
+            // Emit tool end event (error) — only for fallback path
+            // When toolExecutor is used, executeTool() handles event emission
+            if (!this.toolExecutor && this.neurolink?.emitToolEnd) {
               this.neurolink.emitToolEnd(
                 toolName,
                 undefined, // no result

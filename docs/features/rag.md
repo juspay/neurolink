@@ -1115,8 +1115,8 @@ DEBUG=neurolink:rag:hybrid npx tsx your-script.ts
 
 ## See Also
 
-- [RAG Configuration Guide](../rag/configuration) - Detailed configuration reference
-- [RAG Testing Guide](../rag/testing) - Testing RAG pipelines
+- [RAG Configuration Guide](../rag/CONFIGURATION.md) - Detailed configuration reference
+- [RAG Testing Guide](../rag/TESTING.md) - Testing RAG pipelines
 - [Observability Guide](./observability.md) - Tracing and monitoring
 - [Guardrails Guide](./guardrails.md) - Input/output validation
 - [Vector Store Integrations](../guides/vector-stores.md) - Production vector stores

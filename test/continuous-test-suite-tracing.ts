@@ -38,9 +38,30 @@ let NeuroLink: (typeof import("../dist/index.js"))["NeuroLink"];
 // CONFIGURATION
 // ============================================================
 
+// Resolve model: CLI arg > TEST_MODEL env > provider-specific env var
+function resolveTestModel(provider: string): string | undefined {
+  if (process.env.TEST_MODEL) {
+    return process.env.TEST_MODEL;
+  }
+  const providerModelEnvMap: Record<string, string> = {
+    litellm: "LITELLM_MODEL",
+    openai: "OPENAI_MODEL",
+    vertex: "VERTEX_MODEL",
+    bedrock: "BEDROCK_MODEL",
+    "google-ai-studio": "GOOGLE_AI_MODEL",
+    "google-ai": "GOOGLE_AI_MODEL",
+    azure: "AZURE_OPENAI_MODEL",
+    anthropic: "ANTHROPIC_MODEL",
+    mistral: "MISTRAL_MODEL",
+    ollama: "OLLAMA_MODEL",
+  };
+  const envKey = providerModelEnvMap[provider];
+  return envKey ? process.env[envKey] : undefined;
+}
+
 const TEST_CONFIG = {
   provider: process.env.TEST_PROVIDER || "vertex",
-  model: process.env.TEST_MODEL || (undefined as string | undefined),
+  model: undefined as string | undefined,
   timeout: 90000,
   interTestDelay: 5000,
 };
@@ -1295,6 +1316,10 @@ if (cliArgs.provider) {
 }
 if (cliArgs.model) {
   TEST_CONFIG.model = cliArgs.model;
+}
+// Re-resolve model after CLI args override the provider
+if (!TEST_CONFIG.model) {
+  TEST_CONFIG.model = resolveTestModel(TEST_CONFIG.provider);
 }
 
 const _describe = (globalThis as Record<string, unknown>).describe as

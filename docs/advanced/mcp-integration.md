@@ -442,6 +442,42 @@ neurolink mcp add project-server "python local-server.py" --cwd "/path/to/projec
 
 ---
 
+## 🚀 Advanced MCP Features
+
+NeuroLink provides advanced MCP capabilities for production environments with multiple servers and complex tool ecosystems.
+
+### Tool Router
+
+Intelligent tool call routing for multi-server environments with round-robin, least-loaded, capability-based, and session affinity strategies.
+
+### Tool Cache
+
+Cache tool results with configurable LRU, FIFO, or LFU eviction strategies, pattern-based invalidation, and cache statistics.
+
+### Request Batcher
+
+Batch multiple tool calls for efficient execution with automatic batch sizing and server-grouped batching.
+
+### Tool Annotations
+
+Add safety metadata to tools (readOnly, destructive, idempotent) with automatic safety level inference and annotation-based filtering.
+
+### Custom MCP Servers
+
+Create custom MCP servers using the `MCPServerBase` abstract class with built-in tool registration, event emission, and lifecycle management.
+
+### Elicitation Protocol
+
+Interactive tool input during execution supporting text, select, multi-select, confirmation, file upload, and form elicitation types.
+
+### Multi-Server Manager
+
+Load balancing and coordination across multiple MCP servers with server groups and a unified tool interface.
+
+> **Full Documentation**: See the [MCP Enhancements Guide](../features/mcp-enhancements.md) for complete API reference, configuration options, and usage examples.
+
+---
+
 ## 🚨 **Troubleshooting**
 
 ### **Common Issues**

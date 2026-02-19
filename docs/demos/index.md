@@ -176,7 +176,7 @@ All visual content is organized and optimized for:
 ### Documentation Embedding
 
 ```markdown
-![NeuroLink CLI Demo](../assets/images/cli-demo.png)
+![NeuroLink CLI Demo](../assets/images/cli-help-demo.png)
 _NeuroLink CLI with provider status and text generation_
 ```
 
