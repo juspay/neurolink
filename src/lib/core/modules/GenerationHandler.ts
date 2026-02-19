@@ -85,8 +85,12 @@ export class GenerationHandler {
       model,
       messages,
       ...(shouldUseTools && Object.keys(tools).length > 0 && { tools }),
-      maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-      ...(shouldUseTools && { toolChoice: "auto" }),
+      maxSteps: options.maxSteps ?? DEFAULT_MAX_STEPS,
+      ...(shouldUseTools &&
+        options.toolChoice && { toolChoice: options.toolChoice }),
+      ...(options.prepareStep && {
+        experimental_prepareStep: options.prepareStep,
+      }),
       temperature: options.temperature,
       maxTokens: options.maxTokens,
       abortSignal: options.abortSignal,
