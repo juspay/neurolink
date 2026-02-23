@@ -605,7 +605,7 @@ export class ExpressServerAdapter extends BaseServerAdapter {
   /**
    * Get the Express app instance
    */
-  public getFrameworkInstance(): Express {
+  public getFrameworkInstance(): unknown {
     return this.app;
   }
 }

@@ -661,7 +661,7 @@ export class HonoServerAdapter extends BaseServerAdapter {
   /**
    * Get the Hono app instance
    */
-  public getFrameworkInstance(): Hono {
+  public getFrameworkInstance(): unknown {
     return this.app;
   }
 

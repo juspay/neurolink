@@ -51,7 +51,6 @@ import ffmpegCommand from "fluent-ffmpeg";
 import { createWriteStream, existsSync, promises as fs } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import sharp from "sharp";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 
@@ -691,6 +690,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         const rawFrame = await fs.readFile(framePath);
 
         // Resize to fit within max dimension while preserving aspect ratio
+        const sharp = (await import("sharp")).default;
         const resized = await sharp(rawFrame)
           .resize(
             VIDEO_CONFIG.FRAME_MAX_DIMENSION,
@@ -1117,6 +1117,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         try {
           await fs.access(framePath);
           const rawFrame = await fs.readFile(framePath);
+          const sharp = (await import("sharp")).default;
           const resized = await sharp(rawFrame)
             .resize(
               VIDEO_CONFIG.FRAME_MAX_DIMENSION,

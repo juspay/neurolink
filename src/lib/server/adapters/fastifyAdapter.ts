@@ -605,7 +605,7 @@ export class FastifyServerAdapter extends BaseServerAdapter {
   /**
    * Get the Fastify instance
    */
-  public getFrameworkInstance(): FastifyInstance {
+  public getFrameworkInstance(): unknown {
     return this.app;
   }
 }
