@@ -54,6 +54,11 @@ import { MCPToolRegistry } from "./mcp/toolRegistry.js";
 import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
 import { createMemoryRetrievalTools } from "./memory/memoryRetrievalTools.js";
 import {
+  initializeHippocampus,
+  type HippocampusConfig,
+} from "./memory/hippocampusInitializer.js";
+import type { Hippocampus } from "@juspay/hippocampus";
+import {
   flushOpenTelemetry,
   getLangfuseHealthStatus,
   initializeOpenTelemetry,
@@ -333,6 +338,10 @@ export class NeuroLink {
   // Cached file tools to avoid redundant createFileTools() calls per generate/stream
   private cachedFileTools: ReturnType<typeof createFileTools> | null = null;
 
+  // Hippocampus memory instance and config
+  private hippocampusInstance?: Hippocampus | null;
+  private hippocampusConfig?: HippocampusConfig;
+
   /**
    * Extract and set Langfuse context from options with proper async scoping
    */
@@ -451,6 +460,41 @@ export class NeuroLink {
     this.mem0Instance = await initializeMem0(this.mem0Config);
     return this.mem0Instance;
   }
+
+  private initializeHippocampusConfig(): boolean {
+    const config = this.conversationMemoryConfig?.conversationMemory;
+    if (!config?.hippocampusEnabled) {
+      return false;
+    }
+
+    this.hippocampusConfig = config.hippocampusConfig;
+    return true;
+  }
+
+  /**
+   * Async initialization for Hippocampus — called lazily during generate/stream
+   */
+  private async ensureHippocampusReady(): Promise<Hippocampus | null> {
+    if (this.hippocampusInstance !== undefined) {
+      return this.hippocampusInstance;
+    }
+
+    if (!this.initializeHippocampusConfig()) {
+      this.hippocampusInstance = null;
+      return null;
+    }
+
+    if (!this.hippocampusConfig) {
+      this.hippocampusInstance = null;
+      return null;
+    }
+
+    this.hippocampusInstance = await initializeHippocampus(
+      this.hippocampusConfig,
+    );
+    return this.hippocampusInstance;
+  }
+
   /**
    * Context storage for tool execution
    * This context will be merged with any runtime context passed by the AI model
@@ -996,6 +1040,133 @@ Current user's request: ${currentInput}`;
       metadata,
       infer: true,
       async_mode: true,
+    });
+  }
+
+  /**
+   * Extract memory context from Hippocampus search hits.
+   * Maps the Hippocampus hit format (engram.content + chronicles) into a context string.
+   */
+  private extractHippocampusMemoryContext(searchResult: {
+    hits: Array<{ engram: { content: string } }>;
+    chronicles?: Array<{
+      chronicle: { entity: string; attribute: string; value: string };
+    }>;
+  }): string {
+    const parts: string[] = [];
+
+    // Extract engram content from search hits
+    if (searchResult.hits?.length) {
+      const memories = searchResult.hits
+        .map((hit) => hit.engram.content)
+        .filter(Boolean);
+      if (memories.length > 0) {
+        parts.push(memories.join("\n"));
+      }
+    }
+
+    // Extract temporal facts (chronicles) if present
+    if (searchResult.chronicles?.length) {
+      const facts = searchResult.chronicles
+        .map(
+          (c) =>
+            `${c.chronicle.entity}.${c.chronicle.attribute} = ${c.chronicle.value}`,
+        )
+        .filter(Boolean);
+      if (facts.length > 0) {
+        parts.push("Known facts:\n" + facts.join("\n"));
+      }
+    }
+
+    return parts.join("\n\n");
+  }
+
+  /**
+   * Store a conversation turn in Hippocampus.
+   * Stores the combined user+assistant exchange as a single memory engram.
+   */
+  private async storeHippocampusConversationTurn(
+    client: Hippocampus,
+    userContent: string,
+    aiResponse: string,
+    ownerId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    const structuredContent = JSON.stringify({
+      user: userContent,
+      assistant: aiResponse,
+    });
+
+    await client.addMemory({
+      ownerId,
+      content: structuredContent,
+      tags: [
+        "conversation_turn",
+        ...(metadata.type ? [String(metadata.type)] : []),
+      ],
+      metadata,
+    });
+  }
+
+  /**
+   * Retrieve relevant memories from Hippocampus and inject into prompt.
+   * Returns the input text.
+   */
+  private async retrieveHippocampusMemories(
+    inputText: string,
+    userId: string,
+  ): Promise<string> {
+    const client = await this.ensureHippocampusReady();
+    if (!client) {
+      return inputText;
+    }
+
+    const searchLimit = this.hippocampusConfig?.searchLimit ?? 5;
+
+    const searchResult = await client.search({
+      ownerId: userId,
+      query: inputText,
+      limit: searchLimit,
+    });
+
+    if (!searchResult.hits?.length && !searchResult.chronicles?.length) {
+      return inputText;
+    }
+
+    const memoryContext = this.extractHippocampusMemoryContext(searchResult);
+
+    if (!memoryContext) {
+      return inputText;
+    }
+
+    return this.formatMemoryContext(memoryContext, inputText);
+  }
+
+  /**
+   * Store a conversation turn in Hippocampus (non-blocking).
+   * Wraps the storage in setImmediate to avoid blocking the response.
+   */
+  private storeHippocampusMemoryInBackground(
+    originalPrompt: string,
+    responseContent: string,
+    userId: string,
+    metadata: Record<string, unknown>,
+  ): void {
+    setImmediate(async () => {
+      try {
+        const client = await this.ensureHippocampusReady();
+        if (client) {
+          await this.storeHippocampusConversationTurn(
+            client,
+            originalPrompt,
+            responseContent,
+            userId,
+            metadata,
+          );
+        }
+      } catch (error) {
+        logger.warn("Hippocampus memory storage failed:", error);
+      }
     });
   }
 
@@ -2181,6 +2352,25 @@ Current user's request: ${currentInput}`;
         }
       }
 
+      // Hippocampus memory retrieval
+      if (
+        this.conversationMemoryConfig?.conversationMemory?.hippocampusEnabled &&
+        options.context?.userId
+      ) {
+        try {
+          options.input.text = await this.retrieveHippocampusMemories(
+            options.input.text,
+            options.context.userId as string,
+          );
+          logger.debug(
+            "Hippocampus memory retrieval successful",
+            options.input.text,
+          );
+        } catch (error) {
+          logger.warn("Hippocampus memory retrieval failed:", error);
+        }
+      }
+
       const startTime = Date.now();
 
       // Apply orchestration if enabled and no specific provider/model requested
@@ -2470,6 +2660,25 @@ Current user's request: ${currentInput}`;
           logger.warn("Mem0 memory storage failed:", error);
         }
       });
+    }
+
+    // Hippocampus memory storage
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.hippocampusEnabled &&
+      options.context?.userId &&
+      generateResult.content?.trim()
+    ) {
+      this.storeHippocampusMemoryInBackground(
+        originalPrompt ?? "",
+        generateResult.content?.trim(),
+        options.context.userId as string,
+        {
+          timestamp: new Date().toISOString(),
+          provider: generateResult.provider,
+          model: generateResult.model,
+          type: "conversation_turn",
+        },
+      );
     }
   }
 
@@ -4271,6 +4480,25 @@ Current user's request: ${currentInput}`;
       }
     }
 
+    // Hippocampus memory retrieval
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.hippocampusEnabled &&
+      options.context?.userId
+    ) {
+      try {
+        options.input.text = await this.retrieveHippocampusMemories(
+          options.input.text,
+          options.context.userId as string,
+        );
+        logger.debug(
+          "Hippocampus memory retrieval successful",
+          options.input.text,
+        );
+      } catch (error) {
+        logger.warn("Hippocampus memory retrieval failed:", error);
+      }
+    }
+
     // Apply orchestration if enabled and no specific provider/model requested
     if (this.enableOrchestration && !options.provider && !options.model) {
       try {
@@ -4655,6 +4883,22 @@ Current user's request: ${currentInput}`;
           logger.warn("Mem0 memory storage failed:", error);
         }
       });
+    }
+
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.hippocampusEnabled &&
+      enhancedOptions.context?.userId &&
+      accumulatedContent?.trim()
+    ) {
+      this.storeHippocampusMemoryInBackground(
+        originalPrompt ?? "",
+        accumulatedContent?.trim(),
+        enhancedOptions.context?.userId as string,
+        {
+          timestamp: new Date().toISOString(),
+          type: "conversation_turn_stream",
+        },
+      );
     }
   }
 

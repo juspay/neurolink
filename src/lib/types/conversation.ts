@@ -34,6 +34,7 @@
  */
 
 import type { Mem0Config } from "../memory/mem0Initializer.js";
+import type { HippocampusConfig } from "../memory/hippocampusInitializer.js";
 
 /**
  * Configuration for conversation memory feature
@@ -62,6 +63,12 @@ export type ConversationMemoryConfig = {
 
   /** Configuration for mem0 cloud API integration */
   mem0Config?: Mem0Config;
+
+  /** Enable Hippocampus integration for self-hosted conversation memory */
+  hippocampusEnabled?: boolean;
+
+  /** Configuration for Hippocampus self-hosted memory engine */
+  hippocampusConfig?: HippocampusConfig;
 
   /** Redis configuration (optional) - overrides environment variables */
   redisConfig?: RedisStorageConfig;

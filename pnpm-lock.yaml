@@ -74,6 +74,9 @@ importers:
       '@huggingface/inference':
         specifier: ^2.8.1
         version: 2.8.1
+      '@juspay/hippocampus':
+        specifier: ^0.1.0
+        version: 0.1.0
       '@langfuse/otel':
         specifier: ^4.2.0
         version: 4.2.0(@opentelemetry/api@1.9.0)(@opentelemetry/core@2.1.0(@opentelemetry/api@1.9.0))(@opentelemetry/exporter-trace-otlp-http@0.202.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.1.0(@opentelemetry/api@1.9.0))
@@ -1488,6 +1491,10 @@ packages:
 
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
+
+  '@juspay/hippocampus@0.1.0':
+    resolution: {integrity: sha512-gFxbPHcwQlzDlsfa63qIp/4vEF2CHBZTXA5gUknILUweYYmknA1ga5fpSqCGSNleuc6aNu98MoDU1aYQRi6cKg==}
+    engines: {node: '>=18'}
 
   '@koa/cors@5.0.0':
     resolution: {integrity: sha512-x/iUDjcS90W69PryLDIMgFyV21YLTnG9zOpPXS7Bkt2b8AsY3zZsIpOLBkYr9fBcF3HbkKaER5hOBZLfpLgYNw==}
@@ -8895,6 +8902,8 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.5.5
 
   '@js-sdsl/ordered-map@4.4.2': {}
+
+  '@juspay/hippocampus@0.1.0': {}
 
   '@koa/cors@5.0.0':
     dependencies:
