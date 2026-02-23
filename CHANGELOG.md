@@ -1,3 +1,9 @@
+## [9.12.2](https://github.com/juspay/neurolink/compare/v9.12.1...v9.12.2) (2026-02-23)
+
+### Bug Fixes
+
+- **(deps):** move sharp, ffmpeg-static, ffprobe-static to optionalDependencies ([4810b83](https://github.com/juspay/neurolink/commit/4810b83ee876c57bd9075a3a587249f1a9db285c))
+
 ## [9.12.1](https://github.com/juspay/neurolink/compare/v9.12.0...v9.12.1) (2026-02-23)
 
 ### Bug Fixes
