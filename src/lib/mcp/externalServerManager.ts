@@ -715,15 +715,15 @@ export class ExternalServerManager extends EventEmitter {
       env: config.env,
       tools: [], // Will be populated after server connection
       blockedTools: config.blockedTools,
+      // Preserve top-level operational fields so startServer can read them
+      timeout: config.timeout,
+      retries: config.retries,
+      healthCheckInterval: config.healthCheckInterval,
+      autoRestart: config.autoRestart,
+      cwd: config.cwd,
+      url: config.url,
       metadata: {
         category: "external" as MCPServerCategory,
-        // Store additional ExternalMCPServerConfig fields in metadata
-        timeout: config.timeout,
-        retries: config.retries,
-        healthCheckInterval: config.healthCheckInterval,
-        autoRestart: config.autoRestart,
-        cwd: config.cwd,
-        url: config.url,
         ...(safeMetadataConversion(config.metadata) || {}),
       },
     };
@@ -1233,8 +1233,11 @@ export class ExternalServerManager extends EventEmitter {
       timestamp: new Date(),
     } satisfies ExternalMCPServerEvents["disconnected"]);
 
-    // Attempt restart if enabled
-    if (this.config.enableAutoRestart && !this.isShuttingDown) {
+    // Attempt restart if enabled — prefer server-specific setting, fall back to global
+    if (
+      (instance.config.autoRestart ?? this.config.enableAutoRestart) &&
+      !this.isShuttingDown
+    ) {
       this.scheduleRestart(serverId);
     } else {
       this.updateServerStatus(serverId, "disconnected");
