@@ -1,3 +1,9 @@
+## [9.12.3](https://github.com/juspay/neurolink/compare/v9.12.2...v9.12.3) (2026-02-24)
+
+### Bug Fixes
+
+- **(package):** resolve consumer bundling errors for server adapters ([0f4f71d](https://github.com/juspay/neurolink/commit/0f4f71de0467835a17146c2ff540b5d2009319fb))
+
 ## [9.12.2](https://github.com/juspay/neurolink/compare/v9.12.1...v9.12.2) (2026-02-23)
 
 ### Bug Fixes
