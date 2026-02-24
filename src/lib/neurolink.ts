@@ -41,6 +41,7 @@ import { isContextOverflowError } from "./context/errorDetection.js";
 import { repairToolPairs } from "./context/toolPairRepair.js";
 import { SYSTEM_LIMITS } from "./core/constants.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
+import { BaseProvider } from "./core/baseProvider.js";
 import { AIProviderFactory } from "./core/factory.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
@@ -2114,7 +2115,24 @@ Current user's request: ${currentInput}`;
         ? { input: { text: optionsOrPrompt } }
         : optionsOrPrompt;
 
-    // Validate prompt
+    // Check if embedding mode is requested — short-circuit before full validation
+    // Embedding with batch input.texts[] doesn't require input.text
+    if (options.embedding?.enabled) {
+      const hasBatchTexts =
+        options.input?.texts && options.input.texts.length > 0;
+      const hasSingleText =
+        options.input?.text && typeof options.input.text === "string";
+
+      if (!hasBatchTexts && !hasSingleText) {
+        throw new Error(
+          "Embedding mode requires either input.text (single) or input.texts[] (batch)",
+        );
+      }
+
+      return await this.generateEmbedding(options);
+    }
+
+    // Validate prompt (non-embedding paths require input.text)
     if (!options.input?.text || typeof options.input.text !== "string") {
       throw new Error("Input text is required and must be a non-empty string");
     }
@@ -2471,6 +2489,75 @@ Current user's request: ${currentInput}`;
         }
       });
     }
+  }
+
+  /**
+   * Handle embedding mode — bypasses full LLM pipeline.
+   *
+   * Supports single text (input.text) and batch (input.texts[]).
+   * Creates the provider once, calls embed/embedMany, and returns a
+   * GenerateResult with the embedding field populated.
+   */
+  private async generateEmbedding(
+    options: GenerateOptions,
+  ): Promise<GenerateResult> {
+    const startTime = Date.now();
+    const embeddingConfig = options.embedding;
+    const providerName = options.provider || "openai";
+    const modelName = embeddingConfig?.model || options.model || undefined;
+
+    logger.info("Embedding mode: creating provider", {
+      provider: providerName,
+      model: modelName,
+    });
+
+    const provider = await AIProviderFactory.createProvider(
+      providerName,
+      modelName,
+    );
+
+    if (!(provider instanceof BaseProvider)) {
+      throw new Error(
+        `Provider '${providerName}' does not support embeddings. ` +
+          `Supported: openai, vertex, bedrock.`,
+      );
+    }
+
+    // Batch mode: input.texts[] takes precedence over input.text
+    if (options.input.texts && options.input.texts.length > 0) {
+      const texts = options.input.texts;
+      const result = await provider.embedMany(texts, modelName);
+      const responseTime = Date.now() - startTime;
+
+      return {
+        content: "",
+        embedding: {
+          values: result.embeddings[0] || [],
+          batched: result.embeddings,
+          usage: result.usage,
+          model: modelName,
+        },
+        provider: providerName as string,
+        model: modelName,
+        responseTime,
+      };
+    }
+
+    // Single text mode: use input.text
+    const text = options.input.text;
+    const values = await provider.embed(text, modelName);
+    const responseTime = Date.now() - startTime;
+
+    return {
+      content: "",
+      embedding: {
+        values,
+        model: modelName,
+      },
+      provider: providerName as string,
+      model: modelName,
+      responseTime,
+    };
   }
 
   /**

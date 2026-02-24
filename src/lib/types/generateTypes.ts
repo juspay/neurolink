@@ -20,12 +20,80 @@ import type {
 } from "./typeAliases.js";
 
 /**
+ * Embedding configuration for generate().
+ *
+ * When `embedding.enabled` is true, generate() bypasses the full LLM pipeline
+ * and returns vector embeddings for the input text(s) instead.
+ *
+ * Text input follows the same `input` field as normal generate():
+ * - `input.text` for a single embedding
+ * - `input.texts` for batch embeddings (single API call)
+ *
+ * @example Single text embedding
+ * ```typescript
+ * const result = await neurolink.generate({
+ *   input: { text: "Hello world" },
+ *   provider: "vertex",
+ *   embedding: { enabled: true }
+ * });
+ * console.log(result.embedding?.values); // [0.123, -0.456, ...]
+ * ```
+ *
+ * @example Batch embedding
+ * ```typescript
+ * const result = await neurolink.generate({
+ *   input: { texts: ["Hello", "World", "Batch embeddings"] },
+ *   provider: "openai",
+ *   embedding: { enabled: true, model: "text-embedding-3-small" }
+ * });
+ * console.log(result.embedding?.values);   // first embedding
+ * console.log(result.embedding?.batched);   // all embeddings
+ * ```
+ */
+export type EmbeddingConfig = {
+  /** Enable embedding mode. Default: false */
+  enabled: boolean;
+  /** Override embedding model (provider-specific). Falls back to provider default. */
+  model?: string;
+};
+
+/**
+ * Embedding result returned in GenerateResult when embedding mode is used.
+ */
+export type EmbeddingResult = {
+  /** Embedding vector for a single text (or first text in batch) */
+  values: number[];
+  /** All embedding vectors when batch mode is used (texts[] was provided) */
+  batched?: number[][];
+  /** Token usage for the embedding operation */
+  usage?: { tokens: number };
+  /** The embedding model that was used */
+  model?: string;
+};
+
+/**
  * Generate function options type - Primary method for content generation
  * Supports multimodal content while maintaining backward compatibility
  */
 export type GenerateOptions = {
   input: {
     text: string;
+    /**
+     * Multiple texts for batch embedding.
+     * Used with `embedding: { enabled: true }` to embed several texts in one API call.
+     * When provided, `text` is ignored for embedding and `texts` is used instead.
+     *
+     * @example
+     * ```typescript
+     * const result = await neurolink.generate({
+     *   input: { texts: ["Hello", "World"] },
+     *   provider: "vertex",
+     *   embedding: { enabled: true }
+     * });
+     * result.embedding?.batched; // [[...], [...]]
+     * ```
+     */
+    texts?: string[];
     /**
      * Images to include in the request.
      * Supports simple image data (Buffer, string) or objects with alt text for accessibility.
@@ -395,6 +463,40 @@ export type GenerateOptions = {
   rag?: RAGConfig;
 
   /**
+   * Embedding configuration.
+   *
+   * When enabled, generate() short-circuits the full LLM pipeline and returns
+   * vector embeddings via the provider's embedding model.
+   *
+   * Text input uses the same `input` field:
+   * - `input.text` for a single embedding
+   * - `input.texts` for batch embeddings (single API call)
+   *
+   * Supported providers: openai, vertex, bedrock.
+   *
+   * @example Single embedding
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: "Hello world" },
+   *   provider: "vertex",
+   *   embedding: { enabled: true }
+   * });
+   * console.log(result.embedding?.values); // [0.123, -0.456, ...]
+   * ```
+   *
+   * @example Batch embedding (single API call)
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { texts: ["Hello", "World"] },
+   *   provider: "openai",
+   *   embedding: { enabled: true, model: "text-embedding-3-small" }
+   * });
+   * console.log(result.embedding?.batched); // [[...], [...]]
+   * ```
+   */
+  embedding?: EmbeddingConfig;
+
+  /**
    * Maximum budget in USD for this session. When the accumulated cost of all
    * generate() calls on this NeuroLink instance exceeds this value, subsequent
    * calls will throw a budget-exceeded error before making the API request.
@@ -509,6 +611,21 @@ export type GenerateResult = {
    */
   ppt?: PPTGenerationResult;
   imageOutput?: { base64: string } | null; // Standard format for image generation
+
+  /**
+   * Embedding result (present when embedding.enabled is true in options).
+   *
+   * @example
+   * ```typescript
+   * const result = await neurolink.generate({
+   *   input: { text: "Hello" },
+   *   provider: "vertex",
+   *   embedding: { enabled: true }
+   * });
+   * console.log(result.embedding?.values); // [0.123, -0.456, ...]
+   * ```
+   */
+  embedding?: EmbeddingResult;
 
   // Provider information
   provider?: string;

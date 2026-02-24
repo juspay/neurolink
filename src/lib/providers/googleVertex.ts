@@ -3420,6 +3420,60 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
+   * Generate embeddings for multiple texts in a single batch operation.
+   * Uses the Vercel AI SDK's embedMany() which supports auto-chunking.
+   * @param texts - Array of texts to embed
+   * @param modelName - The embedding model to use (default: text-embedding-004)
+   * @returns Promise resolving to embeddings and token usage
+   */
+  async embedMany(
+    texts: string[],
+    modelName?: string,
+  ): Promise<{ embeddings: number[][]; usage?: { tokens: number } }> {
+    const embeddingModelName = modelName || "text-embedding-004";
+
+    logger.debug("Generating batch embeddings", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      textCount: texts.length,
+    });
+
+    try {
+      const { embedMany } = await import("ai");
+
+      const vertexSettings = await createVertexSettings(this.location);
+      const vertex = createVertex(vertexSettings);
+
+      const embeddingModel = vertex.textEmbeddingModel(embeddingModelName);
+
+      const result = await embedMany({
+        model: embeddingModel,
+        values: texts,
+      });
+
+      logger.debug("Batch embeddings generated successfully", {
+        provider: this.providerName,
+        model: embeddingModelName,
+        count: result.embeddings.length,
+        embeddingDimension: result.embeddings[0]?.length,
+      });
+
+      return {
+        embeddings: result.embeddings,
+        usage: result.usage,
+      };
+    } catch (error) {
+      logger.error("Batch embedding generation failed", {
+        error: error instanceof Error ? error.message : String(error),
+        model: embeddingModelName,
+        textCount: texts.length,
+      });
+
+      throw this.handleProviderError(error);
+    }
+  }
+
+  /**
    * Get model suggestions when a model is not found
    */
   private getModelSuggestions(requestedModel: string | undefined): string {

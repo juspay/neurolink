@@ -1798,4 +1798,48 @@ export class AmazonBedrockProvider extends BaseProvider {
       throw this.handleProviderError(error);
     }
   }
+
+  /**
+   * Generate embeddings for multiple texts using Amazon Bedrock.
+   * Titan Embed does not support native batch input, so texts are
+   * embedded concurrently via Promise.all for maximum throughput.
+   * @param texts - Array of texts to embed
+   * @param modelName - The embedding model to use (default: amazon.titan-embed-text-v2:0)
+   * @returns Promise resolving to embeddings array
+   */
+  async embedMany(
+    texts: string[],
+    modelName?: string,
+  ): Promise<{ embeddings: number[][]; usage?: { tokens: number } }> {
+    const embeddingModelName = modelName || "amazon.titan-embed-text-v2:0";
+
+    logger.debug("Generating batch embeddings (concurrent)", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      textCount: texts.length,
+    });
+
+    try {
+      const embeddings = await Promise.all(
+        texts.map((text) => this.embed(text, embeddingModelName)),
+      );
+
+      logger.debug("Batch embeddings generated successfully", {
+        provider: this.providerName,
+        model: embeddingModelName,
+        count: embeddings.length,
+        embeddingDimension: embeddings[0]?.length,
+      });
+
+      return { embeddings };
+    } catch (error) {
+      logger.error("Batch embedding generation failed", {
+        error: error instanceof Error ? error.message : String(error),
+        model: embeddingModelName,
+        textCount: texts.length,
+      });
+
+      throw this.handleProviderError(error);
+    }
+  }
 }

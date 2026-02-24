@@ -925,6 +925,44 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   /**
+   * Generate embeddings for multiple texts in a single batch operation.
+   *
+   * This is a default implementation that throws an error.
+   * Providers that support embeddings (OpenAI, Google Vertex, Amazon Bedrock)
+   * should override this method with their specific batch implementation.
+   *
+   * @param texts - Array of texts to embed
+   * @param _modelName - Optional embedding model name (provider-specific)
+   * @returns Promise resolving to embeddings and optional token usage
+   * @throws Error if the provider does not support embeddings
+   *
+   * @example
+   * ```typescript
+   * const provider = await ProviderFactory.createProvider('openai', 'text-embedding-3-small');
+   * const result = await provider.embedMany(['Hello', 'World']);
+   * console.log(result.embeddings); // [[0.123, ...], [-0.456, ...]]
+   * console.log(result.usage);      // { tokens: 4 }
+   * ```
+   */
+  async embedMany(
+    texts: string[],
+    _modelName?: string,
+  ): Promise<{ embeddings: number[][]; usage?: { tokens: number } }> {
+    logger.warn(
+      `embedMany() called on ${this.providerName} which does not have a native implementation`,
+      {
+        textCount: texts.length,
+      },
+    );
+    throw new Error(
+      `Batch embedding generation is not supported by the ${this.providerName} provider. ` +
+        `Supported providers: openai, vertex/google, bedrock. ` +
+        `Use an embedding model like text-embedding-3-small (OpenAI), text-embedding-004 (Vertex), ` +
+        `or amazon.titan-embed-text-v2:0 (Bedrock).`,
+    );
+  }
+
+  /**
    * Get the default embedding model for this provider
    *
    * Override in subclasses to provide provider-specific defaults.
