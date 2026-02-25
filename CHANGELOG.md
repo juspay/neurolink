@@ -1,3 +1,9 @@
+## [9.13.0](https://github.com/juspay/neurolink/compare/v9.12.3...v9.13.0) (2026-02-25)
+
+### Features
+
+- **(memory):** integrate Hippocampus SDK for enhanced user memory management ([4da4e63](https://github.com/juspay/neurolink/commit/4da4e635cb5175c10c2efc63643d97cdee301e25))
+
 ## [9.12.3](https://github.com/juspay/neurolink/compare/v9.12.2...v9.12.3) (2026-02-24)
 
 ### Bug Fixes
