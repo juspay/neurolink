@@ -34,6 +34,8 @@
  */
 
 import type { Mem0Config } from "../memory/mem0Initializer.js";
+import type { Memory } from "../memory/hippocampusInitializer.js";
+export type { Memory };
 
 /**
  * Configuration for conversation memory feature
@@ -62,6 +64,9 @@ export type ConversationMemoryConfig = {
 
   /** Configuration for mem0 cloud API integration */
   mem0Config?: Mem0Config;
+
+  /** Memory SDK config (condensed key-value memory per user). Set enabled: true to activate. */
+  memory?: Memory;
 
   /** Redis configuration (optional) - overrides environment variables */
   redisConfig?: RedisStorageConfig;

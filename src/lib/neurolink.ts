@@ -54,6 +54,11 @@ import { MCPToolRegistry } from "./mcp/toolRegistry.js";
 import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
 import { createMemoryRetrievalTools } from "./memory/memoryRetrievalTools.js";
 import {
+  initializeHippocampus,
+  type HippocampusConfig,
+} from "./memory/hippocampusInitializer.js";
+import type { Hippocampus } from "@juspay/hippocampus";
+import {
   flushOpenTelemetry,
   getLangfuseHealthStatus,
   initializeOpenTelemetry,
@@ -333,6 +338,10 @@ export class NeuroLink {
   // Cached file tools to avoid redundant createFileTools() calls per generate/stream
   private cachedFileTools: ReturnType<typeof createFileTools> | null = null;
 
+  // Memory instance and config
+  private memoryInstance?: Hippocampus | null;
+  private memorySDKConfig?: HippocampusConfig;
+
   /**
    * Extract and set Langfuse context from options with proper async scoping
    */
@@ -451,6 +460,39 @@ export class NeuroLink {
     this.mem0Instance = await initializeMem0(this.mem0Config);
     return this.mem0Instance;
   }
+
+  private initializeMemoryConfig(): boolean {
+    const memory = this.conversationMemoryConfig?.conversationMemory?.memory;
+    if (!memory?.enabled) {
+      return false;
+    }
+
+    this.memorySDKConfig = memory;
+    return true;
+  }
+
+  /**
+   * Lazy initialization for memory — called during generate/stream.
+   */
+  private ensureMemoryReady(): Hippocampus | null {
+    if (this.memoryInstance !== undefined) {
+      return this.memoryInstance;
+    }
+
+    if (!this.initializeMemoryConfig()) {
+      this.memoryInstance = null;
+      return null;
+    }
+
+    if (!this.memorySDKConfig) {
+      this.memoryInstance = null;
+      return null;
+    }
+
+    this.memoryInstance = initializeHippocampus(this.memorySDKConfig);
+    return this.memoryInstance;
+  }
+
   /**
    * Context storage for tool execution
    * This context will be merged with any runtime context passed by the AI model
@@ -996,6 +1038,49 @@ Current user's request: ${currentInput}`;
       metadata,
       infer: true,
       async_mode: true,
+    });
+  }
+
+  /**
+   * Retrieve condensed memory for a user.
+   * Returns the input text enhanced with memory context, or unchanged if no memory.
+   */
+  private async retrieveMemory(
+    inputText: string,
+    userId: string,
+  ): Promise<string> {
+    const client = this.ensureMemoryReady();
+    if (!client) {
+      return inputText;
+    }
+
+    const memory = await client.get(userId);
+    if (!memory) {
+      return inputText;
+    }
+
+    return this.formatMemoryContext(memory, inputText);
+  }
+
+  /**
+   * Store a conversation turn in memory (non-blocking).
+   * Calls add(userId, content) which internally condenses old + new via LLM.
+   */
+  private storeMemoryInBackground(
+    originalPrompt: string,
+    responseContent: string,
+    userId: string,
+  ): void {
+    setImmediate(async () => {
+      try {
+        const client = this.ensureMemoryReady();
+        if (client) {
+          const content = `User: ${originalPrompt}\nAssistant: ${responseContent}`;
+          await client.add(userId, content);
+        }
+      } catch (error) {
+        logger.warn("Memory storage failed:", error);
+      }
     });
   }
 
@@ -2181,6 +2266,22 @@ Current user's request: ${currentInput}`;
         }
       }
 
+      // Memory retrieval
+      if (
+        this.conversationMemoryConfig?.conversationMemory?.memory?.enabled &&
+        options.context?.userId
+      ) {
+        try {
+          options.input.text = await this.retrieveMemory(
+            options.input.text,
+            options.context.userId as string,
+          );
+          logger.debug("Memory retrieval successful");
+        } catch (error) {
+          logger.warn("Memory retrieval failed:", error);
+        }
+      }
+
       const startTime = Date.now();
 
       // Apply orchestration if enabled and no specific provider/model requested
@@ -2470,6 +2571,19 @@ Current user's request: ${currentInput}`;
           logger.warn("Mem0 memory storage failed:", error);
         }
       });
+    }
+
+    // Memory storage
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.memory?.enabled &&
+      options.context?.userId &&
+      generateResult.content?.trim()
+    ) {
+      this.storeMemoryInBackground(
+        originalPrompt ?? "",
+        generateResult.content.trim(),
+        options.context.userId as string,
+      );
     }
   }
 
@@ -4271,6 +4385,22 @@ Current user's request: ${currentInput}`;
       }
     }
 
+    // Memory retrieval
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.memory?.enabled &&
+      options.context?.userId
+    ) {
+      try {
+        options.input.text = await this.retrieveMemory(
+          options.input.text,
+          options.context.userId as string,
+        );
+        logger.debug("Memory retrieval successful");
+      } catch (error) {
+        logger.warn("Memory retrieval failed:", error);
+      }
+    }
+
     // Apply orchestration if enabled and no specific provider/model requested
     if (this.enableOrchestration && !options.provider && !options.model) {
       try {
@@ -4655,6 +4785,18 @@ Current user's request: ${currentInput}`;
           logger.warn("Mem0 memory storage failed:", error);
         }
       });
+    }
+
+    if (
+      this.conversationMemoryConfig?.conversationMemory?.memory?.enabled &&
+      enhancedOptions.context?.userId &&
+      accumulatedContent?.trim()
+    ) {
+      this.storeMemoryInBackground(
+        originalPrompt ?? "",
+        accumulatedContent.trim(),
+        enhancedOptions.context?.userId as string,
+      );
     }
   }
 

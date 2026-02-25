@@ -84,6 +84,7 @@ const sidebars: SidebarsConfig = {
         "features/file-processors",
         "features/mcp-tools-showcase",
         "features/rag",
+        "features/memory",
       ],
     },
     {

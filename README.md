@@ -37,6 +37,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 | Feature                             | Version | Description                                                                                                                                                   | Guide                                                                 |
 | ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Memory**                          | v9.12.0 | Per-user condensed memory that persists across conversations. LLM-powered condensation with S3, Redis, or SQLite backends.                                    | [Memory Guide](docs/features/memory.md)                               |
 | **Context Window Management**       | v9.2.0  | 4-stage compaction pipeline with auto-detection, budget gate at 80% usage, per-provider token estimation                                                      | [Context Compaction Guide](docs/features/context-compaction.md)       |
 | **Tool Execution Control**          | v9.3.0  | `prepareStep` and `toolChoice` support for per-step tool enforcement in multi-step agentic loops. API-level control over tool calls.                          | [API Reference](docs/api/type-aliases/GenerateOptions.md#preparestep) |
 | **File Processor System**           | v9.1.0  | 17+ file type processors with ProcessorRegistry, security sanitization, SVG text injection                                                                    | [File Processors Guide](docs/features/file-processors.md)             |
@@ -48,6 +49,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 | **Image Generation with Gemini**    | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.                | [Image Generation Guide](docs/image-generation-streaming.md)          |
 | **HTTP/Streamable HTTP Transport**  | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.                 | [HTTP Transport Guide](docs/mcp-http-transport.md)                    |
 
+- **Memory** – Per-user condensed memory that persists across all conversations. Automatically retrieves and stores memory on each `generate()`/`stream()` call. Supports S3, Redis, and SQLite storage with LLM-powered condensation. → [Memory Guide](docs/features/memory.md)
 - **External TracerProvider Support** – Integrate NeuroLink with applications that already have OpenTelemetry instrumentation. Supports auto-detection and manual configuration. → [Observability Guide](docs/features/observability.md)
 - **Server Adapters** – Deploy NeuroLink as an HTTP API server with your framework of choice (Hono, Express, Fastify, Koa). Full CLI support with `serve` and `server` commands for foreground/background modes, route management, and OpenAPI generation. → [Server Adapters Guide](docs/guides/server-adapters/index.md)
 - **Title Generation Events** – Emit real-time events when conversation titles are auto-generated. Listen to `conversation:titleGenerated` for session tracking. → [Conversation Memory Guide](docs/conversation-memory.md#title-generation-events)
@@ -240,7 +242,7 @@ const result = await neurolink.generate({
 | --------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | **Auto Provider Selection** | Intelligent provider fallback                                                     | [SDK Guide](docs/sdk/index.md#auto-selection)             |
 | **Streaming Responses**     | Real-time token streaming                                                         | [Streaming Guide](docs/advanced/streaming.md)             |
-| **Conversation Memory**     | Automatic context management                                                      | [Memory Guide](docs/sdk/index.md#memory)                  |
+| **Conversation Memory**     | Automatic context management with embedded per-user memory                        | [Memory Guide](docs/sdk/index.md#memory)                  |
 | **Full Type Safety**        | Complete TypeScript types                                                         | [Type Reference](docs/sdk/api-reference.md)               |
 | **Error Handling**          | Graceful provider fallback                                                        | [Error Guide](docs/reference/troubleshooting.md)          |
 | **Analytics & Evaluation**  | Usage tracking, quality scores                                                    | [Analytics Guide](docs/advanced/analytics.md)             |
@@ -297,16 +299,17 @@ const result = await neurolink.generate({
 
 **Production-ready capabilities for regulated industries:**
 
-| Feature                     | Description                        | Use Case                  | Documentation                                               |
-| --------------------------- | ---------------------------------- | ------------------------- | ----------------------------------------------------------- |
-| **Enterprise Proxy**        | Corporate proxy support            | Behind firewalls          | [Proxy Setup](docs/enterprise-proxy-setup.md)               |
-| **Redis Memory**            | Distributed conversation state     | Multi-instance deployment | [Redis Guide](docs/getting-started/provider-setup.md#redis) |
-| **Cost Optimization**       | Automatic cheapest model selection | Budget control            | [Cost Guide](docs/advanced/index.md)                        |
-| **Multi-Provider Failover** | Automatic provider switching       | High availability         | [Failover Guide](docs/advanced/index.md)                    |
-| **Telemetry & Monitoring**  | OpenTelemetry integration          | Observability             | [Telemetry Guide](docs/telemetry-guide.md)                  |
-| **Security Hardening**      | Credential management, auditing    | Compliance                | [Security Guide](docs/advanced/enterprise.md)               |
-| **Custom Model Hosting**    | SageMaker integration              | Private models            | [SageMaker Guide](docs/sagemaker-integration.md)            |
-| **Load Balancing**          | LiteLLM proxy integration          | Scale & routing           | [Load Balancing](docs/litellm-integration.md)               |
+| Feature                     | Description                                 | Use Case                  | Documentation                                               |
+| --------------------------- | ------------------------------------------- | ------------------------- | ----------------------------------------------------------- |
+| **Enterprise Proxy**        | Corporate proxy support                     | Behind firewalls          | [Proxy Setup](docs/enterprise-proxy-setup.md)               |
+| **Redis Memory**            | Distributed conversation state              | Multi-instance deployment | [Redis Guide](docs/getting-started/provider-setup.md#redis) |
+| **Memory**                  | Per-user condensed memory (S3/Redis/SQLite) | Long-term user context    | [Memory Guide](docs/features/memory.md)                     |
+| **Cost Optimization**       | Automatic cheapest model selection          | Budget control            | [Cost Guide](docs/advanced/index.md)                        |
+| **Multi-Provider Failover** | Automatic provider switching                | High availability         | [Failover Guide](docs/advanced/index.md)                    |
+| **Telemetry & Monitoring**  | OpenTelemetry integration                   | Observability             | [Telemetry Guide](docs/telemetry-guide.md)                  |
+| **Security Hardening**      | Credential management, auditing             | Compliance                | [Security Guide](docs/advanced/enterprise.md)               |
+| **Custom Model Hosting**    | SageMaker integration                       | Private models            | [SageMaker Guide](docs/sagemaker-integration.md)            |
+| **Load Balancing**          | LiteLLM proxy integration                   | Scale & routing           | [Load Balancing](docs/litellm-integration.md)               |
 
 **Security & Compliance:**
 

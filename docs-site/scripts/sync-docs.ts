@@ -77,6 +77,7 @@ const FILE_MAPPINGS: Record<string, string> = {
   "conversation-memory.md": "memory/conversation.md",
   "context-summarization.md": "memory/summarization.md",
   "mem0-integration.md": "memory/mem0.md",
+  "features/memory.md": "features/memory.md",
 
   // Workflow docs -> workflows/
   "advanced-orchestration.md": "workflows/orchestration.md",
@@ -943,6 +944,10 @@ const LINK_MAPPINGS: Record<string, string> = {
   "session-management-guide": "/guides/session-management",
 
   // Features - absolute paths often used
+  memory: "/features/memory",
+  "memory.md": "/features/memory",
+  "features/memory": "/features/memory",
+  "features/memory.md": "/features/memory",
   guardrails: "/features/guardrails",
   hitl: "/features/hitl",
   multimodal: "/features/multimodal",

@@ -21,6 +21,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 | :material-server: **[Server Adapters](../guides/server-adapters/index.md)**                        | Expose NeuroLink AI agents as HTTP APIs with Hono, Express, Fastify, and Koa. Production-ready with auth, rate limiting, and streaming.     |
 | :material-database-search: **[RAG Document Processing](rag.md)**                                   | Comprehensive document chunking (10 strategies), hybrid search (BM25 + vector), and reranking (5 types) for retrieval-augmented generation. |
 | :material-compress-arrows: **[Context Compaction](context-compaction.md)**                         | 4-stage context compaction pipeline with automatic budget management, per-provider token estimation, and non-destructive message tagging.   |
+| :material-brain: **[Memory](memory.md)**                                                           | Per-user condensed memory that persists across conversations. LLM-powered condensation with S3, Redis, or SQLite storage backends.          |
 
 **Q1 2026 Highlights:**
 
@@ -72,7 +73,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 | **Provider unification** | 12+ providers with automatic failover, cost-aware routing, provider orchestration (Q3)                             | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents + Office files across providers with auto-detection for mixed file types. | [Multimodal Guide](multimodal-chat.md), [CSV Support](csv-support.md), [PDF Support](pdf-support.md), [Office Docs](office-documents.md) |
 | **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging                        | [Auto Evaluation](auto-evaluation.md), [Guardrails](guardrails.md), [HITL](hitl.md)                                                      |
-| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4)                       | [Conversation Memory](../conversation-memory.md), [Redis Export](conversation-history.md)                                                |
+| **Memory & context**     | Conversation memory, per-user memory, Mem0 integration, Redis history export (Q4), context summarization (Q4)      | [Conversation Memory](../conversation-memory.md), [Memory](memory.md), [Redis Export](conversation-history.md)                           |
 | **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output                                | [CLI Loop](cli-loop-sessions.md), [CLI Commands](../cli/commands.md)                                                                     |
 | **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management                                    | [Enterprise Proxy](../enterprise-proxy-setup.md), [Observability](observability.md)                                                      |
 | **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search                                    | [MCP Integration](../advanced/mcp-integration.md), [MCP Catalog](../guides/mcp/server-catalog.md)                                        |
@@ -524,6 +525,7 @@ Production-grade fault tolerance:
 | :material-server-network: **[LiteLLM Integration](../litellm-integration.md)** | Access 100+ models from all major providers via LiteLLM routing with unified interface. |
 | :material-aws: **[SageMaker Integration](../sagemaker-integration.md)**        | Deploy and call custom endpoints directly from NeuroLink CLI/SDK with full control.     |
 | :material-brain-circuit: **[Mem0 Integration](../mem0-integration.md)**        | Persistent semantic memory with vector store support for long-term conversations.       |
+| :material-brain: **[Memory](memory.md)**                                       | Per-user condensed memory with S3/Redis/SQLite storage and LLM-powered condensation.    |
 | :material-shield-lock: **[Enterprise Proxy](../enterprise-proxy-setup.md)**    | Configure outbound policies and compliance posture for corporate environments.          |
 | :material-cog: **[Configuration Management](../configuration-management.md)**  | Manage environments, regions, and credentials safely across deployments.                |
 
