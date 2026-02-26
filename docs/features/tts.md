@@ -17,8 +17,7 @@ NeuroLink provides integrated Text-to-Speech (TTS) capabilities, allowing you to
 - **Flexible audio formats** - MP3, WAV, OGG/Opus
 - **Voice customization** - Adjust speed, pitch, and volume
 - **Two synthesis modes** - Direct text-to-speech OR AI response synthesis
-- **Cross-platform playback** - Built-in audio playback support
-- **Production-ready** - Battle-tested Google Cloud TTS integration
+- **Production-ready** - Google Cloud TTS integration
 
 ---
 
@@ -123,45 +122,9 @@ Google Cloud TTS offers three voice quality tiers:
 
 ### Voice Discovery
 
-**CLI - List All Voices:**
+Voice identifiers follow Google Cloud TTS naming conventions: `<language>-<variant>-<type>-<name>` (e.g., `en-US-Neural2-C`, `en-GB-Wavenet-D`).
 
-```bash
-# List all available voices
-neurolink tts voices
-
-# Filter by language
-neurolink tts voices en-US
-
-# JSON format for programmatic use
-neurolink tts voices en-GB --format json
-
-# Table format for easy reading
-neurolink tts voices fr-FR --format table
-```
-
-**SDK - Get Available Voices:**
-
-```typescript
-import { NeuroLink } from "@juspay/neurolink";
-
-const neurolink = new NeuroLink();
-
-// Get all voices
-const allVoices = await neurolink.getTTSVoices();
-
-// Get voices for specific language
-const usVoices = await neurolink.getTTSVoices("en-US");
-
-// Example voice structure
-type TTSVoice = {
-  id: string; // "en-US-Neural2-C"
-  name: string; // "en-US-Neural2-C"
-  languageCode: string; // "en-US"
-  languageCodes: string[]; // ["en-US"]
-  gender: "male" | "female" | "neutral";
-  type: "neural" | "wavenet" | "standard";
-};
-```
+Refer to the [Google Cloud TTS voice list](https://cloud.google.com/text-to-speech/docs/voices) for all available voices.
 
 ### Supported Languages
 
@@ -745,14 +708,14 @@ if (result.success && result.audio) {
 
 ### Common Issues
 
-| Issue                            | Cause                    | Solution                                                          |
-| -------------------------------- | ------------------------ | ----------------------------------------------------------------- |
-| **"TTS client not initialized"** | Missing credentials      | Set `GOOGLE_APPLICATION_CREDENTIALS` or `GOOGLE_AI_API_KEY`       |
-| **"Invalid voice name"**         | Voice ID not found       | Run `neurolink tts voices` to see available voices                |
-| **"Text too long"**              | Input exceeds 5000 bytes | Split text into smaller chunks                                    |
-| **"Synthesis failed"**           | Network/API error        | Check network connection and credentials                          |
-| **Audio doesn't play**           | Missing audio player     | Install `afplay` (macOS), `ffplay` (Linux), or use WAV on Windows |
-| **Empty audio buffer**           | API returned no content  | Check API quota and retry                                         |
+| Issue                            | Cause                    | Solution                                                                                     |
+| -------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
+| **"TTS client not initialized"** | Missing credentials      | Set `GOOGLE_APPLICATION_CREDENTIALS` or `GOOGLE_AI_API_KEY`                                  |
+| **"Invalid voice name"**         | Voice ID not found       | Check the [Google Cloud TTS voice list](https://cloud.google.com/text-to-speech/docs/voices) |
+| **"Text too long"**              | Input exceeds 5000 bytes | Split text into smaller chunks                                                               |
+| **"Synthesis failed"**           | Network/API error        | Check network connection and credentials                                                     |
+| **Audio doesn't play**           | Missing audio player     | Install `afplay` (macOS), `ffplay` (Linux), or use WAV on Windows                            |
+| **Empty audio buffer**           | API returned no content  | Check API quota and retry                                                                    |
 
 ### Authentication Issues
 
@@ -771,10 +734,6 @@ gcloud auth application-default login
 ```bash
 # Verify API key is set
 echo $GOOGLE_AI_API_KEY
-
-# Test in code
-const result = await neurolink.getTTSVoices();
-console.log(`Found ${result.length} voices`);
 ```
 
 ### Audio Playback Issues
@@ -875,7 +834,6 @@ NeuroLink's TTS integration provides:
 ✅ **Flexible synthesis modes** - Direct text or AI response
 ✅ **Voice customization** - Speed, pitch, volume control
 ✅ **Production-ready** - Google Cloud TTS integration
-✅ **Cross-platform** - Works on macOS, Linux, Windows
 ✅ **Easy integration** - Works seamlessly with CLI and SDK
 
 **Next Steps:**

@@ -70,7 +70,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 | Category                 | Features                                                                                                           | Documentation                                                                                                                            |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | 12+ providers with automatic failover, cost-aware routing, provider orchestration (Q3)                             | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
+| **Provider unification** | 14+ providers with automatic failover, cost-aware routing, provider orchestration (Q3)                             | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents + Office files across providers with auto-detection for mixed file types. | [Multimodal Guide](multimodal-chat.md), [CSV Support](csv-support.md), [PDF Support](pdf-support.md), [Office Docs](office-documents.md) |
 | **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging                        | [Auto Evaluation](auto-evaluation.md), [Guardrails](guardrails.md), [HITL](hitl.md)                                                      |
 | **Memory & context**     | Conversation memory, per-user memory, Mem0 integration, Redis history export (Q4), context summarization (Q4)      | [Conversation Memory](../conversation-memory.md), [Memory](memory.md), [Redis Export](conversation-history.md)                           |
@@ -82,7 +82,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 ## AI Provider Integration
 
-NeuroLink supports **12 major AI providers** with unified API access:
+NeuroLink supports **14+ AI providers** with unified API access:
 
 | Provider              | Key Features                   | Free Tier       | Tool Support | Status        | Documentation                                                         |
 | --------------------- | ------------------------------ | --------------- | ------------ | ------------- | --------------------------------------------------------------------- |
@@ -98,6 +98,7 @@ NeuroLink supports **12 major AI providers** with unified API access:
 | **Hugging Face**      | 100,000+ models                | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#huggingface)       |
 | **Ollama**            | Local models                   | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#ollama)            |
 | **OpenAI Compatible** | Any compatible endpoint        | Varies          | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#openai-compatible) |
+| **OpenRouter**        | 300+ models via unified API    | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#openrouter)        |
 
 **[📖 Provider Comparison Guide](../reference/provider-comparison.md)** - Full feature matrix
 
@@ -545,7 +546,7 @@ Production-grade fault tolerance:
 | :material-flash: **[Streaming](../advanced/streaming.md)**                                | Real-time token streaming with provider-specific optimizations.                    |
 | :material-head-cog: **[Thinking Configuration](thinking-configuration.md)**               | Configure extended thinking levels for supported models (Anthropic, Gemini 2.5+).  |
 | :material-code-json: **[Structured Output](structured-output.md)**                        | JSON schema-based structured output with provider-specific formatting.             |
-| :material-text-to-speech: **[Text-to-Speech (TTS)](tts.md)**                              | Multi-provider TTS with 8 providers, streaming audio, and voice selection.         |
+| :material-text-to-speech: **[Text-to-Speech (TTS)](tts.md)**                              | Basic TTS support via Google Cloud TTS (Neural2, Wavenet, Standard voices).        |
 
 ---
 

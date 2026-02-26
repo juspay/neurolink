@@ -1029,7 +1029,8 @@ src/lib/evaluation/             # Evaluation/scoring (0 tests)
 src/lib/mcp/                    # MCP enhancements
 src/lib/telemetry/              # Observability/telemetry
 src/lib/workflow/               # Workflow engine (26 files, ~20K lines)
-src/lib/tts/                    # Basic TTS — TTSProcessor + Google handler
+src/lib/utils/ttsProcessor.ts   # Basic TTS — TTSProcessor orchestrator
+src/lib/adapters/tts/           # TTS provider handlers (googleTTSHandler.ts)
 ```
 
 **Key Notes:**

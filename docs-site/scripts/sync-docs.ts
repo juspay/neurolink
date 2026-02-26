@@ -72,6 +72,7 @@ const FILE_MAPPINGS: Record<string, string> = {
   "mcp-concurrency-guide.md": "mcp/concurrency.md",
   "mcp-testing-guide.md": "mcp/testing.md",
   "mcp-latency-optimization-implementation-guide.md": "mcp/optimization.md",
+  "mcp-docs-server.md": "mcp/docs-server.md",
 
   // Memory docs -> memory/
   "conversation-memory.md": "memory/conversation.md",
@@ -854,6 +855,8 @@ const LINK_MAPPINGS: Record<string, string> = {
   "mcp-testing-guide": "/mcp/testing",
   "mcp-testing-guide.md": "/mcp/testing",
   "mcp-latency-optimization-implementation-guide": "/mcp/optimization",
+  "mcp-docs-server": "/mcp/docs-server",
+  "mcp-docs-server.md": "/mcp/docs-server",
 
   // Memory reorganization
   "conversation-memory": "/memory/conversation",

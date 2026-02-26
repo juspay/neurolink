@@ -33,6 +33,16 @@ const sidebars: SidebarsConfig = {
             "getting-started/providers/openai-compatible",
           ],
         },
+        {
+          type: "category",
+          label: "Migration Guides",
+          collapsed: false,
+          items: [
+            "guides/migration/from-langchain",
+            "guides/migration/from-vercel-ai-sdk",
+            "guides/migration-guide",
+          ],
+        },
       ],
     },
     {
@@ -96,6 +106,7 @@ const sidebars: SidebarsConfig = {
         "mcp/integration",
         "mcp/http-transport",
         "mcp/configuration",
+        "mcp/docs-server",
         "mcp/testing",
         "mcp/optimization",
         "guides/mcp/server-catalog",

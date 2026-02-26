@@ -54,6 +54,38 @@ const config: Config = {
         crossorigin: "anonymous",
       },
     },
+    {
+      tagName: "script",
+      attributes: {
+        type: "application/ld+json",
+      },
+      innerHTML: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        name: "Juspay Technologies",
+        url: "https://juspay.io",
+        logo: "https://docs.neurolink.ink/img/logo-light.svg",
+        sameAs: ["https://github.com/juspay/neurolink"],
+      }),
+    },
+    {
+      tagName: "script",
+      attributes: {
+        type: "application/ld+json",
+      },
+      innerHTML: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        name: "NeuroLink",
+        applicationCategory: "DeveloperApplication",
+        operatingSystem: "Cross-platform",
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+        },
+      }),
+    },
   ],
 
   markdown: {
@@ -124,6 +156,25 @@ const config: Config = {
           changefreq: "weekly",
           priority: 0.5,
           filename: "sitemap.xml",
+          createSitemapItems: async (params) => {
+            const { defaultCreateSitemapItems, ...rest } = params;
+            const items = await defaultCreateSitemapItems(rest);
+            return items.map((item) => {
+              if (item.url.includes("/getting-started")) {
+                return { ...item, priority: 1.0, changefreq: "daily" };
+              }
+              if (item.url.includes("/sdk") || item.url.includes("/cli")) {
+                return { ...item, priority: 0.9 };
+              }
+              if (
+                item.url.includes("/features/") ||
+                item.url.includes("/examples")
+              ) {
+                return { ...item, priority: 0.8 };
+              }
+              return item;
+            });
+          },
         },
         ...(process.env.NODE_ENV === "production" &&
           process.env.GA_TRACKING_ID && {
@@ -139,10 +190,43 @@ const config: Config = {
   themeConfig: {
     image: "img/neurolink-social-card.png",
 
+    metadata: [
+      {
+        name: "description",
+        content:
+          "Enterprise AI Development Platform - Universal provider support, MCP integration, and professional CLI",
+      },
+      {
+        property: "og:description",
+        content:
+          "Enterprise AI Development Platform - Universal provider support, MCP integration, and professional CLI",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "NeuroLink" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "NeuroLink Documentation" },
+      {
+        name: "twitter:description",
+        content:
+          "Enterprise AI Development Platform - Universal provider support, MCP integration, and professional CLI",
+      },
+      { name: "twitter:site", content: "@jaborhey" },
+      { name: "twitter:creator", content: "@jaborhey" },
+    ],
+
     colorMode: {
       defaultMode: "dark",
       disableSwitch: false,
       respectPrefersColorScheme: true,
+    },
+
+    announcementBar: {
+      id: "v9_12_release",
+      content:
+        'NeuroLink v9.12 is out — SDK boundary items, context windows & caching. <a href="/docs/community/changelog">See changelog</a>',
+      backgroundColor: "var(--neurolink-accent)",
+      textColor: "#ffffff",
+      isCloseable: true,
     },
 
     docs: {
@@ -239,6 +323,11 @@ const config: Config = {
               label: "Contributing",
               href: "https://github.com/juspay/neurolink/blob/release/CONTRIBUTING.md",
             },
+            { label: "llms.txt", href: "pathname:///llms.txt" },
+            {
+              label: "llms-full.txt",
+              href: "pathname:///llms-full.txt",
+            },
           ],
         },
       ],
@@ -269,13 +358,47 @@ const config: Config = {
     // Client-side redirects for legacy paths, SEO, and URL migrations
     redirectsPluginConfig,
 
-    // NOTE: docusaurus-plugin-new-docs is available but disabled.
-    // Location: plugins/docusaurus-plugin-new-docs/index.js
-    // Purpose: Auto-detect new/modified docs via Git history for "NEW" badges.
-    // Status: Disabled due to Docusaurus 3.9.2 generatedFilesDir compatibility issue.
-    // Workaround: Badge detection handled via frontmatter tags and sync-docs.ts.
-    // To re-enable: Uncomment the plugin config below after fixing generatedFilesDir issue.
-    // See: https://github.com/facebook/docusaurus/issues (search generatedFilesDir)
+    // Auto-detect new/modified docs via Git history for sidebar badges
+    [
+      "./plugins/docusaurus-plugin-new-docs",
+      {
+        mode: "both",
+        docsDir: "docs",
+        daysThreshold: 30,
+        debug: process.env.NODE_ENV === "development",
+      },
+    ],
+
+    // Search index for MCP docs server
+    [
+      "./plugins/docusaurus-plugin-search-index",
+      {
+        docsDir: "docs",
+        outputFile: "search-index.json",
+        debug: process.env.NODE_ENV === "development",
+      },
+    ],
+
+    // Fix server bundle: handle Node-only native modules
+    // (protobufjs from posthog→opentelemetry, ws from jsdom, fsevents, etc.)
+    function serverExternalsPlugin() {
+      return {
+        name: "server-externals",
+        configureWebpack(_config, isServer) {
+          if (isServer) {
+            return {
+              externals: [
+                /^(protobufjs|long|ws|bufferutil|utf-8-validate|fsevents)$/,
+              ],
+              module: {
+                rules: [{ test: /\.node$/, use: "null-loader" }],
+              },
+            };
+          }
+          return {};
+        },
+      };
+    },
   ],
 };
 

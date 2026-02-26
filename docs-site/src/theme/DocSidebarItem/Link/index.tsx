@@ -5,13 +5,21 @@ import type { WrapperProps } from "@docusaurus/types";
 import {
   parseBadgeFromLabel,
   SidebarBadge,
+  type BadgeType,
 } from "@site/src/components/SidebarBadge";
+import { useDocStatus } from "@site/src/theme/hooks/useNewDocs";
+import { isBadgeType } from "../badgeUtils";
 
 type Props = WrapperProps<typeof LinkType>;
 
 export default function LinkWrapper(props: Props): React.ReactElement {
   const { item } = props;
   const { cleanLabel, badge } = parseBadgeFromLabel(item.label);
+  const { status: gitStatus } = useDocStatus(item.docId || item.href || "");
+  const resolvedGitBadge: BadgeType | null = isBadgeType(gitStatus)
+    ? gitStatus
+    : null;
+  const finalBadge: BadgeType | null = badge || resolvedGitBadge;
 
   // Create a modified item with the clean label
   const modifiedItem = {
@@ -30,9 +38,9 @@ export default function LinkWrapper(props: Props): React.ReactElement {
       <div>
         <Link {...modifiedProps} />
       </div>
-      {badge && (
+      {finalBadge && (
         <span className="sidebar-badge-right">
-          <SidebarBadge type={badge} />
+          <SidebarBadge type={finalBadge} />
         </span>
       )}
     </div>

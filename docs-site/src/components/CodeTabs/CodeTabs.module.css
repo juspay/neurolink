@@ -1,0 +1,29 @@
+.wrapper {
+  margin-bottom: var(--spacing-4);
+}
+
+.tabs {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.tabs [class*="tabs__item"] {
+  font-size: 0.8125rem;
+  padding: var(--spacing-2) var(--spacing-4);
+}
+
+.tabs [class*="tabItem"] {
+  padding: 0;
+}
+
+.tabs [class*="tabItem"] > div {
+  margin: 0;
+}
+
+/* Remove double borders from code blocks inside tabs */
+.tabs pre[class*="language-"] {
+  border: none;
+  border-radius: 0;
+  margin-bottom: 0;
+}

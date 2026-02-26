@@ -13,5 +13,5 @@
     "allowSyntheticDefaultImports": true,
     "types": ["vite/client", "@sveltejs/kit", "vitest/globals", "node"]
   },
-  "exclude": ["action-dist"]
+  "exclude": ["action-dist", "docs-site/mcp-server"]
 }

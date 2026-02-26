@@ -31,7 +31,7 @@ export function CardGridItem({
     <>
       {icon && <div className={styles.icon}>{icon}</div>}
       <h3 className={styles.title}>{title}</h3>
-      <p className={styles.description}>{children}</p>
+      <div className={styles.description}>{children}</div>
     </>
   );
 

@@ -2,7 +2,7 @@
 
 > Enterprise AI Development Platform - Unified provider access, MCP integration, professional CLI
 
-Generated: 2026-02-12T20:23:20.826Z
+Generated: 2026-02-27T05:43:04.517Z
 Full documentation: https://docs.neurolink.ink/llms-full.txt
 
 ---
@@ -101,6 +101,7 @@ NeuroLink is an enterprise AI development platform that provides:
 - Audio Input & Transcription Guide
 - Auto Evaluation Engine
 - CLI Loop Sessions
+- Context Compaction
 - Redis Conversation History Export
 - CSV File Support
 - Enterprise Human-in-the-Loop System
@@ -112,6 +113,7 @@ NeuroLink is an enterprise AI development platform that provides:
 - Image Generation Streaming Guide
 - Interactive CLI - Your AI Development Environment
 - MCP Tools Ecosystem - 58+ Integrations
+- Memory Guide
 - Multimodal Chat Experiences
 - Multimodal Capabilities Guide
 - Observability Guide
@@ -125,6 +127,7 @@ NeuroLink is an enterprise AI development platform that provides:
 - Structured Output with Zod Schemas
 - Extended Thinking Configuration
 - Text-to-Speech (TTS) Integration Guide
+- Video Analysis
 - Video Generation with Veo 3.1
 
 ### Examples
@@ -145,7 +148,7 @@ NeuroLink is an enterprise AI development platform that provides:
 
 NeuroLink
   The Enterprise AI SDK for Production Applications
-  12 Providers | 58+ MCP Tools | HITL Security | Redis Persistence
+  13 Providers | 58+ MCP Tools | HITL Security | Redis Persistence
 
 [[Image: npm version]](https://www.npmjs.com/package/@juspay/neurolink)
 [[Image: npm downloads]](https://www.npmjs.com/package/@juspay/neurolink)
@@ -173,7 +176,7 @@ Welcome to NeuroLink! This section will help you get up and running quickly with
 
   Get NeuroLink working in under 2 minutes with basic examples for both CLI and SDK usage.
 
-- 📥 **[Installation](/docs/getting-started/installation)**
+-  **[Installation](/docs/getting-started/installation)**
 
   Detailed installation instructions for different environments and package managers.
 
@@ -863,6 +866,22 @@ NeuroLink 7.46.0 adds an automated quality gate that scores every response using
 
 ---
 
+## Context Compaction
+
+<!-- Source: features/context-compaction.md -->
+
+# Context Compaction
+
+## Overview
+
+NeuroLink's Context Compaction system automatically manages conversation context windows, preventing overflow errors and maintaining conversation quality as sessions grow longer. It runs transparently before every `generate()` and `stream()` call.
+
+
+
+[Content truncated - see llms-full.txt for complete documentation]
+
+---
+
 ## Redis Conversation History Export
 
 <!-- Source: features/conversation-history.md -->
@@ -930,14 +949,15 @@ are not yet implemented and represent the target API design for future releases.
 
 # File Processors Guide
 
-NeuroLink includes a comprehensive file processing system that supports 17+ file types with intelligent content extraction, security sanitization, and provider-agnostic formatting. This system enables seamless multimodal AI interactions across all 13 supported providers.
+NeuroLink includes a comprehensive file processing system that supports 20+ file types with intelligent content extraction, security sanitization, and provider-agnostic formatting. This system enables seamless multimodal AI interactions across all 13 supported providers.
 
 ## Overview
 
-The file processor system consists of **52 TypeScript files** organized into a modular architecture:
+The file processor system is organized into a modular architecture:
 
 ```
 src/lib/processors/
+├── base/           # BaseFileProcessor abstract class and types
 
 
 [Content truncated - see llms-full.txt for complete documentation]
@@ -1067,6 +1087,27 @@ NeuroLink's Interactive CLI transforms traditional command-line usage into a per
 ## Overview
 
 NeuroLink's Model Context Protocol (MCP) integration provides a **universal plugin system** that transforms the SDK from a simple AI interface into a complete AI development platform.
+
+[Content truncated - see llms-full.txt for complete documentation]
+
+---
+
+## Memory Guide
+
+<!-- Source: features/memory.md -->
+
+# Memory Guide
+
+> **Since**: v9.12.0 | **Status**: Stable | **Availability**: SDK
+
+## Overview
+
+NeuroLink includes a **memory engine** powered by the `@juspay/hippocampus` SDK. Unlike conversation memory (which tracks recent turns in a session), memory maintains a **condensed summary** of durable facts about each user across all conversations.
+
+Key characteristics:
+
+- **Per-user**: Each user gets an independent memory store keyed by `userId`
+
 
 [Content truncated - see llms-full.txt for complete documentation]
 
@@ -1326,6 +1367,24 @@ NeuroLink provides integrated Text-to-Speech (TTS) capabilities, allowing you to
 
 - **High-quality voices** - Neural, Wavenet, and Standard voice types
 - **Multiple languages** - 50+ voices across 10+ languages
+
+
+[Content truncated - see llms-full.txt for complete documentation]
+
+---
+
+## Video Analysis
+
+<!-- Source: features/video-analysis.md -->
+
+# Video Analysis
+
+Comprehensive video analysis for NeuroLink, powered by Gemini 2.0 Flash. This feature goes beyond basic visual description—it provides a deep logical audit of video sequences to understand "why" and "how" events occur.
+
+## Key Capabilities
+
+- **Logical Analysis**: Dissect any video to extract the underlying intent, cause-and-effect, and logical progression.
+- **Action-Reaction Chain**: A step-by-step audit of user or system actions and their immediate visual results.
 
 
 [Content truncated - see llms-full.txt for complete documentation]

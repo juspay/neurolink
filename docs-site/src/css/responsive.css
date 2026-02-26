@@ -1,0 +1,196 @@
+/* ===========================================
+   NEUROLINK DOCUMENTATION - RESPONSIVE STYLES
+   =========================================== */
+
+/* =========================================
+   BASE / DESKTOP DEFAULT
+   ========================================= */
+:root {
+  --ifm-spacing-horizontal: 1.5rem;
+}
+
+/* =========================================
+   TABLET (max-width: 996px)
+   ========================================= */
+@media (max-width: 996px) {
+  :root {
+    --ifm-spacing-horizontal: 1.25rem;
+  }
+
+  .navbar {
+    padding: 0 var(--spacing-3);
+  }
+
+  article {
+    max-width: 100%;
+  }
+
+  .main-wrapper {
+    padding: 0;
+    max-width: 100%;
+  }
+
+  .container {
+    max-width: 100%;
+  }
+
+  .hero {
+    padding: var(--spacing-10) 0;
+  }
+
+  .hero__title {
+    font-size: 2rem;
+  }
+
+  .hero__subtitle {
+    font-size: 1.125rem;
+  }
+
+  /* TOC static on tablet */
+  .tableOfContents_src-theme-TOC-styles-module,
+  [class*="tableOfContents"] {
+    position: static;
+    max-height: none;
+  }
+}
+
+/* =========================================
+   SMALL TABLET (max-width: 768px)
+   ========================================= */
+@media (max-width: 768px) {
+  :root {
+    --ifm-spacing-horizontal: 1rem;
+  }
+
+  pre[class*="language-"] {
+    max-width: calc(100vw - var(--ifm-spacing-horizontal) * 2);
+    overflow-x: auto;
+  }
+
+  .pagination-nav {
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+
+  .pagination-nav__link {
+    width: 100%;
+  }
+
+  .footer__links {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-4);
+  }
+
+  .footer__col {
+    margin-bottom: 0;
+    padding: 0;
+  }
+
+  .footer {
+    padding: var(--spacing-6) var(--spacing-4) var(--spacing-4);
+  }
+
+  .footer__copyright {
+    margin-top: var(--spacing-4);
+  }
+
+  .tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* =========================================
+   PHONE (max-width: 576px)
+   ========================================= */
+@media (max-width: 576px) {
+  :root {
+    --ifm-spacing-horizontal: 0.75rem;
+  }
+
+  .navbar {
+    padding: 0 var(--spacing-2);
+  }
+
+  .docItemContainer_src-theme-DocItem-Layout-styles-module,
+  [class*="docItemContainer"] {
+    padding: 0 var(--spacing-2);
+  }
+
+  /* Prevent content from exceeding viewport */
+  .theme-doc-markdown,
+  .markdown {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    max-width: 100%;
+  }
+
+  .admonition {
+    padding: var(--spacing-3);
+    border-radius: var(--radius-lg);
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  .hero {
+    padding: var(--spacing-8) var(--spacing-3);
+  }
+
+  .hero__title {
+    font-size: 1.5rem;
+  }
+
+  .hero__subtitle {
+    font-size: 1rem;
+    max-width: 100%;
+  }
+
+  .card {
+    padding: var(--spacing-4);
+  }
+
+  .markdown h1 {
+    font-size: 1.5rem;
+  }
+
+  .markdown h2 {
+    font-size: 1.25rem;
+    margin-top: var(--spacing-8);
+  }
+
+  .breadcrumbs {
+    font-size: 0.75rem;
+  }
+}
+
+/* =========================================
+   TOUCH DEVICE OVERRIDES
+   ========================================= */
+@media (hover: none) and (pointer: coarse) {
+  /* Always show copy button on touch devices */
+  .copyButton,
+  button[class*="copyButton"] {
+    opacity: 0.7;
+  }
+
+  /* Larger tap targets */
+  .menu__link {
+    padding: var(--spacing-3) var(--spacing-3);
+    min-height: 44px;
+  }
+
+  .tabs__item {
+    min-height: 44px;
+  }
+}

@@ -262,6 +262,8 @@ export default [
       // Exclude Docusaurus build output
       "docs-site/.docusaurus/**",
       "docs-site/build/**",
+      // Exclude compiled MCP server output files
+      "docs-site/mcp-server/**/*.js",
     ],
   },
 ];

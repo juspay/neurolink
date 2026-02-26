@@ -8,6 +8,7 @@
 @import "./base.css";
 @import "./components.css";
 @import "./utilities.css";
+@import "./responsive.css";
 
 /* =========================================
    DOCUSAURUS INFIMA OVERRIDES
@@ -52,7 +53,6 @@
   --ifm-toc-border-color: var(--border);
 
   /* Spacing */
-  --ifm-spacing-horizontal: 1.5rem;
   --ifm-leading: 1.75;
 }
 

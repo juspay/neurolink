@@ -3,6 +3,16 @@
    =========================================== */
 
 /* =========================================
+   NAVBAR SEARCH CONTAINER
+   ========================================= */
+.navbarSearchContainer {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  margin-right: 0.5rem;
+}
+
+/* =========================================
    SEARCH BUTTON (Trigger)
    ========================================= */
 .searchButton {

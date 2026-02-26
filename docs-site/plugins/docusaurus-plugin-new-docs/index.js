@@ -221,8 +221,6 @@ function buildDocMetadata(filePath, docsDir, status, options) {
 
 module.exports = function pluginNewDocs(context, opts) {
   const options = { ...DEFAULT_OPTIONS, ...opts };
-  const { siteDir } = context;
-  const docsDir = path.join(siteDir, options.docsDir);
 
   // Debug context to understand what's available
   log(options, "Context keys:", Object.keys(context));
@@ -370,5 +368,6 @@ module.exports.validateOptions = ({ options, validate }) => {
       `Invalid mode: ${options.mode}. Must be one of: ${validModes.join(", ")}`,
     );
   }
-  return options;
+  // Docusaurus requires every plugin to have an 'id' option for generatedFilesDir
+  return { ...options, id: options.id ?? "default" };
 };

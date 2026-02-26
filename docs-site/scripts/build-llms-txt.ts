@@ -276,9 +276,12 @@ function truncateContent(content: string, maxChars: number): string {
 }
 
 /**
- * Extract provider information from documentation
+ * Extract provider information from documentation.
+ *
+ * NOTE: This list should be kept in sync with supported providers in
+ * src/lib/factories/providerRegistry.ts when adding or removing providers.
  */
-function extractProviders(files: DocFile[]): ProviderInfo[] {
+function extractProviders(): ProviderInfo[] {
   const providers: ProviderInfo[] = [
     { name: "OpenAI", slug: "openai" },
     { name: "Anthropic Claude", slug: "anthropic" },
@@ -429,10 +432,11 @@ function buildSummaryLlmsTxt(files: DocFile[]): string {
   lines.push("");
 
   // Project Overview
+  const providers = extractProviders();
   lines.push("## Project Overview");
   lines.push("");
   lines.push("NeuroLink is an enterprise AI development platform that provides:");
-  lines.push("- Unified access to 13+ AI providers through a single consistent API");
+  lines.push(`- Unified access to ${providers.length}+ AI providers through a single consistent API`);
   lines.push("- 58+ MCP (Model Context Protocol) tools and integrations");
   lines.push("- TypeScript SDK and professional CLI");
   lines.push("- Production-ready features: Redis memory, failover, telemetry");
@@ -440,7 +444,6 @@ function buildSummaryLlmsTxt(files: DocFile[]): string {
   lines.push("");
 
   // Provider Summary
-  const providers = extractProviders(files);
   lines.push("## Supported Providers");
   lines.push("");
   for (const provider of providers) {

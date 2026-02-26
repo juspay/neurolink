@@ -1,12 +1,8 @@
 import type { ReactElement } from "react";
 import styles from "./SidebarBadge.module.css";
+import type { BadgeType } from "../theme/DocSidebarItem/badgeUtils";
 
-export type BadgeType =
-  | "new"
-  | "updated"
-  | "beta"
-  | "deprecated"
-  | "experimental";
+export type { BadgeType };
 
 interface SidebarBadgeProps {
   type: BadgeType;

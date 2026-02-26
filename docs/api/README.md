@@ -6,7 +6,7 @@
 
 NeuroLink AI Toolkit
 
-A unified AI provider interface with support for 13+ providers,
+A unified AI provider interface with support for 14+ providers,
 automatic fallback, streaming, MCP tool integration, HITL security,
 Redis persistence, and enterprise-grade middleware.
 

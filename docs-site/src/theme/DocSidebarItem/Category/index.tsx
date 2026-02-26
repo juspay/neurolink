@@ -7,6 +7,48 @@ import {
   SidebarBadge,
   type BadgeType,
 } from "@site/src/components/SidebarBadge";
+import { useCategoryBadgeStatus } from "@site/src/theme/hooks/useNewDocs";
+import { isBadgeType } from "../badgeUtils";
+import {
+  Rocket,
+  Code,
+  Terminal,
+  Sparkles,
+  Plug,
+  Brain,
+  GitBranch,
+  Eye,
+  Server,
+  BookOpen,
+  ChefHat,
+  GraduationCap,
+  FolderOpen,
+  BookMarked,
+  MonitorPlay,
+  Users,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  "Getting Started": Rocket,
+  SDK: Code,
+  CLI: Terminal,
+  Features: Sparkles,
+  MCP: Plug,
+  Memory: Brain,
+  Workflows: GitBranch,
+  Observability: Eye,
+  Deployment: Server,
+  Guides: BookOpen,
+  Cookbook: ChefHat,
+  Tutorials: GraduationCap,
+  Examples: FolderOpen,
+  Reference: BookMarked,
+  Demos: MonitorPlay,
+  Community: Users,
+  Development: Wrench,
+};
 
 type Props = WrapperProps<typeof CategoryType>;
 
@@ -42,6 +84,19 @@ export default function CategoryWrapper(props: Props): React.ReactElement {
   // Priority: explicit label badge > child badge (propagation)
   const badge: BadgeType | null = labelBadge || childBadge;
 
+  const categoryPath =
+    item.href?.replace(/^\/docs\//, "").replace(/\/$/, "") ||
+    item.label
+      ?.toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "") ||
+    "";
+  const { status: gitStatus } = useCategoryBadgeStatus(categoryPath);
+  const resolvedGitBadge: BadgeType | null = isBadgeType(gitStatus)
+    ? gitStatus
+    : null;
+  const finalBadge: BadgeType | null = badge || resolvedGitBadge;
+
   // Create a modified item with the clean label
   const modifiedItem = {
     ...item,
@@ -54,14 +109,29 @@ export default function CategoryWrapper(props: Props): React.ReactElement {
     item: modifiedItem,
   };
 
+  const IconComponent = CATEGORY_ICONS[cleanLabel];
+
   return (
     <div className="sidebar-category-wrapper">
-      <div>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        {IconComponent && (
+          <span
+            aria-hidden="true"
+            style={{
+              display: "inline-flex",
+              marginRight: "6px",
+              opacity: 0.6,
+              flexShrink: 0,
+            }}
+          >
+            <IconComponent size={14} />
+          </span>
+        )}
         <Category {...modifiedProps} />
       </div>
-      {badge && (
+      {finalBadge && (
         <span className="sidebar-badge-right">
-          <SidebarBadge type={badge} />
+          <SidebarBadge type={finalBadge} />
         </span>
       )}
     </div>

@@ -176,7 +176,7 @@ import type { WorkflowConfig } from "./workflow/types.js";
 /**
  * NeuroLink - Universal AI Development Platform
  *
- * Main SDK class providing unified access to 13+ AI providers with enterprise features:
+ * Main SDK class providing unified access to 14+ AI providers with enterprise features:
  * - Multi-provider support (OpenAI, Anthropic, Google AI Studio, Google Vertex, AWS Bedrock, etc.)
  * - MCP (Model Context Protocol) tool integration with 58+ external servers
  * - Human-in-the-Loop (HITL) security workflows for regulated industries
@@ -2093,7 +2093,7 @@ Current user's request: ${currentInput}`;
    * Generate AI response with comprehensive feature support.
    *
    * Primary method for AI generation with support for all NeuroLink features:
-   * - Multi-provider support (13+ providers)
+   * - Multi-provider support (14+ providers)
    * - MCP tool integration
    * - Structured JSON output with Zod schemas
    * - Conversation memory (Redis or in-memory)

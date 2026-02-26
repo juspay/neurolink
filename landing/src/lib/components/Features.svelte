@@ -56,7 +56,7 @@
       iconBg: "rgb(6 182 212 / 12%)",
       title: "Three-Layer Memory",
       description:
-        "Conversation history, semantic vector recall, and persistent working memory with 22 vector store adapters.",
+        "Conversation history, semantic vector recall, and persistent working memory with pluggable vector store support (Pinecone, pgVector, Chroma, and more).",
     },
   ];
 </script>

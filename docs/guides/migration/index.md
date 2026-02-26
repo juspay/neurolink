@@ -16,7 +16,7 @@ This section contains guides for migrating to NeuroLink from other AI SDKs and f
 
 NeuroLink offers several advantages over other AI SDKs:
 
-- **Universal Provider Support** - 12+ AI providers through a single API
+- **Universal Provider Support** - 14+ AI providers through a single API
 - **MCP Integration** - Full Model Context Protocol support with 58+ external servers
 - **Enterprise Ready** - Production-tested at scale with Redis memory, failover, and telemetry
 - **Professional CLI** - Interactive command-line interface for development and testing

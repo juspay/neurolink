@@ -6,3 +6,6 @@ docs/
 # Generated LLM context files (built by build:llms-txt script)
 static/llms.txt
 static/llms-full.txt
+
+# Generated search index (built by docusaurus-plugin-docs-search-index)
+static/search-index.json
