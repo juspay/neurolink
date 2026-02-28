@@ -9,7 +9,7 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 - **Amazon SageMaker** - Custom models deployed on SageMaker endpoints
 - **Google Vertex AI** - Gemini 3 Flash/Pro (preview), Gemini 2.5 Flash, Claude 4.0 Sonnet
 - **Google AI Studio** - Gemini 1.5 Pro, Gemini 2.0 Flash, Gemini 1.5 Flash
-- **Anthropic** - Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+- **Anthropic** - Claude 4.5 Opus/Sonnet/Haiku, Claude 4.0 Opus/Sonnet, Claude 3.7 Sonnet
 - **Azure OpenAI** - GPT-4, GPT-3.5-Turbo
 - **LiteLLM** - 100+ models from all providers via proxy server
 - **Hugging Face** - 100,000+ open source models including DialoGPT, GPT-2, GPT-Neo
@@ -1141,12 +1141,16 @@ Mistral models excel at multilingual tasks:
 
 ## Anthropic Configuration {#anthropic}
 
-Direct access to Anthropic's Claude models without going through AWS Bedrock.
+Direct access to Anthropic's Claude models. Supports both API key and OAuth (Claude subscription) authentication.
 
 ### Basic Setup
 
 ```bash
+# Option 1: API key authentication
 export ANTHROPIC_API_KEY="sk-ant-api03-your-key-here"
+
+# Option 2: OAuth authentication (Claude Pro/Max subscribers)
+neurolink auth login anthropic
 ```
 
 ### Optional Configuration
@@ -1157,10 +1161,13 @@ export ANTHROPIC_MODEL="claude-3-5-sonnet-20241022"  # Default model
 
 ### Supported Models
 
-- `claude-3-7-sonnet-20250219` - Latest Claude 3.7 Sonnet
-- `claude-3-5-sonnet-20241022` (default) - Claude 3.5 Sonnet v2
-- `claude-3-opus-20240229` - Most capable model
-- `claude-3-haiku-20240307` - Fastest, most cost-effective
+- `claude-opus-4-5-20251101` - Claude 4.5 Opus (most capable)
+- `claude-sonnet-4-5-20250929` - Claude 4.5 Sonnet
+- `claude-haiku-4-5-20251001` - Claude 4.5 Haiku (fastest)
+- `claude-opus-4-1-20250805` - Claude 4.1 Opus
+- `claude-opus-4-20250514` - Claude 4.0 Opus
+- `claude-sonnet-4-20250514` - Claude 4.0 Sonnet
+- `claude-3-7-sonnet-20250219` - Claude 3.7 Sonnet
 
 ### Usage Example
 
@@ -1187,10 +1194,12 @@ const result = await neurolink.generate({
 
 ### Getting Started with Anthropic
 
-1. **Create Account**: Visit [anthropic.com](https://www.anthropic.com)
-2. **Get API Key**: Navigate to API Keys section
-3. **Generate Key**: Create new API key
-4. **Set Environment**: Export key as `ANTHROPIC_API_KEY`
+1. **API Key**: Visit [console.anthropic.com](https://console.anthropic.com), navigate to API Keys, and export as `ANTHROPIC_API_KEY`
+2. **OAuth (Subscription)**: Run `neurolink auth login anthropic` to authenticate with your Claude Pro/Max subscription
+
+### Complete Guide
+
+For comprehensive Anthropic setup including OAuth configuration, subscription tiers, and advanced options, see the [Detailed Anthropic Provider Guide](providers/anthropic.md) and the [Claude Subscription Guide](../features/claude-subscription.md).
 
 ## Azure OpenAI Configuration {#azure}
 

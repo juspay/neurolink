@@ -1,7 +1,7 @@
 # AI Provider Comparison Guide
 
-**Last Updated:** January 1, 2026
-**NeuroLink Version:** 8.26.1
+**Last Updated:** February 28, 2026
+**NeuroLink Version:** 9.14.0
 
 Complete comparison of all 13 AI providers supported by NeuroLink, including capabilities, pricing, and use case recommendations.
 
@@ -12,7 +12,7 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 | Provider          | Text | Stream | Tools | Vision | PDF | Thinking | Struct Out | Free Tier | Setup Time |
 | ----------------- | ---- | ------ | ----- | ------ | --- | -------- | ---------- | --------- | ---------- |
 | OpenAI            | ✓    | ✓      | ✓     | ✓      | ✗   | ✗        | ✓          | ✗         | 2 min      |
-| Anthropic         | ✓    | ✓      | ✓     | ✓      | ✓   | ✓        | ✓          | ✗         | 2 min      |
+| Anthropic ^1^     | ✓    | ✓      | ✓     | ✓      | ✓   | ✓        | ✓          | ⚠️        | 2 min      |
 | Google AI Studio  | ✓    | ✓      | ✓     | ✓      | ✓   | ✓        | ⚠️         | ✓         | 2 min      |
 | Google Vertex     | ✓    | ✓      | ✓     | ✓      | ✓   | ✓        | ⚠️         | ✗         | 15 min     |
 | Amazon Bedrock    | ✓    | ✓      | ✓     | ⚠️     | ✓   | ✗        | ✓          | ✗         | 10 min     |
@@ -31,6 +31,8 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 - ⚠️ Partial/Model-Dependent
 - ✗ Not Supported
 
+^1^ Anthropic supports both API Key and OAuth authentication. Free tier access is available via Claude subscription (OAuth). See [Anthropic Deep Dive](#2-anthropic) for details.
+
 ---
 
 ## 2025 Pricing Comparison
@@ -40,7 +42,7 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 | Provider             | Input (per 1M tokens) | Output (per 1M tokens) | Vision         | Best Value Model              |
 | -------------------- | --------------------- | ---------------------- | -------------- | ----------------------------- |
 | **OpenAI**           | $2.50 - $60.00        | $10.00 - $180.00       | $5.00 - $60.00 | GPT-4o-mini: $0.15/$0.60      |
-| **Anthropic**        | $3.00 - $15.00        | $15.00 - $75.00        | Same           | Claude Haiku: $0.25/$1.25     |
+| **Anthropic** ^2^    | $3.00 - $15.00        | $15.00 - $75.00        | Same           | Claude Haiku: $0.25/$1.25     |
 | **Google AI Studio** | FREE - $7.00          | FREE - $21.00          | FREE - $7.00   | Gemini 2.5 Flash: FREE        |
 | **Google Vertex**    | $0.35 - $35.00        | $1.05 - $105.00        | $0.35 - $35.00 | Gemini 2.5 Flash: $0.35/$1.05 |
 | **Amazon Bedrock**   | $3.00 - $15.00        | $15.00 - $75.00        | $3.00 - $15.00 | Claude Haiku: $0.25/$1.25     |
@@ -48,6 +50,8 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 | **Mistral**          | $0.25 - $8.00         | $0.75 - $24.00         | $0.25 - $8.00  | Mistral Small: $0.20/$0.60    |
 | **HuggingFace**      | FREE - $1.00          | FREE - $1.00           | N/A            | DialoGPT: FREE                |
 | **OpenRouter**       | $0.00 - $60.00        | $0.00 - $180.00        | Varies         | Many free models              |
+
+^2^ Anthropic also offers subscription-based pricing as an alternative to per-token API pricing: Free tier (limited), Pro ($20/mo), Max ($100+/mo with 5x-20x usage). NeuroLink supports both API key and OAuth (subscription) authentication. See [Anthropic Deep Dive](#2-anthropic).
 
 ### Self-Hosted / Custom Pricing
 
@@ -59,6 +63,13 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 | **OpenAI Compatible** | Custom | Backend-dependent        | Varies by endpoint provider                       |
 
 ### Free Tier Details
+
+**Anthropic (via Claude subscription):**
+
+- Free tier available via OAuth authentication (claude.ai account)
+- Limited daily messages and lower rate limits
+- Access to Claude Haiku models
+- No API key required (uses OAuth 2.0 flow)
 
 **Google AI Studio:**
 
@@ -109,7 +120,7 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 
 - Azure OpenAI (same as OpenAI)
 - Google Gemini 2.5 Pro
-- Anthropic Claude 3.5 Sonnet
+- Anthropic Claude 4.0 Sonnet
 
 **Tier 3 (Good Quality):**
 
@@ -190,7 +201,7 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 - **OpenAI** - GPT-4o, GPT-5 series, O-series
   - 10 images max
   - PNG, JPEG, WEBP, GIF
-- **Anthropic** - Claude 4.5, 4.x, 3.x series
+- **Anthropic** - Claude 4.5 Sonnet/Haiku, Claude 4.0 Opus/Sonnet
   - 20 images max
   - Excellent vision quality
 - **Google Vertex/AI Studio** - Gemini 2.5+, 3.x
@@ -246,9 +257,10 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 
 **Native Extended Thinking:**
 
-- ✓ **Anthropic** - Claude 4.5 Sonnet, Opus (best)
+- ✓ **Anthropic** - Claude 4.5 Sonnet, Claude 4.0 Opus (best)
   - Thinking levels: minimal, low, medium, high
   - Transparent reasoning process
+  - Available on Pro and Max subscription tiers (not Free)
 - ✓ **Google AI Studio** - Gemini 2.5+, Gemini 3
   - Thinking levels: minimal, low, medium, high
   - Configurable thinking budget
@@ -340,20 +352,24 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 
 **Provider ID:** `anthropic`
 **Default Model:** `claude-sonnet-4-5-20250929`
+**Auth Methods:** API Key, OAuth 2.0 (unique among providers)
 
 **Strengths:**
 
 - **Extended thinking** - Best reasoning capabilities
 - **Native PDF support** - Document understanding
+- **Dual auth support** - API key for developers, OAuth for subscription users
+- **Subscription tiers** - Free, Pro ($20/mo), Max ($100+/mo) as alternatives to per-token pricing
 - 200K token context window
 - Strong safety features
 - Excellent for analysis and research
 
 **Weaknesses:**
 
-- Higher cost than some alternatives
+- Higher cost than some alternatives (API pricing)
 - Smaller ecosystem than OpenAI
 - Limited regional availability
+- Subscription tiers have model access restrictions (e.g., Opus requires Max tier)
 
 **Best For:**
 
@@ -361,12 +377,21 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 - Document processing workflows
 - Agentic workflows with tools
 - When extended thinking is valuable
+- Subscription users who prefer flat-rate pricing over per-token costs
 
-**2025 Pricing:**
+**Pricing:**
+
+_Per-Token API Pricing:_
 
 - Claude Haiku 4.5: $0.25/$1.25 per 1M tokens
 - Claude Sonnet 4.5: $3.00/$15.00 per 1M tokens
 - Claude Opus 4.5: $15.00/$75.00 per 1M tokens
+
+_Subscription Pricing (via OAuth):_
+
+- **Free**: Limited daily messages, Sonnet access
+- **Pro** ($20/mo): Higher limits, priority access, extended thinking
+- **Max** ($100+/mo): 5x-20x usage, Opus access, highest rate limits
 
 ---
 
@@ -954,7 +979,7 @@ Need highest quality?
                     └─ No → Continue
                         │
                         Need free tier?
-                        ├─ Yes → Google AI Studio (best) or OpenRouter or HuggingFace
+                        ├─ Yes → Google AI Studio (best) or Anthropic (OAuth) or OpenRouter or HuggingFace
                         └─ No → Continue
                             │
                             Need EU compliance?
@@ -981,7 +1006,7 @@ Need highest quality?
 | Provider         | GDPR | HIPAA | SOC2 | ISO 27001 |
 | ---------------- | ---- | ----- | ---- | --------- |
 | OpenAI           | ✓    | ✓\*   | ✓    | ✓         |
-| Anthropic        | ✓    | ✓\*   | ✓    | ✓         |
+| Anthropic ^3^    | ✓    | ✓\*   | ✓    | ✓         |
 | Google AI Studio | ✓    | ✗     | ✓    | ✓         |
 | Google Vertex    | ✓    | ✓\*   | ✓    | ✓         |
 | Amazon Bedrock   | ✓    | ✓\*   | ✓    | ✓         |
@@ -990,6 +1015,8 @@ Need highest quality?
 | Ollama           | ✓    | ✓     | N/A  | N/A       |
 
 \* HIPAA compliance requires Business Associate Agreement (BAA)
+
+^3^ Anthropic supports API Key and OAuth 2.0 authentication. OAuth uses PKCE flow with automatic token refresh. Credentials stored in `~/.neurolink/tokens.json` with 0600 permissions.
 
 ---
 
@@ -1020,6 +1047,7 @@ _Note: Benchmarks vary by model, region, and load_
 - Extended thinking
 - PDF support
 - Better for complex analysis
+- Subscription-based pricing option (Pro $20/mo, Max $100+/mo) as alternative to per-token
 
 **Code changes:**
 
@@ -1031,12 +1059,21 @@ const result = await neurolink.generate({
   prompt: "Analyze this document",
 });
 
-// After
+// After (API key auth - same as before)
 const result = await neurolink.generate({
   provider: "anthropic",
   model: "claude-sonnet-4-5-20250929",
   prompt: "Analyze this document",
   thinkingLevel: "high", // New capability
+});
+
+// After (OAuth subscription auth - auto-detected from stored credentials)
+// Run `neurolink auth login --provider anthropic` first to authenticate
+const result = await neurolink.generate({
+  provider: "anthropic",
+  model: "claude-sonnet-4-5-20250929",
+  prompt: "Analyze this document",
+  thinkingLevel: "high",
 });
 ```
 
@@ -1060,13 +1097,14 @@ const result = await neurolink.generate({
 
 **Choose based on priorities:**
 
-1. **Budget Priority** → Google AI Studio (free) or OpenRouter (free models)
+1. **Budget Priority** → Google AI Studio (free) or OpenRouter (free models) or Anthropic Free tier (via OAuth)
 2. **Quality Priority** → OpenAI or Anthropic
 3. **Privacy Priority** → Ollama (local)
 4. **Reasoning Priority** → Anthropic (extended thinking)
 5. **Document Priority** → Anthropic or Google AI Studio (PDF support)
 6. **Compliance Priority** → Azure OpenAI or Bedrock
 7. **Flexibility Priority** → OpenRouter (300+ models)
+8. **Flat-Rate Pricing** → Anthropic subscription (Pro $20/mo, Max $100+/mo)
 
 **NeuroLink Advantage:**
 
@@ -1079,3 +1117,4 @@ See also:
 
 - [Provider Capabilities Audit](./provider-capabilities-audit.md) - Detailed technical capabilities
 - [Provider Selection Wizard](../guides/provider-selection.md) - Interactive decision guide
+- [Claude Subscription Support](../features/claude-subscription.md) - OAuth authentication and subscription tiers for Anthropic

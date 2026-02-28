@@ -21,6 +21,22 @@ import type {
 import type { StreamOptions, StreamResult } from "./streamTypes.js";
 import type { ExternalMCPToolInfo } from "./externalMcp.js";
 
+// Subscription types for Claude/Anthropic authentication and tier management
+import type {
+  ClaudeSubscriptionTier,
+  AnthropicAuthMethod,
+  AnthropicAuthConfig,
+  SubscriptionInfo,
+} from "./subscriptionTypes.js";
+
+// Re-export subscription types for convenience
+export type {
+  ClaudeSubscriptionTier,
+  AnthropicAuthMethod,
+  AnthropicAuthConfig,
+  SubscriptionInfo,
+} from "./subscriptionTypes.js";
+
 // ============================================================================
 // TYPE ALIASES
 // ============================================================================
@@ -59,6 +75,15 @@ export type ProviderStatus = {
   error?: string;
   responseTime?: number;
   model?: string;
+  /**
+   * Subscription information for providers that support subscription tiers
+   * (e.g., Anthropic Claude with Pro/Max/Team/Enterprise subscriptions)
+   */
+  subscription?: SubscriptionInfo;
+  /**
+   * The authentication method currently in use for this provider
+   */
+  authMethod?: AnthropicAuthMethod;
 };
 
 /**
@@ -252,6 +277,16 @@ export type ProviderCapabilities = {
   supportsAudio: boolean;
   maxTokens?: number;
   supportedModels: string[];
+  /**
+   * Whether the provider supports subscription-based features and tier management
+   * When true, the provider can adapt behavior based on subscription tier
+   */
+  subscriptionAware?: boolean;
+  /**
+   * List of authentication methods supported by this provider
+   * e.g., ["api_key", "oauth", "session_token", "environment"]
+   */
+  supportedAuthMethods?: string[];
 };
 
 /**
@@ -271,8 +306,177 @@ export type IndividualProviderConfig = {
   timeout?: number;
   retries?: number;
   model?: string;
+  /**
+   * The subscription tier for the provider (e.g., Claude Pro, Max, Team, Enterprise)
+   * Used to determine rate limits, available features, and pricing
+   */
+  subscriptionTier?: ClaudeSubscriptionTier;
+  /**
+   * The authentication method to use for the provider
+   * Supports API key, OAuth, session token, or environment variable
+   */
+  authMethod?: AnthropicAuthMethod;
+  /**
+   * Detailed authentication configuration including credentials and options
+   */
+  authConfig?: AnthropicAuthConfig;
+  /**
+   * Whether to enable beta features for the provider
+   * Beta features may be unstable or subject to change
+   */
+  enableBetaFeatures?: boolean;
   [key: string]: unknown;
 };
+
+/**
+ * Anthropic-specific provider configuration
+ *
+ * @description Extends the base provider configuration with Anthropic-specific
+ * options for OAuth, subscription management, and beta features.
+ */
+export type AnthropicProviderConfig = IndividualProviderConfig & {
+  /**
+   * The subscription tier for Claude access
+   */
+  subscriptionTier?: ClaudeSubscriptionTier;
+
+  /**
+   * The authentication method to use
+   */
+  authMethod?: AnthropicAuthMethod;
+
+  /**
+   * Whether to enable beta features
+   */
+  enableBetaFeatures?: boolean;
+
+  /**
+   * OAuth token for OAuth authentication.
+   * Required when authMethod is "oauth".
+   */
+  oauthToken?: import("./subscriptionTypes.js").OAuthToken;
+
+  /**
+   * OAuth configuration for OAuth-based authentication
+   */
+  oauthConfig?: {
+    /**
+     * OAuth client ID for the application
+     */
+    clientId?: string;
+
+    /**
+     * OAuth redirect URI for the callback
+     */
+    redirectUri?: string;
+
+    /**
+     * OAuth scopes to request
+     */
+    scopes?: string[];
+
+    /**
+     * OAuth authorization endpoint URL
+     */
+    authorizationEndpoint?: string;
+
+    /**
+     * OAuth token endpoint URL
+     */
+    tokenEndpoint?: string;
+  };
+};
+
+/**
+ * Type guard to check if a configuration is an AnthropicProviderConfig
+ *
+ * @param config - The configuration object to check
+ * @returns True if the configuration is an AnthropicProviderConfig
+ *
+ * @example
+ * ```typescript
+ * const config = getProviderConfig();
+ * if (isAnthropicConfig(config)) {
+ *   // TypeScript knows config is AnthropicProviderConfig here
+ *   console.log(config.subscriptionTier);
+ *   console.log(config.oauthConfig?.clientId);
+ * }
+ * ```
+ */
+export function isAnthropicConfig(
+  config: unknown,
+): config is AnthropicProviderConfig {
+  if (config === null || config === undefined) {
+    return false;
+  }
+
+  if (typeof config !== "object") {
+    return false;
+  }
+
+  const configObj = config as Record<string, unknown>;
+
+  // Check for Anthropic-specific properties
+  // A config is considered Anthropic if it has:
+  // 1. An authMethod that is a valid AnthropicAuthMethod, OR
+  // 2. A subscriptionTier that is a valid ClaudeSubscriptionTier, OR
+  // 3. An oauthConfig object
+
+  const validAuthMethods = ["api_key", "oauth"];
+  const validSubscriptionTiers = [
+    "free",
+    "pro",
+    "max",
+    "max_5",
+    "max_20",
+    "api",
+  ];
+
+  // Check for authMethod
+  if (
+    configObj.authMethod !== undefined &&
+    typeof configObj.authMethod === "string" &&
+    validAuthMethods.includes(configObj.authMethod)
+  ) {
+    return true;
+  }
+
+  // Check for subscriptionTier
+  if (
+    configObj.subscriptionTier !== undefined &&
+    typeof configObj.subscriptionTier === "string" &&
+    validSubscriptionTiers.includes(configObj.subscriptionTier)
+  ) {
+    return true;
+  }
+
+  // Check for oauthConfig
+  if (
+    configObj.oauthConfig !== undefined &&
+    typeof configObj.oauthConfig === "object" &&
+    configObj.oauthConfig !== null
+  ) {
+    return true;
+  }
+
+  // Check for authConfig (AnthropicAuthConfig)
+  if (
+    configObj.authConfig !== undefined &&
+    typeof configObj.authConfig === "object" &&
+    configObj.authConfig !== null
+  ) {
+    const authConfig = configObj.authConfig as Record<string, unknown>;
+    if (
+      authConfig.method !== undefined &&
+      typeof authConfig.method === "string" &&
+      validAuthMethods.includes(authConfig.method)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 /**
  * Configuration options for provider validation

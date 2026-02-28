@@ -23,6 +23,7 @@ npm install @juspay/neurolink
 | `stream`              | Real-time streaming output with tool support.               | `npx @juspay/neurolink stream "Narrate sprint demo" --enableAnalytics`      |
 | `batch`               | Process multiple prompts from a file.                       | `npx @juspay/neurolink batch prompts.txt --format json`                     |
 | `loop`                | Interactive session with persistent variables & memory.     | `npx @juspay/neurolink loop --auto-redis`                                   |
+| `auth <subcommand>`   | Manage provider authentication (API key or OAuth).          | `npx @juspay/neurolink auth login anthropic --method oauth`                 |
 | `setup` / `s`         | Guided provider onboarding and validation.                  | `npx @juspay/neurolink setup --provider openai`                             |
 | `status`              | Health check for configured providers.                      | `npx @juspay/neurolink status --verbose`                                    |
 | `get-best-provider`   | Show the best available AI provider.                        | `npx @juspay/neurolink get-best-provider --format json`                     |
@@ -100,6 +101,26 @@ Key flags:
 - `--thinking`, `--think` – enable extended thinking/reasoning capability (default `false`).
 - `--thinkingBudget` – token budget for extended thinking (5000–100000, default `10000`). Supported by Anthropic Claude and Gemini 2.5+ models.
 - `--thinkingLevel` – thinking level for Gemini 3 models: `minimal`, `low`, `medium`, `high`.
+
+**Anthropic Subscription Options:**
+
+- `--auth-method` – authentication method: `api-key` or `oauth`. Overrides auto-detection.
+- `--subscription-tier` – subscription tier: `free`, `pro`, `max`, `max_5`, `max_20`, or `api`. Overrides auto-detection from token/env.
+- `--enable-beta` – enable Anthropic beta features (OAuth beta headers, extended thinking). Default `true` for OAuth, `false` for API key.
+
+```bash
+# Generate with explicit subscription tier
+npx @juspay/neurolink generate "Explain quantum computing" \
+  --provider anthropic --subscription-tier pro
+
+# Generate with OAuth auth method
+npx @juspay/neurolink generate "Write a poem" \
+  --provider anthropic --authMethod oauth --enableBeta
+
+# Stream with max tier
+npx @juspay/neurolink stream "Tell me a story" \
+  --provider anthropic --subscriptionTier max
+```
 
 **File Input Examples:**
 
@@ -310,6 +331,107 @@ During a loop session, NeuroLink monitors context window usage after each genera
   When `--disable-compaction` is not set, the system automatically compacts the context to free up space while preserving conversation quality.
 
 See the complete guide: [CLI Loop Sessions](../features/cli-loop-sessions.md)
+
+### `auth <subcommand>` {#auth}
+
+Manage authentication with AI providers. Supports traditional API key authentication and OAuth 2.1 with PKCE for Claude subscription plans (Pro/Max).
+
+```bash
+# Interactive login (prompts for authentication method)
+npx @juspay/neurolink auth login anthropic
+
+# Login with a specific method
+npx @juspay/neurolink auth login anthropic --method api-key
+npx @juspay/neurolink auth login anthropic --method oauth
+npx @juspay/neurolink auth login anthropic --method create-api-key
+
+# Check authentication status for all providers
+npx @juspay/neurolink auth status
+
+# Check status for a specific provider
+npx @juspay/neurolink auth status anthropic
+
+# Refresh expired OAuth tokens
+npx @juspay/neurolink auth refresh anthropic
+
+# Clear stored credentials
+npx @juspay/neurolink auth logout anthropic
+```
+
+**Subcommands:**
+
+| Subcommand           | Description                                        |
+| -------------------- | -------------------------------------------------- |
+| `login <provider>`   | Authenticate with an AI provider                   |
+| `logout <provider>`  | Clear stored credentials for a provider            |
+| `status [provider]`  | Show authentication status (all providers if none) |
+| `refresh <provider>` | Manually refresh OAuth tokens for a provider       |
+
+**Login flags:**
+
+| Flag                | Alias | Type    | Default | Description                                                    |
+| ------------------- | ----- | ------- | ------- | -------------------------------------------------------------- |
+| `--method`          | `-m`  | string  |         | Authentication method: `api-key`, `oauth`, or `create-api-key` |
+| `--non-interactive` |       | boolean | `false` | Skip interactive prompts (requires environment variables)      |
+
+**Shared flags:**
+
+| Flag       | Alias | Type    | Default | Description                   |
+| ---------- | ----- | ------- | ------- | ----------------------------- |
+| `--format` |       | string  | `text`  | Output format: `text`, `json` |
+| `--quiet`  | `-q`  | boolean | `false` | Suppress non-essential output |
+| `--debug`  |       | boolean | `false` | Enable debug output           |
+
+**Authentication methods:**
+
+- **`api-key`** -- Traditional API key authentication. Prompts for your Anthropic API key and stores it in the project `.env` file. Best for API-billed usage.
+- **`oauth`** -- Direct OAuth 2.1 with PKCE. Opens a browser for Claude subscription (Pro/Max) authorization. Tokens are stored securely in `~/.neurolink/` and auto-refreshed. Experimental.
+- **`create-api-key`** -- OAuth-based API key creation (recommended for Claude Pro/Max). Authenticates via OAuth, then creates a standard API key through the Anthropic console. Combines the convenience of OAuth login with standard API key compatibility.
+
+**Supported providers:** `anthropic`
+
+**Status output:**
+
+`auth status` displays the authentication method, subscription tier (free/pro/max/api), token expiry, and refresh token availability for each configured provider. Use `--format json` for machine-readable output.
+
+**Examples (local development):**
+
+```bash
+# Interactive authentication (choose method via prompt)
+pnpm run cli -- auth login anthropic
+
+# Authenticate using OAuth for Claude Pro/Max subscription
+pnpm run cli -- auth login anthropic --method oauth
+
+# Create an API key via OAuth (recommended for Claude Pro/Max)
+pnpm run cli -- auth login anthropic --method create-api-key
+
+# Use a traditional API key
+pnpm run cli -- auth login anthropic --method api-key
+
+# Non-interactive login (reads ANTHROPIC_API_KEY from environment)
+pnpm run cli -- auth login anthropic --method api-key --non-interactive
+
+# Show status for all providers
+pnpm run cli -- auth status
+
+# Show status as JSON (for scripting)
+pnpm run cli -- auth status --format json
+
+# Refresh expired OAuth tokens
+pnpm run cli -- auth refresh anthropic
+
+# Clear all stored credentials for Anthropic
+pnpm run cli -- auth logout anthropic
+```
+
+**Credential storage:**
+
+- API keys are saved to the project `.env` file as `ANTHROPIC_API_KEY`.
+- OAuth tokens are stored in `~/.neurolink/<provider>-credentials.json` with restricted file permissions.
+- The `logout` subcommand clears both stored credentials and offers to remove the key from `.env`.
+
+See also: [Claude Subscription Guide](../features/claude-subscription.md) | [Provider Setup Guide](../getting-started/provider-setup.md)
 
 ### `setup`
 

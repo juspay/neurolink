@@ -25,9 +25,13 @@ import type {
   ConversationSummary,
 } from "../../lib/types/conversation.js";
 import type { AnalyticsData, TokenUsage } from "../../lib/types/index.js";
+import type {
+  ClaudeSubscriptionTier,
+  AnthropicAuthMethod,
+  AnthropicAuthConfig,
+} from "../../lib/types/subscriptionTypes.js";
 
 import { checkRedisAvailability } from "../../lib/utils/conversationMemory.js";
-
 import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";
 import { logger } from "../../lib/utils/logger.js";
 import { createThinkingConfigFromRecord } from "../../lib/utils/thinkingConfig.js";
@@ -66,6 +70,7 @@ export class CLICommandFactory {
         "vertex",
         "googleVertex",
         "anthropic",
+        "anthropic-subscription", // Anthropic with subscription tier support
         "azure",
         "google-ai",
         "google-ai-studio",
@@ -76,8 +81,30 @@ export class CLICommandFactory {
         "sagemaker",
       ],
       default: "auto",
-      description: "AI provider to use (auto-selects best available)",
+      description:
+        "AI provider to use (auto-selects best available). Use 'anthropic-subscription' for Claude subscription plans.",
       alias: "p",
+    },
+    // Anthropic subscription options
+    authMethod: {
+      type: "string" as const,
+      choices: ["api-key", "oauth"],
+      default: "api-key",
+      description:
+        "Authentication method for Anthropic: 'api-key' (default) or 'oauth' (for subscription plans)",
+    },
+    subscriptionTier: {
+      type: "string" as const,
+      choices: ["free", "pro", "max", "max_5", "max_20", "api"],
+      description:
+        "Anthropic subscription tier: free (limited), pro ($20/mo), max (highest limits), max_5/max_20 (extended), api (pay-per-use)",
+    },
+    enableBeta: {
+      type: "boolean" as const,
+      default: false,
+      description:
+        "Enable Anthropic beta features (experimental capabilities, computer use, etc.)",
+      alias: "beta",
     },
     image: {
       type: "string" as const,
@@ -599,7 +626,96 @@ export class CLICommandFactory {
         | undefined,
       // Region option for cloud providers (Vertex AI, Bedrock, etc.)
       region: argv.region as string | undefined,
+      // Anthropic subscription options
+      authMethod: argv.authMethod as "api-key" | "oauth" | undefined,
+      subscriptionTier: argv.subscriptionTier as
+        | "free"
+        | "pro"
+        | "max"
+        | "max_5"
+        | "max_20"
+        | "api"
+        | undefined,
+      enableBeta: argv.enableBeta as boolean | undefined,
     };
+  }
+
+  /**
+   * Validate Anthropic subscription options
+   * Ensures subscription tier is provided when using anthropic-subscription provider
+   * or when oauth auth method is selected
+   */
+  private static validateAnthropicSubscriptionOptions(
+    options: Record<string, unknown>,
+  ): void {
+    const provider = options.provider as string | undefined;
+    const authMethod = options.authMethod as string | undefined;
+    let subscriptionTier = options.subscriptionTier as string | undefined;
+    const enableBeta = options.enableBeta as boolean | undefined;
+
+    // Check if using anthropic-subscription provider or oauth auth method
+    const isSubscriptionMode =
+      provider === "anthropic-subscription" || authMethod === "oauth";
+
+    if (isSubscriptionMode && !subscriptionTier) {
+      logger.always(
+        chalk.yellow(
+          "⚠️  Subscription tier not specified. Defaulting to 'api' tier.",
+        ),
+      );
+      logger.always(
+        chalk.gray(
+          "   Use --subscription-tier to specify: free, pro, max, or api",
+        ),
+      );
+      options.subscriptionTier = "api";
+      subscriptionTier = "api";
+    }
+
+    // Validate oauth is required for non-api subscription tiers
+    if (
+      subscriptionTier &&
+      ["free", "pro", "max"].includes(subscriptionTier) &&
+      authMethod !== "oauth"
+    ) {
+      logger.always(
+        chalk.yellow(
+          `⚠️  Subscription tier '${subscriptionTier}' typically uses OAuth authentication.`,
+        ),
+      );
+      logger.always(
+        chalk.gray("   Consider using --auth-method oauth for this tier."),
+      );
+    }
+
+    // Map anthropic-subscription to anthropic provider with subscription options
+    if (provider === "anthropic-subscription") {
+      options.provider = "anthropic";
+      options.useSubscription = true;
+    }
+
+    // Warn about beta features when enabled
+    if (enableBeta) {
+      logger.always(
+        chalk.cyan(
+          "🧪 Beta features enabled for Anthropic. Experimental capabilities may be unstable.",
+        ),
+      );
+    }
+
+    // Build Anthropic auth configuration for provider initialization
+    if (provider === "anthropic" || provider === "anthropic-subscription") {
+      const authConfig: AnthropicAuthConfig = {
+        method: (authMethod === "oauth"
+          ? "oauth"
+          : "api_key") as AnthropicAuthMethod,
+        subscriptionTier: subscriptionTier as
+          | ClaudeSubscriptionTier
+          | undefined,
+      };
+      options.anthropicAuthConfig = authConfig;
+      options.enableBeta = enableBeta;
+    }
   }
 
   // Helper method to handle output
@@ -1071,6 +1187,14 @@ export class CLICommandFactory {
             .example(
               '$0 generate "Smooth camera movement" --image ./input.jpg --provider vertex --model veo-3.1-generate-001 --outputMode video --videoResolution 720p --videoLength 6 --videoAspectRatio 16:9 --videoOutput ./output.mp4',
               "Video generation with full options",
+            )
+            .example(
+              '$0 generate "Explain AI" --provider anthropic --subscription-tier pro',
+              "Use Anthropic with Pro subscription tier",
+            )
+            .example(
+              '$0 generate "Deep analysis" --provider anthropic-subscription --subscription-tier max --auth-method oauth',
+              "Use Anthropic with Max subscription and OAuth",
             ),
         );
       },
@@ -1422,6 +1546,7 @@ export class CLICommandFactory {
                 "openai",
                 "openrouter",
                 "anthropic",
+                "anthropic-subscription", // Setup Anthropic with subscription tier
                 "azure",
                 "bedrock",
                 "vertex",
@@ -1438,8 +1563,28 @@ export class CLICommandFactory {
               type: "boolean" as const,
               description: "Show provider configuration status",
             })
+            .option("subscription-tier", {
+              type: "string" as const,
+              choices: ["free", "pro", "max", "max_5", "max_20", "api"],
+              description:
+                "Anthropic subscription tier for setup (free, pro, max, max_5, max_20, api)",
+            })
+            .option("auth-method", {
+              type: "string" as const,
+              choices: ["api-key", "oauth"],
+              description:
+                "Authentication method for Anthropic (api-key or oauth)",
+            })
             .example("$0 setup", "Interactive setup wizard")
             .example("$0 setup --provider openai", "Setup specific provider")
+            .example(
+              "$0 setup --provider anthropic --subscription-tier pro",
+              "Setup Anthropic with Pro subscription",
+            )
+            .example(
+              "$0 setup --provider anthropic --auth-method oauth",
+              "Setup Anthropic with OAuth authentication",
+            )
             .example("$0 setup --list", "List all providers")
             .example("$0 setup --status", "Check provider status"),
         );
@@ -1450,6 +1595,14 @@ export class CLICommandFactory {
             provider?: string;
             list?: boolean;
             status?: boolean;
+            subscriptionTier?:
+              | "free"
+              | "pro"
+              | "max"
+              | "max_5"
+              | "max_20"
+              | "api";
+            authMethod?: "api-key" | "oauth";
           },
         ),
     };
@@ -1839,6 +1992,11 @@ export class CLICommandFactory {
     }
 
     const options = CLICommandFactory.processOptions(argv);
+
+    // Validate Anthropic subscription options if using Anthropic provider
+    this.validateAnthropicSubscriptionOptions(
+      options as Record<string, unknown>,
+    );
 
     // Determine if video generation mode is enabled
     const isVideoMode =
@@ -2633,6 +2791,11 @@ export class CLICommandFactory {
 
     const options = CLICommandFactory.processOptions(argv);
 
+    // Validate Anthropic subscription options if using Anthropic provider
+    this.validateAnthropicSubscriptionOptions(
+      options as Record<string, unknown>,
+    );
+
     if (!options.quiet) {
       logger.always(chalk.blue("🔄 Streaming..."));
     }
@@ -2675,6 +2838,12 @@ export class CLICommandFactory {
    */
   private static async executeBatch(argv: BatchCommandArgs) {
     const options = CLICommandFactory.processOptions(argv);
+
+    // Validate Anthropic subscription options if using Anthropic provider
+    CLICommandFactory.validateAnthropicSubscriptionOptions(
+      options as Record<string, unknown>,
+    );
+
     const spinner = options.quiet ? null : ora().start();
 
     try {

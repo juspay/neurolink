@@ -1,7 +1,7 @@
 ---
 title: AI Provider Guides
-description: Complete setup guides for all 12 supported AI providers with configuration examples
-keywords: providers, setup, configuration, API keys, authentication
+description: Complete setup guides for all supported AI providers with configuration examples
+keywords: providers, setup, configuration, API keys, authentication, anthropic, claude, openai
 ---
 
 # AI Provider Guides
@@ -35,6 +35,23 @@ Start with zero cost using these free-tier options:
 - 💰 Pay-as-you-go option
 
 [Setup Guide →](google-ai.md)
+
+---
+
+## 🤖 Direct AI Providers
+
+Access leading AI models directly from their creators:
+
+### [Anthropic](anthropic.md)
+
+**Claude models with API key or OAuth authentication**
+
+- 🧠 Claude 4.5 Opus/Sonnet/Haiku, Claude 4.0 Opus/Sonnet
+- 🔐 API key or OAuth (Pro/Max subscription)
+- 💭 Extended thinking for deep reasoning
+- 📄 200K context window, multimodal support
+
+[Setup Guide →](anthropic.md)
 
 ---
 
@@ -139,6 +156,7 @@ Access multiple providers through unified interfaces:
 
 | Provider                                  | Free Tier | Enterprise | GDPR   | Latency | Best For                        |
 | ----------------------------------------- | --------- | ---------- | ------ | ------- | ------------------------------- |
+| [Anthropic](anthropic.md)                 | Limited   | ✅         | ✅     | Low     | Reasoning, coding, Claude       |
 | [Hugging Face](huggingface.md)            | ✅        | ❌         | ✅     | Medium  | Open source, experimentation    |
 | [Google AI](google-ai.md)                 | ✅        | ✅         | ✅     | Low     | Free tier, Gemini               |
 | [Mistral AI](mistral.md)                  | ❌        | ✅         | ✅     | Low     | EU compliance, cost             |

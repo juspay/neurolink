@@ -19,6 +19,9 @@ event.json
 # TypeDoc generated (regenerated on each build)
 docs/api/_media/
 
+# Test Coverage
+coverage/
+
 # Test Output Files
 /test-outputs/
 verification-results-*.txt

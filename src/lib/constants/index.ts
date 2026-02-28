@@ -309,6 +309,38 @@ export const CONSTANTS_METADATA = {
   VERSION: "1.0.0",
   LAST_UPDATED: "2025-01-27",
   TOTAL_CONSTANTS: 300,
-  CATEGORIES: ["timeouts", "retry", "performance", "tokens"],
+  CATEGORIES: ["timeouts", "retry", "performance", "tokens", "enums"],
   COMPATIBILITY: "backward_compatible",
 } as const;
+
+// ===== ENUMS =====
+export {
+  // Provider and Model Enums
+  AIProviderName,
+  OpenRouterModels,
+  BedrockModels,
+  OpenAIModels,
+  AzureOpenAIModels,
+  VertexModels,
+  GoogleAIModels,
+  AnthropicModels,
+  MistralModels,
+  OllamaModels,
+  LiteLLMModels,
+  HuggingFaceModels,
+  SageMakerModels,
+  APIVersions,
+  // Error Enums
+  ErrorCategory,
+  ErrorSeverity,
+  // Claude Subscription Enums
+  AnthropicBetaFeature,
+  // OAuth Constants
+  TOKEN_EXPIRY_BUFFER_MS,
+} from "./enums.js";
+
+// Re-export subscription types from canonical location for convenience
+export type {
+  ClaudeSubscriptionTier,
+  AnthropicAuthMethod,
+} from "../types/subscriptionTypes.js";

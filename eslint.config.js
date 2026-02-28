@@ -22,6 +22,12 @@ export default [
         clearTimeout: "readonly",
         setInterval: "readonly",
         clearInterval: "readonly",
+        URL: "readonly",
+        URLSearchParams: "readonly",
+        fetch: "readonly",
+        Headers: "readonly",
+        Request: "readonly",
+        Response: "readonly",
 
         // Browser globals
         window: "readonly",

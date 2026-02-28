@@ -970,6 +970,10 @@ const LINK_MAPPINGS: Record<string, string> = {
   "conversation-history": "/features/conversation-history",
   "mcp-tools-showcase": "/features/mcp-tools-showcase",
   "provider-orchestration": "/features/provider-orchestration",
+  "claude-subscription": "/features/claude-subscription",
+  "claude-subscription.md": "/features/claude-subscription",
+  "claude-subscription-testing": "/features/claude-subscription-testing",
+  "claude-subscription-testing.md": "/features/claude-subscription-testing",
 
   // Cookbook - absolute paths
   "batch-processing": "/cookbook/batch-processing",
@@ -1012,6 +1016,8 @@ const LINK_MAPPINGS: Record<string, string> = {
   // Provider paths
   "openai-compatible": "/getting-started/providers/openai-compatible",
   "providers/openrouter": "/getting-started/providers/openrouter",
+  "providers/anthropic": "/getting-started/providers/anthropic",
+  anthropic: "/getting-started/providers/anthropic",
 
   // MCP additional
   "mcp/server-catalog": "/guides/mcp/server-catalog",

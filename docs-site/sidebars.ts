@@ -20,6 +20,7 @@ const sidebars: SidebarsConfig = {
           collapsed: true,
           items: [
             "getting-started/providers/index",
+            "getting-started/providers/anthropic",
             "getting-started/providers/google-ai",
             "getting-started/providers/google-vertex",
             "getting-started/providers/aws-bedrock",
@@ -95,6 +96,8 @@ const sidebars: SidebarsConfig = {
         "features/mcp-tools-showcase",
         "features/rag",
         "features/memory",
+        "features/claude-subscription",
+        "features/claude-subscription-testing",
       ],
     },
     {

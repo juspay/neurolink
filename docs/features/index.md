@@ -22,6 +22,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 | :material-database-search: **[RAG Document Processing](rag.md)**                                   | Comprehensive document chunking (10 strategies), hybrid search (BM25 + vector), and reranking (5 types) for retrieval-augmented generation. |
 | :material-compress-arrows: **[Context Compaction](context-compaction.md)**                         | 4-stage context compaction pipeline with automatic budget management, per-provider token estimation, and non-destructive message tagging.   |
 | :material-brain: **[Memory](memory.md)**                                                           | Per-user condensed memory that persists across conversations. LLM-powered condensation with S3, Redis, or SQLite storage backends.          |
+| :material-account-key: **[Claude Subscription Support](claude-subscription.md)**                   | Multiple authentication methods for Claude (API key, OAuth) with support for Free, Pro, Max, and API tiers.                                 |
 
 **Q1 2026 Highlights:**
 
@@ -31,6 +32,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 - **Audio Input**: Real-time voice conversations with Gemini Live API enabling bidirectional audio streaming for interactive voice-based AI experiences
 - **Server Adapters**: Deploy NeuroLink as production HTTP APIs with support for Hono (recommended), Express, Fastify, and Koa frameworks. Includes built-in authentication, rate limiting, caching, validation middleware, and SSE streaming support.
 - **RAG Document Processing**: Full-featured retrieval-augmented generation with 10 chunking strategies (character, recursive, sentence, token, markdown, html, json, latex, semantic, semantic-markdown), hybrid search combining BM25 and vector similarity, 5 reranking types (simple, LLM, batch, cross-encoder, Cohere), and integration with Pinecone, Weaviate, and Chroma vector stores.
+- **Claude Subscription Support**: Flexible authentication supporting API keys and OAuth for Claude Pro/Max subscribers, with model availability tracking and quota management
 
 ---
 
@@ -84,21 +86,21 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 NeuroLink supports **14+ AI providers** with unified API access:
 
-| Provider              | Key Features                   | Free Tier       | Tool Support | Status        | Documentation                                                         |
-| --------------------- | ------------------------------ | --------------- | ------------ | ------------- | --------------------------------------------------------------------- |
-| **OpenAI**            | GPT-4o, GPT-4o-mini, o1 models | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#openai)            |
-| **Anthropic**         | Claude 3.5/3.7 Sonnet, Opus    | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#anthropic)         |
-| **Google AI**         | Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#google-ai)         |
-| **AWS Bedrock**       | Claude, Titan, Llama, Nova     | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#bedrock)           |
-| **Google Vertex**     | Gemini via GCP                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#vertex)            |
-| **Azure OpenAI**      | GPT-4, GPT-4o, o1              | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#azure)             |
-| **LiteLLM**           | 100+ models unified            | Varies          | ✅ Full      | ✅ Production | [Integration Guide](../litellm-integration.md)                        |
-| **AWS SageMaker**     | Custom deployed models         | ❌              | ✅ Full      | ✅ Production | [Integration Guide](../sagemaker-integration.md)                      |
-| **Mistral AI**        | Mistral Large, Small           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#mistral)           |
-| **Hugging Face**      | 100,000+ models                | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#huggingface)       |
-| **Ollama**            | Local models                   | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#ollama)            |
-| **OpenAI Compatible** | Any compatible endpoint        | Varies          | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#openai-compatible) |
-| **OpenRouter**        | 300+ models via unified API    | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#openrouter)        |
+| Provider              | Key Features                       | Free Tier       | Tool Support | Status        | Documentation                                                                                               |
+| --------------------- | ---------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------------------------------------------- |
+| **OpenAI**            | GPT-4o, GPT-4o-mini, o1 models     | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#openai)                                                  |
+| **Anthropic**         | Claude 4.5/4.0 Sonnet, Opus, Haiku | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#anthropic), [Subscription Guide](claude-subscription.md) |
+| **Google AI**         | Gemini 2.5 Flash/Pro               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#google-ai)                                               |
+| **AWS Bedrock**       | Claude, Titan, Llama, Nova         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#bedrock)                                                 |
+| **Google Vertex**     | Gemini via GCP                     | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#vertex)                                                  |
+| **Azure OpenAI**      | GPT-4, GPT-4o, o1                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#azure)                                                   |
+| **LiteLLM**           | 100+ models unified                | Varies          | ✅ Full      | ✅ Production | [Integration Guide](../litellm-integration.md)                                                              |
+| **AWS SageMaker**     | Custom deployed models             | ❌              | ✅ Full      | ✅ Production | [Integration Guide](../sagemaker-integration.md)                                                            |
+| **Mistral AI**        | Mistral Large, Small               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#mistral)                                                 |
+| **Hugging Face**      | 100,000+ models                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#huggingface)                                             |
+| **Ollama**            | Local models                       | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#ollama)                                                  |
+| **OpenAI Compatible** | Any compatible endpoint            | Varies          | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#openai-compatible)                                       |
+| **OpenRouter**        | 300+ models via unified API        | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](../getting-started/provider-setup.md#openrouter)                                              |
 
 **[📖 Provider Comparison Guide](../reference/provider-comparison.md)** - Full feature matrix
 

@@ -351,7 +351,7 @@ export type {
   MCPOAuthConfig,
   McpMetadata,
   OAuthClientInformation,
-  OAuthTokens,
+  OAuthTokens as McpOAuthTokens,
   // HTTP Transport types
   RateLimitConfig,
   TokenExchangeRequest,

@@ -395,20 +395,23 @@ VERTEX_MODEL="gemini-2.5-pro"           # Default: gemini-2.5-pro
 
 ### 4. Anthropic (Direct)
 
-#### Required Variables
+Anthropic supports two authentication methods: **API key** (traditional) and **OAuth token** (for Claude subscription users).
+
+#### Method 1: API Key (Traditional)
+
+##### Required Variables
 
 ```bash
 ANTHROPIC_API_KEY="sk-ant-api03-your-anthropic-key"
 ```
 
-#### Optional Variables
+##### Optional Variables
 
 ```bash
 ANTHROPIC_MODEL="claude-3-5-sonnet-20241022"  # Default model
-ANTHROPIC_BASE_URL="https://api.anthropic.com" # Default endpoint
 ```
 
-#### How to Get Anthropic API Key
+##### How to Get Anthropic API Key
 
 1. Visit [Anthropic Console](https://console.anthropic.com)
 2. Sign up or log in
@@ -416,6 +419,65 @@ ANTHROPIC_BASE_URL="https://api.anthropic.com" # Default endpoint
 4. Click **Create Key**
 5. Copy the key (starts with `sk-ant-api03-`)
 6. Add billing information for usage
+
+#### Method 2: OAuth Token (Claude Subscription)
+
+Use OAuth authentication to access Claude models through a Claude Pro, Max, or Team subscription instead of pay-per-token API billing.
+
+##### Required Variables
+
+```bash
+# Either of these (ANTHROPIC_OAUTH_TOKEN takes precedence)
+ANTHROPIC_OAUTH_TOKEN="your-oauth-access-token"
+CLAUDE_OAUTH_TOKEN="your-oauth-access-token"
+```
+
+The OAuth token value can be a plain access token string or a JSON object with the following fields:
+
+```json
+{
+  "accessToken": "your-access-token",
+  "refreshToken": "your-refresh-token",
+  "expiresAt": 1735689600000
+}
+```
+
+Where `expiresAt` is the token expiry time in Unix milliseconds.
+
+##### Optional Variables
+
+```bash
+ANTHROPIC_MODEL="claude-3-5-sonnet-20241022"            # Default model
+ANTHROPIC_SUBSCRIPTION_TIER="pro"                        # Subscription tier override
+```
+
+`ANTHROPIC_SUBSCRIPTION_TIER` controls which models and rate limits are available. Valid values:
+
+| Tier     | Description                                     |
+| -------- | ----------------------------------------------- |
+| `free`   | Free tier with limited access                   |
+| `pro`    | Claude Pro subscription (default for OAuth)     |
+| `max`    | Claude Max subscription                         |
+| `max_5`  | Claude Max with 5x usage                        |
+| `max_20` | Claude Max with 20x usage                       |
+| `api`    | Standard API key access (default without OAuth) |
+
+If `ANTHROPIC_SUBSCRIPTION_TIER` is not set, the tier is auto-detected: `pro` when using OAuth, `api` when using an API key.
+
+#### Environment Variables Reference
+
+| Variable                         | Required | Default                            | Description                                                                |
+| -------------------------------- | -------- | ---------------------------------- | -------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`              | \*       | -                                  | Anthropic API key (required if not using OAuth)                            |
+| `ANTHROPIC_OAUTH_TOKEN`          | \*       | -                                  | OAuth access token, plain string or JSON (required if not using API key)   |
+| `CLAUDE_OAUTH_TOKEN`             | \*       | -                                  | Alternative OAuth token env var (same format as `ANTHROPIC_OAUTH_TOKEN`)   |
+| `ANTHROPIC_MODEL`                | No       | `claude-3-5-sonnet-20241022`       | Default model to use                                                       |
+| `ANTHROPIC_SUBSCRIPTION_TIER`    | No       | Auto-detected (`pro` or `api`)     | Subscription tier override: `free`, `pro`, `max`, `max_5`, `max_20`, `api` |
+| `ANTHROPIC_ENABLE_BETA_FEATURES` | No       | `true` (OAuth) / `false` (API key) | Enable Anthropic beta headers (OAuth beta, extended thinking)              |
+| `ANTHROPIC_OAUTH_REFRESH_TOKEN`  | No       | -                                  | OAuth refresh token (used for automatic token renewal)                     |
+| `ANTHROPIC_AUTH_METHOD`          | No       | Auto-detected                      | Force auth method: `api_key` or `oauth`                                    |
+
+\* One of `ANTHROPIC_API_KEY`, `ANTHROPIC_OAUTH_TOKEN`, or `CLAUDE_OAUTH_TOKEN` must be set.
 
 #### Supported Models
 
@@ -830,8 +892,13 @@ GOOGLE_VERTEX_PROJECT="your-gcp-project"
 GOOGLE_VERTEX_LOCATION="us-central1"
 VERTEX_MODEL="gemini-2.5-pro"
 
-# Anthropic Configuration
+# Anthropic Configuration (API key or OAuth token)
 ANTHROPIC_API_KEY="sk-ant-api03-your-key"
+# ANTHROPIC_OAUTH_TOKEN="your-oauth-token"     # Alternative: OAuth token for Claude subscription
+# ANTHROPIC_SUBSCRIPTION_TIER="pro"            # Optional: free, pro, max, max_5, max_20, api
+# ANTHROPIC_ENABLE_BETA_FEATURES="true"        # Optional: enable beta headers (default: true for OAuth)
+# ANTHROPIC_OAUTH_REFRESH_TOKEN=""             # Optional: OAuth refresh token for auto-renewal
+# ANTHROPIC_AUTH_METHOD="oauth"                # Optional: force auth method (api_key or oauth)
 
 # Google AI Studio Configuration
 GOOGLE_AI_API_KEY="AIza-your-google-ai-key"

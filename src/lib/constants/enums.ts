@@ -776,3 +776,37 @@ export enum ErrorSeverity {
   HIGH = "high",
   CRITICAL = "critical",
 }
+
+// ============================================================================
+// CLAUDE SUBSCRIPTION ENUMS
+// ============================================================================
+
+// Note: ClaudeSubscriptionTier and AnthropicAuthMethod are defined as type
+// aliases in types/subscriptionTypes.ts (canonical definitions).
+// The type aliases support all 6 tier values: free, pro, max, max_5, max_20, api.
+
+/**
+ * Beta features available for Anthropic API
+ *
+ * @description Beta feature flags that can be enabled for enhanced functionality:
+ * - CLAUDE_CODE: Claude Code beta features for development workflows
+ * - INTERLEAVED_THINKING: Enables interleaved thinking in responses
+ * - FINE_GRAINED_STREAMING: Fine-grained tool streaming for better UX
+ */
+export enum AnthropicBetaFeature {
+  CLAUDE_CODE = "claude-code-20250219",
+  INTERLEAVED_THINKING = "interleaved-thinking-2025-05-14",
+  FINE_GRAINED_STREAMING = "fine-grained-tool-streaming-2025-05-14",
+}
+
+// ============================================================================
+// ANTHROPIC OAUTH CONSTANTS
+// ============================================================================
+
+/**
+ * Buffer time in milliseconds before token expiry to trigger refresh
+ *
+ * @description Tokens are refreshed 5 minutes before expiry to prevent
+ * authentication failures during ongoing operations
+ */
+export const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minutes

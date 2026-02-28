@@ -3,10 +3,28 @@
  * Consolidated configuration helpers for all AI providers
  * Eliminates duplicate error messages and configuration logic
  * Enhanced with format validation and advanced error classification
+ * Extended with Claude subscription OAuth support
  */
 
 import type { APIValidationResult } from "../types/utilities.js";
 import type { ProviderConfigOptions } from "../types/providers.js";
+import { logger } from "./logger.js";
+import type {
+  AnthropicAuthMethod,
+  ClaudeSubscriptionTier,
+  AnthropicAuthConfig,
+  OAuthToken,
+  AnthropicAuthConfigResult,
+} from "../types/subscriptionTypes.js";
+
+// Re-export subscription types for convenience
+export type {
+  AnthropicAuthMethod,
+  ClaudeSubscriptionTier,
+  AnthropicAuthConfig,
+  OAuthToken,
+  AnthropicAuthConfigResult,
+} from "../types/subscriptionTypes.js";
 
 /**
  * API key format validation patterns (extracted from advanced validation system)
@@ -21,6 +39,19 @@ export const API_KEY_FORMATS: Record<string, RegExp> = {
   azure: /^[A-Za-z0-9]{32}$/,
   aws: /^[A-Z0-9]{20}$/, // Access Key ID format
   bedrock: /^[A-Z0-9]{20}$/, // AWS access key ID: 20 uppercase alphanumerics
+};
+
+/**
+ * OAuth token format validation patterns
+ * These patterns are more flexible as OAuth tokens can vary by provider
+ */
+export const OAUTH_TOKEN_FORMATS: Record<string, RegExp> = {
+  // OAuth access tokens are typically JWT or opaque tokens
+  // Claude OAuth access tokens: Bearer tokens with typical JWT structure or opaque format
+  "anthropic-access":
+    /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$|^[A-Za-z0-9\-_]{32,}$/,
+  // Refresh tokens are typically longer opaque strings
+  "anthropic-refresh": /^[A-Za-z0-9\-_]{32,}$/,
 };
 
 /**
@@ -194,19 +225,66 @@ export function hasProviderCredentials(envVars: string[]): boolean {
 
 /**
  * Creates Anthropic provider configuration
+ * Supports both API key and OAuth authentication methods
  */
 export function createAnthropicConfig(): ProviderConfigOptions {
+  const authMethod = getAnthropicAuthMethod();
+  const tier = getAnthropicSubscriptionTier();
+
+  // Base instructions for API key authentication
+  const apiKeyInstructions = [
+    "🔑 Option 1: API Key Authentication (Recommended for developers)",
+    "1. Visit: https://console.anthropic.com/",
+    "2. Sign in or create an account",
+    "3. Go to API Keys section",
+    "4. Create a new API key",
+    "5. Set ANTHROPIC_API_KEY in your .env file",
+  ];
+
+  // OAuth instructions for Claude subscription users
+  const oauthInstructions = [
+    "",
+    "🔐 Option 2: OAuth Authentication (For Claude Pro/Max subscribers)",
+    "1. Set ANTHROPIC_AUTH_METHOD=oauth in your .env file",
+    "2. Set ANTHROPIC_SUBSCRIPTION_TIER to your tier (free, pro, max)",
+    "3. Run the OAuth flow to obtain tokens, or set pre-configured tokens:",
+    "   - ANTHROPIC_OAUTH_TOKEN=your_access_token",
+    "   - ANTHROPIC_OAUTH_REFRESH_TOKEN=your_refresh_token (optional)",
+    "",
+    "📋 Available Subscription Tiers:",
+    "   - free: Free tier with limited usage",
+    "   - pro: Claude Pro ($20/month) - Extended usage limits",
+    "   - max: Claude Max - Highest usage limits",
+    "   - api: API-based access (pay-per-use)",
+  ];
+
+  // Choose instructions based on current auth method
+  const instructions =
+    authMethod === "oauth"
+      ? [...oauthInstructions.slice(1), "", ...apiKeyInstructions]
+      : [...apiKeyInstructions, ...oauthInstructions];
+
   return {
     providerName: "Anthropic",
-    envVarName: "ANTHROPIC_API_KEY",
-    setupUrl: "https://console.anthropic.com/",
-    description: "Anthropic API Key",
-    instructions: [
-      "1. Visit: https://console.anthropic.com/",
-      "2. Sign in or create an account",
-      "3. Go to API Keys section",
-      "4. Create a new API key",
-    ],
+    envVarName:
+      authMethod === "oauth" ? "ANTHROPIC_OAUTH_TOKEN" : "ANTHROPIC_API_KEY",
+    setupUrl:
+      authMethod === "oauth"
+        ? "https://claude.ai/settings"
+        : "https://console.anthropic.com/",
+    description:
+      authMethod === "oauth"
+        ? `Anthropic OAuth Token (${tier} tier)`
+        : "Anthropic API Key",
+    instructions,
+    fallbackEnvVars:
+      authMethod === "oauth"
+        ? ["ANTHROPIC_API_KEY"] // Fall back to API key if OAuth token not present
+        : [
+            "ANTHROPIC_OAUTH_TOKEN",
+            "CLAUDE_OAUTH_TOKEN",
+            "ANTHROPIC_OAUTH_ACCESS_TOKEN",
+          ], // Fall back to OAuth if API key not present
   };
 }
 
@@ -441,4 +519,668 @@ export function getAWSSessionToken(): string | undefined {
  */
 export function hasHuggingFaceCredentials(): boolean {
   return hasProviderCredentials(["HUGGINGFACE_API_KEY", "HF_TOKEN"]);
+}
+
+// =============================================================================
+// ANTHROPIC/CLAUDE SUBSCRIPTION AUTH HELPERS
+// =============================================================================
+
+/**
+ * Gets the configured Anthropic authentication method
+ * Defaults to "api_key" for backward compatibility
+ * @returns The configured authentication method
+ */
+export function getAnthropicAuthMethod(): AnthropicAuthMethod {
+  const method = process.env.ANTHROPIC_AUTH_METHOD?.toLowerCase();
+  if (method === "oauth") {
+    return "oauth";
+  }
+  return "api_key";
+}
+
+/**
+ * Gets the configured Claude subscription tier
+ * Defaults to "api" for backward compatibility (API key users)
+ * @returns The configured subscription tier
+ */
+export function getAnthropicSubscriptionTier(): ClaudeSubscriptionTier {
+  const tier = process.env.ANTHROPIC_SUBSCRIPTION_TIER?.toLowerCase();
+  switch (tier) {
+    case "free":
+      return "free";
+    case "pro":
+      return "pro";
+    case "max":
+      return "max";
+    case "max_5":
+      return "max_5";
+    case "max_20":
+      return "max_20";
+    case "api":
+    default:
+      return "api";
+  }
+}
+
+/**
+ * Validates OAuth access token format
+ * @param token The token to validate
+ * @returns True if the token format is valid
+ */
+export function validateOAuthAccessToken(token: string): boolean {
+  if (!token || token.length < 32) {
+    return false;
+  }
+  const format = OAUTH_TOKEN_FORMATS["anthropic-access"];
+  return format.test(token);
+}
+
+/**
+ * Validates OAuth refresh token format
+ * @param token The token to validate
+ * @returns True if the token format is valid
+ */
+export function validateOAuthRefreshToken(token: string): boolean {
+  if (!token || token.length < 32) {
+    return false;
+  }
+  const format = OAUTH_TOKEN_FORMATS["anthropic-refresh"];
+  return format.test(token);
+}
+
+/**
+ * Detects the best available authentication method for Anthropic
+ * Checks environment variables and returns the most appropriate auth configuration
+ * @returns Complete authentication configuration
+ */
+export function detectAnthropicAuth(): AnthropicAuthConfigResult {
+  const explicitMethod = process.env.ANTHROPIC_AUTH_METHOD?.toLowerCase();
+  const tier = getAnthropicSubscriptionTier();
+
+  // Check for OAuth tokens — canonical + fallbacks for backward compatibility
+  const accessToken =
+    process.env.ANTHROPIC_OAUTH_TOKEN ??
+    process.env.CLAUDE_OAUTH_TOKEN ??
+    process.env.ANTHROPIC_OAUTH_ACCESS_TOKEN;
+  const refreshToken = process.env.ANTHROPIC_OAUTH_REFRESH_TOKEN;
+
+  // Check for API key
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  // If explicit method is set, use it
+  if (explicitMethod === "oauth") {
+    if (accessToken) {
+      const isValidAccessToken = validateOAuthAccessToken(accessToken);
+      const isValidRefreshToken = refreshToken
+        ? validateOAuthRefreshToken(refreshToken)
+        : true;
+
+      if (!isValidAccessToken) {
+        return {
+          method: "oauth",
+          tier,
+          accessToken,
+          refreshToken,
+          isConfigured: false,
+          error:
+            "Invalid OAuth access token format. Token should be a valid JWT or opaque token.",
+        };
+      }
+
+      if (refreshToken && !isValidRefreshToken) {
+        return {
+          method: "oauth",
+          tier,
+          accessToken,
+          refreshToken,
+          isConfigured: false,
+          error:
+            "Invalid OAuth refresh token format. Token should be at least 32 characters.",
+        };
+      }
+
+      return {
+        method: "oauth",
+        tier,
+        accessToken,
+        refreshToken,
+        isConfigured: true,
+      };
+    }
+
+    // OAuth method specified but no token
+    return {
+      method: "oauth",
+      tier,
+      isConfigured: false,
+      error:
+        "OAuth authentication method specified but ANTHROPIC_OAUTH_TOKEN not set.",
+    };
+  }
+
+  // If explicit method is api_key or not set
+  if (apiKey) {
+    const isValidApiKey = validateApiKeyFormat("anthropic", apiKey);
+    if (!isValidApiKey) {
+      // Still return as configured but note the format issue
+      return {
+        method: "api_key",
+        tier: "api", // API key users are always on "api" tier
+        apiKey,
+        isConfigured: true,
+        error: "API key format may be invalid. Expected format: sk-ant-...",
+      };
+    }
+
+    return {
+      method: "api_key",
+      tier: "api",
+      apiKey,
+      isConfigured: true,
+    };
+  }
+
+  // Check if OAuth tokens are available without explicit method set
+  if (accessToken) {
+    const isValidAccessToken = validateOAuthAccessToken(accessToken);
+    return {
+      method: "oauth",
+      tier,
+      accessToken,
+      refreshToken,
+      isConfigured: isValidAccessToken,
+      error: isValidAccessToken
+        ? undefined
+        : "Invalid OAuth access token format.",
+    };
+  }
+
+  // No authentication configured
+  return {
+    method: "api_key",
+    tier: "api",
+    isConfigured: false,
+    error:
+      "No Anthropic authentication configured. Set ANTHROPIC_API_KEY or configure OAuth.",
+  };
+}
+
+/**
+ * Checks if Anthropic credentials are available (either API key or OAuth)
+ * @returns True if any valid authentication is configured
+ */
+export function hasAnthropicCredentials(): boolean {
+  const auth = detectAnthropicAuth();
+  return auth.isConfigured;
+}
+
+/**
+ * Gets the authentication token or key for Anthropic API calls
+ * Returns the appropriate credential based on configured auth method
+ * @returns The API key or OAuth access token, or undefined if not configured
+ */
+export function getAnthropicCredential(): string | undefined {
+  const auth = detectAnthropicAuth();
+  if (!auth.isConfigured) {
+    return undefined;
+  }
+  return auth.method === "oauth" ? auth.accessToken : auth.apiKey;
+}
+
+/**
+ * Checks if OAuth refresh is needed based on token state
+ * This is a placeholder for actual token expiration checking
+ * @returns True if refresh is needed
+ */
+export function needsOAuthRefresh(): boolean {
+  const auth = detectAnthropicAuth();
+  if (auth.method !== "oauth" || !auth.isConfigured) {
+    return false;
+  }
+
+  // In a real implementation, you would check token expiration
+  // For now, we just check if a refresh token is available
+  // The actual refresh logic would be in the OAuth client
+  return !!auth.refreshToken;
+}
+
+/**
+ * Gets subscription tier limits for informational purposes
+ * These are approximate limits and may change
+ * @param tier The subscription tier
+ * @returns Object with tier limit information
+ */
+export function getSubscriptionTierLimits(tier: ClaudeSubscriptionTier): {
+  messagesPerDay: number | "unlimited";
+  contextWindow: number;
+  priorityAccess: boolean;
+  description: string;
+} {
+  switch (tier) {
+    case "free":
+      return {
+        messagesPerDay: 10,
+        contextWindow: 100000,
+        priorityAccess: false,
+        description: "Free tier with limited daily messages",
+      };
+    case "pro":
+      return {
+        messagesPerDay: 100,
+        contextWindow: 200000,
+        priorityAccess: true,
+        description: "Claude Pro subscription with extended limits",
+      };
+    case "max":
+      return {
+        messagesPerDay: "unlimited",
+        contextWindow: 200000,
+        priorityAccess: true,
+        description: "Claude Max subscription with highest limits",
+      };
+    case "max_5":
+      return {
+        messagesPerDay: "unlimited",
+        contextWindow: 200000,
+        priorityAccess: true,
+        description: "Claude Max 5x usage tier with priority processing",
+      };
+    case "max_20":
+      return {
+        messagesPerDay: "unlimited",
+        contextWindow: 200000,
+        priorityAccess: true,
+        description: "Claude Max 20x usage tier with maximum capacity",
+      };
+    case "api":
+    default:
+      return {
+        messagesPerDay: "unlimited",
+        contextWindow: 200000,
+        priorityAccess: true,
+        description: "API access with pay-per-use billing",
+      };
+  }
+}
+
+// =============================================================================
+// ENVIRONMENT VARIABLE CONSTANTS
+// =============================================================================
+
+/**
+ * Environment variables for Anthropic/Claude subscription configuration
+ * These control authentication method, subscription tier, and feature flags
+ */
+export const ANTHROPIC_ENV_VARS = {
+  /** Authentication method: "api_key" or "oauth" */
+  AUTH_METHOD: "ANTHROPIC_AUTH_METHOD",
+  /** Subscription tier: "free", "pro", "max", "max_5", "max_20", or "api" */
+  SUBSCRIPTION_TIER: "ANTHROPIC_SUBSCRIPTION_TIER",
+  /** Enable beta features: "true" or "false" */
+  ENABLE_BETA_FEATURES: "ANTHROPIC_ENABLE_BETA_FEATURES",
+  /** API key for api_key authentication */
+  API_KEY: "ANTHROPIC_API_KEY",
+  /** OAuth access token for oauth authentication (canonical, with BC fallbacks) */
+  OAUTH_ACCESS_TOKEN: "ANTHROPIC_OAUTH_TOKEN",
+  /** OAuth refresh token for oauth authentication */
+  OAUTH_REFRESH_TOKEN: "ANTHROPIC_OAUTH_REFRESH_TOKEN",
+  /** OAuth token expiry timestamp (Unix epoch in seconds) */
+  OAUTH_TOKEN_EXPIRY: "ANTHROPIC_OAUTH_TOKEN_EXPIRY",
+} as const;
+
+/**
+ * Valid subscription tier values for validation
+ */
+export const VALID_SUBSCRIPTION_TIERS: readonly ClaudeSubscriptionTier[] = [
+  "free",
+  "pro",
+  "max",
+  "max_5",
+  "max_20",
+  "api",
+] as const;
+
+/**
+ * Valid authentication method values for validation
+ */
+export const VALID_AUTH_METHODS: readonly AnthropicAuthMethod[] = [
+  "api_key",
+  "oauth",
+] as const;
+
+// =============================================================================
+// SUBSCRIPTION TIER VALIDATION
+// =============================================================================
+
+/**
+ * Validates a subscription tier value
+ * @param tier The tier value to validate
+ * @returns True if the tier is valid, false otherwise
+ */
+export function isValidSubscriptionTier(
+  tier: string | undefined,
+): tier is ClaudeSubscriptionTier {
+  if (!tier) {
+    return false;
+  }
+  return VALID_SUBSCRIPTION_TIERS.includes(tier as ClaudeSubscriptionTier);
+}
+
+/**
+ * Validates an authentication method value
+ * @param method The method value to validate
+ * @returns True if the method is valid, false otherwise
+ */
+export function isValidAuthMethod(
+  method: string | undefined,
+): method is AnthropicAuthMethod {
+  if (!method) {
+    return false;
+  }
+  return VALID_AUTH_METHODS.includes(method as AnthropicAuthMethod);
+}
+
+/**
+ * Validates subscription tier and returns a detailed result
+ * @param tier The tier value to validate
+ * @returns Validation result with error details if invalid
+ */
+export function validateSubscriptionTier(tier: string | undefined): {
+  isValid: boolean;
+  tier?: ClaudeSubscriptionTier;
+  error?: string;
+} {
+  if (!tier) {
+    return {
+      isValid: false,
+      error: "Subscription tier is required but not provided.",
+    };
+  }
+
+  const normalizedTier = tier.toLowerCase().trim();
+
+  if (isValidSubscriptionTier(normalizedTier)) {
+    return {
+      isValid: true,
+      tier: normalizedTier,
+    };
+  }
+
+  return {
+    isValid: false,
+    error: `Invalid subscription tier "${tier}". Valid values are: ${VALID_SUBSCRIPTION_TIERS.join(", ")}`,
+  };
+}
+
+// =============================================================================
+// ANTHROPIC AUTH CONFIG FUNCTIONS
+// =============================================================================
+
+/**
+ * Gets the complete Anthropic authentication configuration
+ * Detects auth method from environment or config and loads appropriate credentials
+ *
+ * @returns Complete AnthropicAuthConfig with method, credentials, and tier
+ */
+export function getAnthropicAuthConfig(): AnthropicAuthConfig {
+  const method = getAnthropicAuthMethod();
+  const tier = detectSubscriptionTier();
+
+  if (method === "oauth") {
+    const accessToken = process.env[ANTHROPIC_ENV_VARS.OAUTH_ACCESS_TOKEN];
+    const refreshToken = process.env[ANTHROPIC_ENV_VARS.OAUTH_REFRESH_TOKEN];
+    const tokenExpiryStr = process.env[ANTHROPIC_ENV_VARS.OAUTH_TOKEN_EXPIRY];
+
+    // Parse token expiry if provided
+    let expiresAt: number | undefined;
+    if (tokenExpiryStr) {
+      const parsed = parseInt(tokenExpiryStr, 10);
+      if (!isNaN(parsed)) {
+        expiresAt = parsed;
+      }
+    }
+
+    // Build OAuth token object
+    const oauthToken: OAuthToken | undefined = accessToken
+      ? {
+          accessToken,
+          refreshToken,
+          expiresAt,
+          tokenType: "Bearer",
+        }
+      : undefined;
+
+    return {
+      method: "oauth",
+      oauthToken,
+      accessToken, // Legacy field for backward compatibility
+      refreshToken, // Legacy field for backward compatibility
+      tokenExpiry: expiresAt ? expiresAt * 1000 : undefined, // Convert to milliseconds
+      subscriptionTier: tier,
+      autoRefresh: !!refreshToken,
+    };
+  }
+
+  // API key authentication
+  const apiKey = process.env[ANTHROPIC_ENV_VARS.API_KEY];
+
+  return {
+    method: "api_key",
+    apiKey,
+    subscriptionTier: tier,
+    autoRefresh: false,
+  };
+}
+
+/**
+ * Detects the subscription tier from environment variables or config
+ * Checks environment variable first, then config, defaults to "api" if using API key
+ *
+ * @returns The detected subscription tier
+ */
+export function detectSubscriptionTier(): ClaudeSubscriptionTier {
+  // 1. Check environment variable first (highest priority)
+  const envTier = process.env[ANTHROPIC_ENV_VARS.SUBSCRIPTION_TIER];
+  if (envTier) {
+    const validation = validateSubscriptionTier(envTier);
+    if (validation.isValid && validation.tier) {
+      return validation.tier;
+    }
+    logger.warn("Invalid ANTHROPIC_SUBSCRIPTION_TIER value", {
+      value: envTier,
+      validValues: VALID_SUBSCRIPTION_TIERS,
+      fallback: "Defaulting based on auth method",
+    });
+  }
+
+  // 2. Check config file (could be extended to read from config file)
+  // For now, we check if there's a tier set via other means
+  // This is a placeholder for config file integration
+  // const configTier = loadConfigTier(); // Future: implement config file loading
+
+  // 3. Default based on authentication method
+  const authMethod = getAnthropicAuthMethod();
+  if (authMethod === "oauth") {
+    // OAuth users are typically subscription users, default to "pro"
+    // unless they've explicitly configured otherwise
+    logger.debug(
+      "[detectSubscriptionTier] OAuth auth detected, defaulting to pro tier",
+    );
+    return "pro";
+  }
+
+  // 4. API key users default to "api" tier
+  logger.debug("[detectSubscriptionTier] API key auth, defaulting to api tier");
+  return "api";
+}
+
+/**
+ * Determines whether beta features should be enabled
+ * Checks environment/config and defaults based on authentication method
+ *
+ * @returns True if beta features should be enabled
+ */
+export function shouldEnableBetaFeatures(): boolean {
+  // 1. Check explicit environment variable first (highest priority)
+  const envValue = process.env[ANTHROPIC_ENV_VARS.ENABLE_BETA_FEATURES];
+  if (envValue !== undefined) {
+    const normalized = envValue.toLowerCase().trim();
+    if (normalized === "true" || normalized === "1" || normalized === "yes") {
+      return true;
+    }
+    if (normalized === "false" || normalized === "0" || normalized === "no") {
+      return false;
+    }
+    logger.warn("Invalid ANTHROPIC_ENABLE_BETA_FEATURES value", {
+      value: envValue,
+      expected: ["true", "false"],
+      fallback: "Defaulting based on auth method",
+    });
+  }
+
+  // 2. Check config file (placeholder for future config integration)
+  // const configValue = loadConfigBetaFeatures();
+
+  // 3. Default based on authentication method
+  // OAuth users get beta features enabled by default
+  // API key users get beta features disabled by default for stability
+  const authMethod = getAnthropicAuthMethod();
+  return authMethod === "oauth";
+}
+
+/**
+ * Gets complete subscription configuration including auth, tier, and features
+ * Combines all configuration sources into a unified config object
+ *
+ * @returns Complete subscription configuration
+ */
+export function getAnthropicSubscriptionConfig(): {
+  auth: AnthropicAuthConfig;
+  tier: ClaudeSubscriptionTier;
+  betaFeaturesEnabled: boolean;
+  limits: ReturnType<typeof getSubscriptionTierLimits>;
+  isConfigured: boolean;
+  error?: string;
+} {
+  const auth = getAnthropicAuthConfig();
+  const tier = detectSubscriptionTier();
+  const betaFeaturesEnabled = shouldEnableBetaFeatures();
+  const limits = getSubscriptionTierLimits(tier);
+
+  // Determine if properly configured
+  let isConfigured = false;
+  let error: string | undefined;
+
+  if (auth.method === "oauth") {
+    if (auth.oauthToken?.accessToken || auth.accessToken) {
+      isConfigured = true;
+    } else {
+      error =
+        "OAuth authentication method specified but no access token configured. " +
+        `Set ${ANTHROPIC_ENV_VARS.OAUTH_ACCESS_TOKEN} environment variable.`;
+    }
+  } else {
+    if (auth.apiKey) {
+      isConfigured = true;
+    } else {
+      error =
+        "API key authentication method specified but no API key configured. " +
+        `Set ${ANTHROPIC_ENV_VARS.API_KEY} environment variable.`;
+    }
+  }
+
+  return {
+    auth,
+    tier,
+    betaFeaturesEnabled,
+    limits,
+    isConfigured,
+    error,
+  };
+}
+
+/**
+ * Checks if the current subscription tier has access to a specific feature
+ * @param feature The feature to check
+ * @param currentTier The current subscription tier (optional, auto-detects if not provided)
+ * @returns True if the tier has access to the feature
+ */
+export function hasSubscriptionFeature(
+  feature:
+    | "extended_thinking"
+    | "priority_access"
+    | "vision"
+    | "file_analysis"
+    | "mcp_tools"
+    | "computer_use"
+    | "web_search",
+  currentTier?: ClaudeSubscriptionTier,
+): boolean {
+  const tier = currentTier ?? detectSubscriptionTier();
+  const limits = getSubscriptionTierLimits(tier);
+
+  // Map features to tier capabilities
+  switch (feature) {
+    case "extended_thinking":
+      // Extended thinking requires pro or higher, or API tier
+      return tier !== "free";
+
+    case "priority_access":
+      return limits.priorityAccess;
+
+    case "vision":
+    case "file_analysis":
+      // Available on all tiers
+      return true;
+
+    case "mcp_tools":
+      // MCP tools require pro or higher
+      return tier !== "free";
+
+    case "computer_use":
+      // Computer use requires max tier or API
+      return (
+        tier === "max" ||
+        tier === "max_5" ||
+        tier === "max_20" ||
+        tier === "api"
+      );
+
+    case "web_search":
+      // Web search available on pro or higher
+      return tier !== "free";
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Gets a human-readable description of the current authentication configuration
+ * Useful for debugging and user feedback
+ *
+ * @returns Human-readable configuration description
+ */
+export function describeAnthropicConfig(): string {
+  const config = getAnthropicSubscriptionConfig();
+  const lines: string[] = [];
+
+  lines.push(`Authentication Method: ${config.auth.method}`);
+  lines.push(`Subscription Tier: ${config.tier}`);
+  lines.push(
+    `Beta Features: ${config.betaFeaturesEnabled ? "Enabled" : "Disabled"}`,
+  );
+  lines.push(`Configured: ${config.isConfigured ? "Yes" : "No"}`);
+
+  if (config.error) {
+    lines.push(`Error: ${config.error}`);
+  }
+
+  lines.push(`Daily Messages: ${config.limits.messagesPerDay}`);
+  lines.push(
+    `Context Window: ${config.limits.contextWindow.toLocaleString()} tokens`,
+  );
+  lines.push(`Priority Access: ${config.limits.priorityAccess ? "Yes" : "No"}`);
+
+  return lines.join("\n");
 }

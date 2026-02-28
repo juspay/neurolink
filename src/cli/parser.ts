@@ -11,6 +11,7 @@ import { ServerCommandFactory } from "./commands/server.js";
 import { ServeCommandFactory } from "./commands/serve.js";
 import { ragCommand } from "./commands/rag.js";
 import { DocsCommandFactory } from "./commands/docs.js";
+import { AuthCommandFactory } from "./factories/authCommandFactory.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -26,7 +27,15 @@ export function initializeCliParser() {
       .strictCommands()
       .demandCommand(1, "")
       .recommendCommands()
-      .epilogue("For more info: https://github.com/juspay/neurolink")
+      .epilogue(
+        "For more info: https://github.com/juspay/neurolink\n\n" +
+          "Anthropic Subscription Tiers:\n" +
+          "  free  - Limited free tier access\n" +
+          "  pro   - Professional tier ($20/mo)\n" +
+          "  max   - Maximum tier with highest limits\n" +
+          "  api   - Direct API access (pay-per-use)\n\n" +
+          "Use 'neurolink auth login anthropic' to configure authentication",
+      )
       .showHelpOnFail(true, "Specify --help for available options")
       .middleware((argv: { noColor?: boolean; [key: string]: unknown }) => {
         // Handle no-color option globally
@@ -210,5 +219,8 @@ export function initializeCliParser() {
 
       // Docs MCP Server Command
       .command(DocsCommandFactory.createDocsCommand())
+
+      // Auth Commands - Using AuthCommandFactory
+      .command(AuthCommandFactory.createAuthCommands())
   ); // Close the main return statement
 }

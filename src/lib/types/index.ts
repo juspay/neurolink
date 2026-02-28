@@ -68,7 +68,7 @@ export type {
   NeuroLinkMCPTool,
   OAuthClientInformation,
   // HTTP Transport types (OAuth, Rate Limiting, Retry)
-  OAuthTokens,
+  OAuthTokens as McpOAuthTokens,
   RateLimitConfig,
   TokenBucketRateLimitConfig,
   TokenExchangeRequest,
@@ -244,3 +244,6 @@ export * from "./ragTypes.js";
 
 // Conversation memory manager type
 export * from "./conversationMemoryInterface.js";
+
+// Subscription types (Claude subscription tiers, authentication, usage tracking)
+export * from "./subscriptionTypes.js";

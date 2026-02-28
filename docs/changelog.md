@@ -9,7 +9,25 @@ For the complete and most up-to-date changelog, please visit:
 
 ## Latest Releases
 
-### v8.26.1 (Current Release - December 31, 2025)
+### v9.14.0 (Current Release - February 28, 2026)
+
+**Features:**
+
+- **(providers):** Add Claude Subscription Support with OAuth 2.0 PKCE authentication for Claude Pro/Max subscriptions
+
+**What's New:**
+
+- **OAuth 2.0 with PKCE authentication** for Claude Pro, Max, and Team subscription users, enabling API access without separate API keys
+- **Automatic token refresh** before every `generate()` and `stream()` call, ensuring uninterrupted sessions
+- **Model tier access enforcement** with six subscription tiers: `free`, `pro`, `max`, `max_5`, `max_20`, and `api`, restricting model access based on the user's plan
+- **New `auth` CLI command** with four subcommands: `login` (browser-based OAuth flow), `status` (display current authentication state), `refresh` (manually refresh tokens), and `logout` (revoke and clear credentials)
+- **Secure token storage** at `~/.neurolink/anthropic-credentials.json` with filesystem-level permissions
+- **Beta feature support** for `claude-code`, `interleaved-thinking`, and `fine-grained-tool-streaming` via Anthropic beta headers
+- **99 integration tests** covering authentication flows, token lifecycle, tier enforcement, and CLI command behavior
+
+---
+
+### v8.26.1 (December 31, 2025)
 
 **Bug Fixes:**
 
@@ -140,8 +158,9 @@ Already using another AI SDK? We have migration guides:
 
 ## Release Highlights by Feature Area
 
-### Providers (v8.20.0 - v8.26.1)
+### Providers (v8.20.0 - v9.14.0)
 
+- **v9.14.0**: Claude Subscription Support with OAuth 2.0 PKCE authentication
 - **v8.26.1**: Gemini 3 stability improvements
 - **v8.24.0**: OpenRouter provider (300+ models)
 - **v8.20.0**: Enhanced provider error handling
@@ -229,5 +248,5 @@ For a complete history of all releases including detailed commit information, se
 
 ---
 
-**Last Updated:** January 1, 2026
-**Current Version:** v8.26.1
+**Last Updated:** February 28, 2026
+**Current Version:** v9.14.0

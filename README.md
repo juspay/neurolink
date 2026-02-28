@@ -160,21 +160,21 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 **13 providers unified under one API** - Switch providers with a single parameter change.
 
-| Provider              | Models                                             | Free Tier       | Tool Support | Status        | Documentation                                                           |
-| --------------------- | -------------------------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------- |
-| **OpenAI**            | GPT-4o, GPT-4o-mini, o1                            | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai)            |
-| **Anthropic**         | Claude 4.5 Opus/Sonnet/Haiku, Claude 4 Opus/Sonnet | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#anthropic)         |
-| **Google AI Studio**  | Gemini 3 Flash/Pro, Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#google-ai)         |
-| **AWS Bedrock**       | Claude, Titan, Llama, Nova                         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)           |
-| **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview)                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)            |
-| **Azure OpenAI**      | GPT-4, GPT-4o, o1                                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)             |
-| **LiteLLM**           | 100+ models unified                                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/litellm-integration.md)                              |
-| **AWS SageMaker**     | Custom deployed models                             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/sagemaker-integration.md)                            |
-| **Mistral AI**        | Mistral Large, Small                               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)           |
-| **Hugging Face**      | 100,000+ models                                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)       |
-| **Ollama**            | Local models (Llama, Mistral)                      | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)            |
-| **OpenAI Compatible** | Any OpenAI-compatible endpoint                     | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible) |
-| **OpenRouter**        | 200+ Models via OpenRouter                         | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/providers/openrouter.md)             |
+| Provider              | Models                                             | Free Tier       | Tool Support | Status        | Documentation                                                                                                                 |
+| --------------------- | -------------------------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **OpenAI**            | GPT-4o, GPT-4o-mini, o1                            | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai)                                                                  |
+| **Anthropic**         | Claude 4.5 Opus/Sonnet/Haiku, Claude 4 Opus/Sonnet | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#anthropic) \| [Subscription Guide](docs/features/claude-subscription.md) |
+| **Google AI Studio**  | Gemini 3 Flash/Pro, Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#google-ai)                                                               |
+| **AWS Bedrock**       | Claude, Titan, Llama, Nova                         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)                                                                 |
+| **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview)                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)                                                                  |
+| **Azure OpenAI**      | GPT-4, GPT-4o, o1                                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)                                                                   |
+| **LiteLLM**           | 100+ models unified                                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/litellm-integration.md)                                                                                    |
+| **AWS SageMaker**     | Custom deployed models                             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/sagemaker-integration.md)                                                                                  |
+| **Mistral AI**        | Mistral Large, Small                               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)                                                                 |
+| **Hugging Face**      | 100,000+ models                                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)                                                             |
+| **Ollama**            | Local models (Llama, Mistral)                      | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)                                                                  |
+| **OpenAI Compatible** | Any OpenAI-compatible endpoint                     | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible)                                                       |
+| **OpenRouter**        | 200+ Models via OpenRouter                         | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/providers/openrouter.md)                                                                   |
 
 **[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
 **[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 13 providers

@@ -214,6 +214,7 @@
     "music-metadata": "^11.11.2",
     "nanoid": "^5.1.5",
     "ollama-ai-provider": "^1.2.0",
+    "open": "^11.0.0",
     "ora": "^7.0.1",
     "p-limit": "^6.2.0",
     "pdf-parse": "^2.4.5",
