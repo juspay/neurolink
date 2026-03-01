@@ -1,3 +1,28 @@
-# allow crawling everything by default
+# NeuroLink — https://neurolink.ink
 User-agent: *
-Disallow:
+Allow: /
+
+# Sitemap
+Sitemap: https://neurolink.ink/sitemap.xml
+
+# AI Crawlers — welcome
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Anthropic-AI
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Cohere-AI
+Allow: /

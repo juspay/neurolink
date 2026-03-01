@@ -14,7 +14,8 @@ import {
   streamText,
   type Tool,
 } from "ai";
-import dns from "dns";
+import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import dns from "node:dns";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -50,7 +51,10 @@ import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import { ERROR_CODES, NeuroLinkError } from "../utils/errorHandling.js";
 import { FileDetector } from "../utils/fileDetector.js";
 import { logger } from "../utils/logger.js";
+import { estimateTokens } from "../utils/tokenEstimation.js";
 import { isGemini3Model } from "../utils/modelDetection.js";
+import { calculateCost } from "../utils/pricing.js";
+import { tracers, ATTR, withClientSpan } from "../telemetry/index.js";
 import {
   createGoogleAuthConfig,
   createVertexProjectConfig,
@@ -89,6 +93,35 @@ import {
 // custom fetch, so it is inherently isolated from user cancellation signals.
 // The image generation path (getImageGenerationAccessToken) has an additional
 // explicit 15s timeout per attempt for direct REST API calls.
+
+/** Check whether an IP address belongs to a private, loopback, or link-local range. */
+function isPrivateOrLoopbackAddress(address: string): boolean {
+  const lower = address.toLowerCase();
+  // IPv4 loopback, unspecified, and private ranges
+  if (address.startsWith("127.") || address === "0.0.0.0") {
+    return true;
+  }
+  if (address.startsWith("10.") || address.startsWith("192.168.")) {
+    return true;
+  }
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(address)) {
+    return true;
+  }
+  // IPv6 loopback, link-local, unique-local
+  if (
+    address === "::1" ||
+    lower.startsWith("fe80:") ||
+    lower.startsWith("fc00:") ||
+    lower.startsWith("fd00:")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+const MAX_IMAGE_DOWNLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+
+const streamTracer = trace.getTracer("neurolink.provider.vertex");
 
 // Enhanced Anthropic support with direct imports
 // Using the dual provider architecture from Vercel AI SDK
@@ -130,6 +163,9 @@ const hasGoogleCredentials = (): boolean => {
       process.env.GOOGLE_AUTH_PRIVATE_KEY)
   );
 };
+
+// Module-level cache for runtime-created credentials file to avoid per-request writes
+let cachedCredentialsPath: string | null = null;
 
 // Enhanced Vertex settings creation with authentication fallback and proxy support
 const createVertexSettings = async (
@@ -174,11 +210,17 @@ const createVertexSettings = async (
     universe_domain: process.env.GOOGLE_AUTH_UNIVERSE_DOMAIN,
   };
 
-  // If we have the essential fields, create a runtime credentials file
+  // If we have the essential fields, create a runtime credentials file (cached)
   if (
     requiredEnvVarsForFile.client_email &&
     requiredEnvVarsForFile.private_key
   ) {
+    // Return cached path if already written and still exists on disk
+    if (cachedCredentialsPath && fs.existsSync(cachedCredentialsPath)) {
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = cachedCredentialsPath;
+      return baseSettings;
+    }
+
     try {
       // Build complete service account credentials object
       const serviceAccountCredentials = {
@@ -201,7 +243,7 @@ const createVertexSettings = async (
           requiredEnvVarsForFile.universe_domain || "googleapis.com",
       };
 
-      // Create temporary credentials file
+      // Create temporary credentials file with restricted permissions
       const tmpDir = os.tmpdir();
       const credentialsFileName = `google-credentials-${Date.now()}-${Math.random().toString(36).substring(2, 11)}.json`;
       const credentialsFilePath = path.join(tmpDir, credentialsFileName);
@@ -209,16 +251,26 @@ const createVertexSettings = async (
       fs.writeFileSync(
         credentialsFilePath,
         JSON.stringify(serviceAccountCredentials, null, 2),
+        { mode: 0o600 },
       );
+
+      cachedCredentialsPath = credentialsFilePath;
+
+      // Register cleanup on process exit to remove the credentials file
+      process.once("exit", () => {
+        try {
+          if (cachedCredentialsPath && fs.existsSync(cachedCredentialsPath)) {
+            fs.unlinkSync(cachedCredentialsPath);
+          }
+        } catch {
+          /* ignore cleanup errors */
+        }
+      });
 
       // Set the environment variable to point to our runtime-created file
       process.env.GOOGLE_APPLICATION_CREDENTIALS = credentialsFilePath;
 
-      // Now continue with the normal flow - check if the file exists
-      const fileExists = fs.existsSync(credentialsFilePath);
-      if (fileExists) {
-        return baseSettings;
-      }
+      return baseSettings;
     } catch {
       // Silent error handling for runtime credentials file creation
     }
@@ -346,7 +398,13 @@ const createVertexSettings = async (
 const createVertexAnthropicSettings = async (
   region?: string,
 ): Promise<GoogleVertexAnthropicProviderSettings> => {
-  const baseVertexSettings = await createVertexSettings(region);
+  // The @ai-sdk/google-vertex SDK constructs Anthropic URLs as:
+  //   https://{location}-aiplatform.googleapis.com/...
+  // When location is "global", this creates "https://global-aiplatform.googleapis.com"
+  // which is invalid. The correct global endpoint omits the region prefix entirely.
+  // Since the SDK doesn't handle this, redirect "global" to "us-east5" for Anthropic.
+  const anthropicRegion = !region || region === "global" ? "us-east5" : region;
+  const baseVertexSettings = await createVertexSettings(anthropicRegion);
 
   // GoogleVertexAnthropicProviderSettings extends GoogleVertexProviderSettings
   // so we can use the same settings with proper typing
@@ -363,6 +421,40 @@ const createVertexAnthropicSettings = async (
 // Helper function to determine if a model is an Anthropic model
 const isAnthropicModel = (modelName: string): boolean => {
   return modelName.toLowerCase().includes("claude");
+};
+
+/**
+ * Vertex Model Aliases
+ *
+ * Maps shorthand model names to their full versioned IDs required by the
+ * Vertex AI API. This allows users to pass convenient names like
+ * "claude-sonnet-4-5" instead of "claude-sonnet-4-5@20250929".
+ *
+ * Alias resolution runs at the very start of getModel() so that all
+ * downstream code (isAnthropicModel, validateAnthropicModelName, etc.)
+ * sees the canonical versioned name.
+ *
+ * To add a new model: simply add an entry mapping the shorthand to the
+ * full versioned string. No other changes are needed.
+ */
+export const VERTEX_MODEL_ALIASES: Record<string, string> = {
+  // Claude 4.x shorthand aliases → versioned names
+  "claude-sonnet-4-5": "claude-sonnet-4-5@20250929",
+  "claude-opus-4-5": "claude-opus-4-5@20251124",
+  "claude-haiku-4-5": "claude-haiku-4-5@20251001",
+  "claude-sonnet-4": "claude-sonnet-4@20250514",
+  "claude-opus-4": "claude-opus-4@20250514",
+  "claude-opus-4-1": "claude-opus-4-1@20250805",
+  // Claude 3.x shorthand aliases → versioned names
+  "claude-3-7-sonnet": "claude-3-7-sonnet@20250219",
+  "claude-3-5-sonnet": "claude-3-5-sonnet-20241022",
+  "claude-3-5-haiku": "claude-3-5-haiku-20241022",
+  "claude-3-opus": "claude-3-opus-20240229",
+  "claude-3-sonnet": "claude-3-sonnet-20240229",
+  "claude-3-haiku": "claude-3-haiku-20240307",
+  // Gemini shorthand aliases
+  "gemini-3-pro": "gemini-3-pro-latest",
+  "gemini-3-flash": "gemini-3-flash-latest",
 };
 
 /**
@@ -496,6 +588,14 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
+   * Resolve a raw model name through the alias map.
+   * Used internally to normalize model names before any API calls.
+   */
+  private resolveAlias(modelName: string): string {
+    return VERTEX_MODEL_ALIASES[modelName] ?? modelName;
+  }
+
+  /**
    * Initialize model creation tracking
    */
   private initializeModelCreationLogging(): {
@@ -507,7 +607,11 @@ export class GoogleVertexProvider extends BaseProvider {
     const modelCreationId = `vertex-model-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     const modelCreationStartTime = Date.now();
     const modelCreationHrTimeStart = process.hrtime.bigint();
-    const modelName = this.modelName || getDefaultVertexModel();
+
+    // Resolve shorthand model aliases (e.g. "claude-sonnet-4-5" → "claude-sonnet-4-5@20250929")
+    // before any downstream logic that depends on the versioned name.
+    const rawModelName = this.modelName || getDefaultVertexModel();
+    const modelName = VERTEX_MODEL_ALIASES[rawModelName] ?? rawModelName;
 
     return {
       modelCreationId,
@@ -914,7 +1018,7 @@ export class GoogleVertexProvider extends BaseProvider {
    * Creates fresh instances for each request to ensure proper authentication
    */
   private async getModel(): Promise<LanguageModelV1> {
-    // Initialize logging and setup
+    // Initialize logging and setup (alias resolution happens inside)
     const {
       modelCreationId,
       modelCreationStartTime,
@@ -957,8 +1061,9 @@ export class GoogleVertexProvider extends BaseProvider {
     analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
   ): Promise<StreamResult> {
     // Check if this is a Gemini 3 model with tools - use native SDK for thought_signature
-    const gemini3CheckModelName =
-      options.model || this.modelName || getDefaultVertexModel();
+    const gemini3CheckModelName = this.resolveAlias(
+      options.model || this.modelName || getDefaultVertexModel(),
+    );
 
     // Check for tools from options AND from SDK (MCP tools)
     // Need to check early if we should route to native SDK
@@ -1030,7 +1135,9 @@ export class GoogleVertexProvider extends BaseProvider {
       });
 
       // Model-specific maxTokens handling
-      const modelName = this.modelName || getDefaultVertexModel();
+      const modelName = this.resolveAlias(
+        options.model || this.modelName || getDefaultVertexModel(),
+      );
 
       // Use cached model configuration to determine maxTokens handling for streaming performance
       // This avoids hardcoded model-specific logic and repeated config lookups
@@ -1045,6 +1152,7 @@ export class GoogleVertexProvider extends BaseProvider {
         messages: messages,
         temperature: options.temperature,
         ...(maxTokens && { maxTokens }),
+        maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
         ...(shouldUseTools &&
           Object.keys(tools).length > 0 && {
             tools,
@@ -1139,7 +1247,84 @@ export class GoogleVertexProvider extends BaseProvider {
         }
       }
 
-      const result = streamText(streamOptions);
+      // Wrap streamText in an OTel span to capture provider-level latency and token usage
+      const streamSpan = streamTracer.startSpan(
+        "neurolink.provider.streamText",
+        {
+          kind: SpanKind.CLIENT,
+          attributes: {
+            "gen_ai.system": "vertex",
+            "gen_ai.request.model":
+              model.modelId || this.modelName || "unknown",
+          },
+        },
+      );
+
+      let result: ReturnType<typeof streamText>;
+      try {
+        result = streamText(streamOptions);
+      } catch (err) {
+        streamSpan.recordException(
+          err instanceof Error ? err : new Error(String(err)),
+        );
+        streamSpan.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: err instanceof Error ? err.message : String(err),
+        });
+        streamSpan.end();
+        throw err;
+      }
+
+      // Collect token usage and finish reason asynchronously when the stream completes,
+      // then end the span. This avoids blocking the stream consumer.
+      result.usage
+        .then((usage) => {
+          streamSpan.setAttribute(
+            "gen_ai.usage.input_tokens",
+            usage.promptTokens || 0,
+          );
+          streamSpan.setAttribute(
+            "gen_ai.usage.output_tokens",
+            usage.completionTokens || 0,
+          );
+          const effectiveModel =
+            options.model ||
+            model.modelId ||
+            this.modelName ||
+            getDefaultVertexModel();
+          const cost = calculateCost(this.providerName, effectiveModel, {
+            input: usage.promptTokens || 0,
+            output: usage.completionTokens || 0,
+            total: (usage.promptTokens || 0) + (usage.completionTokens || 0),
+          });
+          if (cost && cost > 0) {
+            streamSpan.setAttribute("neurolink.cost", cost);
+          }
+        })
+        .catch(() => {
+          // Usage may not be available if the stream is aborted
+        });
+      result.finishReason
+        .then((reason) => {
+          streamSpan.setAttribute(
+            "gen_ai.response.finish_reason",
+            reason || "unknown",
+          );
+        })
+        .catch(() => {
+          // Finish reason may not be available if the stream is aborted
+        });
+      result.text
+        .then(() => {
+          streamSpan.end();
+        })
+        .catch((err) => {
+          streamSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: err instanceof Error ? err.message : String(err),
+          });
+          streamSpan.end();
+        });
 
       // Defer timeout cleanup until the stream completes or errors
       result.text.finally(() => timeoutController?.cleanup());
@@ -1333,217 +1518,256 @@ export class GoogleVertexProvider extends BaseProvider {
   private async executeNativeGemini3Stream(
     options: StreamOptions,
   ): Promise<StreamResult> {
-    const client = await this.createVertexGenAIClient(options.region);
-    const modelName =
-      options.model || this.modelName || getDefaultVertexModel();
-    const effectiveLocation =
-      options.region || this.location || getVertexLocation();
-
-    logger.debug("[GoogleVertex] Using native @google/genai for Gemini 3", {
-      model: modelName,
-      hasTools: !!options.tools && Object.keys(options.tools).length > 0,
-      project: this.projectId,
-      location: effectiveLocation,
-    });
-
-    // Build contents from input with multimodal support
-    const multimodalInput = options.input as {
-      text: string;
-      pdfFiles?: Array<Buffer | string>;
-      images?: Array<Buffer | string>;
-    };
-    const contents = this.buildNativeContentParts(
-      options.input.text,
-      multimodalInput,
-      "native stream",
+    const modelName = this.resolveAlias(
+      options.model || this.modelName || getDefaultVertexModel(),
     );
 
-    // Convert tools to native format
-    let hasToolsInput =
-      options.tools &&
-      Object.keys(options.tools).length > 0 &&
-      !options.disableTools;
+    return withClientSpan(
+      {
+        name: "neurolink.provider.stream",
+        tracer: tracers.provider,
+        attributes: {
+          [ATTR.GEN_AI_SYSTEM]: "vertex",
+          [ATTR.GEN_AI_MODEL]: modelName,
+          [ATTR.GEN_AI_OPERATION]: "stream",
+          [ATTR.NL_PROVIDER]: this.providerName,
+        },
+      },
+      async (span) => {
+        const client = await this.createVertexGenAIClient(options.region);
+        const effectiveLocation =
+          options.region || this.location || getVertexLocation();
 
-    // Guard: Gemini cannot use tools + JSON schema simultaneously
-    const streamOptions = options as TextGenerationOptions;
-    const wantsJsonOutput =
-      streamOptions.output?.format === "json" || streamOptions.schema;
-    if (wantsJsonOutput && hasToolsInput) {
-      logger.warn(
-        "[GoogleVertex] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
-      );
-      hasToolsInput = false;
-    }
+        logger.debug("[GoogleVertex] Using native @google/genai for Gemini 3", {
+          model: modelName,
+          hasTools: !!options.tools && Object.keys(options.tools).length > 0,
+          project: this.projectId,
+          location: effectiveLocation,
+        });
 
-    let toolsConfig: NativeToolsConfig | undefined;
-    let executeMap = new Map<string, Tool["execute"]>();
-
-    if (hasToolsInput) {
-      const result = buildNativeToolDeclarations(
-        options.tools as Record<string, Tool>,
-      );
-      toolsConfig = result.toolsConfig;
-      executeMap = result.executeMap;
-
-      logger.debug("[GoogleVertex] Converted tools for native SDK", {
-        toolCount: toolsConfig[0].functionDeclarations.length,
-        toolNames: toolsConfig[0].functionDeclarations.map((t) => t.name),
-      });
-    }
-
-    // Build config
-    const config = buildNativeConfig(options, toolsConfig);
-
-    // Add JSON output format support for native SDK stream
-    if (streamOptions.output?.format === "json" || streamOptions.schema) {
-      config.responseMimeType = "application/json";
-
-      if (streamOptions.schema) {
-        const rawSchema = convertZodToJsonSchema(
-          streamOptions.schema as ZodUnknownSchema,
-        ) as Record<string, unknown>;
-        const inlinedSchema = inlineJsonSchema(rawSchema);
-        if (inlinedSchema.$schema) {
-          delete inlinedSchema.$schema;
-        }
-        config.responseSchema = inlinedSchema;
-
-        logger.debug(
-          "[GoogleVertex] Added responseSchema for JSON output (stream)",
-          {
-            schemaKeys: Object.keys(inlinedSchema),
-          },
+        // Build contents from input with multimodal support
+        const multimodalInput = options.input as {
+          text: string;
+          pdfFiles?: Array<Buffer | string>;
+          images?: Array<Buffer | string>;
+        };
+        const contents = this.buildNativeContentParts(
+          options.input.text,
+          multimodalInput,
+          "native stream",
         );
-      }
-    }
 
-    const startTime = Date.now();
-    const timeout = this.getTimeout(options);
-    const timeoutController = createTimeoutController(
-      timeout,
-      this.providerName,
-      "stream",
-    );
-    const composedSignal = composeAbortSignals(
-      options.abortSignal,
-      timeoutController?.controller.signal,
-    );
-    const maxSteps = computeMaxStepsShared(options.maxSteps);
-    const currentContents = [...contents] as Array<{
-      role: string;
-      parts: unknown[];
-    }>;
-    let finalText = "";
-    let lastStepText = "";
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-    const allToolCalls: Array<{
-      toolName: string;
-      args: Record<string, unknown>;
-    }> = [];
-    let step = 0;
-    const failedTools = new Map<string, { count: number; lastError: string }>();
+        // Convert tools to native format
+        let hasToolsInput =
+          options.tools &&
+          Object.keys(options.tools).length > 0 &&
+          !options.disableTools;
 
-    // Agentic loop for tool calling
-    try {
-      while (step < maxSteps) {
-        if (timeoutController?.controller.signal.aborted) {
-          break;
+        // Guard: Gemini cannot use tools + JSON schema simultaneously
+        const streamOptions = options as TextGenerationOptions;
+        const wantsJsonOutput =
+          streamOptions.output?.format === "json" || streamOptions.schema;
+        if (wantsJsonOutput && hasToolsInput) {
+          logger.warn(
+            "[GoogleVertex] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
+          );
+          hasToolsInput = false;
         }
-        step++;
-        logger.debug(`[GoogleVertex] Native SDK step ${step}/${maxSteps}`);
 
-        try {
-          const stream = await client.models.generateContentStream({
-            model: modelName,
-            contents: currentContents,
-            config,
-            ...(composedSignal
-              ? { httpOptions: { signal: composedSignal } }
-              : {}),
+        let toolsConfig: NativeToolsConfig | undefined;
+        let executeMap = new Map<string, Tool["execute"]>();
+
+        if (hasToolsInput) {
+          const result = buildNativeToolDeclarations(
+            options.tools as Record<string, Tool>,
+          );
+          toolsConfig = result.toolsConfig;
+          executeMap = result.executeMap;
+
+          logger.debug("[GoogleVertex] Converted tools for native SDK", {
+            toolCount: toolsConfig[0].functionDeclarations.length,
+            toolNames: toolsConfig[0].functionDeclarations.map((t) => t.name),
           });
+        }
 
-          const chunkResult = await collectStreamChunks(stream);
-          totalInputTokens += chunkResult.inputTokens;
-          totalOutputTokens += chunkResult.outputTokens;
+        // Build config
+        const config = buildNativeConfig(options, toolsConfig);
 
-          const stepText = extractTextFromParts(chunkResult.rawResponseParts);
+        // Add JSON output format support for native SDK stream
+        if (streamOptions.output?.format === "json" || streamOptions.schema) {
+          config.responseMimeType = "application/json";
 
-          if (chunkResult.stepFunctionCalls.length === 0) {
-            finalText = stepText;
-            break;
+          if (streamOptions.schema) {
+            const rawSchema = convertZodToJsonSchema(
+              streamOptions.schema as ZodUnknownSchema,
+            ) as Record<string, unknown>;
+            const inlinedSchema = inlineJsonSchema(rawSchema);
+            if (inlinedSchema.$schema) {
+              delete inlinedSchema.$schema;
+            }
+            config.responseSchema = inlinedSchema;
+
+            logger.debug(
+              "[GoogleVertex] Added responseSchema for JSON output (stream)",
+              {
+                schemaKeys: Object.keys(inlinedSchema),
+              },
+            );
           }
-
-          lastStepText = stepText;
-
-          logger.debug(
-            `[GoogleVertex] Executing ${chunkResult.stepFunctionCalls.length} function calls`,
-          );
-
-          pushModelResponseToHistory(
-            currentContents,
-            chunkResult.rawResponseParts,
-            chunkResult.stepFunctionCalls,
-          );
-
-          const functionResponses = await executeNativeToolCalls(
-            "[GoogleVertex]",
-            chunkResult.stepFunctionCalls,
-            executeMap,
-            failedTools,
-            allToolCalls,
-            { abortSignal: composedSignal },
-          );
-
-          // Add function responses to history
-          currentContents.push({
-            role: "function",
-            parts: functionResponses as unknown[],
-          });
-        } catch (error) {
-          logger.error("[GoogleVertex] Native SDK error", error);
-          throw this.handleProviderError(error);
         }
-      }
-    } finally {
-      timeoutController?.cleanup();
-    }
 
-    finalText = handleMaxStepsTermination(
-      "[GoogleVertex]",
-      step,
-      maxSteps,
-      finalText,
-      lastStepText,
+        const startTime = Date.now();
+        const timeout = this.getTimeout(options);
+        const timeoutController = createTimeoutController(
+          timeout,
+          this.providerName,
+          "stream",
+        );
+        const composedSignal = composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        );
+        const maxSteps = computeMaxStepsShared(options.maxSteps);
+        const currentContents = [...contents] as Array<{
+          role: string;
+          parts: unknown[];
+        }>;
+        let finalText = "";
+        let lastStepText = "";
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
+        const allToolCalls: Array<{
+          toolName: string;
+          args: Record<string, unknown>;
+        }> = [];
+        let step = 0;
+        const failedTools = new Map<
+          string,
+          { count: number; lastError: string }
+        >();
+
+        // Agentic loop for tool calling
+        try {
+          while (step < maxSteps) {
+            if (timeoutController?.controller.signal.aborted) {
+              break;
+            }
+            step++;
+            logger.debug(`[GoogleVertex] Native SDK step ${step}/${maxSteps}`);
+
+            try {
+              const stream = await client.models.generateContentStream({
+                model: modelName,
+                contents: currentContents,
+                config,
+                ...(composedSignal
+                  ? { httpOptions: { signal: composedSignal } }
+                  : {}),
+              });
+
+              const chunkResult = await collectStreamChunks(stream);
+              totalInputTokens += chunkResult.inputTokens;
+              totalOutputTokens += chunkResult.outputTokens;
+
+              const stepText = extractTextFromParts(
+                chunkResult.rawResponseParts,
+              );
+
+              if (chunkResult.stepFunctionCalls.length === 0) {
+                finalText = stepText;
+                break;
+              }
+
+              lastStepText = stepText;
+
+              // Record tool call events on the span
+              for (const fc of chunkResult.stepFunctionCalls) {
+                span.addEvent("gen_ai.tool_call", {
+                  "tool.name": fc.name as string,
+                  "tool.step": step,
+                });
+              }
+
+              logger.debug(
+                `[GoogleVertex] Executing ${chunkResult.stepFunctionCalls.length} function calls`,
+              );
+
+              pushModelResponseToHistory(
+                currentContents,
+                chunkResult.rawResponseParts,
+                chunkResult.stepFunctionCalls,
+              );
+
+              const functionResponses = await executeNativeToolCalls(
+                "[GoogleVertex]",
+                chunkResult.stepFunctionCalls,
+                executeMap,
+                failedTools,
+                allToolCalls,
+                { abortSignal: composedSignal },
+              );
+
+              // Add function responses to history
+              currentContents.push({
+                role: "function",
+                parts: functionResponses as unknown[],
+              });
+            } catch (error) {
+              logger.error("[GoogleVertex] Native SDK error", error);
+              throw this.handleProviderError(error);
+            }
+          }
+        } finally {
+          timeoutController?.cleanup();
+        }
+
+        finalText = handleMaxStepsTermination(
+          "[GoogleVertex]",
+          step,
+          maxSteps,
+          finalText,
+          lastStepText,
+        );
+
+        const responseTime = Date.now() - startTime;
+
+        // Set token usage and finish reason on the span
+        span.setAttribute(ATTR.GEN_AI_INPUT_TOKENS, totalInputTokens);
+        span.setAttribute(ATTR.GEN_AI_OUTPUT_TOKENS, totalOutputTokens);
+        span.setAttribute(
+          ATTR.GEN_AI_FINISH_REASON,
+          step >= maxSteps ? "max_steps" : "stop",
+        );
+
+        // Create async iterable for streaming result
+        async function* createTextStream(): AsyncIterable<{
+          content: string;
+        }> {
+          yield { content: finalText };
+        }
+
+        return {
+          stream: createTextStream(),
+          provider: this.providerName,
+          model: modelName,
+          usage: {
+            input: totalInputTokens,
+            output: totalOutputTokens,
+            total: totalInputTokens + totalOutputTokens,
+          },
+          toolCalls: allToolCalls.map((tc) => ({
+            toolName: tc.toolName,
+            args: tc.args,
+          })),
+          metadata: {
+            streamId: `native-vertex-${Date.now()}`,
+            startTime,
+            responseTime,
+            totalToolExecutions: allToolCalls.length,
+          },
+        };
+      },
     );
-
-    const responseTime = Date.now() - startTime;
-
-    // Create async iterable for streaming result
-    async function* createTextStream(): AsyncIterable<{ content: string }> {
-      yield { content: finalText };
-    }
-
-    return {
-      stream: createTextStream(),
-      provider: this.providerName,
-      model: modelName,
-      usage: {
-        input: totalInputTokens,
-        output: totalOutputTokens,
-        total: totalInputTokens + totalOutputTokens,
-      },
-      toolCalls: allToolCalls.map((tc) => ({
-        toolName: tc.toolName,
-        args: tc.args,
-      })),
-      metadata: {
-        streamId: `native-vertex-${Date.now()}`,
-        startTime,
-        responseTime,
-        totalToolExecutions: allToolCalls.length,
-      },
-    };
   }
 
   /**
@@ -1553,203 +1777,243 @@ export class GoogleVertexProvider extends BaseProvider {
   private async executeNativeGemini3Generate(
     options: TextGenerationOptions,
   ): Promise<EnhancedGenerateResult> {
-    const client = await this.createVertexGenAIClient(options.region);
-    const modelName =
-      options.model || this.modelName || getDefaultVertexModel();
-    const effectiveLocation =
-      options.region || this.location || getVertexLocation();
+    const modelName = this.resolveAlias(
+      options.model || this.modelName || getDefaultVertexModel(),
+    );
 
-    logger.debug(
-      "[GoogleVertex] Using native @google/genai for Gemini 3 generate",
+    return withClientSpan(
       {
-        model: modelName,
-        project: this.projectId,
-        location: effectiveLocation,
+        name: "neurolink.provider.generate",
+        tracer: tracers.provider,
+        attributes: {
+          [ATTR.GEN_AI_SYSTEM]: "vertex",
+          [ATTR.GEN_AI_MODEL]: modelName,
+          [ATTR.GEN_AI_OPERATION]: "generate",
+          [ATTR.NL_PROVIDER]: this.providerName,
+        },
       },
-    );
+      async (span) => {
+        const client = await this.createVertexGenAIClient(options.region);
+        const effectiveLocation =
+          options.region || this.location || getVertexLocation();
 
-    // Build contents from input with multimodal support
-    const inputText =
-      options.prompt || options.input?.text || "Please respond.";
-    const multimodalInput = options.input as
-      | {
-          text?: string;
-          pdfFiles?: Array<Buffer | string>;
-          images?: Array<Buffer | string>;
-        }
-      | undefined;
-    const contents = this.buildNativeContentParts(
-      inputText,
-      multimodalInput,
-      "native generate",
-    );
-
-    // Get tools from SDK and options
-    let shouldUseTools = !options.disableTools && this.supportsTools();
-
-    // Guard: Gemini cannot use tools + JSON schema simultaneously
-    const wantsJsonOutputGen =
-      options.output?.format === "json" || options.schema;
-    if (wantsJsonOutputGen && shouldUseTools) {
-      logger.warn(
-        "[GoogleVertex] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
-      );
-      shouldUseTools = false;
-    }
-
-    const sdkTools = shouldUseTools ? await this.getAllTools() : {};
-    const combinedTools = shouldUseTools
-      ? { ...sdkTools, ...(options.tools || {}) }
-      : {};
-
-    let toolsConfig: NativeToolsConfig | undefined;
-    let executeMap = new Map<string, Tool["execute"]>();
-
-    if (Object.keys(combinedTools).length > 0) {
-      const result = buildNativeToolDeclarations(
-        combinedTools as Record<string, Tool>,
-      );
-      toolsConfig = result.toolsConfig;
-      executeMap = result.executeMap;
-
-      logger.debug("[GoogleVertex] Converted tools for native SDK generate", {
-        toolCount: toolsConfig[0].functionDeclarations.length,
-        toolNames: toolsConfig[0].functionDeclarations.map((t) => t.name),
-      });
-    }
-
-    // Build config
-    const config = buildNativeConfig(options, toolsConfig);
-
-    // Note: Schema/JSON output for Gemini 3 native SDK is complex due to $ref resolution issues
-    // For now, schemas are handled via the AI SDK fallback path, not native SDK
-    // TODO: Implement proper $ref resolution for complex nested schemas
-
-    const startTime = Date.now();
-    const timeout = this.getTimeout(options);
-    const timeoutController = createTimeoutController(
-      timeout,
-      this.providerName,
-      "generate",
-    );
-    const composedSignal = composeAbortSignals(
-      options.abortSignal,
-      timeoutController?.controller.signal,
-    );
-    const maxSteps = computeMaxStepsShared(options.maxSteps);
-    const currentContents = [...contents] as Array<{
-      role: string;
-      parts: unknown[];
-    }>;
-    let finalText = "";
-    let lastStepText = "";
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-    const allToolCalls: Array<{
-      toolName: string;
-      args: Record<string, unknown>;
-    }> = [];
-    const toolExecutions: Array<{
-      name: string;
-      input: Record<string, unknown>;
-      output: unknown;
-    }> = [];
-    let step = 0;
-    const failedTools = new Map<string, { count: number; lastError: string }>();
-
-    try {
-      // Agentic loop for tool calling
-      while (step < maxSteps) {
-        if (timeoutController?.controller.signal.aborted) {
-          break;
-        }
-        step++;
         logger.debug(
-          `[GoogleVertex] Native SDK generate step ${step}/${maxSteps}`,
+          "[GoogleVertex] Using native @google/genai for Gemini 3 generate",
+          {
+            model: modelName,
+            project: this.projectId,
+            location: effectiveLocation,
+          },
         );
 
-        try {
-          // Use generateContentStream and collect all chunks (same as GoogleAIStudio)
-          const stream = await client.models.generateContentStream({
-            model: modelName,
-            contents: currentContents,
-            config,
-            ...(composedSignal
-              ? { httpOptions: { signal: composedSignal } }
-              : {}),
-          });
+        // Build contents from input with multimodal support
+        const inputText =
+          options.prompt || options.input?.text || "Please respond.";
+        const multimodalInput = options.input as
+          | {
+              text?: string;
+              pdfFiles?: Array<Buffer | string>;
+              images?: Array<Buffer | string>;
+            }
+          | undefined;
+        const contents = this.buildNativeContentParts(
+          inputText,
+          multimodalInput,
+          "native generate",
+        );
 
-          const chunkResult = await collectStreamChunks(stream);
-          totalInputTokens += chunkResult.inputTokens;
-          totalOutputTokens += chunkResult.outputTokens;
+        // Get tools from SDK and options
+        let shouldUseTools = !options.disableTools && this.supportsTools();
 
-          const stepText = extractTextFromParts(chunkResult.rawResponseParts);
+        // Guard: Gemini cannot use tools + JSON schema simultaneously
+        const wantsJsonOutputGen =
+          options.output?.format === "json" || options.schema;
+        if (wantsJsonOutputGen && shouldUseTools) {
+          logger.warn(
+            "[GoogleVertex] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
+          );
+          shouldUseTools = false;
+        }
 
-          if (chunkResult.stepFunctionCalls.length === 0) {
-            finalText = stepText;
-            break;
-          }
+        const sdkTools = shouldUseTools ? await this.getAllTools() : {};
+        const combinedTools = shouldUseTools
+          ? { ...sdkTools, ...(options.tools || {}) }
+          : {};
 
-          lastStepText = stepText;
+        let toolsConfig: NativeToolsConfig | undefined;
+        let executeMap = new Map<string, Tool["execute"]>();
+
+        if (Object.keys(combinedTools).length > 0) {
+          const result = buildNativeToolDeclarations(
+            combinedTools as Record<string, Tool>,
+          );
+          toolsConfig = result.toolsConfig;
+          executeMap = result.executeMap;
 
           logger.debug(
-            `[GoogleVertex] Generate executing ${chunkResult.stepFunctionCalls.length} function calls`,
+            "[GoogleVertex] Converted tools for native SDK generate",
+            {
+              toolCount: toolsConfig[0].functionDeclarations.length,
+              toolNames: toolsConfig[0].functionDeclarations.map((t) => t.name),
+            },
           );
-
-          pushModelResponseToHistory(
-            currentContents,
-            chunkResult.rawResponseParts,
-            chunkResult.stepFunctionCalls,
-          );
-
-          const functionResponses = await executeNativeToolCalls(
-            "[GoogleVertex]",
-            chunkResult.stepFunctionCalls,
-            executeMap,
-            failedTools,
-            allToolCalls,
-            { toolExecutions, abortSignal: composedSignal },
-          );
-
-          // Add function responses to history
-          currentContents.push({
-            role: "function",
-            parts: functionResponses as unknown[],
-          });
-        } catch (error) {
-          logger.error("[GoogleVertex] Native SDK generate error", error);
-          throw this.handleProviderError(error);
         }
-      }
-    } finally {
-      timeoutController?.cleanup();
-    }
 
-    finalText = handleMaxStepsTermination(
-      "[GoogleVertex]",
-      step,
-      maxSteps,
-      finalText,
-      lastStepText,
-    );
+        // Build config
+        const config = buildNativeConfig(options, toolsConfig);
 
-    const responseTime = Date.now() - startTime;
+        // Note: Schema/JSON output for Gemini 3 native SDK is complex due to $ref resolution issues
+        // For now, schemas are handled via the AI SDK fallback path, not native SDK
+        // TODO: Implement proper $ref resolution for complex nested schemas
 
-    // Build EnhancedGenerateResult
-    return {
-      content: finalText,
-      provider: this.providerName,
-      model: modelName,
-      usage: {
-        input: totalInputTokens,
-        output: totalOutputTokens,
-        total: totalInputTokens + totalOutputTokens,
+        const startTime = Date.now();
+        const timeout = this.getTimeout(options);
+        const timeoutController = createTimeoutController(
+          timeout,
+          this.providerName,
+          "generate",
+        );
+        const composedSignal = composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        );
+        const maxSteps = computeMaxStepsShared(options.maxSteps);
+        const currentContents = [...contents] as Array<{
+          role: string;
+          parts: unknown[];
+        }>;
+        let finalText = "";
+        let lastStepText = "";
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
+        const allToolCalls: Array<{
+          toolName: string;
+          args: Record<string, unknown>;
+        }> = [];
+        const toolExecutions: Array<{
+          name: string;
+          input: Record<string, unknown>;
+          output: unknown;
+        }> = [];
+        let step = 0;
+        const failedTools = new Map<
+          string,
+          { count: number; lastError: string }
+        >();
+
+        try {
+          // Agentic loop for tool calling
+          while (step < maxSteps) {
+            if (timeoutController?.controller.signal.aborted) {
+              break;
+            }
+            step++;
+            logger.debug(
+              `[GoogleVertex] Native SDK generate step ${step}/${maxSteps}`,
+            );
+
+            try {
+              // Use generateContentStream and collect all chunks (same as GoogleAIStudio)
+              const stream = await client.models.generateContentStream({
+                model: modelName,
+                contents: currentContents,
+                config,
+                ...(composedSignal
+                  ? { httpOptions: { signal: composedSignal } }
+                  : {}),
+              });
+
+              const chunkResult = await collectStreamChunks(stream);
+              totalInputTokens += chunkResult.inputTokens;
+              totalOutputTokens += chunkResult.outputTokens;
+
+              const stepText = extractTextFromParts(
+                chunkResult.rawResponseParts,
+              );
+
+              if (chunkResult.stepFunctionCalls.length === 0) {
+                finalText = stepText;
+                break;
+              }
+
+              lastStepText = stepText;
+
+              // Record tool call events on the span
+              for (const fc of chunkResult.stepFunctionCalls) {
+                span.addEvent("gen_ai.tool_call", {
+                  "tool.name": fc.name as string,
+                  "tool.step": step,
+                });
+              }
+
+              logger.debug(
+                `[GoogleVertex] Generate executing ${chunkResult.stepFunctionCalls.length} function calls`,
+              );
+
+              pushModelResponseToHistory(
+                currentContents,
+                chunkResult.rawResponseParts,
+                chunkResult.stepFunctionCalls,
+              );
+
+              const functionResponses = await executeNativeToolCalls(
+                "[GoogleVertex]",
+                chunkResult.stepFunctionCalls,
+                executeMap,
+                failedTools,
+                allToolCalls,
+                { toolExecutions, abortSignal: composedSignal },
+              );
+
+              // Add function responses to history
+              currentContents.push({
+                role: "function",
+                parts: functionResponses as unknown[],
+              });
+            } catch (error) {
+              logger.error("[GoogleVertex] Native SDK generate error", error);
+              throw this.handleProviderError(error);
+            }
+          }
+        } finally {
+          timeoutController?.cleanup();
+        }
+
+        finalText = handleMaxStepsTermination(
+          "[GoogleVertex]",
+          step,
+          maxSteps,
+          finalText,
+          lastStepText,
+        );
+
+        const responseTime = Date.now() - startTime;
+
+        // Set token usage and finish reason on the span
+        span.setAttribute(ATTR.GEN_AI_INPUT_TOKENS, totalInputTokens);
+        span.setAttribute(ATTR.GEN_AI_OUTPUT_TOKENS, totalOutputTokens);
+        span.setAttribute(
+          ATTR.GEN_AI_FINISH_REASON,
+          step >= maxSteps ? "max_steps" : "stop",
+        );
+
+        // Build EnhancedGenerateResult
+        return {
+          content: finalText,
+          provider: this.providerName,
+          model: modelName,
+          usage: {
+            input: totalInputTokens,
+            output: totalOutputTokens,
+            total: totalInputTokens + totalOutputTokens,
+          },
+          responseTime,
+          toolsUsed: allToolCalls.map((tc) => tc.toolName),
+          toolExecutions: toolExecutions,
+          enhancedWithTools: allToolCalls.length > 0,
+        };
       },
-      responseTime,
-      toolsUsed: allToolCalls.map((tc) => tc.toolName),
-      toolExecutions: toolExecutions,
-      enhancedWithTools: allToolCalls.length > 0,
-    };
+    );
   }
 
   /**
@@ -1855,8 +2119,9 @@ export class GoogleVertexProvider extends BaseProvider {
         ? { prompt: optionsOrPrompt }
         : optionsOrPrompt;
 
-    const modelName =
-      options.model || this.modelName || getDefaultVertexModel();
+    const modelName = this.resolveAlias(
+      options.model || this.modelName || getDefaultVertexModel(),
+    );
 
     // Check if we should use native SDK for Gemini 3 with tools
     const shouldUseTools = !options.disableTools && this.supportsTools();
@@ -2100,6 +2365,24 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
+   * Resolve a shorthand model name to its full versioned Vertex AI identifier.
+   * Returns the original name unchanged if no alias exists.
+   *
+   * @param modelName - A model name, possibly a shorthand alias
+   * @returns The resolved full versioned model name
+   *
+   * @example
+   * ```typescript
+   * provider.resolveModelAlias("claude-sonnet-4-5"); // "claude-sonnet-4-5@20250929"
+   * provider.resolveModelAlias("gemini-3-pro");      // "gemini-3-pro-latest"
+   * provider.resolveModelAlias("gemini-2.5-flash");  // "gemini-2.5-flash" (unchanged)
+   * ```
+   */
+  resolveModelAlias(modelName: string): string {
+    return VERTEX_MODEL_ALIASES[modelName] ?? modelName;
+  }
+
+  /**
    * Create an Anthropic model instance using vertexAnthropic provider
    * Uses fresh vertex settings for each request with comprehensive validation
    * @param modelName Anthropic model name (e.g., 'claude-3-sonnet@20240229')
@@ -2206,11 +2489,11 @@ export class GoogleVertexProvider extends BaseProvider {
         modelName,
         issue: modelValidation.issue,
         recommendedModels: [
+          "claude-sonnet-4-6",
+          "claude-opus-4-6",
           "claude-sonnet-4-5@20250929",
-          "claude-sonnet-4@20250514",
           "claude-opus-4@20250514",
           "claude-3-5-sonnet-20241022",
-          "claude-3-5-haiku-20241022",
         ],
       });
       return null;
@@ -2477,6 +2760,8 @@ export class GoogleVertexProvider extends BaseProvider {
   ): Promise<boolean> {
     // Based on Google Cloud documentation, these regions support Anthropic models
     const supportedRegions = [
+      // Global endpoint (routed automatically)
+      "global",
       // North America
       "us-central1",
       "us-east1",
@@ -2545,10 +2830,17 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Validate against known Claude model patterns
     const validPatterns = [
+      // Claude 4.6 — versionless IDs (no @YYYYMMDD suffix)
+      /^claude-opus-4-6$/,
+      /^claude-sonnet-4-6$/,
+      // Claude 4.x versioned
       /^claude-sonnet-4@\d{8}$/,
       /^claude-sonnet-4-5@\d{8}$/,
       /^claude-opus-4@\d{8}$/,
       /^claude-opus-4-1@\d{8}$/,
+      /^claude-opus-4-5@\d{8}$/,
+      /^claude-haiku-4-5@\d{8}$/,
+      // Claude 3.x
       /^claude-3-7-sonnet@\d{8}$/,
       /^claude-3-5-sonnet-\d{8}$/,
       /^claude-3-5-haiku-\d{8}$/,
@@ -2913,11 +3205,10 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
-   * Estimate token count from text (simple character-based estimation)
+   * Estimate token count from text using centralized estimation with provider multipliers
    */
   private estimateTokenCount(text: string): number {
-    // Rough estimation: ~4 characters per token
-    return Math.ceil(text.length / 4);
+    return estimateTokens(text, "vertex");
   }
 
   /**
@@ -2995,14 +3286,16 @@ export class GoogleVertexProvider extends BaseProvider {
   /**
    * Build request parts for image generation from prompt, PDFs, and images.
    */
-  private buildImageGenerationParts(
+  private async buildImageGenerationParts(
     prompt: string,
     pdfFiles: Array<Buffer | string>,
     inputImages: Array<Buffer | string>,
-  ): Array<{
-    text?: string;
-    inlineData?: { mimeType: string; data: string };
-  }> {
+  ): Promise<
+    Array<{
+      text?: string;
+      inlineData?: { mimeType: string; data: string };
+    }>
+  > {
     const parts: Array<{
       text?: string;
       inlineData?: { mimeType: string; data: string };
@@ -3105,6 +3398,106 @@ export class GoogleVertexProvider extends BaseProvider {
             logger.warn("Invalid data URL format, skipping image", {
               index: i,
             });
+            continue;
+          }
+        } else if (
+          image.startsWith("http://") ||
+          image.startsWith("https://")
+        ) {
+          // Download URL image and convert to base64
+          try {
+            // Validate URL to prevent SSRF attacks
+            const parsedUrl = new URL(image);
+            const hostname = parsedUrl.hostname;
+            const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "[::1]"];
+            if (
+              blockedHosts.some((h) => hostname === h) ||
+              /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(hostname)
+            ) {
+              logger.warn(
+                `[GoogleVertexProvider] Blocked fetch to private/local URL: ${hostname}`,
+                { index: i },
+              );
+              continue;
+            }
+
+            // DNS resolution check — verify resolved IPs are not private/loopback
+            try {
+              const { resolve4, resolve6 } = dns.promises;
+              const addresses: string[] = [];
+              try {
+                addresses.push(...(await resolve4(hostname)));
+              } catch {
+                /* hostname may not have A records */
+              }
+              try {
+                addresses.push(...(await resolve6(hostname)));
+              } catch {
+                /* hostname may not have AAAA records */
+              }
+              if (
+                addresses.length > 0 &&
+                addresses.every((addr) => isPrivateOrLoopbackAddress(addr))
+              ) {
+                logger.warn(
+                  `[GoogleVertexProvider] Blocked fetch: hostname ${hostname} resolves to private/loopback address`,
+                  { index: i, addresses },
+                );
+                continue;
+              }
+            } catch (dnsError) {
+              logger.warn(
+                `[GoogleVertexProvider] DNS resolution failed for ${hostname}, blocking fetch`,
+                {
+                  index: i,
+                  error:
+                    dnsError instanceof Error
+                      ? dnsError.message
+                      : String(dnsError),
+                },
+              );
+              continue;
+            }
+
+            const response = await fetch(image, {
+              signal: AbortSignal.timeout(15_000),
+            });
+            if (!response.ok) {
+              logger.warn(
+                `Failed to fetch image URL (${response.status}), skipping`,
+                { index: i, url: image },
+              );
+              continue;
+            }
+
+            // Size guard — reject downloads exceeding 10 MB
+            const contentLength = response.headers.get("content-length");
+            if (
+              contentLength &&
+              Number(contentLength) > MAX_IMAGE_DOWNLOAD_BYTES
+            ) {
+              logger.warn(
+                `[GoogleVertexProvider] Image URL exceeds ${MAX_IMAGE_DOWNLOAD_BYTES} byte limit (Content-Length: ${contentLength}), skipping`,
+                { index: i, url: image },
+              );
+              continue;
+            }
+
+            const buffer = Buffer.from(await response.arrayBuffer());
+            if (buffer.byteLength > MAX_IMAGE_DOWNLOAD_BYTES) {
+              logger.warn(
+                `[GoogleVertexProvider] Downloaded image exceeds ${MAX_IMAGE_DOWNLOAD_BYTES} byte limit (${buffer.byteLength} bytes), skipping`,
+                { index: i, url: image },
+              );
+              continue;
+            }
+            imageBase64 = buffer.toString("base64");
+            mimeType = this.detectImageType(buffer);
+          } catch (fetchError) {
+            logger.warn(
+              `Failed to download image from URL, skipping: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
+              { index: i, url: image },
+            );
             continue;
           }
         } else {
@@ -3256,7 +3649,7 @@ export class GoogleVertexProvider extends BaseProvider {
     try {
       const token = await this.getImageGenerationAccessToken();
 
-      const parts = this.buildImageGenerationParts(
+      const parts = await this.buildImageGenerationParts(
         prompt,
         pdfFiles,
         inputImages as Array<Buffer | string>,

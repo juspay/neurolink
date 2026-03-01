@@ -571,14 +571,15 @@ function shouldUseStructuredOutput(options: {
 
 /**
  * Log structural metadata about a composed message array without logging content.
- * Per-message breakdown is behind logger.debug() to avoid production spam.
+ * Only logs a compact summary (role counts, total chars, estimated tokens).
+ * Per-message breakdown is intentionally omitted to avoid log noise
+ * (~600 lines per retry cascade with many messages).
  */
 function logMessageComposition(
   messages: Array<{ role: string; content: unknown }>,
   requestId?: string,
 ): void {
-  // Skip entirely if neither info nor debug is enabled
-  if (!logger.shouldLog("info")) {
+  if (!logger.shouldLog("debug")) {
     return;
   }
 
@@ -586,46 +587,18 @@ function logMessageComposition(
   let totalChars = 0;
 
   for (const msg of messages) {
-    // Avoid JSON.stringify on multimodal content for the info-level summary;
-    // accurate per-message breakdown (with sizes) is computed only when debug
-    // logging is active (see below).
     const chars = typeof msg.content === "string" ? msg.content.length : 0;
     roles[msg.role] = (roles[msg.role] || 0) + 1;
     totalChars += chars;
   }
 
-  logger.info("[MessageBuilder] Composed", {
+  logger.debug("[MessageBuilder] Composed", {
     requestId,
     totalMessages: messages.length,
     roles,
     totalChars,
     estimatedTokens: Math.ceil(totalChars / 4),
   });
-
-  if (logger.shouldLog("debug")) {
-    const breakdown = messages.map((msg, i) => {
-      let chars: number;
-      if (typeof msg.content === "string") {
-        chars = msg.content.length;
-      } else {
-        try {
-          chars = JSON.stringify(msg.content).length;
-        } catch {
-          chars = String(msg.content).length;
-        }
-      }
-      return {
-        index: i,
-        role: msg.role,
-        chars,
-        estimatedTokens: Math.ceil(chars / 4),
-      };
-    });
-    logger.debug("[MessageBuilder] Per-message breakdown", {
-      requestId,
-      breakdown,
-    });
-  }
 }
 
 /**
@@ -841,10 +814,13 @@ function enforceFileBudget(
   );
 
   if (budgetResult.excluded.length > 0) {
-    const includedNames = new Set(budgetResult.included.map((f) => f.name));
+    const includedIndices = new Set(
+      budgetResult.included.map((f) => {
+        return budgetFiles.findIndex((bf) => bf.name === f.name);
+      }),
+    );
     options.input.files = options.input.files.filter((_file, idx) => {
-      const entry = budgetFiles[idx];
-      return includedNames.has(entry.name);
+      return includedIndices.has(idx);
     });
     options.input.text =
       (options.input.text || "") + "\n\n" + budgetResult.notices.join("\n");
@@ -1374,12 +1350,23 @@ export async function buildMultimodalMessagesArray(
   const hasConversationHistory =
     options.conversationHistory && options.conversationHistory.length > 0;
   if (hasConversationHistory && options.conversationHistory) {
-    options.conversationHistory.forEach((msg) => {
-      messages.push({
-        role: msg.role as "user" | "assistant" | "system",
-        content: msg.content,
-      });
-    });
+    for (const msg of options.conversationHistory) {
+      // Filter out tool_call and tool_result roles — only user/assistant/system are valid for AI providers
+      if (
+        msg.role === "user" ||
+        msg.role === "assistant" ||
+        msg.role === "system"
+      ) {
+        const providerOptions = (
+          msg as { providerOptions?: Record<string, unknown> }
+        ).providerOptions;
+        messages.push({
+          role: msg.role,
+          content: msg.content,
+          ...(providerOptions && { providerOptions }),
+        });
+      }
+    }
   }
 
   // Handle multimodal content

@@ -1,4 +1,7 @@
-import type { CoreMessage, generateText, LanguageModelV1, Tool } from "ai";
+import { generateText } from "ai";
+import type { CoreMessage, LanguageModelV1, Tool } from "ai";
+import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { tracers } from "../telemetry/tracers.js";
 import { directAgentTools } from "../agent/directTools.js";
 import type { AIProviderName } from "../constants/enums.js";
 import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
@@ -22,6 +25,7 @@ import type {
 } from "../types/typeAliases.js";
 import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
+import { calculateCost } from "../utils/pricing.js";
 import {
   composeAbortSignals,
   createTimeoutController,
@@ -38,9 +42,12 @@ import { GenerationHandler } from "./modules/GenerationHandler.js";
 // Import modules for composition
 import { MessageBuilder } from "./modules/MessageBuilder.js";
 import { StreamHandler } from "./modules/StreamHandler.js";
+
 import { TelemetryHandler } from "./modules/TelemetryHandler.js";
 import { ToolsManager } from "./modules/ToolsManager.js";
 import { Utilities } from "./modules/Utilities.js";
+
+const providerTracer = tracers.provider;
 
 /**
  * Abstract base class for all AI providers
@@ -88,6 +95,11 @@ export abstract class BaseProvider implements AIProvider {
     // Initialize composition modules
     this.messageBuilder = new MessageBuilder(this.providerName, this.modelName);
     this.streamHandler = new StreamHandler(this.providerName, this.modelName);
+    this.telemetryHandler = new TelemetryHandler(
+      this.providerName,
+      this.modelName,
+      this.neurolink,
+    );
     this.generationHandler = new GenerationHandler(
       this.providerName,
       this.modelName,
@@ -104,11 +116,6 @@ export abstract class BaseProvider implements AIProvider {
           options,
           timestamp,
         ),
-    );
-    this.telemetryHandler = new TelemetryHandler(
-      this.providerName,
-      this.modelName,
-      this.neurolink,
     );
     this.utilities = new Utilities(
       this.providerName,
@@ -151,111 +158,138 @@ export abstract class BaseProvider implements AIProvider {
     optionsOrPrompt: StreamOptions | string,
     analysisSchema?: ValidationSchema,
   ): Promise<StreamResult> {
-    let options = this.normalizeStreamOptions(optionsOrPrompt);
+    return providerTracer.startActiveSpan(
+      "neurolink.provider.stream",
+      { kind: SpanKind.INTERNAL },
+      async (span) => {
+        let options = this.normalizeStreamOptions(optionsOrPrompt);
 
-    logger.info(`Starting stream`, {
-      provider: this.providerName,
-      hasTools: !options.disableTools && this.supportsTools(),
-      disableTools: !!options.disableTools,
-      supportsTools: this.supportsTools(),
-      inputLength: options.input?.text?.length || 0,
-      maxTokens: options.maxTokens,
-      temperature: options.temperature,
-      timestamp: Date.now(),
-    });
-
-    // ===== EARLY MULTIMODAL DETECTION =====
-    const hasFileInput =
-      !!options.input?.files?.length || !!options.input?.videoFiles?.length;
-    if (hasFileInput) {
-      // ===== VIDEO ANALYSIS DETECTION =====
-      // Check if video frames are present and handle with fake streaming
-      const messages = await this.buildMessagesForStream(options);
-      if (hasVideoFrames(messages)) {
-        logger.info(
-          `Video frames detected in stream, using fake streaming for video analysis`,
-          {
-            provider: this.providerName,
-            model: this.modelName,
-          },
+        span.setAttribute("gen_ai.system", this.providerName || "unknown");
+        span.setAttribute(
+          "gen_ai.request.model",
+          this.modelName || options.model || "unknown",
         );
-        return await this.executeFakeStreaming(options, analysisSchema);
-      }
-    }
 
-    // 🔧 CRITICAL: Image generation models don't support real streaming
-    // Force fake streaming for image models to ensure image output is yielded
-    const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
-      this.modelName.includes(m),
-    );
-
-    if (isImageModel) {
-      logger.info(`Image model detected, forcing fake streaming`, {
-        provider: this.providerName,
-        model: this.modelName,
-        reason:
-          "Image generation requires fake streaming to yield image output",
-      });
-
-      // Skip real streaming, go directly to fake streaming
-      return await this.executeFakeStreaming(options, analysisSchema);
-    }
-
-    // Central tool merge: Pre-merge base tools (MCP/built-in) with user-provided
-    // tools (e.g. RAG tools) into options.tools. This way, every provider's
-    // executeStream() can simply use options.tools (or getAllTools() + options.tools)
-    // and get the complete tool set without needing per-provider merge logic.
-    if (!options.disableTools && this.supportsTools()) {
-      const mergedTools = await this.getToolsForStream(options);
-      options = { ...options, tools: mergedTools };
-    } else {
-      options = { ...options, tools: {} };
-    }
-
-    // CRITICAL FIX: Always prefer real streaming over fake streaming
-    // Try real streaming first, use fake streaming only as fallback
-    try {
-      logger.debug(`Attempting real streaming`, {
-        provider: this.providerName,
-        timestamp: Date.now(),
-      });
-
-      const realStreamResult = await this.executeStream(
-        options,
-        analysisSchema,
-      );
-
-      logger.info(`Real streaming succeeded`, {
-        provider: this.providerName,
-        timestamp: Date.now(),
-      });
-
-      // If real streaming succeeds, return it (with tools support via Vercel AI SDK)
-      return realStreamResult;
-    } catch (realStreamError) {
-      logger.warn(
-        `Real streaming failed for ${this.providerName}, falling back to fake streaming:`,
-        {
-          error:
-            realStreamError instanceof Error
-              ? realStreamError.message
-              : String(realStreamError),
+        logger.info(`Starting stream`, {
+          provider: this.providerName,
+          hasTools: !options.disableTools && this.supportsTools(),
+          disableTools: !!options.disableTools,
+          supportsTools: this.supportsTools(),
+          inputLength: options.input?.text?.length || 0,
+          maxTokens: options.maxTokens,
+          temperature: options.temperature,
           timestamp: Date.now(),
-        },
-      );
+        });
 
-      // Fallback to fake streaming only if real streaming fails AND tools are enabled
-      if (!options.disableTools && this.supportsTools()) {
-        return await this.executeFakeStreaming(options, analysisSchema);
-      } else {
-        // If real streaming failed and no tools are enabled, re-throw the original error
-        logger.error(
-          `Real streaming failed for ${this.providerName}:`,
-          realStreamError,
-        );
-        throw this.handleProviderError(realStreamError);
-      }
-    }
+        try {
+          // ===== EARLY MULTIMODAL DETECTION =====
+          const hasFileInput =
+            !!options.input?.files?.length ||
+            !!options.input?.videoFiles?.length;
+          if (hasFileInput) {
+            // ===== VIDEO ANALYSIS DETECTION =====
+            // Check if video frames are present and handle with fake streaming
+            const messages = await this.buildMessagesForStream(options);
+            if (hasVideoFrames(messages)) {
+              logger.info(
+                `Video frames detected in stream, using fake streaming for video analysis`,
+                {
+                  provider: this.providerName,
+                  model: this.modelName,
+                },
+              );
+              span.setAttribute("neurolink.stream_mode", "fake");
+              return await this.executeFakeStreaming(options, analysisSchema);
+            }
+          }
+
+          // Image generation models don't support real streaming
+          // Force fake streaming for image models to ensure image output is yielded
+          const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
+            this.modelName.includes(m),
+          );
+
+          if (isImageModel) {
+            logger.info(`Image model detected, forcing fake streaming`, {
+              provider: this.providerName,
+              model: this.modelName,
+              reason:
+                "Image generation requires fake streaming to yield image output",
+            });
+
+            // Skip real streaming, go directly to fake streaming
+            span.setAttribute("neurolink.stream_mode", "fake");
+            return await this.executeFakeStreaming(options, analysisSchema);
+          }
+
+          // Central tool merge: Pre-merge base tools (MCP/built-in) with user-provided
+          // tools (e.g. RAG tools) into options.tools. This way, every provider's
+          // executeStream() can simply use options.tools (or getAllTools() + options.tools)
+          // and get the complete tool set without needing per-provider merge logic.
+          if (!options.disableTools && this.supportsTools()) {
+            const mergedTools = await this.getToolsForStream(options);
+            options = { ...options, tools: mergedTools };
+          } else {
+            options = { ...options, tools: {} };
+          }
+
+          // CRITICAL FIX: Always prefer real streaming over fake streaming
+          // Try real streaming first, use fake streaming only as fallback
+          try {
+            logger.debug(`Attempting real streaming`, {
+              provider: this.providerName,
+              timestamp: Date.now(),
+            });
+
+            const realStreamResult = await this.executeStream(
+              options,
+              analysisSchema,
+            );
+
+            logger.info(`Real streaming succeeded`, {
+              provider: this.providerName,
+              timestamp: Date.now(),
+            });
+
+            span.setAttribute("neurolink.stream_mode", "real");
+            // If real streaming succeeds, return it (with tools support via Vercel AI SDK)
+            return realStreamResult;
+          } catch (realStreamError) {
+            logger.warn(
+              `Real streaming failed for ${this.providerName}, falling back to fake streaming:`,
+              {
+                error:
+                  realStreamError instanceof Error
+                    ? realStreamError.message
+                    : String(realStreamError),
+                timestamp: Date.now(),
+              },
+            );
+
+            // Fallback to fake streaming only if real streaming fails AND tools are enabled
+            if (!options.disableTools && this.supportsTools()) {
+              span.setAttribute("neurolink.stream_mode", "fake");
+              return await this.executeFakeStreaming(options, analysisSchema);
+            } else {
+              // If real streaming failed and no tools are enabled, re-throw the original error
+              logger.error(
+                `Real streaming failed for ${this.providerName}:`,
+                realStreamError,
+              );
+              throw this.handleProviderError(realStreamError);
+            }
+          }
+        } catch (error) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          throw error;
+        } finally {
+          span.end();
+        }
+      },
+    );
   }
 
   /**
@@ -644,195 +678,318 @@ export abstract class BaseProvider implements AIProvider {
     optionsOrPrompt: TextGenerationOptions | string,
     _analysisSchema?: ValidationSchema,
   ): Promise<EnhancedGenerateResult | null> {
-    const options = this.normalizeTextOptions(optionsOrPrompt);
-    this.validateOptions(options);
-    const startTime = Date.now();
+    return providerTracer.startActiveSpan(
+      "neurolink.provider.generate",
+      { kind: SpanKind.INTERNAL },
+      async (span) => {
+        const options = this.normalizeTextOptions(optionsOrPrompt);
+        this.validateOptions(options);
+        const startTime = Date.now();
 
-    try {
-      // ===== VIDEO GENERATION MODE =====
-      // Generate video from image + prompt using Veo 3.1
-      if (options.output?.mode === "video") {
-        return await this.handleVideoGeneration(options, startTime);
-      }
-
-      // ===== IMAGE GENERATION MODE =====
-      // Route to executeImageGeneration for image generation models
-      const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
-        this.modelName.includes(m),
-      );
-
-      if (isImageModel) {
-        logger.info(
-          `Image generation model detected, routing to executeImageGeneration`,
-          {
-            provider: this.providerName,
-            model: this.modelName,
-          },
+        span.setAttribute("gen_ai.system", this.providerName || "unknown");
+        span.setAttribute(
+          "gen_ai.request.model",
+          this.modelName || options.model || "unknown",
         );
-
-        const imageResult = await this.executeImageGeneration(options);
-        return await this.enhanceResult(imageResult, options, startTime);
-      }
-
-      // ===== TTS MODE 1: Direct Input Synthesis (useAiResponse=false) =====
-      // Synthesize input text directly without AI generation
-      // This is optimal for simple read-aloud scenarios
-      if (options.tts?.enabled && !options.tts?.useAiResponse) {
-        const textToSynthesize = options.prompt ?? options.input?.text ?? "";
-
-        // Build base result structure - common to both paths
-        const baseResult: EnhancedGenerateResult = {
-          content: textToSynthesize,
-          provider: options.provider ?? this.providerName,
-          model: this.modelName,
-          usage: { input: 0, output: 0, total: 0 },
-        };
 
         try {
-          const ttsResult = await TTSProcessor.synthesize(
-            textToSynthesize,
-            options.provider ?? this.providerName,
-            options.tts,
-          );
-          baseResult.audio = ttsResult;
-        } catch (ttsError) {
-          logger.error(
-            `TTS synthesis failed in Mode 1 (direct input synthesis):`,
-            ttsError,
-          );
-          // baseResult remains without audio - graceful degradation
-        }
-
-        // Call enhanceResult for consistency - enables analytics/evaluation for TTS-only requests
-        return await this.enhanceResult(baseResult, options, startTime);
-      }
-
-      // ===== Normal AI Generation Flow =====
-      const { tools, model } = await this.prepareGenerationContext(options);
-      const messages = await this.buildMessages(options);
-
-      // ===== VIDEO ANALYSIS FROM MESSAGES CONTENT =====
-      // Check if video files are present in messages content array
-      // If video analysis is needed, perform it and return early to avoid running generation
-      if (hasVideoFrames(messages)) {
-        const videoAnalysisResult = await executeVideoAnalysis(messages, {
-          provider: options.provider,
-          providerName: this.providerName,
-          region: options.region,
-          model: options.model,
-        });
-
-        // Return video analysis result directly without running generation
-        const videoResult: EnhancedGenerateResult = {
-          content: videoAnalysisResult,
-          provider: options.provider ?? this.providerName,
-          model: this.modelName,
-          usage: { input: 0, output: 0, total: 0 }, // Video analysis doesn't use standard token counting
-        };
-
-        return await this.enhanceResult(videoResult, options, startTime);
-      }
-
-      // Compose timeout signal with user-provided abort signal (mirrors stream path)
-      const timeoutController = createTimeoutController(
-        options.timeout,
-        this.providerName,
-        "generate",
-      );
-      const composedSignal = composeAbortSignals(
-        options.abortSignal,
-        timeoutController?.controller.signal,
-      );
-      const composedOptions = composedSignal
-        ? { ...options, abortSignal: composedSignal }
-        : options;
-
-      let generateResult: Awaited<ReturnType<typeof generateText>>;
-      try {
-        generateResult = await this.executeGeneration(
-          model,
-          messages,
-          tools,
-          composedOptions,
-        );
-      } finally {
-        timeoutController?.cleanup();
-      }
-
-      this.analyzeAIResponse(
-        generateResult as unknown as Record<string, unknown>,
-      );
-      this.logGenerationComplete(generateResult);
-      const responseTime = Date.now() - startTime;
-      await this.recordPerformanceMetrics(generateResult.usage, responseTime);
-
-      const { toolsUsed, toolExecutions } =
-        this.extractToolInformation(generateResult);
-      let enhancedResult = this.formatEnhancedResult(
-        generateResult,
-        tools,
-        toolsUsed,
-        toolExecutions,
-        options,
-      );
-
-      // ===== TTS MODE 2: AI Response Synthesis (useAiResponse=true) =====
-      // Synthesize AI-generated response after generation completes
-      if (options.tts?.enabled && options.tts?.useAiResponse) {
-        const aiResponse = enhancedResult.content;
-        const provider = options.provider ?? this.providerName;
-
-        // Validate AI response and provider before synthesis
-        if (aiResponse && provider) {
-          try {
-            const ttsResult = await TTSProcessor.synthesize(
-              aiResponse,
-              provider,
-              options.tts,
-            );
-
-            // Add audio to enhanced result (TTSProcessor already includes latency in metadata)
-            enhancedResult = {
-              ...enhancedResult,
-              audio: ttsResult,
-            };
-          } catch (ttsError) {
-            // Log TTS error but continue with text-only result
-            logger.error(
-              `TTS synthesis failed in Mode 2 (AI response synthesis):`,
-              ttsError,
-            );
-            // enhancedResult remains unchanged (no audio field added)
+          // ===== VIDEO GENERATION MODE =====
+          // Generate video from image + prompt using Veo 3.1
+          if (options.output?.mode === "video") {
+            return await this.handleVideoGeneration(options, startTime);
           }
-        } else {
-          logger.warn(`TTS synthesis skipped despite being enabled`, {
-            provider: this.providerName,
-            hasAiResponse: !!aiResponse,
-            aiResponseLength: aiResponse?.length ?? 0,
-            hasProvider: !!provider,
-            ttsConfig: {
-              enabled: options.tts?.enabled,
-              useAiResponse: options.tts?.useAiResponse,
-            },
-            reason: !aiResponse
-              ? "AI response is empty or undefined"
-              : "Provider is missing",
-          });
-        }
-      }
 
-      return await this.enhanceResult(enhancedResult, options, startTime);
-    } catch (error) {
-      // Abort errors are expected when a generation is cancelled — log at info, not error
-      if (isAbortError(error)) {
-        logger.info(`Generate aborted for ${this.providerName}`, {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      } else {
-        logger.error(`Generate failed for ${this.providerName}:`, error);
-      }
-      throw this.handleProviderError(error);
-    }
+          // ===== IMAGE GENERATION MODE =====
+          // Route to executeImageGeneration for image generation models
+          const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
+            this.modelName.includes(m),
+          );
+
+          if (isImageModel) {
+            logger.info(
+              `Image generation model detected, routing to executeImageGeneration`,
+              {
+                provider: this.providerName,
+                model: this.modelName,
+              },
+            );
+
+            const imageResult = await this.executeImageGeneration(options);
+            return await this.enhanceResult(imageResult, options, startTime);
+          }
+
+          // ===== TTS MODE 1: Direct Input Synthesis (useAiResponse=false) =====
+          // Synthesize input text directly without AI generation
+          // This is optimal for simple read-aloud scenarios
+          if (options.tts?.enabled && !options.tts?.useAiResponse) {
+            const textToSynthesize =
+              options.prompt ?? options.input?.text ?? "";
+
+            // Build base result structure - common to both paths
+            const baseResult: EnhancedGenerateResult = {
+              content: textToSynthesize,
+              provider: options.provider ?? this.providerName,
+              model: this.modelName,
+              usage: { input: 0, output: 0, total: 0 },
+            };
+
+            try {
+              const ttsResult = await TTSProcessor.synthesize(
+                textToSynthesize,
+                options.provider ?? this.providerName,
+                options.tts,
+              );
+              baseResult.audio = ttsResult;
+            } catch (ttsError) {
+              logger.error(
+                `TTS synthesis failed in Mode 1 (direct input synthesis):`,
+                ttsError,
+              );
+              // baseResult remains without audio - graceful degradation
+            }
+
+            // Call enhanceResult for consistency - enables analytics/evaluation for TTS-only requests
+            return await this.enhanceResult(baseResult, options, startTime);
+          }
+
+          // ===== Normal AI Generation Flow =====
+          const { tools, model } = await this.prepareGenerationContext(options);
+          const messages = await this.buildMessages(options);
+
+          // ===== VIDEO ANALYSIS FROM MESSAGES CONTENT =====
+          // Check if video files are present in messages content array
+          // If video analysis is needed, perform it via Gemini, then pass through Claude for formatting
+          if (hasVideoFrames(messages)) {
+            const videoAnalysisResult = await executeVideoAnalysis(messages, {
+              provider: options.provider,
+              providerName: this.providerName,
+              region: options.region,
+              // Don't pass the main conversation model — video analysis uses
+              // Google's Gemini API (generateContent) which only supports Gemini models.
+              // Let videoAnalysisProcessor use its own default (gemini-2.5-flash).
+            });
+
+            // Extract user's original text from messages (excluding image parts)
+            const userTextParts = messages
+              .filter((m) => m.role === "user")
+              .flatMap((m) =>
+                Array.isArray(m.content)
+                  ? m.content
+                      .filter(
+                        (p): p is { type: "text"; text: string } =>
+                          p.type === "text",
+                      )
+                      .map((p) => p.text)
+                  : [typeof m.content === "string" ? m.content : ""],
+              )
+              .filter(Boolean);
+            const userText = userTextParts.join("\n").trim();
+
+            // Pass Gemini's analysis through Claude for structured JSON formatting
+            // The system prompt (from Curator) includes JSON_REPORT_PROMPT_SUFFIX
+            // which instructs Claude to output {"summary": "...", "details": "..."}
+            let formattedContent = videoAnalysisResult;
+            let usage = { input: 0, output: 0, total: 0 };
+
+            if (options.systemPrompt) {
+              try {
+                const formattingPrompt = userText
+                  ? `The user asked: "${userText}"\n\nHere is the video/image analysis result from the visual analysis system:\n\n${videoAnalysisResult}\n\nBased on this analysis, provide your response.`
+                  : `Here is a video/image analysis result from the visual analysis system:\n\n${videoAnalysisResult}\n\nBased on this analysis, provide your response.`;
+
+                logger.debug("[VideoAnalysis] Formatting via Claude", {
+                  userTextLength: userText.length,
+                  analysisLength: videoAnalysisResult.length,
+                });
+
+                const formattedResult = await generateText({
+                  model,
+                  system: options.systemPrompt,
+                  messages: [
+                    { role: "user" as const, content: formattingPrompt },
+                  ],
+                  maxTokens: options.maxTokens || 8192,
+                  temperature: 0.3,
+                  abortSignal: options.abortSignal,
+                  experimental_telemetry:
+                    this.telemetryHandler?.getTelemetryConfig(
+                      options,
+                      "generate",
+                    ),
+                });
+
+                formattedContent = formattedResult.text;
+                usage = {
+                  input: formattedResult.usage?.promptTokens || 0,
+                  output: formattedResult.usage?.completionTokens || 0,
+                  total:
+                    (formattedResult.usage?.promptTokens || 0) +
+                    (formattedResult.usage?.completionTokens || 0),
+                };
+
+                logger.debug("[VideoAnalysis] Claude formatting complete", {
+                  formattedLength: formattedContent.length,
+                  usage,
+                });
+              } catch (error) {
+                logger.warn(
+                  "[VideoAnalysis] Claude formatting failed, using raw Gemini output",
+                  {
+                    error:
+                      error instanceof Error ? error.message : String(error),
+                  },
+                );
+                // formattedContent remains as raw videoAnalysisResult (graceful degradation)
+              }
+            }
+
+            const videoResult: EnhancedGenerateResult = {
+              content: formattedContent,
+              provider: options.provider ?? this.providerName,
+              model: this.modelName,
+              usage,
+            };
+
+            return await this.enhanceResult(videoResult, options, startTime);
+          }
+
+          // Compose timeout signal with user-provided abort signal (mirrors stream path)
+          const timeoutController = createTimeoutController(
+            options.timeout,
+            this.providerName,
+            "generate",
+          );
+          const composedSignal = composeAbortSignals(
+            options.abortSignal,
+            timeoutController?.controller.signal,
+          );
+          const composedOptions = composedSignal
+            ? { ...options, abortSignal: composedSignal }
+            : options;
+
+          let generateResult: Awaited<ReturnType<typeof generateText>>;
+          try {
+            generateResult = await this.executeGeneration(
+              model,
+              messages,
+              tools,
+              composedOptions,
+            );
+          } finally {
+            timeoutController?.cleanup();
+          }
+
+          this.analyzeAIResponse(
+            generateResult as unknown as Record<string, unknown>,
+          );
+          this.logGenerationComplete(generateResult);
+          const responseTime = Date.now() - startTime;
+          await this.recordPerformanceMetrics(
+            generateResult.usage,
+            responseTime,
+          );
+
+          const { toolsUsed, toolExecutions } =
+            this.extractToolInformation(generateResult);
+          let enhancedResult = this.formatEnhancedResult(
+            generateResult,
+            tools,
+            toolsUsed,
+            toolExecutions,
+            options,
+          );
+
+          // ===== TTS MODE 2: AI Response Synthesis (useAiResponse=true) =====
+          // Synthesize AI-generated response after generation completes
+          if (options.tts?.enabled && options.tts?.useAiResponse) {
+            const aiResponse = enhancedResult.content;
+            const provider = options.provider ?? this.providerName;
+
+            // Validate AI response and provider before synthesis
+            if (aiResponse && provider) {
+              try {
+                const ttsResult = await TTSProcessor.synthesize(
+                  aiResponse,
+                  provider,
+                  options.tts,
+                );
+
+                // Add audio to enhanced result (TTSProcessor already includes latency in metadata)
+                enhancedResult = {
+                  ...enhancedResult,
+                  audio: ttsResult,
+                };
+              } catch (ttsError) {
+                // Log TTS error but continue with text-only result
+                logger.error(
+                  `TTS synthesis failed in Mode 2 (AI response synthesis):`,
+                  ttsError,
+                );
+                // enhancedResult remains unchanged (no audio field added)
+              }
+            } else {
+              logger.warn(`TTS synthesis skipped despite being enabled`, {
+                provider: this.providerName,
+                hasAiResponse: !!aiResponse,
+                aiResponseLength: aiResponse?.length ?? 0,
+                hasProvider: !!provider,
+                ttsConfig: {
+                  enabled: options.tts?.enabled,
+                  useAiResponse: options.tts?.useAiResponse,
+                },
+                reason: !aiResponse
+                  ? "AI response is empty or undefined"
+                  : "Provider is missing",
+              });
+            }
+          }
+
+          // Set token usage on span from the result
+          if (enhancedResult?.usage) {
+            span.setAttribute(
+              "gen_ai.usage.input_tokens",
+              enhancedResult.usage.input || 0,
+            );
+            span.setAttribute(
+              "gen_ai.usage.output_tokens",
+              enhancedResult.usage.output || 0,
+            );
+            // Cost on span so users can query "what did this trace cost?"
+            const cost = calculateCost(this.providerName, this.modelName, {
+              input: enhancedResult.usage.input || 0,
+              output: enhancedResult.usage.output || 0,
+              total: enhancedResult.usage.total || 0,
+            });
+            span.setAttribute("neurolink.cost", cost ?? 0);
+          }
+          if (enhancedResult?.finishReason) {
+            span.setAttribute(
+              "gen_ai.response.finish_reason",
+              enhancedResult.finishReason,
+            );
+          }
+
+          span.setStatus({ code: SpanStatusCode.OK });
+          return await this.enhanceResult(enhancedResult, options, startTime);
+        } catch (error) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          // Abort errors are expected when a generation is cancelled — log at info, not error
+          if (isAbortError(error)) {
+            logger.info(`Generate aborted for ${this.providerName}`, {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } else {
+            logger.error(`Generate failed for ${this.providerName}:`, error);
+          }
+          throw this.handleProviderError(error);
+        } finally {
+          span.end();
+        }
+      },
+    );
   }
   /**
    * Alias for generate method - implements AIProvider interface
@@ -1258,8 +1415,6 @@ export abstract class BaseProvider implements AIProvider {
     },
     functionTag: string,
   ): void {
-    this.customTools = sdk.customTools;
-    this.toolExecutor = sdk.executeTool;
     this.toolsManager.setupToolExecutor(sdk, functionTag);
   }
 

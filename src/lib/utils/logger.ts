@@ -16,6 +16,29 @@
 
 import type { LogEntry, LogLevel } from "../types/utilities.js";
 
+// OTel trace context for log correlation (optional — gracefully no-ops if OTel not initialized)
+let traceApi: typeof import("@opentelemetry/api") | null = null;
+let traceApiPromise: Promise<
+  typeof import("@opentelemetry/api") | null
+> | null = null;
+
+async function getTraceApi(): Promise<
+  typeof import("@opentelemetry/api") | null
+> {
+  if (!traceApiPromise) {
+    traceApiPromise = import("@opentelemetry/api")
+      .then((mod) => {
+        traceApi = mod;
+        return mod;
+      })
+      .catch(() => null);
+  }
+  return traceApiPromise;
+}
+
+// Eagerly kick off the import so the cached value is available for synchronous callers
+void getTraceApi();
+
 // Pre-computed uppercase log levels for performance optimization
 const UPPERCASE_LOG_LEVELS: Record<LogLevel, string> = {
   debug: "DEBUG",
@@ -116,6 +139,40 @@ class NeuroLinkLogger {
   }
 
   /**
+   * Extracts current OTel trace context (trace_id, span_id) if available.
+   * Returns empty object if OTel is not initialized or no active span exists.
+   */
+  private getTraceContext(): {
+    trace_id?: string;
+    span_id?: string;
+    trace_flags?: string;
+  } {
+    if (!traceApi) {
+      return {};
+    }
+    try {
+      const span = traceApi.trace.getSpan(traceApi.context.active());
+      if (!span) {
+        return {};
+      }
+      const spanContext = span.spanContext();
+      if (
+        !spanContext ||
+        spanContext.traceId === "00000000000000000000000000000000"
+      ) {
+        return {};
+      }
+      return {
+        trace_id: spanContext.traceId,
+        span_id: spanContext.spanId,
+        trace_flags: String(spanContext.traceFlags),
+      };
+    } catch {
+      return {};
+    }
+  }
+
+  /**
    * Safely serialize data to fully expanded JSON string.
    * Handles circular references and non-serializable values.
    * Zero truncation — all nested objects and arrays are fully expanded.
@@ -187,10 +244,14 @@ class NeuroLinkLogger {
       warn: console.warn,
       error: console.error,
     }[level];
+    const traceCtx = this.getTraceContext();
+    const tracePrefix = traceCtx.trace_id
+      ? ` [trace_id=${traceCtx.trace_id} span_id=${traceCtx.span_id}]`
+      : "";
     if (data !== undefined && data !== null) {
-      logMethod(prefix, message, this.serializeData(data));
+      logMethod(prefix + tracePrefix, message, this.serializeData(data));
     } else {
-      logMethod(prefix, message);
+      logMethod(prefix + tracePrefix, message);
     }
   }
 

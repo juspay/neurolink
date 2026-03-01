@@ -20,7 +20,18 @@ export const CHARS_PER_TOKEN = 4;
 /** Characters per token for code */
 export const CODE_CHARS_PER_TOKEN = 3;
 
-/** Safety margin to avoid underestimation */
+/**
+ * Safety margin: additive fraction of baseTokens added to the provider-adjusted estimate.
+ * Using additive margin prevents compounding with provider multipliers.
+ *
+ * Old behavior: baseTokens * providerMultiplier * 1.15  (compounding)
+ *   e.g. Anthropic: baseTokens * 1.23 * 1.15 = baseTokens * 1.4145
+ * New behavior: baseTokens * providerMultiplier + baseTokens * 0.05  (additive)
+ *   e.g. Anthropic: baseTokens * 1.23 + baseTokens * 0.05 = baseTokens * 1.28
+ */
+export const TOKEN_SAFETY_MARGIN_ADDITIVE = 0.05;
+
+/** @deprecated Use TOKEN_SAFETY_MARGIN_ADDITIVE instead. Kept for backward compatibility. */
 export const TOKEN_SAFETY_MARGIN = 1.15;
 
 /** Message framing overhead in tokens (role + delimiters) */
@@ -81,7 +92,12 @@ export function estimateTokens(
   const baseTokens = Math.ceil(text.length / charsPerToken);
   const multiplier = getProviderMultiplier(provider);
 
-  return Math.ceil(baseTokens * multiplier * TOKEN_SAFETY_MARGIN);
+  // Apply provider multiplier and additive safety margin separately
+  // This prevents compounding (e.g. Anthropic: 1.23 * 1.15 = 1.41x was too aggressive)
+  const providerAdjusted = baseTokens * multiplier;
+  const safetyBuffer = baseTokens * TOKEN_SAFETY_MARGIN_ADDITIVE;
+
+  return Math.ceil(providerAdjusted + safetyBuffer);
 }
 
 /**
@@ -148,8 +164,11 @@ export function truncateToTokenBudget(
   }
 
   const multiplier = getProviderMultiplier(provider);
-  const safetyFactor = multiplier * TOKEN_SAFETY_MARGIN;
-  const maxChars = Math.floor((maxTokens / safetyFactor) * CHARS_PER_TOKEN);
+  // Use additive safety margin: effective multiplier = multiplier + additive margin
+  const effectiveMultiplier = multiplier + TOKEN_SAFETY_MARGIN_ADDITIVE;
+  const maxChars = Math.floor(
+    (maxTokens / effectiveMultiplier) * CHARS_PER_TOKEN,
+  );
 
   if (maxChars <= 0) {
     return { text: "", truncated: true };

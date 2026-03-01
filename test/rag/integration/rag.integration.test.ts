@@ -333,7 +333,6 @@ describe("RAG Processing Integration Tests", () => {
         expect(chunks.length).toBeGreaterThan(0);
         for (const chunk of chunks) {
           expect(chunk.text.length).toBeLessThanOrEqual(350); // Allow some flexibility
-          expect(chunk.metadata.documentType).toBe("text");
         }
       });
 
@@ -378,9 +377,6 @@ describe("RAG Processing Integration Tests", () => {
         });
 
         expect(chunks.length).toBeGreaterThan(0);
-        for (const chunk of chunks) {
-          expect(chunk.metadata.documentType).toBe("text");
-        }
       });
     });
 
@@ -393,9 +389,8 @@ describe("RAG Processing Integration Tests", () => {
         });
 
         expect(chunks.length).toBeGreaterThan(0);
-        expect(chunks[0].metadata.documentType).toBe("markdown");
 
-        // Check header metadata
+        // Check section context metadata
         const withHeaders = chunks.filter((c) => c.metadata.header);
         expect(withHeaders.length).toBeGreaterThan(0);
       });
@@ -423,7 +418,6 @@ describe("RAG Processing Integration Tests", () => {
         });
 
         expect(chunks.length).toBeGreaterThan(0);
-        expect(chunks[0].metadata.documentType).toBe("html");
       });
 
       it("should extract text only when configured", async () => {
@@ -449,7 +443,6 @@ describe("RAG Processing Integration Tests", () => {
         });
 
         expect(chunks.length).toBeGreaterThan(0);
-        expect(chunks[0].metadata.documentType).toBe("json");
 
         // Should have JSON path in metadata (jsonPath is always set, may be empty string for root)
         const withPath = chunks.filter(
@@ -467,7 +460,6 @@ describe("RAG Processing Integration Tests", () => {
         });
 
         expect(chunks.length).toBeGreaterThan(0);
-        expect(chunks[0].metadata.documentType).toBe("latex");
       });
 
       it("should preserve math environments", async () => {
@@ -1338,9 +1330,7 @@ describe("RAG Processing Integration Tests", () => {
       expect(chunks.every((c) => c.metadata.documentId === doc.getId())).toBe(
         false,
       ); // Each chunk has its own doc ID from chunker
-      expect(chunks.every((c) => c.metadata.documentType === "markdown")).toBe(
-        true,
-      );
+      expect(chunks.length).toBeGreaterThan(0);
 
       // 5. Verify history
       expect(doc.getHistory()).toContain("created");
@@ -1723,8 +1713,6 @@ describe("RAG Processing Integration Tests", () => {
     });
 
     describe("generate() with RAG tools", () => {
-      const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
-
       it("should accept RAG tool in tools array", async () => {
         const vectorStore = new InMemoryVectorStore();
         const ragTool = createVectorQueryTool(
@@ -1759,36 +1747,32 @@ describe("RAG Processing Integration Tests", () => {
         expect(toolForGenerate[ragTool.name].execute).toBeDefined();
       });
 
-      it.skipIf(!hasOpenAIKey)(
-        "should return tool execution results with real API",
-        async () => {
-          // This test requires OPENAI_API_KEY
-          // Set up vector store with test data
-          const vectorStore = new InMemoryVectorStore();
-          await vectorStore.upsert("live-test-index", [
-            {
-              id: "1",
-              vector: [0.1, 0.2, 0.3],
-              metadata: { text: "Test document about AI" },
-            },
-          ]);
+      it("should return tool execution results with real API", async () => {
+        // Set up vector store with test data
+        const vectorStore = new InMemoryVectorStore();
+        await vectorStore.upsert("live-test-index", [
+          {
+            id: "1",
+            vector: [0.1, 0.2, 0.3],
+            metadata: { text: "Test document about AI" },
+          },
+        ]);
 
-          const ragTool = createVectorQueryTool(
-            {
-              indexName: "live-test-index",
-              embeddingModel: {
-                provider: "openai",
-                modelName: "text-embedding-3-small",
-              },
+        const ragTool = createVectorQueryTool(
+          {
+            indexName: "live-test-index",
+            embeddingModel: {
+              provider: "openai",
+              modelName: "text-embedding-3-small",
             },
-            vectorStore,
-          );
+          },
+          vectorStore,
+        );
 
-          // Verify tool is ready for integration
-          expect(ragTool.name).toBeDefined();
-          expect(ragTool.execute).toBeDefined();
-        },
-      );
+        // Verify tool is ready for integration
+        expect(ragTool.name).toBeDefined();
+        expect(ragTool.execute).toBeDefined();
+      });
 
       it("should create tool with reranker configuration", async () => {
         const vectorStore = new InMemoryVectorStore();

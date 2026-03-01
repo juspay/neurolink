@@ -37,7 +37,13 @@ import {
   type CompactionResult,
   ContextCompactor,
 } from "./context/contextCompactor.js";
-import { isContextOverflowError } from "./context/errorDetection.js";
+import {
+  isContextOverflowError,
+  getContextOverflowProvider,
+  parseProviderOverflowDetails,
+} from "./context/errorDetection.js";
+import { ContextBudgetExceededError } from "./context/errors.js";
+import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
 import { repairToolPairs } from "./context/toolPairRepair.js";
 import { SYSTEM_LIMITS } from "./core/constants.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
@@ -168,10 +174,73 @@ import {
   transformToolsToDescriptions,
   transformToolsToExpectedFormat,
 } from "./utils/transformationUtils.js";
+import {
+  InvalidModelError,
+  AuthenticationError,
+  AuthorizationError,
+} from "./types/errors.js";
 import { isNonNullObject } from "./utils/typeUtils.js";
+import { NON_RETRYABLE_HTTP_STATUS_CODES } from "./utils/retryability.js";
+import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { tracers } from "./telemetry/tracers.js";
+import { ATTR } from "./telemetry/attributes.js";
 import { getWorkflow } from "./workflow/core/workflowRegistry.js";
 import { runWorkflow } from "./workflow/core/workflowRunner.js";
 import type { WorkflowConfig } from "./workflow/types.js";
+
+/**
+ * Check if an error is a non-retryable provider error that should immediately
+ * stop the retry/fallback chain. These errors represent permanent failures
+ * (e.g., model not found, authentication failed) where retrying with the
+ * same configuration will never succeed.
+ *
+ * This prevents wasting tokens and latency on guaranteed-to-fail retries.
+ * For example, a NOT_FOUND error for a model causes 6 retries of a 418KB
+ * message, wasting ~628,000 tokens and adding 10+ seconds of latency.
+ */
+function isNonRetryableProviderError(error: unknown): boolean {
+  // Check for typed error classes from providers
+  if (error instanceof InvalidModelError) {
+    return true;
+  }
+  if (error instanceof AuthenticationError) {
+    return true;
+  }
+  if (error instanceof AuthorizationError) {
+    return true;
+  }
+
+  // Check for HTTP status codes on error objects (e.g., from Vercel AI SDK)
+  if (error && typeof error === "object") {
+    const err = error as Record<string, unknown>;
+    const status =
+      typeof err.status === "number"
+        ? err.status
+        : typeof err.statusCode === "number"
+          ? err.statusCode
+          : undefined;
+
+    if (status && NON_RETRYABLE_HTTP_STATUS_CODES.includes(status)) {
+      return true;
+    }
+  }
+
+  // Check error message for NOT_FOUND patterns (catches wrapped errors)
+  if (error instanceof Error) {
+    const msg = error.message;
+    if (
+      msg.includes("NOT_FOUND") ||
+      msg.includes("Model Not Found") ||
+      msg.includes("model not found") ||
+      msg.includes("PERMISSION_DENIED") ||
+      msg.includes("UNAUTHENTICATED")
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 /**
  * NeuroLink - Universal AI Development Platform
@@ -245,8 +314,10 @@ import type { WorkflowConfig } from "./workflow/types.js";
  * @see {@link NeurolinkConstructorConfig} for configuration options
  * @since 1.0.0
  */
+
 export class NeuroLink {
   private mcpInitialized = false;
+  private mcpInitPromise: Promise<void> | null = null;
   private emitter =
     new EventEmitter() as unknown as TypedEventEmitter<NeuroLinkEvents>;
 
@@ -305,9 +376,6 @@ export class NeuroLink {
       result: result, // Enhanced: include actual result
       error: error, // Enhanced: include error if present
     });
-
-    // ADD: Bedrock-compatible tool:end event (positional parameters)
-    this.emitter.emit("tool:end", toolName, success ? result : error);
   }
   // Conversation memory support
   public conversationMemory?:
@@ -354,6 +422,7 @@ export class NeuroLink {
       typeof options.context === "object" &&
       options.context !== null
     ) {
+      let callbackExecuted = false;
       try {
         const ctx = options.context as Record<string, unknown>;
         // Trigger context scoping if any meaningful Langfuse field is present
@@ -408,6 +477,7 @@ export class NeuroLink {
               },
               async () => {
                 try {
+                  callbackExecuted = true;
                   const result = await callback();
                   resolve(result);
                 } catch (error) {
@@ -418,6 +488,12 @@ export class NeuroLink {
           });
         }
       } catch (error) {
+        if (callbackExecuted) {
+          // Callback was executed inside Langfuse context but failed — do NOT retry
+          // Re-throw to avoid double API calls and preserve error context
+          throw error;
+        }
+        // Langfuse context setup itself failed — graceful degradation, run without context
         logger.warn("Failed to set Langfuse context from options", {
           error: error instanceof Error ? error.message : String(error),
         });
@@ -1400,6 +1476,33 @@ Current user's request: ${currentInput}`;
    * Uses isolated async context to prevent hanging
    */
   private async initializeMCP(): Promise<void> {
+    // Skip if already initialized — prevents redundant re-init on every generate call
+    if (this.mcpInitialized) {
+      return;
+    }
+
+    // Deduplicate concurrent initialization attempts — if an init is already
+    // in-flight, coalesce callers onto the same promise instead of running
+    // a second parallel initialization.
+    if (this.mcpInitPromise) {
+      return this.mcpInitPromise;
+    }
+
+    this.mcpInitPromise = this.performMCPInitializationOnce();
+    try {
+      await this.mcpInitPromise;
+    } finally {
+      // Clear the in-flight promise so a future call (e.g. after cleanup/reset)
+      // can re-initialize if needed.
+      this.mcpInitPromise = null;
+    }
+  }
+
+  /**
+   * Actual one-shot MCP initialization logic. Called at most once per
+   * NeuroLink instance lifetime (unless cleanup() resets the flag).
+   */
+  private async performMCPInitializationOnce(): Promise<void> {
     const mcpInitId = `mcp-init-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const mcpInitStartTime = Date.now();
     const mcpInitHrTimeStart = process.hrtime.bigint();
@@ -2192,351 +2295,459 @@ Current user's request: ${currentInput}`;
   async generate(
     optionsOrPrompt: GenerateOptions | string,
   ): Promise<GenerateResult> {
-    const originalPrompt = this._extractOriginalPrompt(optionsOrPrompt);
-    // Convert string prompt to full options
-    const options: GenerateOptions =
-      typeof optionsOrPrompt === "string"
-        ? { input: { text: optionsOrPrompt } }
-        : optionsOrPrompt;
-
-    // Validate prompt
-    if (!options.input?.text || typeof options.input.text !== "string") {
-      throw new Error("Input text is required and must be a non-empty string");
-    }
-
-    // Check budget limit before making API call
-    if (
-      options.maxBudgetUsd !== undefined &&
-      options.maxBudgetUsd > 0 &&
-      this._sessionCostUsd >= options.maxBudgetUsd
-    ) {
-      throw new NeuroLinkError({
-        code: "SESSION_BUDGET_EXCEEDED",
-        message: `Session budget exceeded: spent $${this._sessionCostUsd.toFixed(4)} of $${options.maxBudgetUsd.toFixed(4)} limit`,
-        category: ErrorCategory.VALIDATION,
-        severity: ErrorSeverity.HIGH,
-        retriable: false,
-        context: {
-          spent: this._sessionCostUsd,
-          limit: options.maxBudgetUsd,
-        },
-      });
-    }
-
-    // Check if workflow is requested
-    if (options.workflow || options.workflowConfig) {
-      return await this.generateWithWorkflow(options);
-    }
-
-    // Check if PPT output mode is requested
-    if (options.output?.mode === "ppt") {
-      return await this.generateWithPPT(options);
-    }
-
-    // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
-    return await this.setLangfuseContextFromOptions(options, async () => {
-      if (
-        this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
-        options.context?.userId
-      ) {
+    return tracers.sdk.startActiveSpan(
+      "neurolink.generate",
+      { kind: SpanKind.INTERNAL },
+      async (generateSpan) => {
         try {
-          const mem0 = await this.ensureMem0Ready();
-          if (!mem0) {
-            logger.debug(
-              "Mem0 not available, continuing without memory retrieval",
+          const originalPrompt = this._extractOriginalPrompt(optionsOrPrompt);
+          // Convert string prompt to full options
+          const options: GenerateOptions =
+            typeof optionsOrPrompt === "string"
+              ? { input: { text: optionsOrPrompt } }
+              : optionsOrPrompt;
+
+          // Set span attributes for observability
+          generateSpan.setAttribute(
+            "neurolink.provider",
+            (options.provider as string) || "default",
+          );
+          generateSpan.setAttribute(
+            "neurolink.model",
+            options.model || "default",
+          );
+          generateSpan.setAttribute(
+            "neurolink.input_length",
+            typeof optionsOrPrompt === "string"
+              ? optionsOrPrompt.length
+              : options.input?.text?.length || 0,
+          );
+          generateSpan.setAttribute(
+            "neurolink.has_tools",
+            !!(options.tools && Object.keys(options.tools).length > 0),
+          );
+
+          // Validate prompt
+          if (!options.input?.text || typeof options.input.text !== "string") {
+            throw new Error(
+              "Input text is required and must be a non-empty string",
             );
-          } else {
-            const memories = await mem0.search(options.input.text, {
-              user_id: options.context.userId as string,
-              limit: 5,
+          }
+
+          // Check budget limit before making API call
+          if (
+            options.maxBudgetUsd !== undefined &&
+            options.maxBudgetUsd > 0 &&
+            this._sessionCostUsd >= options.maxBudgetUsd
+          ) {
+            throw new NeuroLinkError({
+              code: "SESSION_BUDGET_EXCEEDED",
+              message: `Session budget exceeded: spent $${this._sessionCostUsd.toFixed(4)} of $${options.maxBudgetUsd.toFixed(4)} limit`,
+              category: ErrorCategory.VALIDATION,
+              severity: ErrorSeverity.HIGH,
+              retriable: false,
+              context: {
+                spent: this._sessionCostUsd,
+                limit: options.maxBudgetUsd,
+              },
             });
+          }
 
-            if (memories && memories.length > 0) {
-              // Enhance the input with memory context
-              const memoryContext = this.extractMemoryContext(memories);
+          // Check if workflow is requested
+          if (options.workflow || options.workflowConfig) {
+            return await this.generateWithWorkflow(options);
+          }
 
-              options.input.text = this.formatMemoryContext(
-                memoryContext,
-                options.input.text,
+          // Check if PPT output mode is requested
+          if (options.output?.mode === "ppt") {
+            const pptResult = await this.generateWithPPT(options);
+            generateSpan.setAttribute(
+              "neurolink.output_length",
+              pptResult.content?.length ?? 0,
+            );
+            if (pptResult.analytics) {
+              generateSpan.setAttribute(
+                "neurolink.tokens.input",
+                pptResult.analytics.tokenUsage?.input ?? 0,
+              );
+              generateSpan.setAttribute(
+                "neurolink.tokens.output",
+                pptResult.analytics.tokenUsage?.output ?? 0,
+              );
+              generateSpan.setAttribute(
+                "neurolink.cost",
+                pptResult.analytics.cost ?? 0,
               );
             }
+            generateSpan.setStatus({ code: SpanStatusCode.OK });
+            return pptResult;
           }
-        } catch (error) {
-          logger.warn("Mem0 memory retrieval failed:", error);
-        }
-      }
 
-      // Memory retrieval
-      if (
-        this.conversationMemoryConfig?.conversationMemory?.memory?.enabled &&
-        options.context?.userId
-      ) {
-        try {
-          options.input.text = await this.retrieveMemory(
-            options.input.text,
-            options.context.userId as string,
-          );
-          logger.debug("Memory retrieval successful");
-        } catch (error) {
-          logger.warn("Memory retrieval failed:", error);
-        }
-      }
+          // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
+          return await this.setLangfuseContextFromOptions(options, async () => {
+            if (
+              this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
+              options.context?.userId
+            ) {
+              try {
+                const mem0 = await this.ensureMem0Ready();
+                if (!mem0) {
+                  logger.debug(
+                    "Mem0 not available, continuing without memory retrieval",
+                  );
+                } else {
+                  const memories = await mem0.search(options.input.text, {
+                    user_id: options.context.userId as string,
+                    limit: 5,
+                  });
 
-      const startTime = Date.now();
+                  if (memories && memories.length > 0) {
+                    // Enhance the input with memory context
+                    const memoryContext = this.extractMemoryContext(memories);
 
-      // Apply orchestration if enabled and no specific provider/model requested
-      if (this.enableOrchestration && !options.provider && !options.model) {
-        try {
-          const orchestratedOptions = await this.applyOrchestration(options);
-          logger.debug("Orchestration applied", {
-            originalProvider: options.provider || "auto",
-            orchestratedProvider: orchestratedOptions.provider,
-            orchestratedModel: orchestratedOptions.model,
-            prompt: options.input.text.substring(0, 100),
-          });
-
-          // Use orchestrated options
-          Object.assign(options, orchestratedOptions);
-        } catch (error) {
-          logger.warn(
-            "Orchestration failed, continuing with original options",
-            {
-              error: error instanceof Error ? error.message : String(error),
-              originalProvider: options.provider || "auto",
-            },
-          );
-          // Continue with original options if orchestration fails
-        }
-      }
-
-      // Emit generation start event (NeuroLink format - keep existing)
-      this.emitter.emit("generation:start", {
-        provider: options.provider || "auto",
-        timestamp: startTime,
-      });
-
-      // ADD: Bedrock-compatible response:start event
-      this.emitter.emit("response:start");
-
-      // ADD: Bedrock-compatible message event
-      this.emitter.emit(
-        "message",
-        `Starting ${options.provider || "auto"} text generation...`,
-      );
-
-      // Process factory configuration
-      const factoryResult = processFactoryOptions(options);
-
-      // Validate factory configuration if present
-      if (factoryResult.hasFactoryConfig && options.factoryConfig) {
-        const validation = validateFactoryConfig(options.factoryConfig);
-        if (!validation.isValid) {
-          logger.warn("Invalid factory configuration detected", {
-            errors: validation.errors,
-          });
-          // Continue with warning rather than throwing - graceful degradation
-        }
-      }
-
-      // RAG Integration: If rag config is provided, prepare the RAG search tool
-      if (options.rag?.files?.length) {
-        try {
-          const { prepareRAGTool } = await import("./rag/ragIntegration.js");
-          const ragResult = await prepareRAGTool(
-            options.rag,
-            options.provider as string | undefined,
-          );
-
-          // Inject the RAG tool into the tools record
-          if (!options.tools) {
-            options.tools = {};
-          }
-          (options.tools as Record<string, unknown>)[ragResult.toolName] =
-            ragResult.tool;
-
-          // Inject RAG-aware system prompt so the AI uses the RAG tool first
-          const ragSystemInstruction = [
-            `\n\nIMPORTANT: You have a tool called "${ragResult.toolName}" that searches through`,
-            `${ragResult.filesLoaded} loaded document(s) containing ${ragResult.chunksIndexed} indexed chunks.`,
-            `ALWAYS use the "${ragResult.toolName}" tool FIRST to answer the user's question before using any other tools.`,
-            `This tool searches your local knowledge base of pre-loaded documents and is the primary source of truth.`,
-            `Do NOT use websearchGrounding or any web search tools when the answer can be found in the loaded documents.`,
-          ].join(" ");
-          options.systemPrompt =
-            (options.systemPrompt || "") + ragSystemInstruction;
-
-          logger.info("[RAG] Tool injected into generate()", {
-            toolName: ragResult.toolName,
-            filesLoaded: ragResult.filesLoaded,
-            chunksIndexed: ragResult.chunksIndexed,
-          });
-        } catch (error) {
-          logger.warn(
-            "[RAG] Failed to prepare RAG tool, continuing without RAG",
-            {
-              error: error instanceof Error ? error.message : String(error),
-            },
-          );
-        }
-      }
-
-      // 🔧 CRITICAL FIX: Convert to TextGenerationOptions while preserving the input object for multimodal support
-      const baseOptions: TextGenerationOptions = {
-        prompt: options.input.text,
-        provider: options.provider as AIProviderName,
-        model: options.model,
-        temperature: options.temperature,
-        maxTokens: options.maxTokens,
-        systemPrompt: options.systemPrompt,
-        schema: options.schema,
-        output: options.output,
-        tools: options.tools, // Includes RAG tools if rag config was provided
-        disableTools: options.disableTools,
-        toolFilter: options.toolFilter,
-        excludeTools: options.excludeTools,
-        maxSteps: options.maxSteps,
-        toolChoice: options.toolChoice,
-        prepareStep: options.prepareStep,
-        enableAnalytics: options.enableAnalytics,
-        enableEvaluation: options.enableEvaluation,
-        context: options.context as Record<string, JsonValue> | undefined,
-        evaluationDomain: options.evaluationDomain,
-        toolUsageContext: options.toolUsageContext,
-        input: options.input, // This includes text, images, and content arrays
-        region: options.region,
-        tts: options.tts,
-        fileRegistry: this.fileRegistry,
-        abortSignal: options.abortSignal,
-        skipToolPromptInjection: options.skipToolPromptInjection,
-      };
-
-      // Auto-map top-level sessionId/userId to context for convenience
-      // Tests and users may pass sessionId/userId as top-level options
-      const extraContext = options as Record<string, unknown>;
-      if (extraContext.sessionId || extraContext.userId) {
-        baseOptions.context = {
-          ...baseOptions.context,
-          ...(extraContext.sessionId && !baseOptions.context?.sessionId
-            ? { sessionId: extraContext.sessionId as JsonValue }
-            : {}),
-          ...(extraContext.userId && !baseOptions.context?.userId
-            ? { userId: extraContext.userId as JsonValue }
-            : {}),
-        };
-      }
-
-      // Apply factory enhancement using centralized utilities
-      const textOptions = enhanceTextGenerationOptions(
-        baseOptions,
-        factoryResult,
-      );
-
-      // Pass conversation memory config if available
-      if (this.conversationMemory) {
-        textOptions.conversationMemoryConfig = this.conversationMemory.config;
-        // Include original prompt for context summarization
-        textOptions.originalPrompt = originalPrompt;
-      }
-
-      // Detect and execute domain-specific tools
-      const { toolResults, enhancedPrompt } = await this.detectAndExecuteTools(
-        textOptions.prompt || options.input.text,
-        factoryResult.domainType,
-      );
-
-      // Update prompt with tool results if available
-      if (enhancedPrompt !== textOptions.prompt) {
-        textOptions.prompt = enhancedPrompt;
-        logger.debug("Enhanced prompt with tool results", {
-          originalLength: options.input.text.length,
-          enhancedLength: enhancedPrompt.length,
-          toolResults: toolResults.length,
-        });
-      }
-
-      // Use redesigned generation logic
-      const textResult = await this.generateTextInternal(textOptions);
-
-      // Emit generation completion event (NeuroLink format - enhanced with content)
-      this.emitter.emit("generation:end", {
-        provider: textResult.provider,
-        responseTime: Date.now() - startTime,
-        toolsUsed: textResult.toolsUsed,
-        timestamp: Date.now(),
-        result: textResult, // Enhanced: include full result
-      });
-
-      // ADD: Bedrock-compatible response:end event with content
-      this.emitter.emit("response:end", textResult.content || "");
-
-      // ADD: Bedrock-compatible message event
-      this.emitter.emit(
-        "message",
-        `Generation completed in ${Date.now() - startTime}ms`,
-      );
-
-      // Convert back to GenerateResult
-      const generateResult: GenerateResult = {
-        content: textResult.content,
-        finishReason: textResult.finishReason,
-        provider: textResult.provider,
-        model: textResult.model,
-        usage: textResult.usage
-          ? {
-              input: textResult.usage.input || 0,
-              output: textResult.usage.output || 0,
-              total: textResult.usage.total || 0,
+                    options.input.text = this.formatMemoryContext(
+                      memoryContext,
+                      options.input.text,
+                    );
+                  }
+                }
+              } catch (error) {
+                logger.warn("Mem0 memory retrieval failed:", error);
+              }
             }
-          : undefined,
-        responseTime: textResult.responseTime,
-        toolsUsed: textResult.toolsUsed,
-        toolExecutions: transformToolExecutions(textResult.toolExecutions),
-        enhancedWithTools: textResult.enhancedWithTools,
-        availableTools: transformAvailableTools(textResult.availableTools),
-        analytics: textResult.analytics,
-        // CRITICAL FIX: Include imageOutput for image generation models
-        imageOutput: textResult.imageOutput,
-        evaluation: textResult.evaluation
-          ? {
-              ...textResult.evaluation,
-              isOffTopic:
-                ((textResult.evaluation as unknown as UnknownRecord)
-                  .isOffTopic as boolean) ?? false,
-              alertSeverity:
-                ((textResult.evaluation as unknown as UnknownRecord)
-                  .alertSeverity as "low" | "medium" | "high" | "none") ??
-                ("none" as const),
-              reasoning:
-                ((textResult.evaluation as unknown as UnknownRecord)
-                  .reasoning as string) ?? "No evaluation provided",
-              evaluationModel:
-                ((textResult.evaluation as unknown as UnknownRecord)
-                  .evaluationModel as string) ?? "unknown",
-              evaluationTime:
-                ((textResult.evaluation as unknown as UnknownRecord)
-                  .evaluationTime as number) ?? Date.now(),
-              // Include evaluationDomain from original options
-              evaluationDomain:
-                ((textResult.evaluation as unknown as UnknownRecord)
-                  .evaluationDomain as string) ??
-                textOptions.evaluationDomain ??
+
+            // Memory retrieval
+            if (
+              this.conversationMemoryConfig?.conversationMemory?.memory
+                ?.enabled &&
+              options.context?.userId
+            ) {
+              try {
+                options.input.text = await this.retrieveMemory(
+                  options.input.text,
+                  options.context.userId as string,
+                );
+                logger.debug("Memory retrieval successful");
+              } catch (error) {
+                logger.warn("Memory retrieval failed:", error);
+              }
+            }
+
+            const startTime = Date.now();
+
+            // Apply orchestration if enabled and no specific provider/model requested
+            if (
+              this.enableOrchestration &&
+              !options.provider &&
+              !options.model
+            ) {
+              try {
+                const orchestratedOptions =
+                  await this.applyOrchestration(options);
+                logger.debug("Orchestration applied", {
+                  originalProvider: options.provider || "auto",
+                  orchestratedProvider: orchestratedOptions.provider,
+                  orchestratedModel: orchestratedOptions.model,
+                  prompt: options.input.text.substring(0, 100),
+                });
+
+                // Use orchestrated options
+                Object.assign(options, orchestratedOptions);
+              } catch (error) {
+                logger.warn(
+                  "Orchestration failed, continuing with original options",
+                  {
+                    error:
+                      error instanceof Error ? error.message : String(error),
+                    originalProvider: options.provider || "auto",
+                  },
+                );
+                // Continue with original options if orchestration fails
+              }
+            }
+
+            // Emit generation start event (NeuroLink format - keep existing)
+            this.emitter.emit("generation:start", {
+              provider: options.provider || "auto",
+              timestamp: startTime,
+            });
+
+            // ADD: Bedrock-compatible response:start event
+            this.emitter.emit("response:start");
+
+            // ADD: Bedrock-compatible message event
+            this.emitter.emit(
+              "message",
+              `Starting ${options.provider || "auto"} text generation...`,
+            );
+
+            // Process factory configuration
+            const factoryResult = processFactoryOptions(options);
+
+            // Validate factory configuration if present
+            if (factoryResult.hasFactoryConfig && options.factoryConfig) {
+              const validation = validateFactoryConfig(options.factoryConfig);
+              if (!validation.isValid) {
+                logger.warn("Invalid factory configuration detected", {
+                  errors: validation.errors,
+                });
+                // Continue with warning rather than throwing - graceful degradation
+              }
+            }
+
+            // RAG Integration: If rag config is provided, prepare the RAG search tool
+            if (options.rag?.files?.length) {
+              try {
+                const { prepareRAGTool } = await import(
+                  "./rag/ragIntegration.js"
+                );
+                const ragResult = await prepareRAGTool(
+                  options.rag,
+                  options.provider as string | undefined,
+                );
+
+                // Inject the RAG tool into the tools record
+                if (!options.tools) {
+                  options.tools = {};
+                }
+                (options.tools as Record<string, unknown>)[ragResult.toolName] =
+                  ragResult.tool;
+
+                // Inject RAG-aware system prompt so the AI uses the RAG tool first
+                const ragSystemInstruction = [
+                  `\n\nIMPORTANT: You have a tool called "${ragResult.toolName}" that searches through`,
+                  `${ragResult.filesLoaded} loaded document(s) containing ${ragResult.chunksIndexed} indexed chunks.`,
+                  `ALWAYS use the "${ragResult.toolName}" tool FIRST to answer the user's question before using any other tools.`,
+                  `This tool searches your local knowledge base of pre-loaded documents and is the primary source of truth.`,
+                  `Do NOT use websearchGrounding or any web search tools when the answer can be found in the loaded documents.`,
+                ].join(" ");
+                options.systemPrompt =
+                  (options.systemPrompt || "") + ragSystemInstruction;
+
+                logger.info("[RAG] Tool injected into generate()", {
+                  toolName: ragResult.toolName,
+                  filesLoaded: ragResult.filesLoaded,
+                  chunksIndexed: ragResult.chunksIndexed,
+                });
+              } catch (error) {
+                logger.warn(
+                  "[RAG] Failed to prepare RAG tool, continuing without RAG",
+                  {
+                    error:
+                      error instanceof Error ? error.message : String(error),
+                  },
+                );
+              }
+            }
+
+            // 🔧 CRITICAL FIX: Convert to TextGenerationOptions while preserving the input object for multimodal support
+            const baseOptions: TextGenerationOptions = {
+              prompt: options.input.text,
+              provider: options.provider as AIProviderName,
+              model: options.model,
+              temperature: options.temperature,
+              maxTokens: options.maxTokens,
+              systemPrompt: options.systemPrompt,
+              schema: options.schema,
+              output: options.output,
+              tools: options.tools, // Includes RAG tools if rag config was provided
+              disableTools: options.disableTools,
+              toolFilter: options.toolFilter,
+              excludeTools: options.excludeTools,
+              maxSteps: options.maxSteps,
+              toolChoice: options.toolChoice,
+              prepareStep: options.prepareStep,
+              enableAnalytics: options.enableAnalytics,
+              enableEvaluation: options.enableEvaluation,
+              context: options.context as Record<string, JsonValue> | undefined,
+              evaluationDomain: options.evaluationDomain,
+              toolUsageContext: options.toolUsageContext,
+              input: options.input, // This includes text, images, and content arrays
+              region: options.region,
+              tts: options.tts,
+              fileRegistry: this.fileRegistry,
+              abortSignal: options.abortSignal,
+              skipToolPromptInjection: options.skipToolPromptInjection,
+            };
+
+            // Auto-map top-level sessionId/userId to context for convenience
+            // Tests and users may pass sessionId/userId as top-level options
+            const extraContext = options as Record<string, unknown>;
+            if (extraContext.sessionId || extraContext.userId) {
+              baseOptions.context = {
+                ...baseOptions.context,
+                ...(extraContext.sessionId && !baseOptions.context?.sessionId
+                  ? { sessionId: extraContext.sessionId as JsonValue }
+                  : {}),
+                ...(extraContext.userId && !baseOptions.context?.userId
+                  ? { userId: extraContext.userId as JsonValue }
+                  : {}),
+              };
+            }
+
+            // Apply factory enhancement using centralized utilities
+            const textOptions = enhanceTextGenerationOptions(
+              baseOptions,
+              factoryResult,
+            );
+
+            // Pass conversation memory config if available
+            if (this.conversationMemory) {
+              textOptions.conversationMemoryConfig =
+                this.conversationMemory.config;
+              // Include original prompt for context summarization
+              textOptions.originalPrompt = originalPrompt;
+            }
+
+            // Detect and execute domain-specific tools
+            const { toolResults, enhancedPrompt } =
+              await this.detectAndExecuteTools(
+                textOptions.prompt || options.input.text,
                 factoryResult.domainType,
+              );
+
+            // Update prompt with tool results if available
+            if (enhancedPrompt !== textOptions.prompt) {
+              textOptions.prompt = enhancedPrompt;
+              logger.debug("Enhanced prompt with tool results", {
+                originalLength: options.input.text.length,
+                enhancedLength: enhancedPrompt.length,
+                toolResults: toolResults.length,
+              });
             }
-          : undefined,
-        audio: textResult.audio,
-        video: textResult.video,
-        ppt: textResult.ppt,
-      };
 
-      // Accumulate session cost for budget tracking
-      if (generateResult.analytics?.cost && generateResult.analytics.cost > 0) {
-        this._sessionCostUsd += generateResult.analytics.cost;
-      }
+            // Use redesigned generation logic
+            const textResult = await this.generateTextInternal(textOptions);
 
-      this.scheduleGenerateMem0Storage(options, originalPrompt, generateResult);
+            // Emit generation completion event (NeuroLink format - enhanced with content)
+            this.emitter.emit("generation:end", {
+              provider: textResult.provider,
+              responseTime: Date.now() - startTime,
+              toolsUsed: textResult.toolsUsed,
+              timestamp: Date.now(),
+              result: textResult, // Enhanced: include full result
+            });
 
-      return generateResult;
-    });
+            // ADD: Bedrock-compatible response:end event with content
+            this.emitter.emit("response:end", textResult.content || "");
+
+            // ADD: Bedrock-compatible message event
+            this.emitter.emit(
+              "message",
+              `Generation completed in ${Date.now() - startTime}ms`,
+            );
+
+            // Convert back to GenerateResult
+            const generateResult: GenerateResult = {
+              content: textResult.content,
+              finishReason: textResult.finishReason,
+              provider: textResult.provider,
+              model: textResult.model,
+              usage: textResult.usage
+                ? {
+                    input: textResult.usage.input || 0,
+                    output: textResult.usage.output || 0,
+                    total: textResult.usage.total || 0,
+                  }
+                : undefined,
+              responseTime: textResult.responseTime,
+              toolsUsed: textResult.toolsUsed,
+              toolExecutions: transformToolExecutions(
+                textResult.toolExecutions,
+              ),
+              enhancedWithTools: textResult.enhancedWithTools,
+              availableTools: transformAvailableTools(
+                textResult.availableTools,
+              ),
+              analytics: textResult.analytics,
+              // CRITICAL FIX: Include imageOutput for image generation models
+              imageOutput: textResult.imageOutput,
+              evaluation: textResult.evaluation
+                ? {
+                    ...textResult.evaluation,
+                    isOffTopic:
+                      ((textResult.evaluation as unknown as UnknownRecord)
+                        .isOffTopic as boolean) ?? false,
+                    alertSeverity:
+                      ((textResult.evaluation as unknown as UnknownRecord)
+                        .alertSeverity as "low" | "medium" | "high" | "none") ??
+                      ("none" as const),
+                    reasoning:
+                      ((textResult.evaluation as unknown as UnknownRecord)
+                        .reasoning as string) ?? "No evaluation provided",
+                    evaluationModel:
+                      ((textResult.evaluation as unknown as UnknownRecord)
+                        .evaluationModel as string) ?? "unknown",
+                    evaluationTime:
+                      ((textResult.evaluation as unknown as UnknownRecord)
+                        .evaluationTime as number) ?? Date.now(),
+                    // Include evaluationDomain from original options
+                    evaluationDomain:
+                      ((textResult.evaluation as unknown as UnknownRecord)
+                        .evaluationDomain as string) ??
+                      textOptions.evaluationDomain ??
+                      factoryResult.domainType,
+                  }
+                : undefined,
+              audio: textResult.audio,
+              video: textResult.video,
+              ppt: textResult.ppt,
+            };
+
+            // Accumulate session cost for budget tracking
+            if (
+              generateResult.analytics?.cost &&
+              generateResult.analytics.cost > 0
+            ) {
+              this._sessionCostUsd += generateResult.analytics.cost;
+            }
+
+            this.scheduleGenerateMem0Storage(
+              options,
+              originalPrompt,
+              generateResult,
+            );
+
+            // Set completion span attributes
+            generateSpan.setAttribute(
+              "neurolink.output_length",
+              generateResult.content?.length || 0,
+            );
+            generateSpan.setAttribute(
+              "neurolink.tokens.input",
+              generateResult.usage?.input || 0,
+            );
+            generateSpan.setAttribute(
+              "neurolink.tokens.output",
+              generateResult.usage?.output || 0,
+            );
+            generateSpan.setAttribute(
+              "neurolink.finish_reason",
+              generateResult.finishReason || "unknown",
+            );
+            generateSpan.setAttribute(
+              "neurolink.result_provider",
+              generateResult.provider || "unknown",
+            );
+            generateSpan.setAttribute(
+              "neurolink.result_model",
+              generateResult.model || "unknown",
+            );
+
+            generateSpan.setStatus({ code: SpanStatusCode.OK });
+            return generateResult;
+          });
+        } catch (error) {
+          generateSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          throw error;
+        } finally {
+          generateSpan.end();
+        }
+      },
+    );
   }
 
   /**
@@ -2970,235 +3181,390 @@ Current user's request: ${currentInput}`;
   private async generateTextInternal(
     options: TextGenerationOptions,
   ): Promise<TextGenerationResult> {
-    const generateInternalId = `generate-internal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const existingRequestId = (
-      options.context as Record<string, unknown> | undefined
-    )?.requestId;
-    const requestId =
-      typeof existingRequestId === "string" && existingRequestId
-        ? existingRequestId
-        : `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    options.context = { ...options.context, requestId };
-    const generateInternalStartTime = Date.now();
-    const generateInternalHrTimeStart = process.hrtime.bigint();
-    const functionTag = "NeuroLink.generateTextInternal";
-
-    this.logGenerateTextInternalStart(
-      generateInternalId,
-      generateInternalStartTime,
-      generateInternalHrTimeStart,
-      options,
-      functionTag,
-    );
-    this.emitGenerationStartEvents(options);
-
-    try {
-      await this.initializeConversationMemoryForGeneration(
-        generateInternalId,
-        generateInternalStartTime,
-        generateInternalHrTimeStart,
-      );
-      const mcpResult = await this.attemptMCPGeneration(
-        options,
-        generateInternalId,
-        generateInternalStartTime,
-        generateInternalHrTimeStart,
-        functionTag,
-      );
-
-      if (mcpResult) {
-        logger.info(
-          `[NeuroLink.generateTextInternal] generate() - COMPLETE SUCCESS (MCP path)`,
-          {
-            provider: mcpResult.provider,
-            model: mcpResult.model,
-            responseTimeMs: Date.now() - generateInternalStartTime,
-            tokensUsed: mcpResult.usage?.total || 0,
-            toolsUsed: mcpResult.toolsUsed?.length || 0,
-            ...(mcpResult.usage?.cacheCreationTokens !== undefined && {
-              cacheCreationTokens: mcpResult.usage.cacheCreationTokens,
-            }),
-            ...(mcpResult.usage?.cacheReadTokens !== undefined && {
-              cacheReadTokens: mcpResult.usage.cacheReadTokens,
-            }),
-            ...(mcpResult.usage?.cacheSavingsPercent !== undefined && {
-              cacheSavingsPercent: mcpResult.usage.cacheSavingsPercent,
-            }),
-          },
-        );
-        await storeConversationTurn(
-          this.conversationMemory,
-          options,
-          mcpResult,
-          new Date(generateInternalStartTime),
-          requestId,
-        );
-        this.emitter.emit("response:end", mcpResult.content || "");
-        return mcpResult;
-      }
-
-      if (options.abortSignal?.aborted) {
-        throw new DOMException("The operation was aborted", "AbortError");
-      }
-
-      const directResult = await this.directProviderGeneration(options);
-      logger.debug(`[${functionTag}] Direct generation successful`);
-      logger.info(
-        `[NeuroLink.generateTextInternal] generate() - COMPLETE SUCCESS`,
-        {
-          provider: directResult.provider,
-          model: directResult.model,
-          responseTimeMs: Date.now() - generateInternalStartTime,
-          tokensUsed: directResult.usage?.total || 0,
-          toolsUsed: directResult.toolsUsed?.length || 0,
-          ...(directResult.usage?.cacheCreationTokens !== undefined && {
-            cacheCreationTokens: directResult.usage.cacheCreationTokens,
-          }),
-          ...(directResult.usage?.cacheReadTokens !== undefined && {
-            cacheReadTokens: directResult.usage.cacheReadTokens,
-          }),
-          ...(directResult.usage?.cacheSavingsPercent !== undefined && {
-            cacheSavingsPercent: directResult.usage.cacheSavingsPercent,
-          }),
-        },
-      );
-
-      await storeConversationTurn(
-        this.conversationMemory,
-        options,
-        directResult,
-        new Date(generateInternalStartTime),
-        requestId,
-      );
-      this.emitter.emit("response:end", directResult.content || "");
-      this.emitter.emit("message", `Text generation completed successfully`);
-
-      return directResult;
-    } catch (error) {
-      // Check if this is a context overflow error - attempt recovery
-      if (isContextOverflowError(error) && this.conversationMemory) {
-        logger.warn(
-          `[${functionTag}] Context overflow detected, attempting aggressive compaction`,
-          {
-            error: error instanceof Error ? error.message : String(error),
-          },
-        );
-
+    return tracers.sdk.startActiveSpan(
+      "neurolink.generateTextInternal",
+      { kind: SpanKind.INTERNAL },
+      async (internalSpan) => {
         try {
-          const conversationMessages = await getConversationMessages(
-            this.conversationMemory,
+          const generateInternalId = `generate-internal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const existingRequestId = (
+            options.context as Record<string, unknown> | undefined
+          )?.requestId;
+          const requestId =
+            typeof existingRequestId === "string" && existingRequestId
+              ? existingRequestId
+              : `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          options.context = { ...options.context, requestId };
+          const generateInternalStartTime = Date.now();
+          const generateInternalHrTimeStart = process.hrtime.bigint();
+          const functionTag = "NeuroLink.generateTextInternal";
+
+          // Set span attributes for internal generation
+          internalSpan.setAttribute("neurolink.request_id", requestId);
+          internalSpan.setAttribute(
+            "neurolink.has_conversation_memory",
+            !!this.conversationMemory,
+          );
+          internalSpan.setAttribute(
+            "neurolink.provider",
+            (options.provider as string) || "auto",
+          );
+          internalSpan.setAttribute(
+            "neurolink.model",
+            options.model || "default",
+          );
+
+          this.logGenerateTextInternalStart(
+            generateInternalId,
+            generateInternalStartTime,
+            generateInternalHrTimeStart,
             options,
+            functionTag,
           );
+          this.emitGenerationStartEvents(options);
 
-          // Calculate a meaningful compaction target from the model's budget
-          const recoveryBudget = checkContextBudget({
-            provider: options.provider || "openai",
-            model: options.model,
-            maxTokens: options.maxTokens,
-            currentPrompt: options.prompt,
-            systemPrompt: options.systemPrompt,
-          });
-          const compactionTarget = Math.floor(
-            recoveryBudget.availableInputTokens * 0.7,
-          );
+          try {
+            await this.initializeConversationMemoryForGeneration(
+              generateInternalId,
+              generateInternalStartTime,
+              generateInternalHrTimeStart,
+            );
+            const mcpResult = await this.attemptMCPGeneration(
+              options,
+              generateInternalId,
+              generateInternalStartTime,
+              generateInternalHrTimeStart,
+              functionTag,
+            );
 
-          const compactor = new ContextCompactor({
-            enableSummarize: false, // Skip LLM call for recovery
-            truncationFraction: 0.75, // Aggressive truncation
-          });
+            if (mcpResult) {
+              logger.info(
+                `[NeuroLink.generateTextInternal] generate() - COMPLETE SUCCESS (MCP path)`,
+                {
+                  provider: mcpResult.provider,
+                  model: mcpResult.model,
+                  responseTimeMs: Date.now() - generateInternalStartTime,
+                  tokensUsed: mcpResult.usage?.total || 0,
+                  toolsUsed: mcpResult.toolsUsed?.length || 0,
+                  ...(mcpResult.usage?.cacheCreationTokens !== undefined && {
+                    cacheCreationTokens: mcpResult.usage.cacheCreationTokens,
+                  }),
+                  ...(mcpResult.usage?.cacheReadTokens !== undefined && {
+                    cacheReadTokens: mcpResult.usage.cacheReadTokens,
+                  }),
+                  ...(mcpResult.usage?.cacheSavingsPercent !== undefined && {
+                    cacheSavingsPercent: mcpResult.usage.cacheSavingsPercent,
+                  }),
+                },
+              );
+              await storeConversationTurn(
+                this.conversationMemory,
+                options,
+                mcpResult,
+                new Date(generateInternalStartTime),
+                requestId,
+              );
+              this.emitter.emit("response:end", mcpResult.content || "");
+              internalSpan.setAttribute("neurolink.path", "mcp");
+              internalSpan.setAttribute(
+                "neurolink.tokens.input",
+                mcpResult.usage?.input || 0,
+              );
+              internalSpan.setAttribute(
+                "neurolink.tokens.output",
+                mcpResult.usage?.output || 0,
+              );
+              internalSpan.setAttribute(
+                "neurolink.result_provider",
+                mcpResult.provider || "unknown",
+              );
+              internalSpan.setStatus({ code: SpanStatusCode.OK });
+              return mcpResult;
+            }
 
-          const compactionResult = await compactor.compact(
-            conversationMessages as import("./types/conversation.js").ChatMessage[],
-            compactionTarget,
-            undefined,
-            (options.context as Record<string, unknown>)?.requestId as
-              | string
-              | undefined,
-          );
+            if (options.abortSignal?.aborted) {
+              throw new DOMException("The operation was aborted", "AbortError");
+            }
 
-          if (compactionResult.compacted) {
-            const repairedResult = repairToolPairs(compactionResult.messages);
+            // Save original messages for smart overflow recovery (Solution 6)
+            // directProviderGeneration may compact messages; if provider still rejects,
+            // the catch block needs the originals for a more effective retry
+            if (this.conversationMemory) {
+              const originalMessages = await getConversationMessages(
+                this.conversationMemory,
+                options,
+              );
+              (
+                options as TextGenerationOptions & {
+                  _originalConversationMessages?: unknown[];
+                }
+              )._originalConversationMessages = originalMessages
+                ? [...originalMessages]
+                : undefined;
+            }
+
+            const directResult = await this.directProviderGeneration(options);
+            logger.debug(`[${functionTag}] Direct generation successful`);
             logger.info(
-              `[${functionTag}] Aggressive compaction complete, retrying`,
+              `[NeuroLink.generateTextInternal] generate() - COMPLETE SUCCESS`,
               {
-                tokensSaved: compactionResult.tokensSaved,
-                compactionTarget,
+                provider: directResult.provider,
+                model: directResult.model,
+                responseTimeMs: Date.now() - generateInternalStartTime,
+                tokensUsed: directResult.usage?.total || 0,
+                toolsUsed: directResult.toolsUsed?.length || 0,
+                ...(directResult.usage?.cacheCreationTokens !== undefined && {
+                  cacheCreationTokens: directResult.usage.cacheCreationTokens,
+                }),
+                ...(directResult.usage?.cacheReadTokens !== undefined && {
+                  cacheReadTokens: directResult.usage.cacheReadTokens,
+                }),
+                ...(directResult.usage?.cacheSavingsPercent !== undefined && {
+                  cacheSavingsPercent: directResult.usage.cacheSavingsPercent,
+                }),
               },
             );
-            // Retry with compacted context - pass compacted messages to avoid re-fetching
-            return await this.directProviderGeneration({
-              ...options,
-              conversationMessages: repairedResult.messages,
-            } as TextGenerationOptions);
-          }
-        } catch (retryError) {
-          logger.error(`[${functionTag}] Recovery attempt also failed`, {
-            error:
-              retryError instanceof Error
-                ? retryError.message
-                : String(retryError),
-          });
-        }
-      }
 
-      // If the generation was aborted (e.g., coding task short-circuit via AbortController),
-      // still store the conversation turn so that:
-      // 1. The Redis conversation entry is created (if first turn)
-      // 2. setImmediate triggers generateConversationTitle() for the session
-      // 3. The caller's syncTitleFromRedis() can find the SDK-generated title
-      if (isAbortError(error)) {
-        logger.info(
-          `[${functionTag}] Generation aborted — storing conversation turn for title generation`,
-          {
-            hasMemory: !!this.conversationMemory,
-            memoryType: this.conversationMemory?.constructor?.name || "NONE",
-            sessionId:
-              (options.context as Record<string, unknown>)?.sessionId ||
-              "unknown",
-          },
-        );
-
-        try {
-          const abortedResult: TextGenerationResult = {
-            content: "[generation was interrupted]",
-            provider: options.provider || "unknown",
-            model: options.model || "unknown",
-            responseTime: Date.now() - generateInternalStartTime,
-          };
-          await withTimeout(
-            storeConversationTurn(
+            await storeConversationTurn(
               this.conversationMemory,
               options,
-              abortedResult,
+              directResult,
               new Date(generateInternalStartTime),
               requestId,
-            ),
-            5000, // 5 second timeout for Redis storage
-          );
-        } catch (storeError) {
-          logger.warn(
-            `[${functionTag}] Failed to store conversation turn after abort`,
-            {
-              error:
-                storeError instanceof Error
-                  ? storeError.message
-                  : String(storeError),
-            },
-          );
-        }
-      } else {
-        logger.error(`[${functionTag}] All generation methods failed`, {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
+            );
+            this.emitter.emit("response:end", directResult.content || "");
+            this.emitter.emit(
+              "message",
+              `Text generation completed successfully`,
+            );
+            internalSpan.setAttribute("neurolink.path", "direct");
+            internalSpan.setAttribute(
+              "neurolink.tokens.input",
+              directResult.usage?.input || 0,
+            );
+            internalSpan.setAttribute(
+              "neurolink.tokens.output",
+              directResult.usage?.output || 0,
+            );
+            internalSpan.setAttribute(
+              "neurolink.result_provider",
+              directResult.provider || "unknown",
+            );
 
-      this.emitter.emit("response:end", "");
-      this.emitter.emit(
-        "error",
-        error instanceof Error ? error : new Error(String(error)),
-      );
-      throw error;
-    }
+            internalSpan.setStatus({ code: SpanStatusCode.OK });
+            return directResult;
+          } catch (error) {
+            // Check if this is a context overflow error - attempt recovery
+            if (isContextOverflowError(error) && this.conversationMemory) {
+              logger.warn(
+                `[${functionTag}] Context overflow detected by provider, attempting smart recovery`,
+                {
+                  error: error instanceof Error ? error.message : String(error),
+                  overflowProvider: getContextOverflowProvider(error),
+                },
+              );
+
+              try {
+                // IMPROVEMENT 1: Extract actual token count from provider error if available
+                const actualOverflow = parseProviderOverflowDetails(error);
+
+                // IMPROVEMENT 2: Use ORIGINAL messages (not already-compacted ones)
+                const originalMessages =
+                  (
+                    options as TextGenerationOptions & {
+                      _originalConversationMessages?: unknown[];
+                    }
+                  )._originalConversationMessages ??
+                  (await getConversationMessages(
+                    this.conversationMemory,
+                    options,
+                  ));
+
+                // IMPROVEMENT 3: Calculate precise reduction target
+                const recoveryBudget = checkContextBudget({
+                  provider: options.provider || "openai",
+                  model: options.model,
+                  maxTokens: options.maxTokens,
+                  currentPrompt: options.prompt,
+                  systemPrompt: options.systemPrompt,
+                });
+
+                // Use provider's reported token count if available (more accurate than our estimate)
+                const actualTokens =
+                  actualOverflow?.actualTokens ??
+                  recoveryBudget.estimatedInputTokens;
+                const budgetTokens =
+                  actualOverflow?.budgetTokens ??
+                  recoveryBudget.availableInputTokens;
+
+                // Target = 70% of budget (aggressive safety margin for recovery)
+                const compactionTarget = Math.floor(budgetTokens * 0.7);
+
+                // IMPROVEMENT 4: Calculate adaptive truncation fraction from actual numbers
+                const requiredReduction =
+                  actualTokens > 0
+                    ? (actualTokens - compactionTarget) / actualTokens
+                    : 0.5;
+
+                const compactor = new ContextCompactor({
+                  enableSummarize: false, // Skip LLM call for recovery (speed)
+                  enablePrune: true,
+                  enableDeduplicate: true,
+                  enableTruncate: true,
+                  truncationFraction: Math.min(0.9, requiredReduction + 0.15),
+                });
+
+                const compactionResult = await compactor.compact(
+                  originalMessages as import("./types/conversation.js").ChatMessage[],
+                  compactionTarget,
+                  undefined,
+                  (options.context as Record<string, unknown>)?.requestId as
+                    | string
+                    | undefined,
+                );
+
+                if (compactionResult.compacted) {
+                  const repairedResult = repairToolPairs(
+                    compactionResult.messages,
+                  );
+
+                  // IMPROVEMENT 5: Verify BEFORE retrying
+                  const verifyBudget = checkContextBudget({
+                    provider: options.provider || "openai",
+                    model: options.model,
+                    maxTokens: options.maxTokens,
+                    systemPrompt: options.systemPrompt,
+                    currentPrompt: options.prompt,
+                    conversationMessages: repairedResult.messages as Array<{
+                      role: string;
+                      content: string;
+                    }>,
+                  });
+
+                  if (!verifyBudget.withinBudget) {
+                    logger.error(
+                      `[${functionTag}] Recovery compaction insufficient, aborting retry`,
+                      {
+                        estimatedTokens: verifyBudget.estimatedInputTokens,
+                        availableTokens: verifyBudget.availableInputTokens,
+                      },
+                    );
+                    throw new ContextBudgetExceededError(
+                      `Context overflow recovery failed. Provider rejected at ~${actualTokens} tokens, ` +
+                        `recovery compaction achieved ${compactionResult.tokensAfter} tokens ` +
+                        `but budget is ${budgetTokens} tokens.`,
+                      {
+                        estimatedTokens: compactionResult.tokensAfter,
+                        availableTokens: budgetTokens,
+                        stagesUsed: compactionResult.stagesUsed,
+                        breakdown: verifyBudget.breakdown,
+                      },
+                    );
+                  }
+
+                  logger.info(
+                    `[${functionTag}] Smart recovery verified, retrying generation`,
+                    {
+                      tokensSaved: compactionResult.tokensSaved,
+                      compactionTarget,
+                      verifiedTokens: verifyBudget.estimatedInputTokens,
+                      verifiedBudget: verifyBudget.availableInputTokens,
+                    },
+                  );
+
+                  // Single verified retry
+                  return await this.directProviderGeneration({
+                    ...options,
+                    conversationMessages: repairedResult.messages,
+                  } as TextGenerationOptions);
+                }
+              } catch (retryError) {
+                // If the retry error is our own ContextBudgetExceededError, re-throw it
+                if (retryError instanceof ContextBudgetExceededError) {
+                  throw retryError;
+                }
+                logger.error(`[${functionTag}] Recovery attempt failed`, {
+                  error:
+                    retryError instanceof Error
+                      ? retryError.message
+                      : String(retryError),
+                });
+              }
+            }
+
+            // If the generation was aborted (e.g., coding task short-circuit via AbortController),
+            // still store the conversation turn so that:
+            // 1. The Redis conversation entry is created (if first turn)
+            // 2. setImmediate triggers generateConversationTitle() for the session
+            // 3. The caller's syncTitleFromRedis() can find the SDK-generated title
+            if (isAbortError(error)) {
+              logger.info(
+                `[${functionTag}] Generation aborted — storing conversation turn for title generation`,
+                {
+                  hasMemory: !!this.conversationMemory,
+                  memoryType:
+                    this.conversationMemory?.constructor?.name || "NONE",
+                  sessionId:
+                    (options.context as Record<string, unknown>)?.sessionId ||
+                    "unknown",
+                },
+              );
+
+              try {
+                const abortedResult: TextGenerationResult = {
+                  content: "[generation was interrupted]",
+                  provider: options.provider || "unknown",
+                  model: options.model || "unknown",
+                  responseTime: Date.now() - generateInternalStartTime,
+                };
+                await withTimeout(
+                  storeConversationTurn(
+                    this.conversationMemory,
+                    options,
+                    abortedResult,
+                    new Date(generateInternalStartTime),
+                    requestId,
+                  ),
+                  5000, // 5 second timeout for Redis storage
+                );
+              } catch (storeError) {
+                logger.warn(
+                  `[${functionTag}] Failed to store conversation turn after abort`,
+                  {
+                    error:
+                      storeError instanceof Error
+                        ? storeError.message
+                        : String(storeError),
+                  },
+                );
+              }
+            } else {
+              logger.error(`[${functionTag}] All generation methods failed`, {
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+
+            this.emitter.emit("response:end", "");
+            this.emitter.emit(
+              "error",
+              error instanceof Error ? error : new Error(String(error)),
+            );
+            throw error;
+          }
+        } catch (spanError) {
+          internalSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message:
+              spanError instanceof Error
+                ? spanError.message
+                : String(spanError),
+          });
+          throw spanError;
+        } finally {
+          internalSpan.end();
+        }
+      },
+    );
   }
 
   /**
@@ -3416,6 +3782,7 @@ Current user's request: ${currentInput}`;
         const isNonRetryable =
           isContextOverflowError(error) ||
           isToolError ||
+          isNonRetryableProviderError(error) ||
           (error instanceof Error &&
             (error as Error & { isRetryable?: boolean }).isRetryable ===
               false) ||
@@ -3544,13 +3911,17 @@ Current user's request: ${currentInput}`;
         originalPromptLength: options.systemPrompt?.length || 0,
         enhancedPromptLength: enhancedSystemPrompt.length,
         skippedToolInjection: !!options.skipToolPromptInjection,
-        enhancedPromptPreview: enhancedSystemPrompt.substring(0, 500) + "...",
+        enhancedPromptPreview: enhancedSystemPrompt.substring(0, 80) + "...",
       });
 
-      logger.debug("[Observability] Full system prompt", {
+      logger.debug("[Observability] System prompt metadata", {
         requestId,
         systemPromptLength: enhancedSystemPrompt.length,
-        systemPrompt: enhancedSystemPrompt,
+        systemPromptHash:
+          enhancedSystemPrompt.length > 0
+            ? `sha256:${enhancedSystemPrompt.slice(0, 8)}...`
+            : "empty",
+        hasCustomSystemPrompt: !!options.systemPrompt,
       });
 
       // Get conversation messages for context
@@ -3662,9 +4033,74 @@ Current user's request: ${currentInput}`;
             tokensSaved: compactionResult.tokensSaved,
           });
         }
+
+        // POST-COMPACTION BUDGET RE-CHECK (BUG-003 fix)
+        const postCompactBudget = checkContextBudget({
+          provider: providerName,
+          model: options.model,
+          maxTokens: options.maxTokens,
+          systemPrompt: enhancedSystemPrompt,
+          conversationMessages: conversationMessages as Array<{
+            role: string;
+            content: string;
+          }>,
+          currentPrompt: options.prompt,
+          toolDefinitions: availableTools,
+        });
+
+        if (!postCompactBudget.withinBudget) {
+          const overageRatio = postCompactBudget.usageRatio - 1.0;
+          logger.warn(
+            "[NeuroLink] Post-compaction still over budget, attempting emergency content truncation",
+            {
+              requestId,
+              estimatedTokens: postCompactBudget.estimatedInputTokens,
+              availableTokens: postCompactBudget.availableInputTokens,
+              overagePercent: Math.round(overageRatio * 100),
+              stagesUsedInCompaction: compactionResult.stagesUsed,
+            },
+          );
+
+          // Emergency: truncate the content of the longest messages
+          conversationMessages = emergencyContentTruncation(
+            conversationMessages as import("./types/conversation.js").ChatMessage[],
+            postCompactBudget.availableInputTokens,
+            postCompactBudget.breakdown,
+            providerName,
+          );
+
+          // Final check after emergency truncation
+          const finalBudget = checkContextBudget({
+            provider: providerName,
+            model: options.model,
+            maxTokens: options.maxTokens,
+            systemPrompt: enhancedSystemPrompt,
+            conversationMessages: conversationMessages as Array<{
+              role: string;
+              content: string;
+            }>,
+            currentPrompt: options.prompt,
+            toolDefinitions: availableTools,
+          });
+
+          if (!finalBudget.withinBudget) {
+            throw new ContextBudgetExceededError(
+              `Context exceeds model budget after all compaction stages. ` +
+                `Estimated: ${finalBudget.estimatedInputTokens} tokens, ` +
+                `Budget: ${finalBudget.availableInputTokens} tokens. ` +
+                `Conversation is too large to fit in the model's context window.`,
+              {
+                estimatedTokens: finalBudget.estimatedInputTokens,
+                availableTokens: finalBudget.availableInputTokens,
+                stagesUsed: compactionResult.stagesUsed,
+                breakdown: finalBudget.breakdown,
+              },
+            );
+          }
+        }
       }
 
-      // Create provider and generate
+      // Create provider and generate (with confidence that context fits)
       const provider = await AIProviderFactory.createProvider(
         providerName as AIProviderName,
         options.model,
@@ -3899,6 +4335,71 @@ Current user's request: ${currentInput}`;
             const repairedResult = repairToolPairs(compactionResult.messages);
             conversationMessages = repairedResult.messages;
           }
+
+          // POST-COMPACTION BUDGET RE-CHECK (BUG-003 fix)
+          const postCompactBudget = checkContextBudget({
+            provider: providerName,
+            model: options.model,
+            maxTokens: options.maxTokens,
+            systemPrompt: options.systemPrompt,
+            conversationMessages: conversationMessages as Array<{
+              role: string;
+              content: string;
+            }>,
+            currentPrompt: options.prompt,
+            toolDefinitions: options.tools
+              ? Object.values(options.tools)
+              : undefined,
+          });
+
+          if (!postCompactBudget.withinBudget) {
+            logger.warn(
+              "[NeuroLink] directProviderGeneration: post-compaction still over budget, emergency truncation",
+              {
+                estimatedTokens: postCompactBudget.estimatedInputTokens,
+                availableTokens: postCompactBudget.availableInputTokens,
+                overagePercent: Math.round(
+                  (postCompactBudget.usageRatio - 1.0) * 100,
+                ),
+              },
+            );
+
+            conversationMessages = emergencyContentTruncation(
+              conversationMessages as import("./types/conversation.js").ChatMessage[],
+              postCompactBudget.availableInputTokens,
+              postCompactBudget.breakdown,
+              providerName,
+            );
+
+            const finalBudget = checkContextBudget({
+              provider: providerName,
+              model: options.model,
+              maxTokens: options.maxTokens,
+              systemPrompt: options.systemPrompt,
+              conversationMessages: conversationMessages as Array<{
+                role: string;
+                content: string;
+              }>,
+              currentPrompt: options.prompt,
+              toolDefinitions: options.tools
+                ? Object.values(options.tools)
+                : undefined,
+            });
+
+            if (!finalBudget.withinBudget) {
+              throw new ContextBudgetExceededError(
+                `Context exceeds model budget after all compaction stages. ` +
+                  `Estimated: ${finalBudget.estimatedInputTokens} tokens, ` +
+                  `Budget: ${finalBudget.availableInputTokens} tokens.`,
+                {
+                  estimatedTokens: finalBudget.estimatedInputTokens,
+                  availableTokens: finalBudget.availableInputTokens,
+                  stagesUsed: compactionResult.stagesUsed,
+                  breakdown: finalBudget.breakdown,
+                },
+              );
+            }
+          }
         }
 
         const provider = await AIProviderFactory.createProvider(
@@ -3964,6 +4465,21 @@ Current user's request: ${currentInput}`;
             `[${functionTag}] AbortError detected on provider ${providerName}, stopping fallback`,
           );
           throw error;
+        }
+
+        // Circuit breaker for non-retryable errors (model not found, auth failed, etc.)
+        // These errors are permanent — retrying with the same config will always fail
+        // and wastes tokens/latency (e.g., 6 retries of 418KB = ~628K wasted tokens)
+        if (isNonRetryableProviderError(error)) {
+          logger.warn(
+            `[${functionTag}] Non-retryable error from provider ${providerName}, stopping fallback chain`,
+            {
+              error: error instanceof Error ? error.message : String(error),
+              errorType:
+                error instanceof Error ? error.constructor.name : typeof error,
+            },
+          );
+          throw error instanceof Error ? error : new Error(String(error));
         }
 
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -4197,132 +4713,271 @@ Current user's request: ${currentInput}`;
    * @throws {Error} When conversation memory operations fail (if enabled)
    */
   async stream(options: StreamOptions): Promise<StreamResult> {
-    const startTime = Date.now();
-    const hrTimeStart = process.hrtime.bigint();
-    const streamId = `neurolink-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const originalPrompt = options.input.text; // Store the original prompt for memory storage
+    // Manual span lifecycle: the span must stay open until the stream is fully consumed,
+    // NOT when the StreamResult object is returned. withSpan would end the span too early
+    // because streaming results resolve lazily via the async generator.
+    const streamSpan = tracers.sdk.startSpan("neurolink.stream", {
+      kind: SpanKind.INTERNAL,
+      attributes: {
+        [ATTR.NL_PROVIDER]: (options.provider as string) || "default",
+        [ATTR.GEN_AI_MODEL]: options.model || "default",
+        [ATTR.NL_INPUT_LENGTH]: options.input?.text?.length || 0,
+        [ATTR.NL_HAS_TOOLS]: !!(
+          options.tools && Object.keys(options.tools).length > 0
+        ),
+        [ATTR.NL_STREAM_MODE]: true,
+      },
+    });
+    const spanStartTime = Date.now();
 
-    // Inject file registry for lazy on-demand file processing
-    options.fileRegistry = this.fileRegistry;
+    try {
+      const startTime = Date.now();
+      const hrTimeStart = process.hrtime.bigint();
+      const streamId = `neurolink-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const originalPrompt = options.input.text; // Store the original prompt for memory storage
 
-    await this.validateStreamInput(options);
-    this.emitStreamStartEvents(options, startTime);
+      // Inject file registry for lazy on-demand file processing
+      options.fileRegistry = this.fileRegistry;
 
-    // Check if workflow is requested
-    if (options.workflow || options.workflowConfig) {
-      return await this.streamWithWorkflow(options, startTime);
-    }
+      await this.validateStreamInput(options);
 
-    // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
-    return await this.setLangfuseContextFromOptions(options, async () => {
-      try {
-        // Prepare options: init memory, MCP, Mem0, orchestration, Ollama auto-disable, tool detection
-        const { enhancedOptions, factoryResult } =
-          await this.prepareStreamOptions(
-            options,
-            streamId,
-            startTime,
-            hrTimeStart,
-          );
+      // Check budget limit before making API call
+      if (
+        options.maxBudgetUsd !== undefined &&
+        options.maxBudgetUsd > 0 &&
+        this._sessionCostUsd >= options.maxBudgetUsd
+      ) {
+        throw new NeuroLinkError({
+          code: "SESSION_BUDGET_EXCEEDED",
+          message: `Session budget exceeded: spent $${this._sessionCostUsd.toFixed(4)} of $${options.maxBudgetUsd.toFixed(4)} limit`,
+          category: ErrorCategory.VALIDATION,
+          severity: ErrorSeverity.HIGH,
+          retriable: false,
+          context: {
+            spent: this._sessionCostUsd,
+            limit: options.maxBudgetUsd,
+          },
+        });
+      }
 
-        const { stream: mcpStream, provider: providerName } =
-          await this.createMCPStream(enhancedOptions);
+      this.emitStreamStartEvents(options, startTime);
 
-        let accumulatedContent = "";
-        let chunkCount = 0;
+      // Check if workflow is requested
+      if (options.workflow || options.workflowConfig) {
+        const result = await this.streamWithWorkflow(options, startTime);
+        streamSpan.setAttribute(
+          "neurolink.response_time_ms",
+          Date.now() - spanStartTime,
+        );
+        streamSpan.setStatus({ code: SpanStatusCode.OK });
+        streamSpan.end();
+        return result;
+      }
 
-        // Set up event capture listeners
-        const { eventSequence, cleanup: cleanupListeners } =
-          this.setupStreamEventListeners();
+      // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
+      return await this.setLangfuseContextFromOptions(options, async () => {
+        try {
+          // Prepare options: init memory, MCP, Mem0, orchestration, Ollama auto-disable, tool detection
+          const { enhancedOptions, factoryResult } =
+            await this.prepareStreamOptions(
+              options,
+              streamId,
+              startTime,
+              hrTimeStart,
+            );
 
-        const metadata = {
-          fallbackAttempted: false,
-          guardrailsBlocked: false,
-          error: undefined as string | undefined,
-        };
+          const { stream: mcpStream, provider: providerName } =
+            await this.createMCPStream(enhancedOptions);
 
-        const self = this;
-        const processedStream = (async function* () {
-          try {
-            for await (const chunk of mcpStream) {
-              chunkCount++;
-              if (
-                chunk &&
-                "content" in chunk &&
-                typeof chunk.content === "string"
-              ) {
-                accumulatedContent += chunk.content;
-                self.emitter.emit("response:chunk", chunk.content);
+          // Update span with resolved provider name
+          streamSpan.setAttribute(ATTR.NL_PROVIDER, providerName || "unknown");
+
+          let accumulatedContent = "";
+          let chunkCount = 0;
+
+          // Set up event capture listeners
+          const { eventSequence, cleanup: cleanupListeners } =
+            this.setupStreamEventListeners();
+
+          const metadata = {
+            fallbackAttempted: false,
+            guardrailsBlocked: false,
+            error: undefined as string | undefined,
+          };
+
+          const self = this;
+          const streamStartTime = Date.now();
+          const sessionId = (enhancedOptions.context as Record<string, unknown>)
+            ?.sessionId as string | undefined;
+          const processedStream = (async function* () {
+            let streamError: unknown = undefined;
+            try {
+              for await (const chunk of mcpStream) {
+                chunkCount++;
+                if (
+                  chunk &&
+                  "content" in chunk &&
+                  typeof chunk.content === "string"
+                ) {
+                  accumulatedContent += chunk.content;
+                  self.emitter.emit("response:chunk", chunk.content);
+
+                  // Emit stream:chunk event (Observability Solution 8)
+                  self.emitter.emit("stream:chunk", {
+                    type: "stream:chunk",
+                    content: chunk.content,
+                    metadata: {
+                      chunkIndex: chunkCount,
+                      totalLength: accumulatedContent.length,
+                    },
+                    timestamp: Date.now(),
+                  });
+                }
+                yield chunk;
               }
-              yield chunk;
-            }
 
-            if (chunkCount === 0 && !metadata.fallbackAttempted) {
-              yield* self.handleStreamFallback(
-                metadata,
-                originalPrompt,
+              if (chunkCount === 0 && !metadata.fallbackAttempted) {
+                yield* self.handleStreamFallback(
+                  metadata,
+                  originalPrompt,
+                  enhancedOptions,
+                  providerName,
+                  accumulatedContent,
+                  (content: string) => {
+                    accumulatedContent += content;
+                  },
+                );
+              }
+
+              // Emit stream:complete event (Observability Solution 8)
+              self.emitter.emit("stream:complete", {
+                type: "stream:complete",
+                content: accumulatedContent,
+                metadata: {
+                  chunkCount,
+                  totalLength: accumulatedContent.length,
+                  durationMs: Date.now() - streamStartTime,
+                  sessionId,
+                },
+                timestamp: Date.now(),
+              });
+            } catch (error) {
+              streamError = error;
+
+              // Emit stream:error event (Observability Solution 8)
+              self.emitter.emit("stream:error", {
+                type: "stream:error",
+                content: error instanceof Error ? error.message : String(error),
+                metadata: {
+                  chunkCount,
+                  totalLength: accumulatedContent.length,
+                  durationMs: Date.now() - streamStartTime,
+                  errorName:
+                    error instanceof Error ? error.name : "UnknownError",
+                  sessionId,
+                },
+                timestamp: Date.now(),
+              });
+
+              throw error;
+            } finally {
+              cleanupListeners();
+
+              // Finalize span now that the stream is fully consumed
+              streamSpan.setAttribute(
+                "neurolink.response_time_ms",
+                Date.now() - spanStartTime,
+              );
+              streamSpan.setAttribute(
+                ATTR.NL_OUTPUT_LENGTH,
+                accumulatedContent.length,
+              );
+              streamSpan.setAttribute(
+                ATTR.GEN_AI_FINISH_REASON,
+                metadata.error || streamError ? "error" : "stop",
+              );
+              if (metadata.error || streamError) {
+                streamSpan.setStatus({
+                  code: SpanStatusCode.ERROR,
+                  message:
+                    metadata.error ||
+                    (streamError instanceof Error
+                      ? streamError.message
+                      : String(streamError)),
+                });
+              } else {
+                streamSpan.setStatus({ code: SpanStatusCode.OK });
+              }
+              streamSpan.end();
+
+              if (accumulatedContent.trim()) {
+                logger.info(`[NeuroLink.stream] stream() - COMPLETE SUCCESS`, {
+                  provider: providerName,
+                  model: enhancedOptions.model,
+                  responseTimeMs: Date.now() - startTime,
+                  contentLength: accumulatedContent.length,
+                  fallback: metadata.fallbackAttempted,
+                });
+              }
+
+              await self.storeStreamConversationMemory({
                 enhancedOptions,
                 providerName,
+                originalPrompt,
                 accumulatedContent,
-                (content: string) => {
-                  accumulatedContent += content;
-                },
-              );
-            }
-          } finally {
-            cleanupListeners();
-
-            if (accumulatedContent.trim()) {
-              logger.info(`[NeuroLink.stream] stream() - COMPLETE SUCCESS`, {
-                provider: providerName,
-                model: enhancedOptions.model,
-                responseTimeMs: Date.now() - startTime,
-                contentLength: accumulatedContent.length,
-                fallback: metadata.fallbackAttempted,
+                startTime,
+                eventSequence,
               });
             }
+          })();
+          const streamResult = await this.processStreamResult(
+            processedStream,
+            enhancedOptions,
+            factoryResult,
+          );
+          const responseTime = Date.now() - startTime;
 
-            await self.storeStreamConversationMemory({
-              enhancedOptions,
-              providerName,
-              originalPrompt,
-              accumulatedContent,
-              startTime,
-              eventSequence,
-            });
+          // Accumulate session cost for budget tracking
+          if (streamResult.analytics?.cost && streamResult.analytics.cost > 0) {
+            this._sessionCostUsd += streamResult.analytics.cost;
           }
-        })();
-        const streamResult = await this.processStreamResult(
-          processedStream,
-          enhancedOptions,
-          factoryResult,
-        );
-        const responseTime = Date.now() - startTime;
 
-        this.emitStreamEndEvents(streamResult);
+          this.emitStreamEndEvents(streamResult);
 
-        return this.createStreamResponse(streamResult, processedStream, {
-          providerName,
-          options,
-          startTime,
-          responseTime,
-          streamId,
-          fallback: metadata.fallbackAttempted,
-          guardrailsBlocked: metadata.guardrailsBlocked,
-          error: metadata.error,
-          events: eventSequence,
-        });
-      } catch (error) {
-        return this.handleStreamError(
-          error,
-          options,
-          startTime,
-          streamId,
-          undefined,
-          undefined,
-        );
+          return this.createStreamResponse(streamResult, processedStream, {
+            providerName,
+            options,
+            startTime,
+            responseTime,
+            streamId,
+            fallback: metadata.fallbackAttempted,
+            guardrailsBlocked: metadata.guardrailsBlocked,
+            error: metadata.error,
+            events: eventSequence,
+          });
+        } catch (error) {
+          return this.handleStreamError(
+            error,
+            options,
+            startTime,
+            streamId,
+            undefined,
+            undefined,
+          );
+        }
+      });
+    } catch (error) {
+      // End span on error before re-throwing
+      streamSpan.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      if (error instanceof Error) {
+        streamSpan.recordException(error);
       }
-    });
+      streamSpan.end();
+      throw error;
+    }
   }
 
   /**
@@ -4429,6 +5084,48 @@ Current user's request: ${currentInput}`;
 
     // Auto-disable tools for Ollama models that don't support them
     await this.autoDisableOllamaStreamTools(options);
+
+    // RAG Integration: If rag config is provided, prepare the RAG search tool
+    if (options.rag?.files?.length) {
+      try {
+        const { prepareRAGTool } = await import("./rag/ragIntegration.js");
+        const ragResult = await prepareRAGTool(
+          options.rag,
+          options.provider as string | undefined,
+        );
+
+        // Inject the RAG tool into the tools record
+        if (!options.tools) {
+          options.tools = {};
+        }
+        (options.tools as Record<string, unknown>)[ragResult.toolName] =
+          ragResult.tool;
+
+        // Inject RAG-aware system prompt so the AI uses the RAG tool first
+        const ragSystemInstruction = [
+          `\n\nIMPORTANT: You have a tool called "${ragResult.toolName}" that searches through`,
+          `${ragResult.filesLoaded} loaded document(s) containing ${ragResult.chunksIndexed} indexed chunks.`,
+          `ALWAYS use the "${ragResult.toolName}" tool FIRST to answer the user's question before using any other tools.`,
+          `This tool searches your local knowledge base of pre-loaded documents and is the primary source of truth.`,
+          `Do NOT use websearchGrounding or any web search tools when the answer can be found in the loaded documents.`,
+        ].join(" ");
+        options.systemPrompt =
+          (options.systemPrompt || "") + ragSystemInstruction;
+
+        logger.info("[RAG] Tool injected into stream()", {
+          toolName: ragResult.toolName,
+          filesLoaded: ragResult.filesLoaded,
+          chunksIndexed: ragResult.chunksIndexed,
+        });
+      } catch (error) {
+        logger.warn(
+          "[RAG] Failed to prepare RAG tool, continuing without RAG",
+          {
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
+      }
+    }
 
     const factoryResult = processStreamingFactoryOptions(options);
     const enhancedOptions = createCleanStreamOptions(options);
@@ -5916,248 +6613,323 @@ Current user's request: ${currentInput}`;
     const functionTag = "NeuroLink.executeTool";
     const executionStartTime = Date.now();
 
-    // Debug: Log tool execution attempt
-    logger.debug(`[${functionTag}] Tool execution requested:`, {
-      toolName,
-      params: isNonNullObject(params)
-        ? transformParamsForLogging(params)
-        : params,
-      hasExternalManager: !!this.externalServerManager,
-    });
+    // Determine tool type for span attributes
+    const externalTools = this.externalServerManager.getAllTools();
+    const externalTool = externalTools.find((tool) => tool.name === toolName);
+    const toolType = externalTool
+      ? "mcp"
+      : this.getCustomTools().has(toolName)
+        ? "custom"
+        : "external";
 
-    // 🔧 PARAMETER TRACE: Log tool execution details for debugging
-    logger.debug(`Tool execution detailed analysis`, {
-      toolName,
-      executionStartTime,
-      paramsAnalysis: {
-        type: typeof params,
-        isNull: params === null,
-        isUndefined: params === undefined,
-        isEmpty:
-          params &&
-          typeof params === "object" &&
-          Object.keys(params as object).length === 0,
-        keys:
-          params && typeof params === "object"
-            ? Object.keys(params as object)
-            : "NOT_OBJECT",
-        keysLength:
-          params && typeof params === "object"
-            ? Object.keys(params as object).length
-            : 0,
+    // Compute truncated input size for the span
+    const inputStr =
+      typeof params === "string"
+        ? params
+        : params
+          ? JSON.stringify(params)
+          : "";
+    const inputSize = inputStr.length;
+    const truncatedInput =
+      inputStr.length > 2048 ? inputStr.substring(0, 2048) : inputStr;
+
+    return tracers.mcp.startActiveSpan(
+      "neurolink.tool.execute",
+      {
+        attributes: {
+          "tool.name": toolName,
+          "tool.type": toolType,
+          "tool.input_size": inputSize,
+          "tool.input_preview": truncatedInput,
+        },
       },
-      isTargetTool: toolName === "juspay-analytics_SuccessRateSRByTime",
-      options,
-      hasExternalManager: !!this.externalServerManager,
-    });
+      async (toolSpan) => {
+        try {
+          // Debug: Log tool execution attempt
+          logger.debug(`[${functionTag}] Tool execution requested:`, {
+            toolName,
+            params: isNonNullObject(params)
+              ? transformParamsForLogging(params)
+              : params,
+            hasExternalManager: !!this.externalServerManager,
+          });
 
-    // Emit tool start event (NeuroLink format - keep existing)
-    this.emitter.emit("tool:start", {
-      toolName,
-      timestamp: executionStartTime,
-      input: params, // Enhanced: add input parameters
-    });
+          // 🔧 PARAMETER TRACE: Log tool execution details for debugging
+          logger.debug(`Tool execution detailed analysis`, {
+            toolName,
+            executionStartTime,
+            paramsAnalysis: {
+              type: typeof params,
+              isNull: params === null,
+              isUndefined: params === undefined,
+              isEmpty:
+                params &&
+                typeof params === "object" &&
+                Object.keys(params as object).length === 0,
+              keys:
+                params && typeof params === "object"
+                  ? Object.keys(params as object)
+                  : "NOT_OBJECT",
+              keysLength:
+                params && typeof params === "object"
+                  ? Object.keys(params as object).length
+                  : 0,
+            },
+            isTargetTool: toolName === "juspay-analytics_SuccessRateSRByTime",
+            options,
+            hasExternalManager: !!this.externalServerManager,
+          });
 
-    // ADD: Bedrock-compatible tool:start event (positional parameters)
-    this.emitter.emit("tool:start", toolName, params);
+          // Emit tool start event (NeuroLink format - keep existing)
+          this.emitter.emit("tool:start", {
+            toolName,
+            timestamp: executionStartTime,
+            input: params, // Enhanced: add input parameters
+          });
 
-    // Set default options
-    const finalOptions = {
-      timeout: options?.timeout || TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS, // 30 second default timeout
-      maxRetries: options?.maxRetries || RETRY_ATTEMPTS.DEFAULT, // Default 2 retries for retriable errors
-      retryDelayMs: options?.retryDelayMs || RETRY_DELAYS.BASE_MS, // 1 second delay between retries
-      authContext: options?.authContext, // Pass through authentication context
-    };
+          // Set default options
+          const finalOptions = {
+            timeout: options?.timeout || TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS, // 30 second default timeout
+            maxRetries: options?.maxRetries || RETRY_ATTEMPTS.DEFAULT, // Default 2 retries for retriable errors
+            retryDelayMs: options?.retryDelayMs || RETRY_DELAYS.BASE_MS, // 1 second delay between retries
+            authContext: options?.authContext, // Pass through authentication context
+          };
 
-    // Track memory usage for tool execution
-    const { MemoryManager } = await import("./utils/performance.js");
-    const startMemory = MemoryManager.getMemoryUsageMB();
+          // Track memory usage for tool execution
+          const { MemoryManager } = await import("./utils/performance.js");
+          const startMemory = MemoryManager.getMemoryUsageMB();
 
-    // Get or create circuit breaker for this tool
-    if (!this.toolCircuitBreakers.has(toolName)) {
-      this.toolCircuitBreakers.set(
-        toolName,
-        new CircuitBreaker(
-          CIRCUIT_BREAKER.FAILURE_THRESHOLD,
-          CIRCUIT_BREAKER_RESET_MS,
-        ),
-      );
-    }
-    const circuitBreaker = this.toolCircuitBreakers.get(toolName);
-
-    // Initialize metrics for this tool if not exists
-    if (!this.toolExecutionMetrics.has(toolName)) {
-      this.toolExecutionMetrics.set(toolName, {
-        totalExecutions: 0,
-        successfulExecutions: 0,
-        failedExecutions: 0,
-        averageExecutionTime: 0,
-        lastExecutionTime: 0,
-      });
-    }
-    const metrics = this.toolExecutionMetrics.get(toolName);
-    if (metrics) {
-      metrics.totalExecutions++;
-    }
-
-    try {
-      mcpLogger.debug(`[${functionTag}] Executing tool: ${toolName}`, {
-        toolName,
-        params,
-        options: finalOptions,
-        circuitBreakerState: circuitBreaker?.getState(),
-      });
-
-      // Execute with circuit breaker, timeout, and retry logic
-      if (!circuitBreaker) {
-        throw new Error(
-          `Circuit breaker not initialized for tool: ${toolName}`,
-        );
-      }
-      const result: T = await circuitBreaker.execute(async () => {
-        return await withRetry(
-          async () => {
-            return await withTimeout(
-              this.executeToolInternal<T>(toolName, params, finalOptions),
-              finalOptions.timeout,
-              ErrorFactory.toolTimeout(toolName, finalOptions.timeout),
+          // Get or create circuit breaker for this tool
+          if (!this.toolCircuitBreakers.has(toolName)) {
+            this.toolCircuitBreakers.set(
+              toolName,
+              new CircuitBreaker(
+                CIRCUIT_BREAKER.FAILURE_THRESHOLD,
+                CIRCUIT_BREAKER_RESET_MS,
+              ),
             );
-          },
-          {
-            maxAttempts: finalOptions.maxRetries + 1, // +1 for initial attempt
-            delayMs: finalOptions.retryDelayMs,
-            isRetriable: isRetriableError,
-            onRetry: (attempt, error) => {
-              mcpLogger.warn(
-                `[${functionTag}] Retrying tool execution (attempt ${attempt})`,
+          }
+          const circuitBreaker = this.toolCircuitBreakers.get(toolName);
+
+          // Initialize metrics for this tool if not exists
+          if (!this.toolExecutionMetrics.has(toolName)) {
+            this.toolExecutionMetrics.set(toolName, {
+              totalExecutions: 0,
+              successfulExecutions: 0,
+              failedExecutions: 0,
+              averageExecutionTime: 0,
+              lastExecutionTime: 0,
+            });
+          }
+          const metrics = this.toolExecutionMetrics.get(toolName);
+          if (metrics) {
+            metrics.totalExecutions++;
+          }
+
+          try {
+            mcpLogger.debug(`[${functionTag}] Executing tool: ${toolName}`, {
+              toolName,
+              params,
+              options: finalOptions,
+              circuitBreakerState: circuitBreaker?.getState(),
+            });
+
+            // Execute with circuit breaker, timeout, and retry logic
+            if (!circuitBreaker) {
+              throw new Error(
+                `Circuit breaker not initialized for tool: ${toolName}`,
+              );
+            }
+            const result: T = await circuitBreaker.execute(async () => {
+              return await withRetry(
+                async () => {
+                  return await withTimeout(
+                    this.executeToolInternal<T>(toolName, params, finalOptions),
+                    finalOptions.timeout,
+                    ErrorFactory.toolTimeout(toolName, finalOptions.timeout),
+                  );
+                },
                 {
-                  toolName,
-                  error: error.message,
-                  attempt,
+                  maxAttempts: finalOptions.maxRetries + 1, // +1 for initial attempt
+                  delayMs: finalOptions.retryDelayMs,
+                  isRetriable: isRetriableError,
+                  onRetry: (attempt, error) => {
+                    mcpLogger.warn(
+                      `[${functionTag}] Retrying tool execution (attempt ${attempt})`,
+                      {
+                        toolName,
+                        error: error.message,
+                        attempt,
+                      },
+                    );
+                  },
                 },
               );
-            },
-          },
-        );
-      });
+            });
 
-      // Update success metrics
-      const executionTime = Date.now() - executionStartTime;
-      if (metrics) {
-        metrics.successfulExecutions++;
-        metrics.lastExecutionTime = executionTime;
-        metrics.averageExecutionTime =
-          (metrics.averageExecutionTime * (metrics.successfulExecutions - 1) +
-            executionTime) /
-          metrics.successfulExecutions;
-      }
+            // Update success metrics
+            const executionTime = Date.now() - executionStartTime;
+            if (metrics) {
+              metrics.successfulExecutions++;
+              metrics.lastExecutionTime = executionTime;
+              metrics.averageExecutionTime =
+                (metrics.averageExecutionTime *
+                  (metrics.successfulExecutions - 1) +
+                  executionTime) /
+                metrics.successfulExecutions;
+            }
 
-      // Track memory usage
-      const endMemory = MemoryManager.getMemoryUsageMB();
-      const memoryDelta = endMemory.heapUsed - startMemory.heapUsed;
+            // Track memory usage
+            const endMemory = MemoryManager.getMemoryUsageMB();
+            const memoryDelta = endMemory.heapUsed - startMemory.heapUsed;
 
-      if (memoryDelta > 20) {
-        mcpLogger.warn(
-          `Tool '${toolName}' used excessive memory: ${memoryDelta}MB`,
-          {
-            toolName,
-            memoryDelta,
-            executionTime,
-          },
-        );
-      }
+            if (memoryDelta > 20) {
+              mcpLogger.warn(
+                `Tool '${toolName}' used excessive memory: ${memoryDelta}MB`,
+                {
+                  toolName,
+                  memoryDelta,
+                  executionTime,
+                },
+              );
+            }
 
-      mcpLogger.debug(`[${functionTag}] Tool executed successfully`, {
-        toolName,
-        executionTime,
-        memoryDelta,
-        circuitBreakerState: circuitBreaker?.getState(),
-      });
+            mcpLogger.debug(`[${functionTag}] Tool executed successfully`, {
+              toolName,
+              executionTime,
+              memoryDelta,
+              circuitBreakerState: circuitBreaker?.getState(),
+            });
 
-      // Emit tool end event using the helper method
-      this.emitToolEndEvent(toolName, executionStartTime, true, result);
+            // Emit tool end event using the helper method
+            this.emitToolEndEvent(toolName, executionStartTime, true, result);
 
-      return result;
-    } catch (error) {
-      // Update failure metrics
-      if (metrics) {
-        metrics.failedExecutions++;
-      }
-      const executionTime = Date.now() - executionStartTime;
+            // Set span success attributes
+            // Check if result has isError flag (MCP tool error result)
+            const isToolError =
+              result &&
+              typeof result === "object" &&
+              "isError" in result &&
+              (result as Record<string, unknown>).isError === true;
+            toolSpan.setAttribute(
+              "tool.result.status",
+              isToolError ? "error" : "success",
+            );
+            toolSpan.setAttribute("tool.duration_ms", executionTime);
 
-      // Create structured error
-      let structuredError: NeuroLinkError;
+            return result;
+          } catch (error) {
+            // Update failure metrics
+            if (metrics) {
+              metrics.failedExecutions++;
+            }
+            const executionTime = Date.now() - executionStartTime;
 
-      if (error instanceof NeuroLinkError) {
-        structuredError = error;
-      } else if (error instanceof Error) {
-        // Categorize the error based on the message
-        if (error.message.includes("timeout")) {
-          structuredError = ErrorFactory.toolTimeout(
-            toolName,
-            finalOptions.timeout,
-          );
-        } else if (error.message.includes("not found")) {
-          const availableTools = await this.getAllAvailableTools();
-          structuredError = ErrorFactory.toolNotFound(
-            toolName,
-            extractToolNames(availableTools.map((t) => ({ name: t.name }))),
-          );
-        } else if (
-          error.message.includes("validation") ||
-          error.message.includes("parameter")
-        ) {
-          structuredError = ErrorFactory.invalidParameters(
-            toolName,
-            error,
-            params,
-          );
-        } else if (
-          error.message.includes("network") ||
-          error.message.includes("connection")
-        ) {
-          structuredError = ErrorFactory.networkError(toolName, error);
-        } else {
-          structuredError = ErrorFactory.toolExecutionFailed(toolName, error);
+            // Create structured error
+            let structuredError: NeuroLinkError;
+
+            if (error instanceof NeuroLinkError) {
+              structuredError = error;
+            } else if (error instanceof Error) {
+              // Categorize the error based on the message
+              if (error.message.includes("timeout")) {
+                structuredError = ErrorFactory.toolTimeout(
+                  toolName,
+                  finalOptions.timeout,
+                );
+              } else if (error.message.includes("not found")) {
+                const availableTools = await this.getAllAvailableTools();
+                structuredError = ErrorFactory.toolNotFound(
+                  toolName,
+                  extractToolNames(
+                    availableTools.map((t) => ({ name: t.name })),
+                  ),
+                );
+              } else if (
+                error.message.includes("validation") ||
+                error.message.includes("parameter")
+              ) {
+                structuredError = ErrorFactory.invalidParameters(
+                  toolName,
+                  error,
+                  params,
+                );
+              } else if (
+                error.message.includes("network") ||
+                error.message.includes("connection")
+              ) {
+                structuredError = ErrorFactory.networkError(toolName, error);
+              } else {
+                structuredError = ErrorFactory.toolExecutionFailed(
+                  toolName,
+                  error,
+                );
+              }
+            } else {
+              structuredError = ErrorFactory.toolExecutionFailed(
+                toolName,
+                new Error(String(error)),
+              );
+            }
+
+            // ADD: Centralized error event emission
+            this.emitter.emit("error", structuredError);
+
+            // Emit tool end event using the helper method
+            this.emitToolEndEvent(
+              toolName,
+              executionStartTime,
+              false,
+              undefined,
+              structuredError,
+            );
+
+            // Add execution context to structured error
+            structuredError = new NeuroLinkError({
+              ...structuredError,
+              context: {
+                ...structuredError.context,
+                executionTime,
+                params,
+                options: finalOptions,
+                circuitBreakerState: circuitBreaker?.getState(),
+                circuitBreakerFailures: circuitBreaker?.getFailureCount(),
+                metrics: { ...metrics },
+              },
+            });
+
+            // Log structured error
+            logStructuredError(structuredError);
+
+            // Record error on span
+            toolSpan.setAttribute("tool.result.status", "error");
+            toolSpan.setAttribute("tool.duration_ms", executionTime);
+            toolSpan.recordException(structuredError);
+            toolSpan.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: structuredError.message,
+            });
+
+            throw structuredError;
+          }
+        } catch (outerError) {
+          // If the error was not already recorded on the span (from inner catch), record it
+          if (!(outerError instanceof NeuroLinkError)) {
+            const errMsg =
+              outerError instanceof Error
+                ? outerError.message
+                : String(outerError);
+            toolSpan.recordException(
+              outerError instanceof Error ? outerError : new Error(errMsg),
+            );
+            toolSpan.setStatus({ code: SpanStatusCode.ERROR, message: errMsg });
+          }
+          throw outerError;
+        } finally {
+          toolSpan.end();
         }
-      } else {
-        structuredError = ErrorFactory.toolExecutionFailed(
-          toolName,
-          new Error(String(error)),
-        );
-      }
-
-      // ADD: Centralized error event emission
-      this.emitter.emit("error", structuredError);
-
-      // Emit tool end event using the helper method
-      this.emitToolEndEvent(
-        toolName,
-        executionStartTime,
-        false,
-        undefined,
-        structuredError,
-      );
-
-      // Add execution context to structured error
-      structuredError = new NeuroLinkError({
-        ...structuredError,
-        context: {
-          ...structuredError.context,
-          executionTime,
-          params,
-          options: finalOptions,
-          circuitBreakerState: circuitBreaker?.getState(),
-          circuitBreakerFailures: circuitBreaker?.getFailureCount(),
-          metrics: { ...metrics },
-        },
-      });
-
-      // Log structured error
-      logStructuredError(structuredError);
-
-      throw structuredError;
-    }
+      },
+    );
   }
 
   /**
@@ -8142,6 +8914,7 @@ Current user's request: ${currentInput}`;
       try {
         logger.debug("[NeuroLink] Resetting initialization state...");
         this.mcpInitialized = false;
+        this.mcpInitPromise = null;
         this.conversationMemoryNeedsInit = false;
         logger.debug("[NeuroLink] Initialization state reset successfully");
       } catch (error) {

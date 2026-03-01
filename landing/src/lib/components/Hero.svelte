@@ -187,12 +187,12 @@
 
       <!-- Heading -->
       <h1 data-hero-headline class="hero-headline">
-        <span class="text-ds-text-primary">The Enterprise AI SDK</span>
+        <span class="text-ds-text-primary">The Complete TypeScript</span>
         <br />
         <span
           class="bg-gradient-to-r from-nl-accent to-nl-accent-lighter bg-clip-text text-transparent"
         >
-          for Production Applications
+          AI SDK
         </span>
       </h1>
 

@@ -17,7 +17,7 @@
   >
     <div class="text-center max-w-[700px] mx-auto">
       <h2 class="section-headline text-ds-text-primary">
-        Start building with NeuroLink
+        Start building AI apps with NeuroLink SDK
       </h2>
       <p
         class="mt-4 text-ds-text-tertiary text-lg leading-relaxed max-w-md mx-auto"

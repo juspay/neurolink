@@ -1121,15 +1121,17 @@ async function testConversationTitleGeneration(
     let titleGenerated = false;
     let generatedTitle = "";
 
-    memorySdk.on(
-      "conversationTitleGenerated",
-      (data: { sessionId: string; title: string }) => {
-        if (data.sessionId === sessionId) {
-          titleGenerated = true;
-          generatedTitle = data.title;
-        }
-      },
-    );
+    memorySdk
+      .getEventEmitter()
+      .on(
+        "conversationTitleGenerated",
+        (data: { sessionId: string; title: string }) => {
+          if (data.sessionId === sessionId) {
+            titleGenerated = true;
+            generatedTitle = data.title;
+          }
+        },
+      );
 
     // Generate a conversation about a specific topic
     await memorySdk.generate({

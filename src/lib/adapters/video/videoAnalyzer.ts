@@ -1,7 +1,7 @@
 /**
  * Video Analysis Handler
  *
- * Provides video analysis using Google's Gemini 2.0 Flash model.
+ * Provides video analysis using Google's Gemini 2.5 Flash model.
  * Supports both Vertex AI and Gemini API providers.
  *
  * @module adapters/video/geminiVideoAnalyzer
@@ -21,7 +21,7 @@ import type { CoreMessage } from "ai";
 // Shared config
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MODEL = "gemini-2.0-flash";
+const DEFAULT_MODEL = "gemini-2.5-flash";
 const DEFAULT_LOCATION = "us-central1";
 
 /**
@@ -308,18 +308,25 @@ export async function analyzeVideo(
   } = {},
 ): Promise<string> {
   const provider = options.provider || AIProviderName.AUTO;
-  // Vertex — only when GOOGLE_VERTEX_PROJECT is explicitly set
-  if (provider === AIProviderName.VERTEX || provider === AIProviderName.AUTO) {
+  // Vertex — only when Vertex credentials are configured
+  if (
+    provider === AIProviderName.VERTEX ||
+    (provider === AIProviderName.AUTO &&
+      (process.env.GOOGLE_VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT))
+  ) {
     return analyzeVideoWithVertexAI(messages, options);
   }
 
-  // Gemini API — when GOOGLE_AI_API_KEY is set
-  if (provider === AIProviderName.GOOGLE_AI && process.env.GOOGLE_AI_API_KEY) {
+  // Gemini API — when Google AI API key is available
+  if (
+    provider === AIProviderName.GOOGLE_AI ||
+    (provider === AIProviderName.AUTO && process.env.GOOGLE_AI_API_KEY)
+  ) {
     return analyzeVideoWithGeminiAPI(messages, options);
   }
 
-  throw new Error(
-    "No valid provider configuration found. " +
-      "Set GOOGLE_VERTEX_PROJECT for Vertex AI or GOOGLE_AI_API_KEY for Gemini API.",
+  throw ErrorFactory.invalidConfiguration(
+    "video analysis provider",
+    "No valid provider configuration found. Set GOOGLE_VERTEX_PROJECT for Vertex AI or GOOGLE_AI_API_KEY for Gemini API.",
   );
 }

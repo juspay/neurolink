@@ -24,13 +24,17 @@ export function hasVideoFrames(messages: CoreMessage[]): boolean {
       return false;
     }
     if (Array.isArray(msg.content)) {
-      return msg.content.some(
+      // Count image parts — only route to video analysis pipeline when there are
+      // multiple frames (3+), indicating actual video frame extraction.
+      // Single images or pairs should use the model's native vision capability.
+      const imageCount = msg.content.filter(
         (part) =>
           typeof part === "object" &&
           part !== null &&
           "type" in part &&
           part.type === "image",
-      );
+      ).length;
+      return imageCount >= 3;
     }
     return false;
   });
@@ -74,7 +78,7 @@ export async function executeVideoAnalysis(
       ? undefined
       : process.env.GOOGLE_VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
     location: options.region || process.env.GOOGLE_VERTEX_LOCATION,
-    model: options.model || "gemini-2.0-flash",
+    model: options.model || "gemini-2.5-flash",
   });
 
   logger.debug("[VideoAnalysisProcessor] Video analysis completed", {

@@ -168,6 +168,12 @@ export class TelemetryService {
   }
 
   // AI Operation Tracing (NO-OP when disabled)
+  /**
+   * @deprecated Vercel AI SDK's experimental_telemetry creates ai.generateText/ai.streamText
+   * spans automatically via OpenTelemetry. Using this method would create duplicate spans.
+   * Kept for potential future use with non-Vercel providers (e.g., Amazon Bedrock).
+   * See: TelemetryHandler.getTelemetryConfig() for the active telemetry path.
+   */
   async traceAIRequest<T>(
     provider: string,
     operation: () => Promise<T>,

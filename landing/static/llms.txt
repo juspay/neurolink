@@ -1,0 +1,33 @@
+# NeuroLink SDK
+
+> NeuroLink is an open-source TypeScript AI SDK providing unified access to 13+ AI providers (OpenAI, Anthropic, Google AI Studio, Google Vertex AI, AWS Bedrock, Azure OpenAI, Mistral, LiteLLM, Ollama, Hugging Face, SageMaker, OpenRouter, and OpenAI-compatible endpoints) through a single consistent API. Ships as TypeScript SDK + CLI with comprehensive multimodal support (50+ file types), RAG (9 chunking strategies, 22 vector stores, hybrid search), MCP integration (58+ servers, 4 transports), multi-agent workflows with 3 topologies, 3-layer memory system, voice processing (8 TTS + 6 STT providers), workflow engine with checkpointing, and enterprise observability. Extracted from production systems at Juspay. MIT licensed.
+
+## Getting Started
+
+- [Installation & Quick Start](https://docs.neurolink.ink/docs/getting-started): Install via npm and make your first API call in 4 lines of TypeScript
+- [Provider Setup](https://docs.neurolink.ink/docs/providers): Configure any of 13+ supported AI providers
+
+## Core Features
+
+- [RAG Processing](https://docs.neurolink.ink/docs/rag/overview): 9 chunking strategies, 22 vector stores, hybrid search (BM25 + vector), 5 rerankers
+- [MCP Integration](https://docs.neurolink.ink/docs/mcp/overview): 58+ external servers, 4 transport types (stdio, HTTP, SSE, WebSocket), ToolRouter, ToolCache, RequestBatcher
+- [Multi-Agent Systems](https://docs.neurolink.ink/docs/agents/overview): 3 topologies (hub-spoke, mesh, pipeline), AgentNetwork orchestration
+- [Streaming](https://docs.neurolink.ink/docs/advanced/streaming): 24 event types, backpressure control, real-time processing
+- [Voice](https://docs.neurolink.ink/docs/features/voice): 8 TTS providers, 6 STT providers, speech-to-speech pipeline
+- [Multimodal](https://docs.neurolink.ink/docs/features/multimodal): 50+ file types — images, PDFs, CSV, Excel, Word, code, video, audio, archives
+- [Memory](https://docs.neurolink.ink/docs/features/memory): 3-layer architecture — conversation history, semantic recall, working memory
+- [Workflows](https://docs.neurolink.ink/docs/workflows/overview): Visual workflow engine with checkpointing and human-in-the-loop
+- [Observability](https://docs.neurolink.ink/docs/features/observability): Langfuse integration, OpenTelemetry, 14 evaluation scorers
+- [Context Compaction](https://docs.neurolink.ink/docs/advanced/context-compaction): 4-stage pipeline — tool pruning, dedup, summarization, sliding window
+
+## API Reference
+
+- [SDK API Reference](https://docs.neurolink.ink/docs/sdk/api-reference): Complete TypeScript type documentation
+- [CLI Commands](https://docs.neurolink.ink/docs/cli/commands): Full CLI reference with flags and options
+
+## Links
+
+- [npm Package](https://www.npmjs.com/package/@juspay/neurolink): @juspay/neurolink
+- [GitHub Repository](https://github.com/juspay/neurolink): Source code, issues, discussions
+- [Blog](https://blog.neurolink.ink): Technical articles and updates
+- [Juspay](https://juspay.io): The company behind NeuroLink

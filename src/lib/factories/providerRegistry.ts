@@ -25,6 +25,7 @@ import {
  */
 export class ProviderRegistry {
   private static registered = false;
+  private static registrationPromise: Promise<void> | null = null;
   private static options: ProviderRegistryOptions = {
     enableManualMCP: false, // Default to disabled for safety
   };
@@ -36,7 +37,23 @@ export class ProviderRegistry {
     if (this.registered) {
       return;
     }
+    if (this.registrationPromise) {
+      return this.registrationPromise;
+    }
 
+    this.registrationPromise = this._doRegister();
+    try {
+      await this.registrationPromise;
+    } catch (error) {
+      this.registrationPromise = null; // Allow retry on failure
+      throw error;
+    }
+  }
+
+  /**
+   * Internal registration implementation
+   */
+  private static async _doRegister(): Promise<void> {
     try {
       // Register providers with dynamic import factory functions
       const { ProviderFactory } = await import("./providerFactory.js");
@@ -89,7 +106,7 @@ export class ProviderRegistry {
           );
           return new AnthropicProvider(modelName, sdk as NeuroLink | undefined);
         },
-        AnthropicModels.CLAUDE_SONNET_4_0,
+        AnthropicModels.CLAUDE_SONNET_4_6,
         ["claude", "anthropic"],
       );
 
@@ -158,7 +175,7 @@ export class ProviderRegistry {
             region,
           );
         },
-        VertexModels.CLAUDE_4_0_SONNET,
+        VertexModels.CLAUDE_4_6_SONNET,
         ["vertex", "googleVertex"],
       );
 
@@ -325,6 +342,7 @@ export class ProviderRegistry {
   static clearRegistrations(): void {
     ProviderFactory.clearRegistrations();
     this.registered = false;
+    this.registrationPromise = null;
   }
 
   /**

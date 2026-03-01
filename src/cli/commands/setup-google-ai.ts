@@ -22,6 +22,7 @@ import {
 } from "../utils/envManager.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
 import { AIProviderName } from "../../lib/types/index.js";
+import { maskCredential } from "../utils/maskCredential.js";
 
 type GoogleAISetupOptions = {
   checkOnly?: boolean;
@@ -410,21 +411,6 @@ async function updateEnvFile(config: GoogleAIConfig): Promise<void> {
     );
     throw error;
   }
-}
-
-/**
- * Mask API key for display
- */
-function maskCredential(credential: string): string {
-  if (!credential || credential.length < 8) {
-    return "****";
-  }
-
-  const start = credential.slice(0, 7); // Show 'AIza' plus a few chars
-  const end = credential.slice(-4);
-  const middle = "*".repeat(Math.max(4, credential.length - 11));
-
-  return `${start}${middle}${end}`;
 }
 
 /**

@@ -429,6 +429,21 @@ export type StreamOptions = {
   enableSummarization?: boolean; // Enable/disable summarization for this specific request
 
   /**
+   * Maximum cumulative cost (USD) for this session.
+   * Once the session spend reaches this limit, subsequent stream() calls
+   * will throw a SESSION_BUDGET_EXCEEDED error instead of making API calls.
+   *
+   * @example
+   * ```typescript
+   * const result = await neurolink.stream({
+   *   input: { text: "Summarize this" },
+   *   maxBudgetUsd: 1.00
+   * });
+   * ```
+   */
+  maxBudgetUsd?: number;
+
+  /**
    * RAG (Retrieval-Augmented Generation) configuration.
    *
    * When provided, NeuroLink automatically loads the specified files, chunks them,

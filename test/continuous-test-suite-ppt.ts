@@ -756,9 +756,17 @@ async function testSlideRenderersAllTypes(
       },
     );
 
-    if (!success && error && isExpectedProviderError(error)) {
-      logTest("SDK Generate - Slide Renderers All Types", "SKIP", error);
-      return null;
+    if (!success) {
+      if (error && isExpectedProviderError(error)) {
+        logTest("SDK Generate - Slide Renderers All Types", "SKIP", error);
+        return null;
+      }
+      logTest(
+        "SDK Generate - Slide Renderers All Types",
+        "FAIL",
+        error || "Unknown error",
+      );
+      return false;
     }
 
     logTest(
@@ -766,7 +774,7 @@ async function testSlideRenderersAllTypes(
       "PASS",
       `${foundRenderers.length}/${requiredRenderers.length} renderers found`,
     );
-    return null;
+    return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {

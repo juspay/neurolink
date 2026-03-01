@@ -869,6 +869,16 @@ export type PruneResult = {
 /** Configuration for sliding window truncation (Stage 4). */
 export type TruncationConfig = {
   fraction?: number; // Default: 0.5 (hide oldest 50%)
+  /** Current estimated tokens (enables adaptive mode) */
+  currentTokens?: number;
+  /** Target token budget (enables adaptive mode) */
+  targetTokens?: number;
+  /** Provider for token estimation (enables adaptive mode) */
+  provider?: string;
+  /** Buffer above required reduction (default: 0.15 = 15%) */
+  adaptiveBuffer?: number;
+  /** Maximum iterations for adaptive truncation (default: 3) */
+  maxIterations?: number;
 };
 
 /** Result of sliding window truncation (Stage 4). */

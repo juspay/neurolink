@@ -6,6 +6,7 @@ import {
   ErrorSeverity,
   GoogleAIModels,
 } from "../constants/enums.js";
+import { estimateTokens } from "../utils/tokenEstimation.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
@@ -35,6 +36,7 @@ import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import { ERROR_CODES, NeuroLinkError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import { isGemini3Model } from "../utils/modelDetection.js";
+import { tracers, ATTR, withClientSpan } from "../telemetry/index.js";
 import {
   composeAbortSignals,
   createTimeoutController,
@@ -499,11 +501,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
   }
 
   /**
-   * Estimate token count from text (simple character-based estimation)
+   * Estimate token count from text using centralized estimation with provider multipliers
    */
   private estimateTokenCount(text: string): number {
-    // Rough estimation: ~4 characters per token
-    return Math.ceil(text.length / 4);
+    return estimateTokens(text, "google-ai");
   }
 
   // executeGenerate removed - BaseProvider handles all generation with tools
@@ -546,16 +547,25 @@ export class GoogleAIStudioProvider extends BaseProvider {
         mergedOptions = { ...mergedOptions, disableTools: true, tools: {} };
       }
 
-      logger.info(
-        "[GoogleAIStudio] Routing Gemini 3 to native SDK for tool calling",
-        {
-          model: gemini3CheckModelName,
-          optionToolCount: Object.keys(optionTools).length,
-          sdkToolCount: Object.keys(sdkTools).length,
-          totalToolCount: combinedToolCount,
-        },
-      );
-      return this.executeNativeGemini3Stream(mergedOptions);
+      // Only route to native path if tools are still active after conflict check
+      const hasActiveTools =
+        !mergedOptions.disableTools &&
+        mergedOptions.tools &&
+        Object.keys(mergedOptions.tools).length > 0;
+      if (hasActiveTools) {
+        logger.info(
+          "[GoogleAIStudio] Routing Gemini 3 to native SDK for tool calling",
+          {
+            model: gemini3CheckModelName,
+            optionToolCount: Object.keys(optionTools).length,
+            sdkToolCount: Object.keys(sdkTools).length,
+            totalToolCount: combinedToolCount,
+          },
+        );
+        return this.executeNativeGemini3Stream(mergedOptions);
+      }
+      // Fall through to standard stream path using merged options (tools disabled for schema)
+      options = mergedOptions;
     }
 
     // Phase 1: if audio input present, bridge to Gemini Live (Studio) using @google/genai
@@ -684,176 +694,221 @@ export class GoogleAIStudioProvider extends BaseProvider {
   private async executeNativeGemini3Stream(
     options: StreamOptions,
   ): Promise<StreamResult> {
-    const startTime = Date.now();
-    const timeout = this.getTimeout(options);
-    const timeoutController = createTimeoutController(
-      timeout,
-      this.providerName,
-      "stream",
-    );
-
-    const apiKey = this.getApiKey();
-    const client = await createGoogleGenAIClient(apiKey);
     const modelName = options.model || this.modelName;
 
-    logger.debug("[GoogleAIStudio] Using native @google/genai for Gemini 3", {
-      model: modelName,
-      hasTools: !!options.tools && Object.keys(options.tools).length > 0,
-    });
-
-    // Build contents from input
-    const currentContents: Array<{
-      role: string;
-      parts: unknown[];
-    }> = [{ role: "user", parts: [{ text: options.input.text }] }];
-
-    // Convert tools
-    let toolsConfig: NativeToolsConfig | undefined;
-    let executeMap = new Map<string, Tool["execute"]>();
-
-    if (
-      options.tools &&
-      Object.keys(options.tools).length > 0 &&
-      !options.disableTools
-    ) {
-      const result = buildNativeToolDeclarations(options.tools);
-      toolsConfig = result.toolsConfig;
-      executeMap = result.executeMap;
-
-      logger.debug("[GoogleAIStudio] Converted tools for native SDK", {
-        toolCount: toolsConfig[0].functionDeclarations.length,
-        toolNames: toolsConfig[0].functionDeclarations.map((t) => t.name),
-      });
-    }
-
-    const config = buildNativeConfig(options, toolsConfig);
-    const maxSteps = computeMaxSteps(options.maxSteps);
-
-    let finalText = "";
-    let lastStepText = "";
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-    const allToolCalls: Array<{
-      toolName: string;
-      args: Record<string, unknown>;
-    }> = [];
-    let step = 0;
-    const failedTools = new Map<string, { count: number; lastError: string }>();
-
-    // Compose abort signal from user signal + timeout
-    const composedSignal = composeAbortSignals(
-      options.abortSignal,
-      timeoutController?.controller.signal,
-    );
-
-    try {
-      // Agentic loop for tool calling
-      while (step < maxSteps) {
-        if (composedSignal?.aborted) {
-          break;
-        }
-        step++;
-        logger.debug(`[GoogleAIStudio] Native SDK step ${step}/${maxSteps}`);
+    return withClientSpan(
+      {
+        name: "neurolink.provider.stream",
+        tracer: tracers.provider,
+        attributes: {
+          [ATTR.GEN_AI_SYSTEM]: "google-ai",
+          [ATTR.GEN_AI_MODEL]: modelName,
+          [ATTR.GEN_AI_OPERATION]: "stream",
+          [ATTR.NL_PROVIDER]: this.providerName,
+        },
+      },
+      async (span) => {
+        const startTime = Date.now();
+        const timeout = this.getTimeout(options);
+        const timeoutController = createTimeoutController(
+          timeout,
+          this.providerName,
+          "stream",
+        );
 
         try {
-          const stream = await client.models.generateContentStream({
-            model: modelName,
-            contents: currentContents,
-            config,
-            ...(composedSignal
-              ? { httpOptions: { signal: composedSignal } }
-              : {}),
-          });
-
-          const chunkResult = await collectStreamChunks(stream);
-          totalInputTokens += chunkResult.inputTokens;
-          totalOutputTokens += chunkResult.outputTokens;
-
-          const stepText = extractTextFromParts(chunkResult.rawResponseParts);
-
-          // If no function calls, we're done
-          if (chunkResult.stepFunctionCalls.length === 0) {
-            finalText = stepText;
-            break;
-          }
-
-          lastStepText = stepText;
+          const apiKey = this.getApiKey();
+          const client = await createGoogleGenAIClient(apiKey);
 
           logger.debug(
-            `[GoogleAIStudio] Executing ${chunkResult.stepFunctionCalls.length} function calls`,
+            "[GoogleAIStudio] Using native @google/genai for Gemini 3",
+            {
+              model: modelName,
+              hasTools:
+                !!options.tools && Object.keys(options.tools).length > 0,
+            },
           );
 
-          // Add model response with ALL parts (including thoughtSignature) to history
-          pushModelResponseToHistory(
-            currentContents,
-            chunkResult.rawResponseParts,
-            chunkResult.stepFunctionCalls,
-          );
+          // Build contents from input
+          const currentContents: Array<{
+            role: string;
+            parts: unknown[];
+          }> = [{ role: "user", parts: [{ text: options.input.text }] }];
 
-          const functionResponses = await executeNativeToolCalls(
+          // Convert tools
+          let toolsConfig: NativeToolsConfig | undefined;
+          let executeMap = new Map<string, Tool["execute"]>();
+
+          if (
+            options.tools &&
+            Object.keys(options.tools).length > 0 &&
+            !options.disableTools
+          ) {
+            const result = buildNativeToolDeclarations(options.tools);
+            toolsConfig = result.toolsConfig;
+            executeMap = result.executeMap;
+
+            logger.debug("[GoogleAIStudio] Converted tools for native SDK", {
+              toolCount: toolsConfig[0].functionDeclarations.length,
+              toolNames: toolsConfig[0].functionDeclarations.map((t) => t.name),
+            });
+          }
+
+          const config = buildNativeConfig(options, toolsConfig);
+          const maxSteps = computeMaxSteps(options.maxSteps);
+
+          let finalText = "";
+          let lastStepText = "";
+          let totalInputTokens = 0;
+          let totalOutputTokens = 0;
+          const allToolCalls: Array<{
+            toolName: string;
+            args: Record<string, unknown>;
+          }> = [];
+          let step = 0;
+          const failedTools = new Map<
+            string,
+            { count: number; lastError: string }
+          >();
+
+          // Compose abort signal from user signal + timeout
+          const composedSignal = composeAbortSignals(
+            options.abortSignal,
+            timeoutController?.controller.signal,
+          );
+          // Agentic loop for tool calling
+          while (step < maxSteps) {
+            if (composedSignal?.aborted) {
+              throw composedSignal.reason instanceof Error
+                ? composedSignal.reason
+                : new Error("Request aborted");
+            }
+            step++;
+            logger.debug(
+              `[GoogleAIStudio] Native SDK step ${step}/${maxSteps}`,
+            );
+
+            try {
+              const stream = await client.models.generateContentStream({
+                model: modelName,
+                contents: currentContents,
+                config,
+                ...(composedSignal
+                  ? { httpOptions: { signal: composedSignal } }
+                  : {}),
+              });
+
+              const chunkResult = await collectStreamChunks(stream);
+              totalInputTokens += chunkResult.inputTokens;
+              totalOutputTokens += chunkResult.outputTokens;
+
+              const stepText = extractTextFromParts(
+                chunkResult.rawResponseParts,
+              );
+
+              // If no function calls, we're done
+              if (chunkResult.stepFunctionCalls.length === 0) {
+                finalText = stepText;
+                break;
+              }
+
+              lastStepText = stepText;
+
+              // Record tool call events on the span
+              for (const fc of chunkResult.stepFunctionCalls) {
+                span.addEvent("gen_ai.tool_call", {
+                  "tool.name": fc.name as string,
+                  "tool.step": step,
+                });
+              }
+
+              logger.debug(
+                `[GoogleAIStudio] Executing ${chunkResult.stepFunctionCalls.length} function calls`,
+              );
+
+              // Add model response with ALL parts (including thoughtSignature) to history
+              pushModelResponseToHistory(
+                currentContents,
+                chunkResult.rawResponseParts,
+                chunkResult.stepFunctionCalls,
+              );
+
+              const functionResponses = await executeNativeToolCalls(
+                "[GoogleAIStudio]",
+                chunkResult.stepFunctionCalls,
+                executeMap,
+                failedTools,
+                allToolCalls,
+                { abortSignal: composedSignal },
+              );
+
+              // Add function responses to history
+              currentContents.push({
+                role: "function",
+                parts: functionResponses as unknown[],
+              });
+            } catch (error) {
+              logger.error("[GoogleAIStudio] Native SDK error", error);
+              throw this.handleProviderError(error);
+            }
+          }
+
+          finalText = handleMaxStepsTermination(
             "[GoogleAIStudio]",
-            chunkResult.stepFunctionCalls,
-            executeMap,
-            failedTools,
-            allToolCalls,
-            { abortSignal: composedSignal },
+            step,
+            maxSteps,
+            finalText,
+            lastStepText,
           );
 
-          // Add function responses to history
-          currentContents.push({
-            role: "function",
-            parts: functionResponses as unknown[],
-          });
-        } catch (error) {
-          logger.error("[GoogleAIStudio] Native SDK error", error);
-          throw this.handleProviderError(error);
+          const responseTime = Date.now() - startTime;
+
+          // Set token usage and finish reason on the span
+          span.setAttribute(ATTR.GEN_AI_INPUT_TOKENS, totalInputTokens);
+          span.setAttribute(ATTR.GEN_AI_OUTPUT_TOKENS, totalOutputTokens);
+          span.setAttribute(
+            ATTR.GEN_AI_FINISH_REASON,
+            step >= maxSteps ? "max_steps" : "stop",
+          );
+
+          // Create async iterable for streaming result
+          async function* createTextStream(): AsyncIterable<{
+            content: string;
+          }> {
+            yield { content: finalText };
+          }
+
+          return {
+            stream: createTextStream(),
+            provider: this.providerName,
+            model: modelName,
+            toolCalls: allToolCalls.map((tc) => ({
+              toolName: tc.toolName,
+              args: tc.args,
+            })),
+            analytics: Promise.resolve({
+              provider: this.providerName,
+              model: modelName,
+              tokenUsage: {
+                input: totalInputTokens,
+                output: totalOutputTokens,
+                total: totalInputTokens + totalOutputTokens,
+              },
+              requestDuration: responseTime,
+              timestamp: new Date().toISOString(),
+            }),
+            metadata: {
+              streamId: `native-${Date.now()}`,
+              startTime,
+              responseTime,
+              totalToolExecutions: allToolCalls.length,
+            },
+          };
+        } finally {
+          timeoutController?.cleanup();
         }
-      }
-    } finally {
-      timeoutController?.cleanup();
-    }
-
-    finalText = handleMaxStepsTermination(
-      "[GoogleAIStudio]",
-      step,
-      maxSteps,
-      finalText,
-      lastStepText,
-    );
-
-    const responseTime = Date.now() - startTime;
-
-    // Create async iterable for streaming result
-    async function* createTextStream(): AsyncIterable<{ content: string }> {
-      yield { content: finalText };
-    }
-
-    return {
-      stream: createTextStream(),
-      provider: this.providerName,
-      model: modelName,
-      toolCalls: allToolCalls.map((tc) => ({
-        toolName: tc.toolName,
-        args: tc.args,
-      })),
-      analytics: Promise.resolve({
-        provider: this.providerName,
-        model: modelName,
-        tokenUsage: {
-          input: totalInputTokens,
-          output: totalOutputTokens,
-          total: totalInputTokens + totalOutputTokens,
-        },
-        requestDuration: responseTime,
-        timestamp: new Date().toISOString(),
-      }),
-      metadata: {
-        streamId: `native-${Date.now()}`,
-        startTime,
-        responseTime,
-        totalToolExecutions: allToolCalls.length,
       },
-    };
+    );
   }
 
   /**
@@ -863,175 +918,217 @@ export class GoogleAIStudioProvider extends BaseProvider {
   private async executeNativeGemini3Generate(
     options: TextGenerationOptions,
   ): Promise<EnhancedGenerateResult> {
-    const apiKey = this.getApiKey();
-    const client = await createGoogleGenAIClient(apiKey);
     const modelName = options.model || this.modelName;
 
-    logger.debug(
-      "[GoogleAIStudio] Using native @google/genai for Gemini 3 generate",
+    return withClientSpan(
       {
-        model: modelName,
-        hasTools: !!options.tools && Object.keys(options.tools).length > 0,
+        name: "neurolink.provider.generate",
+        tracer: tracers.provider,
+        attributes: {
+          [ATTR.GEN_AI_SYSTEM]: "google-ai",
+          [ATTR.GEN_AI_MODEL]: modelName,
+          [ATTR.GEN_AI_OPERATION]: "generate",
+          [ATTR.NL_PROVIDER]: this.providerName,
+        },
       },
-    );
-
-    // Build contents from input
-    const promptText = options.prompt || options.input?.text || "";
-    const currentContents: Array<{
-      role: string;
-      parts: unknown[];
-    }> = [{ role: "user", parts: [{ text: promptText }] }];
-
-    // Convert tools (merge SDK tools with options.tools)
-    let toolsConfig: NativeToolsConfig | undefined;
-    let executeMap = new Map<string, Tool["execute"]>();
-
-    const shouldUseTools = !options.disableTools;
-    if (shouldUseTools) {
-      const sdkTools = await this.getAllTools();
-      const mergedTools = { ...sdkTools, ...(options.tools || {}) };
-
-      if (Object.keys(mergedTools).length > 0) {
-        const result = buildNativeToolDeclarations(mergedTools);
-        toolsConfig = result.toolsConfig;
-        executeMap = result.executeMap;
-
-        logger.debug(
-          "[GoogleAIStudio] Converted tools for native SDK generate",
-          {
-            toolCount: toolsConfig[0].functionDeclarations.length,
-            toolNames: toolsConfig[0].functionDeclarations.map((t) => t.name),
-          },
-        );
-      }
-    }
-
-    const config = buildNativeConfig(options, toolsConfig);
-
-    const startTime = Date.now();
-    const timeout = this.getTimeout(options);
-    const timeoutController = createTimeoutController(
-      timeout,
-      this.providerName,
-      "generate",
-    );
-    const composedSignal = composeAbortSignals(
-      options.abortSignal,
-      timeoutController?.controller.signal,
-    );
-    const maxSteps = computeMaxSteps(options.maxSteps);
-
-    let finalText = "";
-    let lastStepText = "";
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-    const allToolCalls: Array<{
-      toolName: string;
-      args: Record<string, unknown>;
-    }> = [];
-    const toolExecutions: Array<{
-      name: string;
-      input: Record<string, unknown>;
-      output: unknown;
-    }> = [];
-    let step = 0;
-    const failedTools = new Map<string, { count: number; lastError: string }>();
-
-    try {
-      // Agentic loop for tool calling
-      while (step < maxSteps) {
-        if (composedSignal?.aborted) {
-          break;
-        }
-        step++;
-        logger.debug(
-          `[GoogleAIStudio] Native SDK generate step ${step}/${maxSteps}`,
+      async (span) => {
+        const startTime = Date.now();
+        const timeout = this.getTimeout(options);
+        const timeoutController = createTimeoutController(
+          timeout,
+          this.providerName,
+          "generate",
         );
 
         try {
-          const stream = await client.models.generateContentStream({
-            model: modelName,
-            contents: currentContents,
-            config,
-            ...(composedSignal
-              ? { httpOptions: { signal: composedSignal } }
-              : {}),
-          });
-
-          const chunkResult = await collectStreamChunks(stream);
-          totalInputTokens += chunkResult.inputTokens;
-          totalOutputTokens += chunkResult.outputTokens;
-
-          const stepText = extractTextFromParts(chunkResult.rawResponseParts);
-
-          // If no function calls, we're done
-          if (chunkResult.stepFunctionCalls.length === 0) {
-            finalText = stepText;
-            break;
-          }
-
-          lastStepText = stepText;
+          const apiKey = this.getApiKey();
+          const client = await createGoogleGenAIClient(apiKey);
 
           logger.debug(
-            `[GoogleAIStudio] Executing ${chunkResult.stepFunctionCalls.length} function calls in generate`,
+            "[GoogleAIStudio] Using native @google/genai for Gemini 3 generate",
+            {
+              model: modelName,
+              hasTools:
+                !!options.tools && Object.keys(options.tools).length > 0,
+            },
           );
 
-          // Add model response with ALL parts (including thoughtSignature) to history
-          // This is critical for Gemini 3 - it requires thought signatures in subsequent turns
-          pushModelResponseToHistory(
-            currentContents,
-            chunkResult.rawResponseParts,
-            chunkResult.stepFunctionCalls,
-          );
+          // Build contents from input
+          const promptText = options.prompt || options.input?.text || "";
+          const currentContents: Array<{
+            role: string;
+            parts: unknown[];
+          }> = [{ role: "user", parts: [{ text: promptText }] }];
 
-          const functionResponses = await executeNativeToolCalls(
+          // Convert tools (merge SDK tools with options.tools)
+          let toolsConfig: NativeToolsConfig | undefined;
+          let executeMap = new Map<string, Tool["execute"]>();
+
+          const shouldUseTools = !options.disableTools;
+          if (shouldUseTools) {
+            const sdkTools = await this.getAllTools();
+            const mergedTools = { ...sdkTools, ...(options.tools || {}) };
+
+            if (Object.keys(mergedTools).length > 0) {
+              const result = buildNativeToolDeclarations(mergedTools);
+              toolsConfig = result.toolsConfig;
+              executeMap = result.executeMap;
+
+              logger.debug(
+                "[GoogleAIStudio] Converted tools for native SDK generate",
+                {
+                  toolCount: toolsConfig[0].functionDeclarations.length,
+                  toolNames: toolsConfig[0].functionDeclarations.map(
+                    (t) => t.name,
+                  ),
+                },
+              );
+            }
+          }
+
+          const config = buildNativeConfig(options, toolsConfig);
+
+          const composedSignal = composeAbortSignals(
+            options.abortSignal,
+            timeoutController?.controller.signal,
+          );
+          const maxSteps = computeMaxSteps(options.maxSteps);
+
+          let finalText = "";
+          let lastStepText = "";
+          let totalInputTokens = 0;
+          let totalOutputTokens = 0;
+          const allToolCalls: Array<{
+            toolName: string;
+            args: Record<string, unknown>;
+          }> = [];
+          const toolExecutions: Array<{
+            name: string;
+            input: Record<string, unknown>;
+            output: unknown;
+          }> = [];
+          let step = 0;
+          const failedTools = new Map<
+            string,
+            { count: number; lastError: string }
+          >();
+
+          // Agentic loop for tool calling
+          while (step < maxSteps) {
+            if (composedSignal?.aborted) {
+              throw composedSignal.reason instanceof Error
+                ? composedSignal.reason
+                : new Error("Request aborted");
+            }
+            step++;
+            logger.debug(
+              `[GoogleAIStudio] Native SDK generate step ${step}/${maxSteps}`,
+            );
+
+            try {
+              const stream = await client.models.generateContentStream({
+                model: modelName,
+                contents: currentContents,
+                config,
+                ...(composedSignal
+                  ? { httpOptions: { signal: composedSignal } }
+                  : {}),
+              });
+
+              const chunkResult = await collectStreamChunks(stream);
+              totalInputTokens += chunkResult.inputTokens;
+              totalOutputTokens += chunkResult.outputTokens;
+
+              const stepText = extractTextFromParts(
+                chunkResult.rawResponseParts,
+              );
+
+              // If no function calls, we're done
+              if (chunkResult.stepFunctionCalls.length === 0) {
+                finalText = stepText;
+                break;
+              }
+
+              lastStepText = stepText;
+
+              // Record tool call events on the span
+              for (const fc of chunkResult.stepFunctionCalls) {
+                span.addEvent("gen_ai.tool_call", {
+                  "tool.name": fc.name as string,
+                  "tool.step": step,
+                });
+              }
+
+              logger.debug(
+                `[GoogleAIStudio] Executing ${chunkResult.stepFunctionCalls.length} function calls in generate`,
+              );
+
+              // Add model response with ALL parts (including thoughtSignature) to history
+              // This is critical for Gemini 3 - it requires thought signatures in subsequent turns
+              pushModelResponseToHistory(
+                currentContents,
+                chunkResult.rawResponseParts,
+                chunkResult.stepFunctionCalls,
+              );
+
+              const functionResponses = await executeNativeToolCalls(
+                "[GoogleAIStudio]",
+                chunkResult.stepFunctionCalls,
+                executeMap,
+                failedTools,
+                allToolCalls,
+                { toolExecutions, abortSignal: composedSignal },
+              );
+
+              // Add function responses to history
+              currentContents.push({
+                role: "function",
+                parts: functionResponses,
+              });
+            } catch (error) {
+              logger.error("[GoogleAIStudio] Native SDK generate error", error);
+              throw this.handleProviderError(error);
+            }
+          }
+
+          finalText = handleMaxStepsTermination(
             "[GoogleAIStudio]",
-            chunkResult.stepFunctionCalls,
-            executeMap,
-            failedTools,
-            allToolCalls,
-            { toolExecutions, abortSignal: composedSignal },
+            step,
+            maxSteps,
+            finalText,
+            lastStepText,
           );
 
-          // Add function responses to history
-          currentContents.push({
-            role: "function",
-            parts: functionResponses,
-          });
-        } catch (error) {
-          logger.error("[GoogleAIStudio] Native SDK generate error", error);
-          throw this.handleProviderError(error);
+          const responseTime = Date.now() - startTime;
+
+          // Set token usage and finish reason on the span
+          span.setAttribute(ATTR.GEN_AI_INPUT_TOKENS, totalInputTokens);
+          span.setAttribute(ATTR.GEN_AI_OUTPUT_TOKENS, totalOutputTokens);
+          span.setAttribute(
+            ATTR.GEN_AI_FINISH_REASON,
+            step >= maxSteps ? "max_steps" : "stop",
+          );
+
+          // Build EnhancedGenerateResult
+          return {
+            content: finalText,
+            provider: this.providerName,
+            model: modelName,
+            usage: {
+              input: totalInputTokens,
+              output: totalOutputTokens,
+              total: totalInputTokens + totalOutputTokens,
+            },
+            responseTime,
+            toolsUsed: allToolCalls.map((tc) => tc.toolName),
+            toolExecutions: toolExecutions,
+            enhancedWithTools: allToolCalls.length > 0,
+          };
+        } finally {
+          timeoutController?.cleanup();
         }
-      }
-    } finally {
-      timeoutController?.cleanup();
-    }
-
-    finalText = handleMaxStepsTermination(
-      "[GoogleAIStudio]",
-      step,
-      maxSteps,
-      finalText,
-      lastStepText,
-    );
-
-    const responseTime = Date.now() - startTime;
-
-    // Build EnhancedGenerateResult
-    return {
-      content: finalText,
-      provider: this.providerName,
-      model: modelName,
-      usage: {
-        input: totalInputTokens,
-        output: totalOutputTokens,
-        total: totalInputTokens + totalOutputTokens,
       },
-      responseTime,
-      toolsUsed: allToolCalls.map((tc) => tc.toolName),
-      toolExecutions: toolExecutions,
-      enhancedWithTools: allToolCalls.length > 0,
-    };
+    );
   }
 
   /**
@@ -1078,22 +1175,31 @@ export class GoogleAIStudioProvider extends BaseProvider {
         mergedOptions = { ...mergedOptions, disableTools: true, tools: {} };
       }
 
-      logger.info(
-        "[GoogleAIStudio] Routing Gemini 3 generate to native SDK for tool calling",
-        {
-          model: modelName,
-          sdkToolCount: Object.keys(sdkTools).length,
-          optionToolCount: Object.keys(options.tools || {}).length,
-          totalToolCount:
-            Object.keys(sdkTools).length +
-            Object.keys(options.tools || {}).length,
-        },
-      );
-      return this.executeNativeGemini3Generate(mergedOptions);
+      // Only route to native path if tools are still active after conflict check
+      const hasActiveTools =
+        !mergedOptions.disableTools &&
+        mergedOptions.tools &&
+        Object.keys(mergedOptions.tools).length > 0;
+      if (hasActiveTools) {
+        logger.info(
+          "[GoogleAIStudio] Routing Gemini 3 generate to native SDK for tool calling",
+          {
+            model: modelName,
+            sdkToolCount: Object.keys(sdkTools).length,
+            optionToolCount: Object.keys(options.tools || {}).length,
+            totalToolCount:
+              Object.keys(sdkTools).length +
+              Object.keys(options.tools || {}).length,
+          },
+        );
+        return this.executeNativeGemini3Generate(mergedOptions);
+      }
+      // Fall through to standard generate path using merged options (tools disabled for schema)
+      return super.generate(mergedOptions);
     }
 
     // Fall back to BaseProvider implementation
-    return super.generate(optionsOrPrompt);
+    return super.generate(options);
   }
 
   // ===================

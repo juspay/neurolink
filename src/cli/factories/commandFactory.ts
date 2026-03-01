@@ -388,7 +388,7 @@ export class CLICommandFactory {
     thinkingLevel: {
       type: "string" as const,
       description:
-        "Thinking level for Gemini 3 models: minimal, low, medium, high",
+        "Thinking level for extended reasoning (Anthropic Claude, Gemini 2.5+, Gemini 3): minimal, low, medium, high",
       choices: ["minimal", "low", "medium", "high"] as const,
     },
     region: {
@@ -745,21 +745,10 @@ export class CLICommandFactory {
           try {
             // Use custom path or default
             let imagePath: string;
-            const cwd = process.cwd();
             if (options.imageOutput) {
-              imagePath = options.imageOutput as string;
-              // Validate path is within current working directory for security
-              const resolvedPath = path.resolve(imagePath);
-              if (
-                !resolvedPath.startsWith(cwd + path.sep) &&
-                resolvedPath !== cwd
-              ) {
-                throw new Error(
-                  `Image output path must be within current directory: ${cwd}`,
-                );
-              }
+              imagePath = path.resolve(options.imageOutput as string);
               // Create parent directory if needed (cross-platform)
-              const dir = path.dirname(resolvedPath);
+              const dir = path.dirname(imagePath);
               if (dir && dir !== "." && !fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
               }
@@ -2220,6 +2209,24 @@ export class CLICommandFactory {
               topK: argv.ragTopK as number | undefined,
             }
           : undefined,
+        // TTS configuration
+        tts: enhancedOptions.tts
+          ? {
+              enabled: true,
+              useAiResponse: true,
+              voice: enhancedOptions.ttsVoice as string | undefined,
+              format:
+                (enhancedOptions.ttsFormat as "mp3" | "wav" | "ogg" | "opus") ||
+                undefined,
+              speed: enhancedOptions.ttsSpeed as number | undefined,
+              quality: enhancedOptions.ttsQuality as
+                | "standard"
+                | "hd"
+                | undefined,
+              output: enhancedOptions.ttsOutput as string | undefined,
+              play: enhancedOptions.ttsPlay as boolean | undefined,
+            }
+          : undefined,
       });
 
       if (spinner) {
@@ -2501,16 +2508,67 @@ export class CLICommandFactory {
             topK: argv.ragTopK as number | undefined,
           }
         : undefined,
+      // TTS configuration
+      tts: enhancedOptions.tts
+        ? {
+            enabled: true,
+            useAiResponse: true,
+            voice: enhancedOptions.ttsVoice as string | undefined,
+            format:
+              (enhancedOptions.ttsFormat as "mp3" | "wav" | "ogg" | "opus") ||
+              undefined,
+            speed: enhancedOptions.ttsSpeed as number | undefined,
+            quality: enhancedOptions.ttsQuality as
+              | "standard"
+              | "hd"
+              | undefined,
+            output: enhancedOptions.ttsOutput as string | undefined,
+            play: enhancedOptions.ttsPlay as boolean | undefined,
+          }
+        : undefined,
     });
 
-    const fullContent = await CLICommandFactory.processStreamWithTimeout(
+    const streamResult = await CLICommandFactory.processStreamWithTimeout(
       stream,
       options,
     );
 
-    await CLICommandFactory.displayStreamResults(stream, fullContent, options);
+    await CLICommandFactory.displayStreamResults(
+      stream,
+      streamResult.content,
+      options,
+    );
 
-    return fullContent;
+    // Handle image output from stream (image models emit image events)
+    if (streamResult.imageBase64) {
+      try {
+        let imagePath: string;
+        if (options.imageOutput) {
+          imagePath = path.resolve(options.imageOutput as string);
+          const dir = path.dirname(imagePath);
+          if (dir && dir !== "." && !fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+        } else {
+          const imageDir = "generated-images";
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+          imagePath = path.join(imageDir, `image-${timestamp}.png`);
+          if (!fs.existsSync(imageDir)) {
+            fs.mkdirSync(imageDir, { recursive: true });
+          }
+        }
+        const imageBuffer = Buffer.from(streamResult.imageBase64, "base64");
+        fs.writeFileSync(imagePath, imageBuffer);
+        logger.always(`\n📸 Generated image saved to: ${imagePath}`);
+        logger.always(
+          `   Image size: ${(imageBuffer.length / 1024).toFixed(2)} KB`,
+        );
+      } catch (error) {
+        handleError(error as Error, "Failed to save streamed image");
+      }
+    }
+
+    return streamResult.content;
   }
 
   /**
@@ -2525,8 +2583,9 @@ export class CLICommandFactory {
       >;
     },
     options: BaseCommandArgs & Record<string, unknown>,
-  ): Promise<string> {
+  ): Promise<{ content: string; imageBase64?: string }> {
     let fullContent = "";
+    let lastImageBase64: string | undefined;
     let contentReceived = false;
     const abortController = new AbortController();
 
@@ -2603,11 +2662,22 @@ export class CLICommandFactory {
           (o as Record<string, unknown>).type === "audio";
         const isImage = (
           o: unknown,
-        ): o is { type: "image"; imageOutput: { base64: string } } =>
-          !!o &&
-          typeof o === "object" &&
-          (o as Record<string, unknown>).type === "image" &&
-          typeof (o as Record<string, unknown>).imageOutput === "object";
+        ): o is { type: "image"; imageOutput: { base64: string } } => {
+          if (!o || typeof o !== "object") {
+            return false;
+          }
+          const record = o as Record<string, unknown>;
+          if (record.type !== "image") {
+            return false;
+          }
+          if (!record.imageOutput || typeof record.imageOutput !== "object") {
+            return false;
+          }
+          return (
+            typeof (record.imageOutput as Record<string, unknown>).base64 ===
+            "string"
+          );
+        };
 
         if (isText(evt)) {
           process.stdout.write(evt.content);
@@ -2617,8 +2687,7 @@ export class CLICommandFactory {
             process.stdout.write("[audio-chunk]");
           }
         } else if (isImage(evt)) {
-          // Image events are handled after stream completes (in generate flow)
-          // This handler ensures they're not silently dropped
+          lastImageBase64 = evt.imageOutput.base64;
           if (options.debug && !options.quiet) {
             process.stdout.write("[image-received]");
           }
@@ -2640,7 +2709,7 @@ export class CLICommandFactory {
       process.stdout.write("\n");
     }
 
-    return fullContent;
+    return { content: fullContent, imageBase64: lastImageBase64 };
   }
 
   /**

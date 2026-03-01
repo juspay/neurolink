@@ -37,6 +37,7 @@ const PDF_PATH = path.join(
   "test-data",
   "sample-prompt.pdf",
 );
+const hasPdfFixture = fs.existsSync(PDF_PATH);
 
 // Output directory
 const OUTPUT_DIR = path.join(__dirname, "..", "..", "test-output");
@@ -113,220 +114,186 @@ describe("Image Generation Test Suite", () => {
   });
 
   describe("Image Generation", () => {
-    it("should generate an image with gemini-2.5-flash-image", async () => {
-      if (!hasRequiredEnvVars()) {
-        console.log("Skipping: GOOGLE_VERTEX_PROJECT or credentials not set");
-        return;
-      }
+    it.skipIf(!hasRequiredEnvVars())(
+      "should generate an image with gemini-2.5-flash-image",
+      async () => {
+        const result = await neurolink.generate({
+          input: {
+            text: "A beautiful sunset over mountains with golden clouds",
+          },
+          provider: "vertex",
+          model: MODELS.FLASH_25,
+          temperature: 0.8,
+          timeout: 180000,
+          disableTools: true,
+        });
 
-      const result = await neurolink.generate({
-        input: {
-          text: "A beautiful sunset over mountains with golden clouds",
-        },
-        provider: "vertex",
-        model: MODELS.FLASH_25,
-        temperature: 0.8,
-        timeout: 180000,
-        disableTools: true,
-      });
+        const imageData = getImageFromResult(result);
+        expect(imageData).toBeTruthy();
 
-      const imageData = getImageFromResult(result);
-      expect(imageData).toBeTruthy();
+        if (imageData) {
+          generatedImages[MODELS.FLASH_25] = imageData;
+          const filepath = saveImage(imageData, "gen-flash-25");
+          expect(fs.existsSync(filepath)).toBe(true);
+        }
+      },
+      200000,
+    );
 
-      if (imageData) {
-        generatedImages[MODELS.FLASH_25] = imageData;
-        const filepath = saveImage(imageData, "gen-flash-25");
-        expect(fs.existsSync(filepath)).toBe(true);
-      }
-    }, 200000);
+    it.skipIf(!hasRequiredEnvVars())(
+      "should generate an image with gemini-3-pro-image-preview",
+      async () => {
+        const result = await neurolink.generate({
+          input: {
+            text: "A futuristic cityscape with flying cars and neon lights",
+          },
+          provider: "vertex",
+          model: MODELS.PRO_3,
+          temperature: 0.8,
+          timeout: 180000,
+          disableTools: true,
+        });
 
-    it("should generate an image with gemini-3-pro-image-preview", async () => {
-      if (!hasRequiredEnvVars()) {
-        console.log("Skipping: GOOGLE_VERTEX_PROJECT or credentials not set");
-        return;
-      }
+        const imageData = getImageFromResult(result);
+        expect(imageData).toBeTruthy();
 
-      const result = await neurolink.generate({
-        input: {
-          text: "A futuristic cityscape with flying cars and neon lights",
-        },
-        provider: "vertex",
-        model: MODELS.PRO_3,
-        temperature: 0.8,
-        timeout: 180000,
-        disableTools: true,
-      });
-
-      const imageData = getImageFromResult(result);
-      expect(imageData).toBeTruthy();
-
-      if (imageData) {
-        generatedImages[MODELS.PRO_3] = imageData;
-        const filepath = saveImage(imageData, "gen-pro-3");
-        expect(fs.existsSync(filepath)).toBe(true);
-      }
-    }, 200000);
+        if (imageData) {
+          generatedImages[MODELS.PRO_3] = imageData;
+          const filepath = saveImage(imageData, "gen-pro-3");
+          expect(fs.existsSync(filepath)).toBe(true);
+        }
+      },
+      200000,
+    );
   });
 
   describe("Image Editing", () => {
-    it("should edit an image with gemini-2.5-flash-image", async () => {
-      if (!hasRequiredEnvVars()) {
-        console.log("Skipping: GOOGLE_VERTEX_PROJECT or credentials not set");
-        return;
-      }
-
-      // Use generated image or fallback
-      let imageToEdit = generatedImages[MODELS.FLASH_25];
-      if (!imageToEdit) {
-        const fallbackPath = path.join(
-          __dirname,
-          "..",
-          "..",
-          "images",
-          "pexels-fotios-photos-1540258.jpg",
-        );
-        if (fs.existsSync(fallbackPath)) {
-          imageToEdit = fs.readFileSync(fallbackPath).toString("base64");
-        } else {
-          console.log("Skipping: No image available for editing");
+    it.skipIf(!hasRequiredEnvVars())(
+      "should edit an image with gemini-2.5-flash-image",
+      async () => {
+        // Use generated image or skip if unavailable
+        const imageToEdit = generatedImages[MODELS.FLASH_25];
+        if (!imageToEdit) {
+          console.log(
+            "Skipping: No source image available (generation test must run first)",
+          );
           return;
         }
-      }
 
-      const result = await neurolink.generate({
-        input: {
-          text: "Add a rainbow arching across the sky",
-          images: [imageToEdit],
-        },
-        provider: "vertex",
-        model: MODELS.FLASH_25,
-        temperature: 0.8,
-        timeout: 180000,
-        disableTools: true,
-      });
+        const result = await neurolink.generate({
+          input: {
+            text: "Add a rainbow arching across the sky",
+            images: [imageToEdit],
+          },
+          provider: "vertex",
+          model: MODELS.FLASH_25,
+          temperature: 0.8,
+          timeout: 180000,
+          disableTools: true,
+        });
 
-      const imageData = getImageFromResult(result);
-      expect(imageData).toBeTruthy();
+        const imageData = getImageFromResult(result);
+        expect(imageData).toBeTruthy();
 
-      if (imageData) {
-        const filepath = saveImage(imageData, "edit-flash-25");
-        expect(fs.existsSync(filepath)).toBe(true);
-      }
-    }, 200000);
+        if (imageData) {
+          const filepath = saveImage(imageData, "edit-flash-25");
+          expect(fs.existsSync(filepath)).toBe(true);
+        }
+      },
+      200000,
+    );
 
-    it("should edit an image with gemini-3-pro-image-preview", async () => {
-      if (!hasRequiredEnvVars()) {
-        console.log("Skipping: GOOGLE_VERTEX_PROJECT or credentials not set");
-        return;
-      }
-
-      // Use generated image or fallback
-      let imageToEdit = generatedImages[MODELS.PRO_3];
-      if (!imageToEdit) {
-        const fallbackPath = path.join(
-          __dirname,
-          "..",
-          "..",
-          "images",
-          "pexels-arts-1496373.jpg",
-        );
-        if (fs.existsSync(fallbackPath)) {
-          imageToEdit = fs.readFileSync(fallbackPath).toString("base64");
-        } else {
-          console.log("Skipping: No image available for editing");
+    it.skipIf(!hasRequiredEnvVars())(
+      "should edit an image with gemini-3-pro-image-preview",
+      async () => {
+        // Use generated image or skip if unavailable
+        const imageToEdit = generatedImages[MODELS.PRO_3];
+        if (!imageToEdit) {
+          console.log(
+            "Skipping: No source image available (generation test must run first)",
+          );
           return;
         }
-      }
 
-      const result = await neurolink.generate({
-        input: {
-          text: "Transform this into a watercolor painting style",
-          images: [imageToEdit],
-        },
-        provider: "vertex",
-        model: MODELS.PRO_3,
-        temperature: 0.8,
-        timeout: 180000,
-        disableTools: true,
-      });
+        const result = await neurolink.generate({
+          input: {
+            text: "Transform this into a watercolor painting style",
+            images: [imageToEdit],
+          },
+          provider: "vertex",
+          model: MODELS.PRO_3,
+          temperature: 0.8,
+          timeout: 180000,
+          disableTools: true,
+        });
 
-      const imageData = getImageFromResult(result);
-      expect(imageData).toBeTruthy();
+        const imageData = getImageFromResult(result);
+        expect(imageData).toBeTruthy();
 
-      if (imageData) {
-        const filepath = saveImage(imageData, "edit-pro-3");
-        expect(fs.existsSync(filepath)).toBe(true);
-      }
-    }, 200000);
+        if (imageData) {
+          const filepath = saveImage(imageData, "edit-pro-3");
+          expect(fs.existsSync(filepath)).toBe(true);
+        }
+      },
+      200000,
+    );
   });
 
   describe("PDF-to-Image Generation", () => {
-    it("should generate an image from PDF with gemini-2.5-flash-image (fallback)", async () => {
-      if (!hasRequiredEnvVars()) {
-        console.log("Skipping: GOOGLE_VERTEX_PROJECT or credentials not set");
-        return;
-      }
+    it.skipIf(!hasRequiredEnvVars() || !hasPdfFixture)(
+      "should generate an image from PDF with gemini-2.5-flash-image (fallback)",
+      async () => {
+        const pdfBuffer = fs.readFileSync(PDF_PATH);
 
-      if (!fs.existsSync(PDF_PATH)) {
-        console.log(`Skipping: PDF file not found at ${PDF_PATH}`);
-        return;
-      }
+        const result = await neurolink.generate({
+          input: {
+            text: "Generate an illustration based on the content of this PDF",
+            pdfFiles: [pdfBuffer],
+          },
+          provider: "vertex",
+          model: MODELS.FLASH_25,
+          temperature: 0.8,
+          timeout: 180000,
+          disableTools: true,
+        });
 
-      const pdfBuffer = fs.readFileSync(PDF_PATH);
+        const imageData = getImageFromResult(result);
+        expect(imageData).toBeTruthy();
 
-      const result = await neurolink.generate({
-        input: {
-          text: "Generate an illustration based on the content of this PDF",
-          pdfFiles: [pdfBuffer],
-        },
-        provider: "vertex",
-        model: MODELS.FLASH_25,
-        temperature: 0.8,
-        timeout: 180000,
-        disableTools: true,
-      });
+        if (imageData) {
+          const filepath = saveImage(imageData, "pdf-flash-25");
+          expect(fs.existsSync(filepath)).toBe(true);
+        }
+      },
+      200000,
+    );
 
-      const imageData = getImageFromResult(result);
-      expect(imageData).toBeTruthy();
+    it.skipIf(!hasRequiredEnvVars() || !hasPdfFixture)(
+      "should generate an image from PDF with gemini-3-pro-image-preview (native)",
+      async () => {
+        const pdfBuffer = fs.readFileSync(PDF_PATH);
 
-      if (imageData) {
-        const filepath = saveImage(imageData, "pdf-flash-25");
-        expect(fs.existsSync(filepath)).toBe(true);
-      }
-    }, 200000);
+        const result = await neurolink.generate({
+          input: {
+            text: "Create a visual representation based on this PDF content",
+            pdfFiles: [pdfBuffer],
+          },
+          provider: "vertex",
+          model: MODELS.PRO_3,
+          temperature: 0.8,
+          timeout: 180000,
+          disableTools: true,
+        });
 
-    it("should generate an image from PDF with gemini-3-pro-image-preview (native)", async () => {
-      if (!hasRequiredEnvVars()) {
-        console.log("Skipping: GOOGLE_VERTEX_PROJECT or credentials not set");
-        return;
-      }
+        const imageData = getImageFromResult(result);
+        expect(imageData).toBeTruthy();
 
-      if (!fs.existsSync(PDF_PATH)) {
-        console.log(`Skipping: PDF file not found at ${PDF_PATH}`);
-        return;
-      }
-
-      const pdfBuffer = fs.readFileSync(PDF_PATH);
-
-      const result = await neurolink.generate({
-        input: {
-          text: "Create a visual representation based on this PDF content",
-          pdfFiles: [pdfBuffer],
-        },
-        provider: "vertex",
-        model: MODELS.PRO_3,
-        temperature: 0.8,
-        timeout: 180000,
-        disableTools: true,
-      });
-
-      const imageData = getImageFromResult(result);
-      expect(imageData).toBeTruthy();
-
-      if (imageData) {
-        const filepath = saveImage(imageData, "pdf-pro-3");
-        expect(fs.existsSync(filepath)).toBe(true);
-      }
-    }, 200000);
+        if (imageData) {
+          const filepath = saveImage(imageData, "pdf-pro-3");
+          expect(fs.existsSync(filepath)).toBe(true);
+        }
+      },
+      200000,
+    );
   });
 });

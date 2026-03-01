@@ -17,6 +17,7 @@ import { logger } from "../../lib/utils/logger.js";
 import { updateEnvFile as envUpdate } from "../utils/envManager.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
 import { AIProviderName } from "../../lib/types/index.js";
+import { maskCredential } from "../utils/maskCredential.js";
 
 type BedrockSetupOptions = {
   checkOnly?: boolean;
@@ -622,16 +623,4 @@ function displayUsageExample(): void {
   logger.always(
     chalk.cyan("   pnpm cli generate 'Hello from Bedrock!' --provider bedrock"),
   );
-}
-
-function maskCredential(credential: string): string {
-  if (!credential || credential.length < 8) {
-    return "****";
-  }
-
-  const start = credential.slice(0, 4);
-  const end = credential.slice(-4);
-  const middle = "*".repeat(Math.max(4, credential.length - 8));
-
-  return `${start}${middle}${end}`;
 }

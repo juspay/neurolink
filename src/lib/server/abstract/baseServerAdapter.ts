@@ -277,7 +277,12 @@ export abstract class BaseServerAdapter extends EventEmitter {
 
     // Register all routes in the group with prefix applied
     for (const route of group.routes) {
-      const prefixedPath = this.normalizePath(`${group.prefix}${route.path}`);
+      // Only prepend prefix if route path doesn't already start with it
+      // (route definitions include full paths like /api/agent/execute)
+      const needsPrefix = !route.path.startsWith(group.prefix);
+      const prefixedPath = this.normalizePath(
+        needsPrefix ? `${group.prefix}${route.path}` : route.path,
+      );
       const prefixedRoute = {
         ...route,
         path: prefixedPath,

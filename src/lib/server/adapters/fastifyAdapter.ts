@@ -18,6 +18,7 @@ import {
   ServerStopError,
   wrapError,
 } from "../errors.js";
+import { withTimeout } from "../../utils/errorHandling.js";
 import { BaseServerAdapter } from "../abstract/baseServerAdapter.js";
 import type {
   MiddlewareDefinition,
@@ -41,7 +42,7 @@ type RateLimitContext = {
  * Provides high-performance HTTP server with schema validation
  */
 export class FastifyServerAdapter extends BaseServerAdapter {
-  private app!: FastifyInstance;
+  private app: FastifyInstance | null = null;
   private frameworkInitialized = false;
 
   constructor(neurolink: NeuroLink, config: ServerAdapterConfig = {}) {
@@ -242,6 +243,12 @@ export class FastifyServerAdapter extends BaseServerAdapter {
    * Register route with Fastify
    */
   protected registerFrameworkRoute(route: RouteDefinition): void {
+    if (!this.app) {
+      throw new Error(
+        "Fastify app not initialized. Call initialize() before registering routes.",
+      );
+    }
+
     const method = route.method.toUpperCase() as
       | "GET"
       | "POST"
@@ -249,6 +256,12 @@ export class FastifyServerAdapter extends BaseServerAdapter {
       | "DELETE"
       | "PATCH"
       | "OPTIONS";
+
+    // Fastify does not allow duplicate method+path registrations.
+    // Skip if route already exists (e.g., built-in health routes).
+    if (this.app.hasRoute({ method, url: route.path })) {
+      return;
+    }
 
     this.app.route({
       method,
@@ -409,6 +422,12 @@ export class FastifyServerAdapter extends BaseServerAdapter {
   protected registerFrameworkMiddleware(
     middleware: MiddlewareDefinition,
   ): void {
+    if (!this.app) {
+      throw new Error(
+        "Fastify app not initialized. Call initialize() before registering middleware.",
+      );
+    }
+
     this.app.addHook(
       "preHandler",
       async (request: FastifyRequest, _reply: FastifyReply) => {
@@ -475,27 +494,45 @@ export class FastifyServerAdapter extends BaseServerAdapter {
       throw new AlreadyRunningError(this.config.port, this.config.host);
     }
 
+    if (!this.app) {
+      throw new Error(
+        "Fastify app not initialized. Call initialize() before starting.",
+      );
+    }
+
+    // Capture non-null reference for use in closures below
+    const app = this.app;
+
     this.lifecycleState = "starting";
     const { port, host } = this.config;
     const startupTimeout = this.config.timeout || 30000;
 
-    const startPromise = (async () => {
-      await this.app.listen({ port, host });
+    // Track connections via Fastify hooks (must be registered before listen)
+    app.addHook("onRequest", async (request: FastifyRequest) => {
+      const connectionId = `conn-${request.id}`;
+      this.trackConnection(connectionId, request.raw.socket, request.id);
+    });
+
+    app.addHook("onResponse", async (request: FastifyRequest) => {
+      const connectionId = `conn-${request.id}`;
+      this.untrackConnection(connectionId);
+    });
+
+    try {
+      await withTimeout(
+        app.listen({ port, host }),
+        startupTimeout,
+        new ServerStartError(
+          `Fastify server startup timed out after ${startupTimeout}ms`,
+          undefined,
+          port,
+          host,
+        ),
+      );
 
       this.isRunning = true;
       this.startTime = new Date();
       this.lifecycleState = "running";
-
-      // Track connections via Fastify hooks
-      this.app.addHook("onRequest", async (request: FastifyRequest) => {
-        const connectionId = `conn-${request.id}`;
-        this.trackConnection(connectionId, request.raw.socket, request.id);
-      });
-
-      this.app.addHook("onResponse", async (request: FastifyRequest) => {
-        const connectionId = `conn-${request.id}`;
-        this.untrackConnection(connectionId);
-      });
 
       logger.info(`[FastifyAdapter] Server started on ${host}:${port}`);
 
@@ -504,34 +541,9 @@ export class FastifyServerAdapter extends BaseServerAdapter {
         host,
         timestamp: this.startTime,
       } satisfies ServerAdapterEvents["started"]);
-    })();
-
-    let startupTimer: NodeJS.Timeout | undefined;
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      startupTimer = setTimeout(() => {
-        this.lifecycleState = "error";
-        reject(
-          new ServerStartError(
-            `Fastify server startup timed out after ${startupTimeout}ms`,
-            undefined,
-            port,
-            host,
-          ),
-        );
-      }, startupTimeout);
-    });
-
-    try {
-      await Promise.race([startPromise, timeoutPromise]);
     } catch (error) {
       this.lifecycleState = "error";
       throw error;
-    } finally {
-      // Always clear the timeout to prevent memory leak
-      if (startupTimer) {
-        clearTimeout(startupTimer);
-      }
     }
   }
 
@@ -559,6 +571,7 @@ export class FastifyServerAdapter extends BaseServerAdapter {
       // Reset state for restart capability
       this.resetServerState();
       this.frameworkInitialized = false;
+      this.app = null;
     } catch (error) {
       const wrappedError = wrapError(error);
       throw new ServerStopError(wrappedError.message, wrappedError);
@@ -581,7 +594,14 @@ export class FastifyServerAdapter extends BaseServerAdapter {
    * Close the underlying server
    */
   protected async closeServer(): Promise<void> {
-    await this.app.close();
+    if (this.app) {
+      const closeTimeout = this.shutdownConfig.gracefulShutdownTimeoutMs;
+      await withTimeout(
+        this.app.close(),
+        closeTimeout,
+        new Error(`Fastify server close timed out after ${closeTimeout}ms`),
+      );
+    }
   }
 
   /**
@@ -593,7 +613,7 @@ export class FastifyServerAdapter extends BaseServerAdapter {
     });
 
     // Get the underlying server and destroy all sockets
-    const server = this.app.server;
+    const server = this.app?.server;
     if (server) {
       // Force close by destroying the server
       server.closeAllConnections?.();

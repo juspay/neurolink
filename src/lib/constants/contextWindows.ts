@@ -30,8 +30,18 @@ export const DEFAULT_OUTPUT_RESERVE_RATIO = 0.35;
 export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   anthropic: {
     _default: 200_000,
+    // Claude 4.6 (Feb 2026) — 200K standard, 1M with beta header
+    "claude-opus-4-6": 200_000,
+    "claude-sonnet-4-6": 200_000,
+    // Claude 4.5
+    "claude-opus-4-5-20251101": 200_000,
+    "claude-sonnet-4-5-20250929": 200_000,
+    "claude-haiku-4-5-20251001": 200_000,
+    // Claude 4.x
+    "claude-opus-4-1-20250805": 200_000,
     "claude-opus-4-20250514": 200_000,
     "claude-sonnet-4-20250514": 200_000,
+    // Claude 3.x
     "claude-3-7-sonnet-20250219": 200_000,
     "claude-3-5-sonnet-20241022": 200_000,
     "claude-3-5-haiku-20241022": 200_000,
@@ -41,67 +51,144 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   },
   openai: {
     _default: 128_000,
+    // GPT-5.x family — 400K context
+    "gpt-5.3-codex": 400_000,
+    "gpt-5.2": 400_000,
+    "gpt-5.2-pro": 400_000,
+    "gpt-5.2-codex": 400_000,
+    "gpt-5.2-chat-latest": 128_000,
+    "gpt-5.1": 400_000,
+    "gpt-5.1-codex": 400_000,
+    "gpt-5.1-codex-max": 400_000,
+    "gpt-5.1-codex-mini": 400_000,
+    "gpt-5.1-chat-latest": 128_000,
+    "gpt-5": 400_000,
+    "gpt-5-mini": 400_000,
+    "gpt-5-nano": 400_000,
+    "gpt-5-pro": 400_000,
+    "gpt-5-codex": 400_000,
+    "gpt-5-chat-latest": 128_000,
+    // GPT Open Source
+    "gpt-oss-120b": 128_000,
+    "gpt-oss-20b": 128_000,
+    // GPT-4.1 family — 1M context
+    "gpt-4.1": 1_047_576,
+    "gpt-4.1-mini": 1_047_576,
+    "gpt-4.1-nano": 1_047_576,
+    // GPT-4o
     "gpt-4o": 128_000,
     "gpt-4o-mini": 128_000,
-    "gpt-4-turbo": 128_000,
-    "gpt-4": 8_192,
-    "gpt-3.5-turbo": 16_385,
+    // O-series reasoning — 200K context
     o1: 200_000,
     "o1-mini": 128_000,
     "o1-pro": 200_000,
     o3: 200_000,
     "o3-mini": 200_000,
+    "o3-pro": 200_000,
     "o4-mini": 200_000,
-    "gpt-4.1": 1_047_576,
-    "gpt-4.1-mini": 1_047_576,
-    "gpt-4.1-nano": 1_047_576,
-    "gpt-5": 1_047_576,
+    // Legacy
+    "gpt-4-turbo": 128_000,
+    "gpt-4": 8_192,
+    "gpt-3.5-turbo": 16_385,
   },
   "google-ai": {
     _default: 1_048_576,
+    "gemini-3.1-pro-preview": 1_048_576,
+    "gemini-3-pro-preview": 1_048_576,
+    "gemini-3-pro-image-preview": 65_536,
+    "gemini-3-flash-preview": 1_048_576,
+    "gemini-3-flash": 1_048_576,
     "gemini-2.5-pro": 1_048_576,
     "gemini-2.5-flash": 1_048_576,
+    "gemini-2.5-flash-lite": 1_048_576,
+    "gemini-2.5-flash-image": 32_768,
     "gemini-2.0-flash": 1_048_576,
     "gemini-1.5-pro": 2_097_152,
     "gemini-1.5-flash": 1_048_576,
-    "gemini-3-flash-preview": 1_048_576,
-    "gemini-3-pro-preview": 1_048_576,
   },
   vertex: {
     _default: 1_048_576,
+    // Claude on Vertex
+    "claude-opus-4-6": 200_000,
+    "claude-sonnet-4-6": 200_000,
+    "claude-sonnet-4-5": 200_000,
+    "claude-opus-4-5": 200_000,
+    "claude-haiku-4-5": 200_000,
+    "claude-sonnet-4": 200_000,
+    "claude-sonnet-4-20250514": 200_000,
+    "claude-opus-4-20250514": 200_000,
+    "claude-opus-4": 200_000,
+    // Gemini on Vertex
+    "gemini-3.1-pro-preview": 1_048_576,
+    "gemini-3-pro-preview": 1_048_576,
+    "gemini-3-pro-latest": 1_048_576,
+    "gemini-3-flash-preview": 1_048_576,
+    "gemini-3-flash-latest": 1_048_576,
     "gemini-2.5-pro": 1_048_576,
     "gemini-2.5-flash": 1_048_576,
     "gemini-2.0-flash": 1_048_576,
     "gemini-1.5-pro": 2_097_152,
     "gemini-1.5-flash": 1_048_576,
-    "claude-sonnet-4-5": 200_000,
-    "claude-sonnet-4-20250514": 200_000,
-    "claude-opus-4": 200_000,
-    "claude-opus-4-20250514": 200_000,
   },
   bedrock: {
     _default: 200_000,
-    "anthropic.claude-3-5-sonnet-20241022-v2:0": 200_000,
+    // Claude 4.6
+    "anthropic.claude-opus-4-6-v1:0": 200_000,
+    "anthropic.claude-sonnet-4-6": 200_000,
+    // Claude 4.5
+    "anthropic.claude-opus-4-5-20251124-v1:0": 200_000,
+    "anthropic.claude-sonnet-4-5-20250929-v1:0": 200_000,
+    "anthropic.claude-haiku-4-5-20251001-v1:0": 200_000,
+    // Claude legacy
+    "anthropic.claude-3-5-sonnet-20241022-v1:0": 200_000,
     "anthropic.claude-3-5-haiku-20241022-v1:0": 200_000,
     "anthropic.claude-3-opus-20240229-v1:0": 200_000,
     "anthropic.claude-3-sonnet-20240229-v1:0": 200_000,
     "anthropic.claude-3-haiku-20240307-v1:0": 200_000,
+    // Amazon Nova
     "amazon.nova-pro-v1:0": 300_000,
     "amazon.nova-lite-v1:0": 300_000,
+    "amazon.nova-2-lite-v1:0": 1_000_000,
+    // Writer
+    "writer.palmyra-x5-v1:0": 1_000_000,
+    "writer.palmyra-x4-v1:0": 128_000,
+    // NVIDIA
+    "nvidia.nemotron-nano-3-30b": 256_000,
   },
   azure: {
     _default: 128_000,
+    // GPT-5.x
+    "gpt-5.2": 400_000,
+    "gpt-5.2-pro": 400_000,
+    "gpt-5.2-codex": 400_000,
+    "gpt-5.1": 400_000,
+    "gpt-5": 400_000,
+    "gpt-5-mini": 400_000,
+    // GPT-4.1
+    "gpt-4.1": 1_047_576,
+    "gpt-4.1-mini": 1_047_576,
+    // GPT-4o
     "gpt-4o": 128_000,
     "gpt-4o-mini": 128_000,
+    // O-series
+    o3: 200_000,
+    "o3-mini": 200_000,
+    "o4-mini": 200_000,
+    // Legacy
     "gpt-4-turbo": 128_000,
     "gpt-4": 8_192,
   },
   mistral: {
     _default: 128_000,
-    "mistral-large-latest": 128_000,
-    "mistral-medium-latest": 32_000,
+    "mistral-large-latest": 256_000,
+    "mistral-large-2512": 256_000,
+    "mistral-medium-latest": 128_000,
     "mistral-small-latest": 128_000,
     "codestral-latest": 256_000,
+    "codestral-2508": 256_000,
+    "devstral-2512": 256_000,
+    "devstral-small-2512": 256_000,
+    "magistral-medium-latest": 128_000,
   },
   ollama: {
     _default: 128_000,
@@ -114,6 +201,10 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   },
   sagemaker: {
     _default: 128_000,
+    // NVIDIA Nemotron 3 Nano (February 2026) — 1M context
+    "nvidia-nemotron-3-nano-30b": 1_000_000,
+    // Qwen3 VL — 32K context
+    "qwen3-vl-8b-instruct": 32_768,
   },
 };
 

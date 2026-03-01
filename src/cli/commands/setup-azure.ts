@@ -21,6 +21,7 @@ import {
 } from "../utils/envManager.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
 import { AIProviderName } from "../../lib/types/index.js";
+import { maskCredential } from "../utils/maskCredential.js";
 
 type AzureSetupOptions = {
   checkOnly?: boolean;
@@ -462,21 +463,6 @@ async function updateEnvFileWithConfig(config: AzureConfig): Promise<void> {
     );
     throw error;
   }
-}
-
-/**
- * Mask API key for display
- */
-function maskCredential(credential: string): string {
-  if (!credential || credential.length < 8) {
-    return "****";
-  }
-
-  const start = credential.slice(0, 4);
-  const end = credential.slice(-4);
-  const middle = "*".repeat(Math.max(4, credential.length - 8));
-
-  return `${start}${middle}${end}`;
 }
 
 /**

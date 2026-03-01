@@ -20,6 +20,7 @@ import {
 import { SageMakerError } from "./errors.js";
 import { logger } from "../../utils/logger.js";
 import { randomUUID } from "crypto";
+import { estimateTokens } from "../../utils/tokenEstimation.js";
 
 /**
  * Constants for JSON parsing and validation
@@ -815,9 +816,8 @@ export function estimateTokenUsage(
   prompt: string,
   completion: string,
 ): SageMakerUsage {
-  // Rough estimation: ~4 characters per token for English text
-  const promptTokens = Math.ceil(prompt.length / 4);
-  const completionTokens = Math.ceil(completion.length / 4);
+  const promptTokens = estimateTokens(prompt, "sagemaker");
+  const completionTokens = estimateTokens(completion, "sagemaker");
 
   return {
     promptTokens,

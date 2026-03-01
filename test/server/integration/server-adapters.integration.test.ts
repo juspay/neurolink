@@ -153,6 +153,7 @@ const mockFastifyInstance = {
   setErrorHandler: vi.fn(),
   setNotFoundHandler: vi.fn(),
   route: vi.fn(),
+  hasRoute: vi.fn().mockReturnValue(false),
   register: vi.fn().mockResolvedValue(undefined),
   listen: vi.fn().mockResolvedValue(undefined),
   close: vi.fn().mockResolvedValue(undefined),

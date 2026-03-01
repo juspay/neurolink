@@ -1,0 +1,206 @@
+# NeuroLink SDK — Complete Reference
+
+> NeuroLink is an open-source TypeScript AI SDK providing unified access to 13+ AI providers through a single consistent API.
+
+Generated: 2026-02-24
+Summary version: https://neurolink.ink/llms.txt
+Documentation: https://docs.neurolink.ink
+
+---
+
+## Installation
+
+npm install @juspay/neurolink
+# or
+pnpm add @juspay/neurolink
+# or use CLI without installing
+npx @juspay/neurolink generate "Hello"
+
+## Quick Start (SDK)
+
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  prompt: "Explain quantum computing",
+  provider: "openai",
+  model: "gpt-4o",
+});
+
+console.log(result.text);
+
+## Quick Start (CLI)
+
+# Set provider API key
+export OPENAI_API_KEY="sk-..."
+
+# Generate text
+neurolink generate "Explain quantum computing"
+
+# Stream text
+neurolink stream "Write a poem about TypeScript"
+
+# Interactive session
+neurolink loop
+
+## Supported Providers (13+)
+
+| Provider | Slug | Default Model | Auth |
+|----------|------|---------------|------|
+| OpenAI | openai | gpt-4o | OPENAI_API_KEY |
+| Anthropic | anthropic | claude-sonnet-4-20250514 | ANTHROPIC_API_KEY |
+| Google AI Studio | google-ai | gemini-2.5-flash | GOOGLE_AI_API_KEY |
+| Google Vertex AI | vertex | gemini-2.5-flash | GOOGLE_CLOUD_PROJECT + ADC |
+| AWS Bedrock | bedrock | anthropic.claude-3-5-sonnet | AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY |
+| Azure OpenAI | azure | gpt-4o | AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT |
+| Mistral | mistral | mistral-large-latest | MISTRAL_API_KEY |
+| LiteLLM | litellm | gpt-4o (via proxy) | LITELLM_API_KEY |
+| Ollama | ollama | llama3.1 | (local, no key needed) |
+| Hugging Face | huggingface | meta-llama/Llama-3.1-8B-Instruct | HUGGING_FACE_TOKEN |
+| AWS SageMaker | sagemaker | (custom endpoint) | AWS credentials |
+| OpenRouter | openrouter | openai/gpt-4o | OPENROUTER_API_KEY |
+| OpenAI-Compatible | openai-compatible | (configurable) | OPENAI_COMPATIBLE_API_KEY |
+
+## Core SDK Methods
+
+### neurolink.generate(options)
+Generate a text response from any provider.
+
+Parameters:
+- prompt: string — The input prompt
+- provider?: string — Provider slug (openai, anthropic, google-ai, etc.)
+- model?: string — Model name
+- maxTokens?: number — Max response tokens
+- temperature?: number — Creativity (0-1)
+- systemPrompt?: string — System instruction
+- thinkingLevel?: "minimal" | "low" | "medium" | "high" — Extended thinking
+- structuredOutput?: ZodSchema — Zod schema for typed JSON output
+- rag?: RAGConfig — RAG pipeline configuration
+- input?: { text, images, files } — Multimodal input
+
+Returns: { text, usage, toolCalls, evaluation }
+
+### neurolink.stream(options)
+Stream a text response with real-time events.
+
+Same parameters as generate(). Returns an async iterable of stream events.
+
+24 event types: text-delta, tool-call, tool-result, finish, error, etc.
+
+### neurolink.addExternalMCPServer(name, config)
+Add an external MCP server.
+
+Transports: stdio, http, sse, websocket
+
+Example (stdio):
+await neurolink.addExternalMCPServer("GitHub", {
+  command: "npx",
+  args: ["-y", "@modelcontextprotocol/server-github"],
+  transport: "stdio",
+  env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN }
+});
+
+Example (HTTP):
+await neurolink.addExternalMCPServer("remote-server", {
+  transport: "http",
+  url: "https://api.example.com/mcp",
+  headers: { Authorization: "Bearer TOKEN" },
+  timeout: 15000,
+  retries: 5,
+});
+
+### neurolink.registerTool(tool)
+Register a custom tool for AI function calling.
+
+## RAG (Retrieval-Augmented Generation)
+
+### Simple API
+const result = await neurolink.generate({
+  prompt: "What are the key points?",
+  rag: {
+    files: ["./docs/guide.md", "./data/faq.json"],
+    strategy: "markdown",
+    chunkSize: 512,
+    chunkOverlap: 50,
+    topK: 5,
+  }
+});
+
+### Chunking Strategies (9)
+character, recursive, sentence, token, markdown, html, json, latex, semantic
+
+### Vector Stores (22)
+In-memory, Pinecone, Weaviate, Qdrant, Chroma, Milvus, and 16 more
+
+### Rerankers (5)
+simple, llm, batch, cross-encoder, cohere
+
+### Hybrid Search
+BM25 lexical + vector similarity with reciprocal rank fusion or linear combination
+
+## MCP Integration
+
+58+ external servers supported:
+GitHub, Slack, PostgreSQL, Redis, Google Drive, Google Maps, Brave Search, Puppeteer, Filesystem, SQLite, Memory, Fetch, Sequential Thinking, and 45+ more
+
+4 transport types: stdio, HTTP/Streamable HTTP, SSE, WebSocket
+
+MCP Enhancements (unique to NeuroLink):
+- ToolRouter: Intelligent tool routing across multiple servers
+- ToolCache: Response caching for repeated tool calls
+- RequestBatcher: Batch multiple tool requests for efficiency
+
+## Multi-Agent Workflows
+
+3 topologies:
+- Hub-Spoke: Coordinator delegates to specialist agents
+- Mesh: Peer-to-peer agent collaboration
+- Pipeline: Sequential processing chain
+
+AgentNetwork manages lifecycle, routing, and shared context.
+
+## Memory System (3 layers)
+
+1. Conversation History: Full message history (Redis or in-memory)
+2. Semantic Recall: Vector-based memory for relevant past context
+3. Working Memory: Short-term state for current task
+
+## Voice Processing
+
+8 TTS providers, 6 STT providers
+Speech-to-speech pipeline via Gemini Live integration
+
+## Observability
+
+- Langfuse: Token tracking, cost analysis, trace visualization
+- OpenTelemetry: Distributed tracing (Jaeger, Zipkin compatible)
+- 14 evaluation scorers
+- External TracerProvider support
+
+## Context Compaction (4-stage pipeline)
+
+1. Tool output pruning
+2. File read deduplication
+3. LLM summarization (9-section structured summary)
+4. Sliding window truncation
+
+Auto-triggered at 80% context usage via BudgetChecker.
+
+## CLI Commands
+
+neurolink generate <prompt> — Generate text
+neurolink stream <prompt> — Stream text
+neurolink loop — Interactive REPL session
+neurolink setup — Configure providers
+neurolink status — Check provider health
+neurolink mcp list — List MCP tools
+neurolink config — Manage configuration
+
+## Links
+
+- npm: https://www.npmjs.com/package/@juspay/neurolink
+- GitHub: https://github.com/juspay/neurolink
+- Docs: https://docs.neurolink.ink
+- Blog: https://blog.neurolink.ink
+- License: MIT

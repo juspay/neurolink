@@ -30,7 +30,6 @@ try {
 }
 
 // Enhanced CLI with Professional UX
-// Note: Workflow functionality is accessed via generate/stream commands with --workflow-config option
 const cli = initializeCliParser();
 
 // Execute CLI

@@ -561,6 +561,8 @@ function makeVertexSpeedFirstConfig(base: WorkflowConfig) {
     ...base,
     models: [
       { provider: AIProviderName.VERTEX, model: "gemini-2.0-flash-lite" },
+      { provider: AIProviderName.VERTEX, model: "gemini-2.0-flash" },
+      { provider: AIProviderName.VERTEX, model: "gemini-2.5-flash" },
     ],
     modelGroups: [
       {
@@ -616,7 +618,11 @@ function makeVertexSpeedFirstConfig(base: WorkflowConfig) {
 function makeVertexBalancedAdaptiveConfig(base: WorkflowConfig) {
   return {
     ...base,
-    models: [{ provider: AIProviderName.VERTEX, model: "gemini-2.5-flash" }],
+    models: [
+      { provider: AIProviderName.VERTEX, model: "gemini-2.5-flash" },
+      { provider: AIProviderName.VERTEX, model: "gemini-2.0-flash" },
+      { provider: AIProviderName.VERTEX, model: "gemini-2.5-pro" },
+    ],
     modelGroups: [
       {
         id: "standard-tier",
@@ -663,7 +669,12 @@ function makeVertexBalancedAdaptiveConfig(base: WorkflowConfig) {
 function makeVertexQualityMaxConfig(base: WorkflowConfig) {
   return {
     ...base,
-    models: [{ provider: AIProviderName.VERTEX, model: "gemini-2.5-flash" }],
+    models: [
+      { provider: AIProviderName.VERTEX, model: "gemini-2.0-flash-lite" },
+      { provider: AIProviderName.VERTEX, model: "gemini-2.0-flash" },
+      { provider: AIProviderName.VERTEX, model: "gemini-2.5-flash" },
+      { provider: AIProviderName.VERTEX, model: "gemini-2.5-pro" },
+    ],
     modelGroups: [
       {
         id: "validation-tier",

@@ -12,12 +12,16 @@ import { existsSync, readFileSync } from "fs";
 import { extname, resolve } from "path";
 import { z } from "zod";
 import { logger } from "../utils/logger.js";
-import { ChunkerRegistry } from "./chunking/index.js";
+import { createChunker } from "./ChunkerFactory.js";
 import {
   createVectorQueryTool,
   InMemoryVectorStore,
 } from "./retrieval/vectorQueryTool.js";
-import type { ChunkingStrategy, RAGConfig } from "./types.js";
+import type {
+  ChunkingStrategy,
+  RAGConfig,
+  VectorQueryResult,
+} from "./types.js";
 
 /**
  * Maps file extensions to recommended chunking strategies
@@ -58,31 +62,106 @@ function detectStrategy(filePath: string): ChunkingStrategy {
 }
 
 /**
+ * Simple hash function for strings (FNV-1a variant).
+ * Maps a word to a bucket index deterministically.
+ */
+function hashWord(word: string, buckets: number): number {
+  let hash = 2166136261;
+  for (let i = 0; i < word.length; i++) {
+    hash ^= word.charCodeAt(i);
+    hash = (hash * 16777619) >>> 0;
+  }
+  return hash % buckets;
+}
+
+/**
  * Generate deterministic embeddings for chunks.
- * Uses a simple hash-based approach for the in-memory vector store.
+ * Combines character-frequency (40%) with word-level hash features (60%)
+ * for better semantic discrimination than pure character frequency.
  * When a real embedding provider is configured, it will be used instead.
  */
 function generateSimpleEmbedding(text: string, dimension: number): number[] {
-  const embedding = new Array(dimension).fill(0);
+  const charEmbedding = new Array(dimension).fill(0);
+  const wordEmbedding = new Array(dimension).fill(0);
 
-  // Simple character-frequency based embedding
+  // Character-frequency features
   for (let i = 0; i < text.length; i++) {
     const charCode = text.charCodeAt(i);
     const idx = charCode % dimension;
-    embedding[idx] += 1;
+    charEmbedding[idx] += 1;
+  }
+
+  // Word-level hash features (TF-IDF-like)
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .split(/\s+/)
+    .filter((w) => w.length > 1);
+  for (const word of words) {
+    const idx = hashWord(word, dimension);
+    wordEmbedding[idx] += 1;
+  }
+
+  // Combine: 40% character, 60% word
+  const combined = new Array(dimension);
+  for (let i = 0; i < dimension; i++) {
+    combined[i] = 0.4 * charEmbedding[i] + 0.6 * wordEmbedding[i];
   }
 
   // Normalize to unit vector
   const magnitude = Math.sqrt(
-    embedding.reduce((sum: number, v: number) => sum + v * v, 0),
+    combined.reduce((sum: number, v: number) => sum + v * v, 0),
   );
   if (magnitude > 0) {
     for (let i = 0; i < dimension; i++) {
-      embedding[i] /= magnitude;
+      combined[i] /= magnitude;
     }
   }
 
-  return embedding;
+  return combined;
+}
+
+/**
+ * Diversify retrieval results via round-robin across source files.
+ * Ensures at least one chunk per source file appears in the top-K results,
+ * preventing any single file from dominating retrieval.
+ */
+function diversifyResults(
+  results: VectorQueryResult[],
+  topK: number,
+): VectorQueryResult[] {
+  // Group by source file
+  const byFile = new Map<string, VectorQueryResult[]>();
+  for (const r of results) {
+    const source = (r.metadata?.source as string) || "unknown";
+    if (!byFile.has(source)) {
+      byFile.set(source, []);
+    }
+    const sourceGroup = byFile.get(source);
+    if (sourceGroup) {
+      sourceGroup.push(r);
+    }
+  }
+
+  // If only one source file, no diversification needed
+  if (byFile.size <= 1) {
+    return results.slice(0, topK);
+  }
+
+  // Round-robin selection from each source file group
+  const diversified: VectorQueryResult[] = [];
+  const iterators = [...byFile.values()].map((arr) => ({ arr, idx: 0 }));
+  while (
+    diversified.length < topK &&
+    iterators.some((it) => it.idx < it.arr.length)
+  ) {
+    for (const it of iterators) {
+      if (it.idx < it.arr.length && diversified.length < topK) {
+        diversified.push(it.arr[it.idx++]);
+      }
+    }
+  }
+  return diversified;
 }
 
 /**
@@ -122,7 +201,7 @@ export async function prepareRAGTool(
     strategy: userStrategy,
     chunkSize = 1000,
     chunkOverlap = 200,
-    topK = 5,
+    topK: userTopK = 5,
     toolName = "search_knowledge_base",
     toolDescription = "REQUIRED: Search through pre-loaded local documents to find relevant information. Use this tool FIRST before any web search or other tools. This searches an indexed knowledge base of documents the user has provided.",
     embeddingProvider,
@@ -158,6 +237,13 @@ export async function prepareRAGTool(
     }
   }
 
+  // Auto-increase topK for multi-file scenarios to ensure coverage
+  // (computed after loading so it reflects only files that actually exist)
+  const topK =
+    fileContents.length > 1
+      ? Math.max(userTopK, fileContents.length * 3)
+      : userTopK;
+
   if (fileContents.length === 0) {
     throw new Error(
       "RAG: No files could be loaded. Check that file paths exist and are readable.",
@@ -174,10 +260,11 @@ export async function prepareRAGTool(
 
   for (const { path, content, strategy } of fileContents) {
     try {
-      const chunker = ChunkerRegistry.get(strategy);
-      const chunks = await chunker.chunk(content, {
+      const chunker = await createChunker(strategy, {
         maxSize: chunkSize,
-        overlap: chunkOverlap,
+        overlap: Math.min(chunkOverlap, Math.floor(chunkSize * 0.5)),
+      });
+      const chunks = await chunker.chunk(content, {
         metadata: { source: path },
       });
 
@@ -254,11 +341,19 @@ export async function prepareRAGTool(
         EMBEDDING_DIMENSION,
       );
 
-      const results = await vectorStore.query({
+      // Fetch more candidates than needed so diversity can select across files
+      const fetchK = fileContents.length > 1 ? topK * 3 : topK;
+      const rawResults = await vectorStore.query({
         indexName,
         queryVector: queryEmbedding,
-        topK,
+        topK: fetchK,
       });
+
+      // Apply source-file diversity for multi-file RAG
+      const results =
+        fileContents.length > 1
+          ? diversifyResults(rawResults, topK)
+          : rawResults.slice(0, topK);
 
       if (results.length === 0) {
         return {
@@ -295,3 +390,8 @@ export async function prepareRAGTool(
     filesLoaded: fileContents.length,
   };
 }
+
+/** @internal Exported for testing only */
+export { generateSimpleEmbedding as _generateSimpleEmbedding };
+/** @internal Exported for testing only */
+export { diversifyResults as _diversifyResults };

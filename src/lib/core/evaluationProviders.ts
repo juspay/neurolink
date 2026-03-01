@@ -79,7 +79,7 @@ export function sortProvidersByPreference(
   providers: ProviderModelConfig[],
   preferCheap: boolean = true,
 ): ProviderModelConfig[] {
-  return providers.sort((a, b) => {
+  return [...providers].sort((a, b) => {
     const aPerf = a.performance || { cost: 0, speed: 0, quality: 0 };
     const bPerf = b.performance || { cost: 0, speed: 0, quality: 0 };
 
@@ -218,16 +218,21 @@ export function getPerformanceOptimizedProvider(
     return null;
   }
 
-  // Score providers based on real performance data
-  const scoredProviders = availableProviders.map((provider) => {
+  // Score providers based on real performance data.
+  // Only consider providers that have runtime metrics (sampleCount >= 3).
+  // Providers without metrics are excluded to avoid misleading recommendations
+  // (e.g. ollama appearing as "recommended" when it has no requiredEnvVars and
+  // thus always passes the "available" check, even when not actually in use).
+  const scoredProviders: Array<{
+    provider: ProviderModelConfig;
+    score: number;
+  }> = [];
+
+  for (const provider of availableProviders) {
     const metrics = providerMetrics.get(provider.provider);
     if (!metrics || metrics.sampleCount < 3) {
-      // Fall back to static performance ratings for providers without data
-      return {
-        provider,
-        score: getStaticPerformanceScore(provider, priority),
-        metrics: null,
-      };
+      // Skip providers without sufficient runtime data
+      continue;
     }
 
     let score = 0;
@@ -251,40 +256,17 @@ export function getPerformanceOptimizedProvider(
       }
     }
 
-    return { provider, score, metrics };
-  });
+    scoredProviders.push({ provider, score });
+  }
+
+  if (scoredProviders.length === 0) {
+    // No providers have sufficient runtime data to make a recommendation
+    return null;
+  }
 
   // Sort by score and return best
   scoredProviders.sort((a, b) => b.score - a.score);
   return scoredProviders[0].provider;
-}
-
-/**
- * Helper function for providers without performance data
- */
-function getStaticPerformanceScore(
-  provider: ProviderModelConfig,
-  priority: string,
-): number {
-  switch (priority) {
-    case "speed": {
-      const speedScore = provider.performance?.speed || 1;
-      return speedScore;
-    }
-    case "cost": {
-      const costScore = provider.performance?.cost || 1;
-      return costScore;
-    }
-    case "reliability": {
-      const qualityScore = provider.performance?.quality || 1;
-      return qualityScore;
-    }
-    default: {
-      throw new Error(
-        `Invalid priority: "${priority}". Must be one of: speed, cost, reliability`,
-      );
-    }
-  }
 }
 
 export function getProviderPerformanceAnalytics(): Record<

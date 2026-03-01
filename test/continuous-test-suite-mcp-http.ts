@@ -15,7 +15,9 @@
 
 import { spawn } from "child_process";
 import * as fs from "fs";
+import * as http from "http";
 import * as path from "path";
+import { randomUUID } from "crypto";
 import { fileURLToPath } from "url";
 import { NeuroLink } from "../dist/index.js";
 import type { ProcessResult } from "../dist/index.js";
@@ -337,6 +339,229 @@ async function loadMCPClients() {
     return {
       Client: clientMod.Client,
       StreamableHTTPClientTransport: httpMod.StreamableHTTPClientTransport,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================
+// LOCAL MOCK MCP SERVERS (SSE + Streamable HTTP)
+// ============================================================
+
+/**
+ * Creates a local mock MCP server that speaks SSE transport.
+ * Uses the MCP SDK's McpServer + SSEServerTransport for protocol correctness.
+ * Returns { url, close } — call close() to tear down.
+ */
+async function createMockSSEServer(): Promise<{
+  url: string;
+  close: () => Promise<void>;
+} | null> {
+  try {
+    const { McpServer } = await import(
+      "@modelcontextprotocol/sdk/server/mcp.js"
+    );
+    const { SSEServerTransport } = await import(
+      "@modelcontextprotocol/sdk/server/sse.js"
+    );
+
+    const mcpServer = new McpServer(
+      { name: "mock-sse-server", version: "1.0.0" },
+      { capabilities: { tools: {} } },
+    );
+
+    // Register a mock tool so listTools returns something
+    mcpServer.tool("mock_sse_ping", "Returns pong over SSE", () => ({
+      content: [{ type: "text" as const, text: "pong" }],
+    }));
+
+    // Track active transports for cleanup
+    const transports: Map<
+      string,
+      InstanceType<typeof SSEServerTransport>
+    > = new Map();
+
+    const server = http.createServer(async (req, res) => {
+      // SSE endpoint: GET /sse — establishes SSE stream
+      if (req.method === "GET" && req.url === "/sse") {
+        const transport = new SSEServerTransport("/messages", res);
+        transports.set(transport.sessionId, transport);
+        await mcpServer.server.connect(transport);
+        return;
+      }
+
+      // Message endpoint: POST /messages?sessionId=...
+      if (req.method === "POST" && req.url?.startsWith("/messages")) {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const sessionId = url.searchParams.get("sessionId") || "";
+        const transport = transports.get(sessionId);
+        if (!transport) {
+          res.writeHead(400);
+          res.end("Unknown session");
+          return;
+        }
+        // Collect body
+        const chunks: Buffer[] = [];
+        req.on("data", (chunk: Buffer) => chunks.push(chunk));
+        req.on("end", async () => {
+          try {
+            const body = JSON.parse(Buffer.concat(chunks).toString());
+            await transport.handlePostMessage(req, res, body);
+          } catch {
+            res.writeHead(400);
+            res.end("Invalid JSON");
+          }
+        });
+        return;
+      }
+
+      res.writeHead(404);
+      res.end("Not found");
+    });
+
+    // Listen on random available port
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const addr = server.address() as { port: number };
+    const url = `http://127.0.0.1:${addr.port}`;
+
+    return {
+      url,
+      close: async () => {
+        for (const t of Array.from(transports.values())) {
+          await t.close().catch(() => {});
+        }
+        transports.clear();
+        await new Promise<void>((resolve, reject) =>
+          server.close((err) => (err ? reject(err) : resolve())),
+        );
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Creates a local mock MCP server that speaks Streamable HTTP transport.
+ * Simulates a Semgrep-like server with code analysis tools.
+ * Uses plain JSON-RPC over HTTP — no MCP SDK server-side transports needed.
+ * Returns { url, close } — call close() to tear down.
+ */
+async function createMockStreamableHTTPServer(): Promise<{
+  url: string;
+  close: () => Promise<void>;
+} | null> {
+  try {
+    const sessionId = randomUUID();
+
+    const MOCK_TOOLS = [
+      {
+        name: "search_code",
+        description: "Search code for patterns using semgrep rules",
+        inputSchema: { type: "object" as const, properties: {} },
+      },
+      {
+        name: "scan_security",
+        description: "Scan code for security vulnerabilities",
+        inputSchema: { type: "object" as const, properties: {} },
+      },
+    ];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function handleJsonRpc(msg: any): any {
+      if (msg.method === "initialize") {
+        return {
+          jsonrpc: "2.0",
+          id: msg.id,
+          result: {
+            protocolVersion: "2025-03-26",
+            capabilities: { tools: {} },
+            serverInfo: { name: "mock-semgrep-server", version: "1.0.0" },
+          },
+        };
+      }
+      if (msg.method === "notifications/initialized") {
+        return null; // notification, no response
+      }
+      if (msg.method === "tools/list") {
+        return {
+          jsonrpc: "2.0",
+          id: msg.id,
+          result: { tools: MOCK_TOOLS },
+        };
+      }
+      if (msg.method === "tools/call") {
+        const toolName = msg.params?.name || "unknown";
+        const text =
+          toolName === "search_code"
+            ? "No issues found (mock result)"
+            : "0 vulnerabilities found (mock)";
+        return {
+          jsonrpc: "2.0",
+          id: msg.id,
+          result: { content: [{ type: "text", text }] },
+        };
+      }
+      // Unknown method
+      return {
+        jsonrpc: "2.0",
+        id: msg.id ?? null,
+        error: { code: -32601, message: `Method not found: ${msg.method}` },
+      };
+    }
+
+    const server = http.createServer((req, res) => {
+      if (req.url !== "/mcp" || req.method !== "POST") {
+        res.writeHead(req.method === "DELETE" ? 200 : 405);
+        res.end();
+        return;
+      }
+
+      const chunks: Buffer[] = [];
+      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      req.on("end", () => {
+        try {
+          const body = JSON.parse(Buffer.concat(chunks).toString());
+          // Handle batch or single request
+          const messages = Array.isArray(body) ? body : [body];
+          const responses = messages
+            .map(handleJsonRpc)
+            .filter((r: unknown) => r !== null);
+
+          res.writeHead(200, {
+            "Content-Type": "application/json",
+            "Mcp-Session-Id": sessionId,
+          });
+          if (responses.length === 1) {
+            res.end(JSON.stringify(responses[0]));
+          } else if (responses.length > 1) {
+            res.end(JSON.stringify(responses));
+          } else {
+            res.end(); // all notifications, no response body
+          }
+        } catch {
+          res.writeHead(400);
+          res.end("Invalid JSON");
+        }
+      });
+    });
+
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const addr = server.address() as { port: number };
+    const url = `http://127.0.0.1:${addr.port}/mcp`;
+
+    return {
+      url,
+      close: async () => {
+        await new Promise<void>((resolve, reject) =>
+          server.close((err) => (err ? reject(err) : resolve())),
+        );
+      },
     };
   } catch {
     return null;
@@ -1045,11 +1270,13 @@ async function testHTTPTransportTimeout(
 }
 
 // #9 — testSSETransportConnection
-// SDK infra: Connect to SSE MCP server
+// SDK infra: Connect to local mock SSE MCP server
 async function testSSETransportConnection(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("SSE Transport Connection", "TESTING");
+  let mockServer: { url: string; close: () => Promise<void> } | null = null;
+  let client: unknown;
   try {
     const mcpClients = await loadMCPClients();
     if (!mcpClients) {
@@ -1061,7 +1288,7 @@ async function testSSETransportConnection(
       return null;
     }
 
-    // Try to load SSE transport
+    // Try to load SSE client transport
     let SSEClientTransport: unknown;
     try {
       const sseMod = await import("@modelcontextprotocol/sdk/client/sse.js");
@@ -1075,71 +1302,66 @@ async function testSSETransportConnection(
       return null;
     }
 
-    // Semgrep uses SSE transport
-    const url = new URL(REAL_HTTP_MCP_SERVERS.semgrep.url);
+    // Start local mock SSE MCP server
+    mockServer = await createMockSSEServer();
+    if (!mockServer) {
+      logTest(
+        "SSE Transport Connection",
+        "SKIP",
+        "Could not create mock SSE server (MCP server SDK not available)",
+      );
+      return null;
+    }
+
+    const sseUrl = new URL(`${mockServer.url}/sse`);
     const transport = new (SSEClientTransport as new (url: URL) => unknown)(
-      url,
+      sseUrl,
     );
 
     const { Client } = mcpClients;
-    const client = new Client(
+    client = new Client(
       { name: "neurolink-sse-test", version: "1.0.0" },
       { capabilities: {} },
     );
 
-    try {
-      const connectPromise = (
-        client as { connect: (t: unknown) => Promise<void> }
-      ).connect(transport);
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("SSE connection timeout")), 30000),
-      );
+    const connectPromise = (
+      client as { connect: (t: unknown) => Promise<void> }
+    ).connect(transport);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("SSE connection timeout")), 10000),
+    );
 
-      await Promise.race([connectPromise, timeoutPromise]);
+    await Promise.race([connectPromise, timeoutPromise]);
 
-      const toolsResult = await (
-        client as { listTools: () => Promise<{ tools: { name: string }[] }> }
-      ).listTools();
-      const toolCount = toolsResult.tools?.length || 0;
+    const toolsResult = await (
+      client as { listTools: () => Promise<{ tools: { name: string }[] }> }
+    ).listTools();
+    const toolCount = toolsResult.tools?.length || 0;
 
-      await (client as { close: () => Promise<void> }).close().catch(() => {});
-
+    if (toolCount === 0) {
       logTest(
         "SSE Transport Connection",
-        "PASS",
-        `Connected via SSE | Tools: ${toolCount}`,
+        "FAIL",
+        "Connected but no tools found",
       );
-      return true;
-    } catch (connectError) {
-      const connectMsg =
-        connectError instanceof Error
-          ? connectError.message
-          : String(connectError);
-
-      // SSE connection might not be supported by all servers
-      if (isExpectedMCPError(connectMsg) || connectMsg.includes("SSE")) {
-        logTest(
-          "SSE Transport Connection",
-          "SKIP",
-          `SSE connection unavailable: ${connectMsg.substring(0, 100)}`,
-        );
-        return null;
-      }
-
-      throw connectError;
+      return false;
     }
+
+    logTest(
+      "SSE Transport Connection",
+      "PASS",
+      `Connected via SSE to local mock | Tools: ${toolCount}`,
+    );
+    return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedMCPError(msg)) {
-      logTest(
-        "SSE Transport Connection",
-        "SKIP",
-        `Network unavailable: ${msg}`,
-      );
-      return null;
-    }
     logTest("SSE Transport Connection", "FAIL", msg);
     return false;
+  } finally {
+    await (client as { close: () => Promise<void> } | undefined)
+      ?.close()
+      .catch(() => {});
+    await mockServer?.close().catch(() => {});
   }
 }
 
@@ -1297,18 +1519,37 @@ async function testRealMCPServerDeepWiki(
 }
 
 // #12 — testRealMCPServerSemgrep
-// SDK generate: (Migrated) Connect to Semgrep, generate() with tools
+// SDK generate: Connect to mock Semgrep-like MCP server via Streamable HTTP
 async function testRealMCPServerSemgrep(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
-  logTest("Real MCP Server - Semgrep", "TESTING");
+  logTest("Mock MCP Server - Semgrep", "TESTING");
+  let mockServer: { url: string; close: () => Promise<void> } | null = null;
+  let client:
+    | {
+        connect: (t: unknown) => Promise<void>;
+        listTools: () => Promise<{ tools: { name: string }[] }>;
+        close: () => Promise<void>;
+      }
+    | undefined;
   try {
     const mcpClients = await loadMCPClients();
     if (!mcpClients) {
       logTest(
-        "Real MCP Server - Semgrep",
+        "Mock MCP Server - Semgrep",
         "SKIP",
         "MCP SDK client not available",
+      );
+      return null;
+    }
+
+    // Start local mock Streamable HTTP MCP server (Semgrep-like)
+    mockServer = await createMockStreamableHTTPServer();
+    if (!mockServer) {
+      logTest(
+        "Mock MCP Server - Semgrep",
+        "SKIP",
+        "Could not create mock Streamable HTTP server (MCP server SDK not available)",
       );
       return null;
     }
@@ -1316,21 +1557,21 @@ async function testRealMCPServerSemgrep(
     const { Client, StreamableHTTPClientTransport } = mcpClients;
 
     const startTime = Date.now();
-    const url = new URL(REAL_HTTP_MCP_SERVERS.semgrep.url);
+    const url = new URL(mockServer.url);
     const transport = new StreamableHTTPClientTransport(url, {
       requestInit: {
         headers: { "Content-Type": "application/json" },
       },
     });
 
-    const client = new Client(
+    client = new Client(
       { name: "neurolink-semgrep-test", version: "1.0.0" },
       { capabilities: {} },
     );
 
     const connectPromise = client.connect(transport);
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timeout")), 30000),
+      setTimeout(() => reject(new Error("Connection timeout")), 10000),
     );
 
     await Promise.race([connectPromise, timeoutPromise]);
@@ -1340,11 +1581,9 @@ async function testRealMCPServerSemgrep(
     const toolNames = tools.map((t: { name: string }) => t.name);
     const responseTime = Date.now() - startTime;
 
-    await client.close().catch(() => {});
-
     if (tools.length === 0) {
       logTest(
-        "Real MCP Server - Semgrep",
+        "Mock MCP Server - Semgrep",
         "FAIL",
         "Connected but no tools found",
       );
@@ -1352,23 +1591,18 @@ async function testRealMCPServerSemgrep(
     }
 
     logTest(
-      "Real MCP Server - Semgrep",
+      "Mock MCP Server - Semgrep",
       "PASS",
       `Connected in ${responseTime}ms | Tools: ${tools.length} [${toolNames.join(", ")}]`,
     );
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedMCPError(msg)) {
-      logTest(
-        "Real MCP Server - Semgrep",
-        "SKIP",
-        `Server unavailable: ${msg}`,
-      );
-      return null;
-    }
-    logTest("Real MCP Server - Semgrep", "FAIL", msg);
+    logTest("Mock MCP Server - Semgrep", "FAIL", msg);
     return false;
+  } finally {
+    await client?.close().catch(() => {});
+    await mockServer?.close().catch(() => {});
   }
 }
 
@@ -1762,7 +1996,7 @@ async function runAllTests(): Promise<void> {
       fn: () => testRealMCPServerDeepWiki(sharedSdk),
     },
     {
-      name: "Real MCP Server - Semgrep",
+      name: "Mock MCP Server - Semgrep",
       fn: () => testRealMCPServerSemgrep(sharedSdk),
     },
     {

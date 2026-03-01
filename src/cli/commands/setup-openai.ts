@@ -18,6 +18,7 @@ import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
 import { AIProviderName } from "../../lib/types/index.js";
+import { maskCredential } from "../utils/maskCredential.js";
 
 type OpenAISetupOptions = {
   checkOnly?: boolean;
@@ -434,22 +435,6 @@ async function updateEnvFile(config: OpenAIConfig): Promise<void> {
     );
     throw error;
   }
-}
-
-/**
- * Mask API key for display
- */
-function maskCredential(credential: string): string {
-  if (!credential || credential.length < 8) {
-    return "****";
-  }
-  const knownPrefixes = ["sk-"];
-  const prefix =
-    knownPrefixes.find((p) => credential.startsWith(p)) ??
-    credential.slice(0, 3);
-  const end = credential.slice(-4);
-  const stars = "*".repeat(Math.max(4, credential.length - prefix.length - 4));
-  return `${prefix}${stars}${end}`;
 }
 
 /**

@@ -18,6 +18,7 @@ import type {
   ContextWindow,
 } from "../../types/ragTypes.js";
 import { logger } from "../../utils/logger.js";
+import { estimateTokens } from "../../utils/tokenEstimation.js";
 
 /**
  * Citation format options
@@ -261,7 +262,7 @@ export function createContextWindow(
     text,
     chunkCount,
     charCount: text.length,
-    tokenCount: Math.ceil(text.length / 4),
+    tokenCount: estimateTokens(text),
     truncatedChunks,
     citations,
   };

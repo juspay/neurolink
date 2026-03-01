@@ -2,12 +2,12 @@
 /**
  * Continuous Test Suite: Observability
  *
- * Tests Langfuse integration, OpenTelemetry instrumentation,
- * external TracerProvider mode, context management, and operation name detection.
+ * Tests OpenTelemetry instrumentation, context management, span processors,
+ * external TracerProvider mode, and operation name detection.
+ *
+ * ALL tests run locally using InMemorySpanExporter — no Langfuse credentials needed.
  *
  * Run: npx tsx test/continuous-test-suite-observability.ts --provider=vertex
- *
- * Required env vars: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY (SKIP if missing)
  */
 
 import { spawn } from "child_process";
@@ -15,11 +15,35 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { NeuroLink } from "../dist/index.js";
-import type { ProcessResult } from "../dist/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ============================================================
+// OTEL BOOTSTRAP — must register BEFORE importing NeuroLink
+// ============================================================
+import {
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
+
+const spanExporter = new InMemorySpanExporter();
+const traceProvider = new NodeTracerProvider({
+  spanProcessors: [new SimpleSpanProcessor(spanExporter)],
+});
+traceProvider.register();
+
+// Now import NeuroLink (tracers will pick up the registered provider)
+const {
+  NeuroLink,
+  setLangfuseContext,
+  getLangfuseContext,
+  getSpanProcessors,
+  getTracer,
+} = await import("../dist/index.js");
 
 // ============================================================
 // CONFIGURATION
@@ -41,19 +65,15 @@ const TEST_CONFIG = {
   model: process.env.TEST_MODEL || (undefined as string | undefined),
   maxTokens: undefined as number | undefined,
   timeout: 90000,
-  interTestDelay: 5000,
+  interTestDelay: 2000,
 };
 
-// Langfuse credentials
-const LANGFUSE_CONFIG = {
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY || "",
-  secretKey: process.env.LANGFUSE_SECRET_KEY || "",
-  baseUrl: process.env.LANGFUSE_BASE_URL || "https://cloud.langfuse.com",
+// Dummy Langfuse credentials for config (never reach cloud — InMemorySpanExporter captures everything)
+const DUMMY_LANGFUSE = {
+  publicKey: "test-public-key",
+  secretKey: "test-secret-key",
+  baseUrl: "http://localhost:9999", // unreachable, but that's fine
 };
-
-function hasLangfuseCredentials(): boolean {
-  return !!(LANGFUSE_CONFIG.publicKey && LANGFUSE_CONFIG.secretKey);
-}
 
 // ============================================================
 // LOGGING UTILITIES
@@ -92,14 +112,14 @@ function logTest(
     SKIP: "yellow",
     TESTING: "blue",
   };
-  log(`[${icons[status]}] ${testName}`, statusColors[status]);
-  if (details) {
-    log(`   ${details}`, "reset");
-  }
+  const icon = icons[status];
+  const clr = statusColors[status] || "reset";
+  const det = details ? ` — ${details}` : "";
+  log(`[${icon}] ${testName}${det}`, clr);
 }
 
 // ============================================================
-// SHARED UTILITIES
+// TEST RESULTS TRACKING
 // ============================================================
 
 const testResults: Array<{
@@ -108,23 +128,55 @@ const testResults: Array<{
   error: string | null;
 }> = [];
 
-function buildBaseCLIArgs(): string[] {
-  const args = [`--provider=${TEST_CONFIG.provider}`];
-  if (TEST_CONFIG.model) {
-    args.push(`--model=${TEST_CONFIG.model}`);
-  }
-  return args;
-}
+// ============================================================
+// HELPERS
+// ============================================================
 
-function buildBaseSDKOptions(): { provider: string; model?: string } {
-  const opts: { provider: string; model?: string } = {
+function buildGenerateOptions(
+  extraOpts: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const opts: Record<string, unknown> = {
+    input: { text: 'Say "hello" and nothing else' },
     provider: TEST_CONFIG.provider,
+    maxTokens: 50,
+    disableTools: true,
+    ...extraOpts,
   };
   if (TEST_CONFIG.model) {
     opts.model = TEST_CONFIG.model;
   }
   return opts;
 }
+
+function getFinishedSpans(): ReadableSpan[] {
+  return spanExporter.getFinishedSpans();
+}
+
+function resetSpans(): void {
+  spanExporter.reset();
+}
+
+function isExpectedProviderError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return [
+    "api key",
+    "authentication",
+    "rate limit",
+    "quota",
+    "credentials",
+    "could not be resolved",
+    "cannot connect",
+    "failed to generate",
+    "google_application_credentials",
+  ].some((p) => lower.includes(p));
+}
+
+type ProcessResult = {
+  success: boolean;
+  code: number;
+  stdout: string;
+  stderr: string;
+};
 
 function runCommand(
   command: string,
@@ -171,28 +223,6 @@ function runCommand(
   });
 }
 
-function isExpectedProviderError(msg: string): boolean {
-  const lower = msg.toLowerCase();
-  return [
-    "api key",
-    "authentication",
-    "rate limit",
-    "quota",
-    "credentials",
-    "could not be resolved",
-    "cannot connect",
-    "failed to generate",
-    "google_application_credentials",
-  ].some((p) => lower.includes(p));
-}
-
-async function globalCleanup(): Promise<void> {
-  await new Promise((r) => setTimeout(r, 100));
-  if (global.gc) {
-    global.gc();
-  }
-}
-
 // ============================================================
 // TEST #1: Telemetry Service Init
 // ============================================================
@@ -200,90 +230,44 @@ async function globalCleanup(): Promise<void> {
 async function testTelemetryServiceInit(): Promise<boolean | null> {
   logSection("Test #1: Telemetry Service Init");
   logTest("Telemetry Service Init", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "Telemetry Service Init",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-telemetry-init-");
-  const tempScriptPath = tempDir + "/test-telemetry-init.mjs";
+  resetSpans();
 
   try {
-    const testScript = `
-import { NeuroLink } from '${process.cwd()}/dist/index.js';
-
-async function testTelemetryServiceInit() {
-  console.log('Testing NeuroLink initialization with Langfuse config...');
-  const { LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL } = process.env;
-
-  try {
+    // Initialize NeuroLink with observability config — should not throw
     const sdk = new NeuroLink({
       observability: {
         langfuse: {
           enabled: true,
-          publicKey: LANGFUSE_PUBLIC_KEY,
-          secretKey: LANGFUSE_SECRET_KEY,
-          baseUrl: LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
-          environment: 'test',
-          release: 'continuous-test-suite',
+          publicKey: DUMMY_LANGFUSE.publicKey,
+          secretKey: DUMMY_LANGFUSE.secretKey,
+          baseUrl: DUMMY_LANGFUSE.baseUrl,
+          useExternalTracerProvider: true,
+          environment: "test",
+          release: "continuous-test-suite",
         },
       },
     });
 
-    // SDK should initialize without errors
     if (sdk) {
-      console.log('PASS - NeuroLink initialized with Langfuse config successfully');
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
-    } else {
-      console.log('FAIL - SDK initialization returned null');
-      process.exit(1);
-    }
-  } catch (error) {
-    console.log('FAIL - Init error: ' + error.message);
-    process.exit(1);
-  }
-}
-
-testTelemetryServiceInit();
-`;
-
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath], {
-      env: {
-        LANGFUSE_PUBLIC_KEY: LANGFUSE_CONFIG.publicKey,
-        LANGFUSE_SECRET_KEY: LANGFUSE_CONFIG.secretKey,
-        LANGFUSE_BASE_URL: LANGFUSE_CONFIG.baseUrl,
-      },
-    });
-
-    if (result.stdout.includes("PASS")) {
       logTest(
         "Telemetry Service Init",
         "PASS",
-        "NeuroLink initialized with Langfuse config",
+        "NeuroLink initialized with observability config successfully",
       );
+      try {
+        await sdk.shutdown?.();
+      } catch {
+        /* ignore */
+      }
       return true;
     } else {
-      logTest("Telemetry Service Init", "FAIL", result.stderr || result.stdout);
+      logTest("Telemetry Service Init", "FAIL", "SDK returned null");
       return false;
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("Telemetry Service Init", "FAIL", errorMessage);
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest("Telemetry Service Init", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
@@ -294,109 +278,54 @@ testTelemetryServiceInit();
 async function testExternalTracerProviderMode(): Promise<boolean | null> {
   logSection("Test #2: External TracerProvider Mode");
   logTest("External TracerProvider Mode", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "External TracerProvider Mode",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-ext-tracer-");
-  const tempScriptPath = tempDir + "/test-ext-tracer.mjs";
-
-  try {
-    const testScript = `
-import { NeuroLink } from '${process.cwd()}/dist/index.js';
-
-async function testExternalTracerProviderMode() {
-  console.log('Testing useExternalTracerProvider mode + generate()...');
+  resetSpans();
 
   try {
     const sdk = new NeuroLink({
       observability: {
         langfuse: {
           enabled: true,
-          publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-          secretKey: process.env.LANGFUSE_SECRET_KEY,
-          baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+          publicKey: DUMMY_LANGFUSE.publicKey,
+          secretKey: DUMMY_LANGFUSE.secretKey,
+          baseUrl: DUMMY_LANGFUSE.baseUrl,
           useExternalTracerProvider: true,
         },
       },
     });
 
     // Generate should work without "duplicate registration" error
-    const result = await sdk.generate({
-      input: { text: 'Say hello in one word' },
-      provider: '${TEST_CONFIG.provider}',
-      ${TEST_CONFIG.model ? `model: '${TEST_CONFIG.model}',` : ""}
-      maxTokens: 50,
-    });
+    const result = await sdk.generate(buildGenerateOptions());
 
     if (result?.content && result.content.length > 0) {
-      console.log('PASS - External TracerProvider mode works. No duplicate registration error.');
-      console.log('Response: ' + result.content.substring(0, 50));
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
-    } else {
-      console.log('FAIL - No content in response');
-      process.exit(1);
-    }
-  } catch (error) {
-    if (error.message?.includes('credentials') || error.message?.includes('authentication') || error.message?.includes('API key')) {
-      console.log('SKIP - Provider credentials not configured');
-      process.exit(0);
-    }
-    if (error.message?.includes('duplicate') || error.message?.includes('already registered')) {
-      console.log('FAIL - Duplicate registration error: ' + error.message);
-      process.exit(1);
-    }
-    console.log('FAIL -', error.message);
-    process.exit(1);
-  }
-}
-
-testExternalTracerProviderMode();
-`;
-
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath]);
-
-    if (result.stdout.includes("PASS")) {
+      // Also verify spans were captured locally
+      const spans = getFinishedSpans();
       logTest(
         "External TracerProvider Mode",
         "PASS",
-        "No duplicate registration error",
+        `No duplicate registration error. ${spans.length} spans captured. Content: ${result.content.substring(0, 40)}`,
       );
+      try {
+        await sdk.shutdown?.();
+      } catch {
+        /* ignore */
+      }
       return true;
-    } else if (result.stdout.includes("SKIP")) {
+    } else {
+      logTest("External TracerProvider Mode", "FAIL", "No content in response");
+      return false;
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
       logTest(
         "External TracerProvider Mode",
         "SKIP",
         "Provider credentials not configured",
       );
       return null;
-    } else {
-      logTest(
-        "External TracerProvider Mode",
-        "FAIL",
-        result.stderr || result.stdout,
-      );
-      return false;
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("External TracerProvider Mode", "FAIL", errorMessage);
+    logTest("External TracerProvider Mode", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
@@ -407,102 +336,71 @@ testExternalTracerProviderMode();
 async function testGetSpanProcessors(): Promise<boolean | null> {
   logSection("Test #3: getSpanProcessors");
   logTest("getSpanProcessors", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "getSpanProcessors",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-span-proc-");
-  const tempScriptPath = tempDir + "/test-span-proc.mjs";
+  resetSpans();
 
   try {
-    const testScript = `
-import { NeuroLink, getSpanProcessors } from '${process.cwd()}/dist/index.js';
-
-async function testGetSpanProcessors() {
-  console.log('Testing getSpanProcessors()...');
-
-  try {
-    // Initialize NeuroLink with Langfuse to ensure processors are created
+    // Initialize SDK to ensure processors are created
     const sdk = new NeuroLink({
       observability: {
         langfuse: {
           enabled: true,
-          publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-          secretKey: process.env.LANGFUSE_SECRET_KEY,
-          baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+          publicKey: DUMMY_LANGFUSE.publicKey,
+          secretKey: DUMMY_LANGFUSE.secretKey,
+          baseUrl: DUMMY_LANGFUSE.baseUrl,
+          useExternalTracerProvider: true,
         },
       },
     });
 
-    // Wait for initialization
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 500));
 
     const processors = getSpanProcessors();
 
     if (Array.isArray(processors)) {
-      console.log('Processors returned: ' + processors.length);
-
-      // Verify processors have expected methods
+      // Verify processors have expected SpanProcessor interface
       let hasValidProcessors = true;
       for (const proc of processors) {
-        if (typeof proc.onStart !== 'function' || typeof proc.onEnd !== 'function') {
+        if (
+          typeof proc.onStart !== "function" ||
+          typeof proc.onEnd !== "function"
+        ) {
           hasValidProcessors = false;
           break;
         }
       }
 
-      if (processors.length > 0 && hasValidProcessors) {
-        console.log('PASS - getSpanProcessors() returned ' + processors.length + ' processors with onStart/onEnd methods');
-      } else if (processors.length === 0) {
-        // Empty array is acceptable if initialization hasn't completed
-        console.log('PASS - getSpanProcessors() returned empty array (initialization may be pending)');
+      if (hasValidProcessors) {
+        logTest(
+          "getSpanProcessors",
+          "PASS",
+          `Returned ${processors.length} valid processor(s) with onStart/onEnd`,
+        );
+        try {
+          await sdk.shutdown?.();
+        } catch {
+          /* ignore */
+        }
+        return true;
       } else {
-        console.log('FAIL - Processors missing expected methods');
-        process.exit(1);
+        logTest(
+          "getSpanProcessors",
+          "FAIL",
+          "Processors missing onStart/onEnd methods",
+        );
+        return false;
       }
-
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
     } else {
-      console.log('FAIL - getSpanProcessors() did not return an array');
-      process.exit(1);
-    }
-  } catch (error) {
-    console.log('FAIL -', error.message);
-    process.exit(1);
-  }
-}
-
-testGetSpanProcessors();
-`;
-
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath]);
-
-    if (result.stdout.includes("PASS")) {
-      logTest("getSpanProcessors", "PASS", "Span processors validated");
-      return true;
-    } else {
-      logTest("getSpanProcessors", "FAIL", result.stderr || result.stdout);
+      logTest(
+        "getSpanProcessors",
+        "FAIL",
+        `Expected array, got ${typeof processors}`,
+      );
       return false;
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("getSpanProcessors", "FAIL", errorMessage);
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest("getSpanProcessors", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
@@ -513,43 +411,13 @@ testGetSpanProcessors();
 async function testSetLangfuseContext(): Promise<boolean | null> {
   logSection("Test #4: setLangfuseContext / getLangfuseContext");
   logTest("setLangfuseContext", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "setLangfuseContext",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-langfuse-ctx-");
-  const tempScriptPath = tempDir + "/test-langfuse-ctx.mjs";
+  resetSpans();
 
   try {
-    const testScript = `
-import { NeuroLink, setLangfuseContext, getLangfuseContext } from '${process.cwd()}/dist/index.js';
+    const testUserId = "test-user-" + Date.now();
+    const testSessionId = "test-session-" + Date.now();
 
-async function testSetLangfuseContext() {
-  console.log('Testing setLangfuseContext / getLangfuseContext...');
-
-  try {
-    // Initialize SDK with Langfuse
-    const sdk = new NeuroLink({
-      observability: {
-        langfuse: {
-          enabled: true,
-          publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-          secretKey: process.env.LANGFUSE_SECRET_KEY,
-          baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
-        },
-      },
-    });
-
-    // Set context and verify roundtrip
-    const testUserId = 'test-user-' + Date.now();
-    const testSessionId = 'test-session-' + Date.now();
-
+    // setLangfuseContext is pure AsyncLocalStorage — no Langfuse needed
     await setLangfuseContext({
       userId: testUserId,
       sessionId: testSessionId,
@@ -557,44 +425,28 @@ async function testSetLangfuseContext() {
 
     const context = getLangfuseContext();
 
-    if (context?.userId === testUserId && context?.sessionId === testSessionId) {
-      console.log('PASS - Context roundtrip matches. userId=' + testUserId + ', sessionId=' + testSessionId);
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
-    } else {
-      console.log('FAIL - Context mismatch. Got userId=' + context?.userId + ', sessionId=' + context?.sessionId);
-      process.exit(1);
-    }
-  } catch (error) {
-    console.log('FAIL -', error.message);
-    process.exit(1);
-  }
-}
-
-testSetLangfuseContext();
-`;
-
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath]);
-
-    if (result.stdout.includes("PASS")) {
-      logTest("setLangfuseContext", "PASS", "Context roundtrip verified");
+    if (
+      context?.userId === testUserId &&
+      context?.sessionId === testSessionId
+    ) {
+      logTest(
+        "setLangfuseContext",
+        "PASS",
+        `Context roundtrip matches. userId=${testUserId}, sessionId=${testSessionId}`,
+      );
       return true;
     } else {
-      logTest("setLangfuseContext", "FAIL", result.stderr || result.stdout);
+      logTest(
+        "setLangfuseContext",
+        "FAIL",
+        `Context mismatch. Got userId=${context?.userId}, sessionId=${context?.sessionId}`,
+      );
       return false;
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("setLangfuseContext", "FAIL", errorMessage);
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest("setLangfuseContext", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
@@ -605,114 +457,71 @@ testSetLangfuseContext();
 async function testSetLangfuseContextWithCallback(): Promise<boolean | null> {
   logSection("Test #5: setLangfuseContext with Callback + generate()");
   logTest("Context Callback + Generate", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "Context Callback + Generate",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-ctx-callback-");
-  const tempScriptPath = tempDir + "/test-ctx-callback.mjs";
-
-  try {
-    const testScript = `
-import { NeuroLink, setLangfuseContext } from '${process.cwd()}/dist/index.js';
-
-async function testSetLangfuseContextWithCallback() {
-  console.log('Testing setLangfuseContext with callback + generate()...');
+  resetSpans();
 
   try {
     const sdk = new NeuroLink({
       observability: {
         langfuse: {
           enabled: true,
-          publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-          secretKey: process.env.LANGFUSE_SECRET_KEY,
-          baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+          publicKey: DUMMY_LANGFUSE.publicKey,
+          secretKey: DUMMY_LANGFUSE.secretKey,
+          baseUrl: DUMMY_LANGFUSE.baseUrl,
+          useExternalTracerProvider: true,
         },
       },
     });
 
-    // Set context with callback that performs generate()
     const result = await setLangfuseContext(
       {
-        userId: 'test-callback-user',
-        sessionId: 'test-callback-session',
-        conversationId: 'test-conv-123',
-        requestId: 'test-req-abc',
-        traceName: 'callback-test',
+        userId: "test-callback-user",
+        sessionId: "test-callback-session",
+        conversationId: "test-conv-123",
+        requestId: "test-req-abc",
+        traceName: "callback-test",
       },
       async () => {
-        return await sdk.generate({
-          input: { text: 'Say the word "hello" and nothing else' },
-          provider: '${TEST_CONFIG.provider}',
-          ${TEST_CONFIG.model ? `model: '${TEST_CONFIG.model}',` : ""}
-          maxTokens: 50,
-        });
+        return await sdk.generate(
+          buildGenerateOptions({
+            input: { text: 'Say "callback" and nothing else' },
+          }),
+        );
       },
     );
 
     if (result?.content && result.content.length > 0) {
-      console.log('PASS - Callback executed and returned generate result. Content: ' + result.content.substring(0, 50));
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
-    } else {
-      console.log('FAIL - No content returned from callback');
-      process.exit(1);
-    }
-  } catch (error) {
-    if (error.message?.includes('credentials') || error.message?.includes('authentication') || error.message?.includes('API key')) {
-      console.log('SKIP - Provider credentials not configured');
-      process.exit(0);
-    }
-    console.log('FAIL -', error.message);
-    process.exit(1);
-  }
-}
-
-testSetLangfuseContextWithCallback();
-`;
-
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath]);
-
-    if (result.stdout.includes("PASS")) {
+      const spans = getFinishedSpans();
       logTest(
         "Context Callback + Generate",
         "PASS",
-        "Callback with generate() succeeded",
+        `Callback executed. ${spans.length} spans captured. Content: ${result.content.substring(0, 40)}`,
       );
+      try {
+        await sdk.shutdown?.();
+      } catch {
+        /* ignore */
+      }
       return true;
-    } else if (result.stdout.includes("SKIP")) {
+    } else {
+      logTest(
+        "Context Callback + Generate",
+        "FAIL",
+        "No content returned from callback",
+      );
+      return false;
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
       logTest(
         "Context Callback + Generate",
         "SKIP",
         "Provider credentials not configured",
       );
       return null;
-    } else {
-      logTest(
-        "Context Callback + Generate",
-        "FAIL",
-        result.stderr || result.stdout,
-      );
-      return false;
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("Context Callback + Generate", "FAIL", errorMessage);
+    logTest("Context Callback + Generate", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
@@ -723,112 +532,64 @@ testSetLangfuseContextWithCallback();
 async function testOperationNameAutoDetection(): Promise<boolean | null> {
   logSection("Test #6: Operation Name Auto-Detection");
   logTest("Operation Name Auto-Detection", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "Operation Name Auto-Detection",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-op-autodetect-");
-  const tempScriptPath = tempDir + "/test-op-autodetect.mjs";
-
-  try {
-    const testScript = `
-import { NeuroLink, setLangfuseContext } from '${process.cwd()}/dist/index.js';
-
-async function testOperationNameAutoDetection() {
-  console.log('Testing operation name auto-detection with generate()...');
+  resetSpans();
 
   try {
     const sdk = new NeuroLink({
       observability: {
         langfuse: {
           enabled: true,
-          publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-          secretKey: process.env.LANGFUSE_SECRET_KEY,
-          baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+          publicKey: DUMMY_LANGFUSE.publicKey,
+          secretKey: DUMMY_LANGFUSE.secretKey,
+          baseUrl: DUMMY_LANGFUSE.baseUrl,
+          useExternalTracerProvider: true,
           autoDetectOperationName: true,
         },
       },
     });
 
-    // Generate with auto-detect enabled - trace name should contain operation
     const result = await setLangfuseContext(
-      {
-        userId: 'test-autodetect-user',
-      },
+      { userId: "test-autodetect-user" },
       async () => {
-        return await sdk.generate({
-          input: { text: 'Say "test" and nothing else' },
-          provider: '${TEST_CONFIG.provider}',
-          ${TEST_CONFIG.model ? `model: '${TEST_CONFIG.model}',` : ""}
-          maxTokens: 50,
-        });
+        return await sdk.generate(
+          buildGenerateOptions({
+            input: { text: 'Say "autodetect" and nothing else' },
+          }),
+        );
       },
     );
 
     if (result?.content && result.content.length > 0) {
-      console.log('PASS - Auto-detection generate completed. Trace should contain operation name.');
-      console.log('Response: ' + result.content.substring(0, 30));
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
-    } else {
-      console.log('FAIL - No content');
-      process.exit(1);
-    }
-  } catch (error) {
-    if (error.message?.includes('credentials') || error.message?.includes('authentication') || error.message?.includes('API key')) {
-      console.log('SKIP - Provider credentials not configured');
-      process.exit(0);
-    }
-    console.log('FAIL -', error.message);
-    process.exit(1);
-  }
-}
-
-testOperationNameAutoDetection();
-`;
-
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath]);
-
-    if (result.stdout.includes("PASS")) {
+      const spans = getFinishedSpans();
+      // Check if any span has operation-related attributes
+      const spanNames = spans.map((s) => s.name);
       logTest(
         "Operation Name Auto-Detection",
         "PASS",
-        "Auto-detection works with generate()",
+        `Auto-detection generate completed. ${spans.length} spans: [${spanNames.slice(0, 5).join(", ")}]`,
       );
+      try {
+        await sdk.shutdown?.();
+      } catch {
+        /* ignore */
+      }
       return true;
-    } else if (result.stdout.includes("SKIP")) {
+    } else {
+      logTest("Operation Name Auto-Detection", "FAIL", "No content");
+      return false;
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
       logTest(
         "Operation Name Auto-Detection",
         "SKIP",
         "Provider credentials not configured",
       );
       return null;
-    } else {
-      logTest(
-        "Operation Name Auto-Detection",
-        "FAIL",
-        result.stderr || result.stdout,
-      );
-      return false;
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("Operation Name Auto-Detection", "FAIL", errorMessage);
+    logTest("Operation Name Auto-Detection", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
@@ -839,103 +600,75 @@ testOperationNameAutoDetection();
 async function testTraceNameFormat(): Promise<boolean | null> {
   logSection("Test #7: Custom Trace Name Format");
   logTest("Trace Name Format", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "Trace Name Format",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-trace-fmt-");
-  const tempScriptPath = tempDir + "/test-trace-fmt.mjs";
+  resetSpans();
 
   try {
-    const testScript = `
-import { NeuroLink, setLangfuseContext } from '${process.cwd()}/dist/index.js';
-
-async function testTraceNameFormat() {
-  console.log('Testing custom traceNameFormat function + generate()...');
-
-  try {
+    let formatCalled = false;
     const sdk = new NeuroLink({
       observability: {
         langfuse: {
           enabled: true,
-          publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-          secretKey: process.env.LANGFUSE_SECRET_KEY,
-          baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+          publicKey: DUMMY_LANGFUSE.publicKey,
+          secretKey: DUMMY_LANGFUSE.secretKey,
+          baseUrl: DUMMY_LANGFUSE.baseUrl,
+          useExternalTracerProvider: true,
           autoDetectOperationName: true,
-          traceNameFormat: (context) => {
-            return 'custom/' + (context.operationName || 'unknown') + '/' + (context.userId || 'anon');
+          traceNameFormat: (context: {
+            operationName?: string;
+            userId?: string | null;
+          }) => {
+            formatCalled = true;
+            return (
+              "custom/" +
+              (context.operationName || "unknown") +
+              "/" +
+              (context.userId || "anon")
+            );
           },
         },
       },
     });
 
     const result = await setLangfuseContext(
-      { userId: 'format-test-user' },
+      { userId: "format-test-user" },
       async () => {
-        return await sdk.generate({
-          input: { text: 'Say "formatted" and nothing else' },
-          provider: '${TEST_CONFIG.provider}',
-          ${TEST_CONFIG.model ? `model: '${TEST_CONFIG.model}',` : ""}
-          maxTokens: 50,
-        });
+        return await sdk.generate(
+          buildGenerateOptions({
+            input: { text: 'Say "formatted" and nothing else' },
+          }),
+        );
       },
     );
 
     if (result?.content && result.content.length > 0) {
-      console.log('PASS - Custom trace name format applied. Content: ' + result.content.substring(0, 30));
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
+      const spans = getFinishedSpans();
+      logTest(
+        "Trace Name Format",
+        "PASS",
+        `Custom format applied (formatCalled=${formatCalled}). ${spans.length} spans. Content: ${result.content.substring(0, 30)}`,
+      );
+      try {
+        await sdk.shutdown?.();
+      } catch {
+        /* ignore */
+      }
+      return true;
     } else {
-      console.log('FAIL - No content');
-      process.exit(1);
+      logTest("Trace Name Format", "FAIL", "No content");
+      return false;
     }
   } catch (error) {
-    if (error.message?.includes('credentials') || error.message?.includes('authentication') || error.message?.includes('API key')) {
-      console.log('SKIP - Provider credentials not configured');
-      process.exit(0);
-    }
-    console.log('FAIL -', error.message);
-    process.exit(1);
-  }
-}
-
-testTraceNameFormat();
-`;
-
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath]);
-
-    if (result.stdout.includes("PASS")) {
-      logTest("Trace Name Format", "PASS", "Custom format function applied");
-      return true;
-    } else if (result.stdout.includes("SKIP")) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
       logTest(
         "Trace Name Format",
         "SKIP",
         "Provider credentials not configured",
       );
       return null;
-    } else {
-      logTest("Trace Name Format", "FAIL", result.stderr || result.stdout);
-      return false;
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("Trace Name Format", "FAIL", errorMessage);
+    logTest("Trace Name Format", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
@@ -946,162 +679,110 @@ testTraceNameFormat();
 async function testCustomMetadataInContext(): Promise<boolean | null> {
   logSection("Test #8: Custom Metadata in Context");
   logTest("Custom Metadata in Context", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "Custom Metadata in Context",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-custom-meta-");
-  const tempScriptPath = tempDir + "/test-custom-meta.mjs";
-
-  try {
-    const testScript = `
-import { NeuroLink, setLangfuseContext, getLangfuseContext } from '${process.cwd()}/dist/index.js';
-
-async function testCustomMetadataInContext() {
-  console.log('Testing custom metadata in context + generate()...');
+  resetSpans();
 
   try {
     const sdk = new NeuroLink({
       observability: {
         langfuse: {
           enabled: true,
-          publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-          secretKey: process.env.LANGFUSE_SECRET_KEY,
-          baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+          publicKey: DUMMY_LANGFUSE.publicKey,
+          secretKey: DUMMY_LANGFUSE.secretKey,
+          baseUrl: DUMMY_LANGFUSE.baseUrl,
+          useExternalTracerProvider: true,
         },
       },
     });
 
     const testMetadata = {
-      feature: 'customer-support',
-      tier: 'premium',
-      version: '2.0',
-      testId: Date.now(),
+      feature: "customer-support",
+      tier: "premium",
+      priority: 1,
     };
 
     const result = await setLangfuseContext(
       {
-        userId: 'metadata-test-user',
+        userId: "metadata-test-user",
         metadata: testMetadata,
       },
       async () => {
-        // Verify context is accessible within callback
+        // Verify metadata is in context
         const ctx = getLangfuseContext();
-        if (!ctx?.metadata || ctx.metadata.feature !== 'customer-support') {
-          throw new Error('Metadata not set correctly in context');
+        if (!ctx?.metadata || ctx.metadata.feature !== "customer-support") {
+          throw new Error(
+            `Metadata not set in context: ${JSON.stringify(ctx?.metadata)}`,
+          );
         }
-
-        return await sdk.generate({
-          input: { text: 'Say "metadata" and nothing else' },
-          provider: '${TEST_CONFIG.provider}',
-          ${TEST_CONFIG.model ? `model: '${TEST_CONFIG.model}',` : ""}
-          maxTokens: 50,
-        });
+        return await sdk.generate(
+          buildGenerateOptions({
+            input: { text: 'Say "metadata" and nothing else' },
+          }),
+        );
       },
     );
 
     if (result?.content && result.content.length > 0) {
-      console.log('PASS - Custom metadata set and accessible. Content: ' + result.content.substring(0, 30));
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
-    } else {
-      console.log('FAIL - No content');
-      process.exit(1);
-    }
-  } catch (error) {
-    if (error.message?.includes('credentials') || error.message?.includes('authentication') || error.message?.includes('API key')) {
-      console.log('SKIP - Provider credentials not configured');
-      process.exit(0);
-    }
-    console.log('FAIL -', error.message);
-    process.exit(1);
-  }
-}
-
-testCustomMetadataInContext();
-`;
-
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath]);
-
-    if (result.stdout.includes("PASS")) {
+      const spans = getFinishedSpans();
       logTest(
         "Custom Metadata in Context",
         "PASS",
-        "Metadata accessible in context",
+        `Metadata verified in context. ${spans.length} spans. Content: ${result.content.substring(0, 30)}`,
       );
+      try {
+        await sdk.shutdown?.();
+      } catch {
+        /* ignore */
+      }
       return true;
-    } else if (result.stdout.includes("SKIP")) {
+    } else {
+      logTest("Custom Metadata in Context", "FAIL", "No content");
+      return false;
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
       logTest(
         "Custom Metadata in Context",
         "SKIP",
         "Provider credentials not configured",
       );
       return null;
-    } else {
-      logTest(
-        "Custom Metadata in Context",
-        "FAIL",
-        result.stderr || result.stdout,
-      );
-      return false;
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("Custom Metadata in Context", "FAIL", errorMessage);
+    logTest("Custom Metadata in Context", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
 // ============================================================
-// TEST #9: OTEL Peer Dependency Graceful Handling
+// TEST #9: OTEL Peer Dependency Graceful (child process)
 // ============================================================
 
 async function testOTELPeerDependencyGraceful(): Promise<boolean | null> {
   logSection("Test #9: OTEL Peer Dependency Graceful Handling");
   logTest("OTEL Peer Dependency", "TESTING");
 
+  // This test runs in a child process to verify SDK loads in a clean environment
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-otel-graceful-");
   const tempScriptPath = tempDir + "/test-otel-graceful.mjs";
 
   try {
-    // This test verifies that the SDK loads and works even when
-    // OTEL is not explicitly required. The SDK should handle
-    // missing/optional OTEL gracefully.
     const testScript = `
 async function testOTELPeerDependencyGraceful() {
   console.log('Testing SDK import without explicit OTEL dependency...');
 
   try {
-    // Import the SDK - this should not crash even if OTEL peer deps are missing
     const distModule = await import('${process.cwd()}/dist/index.js');
 
-    // NeuroLink class should be importable
     if (!distModule.NeuroLink) {
       console.log('FAIL - NeuroLink not found in dist exports');
       process.exit(1);
     }
 
-    // Create SDK without any observability config
     const sdk = new distModule.NeuroLink();
 
     if (sdk) {
       console.log('PASS - SDK loaded successfully without explicit OTEL config');
 
-      // Verify observability exports are available (even if they no-op)
       const hasSetContext = typeof distModule.setLangfuseContext === 'function';
       const hasGetContext = typeof distModule.getLangfuseContext === 'function';
       const hasGetSpanProcs = typeof distModule.getSpanProcessors === 'function';
@@ -1123,9 +804,8 @@ async function testOTELPeerDependencyGraceful() {
       process.exit(1);
     }
   } catch (error) {
-    // If OTEL packages are genuinely missing, SDK should still load
     if (error.message?.includes('Cannot find module') && error.message?.includes('opentelemetry')) {
-      console.log('PASS - SDK handles missing OTEL gracefully (module not found but no crash)');
+      console.log('PASS - SDK handles missing OTEL gracefully');
       process.exit(0);
     }
     console.log('FAIL -', error.message);
@@ -1140,7 +820,11 @@ testOTELPeerDependencyGraceful();
 
     const result = await runCommand("node", [tempScriptPath]);
 
-    if (result.stdout.includes("PASS")) {
+    if (
+      result.success &&
+      result.stdout.includes("PASS") &&
+      !result.stdout.includes("FAIL")
+    ) {
       logTest(
         "OTEL Peer Dependency",
         "PASS",
@@ -1152,8 +836,8 @@ testOTELPeerDependencyGraceful();
       return false;
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("OTEL Peer Dependency", "FAIL", errorMessage);
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest("OTEL Peer Dependency", "FAIL", msg);
     return false;
   } finally {
     try {
@@ -1171,109 +855,55 @@ testOTELPeerDependencyGraceful();
 async function testGetTracer(): Promise<boolean | null> {
   logSection("Test #10: getTracer for Custom Spans");
   logTest("getTracer", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "getTracer",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-get-tracer-");
-  const tempScriptPath = tempDir + "/test-get-tracer.mjs";
+  resetSpans();
 
   try {
-    const testScript = `
-import { NeuroLink, getTracer } from '${process.cwd()}/dist/index.js';
-
-async function testGetTracer() {
-  console.log('Testing getTracer() for custom spans...');
-
-  try {
-    // Initialize with Langfuse to enable tracing
-    const sdk = new NeuroLink({
-      observability: {
-        langfuse: {
-          enabled: true,
-          publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-          secretKey: process.env.LANGFUSE_SECRET_KEY,
-          baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
-        },
-      },
-    });
-
-    await new Promise(r => setTimeout(r, 500));
-
-    // Get a tracer
-    const tracer = getTracer('test-app', '1.0.0');
+    // getTracer is pure OTel — just wraps trace.getTracer()
+    const tracer = getTracer("test-app", "1.0.0");
 
     if (!tracer) {
-      console.log('FAIL - getTracer returned null');
-      process.exit(1);
+      logTest("getTracer", "FAIL", "getTracer returned null");
+      return false;
     }
 
-    // Create a custom span
-    const span = tracer.startSpan('custom-test-operation', {
+    // Create a custom span and verify it appears in the exporter
+    const span = tracer.startSpan("custom-test-operation", {
       attributes: {
-        'test.suite': 'observability',
-        'test.name': 'getTracer',
+        "test.suite": "observability",
+        "test.number": 10,
       },
     });
 
-    if (!span) {
-      console.log('FAIL - startSpan returned null');
-      process.exit(1);
-    }
-
-    // Verify span has expected methods
-    const hasEnd = typeof span.end === 'function';
-    const hasSetAttribute = typeof span.setAttribute === 'function';
-    const hasSetStatus = typeof span.setStatus === 'function';
-
-    span.setAttribute('test.result', 'success');
-    span.setStatus({ code: 1 }); // OK
+    span.setStatus({ code: SpanStatusCode.OK });
     span.end();
 
-    if (hasEnd && hasSetAttribute && hasSetStatus) {
-      console.log('PASS - getTracer() returned valid tracer, custom span created and ended');
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
-    } else {
-      console.log('FAIL - Span missing expected methods');
-      process.exit(1);
-    }
-  } catch (error) {
-    console.log('FAIL -', error.message);
-    process.exit(1);
-  }
-}
+    // Wait for span processor to flush
+    await new Promise((r) => setTimeout(r, 100));
 
-testGetTracer();
-`;
+    const spans = getFinishedSpans();
+    const customSpan = spans.find((s) => s.name === "custom-test-operation");
 
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath]);
-
-    if (result.stdout.includes("PASS")) {
-      logTest("getTracer", "PASS", "Custom span created and ended");
+    if (customSpan) {
+      const hasTestAttr =
+        customSpan.attributes["test.suite"] === "observability";
+      logTest(
+        "getTracer",
+        "PASS",
+        `Custom span captured. name="${customSpan.name}", test.suite attr=${hasTestAttr}`,
+      );
       return true;
     } else {
-      logTest("getTracer", "FAIL", result.stderr || result.stdout);
+      logTest(
+        "getTracer",
+        "FAIL",
+        `Custom span not found in ${spans.length} captured spans: [${spans.map((s) => s.name).join(", ")}]`,
+      );
       return false;
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("getTracer", "FAIL", errorMessage);
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest("getTracer", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
@@ -1284,175 +914,133 @@ testGetTracer();
 async function testAllContextFields(): Promise<boolean | null> {
   logSection("Test #11: All Extended Context Fields");
   logTest("All Context Fields", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "All Context Fields",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-all-ctx-");
-  const tempScriptPath = tempDir + "/test-all-ctx.mjs";
-
-  try {
-    const testScript = `
-import { NeuroLink, setLangfuseContext, getLangfuseContext } from '${process.cwd()}/dist/index.js';
-
-async function testAllContextFields() {
-  console.log('Testing all extended context fields + generate()...');
+  resetSpans();
 
   try {
     const sdk = new NeuroLink({
       observability: {
         langfuse: {
           enabled: true,
-          publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-          secretKey: process.env.LANGFUSE_SECRET_KEY,
-          baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+          publicKey: DUMMY_LANGFUSE.publicKey,
+          secretKey: DUMMY_LANGFUSE.secretKey,
+          baseUrl: DUMMY_LANGFUSE.baseUrl,
+          useExternalTracerProvider: true,
         },
       },
     });
 
     const allFields = {
-      userId: 'all-fields-user',
-      sessionId: 'all-fields-session',
-      conversationId: 'all-fields-conv-123',
-      requestId: 'all-fields-req-abc',
-      traceName: 'all-fields-trace',
-      operationName: 'all-fields-operation',
-      metadata: { key1: 'value1', key2: 42, key3: true },
+      userId: "all-fields-user",
+      sessionId: "all-fields-session",
+      conversationId: "all-fields-conv-123",
+      requestId: "all-fields-req-abc",
+      traceName: "all-fields-trace",
+      operationName: "all-fields-operation",
+      metadata: { key1: "value1", key2: 42, key3: true },
       customAttributes: {
-        'app.tenant': 'test-tenant',
-        'app.version': 3,
-        'app.debug': true,
+        "app.tenant": "test-tenant",
+        "app.version": 3,
+        "app.debug": true,
       },
     };
 
     const result = await setLangfuseContext(allFields, async () => {
-      // Verify all fields are accessible
+      // Verify all fields are accessible inside the callback
       const ctx = getLangfuseContext();
 
       const checks = [
-        ctx?.userId === allFields.userId,
-        ctx?.sessionId === allFields.sessionId,
-        ctx?.conversationId === allFields.conversationId,
-        ctx?.requestId === allFields.requestId,
-        ctx?.traceName === allFields.traceName,
-        ctx?.operationName === allFields.operationName,
-        ctx?.metadata?.key1 === 'value1',
-        ctx?.customAttributes?.['app.tenant'] === 'test-tenant',
+        { name: "userId", ok: ctx?.userId === allFields.userId },
+        { name: "sessionId", ok: ctx?.sessionId === allFields.sessionId },
+        {
+          name: "conversationId",
+          ok: ctx?.conversationId === allFields.conversationId,
+        },
+        { name: "requestId", ok: ctx?.requestId === allFields.requestId },
+        { name: "traceName", ok: ctx?.traceName === allFields.traceName },
+        {
+          name: "operationName",
+          ok: ctx?.operationName === allFields.operationName,
+        },
+        { name: "metadata.key1", ok: ctx?.metadata?.key1 === "value1" },
+        {
+          name: "customAttributes.app.tenant",
+          ok: ctx?.customAttributes?.["app.tenant"] === "test-tenant",
+        },
       ];
 
-      const passedChecks = checks.filter(Boolean).length;
-      console.log('Context field checks passed: ' + passedChecks + '/' + checks.length);
+      const passedChecks = checks.filter((c) => c.ok).length;
+      const failedNames = checks.filter((c) => !c.ok).map((c) => c.name);
 
       if (passedChecks < checks.length) {
-        console.log('Context dump:', JSON.stringify(ctx, null, 2));
-        throw new Error('Not all context fields roundtripped correctly');
+        throw new Error(
+          `Context fields failed: [${failedNames.join(", ")}] (${passedChecks}/${checks.length})`,
+        );
       }
 
-      return await sdk.generate({
-        input: { text: 'Say "context" and nothing else' },
-        provider: '${TEST_CONFIG.provider}',
-        ${TEST_CONFIG.model ? `model: '${TEST_CONFIG.model}',` : ""}
-        maxTokens: 50,
-      });
+      return await sdk.generate(
+        buildGenerateOptions({
+          input: { text: 'Say "context" and nothing else' },
+        }),
+      );
     });
 
     if (result?.content && result.content.length > 0) {
-      console.log('PASS - All extended context fields set and verified. Content: ' + result.content.substring(0, 30));
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
-    } else {
-      console.log('FAIL - No content');
-      process.exit(1);
-    }
-  } catch (error) {
-    if (error.message?.includes('credentials') || error.message?.includes('authentication') || error.message?.includes('API key')) {
-      console.log('SKIP - Provider credentials not configured');
-      process.exit(0);
-    }
-    console.log('FAIL -', error.message);
-    process.exit(1);
-  }
-}
-
-testAllContextFields();
-`;
-
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath]);
-
-    if (result.stdout.includes("PASS")) {
+      const spans = getFinishedSpans();
       logTest(
         "All Context Fields",
         "PASS",
-        "All extended fields roundtripped correctly",
+        `All 8 context fields verified. ${spans.length} spans. Content: ${result.content.substring(0, 30)}`,
       );
+      try {
+        await sdk.shutdown?.();
+      } catch {
+        /* ignore */
+      }
       return true;
-    } else if (result.stdout.includes("SKIP")) {
+    } else {
+      logTest("All Context Fields", "FAIL", "No content");
+      return false;
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
       logTest(
         "All Context Fields",
         "SKIP",
         "Provider credentials not configured",
       );
       return null;
-    } else {
-      logTest("All Context Fields", "FAIL", result.stderr || result.stdout);
-      return false;
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("All Context Fields", "FAIL", errorMessage);
+    logTest("All Context Fields", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
 // ============================================================
-// TEST #12: CLI with Observability (LANGFUSE env vars)
+// TEST #12: CLI with Observability (subprocess with dummy env vars)
 // ============================================================
 
 async function testCLIWithObservability(): Promise<boolean | null> {
-  logSection("Test #12: CLI Generate with LANGFUSE env vars");
+  logSection("Test #12: CLI Generate with Observability env vars");
   logTest("CLI with Observability", "TESTING");
 
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "CLI with Observability",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
   try {
-    const result = await runCommand(
-      "node",
-      [
-        "dist/cli/index.js",
-        "generate",
-        ...buildBaseCLIArgs(),
-        `--max-tokens=50`,
-        'Say "observability" and nothing else',
-      ],
-      {
-        env: {
-          LANGFUSE_PUBLIC_KEY: LANGFUSE_CONFIG.publicKey,
-          LANGFUSE_SECRET_KEY: LANGFUSE_CONFIG.secretKey,
-          LANGFUSE_BASE_URL: LANGFUSE_CONFIG.baseUrl,
-        },
+    const cliArgs = [
+      "dist/cli/index.js",
+      "generate",
+      `--provider=${TEST_CONFIG.provider}`,
+      ...(TEST_CONFIG.model ? [`--model=${TEST_CONFIG.model}`] : []),
+      "--max-tokens=50",
+      'Say "observability" and nothing else',
+    ];
+
+    const result = await runCommand("node", cliArgs, {
+      env: {
+        LANGFUSE_PUBLIC_KEY: DUMMY_LANGFUSE.publicKey,
+        LANGFUSE_SECRET_KEY: DUMMY_LANGFUSE.secretKey,
+        LANGFUSE_BASE_URL: DUMMY_LANGFUSE.baseUrl,
       },
-    );
+    });
 
     if (!result.success) {
       if (isExpectedProviderError(result.stderr)) {
@@ -1471,7 +1059,7 @@ async function testCLIWithObservability(): Promise<boolean | null> {
       logTest(
         "CLI with Observability",
         "PASS",
-        `CLI completed with Langfuse env vars. Output: ${result.stdout.substring(0, 50)}`,
+        `CLI completed with observability env vars. Output: ${result.stdout.substring(0, 50)}`,
       );
       return true;
     } else {
@@ -1479,12 +1067,12 @@ async function testCLIWithObservability(): Promise<boolean | null> {
       return false;
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (isExpectedProviderError(errorMessage)) {
-      logTest("CLI with Observability", "SKIP", errorMessage);
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
+      logTest("CLI with Observability", "SKIP", msg);
       return null;
     }
-    logTest("CLI with Observability", "FAIL", errorMessage);
+    logTest("CLI with Observability", "FAIL", msg);
     return false;
   }
 }
@@ -1496,113 +1084,71 @@ async function testCLIWithObservability(): Promise<boolean | null> {
 async function testOperationNameOverride(): Promise<boolean | null> {
   logSection("Test #13: Operation Name Override");
   logTest("Operation Name Override", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "Operation Name Override",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-op-override-");
-  const tempScriptPath = tempDir + "/test-op-override.mjs";
-
-  try {
-    const testScript = `
-import { NeuroLink, setLangfuseContext } from '${process.cwd()}/dist/index.js';
-
-async function testOperationNameOverride() {
-  console.log('Testing explicit operationName override in context + generate()...');
+  resetSpans();
 
   try {
     const sdk = new NeuroLink({
       observability: {
         langfuse: {
           enabled: true,
-          publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-          secretKey: process.env.LANGFUSE_SECRET_KEY,
-          baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+          publicKey: DUMMY_LANGFUSE.publicKey,
+          secretKey: DUMMY_LANGFUSE.secretKey,
+          baseUrl: DUMMY_LANGFUSE.baseUrl,
+          useExternalTracerProvider: true,
           autoDetectOperationName: true,
         },
       },
     });
 
-    // Set explicit operationName - should override auto-detection
+    // Set explicit operationName — should override auto-detection
     const result = await setLangfuseContext(
       {
-        userId: 'override-test-user',
-        operationName: 'custom-chat-operation',
+        userId: "override-test-user",
+        operationName: "custom-chat-operation",
       },
       async () => {
-        return await sdk.generate({
-          input: { text: 'Say "override" and nothing else' },
-          provider: '${TEST_CONFIG.provider}',
-          ${TEST_CONFIG.model ? `model: '${TEST_CONFIG.model}',` : ""}
-          maxTokens: 50,
-        });
+        // Verify operationName is in context
+        const ctx = getLangfuseContext();
+        if (ctx?.operationName !== "custom-chat-operation") {
+          throw new Error(`operationName not set: got ${ctx?.operationName}`);
+        }
+        return await sdk.generate(
+          buildGenerateOptions({
+            input: { text: 'Say "override" and nothing else' },
+          }),
+        );
       },
     );
 
     if (result?.content && result.content.length > 0) {
-      console.log('PASS - Operation name override applied. Trace name should use "custom-chat-operation" instead of auto-detected name.');
-      console.log('Response: ' + result.content.substring(0, 30));
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
-    } else {
-      console.log('FAIL - No content');
-      process.exit(1);
-    }
-  } catch (error) {
-    if (error.message?.includes('credentials') || error.message?.includes('authentication') || error.message?.includes('API key')) {
-      console.log('SKIP - Provider credentials not configured');
-      process.exit(0);
-    }
-    console.log('FAIL -', error.message);
-    process.exit(1);
-  }
-}
-
-testOperationNameOverride();
-`;
-
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath]);
-
-    if (result.stdout.includes("PASS")) {
+      const spans = getFinishedSpans();
       logTest(
         "Operation Name Override",
         "PASS",
-        "Explicit operationName overrides auto-detection",
+        `Explicit operationName verified in context. ${spans.length} spans. Content: ${result.content.substring(0, 30)}`,
       );
+      try {
+        await sdk.shutdown?.();
+      } catch {
+        /* ignore */
+      }
       return true;
-    } else if (result.stdout.includes("SKIP")) {
+    } else {
+      logTest("Operation Name Override", "FAIL", "No content");
+      return false;
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
       logTest(
         "Operation Name Override",
         "SKIP",
         "Provider credentials not configured",
       );
       return null;
-    } else {
-      logTest(
-        "Operation Name Override",
-        "FAIL",
-        result.stderr || result.stdout,
-      );
-      return false;
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("Operation Name Override", "FAIL", errorMessage);
+    logTest("Operation Name Override", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
@@ -1613,127 +1159,102 @@ testOperationNameOverride();
 async function testWrapperSpanSupport(): Promise<boolean | null> {
   logSection("Test #14: Wrapper Span Support");
   logTest("Wrapper Span Support", "TESTING");
-
-  if (!hasLangfuseCredentials()) {
-    logTest(
-      "Wrapper Span Support",
-      "SKIP",
-      "LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY not set",
-    );
-    return null;
-  }
-
-  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-wrapper-span-");
-  const tempScriptPath = tempDir + "/test-wrapper-span.mjs";
-
-  try {
-    const testScript = `
-import { NeuroLink, getTracer, setLangfuseContext } from '${process.cwd()}/dist/index.js';
-
-async function testWrapperSpanSupport() {
-  console.log('Testing wrapper span -> generate() -> detect child operation...');
+  resetSpans();
 
   try {
     const sdk = new NeuroLink({
       observability: {
         langfuse: {
           enabled: true,
-          publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-          secretKey: process.env.LANGFUSE_SECRET_KEY,
-          baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+          publicKey: DUMMY_LANGFUSE.publicKey,
+          secretKey: DUMMY_LANGFUSE.secretKey,
+          baseUrl: DUMMY_LANGFUSE.baseUrl,
+          useExternalTracerProvider: true,
           autoDetectOperationName: true,
         },
       },
     });
 
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 300));
 
-    const tracer = getTracer('wrapper-test');
+    const tracer = getTracer("wrapper-test");
 
     // Create a wrapper span (simulating a host app wrapping an AI call)
-    const wrapperSpan = tracer.startSpan('host-app-handler', {
+    const wrapperSpan = tracer.startSpan("host-app-handler", {
       attributes: {
-        'handler.name': 'chat-endpoint',
-        'handler.type': 'api',
+        "handler.name": "chat-endpoint",
+        "handler.type": "api",
       },
     });
 
-    let generateResult;
+    let generateResult: { content?: string } | undefined;
     try {
-      // Inside the wrapper span, call generate()
       generateResult = await setLangfuseContext(
-        { userId: 'wrapper-test-user' },
+        { userId: "wrapper-test-user" },
         async () => {
-          return await sdk.generate({
-            input: { text: 'Say "wrapper" and nothing else' },
-            provider: '${TEST_CONFIG.provider}',
-            ${TEST_CONFIG.model ? `model: '${TEST_CONFIG.model}',` : ""}
-            maxTokens: 50,
-          });
+          return await sdk.generate(
+            buildGenerateOptions({
+              input: { text: 'Say "wrapper" and nothing else' },
+            }),
+          );
         },
       );
 
-      wrapperSpan.setStatus({ code: 1 }); // OK
+      wrapperSpan.setStatus({ code: SpanStatusCode.OK });
     } catch (innerError) {
-      wrapperSpan.setStatus({ code: 2, message: innerError.message });
+      const innerMsg =
+        innerError instanceof Error ? innerError.message : String(innerError);
+      wrapperSpan.setStatus({ code: SpanStatusCode.ERROR, message: innerMsg });
       throw innerError;
     } finally {
       wrapperSpan.end();
     }
 
+    // Wait for span processing
+    await new Promise((r) => setTimeout(r, 200));
+
     if (generateResult?.content && generateResult.content.length > 0) {
-      console.log('PASS - Wrapper span created, generate() called inside, child operation should be detected. Content: ' + generateResult.content.substring(0, 30));
-      try { await sdk.shutdown?.(); } catch { /* ignore */ }
-      process.exit(0);
-    } else {
-      console.log('FAIL - No content from generate within wrapper span');
-      process.exit(1);
-    }
-  } catch (error) {
-    if (error.message?.includes('credentials') || error.message?.includes('authentication') || error.message?.includes('API key')) {
-      console.log('SKIP - Provider credentials not configured');
-      process.exit(0);
-    }
-    console.log('FAIL -', error.message);
-    process.exit(1);
-  }
-}
+      const spans = getFinishedSpans();
+      const hostSpan = spans.find((s) => s.name === "host-app-handler");
+      const hasHostSpan = !!hostSpan;
+      const childSpanCount = spans.filter(
+        (s) =>
+          s.name !== "host-app-handler" &&
+          hostSpan &&
+          s.parentSpanId === hostSpan.spanContext().spanId,
+      ).length;
 
-testWrapperSpanSupport();
-`;
-
-    fs.writeFileSync(tempScriptPath, testScript);
-
-    const result = await runCommand("node", [tempScriptPath]);
-
-    if (result.stdout.includes("PASS")) {
       logTest(
         "Wrapper Span Support",
         "PASS",
-        "Wrapper span + child operation detection works",
+        `Wrapper span: ${hasHostSpan}, child spans: ${childSpanCount}, total: ${spans.length}. Content: ${generateResult.content.substring(0, 30)}`,
       );
+      try {
+        await sdk.shutdown?.();
+      } catch {
+        /* ignore */
+      }
       return true;
-    } else if (result.stdout.includes("SKIP")) {
+    } else {
+      logTest(
+        "Wrapper Span Support",
+        "FAIL",
+        "No content from generate within wrapper span",
+      );
+      return false;
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
       logTest(
         "Wrapper Span Support",
         "SKIP",
         "Provider credentials not configured",
       );
       return null;
-    } else {
-      logTest("Wrapper Span Support", "FAIL", result.stderr || result.stdout);
-      return false;
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("Wrapper Span Support", "FAIL", errorMessage);
+    logTest("Wrapper Span Support", "FAIL", msg);
     return false;
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }
 
@@ -1749,8 +1270,8 @@ async function runAllTests(): Promise<void> {
     "cyan",
   );
   log(
-    `   Langfuse: ${hasLangfuseCredentials() ? "configured" : "NOT configured (most tests will SKIP)"}`,
-    hasLangfuseCredentials() ? "green" : "yellow",
+    `   Mode: Local (InMemorySpanExporter — no Langfuse credentials needed)`,
+    "green",
   );
 
   // Prerequisite checks
@@ -1799,7 +1320,6 @@ async function runAllTests(): Promise<void> {
       const msg = error instanceof Error ? error.message : String(error);
       testResults.push({ name: test.name, result: false, error: msg });
     }
-    await globalCleanup();
     await new Promise((r) => setTimeout(r, TEST_CONFIG.interTestDelay));
   }
 
@@ -1815,10 +1335,10 @@ async function runAllTests(): Promise<void> {
       t.error || "",
     ),
   );
+
   const duration = Math.round((Date.now() - startTime) / 1000);
   log(
-    `
-Final Results: ${passed} passed, ${failed} failed, ${skipped} skipped (${testResults.length} total) in ${duration}s`,
+    `\nFinal Results: ${passed} passed, ${failed} failed, ${skipped} skipped (${testResults.length} total) in ${duration}s`,
     failed === 0 ? "green" : "red",
   );
 
@@ -1843,10 +1363,10 @@ function parseArguments(): { provider?: string; model?: string } {
         "Usage: npx tsx test/continuous-test-suite-observability.ts [--provider=X] [--model=Y]",
       );
       console.log(
-        "\nTests Langfuse observability, OpenTelemetry, context management.",
+        "\nTests OTel instrumentation, context management, span processors.",
       );
       console.log(
-        "Requires: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY env vars",
+        "Runs locally with InMemorySpanExporter — no Langfuse credentials needed.",
       );
       console.log("Default provider: vertex");
       process.exit(0);

@@ -378,12 +378,27 @@ export class InMemoryVectorStore implements VectorStore {
           ) {
             return false;
           }
-          if (
-            "$regex" in ops &&
-            (typeof fieldValue !== "string" ||
-              !new RegExp(ops.$regex as string).test(fieldValue))
-          ) {
-            return false;
+          if ("$regex" in ops) {
+            const pattern = ops.$regex as string;
+            let regexMatches = false;
+            // Guard against ReDoS: reject excessively long patterns and limit
+            // the tested string length to prevent pathological backtracking.
+            if (pattern.length <= 200) {
+              try {
+                const re = new RegExp(pattern);
+                const testValue =
+                  typeof fieldValue === "string"
+                    ? fieldValue.slice(0, 10_000)
+                    : "";
+                regexMatches = re.test(testValue);
+              } catch {
+                // Invalid regex pattern — treat as non-match
+                regexMatches = false;
+              }
+            }
+            if (!regexMatches) {
+              return false;
+            }
           }
         } else {
           // Direct equality

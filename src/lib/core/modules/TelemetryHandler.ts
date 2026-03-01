@@ -26,12 +26,10 @@ import type {
 } from "../../types/index.js";
 import type { StreamOptions } from "../../types/streamTypes.js";
 import { logger } from "../../utils/logger.js";
-import {
-  getPerformanceOptimizedProvider,
-  recordProviderPerformanceFromMetrics,
-} from "../evaluationProviders.js";
+import { recordProviderPerformanceFromMetrics } from "../evaluationProviders.js";
 import { modelConfig } from "../modelConfiguration.js";
 import { TelemetryService } from "../../telemetry/telemetryService.js";
+import { calculateCost, hasPricing } from "../../utils/pricing.js";
 
 /**
  * TelemetryHandler class - Handles analytics and telemetry for AI providers
@@ -126,12 +124,10 @@ export class TelemetryHandler {
         actualCost > 0 ? actualCost : undefined,
       );
 
-      const optimizedProvider = getPerformanceOptimizedProvider("speed");
-      logger.debug(`🚀 Performance recorded for ${this.providerName}:`, {
+      logger.debug(`Performance recorded for ${this.providerName}`, {
         responseTime: `${responseTime}ms`,
         tokens: usage?.totalTokens || 0,
         estimatedCost: `$${actualCost.toFixed(6)}`,
-        recommendedSpeedProvider: optimizedProvider?.provider || "none",
       });
     } catch (perfError) {
       logger.warn("⚠️ Performance recording failed:", perfError);
@@ -139,7 +135,16 @@ export class TelemetryHandler {
   }
 
   /**
-   * Calculate actual cost based on token usage and provider configuration
+   * Calculate actual cost based on token usage and provider configuration.
+   *
+   * Uses the per-model pricing table first (which has accurate rates for
+   * specific models like Claude on Vertex AI), then falls back to the
+   * provider-level default cost from modelConfiguration.
+   *
+   * Previously this only used modelConfig.getCostInfo() which returns
+   * provider-level defaults (e.g. Gemini rates for the "vertex" provider),
+   * causing a ~1,780x under-estimate when the actual model was Claude Sonnet
+   * on Vertex AI ($0.000060 vs $0.106895 for the same request).
    */
   async calculateActualCost(usage: {
     promptTokens?: number;
@@ -147,6 +152,20 @@ export class TelemetryHandler {
     totalTokens?: number;
   }): Promise<number> {
     try {
+      const promptTokens = usage?.promptTokens || 0;
+      const completionTokens = usage?.completionTokens || 0;
+
+      // Try the per-model pricing table first (includes correct rates for
+      // Claude on Vertex, cache token rates, etc.)
+      if (hasPricing(this.providerName, this.modelName)) {
+        return calculateCost(this.providerName, this.modelName, {
+          input: promptTokens,
+          output: completionTokens,
+          total: promptTokens + completionTokens,
+        });
+      }
+
+      // Fall back to provider-level default cost from configuration system
       const costInfo = modelConfig.getCostInfo(
         this.providerName,
         this.modelName,
@@ -154,9 +173,6 @@ export class TelemetryHandler {
       if (!costInfo) {
         return 0; // No cost info available
       }
-
-      const promptTokens = usage?.promptTokens || 0;
-      const completionTokens = usage?.completionTokens || 0;
 
       // Calculate cost per 1K tokens
       const inputCost = (promptTokens / 1000) * costInfo.input;

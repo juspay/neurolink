@@ -973,6 +973,48 @@ export function getLangfuseContext(): LangfuseContext | undefined {
 }
 
 /**
+ * Capture the current Langfuse AsyncLocalStorage context and return a wrapper
+ * that re-enters that context when executing the provided callback.
+ *
+ * This is essential for preserving trace context across async boundaries that
+ * break the automatic ALS propagation chain, such as `setImmediate()`,
+ * `setTimeout()`, or event-emitter callbacks. Without this, spans created
+ * inside those callbacks become orphaned traces in Langfuse.
+ *
+ * **How it works:**
+ * 1. Captures the current ALS store at call time (synchronously).
+ * 2. Returns an async function that, when invoked, re-enters the captured
+ *    context via `contextStorage.run()` before executing the callback.
+ * 3. If no context exists at capture time, the callback runs without
+ *    ALS wrapping (no-op passthrough).
+ *
+ * @param fn - The async function to execute within the captured context
+ * @returns A new async function that preserves the Langfuse ALS context
+ *
+ * @example
+ * // Before (broken — setImmediate loses ALS context):
+ * setImmediate(async () => {
+ *   await this.checkAndSummarize(session, threshold);
+ * });
+ *
+ * // After (fixed — context is captured and re-entered):
+ * const wrappedFn = runWithCurrentLangfuseContext(async () => {
+ *   await this.checkAndSummarize(session, threshold);
+ * });
+ * setImmediate(wrappedFn);
+ */
+export function runWithCurrentLangfuseContext<T>(
+  fn: () => Promise<T>,
+): () => Promise<T> {
+  const capturedContext = contextStorage.getStore();
+  if (capturedContext) {
+    return () => contextStorage.run(capturedContext, fn);
+  }
+  // No context to preserve — return the function as-is
+  return fn;
+}
+
+/**
  * Get an OpenTelemetry Tracer for creating custom spans
  *
  * This allows applications to create their own spans that will be

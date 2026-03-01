@@ -26,6 +26,11 @@ import {
   validateToolName,
   validateToolDescription,
 } from "../utils/parameterValidation.js";
+import { withTimeout } from "../utils/errorHandling.js";
+import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { tracers } from "../telemetry/tracers.js";
+
+const mcpTracer = tracers.mcp;
 
 /**
  * ToolDiscoveryService
@@ -477,18 +482,41 @@ export class ToolDiscoveryService extends EventEmitter {
 
       // Execute tool with circuit breaker protection
       const result = await circuitBreaker.execute(async () => {
-        const timeout = options.timeout || 30000;
-        const executePromise = client.callTool({
-          name: toolName,
-          arguments: parameters,
-        });
-
-        const timeoutPromise = this.createTimeoutPromise<never>(
-          timeout,
-          `Tool execution timeout: ${toolName}`,
+        return mcpTracer.startActiveSpan(
+          "neurolink.mcp.callTool",
+          {
+            kind: SpanKind.CLIENT,
+            attributes: {
+              "mcp.server_id": serverId,
+              "mcp.tool_name": toolName,
+              "mcp.timeout_ms": options.timeout || 30000,
+            },
+          },
+          async (callSpan) => {
+            try {
+              const timeout = options.timeout || 30000;
+              const callResult = await withTimeout(
+                client.callTool({
+                  name: toolName,
+                  arguments: parameters,
+                }),
+                timeout,
+                new Error(`Tool execution timeout: ${toolName}`),
+              );
+              callSpan.setStatus({ code: SpanStatusCode.OK });
+              return callResult;
+            } catch (err) {
+              callSpan.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: (err as Error).message,
+              });
+              callSpan.recordException(err as Error);
+              throw err;
+            } finally {
+              callSpan.end();
+            }
+          },
         );
-
-        return await Promise.race([executePromise, timeoutPromise]);
       });
 
       const duration = Date.now() - startTime;

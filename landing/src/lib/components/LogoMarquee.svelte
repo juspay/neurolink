@@ -19,7 +19,7 @@
   use:reveal={{ y: 30 }}
 >
   <p class="text-center eyebrow text-ds-text-muted mb-8">
-    Trusted by developers using
+    Works with leading AI providers
   </p>
 
   <div

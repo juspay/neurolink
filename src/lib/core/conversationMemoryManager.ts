@@ -24,7 +24,9 @@ import {
   buildContextFromPointer,
   getEffectiveTokenThreshold,
 } from "../utils/conversationMemory.js";
+import { runWithCurrentLangfuseContext } from "../services/server/ai/observability/instrumentation.js";
 import { logger } from "../utils/logger.js";
+import { tracers, withSpan } from "../telemetry/index.js";
 
 export class ConversationMemoryManager implements IConversationMemoryManager {
   private sessions: Map<string, SessionMemory> = new Map();
@@ -91,92 +93,114 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
   async storeConversationTurn(
     options: StoreConversationTurnOptions,
   ): Promise<void> {
-    await this.ensureInitialized();
+    return withSpan(
+      {
+        name: "neurolink.memory.storeTurn",
+        tracer: tracers.memory,
+        attributes: {
+          "memory.type": "in-memory",
+          "session.id": options.sessionId,
+          "memory.operation": "store_turn",
+        },
+      },
+      async (span) => {
+        await this.ensureInitialized();
 
-    try {
-      // Get or create session
-      let session = this.sessions.get(options.sessionId);
-      if (!session) {
-        session = this.createNewSession(options.sessionId, options.userId);
-        this.sessions.set(options.sessionId, session);
-      }
+        try {
+          // Get or create session
+          let session = this.sessions.get(options.sessionId);
+          if (!session) {
+            session = this.createNewSession(options.sessionId, options.userId);
+            this.sessions.set(options.sessionId, session);
+          }
 
-      const tokenThreshold = options.providerDetails
-        ? getEffectiveTokenThreshold(
-            options.providerDetails.provider,
-            options.providerDetails.model,
-            this.config.tokenThreshold,
-            session.tokenThreshold,
-          )
-        : this.config.tokenThreshold || 50000;
+          const tokenThreshold = options.providerDetails
+            ? getEffectiveTokenThreshold(
+                options.providerDetails.provider,
+                options.providerDetails.model,
+                this.config.tokenThreshold,
+                session.tokenThreshold,
+              )
+            : this.config.tokenThreshold || 50000;
 
-      const userMsg = await this.validateAndPrepareMessage(
-        options.userMessage,
-        "user",
-        tokenThreshold,
-      );
-      const assistantMsg = await this.validateAndPrepareMessage(
-        options.aiResponse,
-        "assistant",
-        tokenThreshold,
-      );
+          const userMsg = await this.validateAndPrepareMessage(
+            options.userMessage,
+            "user",
+            tokenThreshold,
+          );
+          const assistantMsg = await this.validateAndPrepareMessage(
+            options.aiResponse,
+            "assistant",
+            tokenThreshold,
+          );
 
-      if (options.events && options.events.length > 0) {
-        assistantMsg.events = options.events;
-      }
+          if (options.events && options.events.length > 0) {
+            assistantMsg.events = options.events;
+          }
 
-      session.messages.push(userMsg, assistantMsg);
-      session.lastActivity = Date.now();
+          session.messages.push(userMsg, assistantMsg);
+          session.lastActivity = Date.now();
 
-      // Store API-reported token counts if available
-      if (options.tokenUsage) {
-        session.lastApiTokenCount = options.tokenUsage;
-      }
+          // Store API-reported token counts if available
+          if (options.tokenUsage) {
+            session.lastApiTokenCount = options.tokenUsage;
+          }
 
-      const shouldSummarize =
-        options.enableSummarization !== undefined
-          ? options.enableSummarization
-          : this.config.enableSummarization;
+          span.setAttribute("memory.message_count", session.messages.length);
 
-      if (shouldSummarize) {
-        // Only trigger summarization if not already in progress for this session
-        if (!this.summarizationInProgress.has(options.sessionId)) {
-          setImmediate(async () => {
-            try {
-              await this.checkAndSummarize(
-                session,
-                tokenThreshold,
-                options.requestId,
+          const shouldSummarize =
+            options.enableSummarization !== undefined
+              ? options.enableSummarization
+              : this.config.enableSummarization;
+
+          if (shouldSummarize) {
+            // Only trigger summarization if not already in progress for this session
+            if (!this.summarizationInProgress.has(options.sessionId)) {
+              // Capture the current Langfuse ALS context before setImmediate,
+              // which breaks automatic AsyncLocalStorage propagation and would
+              // otherwise cause orphaned traces in Langfuse.
+              const summarizeWithContext = runWithCurrentLangfuseContext(
+                async () => {
+                  try {
+                    await this.checkAndSummarize(
+                      session,
+                      tokenThreshold,
+                      options.requestId,
+                    );
+                  } catch (error) {
+                    logger.error("Background summarization failed", {
+                      sessionId: session.sessionId,
+                      requestId: options.requestId,
+                      error:
+                        error instanceof Error ? error.message : String(error),
+                    });
+                  }
+                },
               );
-            } catch (error) {
-              logger.error("Background summarization failed", {
-                sessionId: session.sessionId,
-                requestId: options.requestId,
-                error: error instanceof Error ? error.message : String(error),
-              });
+              setImmediate(summarizeWithContext);
+            } else {
+              logger.debug(
+                "[ConversationMemoryManager] Summarization already in progress, skipping",
+                {
+                  sessionId: options.sessionId,
+                },
+              );
             }
-          });
-        } else {
-          logger.debug(
-            "[ConversationMemoryManager] Summarization already in progress, skipping",
+          }
+
+          this.enforceSessionLimit();
+        } catch (error) {
+          throw new ConversationMemoryError(
+            `Failed to store conversation turn for session ${options.sessionId}`,
+            "STORAGE_ERROR",
             {
               sessionId: options.sessionId,
+              error: error instanceof Error ? error.message : String(error),
             },
           );
         }
-      }
-
-      this.enforceSessionLimit();
-    } catch (error) {
-      throw new ConversationMemoryError(
-        `Failed to store conversation turn for session ${options.sessionId}`,
-        "STORAGE_ERROR",
-        {
-          sessionId: options.sessionId,
-          error: error instanceof Error ? error.message : String(error),
-        },
-      );
-    }
+      },
+    );
   }
 
   /**
@@ -290,8 +314,25 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
     _enableSummarization?: boolean,
     requestId?: string,
   ): Promise<ChatMessage[]> {
-    const session = this.sessions.get(sessionId);
-    return session ? buildContextFromPointer(session, requestId) : [];
+    return withSpan(
+      {
+        name: "neurolink.memory.buildContext",
+        tracer: tracers.memory,
+        attributes: {
+          "memory.type": "in-memory",
+          "session.id": sessionId,
+          "memory.operation": "build_context",
+        },
+      },
+      async (span) => {
+        const session = this.sessions.get(sessionId);
+        const messages = session
+          ? buildContextFromPointer(session, requestId)
+          : [];
+        span.setAttribute("memory.message_count", messages.length);
+        return messages;
+      },
+    );
   }
 
   public getSession(
@@ -370,13 +411,28 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
   }
 
   public async clearSession(sessionId: string): Promise<boolean> {
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      return false;
-    }
-    this.sessions.delete(sessionId);
-    logger.info("Session cleared", { sessionId });
-    return true;
+    return withSpan(
+      {
+        name: "neurolink.memory.clear",
+        tracer: tracers.memory,
+        attributes: {
+          "memory.type": "in-memory",
+          "session.id": sessionId,
+          "memory.operation": "clear_session",
+        },
+      },
+      async (span) => {
+        const session = this.sessions.get(sessionId);
+        if (!session) {
+          span.setAttribute("memory.session_found", false);
+          return false;
+        }
+        this.sessions.delete(sessionId);
+        span.setAttribute("memory.session_found", true);
+        logger.info("Session cleared", { sessionId });
+        return true;
+      },
+    );
   }
 
   public async clearAllSessions(): Promise<void> {

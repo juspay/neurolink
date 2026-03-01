@@ -59,7 +59,7 @@ const DEFAULT_CHUNKER_METADATA: Record<ChunkingStrategy, ChunkerMetadata> = {
   },
   markdown: {
     description: "Splits markdown content by headers and structural elements",
-    defaultConfig: { maxSize: 1000, overlap: 0 },
+    defaultConfig: { maxSize: 1000, overlap: 50 },
     supportedOptions: ["maxSize", "headerLevels", "splitCodeBlocks"],
     useCases: ["Documentation processing", "README files"],
     aliases: ["md", "markdown-header"],

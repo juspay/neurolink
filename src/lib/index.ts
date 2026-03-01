@@ -95,6 +95,7 @@ import {
   initializeOpenTelemetry,
   isOpenTelemetryInitialized,
   isUsingExternalTracerProvider,
+  runWithCurrentLangfuseContext,
   setLangfuseContext,
   shutdownOpenTelemetry,
 } from "./services/server/ai/observability/instrumentation.js";
@@ -120,6 +121,8 @@ export {
   // Enhanced context and tracing
   getLangfuseContext,
   getTracer,
+  // ALS context propagation helper
+  runWithCurrentLangfuseContext,
 };
 
 // Analytics Middleware exports

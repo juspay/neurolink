@@ -3,6 +3,7 @@ import {
   type BudgetCheckResult,
   checkContextBudget,
 } from "../../../src/lib/context/budgetChecker.js";
+import { estimateTokens } from "../../../src/lib/utils/tokenEstimation.js";
 
 describe("Context Budget Checker", () => {
   describe("checkContextBudget", () => {
@@ -71,9 +72,9 @@ describe("Context Budget Checker", () => {
       });
 
       expect(result.breakdown.toolDefinitions).toBeGreaterThan(0);
-      // Content-based estimation: each tool serialized to JSON, tokens = ceil(length / 4)
+      // Content-based estimation: each tool serialized to JSON, using centralized estimateTokens
       const expectedTokens = tools.reduce((sum, tool) => {
-        return sum + Math.ceil(JSON.stringify(tool).length / 4);
+        return sum + estimateTokens(JSON.stringify(tool), "anthropic");
       }, 0);
       expect(result.breakdown.toolDefinitions).toBe(expectedTokens);
     });

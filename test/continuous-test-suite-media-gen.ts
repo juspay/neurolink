@@ -490,7 +490,7 @@ testSDKGenerateImage();
           ? "Vertex AI credentials not configured"
           : "Image generated successfully with SDK",
       );
-      return null;
+      return status === "SKIP" ? null : true;
     } else {
       logTest("SDK Generate Image", "FAIL", result.stderr || result.stdout);
       return false;
@@ -581,7 +581,7 @@ testSDKStreamImage();
           ? "Vertex AI credentials not configured"
           : "Image streamed successfully with SDK",
       );
-      return null;
+      return status === "SKIP" ? null : true;
     } else {
       logTest("SDK Stream Image", "FAIL", result.stderr || result.stdout);
       return false;

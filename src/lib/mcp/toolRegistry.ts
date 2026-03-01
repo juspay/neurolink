@@ -24,6 +24,7 @@ import { detectCategory, createMCPServerInfo } from "../utils/mcpDefaults.js";
 import { FlexibleToolValidator } from "./flexibleToolValidator.js";
 import type { HITLManager } from "../types/hitlTypes.js";
 import { HITLUserRejectedError, HITLTimeoutError } from "../hitl/hitlErrors.js";
+import { withSpan, tracers, ATTR } from "../telemetry/index.js";
 
 export class MCPToolRegistry extends MCPRegistry {
   private tools: Map<string, ToolInfo> = new Map();
@@ -300,205 +301,290 @@ export class MCPToolRegistry extends MCPRegistry {
   ): Promise<T> {
     const startTime = Date.now();
 
-    try {
-      registryLogger.info(
-        `🔧 [TOOL_EXECUTION] Starting execution: ${toolName}`,
-        { args, context },
-      );
-
-      // Try to find the tool by fully-qualified name first
-      let tool = this.tools.get(toolName);
-      registryLogger.info(
-        `🔍 [TOOL_LOOKUP] Direct lookup result for '${toolName}':`,
-        !!tool,
-      );
-
-      // If not found, search for tool by name across all entries (for backward compatibility)
-      let toolId = toolName;
-      if (!tool) {
-        for (const [candidateToolId, toolInfo] of this.tools.entries()) {
-          if (toolInfo.name === toolName) {
-            tool = toolInfo;
-            toolId = candidateToolId;
-            break;
-          }
+    // Resolve serverId eagerly for span attributes
+    let preResolvedServerId: string | undefined;
+    const toolEntry = this.tools.get(toolName);
+    if (toolEntry) {
+      preResolvedServerId = toolEntry.serverId;
+    } else {
+      for (const toolInfo of this.tools.values()) {
+        if (toolInfo.name === toolName) {
+          preResolvedServerId = toolInfo.serverId;
+          break;
         }
       }
+    }
 
-      if (!tool) {
-        throw new Error(`Tool '${toolName}' not found in registry`);
-      }
+    return withSpan(
+      {
+        name: "neurolink.tool.execute",
+        tracer: tracers.mcp,
+        attributes: {
+          [ATTR.GEN_AI_TOOL_NAME]: toolName,
+          [ATTR.MCP_SERVER_ID]: preResolvedServerId || "builtin",
+        },
+      },
+      async (span) => {
+        try {
+          registryLogger.info(
+            `🔧 [TOOL_EXECUTION] Starting execution: ${toolName}`,
+            {
+              hasArgs: args !== undefined,
+              hasContext: context !== undefined,
+              sessionId: context?.sessionId,
+            },
+          );
 
-      // Create execution context if not provided
-      const execContext: ExecutionContext = {
-        sessionId: context?.sessionId || randomUUID(),
-        userId: context?.userId,
-        ...context,
-      };
+          // Try to find the tool by fully-qualified name first
+          let tool = this.tools.get(toolName);
+          registryLogger.info(
+            `🔍 [TOOL_LOOKUP] Direct lookup result for '${toolName}':`,
+            !!tool,
+          );
 
-      // Get the tool implementation using the resolved toolId
-      const toolImpl = this.toolImplementations.get(toolId);
-      registryLogger.debug(
-        `Looking for tool '${toolName}' (toolId: '${toolId}'), found: ${!!toolImpl}, type: ${typeof toolImpl?.execute}`,
-      );
-      registryLogger.debug(
-        `Available tools:`,
-        Array.from(this.toolImplementations.keys()),
-      );
+          // If not found, search for tool by name across all entries (for backward compatibility)
+          let toolId = toolName;
+          if (!tool) {
+            const matches = Array.from(this.tools.entries()).filter(
+              ([, toolInfo]) => toolInfo.name === toolName,
+            );
+            if (matches.length > 1) {
+              throw new Error(
+                `Ambiguous tool name '${toolName}'. Use fully-qualified name 'serverId.${toolName}'.`,
+              );
+            }
+            if (matches.length === 1) {
+              const [candidateToolId, toolInfo] = matches[0];
+              tool = toolInfo;
+              toolId = candidateToolId;
+            }
+          }
 
-      if (!toolImpl || typeof toolImpl?.execute !== "function") {
-        throw new Error(
-          `Tool '${toolName}' implementation not found or not executable`,
-        );
-      }
+          if (!tool) {
+            throw new Error(`Tool '${toolName}' not found in registry`);
+          }
 
-      // HITL Safety Check: Request confirmation if required
-      let finalArgs = args;
-      if (this.hitlManager && this.hitlManager.isEnabled()) {
-        const requiresConfirmation = this.hitlManager.requiresConfirmation(
-          toolName,
-          args,
-        );
+          // Classify tool type for observability
+          const serverId = tool.serverId || "unknown";
+          const toolType =
+            serverId === "direct"
+              ? "builtin"
+              : serverId.startsWith("custom-tool-")
+                ? "custom"
+                : "mcp";
+          span.setAttribute("tool.type", toolType);
+          span.setAttribute(ATTR.MCP_SERVER_ID, serverId);
 
-        if (requiresConfirmation) {
-          registryLogger.info(`Tool '${toolName}' requires HITL confirmation`);
+          // Create execution context if not provided
+          const execContext: ExecutionContext = {
+            ...context,
+            sessionId: context?.sessionId ?? randomUUID(),
+            userId: context?.userId,
+          };
 
+          // Get the tool implementation using the resolved toolId
+          const toolImpl = this.toolImplementations.get(toolId);
+          registryLogger.debug(
+            `Looking for tool '${toolName}' (toolId: '${toolId}'), found: ${!!toolImpl}, type: ${typeof toolImpl?.execute}`,
+          );
+          registryLogger.debug(
+            `Available tools:`,
+            Array.from(this.toolImplementations.keys()),
+          );
+
+          if (!toolImpl || typeof toolImpl?.execute !== "function") {
+            throw new Error(
+              `Tool '${toolName}' implementation not found or not executable`,
+            );
+          }
+
+          // Capture argument metadata (avoid logging raw values which may contain secrets)
+          let argsStr: string;
           try {
-            const confirmationResult =
-              await this.hitlManager.requestConfirmation(toolName, args, {
+            argsStr = JSON.stringify(args).slice(0, 4096);
+          } catch {
+            argsStr = "[unserializable]";
+          }
+          span.setAttribute("tool.arguments_present", args !== undefined);
+          span.setAttribute("tool.arguments_size", argsStr.length);
+
+          // HITL Safety Check: Request confirmation if required
+          let finalArgs = args;
+          if (this.hitlManager && this.hitlManager.isEnabled()) {
+            const requiresConfirmation = this.hitlManager.requiresConfirmation(
+              toolName,
+              args,
+            );
+
+            if (requiresConfirmation) {
+              registryLogger.info(
+                `Tool '${toolName}' requires HITL confirmation`,
+              );
+              span.addEvent("tool.hitl_requested");
+
+              try {
+                const confirmationResult =
+                  await this.hitlManager.requestConfirmation(toolName, args, {
+                    serverId: tool.serverId,
+                    sessionId: execContext.sessionId,
+                    userId: execContext.userId,
+                  });
+
+                if (!confirmationResult.approved) {
+                  // User rejected the tool execution
+                  span.addEvent("tool.hitl_rejected");
+                  throw new HITLUserRejectedError(
+                    `Tool execution rejected by user: ${confirmationResult.reason || "No reason provided"}`,
+                    toolName,
+                    confirmationResult.reason,
+                  );
+                }
+
+                span.addEvent("tool.hitl_approved");
+
+                // User approved - use modified arguments if provided
+                if (confirmationResult.modifiedArguments !== undefined) {
+                  finalArgs = confirmationResult.modifiedArguments;
+                  registryLogger.info(
+                    `Tool '${toolName}' arguments modified by user`,
+                  );
+                }
+
+                registryLogger.info(
+                  `Tool '${toolName}' approved for execution (response time: ${confirmationResult.responseTime}ms)`,
+                );
+              } catch (error) {
+                if (error instanceof HITLTimeoutError) {
+                  // Timeout occurred - user didn't respond in time
+                  registryLogger.warn(
+                    `Tool '${toolName}' execution timed out waiting for user confirmation`,
+                  );
+                  throw error;
+                } else if (error instanceof HITLUserRejectedError) {
+                  // User explicitly rejected
+                  registryLogger.info(
+                    `Tool '${toolName}' execution rejected by user`,
+                  );
+                  throw error;
+                } else {
+                  // Other HITL error (configuration, system error, etc.)
+                  registryLogger.error(
+                    `HITL confirmation failed for tool '${toolName}':`,
+                    error,
+                  );
+                  throw new Error(
+                    `HITL confirmation failed: ${error instanceof Error ? error.message : String(error)}`,
+                  );
+                }
+              }
+            } else {
+              registryLogger.debug(
+                `Tool '${toolName}' does not require HITL confirmation`,
+              );
+            }
+          }
+
+          // Execute the actual tool (with potentially modified arguments)
+          registryLogger.debug(
+            `Executing tool '${toolName}' with args:`,
+            finalArgs,
+          );
+          const toolResult = await toolImpl.execute(finalArgs, execContext);
+
+          // Properly wrap raw results in ToolResult format
+          let result: ToolResult;
+
+          // Check if result is already a ToolResult object
+          if (
+            toolResult &&
+            typeof toolResult === "object" &&
+            "success" in toolResult &&
+            typeof (toolResult as ToolResult).success === "boolean"
+          ) {
+            // Result is already a ToolResult, enhance with metadata
+            const toolResultObj = toolResult as ToolResult;
+            result = {
+              ...toolResultObj,
+              usage: {
+                ...(toolResultObj.usage || {}),
+                executionTime: Date.now() - startTime,
+              },
+              metadata: {
+                ...(toolResultObj.metadata || {}),
+                toolName,
                 serverId: tool.serverId,
                 sessionId: execContext.sessionId,
-                userId: execContext.userId,
-              });
-
-            if (!confirmationResult.approved) {
-              // User rejected the tool execution
-              throw new HITLUserRejectedError(
-                `Tool execution rejected by user: ${confirmationResult.reason || "No reason provided"}`,
+                executionTime: Date.now() - startTime,
+              },
+            };
+          } else {
+            // Result is a raw value, wrap it in ToolResult format
+            result = {
+              success: true,
+              data: toolResult,
+              usage: {
+                executionTime: Date.now() - startTime,
+              },
+              metadata: {
                 toolName,
-                confirmationResult.reason,
-              );
-            }
-
-            // User approved - use modified arguments if provided
-            if (confirmationResult.modifiedArguments !== undefined) {
-              finalArgs = confirmationResult.modifiedArguments;
-              registryLogger.info(
-                `Tool '${toolName}' arguments modified by user`,
-              );
-            }
-
-            registryLogger.info(
-              `Tool '${toolName}' approved for execution (response time: ${confirmationResult.responseTime}ms)`,
-            );
-          } catch (error) {
-            if (error instanceof HITLTimeoutError) {
-              // Timeout occurred - user didn't respond in time
-              registryLogger.warn(
-                `Tool '${toolName}' execution timed out waiting for user confirmation`,
-              );
-              throw error;
-            } else if (error instanceof HITLUserRejectedError) {
-              // User explicitly rejected
-              registryLogger.info(
-                `Tool '${toolName}' execution rejected by user`,
-              );
-              throw error;
-            } else {
-              // Other HITL error (configuration, system error, etc.)
-              registryLogger.error(
-                `HITL confirmation failed for tool '${toolName}':`,
-                error,
-              );
-              throw new Error(
-                `HITL confirmation failed: ${error instanceof Error ? error.message : String(error)}`,
-              );
-            }
+                serverId: tool.serverId,
+                sessionId: execContext.sessionId,
+                executionTime: Date.now() - startTime,
+              },
+            };
           }
-        } else {
+
+          // Update statistics
+          const duration = Date.now() - startTime;
+          this.updateStats(toolName, duration);
+
+          // Record success on span
+          let resultStr: string;
+          try {
+            resultStr = JSON.stringify(result.data);
+          } catch {
+            resultStr = "[unserializable]";
+          }
+          span.setAttribute("tool.result_length", resultStr.length);
+          span.setAttribute("tool.success", true);
+
           registryLogger.debug(
-            `Tool '${toolName}' does not require HITL confirmation`,
+            `Tool '${toolName}' executed successfully in ${duration}ms`,
           );
+          return result as T;
+        } catch (error) {
+          registryLogger.error(`Tool execution failed: ${toolName}`, error);
+
+          // Record failure on span
+          span.setAttribute("tool.success", false);
+
+          // Rethrow precondition errors (tool not found, not executable)
+          const errMsg = error instanceof Error ? error.message : String(error);
+          if (
+            errMsg.includes("not found in registry") ||
+            errMsg.includes("not executable")
+          ) {
+            throw error;
+          }
+
+          // Return runtime execution errors in ToolResult format
+          const errorResult = {
+            success: false,
+            data: null,
+            error: error instanceof Error ? error.message : String(error),
+            usage: {
+              executionTime: Date.now() - startTime,
+            },
+            metadata: {
+              toolName,
+              sessionId: context?.sessionId,
+            },
+          } as T;
+
+          return errorResult;
         }
-      }
-
-      // Execute the actual tool (with potentially modified arguments)
-      registryLogger.debug(
-        `Executing tool '${toolName}' with args:`,
-        finalArgs,
-      );
-      const toolResult = await toolImpl.execute(finalArgs, execContext);
-
-      // Properly wrap raw results in ToolResult format
-      let result: ToolResult;
-
-      // Check if result is already a ToolResult object
-      if (
-        toolResult &&
-        typeof toolResult === "object" &&
-        "success" in toolResult &&
-        typeof (toolResult as ToolResult).success === "boolean"
-      ) {
-        // Result is already a ToolResult, enhance with metadata
-        const toolResultObj = toolResult as ToolResult;
-        result = {
-          ...toolResultObj,
-          usage: {
-            ...(toolResultObj.usage || {}),
-            executionTime: Date.now() - startTime,
-          },
-          metadata: {
-            ...(toolResultObj.metadata || {}),
-            toolName,
-            serverId: tool.serverId,
-            sessionId: execContext.sessionId,
-            executionTime: Date.now() - startTime,
-          },
-        };
-      } else {
-        // Result is a raw value, wrap it in ToolResult format
-        result = {
-          success: true,
-          data: toolResult,
-          usage: {
-            executionTime: Date.now() - startTime,
-          },
-          metadata: {
-            toolName,
-            serverId: tool.serverId,
-            sessionId: execContext.sessionId,
-            executionTime: Date.now() - startTime,
-          },
-        };
-      }
-
-      // Update statistics
-      const duration = Date.now() - startTime;
-      this.updateStats(toolName, duration);
-
-      registryLogger.debug(
-        `Tool '${toolName}' executed successfully in ${duration}ms`,
-      );
-      return result as T;
-    } catch (error) {
-      registryLogger.error(`Tool execution failed: ${toolName}`, error);
-
-      // Return error in ToolResult format
-      const errorResult = {
-        success: false,
-        data: null,
-        error: error instanceof Error ? error.message : String(error),
-        usage: {
-          executionTime: Date.now() - startTime,
-        },
-        metadata: {
-          toolName,
-          sessionId: context?.sessionId,
-        },
-      } as T;
-
-      return errorResult;
-    }
+      },
+    );
   }
 
   /**

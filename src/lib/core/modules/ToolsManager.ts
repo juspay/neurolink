@@ -21,11 +21,10 @@ import { z } from "zod";
 import type { AIProviderName, StandardRecord } from "../../types/index.js";
 import type { ToolArgs } from "../../types/tools.js";
 import type { JsonObject } from "../../types/common.js";
+import { tracers, ATTR, withSpan } from "../../telemetry/index.js";
+import { SpanStatusCode } from "@opentelemetry/api";
 import { logger } from "../../utils/logger.js";
-import {
-  getKeysAsString,
-  getKeyCount,
-} from "../../utils/transformationUtils.js";
+import { getKeyCount } from "../../utils/transformationUtils.js";
 import { convertJsonSchemaToZod } from "../../utils/schemaConversion.js";
 import type { NeuroLink } from "../../neurolink.js";
 
@@ -86,19 +85,40 @@ export class ToolsManager {
     },
     functionTag: string,
   ): void {
-    // Store custom tools for use in getAllTools()
-    this.customTools = sdk.customTools;
-    this.toolExecutor = sdk.executeTool;
-
-    logger.debug(`[${functionTag}] Setting up tool executor for provider`, {
-      providerName: this.providerName,
-      availableCustomTools: sdk.customTools.size,
-      customToolsStored: !!this.customTools,
-      toolExecutorStored: !!this.toolExecutor,
+    const span = tracers.sdk.startSpan("neurolink.tools.register", {
+      attributes: {
+        [ATTR.NL_PROVIDER]: this.providerName,
+        "tools.custom_count": sdk.customTools.size,
+      },
     });
 
-    // Note: Tool execution will be handled through getAllTools() -> AI SDK tools
-    // The custom tools are converted to AI SDK format in getAllTools() method
+    try {
+      // Store custom tools for use in getAllTools()
+      this.customTools = sdk.customTools;
+      this.toolExecutor = sdk.executeTool;
+
+      logger.debug(`[${functionTag}] Setting up tool executor for provider`, {
+        providerName: this.providerName,
+        availableCustomTools: sdk.customTools.size,
+        customToolsStored: !!this.customTools,
+        toolExecutorStored: !!this.toolExecutor,
+      });
+
+      // Note: Tool execution will be handled through getAllTools() -> AI SDK tools
+      // The custom tools are converted to AI SDK format in getAllTools() method
+      span.setStatus({ code: SpanStatusCode.OK });
+    } catch (error) {
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      if (error instanceof Error) {
+        span.recordException(error);
+      }
+      throw error;
+    } finally {
+      span.end();
+    }
   }
 
   /**
@@ -106,31 +126,71 @@ export class ToolsManager {
    * MCP tools are added when available (without blocking)
    */
   async getAllTools(): Promise<Record<string, Tool>> {
-    // Start with wrapped direct tools that emit events
-    const tools: Record<string, Tool> = {};
+    return withSpan(
+      {
+        name: "neurolink.tools.getAll",
+        tracer: tracers.sdk,
+        attributes: {
+          [ATTR.NL_PROVIDER]: this.providerName,
+        },
+      },
+      async (span) => {
+        // Start with wrapped direct tools that emit events
+        const tools: Record<string, Tool> = {};
 
-    // Wrap direct tools with event emission
-    await this.processDirectTools(tools);
+        // Wrap direct tools with event emission
+        await this.processDirectTools(tools);
+        const directCount = Object.keys(tools).length;
+        span.setAttribute("tools.direct_count", directCount);
 
-    logger.debug(`[ToolsManager] getAllTools called for ${this.providerName}`, {
-      neurolinkAvailable: !!this.neurolink,
-      neurolinkType: typeof this.neurolink,
-      directToolsCount: getKeyCount(this.directTools),
-    });
-    logger.debug(
-      `[ToolsManager] Direct tools: ${getKeysAsString(this.directTools)}`,
+        logger.debug(
+          `[ToolsManager] getAllTools called for ${this.providerName}`,
+          {
+            directToolsCount: getKeyCount(this.directTools),
+          },
+        );
+
+        // Process all tool types using dedicated helper methods
+        await this.processCustomTools(tools);
+        const customCount = Object.keys(tools).length - directCount;
+        span.setAttribute("tools.custom_count", customCount);
+
+        await this.processExternalMCPTools(tools);
+        const externalCount =
+          Object.keys(tools).length - directCount - customCount;
+        span.setAttribute("tools.external_mcp_count", externalCount);
+
+        await this.processMCPTools(tools);
+        const totalCount = Object.keys(tools).length;
+        span.setAttribute(ATTR.NL_TOOL_COUNT, totalCount);
+
+        // Record tool names for debugging (truncated)
+        const toolNames = Object.keys(tools);
+        span.setAttribute(
+          "tools.names",
+          toolNames.slice(0, 20).join(",") +
+            (toolNames.length > 20 ? `...+${toolNames.length - 20}` : ""),
+        );
+
+        // Log a compact summary instead of full tool list
+        logger.debug(
+          `[ToolsManager] getAllTools complete: ${toolNames.length} tools available`,
+          {
+            provider: this.providerName,
+            toolCount: toolNames.length,
+            toolNames:
+              toolNames.length <= 10
+                ? toolNames
+                : [
+                    ...toolNames.slice(0, 10),
+                    `... and ${toolNames.length - 10} more`,
+                  ],
+          },
+        );
+
+        return tools;
+      },
     );
-
-    // Process all tool types using dedicated helper methods
-    await this.processCustomTools(tools);
-    await this.processExternalMCPTools(tools);
-    await this.processMCPTools(tools);
-
-    logger.debug(
-      `[ToolsManager] getAllTools returning tools: ${getKeysAsString(tools)}`,
-    );
-
-    return tools;
   }
 
   /**
@@ -163,22 +223,10 @@ export class ToolsManager {
     }
 
     logger.debug(
-      `Loading ${Object.keys(this.directTools).length} direct tools with event emission`,
+      `[ToolsManager] Loading ${Object.keys(this.directTools).length} direct tools`,
     );
 
     for (const [toolName, directTool] of Object.entries(this.directTools)) {
-      logger.debug(`Processing direct tool: ${toolName}`, {
-        toolName,
-        hasExecute:
-          directTool &&
-          typeof directTool === "object" &&
-          "execute" in directTool,
-        hasDescription:
-          directTool &&
-          typeof directTool === "object" &&
-          "description" in directTool,
-      });
-
       // Wrap the direct tool's execute function with event emission
       if (
         directTool &&
@@ -197,11 +245,6 @@ export class ToolsManager {
             if (this.neurolink?.getEventEmitter) {
               const emitter = this.neurolink.getEventEmitter();
               emitter.emit("tool:start", { tool: toolName, input: params });
-              logger.debug(`Direct tool:start event emitted for ${toolName}`, {
-                toolName,
-                input: params,
-                hasEmitter: !!emitter,
-              });
             }
 
             try {
@@ -211,14 +254,6 @@ export class ToolsManager {
               if (this.neurolink?.getEventEmitter) {
                 const emitter = this.neurolink.getEventEmitter();
                 emitter.emit("tool:end", { tool: toolName, result });
-                logger.debug(`Direct tool:end event emitted for ${toolName}`, {
-                  toolName,
-                  result:
-                    typeof result === "string"
-                      ? result.substring(0, 100)
-                      : JSON.stringify(result).substring(0, 100),
-                  hasEmitter: !!emitter,
-                });
               }
 
               return result;
@@ -229,14 +264,6 @@ export class ToolsManager {
                 const errorMsg =
                   error instanceof Error ? error.message : String(error);
                 emitter.emit("tool:end", { tool: toolName, error: errorMsg });
-                logger.debug(
-                  `Direct tool:end error event emitted for ${toolName}`,
-                  {
-                    toolName,
-                    error: errorMsg,
-                    hasEmitter: !!emitter,
-                  },
-                );
               }
               throw error;
             }
@@ -248,9 +275,7 @@ export class ToolsManager {
       }
     }
 
-    logger.debug(`Direct tools processing complete`, {
-      directToolsProcessed: Object.keys(this.directTools).length,
-    });
+    // Direct tools processing complete — count already logged at start
   }
 
   /**
@@ -266,13 +291,6 @@ export class ToolsManager {
     );
 
     for (const [toolName, toolDef] of this.customTools.entries()) {
-      logger.debug(`Processing custom tool: ${toolName}`, {
-        toolDef: typeof toolDef,
-        hasExecute:
-          toolDef && typeof toolDef === "object" && "execute" in toolDef,
-        hasName: toolDef && typeof toolDef === "object" && "name" in toolDef,
-      });
-
       // Validate tool definition has required execute function
       const toolInfo =
         (toolDef as Record<string, unknown> | undefined) ||
@@ -293,9 +311,7 @@ export class ToolsManager {
       }
     }
 
-    logger.debug(`[ToolsManager] Custom tools processing complete`, {
-      customToolsProcessed: this.customTools.size,
-    });
+    // Custom tools processing complete — count already logged at start
   }
 
   /**
@@ -329,37 +345,24 @@ export class ToolsManager {
       !this.neurolink ||
       typeof this.neurolink.getExternalMCPTools !== "function"
     ) {
-      logger.debug(`[ToolsManager] No external MCP tool interface available`, {
-        hasNeuroLink: !!this.neurolink,
-        hasGetExternalMCPTools:
-          this.neurolink &&
-          typeof this.neurolink.getExternalMCPTools === "function",
-      });
       return;
     }
 
     try {
-      logger.debug(
-        `[ToolsManager] Loading external MCP tools for ${this.providerName}`,
-      );
-
       const externalTools = await this.neurolink.getExternalMCPTools();
-      logger.debug(
-        `[ToolsManager] Found ${externalTools.length} external MCP tools`,
-      );
 
+      let addedCount = 0;
       for (const tool of externalTools) {
         const mcpTool = await this.createExternalMCPTool(tool);
         if (mcpTool && !tools[tool.name]) {
           tools[tool.name] = mcpTool;
-          logger.debug(
-            `[ToolsManager] Successfully added external MCP tool: ${tool.name}`,
-          );
+          addedCount++;
         }
       }
 
-      logger.debug(`[ToolsManager] External MCP tools loading complete`, {
-        totalToolsAdded: externalTools.length,
+      logger.debug(`[ToolsManager] External MCP tools loaded`, {
+        found: externalTools.length,
+        added: addedCount,
       });
     } catch (error) {
       logger.error(
@@ -383,8 +386,6 @@ export class ToolsManager {
     },
   ): Promise<Tool | null> {
     try {
-      logger.debug(`[ToolsManager] Converting custom tool: ${toolName}`);
-
       let finalSchema: z.ZodSchema | ReturnType<typeof jsonSchema>;
       let originalInputSchema: Record<string, unknown> | undefined;
 
@@ -421,73 +422,28 @@ export class ToolsManager {
         description: toolInfo.description || `Tool ${toolName}`,
         parameters: finalSchema,
         execute: async (params) => {
+          const customToolSpan = tracers.sdk.startSpan(
+            "neurolink.tools.execute_custom",
+            {
+              attributes: {
+                "tool.name": toolName,
+                "tool.type": "custom",
+              },
+            },
+          );
+
           const startTime = Date.now();
           let executionId: string | undefined;
 
-          if (this.neurolink?.emitToolStart) {
-            executionId = this.neurolink.emitToolStart(
-              toolName,
-              params,
-              startTime,
-            );
-            logger.debug(
-              `Custom tool:start emitted via NeuroLink for ${toolName}`,
-              {
-                toolName,
-                executionId,
-                input: params,
-                hasNativeEmission: true,
-              },
-            );
-          }
-
           try {
-            // 🔧 PARAMETER FLOW TRACING - Before NeuroLink executeTool call
-            logger.debug(
-              `About to call NeuroLink executeTool for ${toolName}`,
-              {
+            if (this.neurolink?.emitToolStart) {
+              executionId = this.neurolink.emitToolStart(
                 toolName,
-                paramsBeforeExecution: {
-                  type: typeof params,
-                  isNull: params === null,
-                  isUndefined: params === undefined,
-                  isEmpty:
-                    params &&
-                    typeof params === "object" &&
-                    Object.keys(params as object).length === 0,
-                  keys:
-                    params && typeof params === "object"
-                      ? Object.keys(params as object)
-                      : "NOT_OBJECT",
-                  keysLength:
-                    params && typeof params === "object"
-                      ? Object.keys(params as object).length
-                      : 0,
-                },
-                executorInfo: {
-                  hasExecutor: typeof toolInfo.execute === "function",
-                  executorType: typeof toolInfo.execute,
-                },
-                timestamp: Date.now(),
-                phase: "BEFORE_NEUROLINK_EXECUTE",
-              },
-            );
-
+                params,
+                startTime,
+              );
+            }
             const result = await toolInfo.execute(params as ToolArgs);
-
-            // 🔧 PARAMETER FLOW TRACING - After NeuroLink executeTool call
-            logger.debug(`NeuroLink executeTool completed for ${toolName}`, {
-              toolName,
-              resultInfo: {
-                type: typeof result,
-                isNull: result === null,
-                isUndefined: result === undefined,
-                hasError:
-                  result && typeof result === "object" && "error" in result,
-              },
-              timestamp: Date.now(),
-              phase: "AFTER_NEUROLINK_EXECUTE",
-            });
 
             const convertedResult = this.utilities?.convertToolResult
               ? await this.utilities.convertToolResult(result)
@@ -512,7 +468,7 @@ export class ToolsManager {
               }
             }
 
-            // 🔧 NATIVE NEUROLINK EVENT EMISSION - Tool End (Success or Handled Error)
+            // Emit tool end event (success or handled error)
             if (this.neurolink?.emitToolEnd) {
               this.neurolink.emitToolEnd(
                 toolName,
@@ -522,17 +478,17 @@ export class ToolsManager {
                 endTime,
                 executionId,
               );
-              logger.debug(
-                `Custom tool:end emitted via NeuroLink for ${toolName}`,
-                {
-                  toolName,
-                  executionId,
-                  duration: endTime - startTime,
-                  hasResult: convertedResult !== undefined,
-                  hasNativeEmission: true,
-                },
-              );
             }
+
+            customToolSpan.setAttribute(
+              "tool.duration_ms",
+              endTime - startTime,
+            );
+            customToolSpan.setAttribute(
+              "tool.result.status",
+              errorResult ? "error" : "success",
+            );
+            customToolSpan.setStatus({ code: SpanStatusCode.OK });
 
             return convertedResult;
           } catch (error) {
@@ -540,7 +496,7 @@ export class ToolsManager {
             const errorMsg =
               error instanceof Error ? error.message : String(error);
 
-            // 🔧 NATIVE NEUROLINK EVENT EMISSION - Tool End (Error)
+            // Emit tool end event (error)
             if (this.neurolink?.emitToolEnd) {
               this.neurolink.emitToolEnd(
                 toolName,
@@ -550,18 +506,28 @@ export class ToolsManager {
                 endTime,
                 executionId,
               );
-              logger.info(
-                `Custom tool:end error emitted via NeuroLink for ${toolName}`,
-                {
-                  toolName,
-                  executionId,
-                  duration: endTime - startTime,
-                  error: errorMsg,
-                  hasNativeEmission: true,
-                },
+              logger.debug(
+                `Custom tool error: ${toolName} (${endTime - startTime}ms)`,
+                { error: errorMsg },
               );
             }
+
+            customToolSpan.setAttribute(
+              "tool.duration_ms",
+              endTime - startTime,
+            );
+            customToolSpan.setAttribute("tool.result.status", "error");
+            customToolSpan.recordException(
+              error instanceof Error ? error : new Error(errorMsg),
+            );
+            customToolSpan.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: errorMsg,
+            });
+
             throw error;
+          } finally {
+            customToolSpan.end();
           }
         },
       });
@@ -581,8 +547,6 @@ export class ToolsManager {
     serverId?: string;
   }): Promise<Tool | null> {
     try {
-      logger.debug(`[ToolsManager] Converting external MCP tool: ${tool.name}`);
-
       // Use original JSON Schema from MCP tool if available, otherwise use permissive schema
       let finalSchema;
       if (tool.inputSchema && typeof tool.inputSchema === "object") {
@@ -602,27 +566,10 @@ export class ToolsManager {
         description: tool.description || `External MCP tool ${tool.name}`,
         parameters: finalSchema,
         execute: async (params) => {
-          logger.debug(`Executing external MCP tool: ${tool.name}`, {
-            toolName: tool.name,
-            serverId: tool.serverId,
-            params: JSON.stringify(params),
-            paramsType: typeof params,
-            hasNeurolink: !!this.neurolink,
-            hasExecuteFunction:
-              this.neurolink &&
-              typeof this.neurolink.executeExternalMCPTool === "function",
-            timestamp: Date.now(),
-          });
-
-          // 🔧 EMIT TOOL START EVENT - Bedrock-compatible format
+          // Emit tool start event
           if (this.neurolink?.getEventEmitter) {
             const emitter = this.neurolink.getEventEmitter();
             emitter.emit("tool:start", { tool: tool.name, input: params });
-            logger.debug(`tool:start event emitted for ${tool.name}`, {
-              toolName: tool.name,
-              input: params,
-              hasEmitter: !!emitter,
-            });
           }
 
           // Execute via NeuroLink's direct tool execution
@@ -637,33 +584,15 @@ export class ToolsManager {
                 params as JsonObject,
               );
 
-              // 🔧 EMIT TOOL END EVENT - Bedrock-compatible format
+              // Emit tool end event (success)
               if (this.neurolink?.getEventEmitter) {
                 const emitter = this.neurolink.getEventEmitter();
                 emitter.emit("tool:end", { tool: tool.name, result });
-                logger.debug(`tool:end event emitted for ${tool.name}`, {
-                  toolName: tool.name,
-                  result:
-                    typeof result === "string"
-                      ? result.substring(0, 100)
-                      : JSON.stringify(result).substring(0, 100),
-                  hasEmitter: !!emitter,
-                });
               }
-
-              logger.debug(`External MCP tool executed: ${tool.name}`, {
-                toolName: tool.name,
-                result:
-                  typeof result === "string"
-                    ? result.substring(0, 200)
-                    : JSON.stringify(result).substring(0, 200),
-                resultType: typeof result,
-                timestamp: Date.now(),
-              });
 
               return result;
             } catch (mcpError) {
-              // 🔧 EMIT TOOL END EVENT FOR ERROR - Bedrock-compatible format
+              // Emit tool end event (error)
               if (this.neurolink?.getEventEmitter) {
                 const emitter = this.neurolink.getEventEmitter();
                 const errorMsg =
@@ -671,47 +600,27 @@ export class ToolsManager {
                     ? mcpError.message
                     : String(mcpError);
                 emitter.emit("tool:end", { tool: tool.name, error: errorMsg });
-                logger.debug(`tool:end error event emitted for ${tool.name}`, {
-                  toolName: tool.name,
-                  error: errorMsg,
-                  hasEmitter: !!emitter,
-                });
               }
 
               logger.error(`External MCP tool failed: ${tool.name}`, {
-                toolName: tool.name,
                 serverId: tool.serverId,
                 error:
                   mcpError instanceof Error
                     ? mcpError.message
                     : String(mcpError),
-                errorStack:
-                  mcpError instanceof Error ? mcpError.stack : undefined,
-                params: JSON.stringify(params),
-                timestamp: Date.now(),
               });
               throw mcpError;
             }
           } else {
             const error = `Cannot execute external MCP tool: NeuroLink executeExternalMCPTool not available`;
 
-            // 🔧 EMIT TOOL END EVENT FOR ERROR - Bedrock-compatible format
+            // Emit tool end event (error - no executor)
             if (this.neurolink?.getEventEmitter) {
               const emitter = this.neurolink.getEventEmitter();
               emitter.emit("tool:end", { tool: tool.name, error });
-              logger.debug(`tool:end error event emitted for ${tool.name}`, {
-                toolName: tool.name,
-                error,
-                hasEmitter: !!emitter,
-              });
             }
 
-            logger.error(`${error}`, {
-              toolName: tool.name,
-              hasNeurolink: !!this.neurolink,
-              neurolinkType: typeof this.neurolink,
-              timestamp: Date.now(),
-            });
+            logger.error(error);
             throw new Error(error);
           }
         },

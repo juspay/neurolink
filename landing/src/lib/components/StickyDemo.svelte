@@ -60,7 +60,7 @@
   <div use:reveal={{ y: 40 }} class="mb-8 md:mb-14">
     <p class="eyebrow text-ds-text-muted mb-4">03 — How it works</p>
     <h2 class="section-headline text-ds-text-primary">
-      Four lines to production
+      From four lines of TypeScript to production AI
     </h2>
     <p class="mt-4 text-lg text-ds-text-tertiary max-w-2xl">
       From simple generation to multi-agent orchestration — the same SDK scales

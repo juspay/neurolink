@@ -65,7 +65,7 @@
   <div use:reveal={{ y: 40 }} class="mb-8 md:mb-14">
     <p class="eyebrow text-ds-text-muted mb-4">02 — Capabilities</p>
     <h2 class="section-headline text-ds-text-primary">
-      Everything you need to ship AI
+      Everything you need to build AI apps in TypeScript
     </h2>
     <p class="mt-4 text-lg text-ds-text-tertiary max-w-2xl">
       A complete platform for building production AI applications — from simple

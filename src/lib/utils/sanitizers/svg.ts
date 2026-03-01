@@ -407,9 +407,11 @@ function removeDangerousAttributes(
     const attrRegex =
       /([a-zA-Z][a-zA-Z0-9:_-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
     const safeAttrs: string[] = [];
-    let attrMatch: RegExpExecArray | null = attrRegex.exec(attrs);
-
-    while (attrMatch !== null) {
+    for (
+      let attrMatch = attrRegex.exec(attrs);
+      attrMatch !== null;
+      attrMatch = attrRegex.exec(attrs)
+    ) {
       const attrName = attrMatch[1];
       const attrValue = attrMatch[2] ?? attrMatch[3] ?? "";
       const lowerAttrName = attrName.toLowerCase();
@@ -475,16 +477,15 @@ function removeDangerousAttributes(
 
       // Attribute is safe, keep it
       safeAttrs.push(`${attrName}="${escapeAttributeValue(attrValue)}"`);
-
-      // Get next match
-      attrMatch = attrRegex.exec(attrs);
     }
 
     // Also keep standalone attributes (like xmlns without value in some cases)
     const standaloneAttrRegex = /\s([a-zA-Z][a-zA-Z0-9:_-]*)(?=\s|>|$|\/)/g;
     let standaloneMatch: RegExpExecArray | null =
       standaloneAttrRegex.exec(attrs);
-    while (standaloneMatch !== null) {
+    let iterations = 0;
+    const MAX_ITERATIONS = 1000;
+    while (standaloneMatch !== null && iterations++ < MAX_ITERATIONS) {
       const attrName = standaloneMatch[1];
       // Only keep if it looks like a valid attribute and is safe
       if (

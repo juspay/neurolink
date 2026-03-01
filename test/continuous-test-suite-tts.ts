@@ -987,7 +987,7 @@ async function testCLITTSGenerate(): Promise<boolean | null> {
         "PASS",
         `CLI completed with output (${result.stdout.length} chars)`,
       );
-      return null;
+      return true;
     }
 
     logTest("CLI TTS - Generate", "FAIL", "CLI produced no output");
@@ -1051,7 +1051,7 @@ async function testCLITTSVoiceFlag(): Promise<boolean | null> {
       "PASS",
       "CLI completed with --tts-voice flag",
     );
-    return null;
+    return true;
   } catch (error) {
     logTest("CLI TTS - Voice Flag", "FAIL", String(error));
     return false;

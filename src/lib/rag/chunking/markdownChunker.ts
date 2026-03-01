@@ -202,11 +202,219 @@ export class MarkdownChunker implements Chunker {
       return [content];
     }
 
+    // Use table-aware splitting
+    const lines = content.split("\n");
+    const tableRanges = this.detectTableRanges(lines);
+
+    if (tableRanges.length > 0) {
+      return this.splitContentTableAware(
+        content,
+        lines,
+        tableRanges,
+        effectiveMaxSize,
+        effectiveOverlap,
+      );
+    }
+
+    return this.splitPlainContent(content, effectiveMaxSize, effectiveOverlap);
+  }
+
+  /**
+   * Detect contiguous table blocks in lines.
+   * Returns array of { start, end } line index ranges (inclusive).
+   */
+  private detectTableRanges(
+    lines: string[],
+  ): Array<{ start: number; end: number }> {
+    // Simple pipe-prefixed line check (single character class — no backtracking)
+    const TABLE_ROW_RE = /^\|[^\r\n]{1,10000}/;
+    // Per-cell separator regex applied AFTER splitting on "|" — safe because
+    // each cell is short and bounded by pipe delimiters (CodeQL: js/polynomial-redos)
+    const SEPARATOR_CELL_RE = /^[\t ]*:?-+:?[\t ]*$/;
+
+    const ranges: Array<{ start: number; end: number }> = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      if (
+        i + 1 < lines.length &&
+        TABLE_ROW_RE.test(lines[i]!) &&
+        this.isTableSeparator(lines[i + 1]!, SEPARATOR_CELL_RE)
+      ) {
+        const start = i;
+        i += 2;
+        while (i < lines.length && TABLE_ROW_RE.test(lines[i]!)) {
+          i++;
+        }
+        ranges.push({ start, end: i - 1 });
+      } else {
+        i++;
+      }
+    }
+
+    return ranges;
+  }
+
+  /** Check if a line is a markdown table separator (e.g. |---|---|). */
+  private isTableSeparator(line: string, cellRe: RegExp): boolean {
+    const trimmed = line.trimEnd();
+    if (!trimmed.startsWith("|")) {
+      return false;
+    }
+    // Split by "|" → ["", "---", "---", ""] for "|---|---|"
+    const cells = trimmed.split("|");
+    cells.shift(); // remove leading empty element
+    if (cells.length > 0 && cells[cells.length - 1]!.trim() === "") {
+      cells.pop(); // remove trailing empty element
+    }
+    if (cells.length === 0) {
+      return false;
+    }
+    return cells.every((cell) => cellRe.test(cell));
+  }
+
+  /**
+   * Split content while preserving markdown tables.
+   */
+  private splitContentTableAware(
+    content: string,
+    lines: string[],
+    tableRanges: Array<{ start: number; end: number }>,
+    maxSize: number,
+    overlap: number,
+  ): string[] {
+    // Build segments: alternating non-table and table blocks
+    const segments: Array<{ text: string; isTable: boolean }> = [];
+    let lineIdx = 0;
+
+    for (const range of tableRanges) {
+      if (lineIdx < range.start) {
+        const text = lines.slice(lineIdx, range.start).join("\n").trim();
+        if (text) {
+          segments.push({ text, isTable: false });
+        }
+      }
+      const tableText = lines.slice(range.start, range.end + 1).join("\n");
+      segments.push({ text: tableText, isTable: true });
+      lineIdx = range.end + 1;
+    }
+
+    if (lineIdx < lines.length) {
+      const text = lines.slice(lineIdx).join("\n").trim();
+      if (text) {
+        segments.push({ text, isTable: false });
+      }
+    }
+
+    const result: string[] = [];
+    let current = "";
+
+    for (const seg of segments) {
+      if (!seg.isTable) {
+        const pieces = this.splitPlainContent(seg.text, maxSize, overlap);
+        for (const piece of pieces) {
+          if (current.length === 0) {
+            current = piece;
+          } else if (current.length + 1 + piece.length <= maxSize) {
+            current += "\n" + piece;
+          } else {
+            result.push(current);
+            current = piece;
+          }
+        }
+      } else {
+        if (seg.text.length <= maxSize) {
+          if (current.length === 0) {
+            current = seg.text;
+          } else if (current.length + 2 + seg.text.length <= maxSize) {
+            current += "\n\n" + seg.text;
+          } else {
+            result.push(current);
+            current = seg.text;
+          }
+        } else {
+          if (current) {
+            result.push(current);
+            current = "";
+          }
+          const tableChunks = this.splitTableByRows(seg.text, maxSize);
+          result.push(...tableChunks);
+        }
+      }
+    }
+
+    if (current) {
+      result.push(current);
+    }
+
+    return result.length > 0 ? result : [content];
+  }
+
+  /**
+   * Split a table on row boundaries, repeating header + separator in each chunk.
+   */
+  private splitTableByRows(tableText: string, maxSize: number): string[] {
+    const rows = tableText.split("\n");
+    if (rows.length < 3) {
+      return [tableText];
+    }
+
+    const headerRow = rows[0]!;
+    const separatorRow = rows[1]!;
+    const headerBlock = headerRow + "\n" + separatorRow;
+    const dataRows = rows.slice(2);
+
+    if (headerBlock.length > maxSize) {
+      return this.splitPlainContent(tableText, maxSize, 0);
+    }
+
+    const chunks: string[] = [];
+    let currentChunk = headerBlock;
+
+    for (const row of dataRows) {
+      // Guard: single row exceeds budget — flush and emit as standalone chunk
+      const singleRowChunk = `${headerBlock}\n${row}`;
+      if (singleRowChunk.length > maxSize) {
+        if (currentChunk.length > headerBlock.length) {
+          chunks.push(currentChunk);
+        }
+        chunks.push(singleRowChunk);
+        currentChunk = headerBlock;
+        continue;
+      }
+
+      const candidate = currentChunk + "\n" + row;
+      if (candidate.length <= maxSize) {
+        currentChunk = candidate;
+      } else {
+        if (currentChunk.length > headerBlock.length) {
+          chunks.push(currentChunk);
+        }
+        currentChunk = headerBlock + "\n" + row;
+      }
+    }
+
+    if (currentChunk.length > headerBlock.length) {
+      chunks.push(currentChunk);
+    }
+
+    return chunks.length > 0 ? chunks : [tableText];
+  }
+
+  private splitPlainContent(
+    content: string,
+    maxSize: number,
+    overlap: number,
+  ): string[] {
+    if (content.length <= maxSize) {
+      return [content];
+    }
+
     const chunks: string[] = [];
     let start = 0;
 
     while (start < content.length) {
-      let end = Math.min(start + effectiveMaxSize, content.length);
+      let end = Math.min(start + maxSize, content.length);
 
       // Try to break at a paragraph or sentence boundary
       if (end < content.length) {
@@ -227,7 +435,7 @@ export class MarkdownChunker implements Chunker {
       }
 
       chunks.push(content.slice(start, end));
-      start = Math.max(start + 1, end - effectiveOverlap);
+      start = Math.max(start + 1, end - overlap);
     }
 
     return chunks;

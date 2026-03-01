@@ -3,6 +3,9 @@
  * Handles configuration merging and conversation memory operations
  */
 
+import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { tracers } from "../telemetry/tracers.js";
+import { withTimeout } from "./errorHandling.js";
 import {
   DEFAULT_FALLBACK_THRESHOLD,
   getConversationMemoryDefaults,
@@ -12,7 +15,7 @@ import { getAvailableInputTokens } from "../constants/contextWindows.js";
 import { buildSummarizationPrompt } from "../context/prompts/summarizationPrompt.js";
 import type { ConversationMemoryManager } from "../core/conversationMemoryManager.js";
 import type { RedisConversationMemoryManager } from "../core/redisConversationMemoryManager.js";
-import { NeuroLink } from "../neurolink.js";
+import type { NeuroLink } from "../neurolink.js";
 import type {
   ChatMessage,
   ConversationMemoryConfig,
@@ -24,6 +27,11 @@ import type {
   TextGenerationResult,
 } from "../types/generateTypes.js";
 import { logger } from "./logger.js";
+
+const memoryTracer = tracers.memory;
+
+// Cached NeuroLink instance for summarization to avoid creating a new instance per call
+let cachedSummarizer: NeuroLink | null = null;
 
 /**
  * Apply conversation memory defaults to user configuration
@@ -70,59 +78,69 @@ export async function getConversationMessages(
     return [];
   }
 
-  try {
-    // Extract userId from context
-    const userId = (options.context as Record<string, unknown>)?.userId as
-      | string
-      | undefined;
-
-    const enableSummarization = options.enableSummarization ?? undefined;
-    const messages = await conversationMemory.buildContextMessages(
-      sessionId,
-      userId,
-      enableSummarization,
-    );
-    logger.debug(
-      "[conversationMemoryUtils] Conversation messages retrieved successfully",
-      {
-        sessionId,
-        messageCount: messages.length,
-        messageTypes: messages.map((m) => m.role),
-        firstMessage:
-          messages.length > 0
-            ? {
-                role: messages[0].role,
-                contentLength: messages[0].content.length,
-                contentPreview: messages[0].content.substring(0, 50),
-              }
-            : null,
-        lastMessage:
-          messages.length > 0
-            ? {
-                role: messages[messages.length - 1].role,
-                contentLength: messages[messages.length - 1].content.length,
-                contentPreview: messages[messages.length - 1].content.substring(
-                  0,
-                  50,
-                ),
-              }
-            : null,
+  return memoryTracer.startActiveSpan(
+    "neurolink.conversation.getMessages",
+    {
+      kind: SpanKind.INTERNAL,
+      attributes: {
+        "session.id": sessionId,
+        "memory.type": conversationMemory.constructor.name,
       },
-    );
+    },
+    async (span) => {
+      try {
+        // Extract userId from context
+        const userId = (options.context as Record<string, unknown>)?.userId as
+          | string
+          | undefined;
+        if (userId) {
+          span.setAttribute("user.id", userId);
+        }
 
-    return messages;
-  } catch (error) {
-    logger.warn(
-      "[conversationMemoryUtils] Failed to get conversation messages",
-      {
-        sessionId,
-        memoryType: conversationMemory.constructor.name,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      },
-    );
-    return [];
-  }
+        const enableSummarization = options.enableSummarization ?? undefined;
+        const messages = await conversationMemory.buildContextMessages(
+          sessionId,
+          userId,
+          enableSummarization,
+        );
+
+        span.setAttribute("message.count", messages.length);
+
+        if (logger.shouldLog("debug")) {
+          logger.debug(
+            "[conversationMemoryUtils] Conversation messages retrieved successfully",
+            {
+              sessionId,
+              messageCount: messages.length,
+              messageTypes: messages.map((m) => m.role),
+            },
+          );
+        }
+
+        return messages;
+      } catch (error) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        span.recordException(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        logger.warn(
+          "[conversationMemoryUtils] Failed to get conversation messages",
+          {
+            sessionId,
+            memoryType: conversationMemory.constructor.name,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+        );
+        return [];
+      } finally {
+        span.end();
+      }
+    },
+  );
 }
 
 /**
@@ -216,50 +234,78 @@ export async function storeConversationTurn(
       model: result.model,
     };
   }
-  try {
-    await conversationMemory.storeConversationTurn({
-      sessionId,
-      userId,
-      userMessage,
-      aiResponse,
-      startTimeStamp,
-      providerDetails,
-      enableSummarization: originalOptions.enableSummarization,
-      requestId,
-      tokenUsage: result.usage
-        ? {
-            inputTokens: result.usage.input,
-            outputTokens: result.usage.output,
-            totalTokens: result.usage.total,
-            cacheReadTokens: result.usage.cacheReadTokens,
-            cacheWriteTokens: result.usage.cacheCreationTokens,
-          }
-        : undefined,
-    });
 
-    logger.debug(
-      "[conversationMemoryUtils] Conversation turn stored successfully",
-      {
-        requestId,
-        sessionId,
-        userId,
-        memoryType: conversationMemory.constructor.name,
-        userMessageLength: userMessage.length,
-        aiResponseLength: aiResponse.length,
+  await memoryTracer.startActiveSpan(
+    "neurolink.conversation.storeTurn",
+    {
+      kind: SpanKind.INTERNAL,
+      attributes: {
+        "session.id": sessionId,
+        "content.length": userMessage.length + aiResponse.length,
       },
-    );
-  } catch (error) {
-    const details = (error as { details?: { error?: string } })?.details;
-    logger.warn("[conversationMemoryUtils] Failed to store conversation turn", {
-      sessionId,
-      userId,
-      memoryType: conversationMemory.constructor.name,
-      error: error instanceof Error ? error.message : String(error),
-      innerError: details?.error || "none",
-      errorCode: (error as { code?: string })?.code || "unknown",
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-  }
+    },
+    async (span) => {
+      if (userId) {
+        span.setAttribute("user.id", userId);
+      }
+      try {
+        await conversationMemory.storeConversationTurn({
+          sessionId,
+          userId,
+          userMessage,
+          aiResponse,
+          startTimeStamp,
+          providerDetails,
+          enableSummarization: originalOptions.enableSummarization,
+          requestId,
+          tokenUsage: result.usage
+            ? {
+                inputTokens: result.usage.input,
+                outputTokens: result.usage.output,
+                totalTokens: result.usage.total,
+                cacheReadTokens: result.usage.cacheReadTokens,
+                cacheWriteTokens: result.usage.cacheCreationTokens,
+              }
+            : undefined,
+        });
+
+        logger.debug(
+          "[conversationMemoryUtils] Conversation turn stored successfully",
+          {
+            requestId,
+            sessionId,
+            userId,
+            memoryType: conversationMemory.constructor.name,
+            userMessageLength: userMessage.length,
+            aiResponseLength: aiResponse.length,
+          },
+        );
+      } catch (error) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        span.recordException(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        const details = (error as { details?: { error?: string } })?.details;
+        logger.warn(
+          "[conversationMemoryUtils] Failed to store conversation turn",
+          {
+            sessionId,
+            userId,
+            memoryType: conversationMemory.constructor.name,
+            error: error instanceof Error ? error.message : String(error),
+            innerError: details?.error || "none",
+            errorCode: (error as { code?: string })?.code || "unknown",
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+        );
+      } finally {
+        span.end();
+      }
+    },
+  );
 }
 
 /**
@@ -467,11 +513,23 @@ export async function generateSummary(
     messages,
     previousSummary,
   );
-  const summarizer = new NeuroLink({
-    conversationMemory: { enabled: false },
-  });
+
+  const SUMMARIZER_INIT_TIMEOUT = 15_000;
+  const SUMMARIZER_GENERATE_TIMEOUT = 60_000;
 
   try {
+    if (!cachedSummarizer) {
+      cachedSummarizer = await withTimeout(
+        (async () => {
+          const { NeuroLink: NeuroLinkClass } = await import("../neurolink.js");
+          return new NeuroLinkClass({
+            conversationMemory: { enabled: false },
+          });
+        })(),
+        SUMMARIZER_INIT_TIMEOUT,
+        new Error("Summarizer initialization timed out"),
+      );
+    }
     if (!config.summarizationProvider || !config.summarizationModel) {
       logger.error(`${logPrefix} Missing summarization provider`, {
         requestId,
@@ -479,12 +537,16 @@ export async function generateSummary(
       return null;
     }
 
-    const summaryResult = await summarizer.generate({
-      input: { text: summarizationPrompt },
-      provider: config.summarizationProvider,
-      model: config.summarizationModel,
-      disableTools: true,
-    });
+    const summaryResult = await withTimeout(
+      cachedSummarizer.generate({
+        input: { text: summarizationPrompt },
+        provider: config.summarizationProvider,
+        model: config.summarizationModel,
+        disableTools: true,
+      }),
+      SUMMARIZER_GENERATE_TIMEOUT,
+      new Error("Summary generation timed out"),
+    );
 
     return summaryResult.content || null;
   } catch (error) {

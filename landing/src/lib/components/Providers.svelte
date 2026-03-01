@@ -22,7 +22,7 @@
   <div use:reveal={{ y: 40 }} class="text-center mb-8 md:mb-14">
     <p class="eyebrow text-ds-text-muted mb-4">04 — Integrations</p>
     <h2 class="section-headline text-ds-text-primary">
-      One API. Every Provider.
+      One TypeScript API. Every AI provider.
     </h2>
     <p class="mt-4 text-lg text-ds-text-tertiary max-w-2xl mx-auto">
       Switch between providers instantly. No code changes, no vendor lock-in.

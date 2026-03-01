@@ -5,13 +5,37 @@
  */
 
 import { logger } from "../utils/logger.js";
+import { SpanStatusCode } from "@opentelemetry/api";
+import { tracers } from "../telemetry/tracers.js";
 import type { ProxyAgent } from "undici";
 import { shouldBypassProxy } from "./utils/noProxyUtils.js";
 import type { ParsedProxyConfig } from "../types/utilities.js";
 
+const fetchTracer = tracers.http;
+
+/**
+ * Extract hostname from a URL string for safe logging (no auth tokens or paths).
+ * Returns "[unknown]" if parsing fails.
+ */
+function extractHostname(url: string | URL | RequestInfo): string {
+  try {
+    const urlStr =
+      typeof url === "string"
+        ? url
+        : url instanceof URL
+          ? url.href
+          : (url as Request).url;
+    const parsed = new URL(urlStr);
+    return parsed.hostname;
+  } catch {
+    return "[unknown]";
+  }
+}
+
 /**
  * Retry-aware fetch wrapper for transient network errors (ECONNRESET, ETIMEDOUT, socket hang up).
  * Protects all LLM API calls and token refreshes that go through createProxyFetch().
+ * Instrumented with OpenTelemetry spans for retry visibility.
  */
 async function fetchWithRetry(
   url: string | URL | RequestInfo,
@@ -19,29 +43,74 @@ async function fetchWithRetry(
   maxRetries = 3,
   baseDelay = 500,
 ): Promise<Response> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fetch(url as RequestInfo | URL, init);
-    } catch (error: unknown) {
-      const err = error as { code?: string; message?: string };
-      const isRetryable =
-        err?.code === "ECONNRESET" ||
-        err?.code === "ETIMEDOUT" ||
-        err?.message?.includes("socket hang up") ||
-        err?.message?.includes("network socket disconnected");
+  const hostname = extractHostname(url);
 
-      if (!isRetryable || attempt === maxRetries) {
-        throw error;
+  return fetchTracer.startActiveSpan(
+    "neurolink.http.fetchWithRetry",
+    async (span) => {
+      span.setAttribute("http.request.max_retries", maxRetries);
+      span.setAttribute("http.request.hostname", hostname);
+      span.setAttribute("http.request.method", init?.method || "GET");
+
+      let totalAttempts = 0;
+
+      try {
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          totalAttempts = attempt + 1;
+          try {
+            const response = await fetch(url as RequestInfo | URL, init);
+
+            // Record success attributes
+            span.setAttribute("http.request.total_attempts", totalAttempts);
+            span.setAttribute("http.response.status_code", response.status);
+            span.setStatus({ code: SpanStatusCode.OK });
+
+            return response;
+          } catch (error: unknown) {
+            const err = error as { code?: string; message?: string };
+            const isRetryable =
+              err?.code === "ECONNRESET" ||
+              err?.code === "ETIMEDOUT" ||
+              err?.message?.includes("socket hang up") ||
+              err?.message?.includes("network socket disconnected");
+
+            if (!isRetryable || attempt === maxRetries) {
+              // Final failure — record on span and rethrow
+              span.setAttribute("http.request.total_attempts", totalAttempts);
+              span.setStatus({
+                code: SpanStatusCode.ERROR,
+                message:
+                  err?.message || err?.code || "fetchWithRetry final failure",
+              });
+              span.recordException(
+                error instanceof Error ? error : new Error(String(error)),
+              );
+              throw error;
+            }
+
+            // Transient error — add retry event and continue loop
+            const delay = baseDelay * Math.pow(2, attempt);
+            span.addEvent("http.request.retry", {
+              "retry.attempt": attempt + 1,
+              "retry.delay_ms": delay,
+              "retry.error": (err?.code || err?.message || String(error)).slice(
+                0,
+                256,
+              ),
+            });
+
+            logger.debug(
+              `[fetchWithRetry] Transient error (${err?.code || err?.message}), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`,
+            );
+            await new Promise((r) => setTimeout(r, delay));
+          }
+        }
+        throw new Error("fetchWithRetry exhausted"); // unreachable
+      } finally {
+        span.end();
       }
-
-      const delay = baseDelay * Math.pow(2, attempt);
-      logger.debug(
-        `[fetchWithRetry] Transient error (${err?.code || err?.message}), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`,
-      );
-      await new Promise((r) => setTimeout(r, delay));
-    }
-  }
-  throw new Error("fetchWithRetry exhausted"); // unreachable
+    },
+  );
 }
 
 /**
@@ -87,30 +156,6 @@ const SENSITIVE_HEADERS = new Set([
   "cookie",
   "set-cookie",
 ]);
-
-/**
- * Extract all headers as plain object with sensitive values redacted
- */
-function getAllHeaders(
-  headers: HeadersInit | undefined,
-): Record<string, string> {
-  if (!headers) {
-    return {};
-  }
-  const entries: [string, string][] =
-    headers instanceof Headers
-      ? [...headers.entries()]
-      : Array.isArray(headers)
-        ? headers
-        : Object.entries(headers as Record<string, string>);
-  return Object.fromEntries(
-    entries.map(([key, value]) =>
-      SENSITIVE_HEADERS.has(key.toLowerCase())
-        ? [key, `${value.substring(0, 4)}***`]
-        : [key, value],
-    ),
-  );
-}
 
 /**
  * Clone response and read body + headers for debug logging
@@ -348,17 +393,11 @@ export function createProxyFetch(): typeof fetch {
             : (input as Request).url;
 
       if (logger.shouldLog("debug")) {
-        const {
-          parsed: requestBody,
-          size: bodySize,
-          type: bodyType,
-        } = parseBody(init?.body);
+        const { size: bodySize, type: bodyType } = parseBody(init?.body);
         logger.debug("[Observability] HTTP request to LLM provider", {
           requestId: reqId,
           url,
           method: init?.method || "POST",
-          headers: getAllHeaders(init?.headers),
-          body: requestBody,
           bodySize,
           bodyType,
         });
@@ -380,10 +419,10 @@ export function createProxyFetch(): typeof fetch {
             status: response.status,
             statusText: response.statusText,
             durationMs: Date.now() - startTs,
-            headers: responseHeaders,
-            body: responseBody,
-            bodySize: responseSize,
+            contentLength: responseSize,
+            hasContent: !!responseBody,
             bodyType: responseType,
+            responseHeaders,
           });
         }
 
@@ -427,17 +466,11 @@ export function createProxyFetch(): typeof fetch {
 
     // Request logging with sensitive header redaction — gated behind debug check
     if (logger.shouldLog("debug")) {
-      const {
-        parsed: requestBody,
-        size: bodySize,
-        type: bodyType,
-      } = parseBody(init?.body);
+      const { size: bodySize, type: bodyType } = parseBody(init?.body);
       logger.debug("[Observability] HTTP request to LLM provider", {
         requestId,
         url: targetUrl,
         method: init?.method || "POST",
-        headers: getAllHeaders(init?.headers),
-        body: requestBody,
         bodySize,
         bodyType,
       });
@@ -493,7 +526,7 @@ export function createProxyFetch(): typeof fetch {
               __NL_PROXY_AGENT_CACHE__: Map<string, ProxyAgent>;
             }
           ).__NL_PROXY_AGENT_CACHE__ = new Map());
-        const cacheKey = maskProxyUrl(proxyUrl) ?? proxyUrl; // credentials stripped for key
+        const cacheKey = maskProxyUrl(proxyUrl) ?? proxyUrl; // mask credentials in cache key
         const dispatcher =
           agentCache.get(cacheKey) || (await createProxyAgent(proxyUrl));
         agentCache.set(cacheKey, dispatcher);
@@ -542,11 +575,11 @@ export function createProxyFetch(): typeof fetch {
             status: response?.status,
             statusText: response?.statusText,
             durationMs: Date.now() - requestStartTime,
-            headers: responseHeaders,
-            body: responseBody,
-            bodySize: responseSize,
+            contentLength: responseSize,
+            hasContent: !!responseBody,
             bodyType: responseType,
             proxied: true,
+            responseHeaders,
           });
         }
 
@@ -608,11 +641,11 @@ export function createProxyFetch(): typeof fetch {
           status: response.status,
           statusText: response.statusText,
           durationMs: Date.now() - requestStartTime,
-          headers: responseHeaders,
-          body: responseBody,
-          bodySize: responseSize,
+          contentLength: responseSize,
+          hasContent: !!responseBody,
           bodyType: responseType,
           proxied: false,
+          responseHeaders,
         });
       }
 

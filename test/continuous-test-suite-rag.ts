@@ -77,6 +77,39 @@ import type {
 // Test Configuration
 // ============================================================================
 
+// CLI argument parsing (--provider=X, --model=X)
+function parseArguments(): { provider?: string; model?: string } {
+  const parsed: { provider?: string; model?: string } = {};
+  for (const arg of process.argv.slice(2)) {
+    if (arg.startsWith("--provider=")) {
+      parsed.provider = arg.split("=")[1];
+    }
+    if (arg.startsWith("--model=")) {
+      parsed.model = arg.split("=")[1];
+    }
+    if (arg === "--help" || arg === "-h") {
+      console.log(`
+NeuroLink RAG Processing - Continuous Test Suite
+
+Usage: npx tsx test/continuous-test-suite-rag.ts [options]
+
+Options:
+  --provider=NAME   AI provider to use (e.g., vertex, openai, anthropic)
+  --model=NAME      Model name override (e.g., claude-sonnet-4-6)
+  --help, -h        Show this help message
+
+Examples:
+  npx tsx test/continuous-test-suite-rag.ts --provider=vertex
+  npx tsx test/continuous-test-suite-rag.ts --provider=vertex --model=claude-sonnet-4-6
+`);
+      process.exit(0);
+    }
+  }
+  return parsed;
+}
+
+const cliArgs = parseArguments();
+
 const TEST_CONFIG = {
   timeout: 30000,
   verbose: process.env.VERBOSE === "true",
@@ -1577,10 +1610,43 @@ async function testErrorHandling(): Promise<boolean | null> {
 
 function getPreferredProvider(): {
   provider: string;
+  model?: string;
   embeddingProvider: string;
   embeddingModel: string;
 } {
-  // Prefer Vertex > Anthropic > OpenAI
+  // CLI override takes priority
+  if (cliArgs.provider) {
+    // Determine embedding provider based on CLI provider
+    const isVertex = cliArgs.provider.toLowerCase().includes("vertex");
+    const isOpenAI = cliArgs.provider.toLowerCase().includes("openai");
+    const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
+    const hasVertexKey =
+      !!process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+      !!process.env.VERTEX_AI_PROJECT ||
+      !!process.env.GOOGLE_CLOUD_PROJECT_ID;
+
+    let embeddingProvider = "vertex";
+    let embeddingModel = "text-embedding-004";
+    if (isOpenAI) {
+      embeddingProvider = "openai";
+      embeddingModel = "text-embedding-3-small";
+    } else if (isVertex || hasVertexKey) {
+      embeddingProvider = "vertex";
+      embeddingModel = "text-embedding-004";
+    } else if (hasOpenAIKey) {
+      embeddingProvider = "openai";
+      embeddingModel = "text-embedding-3-small";
+    }
+
+    return {
+      provider: cliArgs.provider,
+      model: cliArgs.model,
+      embeddingProvider,
+      embeddingModel,
+    };
+  }
+
+  // Auto-detect from environment: Prefer Vertex > Anthropic > OpenAI
   const hasVertexKey =
     !!process.env.GOOGLE_APPLICATION_CREDENTIALS ||
     !!process.env.VERTEX_AI_PROJECT ||
@@ -1596,8 +1662,6 @@ function getPreferredProvider(): {
     };
   }
   if (hasAnthropicKey) {
-    // Anthropic doesn't have embeddings; fall back to OpenAI if available.
-    // Don't use Vertex here since hasVertexKey is false at this branch point.
     return {
       provider: "anthropic",
       embeddingProvider: hasOpenAIKey
@@ -1959,6 +2023,7 @@ async function testRAGWithGenerate(): Promise<boolean | null> {
           text: "What is TypeScript and how does it relate to JavaScript?",
         },
         provider: preferred.provider,
+        ...(preferred.model && { model: preferred.model }),
         tools: { [vectorQueryTool.name]: vectorQueryTool } as Record<
           string,
           Tool
@@ -2294,6 +2359,7 @@ async function testRAGWithStream(): Promise<boolean | null> {
         text: "What is machine learning and how does it relate to neural networks?",
       },
       provider: preferred.provider,
+      ...(preferred.model && { model: preferred.model }),
       tools: { [vectorQueryTool.name]: vectorQueryTool } as Record<
         string,
         Tool
@@ -3277,6 +3343,7 @@ async function testRAGGenerateWithFilesAPI(): Promise<boolean | null> {
     const result = await neurolink.generate({
       input: { text: "What topics does this document cover?" },
       provider: preferred.provider,
+      ...(preferred.model && { model: preferred.model }),
       maxTokens: 200,
       temperature: 0.3,
       rag: {
@@ -3344,6 +3411,7 @@ async function testRAGGenerateWithFilesAPI(): Promise<boolean | null> {
     const result = await neurolink.generate({
       input: { text: "What is the main topic of this document?" },
       provider: preferred.provider,
+      ...(preferred.model && { model: preferred.model }),
       maxTokens: 200,
       temperature: 0.3,
       rag: {
@@ -3438,6 +3506,7 @@ async function testRAGGenerateWithFilesAPI(): Promise<boolean | null> {
     const result = await neurolink.generate({
       input: { text: "Summarize the information from all loaded documents." },
       provider: preferred.provider,
+      ...(preferred.model && { model: preferred.model }),
       maxTokens: 300,
       temperature: 0.3,
       rag: {
@@ -3520,6 +3589,7 @@ async function testRAGGenerateWithFilesAPI(): Promise<boolean | null> {
         const result = await neurolink.generate({
           input: { text: fixture.prompt },
           provider: preferred.provider,
+          ...(preferred.model && { model: preferred.model }),
           maxTokens: 200,
           temperature: 0.3,
           rag: {
@@ -3605,6 +3675,7 @@ async function testRAGGenerateWithFilesAPI(): Promise<boolean | null> {
     await neurolink.generate({
       input: { text: "Test query" },
       provider: preferred.provider,
+      ...(preferred.model && { model: preferred.model }),
       maxTokens: 50,
       rag: {
         files: ["/nonexistent/path/to/file.md"],
@@ -3698,6 +3769,7 @@ async function testRAGStreamWithFilesAPI(): Promise<boolean | null> {
     const streamResult = await neurolink.stream({
       input: { text: "What topics does this document cover?" },
       provider: preferred.provider,
+      ...(preferred.model && { model: preferred.model }),
       maxTokens: 200,
       temperature: 0.3,
       rag: {
@@ -3784,6 +3856,7 @@ async function testRAGStreamWithFilesAPI(): Promise<boolean | null> {
     const streamResult = await neurolink.stream({
       input: { text: "Summarize this document." },
       provider: preferred.provider,
+      ...(preferred.model && { model: preferred.model }),
       maxTokens: 200,
       temperature: 0.3,
       rag: {
@@ -3873,6 +3946,7 @@ async function testRAGStreamWithFilesAPI(): Promise<boolean | null> {
         const streamResult = await neurolink.stream({
           input: { text: fixture.prompt },
           provider: preferred.provider,
+          ...(preferred.model && { model: preferred.model }),
           maxTokens: 200,
           temperature: 0.3,
           rag: {
@@ -4383,6 +4457,8 @@ async function runAllTests(): Promise<void> {
   log("  NeuroLink RAG Processing - Continuous Test Suite", "magenta");
   log("=".repeat(70), "magenta");
   log(`  Started at: ${new Date().toISOString()}`, "reset");
+  log(`  Provider: ${cliArgs.provider || "auto-detect"}`, "reset");
+  log(`  Model: ${cliArgs.model || "default"}`, "reset");
   log(`  Verbose mode: ${TEST_CONFIG.verbose}`, "reset");
   log("=".repeat(70), "magenta");
 

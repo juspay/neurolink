@@ -5,6 +5,7 @@
  */
 
 import { EventEmitter } from "events";
+import { trace } from "@opentelemetry/api";
 import { mcpLogger } from "../utils/logger.js";
 import type {
   CallRecord,
@@ -75,6 +76,18 @@ export class MCPCircuitBreaker extends EventEmitter {
         throw new Error(
           `Circuit breaker '${this.name}' is half-open but call limit reached`,
         );
+      }
+
+      // NLK-GAP-009: Record half-open test event when executing in half-open state
+      if (this.state === "half-open") {
+        const activeSpan = trace.getActiveSpan();
+        if (activeSpan) {
+          activeSpan.addEvent("circuit.half_open_test", {
+            "circuit.name": this.name,
+            "circuit.half_open_call": this.halfOpenCalls + 1,
+            "circuit.half_open_max_calls": this.config.halfOpenMaxCalls,
+          });
+        }
       }
 
       // Execute operation with timeout
@@ -194,6 +207,19 @@ export class MCPCircuitBreaker extends EventEmitter {
     const oldState = this.state;
     this.state = newState;
     this.lastStateChange = new Date();
+
+    // NLK-GAP-009: Record state transition on active OTel span
+    const activeSpan = trace.getActiveSpan();
+    if (activeSpan) {
+      activeSpan.addEvent("circuit.state_change", {
+        "circuit.name": this.name,
+        "circuit.from_state": oldState,
+        "circuit.to_state": newState,
+        "circuit.reason": reason.slice(0, 128),
+        "circuit.failure_count": this.callHistory.filter((c) => !c.success)
+          .length,
+      });
+    }
 
     // Reset counters based on state
     if (newState === "half-open") {

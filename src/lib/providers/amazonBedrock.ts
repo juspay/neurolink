@@ -42,11 +42,15 @@ import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { ToolArgs, ToolDefinition } from "../types/tools.js";
 import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import { AuthenticationError, ProviderError } from "../types/errors.js";
-import { isAbortError } from "../utils/errorHandling.js";
+import { isAbortError, withTimeout } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
+import { calculateCost } from "../utils/pricing.js";
 import { buildMultimodalMessagesArray } from "../utils/messageBuilder.js";
 import { buildMultimodalOptions } from "../utils/multimodalOptionsBuilder.js";
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
+import { type Span, trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
+
+const bedrockTracer = trace.getTracer("neurolink.bedrock");
 
 // Bedrock-specific types now imported from ../types/providerSpecific.js
 
@@ -87,9 +91,6 @@ export class AmazonBedrockProvider extends BaseProvider {
       logger.debug(
         `[AmazonBedrockProvider] Successfully created BedrockRuntimeClient with model: ${this.modelName}, region: ${this.region}`,
       );
-
-      // Immediate health check to catch credential issues early
-      this.performInitialHealthCheck();
     } catch (error) {
       logger.error(
         `[AmazonBedrockProvider] CRITICAL: Failed to initialize BedrockRuntimeClient:`,
@@ -313,152 +314,212 @@ export class AmazonBedrockProvider extends BaseProvider {
 
   private async callBedrock(options: TextGenerationOptions) {
     const startTime = Date.now();
-    logger.info(
-      `🚀 [AmazonBedrockProvider] Starting Bedrock API call at ${new Date().toISOString()}`,
-    );
-
-    try {
-      // Pre-call validation and logging
-      const region =
-        typeof this.bedrockClient.config.region === "function"
-          ? await this.bedrockClient.config.region()
-          : this.bedrockClient.config.region;
-      logger.info(`🔧 [AmazonBedrockProvider] Client region: ${region}`);
-      logger.info(
-        `🔧 [AmazonBedrockProvider] Model: ${this.modelName || this.getDefaultModel()}`,
-      );
-      logger.info(
-        `🔧 [AmazonBedrockProvider] Conversation history length: ${this.conversationHistory.length}`,
-      );
-
-      // Get all available tools
-      const aiTools = await this.getAllTools();
-      const allTools = this.convertAISDKToolsToToolDefinitions(aiTools);
-      const toolConfig = this.formatToolsForBedrock(allTools);
-
-      const commandInput: ConverseCommandInput = {
-        modelId: this.modelName || this.getDefaultModel(),
-        messages: this.convertToAWSMessages(this.conversationHistory),
-        system: [
-          {
-            text:
-              options.systemPrompt ||
-              "You are a helpful assistant with access to external tools. Use tools when necessary to provide accurate information.",
-          },
-        ],
-        inferenceConfig: {
-          maxTokens: options.maxTokens, // No default limit - unlimited unless specified
-          temperature: options.temperature || 0.7,
+    return bedrockTracer.startActiveSpan(
+      "bedrock.generate",
+      {
+        kind: SpanKind.CLIENT,
+        attributes: {
+          "gen_ai.system": "aws.bedrock",
+          "gen_ai.request.model": this.modelName || this.getDefaultModel(),
+          "gen_ai.operation.name": "chat",
         },
-      };
-
-      if (toolConfig) {
-        commandInput.toolConfig = toolConfig;
+      },
+      async (generateSpan) => {
         logger.info(
-          `🛠️ [AmazonBedrockProvider] Tools configured: ${toolConfig.tools?.length || 0}`,
+          `🚀 [AmazonBedrockProvider] Starting Bedrock API call at ${new Date().toISOString()}`,
         );
-      }
 
-      // Log command details for debugging
-      logger.info(`📋 [AmazonBedrockProvider] Command input summary:`);
-      logger.info(`  - Model ID: ${commandInput.modelId}`);
-      logger.info(`  - Messages count: ${commandInput.messages?.length || 0}`);
-      logger.info(`  - System prompts: ${commandInput.system?.length || 0}`);
-      logger.info(`  - Max tokens: ${commandInput.inferenceConfig?.maxTokens}`);
-      logger.info(
-        `  - Temperature: ${commandInput.inferenceConfig?.temperature}`,
-      );
+        try {
+          // Pre-call validation and logging
+          let region = "unknown";
+          try {
+            region =
+              typeof this.bedrockClient.config.region === "function"
+                ? await this.bedrockClient.config.region()
+                : (this.bedrockClient.config.region ?? "unknown");
+          } catch {
+            // Region lookup failed — not critical, only used for logging
+          }
+          logger.info(`🔧 [AmazonBedrockProvider] Client region: ${region}`);
+          logger.info(
+            `🔧 [AmazonBedrockProvider] Model: ${this.modelName || this.getDefaultModel()}`,
+          );
+          logger.info(
+            `🔧 [AmazonBedrockProvider] Conversation history length: ${this.conversationHistory.length}`,
+          );
 
-      logger.debug(
-        `[AmazonBedrockProvider] Calling Bedrock with ${this.conversationHistory.length} messages and ${toolConfig?.tools?.length || 0} tools`,
-      );
+          // Get all available tools
+          const aiTools = await this.getAllTools();
+          const allTools = this.convertAISDKToolsToToolDefinitions(aiTools);
+          const toolConfig = this.formatToolsForBedrock(allTools);
 
-      // Create command and attempt API call
-      const command = new ConverseCommand(commandInput);
+          const commandInput: ConverseCommandInput = {
+            modelId: this.modelName || this.getDefaultModel(),
+            messages: this.convertToAWSMessages(this.conversationHistory),
+            system: [
+              {
+                text:
+                  options.systemPrompt ||
+                  "You are a helpful assistant with access to external tools. Use tools when necessary to provide accurate information.",
+              },
+            ],
+            inferenceConfig: {
+              maxTokens: options.maxTokens, // No default limit - unlimited unless specified
+              temperature: options.temperature || 0.7,
+            },
+          };
 
-      logger.debug("[Observability] Bedrock API request", {
-        model: commandInput.modelId,
-        region: region,
-        messageCount: commandInput.messages?.length || 0,
-        toolCount: commandInput.toolConfig?.tools?.length || 0,
-        maxTokens: commandInput.inferenceConfig?.maxTokens,
-      });
+          if (toolConfig) {
+            commandInput.toolConfig = toolConfig;
+            logger.info(
+              `🛠️ [AmazonBedrockProvider] Tools configured: ${toolConfig.tools?.length || 0}`,
+            );
+          }
 
-      const apiCallStartTime = Date.now();
-      const response = await this.bedrockClient.send(command);
-      const apiCallDuration = Date.now() - apiCallStartTime;
+          // Log command details for debugging
+          logger.info(`📋 [AmazonBedrockProvider] Command input summary:`);
+          logger.info(`  - Model ID: ${commandInput.modelId}`);
+          logger.info(
+            `  - Messages count: ${commandInput.messages?.length || 0}`,
+          );
+          logger.info(
+            `  - System prompts: ${commandInput.system?.length || 0}`,
+          );
+          logger.info(
+            `  - Max tokens: ${commandInput.inferenceConfig?.maxTokens}`,
+          );
+          logger.info(
+            `  - Temperature: ${commandInput.inferenceConfig?.temperature}`,
+          );
 
-      logger.debug("[Observability] Bedrock API response", {
-        model: commandInput.modelId,
-        durationMs: apiCallDuration,
-        hasContent: !!response.output?.message?.content?.length,
-        stopReason: response.stopReason,
-        usage: response.usage
-          ? {
-              inputTokens: response.usage.inputTokens,
-              outputTokens: response.usage.outputTokens,
-              totalTokens:
-                (response.usage.inputTokens || 0) +
-                (response.usage.outputTokens || 0),
-            }
-          : undefined,
-      });
+          logger.debug(
+            `[AmazonBedrockProvider] Calling Bedrock with ${this.conversationHistory.length} messages and ${toolConfig?.tools?.length || 0} tools`,
+          );
 
-      logger.info(`[AmazonBedrockProvider] Bedrock API call successful`);
-      logger.info(
-        `[AmazonBedrockProvider] API call duration: ${apiCallDuration}ms`,
-      );
+          // Create command and attempt API call
+          const command = new ConverseCommand(commandInput);
 
-      const totalDuration = Date.now() - startTime;
-      logger.info(
-        `[AmazonBedrockProvider] Total callBedrock duration: ${totalDuration}ms`,
-      );
+          logger.debug("[Observability] Bedrock API request", {
+            model: commandInput.modelId,
+            region: region,
+            messageCount: commandInput.messages?.length || 0,
+            toolCount: commandInput.toolConfig?.tools?.length || 0,
+            maxTokens: commandInput.inferenceConfig?.maxTokens,
+          });
 
-      return response;
-    } catch (error) {
-      const errorDuration = Date.now() - startTime;
+          const apiCallStartTime = Date.now();
+          const response = await withTimeout(
+            this.bedrockClient.send(command),
+            120_000,
+            new Error("Bedrock API call timed out"),
+          );
+          const apiCallDuration = Date.now() - apiCallStartTime;
 
-      // Extract AWS metadata for structured logging
-      const awsError =
-        error && typeof error === "object"
-          ? (error as Record<string, unknown>)
-          : null;
-      const metadata =
-        awsError?.$metadata && typeof awsError.$metadata === "object"
-          ? (awsError.$metadata as Record<string, unknown>)
-          : null;
+          logger.debug("[Observability] Bedrock API response", {
+            model: commandInput.modelId,
+            durationMs: apiCallDuration,
+            hasContent: !!response.output?.message?.content?.length,
+            stopReason: response.stopReason,
+            usage: response.usage
+              ? {
+                  inputTokens: response.usage.inputTokens,
+                  outputTokens: response.usage.outputTokens,
+                  totalTokens:
+                    (response.usage.inputTokens || 0) +
+                    (response.usage.outputTokens || 0),
+                }
+              : undefined,
+          });
 
-      logger.debug("[Observability] Bedrock API request failed", {
-        model: this.modelName || this.getDefaultModel(),
-        durationMs: errorDuration,
-        error: error instanceof Error ? error.message : String(error),
-        errorName: error instanceof Error ? error.name : undefined,
-        httpStatus: metadata?.httpStatusCode,
-        awsRequestId: metadata?.requestId,
-        awsErrorCode: awsError?.Code,
-      });
+          logger.info(`[AmazonBedrockProvider] Bedrock API call successful`);
+          logger.info(
+            `[AmazonBedrockProvider] API call duration: ${apiCallDuration}ms`,
+          );
 
-      logger.error(
-        `[AmazonBedrockProvider] Bedrock API call failed after ${errorDuration}ms`,
-      );
+          const totalDuration = Date.now() - startTime;
+          logger.info(
+            `[AmazonBedrockProvider] Total callBedrock duration: ${totalDuration}ms`,
+          );
 
-      if (error instanceof Error) {
-        logger.error(
-          `[AmazonBedrockProvider] Error: ${error.name} - ${error.message}`,
-        );
-      }
+          generateSpan.setAttribute(
+            "gen_ai.response.stop_reason",
+            response.stopReason ?? "",
+          );
+          generateSpan.setAttribute(
+            "gen_ai.usage.input_tokens",
+            response.usage?.inputTokens ?? 0,
+          );
+          generateSpan.setAttribute(
+            "gen_ai.usage.output_tokens",
+            response.usage?.outputTokens ?? 0,
+          );
+          const cost = calculateCost(this.providerName, this.modelName, {
+            input: response.usage?.inputTokens ?? 0,
+            output: response.usage?.outputTokens ?? 0,
+            total:
+              (response.usage?.inputTokens ?? 0) +
+              (response.usage?.outputTokens ?? 0),
+          });
+          if (cost && cost > 0) {
+            generateSpan.setAttribute("neurolink.cost", cost);
+          }
+          generateSpan.setStatus({ code: SpanStatusCode.OK });
+          generateSpan.end();
+          return response;
+        } catch (error) {
+          const errorDuration = Date.now() - startTime;
 
-      if (metadata) {
-        logger.error(`[AmazonBedrockProvider] AWS SDK metadata`, {
-          httpStatus: metadata.httpStatusCode,
-          requestId: metadata.requestId,
-          attempts: metadata.attempts,
-          totalRetryDelay: metadata.totalRetryDelay,
-        });
-      }
+          // Extract AWS metadata for structured logging
+          const awsError =
+            error && typeof error === "object"
+              ? (error as Record<string, unknown>)
+              : null;
+          const metadata =
+            awsError?.$metadata && typeof awsError.$metadata === "object"
+              ? (awsError.$metadata as Record<string, unknown>)
+              : null;
 
-      throw error;
-    }
+          logger.debug("[Observability] Bedrock API request failed", {
+            model: this.modelName || this.getDefaultModel(),
+            durationMs: errorDuration,
+            error: error instanceof Error ? error.message : String(error),
+            errorName: error instanceof Error ? error.name : undefined,
+            httpStatus: metadata?.httpStatusCode,
+            awsRequestId: metadata?.requestId,
+            awsErrorCode: awsError?.Code,
+          });
+
+          logger.error(
+            `[AmazonBedrockProvider] Bedrock API call failed after ${errorDuration}ms`,
+          );
+
+          if (error instanceof Error) {
+            logger.error(
+              `[AmazonBedrockProvider] Error: ${error.name} - ${error.message}`,
+            );
+          }
+
+          if (metadata) {
+            logger.error(`[AmazonBedrockProvider] AWS SDK metadata`, {
+              httpStatus: metadata.httpStatusCode,
+              requestId: metadata.requestId,
+              attempts: metadata.attempts,
+              totalRetryDelay: metadata.totalRetryDelay,
+            });
+          }
+
+          generateSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          generateSpan.recordException(
+            error instanceof Error ? error : new Error(String(error)),
+          );
+          generateSpan.end();
+          throw error;
+        }
+      },
+    ); // end bedrockTracer.startActiveSpan('bedrock.generate')
   }
 
   private async handleBedrockResponse(
@@ -591,14 +652,14 @@ export class AmazonBedrockProvider extends BaseProvider {
 
       return { shouldContinue: true };
     } else if (stopReason === "max_tokens") {
-      // Handle max tokens by continuing conversation
-      const userMessage: BedrockMessage = {
-        role: "user",
-        content: [{ text: "Please continue." }],
-      };
-      this.conversationHistory.push(userMessage);
+      // Max tokens reached — return what we have rather than continuing,
+      // since the model hit the configured limit.
+      const textContent = bedrockAssistantMessage.content
+        .filter((item: BedrockContentBlock) => item.text)
+        .map((item: BedrockContentBlock) => item.text)
+        .join(" ");
 
-      return { shouldContinue: true };
+      return { shouldContinue: false, text: textContent };
     } else {
       logger.warn(
         `[AmazonBedrockProvider] Unrecognized stop reason "${stopReason}", ending conversation.`,
@@ -654,93 +715,122 @@ export class AmazonBedrockProvider extends BaseProvider {
     args: Record<string, unknown>,
     _toolUseId?: string,
   ): Promise<string> {
-    logger.debug(`[AmazonBedrockProvider] Executing single tool: ${toolName}`, {
-      args,
-    });
+    return bedrockTracer.startActiveSpan(
+      "bedrock.tool.execute",
+      {
+        kind: SpanKind.CLIENT,
+        attributes: {
+          "gen_ai.tool.name": toolName,
+          "gen_ai.system": "aws.bedrock",
+        },
+      },
+      async (span) => {
+        try {
+          logger.debug(
+            `[AmazonBedrockProvider] Executing single tool: ${toolName}`,
+            {
+              args,
+            },
+          );
 
-    try {
-      // Use BaseProvider's tool execution mechanism
-      const aiTools = await this.getAllTools();
-      const tools = this.convertAISDKToolsToToolDefinitions(aiTools);
+          // Use BaseProvider's tool execution mechanism
+          const aiTools = await this.getAllTools();
+          const tools = this.convertAISDKToolsToToolDefinitions(aiTools);
 
-      if (!tools[toolName]) {
-        throw new Error(`Tool not found: ${toolName}`);
-      }
-
-      const tool = tools[toolName];
-      if (!tool || !tool.execute) {
-        throw new Error(`Tool ${toolName} does not have execute method`);
-      }
-
-      // Apply robust parameter handling like Bedrock-MCP-Connector
-      // Bedrock toolUse.input already contains the correct parameter structure
-      const toolInput = args || {};
-
-      // Add default parameters for common tools that Claude might call without required params
-      if (toolName === "list_directory" && !toolInput.path) {
-        toolInput.path = ".";
-        logger.debug(
-          `[AmazonBedrockProvider] Added default path '.' for list_directory tool`,
-        );
-      }
-
-      logger.debug(`[AmazonBedrockProvider] Tool input parameters:`, toolInput);
-
-      // Convert Record<string, unknown> to ToolArgs by filtering out non-JsonValue types
-      const toolArgs: ToolArgs = {};
-      for (const [key, value] of Object.entries(toolInput)) {
-        // Only include values that are JsonValue compatible
-        if (
-          value === null ||
-          typeof value === "string" ||
-          typeof value === "number" ||
-          typeof value === "boolean" ||
-          (typeof value === "object" && value !== null)
-        ) {
-          toolArgs[key] = value as JsonValue;
-        }
-      }
-
-      const result = await tool.execute(toolArgs);
-      logger.debug(`[AmazonBedrockProvider] Tool execution result:`, {
-        toolName,
-        result,
-      });
-
-      // Handle ToolResult type
-      if (result && typeof result === "object" && "success" in result) {
-        if (result.success && result.data !== undefined) {
-          if (typeof result.data === "string") {
-            return result.data;
-          } else if (typeof result.data === "object") {
-            return JSON.stringify(result.data, null, 2);
-          } else {
-            return String(result.data);
+          if (!tools[toolName]) {
+            throw new Error(`Tool not found: ${toolName}`);
           }
-        } else if (result.error) {
-          const errorMessage =
-            typeof result.error === "string"
-              ? result.error
-              : result.error.message || "Tool execution failed";
-          throw new Error(errorMessage);
-        }
-      }
 
-      // Fallback for non-ToolResult return types
-      if (typeof result === "string") {
-        return result;
-      } else if (typeof result === "object") {
-        return JSON.stringify(result, null, 2);
-      } else {
-        return String(result);
-      }
-    } catch (error) {
-      logger.error(`[AmazonBedrockProvider] Tool execution error:`, {
-        toolName,
-        error,
-      });
-      throw error;
-    }
+          const tool = tools[toolName];
+          if (!tool || !tool.execute) {
+            throw new Error(`Tool ${toolName} does not have execute method`);
+          }
+
+          // Apply robust parameter handling like Bedrock-MCP-Connector
+          // Bedrock toolUse.input already contains the correct parameter structure
+          const toolInput = args || {};
+
+          // Add default parameters for common tools that Claude might call without required params
+          if (toolName === "list_directory" && !toolInput.path) {
+            toolInput.path = ".";
+            logger.debug(
+              `[AmazonBedrockProvider] Added default path '.' for list_directory tool`,
+            );
+          }
+
+          logger.debug(
+            `[AmazonBedrockProvider] Tool input parameters:`,
+            toolInput,
+          );
+
+          // Convert Record<string, unknown> to ToolArgs by filtering out non-JsonValue types
+          const toolArgs: ToolArgs = {};
+          for (const [key, value] of Object.entries(toolInput)) {
+            // Only include values that are JsonValue compatible
+            if (
+              value === null ||
+              typeof value === "string" ||
+              typeof value === "number" ||
+              typeof value === "boolean" ||
+              (typeof value === "object" && value !== null)
+            ) {
+              toolArgs[key] = value as JsonValue;
+            }
+          }
+
+          const result = await tool.execute(toolArgs);
+          logger.debug(`[AmazonBedrockProvider] Tool execution result:`, {
+            toolName,
+            result,
+          });
+
+          // Handle ToolResult type
+          let finalResult: string;
+          if (result && typeof result === "object" && "success" in result) {
+            if (result.success && result.data !== undefined) {
+              if (typeof result.data === "string") {
+                finalResult = result.data;
+              } else if (typeof result.data === "object") {
+                finalResult = JSON.stringify(result.data, null, 2);
+              } else {
+                finalResult = String(result.data);
+              }
+            } else if (result.error) {
+              const errorMessage =
+                typeof result.error === "string"
+                  ? result.error
+                  : result.error.message || "Tool execution failed";
+              throw new Error(errorMessage);
+            } else {
+              finalResult = "";
+            }
+          } else if (typeof result === "string") {
+            // Fallback for non-ToolResult return types
+            finalResult = result;
+          } else if (typeof result === "object") {
+            finalResult = JSON.stringify(result, null, 2);
+          } else {
+            finalResult = String(result);
+          }
+
+          span.setStatus({ code: SpanStatusCode.OK });
+          return finalResult;
+        } catch (error) {
+          logger.error(`[AmazonBedrockProvider] Tool execution error:`, {
+            toolName,
+            error,
+          });
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: (error as Error).message,
+          });
+          span.recordException(error as Error);
+          throw error;
+        } finally {
+          span.end();
+        }
+      },
+    );
   }
 
   private convertAISDKToolsToToolDefinitions(
@@ -948,176 +1038,222 @@ export class AmazonBedrockProvider extends BaseProvider {
       "🚀 [AmazonBedrockProvider] Attempting real streaming with ConverseStreamCommand",
     );
 
-    try {
-      logger.debug(
-        "🟢 [TRACE] executeStream TRY block - about to call streamingConversationLoop",
-      );
-      // Clear conversation history for new streaming session
-      this.conversationHistory = [];
+    return bedrockTracer.startActiveSpan(
+      "bedrock.stream",
+      {
+        kind: SpanKind.CLIENT,
+        attributes: {
+          "gen_ai.system": "aws.bedrock",
+          "gen_ai.request.model": this.modelName || this.getDefaultModel(),
+          "gen_ai.operation.name": "stream",
+        },
+      },
+      async (streamSpan) => {
+        try {
+          logger.debug(
+            "🟢 [TRACE] executeStream TRY block - about to call streamingConversationLoop",
+          );
+          // Clear conversation history for new streaming session
+          this.conversationHistory = [];
 
-      // Check for multimodal input (images, PDFs, CSVs, files)
-      const hasMultimodalInput = !!(
-        options.input?.images?.length ||
-        options.input?.content?.length ||
-        options.input?.files?.length ||
-        options.input?.csvFiles?.length ||
-        options.input?.pdfFiles?.length
-      );
+          // Check for multimodal input (images, PDFs, CSVs, files)
+          const hasMultimodalInput = !!(
+            options.input?.images?.length ||
+            options.input?.content?.length ||
+            options.input?.files?.length ||
+            options.input?.csvFiles?.length ||
+            options.input?.pdfFiles?.length
+          );
 
-      if (hasMultimodalInput) {
-        logger.debug(
-          `[AmazonBedrockProvider] Detected multimodal input, using multimodal message builder`,
-          {
-            hasImages: !!options.input?.images?.length,
-            imageCount: options.input?.images?.length || 0,
-            hasContent: !!options.input?.content?.length,
-            contentCount: options.input?.content?.length || 0,
-            hasFiles: !!options.input?.files?.length,
-            fileCount: options.input?.files?.length || 0,
-            hasCSVFiles: !!options.input?.csvFiles?.length,
-            csvFileCount: options.input?.csvFiles?.length || 0,
-            hasPDFFiles: !!options.input?.pdfFiles?.length,
-            pdfFileCount: options.input?.pdfFiles?.length || 0,
-          },
-        );
+          if (hasMultimodalInput) {
+            logger.debug(
+              `[AmazonBedrockProvider] Detected multimodal input, using multimodal message builder`,
+              {
+                hasImages: !!options.input?.images?.length,
+                imageCount: options.input?.images?.length || 0,
+                hasContent: !!options.input?.content?.length,
+                contentCount: options.input?.content?.length || 0,
+                hasFiles: !!options.input?.files?.length,
+                fileCount: options.input?.files?.length || 0,
+                hasCSVFiles: !!options.input?.csvFiles?.length,
+                csvFileCount: options.input?.csvFiles?.length || 0,
+                hasPDFFiles: !!options.input?.pdfFiles?.length,
+                pdfFileCount: options.input?.pdfFiles?.length || 0,
+              },
+            );
 
-        const multimodalOptions = buildMultimodalOptions(
-          options,
-          this.providerName,
-          this.modelName,
-        );
+            const multimodalOptions = buildMultimodalOptions(
+              options,
+              this.providerName,
+              this.modelName,
+            );
 
-        const multimodalMessages = await buildMultimodalMessagesArray(
-          multimodalOptions,
-          this.providerName,
-          this.modelName,
-        );
+            const multimodalMessages = await buildMultimodalMessagesArray(
+              multimodalOptions,
+              this.providerName,
+              this.modelName,
+            );
 
-        // Convert to Bedrock format
-        this.conversationHistory =
-          this.convertToBedrockMessages(multimodalMessages);
-      } else {
-        logger.debug(
-          `[AmazonBedrockProvider] Text-only input, using simple message builder`,
-        );
+            // Convert to Bedrock format
+            this.conversationHistory =
+              this.convertToBedrockMessages(multimodalMessages);
+          } else {
+            logger.debug(
+              `[AmazonBedrockProvider] Text-only input, using simple message builder`,
+            );
 
-        // Add user message to conversation - simple text-only case
-        const userMessage: BedrockMessage = {
-          role: "user",
-          content: [{ text: options.input.text }],
-        };
-        this.conversationHistory.push(userMessage);
-      }
+            // Add user message to conversation - simple text-only case
+            const userMessage: BedrockMessage = {
+              role: "user",
+              content: [{ text: options.input.text }],
+            };
+            this.conversationHistory.push(userMessage);
+          }
 
-      logger.debug(
-        `[AmazonBedrockProvider] Starting streaming conversation with ${this.conversationHistory.length} message(s)`,
-      );
+          logger.debug(
+            `[AmazonBedrockProvider] Starting streaming conversation with ${this.conversationHistory.length} message(s)`,
+          );
 
-      // Call the actual streaming implementation that already exists
-      logger.debug(
-        "🟢 [TRACE] executeStream - calling streamingConversationLoop NOW",
-      );
-      const result = await this.streamingConversationLoop(options);
-      logger.debug(
-        "🟢 [TRACE] executeStream - streamingConversationLoop SUCCESS, returning result",
-      );
-      return result;
-    } catch (error: unknown) {
-      logger.debug(
-        "🔴 [TRACE] executeStream CATCH - error caught from streamingConversationLoop",
-      );
-      const errorObj = error as Error;
+          // Call the actual streaming implementation that already exists
+          logger.debug(
+            "🟢 [TRACE] executeStream - calling streamingConversationLoop NOW",
+          );
+          const result = await this.streamingConversationLoop(
+            options,
+            streamSpan,
+          );
+          logger.debug(
+            "🟢 [TRACE] executeStream - streamingConversationLoop SUCCESS, returning result",
+          );
+          streamSpan.setStatus({ code: SpanStatusCode.OK });
+          streamSpan.end();
+          return result;
+        } catch (error: unknown) {
+          logger.debug(
+            "🔴 [TRACE] executeStream CATCH - error caught from streamingConversationLoop",
+          );
+          const errorObj = error as Error;
 
-      // Check if error is related to streaming permissions
-      const isPermissionError =
-        (errorObj as unknown as Record<string, unknown>)?.name ===
-          "AccessDeniedException" ||
-        (errorObj as unknown as Record<string, unknown>)?.name ===
-          "UnauthorizedOperation" ||
-        errorObj?.message?.includes("bedrock:InvokeModelWithResponseStream") ||
-        errorObj?.message?.includes("streaming") ||
-        errorObj?.message?.includes("ConverseStream");
+          // Check if error is related to streaming permissions
+          const isPermissionError =
+            (errorObj as unknown as Record<string, unknown>)?.name ===
+              "AccessDeniedException" ||
+            (errorObj as unknown as Record<string, unknown>)?.name ===
+              "UnauthorizedOperation" ||
+            errorObj?.message?.includes(
+              "bedrock:InvokeModelWithResponseStream",
+            ) ||
+            errorObj?.message?.includes("streaming") ||
+            errorObj?.message?.includes("ConverseStream");
 
-      logger.debug(
-        "🔴 [TRACE] executeStream CATCH - checking if permission error",
-      );
-      logger.debug(
-        `🔴 [TRACE] executeStream CATCH - isPermissionError=${isPermissionError}`,
-      );
+          logger.debug(
+            "🔴 [TRACE] executeStream CATCH - checking if permission error",
+          );
+          logger.debug(
+            `🔴 [TRACE] executeStream CATCH - isPermissionError=${isPermissionError}`,
+          );
 
-      if (isPermissionError) {
-        logger.debug(
-          "🟡 [TRACE] executeStream CATCH - PERMISSION ERROR DETECTED, starting fallback",
-        );
-        logger.warn(
-          `[AmazonBedrockProvider] Streaming permissions not available, falling back to generate method: ${errorObj.message}`,
-        );
+          if (isPermissionError) {
+            logger.debug(
+              "🟡 [TRACE] executeStream CATCH - PERMISSION ERROR DETECTED, starting fallback",
+            );
+            logger.warn(
+              `[AmazonBedrockProvider] Streaming permissions not available, falling back to generate method: ${errorObj.message}`,
+            );
 
-        // Fallback to generate method and convert to streaming format
-        const generateResult = await this.generate({
-          prompt: options.input.text,
-          input: options.input,
-          maxTokens: options.maxTokens,
-          temperature: options.temperature,
-          systemPrompt: options.systemPrompt,
-        });
-
-        if (!generateResult) {
-          throw new Error("Generate method returned null result");
-        }
-
-        // Convert generate result to streaming format
-        const stream = new ReadableStream({
-          start(controller) {
-            // Split the response into chunks for pseudo-streaming
-            const responseText = generateResult.content || "";
-            const chunks = responseText.split(" ");
-
-            chunks.forEach((word: string, _index: number) => {
-              controller.enqueue({ content: word + " " });
+            streamSpan.addEvent("stream.fallback_to_generate", {
+              reason: errorObj.message,
             });
 
-            controller.enqueue({ content: "" });
-            controller.close();
-          },
-        });
+            // Fallback to generate method and convert to streaming format
+            const generateResult = await this.generate({
+              prompt: options.input.text,
+              input: options.input,
+              maxTokens: options.maxTokens,
+              temperature: options.temperature,
+              systemPrompt: options.systemPrompt,
+            });
 
-        // Convert ReadableStream to AsyncIterable like streamingConversationLoop does
-        const asyncIterable = {
-          async *[Symbol.asyncIterator]() {
-            const reader = stream.getReader();
-            try {
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                  break;
-                }
-                yield value;
-              }
-            } finally {
-              reader.releaseLock();
+            if (!generateResult) {
+              streamSpan.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: "Generate method returned null result",
+              });
+              streamSpan.end();
+              throw new Error("Generate method returned null result");
             }
-          },
-        };
 
-        return {
-          stream: asyncIterable,
-          usage: { total: 0, input: 0, output: 0 },
-          model: this.modelName || this.getDefaultModel(),
-          provider: this.getProviderName(),
-          metadata: {
-            fallback: true,
-          },
-        };
-      }
+            streamSpan.setAttribute(
+              "gen_ai.response.stop_reason",
+              "fallback_end_turn",
+            );
+            streamSpan.setStatus({ code: SpanStatusCode.OK });
+            streamSpan.end();
 
-      // Re-throw non-permission errors
-      throw error;
-    }
+            // Convert generate result to streaming format
+            const stream = new ReadableStream({
+              start(controller) {
+                // Split the response into chunks for pseudo-streaming
+                const responseText = generateResult.content || "";
+                const chunks = responseText.split(" ");
+
+                chunks.forEach((word: string, _index: number) => {
+                  controller.enqueue({ content: word + " " });
+                });
+
+                controller.enqueue({ content: "" });
+                controller.close();
+              },
+            });
+
+            // Convert ReadableStream to AsyncIterable like streamingConversationLoop does
+            const asyncIterable = {
+              async *[Symbol.asyncIterator]() {
+                const reader = stream.getReader();
+                try {
+                  while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                      break;
+                    }
+                    yield value;
+                  }
+                } finally {
+                  reader.releaseLock();
+                }
+              },
+            };
+
+            return {
+              stream: asyncIterable,
+              usage: { total: 0, input: 0, output: 0 },
+              model: this.modelName || this.getDefaultModel(),
+              provider: this.getProviderName(),
+              metadata: {
+                fallback: true,
+              },
+            };
+          }
+
+          // Re-throw non-permission errors
+          streamSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message:
+              errorObj instanceof Error ? errorObj.message : String(errorObj),
+          });
+          streamSpan.recordException(
+            errorObj instanceof Error ? errorObj : new Error(String(errorObj)),
+          );
+          streamSpan.end();
+          throw error;
+        }
+      },
+    );
   }
 
   private async streamingConversationLoop(
     options: StreamOptions,
+    streamSpan: Span,
   ): Promise<StreamResult> {
     logger.debug("🟦 [TRACE] streamingConversationLoop ENTRY");
     const startTime = Date.now();
@@ -1139,8 +1275,17 @@ export class AmazonBedrockProvider extends BaseProvider {
         toolCount: commandInput.toolConfig?.tools?.length || 0,
       });
 
+      streamSpan.addEvent("stream.api_call", {
+        "bedrock.message_count": commandInput.messages?.length || 0,
+        "bedrock.tool_count": commandInput.toolConfig?.tools?.length || 0,
+      });
+
       const streamStartTime = Date.now();
-      const response = await this.bedrockClient.send(command);
+      const response = await withTimeout(
+        this.bedrockClient.send(command),
+        120_000,
+        new Error("Bedrock streaming API call timed out"),
+      );
 
       logger.debug(
         "[Observability] Bedrock streaming API connection established",
@@ -1159,18 +1304,127 @@ export class AmazonBedrockProvider extends BaseProvider {
             "🟦 [TRACE] streamingConversationLoop - ReadableStream start() called",
           );
           try {
-            // Process the first response we already have
+            // Process the first response we already have, tracking all event types
+            let firstStopReason = "";
             if (response.stream) {
+              const firstMessageContent: (BedrockContentBlock & {
+                _inputBuffer?: string;
+              })[] = [];
+              let firstText = "";
+
               for await (const chunk of response.stream) {
+                if (chunk.contentBlockStart) {
+                  firstMessageContent.push({});
+                }
+
                 if (chunk.contentBlockDelta?.delta?.text) {
-                  controller.enqueue({
-                    content: chunk.contentBlockDelta.delta.text,
-                  });
+                  const textDelta = chunk.contentBlockDelta.delta.text;
+                  firstText += textDelta;
+                  controller.enqueue({ content: textDelta });
                 }
+
+                if (chunk.contentBlockStart?.start?.toolUse) {
+                  const currentBlock =
+                    firstMessageContent[firstMessageContent.length - 1];
+                  currentBlock.toolUse = {
+                    name: chunk.contentBlockStart.start.toolUse.name || "",
+                    input: {},
+                    toolUseId:
+                      chunk.contentBlockStart.start.toolUse.toolUseId ||
+                      `tool_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+                  };
+                }
+
+                if (chunk.contentBlockDelta?.delta?.toolUse) {
+                  const currentBlock =
+                    firstMessageContent[firstMessageContent.length - 1];
+                  if (!currentBlock.toolUse) {
+                    currentBlock.toolUse = {
+                      name: "",
+                      input: {},
+                      toolUseId: `tool_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+                    };
+                  }
+                  const deltaInput =
+                    chunk.contentBlockDelta.delta.toolUse.input;
+                  if (!deltaInput) {
+                    // no input delta
+                  } else if (typeof deltaInput === "string") {
+                    currentBlock._inputBuffer =
+                      (currentBlock._inputBuffer || "") + deltaInput;
+                  } else if (
+                    typeof deltaInput === "object" &&
+                    !Array.isArray(deltaInput)
+                  ) {
+                    const currentInput = currentBlock.toolUse.input || {};
+                    currentBlock.toolUse.input = {
+                      ...currentInput,
+                      ...(deltaInput as Record<string, unknown>),
+                    } as Record<string, unknown>;
+                  }
+                }
+
+                if (chunk.contentBlockStop) {
+                  const currentBlock =
+                    firstMessageContent[firstMessageContent.length - 1];
+                  if (currentBlock?.toolUse && currentBlock._inputBuffer) {
+                    try {
+                      currentBlock.toolUse.input = JSON.parse(
+                        currentBlock._inputBuffer,
+                      );
+                    } catch {
+                      currentBlock.toolUse.input = {};
+                    }
+                    delete currentBlock._inputBuffer;
+                  }
+                  if (firstText && currentBlock && !currentBlock.toolUse) {
+                    currentBlock.text = firstText;
+                  }
+                  firstText = "";
+                }
+
                 if (chunk.messageStop) {
-                  controller.close();
-                  return;
+                  firstStopReason = chunk.messageStop.stopReason || "end_turn";
+                  break;
                 }
+              }
+
+              // Add first assistant message to conversation history
+              const firstAssistantMessage: BedrockMessage = {
+                role: "assistant",
+                content: firstMessageContent,
+              };
+              this.conversationHistory.push(firstAssistantMessage);
+
+              streamSpan.addEvent("stream.turn_complete", {
+                iteration: 0,
+                stop_reason: firstStopReason,
+              });
+
+              if (firstStopReason === "tool_use") {
+                const toolNames = firstMessageContent
+                  .filter((b) => b.toolUse?.name)
+                  .map((b) => b.toolUse!.name)
+                  .join(", ");
+                streamSpan.addEvent("stream.tool_use", {
+                  iteration: 0,
+                  tool_names: toolNames,
+                });
+              }
+
+              // Handle the stop reason from the first response
+              const shouldContinue = await this.handleStreamStopReason(
+                firstStopReason,
+                firstAssistantMessage,
+                controller,
+                options,
+              );
+              if (!shouldContinue) {
+                streamSpan.setAttribute(
+                  "gen_ai.response.stop_reason",
+                  firstStopReason,
+                );
+                return;
               }
             }
 
@@ -1185,6 +1439,22 @@ export class AmazonBedrockProvider extends BaseProvider {
               const { stopReason, assistantMessage } =
                 await this.processStreamResponse(commandInput, controller);
 
+              streamSpan.addEvent("stream.turn_complete", {
+                iteration,
+                stop_reason: stopReason,
+              });
+
+              if (stopReason === "tool_use") {
+                const toolNames = assistantMessage.content
+                  .filter((b) => b.toolUse?.name)
+                  .map((b) => b.toolUse!.name)
+                  .join(", ");
+                streamSpan.addEvent("stream.tool_use", {
+                  iteration,
+                  tool_names: toolNames,
+                });
+              }
+
               const shouldContinue = await this.handleStreamStopReason(
                 stopReason,
                 assistantMessage,
@@ -1192,11 +1462,19 @@ export class AmazonBedrockProvider extends BaseProvider {
                 options,
               );
               if (!shouldContinue) {
+                streamSpan.setAttribute(
+                  "gen_ai.response.stop_reason",
+                  stopReason,
+                );
                 break;
               }
             }
 
             if (iteration >= maxIterations) {
+              streamSpan.setAttribute(
+                "gen_ai.response.stop_reason",
+                "max_iterations",
+              );
               controller.error(
                 new Error("Streaming conversation exceeded maximum iterations"),
               );
@@ -1269,14 +1547,16 @@ export class AmazonBedrockProvider extends BaseProvider {
     options: StreamOptions,
   ): Promise<ConverseStreamCommandInput> {
     // CRITICAL DEBUG: Log conversation history before conversion
-    logger.info(
-      `🔍 [AmazonBedrockProvider] BEFORE conversion - conversationHistory length: ${this.conversationHistory.length}`,
-    );
-    this.conversationHistory.forEach((msg, index) => {
-      logger.info(
-        `🔍 [AmazonBedrockProvider] Message ${index}: role=${msg.role}, content=${JSON.stringify(msg.content)}`,
+    if (logger.shouldLog("debug")) {
+      logger.debug(
+        `[AmazonBedrockProvider] BEFORE conversion - conversationHistory length: ${this.conversationHistory.length}`,
       );
-    });
+      this.conversationHistory.forEach((msg, index) => {
+        logger.debug(
+          `[AmazonBedrockProvider] Message ${index}: role=${msg.role}, content=${JSON.stringify(msg.content)}`,
+        );
+      });
+    }
 
     // Get all available tools
     // BaseProvider.stream() pre-merges base tools + external tools into options.tools
@@ -1289,14 +1569,16 @@ export class AmazonBedrockProvider extends BaseProvider {
     const convertedMessages = this.convertToAWSMessages(
       this.conversationHistory,
     );
-    logger.info(
-      `🔍 [AmazonBedrockProvider] AFTER conversion - messages length: ${convertedMessages.length}`,
-    );
-    convertedMessages.forEach((msg, index) => {
-      logger.info(
-        `🔍 [AmazonBedrockProvider] Converted Message ${index}: role=${msg.role}, content=${JSON.stringify(msg.content)}`,
+    if (logger.shouldLog("debug")) {
+      logger.debug(
+        `[AmazonBedrockProvider] AFTER conversion - messages length: ${convertedMessages.length}`,
       );
-    });
+      convertedMessages.forEach((msg, index) => {
+        logger.debug(
+          `[AmazonBedrockProvider] Converted Message ${index}: role=${msg.role}, content=${JSON.stringify(msg.content)}`,
+        );
+      });
+    }
 
     const commandInput: ConverseStreamCommandInput = {
       modelId: this.modelName || this.getDefaultModel(),
@@ -1352,7 +1634,11 @@ export class AmazonBedrockProvider extends BaseProvider {
     );
 
     const iterationStartTime = Date.now();
-    const response = await this.bedrockClient.send(command);
+    const response = await withTimeout(
+      this.bedrockClient.send(command),
+      120_000,
+      new Error("Bedrock streaming API call timed out"),
+    );
 
     logger.debug(
       "[Observability] Bedrock streaming API connection established (continuation)",
@@ -1366,7 +1652,9 @@ export class AmazonBedrockProvider extends BaseProvider {
       throw new Error("No stream returned from Bedrock");
     }
 
-    const currentMessageContent: BedrockContentBlock[] = [];
+    const currentMessageContent: (BedrockContentBlock & {
+      _inputBuffer?: string;
+    })[] = [];
     let stopReason = "";
     let currentText = "";
 
@@ -1411,23 +1699,24 @@ export class AmazonBedrockProvider extends BaseProvider {
             toolUseId: `tool_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
           };
         }
-        // Use robust parameter merging like Bedrock-MCP-Connector
+        // Accumulate JSON string fragments into _inputBuffer.
+        // Bedrock sends toolUse.input as incremental JSON string fragments,
+        // not pre-parsed objects. We buffer them and parse at contentBlockStop.
         if (chunk.contentBlockDelta.delta.toolUse.input) {
-          // Merge parameters more robustly to avoid missing required parameters
           const deltaInput = chunk.contentBlockDelta.delta.toolUse.input;
           if (typeof deltaInput === "string") {
-            currentBlock.toolUse.input = { value: deltaInput };
+            currentBlock._inputBuffer =
+              (currentBlock._inputBuffer || "") + deltaInput;
           } else if (
             deltaInput &&
             typeof deltaInput === "object" &&
             !Array.isArray(deltaInput)
           ) {
-            // Ensure both objects are properly typed before spreading
+            // Some SDK versions may deliver pre-parsed objects; merge directly
             const currentInput = currentBlock.toolUse.input || {};
-            const newInput = deltaInput;
             currentBlock.toolUse.input = {
               ...currentInput,
-              ...(newInput as Record<string, JsonValue>),
+              ...(deltaInput as Record<string, unknown>),
             } as Record<string, unknown>;
           }
         }
@@ -1437,6 +1726,17 @@ export class AmazonBedrockProvider extends BaseProvider {
         // Content block completed
         const currentBlock =
           currentMessageContent[currentMessageContent.length - 1];
+
+        // Parse accumulated JSON input buffer for tool-use blocks
+        if (currentBlock?.toolUse && currentBlock._inputBuffer) {
+          try {
+            currentBlock.toolUse.input = JSON.parse(currentBlock._inputBuffer);
+          } catch {
+            currentBlock.toolUse.input = {};
+          }
+          delete currentBlock._inputBuffer;
+        }
+
         if (currentText && currentBlock && !currentBlock.toolUse) {
           // Only add text to blocks that don't have toolUse
           currentBlock.text = currentText;
@@ -1478,13 +1778,10 @@ export class AmazonBedrockProvider extends BaseProvider {
       await this.executeStreamTools(assistantMessage.content, options);
       return true; // Continue conversation loop
     } else if (stopReason === "max_tokens") {
-      // Handle max tokens by continuing conversation
-      const userMessage: BedrockMessage = {
-        role: "user",
-        content: [{ text: "Please continue." }],
-      };
-      this.conversationHistory.push(userMessage);
-      return true; // Continue conversation loop
+      // Max tokens reached — close the stream rather than continuing,
+      // since the model hit the configured limit.
+      controller.close();
+      return false;
     } else {
       // Unknown stop reason - end conversation
       controller.close();
@@ -1713,7 +2010,7 @@ export class AmazonBedrockProvider extends BaseProvider {
     }
   }
 
-  public formatProviderError(error: unknown): Error {
+  protected formatProviderError(error: unknown): Error {
     // Handle AWS SDK specific errors
     const message = error instanceof Error ? error.message : String(error);
 
@@ -1770,7 +2067,11 @@ export class AmazonBedrockProvider extends BaseProvider {
         body: requestBody,
       });
 
-      const response = await this.bedrockClient.send(command);
+      const response = await withTimeout(
+        this.bedrockClient.send(command),
+        60_000,
+        new Error("Bedrock embedding API call timed out"),
+      );
 
       // Parse the response
       const responseBody = JSON.parse(

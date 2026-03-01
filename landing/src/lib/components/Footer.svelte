@@ -50,6 +50,8 @@
           label: "NPM Package",
           href: "https://www.npmjs.com/package/@juspay/neurolink",
         },
+        { label: "Twitter", href: "https://twitter.com/jaborhey" },
+        { label: "LinkedIn", href: "https://www.linkedin.com/company/juspay/" },
       ],
     },
     {
@@ -61,6 +63,7 @@
           href: "https://github.com/juspay/neurolink/blob/release/CONTRIBUTING.md",
         },
         { label: "Full Docs Site", href: "https://docs.neurolink.ink" },
+        { label: "llms.txt", href: "/llms.txt" },
       ],
     },
   ];
@@ -102,7 +105,8 @@
     class="max-w-[1200px] mx-auto mt-12 pt-6 border-t border-ds-border-subtle"
   >
     <p class="text-xs text-ds-text-muted text-center">
-      &copy; 2026 Juspay Technologies. Open source under MIT License.
+      &copy; {new Date().getFullYear()} Juspay Technologies. Open source under MIT
+      License.
     </p>
   </div>
 </footer>

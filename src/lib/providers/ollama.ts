@@ -26,11 +26,13 @@ import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import { logger } from "../utils/logger.js";
 import { buildMultimodalMessagesArray } from "../utils/messageBuilder.js";
 import { buildMultimodalOptions } from "../utils/multimodalOptionsBuilder.js";
+import { estimateTokens } from "../utils/tokenEstimation.js";
 import {
   InvalidModelError,
   NetworkError,
   ProviderError,
 } from "../types/errors.js";
+import { tracers, ATTR, withClientSpan } from "../telemetry/index.js";
 import { TimeoutError } from "../utils/timeout.js";
 
 // Model version constants (configurable via environment)
@@ -92,8 +94,8 @@ class OllamaLanguageModel implements LanguageModelV1 {
     this.timeout = timeout;
   }
 
-  private estimateTokens(text: string): number {
-    return Math.ceil(text.length / 4);
+  private estimateTokenCount(text: string): number {
+    return estimateTokens(text, "ollama");
   }
 
   private convertMessagesToPrompt(
@@ -167,10 +169,12 @@ class OllamaLanguageModel implements LanguageModelV1 {
         stream: false,
       };
 
-      logger.debug(
-        "[OllamaLanguageModel] Using OpenAI-compatible API with messages:",
-        JSON.stringify(messages, null, 2),
-      );
+      if (logger.shouldLog("debug")) {
+        logger.debug(
+          "[OllamaLanguageModel] Using OpenAI-compatible API with messages:",
+          JSON.stringify(messages, null, 2),
+        );
+      }
 
       const response = await proxyFetch(`${this.baseUrl}/v1/chat/completions`, {
         method: "POST",
@@ -200,9 +204,9 @@ class OllamaLanguageModel implements LanguageModelV1 {
         usage: {
           promptTokens:
             usage.prompt_tokens ??
-            this.estimateTokens(JSON.stringify(messages)),
+            this.estimateTokenCount(JSON.stringify(messages)),
           completionTokens:
-            usage.completion_tokens ?? this.estimateTokens(text),
+            usage.completion_tokens ?? this.estimateTokenCount(text),
           totalTokens: usage.total_tokens,
         },
         finishReason: "stop",
@@ -261,13 +265,15 @@ class OllamaLanguageModel implements LanguageModelV1 {
       return {
         text: data.response,
         usage: {
-          promptTokens: data.prompt_eval_count ?? this.estimateTokens(prompt),
+          promptTokens:
+            data.prompt_eval_count ?? this.estimateTokenCount(prompt),
           completionTokens:
-            data.eval_count ?? this.estimateTokens(String(data.response ?? "")),
+            data.eval_count ??
+            this.estimateTokenCount(String(data.response ?? "")),
           totalTokens:
-            (data.prompt_eval_count ?? this.estimateTokens(prompt)) +
+            (data.prompt_eval_count ?? this.estimateTokenCount(prompt)) +
             (data.eval_count ??
-              this.estimateTokens(String(data.response ?? ""))),
+              this.estimateTokenCount(String(data.response ?? ""))),
         },
         finishReason: "stop",
         rawCall: {
@@ -479,7 +485,7 @@ class OllamaLanguageModel implements LanguageModelV1 {
                   usage: {
                     promptTokens:
                       data.prompt_eval_count ||
-                      this.estimateTokens(data.context || ""),
+                      this.estimateTokenCount(data.context || ""),
                     completionTokens: data.eval_count || 0,
                   },
                 };
@@ -510,8 +516,11 @@ class OllamaLanguageModel implements LanguageModelV1 {
     const decoder = new TextDecoder();
     let buffer = "";
     // Estimate prompt tokens from messages (matches non-streaming behavior)
-    const totalPromptTokens = this.estimateTokens(JSON.stringify(messages));
-    let totalCompletionTokens = 0;
+    const totalPromptTokens = this.estimateTokenCount(JSON.stringify(messages));
+    // Accumulate full completion text; estimate tokens once at the end to avoid
+    // per-chunk rounding inflation that occurs when estimateTokenCount is called
+    // on every delta and the results are summed.
+    let completionText = "";
 
     try {
       while (true) {
@@ -542,17 +551,19 @@ class OllamaLanguageModel implements LanguageModelV1 {
                   type: "text-delta",
                   textDelta: content,
                 };
-                totalCompletionTokens += this.estimateTokens(content);
+                completionText += content;
               }
 
               // Check for finish
               const finishReason = data.choices?.[0]?.finish_reason;
               if (finishReason === "stop") {
-                // Extract usage if available and update tokens
+                // Prefer server-reported usage; fall back to a single estimate over
+                // the full accumulated text (avoids per-chunk rounding inflation).
                 const promptTokens =
                   data.usage?.prompt_tokens || totalPromptTokens;
                 const completionTokens =
-                  data.usage?.completion_tokens || totalCompletionTokens;
+                  data.usage?.completion_tokens ||
+                  this.estimateTokenCount(completionText);
 
                 yield {
                   type: "finish",
@@ -580,7 +591,7 @@ class OllamaLanguageModel implements LanguageModelV1 {
         finishReason: "stop",
         usage: {
           promptTokens: totalPromptTokens,
-          completionTokens: totalCompletionTokens,
+          completionTokens: this.estimateTokenCount(completionText),
         },
       };
     } finally {
@@ -813,208 +824,253 @@ export class OllamaProvider extends BaseProvider {
     options: StreamOptions,
     _analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
-    const startTime = Date.now();
-    const maxIterations = options.maxSteps || DEFAULT_MAX_STEPS;
-    let iteration = 0;
-
-    // Get all available tools (direct + MCP + external)
-    // BaseProvider.stream() pre-merges base tools + external tools into options.tools
-    const allTools =
-      (options.tools as Record<string, import("ai").Tool>) ||
-      (await this.getAllTools());
-    // Convert tools to Ollama format
-    const ollamaTools = this.convertToolsToOllamaFormat(allTools);
-
-    // Validate that PDFs are not provided
-    if (options.input?.pdfFiles && options.input.pdfFiles.length > 0) {
-      throw new Error(
-        "PDF inputs are not supported by OllamaProvider. " +
-          "Please remove PDFs or use a supported provider (OpenAI, Anthropic, Google Vertex AI, etc.).",
-      );
-    }
-
-    // Initialize conversation history
-    const conversationHistory: OllamaMessage[] = [];
-
-    // Build initial messages
-    const hasMultimodalInput = !!(
-      options.input?.images?.length ||
-      options.input?.content?.length ||
-      options.input?.files?.length ||
-      options.input?.csvFiles?.length
-    );
-
-    if (hasMultimodalInput) {
-      logger.debug(
-        `Ollama: Detected multimodal input, using multimodal message builder`,
-        {
-          hasImages: !!options.input?.images?.length,
-          imageCount: options.input?.images?.length || 0,
+    return withClientSpan(
+      {
+        name: "neurolink.provider.stream",
+        tracer: tracers.provider,
+        attributes: {
+          [ATTR.GEN_AI_SYSTEM]: "ollama",
+          [ATTR.GEN_AI_MODEL]: this.modelName || FALLBACK_OLLAMA_MODEL,
+          [ATTR.GEN_AI_OPERATION]: "stream",
+          [ATTR.NL_HAS_TOOLS]: true,
+          [ATTR.NL_STREAM_MODE]: true,
         },
-      );
+      },
+      async (span) => {
+        const startTime = Date.now();
+        const maxIterations = options.maxSteps || DEFAULT_MAX_STEPS;
+        let iteration = 0;
 
-      const multimodalOptions = buildMultimodalOptions(
-        options,
-        this.providerName,
-        this.modelName,
-      );
+        // Get all available tools (direct + MCP + external)
+        // BaseProvider.stream() pre-merges base tools + external tools into options.tools
+        const allTools =
+          (options.tools as Record<string, import("ai").Tool>) ||
+          (await this.getAllTools());
+        // Convert tools to Ollama format
+        const ollamaTools = this.convertToolsToOllamaFormat(allTools);
 
-      const multimodalMessages = await buildMultimodalMessagesArray(
-        multimodalOptions,
-        this.providerName,
-        this.modelName,
-      );
+        span.setAttribute(ATTR.NL_TOOL_COUNT, ollamaTools.length);
 
-      conversationHistory.push(
-        ...this.convertToOllamaMessages(multimodalMessages),
-      );
-    } else {
-      if (options.systemPrompt) {
-        conversationHistory.push({
-          role: "system",
-          content: options.systemPrompt,
-        });
-      }
-      conversationHistory.push({
-        role: "user",
-        content: options.input.text,
-      });
-    }
-
-    // Conversation loop for multi-step tool execution
-    const stream = new ReadableStream({
-      start: async (controller) => {
-        try {
-          while (iteration < maxIterations) {
-            logger.debug(
-              `[OllamaProvider] Conversation iteration ${iteration + 1}/${maxIterations}`,
-            );
-
-            // Make API request
-            const response = await proxyFetch(
-              `${this.baseUrl}/v1/chat/completions`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  model: this.modelName || FALLBACK_OLLAMA_MODEL,
-                  messages: conversationHistory,
-                  tools: ollamaTools,
-                  tool_choice: "auto",
-                  stream: true,
-                  temperature: options.temperature,
-                  max_tokens: options.maxTokens,
-                }),
-                signal: createAbortSignalWithTimeout(this.timeout),
-              },
-            );
-
-            if (!response.ok) {
-              throw new Error(
-                `Ollama API error: ${response.status} ${response.statusText}`,
-              );
-            }
-
-            // Process response stream
-            const { content, toolCalls, finishReason } =
-              await this.processOllamaResponse(response, controller);
-
-            // Add assistant message to history
-            const assistantMessage: OllamaMessage = {
-              role: "assistant",
-              content: content || "",
-            };
-
-            if (toolCalls && toolCalls.length > 0) {
-              assistantMessage.tool_calls = toolCalls;
-            }
-
-            conversationHistory.push(assistantMessage);
-
-            // Check finish reason
-            if (finishReason === "stop" || !finishReason) {
-              // Conversation complete
-              controller.close();
-              break;
-            } else if (
-              finishReason === "tool_calls" &&
-              toolCalls &&
-              toolCalls.length > 0
-            ) {
-              // Execute tools
-              logger.debug(
-                `[OllamaProvider] Executing ${toolCalls.length} tools`,
-              );
-              const toolResults = await this.executeOllamaTools(
-                toolCalls,
-                options,
-              );
-
-              // Add tool results to conversation
-              const toolMessage: OllamaMessage = {
-                role: "tool",
-                content: JSON.stringify(toolResults),
-              };
-              conversationHistory.push(toolMessage);
-
-              iteration++;
-            } else if (finishReason === "length") {
-              // Max tokens reached, continue conversation
-              logger.debug(`[OllamaProvider] Max tokens reached, continuing`);
-              conversationHistory.push({
-                role: "user",
-                content: "Please continue.",
-              });
-              iteration++;
-            } else {
-              // Unknown finish reason, end conversation
-              logger.warn(
-                `[OllamaProvider] Unknown finish reason: ${finishReason}`,
-              );
-              controller.close();
-              break;
-            }
-          }
-
-          if (iteration >= maxIterations) {
-            controller.error(
-              new Error(
-                `Ollama conversation exceeded maximum iterations (${maxIterations})`,
-              ),
-            );
-          }
-        } catch (error) {
-          controller.error(error);
+        // Validate that PDFs are not provided
+        if (options.input?.pdfFiles && options.input.pdfFiles.length > 0) {
+          throw this.handleProviderError(
+            new Error(
+              "PDF inputs are not supported by OllamaProvider. " +
+                "Please remove PDFs or use a supported provider (OpenAI, Anthropic, Google Vertex AI, etc.).",
+            ),
+          );
         }
-      },
-    });
 
-    // Create analytics promise
-    const analyticsPromise = Promise.resolve(
-      createAnalytics(
-        this.providerName,
-        this.modelName || FALLBACK_OLLAMA_MODEL,
-        { usage: { input: 0, output: 0, total: 0 } },
-        Date.now() - startTime,
-        {
-          requestId: `ollama-stream-${Date.now()}`,
-          streamingMode: true,
-          iterations: iteration,
-          note: "Token usage not available from Ollama streaming responses",
-        },
-      ),
+        // Initialize conversation history
+        const conversationHistory: OllamaMessage[] = [];
+
+        // Build initial messages
+        const hasMultimodalInput = !!(
+          options.input?.images?.length ||
+          options.input?.content?.length ||
+          options.input?.files?.length ||
+          options.input?.csvFiles?.length
+        );
+
+        if (hasMultimodalInput) {
+          logger.debug(
+            `Ollama: Detected multimodal input, using multimodal message builder`,
+            {
+              hasImages: !!options.input?.images?.length,
+              imageCount: options.input?.images?.length || 0,
+            },
+          );
+
+          const multimodalOptions = buildMultimodalOptions(
+            options,
+            this.providerName,
+            this.modelName,
+          );
+
+          const multimodalMessages = await buildMultimodalMessagesArray(
+            multimodalOptions,
+            this.providerName,
+            this.modelName,
+          );
+
+          conversationHistory.push(
+            ...this.convertToOllamaMessages(multimodalMessages),
+          );
+        } else {
+          if (options.systemPrompt) {
+            conversationHistory.push({
+              role: "system",
+              content: options.systemPrompt,
+            });
+          }
+          conversationHistory.push({
+            role: "user",
+            content: options.input.text,
+          });
+        }
+
+        // Conversation loop for multi-step tool execution
+        const stream = new ReadableStream({
+          start: async (controller) => {
+            try {
+              while (iteration < maxIterations) {
+                logger.debug(
+                  `[OllamaProvider] Conversation iteration ${iteration + 1}/${maxIterations}`,
+                );
+
+                // Make API request
+                const response = await proxyFetch(
+                  `${this.baseUrl}/v1/chat/completions`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      model: this.modelName || FALLBACK_OLLAMA_MODEL,
+                      messages: conversationHistory,
+                      tools: ollamaTools,
+                      tool_choice: "auto",
+                      stream: true,
+                      temperature: options.temperature,
+                      max_tokens: options.maxTokens,
+                    }),
+                    signal: createAbortSignalWithTimeout(this.timeout),
+                  },
+                );
+
+                if (!response.ok) {
+                  throw this.handleProviderError(
+                    new Error(
+                      `Ollama API error: ${response.status} ${response.statusText}`,
+                    ),
+                  );
+                }
+
+                // Process response stream
+                const { content, toolCalls, finishReason } =
+                  await this.processOllamaResponse(response, controller);
+
+                // Add assistant message to history
+                const assistantMessage: OllamaMessage = {
+                  role: "assistant",
+                  content: content || "",
+                };
+
+                if (toolCalls && toolCalls.length > 0) {
+                  assistantMessage.tool_calls = toolCalls;
+                }
+
+                conversationHistory.push(assistantMessage);
+
+                // Check finish reason
+                if (finishReason === "stop" || !finishReason) {
+                  // Conversation complete
+                  span.setAttribute(
+                    ATTR.GEN_AI_FINISH_REASON,
+                    finishReason || "stop",
+                  );
+                  controller.close();
+                  break;
+                } else if (
+                  finishReason === "tool_calls" &&
+                  toolCalls &&
+                  toolCalls.length > 0
+                ) {
+                  // Execute tools
+                  logger.debug(
+                    `[OllamaProvider] Executing ${toolCalls.length} tools`,
+                  );
+                  for (const tc of toolCalls) {
+                    span.addEvent("tool_call", {
+                      [ATTR.GEN_AI_TOOL_NAME]: tc.function.name,
+                    });
+                  }
+                  const toolResults = await this.executeOllamaTools(
+                    toolCalls,
+                    options,
+                  );
+
+                  // Add tool results to conversation
+                  const toolMessage: OllamaMessage = {
+                    role: "tool",
+                    content: JSON.stringify(toolResults),
+                  };
+                  conversationHistory.push(toolMessage);
+
+                  iteration++;
+                } else if (finishReason === "length") {
+                  // Max tokens reached, continue conversation
+                  logger.debug(
+                    `[OllamaProvider] Max tokens reached, continuing`,
+                  );
+                  conversationHistory.push({
+                    role: "user",
+                    content: "Please continue.",
+                  });
+                  iteration++;
+                } else {
+                  // Unknown finish reason, end conversation
+                  logger.warn(
+                    `[OllamaProvider] Unknown finish reason: ${finishReason}`,
+                  );
+                  span.setAttribute(ATTR.GEN_AI_FINISH_REASON, finishReason);
+                  controller.close();
+                  break;
+                }
+              }
+
+              if (iteration >= maxIterations) {
+                controller.error(
+                  new Error(
+                    `Ollama conversation exceeded maximum iterations (${maxIterations})`,
+                  ),
+                );
+              }
+            } catch (error) {
+              controller.error(error);
+            } finally {
+              // Resolve analytics with final values now that the loop has completed.
+              resolveAnalytics(
+                createAnalytics(
+                  this.providerName,
+                  this.modelName || FALLBACK_OLLAMA_MODEL,
+                  { usage: { input: 0, output: 0, total: 0 } },
+                  Date.now() - startTime,
+                  {
+                    requestId: `ollama-stream-${Date.now()}`,
+                    streamingMode: true,
+                    iterations: iteration,
+                    note: "Token usage not available from Ollama streaming responses",
+                  },
+                ),
+              );
+            }
+          },
+        });
+
+        // Defer analytics resolution until the stream's start callback finishes.
+        // This ensures responseTime and iteration reflect the actual completed values
+        // rather than values captured before the tool-loop executes.
+        let resolveAnalytics!: (
+          value: ReturnType<typeof createAnalytics>,
+        ) => void;
+        const analyticsPromise = new Promise<
+          ReturnType<typeof createAnalytics>
+        >((resolve) => {
+          resolveAnalytics = resolve;
+        });
+
+        return {
+          stream: this.convertToAsyncIterable(stream),
+          provider: this.providerName,
+          model: this.modelName || FALLBACK_OLLAMA_MODEL,
+          analytics: analyticsPromise,
+          metadata: {
+            startTime,
+            streamId: `ollama-${Date.now()}`,
+          },
+        };
+      },
     );
-
-    return {
-      stream: this.convertToAsyncIterable(stream),
-      provider: this.providerName,
-      model: this.modelName || FALLBACK_OLLAMA_MODEL,
-      analytics: analyticsPromise,
-      metadata: {
-        startTime,
-        streamId: `ollama-${Date.now()}`,
-      },
-    };
   }
 
   /**
@@ -1025,196 +1081,221 @@ export class OllamaProvider extends BaseProvider {
     options: StreamOptions,
     _analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
-    // Validate that PDFs are not provided
-    if (options.input?.pdfFiles && options.input.pdfFiles.length > 0) {
-      throw new Error(
-        "PDF inputs are not supported by OllamaProvider. " +
-          "Please remove PDFs or use a supported provider (OpenAI, Anthropic, Google Vertex AI, etc.).",
-      );
-    }
-
-    // Check for multimodal input
-    const hasMultimodalInput = !!(
-      options.input?.images?.length ||
-      options.input?.content?.length ||
-      options.input?.files?.length ||
-      options.input?.csvFiles?.length
-    );
-
-    const useOpenAIMode = isOpenAICompatibleMode();
-
-    if (useOpenAIMode) {
-      // OpenAI-compatible mode: Use /v1/chat/completions with messages
-      logger.debug(`Ollama (OpenAI mode): Building messages for streaming`);
-
-      const messages: Array<{ role: string; content: string }> = [];
-
-      if (options.systemPrompt) {
-        messages.push({ role: "system", content: options.systemPrompt });
-      }
-
-      if (hasMultimodalInput) {
-        const multimodalOptions = buildMultimodalOptions(
-          options,
-          this.providerName,
-          this.modelName,
-        );
-
-        const multimodalMessages = await buildMultimodalMessagesArray(
-          multimodalOptions,
-          this.providerName,
-          this.modelName,
-        );
-
-        // Convert multimodal messages to text (OpenAI-compatible mode doesn't support images in /v1/chat/completions for Ollama)
-        const content = multimodalMessages
-          .map((msg) => (typeof msg.content === "string" ? msg.content : ""))
-          .join("\n");
-
-        messages.push({ role: "user", content });
-      } else {
-        messages.push({ role: "user", content: options.input.text });
-      }
-
-      const requestUrl = `${this.baseUrl}/v1/chat/completions`;
-      const requestBody = {
-        model: this.modelName || FALLBACK_OLLAMA_MODEL,
-        messages,
-        temperature: options.temperature,
-        max_tokens: options.maxTokens,
-        stream: true,
-      };
-
-      logger.debug(`[Ollama OpenAI Mode] About to fetch:`, {
-        url: requestUrl,
-        baseUrl: this.baseUrl,
-        modelName: this.modelName,
-        requestBody: JSON.stringify(requestBody),
-      });
-
-      const response = await proxyFetch(requestUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-        signal: createAbortSignalWithTimeout(this.timeout),
-      });
-
-      logger.debug(`[Ollama OpenAI Mode] Response received:`, {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Ollama API error: ${response.status} ${response.statusText}`,
-        );
-      }
-
-      // Transform to async generator for OpenAI-compatible format
-      const self = this;
-      const transformedStream = async function* () {
-        const generator = self.createOpenAIStream(response);
-        for await (const chunk of generator) {
-          yield chunk;
-        }
-      };
-
-      return {
-        stream: transformedStream(),
-        provider: self.providerName,
-        model: self.modelName,
-      };
-    } else {
-      // Native Ollama mode: Use /api/generate
-      let prompt = options.input.text;
-      let images: string[] | undefined;
-
-      if (hasMultimodalInput) {
-        logger.debug(`Ollama (native mode): Detected multimodal input`, {
-          hasImages: !!options.input?.images?.length,
-          imageCount: options.input?.images?.length || 0,
-        });
-
-        const multimodalOptions = buildMultimodalOptions(
-          options,
-          this.providerName,
-          this.modelName,
-        );
-
-        const multimodalMessages = await buildMultimodalMessagesArray(
-          multimodalOptions,
-          this.providerName,
-          this.modelName,
-        );
-
-        // Extract text from messages for prompt
-        prompt = multimodalMessages
-          .map((msg) => (typeof msg.content === "string" ? msg.content : ""))
-          .join("\n");
-
-        // Extract images
-        images = this.extractImagesFromMessages(multimodalMessages);
-      }
-
-      const requestBody: Record<string, unknown> = {
-        model: this.modelName || FALLBACK_OLLAMA_MODEL,
-        prompt,
-        system: options.systemPrompt,
-        stream: true,
-        options: {
-          temperature: options.temperature,
-          num_predict: options.maxTokens,
+    return withClientSpan(
+      {
+        name: "neurolink.provider.stream",
+        tracer: tracers.provider,
+        attributes: {
+          [ATTR.GEN_AI_SYSTEM]: "ollama",
+          [ATTR.GEN_AI_MODEL]: this.modelName || FALLBACK_OLLAMA_MODEL,
+          [ATTR.GEN_AI_OPERATION]: "stream",
+          [ATTR.NL_HAS_TOOLS]: false,
+          [ATTR.NL_STREAM_MODE]: true,
         },
-      };
-
-      if (images && images.length > 0) {
-        requestBody.images = images;
-      }
-
-      const requestUrl = `${this.baseUrl}/api/generate`;
-
-      logger.debug(`[Ollama Native Mode] About to fetch:`, {
-        url: requestUrl,
-        baseUrl: this.baseUrl,
-        modelName: this.modelName,
-        requestBody: JSON.stringify(requestBody),
-      });
-
-      const response = await proxyFetch(requestUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-        signal: createAbortSignalWithTimeout(this.timeout),
-      });
-
-      logger.debug(`[Ollama Native Mode] Response received:`, {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Ollama API error: ${response.status} ${response.statusText}`,
-        );
-      }
-
-      // Transform to async generator to match other providers
-      const self = this;
-      const transformedStream = async function* () {
-        const generator = self.createOllamaStream(response);
-        for await (const chunk of generator) {
-          yield chunk;
+      },
+      async () => {
+        // Validate that PDFs are not provided
+        if (options.input?.pdfFiles && options.input.pdfFiles.length > 0) {
+          throw this.handleProviderError(
+            new Error(
+              "PDF inputs are not supported by OllamaProvider. " +
+                "Please remove PDFs or use a supported provider (OpenAI, Anthropic, Google Vertex AI, etc.).",
+            ),
+          );
         }
-      };
 
-      return {
-        stream: transformedStream(),
-        provider: this.providerName,
-        model: this.modelName,
-      };
-    }
+        // Check for multimodal input
+        const hasMultimodalInput = !!(
+          options.input?.images?.length ||
+          options.input?.content?.length ||
+          options.input?.files?.length ||
+          options.input?.csvFiles?.length
+        );
+
+        const useOpenAIMode = isOpenAICompatibleMode();
+
+        if (useOpenAIMode) {
+          // OpenAI-compatible mode: Use /v1/chat/completions with messages
+          logger.debug(`Ollama (OpenAI mode): Building messages for streaming`);
+
+          const messages: Array<{ role: string; content: string }> = [];
+
+          if (options.systemPrompt) {
+            messages.push({ role: "system", content: options.systemPrompt });
+          }
+
+          if (hasMultimodalInput) {
+            const multimodalOptions = buildMultimodalOptions(
+              options,
+              this.providerName,
+              this.modelName,
+            );
+
+            const multimodalMessages = await buildMultimodalMessagesArray(
+              multimodalOptions,
+              this.providerName,
+              this.modelName,
+            );
+
+            // Convert multimodal messages to text (OpenAI-compatible mode doesn't support images in /v1/chat/completions for Ollama)
+            const content = multimodalMessages
+              .map((msg) =>
+                typeof msg.content === "string" ? msg.content : "",
+              )
+              .join("\n");
+
+            messages.push({ role: "user", content });
+          } else {
+            messages.push({ role: "user", content: options.input.text });
+          }
+
+          const requestUrl = `${this.baseUrl}/v1/chat/completions`;
+          const requestBody = {
+            model: this.modelName || FALLBACK_OLLAMA_MODEL,
+            messages,
+            temperature: options.temperature,
+            max_tokens: options.maxTokens,
+            stream: true,
+          };
+
+          logger.debug(`[Ollama OpenAI Mode] About to fetch:`, {
+            url: requestUrl,
+            baseUrl: this.baseUrl,
+            modelName: this.modelName,
+            requestBody: JSON.stringify(requestBody),
+          });
+
+          const response = await proxyFetch(requestUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+            signal: createAbortSignalWithTimeout(this.timeout),
+          });
+
+          logger.debug(`[Ollama OpenAI Mode] Response received:`, {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+          });
+
+          if (!response.ok) {
+            throw this.handleProviderError(
+              new Error(
+                `Ollama API error: ${response.status} ${response.statusText}`,
+              ),
+            );
+          }
+
+          // Transform to async generator for OpenAI-compatible format
+          const self = this;
+          const transformedStream = async function* () {
+            const generator = self.createOpenAIStream(response);
+            for await (const chunk of generator) {
+              yield chunk;
+            }
+          };
+
+          return {
+            stream: transformedStream(),
+            provider: self.providerName,
+            model: self.modelName,
+          };
+        } else {
+          // Native Ollama mode: Use /api/generate
+          let prompt = options.input.text;
+          let images: string[] | undefined;
+
+          if (hasMultimodalInput) {
+            logger.debug(`Ollama (native mode): Detected multimodal input`, {
+              hasImages: !!options.input?.images?.length,
+              imageCount: options.input?.images?.length || 0,
+            });
+
+            const multimodalOptions = buildMultimodalOptions(
+              options,
+              this.providerName,
+              this.modelName,
+            );
+
+            const multimodalMessages = await buildMultimodalMessagesArray(
+              multimodalOptions,
+              this.providerName,
+              this.modelName,
+            );
+
+            // Extract text from messages for prompt
+            prompt = multimodalMessages
+              .map((msg) =>
+                typeof msg.content === "string" ? msg.content : "",
+              )
+              .join("\n");
+
+            // Extract images
+            images = this.extractImagesFromMessages(multimodalMessages);
+          }
+
+          const requestBody: Record<string, unknown> = {
+            model: this.modelName || FALLBACK_OLLAMA_MODEL,
+            prompt,
+            system: options.systemPrompt,
+            stream: true,
+            options: {
+              temperature: options.temperature,
+              num_predict: options.maxTokens,
+            },
+          };
+
+          if (images && images.length > 0) {
+            requestBody.images = images;
+          }
+
+          const requestUrl = `${this.baseUrl}/api/generate`;
+
+          logger.debug(`[Ollama Native Mode] About to fetch:`, {
+            url: requestUrl,
+            baseUrl: this.baseUrl,
+            modelName: this.modelName,
+            requestBody: JSON.stringify(requestBody),
+          });
+
+          const response = await proxyFetch(requestUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+            signal: createAbortSignalWithTimeout(this.timeout),
+          });
+
+          logger.debug(`[Ollama Native Mode] Response received:`, {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+          });
+
+          if (!response.ok) {
+            throw this.handleProviderError(
+              new Error(
+                `Ollama API error: ${response.status} ${response.statusText}`,
+              ),
+            );
+          }
+
+          // Transform to async generator to match other providers
+          const self = this;
+          const transformedStream = async function* () {
+            const generator = self.createOllamaStream(response);
+            for await (const chunk of generator) {
+              yield chunk;
+            }
+          };
+
+          return {
+            stream: transformedStream(),
+            provider: this.providerName,
+            model: this.modelName,
+          };
+        }
+      },
+    );
   }
 
   /**

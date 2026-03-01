@@ -13,9 +13,15 @@
  * @module core/modules/StreamHandler
  */
 
+import {
+  trace,
+  context as otelContext,
+  SpanStatusCode,
+} from "@opentelemetry/api";
 import type { StreamOptions, StreamResult } from "../../types/streamTypes.js";
 import type { UnknownRecord } from "../../types/common.js";
 import type { AIProviderName } from "../../types/index.js";
+import { tracers, ATTR, withSpan } from "../../telemetry/index.js";
 import { logger } from "../../utils/logger.js";
 import {
   validateStreamOptions as validateStreamOpts,
@@ -39,50 +45,113 @@ export class StreamHandler {
    * Validate stream options - consolidates validation from 7/10 providers
    */
   validateStreamOptions(options: StreamOptions): void {
-    const validation = validateStreamOpts(options);
+    const span = tracers.stream.startSpan("neurolink.stream.validate", {
+      attributes: {
+        [ATTR.NL_PROVIDER]: this.providerName,
+        [ATTR.NL_MODEL]: this.modelName,
+        "stream.has_max_steps": options.maxSteps !== undefined,
+      },
+    });
 
-    if (!validation.isValid) {
-      const summary = createValidationSummary(validation);
-      throw new ValidationError(
-        `Stream options validation failed: ${summary}`,
-        "options",
-        "VALIDATION_FAILED",
-        validation.suggestions,
-      );
-    }
+    try {
+      const validation = validateStreamOpts(options);
 
-    // Log warnings if any
-    if (validation.warnings.length > 0) {
-      logger.warn("Stream options validation warnings:", validation.warnings);
-    }
-
-    // Additional BaseProvider-specific validation
-    if (options.maxSteps !== undefined) {
-      if (
-        options.maxSteps < STEP_LIMITS.min ||
-        options.maxSteps > STEP_LIMITS.max
-      ) {
+      if (!validation.isValid) {
+        const summary = createValidationSummary(validation);
+        span.setAttribute(
+          "stream.validation_errors",
+          validation.errors?.length ?? 0,
+        );
         throw new ValidationError(
-          `maxSteps must be between ${STEP_LIMITS.min} and ${STEP_LIMITS.max}`,
-          "maxSteps",
-          "OUT_OF_RANGE",
-          [
-            `Use a value between ${STEP_LIMITS.min} and ${STEP_LIMITS.max} for optimal performance`,
-          ],
+          `Stream options validation failed: ${summary}`,
+          "options",
+          "VALIDATION_FAILED",
+          validation.suggestions,
         );
       }
+
+      // Log warnings if any
+      if (validation.warnings.length > 0) {
+        logger.warn("Stream options validation warnings:", validation.warnings);
+        span.addEvent("stream.validation.warnings", {
+          "warning.count": validation.warnings.length,
+          warnings: validation.warnings.join("; ").substring(0, 500),
+        });
+      }
+
+      // Additional BaseProvider-specific validation
+      if (options.maxSteps !== undefined) {
+        if (
+          options.maxSteps < STEP_LIMITS.min ||
+          options.maxSteps > STEP_LIMITS.max
+        ) {
+          throw new ValidationError(
+            `maxSteps must be between ${STEP_LIMITS.min} and ${STEP_LIMITS.max}`,
+            "maxSteps",
+            "OUT_OF_RANGE",
+            [
+              `Use a value between ${STEP_LIMITS.min} and ${STEP_LIMITS.max} for optimal performance`,
+            ],
+          );
+        }
+      }
+    } catch (error) {
+      span.recordException(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      // NLK-GAP-006 fix: set error status alongside recordException
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    } finally {
+      span.end();
     }
   }
 
   /**
    * Create text stream transformation - consolidates identical logic from 7/10 providers
+   * Tracks TTFC (Time To First Chunk), chunk count, and total bytes streamed.
    */
   createTextStream(result: {
     textStream: AsyncIterable<string>;
   }): AsyncGenerator<{ content: string }> {
+    const providerName = this.providerName;
+
     return (async function* () {
+      let chunkCount = 0;
+      let totalBytes = 0;
+      const streamStart = Date.now();
+      let firstChunkTime: number | undefined;
+
       for await (const chunk of result.textStream) {
+        chunkCount++;
+        totalBytes += chunk.length;
+
+        if (!firstChunkTime) {
+          firstChunkTime = Date.now();
+          const activeSpan = trace.getSpan(otelContext.active());
+          if (activeSpan) {
+            activeSpan.addEvent("stream.first_chunk", {
+              "stream.ttfc_ms": firstChunkTime - streamStart,
+              "stream.provider": providerName,
+            });
+          }
+        }
+
         yield { content: chunk };
+      }
+
+      // Record completion metrics on the active span
+      const activeSpan = trace.getSpan(otelContext.active());
+      if (activeSpan) {
+        activeSpan.addEvent("stream.complete", {
+          "stream.chunk_count": chunkCount,
+          "stream.total_bytes": totalBytes,
+          "stream.duration_ms": Date.now() - streamStart,
+          "stream.ttfc_ms": firstChunkTime ? firstChunkTime - streamStart : -1,
+        });
       }
     })();
   }
@@ -110,23 +179,42 @@ export class StreamHandler {
     startTime: number,
     options: StreamOptions,
   ): Promise<UnknownRecord | undefined> {
-    try {
-      const analytics = createAnalytics(
-        this.providerName,
-        this.modelName,
-        result,
-        Date.now() - startTime,
-        {
-          requestId: `${this.providerName}-stream-${nanoid()}`,
-          streamingMode: true,
-          ...options.context,
+    return withSpan(
+      {
+        name: "neurolink.stream.analytics",
+        tracer: tracers.stream,
+        attributes: {
+          [ATTR.NL_PROVIDER]: this.providerName,
+          [ATTR.NL_MODEL]: this.modelName,
+          [ATTR.NL_STREAM_MODE]: true,
         },
-      );
-      return analytics as unknown as UnknownRecord;
-    } catch (error) {
-      logger.warn(`Analytics creation failed for ${this.providerName}:`, error);
-      return undefined;
-    }
+      },
+      async (span) => {
+        try {
+          const durationMs = Date.now() - startTime;
+          span.setAttribute("stream.duration_ms", durationMs);
+
+          const analytics = createAnalytics(
+            this.providerName,
+            this.modelName,
+            result,
+            durationMs,
+            {
+              requestId: `${this.providerName}-stream-${nanoid()}`,
+              streamingMode: true,
+              ...options.context,
+            },
+          );
+          return analytics as unknown as UnknownRecord;
+        } catch (error) {
+          logger.warn(
+            `Analytics creation failed for ${this.providerName}:`,
+            error,
+          );
+          return undefined;
+        }
+      },
+    );
   }
 
   /**

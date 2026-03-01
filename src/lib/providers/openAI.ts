@@ -1,5 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { type LanguageModelV1, streamText, type Tool } from "ai";
+import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
@@ -17,6 +18,7 @@ import {
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import type { ValidationSchema } from "../types/typeAliases.js";
 import { logger } from "../utils/logger.js";
+import { calculateCost } from "../utils/pricing.js";
 import {
   createOpenAIConfig,
   getProviderModel,
@@ -37,6 +39,8 @@ const getOpenAIApiKey = (): string => {
 const getOpenAIModel = (): string => {
   return getProviderModel("OPENAI_MODEL", "gpt-4o");
 };
+
+const streamTracer = trace.getTracer("neurolink.provider.openai");
 
 /**
  * OpenAI Provider v2 - BaseProvider Implementation
@@ -380,38 +384,108 @@ export class OpenAIProvider extends BaseProvider {
       });
 
       const model = await this.getAISDKModelWithMiddleware(options); // This is where network connection happens!
-      const result = await streamText({
-        model,
-        messages: messages,
-        temperature: options.temperature,
-        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
-        tools,
-        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-        toolChoice:
-          shouldUseTools && Object.keys(tools).length > 0 ? "auto" : "none",
-        abortSignal: composeAbortSignals(
-          options.abortSignal,
-          timeoutController?.controller.signal,
-        ),
-        experimental_telemetry:
-          this.telemetryHandler.getTelemetryConfig(options),
-        onStepFinish: ({ toolCalls, toolResults }) => {
-          logger.info("Tool execution completed", { toolResults, toolCalls });
 
-          // Handle tool execution storage
-          this.handleToolExecutionStorage(
-            toolCalls,
-            toolResults,
-            options,
-            new Date(),
-          ).catch((error: unknown) => {
-            logger.warn("[OpenAIProvider] Failed to store tool executions", {
-              provider: this.providerName,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          });
+      // Wrap streamText in an OTel span to capture provider-level latency and token usage
+      const streamSpan = streamTracer.startSpan(
+        "neurolink.provider.streamText",
+        {
+          kind: SpanKind.CLIENT,
+          attributes: {
+            "gen_ai.system": "openai",
+            "gen_ai.request.model":
+              model.modelId || this.modelName || "unknown",
+          },
         },
-      });
+      );
+
+      let result: ReturnType<typeof streamText>;
+      try {
+        result = streamText({
+          model,
+          messages: messages,
+          temperature: options.temperature,
+          maxTokens: options.maxTokens, // No default limit - unlimited unless specified
+          maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
+          tools,
+          maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+          toolChoice:
+            shouldUseTools && Object.keys(tools).length > 0 ? "auto" : "none",
+          abortSignal: composeAbortSignals(
+            options.abortSignal,
+            timeoutController?.controller.signal,
+          ),
+          experimental_telemetry:
+            this.telemetryHandler.getTelemetryConfig(options),
+          onStepFinish: ({ toolCalls, toolResults }) => {
+            logger.info("Tool execution completed", {
+              toolResults,
+              toolCalls,
+            });
+
+            // Handle tool execution storage
+            this.handleToolExecutionStorage(
+              toolCalls,
+              toolResults,
+              options,
+              new Date(),
+            ).catch((error: unknown) => {
+              logger.warn("[OpenAIProvider] Failed to store tool executions", {
+                provider: this.providerName,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            });
+          },
+        });
+      } catch (streamError) {
+        streamSpan.end();
+        throw streamError;
+      }
+
+      // Collect token usage and finish reason asynchronously when the stream completes,
+      // then end the span. This avoids blocking the stream consumer.
+      result.usage
+        .then((usage) => {
+          streamSpan.setAttribute(
+            "gen_ai.usage.input_tokens",
+            usage.promptTokens || 0,
+          );
+          streamSpan.setAttribute(
+            "gen_ai.usage.output_tokens",
+            usage.completionTokens || 0,
+          );
+          const cost = calculateCost(this.providerName, this.modelName, {
+            input: usage.promptTokens || 0,
+            output: usage.completionTokens || 0,
+            total: (usage.promptTokens || 0) + (usage.completionTokens || 0),
+          });
+          if (cost && cost > 0) {
+            streamSpan.setAttribute("neurolink.cost", cost);
+          }
+        })
+        .catch(() => {
+          // Usage may not be available if the stream is aborted
+        });
+      result.finishReason
+        .then((reason) => {
+          streamSpan.setAttribute(
+            "gen_ai.response.finish_reason",
+            reason || "unknown",
+          );
+        })
+        .catch(() => {
+          // Finish reason may not be available if the stream is aborted
+        });
+      result.text
+        .then(() => {
+          streamSpan.end();
+        })
+        .catch((err) => {
+          streamSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: err instanceof Error ? err.message : String(err),
+          });
+          streamSpan.end();
+        });
 
       timeoutController?.cleanup();
 

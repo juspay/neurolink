@@ -6,7 +6,7 @@
     { value: 13, suffix: "+", label: "AI Providers" },
     { value: 100, suffix: "+", label: "Models" },
     { value: 58, suffix: "+", label: "MCP Tools" },
-    { value: 35, suffix: "-40%", label: "Cost Savings" },
+    { value: 50, suffix: "+", label: "File Types" },
   ];
 
   let sectionEl: HTMLElement;

@@ -7,8 +7,10 @@ import "./types/global";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load test environment variables
+// Load test environment variables (.env.test first, then .env as fallback)
+// dotenv does NOT override by default, so test-specific vars take priority
 dotenv.config({ path: path.resolve(__dirname, "../.env.test") });
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 // Global test setup
 beforeEach(() => {
@@ -32,8 +34,8 @@ afterEach(() => {
 
 // Mock AI SDK providers
 vi.mock("ai", () => ({
-  stream: vi.fn(),
-  generate: vi.fn(),
+  streamText: vi.fn(),
+  generateText: vi.fn(),
   tool: vi.fn((config) => ({
     description: config.description || "",
     parameters: config.parameters || {},

@@ -13,7 +13,7 @@ export function isGemini3Model(modelName: string): boolean {
   if (!isValidModelName(modelName)) {
     return false;
   }
-  return /^gemini-3(-.*)?$/i.test(modelName);
+  return /^gemini-3(\.\d+)?(-.*)?$/i.test(modelName);
 }
 
 export function isGemini25Model(modelName: string): boolean {
@@ -52,10 +52,10 @@ export function getMaxThinkingBudgetTokens(modelName: string): number {
   if (!isValidModelName(modelName)) {
     return 10000;
   }
-  if (/^gemini-3-pro/i.test(modelName)) {
+  if (/^gemini-3(\.\d+)?-pro/i.test(modelName)) {
     return 100000;
   }
-  if (/^gemini-3-flash/i.test(modelName)) {
+  if (/^gemini-3(\.\d+)?-flash/i.test(modelName)) {
     return 50000;
   }
   if (/^gemini-2\.5/i.test(modelName)) {

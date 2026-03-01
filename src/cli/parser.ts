@@ -12,6 +12,7 @@ import { ServeCommandFactory } from "./commands/serve.js";
 import { ragCommand } from "./commands/rag.js";
 import { DocsCommandFactory } from "./commands/docs.js";
 import { AuthCommandFactory } from "./factories/authCommandFactory.js";
+import { WorkflowCommandFactory } from "./commands/workflow.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -222,5 +223,8 @@ export function initializeCliParser() {
 
       // Auth Commands - Using AuthCommandFactory
       .command(AuthCommandFactory.createAuthCommands())
+
+      // Workflow Commands
+      .command(WorkflowCommandFactory.createWorkflowCommands())
   ); // Close the main return statement
 }

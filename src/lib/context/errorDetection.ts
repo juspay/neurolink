@@ -96,9 +96,73 @@ export function getContextOverflowProvider(error: unknown): string | null {
 }
 
 /**
+ * Extract actual token counts from provider overflow error messages.
+ *
+ * Many providers include the actual/max token counts in their error messages:
+ * - OpenAI: "This model's maximum context length is 128000 tokens. However, your messages resulted in 145000 tokens."
+ * - Anthropic: "prompt is too long: 180000 tokens > 200000 token limit"
+ * - Google: "exceeds the maximum number of tokens (180000 > 100000)"
+ */
+export function parseProviderOverflowDetails(error: unknown): {
+  actualTokens: number;
+  budgetTokens: number;
+} | null {
+  const message = extractErrorMessage(error);
+  if (!message) {
+    return null;
+  }
+
+  // Guard against excessively long inputs that could slow regex matching
+  if (message.length > 2000) {
+    return null;
+  }
+
+  // OpenAI pattern: "resulted in X tokens" + "maximum context length is Y"
+  // Use single character-class number groups to prevent ReDoS (CodeQL: js/polynomial-redos)
+  const openaiActual = message.match(
+    /resulted\s+in\s+(\d[\d,]{0,19})\s*tokens/i,
+  );
+  const openaiMax = message.match(
+    /maximum\s+context\s+length\s+is\s+(\d[\d,]{0,19})/i,
+  );
+  if (openaiActual && openaiMax) {
+    return {
+      actualTokens: parseInt(openaiActual[1].replace(/,/g, ""), 10),
+      budgetTokens: parseInt(openaiMax[1].replace(/,/g, ""), 10),
+    };
+  }
+
+  // Anthropic pattern: "X tokens > Y token limit" or "X tokens, limit Y"
+  // Use single character-class number groups to prevent ReDoS (CodeQL: js/polynomial-redos)
+  const anthropicMatch = message.match(
+    /(\d[\d,]{0,19})\s*tokens?\s*[>:]\s*(\d[\d,]{0,19})/i,
+  );
+  if (anthropicMatch) {
+    return {
+      actualTokens: parseInt(anthropicMatch[1].replace(/,/g, ""), 10),
+      budgetTokens: parseInt(anthropicMatch[2].replace(/,/g, ""), 10),
+    };
+  }
+
+  // Google pattern: "X > Y" or "X exceeds Y"
+  // Use single character-class number groups to prevent ReDoS (CodeQL: js/polynomial-redos)
+  const googleMatch = message.match(
+    /(\d[\d,]{0,19})\s*(?:>|exceeds)\s*(\d[\d,]{0,19})/i,
+  );
+  if (googleMatch) {
+    return {
+      actualTokens: parseInt(googleMatch[1].replace(/,/g, ""), 10),
+      budgetTokens: parseInt(googleMatch[2].replace(/,/g, ""), 10),
+    };
+  }
+
+  return null;
+}
+
+/**
  * Extract error message from various error formats.
  */
-function extractErrorMessage(error: unknown): string | null {
+export function extractErrorMessage(error: unknown): string | null {
   if (!error) {
     return null;
   }

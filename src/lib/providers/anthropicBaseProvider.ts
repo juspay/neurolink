@@ -1,6 +1,7 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import type { ZodType, ZodTypeDef } from "zod";
 import { streamText, type Schema, type LanguageModelV1, type Tool } from "ai";
+import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { AIProviderName, AnthropicModels } from "../constants/enums.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -11,6 +12,7 @@ import {
   RateLimitError,
 } from "../types/errors.js";
 import { logger } from "../utils/logger.js";
+import { calculateCost } from "../utils/pricing.js";
 import {
   composeAbortSignals,
   createTimeoutController,
@@ -20,6 +22,8 @@ import {
   validateApiKey,
   createAnthropicBaseConfig,
 } from "../utils/providerConfig.js";
+
+const streamTracer = trace.getTracer("neurolink.provider.anthropic");
 
 /**
  * Anthropic provider implementation using BaseProvider pattern
@@ -121,37 +125,110 @@ export class AnthropicProviderV2 extends BaseProvider {
         ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
         : {};
 
-      const result = await streamText({
-        model,
-        prompt: options.input.text,
-        system: options.systemPrompt,
-        temperature: options.temperature,
-        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
-        tools,
-        toolChoice: shouldUseTools ? "auto" : "none",
-        abortSignal: composeAbortSignals(
-          options.abortSignal,
-          timeoutController?.controller.signal,
-        ),
-        experimental_telemetry:
-          this.telemetryHandler.getTelemetryConfig(options),
-        onStepFinish: ({ toolCalls, toolResults }) => {
-          this.handleToolExecutionStorage(
-            toolCalls,
-            toolResults,
-            options,
-            new Date(),
-          ).catch((error: unknown) => {
-            logger.warn(
-              "[AnthropicBaseProvider] Failed to store tool executions",
-              {
-                provider: this.providerName,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
-          });
+      // Wrap streamText in an OTel span to capture provider-level latency and token usage
+      const streamSpan = streamTracer.startSpan(
+        "neurolink.provider.streamText",
+        {
+          kind: SpanKind.CLIENT,
+          attributes: {
+            "gen_ai.system": "anthropic",
+            "gen_ai.request.model":
+              model.modelId || this.modelName || "unknown",
+          },
         },
-      });
+      );
+
+      let result: ReturnType<typeof streamText>;
+      try {
+        result = streamText({
+          model,
+          prompt: options.input.text,
+          system: options.systemPrompt,
+          temperature: options.temperature,
+          maxTokens: options.maxTokens, // No default limit - unlimited unless specified
+          maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
+          tools,
+          toolChoice: shouldUseTools ? "auto" : "none",
+          abortSignal: composeAbortSignals(
+            options.abortSignal,
+            timeoutController?.controller.signal,
+          ),
+          experimental_telemetry:
+            this.telemetryHandler.getTelemetryConfig(options),
+          onStepFinish: ({ toolCalls, toolResults }) => {
+            this.handleToolExecutionStorage(
+              toolCalls,
+              toolResults,
+              options,
+              new Date(),
+            ).catch((error: unknown) => {
+              logger.warn(
+                "[AnthropicBaseProvider] Failed to store tool executions",
+                {
+                  provider: this.providerName,
+                  error: error instanceof Error ? error.message : String(error),
+                },
+              );
+            });
+          },
+        });
+      } catch (err) {
+        streamSpan.recordException(
+          err instanceof Error ? err : new Error(String(err)),
+        );
+        streamSpan.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: err instanceof Error ? err.message : String(err),
+        });
+        streamSpan.end();
+        throw err;
+      }
+
+      // Collect token usage and finish reason asynchronously when the stream completes,
+      // then end the span. This avoids blocking the stream consumer.
+      result.usage
+        .then((usage) => {
+          streamSpan.setAttribute(
+            "gen_ai.usage.input_tokens",
+            usage.promptTokens || 0,
+          );
+          streamSpan.setAttribute(
+            "gen_ai.usage.output_tokens",
+            usage.completionTokens || 0,
+          );
+          const cost = calculateCost(this.providerName, this.modelName, {
+            input: usage.promptTokens || 0,
+            output: usage.completionTokens || 0,
+            total: (usage.promptTokens || 0) + (usage.completionTokens || 0),
+          });
+          if (cost && cost > 0) {
+            streamSpan.setAttribute("neurolink.cost", cost);
+          }
+        })
+        .catch(() => {
+          // Usage may not be available if the stream is aborted
+        });
+      result.finishReason
+        .then((reason) => {
+          streamSpan.setAttribute(
+            "gen_ai.response.finish_reason",
+            reason || "unknown",
+          );
+        })
+        .catch(() => {
+          // Finish reason may not be available if the stream is aborted
+        });
+      result.text
+        .then(() => {
+          streamSpan.end();
+        })
+        .catch((err) => {
+          streamSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: err instanceof Error ? err.message : String(err),
+          });
+          streamSpan.end();
+        });
 
       timeoutController?.cleanup();
 

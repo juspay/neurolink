@@ -77,7 +77,7 @@ export function checkContextBudget(
     ? toolDefinitions.reduce((sum: number, tool: unknown) => {
         try {
           const serialized = JSON.stringify(tool);
-          return sum + Math.ceil(serialized.length / 4);
+          return sum + estimateTokens(serialized, provider);
         } catch {
           return sum + TOKENS_PER_TOOL_DEFINITION;
         }

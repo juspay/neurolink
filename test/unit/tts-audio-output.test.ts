@@ -525,6 +525,7 @@ describe("TTS Integration - BaseProvider.generate()", () => {
             input: { text: "What is 2+2?" },
             provider: "google-ai",
             maxTokens: 10,
+            disableTools: true,
             tts: {
               enabled: true,
               useAiResponse: true, // Synthesize AI response
@@ -566,6 +567,7 @@ describe("TTS Integration - BaseProvider.generate()", () => {
             input: { text: "What is 2+2?" },
             provider: "google-ai",
             maxTokens: 10,
+            disableTools: true,
             // No TTS option
           });
 
@@ -589,6 +591,7 @@ describe("TTS Integration - BaseProvider.generate()", () => {
             input: { text: "What is 2+2?" },
             provider: "google-ai",
             maxTokens: 10,
+            disableTools: true,
             tts: { enabled: false },
           });
 
@@ -666,6 +669,7 @@ describe("TTS Integration - BaseProvider.generate()", () => {
             input: { text: "What is 2+2?" },
             provider: "google-ai",
             maxTokens: 10,
+            disableTools: true,
             tts: { enabled: true, useAiResponse: true }, // Mode 2: synthesize AI response
           });
 

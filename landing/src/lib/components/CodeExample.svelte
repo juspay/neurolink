@@ -26,7 +26,7 @@
     <div use:reveal={{ y: 40 }}>
       <p class="eyebrow text-ds-text-muted mb-4">05 — Developer experience</p>
       <h2 class="section-headline text-ds-text-primary">
-        Developer-First Experience
+        Developer-first TypeScript AI SDK experience
       </h2>
       <p class="mt-4 text-ds-text-tertiary text-lg leading-relaxed max-w-md">
         Get up and running in minutes. NeuroLink's SDK is designed for the way

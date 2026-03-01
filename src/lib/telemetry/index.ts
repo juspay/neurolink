@@ -1,5 +1,8 @@
 // Optional Telemetry Infrastructure (Phase 2)
 export { TelemetryService, type HealthMetrics } from "./telemetryService.js";
+export { tracers } from "./tracers.js";
+export { withSpan, withClientSpan, type SpanOptions } from "./withSpan.js";
+export { ATTR } from "./attributes.js";
 import { logger } from "../utils/logger.js";
 
 /**

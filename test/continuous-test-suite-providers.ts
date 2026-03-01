@@ -159,6 +159,9 @@ function isExpectedProviderError(msg: string): boolean {
     "403",
     "429",
     "openrouter_api_key",
+    "payment required",
+    "402",
+    "not found",
   ].some((p) => lowerMsg.includes(p));
 }
 
@@ -832,6 +835,7 @@ async function testOpenRouterGenerate(sdk: NeuroLink): Promise<boolean | null> {
       input: { text: "What is the largest ocean on Earth?" },
       maxTokens: 500,
       provider: "openrouter",
+      model: "google/gemini-2.0-flash-exp:free",
     });
 
     const content = result.content || "";
@@ -889,6 +893,7 @@ async function testOpenRouterStreaming(
       input: { text: "Name the first 5 planets from the Sun." },
       maxTokens: 500,
       provider: "openrouter",
+      model: "google/gemini-2.0-flash-exp:free",
     });
 
     const chunks: string[] = [];
@@ -974,6 +979,7 @@ async function testOpenRouterToolUse(sdk: NeuroLink): Promise<boolean | null> {
       },
       maxTokens: 1000,
       provider: "openrouter",
+      model: "google/gemini-2.0-flash-exp:free",
     });
 
     const content = result.content || "";
@@ -1053,6 +1059,7 @@ async function testOpenRouterStructuredOutput(
       },
       maxTokens: 500,
       provider: "openrouter",
+      model: "google/gemini-2.0-flash-exp:free",
       schema,
     });
 

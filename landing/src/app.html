@@ -8,24 +8,25 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/favicon-32x32.png"
+      media="(prefers-color-scheme: light)"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/favicon-32x32.png"
+      media="(prefers-color-scheme: dark)"
+    />
+    <link rel="manifest" href="/site.webmanifest" />
 
-    <!-- Open Graph -->
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://neurolink.ink/" />
-    <meta property="og:title" content="NeuroLink - The Enterprise AI SDK" />
-    <meta
-      property="og:description"
-      content="Universal AI integration platform unifying 13 providers and 100+ models under one consistent API. Battle-tested at enterprise scale."
-    />
-    <meta
-      property="og:image"
-      content="https://neurolink.ink/img/og-default.png"
-    />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta
-      name="twitter:image"
-      content="https://neurolink.ink/img/og-default.png"
-    />
+    <!-- OG/Twitter tags managed in +layout.svelte via svelte:head -->
+    <meta name="theme-color" content="#016fb9" />
+    <meta name="robots" content="index, follow" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -41,6 +42,16 @@
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/hack-font@3/build/web/hack.css"
+    />
+
+    <!-- Resource hints -->
+    <link rel="dns-prefetch" href="https://docs.neurolink.ink" />
+    <link rel="preconnect" href="https://docs.neurolink.ink" />
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+    <link
+      rel="preconnect"
+      href="https://cdn.jsdelivr.net"
+      crossorigin="anonymous"
     />
 
     <!-- Google Analytics + Meta Pixel (consent-gated) -->
@@ -93,7 +104,7 @@
       })();
     </script>
 
-    <title>NeuroLink - The Enterprise AI SDK</title>
+    <title>NeuroLink — The Complete TypeScript AI SDK</title>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover" class="antialiased">

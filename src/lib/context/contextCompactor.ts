@@ -17,6 +17,7 @@ import type {
   CompactionResult,
   CompactionConfig,
 } from "../types/contextTypes.js";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
 import { estimateMessagesTokens } from "../utils/tokenEstimation.js";
 import { logger } from "../utils/logger.js";
 import { pruneToolOutputs } from "./stages/toolOutputPruner.js";
@@ -168,15 +169,40 @@ export class ContextCompactor {
           tokensAfter: stageTokensAfter,
           saved: stageTokensBefore - stageTokensAfter,
         });
-      } catch {
-        logger.info("[Compaction] Stage 3 (summarize)", {
+      } catch (error) {
+        // Capture the actual error for debugging
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        const errorName = error instanceof Error ? error.name : "UnknownError";
+
+        logger.warn("[Compaction] Stage 3 (summarize) FAILED", {
           requestId,
-          ran: false,
+          error: errorMessage,
+          errorName,
           tokensBefore: stageTokensBefore,
           tokensAfter: stageTokensBefore,
           saved: 0,
         });
-        // Summarization failed, fall through to truncation
+
+        // Record on OTel span for trace visibility
+        const activeSpan = trace.getActiveSpan();
+        if (activeSpan) {
+          activeSpan.addEvent("compaction.stage3.failed", {
+            "error.message": errorMessage,
+            "error.name": errorName,
+            "stage.tokens_before": stageTokensBefore,
+          });
+          if (error instanceof Error) {
+            activeSpan.recordException(error);
+          }
+          // NLK-GAP-005 fix: set error status alongside recordException
+          activeSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: `Compaction stage 3 (summarize) failed: ${errorMessage}`,
+          });
+        }
+
+        // Fall through to Stage 4 truncation as before
       }
     }
 
@@ -191,6 +217,11 @@ export class ContextCompactor {
       );
       const truncResult = truncateWithSlidingWindow(currentMessages, {
         fraction: this.config.truncationFraction,
+        currentTokens: stageTokensBefore,
+        targetTokens: targetTokens,
+        provider: provider,
+        adaptiveBuffer: 0.15,
+        maxIterations: 3,
       });
       if (truncResult.truncated) {
         currentMessages = truncResult.messages;

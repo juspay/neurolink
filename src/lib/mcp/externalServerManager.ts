@@ -34,6 +34,9 @@ import type { JsonValue, JsonObject, UnknownRecord } from "../types/common.js";
 import { detectCategory } from "../utils/mcpDefaults.js";
 import type { ServerLoadResult } from "../types/typeAliases.js";
 import { isObject, isNonNullObject } from "../utils/typeUtils.js";
+import { TelemetryService } from "../telemetry/telemetryService.js";
+import { tracers } from "../telemetry/tracers.js";
+import { SpanStatusCode } from "@opentelemetry/api";
 
 /**
  * Recursively substitute environment variables in strings
@@ -974,6 +977,17 @@ export class ExternalServerManager extends EventEmitter {
 
     const config = instance.config;
 
+    const span = tracers.mcp.startSpan("neurolink.mcp.server.start", {
+      attributes: {
+        "mcp.server_id": serverId,
+        "mcp.transport": config.transport,
+        "mcp.command_name": config.command
+          ? config.command.split(/[\\/]/).pop() || ""
+          : "",
+        "mcp.command_present": Boolean(config.command),
+      },
+    });
+
     try {
       this.updateServerStatus(serverId, "connecting");
 
@@ -1062,6 +1076,9 @@ export class ExternalServerManager extends EventEmitter {
         timestamp: new Date(),
       } satisfies ExternalMCPServerEvents["connected"]);
 
+      span.setAttribute("mcp.tool_count", instance.toolsMap.size);
+      span.setStatus({ code: SpanStatusCode.OK });
+
       mcpLogger.info(
         `[ExternalServerManager] Server started successfully: ${serverId}`,
       );
@@ -1073,7 +1090,18 @@ export class ExternalServerManager extends EventEmitter {
       this.updateServerStatus(serverId, "failed");
       instance.lastError =
         error instanceof Error ? error.message : String(error);
+
+      span.recordException(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error instanceof Error ? error.message : String(error),
+      });
+
       throw error;
+    } finally {
+      span.end();
     }
   }
 
@@ -1085,6 +1113,12 @@ export class ExternalServerManager extends EventEmitter {
     if (!instance) {
       return;
     }
+
+    const span = tracers.mcp.startSpan("neurolink.mcp.server.stop", {
+      attributes: {
+        "mcp.server_id": serverId,
+      },
+    });
 
     try {
       this.updateServerStatus(serverId, "stopping");
@@ -1129,6 +1163,8 @@ export class ExternalServerManager extends EventEmitter {
       }
       this.updateServerStatus(serverId, "stopped");
 
+      span.setStatus({ code: SpanStatusCode.OK });
+
       mcpLogger.info(`[ExternalServerManager] Server stopped: ${serverId}`);
     } catch (error) {
       mcpLogger.error(
@@ -1136,6 +1172,16 @@ export class ExternalServerManager extends EventEmitter {
         error,
       );
       this.updateServerStatus(serverId, "failed");
+
+      span.recordException(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      span.end();
     }
   }
 
@@ -1281,18 +1327,41 @@ export class ExternalServerManager extends EventEmitter {
       return;
     } // already scheduled
     instance.restartTimer = setTimeout(async () => {
+      const restartSpan = tracers.mcp.startSpan(
+        "neurolink.mcp.server.restart",
+        {
+          attributes: {
+            "mcp.server_id": serverId,
+            "mcp.restart_attempt": instance.reconnectAttempts,
+            "mcp.restart_delay_ms": delay,
+          },
+        },
+      );
+
       try {
         await this.stopServer(serverId);
         await this.startServer(serverId);
 
         // Reset restart attempts on successful restart
         instance.reconnectAttempts = 0;
+        restartSpan.setStatus({ code: SpanStatusCode.OK });
       } catch (error) {
         mcpLogger.error(
           `[ExternalServerManager] Restart failed for ${serverId}:`,
           error,
         );
+
+        restartSpan.recordException(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        restartSpan.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error instanceof Error ? error.message : String(error),
+        });
+
         this.scheduleRestart(serverId); // Try again
+      } finally {
+        restartSpan.end();
       }
     }, delay);
   }
@@ -1876,12 +1945,32 @@ export class ExternalServerManager extends EventEmitter {
             duration,
           },
         );
+        try {
+          TelemetryService.getInstance()?.recordMCPToolCall(
+            toolName,
+            duration,
+            true,
+          );
+        } catch {
+          /* telemetry should not break execution */
+        }
         return result.data;
       } else {
         throw new Error(result.error || "Tool execution failed");
       }
     } catch (error) {
       instance.metrics.totalErrors++;
+
+      try {
+        const errorDuration = Date.now() - startTime;
+        TelemetryService.getInstance()?.recordMCPToolCall(
+          toolName,
+          errorDuration,
+          false,
+        );
+      } catch {
+        /* telemetry should not break execution */
+      }
 
       mcpLogger.error(
         `[ExternalServerManager] Tool execution failed: ${toolName} on ${serverId}`,
