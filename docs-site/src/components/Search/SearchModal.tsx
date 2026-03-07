@@ -20,7 +20,7 @@ interface SearchModalProps {
   onClose: () => void;
 }
 
-const INDEX_NAME = "neurolink-docs";
+const INDEX_NAME = "neurolink_docs_v1";
 
 function useSearch() {
   const { siteConfig } = useDocusaurusContext();
@@ -37,7 +37,18 @@ function useSearch() {
 
   const localSearch = useLocalSearch();
 
-  return hasAlgolia ? algoliaSearch : localSearch;
+  // Sync query to local search when Algolia errors out
+  useEffect(() => {
+    if (algoliaSearch.error && algoliaSearch.query) {
+      localSearch.setQuery(algoliaSearch.query);
+    }
+  }, [algoliaSearch.error, algoliaSearch.query, localSearch]);
+
+  // Fall back to local search if Algolia is not configured or errors out
+  if (!hasAlgolia || algoliaSearch.error) {
+    return localSearch;
+  }
+  return algoliaSearch;
 }
 
 export function SearchModal({ isOpen, onClose }: SearchModalProps) {
