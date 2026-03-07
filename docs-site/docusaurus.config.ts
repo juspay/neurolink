@@ -387,15 +387,8 @@ const config: Config = {
       },
     ],
 
-    // Search index for MCP docs server
-    [
-      "./plugins/docusaurus-plugin-search-index",
-      {
-        docsDir: "docs",
-        outputFile: "search-index.json",
-        debug: process.env.NODE_ENV === "development",
-      },
-    ],
+    // Local search index generation (fallback when Algolia is not configured)
+    "./plugins/docusaurus-plugin-search-index",
 
     // Fix server bundle: handle Node-only native modules
     // (protobufjs from posthog→opentelemetry, ws from jsdom, fsevents, etc.)
