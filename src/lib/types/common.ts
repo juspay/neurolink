@@ -187,6 +187,17 @@ export type NeuroLinkEvents = {
   "tools-register:start": unknown;
   "tools-register:end": unknown;
 
+  // Heartbeat loop events
+  "heartbeat:tick": unknown;
+  "heartbeat:iteration": unknown;
+  "heartbeat:checkpoint": unknown;
+  "heartbeat:error": unknown;
+  "heartbeat:escalate": unknown;
+  "heartbeat:complete": unknown;
+  "heartbeat:paused": unknown;
+  "heartbeat:cancelled": unknown;
+  "heartbeat:resumed": unknown;
+
   // General events
   connected: unknown;
   message: unknown;

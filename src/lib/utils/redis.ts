@@ -387,7 +387,7 @@ export async function scanKeys(
   });
 
   const allKeys: string[] = [];
-  let cursor = "0";
+  let cursor = 0;
   let iterations = 0;
   let totalScanned = 0;
 
@@ -414,7 +414,7 @@ export async function scanKeys(
         keysInBatch: keys.length,
         totalKeysFound: allKeys.length,
       });
-    } while (cursor !== "0"); // Continue until cursor is 0
+    } while (cursor !== 0); // Continue until cursor is 0
 
     logger.info("[redisUtils] SCAN operation completed", {
       pattern,

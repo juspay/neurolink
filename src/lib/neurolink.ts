@@ -9071,6 +9071,63 @@ Current user's request: ${currentInput}`;
   getExternalServerManager(): ExternalServerManager {
     return this.externalServerManager;
   }
+
+  // ============================================
+  // Heartbeat Loop - Autonomous Agent Execution
+  // ============================================
+
+  /**
+   * Create and run an autonomous heartbeat loop that works toward a goal over multiple iterations.
+   *
+   * The heartbeat loop is a persistent autonomous agent that runs generate() calls repeatedly,
+   * uses available tools, evaluates progress toward the goal, and checkpoints state for crash recovery.
+   *
+   * @param config - Heartbeat loop configuration
+   * @returns Promise resolving to the loop result
+   *
+   * @example
+   * ```typescript
+   * const result = await neurolink.heartbeat({
+   *   goal: "Analyze all TypeScript files in src/ and identify potential improvements",
+   *   maxIterations: 50,
+   *   maxDurationMs: 30 * 60 * 1000, // 30 minutes
+   *   trigger: { type: "timer", intervalMs: 0 }, // Back-to-back iterations
+   * });
+   *
+   * console.log(result.status); // "completed" | "failed" | "paused" | "cancelled"
+   * console.log(result.iteration); // Number of iterations executed
+   * console.log(result.finalMessage); // Final output from the loop
+   * ```
+   *
+   * @example With isolated context mode (no conversation history between iterations)
+   * ```typescript
+   * const result = await neurolink.heartbeat({
+   *   goal: "Process each CSV row independently",
+   *   contextMode: { type: "isolated" },
+   *   maxIterations: 100,
+   * });
+   * ```
+   *
+   * @example With custom goal evaluator
+   * ```typescript
+   * const result = await neurolink.heartbeat({
+   *   goal: "Find the optimal solution",
+   *   goalEvaluator: new KeywordGoalEvaluator({ keywords: ["OPTIMAL_FOUND"] }),
+   *   maxIterations: 200,
+   * });
+   * ```
+   */
+  async heartbeat(
+    config: import("./agent/loopTypes.js").HeartbeatLoopConfig,
+  ): Promise<import("./agent/loopTypes.js").LoopResult> {
+    const { HeartbeatLoop } = await import("./agent/heartbeatLoop.js");
+
+    // Create the loop with this NeuroLink instance
+    const loop = new HeartbeatLoop(this, config);
+
+    // Run the loop and return the result
+    return loop.run();
+  }
 }
 
 // Create default instance

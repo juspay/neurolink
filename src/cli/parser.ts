@@ -13,6 +13,7 @@ import { ragCommand } from "./commands/rag.js";
 import { DocsCommandFactory } from "./commands/docs.js";
 import { AuthCommandFactory } from "./factories/authCommandFactory.js";
 import { WorkflowCommandFactory } from "./commands/workflow.js";
+import { HeartbeatCommandFactory } from "./commands/heartbeat.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -226,5 +227,8 @@ export function initializeCliParser() {
 
       // Workflow Commands
       .command(WorkflowCommandFactory.createWorkflowCommands())
+
+      // Heartbeat Loop Commands
+      .command(HeartbeatCommandFactory.createHeartbeatCommands())
   ); // Close the main return statement
 }
