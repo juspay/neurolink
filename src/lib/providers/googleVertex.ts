@@ -1068,17 +1068,22 @@ export class GoogleVertexProvider extends BaseProvider {
       options.model || this.modelName || getDefaultVertexModel(),
     );
 
+    // Structured output (analysisSchema, JSON format, or schema) is incompatible with tools on Gemini.
+    // Compute once and reuse in both the native Gemini 3 gate and the streamText fallback path.
+    const wantsStructuredOutput =
+      analysisSchema || options.output?.format === "json" || options.schema;
+
     // Check for tools from options AND from SDK (MCP tools)
     // Need to check early if we should route to native SDK
     const gemini3CheckShouldUseTools =
-      !options.disableTools && this.supportsTools();
+      !options.disableTools && this.supportsTools() && !wantsStructuredOutput;
     const optionTools = options.tools || {};
     const sdkTools = gemini3CheckShouldUseTools ? await this.getAllTools() : {};
     const combinedToolCount =
       Object.keys(optionTools).length + Object.keys(sdkTools).length;
     const hasTools = gemini3CheckShouldUseTools && combinedToolCount > 0;
 
-    if (isGemini3Model(gemini3CheckModelName) && hasTools && !analysisSchema) {
+    if (isGemini3Model(gemini3CheckModelName) && hasTools) {
       // Process CSV files before routing to native SDK (bypasses normal message builder)
       const processedOptions = await this.processCSVFilesForNativeSDK(options);
 
@@ -1087,19 +1092,6 @@ export class GoogleVertexProvider extends BaseProvider {
         ...processedOptions,
         tools: { ...sdkTools, ...optionTools },
       };
-      // Gemini cannot use tools and JSON schema simultaneously
-      const wantsStructuredOutput =
-        analysisSchema ||
-        processedOptions.output?.format === "json" ||
-        processedOptions.schema;
-      if (wantsStructuredOutput) {
-        mergedOptions.tools = {};
-        (mergedOptions as Record<string, unknown>).toolChoice = undefined;
-        (mergedOptions as Record<string, unknown>).maxSteps = undefined;
-        logger.warn(
-          "[GoogleVertex] Structured output active — disabling tools for Gemini 3 (Gemini limitation).",
-        );
-      }
 
       logger.info(
         "[GoogleVertex] Routing Gemini 3 to native SDK for tool calling",
@@ -1144,17 +1136,31 @@ export class GoogleVertexProvider extends BaseProvider {
         : {};
       // Only sanitize for Gemini models (not Anthropic/Claude models routed through Vertex)
       const isAnthropic = isAnthropicModel(gemini3CheckModelName);
-      const tools =
-        Object.keys(rawTools).length > 0 && !isAnthropic
-          ? sanitizeToolsForGemini(rawTools)
-          : rawTools;
+      let tools: Record<string, Tool> | undefined;
+      if (Object.keys(rawTools).length > 0 && !isAnthropic) {
+        const sanitized = sanitizeToolsForGemini(rawTools);
+        if (sanitized.dropped.length > 0) {
+          logger.warn(
+            `[GoogleVertex] Dropped ${sanitized.dropped.length} incompatible tool(s): ${sanitized.dropped.join(", ")}`,
+          );
+        }
+        tools =
+          Object.keys(sanitized.tools).length > 0
+            ? sanitized.tools
+            : undefined;
+      } else if (isAnthropic && Object.keys(rawTools).length > 0) {
+        // Anthropic models don't need Gemini sanitization — pass tools through
+        tools = rawTools;
+      } else {
+        tools = undefined;
+      }
 
       logger.debug(`${functionTag}: Tools for streaming`, {
         shouldUseTools,
         baseToolCount: Object.keys(baseStreamTools).length,
         externalToolCount: Object.keys(options.tools || {}).length,
-        toolCount: Object.keys(tools).length,
-        toolNames: Object.keys(tools),
+        toolCount: Object.keys(tools ?? {}).length,
+        toolNames: Object.keys(tools ?? {}),
       });
 
       // Model-specific maxTokens handling
@@ -1177,6 +1183,7 @@ export class GoogleVertexProvider extends BaseProvider {
         ...(maxTokens && { maxTokens }),
         maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
         ...(shouldUseTools &&
+          tools &&
           Object.keys(tools).length > 0 && {
             tools,
             toolChoice: "auto",

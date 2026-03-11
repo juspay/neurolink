@@ -4,6 +4,9 @@
 
   let sectionEl: HTMLElement;
   let observer: IntersectionObserver;
+  let isMobile = $state(false);
+  let expandedStream = $state(-1);
+  let resizeTimer: ReturnType<typeof setTimeout>;
 
   onMount(() => {
     observer = new IntersectionObserver(
@@ -13,10 +16,26 @@
       { threshold: 0.4 },
     );
     observer.observe(sectionEl);
+
+    isMobile = window.innerWidth < 768;
+
+    const handleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        isMobile = window.innerWidth < 768;
+      }, 150);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
   });
 
   onDestroy(() => {
     observer?.disconnect();
+    clearTimeout(resizeTimer);
   });
 
   const STREAMS = [
@@ -125,29 +144,75 @@
       Thirteen sources.<br />One stream.
     </h2>
     <p class="body-text max-w-lg mt-5">
-      Every type of AI intelligence flows through the same stream layer. Pick your
-      sources. Shape the signal. Deliver to any organ.
+      Every type of AI intelligence flows through the same stream layer. Pick
+      your sources. Shape the signal. Deliver to any organ.
     </p>
   </div>
 
-  <!-- 6 stream marquee rows -->
-  <div>
-    {#each STREAMS as stream, i}
-      <div class="stream-row">
-        <span class="stream-label">{stream.label}</span>
-        <div
-          class="stream-track"
-          style="--dir: {i % 2 === 0 ? 'normal' : 'reverse'}"
+  {#if isMobile}
+    <!-- Mobile: accordion layout -->
+    <div class="stream-accordion">
+      {#each STREAMS as stream, i}
+        <button
+          class="stream-accordion-row"
+          class:stream-accordion-row--open={expandedStream === i}
+          onclick={() => (expandedStream = expandedStream === i ? -1 : i)}
+          type="button"
+          aria-expanded={expandedStream === i}
         >
-          <div class="stream-inner">
-            {#each [...stream.items, ...stream.items] as item}
-              <span class="stream-item">{item}</span>
-            {/each}
+          <div class="stream-accordion-header">
+            <span class="stream-accordion-label">{stream.label}</span>
+            <span class="stream-accordion-count"
+              >{stream.items.filter((x) => x !== "···").length}</span
+            >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="shrink-0 text-[var(--color-nl-sky)] transition-transform duration-300"
+              class:rotate-180={expandedStream === i}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </div>
+        </button>
+        {#if expandedStream === i}
+          <div class="stream-accordion-body">
+            <div class="stream-chips">
+              {#each stream.items.filter((x) => x !== "···") as item}
+                <span class="stream-chip">{item}</span>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      {/each}
+    </div>
+  {:else}
+    <!-- Desktop: 6 stream marquee rows -->
+    <div>
+      {#each STREAMS as stream, i}
+        <div class="stream-row">
+          <span class="stream-label">{stream.label}</span>
+          <div
+            class="stream-track"
+            style="--dir: {i % 2 === 0 ? 'normal' : 'reverse'}"
+          >
+            <div class="stream-inner">
+              {#each [...stream.items, ...stream.items] as item}
+                <span class="stream-item">{item}</span>
+              {/each}
+            </div>
           </div>
         </div>
-      </div>
-    {/each}
-  </div>
+      {/each}
+    </div>
+  {/if}
 </section>
 
 <style>
@@ -215,6 +280,74 @@
     font-weight: 400;
     color: var(--color-text-body);
     letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* Mobile accordion styles */
+  .stream-accordion {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+
+  .stream-accordion-row {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-top: 1px solid rgba(0, 240, 255, 0.1);
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .stream-accordion-row:last-of-type {
+    border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+  }
+
+  .stream-accordion-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 0;
+  }
+
+  .stream-accordion-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--color-nl-accent-lighter);
+    text-transform: uppercase;
+    flex: 1;
+  }
+
+  .stream-accordion-count {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.65rem;
+    color: var(--color-text-dim);
+    background: rgba(0, 240, 255, 0.08);
+    padding: 2px 8px;
+    border-radius: 9999px;
+    letter-spacing: 0.05em;
+  }
+
+  .stream-accordion-body {
+    padding: 0 0 1rem;
+  }
+
+  .stream-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .stream-chip {
+    font-size: 0.8rem;
+    color: var(--color-text-body);
+    background: rgba(0, 240, 255, 0.06);
+    border: 1px solid rgba(0, 240, 255, 0.12);
+    padding: 0.375rem 0.75rem;
+    border-radius: 9999px;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
   }
 </style>

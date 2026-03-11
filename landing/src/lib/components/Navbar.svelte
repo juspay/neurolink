@@ -214,17 +214,19 @@
   <!-- Panel -->
   <div
     id="mobile-nav-panel"
-    class="absolute top-16 left-0 right-0 bg-ds-surface-1 border-b border-ds-border p-4 flex flex-col gap-1 max-h-[calc(100dvh-4rem)] overflow-y-auto transition-all duration-200"
+    class="absolute top-16 left-0 right-0 bg-[rgba(10,12,18,0.97)] border-b border-ds-border p-4 flex flex-col gap-0 max-h-[calc(100dvh-4rem)] overflow-y-auto transition-all duration-200 pb-[calc(1rem+env(safe-area-inset-bottom))]"
     class:translate-y-0={mobileOpen}
     class:-translate-y-2={!mobileOpen}
   >
-    {#each navLinks as link}
+    {#each navLinks as link, i}
       <a
         href={link.href}
         target="_blank"
         rel="noopener noreferrer"
         onclick={closeMobile}
-        class="px-4 py-3 text-sm text-ds-text-tertiary hover:text-ds-text-primary hover:bg-ds-surface-3 rounded-ds-md transition-colors duration-200"
+        class="px-4 py-3.5 text-base min-h-[48px] flex items-center text-ds-text-tertiary hover:text-ds-text-primary hover:bg-ds-surface-3 rounded-ds-md transition-colors duration-200"
+        class:border-b={i < navLinks.length - 1}
+        class:border-[rgba(255,255,255,0.03)]={i < navLinks.length - 1}
       >
         {link.label}
       </a>
@@ -236,7 +238,7 @@
         target="_blank"
         rel="noopener noreferrer"
         onclick={closeMobile}
-        class="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-white bg-nl-accent hover:bg-nl-accent-dark rounded-ds-full transition-colors duration-200"
+        class="flex items-center justify-center gap-2 w-full px-4 py-3 min-h-[48px] text-sm font-medium text-white bg-nl-accent hover:bg-nl-accent-dark rounded-ds-full transition-colors duration-200"
       >
         Get Started
         <svg

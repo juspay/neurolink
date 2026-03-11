@@ -144,12 +144,27 @@
     flex-shrink: 0;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: 639px) {
     .stats-row {
-      gap: 0.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem 1rem;
+      justify-items: center;
     }
     .stat-divider {
       display: none;
+    }
+    .stat-item {
+      min-width: unset;
+    }
+    .stat-label {
+      font-size: 0.5625rem;
+      letter-spacing: 0.15em;
+    }
+    .stat-item:nth-child(1 of .stat-item),
+    .stat-item:nth-child(2 of .stat-item) {
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid rgba(0, 210, 255, 0.08);
     }
   }
 </style>

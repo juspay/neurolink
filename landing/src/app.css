@@ -588,3 +588,137 @@ pre,
 .neural-pulse {
   animation: neural-pulse 3s ease-in-out infinite;
 }
+
+/* ===========================================
+   MOBILE OVERRIDES
+   =========================================== */
+
+/* --- Section overlay opacity: let NeuralTopology canvas bleed through --- */
+@media (max-width: 767px) {
+  .section-hero {
+    background: rgba(9, 12, 18, 0.15);
+  }
+
+  .section-streams {
+    background: linear-gradient(
+      180deg,
+      rgba(9, 12, 18, 0.3),
+      rgba(9, 12, 18, 0.25) 45%,
+      rgba(9, 12, 18, 0.2)
+    );
+  }
+
+  .section-flow {
+    background: linear-gradient(
+      180deg,
+      rgba(9, 12, 18, 0.3),
+      rgba(9, 12, 18, 0.25)
+    );
+  }
+
+  .section-connectors {
+    background: linear-gradient(
+      180deg,
+      rgba(40, 36, 32, 0.35),
+      rgba(38, 38, 35, 0.3)
+    );
+  }
+
+  .section-ecosystem,
+  .section-observe {
+    background: linear-gradient(
+      180deg,
+      rgba(9, 12, 18, 0.3),
+      rgba(9, 12, 18, 0.25),
+      rgba(9, 12, 18, 0.2)
+    );
+  }
+
+  .section-cta {
+    background: rgba(9, 12, 18, 0.2);
+  }
+}
+
+/* --- Mobile typography helpers --- */
+@media (max-width: 767px) {
+  .hero-headline {
+    font-size: clamp(2.5rem, 10vw, 3.5rem);
+  }
+
+  .headline-section,
+  .section-headline {
+    font-size: clamp(1.5rem, 7vw, 2.5rem);
+  }
+
+  .body-text {
+    font-size: 0.9375rem;
+  }
+}
+
+/* --- Mobile code block styling --- */
+@media (max-width: 767px) {
+  pre,
+  code {
+    font-size: 0.7rem !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* --- Mobile glass panel adjustments --- */
+@media (max-width: 767px) {
+  .glass-panel {
+    border-radius: var(--radius-ds-lg);
+  }
+}
+
+/* --- Mobile utility classes --- */
+
+/* Mobile bottom sheet overlay */
+.mobile-bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 60vh;
+  z-index: 50;
+  background: rgba(10, 12, 18, 0.98);
+  border-top: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 20px 20px 0 0;
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-bottom-sheet--open {
+  transform: translateY(0);
+}
+
+.mobile-bottom-sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  margin: 12px auto 8px;
+}
+
+/* Mobile scroll snap container */
+.mobile-snap-scroll {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 1rem;
+  padding: 0 1rem;
+}
+
+.mobile-snap-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-snap-item {
+  scroll-snap-align: center;
+  flex-shrink: 0;
+}

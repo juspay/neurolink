@@ -39,26 +39,28 @@
     use:reveal={{ y: 40 }}
   >
     <div
-      class="glass-panel text-center max-w-[800px] mx-auto p-6 md:p-12 drop-shadow-2xl"
+      class="glass-panel text-center max-w-[800px] mx-auto px-5 py-8 md:p-12 drop-shadow-2xl"
     >
       <h2
-        class="headline-section font-display text-transparent bg-clip-text bg-gradient-to-r from-white to-[var(--color-signal)] mb-6"
+        class="headline-section font-display text-transparent bg-clip-text bg-gradient-to-r from-white to-[var(--color-signal)] mb-4 sm:mb-6"
       >
         Ready to build the nervous system?
       </h2>
       <p
-        class="text-[var(--color-text-body)] text-lg leading-relaxed max-w-lg mx-auto mb-10"
+        class="text-[var(--color-text-body)] text-lg leading-relaxed max-w-lg mx-auto mb-6 sm:mb-10"
       >
         Stop juggling SDKs. Start building with a single, production-ready
         vascular layer that perfectly routes all streams and tool calls.
       </p>
 
-      <div class="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 sm:gap-6">
+      <div
+        class="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 sm:gap-6"
+      >
         <a
           href="https://docs.neurolink.ink/docs/getting-started"
           target="_blank"
           rel="noopener noreferrer"
-          class="btn-signal inline-flex items-center gap-2 px-8 py-4 text-sm font-semibold tracking-wide rounded-full text-white"
+          class="btn-signal inline-flex items-center justify-center gap-2 px-8 py-4 text-sm font-semibold tracking-wide rounded-full text-white w-full sm:w-auto"
         >
           Get Started
           <svg
@@ -80,7 +82,7 @@
           href="https://github.com/juspay/neurolink"
           target="_blank"
           rel="noopener noreferrer"
-          class="inline-flex items-center gap-2 px-8 py-4 text-sm font-medium text-[var(--color-text-dim)] border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:text-white rounded-full transition-all duration-300"
+          class="inline-flex items-center justify-center gap-2 px-8 py-4 text-sm font-medium text-[var(--color-text-dim)] border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:text-white rounded-full transition-all duration-300 w-full sm:w-auto"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

@@ -188,10 +188,12 @@ export function sanitizeSchemaForGemini(
  * This function pre-converts each tool's Zod parameters to sanitized JSON Schema
  * and re-wraps with the Vercel AI SDK's jsonSchema() helper.
  */
-export function sanitizeToolsForGemini(
-  tools: Record<string, Tool>,
-): Record<string, Tool> {
+export function sanitizeToolsForGemini(tools: Record<string, Tool>): {
+  tools: Record<string, Tool>;
+  dropped: string[];
+} {
   const sanitized: Record<string, Tool> = {};
+  const dropped: string[] = [];
 
   for (const [name, tool] of Object.entries(tools)) {
     try {
@@ -244,11 +246,12 @@ export function sanitizeToolsForGemini(
         `[Gemini] Failed to sanitize tool "${name}", skipping: ${error instanceof Error ? error.message : String(error)}`,
       );
       // Don't fall back to the original tool — an incompatible schema would fail the Gemini request
+      dropped.push(name);
       continue;
     }
   }
 
-  return sanitized;
+  return { tools: sanitized, dropped };
 }
 
 /**

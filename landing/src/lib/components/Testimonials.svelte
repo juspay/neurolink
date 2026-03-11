@@ -27,74 +27,77 @@
 </script>
 
 <div class="section-ecosystem">
-<section
-  data-topology-phase="ecosystem"
-  class="max-w-[1200px] mx-auto px-4 md:px-6 py-24 md:py-32"
->
-  <div use:reveal={{ y: 40 }} class="text-center mb-8 md:mb-14">
-    <p class="eyebrow text-ds-text-muted mb-4">From the team</p>
-    <h2 class="section-headline text-ds-text-primary">
-      Built by engineers, for engineers
-    </h2>
-    <p class="mt-4 text-lg text-ds-text-tertiary max-w-2xl mx-auto">
-      NeuroLink powers AI workloads at Juspay. Here's what the teams building
-      with it have to say.
-    </p>
-  </div>
-
-  <div
-    class="grid grid-cols-1 md:grid-cols-3 gap-4"
-    use:reveal={{ y: 40, stagger: 0.12 }}
+  <section
+    data-topology-phase="ecosystem"
+    class="max-w-[1200px] mx-auto px-4 md:px-6 py-24 md:py-32"
   >
-    {#each testimonials as t, i}
-      <div
-        class="testimonial-card flex flex-col"
-        style="--card-accent: {i === 2
-          ? 'var(--color-nl-paprika)'
-          : 'var(--color-nl-sky)'}"
-      >
-        <div class="testimonial-link" aria-hidden="true"></div>
-        <div class="testimonial-node" aria-hidden="true"></div>
-        <!-- Quote -->
-        <blockquote class="flex-1">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            class="text-nl-accent/30 mb-3 shrink-0"
-          >
-            <path
-              d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
-            />
-          </svg>
-          <p class="text-sm text-ds-text-secondary leading-relaxed">
-            {t.quote}
-          </p>
-        </blockquote>
+    <div use:reveal={{ y: 40 }} class="text-center mb-8 md:mb-14">
+      <p class="eyebrow text-ds-text-muted mb-4">From the team</p>
+      <h2 class="section-headline text-ds-text-primary">
+        Built by engineers, for engineers
+      </h2>
+      <p class="mt-4 text-lg text-ds-text-tertiary max-w-2xl mx-auto">
+        NeuroLink powers AI workloads at Juspay. Here's what the teams building
+        with it have to say.
+      </p>
+    </div>
 
-        <!-- Attribution -->
+    <div class="testimonials-container" use:reveal={{ y: 40, stagger: 0.12 }}>
+      {#each testimonials as t, i}
         <div
-          class="mt-5 pt-4 border-t border-ds-border-subtle flex items-center gap-3"
+          class="testimonial-card flex flex-col"
+          style="--card-accent: {i === 2
+            ? 'var(--color-nl-paprika)'
+            : 'var(--color-nl-sky)'}"
         >
+          <div class="testimonial-link" aria-hidden="true"></div>
+          <div class="testimonial-node" aria-hidden="true"></div>
+          <!-- Quote -->
+          <blockquote class="flex-1">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              class="text-nl-accent/30 mb-3 shrink-0"
+            >
+              <path
+                d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
+              />
+            </svg>
+            <p class="text-sm text-ds-text-secondary leading-[1.7]">
+              {t.quote}
+            </p>
+          </blockquote>
+
+          <!-- Attribution -->
           <div
-            class="w-9 h-9 rounded-full bg-nl-accent/15 flex items-center justify-center text-xs font-bold text-nl-accent"
+            class="mt-5 pt-4 border-t border-ds-border-subtle flex items-center gap-3"
           >
-            {t.initials}
-          </div>
-          <div>
-            <p class="text-sm font-medium text-ds-text-primary">{t.name}</p>
-            <p class="text-xs text-ds-text-muted">{t.role}</p>
+            <div
+              class="w-9 h-9 rounded-full bg-nl-accent/15 flex items-center justify-center text-xs font-bold text-nl-accent"
+            >
+              {t.initials}
+            </div>
+            <div>
+              <p class="text-sm font-medium text-ds-text-primary">{t.name}</p>
+              <p class="text-xs text-ds-text-muted">{t.role}</p>
+            </div>
           </div>
         </div>
-      </div>
-    {/each}
-  </div>
-</section>
+      {/each}
+    </div>
+  </section>
 </div>
 
 <style>
+  .testimonials-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
   .testimonial-card {
     position: relative;
     margin-top: 1rem;
@@ -157,5 +160,51 @@
     box-shadow:
       0 0 0 4px color-mix(in srgb, var(--card-accent) 22%, transparent),
       0 0 15px color-mix(in srgb, var(--card-accent) 58%, transparent);
+  }
+
+  @media (max-width: 767px) {
+    .testimonial-link,
+    .testimonial-node {
+      display: none;
+    }
+
+    .testimonial-card {
+      margin-top: 0;
+      padding: 1rem;
+      background:
+        radial-gradient(
+          circle at 50% 0%,
+          color-mix(in srgb, var(--card-accent) 12%, transparent) 0%,
+          transparent 60%
+        ),
+        rgba(12, 14, 20, 0.92);
+    }
+
+    .testimonial-card blockquote p {
+      color: var(--color-ds-text-primary);
+      opacity: 0.88;
+    }
+
+    .testimonials-container {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      gap: 1rem;
+      padding: 0 1.5rem;
+      scroll-padding-inline: 1.5rem;
+    }
+
+    .testimonials-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    .testimonial-card {
+      scroll-snap-align: center;
+      flex-shrink: 0;
+      width: calc(100vw - 3rem);
+      max-width: 340px;
+    }
   }
 </style>

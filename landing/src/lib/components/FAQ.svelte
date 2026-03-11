@@ -15,7 +15,7 @@
     {
       question: "How does NeuroLink compare to LangChain or Vercel AI SDK?",
       answer:
-        "NeuroLink is a single TypeScript package that includes providers, RAG (9 chunking strategies, 22 vector stores), MCP integration with 58+ servers, multi-agent workflows, voice processing, and observability. LangChain requires multiple packages (LangChain + LangGraph + LangSmith) and is Python-first. Vercel AI SDK focuses on provider abstraction but lacks native RAG, agents, voice, and workflow support.",
+        "NeuroLink is a single TypeScript package that includes providers, RAG (10 chunking strategies, 22 vector stores), MCP integration with 58+ servers, multi-agent workflows, voice processing, and observability. LangChain requires multiple packages (LangChain + LangGraph + LangSmith) and is Python-first. Vercel AI SDK focuses on provider abstraction but lacks native RAG, agents, voice, and workflow support.",
     },
     {
       question: "What AI providers does NeuroLink support?",
@@ -87,58 +87,60 @@
 </script>
 
 <div class="section-ecosystem">
-<section
-  data-topology-phase="ecosystem"
-  class="max-w-[800px] mx-auto px-4 md:px-6 py-24 md:py-32 relative z-10"
->
-  <div use:reveal={{ y: 40 }} class="text-center mb-10 md:mb-16">
-    <p class="eyebrow text-[var(--color-nl-accent-lighter)] mb-4">FAQ</p>
-    <h2 class="section-headline font-display text-white drop-shadow-lg">
-      Frequently asked questions
-    </h2>
-  </div>
+  <section
+    data-topology-phase="ecosystem"
+    class="max-w-[800px] mx-auto px-4 md:px-6 py-24 md:py-32 relative z-10"
+  >
+    <div use:reveal={{ y: 40 }} class="text-center mb-10 md:mb-16">
+      <p class="eyebrow text-[var(--color-nl-accent-lighter)] mb-4">FAQ</p>
+      <h2 class="section-headline font-display text-white drop-shadow-lg">
+        Frequently asked questions
+      </h2>
+    </div>
 
-  <div class="space-y-4" use:reveal={{ y: 30, stagger: 0.06 }}>
-    {#each faqs as faq, i}
-      <div class="glass-panel overflow-hidden transition-all duration-300">
-        <button
-          onclick={() => toggle(i)}
-          class="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-[rgba(255,255,255,0.02)] transition-colors duration-150"
-          aria-expanded={openIndex === i}
-        >
-          <span class="text-[15px] font-medium text-white pr-4 leading-relaxed">
-            {faq.question}
-          </span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="shrink-0 text-[var(--color-nl-sky)] transition-transform duration-300 drop-shadow-[0_0_8px_rgba(0,240,255,0.4)]"
-            class:rotate-180={openIndex === i}
+    <div class="space-y-3 sm:space-y-4" use:reveal={{ y: 30, stagger: 0.06 }}>
+      {#each faqs as faq, i}
+        <div class="glass-panel overflow-hidden transition-all duration-300">
+          <button
+            onclick={() => toggle(i)}
+            class="w-full flex items-center justify-between px-4 py-4 sm:px-6 sm:py-5 text-left hover:bg-[rgba(255,255,255,0.02)] transition-colors duration-150"
+            aria-expanded={openIndex === i}
           >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
-
-        {#if openIndex === i}
-          <div
-            class="px-6 pb-6 pt-2 border-t border-[rgba(255,255,255,0.05)] bg-[rgba(0,0,0,0.2)]"
-          >
-            <p
-              class="text-[14.5px] text-[var(--color-text-body)] leading-relaxed mt-4"
+            <span
+              class="text-[14px] sm:text-[15px] font-medium text-white pr-4 leading-relaxed"
             >
-              {faq.answer}
-            </p>
-          </div>
-        {/if}
-      </div>
-    {/each}
-  </div>
-</section>
+              {faq.question}
+            </span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="shrink-0 text-[var(--color-nl-sky)] transition-transform duration-300 drop-shadow-[0_0_8px_rgba(0,240,255,0.4)]"
+              class:rotate-180={openIndex === i}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+
+          {#if openIndex === i}
+            <div
+              class="px-4 pb-4 pt-2 sm:px-6 sm:pb-6 border-t border-[rgba(255,255,255,0.05)] bg-[rgba(0,0,0,0.2)]"
+            >
+              <p
+                class="text-[13.5px] sm:text-[14.5px] text-[var(--color-text-body)] leading-relaxed mt-4"
+              >
+                {faq.answer}
+              </p>
+            </div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  </section>
 </div>

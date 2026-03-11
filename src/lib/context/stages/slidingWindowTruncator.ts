@@ -42,7 +42,6 @@ function validateRoleAlternation(messages: ChatMessage[]): void {
       logger.warn(
         `[SlidingWindowTruncator] Role alternation broken at index ${i}: consecutive "${messages[i].role}" messages`,
       );
-      break;
     }
   }
 }
@@ -186,13 +185,13 @@ export function truncateWithSlidingWindow(
 
     const keptAfterTruncation = remainingMessages.slice(evenRemoveCount);
 
-    // Insert a dedicated system-role truncation marker with machine-readable
-    // metadata so effectiveHistory.ts can detect it via isTruncationMarker /
+    // Insert a truncation marker with machine-readable metadata so
+    // effectiveHistory.ts can detect it via isTruncationMarker /
     // truncationId and removeTruncationTags can rewind it.
     const truncId = randomUUID();
     const marker: ChatMessage = {
       id: `truncation-marker-${truncId}`,
-      role: "system",
+      role: "user",
       content: TRUNCATION_MARKER_CONTENT,
       isTruncationMarker: true,
       truncationId: truncId,
@@ -234,11 +233,11 @@ export function truncateWithSlidingWindow(
   if (evenMaxRemove > 0) {
     const keptMessages = remainingMessages.slice(evenMaxRemove);
 
-    // Insert a dedicated system-role truncation marker (see iterative block above)
+    // Insert a truncation marker (see iterative block above)
     const fallbackTruncId = randomUUID();
     const fallbackMarker: ChatMessage = {
       id: `truncation-marker-${fallbackTruncId}`,
-      role: "system",
+      role: "user",
       content: TRUNCATION_MARKER_CONTENT,
       isTruncationMarker: true,
       truncationId: fallbackTruncId,

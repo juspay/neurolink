@@ -13,10 +13,44 @@
       { threshold: 0.4 },
     );
     observer.observe(sectionEl);
+
+    const checkMobile = () => {
+      isMobile = window.innerWidth < 768;
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+
+    return () => window.removeEventListener("resize", checkMobile);
   });
 
   onDestroy(() => {
     observer?.disconnect();
+  });
+
+  // React to isMobile changes: attach/detach the carousel scroll listener
+  $effect(() => {
+    if (!isMobile) return;
+
+    const carousel = document.querySelector(".flow-mobile-carousel");
+    if (!carousel) return;
+
+    const handleScroll = () => {
+      const cards = carousel.children;
+      const containerRect = carousel.getBoundingClientRect();
+      for (let i = 0; i < cards.length; i++) {
+        const cardRect = cards[i].getBoundingClientRect();
+        if (
+          Math.abs(cardRect.left - containerRect.left) <
+          cardRect.width / 2
+        ) {
+          activeIdx = i;
+          break;
+        }
+      }
+    };
+
+    carousel.addEventListener("scroll", handleScroll, { passive: true });
+    return () => carousel.removeEventListener("scroll", handleScroll);
   });
 
   const STAGES = [
@@ -85,6 +119,7 @@ for await (const token of link.stream({ prompt })) {
 
   let activeIdx = $state(0);
   let codeVisible = $state(true);
+  let isMobile = $state(false);
 
   function setActive(idx: number) {
     if (idx === activeIdx) return;
@@ -109,45 +144,94 @@ for await (const token of link.stream({ prompt })) {
       Six stages.<br />One continuous flow.
     </h2>
     <p class="body-text max-w-lg mb-16">
-      Every request follows the same flow. Hover a stage to see how it works.
+      Every request follows the same flow. {isMobile
+        ? "Swipe to explore each stage."
+        : "Hover a stage to see how it works."}
     </p>
 
-    <!-- Main layout: flow left, code right -->
-    <div class="flow-layout">
-      <!-- Left: flow diagram -->
-      <div class="flow-diagram">
-        <!-- Single continuous connector line spanning all stages -->
-        <div class="flow-line" aria-hidden="true">
-          <div class="flow-signal-dot"></div>
-        </div>
-
+    <!-- Main layout -->
+    {#if isMobile}
+      <!-- Mobile: swipeable cards -->
+      <div class="flow-mobile-carousel">
         {#each STAGES as stage, i}
-          <button
-            class="flow-stage"
-            class:flow-stage--active={activeIdx === i}
-            onclick={() => setActive(i)}
-            type="button"
+          <div
+            class="flow-mobile-card"
+            class:flow-mobile-card--active={activeIdx === i}
           >
-            <div class="flow-stage-inner">
+            <div class="flow-mobile-card-header">
               <div
-                class="flow-node"
-                class:flow-node--active={activeIdx === i}
+                class="flow-mobile-dot"
+                class:flow-mobile-dot--active={activeIdx === i}
               ></div>
-              <div class="flow-stage-text">
+              <div>
                 <span class="flow-stage-label">{stage.label}</span>
                 <span class="flow-stage-tag">{stage.tag}</span>
               </div>
             </div>
-          </button>
+            <p class="flow-mobile-desc">{stage.desc}</p>
+            <pre class="flow-mobile-code"><code>{stage.code}</code></pre>
+            <div class="flow-mobile-pager">
+              {#each STAGES as _, j}
+                <button
+                  class="flow-mobile-pager-dot"
+                  class:flow-mobile-pager-dot--active={j === i}
+                  onclick={() => {
+                    const container = document.querySelector(
+                      ".flow-mobile-carousel",
+                    );
+                    const card = container?.children[j] as HTMLElement;
+                    card?.scrollIntoView({
+                      behavior: "smooth",
+                      inline: "center",
+                      block: "nearest",
+                    });
+                  }}
+                  type="button"
+                  aria-label="Go to stage {j + 1}"
+                ></button>
+              {/each}
+            </div>
+          </div>
         {/each}
       </div>
+    {:else}
+      <!-- Desktop: existing layout -->
+      <div class="flow-layout">
+        <!-- Left: flow diagram -->
+        <div class="flow-diagram">
+          <!-- Single continuous connector line spanning all stages -->
+          <div class="flow-line" aria-hidden="true">
+            <div class="flow-signal-dot"></div>
+          </div>
 
-      <!-- Right: code + description panel -->
-      <div class="flow-panel" class:flow-panel--visible={codeVisible}>
-        <p class="flow-desc">{STAGES[activeIdx].desc}</p>
-        <pre class="flow-code"><code>{STAGES[activeIdx].code}</code></pre>
+          {#each STAGES as stage, i}
+            <button
+              class="flow-stage"
+              class:flow-stage--active={activeIdx === i}
+              onclick={() => setActive(i)}
+              type="button"
+            >
+              <div class="flow-stage-inner">
+                <div
+                  class="flow-node"
+                  class:flow-node--active={activeIdx === i}
+                ></div>
+                <div class="flow-stage-text">
+                  <span class="flow-stage-label">{stage.label}</span>
+                  <span class="flow-stage-tag">{stage.tag}</span>
+                </div>
+              </div>
+            </button>
+          {/each}
+        </div>
+
+        <!-- Right: code + description panel -->
+        <div class="flow-panel" class:flow-panel--visible={codeVisible}>
+          <p class="flow-desc">{STAGES[activeIdx].desc}</p>
+          <pre class="flow-code"><code>{STAGES[activeIdx].code}</code></pre>
+        </div>
       </div>
-    </div>
+    {/if}
   </div>
 </section>
 
@@ -156,13 +240,6 @@ for await (const token of link.stream({ prompt })) {
     display: flex;
     gap: 4rem;
     align-items: flex-start;
-  }
-
-  @media (max-width: 767px) {
-    .flow-layout {
-      flex-direction: column;
-      gap: 2rem;
-    }
   }
 
   /* --- Flow diagram --- */
@@ -320,5 +397,104 @@ for await (const token of link.stream({ prompt })) {
     text-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
     overflow-x: auto;
     white-space: pre;
+  }
+
+  /* --- Mobile carousel --- */
+  .flow-mobile-carousel {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 1rem;
+    padding: 0 1rem;
+  }
+
+  .flow-mobile-carousel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .flow-mobile-card {
+    scroll-snap-align: center;
+    flex-shrink: 0;
+    width: calc(100vw - 4rem);
+    max-width: 340px;
+    background: var(--color-ds-surface-1);
+    border: 1px solid var(--color-ds-border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    transition: border-color 0.2s;
+  }
+
+  .flow-mobile-card--active {
+    border-color: rgba(0, 240, 255, 0.3);
+  }
+
+  .flow-mobile-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .flow-mobile-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 240, 255, 0.4);
+    background: rgba(0, 5, 15, 0.8);
+    flex-shrink: 0;
+  }
+
+  .flow-mobile-dot--active {
+    border-color: var(--color-nl-sky);
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.5);
+    background: rgba(0, 240, 255, 0.2);
+  }
+
+  .flow-mobile-desc {
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--color-text-body);
+    margin-bottom: 1rem;
+  }
+
+  .flow-mobile-code {
+    background: rgba(3, 5, 10, 0.8);
+    border-left: 2px solid var(--color-nl-sky);
+    border-radius: 0 10px 10px 0;
+    padding: 1rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    line-height: 1.5;
+    color: var(--color-text-code);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow-x: hidden;
+  }
+
+  .flow-mobile-pager {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .flow-mobile-pager-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    padding: 21px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .flow-mobile-pager-dot--active {
+    background: var(--color-nl-sky);
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
   }
 </style>

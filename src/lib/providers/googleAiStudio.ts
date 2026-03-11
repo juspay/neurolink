@@ -623,10 +623,21 @@ export class GoogleAIStudioProvider extends BaseProvider {
         ? { ...baseTools, ...(options.tools || {}) }
         : {};
       // Sanitize tool schemas for Gemini proto compatibility (converts anyOf/oneOf unions to string)
-      const tools =
-        Object.keys(rawTools).length > 0
-          ? sanitizeToolsForGemini(rawTools)
-          : rawTools;
+      let tools: Record<string, Tool> | undefined;
+      if (Object.keys(rawTools).length > 0) {
+        const sanitized = sanitizeToolsForGemini(rawTools);
+        if (sanitized.dropped.length > 0) {
+          logger.warn(
+            `[GoogleAIStudio] Dropped ${sanitized.dropped.length} incompatible tool(s): ${sanitized.dropped.join(", ")}`,
+          );
+        }
+        tools =
+          Object.keys(sanitized.tools).length > 0
+            ? sanitized.tools
+            : undefined;
+      } else {
+        tools = undefined;
+      }
 
       // Build message array from options with multimodal support
       // Using protected helper from BaseProvider to eliminate code duplication
@@ -639,7 +650,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
         maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools,
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-        toolChoice: shouldUseTools ? "auto" : "none",
+        toolChoice: shouldUseTools && tools ? "auto" : "none",
         abortSignal: composeAbortSignals(
           options.abortSignal,
           timeoutController?.controller.signal,

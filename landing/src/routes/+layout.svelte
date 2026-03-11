@@ -137,7 +137,7 @@
             name: "How does NeuroLink compare to LangChain or Vercel AI SDK?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "NeuroLink is a single TypeScript package that includes providers, RAG (9 chunking strategies, 22 vector stores), MCP integration, multi-agent workflows, voice processing, and observability. LangChain requires multiple packages and is Python-first. Vercel AI SDK focuses on provider abstraction but lacks native RAG, agents, and voice support.",
+              text: "NeuroLink is a single TypeScript package that includes providers, RAG (10 chunking strategies, 22 vector stores), MCP integration, multi-agent workflows, voice processing, and observability. LangChain requires multiple packages and is Python-first. Vercel AI SDK focuses on provider abstraction but lacks native RAG, agents, and voice support.",
             },
           },
           {

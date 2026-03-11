@@ -5,6 +5,9 @@
 
   let sectionEl: HTMLElement;
   let observer: IntersectionObserver;
+  let isMobile = $state(false);
+  let expandedCard = $state(-1);
+  let resizeHandler: (() => void) | undefined;
 
   onMount(() => {
     observer = new IntersectionObserver(
@@ -14,10 +17,18 @@
       { threshold: 0.4 },
     );
     observer.observe(sectionEl);
+
+    const checkMobile = () => {
+      isMobile = window.innerWidth < 768;
+    };
+    checkMobile();
+    resizeHandler = checkMobile;
+    window.addEventListener("resize", resizeHandler);
   });
 
   onDestroy(() => {
     observer?.disconnect();
+    if (resizeHandler) window.removeEventListener("resize", resizeHandler);
   });
 
   const CONNECTORS = [
@@ -67,11 +78,25 @@
     </p>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-      {#each CONNECTORS as c}
+      {#each CONNECTORS as c, i}
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
         <div
           use:tilt
           class="connector-card glass-panel glass-panel-hover"
+          class:connector-card--expanded={isMobile && expandedCard === i}
           style="--card-accent: {c.accentColor}"
+          onclick={() => {
+            if (isMobile) expandedCard = expandedCard === i ? -1 : i;
+          }}
+          onkeydown={(e) => {
+            if (isMobile && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              expandedCard = expandedCard === i ? -1 : i;
+            }
+          }}
+          role={isMobile ? "button" : undefined}
+          tabindex={isMobile ? 0 : -1}
+          aria-expanded={isMobile ? expandedCard === i : undefined}
         >
           <div class="connector-link" aria-hidden="true"></div>
           <div class="connector-node" aria-hidden="true"></div>
@@ -94,11 +119,13 @@
             >
               {c.name}
             </h3>
-            <p
-              class="text-[0.9rem] leading-[1.7] text-[var(--color-text-body)] mb-8"
-            >
-              {c.description}
-            </p>
+            {#if !isMobile || expandedCard === i}
+              <p
+                class="text-[0.9rem] leading-[1.7] text-[var(--color-text-body)] mb-8"
+              >
+                {c.description}
+              </p>
+            {/if}
             <p
               class="text-[11px] tracking-[0.1em] font-medium text-[var(--color-nl-sky)] uppercase"
             >
@@ -188,5 +215,20 @@
     padding: 1.25rem 1.25rem 1.5rem;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     background: rgba(0, 0, 0, 0.2);
+  }
+
+  @media (max-width: 767px) {
+    .connector-link,
+    .connector-node {
+      display: none;
+    }
+    .connector-card {
+      margin-top: 0;
+      cursor: pointer;
+    }
+    .connector-card--expanded {
+      border-color: rgba(0, 240, 255, 0.25);
+      background: var(--color-ds-surface-hover);
+    }
   }
 </style>

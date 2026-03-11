@@ -70,10 +70,10 @@
 </script>
 
 <footer
-  class="border-t border-ds-border-subtle pt-10 md:pt-12 pb-8 px-4 md:px-6"
+  class="footer border-t border-ds-border-subtle pt-8 md:pt-12 pb-6 md:pb-8 px-4 md:px-6"
 >
   <div
-    class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-8 md:gap-8 max-w-[1200px] mx-auto"
+    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-8 md:gap-8 max-w-[1200px] mx-auto"
     use:reveal={{ y: 30, stagger: 0.08 }}
   >
     {#each columns as col}
@@ -83,14 +83,14 @@
         >
           {col.heading}
         </h3>
-        <ul class="space-y-2.5">
+        <ul class="space-y-1 md:space-y-2.5">
           {#each col.links as link}
             <li>
               <a
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="footer-link inline-block text-sm text-ds-text-muted hover:text-nl-accent transition-colors duration-150 overflow-hidden"
+                class="footer-link inline-flex items-center min-h-[48px] md:min-h-0 text-sm text-ds-text-muted hover:text-nl-accent transition-colors duration-150 overflow-hidden"
               >
                 {link.label}
               </a>
@@ -110,3 +110,13 @@
     </p>
   </div>
 </footer>
+
+<style>
+  @media (max-width: 767px) {
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+      .footer {
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+      }
+    }
+  }
+</style>

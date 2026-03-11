@@ -84,6 +84,7 @@
   let mouseX = $state(-9999);
   let mouseY = $state(-9999);
   let reduced = $state(false);
+  let isMobile = false; // determined once at mount
 
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D;
@@ -306,11 +307,7 @@
 
     defaults.streams = clamp(defaults.streams, defaults.hero + 0.08, 0.4);
     defaults.flow = clamp(defaults.flow, defaults.streams + 0.08, 0.55);
-    defaults.connectors = clamp(
-      defaults.connectors,
-      defaults.flow + 0.08,
-      0.7,
-    );
+    defaults.connectors = clamp(defaults.connectors, defaults.flow + 0.08, 0.7);
     defaults.observe = clamp(
       defaults.observe,
       defaults.connectors + 0.08,
@@ -393,18 +390,10 @@
     pushRow((phaseCenters.streams + phaseCenters.flow) / 2, "flow");
 
     for (const row of FLOW_ROWS) {
-      pushRow(
-        phaseCenters.flow + row.phaseOffset,
-        "flow",
-        row.left,
-        row.right,
-      );
+      pushRow(phaseCenters.flow + row.phaseOffset, "flow", row.left, row.right);
     }
 
-    pushRow(
-      (phaseCenters.flow + phaseCenters.connectors) / 2,
-      "connectors",
-    );
+    pushRow((phaseCenters.flow + phaseCenters.connectors) / 2, "connectors");
     pushRow(
       phaseCenters.connectors - 0.02,
       "connectors",
@@ -520,13 +509,17 @@
       edges.push({ a, b, color, strength, bend });
     };
 
-    const rows = clamp(Math.round(pageHeight / 235), 24, 56);
+    const baseRows = clamp(Math.round(pageHeight / 235), 24, 56);
+    const rows = isMobile ? Math.floor(baseRows * 0.3) : baseRows;
     for (let i = 0; i < rows; i++) {
       const t = rows > 1 ? i / (rows - 1) : 0;
-      const yFrac = clamp(lerp(0.03, 0.97, t) + (rand() - 0.5) * 0.012, 0.02, 0.98);
+      const yFrac = clamp(
+        lerp(0.03, 0.97, t) + (rand() - 0.5) * 0.012,
+        0.02,
+        0.98,
+      );
 
-      const spineColor =
-        i % 6 === 0 ? C.signal : i % 2 === 0 ? C.sky : C.flow;
+      const spineColor = i % 6 === 0 ? C.signal : i % 2 === 0 ? C.sky : C.flow;
       spineIdx.push(
         addNode({
           xFrac: clamp(0.5 + (rand() - 0.5) * 0.24, 0.34, 0.66),
@@ -580,12 +573,17 @@
       }
     }
 
-    const capNodes = clamp(Math.round(W / 130), 9, 18);
+    const baseCapNodes = clamp(Math.round(W / 130), 9, 18);
+    const capNodes = isMobile ? Math.floor(baseCapNodes * 0.3) : baseCapNodes;
     for (let i = 0; i < capNodes; i++) {
       const t = capNodes > 1 ? i / (capNodes - 1) : 0;
       topIdx.push(
         addNode({
-          xFrac: clamp(lerp(0.04, 0.96, t) + (rand() - 0.5) * 0.035, 0.02, 0.98),
+          xFrac: clamp(
+            lerp(0.04, 0.96, t) + (rand() - 0.5) * 0.035,
+            0.02,
+            0.98,
+          ),
           pageFrac: clamp(0.018 + rand() * 0.07, 0.01, 0.11),
           z: -210 + rand() * 360,
           color: i % 2 === 0 ? C.signal : C.violet,
@@ -594,7 +592,11 @@
       );
       bottomIdx.push(
         addNode({
-          xFrac: clamp(lerp(0.04, 0.96, t) + (rand() - 0.5) * 0.035, 0.02, 0.98),
+          xFrac: clamp(
+            lerp(0.04, 0.96, t) + (rand() - 0.5) * 0.035,
+            0.02,
+            0.98,
+          ),
           pageFrac: clamp(0.91 + rand() * 0.07, 0.88, 0.99),
           z: -210 + rand() * 360,
           color: i % 2 === 0 ? C.amber : C.red,
@@ -610,7 +612,13 @@
       bendRange: number,
     ) => {
       for (let i = 1; i < arr.length; i++) {
-        addEdge(arr[i - 1], arr[i], color, strength, (rand() - 0.5) * bendRange);
+        addEdge(
+          arr[i - 1],
+          arr[i],
+          color,
+          strength,
+          (rand() - 0.5) * bendRange,
+        );
       }
     };
 
@@ -661,10 +669,22 @@
         addEdge(idx, s, colorA, strength, (rand() - 0.5) * bendRange);
         const pos = spineOrder.get(s) ?? -1;
         if (pos > 0 && rand() < 0.42) {
-          addEdge(idx, spineIdx[pos - 1], colorB, "cross", (rand() - 0.5) * 0.3);
+          addEdge(
+            idx,
+            spineIdx[pos - 1],
+            colorB,
+            "cross",
+            (rand() - 0.5) * 0.3,
+          );
         }
         if (pos >= 0 && pos < spineIdx.length - 1 && rand() < 0.42) {
-          addEdge(idx, spineIdx[pos + 1], colorB, "cross", (rand() - 0.5) * 0.3);
+          addEdge(
+            idx,
+            spineIdx[pos + 1],
+            colorB,
+            "cross",
+            (rand() - 0.5) * 0.3,
+          );
         }
       }
     };
@@ -679,7 +699,10 @@
       const candidates = nodes
         .map((n, j) => ({
           j,
-          d: Math.hypot((n.xFrac - src.xFrac) * 1.05, (n.pageFrac - src.pageFrac) * 2.2),
+          d: Math.hypot(
+            (n.xFrac - src.xFrac) * 1.05,
+            (n.pageFrac - src.pageFrac) * 2.2,
+          ),
         }))
         .filter(({ j, d }) => j !== i && d > 0.05 && d < 0.24)
         .sort((a, b) => a.d - b.d)
@@ -713,7 +736,13 @@
   }
 
   function resize() {
-    DPR = reduced ? 1 : Math.min(window.devicePixelRatio || 1, 1.5);
+    isMobile = window.innerWidth < 768;
+    TARGET_INTERVAL = isMobile ? 1000 / 20 : 1000 / 30;
+    DPR = reduced
+      ? 1
+      : isMobile
+        ? Math.min(window.devicePixelRatio || 1, 1.5)
+        : window.devicePixelRatio || 1;
     W = window.innerWidth;
     H = window.innerHeight;
 
@@ -731,6 +760,7 @@
   }
 
   function preGenerateDendrites() {
+    if (isMobile) return; // skip L-system pre-generation on mobile
     for (const n of neurons) {
       for (let iter = 2; iter <= 5; iter++) {
         generateNeuronDendrites({
@@ -927,15 +957,22 @@
     }
 
     const sparkTarget = reduced ? 7 : 18;
-    if (meshSparks.length < sparkTarget && visibleEdges.length > 0 && Math.random() < 0.25) {
-      const pick = visibleEdges[Math.floor(Math.random() * visibleEdges.length)];
+    if (
+      meshSparks.length < sparkTarget &&
+      visibleEdges.length > 0 &&
+      Math.random() < 0.25
+    ) {
+      const pick =
+        visibleEdges[Math.floor(Math.random() * visibleEdges.length)];
       meshSparks.push({
         edgeIdx: pick.idx,
         t: 0,
         speed: 0.006 + Math.random() * 0.012,
         length: 0.08 + Math.random() * 0.14,
         color:
-          MESH_SPARK_COLORS[Math.floor(Math.random() * MESH_SPARK_COLORS.length)],
+          MESH_SPARK_COLORS[
+            Math.floor(Math.random() * MESH_SPARK_COLORS.length)
+          ],
       });
     }
 
@@ -1439,8 +1476,98 @@
   }
 
   let lastFrameTime = 0;
-  const TARGET_INTERVAL = 1000 / 30; // cap at 30fps for performance
+  let TARGET_INTERVAL = 1000 / 30; // cap at 30fps for performance; 20fps on mobile (set in onMount)
   let isPageVisible = true;
+
+  /** Simplified mobile renderer: spinal cord line + signal dots + center glow only. */
+  function drawMobile(sy: number, time: number) {
+    // Central spinal cord gradient line
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.lineCap = "round";
+
+    const topPY = sy - 40;
+    const botPY = sy + H + 40;
+    const steps = 48;
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const py = topPY + (botPY - topPY) * t;
+      const x = spinalCordX(py);
+      const vy = py - sy;
+      if (i === 0) ctx.moveTo(x, vy);
+      else ctx.lineTo(x, vy);
+    }
+    ctx.strokeStyle = C.flow;
+    ctx.lineWidth = 2.2;
+    ctx.globalAlpha = 0.32;
+    ctx.stroke();
+
+    // Glow line (wider, lower opacity)
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const py = topPY + (botPY - topPY) * t;
+      const x = spinalCordX(py);
+      const vy = py - sy;
+      if (i === 0) ctx.moveTo(x, vy);
+      else ctx.lineTo(x, vy);
+    }
+    ctx.strokeStyle = C.flow;
+    ctx.lineWidth = 8;
+    ctx.globalAlpha = 0.06;
+    ctx.stroke();
+
+    // Signal dots traveling along the spinal cord
+    const maxMobileSigs = 4;
+    if (signals.length < maxMobileSigs && Math.random() < 0.03) {
+      spawnSpinalSig();
+    }
+
+    const speedMul = 1 + clamp(smoothedVelocity, 0, 28) * 0.004;
+    const nextSigs: Signal[] = [];
+    for (const sig of signals) {
+      if (sig.kind !== "spinal") continue;
+      sig.py += sig.direction * sig.speed * speedMul;
+      sig.distTraveled += sig.speed * speedMul;
+      if (sig.distTraveled > sig.maxDist) continue;
+      if (sig.py < 0 || sig.py > pageHeight) continue;
+
+      const vy = sig.py - sy;
+      if (vy >= -20 && vy <= H + 20) {
+        const x = spinalCordX(sig.py);
+        ctx.beginPath();
+        ctx.arc(x, vy, 3, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.globalAlpha = 0.9;
+        ctx.fill();
+
+        // Dot glow
+        ctx.beginPath();
+        ctx.arc(x, vy, 7, 0, Math.PI * 2);
+        ctx.fillStyle = sig.color;
+        ctx.globalAlpha = 0.18;
+        ctx.fill();
+      }
+      nextSigs.push(sig);
+    }
+    signals = nextSigs;
+
+    // Subtle radial glow at center
+    const cx = W / 2;
+    const cy = H / 2;
+    const glowR = Math.min(W, H) * 0.35;
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+    glow.addColorStop(0, "rgba(1, 144, 224, 0.06)");
+    glow.addColorStop(0.5, "rgba(1, 144, 224, 0.02)");
+    glow.addColorStop(1, "rgba(1, 144, 224, 0)");
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - glowR, cy - glowR, glowR * 2, glowR * 2);
+
+    ctx.restore();
+  }
 
   function render(time: number) {
     const delta = time - lastFrameTime;
@@ -1456,9 +1583,9 @@
     const heroBiasTarget = W >= 1024 && section === "hero" ? W * 0.05 : 0;
     spineBiasX = lerp(spineBiasX, heroBiasTarget, 0.08);
     const targetMouseX =
-      mouseX < -9000 ? 0 : ((mouseX / Math.max(W, 1)) - 0.5) * 2;
+      mouseX < -9000 ? 0 : (mouseX / Math.max(W, 1) - 0.5) * 2;
     const targetMouseY =
-      mouseY < -9000 ? 0 : ((mouseY / Math.max(H, 1)) - 0.5) * 2;
+      mouseY < -9000 ? 0 : (mouseY / Math.max(H, 1) - 0.5) * 2;
     mouseNX = lerp(mouseNX, targetMouseX, 0.06);
     mouseNY = lerp(mouseNY, targetMouseY, 0.06);
 
@@ -1480,6 +1607,13 @@
     ctx.globalCompositeOperation = "source-over";
     ctx.fillStyle = "rgba(4, 8, 14, 0.17)";
     ctx.fillRect(0, 0, W, H);
+
+    if (isMobile) {
+      drawMobile(scrollY, time);
+      drawLegibilityVeil();
+      raf = requestAnimationFrame(render);
+      return;
+    }
 
     drawPeripheralMesh(scrollY);
     drawGatewayClusters(scrollY);
@@ -1509,12 +1643,15 @@
   onMount(() => {
     ctx = canvas.getContext("2d")!;
     reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    isMobile = window.innerWidth < 768;
+    if (isMobile) TARGET_INTERVAL = 1000 / 20; // 20fps on mobile
     scrollY = window.scrollY;
     prevScrollY = scrollY;
 
     resize();
     window.addEventListener("resize", resize);
     onMouseMove = (e: MouseEvent) => {
+      if (isMobile) return; // skip mouse tracking on mobile
       mouseX = e.clientX;
       mouseY = e.clientY;
     };
@@ -1535,11 +1672,16 @@
 
     lastKnownHeight = pageHeight;
     if (signals.length === 0) {
-      const burst = reduced ? 3 : 8;
-      for (let i = 0; i < burst; i++) {
-        const idx = Math.floor(Math.random() * Math.max(neurons.length, 1));
-        if (neurons[idx]) {
-          spawnAxonSig(idx, Math.random() < 0.72 ? "to-cord" : "from-cord");
+      if (isMobile) {
+        // Seed a few spinal signals for the simplified mobile renderer
+        for (let i = 0; i < 3; i++) spawnSpinalSig();
+      } else {
+        const burst = reduced ? 3 : 8;
+        for (let i = 0; i < burst; i++) {
+          const idx = Math.floor(Math.random() * Math.max(neurons.length, 1));
+          if (neurons[idx]) {
+            spawnAxonSig(idx, Math.random() < 0.72 ? "to-cord" : "from-cord");
+          }
         }
       }
     }
@@ -1553,7 +1695,8 @@
       window.removeEventListener("resize", resize);
       if (onMouseMove) window.removeEventListener("mousemove", onMouseMove);
     }
-    if (onVisChange) document.removeEventListener("visibilitychange", onVisChange);
+    if (onVisChange)
+      document.removeEventListener("visibilitychange", onVisChange);
     clearTimeout(sectionObserverTimer);
     sectionObservers.forEach((io) => {
       io.disconnect();
