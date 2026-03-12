@@ -1,3 +1,9 @@
+## [9.22.1](https://github.com/juspay/neurolink/compare/v9.22.0...v9.22.1) (2026-03-12)
+
+### Bug Fixes
+
+- **(vision):** allow unknown models for proxy providers in vision check ([b2c5b4e](https://github.com/juspay/neurolink/commit/b2c5b4edebd43545dee8ccb31cb5253302602936))
+
 ## [9.22.0](https://github.com/juspay/neurolink/compare/v9.21.0...v9.22.0) (2026-03-12)
 
 ### Features
