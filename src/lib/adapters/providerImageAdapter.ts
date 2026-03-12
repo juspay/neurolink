@@ -45,6 +45,26 @@ const IMAGE_LIMITS = {
 } as const;
 
 /**
+ * Proxy providers that route to arbitrary underlying models.
+ * Vision capability cannot be statically determined for these — pass requests
+ * through and let the underlying provider surface errors if needed.
+ */
+const PROXY_PROVIDERS = new Set(["litellm", "openrouter"]);
+
+/**
+ * Normalize provider name/alias to its canonical form for vision checks.
+ */
+function normalizeVisionProvider(provider: string): string {
+  const lower = provider.toLowerCase();
+  switch (lower) {
+    case "or":
+      return "openrouter";
+    default:
+      return lower;
+  }
+}
+
+/**
  * Vision capability definitions for each provider
  */
 const VISION_CAPABILITIES = {
@@ -697,7 +717,7 @@ export class ProviderImageAdapter {
    * Validate that provider and model support vision
    */
   private static validateVisionSupport(provider: string, model: string): void {
-    const normalizedProvider = provider.toLowerCase();
+    const normalizedProvider = normalizeVisionProvider(provider);
     const supportedModels =
       VISION_CAPABILITIES[
         normalizedProvider as keyof typeof VISION_CAPABILITIES
@@ -713,6 +733,12 @@ export class ProviderImageAdapter {
     const isSupported = supportedModels.some((supportedModel) =>
       model.toLowerCase().includes(supportedModel.toLowerCase()),
     );
+
+    // Proxy providers route to arbitrary underlying models — skip the allowlist
+    // check for unknown models and let the underlying provider error if needed.
+    if (!isSupported && PROXY_PROVIDERS.has(normalizedProvider)) {
+      return;
+    }
 
     if (!isSupported) {
       throw new Error(
@@ -772,7 +798,7 @@ export class ProviderImageAdapter {
    */
   static supportsVision(provider: string, model?: string): boolean {
     try {
-      const normalizedProvider = provider.toLowerCase();
+      const normalizedProvider = normalizeVisionProvider(provider);
       const supportedModels =
         VISION_CAPABILITIES[
           normalizedProvider as keyof typeof VISION_CAPABILITIES
@@ -786,9 +812,17 @@ export class ProviderImageAdapter {
         return true; // Provider supports vision, but need to check specific model
       }
 
-      return supportedModels.some((supportedModel) =>
+      const modelMatched = supportedModels.some((supportedModel) =>
         model.toLowerCase().includes(supportedModel.toLowerCase()),
       );
+
+      // Proxy providers route to arbitrary underlying models — pass through if
+      // the model isn't in the known allowlist.
+      if (!modelMatched && PROXY_PROVIDERS.has(normalizedProvider)) {
+        return true;
+      }
+
+      return modelMatched;
     } catch {
       return false;
     }

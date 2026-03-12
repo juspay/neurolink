@@ -632,9 +632,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           );
         }
         tools =
-          Object.keys(sanitized.tools).length > 0
-            ? sanitized.tools
-            : undefined;
+          Object.keys(sanitized.tools).length > 0 ? sanitized.tools : undefined;
       } else {
         tools = undefined;
       }

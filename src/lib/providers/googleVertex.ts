@@ -1145,9 +1145,7 @@ export class GoogleVertexProvider extends BaseProvider {
           );
         }
         tools =
-          Object.keys(sanitized.tools).length > 0
-            ? sanitized.tools
-            : undefined;
+          Object.keys(sanitized.tools).length > 0 ? sanitized.tools : undefined;
       } else if (isAnthropic && Object.keys(rawTools).length > 0) {
         // Anthropic models don't need Gemini sanitization — pass tools through
         tools = rawTools;
