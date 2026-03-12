@@ -60,7 +60,7 @@
           href="https://docs.neurolink.ink/docs/getting-started"
           target="_blank"
           rel="noopener noreferrer"
-          class="btn-signal inline-flex items-center justify-center gap-2 px-8 py-4 text-sm font-semibold tracking-wide rounded-full text-white w-full sm:w-auto"
+          class="btn-signal inline-flex items-center justify-center gap-2 px-8 py-4 min-h-[48px] text-sm font-semibold tracking-wide rounded-full text-white w-full sm:w-auto"
         >
           Get Started
           <svg
@@ -82,7 +82,7 @@
           href="https://github.com/juspay/neurolink"
           target="_blank"
           rel="noopener noreferrer"
-          class="inline-flex items-center justify-center gap-2 px-8 py-4 text-sm font-medium text-[var(--color-text-dim)] border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:text-white rounded-full transition-all duration-300 w-full sm:w-auto"
+          class="inline-flex items-center justify-center gap-2 px-8 py-4 min-h-[48px] text-sm font-medium text-[var(--color-text-dim)] border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:text-white rounded-full transition-all duration-300 w-full sm:w-auto"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

@@ -83,14 +83,15 @@
         >
           {col.heading}
         </h3>
-        <ul class="space-y-1 md:space-y-2.5">
+        <ul class="space-y-2.5">
           {#each col.links as link}
             <li>
               <a
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="footer-link inline-flex items-center min-h-[48px] md:min-h-0 text-sm text-ds-text-muted hover:text-nl-accent transition-colors duration-150 overflow-hidden"
+                class="footer-link inline-flex items-center text-sm text-ds-text-muted hover:text-nl-accent transition-colors duration-150 overflow-hidden"
+                style="min-height: 48px;"
               >
                 {link.label}
               </a>
@@ -112,10 +113,16 @@
 </footer>
 
 <style>
+  @media (min-width: 1024px) {
+    .footer-link {
+      min-height: 0;
+    }
+  }
+
   @media (max-width: 767px) {
     @supports (padding-bottom: env(safe-area-inset-bottom)) {
-      .footer {
-        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+      footer {
+        padding-bottom: calc(2rem + env(safe-area-inset-bottom));
       }
     }
   }

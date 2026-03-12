@@ -3,6 +3,11 @@
   "framework": "sveltekit",
   "redirects": [
     {
+      "source": "/discord",
+      "destination": "https://discord.com/channels/1461226459774451726",
+      "permanent": false
+    },
+    {
       "source": "/docs/:path*",
       "destination": "https://docs.neurolink.ink/docs/:path*",
       "permanent": true
