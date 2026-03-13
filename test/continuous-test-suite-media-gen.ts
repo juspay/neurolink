@@ -17,7 +17,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import type { ProcessResult } from "../dist/index.js";
+import type { GenerateOptions, ProcessResult } from "../dist/index.js";
 import { NeuroLink } from "../dist/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1127,7 +1127,10 @@ async function testImageCountLimits(): Promise<boolean | null> {
       provider: "vertex",
       output: { mode: "image" },
       numberOfImages: 1,
-    } as Record<string, unknown>);
+    } as GenerateOptions & {
+      output: { mode: "image" };
+      numberOfImages: number;
+    });
 
     if (result?.imageOutput?.base64 || result?.content) {
       logTest(
@@ -1646,7 +1649,12 @@ async function testVideoGenerationValidation(): Promise<boolean | null> {
           mode: "video",
           video: { resolution: "720p", length: 4 },
         },
-      } as Record<string, unknown>);
+      } as GenerateOptions & {
+        output: {
+          mode: "video";
+          video: { resolution: string; length: number };
+        };
+      });
 
       // If we get content back (text generation fell through), that's acceptable
       logTest(

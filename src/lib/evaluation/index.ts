@@ -2,6 +2,7 @@
  * @file This file exports the main Evaluator class, which serves as the central entry point for the evaluation system.
  */
 
+import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import type { GenerateResult } from "../types/generateTypes.js";
 import type {
   EvaluationResult,
@@ -10,7 +11,6 @@ import type {
 } from "../types/evaluationTypes.js";
 import { ContextBuilder } from "./contextBuilder.js";
 import { RAGASEvaluator } from "./ragasEvaluator.js";
-import type { LanguageModelV1CallOptions } from "ai";
 import { mapToEvaluationData } from "./scoring.js";
 import type { AutoEvaluationConfig } from "../types/middlewareTypes.js";
 import type { EvaluationData } from "../types/evaluation.js";
@@ -45,7 +45,7 @@ export class Evaluator {
    * @returns A promise that resolves to the `EvaluationResult`.
    */
   public async evaluate(
-    options: LanguageModelV1CallOptions,
+    options: LanguageModelV3CallOptions,
     result: GenerateResult,
     threshold: number,
     config: AutoEvaluationConfig,
@@ -100,7 +100,7 @@ export class Evaluator {
    * @returns A promise that resolves to the `EvaluationResult`.
    */
   private async evaluateWithRAGAS(
-    options: LanguageModelV1CallOptions,
+    options: LanguageModelV3CallOptions,
     result: GenerateResult,
   ): Promise<{
     evaluationResult: EvaluationResult;

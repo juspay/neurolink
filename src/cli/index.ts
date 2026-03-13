@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Suppress dotenv v17 stdout banner before any imports — it pollutes CLI JSON output
+process.env.DOTENV_CONFIG_QUIET = "true";
+
 /**
  * NeuroLink CLI
  *
@@ -20,10 +23,11 @@ if (process.env.npm_config__jsr_registry) {
 }
 
 // Load environment variables from .env file
+// Suppress dotenv v17's stdout banner before importing — it pollutes CLI JSON output
+process.env.DOTENV_CONFIG_QUIET = "true";
 try {
-  // Try to import and configure dotenv
   const { config } = await import("dotenv");
-  config(); // Load .env from current working directory
+  config({ quiet: true });
 } catch {
   // dotenv is not available (dev dependency only) - this is fine for production
   // Environment variables should be set externally in production
@@ -64,8 +68,7 @@ process.on("beforeExit", async () => {
 });
 
 async function cleanup() {
-  const { flushOpenTelemetry } = await import(
-    "../lib/services/server/ai/observability/instrumentation.js"
-  );
+  const { flushOpenTelemetry } =
+    await import("../lib/services/server/ai/observability/instrumentation.js");
   await flushOpenTelemetry();
 }

@@ -281,21 +281,6 @@ For memory to activate on a call, all three conditions must be met:
 2. `options.context.userId` is provided in the generate/stream call
 3. The response has non-empty content (for storage)
 
-## Relationship to Mem0
-
-NeuroLink supports two complementary memory systems:
-
-| Feature          | Memory                                     | Mem0                                |
-| ---------------- | ------------------------------------------ | ----------------------------------- |
-| **Architecture** | In-process SDK                             | Cloud API (`mem0ai`)                |
-| **Storage**      | S3, Redis, SQLite, or custom (you control) | Mem0 cloud                          |
-| **Memory model** | Single condensed summary per user          | Structured memories with categories |
-| **LLM calls**    | Uses your configured provider              | Uses Mem0's infrastructure          |
-| **Latency**      | Lower (in-process storage)                 | Higher (cloud API calls)            |
-| **Cost**         | Your LLM costs only                        | Mem0 API pricing                    |
-
-Both can be enabled simultaneously — they operate independently.
-
 ## Environment Variables
 
 The `@juspay/hippocampus` SDK reads these environment variables:
@@ -329,6 +314,6 @@ import type { Memory, CustomStorageConfig } from "@juspay/neurolink";
 ## See Also
 
 - **[Conversation Memory](../conversation-memory.md)** - Session-based conversation history
-- **[Mem0 Integration](../mem0-integration.md)** - Cloud-based semantic memory
+- **[Memory Integration](../advanced/memory-integration.md)** - Advanced hippocampus configuration and patterns
 - **[Context Compaction](context-compaction.md)** - Automatic context window management
 - **[Context Summarization](../context-summarization.md)** - Conversation compression

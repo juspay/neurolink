@@ -293,7 +293,7 @@ async function setupHandler() {
     if (downloadModel) {
       const { selectedModel } = await inquirer.prompt([
         {
-          type: "list",
+          type: "select",
           name: "selectedModel",
           message: "Select a model to download:",
           choices: [

@@ -42,7 +42,7 @@ export function createMemoryRetrievalTools(
         "outputs when a result was truncated, review previous assistant responses, " +
         "or search through conversation history. Supports filtering by role, " +
         "pagination for large content, and regex search within messages.",
-      parameters: z.object({
+      inputSchema: z.object({
         sessionId: z.string().describe("Session ID for the conversation"),
         messageId: z
           .string()

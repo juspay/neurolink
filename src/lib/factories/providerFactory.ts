@@ -153,6 +153,7 @@ export class ProviderFactory {
           } catch (constructorError) {
             throw new Error(
               `Both factory function and constructor failed. Factory error: ${factoryError}. Constructor error: ${constructorError}`,
+              { cause: constructorError },
             );
           }
         } else {
@@ -165,6 +166,7 @@ export class ProviderFactory {
       logger.error(`Failed to create provider ${resolvedProviderName}:`, error);
       throw new Error(
         `Failed to create provider ${resolvedProviderName}: ${error}`,
+        { cause: error },
       );
     }
   }

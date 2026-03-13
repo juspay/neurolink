@@ -42,7 +42,7 @@ function createGoogleSearchTools() {
 export const directAgentTools = {
   getCurrentTime: tool({
     description: "Get the current date and time",
-    parameters: z.object({
+    inputSchema: z.object({
       timezone: z
         .string()
         .optional()
@@ -78,7 +78,7 @@ export const directAgentTools = {
 
   readFile: tool({
     description: "Read the contents of a file from the filesystem",
-    parameters: z.object({
+    inputSchema: z.object({
       path: z.string().describe("File path to read (relative or absolute)"),
     }),
     execute: async ({ path: filePath }) => {
@@ -116,7 +116,7 @@ export const directAgentTools = {
 
   listDirectory: tool({
     description: "List files and directories in a specified directory",
-    parameters: z.object({
+    inputSchema: z.object({
       path: z
         .string()
         .describe("Directory path to list (relative or absolute)"),
@@ -165,7 +165,7 @@ export const directAgentTools = {
 
   calculateMath: tool({
     description: "Perform mathematical calculations safely",
-    parameters: z.object({
+    inputSchema: z.object({
       expression: z
         .string()
         .describe(
@@ -215,7 +215,7 @@ export const directAgentTools = {
             !safeExpression
               .split("")
               .every(
-                (char) =>
+                (char: string) =>
                   mathSafe.test(char) ||
                   char === "(" ||
                   char === ")" ||
@@ -255,7 +255,7 @@ export const directAgentTools = {
 
   writeFile: tool({
     description: "Write content to a file (use with caution)",
-    parameters: z.object({
+    inputSchema: z.object({
       path: z.string().describe("File path to write to"),
       content: z.string().describe("Content to write to the file"),
       mode: z
@@ -317,7 +317,7 @@ export const directAgentTools = {
   analyzeCSV: tool({
     description:
       "Analyze CSV file for accurate counting, aggregation, and statistical analysis. Use this for precise data operations like counting rows by column, calculating sums/averages, finding min/max values, etc. The tool reads the file directly - do NOT pass CSV content.",
-    parameters: z.object({
+    inputSchema: z.object({
       filePath: z
         .string()
         .refine(
@@ -678,7 +678,7 @@ export const directAgentTools = {
   websearchGrounding: tool({
     description:
       "Search the web for current information using Google Search grounding. Returns raw search data for AI processing.",
-    parameters: z.object({
+    inputSchema: z.object({
       query: z.string().describe("Search query to find information about"),
       maxResults: z
         .number()
@@ -833,7 +833,7 @@ export const directAgentTools = {
 export const bashTool = tool({
   description:
     "Execute a bash/shell command and return stdout, stderr, and exit code. Supports full shell syntax including pipes, redirects, and variable expansion. Requires HITL confirmation when enabled.",
-  parameters: z.object({
+  inputSchema: z.object({
     command: z
       .string()
       .describe(
@@ -1022,8 +1022,9 @@ export function validateToolStructure(): boolean {
         logger.error(`❌ Tool ${name} missing description`);
         return false;
       }
-      if (!tool.parameters) {
-        logger.error(`❌ Tool ${name} missing parameters`);
+      const toolRecord = tool as Record<string, unknown>;
+      if (!toolRecord.parameters && !toolRecord.inputSchema) {
+        logger.error(`Tool ${name} missing parameters/inputSchema`);
         return false;
       }
       if (!tool.execute || typeof tool.execute !== "function") {

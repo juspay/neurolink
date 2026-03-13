@@ -33,7 +33,6 @@
  * - Current time (ISO): `new Date().toISOString()`
  */
 
-import type { Mem0Config } from "../memory/mem0Initializer.js";
 import type {
   Memory,
   StorageConfig,
@@ -61,12 +60,6 @@ export type ConversationMemoryConfig = {
 
   /** Model to use for summarization */
   summarizationModel?: string;
-
-  /** Enable mem0 integration for conversation memory */
-  mem0Enabled?: boolean;
-
-  /** Configuration for mem0 cloud API integration */
-  mem0Config?: Mem0Config;
 
   /** Memory SDK config (condensed key-value memory per user). Set enabled: true to activate. */
   memory?: Memory;

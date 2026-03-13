@@ -512,8 +512,11 @@ async function testAdapterExport(
 
         // Stop the server and clean up
         await adapter.stop();
-        if (typeof (sdk as Record<string, unknown>).shutdown === "function") {
-          await (sdk as { shutdown: () => Promise<void> }).shutdown();
+        if (
+          typeof (sdk as unknown as { shutdown?: () => Promise<void> })
+            .shutdown === "function"
+        ) {
+          await (sdk as unknown as { shutdown(): Promise<void> }).shutdown();
         }
         logTest(
           `${adapterName} - Live Lifecycle`,
@@ -2504,7 +2507,10 @@ async function testLiveServer(): Promise<boolean | null> {
       }
 
       await adapter.stop();
-      if (typeof (sdk as Record<string, unknown>).shutdown === "function") {
+      if (
+        typeof (sdk as unknown as Record<string, unknown>).shutdown ===
+        "function"
+      ) {
         await (sdk as { shutdown: () => Promise<void> }).shutdown();
       }
       logTest(

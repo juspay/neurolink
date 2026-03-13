@@ -6,6 +6,7 @@
 import type { ZodTypeAny } from "zod";
 import type { Schema } from "ai";
 import type { JsonValue, JsonObject } from "./common.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 // ============================================================================
 // ZOD TYPE ALIASES
@@ -17,6 +18,14 @@ import type { JsonValue, JsonObject } from "./common.js";
  * Using ZodTypeAny to prevent infinite type recursion in zod-to-json-schema
  */
 export type ZodUnknownSchema = ZodTypeAny;
+
+/**
+ * Bridges Zod 4 schema types to the zod-to-json-schema library which still
+ * types against Zod 3 (`zod/v3`). Zod 4 schemas are structurally compatible
+ * at runtime but not assignable at the type level, so call sites must cast
+ * through `unknown` to this type at the third-party boundary.
+ */
+export type ZodToJsonSchemaInput = Parameters<typeof zodToJsonSchema>[0];
 
 /**
  * Union type for schema validation (Zod or AI SDK schema)

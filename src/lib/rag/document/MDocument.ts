@@ -274,9 +274,8 @@ export class MDocument {
     }
 
     // Lazy import to avoid circular dependencies
-    const { ProviderFactory } = await import(
-      "../../factories/providerFactory.js"
-    );
+    const { ProviderFactory } =
+      await import("../../factories/providerFactory.js");
 
     logger.debug("[MDocument] Generating embeddings", {
       documentId: this.documentId,

@@ -315,7 +315,7 @@ export type StreamOptions = {
    *
    * Enables extended thinking capabilities for supported models.
    *
-   * **Gemini 3 Models** (gemini-3-pro-preview, gemini-3-flash-preview):
+   * **Gemini 3 Models** (gemini-3.1-pro-preview, gemini-3-flash-preview):
    * Use `thinkingLevel` to control reasoning depth:
    * - `minimal` - Near-zero thinking (Flash only)
    * - `low` - Fast reasoning for simple tasks
@@ -330,7 +330,7 @@ export type StreamOptions = {
    * const result = await neurolink.stream({
    *   input: { text: "Solve this complex problem..." },
    *   provider: "google-ai",
-   *   model: "gemini-3-pro-preview",
+   *   model: "gemini-3.1-pro-preview",
    *   thinkingConfig: {
    *     thinkingLevel: "high"
    *   }
@@ -595,13 +595,18 @@ export type EnhancedStreamProvider = {
 };
 
 /**
- * Stream text result from AI SDK
+ * Stream text result from AI SDK (compatible with both v4 and v6)
+ *
+ * AI SDK v6 changed Promise → PromiseLike and renamed usage fields
+ * (promptTokens → inputTokens, completionTokens → outputTokens).
+ * This type accepts either shape so callers don't need casts.
  */
 export type StreamTextResult = {
   textStream: AsyncIterable<string>;
-  text: Promise<string>;
-  usage: Promise<AISDKUsage | undefined>;
-  response: Promise<
+  fullStream?: AsyncIterable<unknown>;
+  text: PromiseLike<string>;
+  usage: PromiseLike<AISDKUsage | undefined>;
+  response: PromiseLike<
     | {
         id?: string;
         model?: string;
@@ -609,7 +614,7 @@ export type StreamTextResult = {
       }
     | undefined
   >;
-  finishReason: Promise<
+  finishReason: PromiseLike<
     | "stop"
     | "length"
     | "content-filter"
@@ -618,17 +623,36 @@ export type StreamTextResult = {
     | "other"
     | "unknown"
   >;
-  toolResults?: Promise<ToolResult[]>;
-  toolCalls?: Promise<ToolCall[]>;
+  /**
+   * Tool results. Accepts both NeuroLink ToolResult[] and AI SDK TypedToolResult[],
+   * since the analytics collector passes them through as `unknown` anyway.
+   */
+  toolResults?: PromiseLike<ToolResult[] | ReadonlyArray<unknown>>;
+  /**
+   * Tool calls. Accepts both NeuroLink ToolCall[] and AI SDK TypedToolCall[].
+   */
+  toolCalls?: PromiseLike<ToolCall[] | ReadonlyArray<unknown>>;
 };
 
 /**
- * Raw usage data from Vercel AI SDK
+ * Raw usage data from Vercel AI SDK.
+ *
+ * Covers both v4 (promptTokens / completionTokens) and
+ * v6 (inputTokens / outputTokens) field names.
+ * extractTokenUsage() in tokenUtils.ts already handles both shapes.
  */
 export type AISDKUsage = {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
+  /** @deprecated AI SDK v4 name — use inputTokens */
+  promptTokens?: number;
+  /** @deprecated AI SDK v4 name — use outputTokens */
+  completionTokens?: number;
+  /** @deprecated AI SDK v4 name — use totalTokens */
+  totalTokens?: number;
+  /** AI SDK v6 name for prompt / input tokens */
+  inputTokens?: number;
+  /** AI SDK v6 name for completion / output tokens */
+  outputTokens?: number;
+  [key: string]: unknown;
 };
 
 /**

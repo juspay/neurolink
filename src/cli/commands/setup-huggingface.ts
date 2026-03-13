@@ -137,7 +137,7 @@ export const handleHuggingFaceSetup = async (
     // Step 2: Model Selection
     const { modelChoice } = await inquirer.prompt([
       {
-        type: "list",
+        type: "select",
         name: "modelChoice",
         message: "Select a Hugging Face model:",
         choices: [
@@ -221,6 +221,7 @@ export const handleHuggingFaceSetup = async (
       spinner.stop();
       throw new Error(
         `Failed to save configuration: ${envError instanceof Error ? envError.message : String(envError)}`,
+        { cause: envError },
       );
     }
     logger.always(chalk.blue("\n📖 Usage examples:"));

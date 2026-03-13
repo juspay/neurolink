@@ -308,10 +308,12 @@ export class Utilities {
   createPermissiveZodSchema(): ZodUnknownSchema {
     // Create a permissive record that accepts any object structure
     // This allows all parameters to pass through without validation issues
-    return z.record(z.unknown()).transform((data: Record<string, unknown>) => {
-      // Return the data as-is to preserve all parameter information
-      return data;
-    });
+    return z
+      .record(z.string(), z.unknown())
+      .transform((data: Record<string, unknown>) => {
+        // Return the data as-is to preserve all parameter information
+        return data;
+      });
   }
 
   /**

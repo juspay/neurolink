@@ -8,17 +8,22 @@
 export const IMAGE_GENERATION_MODELS = [
   "gemini-3-pro-image-preview",
   "gemini-2.5-flash-image",
+  "gemini-3.1-flash-image-preview",
 ];
 
 // PDF Image Generation Models
 // Models that support generating images from PDFs
-export const PDF_IMAGE_GENERATION_MODELS = ["gemini-3-pro-image-preview"];
+export const PDF_IMAGE_GENERATION_MODELS = [
+  "gemini-3-pro-image-preview",
+  "gemini-3.1-flash-image-preview",
+];
 
 // Global Location Models
 // Models that require global location configuration (uses aiplatform.googleapis.com instead of region-specific endpoints)
 export const GLOBAL_LOCATION_MODELS = [
   "gemini-3-pro-image-preview",
   "gemini-2.5-flash-image",
+  "gemini-3.1-flash-image-preview",
 ];
 
 // Core AI Generation Defaults

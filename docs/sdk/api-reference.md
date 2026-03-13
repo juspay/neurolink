@@ -42,8 +42,6 @@ type NeurolinkConstructorConfig = {
   //   tokenThreshold?: number
   //   summarizationProvider?: string
   //   summarizationModel?: string
-  //   mem0Enabled?: boolean
-  //   mem0Config?: Mem0Config
   //   redisConfig?: RedisStorageConfig
   //   contextCompaction?: { enabled?, threshold?, enablePruning?, ... }
   //   maxTurnsPerSession?: number  // @deprecated - use tokenThreshold instead

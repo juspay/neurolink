@@ -1,5 +1,6 @@
 import { wrapLanguageModel } from "ai";
-import type { LanguageModelV1 } from "ai";
+import type { LanguageModel } from "ai";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type {
   MiddlewareContext,
   MiddlewareConfig,
@@ -113,10 +114,10 @@ export class MiddlewareFactory {
    * Apply middleware to a language model
    */
   public applyMiddleware(
-    model: LanguageModelV1,
+    model: LanguageModel,
     context: MiddlewareContext,
     options: MiddlewareFactoryOptions = {},
-  ): LanguageModelV1 {
+  ): LanguageModel {
     const startTime = Date.now();
 
     try {
@@ -161,9 +162,10 @@ export class MiddlewareFactory {
       });
 
       // Apply middleware using AI SDK's wrapLanguageModel
-      // Cast to the expected AI SDK middleware type
+      // wrapLanguageModel expects LanguageModelV3, narrow from LanguageModel union
+      const modelV3 = model as LanguageModelV3;
       const wrappedModel = wrapLanguageModel({
-        model,
+        model: modelV3,
         middleware: middlewareChain,
       });
 
@@ -417,13 +419,13 @@ export class MiddlewareFactory {
    * Create a middleware-enabled model factory function
    */
   public createModelFactory(
-    baseModelFactory: () => Promise<LanguageModelV1>,
+    baseModelFactory: () => Promise<LanguageModel>,
     defaultOptions: MiddlewareFactoryOptions = {},
   ) {
     return async (
       context: MiddlewareContext,
       options: MiddlewareFactoryOptions = {},
-    ): Promise<LanguageModelV1> => {
+    ): Promise<LanguageModel> => {
       // Get base model
       const baseModel = await baseModelFactory();
 

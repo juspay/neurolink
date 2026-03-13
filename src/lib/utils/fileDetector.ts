@@ -18,6 +18,7 @@ import type {
   FileSource,
   FileType,
 } from "../types/fileTypes.js";
+import { tracers, ATTR, withSpan } from "../telemetry/index.js";
 import { CSVProcessor } from "./csvProcessor.js";
 import { ImageProcessor } from "./imageProcessor.js";
 import { logger } from "./logger.js";
@@ -236,71 +237,195 @@ export class FileDetector {
     input: FileInput,
     options?: FileDetectorOptions,
   ): Promise<FileProcessingResult> {
-    const detection = await FileDetector.detect(input, options);
+    // Derive filename and size for tracing before detection runs
+    const inputFilename = FileDetector.deriveInputFilename(input);
+    const inputSizeBytes = FileDetector.deriveInputSize(input);
 
-    // FD-018: Comprehensive fallback parsing for extension-less files
-    // When file detection returns "unknown" or doesn't match allowedTypes,
-    // attempt parsing for each allowed type before failing. This handles cases like Slack
-    // files named "file-1", "file-2" without extensions that could be CSV, JSON, or text.
-    if (
-      options?.allowedTypes &&
-      !options.allowedTypes.includes(detection.type)
-    ) {
-      // Try fallback parsing for both "unknown" types and when detection doesn't match allowed types
-      const content = await FileDetector.loadContent(input, detection, options);
-      const errors: string[] = [];
+    return withSpan(
+      {
+        name: "neurolink.file.detect_and_process",
+        tracer: tracers.file,
+        attributes: {
+          [ATTR.FILE_NAME]: inputFilename,
+          [ATTR.FILE_SIZE_BYTES]: inputSizeBytes,
+        },
+      },
+      async (span) => {
+        const detection = await FileDetector.detect(input, options);
 
-      // Try each allowed type in order of specificity
-      for (const allowedType of options.allowedTypes) {
-        try {
-          const result = await FileDetector.tryFallbackParsing(
-            content,
-            allowedType,
+        span.setAttribute(ATTR.FILE_CATEGORY, detection.type);
+        span.setAttribute(ATTR.FILE_MIMETYPE, detection.mimeType || "unknown");
+        span.setAttribute(ATTR.FILE_CONFIDENCE, detection.metadata.confidence);
+
+        logger.info(
+          `[NEUROLINK] File detected: ${inputFilename} (${detection.mimeType || "unknown"}, ${formatFileSize(inputSizeBytes)}) → category: ${detection.type}`,
+        );
+
+        // FD-018: Comprehensive fallback parsing for extension-less files
+        if (
+          options?.allowedTypes &&
+          !options.allowedTypes.includes(detection.type)
+        ) {
+          const content = await FileDetector.loadContent(
+            input,
+            detection,
             options,
           );
-          if (result) {
-            logger.info(
-              `[FileDetector] ✅ ${allowedType.toUpperCase()} fallback successful`,
-            );
-            return result;
+          const errors: string[] = [];
+
+          for (const allowedType of options.allowedTypes) {
+            try {
+              const result = await FileDetector.tryFallbackParsing(
+                content,
+                allowedType,
+                options,
+              );
+              if (result) {
+                logger.info(
+                  `[FileDetector] ✅ ${allowedType.toUpperCase()} fallback successful`,
+                );
+                const outputLength =
+                  typeof result.content === "string"
+                    ? result.content.length
+                    : result.content?.length || 0;
+                span.setAttribute(ATTR.FILE_OUTPUT_LENGTH, outputLength);
+                span.setAttribute(ATTR.FILE_SUCCESS, true);
+                span.setAttribute(
+                  ATTR.FILE_PROCESSOR_USED,
+                  `fallback:${allowedType}`,
+                );
+                logger.info(
+                  `[NEUROLINK] File processed: ${inputFilename} → ${outputLength} bytes output (fallback: ${allowedType})`,
+                );
+                return result;
+              }
+            } catch (error) {
+              const errorMsg =
+                error instanceof Error ? error.message : String(error);
+              errors.push(`${allowedType}: ${errorMsg}`);
+              logger.debug(
+                `[FileDetector] ${allowedType} fallback failed: ${errorMsg}`,
+              );
+            }
           }
-        } catch (error) {
-          const errorMsg =
-            error instanceof Error ? error.message : String(error);
-          errors.push(`${allowedType}: ${errorMsg}`);
-          logger.debug(
-            `[FileDetector] ${allowedType} fallback failed: ${errorMsg}`,
+
+          logger.warn(
+            `[FileDetector] All fallback parsing failed for type "${detection.type}". ` +
+              `Attempted: ${options.allowedTypes.join(", ")}. Falling through to universal handler.`,
           );
+          const csvOptions: CSVProcessorOptions | undefined =
+            options?.csvOptions;
+          const result = await FileDetector.processFile(
+            content,
+            detection,
+            csvOptions,
+            options?.provider,
+          );
+          FileDetector.setFileResultSpanAttributes(
+            span,
+            result,
+            inputFilename,
+            detection.type,
+          );
+          return result;
+        }
+
+        const content = await FileDetector.loadContent(
+          input,
+          detection,
+          options,
+        );
+        const csvOptions: CSVProcessorOptions | undefined = options?.csvOptions;
+        const result = await FileDetector.processFile(
+          content,
+          detection,
+          csvOptions,
+          options?.provider,
+        );
+        FileDetector.setFileResultSpanAttributes(
+          span,
+          result,
+          inputFilename,
+          detection.type,
+        );
+        return result;
+      },
+    );
+  }
+
+  /**
+   * Set span attributes and log after file processing completes.
+   */
+  private static setFileResultSpanAttributes(
+    span: Parameters<Parameters<typeof withSpan>[1]>[0],
+    result: FileProcessingResult,
+    filename: string,
+    processorType: string,
+  ): void {
+    const outputLength =
+      typeof result.content === "string"
+        ? result.content.length
+        : result.content?.length || 0;
+    const hasImages = Array.isArray((result as { images?: unknown[] }).images)
+      ? (result as { images: unknown[] }).images.length > 0
+      : false;
+    const imageCount = Array.isArray((result as { images?: unknown[] }).images)
+      ? (result as { images: unknown[] }).images.length
+      : 0;
+
+    span.setAttribute(ATTR.FILE_OUTPUT_LENGTH, outputLength);
+    span.setAttribute(ATTR.FILE_SUCCESS, true);
+    span.setAttribute(ATTR.FILE_PROCESSOR_USED, processorType);
+    span.setAttribute(ATTR.FILE_HAS_IMAGES, hasImages);
+    span.setAttribute(ATTR.FILE_IMAGE_COUNT, imageCount);
+
+    logger.info(
+      `[NEUROLINK] File processed: ${filename} → ${outputLength} bytes output` +
+        (imageCount > 0 ? ` + ${imageCount} image(s)` : "") +
+        ` (processor: ${processorType})`,
+    );
+  }
+
+  /**
+   * Derive a human-readable filename from FileInput for tracing.
+   */
+  private static deriveInputFilename(input: FileInput): string {
+    if (typeof input === "string") {
+      if (input.startsWith("data:")) {
+        return "data-uri";
+      }
+      if (input.startsWith("http")) {
+        try {
+          return new URL(input).pathname.split("/").pop() || "url-file";
+        } catch {
+          return "url-file";
         }
       }
-
-      // All fallbacks failed — fall through to processFile() which handles
-      // "unknown" types gracefully by extracting binary metadata and printable
-      // strings instead of throwing.
-      logger.warn(
-        `[FileDetector] All fallback parsing failed for type "${detection.type}". ` +
-          `Attempted: ${options.allowedTypes.join(", ")}. Falling through to universal handler.`,
-      );
-      const csvOptions: CSVProcessorOptions | undefined = options?.csvOptions;
-      return await FileDetector.processFile(
-        content,
-        detection,
-        csvOptions,
-        options?.provider,
-      );
+      // File path
+      return input.split("/").pop() || input.split("\\").pop() || "file";
     }
+    if (Buffer.isBuffer(input)) {
+      return "buffer";
+    }
+    return "unknown-input";
+  }
 
-    const content = await FileDetector.loadContent(input, detection, options);
-
-    // Extract CSV-specific options from FileDetectorOptions
-    const csvOptions: CSVProcessorOptions | undefined = options?.csvOptions;
-
-    return await FileDetector.processFile(
-      content,
-      detection,
-      csvOptions,
-      options?.provider,
-    );
+  /**
+   * Derive byte size from FileInput for tracing.
+   */
+  private static deriveInputSize(input: FileInput): number {
+    if (Buffer.isBuffer(input)) {
+      return input.length;
+    }
+    if (typeof input === "string") {
+      if (input.startsWith("data:")) {
+        // Rough estimate: base64 is ~4/3 of raw
+        const base64Part = input.split(",")[1];
+        return base64Part ? Math.floor((base64Part.length * 3) / 4) : 0;
+      }
+      return input.length; // path or URL string length (not file size)
+    }
+    return 0;
   }
 
   /**
@@ -1245,9 +1370,8 @@ export class FileDetector {
     try {
       const ext = detection.extension?.toLowerCase();
       if (ext === "ods") {
-        const { openDocumentProcessor } = await import(
-          "../processors/document/OpenDocumentProcessor.js"
-        );
+        const { openDocumentProcessor } =
+          await import("../processors/document/OpenDocumentProcessor.js");
         const odsResult = await openDocumentProcessor.processFile({
           id: xlsxFilename,
           name: xlsxFilename,
@@ -1273,9 +1397,8 @@ export class FileDetector {
           };
         }
       } else {
-        const { excelProcessor } = await import(
-          "../processors/document/ExcelProcessor.js"
-        );
+        const { excelProcessor } =
+          await import("../processors/document/ExcelProcessor.js");
         const xlsxResult = await excelProcessor.processFile({
           id: xlsxFilename,
           name: xlsxFilename,
@@ -1358,9 +1481,8 @@ export class FileDetector {
     const ext = detection.extension?.toLowerCase();
     try {
       if (ext === "odt") {
-        const { openDocumentProcessor } = await import(
-          "../processors/document/OpenDocumentProcessor.js"
-        );
+        const { openDocumentProcessor } =
+          await import("../processors/document/OpenDocumentProcessor.js");
         const odtResult = await openDocumentProcessor.processFile({
           id: docxFilename,
           name: docxFilename,
@@ -1385,9 +1507,8 @@ export class FileDetector {
           };
         }
       } else if (ext === "rtf") {
-        const { rtfProcessor } = await import(
-          "../processors/document/RtfProcessor.js"
-        );
+        const { rtfProcessor } =
+          await import("../processors/document/RtfProcessor.js");
         const rtfResult = await rtfProcessor.processFile({
           id: docxFilename,
           name: docxFilename,
@@ -1411,9 +1532,8 @@ export class FileDetector {
           };
         }
       } else {
-        const { wordProcessor } = await import(
-          "../processors/document/WordProcessor.js"
-        );
+        const { wordProcessor } =
+          await import("../processors/document/WordProcessor.js");
         const docxResult = await wordProcessor.processFile({
           id: docxFilename,
           name: docxFilename,
@@ -1480,9 +1600,8 @@ export class FileDetector {
   ): Promise<FileProcessingResult> {
     const pptxFilename = detection.metadata.filename || "presentation";
     try {
-      const { PptxProcessor } = await import(
-        "../processors/document/PptxProcessor.js"
-      );
+      const { PptxProcessor } =
+        await import("../processors/document/PptxProcessor.js");
       const pptxResult = await PptxProcessor.extractText(content);
       if (pptxResult) {
         return {
@@ -1535,9 +1654,8 @@ export class FileDetector {
   ): Promise<FileProcessingResult> {
     try {
       // Dynamic import to avoid circular dependencies
-      const { processSvg } = await import(
-        "../processors/markup/SvgProcessor.js"
-      );
+      const { processSvg } =
+        await import("../processors/markup/SvgProcessor.js");
 
       const result = await processSvg({
         id: "svg-file",

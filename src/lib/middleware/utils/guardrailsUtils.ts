@@ -7,8 +7,6 @@ import type {
   PrecallEvaluationConfig,
   PrecallEvaluationResult,
 } from "../../types/guardrails.js";
-import type { LanguageModelV1CallOptions } from "ai";
-
 export const DEFAULT_EVALUATION_PROMPT = `
 Evaluate the following user input for safety and appropriateness. Respond ONLY with valid JSON:
 
@@ -32,29 +30,37 @@ User Input: "{USER_INPUT}"
 `;
 
 /**
- * Extract user input from LanguageModelV1CallOptions
+ * Extract user input from middleware params
  */
-export function extractUserInput(params: LanguageModelV1CallOptions): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function extractUserInput(params: any): string {
   if (typeof params.prompt === "string") {
     return params.prompt;
   }
 
-  return params.prompt
-    .map((msg) => {
-      if (msg.role === "user") {
-        if (typeof msg.content === "string") {
-          return msg.content;
-        } else if (Array.isArray(msg.content)) {
-          return msg.content
-            .filter((part) => part.type === "text")
-            .map((part) => part.text)
-            .join(" ");
+  return (
+    params.prompt
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((msg: any) => {
+        if (msg.role === "user") {
+          if (typeof msg.content === "string") {
+            return msg.content;
+          } else if (Array.isArray(msg.content)) {
+            return (
+              msg.content
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .filter((part: any) => part.type === "text")
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .map((part: any) => part.text)
+                .join(" ")
+            );
+          }
         }
-      }
-      return "";
-    })
-    .filter(Boolean)
-    .join("\n");
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n")
+  );
 }
 
 export function parseEvaluationResponse(
@@ -96,11 +102,13 @@ export function parseEvaluationResponse(
  * @returns An object indicating if the request should be blocked and the (potentially transformed) params.
  */
 export async function handlePrecallGuardrails(
-  params: LanguageModelV1CallOptions,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params: any,
   config: PrecallEvaluationConfig,
 ): Promise<{
   shouldBlock: boolean;
-  transformedParams: LanguageModelV1CallOptions;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  transformedParams: any;
 }> {
   const userInput = extractUserInput(params);
   let transformedParams = params;
@@ -293,14 +301,13 @@ export function applyEvaluationActions(
 /**
  * Apply parameter sanitization to request parameters
  */
-export function applySanitization(
-  params: LanguageModelV1CallOptions,
-  sanitizedInput: string,
-): LanguageModelV1CallOptions {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function applySanitization(params: any, sanitizedInput: string): any {
   const sanitizedParams = { ...params };
 
   if (Array.isArray(params.prompt)) {
-    const sanitizedPrompt = params.prompt.map((msg) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sanitizedPrompt = params.prompt.map((msg: any) => {
       if (msg.role === "user") {
         if (typeof msg.content === "string") {
           return {
@@ -308,7 +315,8 @@ export function applySanitization(
             content: [{ type: "text" as const, text: sanitizedInput }],
           };
         } else if (Array.isArray(msg.content)) {
-          const sanitizedContent = msg.content.map((part) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sanitizedContent = msg.content.map((part: any) => {
             if (part.type === "text") {
               return { ...part, text: sanitizedInput };
             }

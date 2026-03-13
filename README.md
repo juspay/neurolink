@@ -675,7 +675,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 | **Provider unification** | 13+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                                  |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types. |
 | **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.                             |
-| **Memory & context**     | Conversation memory, Mem0 integration, Redis history export (Q4), context summarization (Q4).                            |
+| **Memory & context**     | Conversation memory, Redis history export (Q4), context summarization (Q4).                                              |
 | **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                                     |
 | **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.                                         |
 | **Tool ecosystem**       | MCP auto discovery, HTTP/stdio/SSE/WebSocket transports, LiteLLM hub access, SageMaker custom deployment, web search.    |
@@ -689,7 +689,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 | CLI reference   | Command syntax, flags, loop sessions                      | [`docs/cli/index.md`](docs/cli/index.md)                         |
 | SDK reference   | Classes, methods, options                                 | [`docs/sdk/index.md`](docs/sdk/index.md)                         |
 | RAG             | Document chunking, hybrid search, reranking, `rag:{}` API | [`docs/features/rag.md`](docs/features/rag.md)                   |
-| Integrations    | LiteLLM, SageMaker, MCP, Mem0                             | [`docs/litellm-integration.md`](docs/litellm-integration.md)     |
+| Integrations    | LiteLLM, SageMaker, MCP                                   | [`docs/litellm-integration.md`](docs/litellm-integration.md)     |
 | Advanced        | Middleware, architecture, streaming patterns              | [`docs/advanced/index.md`](docs/advanced/index.md)               |
 | Cookbook        | Practical recipes for common patterns                     | [`docs/cookbook/index.md`](docs/cookbook/index.md)               |
 | Guides          | Migration, Redis, troubleshooting, provider selection     | [`docs/guides/index.md`](docs/guides/index.md)                   |
@@ -735,7 +735,6 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 - **LiteLLM 100+ model hub** – Unified access to third-party models via LiteLLM routing. → [`docs/litellm-integration.md`](docs/litellm-integration.md)
 - **Amazon SageMaker** – Deploy and call custom endpoints directly from NeuroLink CLI/SDK. → [`docs/sagemaker-integration.md`](docs/sagemaker-integration.md)
-- **Mem0 conversational memory** – Persistent semantic memory with vector store support. → [`docs/mem0-integration.md`](docs/mem0-integration.md)
 - **Enterprise proxy & security** – Configure outbound policies and compliance posture. → [`docs/enterprise-proxy-setup.md`](docs/enterprise-proxy-setup.md)
 - **Configuration automation** – Manage environments, regions, and credentials safely. → [`docs/configuration-management.md`](docs/configuration-management.md)
 - **MCP tool ecosystem** – Auto-discover Model Context Protocol tools and extend workflows. → [`docs/advanced/mcp-integration.md`](docs/advanced/mcp-integration.md)

@@ -424,7 +424,7 @@ export async function testComplexZodSchemaMultiProvider(
   ];
   const results: {
     provider: string;
-    model: string;
+    model: string | undefined;
     success: boolean;
     error?: string;
   }[] = [];
@@ -562,6 +562,7 @@ DO NOT hallucinate data. ALL metrics, campaign IDs, and account information must
       } catch (parseError) {
         throw new Error(
           `Failed to parse JSON from result.content: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+          { cause: parseError },
         );
       }
 
@@ -569,8 +570,13 @@ DO NOT hallucinate data. ALL metrics, campaign IDs, and account information must
       const validation = MetaAdsAnalysisOutputSchema.safeParse(parsedOutput);
 
       if (!validation.success) {
-        const errorDetails = validation.error.errors
-          .map((e) => `${e.path.join(".")}: ${e.message}`)
+        type ZodIssue = { path?: Array<string | number>; message: string };
+        const zodError = validation.error as {
+          errors?: ZodIssue[];
+          issues?: ZodIssue[];
+        };
+        const errorDetails = (zodError.errors || zodError.issues || [])
+          .map((e: ZodIssue) => `${(e.path || []).join(".")}: ${e.message}`)
           .join("; ");
 
         logTest(

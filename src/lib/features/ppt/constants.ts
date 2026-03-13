@@ -434,7 +434,7 @@ const ADVANCED_MODEL_PATTERNS = [
   // OpenAI - multimodal with json-mode (openai, azure providers)
   "gpt-4o", // multimodal, highest quality, json-mode capable
   // Google - has advanced-reasoning (vertex, google-ai providers)
-  "gemini-3-pro", // advanced-reasoning, highest quality
+  "gemini-3.1-pro-preview", // advanced-reasoning, highest quality
   "gemini-2.5-pro", // advanced-reasoning, highest quality
 ];
 

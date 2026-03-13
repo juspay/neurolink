@@ -1,6 +1,12 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
-import type { ZodType, ZodTypeDef } from "zod";
-import { streamText, type Schema, type LanguageModelV1, type Tool } from "ai";
+import type { ZodType } from "zod";
+import {
+  NoOutputGeneratedError,
+  streamText,
+  type LanguageModel,
+  type Schema,
+  type Tool,
+} from "ai";
 import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { AIProviderName, AnthropicModels } from "../constants/enums.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
@@ -22,6 +28,7 @@ import {
   validateApiKey,
   createAnthropicBaseConfig,
 } from "../utils/providerConfig.js";
+import { getModelId } from "./providerTypeUtils.js";
 
 const streamTracer = trace.getTracer("neurolink.provider.anthropic");
 
@@ -54,7 +61,7 @@ export class AnthropicProviderV2 extends BaseProvider {
   /**
    * Returns the Vercel AI SDK model instance for Anthropic
    */
-  protected getAISDKModel(): LanguageModelV1 {
+  protected getAISDKModel(): LanguageModel {
     const apiKey = this.getApiKey();
     const anthropic = createAnthropic({ apiKey });
     return anthropic(this.modelName);
@@ -106,7 +113,7 @@ export class AnthropicProviderV2 extends BaseProvider {
 
   protected async executeStream(
     options: StreamOptions,
-    _analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    _analysisSchema?: ZodType | Schema<unknown>,
   ): Promise<StreamResult> {
     // Note: StreamOptions validation handled differently than TextGenerationOptions
     const model = await this.getAISDKModelWithMiddleware(options);
@@ -132,8 +139,10 @@ export class AnthropicProviderV2 extends BaseProvider {
           kind: SpanKind.CLIENT,
           attributes: {
             "gen_ai.system": "anthropic",
-            "gen_ai.request.model":
-              model.modelId || this.modelName || "unknown",
+            "gen_ai.request.model": getModelId(
+              model,
+              this.modelName || "unknown",
+            ),
           },
         },
       );
@@ -145,7 +154,7 @@ export class AnthropicProviderV2 extends BaseProvider {
           prompt: options.input.text,
           system: options.systemPrompt,
           temperature: options.temperature,
-          maxTokens: options.maxTokens, // No default limit - unlimited unless specified
+          maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified
           maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
           tools,
           toolChoice: shouldUseTools ? "auto" : "none",
@@ -186,20 +195,20 @@ export class AnthropicProviderV2 extends BaseProvider {
 
       // Collect token usage and finish reason asynchronously when the stream completes,
       // then end the span. This avoids blocking the stream consumer.
-      result.usage
+      Promise.resolve(result.usage)
         .then((usage) => {
           streamSpan.setAttribute(
             "gen_ai.usage.input_tokens",
-            usage.promptTokens || 0,
+            usage.inputTokens || 0,
           );
           streamSpan.setAttribute(
             "gen_ai.usage.output_tokens",
-            usage.completionTokens || 0,
+            usage.outputTokens || 0,
           );
           const cost = calculateCost(this.providerName, this.modelName, {
-            input: usage.promptTokens || 0,
-            output: usage.completionTokens || 0,
-            total: (usage.promptTokens || 0) + (usage.completionTokens || 0),
+            input: usage.inputTokens || 0,
+            output: usage.outputTokens || 0,
+            total: (usage.inputTokens || 0) + (usage.outputTokens || 0),
           });
           if (cost && cost > 0) {
             streamSpan.setAttribute("neurolink.cost", cost);
@@ -208,7 +217,7 @@ export class AnthropicProviderV2 extends BaseProvider {
         .catch(() => {
           // Usage may not be available if the stream is aborted
         });
-      result.finishReason
+      Promise.resolve(result.finishReason)
         .then((reason) => {
           streamSpan.setAttribute(
             "gen_ai.response.finish_reason",
@@ -218,11 +227,11 @@ export class AnthropicProviderV2 extends BaseProvider {
         .catch(() => {
           // Finish reason may not be available if the stream is aborted
         });
-      result.text
+      Promise.resolve(result.text)
         .then(() => {
           streamSpan.end();
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           streamSpan.setStatus({
             code: SpanStatusCode.ERROR,
             message: err instanceof Error ? err.message : String(err),
@@ -234,8 +243,19 @@ export class AnthropicProviderV2 extends BaseProvider {
 
       // Transform string stream to content object stream (match Google AI pattern)
       const transformedStream = async function* () {
-        for await (const chunk of result.textStream) {
-          yield { content: chunk };
+        try {
+          for await (const chunk of result.textStream) {
+            yield { content: chunk };
+          }
+        } catch (streamError) {
+          // AI SDK v6 throws NoOutputGeneratedError when the stream produced no output.
+          if (NoOutputGeneratedError.isInstance(streamError)) {
+            logger.warn(
+              "AnthropicBaseProvider: Stream produced no output (NoOutputGeneratedError)",
+            );
+            return;
+          }
+          throw streamError;
         }
       };
 

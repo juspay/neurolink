@@ -1,5 +1,5 @@
 import { generateText } from "ai";
-import type { LanguageModelV1Middleware } from "ai";
+import type { LanguageModelMiddleware } from "ai";
 import type {
   NeuroLinkMiddleware,
   NeuroLinkMiddlewareMetadata,
@@ -33,8 +33,10 @@ export function createGuardrailsMiddleware(
   // WeakMap to store blocking state from transformParams to wrap methods
   const blockingState = new WeakMap<object, boolean>();
 
-  const middleware: LanguageModelV1Middleware = {
-    transformParams: async ({ params }) => {
+  const middleware: LanguageModelMiddleware = {
+    specificationVersion: "v3" as const,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    transformParams: async ({ params }: any) => {
       if (config.precallEvaluation?.enabled) {
         const { shouldBlock, transformedParams } =
           await handlePrecallGuardrails(params, config.precallEvaluation);
@@ -45,7 +47,8 @@ export function createGuardrailsMiddleware(
       return params;
     },
 
-    wrapGenerate: async ({ doGenerate, params }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    wrapGenerate: async ({ doGenerate, params }: any) => {
       logger.debug(`[GuardrailsMiddleware] Applying to generate call.`);
       // Check if this request should be blocked (set by transformParams)
       if (config.precallEvaluation?.enabled && blockingState.get(params)) {
@@ -88,7 +91,8 @@ export function createGuardrailsMiddleware(
       return result;
     },
 
-    wrapStream: async ({ doStream, params }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    wrapStream: async ({ doStream, params }: any) => {
       logger.debug(`[GuardrailsMiddleware] Applying to stream call.`);
 
       // Check if this request should be blocked (set by transformParams)

@@ -1,16 +1,11 @@
 /**
  * SageMaker Language Model Implementation
  *
- * This module implements the LanguageModelV1 interface for Amazon SageMaker
+ * This module implements the LanguageModel interface for Amazon SageMaker
  * integration with the Vercel AI SDK.
  */
 
 import { randomUUID } from "crypto";
-import type {
-  LanguageModelV1,
-  LanguageModelV1CallOptions,
-  LanguageModelV1StreamPart,
-} from "ai";
 
 import { SageMakerRuntimeClient } from "./client.js";
 import { handleSageMakerError } from "./errors.js";
@@ -119,19 +114,48 @@ const DEFAULT_MAX_CONCURRENCY = 10;
 const DEFAULT_MIN_CONCURRENCY = 1;
 
 /**
- * SageMaker Language Model implementing LanguageModelV1 interface
+ * SageMaker Language Model implementing LanguageModel interface
  *
  * Token Limit Behavior:
  * - When maxTokens is undefined, SageMaker uses the model's default token limits
  * - When maxTokens is specified, it sets max_new_tokens parameter explicitly
  * - This aligns with the unlimited-by-default token policy across all providers
  */
-export class SageMakerLanguageModel implements LanguageModelV1 {
-  readonly specificationVersion = "v1";
+/**
+ * Structural type that captures what AI SDK's `streamText` / `generateText`
+ * actually invoke at runtime on a model object.
+ *
+ * `SageMakerLanguageModel` satisfies this interface. We expose it so that
+ * consumers can cast `new SageMakerLanguageModel(...)` to `LanguageModel`
+ * via this intermediate type, avoiding `as unknown as LanguageModel`.
+ */
+export interface SageMakerAsLanguageModel {
+  readonly specificationVersion: string;
+  readonly provider: string;
+  readonly modelId: string;
+  readonly supportedUrls: Record<string, RegExp[]>;
+  doGenerate(options: Record<string, unknown>): Promise<unknown>;
+  doStream(options: Record<string, unknown>): Promise<unknown>;
+}
+
+export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
+  /**
+   * Specification version for the AI SDK LanguageModel interface.
+   * Uses "v2" for structural compatibility with AI SDK v6's `LanguageModelV2`.
+   * The AI SDK checks this field to determine which interface version to use.
+   */
+  readonly specificationVersion = "v2" as const;
   readonly provider = "sagemaker";
   readonly modelId: string;
   readonly supportsStreaming = true;
   readonly defaultObjectGenerationMode = "json" as const;
+
+  /**
+   * Supported URL patterns by media type.
+   * SageMaker endpoints do not natively download URLs, so this is empty.
+   * Required by the LanguageModelV2 interface.
+   */
+  readonly supportedUrls: Record<string, RegExp[]> = {};
 
   private client: SageMakerRuntimeClient;
   private config: SageMakerConfig;
@@ -158,7 +182,7 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
   /**
    * Generate text synchronously using SageMaker endpoint
    */
-  async doGenerate(options: LanguageModelV1CallOptions): Promise<{
+  async doGenerate(options: Record<string, unknown>): Promise<{
     text?: string;
     reasoning?:
       | string
@@ -173,8 +197,8 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
       topLogprobs: Array<{ token: string; logprob: number }>;
     }>;
     usage: {
-      promptTokens: number;
-      completionTokens: number;
+      inputTokens: number;
+      outputTokens: number;
       totalTokens?: number;
     };
     finishReason:
@@ -272,8 +296,8 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
           topLogprobs: Array<{ token: string; logprob: number }>;
         }>;
         usage: {
-          promptTokens: number;
-          completionTokens: number;
+          inputTokens: number;
+          outputTokens: number;
           totalTokens?: number;
         };
         finishReason:
@@ -292,8 +316,8 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
       } = {
         text: generatedText,
         usage: {
-          promptTokens: usage.promptTokens,
-          completionTokens: usage.completionTokens,
+          inputTokens: usage.promptTokens,
+          outputTokens: usage.completionTokens,
           totalTokens: usage.total,
         },
         finishReason,
@@ -365,8 +389,8 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
   /**
    * Generate text with streaming using SageMaker endpoint
    */
-  async doStream(options: LanguageModelV1CallOptions): Promise<{
-    stream: ReadableStream<LanguageModelV1StreamPart>;
+  async doStream(options: Record<string, unknown>): Promise<{
+    stream: ReadableStream<Record<string, unknown>>;
     rawCall: {
       rawPrompt: unknown;
       rawSettings: Record<string, unknown>;
@@ -448,7 +472,7 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
         );
 
         return {
-          stream: stream as ReadableStream<LanguageModelV1StreamPart>,
+          stream: stream as ReadableStream<Record<string, unknown>>,
           rawCall: {
             rawPrompt: sagemakerRequest,
             rawSettings: this.modelConfig as unknown as Record<string, unknown>,
@@ -474,7 +498,7 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
         const result = await this.doGenerate(options);
 
         // Create synthetic stream from complete result using async iterator pattern
-        const syntheticStream = new ReadableStream<LanguageModelV1StreamPart>({
+        const syntheticStream = new ReadableStream<Record<string, unknown>>({
           async start(controller) {
             try {
               // Create async iterator for text chunks
@@ -534,7 +558,7 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
    * Convert AI SDK options to SageMaker request format
    */
   private convertToSageMakerRequest(
-    options: LanguageModelV1CallOptions,
+    options: Record<string, unknown>,
   ): UnknownRecord {
     const promptText = this.extractPromptText(options);
 
@@ -670,7 +694,7 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
   /**
    * Extract text content from AI SDK prompt format
    */
-  private extractPromptText(options: LanguageModelV1CallOptions): string {
+  private extractPromptText(options: Record<string, unknown>): string {
     // Check for messages first (like Ollama)
     const messages = (options as UnknownRecord).messages;
     if (messages && Array.isArray(messages)) {
@@ -1005,11 +1029,12 @@ export class SageMakerLanguageModel implements LanguageModelV1 {
         results[index] = {
           text: result.text || "",
           usage: {
-            promptTokens: result.usage.promptTokens,
-            completionTokens: result.usage.completionTokens,
+            promptTokens: result.usage.inputTokens ?? 0,
+            completionTokens: result.usage.outputTokens ?? 0,
             total:
               result.usage.totalTokens ??
-              result.usage.promptTokens + result.usage.completionTokens,
+              (result.usage.inputTokens ?? 0) +
+                (result.usage.outputTokens ?? 0),
           },
           finishReason: result.finishReason,
           index,

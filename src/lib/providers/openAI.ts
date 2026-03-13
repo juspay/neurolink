@@ -2,7 +2,9 @@ import { createOpenAI } from "@ai-sdk/openai";
 import {
   embed,
   embedMany,
-  type LanguageModelV1,
+  NoOutputGeneratedError,
+  type LanguageModel,
+  stepCountIs,
   streamText,
   type Tool,
 } from "ai";
@@ -21,7 +23,11 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/errors.js";
-import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import type {
+  StreamOptions,
+  StreamResult,
+  StreamTextResult,
+} from "../types/streamTypes.js";
 import type { ValidationSchema } from "../types/typeAliases.js";
 import { logger } from "../utils/logger.js";
 import { calculateCost } from "../utils/pricing.js";
@@ -36,6 +42,16 @@ import {
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
+import { getModelId, type ToolWithLegacyParams } from "./providerTypeUtils.js";
+
+/**
+ * Retrieve a tool's schema, handling both AI SDK v6 (`inputSchema`) and
+ * legacy v4 (`parameters`) field names.
+ */
+function getToolSchema(tool: Tool): unknown {
+  const t = tool as ToolWithLegacyParams;
+  return t.inputSchema ?? t.parameters;
+}
 
 // Configuration helpers - now using consolidated utility
 const getOpenAIApiKey = (): string => {
@@ -53,7 +69,7 @@ const streamTracer = trace.getTracer("neurolink.provider.openai");
  * Migrated to use factory pattern with exact Google AI provider pattern
  */
 export class OpenAIProvider extends BaseProvider {
-  private model: LanguageModelV1;
+  private model: LanguageModel;
 
   constructor(modelName?: string, neurolink?: NeuroLink) {
     super(modelName || getOpenAIModel(), AIProviderName.OPENAI, neurolink);
@@ -105,7 +121,7 @@ export class OpenAIProvider extends BaseProvider {
   /**
    * Returns the Vercel AI SDK model instance for OpenAI
    */
-  public getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModel {
     return this.model;
   }
 
@@ -128,13 +144,14 @@ export class OpenAIProvider extends BaseProvider {
             const processedTool = { ...tool };
 
             // Validate that Zod schemas are properly structured for AI SDK processing
-            if (tool.parameters && isZodSchema(tool.parameters)) {
+            const toolSchema = getToolSchema(tool);
+            if (toolSchema && isZodSchema(toolSchema)) {
               logger.debug(
                 `OpenAI: Tool ${name} has Zod schema - AI SDK will handle conversion`,
               );
 
               // Basic validation that the Zod schema has the required structure
-              this.validateZodSchema(name, tool.parameters);
+              this.validateZodSchema(name, toolSchema);
             }
 
             // Include the tool with original Zod schema for AI SDK processing
@@ -144,7 +161,7 @@ export class OpenAIProvider extends BaseProvider {
               logger.warn(
                 `OpenAI: Filtering out tool with invalid structure: ${name}`,
                 {
-                  parametersType: typeof processedTool.parameters,
+                  parametersType: typeof getToolSchema(processedTool),
                   hasDescription: !!processedTool.description,
                   hasExecute: !!processedTool.execute,
                 },
@@ -212,7 +229,14 @@ export class OpenAIProvider extends BaseProvider {
       return false;
     }
 
-    return this.isValidToolParameters(toolObj.parameters);
+    // AI SDK v6 uses inputSchema; v4 used parameters — check both
+    const schema =
+      "inputSchema" in toolObj
+        ? toolObj.inputSchema
+        : "parameters" in toolObj
+          ? toolObj.parameters
+          : undefined;
+    return this.isValidToolParameters(schema);
   }
 
   /**
@@ -348,13 +372,13 @@ export class OpenAIProvider extends BaseProvider {
       }
 
       // Count tools with Zod schemas for debugging
-      const zodToolsCount = Object.values(allTools).filter(
-        (tool) =>
-          tool &&
-          typeof tool === "object" &&
-          tool.parameters &&
-          isZodSchema(tool.parameters),
-      ).length;
+      const zodToolsCount = Object.values(allTools).filter((tool) => {
+        if (!tool || typeof tool !== "object") {
+          return false;
+        }
+        const schema = getToolSchema(tool);
+        return schema !== null && schema !== undefined && isZodSchema(schema);
+      }).length;
 
       logger.info("OpenAI streaming tools", {
         shouldUseTools,
@@ -384,7 +408,9 @@ export class OpenAIProvider extends BaseProvider {
             ? {
                 name: Object.keys(tools)[0],
                 description: tools[Object.keys(tools)[0]]?.description,
-                parametersType: typeof tools[Object.keys(tools)[0]]?.parameters,
+                parametersType: typeof getToolSchema(
+                  tools[Object.keys(tools)[0]],
+                ),
               }
             : "no-tools",
       });
@@ -399,7 +425,7 @@ export class OpenAIProvider extends BaseProvider {
           attributes: {
             "gen_ai.system": "openai",
             "gen_ai.request.model":
-              model.modelId || this.modelName || "unknown",
+              getModelId(model) || this.modelName || "unknown",
           },
         },
       );
@@ -410,10 +436,10 @@ export class OpenAIProvider extends BaseProvider {
           model,
           messages: messages,
           temperature: options.temperature,
-          maxTokens: options.maxTokens, // No default limit - unlimited unless specified
+          maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified
           maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
           tools,
-          maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+          stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
           toolChoice:
             shouldUseTools && Object.keys(tools).length > 0 ? "auto" : "none",
           abortSignal: composeAbortSignals(
@@ -449,20 +475,20 @@ export class OpenAIProvider extends BaseProvider {
 
       // Collect token usage and finish reason asynchronously when the stream completes,
       // then end the span. This avoids blocking the stream consumer.
-      result.usage
+      Promise.resolve(result.usage)
         .then((usage) => {
           streamSpan.setAttribute(
             "gen_ai.usage.input_tokens",
-            usage.promptTokens || 0,
+            usage.inputTokens || 0,
           );
           streamSpan.setAttribute(
             "gen_ai.usage.output_tokens",
-            usage.completionTokens || 0,
+            usage.outputTokens || 0,
           );
           const cost = calculateCost(this.providerName, this.modelName, {
-            input: usage.promptTokens || 0,
-            output: usage.completionTokens || 0,
-            total: (usage.promptTokens || 0) + (usage.completionTokens || 0),
+            input: usage.inputTokens || 0,
+            output: usage.outputTokens || 0,
+            total: (usage.inputTokens || 0) + (usage.outputTokens || 0),
           });
           if (cost && cost > 0) {
             streamSpan.setAttribute("neurolink.cost", cost);
@@ -471,7 +497,7 @@ export class OpenAIProvider extends BaseProvider {
         .catch(() => {
           // Usage may not be available if the stream is aborted
         });
-      result.finishReason
+      Promise.resolve(result.finishReason)
         .then((reason) => {
           streamSpan.setAttribute(
             "gen_ai.response.finish_reason",
@@ -481,11 +507,11 @@ export class OpenAIProvider extends BaseProvider {
         .catch(() => {
           // Finish reason may not be available if the stream is aborted
         });
-      result.text
+      Promise.resolve(result.text)
         .then(() => {
           streamSpan.end();
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           streamSpan.setStatus({
             code: SpanStatusCode.ERROR,
             message: err instanceof Error ? err.message : String(err),
@@ -649,6 +675,14 @@ export class OpenAIProvider extends BaseProvider {
             );
           }
         } catch (streamError) {
+          // AI SDK v6 throws NoOutputGeneratedError when the stream produced no output.
+          // Treat as an empty stream rather than crashing with an unhandled rejection.
+          if (NoOutputGeneratedError.isInstance(streamError)) {
+            logger.warn(
+              "OpenAI: Stream produced no output (NoOutputGeneratedError)",
+            );
+            return;
+          }
           logger.error(`OpenAI: Stream transformation error:`, streamError);
           throw streamError;
         }
@@ -658,7 +692,7 @@ export class OpenAIProvider extends BaseProvider {
       const analyticsPromise = streamAnalyticsCollector.createAnalytics(
         this.providerName,
         this.modelName,
-        result,
+        result as StreamTextResult,
         Date.now() - startTime,
         {
           requestId: `openai-stream-${Date.now()}`,

@@ -52,6 +52,7 @@ async function fetchWithRetry(
       span.setAttribute("http.request.hostname", hostname);
       span.setAttribute("http.request.method", init?.method || "GET");
 
+      // eslint-disable-next-line no-useless-assignment
       let totalAttempts = 0;
 
       try {
@@ -237,7 +238,7 @@ function parseProxyUrl(proxyUrl: string): ParsedProxyConfig {
       proxyUrl: safeUrl,
       error,
     });
-    throw new Error(`Invalid proxy URL: ${safeUrl}`);
+    throw new Error(`Invalid proxy URL: ${safeUrl}`, { cause: error });
   }
 }
 

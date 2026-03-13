@@ -418,10 +418,10 @@ export class ToolsManager {
         finalSchema = z.object({});
       }
 
-      return createAISDKTool({
+      return createAISDKTool<unknown, unknown>({
         description: toolInfo.description || `Tool ${toolName}`,
-        parameters: finalSchema,
-        execute: async (params) => {
+        inputSchema: finalSchema, // AI SDK v6 uses inputSchema (not parameters)
+        execute: async (params: unknown) => {
           const customToolSpan = tracers.sdk.startSpan(
             "neurolink.tools.execute_custom",
             {
@@ -605,10 +605,10 @@ export class ToolsManager {
           : z.object({});
       }
 
-      return createAISDKTool({
+      return createAISDKTool<unknown, unknown>({
         description: tool.description || `External MCP tool ${tool.name}`,
-        parameters: finalSchema,
-        execute: async (params) => {
+        inputSchema: finalSchema, // AI SDK v6 uses inputSchema (not parameters)
+        execute: async (params: unknown) => {
           // Emit tool start event
           if (this.neurolink?.getEventEmitter) {
             const emitter = this.neurolink.getEventEmitter();

@@ -102,18 +102,15 @@ const VISION_CAPABILITIES = {
     "gpt-4-vision-preview",
   ],
   "google-ai": [
-    // Gemini 3.1 Series (Preview)
+    // Gemini 3.1 Series (all require -preview suffix)
     "gemini-3.1-pro-preview",
     "gemini-3.1-flash-lite-preview",
-    // Gemini 3 Series (Preview - November 2025)
-    "gemini-3-pro-preview",
-    "gemini-3-pro-preview-11-2025",
-    "gemini-3-pro-latest",
-    "gemini-3-pro-image-preview",
-    // Gemini 3 Flash Series
-    "gemini-3-flash",
+    "gemini-3.1-flash-image-preview",
+    "gemini-3.1-pro-preview-customtools",
+    // Gemini 3 Series
     "gemini-3-flash-preview",
-    "gemini-3-flash-latest",
+    "gemini-3-pro-image-preview",
+    "gemini-3-pro-preview",
     // Gemini 2.5 Series
     "gemini-2.5-pro",
     "gemini-2.5-flash",
@@ -186,18 +183,15 @@ const VISION_CAPABILITIES = {
     "gpt-4",
   ],
   vertex: [
-    // Gemini 3.1 models on Vertex AI (Preview)
+    // Gemini 3.1 models on Vertex AI (all require -preview suffix)
     "gemini-3.1-pro-preview",
     "gemini-3.1-flash-lite-preview",
-    // Gemini 3.x models on Vertex AI (Preview)
-    "gemini-3-pro-preview-11-2025",
-    "gemini-3-pro-latest",
-    "gemini-3-pro-preview",
-    "gemini-3-pro",
-    // Gemini 3 Flash Series on Vertex AI
-    "gemini-3-flash",
+    "gemini-3.1-flash-image-preview",
+    "gemini-3.1-pro-preview-customtools",
+    // Gemini 3 Series on Vertex AI
     "gemini-3-flash-preview",
-    "gemini-3-flash-latest",
+    "gemini-3-pro-image-preview",
+    "gemini-3-pro-preview",
     // Gemini 2.5 models on Vertex AI
     "gemini-2.5-pro",
     "gemini-2.5-flash",
@@ -271,11 +265,8 @@ const VISION_CAPABILITIES = {
     "vertex_ai/gemini-2.5-pro",
     "gemini/gemini-2.5-pro",
     "gemini/gemini-2.0-flash",
-    "gemini-3-pro-preview",
-    "gemini-3-pro-latest",
-    "gemini-3-flash",
+    "gemini-3.1-pro-preview",
     "gemini-3-flash-preview",
-    "gemini-3-flash-latest",
     "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-2.0-flash-lite",

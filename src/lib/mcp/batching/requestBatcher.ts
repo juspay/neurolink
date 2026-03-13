@@ -353,7 +353,10 @@ export class RequestBatcher<T = unknown> extends EventEmitter {
           serverId: r.serverId,
         })),
       );
-      const timeoutMs = 30_000;
+      const timeoutMs = Math.max(
+        5000,
+        Number(process.env.MCP_TOOL_TIMEOUT) || 60000,
+      );
       let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutHandle = setTimeout(

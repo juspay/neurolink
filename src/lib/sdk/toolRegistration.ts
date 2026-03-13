@@ -294,7 +294,22 @@ export function createTypedTool<TParams extends ZodUnknownSchema>(
     ) => Promise<JsonValue> | JsonValue;
   },
 ): SimpleTool {
-  return config as SimpleTool;
+  // Wrap the typed execute to match SimpleTool's signature.
+  // The Zod schema validates params at runtime, so the cast within the wrapper is safe.
+  const wrappedExecute = async (
+    params: ToolArgs,
+    context?: ToolContext,
+  ): Promise<JsonValue> => {
+    const result = await config.execute(params as z.infer<TParams>, context);
+    return result;
+  };
+
+  return {
+    description: config.description,
+    parameters: config.parameters,
+    execute: wrappedExecute,
+    ...(config.metadata && { metadata: config.metadata }),
+  };
 }
 
 /**

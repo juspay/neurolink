@@ -301,7 +301,7 @@ export function getProviderPerformanceAnalytics(): Record<
       metrics.responseTime.reduce((a, b) => a + b, 0) /
       metrics.responseTime.length;
 
-    let recommendation = "";
+    let recommendation: string;
     if (
       metrics.successRate > PERFORMANCE_THRESHOLDS.EXCELLENT_SUCCESS_RATE &&
       avgResponseTime < PERFORMANCE_THRESHOLDS.EXCELLENT_RESPONSE_TIME_MS

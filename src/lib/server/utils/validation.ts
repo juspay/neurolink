@@ -37,7 +37,7 @@ export const AgentExecuteRequestSchema = z.object({
  */
 export const ToolExecuteRequestSchema = z.object({
   name: z.string().min(1, "Tool name is required"),
-  arguments: z.record(z.unknown()).default({}),
+  arguments: z.record(z.string(), z.unknown()).default({}),
   sessionId: z.string().optional(),
   userId: z.string().optional(),
 });
@@ -45,7 +45,7 @@ export const ToolExecuteRequestSchema = z.object({
 /**
  * Tool arguments schema (for direct tool execution)
  */
-export const ToolArgumentsSchema = z.record(z.unknown());
+export const ToolArgumentsSchema = z.record(z.string(), z.unknown());
 
 /**
  * Memory session ID parameter schema

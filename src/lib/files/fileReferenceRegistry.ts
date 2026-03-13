@@ -425,9 +425,8 @@ export class FileReferenceRegistry {
     ref: FileReference,
     params: FileExtractionParams,
   ): Promise<FileExtractionResult> {
-    const { videoProcessor } = await import(
-      "../processors/media/VideoProcessor.js"
-    );
+    const { videoProcessor } =
+      await import("../processors/media/VideoProcessor.js");
 
     // If time range specified, extract frames from that range
     if (params.start_time !== undefined && params.end_time !== undefined) {
@@ -539,9 +538,8 @@ export class FileReferenceRegistry {
     ref: FileReference,
     params: FileExtractionParams,
   ): Promise<FileExtractionResult> {
-    const { excelProcessor } = await import(
-      "../processors/document/ExcelProcessor.js"
-    );
+    const { excelProcessor } =
+      await import("../processors/document/ExcelProcessor.js");
 
     const text = await excelProcessor.extractSheetRange(
       buffer,
@@ -577,9 +575,8 @@ export class FileReferenceRegistry {
         : undefined);
 
     if (pages && pages.length > 0) {
-      const { PptxProcessor } = await import(
-        "../processors/document/PptxProcessor.js"
-      );
+      const { PptxProcessor } =
+        await import("../processors/document/PptxProcessor.js");
       const text = await PptxProcessor.extractSlides(buffer, pages);
       return {
         success: true,
@@ -604,9 +601,8 @@ export class FileReferenceRegistry {
     params: FileExtractionParams,
   ): Promise<FileExtractionResult> {
     if (params.entry_path) {
-      const { archiveProcessor } = await import(
-        "../processors/archive/ArchiveProcessor.js"
-      );
+      const { archiveProcessor } =
+        await import("../processors/archive/ArchiveProcessor.js");
       const text = await archiveProcessor.extractEntry(
         buffer,
         params.entry_path,
@@ -1188,9 +1184,8 @@ export class FileReferenceRegistry {
     ref: FileReference,
   ): Promise<string | null> {
     try {
-      const { processExcel } = await import(
-        "../processors/document/ExcelProcessor.js"
-      );
+      const { processExcel } =
+        await import("../processors/document/ExcelProcessor.js");
       const result = await processExcel({
         id: ref.id,
         name: ref.filename,
@@ -1236,9 +1231,8 @@ export class FileReferenceRegistry {
     ref: FileReference,
   ): Promise<string | null> {
     try {
-      const { processWord } = await import(
-        "../processors/document/WordProcessor.js"
-      );
+      const { processWord } =
+        await import("../processors/document/WordProcessor.js");
       const result = await processWord({
         id: ref.id,
         name: ref.filename,
@@ -1263,9 +1257,8 @@ export class FileReferenceRegistry {
    */
   private async extractPptxText(buffer: Buffer): Promise<string | null> {
     try {
-      const { PptxProcessor } = await import(
-        "../processors/document/PptxProcessor.js"
-      );
+      const { PptxProcessor } =
+        await import("../processors/document/PptxProcessor.js");
       return await PptxProcessor.extractText(buffer);
     } catch (err) {
       logger.warn(
@@ -1283,9 +1276,8 @@ export class FileReferenceRegistry {
     ref: FileReference,
   ): Promise<string | null> {
     try {
-      const { processVideo } = await import(
-        "../processors/media/VideoProcessor.js"
-      );
+      const { processVideo } =
+        await import("../processors/media/VideoProcessor.js");
       const result = await processVideo({
         id: ref.id,
         name: ref.filename,
@@ -1325,9 +1317,8 @@ export class FileReferenceRegistry {
     ref: FileReference,
   ): Promise<string | null> {
     try {
-      const { processAudio } = await import(
-        "../processors/media/AudioProcessor.js"
-      );
+      const { processAudio } =
+        await import("../processors/media/AudioProcessor.js");
       const result = await processAudio({
         id: ref.id,
         name: ref.filename,
@@ -1358,9 +1349,8 @@ export class FileReferenceRegistry {
     ref: FileReference,
   ): Promise<string | null> {
     try {
-      const { processArchive } = await import(
-        "../processors/archive/ArchiveProcessor.js"
-      );
+      const { processArchive } =
+        await import("../processors/archive/ArchiveProcessor.js");
       const result = await processArchive({
         id: ref.id,
         name: ref.filename,

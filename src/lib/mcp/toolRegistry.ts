@@ -474,6 +474,7 @@ export class MCPToolRegistry extends MCPRegistry {
                   );
                   throw new Error(
                     `HITL confirmation failed: ${error instanceof Error ? error.message : String(error)}`,
+                    { cause: error },
                   );
                 }
               }

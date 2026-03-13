@@ -15,7 +15,7 @@ import {
 import { logger } from "../../utils/logger.js";
 import { readFile } from "node:fs/promises";
 import { NeuroLinkError, ErrorFactory } from "../../utils/errorHandling.js";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 
 // ---------------------------------------------------------------------------
 // Shared config
@@ -27,10 +27,10 @@ const DEFAULT_LOCATION = "us-central1";
 /**
  * Extract content items from user messages
  *
- * @param messages - Array of CoreMessage objects
+ * @param messages - Array of ModelMessage objects
  * @returns Flattened array of content items from user messages
  */
-function extractUserContent(messages: CoreMessage[]) {
+function extractUserContent(messages: ModelMessage[]) {
   const userMessages = messages.filter((msg) => msg.role === "user");
   return userMessages.flatMap((msg) =>
     Array.isArray(msg.content) ? msg.content : [],
@@ -38,13 +38,13 @@ function extractUserContent(messages: CoreMessage[]) {
 }
 
 /**
- * Convert CoreMessage content array to Gemini parts format
+ * Convert ModelMessage content array to Gemini parts format
  *
- * @param messages - Array of CoreMessage objects
+ * @param messages - Array of ModelMessage objects
  * @returns Array of parts in Gemini API format
  */
 function buildContentParts(
-  messages: CoreMessage[],
+  messages: ModelMessage[],
 ): Array<
   { text: string } | { inlineData: { mimeType: string; data: string } }
 > {
@@ -134,7 +134,7 @@ Ensure the final response is fully self-sufficient and does not reference extern
 // ---------------------------------------------------------------------------
 
 export async function analyzeVideoWithVertexAI(
-  messages: CoreMessage[],
+  messages: ModelMessage[],
   options: {
     project?: string;
     location?: string;
@@ -190,7 +190,7 @@ export async function analyzeVideoWithVertexAI(
 // ---------------------------------------------------------------------------
 
 export async function analyzeVideoWithGeminiAPI(
-  messages: CoreMessage[],
+  messages: ModelMessage[],
   options: {
     apiKey?: string;
     model?: string;
@@ -298,7 +298,7 @@ async function getVertexConfig(): Promise<{
 }
 
 export async function analyzeVideo(
-  messages: CoreMessage[],
+  messages: ModelMessage[],
   options: {
     provider?: AIProviderName;
     project?: string;

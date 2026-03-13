@@ -23,7 +23,7 @@
  * const result = await neurolink.generate({
  *   input: { text: 'Explain quantum computing' },
  *   provider: 'vertex',
- *   model: 'gemini-3-flash'
+ *   model: 'gemini-3-flash-preview'
  * });
  *
  * console.log(result.content);
@@ -202,7 +202,7 @@ export const VERSION = "1.0.0";
  *
  * @example With custom model
  * ```typescript
- * const provider = await createAIProvider('vertex', 'gemini-3-flash');
+ * const provider = await createAIProvider('vertex', 'gemini-3-flash-preview');
  * ```
  *
  * @see {@link AIProviderFactory.createProvider}

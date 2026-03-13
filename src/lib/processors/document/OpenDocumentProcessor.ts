@@ -78,8 +78,8 @@ export class OpenDocumentProcessor extends BaseFileProcessor<ProcessedOpenDocume
     const ext = this.getExtension(fileInfo.name);
     const format = this.detectFormat(ext);
 
-    let textContent = "";
-    let paragraphCount = 0;
+    let textContent: string;
+    let paragraphCount: number;
     let truncated = false;
 
     try {
@@ -107,7 +107,9 @@ export class OpenDocumentProcessor extends BaseFileProcessor<ProcessedOpenDocume
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      throw new Error(`Failed to extract OpenDocument content: ${message}`);
+      throw new Error(`Failed to extract OpenDocument content: ${message}`, {
+        cause: error,
+      });
     }
 
     return {

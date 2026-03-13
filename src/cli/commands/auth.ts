@@ -944,7 +944,9 @@ async function handleCreateApiKeyOAuth(
     if (error instanceof Error) {
       throw error;
     }
-    throw new Error(`Failed to create API key: ${String(error)}`);
+    throw new Error(`Failed to create API key: ${String(error)}`, {
+      cause: error,
+    });
   }
 }
 

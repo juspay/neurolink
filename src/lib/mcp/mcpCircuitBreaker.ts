@@ -16,6 +16,17 @@ import type {
 } from "../types/mcpTypes.js";
 
 /**
+ * Default operation timeout for circuit breaker protected operations.
+ * Configurable via MCP_OPERATION_TIMEOUT env var (in milliseconds).
+ * Increased from 30s to 60s to accommodate MCP server startup latency,
+ * especially when multiple servers start concurrently.
+ */
+const DEFAULT_OPERATION_TIMEOUT = Math.max(
+  10000,
+  Number(process.env.MCP_OPERATION_TIMEOUT) || 60000,
+);
+
+/**
  * MCPCircuitBreaker
  * Implements circuit breaker pattern for fault tolerance
  */
@@ -40,7 +51,7 @@ export class MCPCircuitBreaker extends EventEmitter {
       failureThreshold: config.failureThreshold ?? 5,
       resetTimeout: config.resetTimeout ?? 60000,
       halfOpenMaxCalls: config.halfOpenMaxCalls ?? 3,
-      operationTimeout: config.operationTimeout ?? 30000,
+      operationTimeout: config.operationTimeout ?? DEFAULT_OPERATION_TIMEOUT,
       minimumCallsBeforeCalculation: config.minimumCallsBeforeCalculation ?? 10,
       statisticsWindowSize: config.statisticsWindowSize ?? 300000, // 5 minutes
     };

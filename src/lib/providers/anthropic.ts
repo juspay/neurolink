@@ -1,5 +1,5 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { type LanguageModelV1, streamText, type Tool } from "ai";
+import { type LanguageModel, stepCountIs, streamText, type Tool } from "ai";
 import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { type AIProviderName, AnthropicModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -61,6 +61,7 @@ import {
 } from "fs";
 import { join } from "path";
 import { TOKEN_EXPIRY_BUFFER_MS } from "../constants/enums.js";
+import { getModelId } from "./providerTypeUtils.js";
 
 /**
  * Beta headers for Claude Code integration.
@@ -486,7 +487,7 @@ const parseRateLimitHeaders = (
  * Enhanced with OAuth support, subscription tiers, and beta headers for Claude Code integration.
  */
 export class AnthropicProvider extends BaseProvider {
-  private model: LanguageModelV1;
+  private model: LanguageModel;
   private readonly authMethod: AnthropicAuthMethod;
   private readonly subscriptionTier: ClaudeSubscriptionTier;
   private readonly enableBetaFeatures: boolean;
@@ -1051,7 +1052,7 @@ export class AnthropicProvider extends BaseProvider {
   /**
    * Returns the Vercel AI SDK model instance for Anthropic
    */
-  public getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModel {
     return this.model;
   }
 
@@ -1165,8 +1166,10 @@ export class AnthropicProvider extends BaseProvider {
           kind: SpanKind.CLIENT,
           attributes: {
             "gen_ai.system": "anthropic",
-            "gen_ai.request.model":
-              model.modelId || this.modelName || "unknown",
+            "gen_ai.request.model": getModelId(
+              model,
+              this.modelName || "unknown",
+            ),
           },
         },
       );
@@ -1177,10 +1180,10 @@ export class AnthropicProvider extends BaseProvider {
           model: model,
           messages: messages,
           temperature: options.temperature,
-          maxTokens: options.maxTokens, // No default limit - unlimited unless specified
+          maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified
           maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
           tools,
-          maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+          stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
           toolChoice: shouldUseTools ? "auto" : "none",
           abortSignal: composeAbortSignals(
             options.abortSignal,
@@ -1212,20 +1215,20 @@ export class AnthropicProvider extends BaseProvider {
 
       // Collect token usage and finish reason asynchronously when the stream completes,
       // then end the span. This avoids blocking the stream consumer.
-      result.usage
+      Promise.resolve(result.usage)
         .then((usage) => {
           streamSpan.setAttribute(
             "gen_ai.usage.input_tokens",
-            usage.promptTokens || 0,
+            usage.inputTokens || 0,
           );
           streamSpan.setAttribute(
             "gen_ai.usage.output_tokens",
-            usage.completionTokens || 0,
+            usage.outputTokens || 0,
           );
           const cost = calculateCost(this.providerName, this.modelName, {
-            input: usage.promptTokens || 0,
-            output: usage.completionTokens || 0,
-            total: (usage.promptTokens || 0) + (usage.completionTokens || 0),
+            input: usage.inputTokens || 0,
+            output: usage.outputTokens || 0,
+            total: (usage.inputTokens || 0) + (usage.outputTokens || 0),
           });
           if (cost && cost > 0) {
             streamSpan.setAttribute("neurolink.cost", cost);
@@ -1234,7 +1237,7 @@ export class AnthropicProvider extends BaseProvider {
         .catch(() => {
           // Usage may not be available if the stream is aborted
         });
-      result.finishReason
+      Promise.resolve(result.finishReason)
         .then((reason) => {
           streamSpan.setAttribute(
             "gen_ai.response.finish_reason",
@@ -1245,11 +1248,11 @@ export class AnthropicProvider extends BaseProvider {
           // Finish reason may not be available if the stream is aborted
         });
       // End the span when the stream text resolves (stream fully consumed)
-      result.text
+      Promise.resolve(result.text)
         .then(() => {
           streamSpan.end();
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           streamSpan.setStatus({
             code: SpanStatusCode.ERROR,
             message: err instanceof Error ? err.message : String(err),
@@ -1306,7 +1309,7 @@ export class AnthropicProvider extends BaseProvider {
     }
   }
 
-  getModel(): LanguageModelV1 {
+  getModel(): LanguageModel {
     return this.model;
   }
 }

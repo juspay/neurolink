@@ -1,9 +1,4 @@
-import type {
-  LanguageModelV1,
-  LanguageModelV1CallOptions,
-  LanguageModelV1StreamPart,
-  Schema,
-} from "ai";
+import type { LanguageModel, Schema } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { createAnalytics } from "../core/analytics.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -76,14 +71,43 @@ const getOllamaTimeout = (): number => {
 // Create proxy-aware fetch instance
 const proxyFetch = createProxyFetch();
 
-// Custom LanguageModelV1 implementation for Ollama
-class OllamaLanguageModel implements LanguageModelV1 {
-  readonly specificationVersion = "v1";
+// Custom LanguageModel implementation for Ollama
+/**
+ * Structural adapter type capturing what AI SDK's `streamText` / `generateText`
+ * actually invoke at runtime on a model object.
+ *
+ * `OllamaLanguageModel` satisfies this interface. We expose it so the provider
+ * can cast `new OllamaLanguageModel(...)` to `LanguageModel` via this
+ * intermediate type, avoiding `as unknown as LanguageModel`.
+ */
+interface OllamaAsLanguageModel {
+  readonly specificationVersion: string;
+  readonly provider: string;
+  readonly modelId: string;
+  readonly supportedUrls: Record<string, RegExp[]>;
+  doGenerate(options: Record<string, unknown>): Promise<unknown>;
+  doStream(options: Record<string, unknown>): Promise<unknown>;
+}
+
+class OllamaLanguageModel implements OllamaAsLanguageModel {
+  /**
+   * Specification version for the AI SDK LanguageModel interface.
+   * Uses "v2" for structural compatibility with AI SDK v6's `LanguageModelV2`.
+   * The AI SDK checks this field to determine which interface version to use.
+   */
+  readonly specificationVersion = "v2" as const;
   readonly provider = "ollama";
   readonly modelId: string;
   readonly maxTokens?: number;
   readonly supportsStreaming = true;
   readonly defaultObjectGenerationMode = "json" as const;
+
+  /**
+   * Supported URL patterns by media type.
+   * Ollama runs locally and does not natively download URLs, so this is empty.
+   * Required by the LanguageModelV2 interface.
+   */
+  readonly supportedUrls: Record<string, RegExp[]> = {};
 
   private baseUrl: string;
   private timeout: number;
@@ -111,7 +135,7 @@ class OllamaLanguageModel implements LanguageModelV1 {
       .join("\n");
   }
 
-  async doGenerate(options: LanguageModelV1CallOptions): Promise<{
+  async doGenerate(options: Record<string, unknown>): Promise<{
     text?: string;
     reasoning?:
       | string
@@ -291,8 +315,8 @@ class OllamaLanguageModel implements LanguageModelV1 {
     }
   }
 
-  async doStream(options: LanguageModelV1CallOptions): Promise<{
-    stream: ReadableStream<LanguageModelV1StreamPart>;
+  async doStream(options: Record<string, unknown>): Promise<{
+    stream: ReadableStream<Record<string, unknown>>;
     rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
     rawResponse?: { headers?: Record<string, string> };
     request?: { body?: string };
@@ -448,7 +472,7 @@ class OllamaLanguageModel implements LanguageModelV1 {
 
   private async *parseStreamResponse(
     response: Response,
-  ): AsyncGenerator<LanguageModelV1StreamPart> {
+  ): AsyncGenerator<Record<string, unknown>> {
     const reader = response.body?.getReader();
     if (!reader) {
       throw new Error("No response body");
@@ -507,7 +531,7 @@ class OllamaLanguageModel implements LanguageModelV1 {
   private async *parseOpenAIStreamResponse(
     response: Response,
     messages: Array<{ role: string; content: unknown }>,
-  ): AsyncGenerator<LanguageModelV1StreamPart> {
+  ): AsyncGenerator<Record<string, unknown>> {
     const reader = response.body?.getReader();
     if (!reader) {
       throw new Error("No response body");
@@ -646,11 +670,15 @@ export class OllamaProvider extends BaseProvider {
   }
 
   /**
-   * Returns the Vercel AI SDK model instance for Ollama
-   * The OllamaLanguageModel implements LanguageModelV1 interface properly
+   * Returns the Vercel AI SDK model instance for Ollama.
+   *
+   * OllamaLanguageModel implements OllamaAsLanguageModel which is structurally
+   * compatible with LanguageModelV2 (specificationVersion "v2", modelId, provider,
+   * supportedUrls, doGenerate, doStream).
    */
-  protected getAISDKModel(): LanguageModelV1 {
-    return this.ollamaModel;
+  protected getAISDKModel(): LanguageModel {
+    const model: OllamaAsLanguageModel = this.ollamaModel;
+    return model as LanguageModel;
   }
 
   /**
@@ -1632,9 +1660,19 @@ export class OllamaProvider extends BaseProvider {
 
     for (const [name, tool] of Object.entries(aiTools)) {
       if ("description" in tool && tool.description) {
+        // AI SDK v6 uses `inputSchema`; legacy tools may still use `parameters`
+        const toolSchema:
+          | import("../types/tools.js").ToolParameterSchema
+          | undefined =
+          "inputSchema" in tool
+            ? (tool.inputSchema as import("../types/tools.js").ToolParameterSchema)
+            : "parameters" in tool
+              ? ((tool as Record<string, unknown>)
+                  .parameters as import("../types/tools.js").ToolParameterSchema)
+              : undefined;
         result[name] = {
           description: tool.description,
-          parameters: "parameters" in tool ? tool.parameters : undefined,
+          parameters: toolSchema,
           execute: async (params: ToolArgs) => {
             if ("execute" in tool && tool.execute) {
               const result = await tool.execute(params as ToolArgs, {
@@ -1768,7 +1806,7 @@ export class OllamaProvider extends BaseProvider {
       logger.debug(`[OllamaProvider] Executing tool: ${call.function.name}`);
 
       // Parse arguments
-      let args: Record<string, unknown> = {};
+      let args: Record<string, unknown>;
       try {
         args = JSON.parse(call.function.arguments);
       } catch (error) {
@@ -2042,6 +2080,7 @@ export class OllamaProvider extends BaseProvider {
       if (error instanceof Error && error.message.includes("ECONNREFUSED")) {
         throw new Error(
           `❌ Ollama Service Not Running\n\nCannot connect to Ollama service.\n\n🔧 Start Ollama:\n1. Run: ollama serve\n2. Or start Ollama app\n3. Verify: curl ${this.baseUrl}/api/version`,
+          { cause: error },
         );
       }
       throw error;

@@ -395,7 +395,7 @@ function validateEndpoint(input: string): boolean | string {
 async function promptForModel(): Promise<string> {
   const { modelChoice } = await inquirer.prompt([
     {
-      type: "list",
+      type: "select",
       name: "modelChoice",
       message: "Select an Azure OpenAI model:",
       choices: getTopModelChoices(AIProviderName.AZURE, 5),

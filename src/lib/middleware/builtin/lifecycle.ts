@@ -8,7 +8,11 @@
  * (onFinish, onError, onChunk) are passed in GenerateOptions or StreamOptions.
  */
 
-import type { LanguageModelV1Middleware } from "ai";
+import type { LanguageModelMiddleware } from "ai";
+import type {
+  LanguageModelV3GenerateResult,
+  LanguageModelV3StreamResult,
+} from "@ai-sdk/provider";
 import type {
   NeuroLinkMiddleware,
   NeuroLinkMiddlewareMetadata,
@@ -29,8 +33,13 @@ export function createLifecycleMiddleware(
     defaultEnabled: false,
   };
 
-  const middleware: LanguageModelV1Middleware = {
-    wrapGenerate: async ({ doGenerate }) => {
+  const middleware: LanguageModelMiddleware = {
+    specificationVersion: "v3",
+    wrapGenerate: async ({
+      doGenerate,
+    }: {
+      doGenerate: () => PromiseLike<LanguageModelV3GenerateResult>;
+    }) => {
       const startTime = Date.now();
 
       try {
@@ -38,16 +47,22 @@ export function createLifecycleMiddleware(
 
         if (config.onFinish) {
           try {
+            const content =
+              result.content
+                ?.map((c: { type: string; text?: string }) =>
+                  c.type === "text" ? c.text : "",
+                )
+                .join("") ?? "";
             const callbackResult = config.onFinish({
-              text: result.text ?? "",
+              text: content,
               usage: result.usage
                 ? {
-                    promptTokens: result.usage.promptTokens ?? 0,
-                    completionTokens: result.usage.completionTokens ?? 0,
+                    promptTokens: result.usage.inputTokens?.total ?? 0,
+                    completionTokens: result.usage.outputTokens?.total ?? 0,
                   }
                 : undefined,
               duration: Date.now() - startTime,
-              finishReason: result.finishReason,
+              finishReason: String(result.finishReason ?? ""),
             });
             Promise.resolve(callbackResult).catch((e) => {
               logger.warn("[LifecycleMiddleware] onFinish callback error:", e);
@@ -79,7 +94,11 @@ export function createLifecycleMiddleware(
       }
     },
 
-    wrapStream: async ({ doStream }) => {
+    wrapStream: async ({
+      doStream,
+    }: {
+      doStream: () => PromiseLike<LanguageModelV3StreamResult>;
+    }) => {
       const startTime = Date.now();
 
       try {

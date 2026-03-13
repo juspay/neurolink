@@ -23,6 +23,37 @@ import {
 import type { SecureConfiguration } from "../../lib/types/cli.js";
 
 /**
+ * Interface for language models that expose the low-level doGenerate method.
+ * Used by SageMaker CLI commands for direct endpoint testing and benchmarking.
+ */
+interface DoGenerateModel {
+  doGenerate(options: Record<string, unknown>): Promise<{
+    text?: string;
+    finishReason?: string;
+    usage: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens?: number;
+    };
+  }>;
+}
+
+/**
+ * Narrow a LanguageModel to a DoGenerateModel if it exposes doGenerate.
+ */
+function asDoGenerateModel(model: unknown): DoGenerateModel {
+  if (
+    model &&
+    typeof model === "object" &&
+    "doGenerate" in model &&
+    typeof (model as Record<string, unknown>).doGenerate === "function"
+  ) {
+    return model as DoGenerateModel;
+  }
+  throw new Error("Model does not support doGenerate method");
+}
+
+/**
  * Factory for creating SageMaker CLI commands using the Factory Pattern
  */
 export class SageMakerCommandFactory {
@@ -350,7 +381,8 @@ export class SageMakerCommandFactory {
         // Run a simple generation test
         spinner.start("Testing text generation...");
         try {
-          const result = await languageModel.doGenerate({
+          const generateModel = asDoGenerateModel(languageModel);
+          const result = await generateModel.doGenerate({
             inputFormat: "messages" as const,
             mode: { type: "regular" as const },
             prompt: [
@@ -362,14 +394,14 @@ export class SageMakerCommandFactory {
             maxTokens: 50,
           });
 
-          spinner.succeed("✅ Text generation test successful");
-          logger.always(chalk.blue("\n📝 Test Response:"));
+          spinner.succeed("Text generation test successful");
+          logger.always(chalk.blue("\n Test Response:"));
           logger.always(`   Input: "${prompt}"`);
           logger.always(
             `   Output: "${result.text?.substring(0, 100)}${result.text && result.text.length > 100 ? "..." : ""}"`,
           );
           logger.always(
-            `   Tokens: ${result.usage.promptTokens} → ${result.usage.completionTokens} (${(result.usage as { totalTokens?: number }).totalTokens ?? result.usage.promptTokens + result.usage.completionTokens} total)`,
+            `   Tokens: ${result.usage.promptTokens} -> ${result.usage.completionTokens} (${result.usage.totalTokens ?? result.usage.promptTokens + result.usage.completionTokens} total)`,
           );
           logger.always(`   Finish Reason: ${result.finishReason}`);
         } catch (genError) {
@@ -811,6 +843,7 @@ export class SageMakerCommandFactory {
       const provider = new AmazonSageMakerProvider(undefined, endpoint);
 
       const model = await provider.getModel();
+      const generateModel = asDoGenerateModel(model);
 
       spinner.text = "Running connectivity test...";
       const connectivityTest = await provider.testConnectivity();
@@ -842,7 +875,7 @@ export class SageMakerCommandFactory {
           batchPromises.push(
             (async () => {
               try {
-                const result = await model.doGenerate({
+                const result = await generateModel.doGenerate({
                   inputFormat: "messages" as const,
                   mode: { type: "regular" as const },
                   prompt: [
@@ -861,7 +894,7 @@ export class SageMakerCommandFactory {
                 return {
                   duration: Date.now() - requestStart,
                   tokens:
-                    (result.usage as { totalTokens?: number }).totalTokens ??
+                    result.usage.totalTokens ??
                     result.usage.promptTokens + result.usage.completionTokens,
                   success: true,
                 };

@@ -63,6 +63,8 @@ import type {
 } from "../base/types.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
+import { tracers, ATTR, withSpan } from "../../telemetry/index.js";
+import { logger } from "../../utils/logger.js";
 
 // =============================================================================
 // FFMPEG PATH INITIALIZATION
@@ -105,9 +107,8 @@ async function initFfmpegPaths(): Promise<void> {
 
   // Try ffprobe-static first, fall back to system ffprobe
   try {
-    const ffprobeStatic: Record<string, unknown> = (await import(
-      "ffprobe-static"
-    )) as Record<string, unknown>;
+    const ffprobeStatic: Record<string, unknown> =
+      (await import("ffprobe-static")) as Record<string, unknown>;
     // Direct path property (CommonJS default)
     if (
       typeof ffprobeStatic["path"] === "string" &&
@@ -370,154 +371,245 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     fileInfo: FileInfo,
     options?: ProcessOptions,
   ): Promise<FileProcessingResult<ProcessedVideo>> {
-    // Ensure ffmpeg paths are initialized before any processing
-    await initFfmpegPaths();
+    const filename = this.getFilename(fileInfo);
+    const sizeBytes = fileInfo.size || fileInfo.buffer?.length || 0;
 
-    // Temp directory for this processing run
-    const tempDir = join(tmpdir(), `neurolink-video-${randomUUID()}`);
-    let tempCreated = false;
-
-    try {
-      // Step 1: Validate file type and size
-      const validationResult = this.validateFileWithResult(fileInfo);
-      if (!validationResult.success) {
-        return { success: false, error: validationResult.error };
-      }
-
-      // Step 2: Get file buffer
-      let buffer: Buffer;
-
-      if (fileInfo.buffer) {
-        buffer = fileInfo.buffer;
-      } else if (fileInfo.url) {
-        const downloadResult = await this.downloadFileWithRetry(
-          fileInfo,
-          options,
-        );
-        if (!downloadResult.success) {
-          return { success: false, error: downloadResult.error };
-        }
-        if (!downloadResult.data) {
-          return {
-            success: false,
-            error: this.createError(FileErrorCode.DOWNLOAD_FAILED, {
-              reason: "Download succeeded but returned no data",
-            }),
-          };
-        }
-        buffer = downloadResult.data;
-
-        // Validate actual downloaded size
-        if (!this.validateFileSize(buffer.length)) {
-          return {
-            success: false,
-            error: this.createError(FileErrorCode.FILE_TOO_LARGE, {
-              sizeMB: (buffer.length / (1024 * 1024)).toFixed(2),
-              maxMB: this.config.maxSizeMB,
-              type: this.config.fileTypeName,
-            }),
-          };
-        }
-      } else {
-        return {
-          success: false,
-          error: this.createError(FileErrorCode.DOWNLOAD_FAILED, {
-            reason: "No buffer or URL provided for file",
-          }),
-        };
-      }
-
-      // Step 3: Write buffer to temp file (ffmpeg needs a file path)
-      await fs.mkdir(tempDir, { recursive: true });
-      tempCreated = true;
-
-      const extension = this.getExtensionFromFileInfo(fileInfo);
-      const tempVideoPath = join(tempDir, `input${extension}`);
-      await this.writeBufferToFile(buffer, tempVideoPath);
-
-      // Step 4: Extract metadata via ffprobe
-      const probeResult = await this.probeVideo(tempVideoPath);
-      if (!probeResult.success) {
-        return {
-          success: false,
-          error: this.createError(FileErrorCode.PROCESSING_FAILED, {
-            fileType: "video",
-            reason: probeResult.error,
-          }),
-        };
-      }
-      const probeData = probeResult.data as NonNullable<
-        typeof probeResult.data
-      >;
-      const metadata = this.buildMetadata(probeData, buffer.length);
-
-      // Step 5: Extract keyframes
-      let keyframes: Buffer[] = [];
-      try {
-        keyframes = await this.extractKeyframes(
-          tempVideoPath,
-          tempDir,
-          metadata.duration,
-        );
-      } catch {
-        // Non-fatal: continue without keyframes if extraction fails
-        // (e.g., audio-only file in a video container)
-      }
-
-      // Step 6: Extract subtitles
-      let subtitleText: string | undefined;
-      if (metadata.subtitleTracks > 0) {
-        try {
-          subtitleText = await this.extractSubtitles(tempVideoPath, tempDir);
-        } catch {
-          // Non-fatal: continue without subtitles if extraction fails
-        }
-      }
-
-      // Step 7: Build textContent for LLM
-      const textContent = this.buildTextContent(
-        metadata,
-        keyframes.length,
-        subtitleText,
-        this.getFilename(fileInfo),
-      );
-
-      // Step 8: Return structured result
-      return {
-        success: true,
-        data: {
-          buffer,
-          mimetype: fileInfo.mimetype || "video/mp4",
-          size: fileInfo.size,
-          filename: this.getFilename(fileInfo),
-          textContent,
-          keyframes,
-          metadata,
-          subtitleText,
-          hasKeyframes: keyframes.length > 0,
-          frameCount: keyframes.length,
+    return withSpan(
+      {
+        name: "neurolink.file.video.process",
+        tracer: tracers.file,
+        attributes: {
+          [ATTR.FILE_NAME]: filename,
+          [ATTR.FILE_MIMETYPE]: fileInfo.mimetype || "video/mp4",
+          [ATTR.FILE_SIZE_BYTES]: sizeBytes,
         },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: this.createError(
-          FileErrorCode.PROCESSING_FAILED,
-          {
-            fileType: "video",
-            error: error instanceof Error ? error.message : String(error),
-          },
-          error instanceof Error ? error : undefined,
-        ),
-      };
-    } finally {
-      // Step 8: Clean up temp files
-      if (tempCreated) {
-        await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {
-          // Ignore cleanup errors - temp files will be cleaned by OS eventually
-        });
-      }
-    }
+      },
+      async (span) => {
+        logger.info(
+          `[NEUROLINK] Video processing started: ${filename} (${(sizeBytes / (1024 * 1024)).toFixed(2)} MB, ${fileInfo.mimetype || "video/mp4"})`,
+        );
+
+        // Ensure ffmpeg paths are initialized before any processing
+        await initFfmpegPaths();
+
+        // Temp directory for this processing run
+        const tempDir = join(tmpdir(), `neurolink-video-${randomUUID()}`);
+        let tempCreated = false;
+
+        try {
+          // Step 1: Validate file type and size
+          const validationResult = this.validateFileWithResult(fileInfo);
+          if (!validationResult.success) {
+            const validationErrMsg =
+              validationResult.error?.message || "Validation failed";
+            span.setAttribute(ATTR.FILE_SUCCESS, false);
+            span.setAttribute(ATTR.FILE_ERROR, validationErrMsg);
+            logger.warn(
+              `[NEUROLINK] Video skipped/failed: ${filename} — reason: ${validationErrMsg}`,
+            );
+            return { success: false, error: validationResult.error };
+          }
+
+          // Step 2: Get file buffer
+          let buffer: Buffer;
+
+          if (fileInfo.buffer) {
+            buffer = fileInfo.buffer;
+          } else if (fileInfo.url) {
+            const downloadResult = await this.downloadFileWithRetry(
+              fileInfo,
+              options,
+            );
+            if (!downloadResult.success) {
+              const downloadErrMsg =
+                downloadResult.error?.message || "Download failed";
+              span.setAttribute(ATTR.FILE_SUCCESS, false);
+              span.setAttribute(ATTR.FILE_ERROR, downloadErrMsg);
+              logger.warn(
+                `[NEUROLINK] Video skipped/failed: ${filename} — reason: ${downloadErrMsg}`,
+              );
+              return { success: false, error: downloadResult.error };
+            }
+            if (!downloadResult.data) {
+              const errMsg = "Download succeeded but returned no data";
+              span.setAttribute(ATTR.FILE_SUCCESS, false);
+              span.setAttribute(ATTR.FILE_ERROR, errMsg);
+              logger.warn(
+                `[NEUROLINK] Video skipped/failed: ${filename} — reason: ${errMsg}`,
+              );
+              return {
+                success: false,
+                error: this.createError(FileErrorCode.DOWNLOAD_FAILED, {
+                  reason: errMsg,
+                }),
+              };
+            }
+            buffer = downloadResult.data;
+
+            // Validate actual downloaded size
+            if (!this.validateFileSize(buffer.length)) {
+              const errMsg = `File too large: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB (max: ${this.config.maxSizeMB} MB)`;
+              span.setAttribute(ATTR.FILE_SUCCESS, false);
+              span.setAttribute(ATTR.FILE_ERROR, errMsg);
+              logger.warn(
+                `[NEUROLINK] Video skipped/failed: ${filename} — reason: ${errMsg}`,
+              );
+              return {
+                success: false,
+                error: this.createError(FileErrorCode.FILE_TOO_LARGE, {
+                  sizeMB: (buffer.length / (1024 * 1024)).toFixed(2),
+                  maxMB: this.config.maxSizeMB,
+                  type: this.config.fileTypeName,
+                }),
+              };
+            }
+          } else {
+            const errMsg = "No buffer or URL provided for file";
+            span.setAttribute(ATTR.FILE_SUCCESS, false);
+            span.setAttribute(ATTR.FILE_ERROR, errMsg);
+            logger.warn(
+              `[NEUROLINK] Video skipped/failed: ${filename} — reason: ${errMsg}`,
+            );
+            return {
+              success: false,
+              error: this.createError(FileErrorCode.DOWNLOAD_FAILED, {
+                reason: errMsg,
+              }),
+            };
+          }
+
+          // Step 3: Write buffer to temp file (ffmpeg needs a file path)
+          await fs.mkdir(tempDir, { recursive: true });
+          tempCreated = true;
+
+          const extension = this.getExtensionFromFileInfo(fileInfo);
+          const tempVideoPath = join(tempDir, `input${extension}`);
+          await this.writeBufferToFile(buffer, tempVideoPath);
+
+          // Step 4: Extract metadata via ffprobe
+          const probeResult = await this.probeVideo(tempVideoPath);
+          if (!probeResult.success) {
+            const errMsg = probeResult.error || "ffprobe failed";
+            span.setAttribute(ATTR.FILE_SUCCESS, false);
+            span.setAttribute(ATTR.FILE_ERROR, errMsg);
+            logger.warn(
+              `[NEUROLINK] Video skipped/failed: ${filename} — reason: ${errMsg}`,
+            );
+            return {
+              success: false,
+              error: this.createError(FileErrorCode.PROCESSING_FAILED, {
+                fileType: "video",
+                reason: probeResult.error,
+              }),
+            };
+          }
+          const probeData = probeResult.data as NonNullable<
+            typeof probeResult.data
+          >;
+          const metadata = this.buildMetadata(probeData, buffer.length);
+
+          // Record video-specific metadata on span
+          span.setAttribute(ATTR.VIDEO_DURATION_SEC, metadata.duration);
+          span.setAttribute(ATTR.VIDEO_WIDTH, metadata.width);
+          span.setAttribute(ATTR.VIDEO_HEIGHT, metadata.height);
+          span.setAttribute(ATTR.VIDEO_CODEC, metadata.codec);
+          span.setAttribute(
+            ATTR.VIDEO_HAS_SUBTITLES,
+            metadata.subtitleTracks > 0,
+          );
+
+          // Step 5: Extract keyframes
+          let keyframes: Buffer[] = [];
+          try {
+            keyframes = await this.extractKeyframes(
+              tempVideoPath,
+              tempDir,
+              metadata.duration,
+            );
+          } catch {
+            // Non-fatal: continue without keyframes if extraction fails
+            // (e.g., audio-only file in a video container)
+            logger.warn(
+              `[NEUROLINK] Video keyframe extraction failed for ${filename}, continuing without keyframes`,
+            );
+          }
+
+          span.setAttribute(ATTR.VIDEO_KEYFRAMES_EXTRACTED, keyframes.length);
+
+          // Step 6: Extract subtitles
+          let subtitleText: string | undefined;
+          if (metadata.subtitleTracks > 0) {
+            try {
+              subtitleText = await this.extractSubtitles(
+                tempVideoPath,
+                tempDir,
+              );
+            } catch {
+              // Non-fatal: continue without subtitles if extraction fails
+            }
+          }
+
+          // Step 7: Build textContent for LLM
+          const textContent = this.buildTextContent(
+            metadata,
+            keyframes.length,
+            subtitleText,
+            this.getFilename(fileInfo),
+          );
+
+          span.setAttribute(ATTR.VIDEO_TEXT_CONTENT_LENGTH, textContent.length);
+          span.setAttribute(ATTR.FILE_OUTPUT_LENGTH, textContent.length);
+          span.setAttribute(ATTR.FILE_SUCCESS, true);
+
+          logger.info(
+            `[NEUROLINK] Video processed: ${filename} → ${textContent.length} bytes text + ${keyframes.length} keyframes ` +
+              `(${metadata.durationFormatted}, ${metadata.width}x${metadata.height}, ${metadata.codec})`,
+          );
+
+          // Step 8: Return structured result
+          return {
+            success: true,
+            data: {
+              buffer,
+              mimetype: fileInfo.mimetype || "video/mp4",
+              size: fileInfo.size,
+              filename: this.getFilename(fileInfo),
+              textContent,
+              keyframes,
+              metadata,
+              subtitleText,
+              hasKeyframes: keyframes.length > 0,
+              frameCount: keyframes.length,
+            },
+          };
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : String(error);
+          span.setAttribute(ATTR.FILE_SUCCESS, false);
+          span.setAttribute(ATTR.FILE_ERROR, errMsg);
+          logger.error(
+            `[NEUROLINK] Video processing failed: ${filename} — ${errMsg}`,
+          );
+          return {
+            success: false,
+            error: this.createError(
+              FileErrorCode.PROCESSING_FAILED,
+              {
+                fileType: "video",
+                error: errMsg,
+              },
+              error instanceof Error ? error : undefined,
+            ),
+          };
+        } finally {
+          // Step 8: Clean up temp files
+          if (tempCreated) {
+            await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {
+              // Ignore cleanup errors - temp files will be cleaned by OS eventually
+            });
+          }
+        }
+      },
+    );
   }
 
   // ===========================================================================

@@ -366,7 +366,7 @@ async function _prepareRAGToolInner(
   // Convert to Vercel AI SDK Tool format
   const aiTool: Tool = {
     description: queryTool.description,
-    parameters: z.object({
+    inputSchema: z.object({
       query: z
         .string()
         .describe("The search query to find relevant information"),

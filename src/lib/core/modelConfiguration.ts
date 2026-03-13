@@ -849,7 +849,9 @@ export class ModelConfigurationManager {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logger.error(`Failed to load configurations from file: ${errorMessage}`);
-      throw new Error(`Configuration loading failed: ${errorMessage}`);
+      throw new Error(`Configuration loading failed: ${errorMessage}`, {
+        cause: error,
+      });
     }
   }
 

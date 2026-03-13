@@ -7,10 +7,11 @@
  */
 
 // Load environment variables from .env file (critical for SDK usage)
-import { config as dotenvConfig } from "dotenv";
-
+// Suppress dotenv v17 stdout banner — it pollutes CLI JSON output
 try {
-  dotenvConfig(); // Load .env from current working directory
+  process.env.DOTENV_CONFIG_QUIET = process.env.DOTENV_CONFIG_QUIET ?? "true";
+  const { config: dotenvConfig } = await import("dotenv");
+  dotenvConfig({ quiet: true });
 } catch {
   // Environment variables should be set externally in production
 }
@@ -19,7 +20,6 @@ import type { Hippocampus } from "@juspay/hippocampus";
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { AsyncLocalStorage } from "async_hooks";
 import { EventEmitter } from "events";
-import type { MemoryClient } from "mem0ai";
 import pLimit from "p-limit";
 import type { AIProviderName } from "./constants/enums.js";
 import { ErrorCategory, ErrorSeverity } from "./constants/enums.js";
@@ -73,7 +73,6 @@ import {
   type HippocampusConfig,
   initializeHippocampus,
 } from "./memory/hippocampusInitializer.js";
-import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
 import { createMemoryRetrievalTools } from "./memory/memoryRetrievalTools.js";
 import type {
   MetricsSummary,
@@ -350,7 +349,7 @@ function isNonRetryableProviderError(error: unknown): boolean {
  * const result = await neurolink.generate({
  *   input: { text: 'Explain quantum computing' },
  *   provider: 'vertex',
- *   model: 'gemini-3-flash'
+ *   model: 'gemini-3-flash-preview'
  * });
  *
  * console.log(result.content);
@@ -514,10 +513,6 @@ export class NeuroLink {
   // HITL (Human-in-the-Loop) support
   private hitlManager?: HITLManager;
 
-  // Mem0 memory instance and config for conversation context
-  private mem0Instance?: MemoryClient | null;
-  private mem0Config?: Mem0Config;
-
   // Accumulated cost in USD across all generate() calls on this instance
   private _sessionCostUsd: number = 0;
 
@@ -621,41 +616,6 @@ export class NeuroLink {
       }
     }
     return await callback();
-  }
-
-  /**
-   * Simple sync config setup for mem0
-   */
-  private initializeMem0Config(): boolean {
-    const config = this.conversationMemoryConfig?.conversationMemory;
-    if (!config?.mem0Enabled) {
-      return false;
-    }
-
-    this.mem0Config = config.mem0Config;
-    return true;
-  }
-
-  /**
-   * Async initialization called during generate/stream
-   */
-  private async ensureMem0Ready(): Promise<MemoryClient | null> {
-    if (this.mem0Instance !== undefined) {
-      return this.mem0Instance;
-    }
-
-    if (!this.initializeMem0Config()) {
-      this.mem0Instance = null;
-      return null;
-    }
-
-    if (!this.mem0Config) {
-      this.mem0Instance = null;
-      return null;
-    }
-
-    this.mem0Instance = await initializeMem0(this.mem0Config);
-    return this.mem0Instance;
   }
 
   private initializeMemoryConfig(): boolean {
@@ -1278,36 +1238,6 @@ ${memoryContext}
 Current user's request: ${currentInput}`;
   }
 
-  /** Extract memory context from search results */
-  private extractMemoryContext(memories: Array<{ memory?: string }>): string {
-    return memories
-      .map((m) => m.memory || "")
-      .filter(Boolean)
-      .join("\n");
-  }
-
-  /** Store conversation turn in mem0 */
-  private async storeMem0ConversationTurn(
-    mem0: MemoryClient,
-    userContent: string,
-    aiResponse: string,
-    userId: string,
-    metadata: Record<string, unknown>,
-  ): Promise<void> {
-    // Store both user message and AI response for better context extraction
-    const conversationTurn = [
-      { role: "user" as const, content: userContent },
-      { role: "assistant" as const, content: aiResponse },
-    ];
-
-    await mem0.add(conversationTurn, {
-      user_id: userId,
-      metadata,
-      infer: true,
-      async_mode: true,
-    });
-  }
-
   /**
    * Retrieve condensed memory for a user.
    * Returns the input text enhanced with memory context, or unchanged if no memory.
@@ -1405,7 +1335,10 @@ Current user's request: ${currentInput}`;
       this.externalServerManager = new ExternalServerManager(
         {
           maxServers: 20,
-          defaultTimeout: 30000, // Increased from 15s to 30s for proxy latency (e.g., LiteLLM)
+          defaultTimeout: Math.max(
+            10000,
+            Number(process.env.MCP_CLIENT_TIMEOUT) || 60000,
+          ),
           enableAutoRestart: true,
           enablePerformanceMonitoring: true,
         },
@@ -3077,39 +3010,6 @@ Current user's request: ${currentInput}`;
               return await this.setLangfuseContextFromOptions(
                 options,
                 async () => {
-                  if (
-                    this.conversationMemoryConfig?.conversationMemory
-                      ?.mem0Enabled &&
-                    options.context?.userId
-                  ) {
-                    try {
-                      const mem0 = await this.ensureMem0Ready();
-                      if (!mem0) {
-                        logger.debug(
-                          "Mem0 not available, continuing without memory retrieval",
-                        );
-                      } else {
-                        const memories = await mem0.search(options.input.text, {
-                          user_id: options.context.userId as string,
-                          limit: 5,
-                        });
-
-                        if (memories && memories.length > 0) {
-                          // Enhance the input with memory context
-                          const memoryContext =
-                            this.extractMemoryContext(memories);
-
-                          options.input.text = this.formatMemoryContext(
-                            memoryContext,
-                            options.input.text,
-                          );
-                        }
-                      }
-                    } catch (error) {
-                      logger.warn("Mem0 memory retrieval failed:", error);
-                    }
-                  }
-
                   const startTime = Date.now();
 
                   // Apply orchestration if enabled and no specific provider/model requested
@@ -3187,9 +3087,8 @@ Current user's request: ${currentInput}`;
                   // RAG Integration: If rag config is provided, prepare the RAG search tool
                   if (options.rag?.files?.length) {
                     try {
-                      const { prepareRAGTool } = await import(
-                        "./rag/ragIntegration.js"
-                      );
+                      const { prepareRAGTool } =
+                        await import("./rag/ragIntegration.js");
                       const ragResult = await prepareRAGTool(
                         options.rag,
                         options.provider as string | undefined,
@@ -3398,7 +3297,7 @@ Current user's request: ${currentInput}`;
                     this._sessionCostUsd += generateResult.analytics.cost;
                   }
 
-                  this.scheduleGenerateMem0Storage(
+                  this.scheduleGenerateMemoryStorage(
                     options,
                     originalPrompt,
                     generateResult,
@@ -3479,39 +3378,13 @@ Current user's request: ${currentInput}`;
   }
 
   /**
-   * Schedule non-blocking Mem0 memory storage after generate completes.
+   * Schedule non-blocking memory storage after generate completes.
    */
-  private scheduleGenerateMem0Storage(
+  private scheduleGenerateMemoryStorage(
     options: GenerateOptions,
     originalPrompt: string | undefined,
     generateResult: GenerateResult,
   ): void {
-    if (
-      this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
-      options.context?.userId &&
-      generateResult.content.trim()
-    ) {
-      setImmediate(async () => {
-        try {
-          const mem0 = await this.ensureMem0Ready();
-          if (mem0) {
-            await this.storeMem0ConversationTurn(
-              mem0,
-              originalPrompt ?? "",
-              generateResult.content.trim(),
-              options.context?.userId as string,
-              {
-                timestamp: new Date().toISOString(),
-                type: "conversation_turn_generate",
-              },
-            );
-          }
-        } catch (error) {
-          logger.warn("Mem0 memory storage failed:", error);
-        }
-      });
-    }
-
     // Memory storage
     if (
       this.conversationMemoryConfig?.conversationMemory?.memory?.enabled &&
@@ -3535,12 +3408,10 @@ Current user's request: ${currentInput}`;
     const startTime = Date.now();
 
     // Dynamic import to avoid circular deps (same pattern as RAG)
-    const { generatePresentation } = await import(
-      "./features/ppt/presentationOrchestrator.js"
-    );
-    const { extractPPTContext, getEffectivePPTProvider } = await import(
-      "./features/ppt/utils.js"
-    );
+    const { generatePresentation } =
+      await import("./features/ppt/presentationOrchestrator.js");
+    const { extractPPTContext, getEffectivePPTProvider } =
+      await import("./features/ppt/utils.js");
 
     // Get provider instance for content planning
     const requestedProvider = (options.provider || "vertex") as AIProviderName;
@@ -3723,9 +3594,8 @@ Current user's request: ${currentInput}`;
     }
 
     // Import streaming workflow runner
-    const { runWorkflowWithStreaming } = await import(
-      "./workflow/core/workflowRunner.js"
-    );
+    const { runWorkflowWithStreaming } =
+      await import("./workflow/core/workflowRunner.js");
 
     // Execute workflow with progressive streaming
     const workflowStream = runWorkflowWithStreaming(workflowConfig, {
@@ -5689,7 +5559,7 @@ Current user's request: ${currentInput}`;
           // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
           return await this.setLangfuseContextFromOptions(options, async () => {
             try {
-              // Prepare options: init memory, MCP, Mem0, orchestration, Ollama auto-disable, tool detection
+              // Prepare options: init memory, MCP, orchestration, Ollama auto-disable, tool detection
               const { enhancedOptions, factoryResult } =
                 await this.prepareStreamOptions(
                   options,
@@ -5964,7 +5834,7 @@ Current user's request: ${currentInput}`;
   }
 
   /**
-   * Prepare stream options: initialize memory, MCP, Mem0 retrieval, orchestration,
+   * Prepare stream options: initialize memory, MCP, retrieval, orchestration,
    * Ollama tool auto-disable, factory processing, and tool detection.
    */
   private async prepareStreamOptions(
@@ -5989,39 +5859,6 @@ Current user's request: ${currentInput}`;
 
     // Initialize MCP
     await this.initializeMCP();
-
-    if (
-      this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
-      options.context?.userId
-    ) {
-      try {
-        const mem0 = await this.ensureMem0Ready();
-        if (!mem0) {
-          // Continue without memories if mem0 is not available
-          logger.debug(
-            "Mem0 not available, continuing without memory retrieval",
-          );
-        } else {
-          const memories = await mem0.search(options.input.text, {
-            user_id: options.context.userId as string,
-            limit: 5,
-          });
-
-          if (memories && memories.length > 0) {
-            // Enhance the input with memory context
-            const memoryContext = this.extractMemoryContext(memories);
-
-            options.input.text = this.formatMemoryContext(
-              memoryContext,
-              options.input.text,
-            );
-          }
-        }
-      } catch (error) {
-        // Non-blocking: Log error but continue with streaming
-        logger.warn("Mem0 memory retrieval failed:", error);
-      }
-    }
 
     // Memory retrieval
     if (
@@ -6140,9 +5977,8 @@ Current user's request: ${currentInput}`;
         options.provider?.toLowerCase().includes("ollama")) &&
       !options.disableTools
     ) {
-      const { ModelConfigurationManager } = await import(
-        "./core/modelConfiguration.js"
-      );
+      const { ModelConfigurationManager } =
+        await import("./core/modelConfiguration.js");
       const modelConfig = ModelConfigurationManager.getInstance();
       const ollamaConfig = modelConfig.getProviderConfiguration("ollama");
       const toolCapableModels =
@@ -6390,7 +6226,7 @@ Current user's request: ${currentInput}`;
 
   /**
    * Store conversation memory after stream consumption is complete (called from finally block).
-   * Handles both conversation memory storage and Mem0 background storage.
+   * Handles conversation memory storage in the background.
    */
   private async storeStreamConversationMemory(params: {
     enhancedOptions: StreamOptions;
@@ -6485,32 +6321,6 @@ Current user's request: ${currentInput}`;
           error: error instanceof Error ? error.message : String(error),
         });
       }
-    }
-
-    if (
-      this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
-      enhancedOptions.context?.userId &&
-      accumulatedContent.trim()
-    ) {
-      setImmediate(async () => {
-        try {
-          const mem0 = await this.ensureMem0Ready();
-          if (mem0) {
-            await this.storeMem0ConversationTurn(
-              mem0,
-              originalPrompt ?? "",
-              accumulatedContent.trim(),
-              enhancedOptions.context?.userId as string,
-              {
-                timestamp: new Date().toISOString(),
-                type: "conversation_turn_stream",
-              },
-            );
-          }
-        } catch (error) {
-          logger.warn("Mem0 memory storage failed:", error);
-        }
-      });
     }
 
     if (
@@ -7716,8 +7526,9 @@ Current user's request: ${currentInput}`;
     const fileTools = this.cachedFileTools;
     for (const [toolName, toolDef] of Object.entries(fileTools)) {
       if (!toolMap.has(toolName)) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const toolParams = (toolDef as any).parameters;
+        const toolDefRecord = toolDef as Record<string, unknown>;
+        const toolParams =
+          toolDefRecord.inputSchema ?? toolDefRecord.parameters;
         toolMap.set(toolName, {
           name: toolName,
           description: toolDef.description || `File tool: ${toolName}`,
@@ -10630,9 +10441,8 @@ Current user's request: ${currentInput}`;
   ): Promise<void> {
     try {
       // Import the integration module
-      const { initializeConversationMemory } = await import(
-        "./core/conversationMemoryInitializer.js"
-      );
+      const { initializeConversationMemory } =
+        await import("./core/conversationMemoryInitializer.js");
 
       // Use the integration module to create the appropriate memory manager
       const memoryManager = await initializeConversationMemory(

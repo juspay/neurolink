@@ -1,47 +1,42 @@
-# Memory Integration with Mem0
+# Memory Integration with Hippocampus
 
-Enhance your AI applications with persistent, context-aware memory using NeuroLink's integrated Mem0 support. This feature enables your AI to remember user preferences, context, and conversation history across sessions while maintaining perfect user isolation.
+Enhance your AI applications with persistent, context-aware memory using NeuroLink's integrated `@juspay/hippocampus` support. This feature enables your AI to remember user preferences, context, and conversation history across sessions while maintaining complete user isolation.
 
-## 🎯 Overview
+## Overview
 
-NeuroLink's Mem0 integration provides:
+NeuroLink's Hippocampus integration provides:
 
-- **🧠 Cross-Session Memory**: AI remembers context across different conversations and sessions
-- **👥 User Isolation**: Complete separation of memory contexts between different users
-- **🔍 Semantic Search**: Vector-based memory retrieval using advanced embeddings
-- **📦 Multiple Vector Stores**: Support for Qdrant, Pinecone, Weaviate, and Chroma
-- **⚡ Streaming Integration**: Memory-enhanced real-time streaming responses
-- **🔄 Background Processing**: Non-blocking memory operations that don't slow down responses
-- **⚙️ Native Mem0 Config**: Direct support for Mem0's native configuration format
+- **Cross-Session Memory**: AI remembers context across different conversations and sessions
+- **User Isolation**: Complete separation of memory contexts between different users
+- **LLM-Powered Condensation**: Memory is automatically summarized to stay within a configurable word limit
+- **Multiple Storage Backends**: Support for S3, Redis, and SQLite
+- **Non-blocking Storage**: Memory operations happen in the background without slowing down responses
+- **Crash-safe**: Every SDK method is wrapped in try-catch — errors are logged, never thrown
 
-## 🏗️ Architecture
+## Architecture
 
 ```mermaid
 graph LR
-    A[NeuroLink SDK] --> B[Mem0 Memory Layer]
-    B --> C[Vector Store]
-    B --> D[Embeddings Provider]
-    B --> E[LLM Provider]
-    C --> F[Qdrant/Pinecone/Weaviate/Chroma]
-    D --> G[OpenAI/Google/HuggingFace]
-    E --> H[Google/OpenAI/Anthropic]
+    A[NeuroLink SDK] --> B[Hippocampus Memory Layer]
+    B --> C[Storage Backend]
+    B --> D[Condensation LLM]
+    C --> E[S3 / Redis / SQLite]
+    D --> F[Any NeuroLink Provider]
 
-    A --> I[Generate/Stream]
-    I --> J[Memory Search]
-    J --> K[Context Enhancement]
-    K --> L[AI Response]
-    L --> M[Background Memory Storage]
+    A --> G[Generate / Stream]
+    G --> H[memory.get - userId]
+    H --> I[Context Enhancement]
+    I --> J[AI Response]
+    J --> K[Background: memory.add]
 ```
 
 The memory system operates in three phases:
 
-1. **Memory Retrieval**: Relevant memories are fetched before generating responses
-2. **Context Enhancement**: Retrieved memories are seamlessly injected into prompts
-3. **Memory Storage**: New conversation turns are stored asynchronously in the background
+1. **Memory Retrieval**: The user's condensed memory is fetched before generating a response
+2. **Context Enhancement**: Retrieved memory is prepended to the user's prompt
+3. **Memory Storage**: The new conversation turn is condensed and stored asynchronously
 
-## 🚀 Quick Start
-
-### Basic Configuration
+## Quick Start
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
@@ -49,648 +44,291 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink({
   conversationMemory: {
     enabled: true,
-    mem0Enabled: true,
-    mem0Config: {
-      // Mem0 native configuration format
-      disableHistory: true,
-      version: "v1.1",
-
-      // Embeddings configuration
-      embedder: {
-        provider: "openai",
-        config: {
-          apiKey: process.env.OPENAI_API_KEY,
-          model: "text-embedding-3-small", // 1536 dimensions
-        },
+    memory: {
+      enabled: true,
+      storage: {
+        type: "s3",
+        bucket: "my-memory-bucket",
+        prefix: "memory/condensed/",
       },
-
-      // Vector store configuration
-      vectorStore: {
-        provider: "qdrant",
-        config: {
-          collectionName: "my_app_memories",
-          dimension: 1536, // Must match embeddings model
-          url: "http://localhost:6333",
-          checkCompatibility: false,
-        },
+      neurolink: {
+        provider: "google-ai",
+        model: "gemini-2.5-flash",
       },
-
-      // LLM for memory processing
-      llm: {
-        provider: "google",
-        config: {
-          baseURL: "https://generativelanguage.googleapis.com",
-          apiKey: process.env.GEMINI_API_KEY,
-          model: "gemini-2.0-flash-exp",
-        },
-      },
-    },
-  },
-  providers: {
-    google: {
-      apiKey: process.env.GEMINI_API_KEY,
+      maxWords: 50,
     },
   },
 });
-```
 
-### First Conversation with Memory
-
-```typescript
-// Store user context
+// First conversation — stores context
 const response1 = await neurolink.generate({
   input: {
     text: "Hi! I'm Sarah, a frontend developer at TechCorp. I love React and TypeScript.",
   },
   context: {
-    userId: "user_sarah_123", // Required for memory isolation
-    sessionId: "onboarding_session", // Optional session identifier
+    userId: "user_sarah_123",
+    sessionId: "onboarding_session",
   },
   provider: "google-ai",
-  model: "gemini-2.0-flash-exp",
+  model: "gemini-2.5-flash",
 });
 
-console.log(response1.content);
-// AI acknowledges and stores Sarah's information
-
-// Later conversation - memory retrieval
+// Later conversation — memory retrieved automatically
 const response2 = await neurolink.generate({
   input: {
-    text: "What programming languages do I work with? And remind me where I work?",
+    text: "What programming languages do I work with?",
   },
   context: {
-    userId: "user_sarah_123", // Same user ID
-    sessionId: "help_session", // Different session
+    userId: "user_sarah_123",
+    sessionId: "help_session",
   },
   provider: "google-ai",
 });
 
-console.log(response2.content);
-// AI recalls: "You work with React and TypeScript at TechCorp"
+// → "You work with React and TypeScript at TechCorp."
 ```
 
-## 📋 Configuration Options
+## Configuration
 
-### Vector Store Configurations
+### Storage Backends
 
-#### Qdrant (Recommended)
+#### S3 (Recommended for production)
 
 ```typescript
-vectorStore: {
-  provider: "qdrant",
-  config: {
-    collectionName: "memories",
-    dimension: 1536,
-    url: "http://localhost:6333",
-    // Optional: API key for Qdrant Cloud
-    apiKey: process.env.QDRANT_API_KEY,
-    checkCompatibility: false,
+memory: {
+  enabled: true,
+  storage: {
+    type: "s3",
+    bucket: "my-bucket",
+    prefix: "memory/condensed/",
   },
+  neurolink: { provider: "google-ai", model: "gemini-2.5-flash" },
+  maxWords: 50,
 }
 ```
 
-#### Pinecone
+Each user's memory is stored as a single S3 object at `{prefix}{userId}`.
+
+#### Redis
 
 ```typescript
-vectorStore: {
-  provider: "pinecone",
-  config: {
-    index: "memory-index",
-    namespace: "user-memories",
-    apiKey: process.env.PINECONE_API_KEY,
-    environment: "us-west1-gcp-free",
+memory: {
+  enabled: true,
+  storage: {
+    type: "redis",
+    url: process.env.REDIS_URL,
   },
+  neurolink: { provider: "openai", model: "gpt-4o-mini" },
 }
 ```
 
-#### Weaviate
+#### SQLite (Development)
 
 ```typescript
-vectorStore: {
-  provider: "weaviate",
-  config: {
-    url: "http://localhost:8080",
-    className: "Memory",
-    // Optional authentication
-    apiKey: process.env.WEAVIATE_API_KEY,
+memory: {
+  enabled: true,
+  storage: {
+    type: "sqlite",
+    path: "./memory.db",
   },
+  neurolink: { provider: "google-ai", model: "gemini-2.5-flash" },
 }
 ```
 
-#### Chroma
+> **Note**: SQLite requires the `better-sqlite3` optional peer dependency: `pnpm add better-sqlite3`
+
+### Condensation LLM
+
+The `neurolink` field configures which AI provider and model is used to condense memory. You can use any provider registered with your NeuroLink instance:
 
 ```typescript
-vectorStore: {
-  provider: "chroma",
-  config: {
-    host: "localhost",
-    port: 8000,
-    collectionName: "memories",
-    // Optional authentication
-    auth: {
-      type: "basic",
-      credentials: process.env.CHROMA_AUTH
-    }
-  },
+neurolink: {
+  provider: "google-ai",   // or "openai", "anthropic", etc.
+  model: "gemini-2.5-flash",
 }
 ```
 
-### Embedding Provider Options
-
-#### OpenAI Embeddings (1536 dimensions)
-
-```typescript
-embedder: {
-  provider: "openai",
-  config: {
-    apiKey: process.env.OPENAI_API_KEY,
-    model: "text-embedding-3-small", // or text-embedding-3-large
-  },
-}
-```
-
-#### Google Embeddings (768 dimensions)
-
-```typescript
-embedder: {
-  provider: "google",
-  config: {
-    apiKey: process.env.GOOGLE_AI_API_KEY,
-    model: "text-embedding-004",
-  },
-}
-```
-
-#### HuggingFace Embeddings
-
-```typescript
-embedder: {
-  provider: "huggingface",
-  config: {
-    apiKey: process.env.HUGGINGFACE_API_KEY,
-    model: "sentence-transformers/all-MiniLM-L6-v2",
-  },
-}
-```
-
-### LLM Provider Options
-
-The LLM is used by Mem0 for memory processing and organization:
-
-#### Google AI
-
-```typescript
-llm: {
-  provider: "google",
-  config: {
-    baseURL: "https://generativelanguage.googleapis.com",
-    apiKey: process.env.GEMINI_API_KEY,
-    model: "gemini-2.0-flash-exp"
-  },
-}
-```
-
-#### OpenAI
-
-```typescript
-llm: {
-  provider: "openai",
-  config: {
-    apiKey: process.env.OPENAI_API_KEY,
-    model: "gpt-4-turbo"
-  },
-}
-```
-
-#### Anthropic
-
-```typescript
-llm: {
-  provider: "anthropic",
-  config: {
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    model: "claude-3-sonnet-20240229"
-  },
-}
-```
-
-## 💡 Advanced Usage Examples
+## Advanced Usage
 
 ### User Isolation in Multi-Tenant Applications
 
 ```typescript
-// User Alice's conversation
-const aliceResponse = await neurolink.generate({
-  input: {
-    text: "I prefer dark mode and use VSCode for development.",
-  },
-  context: {
-    userId: "tenant_1_alice_123",
-    sessionId: "preferences_session",
-  },
+// User Alice
+await neurolink.generate({
+  input: { text: "I prefer dark mode and use VSCode." },
+  context: { userId: "tenant_1_alice_123" },
 });
 
-// User Bob's conversation (different tenant)
-const bobResponse = await neurolink.generate({
-  input: {
-    text: "I love light themes and use WebStorm IDE.",
-  },
-  context: {
-    userId: "tenant_2_bob_456",
-    sessionId: "setup_session",
-  },
+// User Bob (completely isolated memory)
+await neurolink.generate({
+  input: { text: "I love light themes and use WebStorm." },
+  context: { userId: "tenant_2_bob_456" },
 });
 
-// Later: Alice queries her preferences
+// Alice's query — only returns Alice's data
 const aliceQuery = await neurolink.generate({
-  input: {
-    text: "What IDE do I use and what theme do I prefer?",
-  },
-  context: {
-    userId: "tenant_1_alice_123",
-  },
+  input: { text: "What IDE do I use?" },
+  context: { userId: "tenant_1_alice_123" },
 });
-// Returns: "You use VSCode with dark mode" (not Bob's preferences)
+// → "You use VSCode with dark mode." (not Bob's data)
 ```
 
-### Streaming with Memory Context
+### Streaming with Memory
 
 ```typescript
-// Memory-enhanced streaming
 const stream = await neurolink.stream({
   input: {
-    text: "Write me a personalized coding tutorial based on my experience level.",
+    text: "Write me a personalized coding tutorial based on my experience.",
   },
-  context: {
-    userId: "developer_sarah",
-    sessionId: "tutorial_session",
-  },
+  context: { userId: "developer_sarah" },
   provider: "anthropic",
-  model: "claude-3-sonnet-20240229",
-  streaming: {
-    enabled: true,
-    enableProgress: true,
-  },
+  model: "claude-sonnet-4-5",
 });
 
-let fullContent = "";
 for await (const chunk of stream.stream) {
-  if (chunk.content) {
-    fullContent += chunk.content;
-    process.stdout.write(chunk.content);
-  }
+  if (chunk.content) process.stdout.write(chunk.content);
 }
 
-// The tutorial will be personalized based on Sarah's stored experience level,
-// preferred technologies, and previous learning progress
+// Tutorial is personalized based on Sarah's stored background
 ```
 
-## 🔄 Memory Lifecycle
+### Custom Condensation Prompt
 
-### Automatic Memory Storage
-
-Memory storage happens automatically after each conversation:
-
-1. **Conversation Completion**: After AI generates a response
-2. **Conversation Turn Creation**: User input + AI response are combined into a conversation turn
-3. **Background Storage**: Memory is stored asynchronously using `setImmediate()` (non-blocking)
-4. **Vector Embedding**: Text is converted to embeddings by Mem0
-5. **Database Storage**: Stored in vector database with user context and metadata
-6. **Indexing**: Made available for future searches
-
-### Memory Storage Format
-
-The actual storage format used by NeuroLink:
+Control exactly how memory is condensed by providing a custom prompt:
 
 ```typescript
-// Conversation turn stored as JSON string
-const conversationTurn = [
-  { role: "user", content: "User's input text" },
-  { role: "system", content: "AI's response" },
-];
+memory: {
+  enabled: true,
+  storage: { type: "s3", bucket: "my-bucket" },
+  neurolink: { provider: "google-ai", model: "gemini-2.5-flash" },
+  maxWords: 100,
+  prompt: `You are a memory engine. Merge the old memory with new facts into a summary of at most {{MAX_WORDS}} words. Focus on persistent facts: name, job, preferences, goals. Ignore conversational filler.
 
-// Stored with metadata
-await mem0.add(JSON.stringify(conversationTurn), {
-  userId: options.context?.userId,
-  metadata: {
-    timestamp: new Date().toISOString(),
-    provider: generateResult.provider,
-    model: generateResult.model,
-    type: "conversation_turn",
-    async_mode: true,
+OLD_MEMORY:
+{{OLD_MEMORY}}
+
+NEW_CONTENT:
+{{NEW_CONTENT}}
+
+Condensed memory:`,
+}
+```
+
+| Placeholder       | Replaced With                                            |
+| ----------------- | -------------------------------------------------------- |
+| `{{OLD_MEMORY}}`  | The user's existing condensed memory (may be empty)      |
+| `{{NEW_CONTENT}}` | The new conversation turn: `"User: ...\nAssistant: ..."` |
+| `{{MAX_WORDS}}`   | The configured `maxWords` value                          |
+
+## Memory Lifecycle
+
+### When Memory Activates
+
+For memory to activate on a call, all three conditions must be met:
+
+1. `memory.enabled` is `true` in the config
+2. `options.context.userId` is provided in the generate/stream call
+3. The response has non-empty content (for storage)
+
+### Retrieval Flow
+
+1. `memory.get(userId)` fetches the condensed memory string
+2. If memory exists, it is prepended to the prompt:
+
+   ```
+   Context from previous conversations:
+   <condensed memory>
+
+   Current user's request: <original prompt>
+   ```
+
+3. The LLM generates a response using the enhanced prompt
+
+### Storage Flow
+
+After the LLM response completes:
+
+1. `setImmediate()` schedules background storage (non-blocking)
+2. A conversation turn is formed: `"User: ...\nAssistant: ..."`
+3. `memory.add(userId, content)` sends the old memory + new turn to the condensation LLM
+4. The condensed summary is written to the storage backend
+
+## Namespace and Tenant Isolation
+
+For multi-tenant apps, use tenant-scoped collection names or key prefixes:
+
+```typescript
+// Tenant-scoped S3 prefix
+const getMemoryConfig = (tenantId: string) => ({
+  storage: {
+    type: "s3" as const,
+    bucket: "my-bucket",
+    prefix: `tenants/${tenantId}/memory/`,
   },
-});
-```
-
-### Memory Retrieval Process
-
-Memory retrieval occurs before each AI generation:
-
-1. **Memory Search**: Query is sent to Mem0 with user ID and limit
-2. **Results Processing**: Mem0 returns `{ results: Array<{ memory: string; id: string }> }`
-3. **Context Formation**: Memories are joined with newlines
-4. **Prompt Enhancement**: Context is injected into the user's prompt
-5. **Enhanced Generation**: AI generates response with full context
-
-### Enhanced Prompt Format
-
-Retrieved memories are formatted as:
-
-```typescript
-private formatMemoryContext(memoryContext: string, currentInput: string): string {
-  return `Context from previous conversations:
-${memoryContext}
-
-Current user's request: ${currentInput}`;
-}
-```
-
-## 🛠️ Development & Testing
-
-### Complete Working Example
-
-The repository includes a comprehensive working example at:
-
-```
-scripts/examples/real-memory-test.js
-```
-
-📁 **[View Example on GitHub](https://github.com/juspay/neurolink/blob/release/scripts/examples/real-memory-test.js)**
-
-This example demonstrates:
-
-- Complete end-to-end memory integration
-- User isolation testing with Alice and Bob
-- Cross-session memory continuity
-- Streaming with memory context
-- Performance monitoring and analytics
-- Error handling patterns
-- Resource cleanup
-
-### Running the Example
-
-```bash
-# Set environment variables
-export OPENAI_API_KEY=sk-...
-export GEMINI_API_KEY=AIza...
-
-# Start Qdrant
-docker run -p 6333:6333 qdrant/qdrant
-
-# Run the test
-node scripts/examples/real-memory-test.js
-```
-
-### Testing Memory Integration
-
-```typescript
-import { NeuroLink } from "@juspay/neurolink";
-
-async function testMemoryFlow() {
-  const neurolink = new NeuroLink({
-    conversationMemory: {
-      enabled: true,
-      mem0Enabled: true,
-      mem0Config: {
-        disableHistory: true,
-        version: "v1.1",
-        vectorStore: {
-          provider: "qdrant",
-          config: {
-            collectionName: "test_memories",
-            dimension: 1536,
-            url: "http://localhost:6333",
-            checkCompatibility: false,
-          },
-        },
-        embedder: {
-          provider: "openai",
-          config: {
-            apiKey: process.env.OPENAI_API_KEY,
-            model: "text-embedding-3-small",
-          },
-        },
-        llm: {
-          provider: "google",
-          config: {
-            apiKey: process.env.GEMINI_API_KEY,
-            model: "gemini-2.0-flash-exp",
-          },
-        },
-      },
-    },
-  });
-
-  // Step 1: Store context
-  console.log("📝 Storing user context...");
-  await neurolink.generate({
-    input: {
-      text: "I'm a Python developer working on machine learning projects with PyTorch.",
-    },
-    context: {
-      userId: "test_user_123",
-      sessionId: "context_session",
-    },
-  });
-
-  // Wait for memory indexing
-  console.log("⏳ Waiting for memory indexing...");
-  await new Promise((resolve) => setTimeout(resolve, 30000));
-
-  // Step 2: Test recall
-  console.log("🔍 Testing memory recall...");
-  const response = await neurolink.generate({
-    input: {
-      text: "What programming language do I use for my ML projects?",
-    },
-    context: {
-      userId: "test_user_123",
-      sessionId: "recall_session",
-    },
-  });
-
-  console.log("🤖 AI Response:", response.content);
-  // Should mention Python and PyTorch
-}
-
-testMemoryFlow();
-```
-
-## ⚠️ Common Issues & Solutions
-
-### Dimension Mismatch Error
-
-```
-Error: Vector dimension mismatch: expected 768, got 1536
-```
-
-**Solution**: Ensure embedding model dimensions match vector store configuration:
-
-```typescript
-// OpenAI embeddings = 1536 dimensions
-embedder: {
-  config: { model: "text-embedding-3-small" }
-},
-vectorStore: {
-  config: { dimension: 1536 }
-}
-
-// Google embeddings = 768 dimensions
-embedder: {
-  config: { model: "text-embedding-004" }
-},
-vectorStore: {
-  config: { dimension: 768 }
-}
-```
-
-### API Key Authentication Errors
-
-```
-Error: Method doesn't allow unregistered callers
-```
-
-**Solution**: Ensure API keys are properly configured for all providers:
-
-```typescript
-// Environment variables
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=AIza...
-QDRANT_API_KEY=qdr_...
-
-// Configuration
-mem0Config: {
-  embedder: {
-    config: { apiKey: process.env.OPENAI_API_KEY }
-  },
-  llm: {
-    config: { apiKey: process.env.GEMINI_API_KEY }
-  },
-  vectorStore: {
-    config: { apiKey: process.env.QDRANT_API_KEY } // if using Qdrant Cloud
-  }
-}
-```
-
-### Vector Store Connection Issues
-
-```
-Error: Connection refused to localhost:6333
-```
-
-**Solution**: Ensure vector store is running:
-
-```bash
-# Start Qdrant with Docker
-docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
-
-# Verify health
-curl http://localhost:6333/health
-
-# Check collections
-curl http://localhost:6333/collections
-```
-
-### Memory Storage Failures
-
-**Check logs for background storage errors:**
-
-```typescript
-// Memory storage is non-blocking, check logs for warnings
-logger.warn("Mem0 memory storage failed:", error);
-```
-
-**Common causes:**
-
-- Vector store not accessible
-- API key issues
-- Dimension mismatches
-- Collection not found
-
-## 📚 Best Practices
-
-### 1. User ID Management
-
-```typescript
-// Use consistent, unique user identifiers
-const generateUserId = (tenantId: string, userId: string) =>
-  `${tenantId}_user_${userId}`;
-
-context: {
-  userId: generateUserId('company_abc', authenticatedUser.id),
-  sessionId: `session_${Date.now()}`
-}
-```
-
-### 2. Memory Privacy & Security
-
-```typescript
-// Separate memory collections per tenant
-const getTenantMemoryConfig = (tenantId: string) => ({
-  vectorStore: {
-    config: {
-      collectionName: `memories_${tenantId}`,
-      // Ensures complete data isolation
-    },
-  },
-});
-```
-
-### 3. Graceful Error Handling
-
-Memory operations are designed to be non-blocking:
-
-```typescript
-// Memory failures don't break conversations
-// Check logs for memory-related warnings
-// Conversations continue without memory if needed
-```
-
-### 4. Performance Considerations
-
-```typescript
-// Memory retrieval is limited to 5 results by default
-const memories = await mem0.search(options.input.text, {
-  userId: options.context.userId,
-  limit: 5, // Configurable limit
+  neurolink: { provider: "google-ai", model: "gemini-2.5-flash" },
 });
 
-// Memory storage happens asynchronously
-setImmediate(async () => {
-  // Non-blocking background storage
-});
+// User ID should also encode tenant context
+const userId = `${tenantId}::${localUserId}`;
 ```
 
-### 5. Production Deployment
+## Environment Variables
+
+| Variable                 | Default  | Description                                    |
+| ------------------------ | -------- | ---------------------------------------------- |
+| `HC_LOG_LEVEL`           | `warn`   | Log level: `debug`, `info`, `warn`, `error`    |
+| `HC_CONDENSATION_PROMPT` | built-in | Default prompt (overridden by config `prompt`) |
+
+## Error Handling
+
+Memory is designed to **never crash the host application**:
+
+- Every public method is wrapped in try-catch
+- `get()` returns `null` on error — the call continues without memory context
+- `add()` silently fails on error — the generate/stream result is not affected
+- Storage initialization errors disable memory for that instance
 
 ```typescript
-// Use environment-specific configurations
-const mem0Config = {
-  vectorStore: {
-    provider: "qdrant",
-    config: {
-      collectionName: `memories_${process.env.NODE_ENV}`,
-      url: process.env.QDRANT_URL || "http://localhost:6333",
-      apiKey: process.env.QDRANT_API_KEY, // For Qdrant Cloud
-    },
-  },
+// These warnings appear in logs but never throw:
+// logger.warn("Memory retrieval failed:", error)
+// logger.warn("Memory storage failed:", error)
+```
+
+## Type Reference
+
+```typescript
+import type { Memory } from "@juspay/neurolink";
+
+// Memory = HippocampusConfig & { enabled?: boolean }
+type Memory = {
+  enabled?: boolean;
+  storage: {
+    type: "s3" | "redis" | "sqlite";
+    bucket?: string; // S3
+    prefix?: string; // S3
+    url?: string; // Redis
+    path?: string; // SQLite
+  };
+  neurolink: {
+    provider: string;
+    model: string;
+  };
+  maxWords?: number; // default: 50
+  prompt?: string; // custom condensation prompt
 };
 ```
 
-## 🔗 Additional Resources
+## Production Checklist
 
-- **[Mem0 Official Documentation](https://docs.mem0.ai/)** - Complete Mem0 configuration reference
-- **[Vector Store Setup Guides](https://docs.mem0.ai/components/vectordb/)** - Detailed setup for each vector store
-- **[Embedding Models Comparison](https://docs.mem0.ai/components/embeddings/)** - Choose the right embedding provider
-- **[Production Deployment](https://docs.mem0.ai/deployment/production/)** - Scale memory for production use
-- **[Working Example](https://github.com/juspay/neurolink/blob/release/scripts/examples/real-memory-test.js)** - Complete implementation reference
+- [ ] Use S3 or Redis storage (not SQLite) in production
+- [ ] Set `HC_LOG_LEVEL=warn` or higher in production
+- [ ] Ensure `userId` is stable and unique per user across sessions
+- [ ] For multi-tenant: use tenant-scoped prefixes or collection names
+- [ ] Monitor `Memory retrieval failed` and `Memory storage failed` warnings in logs
+- [ ] Verify the condensation LLM provider is configured and has sufficient quota
 
-## 🎯 Next Steps
+## See Also
 
-1. **[Set up a vector store](https://docs.mem0.ai/components/vectordb/)** (Qdrant recommended for development)
-2. **Configure embedding provider** based on your performance and cost requirements
-3. **Test with the working example** to verify your setup
-4. **Implement user isolation** patterns for your application architecture
-5. **Monitor memory operations** in production logs
-
-Memory integration transforms your AI applications from stateless interactions to intelligent, context-aware assistants that learn and adapt to each user's unique needs and preferences.
+- **[Memory Guide](../features/memory.md)** - Quick start and configuration reference
+- **[Conversation Memory](../conversation-memory.md)** - Session-based conversation history
+- **[Context Compaction](../features/context-compaction.md)** - Automatic context window management

@@ -98,15 +98,16 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   },
   "google-ai": {
     _default: 1_048_576,
-    "gemini-3.1-pro": 1_048_576,
+    // Gemini 3.1 Series (all require -preview suffix)
     "gemini-3.1-pro-preview": 1_048_576,
-    "gemini-3.1-flash": 1_048_576,
-    "gemini-3.1-flash-lite": 1_048_576,
     "gemini-3.1-flash-lite-preview": 1_048_576,
-    "gemini-3-pro-preview": 1_048_576,
-    "gemini-3-pro-image-preview": 65_536,
+    "gemini-3.1-flash-image-preview": 1_048_576,
+    "gemini-3.1-pro-preview-customtools": 1_048_576,
+    // Gemini 3 Series
     "gemini-3-flash-preview": 1_048_576,
-    "gemini-3-flash": 1_048_576,
+    "gemini-3-pro-image-preview": 65_536,
+    /** @deprecated SHUT DOWN March 9, 2026. Migrate to gemini-3.1-pro-preview. */
+    "gemini-3-pro-preview": 1_048_576,
     "gemini-2.5-pro": 1_048_576,
     "gemini-2.5-flash": 1_048_576,
     "gemini-2.5-flash-lite": 1_048_576,
@@ -127,16 +128,17 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "claude-sonnet-4-20250514": 200_000,
     "claude-opus-4-20250514": 200_000,
     "claude-opus-4": 200_000,
-    // Gemini on Vertex
-    "gemini-3.1-pro": 1_048_576,
+    // Gemini 3.1 on Vertex (all require -preview suffix)
     "gemini-3.1-pro-preview": 1_048_576,
-    "gemini-3.1-flash": 1_048_576,
-    "gemini-3.1-flash-lite": 1_048_576,
     "gemini-3.1-flash-lite-preview": 1_048_576,
-    "gemini-3-pro-preview": 1_048_576,
-    "gemini-3-pro-latest": 1_048_576,
+    "gemini-3.1-flash-image-preview": 1_048_576,
+    "gemini-3.1-pro-preview-customtools": 1_048_576,
+    // Gemini 3 on Vertex
     "gemini-3-flash-preview": 1_048_576,
-    "gemini-3-flash-latest": 1_048_576,
+    "gemini-3-pro-image-preview": 65_536,
+    /** @deprecated SHUT DOWN March 9, 2026. Migrate to gemini-3.1-pro-preview. */
+    "gemini-3-pro-preview": 1_048_576,
+    // Gemini 2.x on Vertex
     "gemini-2.5-pro": 1_048_576,
     "gemini-2.5-flash": 1_048_576,
     "gemini-2.0-flash": 1_048_576,

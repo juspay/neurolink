@@ -559,12 +559,14 @@ export function initializeOpenTelemetry(config: LangfuseConfig): void {
       isCredentialsValid = true;
 
       // Create span processor for external provider mode
+      // shouldExportSpan: export all spans (v5 default filters to gen_ai spans only)
       langfuseProcessor = new LangfuseSpanProcessor({
         publicKey: config.publicKey,
         secretKey: config.secretKey,
         baseUrl: config.baseUrl || "https://cloud.langfuse.com",
         environment: config.environment || "dev",
         release: config.release || "v1.0.0",
+        shouldExportSpan: () => true,
       });
 
       usingExternalProvider = true;
@@ -679,12 +681,14 @@ export function initializeOpenTelemetry(config: LangfuseConfig): void {
     isCredentialsValid = true;
 
     // Step 1: Create LangfuseSpanProcessor for standalone mode
+    // shouldExportSpan: export all spans (v5 default filters to gen_ai spans only)
     langfuseProcessor = new LangfuseSpanProcessor({
       publicKey: config.publicKey,
       secretKey: config.secretKey,
       baseUrl: config.baseUrl || "https://cloud.langfuse.com",
       environment: config.environment || "dev",
       release: config.release || "v1.0.0",
+      shouldExportSpan: () => true,
     });
 
     logger.debug(`${LOG_PREFIX} Created LangfuseSpanProcessor`, {

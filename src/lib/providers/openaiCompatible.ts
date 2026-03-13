@@ -1,5 +1,11 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { streamText, type Schema, type LanguageModelV1, type Tool } from "ai";
+import {
+  NoOutputGeneratedError,
+  streamText,
+  type Schema,
+  type LanguageModel,
+  type Tool,
+} from "ai";
 import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import { AIProviderName } from "../constants/enums.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
@@ -15,7 +21,10 @@ import {
 } from "../utils/timeout.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
+import {
+  toAnalyticsStreamResult,
+  type StepFinishEvent,
+} from "./providerTypeUtils.js";
 
 // Constants
 const FALLBACK_OPENAI_COMPATIBLE_MODEL = "gpt-3.5-turbo";
@@ -62,7 +71,7 @@ const getDefaultOpenAICompatibleModel = (): string | undefined => {
  * Provides access to one of the OpenAI-compatible endpoint (OpenRouter, vLLM, LiteLLM, etc.)
  */
 export class OpenAICompatibleProvider extends BaseProvider {
-  private model?: LanguageModelV1;
+  private model?: LanguageModel;
   private config: { baseURL: string; apiKey: string };
   private discoveredModel?: string;
   private customOpenAI: ReturnType<typeof createOpenAI>;
@@ -105,7 +114,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
    * Returns the Vercel AI SDK model instance for OpenAI Compatible endpoints
    * Handles auto-discovery if no model was specified
    */
-  protected async getAISDKModel(): Promise<LanguageModelV1> {
+  protected async getAISDKModel(): Promise<LanguageModel> {
     // If model instance doesn't exist yet, create it
     if (!this.model) {
       let modelToUse: string;
@@ -247,12 +256,11 @@ export class OpenAICompatibleProvider extends BaseProvider {
         model,
         messages: messages,
         ...(options.maxTokens !== null && options.maxTokens !== undefined
-          ? { maxTokens: options.maxTokens }
+          ? { maxOutputTokens: options.maxTokens }
           : {}),
         ...(options.temperature !== null && options.temperature !== undefined
           ? { temperature: options.temperature }
           : {}),
-        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
         tools,
         toolChoice: shouldUseTools ? "auto" : "none",
         abortSignal: composeAbortSignals(
@@ -261,10 +269,10 @@ export class OpenAICompatibleProvider extends BaseProvider {
         ),
         experimental_telemetry:
           this.telemetryHandler.getTelemetryConfig(options),
-        onStepFinish: ({ toolCalls, toolResults }) => {
+        onStepFinish: (event: StepFinishEvent) => {
           this.handleToolExecutionStorage(
-            toolCalls,
-            toolResults,
+            [...event.toolCalls],
+            [...event.toolResults],
             options,
             new Date(),
           ).catch((error: unknown) => {
@@ -283,8 +291,19 @@ export class OpenAICompatibleProvider extends BaseProvider {
 
       // Transform stream to match StreamResult interface
       const transformedStream = async function* () {
-        for await (const chunk of result.textStream) {
-          yield { content: chunk };
+        try {
+          for await (const chunk of result.textStream) {
+            yield { content: chunk };
+          }
+        } catch (streamError) {
+          // AI SDK v6 throws NoOutputGeneratedError when the stream produced no output.
+          if (NoOutputGeneratedError.isInstance(streamError)) {
+            logger.warn(
+              "OpenAI-compatible: Stream produced no output (NoOutputGeneratedError)",
+            );
+            return;
+          }
+          throw streamError;
         }
       };
 
@@ -292,7 +311,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
       const analyticsPromise = streamAnalyticsCollector.createAnalytics(
         this.providerName,
         this.modelName,
-        result,
+        toAnalyticsStreamResult(result),
         Date.now() - startTime,
         {
           requestId: `openai-compatible-stream-${Date.now()}`,

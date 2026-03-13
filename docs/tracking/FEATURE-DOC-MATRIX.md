@@ -28,7 +28,6 @@
 
 | Feature                               | Implemented | README  | Feature Guide | CLI Docs | SDK Docs | Config Coverage | Troubleshooting | Priority   |
 | ------------------------------------- | ----------- | ------- | ------------- | -------- | -------- | --------------- | --------------- | ---------- |
-| Mem0 Conversational Memory            | Y           | Partial | N             | N        | Y        | Partial         | N               | **MEDIUM** |
 | Redis Conversation History Export     | Y           | Partial | N             | Partial  | Partial  | Y               | Partial         | **MEDIUM** |
 | CLI Redis Auto-Detect                 | Y           | Y       | N             | Partial  | N/A      | Y               | Partial         | **MEDIUM** |
 | Interactive Provider Setup Wizard     | Y           | Partial | N             | Partial  | N/A      | Partial         | N               | **MEDIUM** |

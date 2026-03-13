@@ -126,6 +126,7 @@ export class JSONLoader extends TextLoader {
     } catch (error) {
       throw new Error(
         `Invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
 

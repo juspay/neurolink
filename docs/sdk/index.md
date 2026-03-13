@@ -179,7 +179,6 @@ const result2 = await neurolink.generate({
 
 - **In-Memory**: Fast, single-instance only
 - **Redis**: Distributed, persistent across restarts
-- **Mem0**: Advanced semantic memory with vector storage
 
 **Features:**
 

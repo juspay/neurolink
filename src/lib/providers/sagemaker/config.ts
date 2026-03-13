@@ -94,8 +94,8 @@ export function getSageMakerConfig(region?: string): SageMakerConfig {
     return validatedConfig;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errorMessages = error.errors.map(
-        (err) => `${err.path.join(".")}: ${err.message}`,
+      const errorMessages = error.issues.map(
+        (err) => `${String(err.path.join("."))}: ${err.message}`,
       );
       throw new Error(
         `SageMaker configuration validation failed:\n${errorMessages.join("\n")}\n\n` +
@@ -106,6 +106,7 @@ export function getSageMakerConfig(region?: string): SageMakerConfig {
           `- AWS_SESSION_TOKEN: Session token (optional, for temporary credentials)\n` +
           `- SAGEMAKER_TIMEOUT: Request timeout in ms (optional, default: 30000)\n` +
           `- SAGEMAKER_MAX_RETRIES: Max retry attempts (optional, default: 3)`,
+        { cause: error },
       );
     }
     throw error;
@@ -184,11 +185,12 @@ export function getSageMakerModelConfig(
     return validatedConfig;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errorMessages = error.errors.map(
-        (err) => `${err.path.join(".")}: ${err.message}`,
+      const errorMessages = error.issues.map(
+        (err) => `${String(err.path.join("."))}: ${err.message}`,
       );
       throw new Error(
         `SageMaker model configuration validation failed for endpoint '${endpoint}':\n${errorMessages.join("\n")}`,
+        { cause: error },
       );
     }
     throw error;
@@ -369,6 +371,7 @@ export async function loadConfigurationFromFile(
       `Failed to load SageMaker configuration from file '${filePath}': ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
+      { cause: error },
     );
   }
 }

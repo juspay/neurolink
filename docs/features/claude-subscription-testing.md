@@ -569,9 +569,8 @@ All module imports inside test cases use dynamic `await import(...)` to get fres
 it("should do something", async () => {
   process.env.ANTHROPIC_API_KEY = "sk-ant-test-key-12345678901234567890";
 
-  const { AnthropicProvider } = await import(
-    "../../src/lib/providers/anthropic.js"
-  );
+  const { AnthropicProvider } =
+    await import("../../src/lib/providers/anthropic.js");
 
   const provider = new AnthropicProvider();
   expect(provider).toBeDefined();

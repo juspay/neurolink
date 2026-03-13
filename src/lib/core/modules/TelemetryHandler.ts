@@ -100,18 +100,20 @@ export class TelemetryHandler {
    */
   async recordPerformanceMetrics(
     usage:
-      | { promptTokens: number; completionTokens: number; totalTokens: number }
+      | { inputTokens: number | undefined; outputTokens: number | undefined }
       | undefined,
     responseTime: number,
   ): Promise<void> {
     try {
+      const totalTokens =
+        (usage?.inputTokens || 0) + (usage?.outputTokens || 0);
       const actualCost = await this.calculateActualCost(
-        usage || { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        usage || { inputTokens: 0, outputTokens: 0 },
       );
 
       recordProviderPerformanceFromMetrics(this.providerName, {
         responseTime,
-        tokensGenerated: usage?.totalTokens || 0,
+        tokensGenerated: totalTokens,
         cost: actualCost,
         success: true,
       });
@@ -120,14 +122,14 @@ export class TelemetryHandler {
       TelemetryService.getInstance().recordAIRequest(
         this.providerName,
         this.modelName,
-        usage?.totalTokens || 0,
+        totalTokens,
         responseTime,
         actualCost > 0 ? actualCost : undefined,
       );
 
       logger.debug(`Performance recorded for ${this.providerName}`, {
         responseTime: `${responseTime}ms`,
-        tokens: usage?.totalTokens || 0,
+        tokens: totalTokens,
         estimatedCost: `$${actualCost.toFixed(6)}`,
       });
     } catch (perfError) {
@@ -148,13 +150,12 @@ export class TelemetryHandler {
    * on Vertex AI ($0.000060 vs $0.106895 for the same request).
    */
   async calculateActualCost(usage: {
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
+    inputTokens?: number | undefined;
+    outputTokens?: number | undefined;
   }): Promise<number> {
     try {
-      const promptTokens = usage?.promptTokens || 0;
-      const completionTokens = usage?.completionTokens || 0;
+      const promptTokens = usage?.inputTokens || 0;
+      const completionTokens = usage?.outputTokens || 0;
 
       // Try the per-model pricing table first (includes correct rates for
       // Claude on Vertex, cache token rates, etc.)

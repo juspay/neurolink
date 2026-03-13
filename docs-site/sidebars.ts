@@ -161,7 +161,6 @@ const sidebars: SidebarsConfig = {
       items: [
         "memory/conversation",
         "memory/summarization",
-        "memory/mem0",
         "advanced/memory-integration",
       ],
     },

@@ -63,9 +63,8 @@ async function startStdio(server) {
 }
 
 async function startHttp(server, port) {
-  const { StreamableHTTPServerTransport } = await import(
-    "@modelcontextprotocol/sdk/server/streamableHttp.js"
-  );
+  const { StreamableHTTPServerTransport } =
+    await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
   const http = await import("http");
 
   const transport = new StreamableHTTPServerTransport({

@@ -261,9 +261,8 @@ export class WorkflowCommandFactory {
     const spinner = ora("Executing workflow...").start();
 
     try {
-      const { runWorkflow } = await import(
-        "../../lib/workflow/core/workflowRunner.js"
-      );
+      const { runWorkflow } =
+        await import("../../lib/workflow/core/workflowRunner.js");
 
       const result = await runWorkflow(cfg, {
         prompt: argv.prompt,

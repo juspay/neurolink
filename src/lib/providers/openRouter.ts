@@ -1,12 +1,13 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import {
-  type LanguageModelV1,
+  type LanguageModel,
+  NoOutputGeneratedError,
   Output,
   type Schema,
   streamText,
   type Tool,
 } from "ai";
-import type { ZodType, ZodTypeDef } from "zod";
+import type { ZodType } from "zod";
 import { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
@@ -19,7 +20,11 @@ import type {
   OpenRouterModelInfo,
   OpenRouterModelsResponse,
 } from "../types/providers.js";
-import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import type {
+  StreamOptions,
+  StreamResult,
+  StreamTextResult,
+} from "../types/streamTypes.js";
 import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import { getProviderModel } from "../utils/providerConfig.js";
@@ -71,7 +76,7 @@ const getDefaultOpenRouterModel = (): string => {
  * Provides access to 300+ models from 60+ providers via OpenRouter unified gateway
  */
 export class OpenRouterProvider extends BaseProvider {
-  private model: LanguageModelV1;
+  private model: LanguageModel;
   private openRouterClient: ReturnType<typeof createOpenRouter>;
 
   // Cache for available models to avoid repeated API calls
@@ -105,6 +110,7 @@ export class OpenRouterProvider extends BaseProvider {
     });
 
     // Initialize model with OpenRouter client
+    // OpenRouterChatLanguageModel implements LanguageModelV3 which is part of the LanguageModel union
     this.model = this.openRouterClient(
       this.modelName || getDefaultOpenRouterModel(),
     );
@@ -126,7 +132,7 @@ export class OpenRouterProvider extends BaseProvider {
   /**
    * Returns the Vercel AI SDK model instance for OpenRouter
    */
-  protected getAISDKModel(): LanguageModelV1 {
+  protected getAISDKModel(): LanguageModel {
     return this.model;
   }
 
@@ -190,13 +196,23 @@ export class OpenRouterProvider extends BaseProvider {
         );
       }
 
+      // "No endpoints found" — model temporarily unavailable or unsupported parameters
+      // This is distinct from tool errors: it can happen on any request when the
+      // model has no available providers on OpenRouter (e.g., free-tier model down).
+      if (errorRecord.message.includes("No endpoints found")) {
+        return new Error(
+          `No endpoints found for model '${this.modelName}' on OpenRouter. ` +
+            "The model may be temporarily unavailable or does not support the requested parameters. " +
+            "Try a different model or check availability at https://openrouter.ai/models",
+        );
+      }
+
       // Tool/function calling errors
       if (
         errorRecord.message.includes("tool use") ||
         errorRecord.message.includes("tool_use") ||
         errorRecord.message.includes("function_call") ||
-        errorRecord.message.includes("tools are not supported") ||
-        errorRecord.message.includes("No endpoints found")
+        errorRecord.message.includes("tools are not supported")
       ) {
         return new Error(
           `Model '${this.modelName}' does not support tool calling. ` +
@@ -278,7 +294,7 @@ export class OpenRouterProvider extends BaseProvider {
    */
   protected async executeStream(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ZodType | Schema<unknown>,
   ): Promise<StreamResult> {
     this.validateStreamOptions(options);
 
@@ -401,56 +417,79 @@ export class OpenRouterProvider extends BaseProvider {
 
       const result = await streamText(streamOptions);
 
-      result.text.finally(() => timeoutController?.cleanup());
+      // Guard against NoOutputGeneratedError becoming an unhandled rejection.
+      Promise.resolve(result.text)
+        .catch((err: unknown) => {
+          logger.debug(
+            "Stream text promise rejected (expected for empty streams)",
+            {
+              error: err instanceof Error ? err.message : String(err),
+            },
+          );
+        })
+        .finally(() => timeoutController?.cleanup());
 
       // Transform stream to content object stream using fullStream (handles both text and tool calls)
       const transformedStream = (async function* () {
-        // Try fullStream first (handles both text and tool calls), fallback to textStream
-        const streamToUse = result.fullStream || result.textStream;
+        try {
+          // Try fullStream first (handles both text and tool calls), fallback to textStream
+          const streamToUse = result.fullStream || result.textStream;
 
-        for await (const chunk of streamToUse) {
-          // Handle different chunk types from fullStream
-          if (chunk && typeof chunk === "object") {
-            // Check for error chunks first (critical error handling)
-            if ("type" in chunk && chunk.type === "error") {
-              const errorChunk = chunk as {
-                type: "error";
-                error: Record<string, unknown>;
-              };
-              logger.error(`OpenRouter: Error chunk received:`, {
-                errorType: errorChunk.type,
-                errorDetails: errorChunk.error,
-              });
-              throw new Error(
-                `OpenRouter streaming error: ${
-                  (errorChunk.error as Record<string, unknown>)?.message ||
-                  "Unknown error"
-                }`,
-              );
-            }
-
-            if ("textDelta" in chunk) {
-              // Text delta from fullStream
-              const textDelta = (chunk as { textDelta: string }).textDelta;
-              if (textDelta) {
-                yield { content: textDelta };
+          for await (const chunk of streamToUse) {
+            // Handle different chunk types from fullStream
+            if (chunk && typeof chunk === "object") {
+              // Check for error chunks first (critical error handling)
+              if ("type" in chunk && chunk.type === "error") {
+                const errorChunk = chunk as {
+                  type: "error";
+                  error: Record<string, unknown>;
+                };
+                logger.error(`OpenRouter: Error chunk received:`, {
+                  errorType: errorChunk.type,
+                  errorDetails: errorChunk.error,
+                });
+                throw new Error(
+                  `OpenRouter streaming error: ${
+                    (errorChunk.error as Record<string, unknown>)?.message ||
+                    "Unknown error"
+                  }`,
+                );
               }
-            } else if (chunk.type === "tool-call-streaming-start") {
-              // Tool call streaming start event - log for debugging
-              const toolCall = chunk as {
-                type: "tool-call-streaming-start";
-                toolCallId: string;
-                toolName: string;
-              };
-              logger.debug("OpenRouter: Tool call streaming start", {
-                toolCallId: toolCall.toolCallId,
-                toolName: toolCall.toolName,
-              });
+
+              if ("textDelta" in chunk) {
+                // Text delta from fullStream
+                const textDelta = (chunk as { textDelta: string }).textDelta;
+                if (textDelta) {
+                  yield { content: textDelta };
+                }
+              } else if (
+                "type" in chunk &&
+                chunk.type === "tool-call" &&
+                "toolCallId" in chunk
+              ) {
+                // Tool call event - log for debugging
+                const toolCallId = String(chunk.toolCallId);
+                const toolName =
+                  "toolName" in chunk ? String(chunk.toolName) : "unknown";
+                logger.debug("OpenRouter: Tool call", {
+                  toolCallId,
+                  toolName,
+                });
+              }
+            } else if (typeof chunk === "string") {
+              // Direct string chunk from textStream fallback
+              yield { content: chunk };
             }
-          } else if (typeof chunk === "string") {
-            // Direct string chunk from textStream fallback
-            yield { content: chunk };
           }
+        } catch (streamError) {
+          // AI SDK v6 throws NoOutputGeneratedError when the stream produced no output.
+          if (NoOutputGeneratedError.isInstance(streamError)) {
+            logger.warn(
+              "OpenRouter: Stream produced no output (NoOutputGeneratedError)",
+            );
+            return;
+          }
+          throw streamError;
         }
       })();
 
@@ -458,7 +497,7 @@ export class OpenRouterProvider extends BaseProvider {
       const analyticsPromise = streamAnalyticsCollector.createAnalytics(
         this.providerName,
         this.modelName,
-        result,
+        result as StreamTextResult,
         Date.now() - startTime,
         {
           requestId: `openrouter-stream-${Date.now()}`,
@@ -611,6 +650,7 @@ export class OpenRouterProvider extends BaseProvider {
       if (isAbortError(error)) {
         throw new Error(
           `Request timed out after ${MODELS_DISCOVERY_TIMEOUT_MS / 1000} seconds`,
+          { cause: error },
         );
       }
 

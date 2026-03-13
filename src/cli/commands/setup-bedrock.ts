@@ -378,7 +378,7 @@ async function promptForSetupMethod(): Promise<string> {
 
   const { setupMethod } = await inquirer.prompt([
     {
-      type: "list",
+      type: "select",
       name: "setupMethod",
       message: "How would you like to provide your AWS credentials?",
       choices: [
@@ -526,7 +526,7 @@ async function handleModelSelection(config: ConfigData): Promise<void> {
   if (wantsCustomModel) {
     const { model } = await inquirer.prompt([
       {
-        type: "list",
+        type: "select",
         name: "model",
         message: "Select a Bedrock model:",
         choices: getTopModelChoices(AIProviderName.BEDROCK, 5),

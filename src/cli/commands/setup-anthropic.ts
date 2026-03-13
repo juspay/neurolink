@@ -327,7 +327,7 @@ function validateApiKey(input: string): boolean | string {
 async function promptForModel(): Promise<string> {
   const { modelChoice } = await inquirer.prompt([
     {
-      type: "list",
+      type: "select",
       name: "modelChoice",
       message: "Select an Anthropic Claude model:",
       choices: getTopModelChoices(AIProviderName.ANTHROPIC, 5),

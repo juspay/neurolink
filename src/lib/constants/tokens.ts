@@ -108,14 +108,16 @@ export const PROVIDER_TOKEN_LIMITS = {
 
   /** Google AI model limits */
   GOOGLE_AI: {
-    // Gemini 3 Series (Preview - November 2025)
-    "gemini-3-pro-preview": 8192,
-    "gemini-3-pro-preview-11-2025": 8192,
-    "gemini-3-pro-latest": 8192,
-    // Gemini 3 Flash Series
-    "gemini-3-flash": 65536,
+    // Gemini 3.1 Series (all require -preview suffix)
+    "gemini-3.1-pro-preview": 8192,
+    "gemini-3.1-flash-lite-preview": 65536,
+    "gemini-3.1-flash-image-preview": 8192,
+    "gemini-3.1-pro-preview-customtools": 8192,
+    // Gemini 3 Series
     "gemini-3-flash-preview": 65536,
-    "gemini-3-flash-latest": 65536,
+    "gemini-3-pro-image-preview": 8192,
+    /** @deprecated SHUT DOWN March 9, 2026. Migrate to gemini-3.1-pro-preview. */
+    "gemini-3-pro-preview": 8192,
     // Gemini 2.5 Series
     "gemini-2.5-pro": 8192,
     "gemini-2.5-flash": 8192,
@@ -132,14 +134,16 @@ export const PROVIDER_TOKEN_LIMITS = {
 
   /** Google Vertex AI model limits */
   VERTEX: {
-    // Gemini 3 Series (Preview - November 2025)
-    "gemini-3-pro-preview": 8192,
-    "gemini-3-pro-preview-11-2025": 8192,
-    "gemini-3-pro-latest": 8192,
-    // Gemini 3 Flash Series
-    "gemini-3-flash": 65536,
+    // Gemini 3.1 Series (all require -preview suffix)
+    "gemini-3.1-pro-preview": 8192,
+    "gemini-3.1-flash-lite-preview": 65536,
+    "gemini-3.1-flash-image-preview": 8192,
+    "gemini-3.1-pro-preview-customtools": 8192,
+    // Gemini 3 Series
     "gemini-3-flash-preview": 65536,
-    "gemini-3-flash-latest": 65536,
+    "gemini-3-pro-image-preview": 8192,
+    /** @deprecated SHUT DOWN March 9, 2026. Migrate to gemini-3.1-pro-preview. */
+    "gemini-3-pro-preview": 8192,
     // Gemini 2.5 Series
     "gemini-2.5-pro": 8192,
     "gemini-2.5-flash": 8192,
@@ -251,10 +255,13 @@ export const CONTEXT_WINDOWS = {
  * For models that require explicit input and output token limits
  */
 export const MODEL_TOKEN_LIMITS = {
+  /** Gemini 3.1 Series */
+  "gemini-3.1-pro-preview": { input: 1048576, output: 65536 },
+  "gemini-3.1-flash-lite-preview": { input: 1048576, output: 65536 },
+  "gemini-3.1-flash-image-preview": { input: 1048576, output: 8192 },
+  "gemini-3.1-pro-preview-customtools": { input: 1048576, output: 65536 },
   /** Gemini 3 Flash Series */
-  "gemini-3-flash": { input: 1000000, output: 65536 },
   "gemini-3-flash-preview": { input: 1000000, output: 65536 },
-  "gemini-3-flash-latest": { input: 1000000, output: 65536 },
 } as const;
 
 /**

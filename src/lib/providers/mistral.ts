@@ -1,5 +1,5 @@
 import { createMistral } from "@ai-sdk/mistral";
-import { type LanguageModelV1, streamText, type Tool } from "ai";
+import { type LanguageModel, stepCountIs, streamText, type Tool } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
@@ -20,6 +20,7 @@ import {
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
+import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
 
 // Configuration helpers - now using consolidated utility
 const getMistralApiKey = (): string => {
@@ -36,7 +37,7 @@ const getDefaultMistralModel = (): string => {
  * Supports official AI-SDK integration with all Mistral models
  */
 export class MistralProvider extends BaseProvider {
-  private model: LanguageModelV1;
+  private model: LanguageModel;
 
   constructor(modelName?: string, sdk?: unknown) {
     // Type guard for NeuroLink parameter validation
@@ -97,9 +98,9 @@ export class MistralProvider extends BaseProvider {
         model,
         messages: messages,
         temperature: options.temperature,
-        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
+        maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools,
-        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+        stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
         toolChoice: shouldUseTools ? "auto" : "none",
         abortSignal: composeAbortSignals(
           options.abortSignal,
@@ -131,7 +132,7 @@ export class MistralProvider extends BaseProvider {
       const analyticsPromise = streamAnalyticsCollector.createAnalytics(
         this.providerName,
         this.modelName,
-        result,
+        toAnalyticsStreamResult(result),
         Date.now() - startTime,
         {
           requestId: `mistral-stream-${Date.now()}`,
@@ -170,7 +171,7 @@ export class MistralProvider extends BaseProvider {
   /**
    * Returns the Vercel AI SDK model instance for Mistral
    */
-  public getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModel {
     return this.model;
   }
 

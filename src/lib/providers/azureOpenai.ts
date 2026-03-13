@@ -1,5 +1,5 @@
 import { createAzure } from "@ai-sdk/azure";
-import { streamText, type LanguageModelV1, type Tool } from "ai";
+import { stepCountIs, streamText, type LanguageModel, type Tool } from "ai";
 import { BaseProvider } from "../core/baseProvider.js";
 import { AIProviderName, APIVersions } from "../constants/enums.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
@@ -10,14 +10,15 @@ import {
   createAzureAPIKeyConfig,
   createAzureEndpointConfig,
 } from "../utils/providerConfig.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { logger } from "../utils/logger.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import {
   composeAbortSignals,
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
+import { type StepFinishEvent } from "./providerTypeUtils.js";
 
 export class AzureOpenAIProvider extends BaseProvider {
   private apiKey: string;
@@ -79,7 +80,7 @@ export class AzureOpenAIProvider extends BaseProvider {
   /**
    * Returns the Vercel AI SDK model instance for Azure OpenAI
    */
-  public getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModel {
     return this.azureProvider(this.deployment);
   }
 
@@ -139,23 +140,24 @@ export class AzureOpenAIProvider extends BaseProvider {
         model,
         messages: messages,
         ...(options.maxTokens !== null && options.maxTokens !== undefined
-          ? { maxTokens: options.maxTokens }
+          ? { maxOutputTokens: options.maxTokens }
           : {}),
         ...(options.temperature !== null && options.temperature !== undefined
           ? { temperature: options.temperature }
           : {}),
         tools,
         toolChoice: shouldUseTools ? "auto" : "none",
+        stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
         abortSignal: composeAbortSignals(
           options.abortSignal,
           timeoutController?.controller.signal,
         ),
         experimental_telemetry:
           this.telemetryHandler.getTelemetryConfig(options),
-        onStepFinish: ({ toolCalls, toolResults }) => {
+        onStepFinish: (event: StepFinishEvent) => {
           this.handleToolExecutionStorage(
-            toolCalls,
-            toolResults,
+            [...event.toolCalls],
+            [...event.toolResults],
             options,
             new Date(),
           ).catch((error: unknown) => {
@@ -168,7 +170,6 @@ export class AzureOpenAIProvider extends BaseProvider {
             );
           });
         },
-        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
       });
 
       timeoutController?.cleanup();

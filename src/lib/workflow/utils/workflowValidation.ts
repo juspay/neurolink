@@ -41,7 +41,7 @@ export function validateWorkflow(
   // Schema validation
   const schemaResult = validateWorkflowConfig(config);
   if (!schemaResult.success && schemaResult.error) {
-    schemaResult.error.errors.forEach((err) => {
+    schemaResult.error.issues.forEach((err) => {
       errors.push({
         field: err.path.join("."),
         message: err.message,

@@ -50,7 +50,7 @@ const TEST_CONFIG = {
   provider: process.env.TEST_PROVIDER || "vertex",
   model: process.env.TEST_MODEL || (undefined as string | undefined),
   maxTokens: undefined as number | undefined,
-  timeout: 90000,
+  timeout: 180000,
   interTestDelay: 5000,
 };
 
@@ -302,7 +302,7 @@ async function testTTSProcessorInit(): Promise<boolean | null> {
         ...buildBaseSDKOptions(),
         maxTokens: 100,
         tts: { enabled: true },
-      } as Record<string, unknown>);
+      });
 
       const resultRecord = result as unknown as Record<string, unknown>;
       if (resultRecord?.audio) {
@@ -310,7 +310,7 @@ async function testTTSProcessorInit(): Promise<boolean | null> {
         logTest(
           "TTS Processor Init",
           "PASS",
-          `TTS working via generate(): format=${audio.format || "unknown"}, size=${audio.buffer?.length || 0} bytes`,
+          `TTS working via generate(): format=${audio.format || "unknown"}, size=${(audio.buffer as { length?: number } | undefined)?.length || 0} bytes`,
         );
         return true;
       }

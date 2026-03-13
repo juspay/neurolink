@@ -33,6 +33,15 @@ import { tracers } from "../telemetry/tracers.js";
 const mcpTracer = tracers.mcp;
 
 /**
+ * Default timeout for MCP tool execution operations in milliseconds.
+ * Configurable via MCP_TOOL_TIMEOUT env var.
+ */
+const DEFAULT_TOOL_TIMEOUT = Math.max(
+  5000,
+  Number(process.env.MCP_TOOL_TIMEOUT) || 60000,
+);
+
+/**
  * ToolDiscoveryService
  * Handles automatic tool discovery and registration from external MCP servers
  */
@@ -52,7 +61,7 @@ export class ToolDiscoveryService extends EventEmitter {
   async discoverTools(
     serverId: string,
     client: Client,
-    timeout = 10000,
+    timeout = DEFAULT_TOOL_TIMEOUT,
   ): Promise<ToolDiscoveryResult> {
     const startTime = Date.now();
 
@@ -471,12 +480,13 @@ export class ToolDiscoveryService extends EventEmitter {
       );
 
       // Create circuit breaker for tool execution
+      const effectiveTimeout = options.timeout || DEFAULT_TOOL_TIMEOUT;
       const circuitBreaker = globalCircuitBreakerManager.getBreaker(
         `tool-execution-${serverId}-${toolName}`,
         {
           failureThreshold: 3,
           resetTimeout: 30000,
-          operationTimeout: options.timeout || 30000,
+          operationTimeout: effectiveTimeout,
         },
       );
 
@@ -489,12 +499,12 @@ export class ToolDiscoveryService extends EventEmitter {
             attributes: {
               "mcp.server_id": serverId,
               "mcp.tool_name": toolName,
-              "mcp.timeout_ms": options.timeout || 30000,
+              "mcp.timeout_ms": effectiveTimeout,
             },
           },
           async (callSpan) => {
             try {
-              const timeout = options.timeout || 30000;
+              const timeout = effectiveTimeout;
               const callResult = await withTimeout(
                 client.callTool({
                   name: toolName,

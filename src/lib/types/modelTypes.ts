@@ -95,9 +95,9 @@ export const ModelConfigSchema = z.object({
 export const ModelRegistrySchema = z.object({
   version: z.string(),
   lastUpdated: z.string(),
-  models: z.record(z.record(ModelConfigSchema)),
-  aliases: z.record(z.string()).optional(),
-  defaults: z.record(z.string()).optional(),
+  models: z.record(z.string(), z.record(z.string(), ModelConfigSchema)),
+  aliases: z.record(z.string(), z.string()).optional(),
+  defaults: z.record(z.string(), z.string()).optional(),
 });
 
 /**

@@ -230,9 +230,15 @@ export class ExternalServerManager extends EventEmitter {
     super();
 
     // Set defaults for configuration
+    // Default timeout increased to 60s and made configurable via MCP_CLIENT_TIMEOUT
+    // to accommodate MCP server startup latency (especially concurrent stdio servers)
+    const defaultMcpTimeout = Math.max(
+      5000,
+      Number(process.env.MCP_CLIENT_TIMEOUT) || 60000,
+    );
     this.config = {
       maxServers: config.maxServers ?? 10,
-      defaultTimeout: config.defaultTimeout ?? 10000,
+      defaultTimeout: config.defaultTimeout ?? defaultMcpTimeout,
       defaultHealthCheckInterval: config.defaultHealthCheckInterval ?? 30000,
       enableAutoRestart: config.enableAutoRestart ?? true,
       maxRestartAttempts: config.maxRestartAttempts ?? 3,
@@ -1900,6 +1906,7 @@ export class ExternalServerManager extends EventEmitter {
               );
               throw new Error(
                 `HITL confirmation failed: ${error instanceof Error ? error.message : String(error)}`,
+                { cause: error },
               );
             }
           }

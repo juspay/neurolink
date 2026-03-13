@@ -252,12 +252,10 @@ async function createMockSSEServer(): Promise<{
   close: () => Promise<void>;
 } | null> {
   try {
-    const { McpServer } = await import(
-      "@modelcontextprotocol/sdk/server/mcp.js"
-    );
-    const { SSEServerTransport } = await import(
-      "@modelcontextprotocol/sdk/server/sse.js"
-    );
+    const { McpServer } =
+      await import("@modelcontextprotocol/sdk/server/mcp.js");
+    const { SSEServerTransport } =
+      await import("@modelcontextprotocol/sdk/server/sse.js");
 
     const mcpServer = new McpServer(
       { name: "mock-sse-server", version: "1.0.0" },

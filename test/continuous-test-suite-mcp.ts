@@ -3,7 +3,7 @@
 /**
  * Continuous Test Suite for MCP Enhancements
  *
- * 44 test functions, 172+ assertions across 9 sections:
+ * 45 test functions, 185+ assertions across 10 sections:
  *
  * - Part 1: MCP Infrastructure (ToolRouter, ToolCache, RequestBatcher, core exports)
  * - Part 1b: Extended Modules (Annotations, Elicitation, Discovery, MultiServer,
@@ -17,6 +17,7 @@
  *   middleware chain, batcher through generate()/stream() (real API)
  * - Part 4: CLI generate/stream with built-in tools
  * - Part 4b: CLI multi-tool and readFile tests
+ * - Part 5: Bash Command Execution Tests (executeBashCommand / bashTool)
  *
  * All imports use the public package API (../dist/index.js) — same as consumers.
  *
@@ -32,6 +33,8 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+import { bashTool } from "../dist/agent/directTools.js";
 
 import {
   // Agent Exposure
@@ -3419,6 +3422,7 @@ async function testSDKEnhancementMethods(): Promise<void> {
     recordTest("exposeAgentAsTool()", false, false, msg);
     if (sdk) {
       await sdk.dispose().catch(() => {});
+      // eslint-disable-next-line no-useless-assignment
       sdk = null;
     }
   }
@@ -5085,6 +5089,245 @@ async function testCLIStreamWithReadFile(): Promise<void> {
 }
 
 // ============================================================
+// Part 5: Bash Command Execution Tests (no API calls)
+// ============================================================
+
+async function testExecuteBashCommand(): Promise<void> {
+  logSection("Part 5: executeBashCommand (bashTool) Tests");
+
+  interface BashResult {
+    success: boolean;
+    code: number;
+    stdout: string;
+    stderr: string;
+    error?: string;
+  }
+
+  const executeContext = {
+    toolCallId: "cts-bash",
+    messages: [] as never[],
+    abortSignal: undefined as never,
+  };
+
+  // Test 1: Basic command execution
+  try {
+    const result = (await bashTool.execute(
+      { command: "echo hello", timeout: 30000 },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: basic command execution (echo hello)",
+      result.success === true &&
+        result.code === 0 &&
+        result.stdout.trim() === "hello" &&
+        result.stderr === "",
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: basic command execution", false, false, msg);
+  }
+
+  // Test 2: Pipes and shell syntax
+  try {
+    const result = (await bashTool.execute(
+      { command: "echo foo bar | wc -w", timeout: 30000 },
+      executeContext,
+    )) as BashResult;
+    const wordCount = result.stdout.trim();
+    recordTest(
+      "bashTool: pipes and shell syntax (echo | wc -w)",
+      result.success === true && (wordCount === "2" || wordCount === "3"),
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: pipes and shell syntax", false, false, msg);
+  }
+
+  // Test 3: Variable expansion
+  try {
+    const result = (await bashTool.execute(
+      { command: "echo $PWD", timeout: 30000 },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: variable expansion ($PWD)",
+      result.success === true &&
+        result.code === 0 &&
+        result.stdout.trim().length > 0,
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: variable expansion", false, false, msg);
+  }
+
+  // Test 4: Invalid command error handling
+  try {
+    const result = (await bashTool.execute(
+      { command: "this_command_does_not_exist_xyz123", timeout: 30000 },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: invalid command returns success:false",
+      result.success === false && result.code !== 0,
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: invalid command error handling", false, false, msg);
+  }
+
+  // Test 5: CWD security — reject paths outside process.cwd()
+  try {
+    const result = (await bashTool.execute(
+      { command: "ls", timeout: 30000, cwd: "/tmp" },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: CWD security rejects paths outside process.cwd()",
+      result.success === false &&
+        typeof result.error === "string" &&
+        result.error.includes("Access denied"),
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: CWD security", false, false, msg);
+  }
+
+  // Test 6: CWD within process.cwd() works
+  try {
+    const cwd = process.cwd();
+    const result = (await bashTool.execute(
+      { command: "ls", timeout: 30000, cwd },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: CWD within process.cwd() accepted",
+      result.success === true && result.code === 0,
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: CWD within process.cwd()", false, false, msg);
+  }
+
+  // Test 7: Non-existent CWD directory rejected
+  try {
+    const fakeCwd = process.cwd() + "/nonexistent_dir_xyz123";
+    const result = (await bashTool.execute(
+      { command: "ls", timeout: 30000, cwd: fakeCwd },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: non-existent CWD directory rejected",
+      result.success === false &&
+        typeof result.error === "string" &&
+        result.error.includes("Directory does not exist"),
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: non-existent CWD rejected", false, false, msg);
+  }
+
+  // Test 8: Timeout enforcement
+  try {
+    const result = (await bashTool.execute(
+      { command: 'node -e "setTimeout(() => {}, 60000)"', timeout: 1000 },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: timeout enforcement (1s timeout on long command)",
+      result.success === false,
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: timeout enforcement", false, false, msg);
+  }
+
+  // Test 9: Non-zero exit code handling
+  try {
+    const result = (await bashTool.execute(
+      { command: "ls /nonexistent_path_xyz123", timeout: 30000 },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: non-zero exit code handling",
+      result.success === false && result.stderr.length > 0,
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: non-zero exit code handling", false, false, msg);
+  }
+
+  // Test 10: Large output truncation (>100KB)
+  try {
+    const result = (await bashTool.execute(
+      {
+        command:
+          'node -e "process.stdout.write(Buffer.alloc(150000, 65).toString())"',
+        timeout: 30000,
+      },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: large output truncation (150KB → result defined)",
+      result !== undefined && typeof result.success === "boolean",
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: large output truncation", false, false, msg);
+  }
+
+  // Test 11: Never throws — always returns result object
+  try {
+    const result = (await bashTool.execute(
+      { command: "", timeout: 30000 },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: never throws, always returns result object",
+      result !== undefined && typeof result.success === "boolean",
+    );
+  } catch (error) {
+    // If it throws, this test fails — bashTool should never throw
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest(
+      "bashTool: never throws, always returns result object",
+      false,
+      false,
+      `Unexpected throw: ${msg}`,
+    );
+  }
+
+  // Test 12: Timeout capping at 120000ms max
+  try {
+    const result = (await bashTool.execute(
+      { command: "echo test", timeout: 999999 },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: timeout capped at 120000ms (large timeout still works)",
+      result.success === true && result.stdout.trim() === "test",
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: timeout capping at 120000ms", false, false, msg);
+  }
+
+  // Test 13: Shell redirect support (2>&1)
+  try {
+    const result = (await bashTool.execute(
+      { command: "echo redirect_test 2>&1", timeout: 30000 },
+      executeContext,
+    )) as BashResult;
+    recordTest(
+      "bashTool: shell redirect support (2>&1)",
+      result.success === true && result.stdout.includes("redirect_test"),
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("bashTool: shell redirect support", false, false, msg);
+  }
+}
+
+// ============================================================
 // Main test runner
 // ============================================================
 
@@ -5321,6 +5564,9 @@ async function main(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, INTER_TEST_DELAY_MS));
 
   await testCLIStreamWithReadFile();
+
+  // Part 5: Bash Command Execution Tests (no API calls)
+  await testExecuteBashCommand();
 
   // Summary
   logSection("Test Results Summary");

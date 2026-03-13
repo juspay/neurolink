@@ -501,9 +501,8 @@ export class ServerCommandFactory {
       const neurolink = new NeuroLink();
 
       // Dynamically import server module
-      const { createServer, registerAllRoutes } = await import(
-        "../../lib/server/index.js"
-      );
+      const { createServer, registerAllRoutes } =
+        await import("../../lib/server/index.js");
 
       const framework = (argv.framework ?? "hono") as
         | "hono"
@@ -801,9 +800,8 @@ export class ServerCommandFactory {
 
     try {
       // Dynamically import OpenAPI generator
-      const { OpenAPIGenerator } = await import(
-        "../../lib/server/openapi/index.js"
-      );
+      const { OpenAPIGenerator } =
+        await import("../../lib/server/openapi/index.js");
 
       const generator = new OpenAPIGenerator({
         basePath: argv.basePath ?? "/api",
@@ -872,9 +870,8 @@ export class ServerCommandFactory {
   ): Promise<void> {
     try {
       // Dynamically import route definitions and types
-      const { createAllRoutes } = await import(
-        "../../lib/server/routes/index.js"
-      );
+      const { createAllRoutes } =
+        await import("../../lib/server/routes/index.js");
 
       type RouteGroup = {
         prefix: string;

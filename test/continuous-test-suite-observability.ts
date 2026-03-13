@@ -134,9 +134,13 @@ const testResults: Array<{
 // HELPERS
 // ============================================================
 
+type GenerateOptions = Parameters<
+  InstanceType<typeof NeuroLink>["generate"]
+>[0];
+
 function buildGenerateOptions(
   extraOpts: Record<string, unknown> = {},
-): Record<string, unknown> {
+): GenerateOptions {
   const opts: Record<string, unknown> = {
     input: { text: 'Say "hello" and nothing else' },
     provider: TEST_CONFIG.provider,
@@ -147,7 +151,7 @@ function buildGenerateOptions(
   if (TEST_CONFIG.model) {
     opts.model = TEST_CONFIG.model;
   }
-  return opts;
+  return opts as GenerateOptions;
 }
 
 function getFinishedSpans(): ReadableSpan[] {
@@ -796,8 +800,9 @@ async function testTraceNameFormat(): Promise<boolean | null> {
       // returns a ContextEnricher (which reads the format function)
       const procs = getSpanProcessors();
       const hasContextEnricher = procs.some(
-        (p: { constructor?: { name?: string } }) =>
-          p.constructor?.name === "ContextEnricher",
+        (p: unknown) =>
+          (p as { constructor?: { name?: string } }).constructor?.name ===
+          "ContextEnricher",
       );
       if (hasContextEnricher) {
         logTest(
@@ -1529,7 +1534,7 @@ async function testWrapperSpanSupport(): Promise<boolean | null> {
 
     let generateResult: { content?: string } | undefined;
     try {
-      generateResult = await setLangfuseContext(
+      const langfuseResult = await setLangfuseContext(
         { userId: "wrapper-test-user" },
         async () => {
           return await sdk.generate(
@@ -1539,6 +1544,7 @@ async function testWrapperSpanSupport(): Promise<boolean | null> {
           );
         },
       );
+      generateResult = langfuseResult as { content?: string } | undefined;
 
       wrapperSpan.setStatus({ code: SpanStatusCode.OK });
     } catch (innerError) {
@@ -1586,7 +1592,7 @@ async function testWrapperSpanSupport(): Promise<boolean | null> {
     const childSpanCount = spans.filter(
       (s) =>
         s.name !== "host-app-handler" &&
-        s.parentSpanId === hostSpan.spanContext().spanId,
+        s.parentSpanContext?.spanId === hostSpan.spanContext().spanId,
     ).length;
 
     logTest(

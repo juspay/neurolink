@@ -593,9 +593,8 @@ async function testIsRecoverableError(): Promise<boolean | null> {
   logTest("Error classification", "TESTING");
 
   try {
-    const { isRecoverableError } = await import(
-      "../src/lib/utils/errorHandling.js"
-    );
+    const { isRecoverableError } =
+      await import("../src/lib/utils/errorHandling.js");
 
     const recoverable = [
       "rate limit exceeded",

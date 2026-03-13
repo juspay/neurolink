@@ -87,7 +87,6 @@ const sectionReorganizationRedirects: PluginOptions["redirects"] = [
   { from: "/conversation", to: "/docs/features/conversation-history" },
   { from: "/conversation-history", to: "/docs/features/conversation-history" },
   { from: "/redis", to: "/docs/getting-started/redis-quickstart" },
-  { from: "/mem0", to: "/docs/memory/mem0" },
   { from: "/summarization", to: "/docs/memory/summarization" },
 
   // Streaming redirects

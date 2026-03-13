@@ -13,21 +13,50 @@ import "dotenv/config";
  * - Model registry completeness
  * - Network retry and provider fallback
  * - All-provider generate/stream loop
+ * - LiteLLM vision capability (supportsVision, validateImageCount, convertToContent, countImagesInMessage)
  *
  * Run: npx tsx test/continuous-test-suite-providers.ts --provider=vertex
  *
  * Covers items: #13 (structured output), #19 (OpenRouter), #32 (Vertex models),
- *               #33 (Gemini 3), #34 (thinking levels)
+ *               #33 (Gemini 3), #34 (thinking levels), #26 (LiteLLM vision)
  */
 
 import * as fs from "fs";
-import {
-  MetricsAggregator,
-  NeuroLink,
-  SpanSerializer,
-  SpanStatus,
-  SpanType,
-} from "../dist/index.js";
+import { NeuroLink } from "../dist/index.js";
+import { MetricsAggregator } from "../dist/observability/metricsAggregator.js";
+import { SpanSerializer } from "../dist/observability/utils/spanSerializer.js";
+import { ProviderImageAdapter } from "../dist/adapters/providerImageAdapter.js";
+import { resolveModel } from "../dist/utils/modelAliasResolver.js";
+import { logger as neurolinkLogger } from "../dist/utils/logger.js";
+import type { ModelAliasConfig } from "../dist/types/generateTypes.js";
+
+// These types are not re-exported from dist/index.js; define local equivalents
+// matching src/lib/observability/types/spanTypes.ts values.
+enum SpanType {
+  AGENT_RUN = "agent.run",
+  WORKFLOW_STEP = "workflow.step",
+  TOOL_CALL = "tool.call",
+  MODEL_GENERATION = "model.generation",
+  EMBEDDING = "embedding",
+  RETRIEVAL = "retrieval",
+  MEMORY = "memory",
+  CONTEXT_COMPACTION = "context.compaction",
+  RAG = "rag",
+  EVALUATION = "evaluation",
+  MCP_TRANSPORT = "mcp.transport",
+  MEDIA_GENERATION = "media.generation",
+  PPT_GENERATION = "ppt.generation",
+  WORKFLOW = "workflow",
+  TTS = "tts",
+  SERVER_REQUEST = "server.request",
+  CUSTOM = "custom",
+}
+
+enum SpanStatus {
+  UNSET = 0,
+  OK = 1,
+  ERROR = 2,
+}
 
 // ============================================================
 // CONFIGURATION
@@ -144,8 +173,8 @@ function validateResponseContent(
 
 function isExpectedProviderError(msg: string): boolean {
   const lowerMsg = msg.toLowerCase();
-  // Only match auth, billing, rate-limit, and connectivity errors.
-  // Intentionally excludes broad patterns like "not found", "unknown error",
+  // Only match auth, billing, rate-limit, connectivity, and model-availability errors.
+  // Intentionally excludes broad patterns like "unknown error",
   // "bad request", "could not be resolved" — those may mask real bugs.
   return [
     "api key",
@@ -171,6 +200,10 @@ function isExpectedProviderError(msg: string): boolean {
     "rate-limited upstream",
     "temporarily rate-limited",
     "too many requests",
+    // OpenRouter model-availability errors — free-tier models may go offline
+    "no endpoints found",
+    "does not support tool calling",
+    "temporarily unavailable",
   ].some((p) => lowerMsg.includes(p));
 }
 
@@ -538,7 +571,7 @@ async function testVertexThinking(sdk: NeuroLink): Promise<boolean | null> {
       maxTokens: 2000,
       provider: "vertex",
       model: "gemini-2.5-pro",
-      thinkingLevel: "high",
+      thinkingConfig: { thinkingLevel: "high" },
     });
 
     const content = result.content || "";
@@ -1209,7 +1242,7 @@ async function testThinkingLevelMinimal(
       maxTokens: 500,
       provider: "vertex",
       model: "gemini-2.5-flash",
-      thinkingLevel: "minimal",
+      thinkingConfig: { thinkingLevel: "minimal" },
     });
 
     const content = result.content || "";
@@ -1254,7 +1287,7 @@ async function testThinkingLevelLow(sdk: NeuroLink): Promise<boolean | null> {
       maxTokens: 500,
       provider: "vertex",
       model: "gemini-2.5-flash",
-      thinkingLevel: "low",
+      thinkingConfig: { thinkingLevel: "low" },
     });
 
     const content = result.content || "";
@@ -1297,7 +1330,7 @@ async function testThinkingLevelMedium(
       maxTokens: 1000,
       provider: "vertex",
       model: "gemini-2.5-flash",
-      thinkingLevel: "medium",
+      thinkingConfig: { thinkingLevel: "medium" },
     });
 
     const content = result.content || "";
@@ -1353,7 +1386,7 @@ async function testThinkingLevelHigh(sdk: NeuroLink): Promise<boolean | null> {
       maxTokens: 2000,
       provider: "vertex",
       model: "gemini-2.5-pro",
-      thinkingLevel: "high",
+      thinkingConfig: { thinkingLevel: "high" },
     });
 
     const content = result.content || "";
@@ -1430,7 +1463,7 @@ async function testModelRegistryCompleteness(): Promise<boolean | null> {
     );
 
     const missingProviders = expectedProviders.filter(
-      (p) => !providerValues.includes(p),
+      (p) => !(providerValues as string[]).includes(p),
     );
 
     if (missingProviders.length > 0) {
@@ -1808,9 +1841,17 @@ async function test_observability_spans(
         // Allow a brief tick for event listeners to fire
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        const allSpans = sdk.getSpans();
+        const allSpans = sdk.getSpans() as Array<{
+          type: string;
+          attributes: Record<string, unknown>;
+          status: number;
+          durationMs?: number;
+          traceId: string;
+          spanId: string;
+          name: string;
+        }>;
         const generationSpans = allSpans.filter(
-          (s) => s.type === SpanType.MODEL_GENERATION,
+          (s: { type: string }) => s.type === SpanType.MODEL_GENERATION,
         );
 
         if (generationSpans.length === 0) {
@@ -2035,6 +2076,837 @@ async function test_observability_spans(
   }
 }
 
+// --- Test #26: LiteLLM Vision Capability ---
+async function testLitellmVisionCapability(): Promise<boolean | null> {
+  logTest("LiteLLM Vision Capability", "TESTING");
+  try {
+    const failures: string[] = [];
+
+    // ---- supportsVision: Proxy Provider Bypass (3 checks) ----
+    if (!ProviderImageAdapter.supportsVision("litellm", "gpt-4o")) {
+      failures.push("supportsVision('litellm','gpt-4o') should be true");
+    }
+    if (!ProviderImageAdapter.supportsVision("litellm", "some-unknown-model")) {
+      failures.push(
+        "supportsVision('litellm','some-unknown-model') should be true (proxy bypass)",
+      );
+    }
+    if (!ProviderImageAdapter.supportsVision("litellm")) {
+      failures.push("supportsVision('litellm') with no model should be true");
+    }
+
+    // ---- PROXY_PROVIDERS Membership (2 checks) ----
+    const visionProviders = ProviderImageAdapter.getVisionProviders();
+    if (!visionProviders.includes("litellm")) {
+      failures.push("getVisionProviders() should include 'litellm'");
+    }
+
+    const litellmModels = ProviderImageAdapter.getSupportedModels("litellm");
+    const requiredModels = [
+      "gpt-4o",
+      "gemini-2.5-pro",
+      "anthropic/claude-sonnet-4-5-20250929",
+    ];
+    for (const m of requiredModels) {
+      if (!litellmModels.includes(m)) {
+        failures.push(`getSupportedModels('litellm') should include '${m}'`);
+      }
+    }
+
+    // ---- validateImageCount (6 checks) ----
+    // 10 images (at limit) should pass
+    try {
+      ProviderImageAdapter.validateImageCount(10, "litellm");
+    } catch {
+      failures.push("validateImageCount(10,'litellm') should not throw");
+    }
+
+    // 11 images should throw
+    let threw11 = false;
+    try {
+      ProviderImageAdapter.validateImageCount(11, "litellm");
+    } catch (e) {
+      threw11 = true;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.includes("Image count (11) exceeds the maximum limit")) {
+        failures.push(
+          `validateImageCount(11) threw unexpected message: ${msg}`,
+        );
+      }
+    }
+    if (!threw11) {
+      failures.push("validateImageCount(11,'litellm') should throw");
+    }
+
+    // 1 image should pass without warning (we cannot capture logger.warn here
+    // in the standalone runner, so just verify no throw)
+    try {
+      ProviderImageAdapter.validateImageCount(1, "litellm");
+    } catch {
+      failures.push("validateImageCount(1,'litellm') should not throw");
+    }
+
+    // 8 images (80% threshold) should not throw
+    try {
+      ProviderImageAdapter.validateImageCount(8, "litellm");
+    } catch {
+      failures.push("validateImageCount(8,'litellm') should not throw");
+    }
+
+    // 7 images should not throw
+    try {
+      ProviderImageAdapter.validateImageCount(7, "litellm");
+    } catch {
+      failures.push("validateImageCount(7,'litellm') should not throw");
+    }
+
+    // 0 images should pass
+    try {
+      ProviderImageAdapter.validateImageCount(0, "litellm");
+    } catch {
+      failures.push("validateImageCount(0,'litellm') should not throw");
+    }
+
+    // ---- Image Formatting: convertToContent (5 checks) ----
+    // Buffer input
+    const bufContent = ProviderImageAdapter.convertToContent("describe this", [
+      Buffer.from("fake-image-data"),
+    ]);
+    if (bufContent.length !== 2) {
+      failures.push(
+        `convertToContent(buffer) expected 2 parts, got ${bufContent.length}`,
+      );
+    } else {
+      const imgPart = bufContent[1] as Record<string, unknown>;
+      if (imgPart.type !== "image") {
+        failures.push(
+          `convertToContent(buffer) image part type should be 'image', got '${imgPart.type}'`,
+        );
+      }
+    }
+
+    // String input (base64)
+    const strContent = ProviderImageAdapter.convertToContent("describe this", [
+      "base64-image-string",
+    ]);
+    if (strContent.length !== 2) {
+      failures.push(
+        `convertToContent(string) expected 2 parts, got ${strContent.length}`,
+      );
+    } else {
+      const imgPart = strContent[1] as Record<string, unknown>;
+      if (imgPart.type !== "image") {
+        failures.push(
+          `convertToContent(string) image part type should be 'image', got '${imgPart.type}'`,
+        );
+      }
+    }
+
+    // With alt text
+    const altContent = ProviderImageAdapter.convertToContent("analyze", [
+      {
+        data: Buffer.from("image-data"),
+        altText: "A chart showing revenue growth",
+      },
+    ]);
+    if (altContent.length !== 2) {
+      failures.push(
+        `convertToContent(altText) expected 2 parts, got ${altContent.length}`,
+      );
+    } else {
+      const imgPart = altContent[1] as Record<string, unknown>;
+      if (imgPart.altText !== "A chart showing revenue growth") {
+        failures.push(
+          `convertToContent(altText) should preserve altText, got '${imgPart.altText}'`,
+        );
+      }
+    }
+
+    // Multiple images
+    const multiContent = ProviderImageAdapter.convertToContent(
+      "compare these",
+      [Buffer.from("img1"), Buffer.from("img2"), Buffer.from("img3")],
+    );
+    if (multiContent.length !== 4) {
+      failures.push(
+        `convertToContent(3 images) expected 4 parts, got ${multiContent.length}`,
+      );
+    }
+
+    // Empty array
+    const emptyContent = ProviderImageAdapter.convertToContent("just text", []);
+    if (emptyContent.length !== 1) {
+      failures.push(
+        `convertToContent(empty) expected 1 part, got ${emptyContent.length}`,
+      );
+    }
+
+    // ---- countImagesInMessage (2 checks) ----
+    const count8 = ProviderImageAdapter.countImagesInMessage(
+      Array.from({ length: 8 }, (_, i) => Buffer.from(`img-${i}`)),
+    );
+    if (count8 !== 8) {
+      failures.push(`countImagesInMessage(8 images) expected 8, got ${count8}`);
+    }
+
+    const countCombined = ProviderImageAdapter.countImagesInMessage(
+      Array.from({ length: 5 }, (_, i) => Buffer.from(`img-${i}`)),
+      6,
+    );
+    if (countCombined !== 11) {
+      failures.push(
+        `countImagesInMessage(5 images, 6 pages) expected 11, got ${countCombined}`,
+      );
+    }
+    // Verify combined count exceeds limit
+    let threwCombined = false;
+    try {
+      ProviderImageAdapter.validateImageCount(countCombined, "litellm");
+    } catch {
+      threwCombined = true;
+    }
+    if (!threwCombined) {
+      failures.push(
+        "validateImageCount(11,'litellm') should throw for combined image+page count",
+      );
+    }
+
+    // ---- Report ----
+    if (failures.length > 0) {
+      logTest(
+        "LiteLLM Vision Capability",
+        "FAIL",
+        `${failures.length} check(s) failed:\n   - ${failures.join("\n   - ")}`,
+      );
+      return false;
+    }
+
+    logTest(
+      "LiteLLM Vision Capability",
+      "PASS",
+      "18 checks passed: supportsVision(3), PROXY_PROVIDERS(2), validateImageCount(6), convertToContent(5), countImagesInMessage(2)",
+    );
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest("LiteLLM Vision Capability", "FAIL", msg);
+    return false;
+  }
+}
+
+// ============================================================
+// MODEL ALIAS RESOLUTION TESTS (NL-004)
+// ============================================================
+
+/**
+ * Helper: run a single sub-assertion inside a model alias test group.
+ * Returns true on pass, false on fail. Logs the sub-test result.
+ */
+function assertAlias(label: string, fn: () => void): boolean {
+  try {
+    fn();
+    logTest(label, "PASS");
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest(label, "FAIL", msg);
+    return false;
+  }
+}
+
+function assertAliasEqual<T>(actual: T, expected: T, label: string): void {
+  if (actual !== expected) {
+    throw new Error(
+      `${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    );
+  }
+}
+
+function assertAliasDeepEqual<T>(actual: T, expected: T, label: string): void {
+  const a = JSON.stringify(actual);
+  const e = JSON.stringify(expected);
+  if (a !== e) {
+    throw new Error(`${label}: expected ${e}, got ${a}`);
+  }
+}
+
+// --- Test #27: Model Alias Pass-Through ---
+async function testModelAliasPassThrough(): Promise<boolean | null> {
+  logTest("Model Alias - Pass-Through Cases", "TESTING");
+  let allPassed = true;
+
+  const config: ModelAliasConfig = {
+    aliases: { "gpt-3": { target: "gpt-4", action: "redirect" } },
+  };
+
+  // 1. undefined model returns undefined
+  allPassed =
+    assertAlias("undefined model returns undefined", () => {
+      const result = resolveModel(undefined, config);
+      if (result !== undefined) {
+        throw new Error(`Expected undefined, got ${JSON.stringify(result)}`);
+      }
+    }) && allPassed;
+
+  // 2. Empty string returns ""
+  allPassed =
+    assertAlias("empty string returns empty string", () => {
+      assertAliasEqual(resolveModel("", config), "", "resolveModel('')");
+    }) && allPassed;
+
+  // 3. undefined config returns original
+  allPassed =
+    assertAlias("undefined config returns original", () => {
+      assertAliasEqual(
+        resolveModel("gpt-4", undefined),
+        "gpt-4",
+        "resolveModel with undefined config",
+      );
+    }) && allPassed;
+
+  // 4. undefined config.aliases returns original
+  allPassed =
+    assertAlias("undefined config.aliases returns original", () => {
+      assertAliasEqual(
+        resolveModel("gpt-4", {} as ModelAliasConfig),
+        "gpt-4",
+        "resolveModel with empty config",
+      );
+    }) && allPassed;
+
+  // 5. Empty aliases map returns original
+  allPassed =
+    assertAlias("empty aliases map returns original", () => {
+      const emptyConfig: ModelAliasConfig = { aliases: {} };
+      assertAliasEqual(
+        resolveModel("gpt-4", emptyConfig),
+        "gpt-4",
+        "resolveModel with empty aliases",
+      );
+    }) && allPassed;
+
+  // 6. Model not in map returns original
+  allPassed =
+    assertAlias("model not in map returns original", () => {
+      assertAliasEqual(
+        resolveModel("claude-3-opus", config),
+        "claude-3-opus",
+        "resolveModel with unlisted model",
+      );
+    }) && allPassed;
+
+  logTest(
+    "Model Alias - Pass-Through Cases",
+    allPassed ? "PASS" : "FAIL",
+    allPassed
+      ? "All 6 pass-through cases verified"
+      : "Some pass-through cases failed",
+  );
+  return allPassed;
+}
+
+// --- Test #28: Model Alias Redirect Action ---
+async function testModelAliasRedirect(): Promise<boolean | null> {
+  logTest("Model Alias - Redirect Action", "TESTING");
+  let allPassed = true;
+
+  const config: ModelAliasConfig = {
+    aliases: {
+      "gpt-3.5-turbo": { target: "gpt-4o-mini", action: "redirect" },
+    },
+  };
+
+  // 1. Returns target model
+  allPassed =
+    assertAlias("redirect returns target model", () => {
+      assertAliasEqual(
+        resolveModel("gpt-3.5-turbo", config),
+        "gpt-4o-mini",
+        "redirect target",
+      );
+    }) && allPassed;
+
+  // 2. Logs debug message (not warning) — use logger.getLogs() to verify
+  allPassed =
+    assertAlias("redirect logs debug, not warning", () => {
+      neurolinkLogger.clearLogs();
+      const prevDebug = process.env.NEUROLINK_DEBUG;
+      process.env.NEUROLINK_DEBUG = "true";
+      neurolinkLogger.setLogLevel("debug");
+      try {
+        resolveModel("gpt-3.5-turbo", config);
+        const debugLogs = neurolinkLogger.getLogs("debug");
+        const warnLogs = neurolinkLogger.getLogs("warn");
+        const hasRedirectDebug = debugLogs.some((entry: { message: string }) =>
+          entry.message.includes(
+            "[ModelAlias] Redirecting model 'gpt-3.5-turbo' to 'gpt-4o-mini'",
+          ),
+        );
+        if (!hasRedirectDebug) {
+          throw new Error("Expected debug log with redirect message not found");
+        }
+        const hasWarn = warnLogs.some((entry: { message: string }) =>
+          entry.message.includes("gpt-3.5-turbo"),
+        );
+        if (hasWarn) {
+          throw new Error("Unexpected warning log found for redirect action");
+        }
+      } finally {
+        neurolinkLogger.setLogLevel("info");
+        if (prevDebug === undefined) {
+          delete process.env.NEUROLINK_DEBUG;
+        } else {
+          process.env.NEUROLINK_DEBUG = prevDebug;
+        }
+        neurolinkLogger.clearLogs();
+      }
+    }) && allPassed;
+
+  logTest(
+    "Model Alias - Redirect Action",
+    allPassed ? "PASS" : "FAIL",
+    allPassed ? "All 2 redirect cases verified" : "Some redirect cases failed",
+  );
+  return allPassed;
+}
+
+// --- Test #29: Model Alias Warn Action ---
+async function testModelAliasWarn(): Promise<boolean | null> {
+  logTest("Model Alias - Warn Action", "TESTING");
+  let allPassed = true;
+
+  // 1. Returns target model (redirects)
+  allPassed =
+    assertAlias("warn returns target model", () => {
+      const cfg: ModelAliasConfig = {
+        aliases: {
+          "text-davinci-003": {
+            target: "gpt-4o",
+            action: "warn",
+            reason: "Davinci is deprecated.",
+          },
+        },
+      };
+      assertAliasEqual(
+        resolveModel("text-davinci-003", cfg),
+        "gpt-4o",
+        "warn redirect target",
+      );
+    }) && allPassed;
+
+  // 2. Logs warning with reason when provided
+  allPassed =
+    assertAlias("warn logs warning with reason", () => {
+      neurolinkLogger.clearLogs();
+      const prevDebug = process.env.NEUROLINK_DEBUG;
+      process.env.NEUROLINK_DEBUG = "true";
+      neurolinkLogger.setLogLevel("debug");
+      try {
+        const cfg: ModelAliasConfig = {
+          aliases: {
+            "text-davinci-003": {
+              target: "gpt-4o",
+              action: "warn",
+              reason: "Davinci is deprecated.",
+            },
+          },
+        };
+        resolveModel("text-davinci-003", cfg);
+        const warnLogs = neurolinkLogger.getLogs("warn");
+        const hasExpectedWarn = warnLogs.some((entry: { message: string }) =>
+          entry.message.includes(
+            "[ModelAlias] Model 'text-davinci-003' is deprecated. Davinci is deprecated.",
+          ),
+        );
+        if (!hasExpectedWarn) {
+          throw new Error(
+            `Expected warning with reason not found. Warn logs: ${JSON.stringify(warnLogs.map((e: { message: string }) => e.message))}`,
+          );
+        }
+      } finally {
+        neurolinkLogger.setLogLevel("info");
+        if (prevDebug === undefined) {
+          delete process.env.NEUROLINK_DEBUG;
+        } else {
+          process.env.NEUROLINK_DEBUG = prevDebug;
+        }
+        neurolinkLogger.clearLogs();
+      }
+    }) && allPassed;
+
+  // 3. Logs fallback message when reason absent
+  allPassed =
+    assertAlias("warn logs fallback message when reason absent", () => {
+      neurolinkLogger.clearLogs();
+      const prevDebug = process.env.NEUROLINK_DEBUG;
+      process.env.NEUROLINK_DEBUG = "true";
+      neurolinkLogger.setLogLevel("debug");
+      try {
+        const cfg: ModelAliasConfig = {
+          aliases: {
+            "old-model": { target: "new-model", action: "warn" },
+          },
+        };
+        resolveModel("old-model", cfg);
+        const warnLogs = neurolinkLogger.getLogs("warn");
+        const hasFallbackWarn = warnLogs.some((entry: { message: string }) =>
+          entry.message.includes(
+            "[ModelAlias] Model 'old-model' is deprecated. Redirecting to 'new-model'.",
+          ),
+        );
+        if (!hasFallbackWarn) {
+          throw new Error(
+            `Expected fallback warning not found. Warn logs: ${JSON.stringify(warnLogs.map((e: { message: string }) => e.message))}`,
+          );
+        }
+      } finally {
+        neurolinkLogger.setLogLevel("info");
+        if (prevDebug === undefined) {
+          delete process.env.NEUROLINK_DEBUG;
+        } else {
+          process.env.NEUROLINK_DEBUG = prevDebug;
+        }
+        neurolinkLogger.clearLogs();
+      }
+    }) && allPassed;
+
+  logTest(
+    "Model Alias - Warn Action",
+    allPassed ? "PASS" : "FAIL",
+    allPassed ? "All 3 warn cases verified" : "Some warn cases failed",
+  );
+  return allPassed;
+}
+
+// --- Test #30: Model Alias Block Action ---
+async function testModelAliasBlock(): Promise<boolean | null> {
+  logTest("Model Alias - Block Action", "TESTING");
+  let allPassed = true;
+
+  // 1. Throws NeuroLinkError with code MODEL_DEPRECATED
+  allPassed =
+    assertAlias(
+      "block throws NeuroLinkError with code MODEL_DEPRECATED",
+      () => {
+        const cfg: ModelAliasConfig = {
+          aliases: {
+            "gpt-3": {
+              target: "gpt-4",
+              action: "block",
+              reason: "GPT-3 has been retired.",
+            },
+          },
+        };
+        let threw = false;
+        try {
+          resolveModel("gpt-3", cfg);
+        } catch (err: unknown) {
+          threw = true;
+          const e = err as { name: string; code: string };
+          assertAliasEqual(e.name, "NeuroLinkError", "error.name");
+          assertAliasEqual(e.code, "MODEL_DEPRECATED", "error.code");
+        }
+        if (!threw) {
+          throw new Error("Expected resolveModel to throw for block action");
+        }
+      },
+    ) && allPassed;
+
+  // 2. Error has category="validation", severity="high", retriable=false
+  allPassed =
+    assertAlias("block error has correct category, severity, retriable", () => {
+      const cfg: ModelAliasConfig = {
+        aliases: {
+          "gpt-3": {
+            target: "gpt-4",
+            action: "block",
+            reason: "GPT-3 has been retired.",
+          },
+        },
+      };
+      try {
+        resolveModel("gpt-3", cfg);
+        throw new Error("Expected resolveModel to throw");
+      } catch (err: unknown) {
+        const e = err as {
+          category: string;
+          severity: string;
+          retriable: boolean;
+          name: string;
+        };
+        if (e.name !== "NeuroLinkError") {
+          throw new Error(`Unexpected error: ${e.name}`, { cause: err });
+        }
+        assertAliasEqual(e.category, "validation", "error.category");
+        assertAliasEqual(e.severity, "high", "error.severity");
+        assertAliasEqual(e.retriable, false, "error.retriable");
+      }
+    }) && allPassed;
+
+  // 3. Includes custom reason in message
+  allPassed =
+    assertAlias("block includes custom reason in error message", () => {
+      const cfg: ModelAliasConfig = {
+        aliases: {
+          "gpt-3": {
+            target: "gpt-4",
+            action: "block",
+            reason: "GPT-3 has been retired.",
+          },
+        },
+      };
+      try {
+        resolveModel("gpt-3", cfg);
+        throw new Error("Expected resolveModel to throw", { cause: err });
+      } catch (err: unknown) {
+        const e = err as { message: string; name: string };
+        if (e.name !== "NeuroLinkError") {
+          throw new Error(`Unexpected error: ${e.name}`, { cause: err });
+        }
+        if (!e.message.includes("GPT-3 has been retired.")) {
+          throw new Error(
+            `Expected custom reason in message, got: ${e.message}`,
+            { cause: err },
+          );
+        }
+        if (!e.message.includes("gpt-3")) {
+          throw new Error(`Expected model name in message, got: ${e.message}`, {
+            cause: err,
+          });
+        }
+      }
+    }) && allPassed;
+
+  // 4. Error context has requestedModel, suggestedModel, reason
+  allPassed =
+    assertAlias(
+      "block error context has requestedModel, suggestedModel, reason",
+      () => {
+        const cfg: ModelAliasConfig = {
+          aliases: {
+            "gpt-3": { target: "gpt-4", action: "block", reason: "Retired." },
+          },
+        };
+        try {
+          resolveModel("gpt-3", cfg);
+          throw new Error("Expected resolveModel to throw", { cause: err });
+        } catch (err: unknown) {
+          const e = err as { context: Record<string, unknown>; name: string };
+          if (e.name !== "NeuroLinkError") {
+            throw new Error(`Unexpected error: ${e.name}`, { cause: err });
+          }
+          assertAliasDeepEqual(
+            e.context,
+            {
+              requestedModel: "gpt-3",
+              suggestedModel: "gpt-4",
+              reason: "Retired.",
+            },
+            "error.context",
+          );
+        }
+      },
+    ) && allPassed;
+
+  // 5. Falls back to default message when reason is absent
+  allPassed =
+    assertAlias(
+      "block falls back to default message when reason absent",
+      () => {
+        const cfg: ModelAliasConfig = {
+          aliases: {
+            "gpt-3": { target: "gpt-4", action: "block" },
+          },
+        };
+        try {
+          resolveModel("gpt-3", cfg);
+          throw new Error("Expected resolveModel to throw", { cause: err });
+        } catch (err: unknown) {
+          const e = err as { message: string; name: string };
+          if (e.name !== "NeuroLinkError") {
+            throw new Error(`Unexpected error: ${e.name}`, { cause: err });
+          }
+          if (!e.message.includes("Use 'gpt-4' instead.")) {
+            throw new Error(`Expected fallback message, got: ${e.message}`, {
+              cause: err,
+            });
+          }
+        }
+      },
+    ) && allPassed;
+
+  logTest(
+    "Model Alias - Block Action",
+    allPassed ? "PASS" : "FAIL",
+    allPassed ? "All 5 block cases verified" : "Some block cases failed",
+  );
+  return allPassed;
+}
+
+// --- Test #31: Model Alias Unknown Action ---
+async function testModelAliasUnknownAction(): Promise<boolean | null> {
+  logTest("Model Alias - Unknown Action", "TESTING");
+  let allPassed = true;
+
+  // 1. Returns original model unchanged for unrecognized action
+  allPassed =
+    assertAlias("unknown action returns original model", () => {
+      const cfg: ModelAliasConfig = {
+        aliases: {
+          "some-model": {
+            target: "other-model",
+            action: "unknown-action" as "warn",
+          },
+        },
+      };
+      assertAliasEqual(
+        resolveModel("some-model", cfg),
+        "some-model",
+        "unknown action pass-through",
+      );
+    }) && allPassed;
+
+  // 2. Does not log anything for unrecognized action
+  allPassed =
+    assertAlias("unknown action does not log", () => {
+      neurolinkLogger.clearLogs();
+      const prevDebug = process.env.NEUROLINK_DEBUG;
+      process.env.NEUROLINK_DEBUG = "true";
+      neurolinkLogger.setLogLevel("debug");
+      try {
+        const cfg: ModelAliasConfig = {
+          aliases: {
+            "some-model": {
+              target: "other-model",
+              action: "unknown-action" as "redirect",
+            },
+          },
+        };
+        resolveModel("some-model", cfg);
+        const allLogs = neurolinkLogger.getLogs();
+        const relevantLogs = allLogs.filter((entry: { message: string }) =>
+          entry.message.includes("some-model"),
+        );
+        if (relevantLogs.length > 0) {
+          throw new Error(
+            `Expected no logs for unknown action, found: ${JSON.stringify(relevantLogs.map((e: { message: string }) => e.message))}`,
+          );
+        }
+      } finally {
+        neurolinkLogger.setLogLevel("info");
+        if (prevDebug === undefined) {
+          delete process.env.NEUROLINK_DEBUG;
+        } else {
+          process.env.NEUROLINK_DEBUG = prevDebug;
+        }
+        neurolinkLogger.clearLogs();
+      }
+    }) && allPassed;
+
+  logTest(
+    "Model Alias - Unknown Action",
+    allPassed ? "PASS" : "FAIL",
+    allPassed
+      ? "All 2 unknown action cases verified"
+      : "Some unknown action cases failed",
+  );
+  return allPassed;
+}
+
+// --- Test #32: Model Alias Multiple Aliases ---
+async function testModelAliasMultiple(): Promise<boolean | null> {
+  logTest("Model Alias - Multiple Aliases", "TESTING");
+  let allPassed = true;
+
+  const config: ModelAliasConfig = {
+    aliases: {
+      "gpt-3": { target: "gpt-4o", action: "block", reason: "Retired." },
+      "gpt-3.5-turbo": { target: "gpt-4o-mini", action: "redirect" },
+      "text-davinci-003": {
+        target: "gpt-4",
+        action: "warn",
+        reason: "Davinci sunsetted.",
+      },
+    },
+  };
+
+  // 1. blocks gpt-3
+  allPassed =
+    assertAlias("multiple aliases: blocks gpt-3", () => {
+      let threw = false;
+      try {
+        resolveModel("gpt-3", config);
+      } catch (err: unknown) {
+        threw = true;
+        const e = err as { name: string };
+        assertAliasEqual(e.name, "NeuroLinkError", "blocked error name");
+      }
+      if (!threw) {
+        throw new Error("Expected gpt-3 to be blocked");
+      }
+    }) && allPassed;
+
+  // 2. redirects gpt-3.5-turbo silently
+  allPassed =
+    assertAlias("multiple aliases: redirects gpt-3.5-turbo", () => {
+      assertAliasEqual(
+        resolveModel("gpt-3.5-turbo", config),
+        "gpt-4o-mini",
+        "redirect target",
+      );
+    }) && allPassed;
+
+  // 3. warns and redirects text-davinci-003
+  allPassed =
+    assertAlias(
+      "multiple aliases: warns and redirects text-davinci-003",
+      () => {
+        neurolinkLogger.clearLogs();
+        const prevDebug = process.env.NEUROLINK_DEBUG;
+        process.env.NEUROLINK_DEBUG = "true";
+        neurolinkLogger.setLogLevel("debug");
+        try {
+          const result = resolveModel("text-davinci-003", config);
+          assertAliasEqual(result, "gpt-4", "warn redirect target");
+          const warnLogs = neurolinkLogger.getLogs("warn");
+          const hasWarn = warnLogs.some((entry: { message: string }) =>
+            entry.message.includes("text-davinci-003"),
+          );
+          if (!hasWarn) {
+            throw new Error("Expected warning log for text-davinci-003");
+          }
+        } finally {
+          neurolinkLogger.setLogLevel("info");
+          if (prevDebug === undefined) {
+            delete process.env.NEUROLINK_DEBUG;
+          } else {
+            process.env.NEUROLINK_DEBUG = prevDebug;
+          }
+          neurolinkLogger.clearLogs();
+        }
+      },
+    ) && allPassed;
+
+  // 4. passes through models not in the map
+  allPassed =
+    assertAlias("multiple aliases: passes through unlisted model", () => {
+      assertAliasEqual(
+        resolveModel("claude-3-opus", config),
+        "claude-3-opus",
+        "pass-through model",
+      );
+    }) && allPassed;
+
+  logTest(
+    "Model Alias - Multiple Aliases",
+    allPassed ? "PASS" : "FAIL",
+    allPassed
+      ? "All 4 multiple alias cases verified"
+      : "Some multiple alias cases failed",
+  );
+  return allPassed;
+}
+
 // ============================================================
 // MAIN RUNNER
 // ============================================================
@@ -2171,6 +3043,38 @@ async function runAllTests(): Promise<void> {
       name: "Observability Spans",
       fn: () => test_observability_spans(sharedSdk),
     },
+
+    // LiteLLM Vision Capability (Test #26)
+    {
+      name: "LiteLLM Vision Capability",
+      fn: () => testLitellmVisionCapability(),
+    },
+
+    // Model Alias Resolution (Tests #27-#32)
+    {
+      name: "Model Alias - Pass-Through Cases",
+      fn: () => testModelAliasPassThrough(),
+    },
+    {
+      name: "Model Alias - Redirect Action",
+      fn: () => testModelAliasRedirect(),
+    },
+    {
+      name: "Model Alias - Warn Action",
+      fn: () => testModelAliasWarn(),
+    },
+    {
+      name: "Model Alias - Block Action",
+      fn: () => testModelAliasBlock(),
+    },
+    {
+      name: "Model Alias - Unknown Action",
+      fn: () => testModelAliasUnknownAction(),
+    },
+    {
+      name: "Model Alias - Multiple Aliases",
+      fn: () => testModelAliasMultiple(),
+    },
   ];
 
   for (const test of tests) {
@@ -2237,7 +3141,7 @@ function parseArguments(): { provider?: string; model?: string } {
         "Usage: npx tsx test/continuous-test-suite-providers.ts [--provider=X] [--model=Y]",
       );
       console.log(
-        "\nTests: 24 (structured output, Vertex models, Gemini 3, OpenRouter, thinking levels, all providers)",
+        "\nTests: 26 (structured output, Vertex models, Gemini 3, OpenRouter, thinking levels, all providers, LiteLLM vision)",
       );
       console.log(
         "\nProviders: vertex (default), openai, anthropic, google-ai, openrouter, etc.",

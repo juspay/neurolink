@@ -201,4 +201,3 @@ npx @juspay/neurolink memory clear NL_r1bd2
 
 - [CLI Commands](../cli/commands.md) – Complete command reference
 - [Conversation Memory](../conversation-memory.md) – Memory system deep dive
-- [Mem0 Integration](../mem0-integration.md) – Semantic memory with vectors

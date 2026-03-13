@@ -307,9 +307,8 @@ export class FileSummarizationService {
         });
       } catch {
         // Fallback: naive truncation
-        const { truncateToTokenBudget } = await import(
-          "../utils/tokenEstimation.js"
-        );
+        const { truncateToTokenBudget } =
+          await import("../utils/tokenEstimation.js");
         const { text: truncated } = truncateToTokenBudget(
           entry.file.content,
           targetTokens,

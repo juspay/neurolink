@@ -40,7 +40,7 @@ const CRITICAL_SECURITY_RULES = [
 // TODO: Address these vulnerabilities in a separate security update
 const IGNORED_VULNERABLE_PACKAGES = [
   "jsondiffpatch", // XSS in ai dependency - tracked separately
-  "undici", // DoS in mem0ai dependency - requires upstream fix
+  "undici", // DoS in transitive dependency - requires upstream fix
   "ai", // File upload bypass - planned upgrade
 ];
 

@@ -27,7 +27,7 @@ import {
   getContentIcon,
 } from "../../lib/utils/loopUtils.js";
 
-type MenuChoice = ConversationChoice | inquirer.Separator;
+type MenuChoice = ConversationChoice | InstanceType<typeof inquirer.Separator>;
 type RedisClient = Awaited<ReturnType<typeof createRedisClient>>;
 
 export class ConversationSelector {
@@ -242,7 +242,7 @@ export class ConversationSelector {
   ): Promise<string | "NEW_CONVERSATION"> {
     const answer = await inquirer.prompt([
       {
-        type: "list",
+        type: "select",
         name: "selectedConversation",
         message: "Select a conversation to continue:",
         choices,

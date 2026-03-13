@@ -438,8 +438,8 @@ export abstract class BaseServerAdapter extends EventEmitter {
           const toolRegistry = ctx.toolRegistry;
           const readinessTimeout = this.config.timeout || 5000;
 
-          let tools: unknown[] = [];
-          let toolsAvailable = false;
+          let tools: unknown[];
+          let toolsAvailable: boolean;
 
           try {
             tools = await withTimeout(

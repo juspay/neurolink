@@ -187,7 +187,7 @@ export const handleMistralSetup = async (
     // Step 2: Model Selection
     const { modelChoice } = await inquirer.prompt([
       {
-        type: "list",
+        type: "select",
         name: "modelChoice",
         message: "Select a Mistral model:",
         choices: getTopModelChoices(AIProviderName.MISTRAL, 5),

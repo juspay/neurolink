@@ -23,11 +23,11 @@ import * as os from "os";
 
 // Read package.json dynamically for version and main script
 const packageJsonPath = "package.json";
-let packageData: { version?: string; main?: string } = {};
+let packageData: { version?: string; main?: string };
 try {
   const packageContent = fs.readFileSync(packageJsonPath, "utf8");
   packageData = JSON.parse(packageContent);
-} catch (error) {
+} catch {
   console.warn("Could not read package.json, using fallback values");
   packageData = { version: "unknown", main: "dist/index.js" };
 }
@@ -74,7 +74,7 @@ const TEST_CONFIG = {
   provider: process.env.TEST_PROVIDER || "vertex",
   model: process.env.TEST_MODEL || (undefined as string | undefined), // Optional model override
   maxTokens: undefined as number | undefined, // Dynamically set based on provider
-  timeout: 120000, // 120 seconds: child process tests need ~30s for MCP server startup + API call time
+  timeout: 180000, // 180 seconds: Gemini 2.5 Pro needs more time for MCP startup + complex operations
 
   // Expected external data that AI cannot know
   expectedFileData: {
@@ -1052,9 +1052,10 @@ async function testSDKStream(sdk: NeuroLink): Promise<boolean | null> {
     const completionIndicators = ["---", "END", "DONE", "complete"];
 
     for await (const chunk of streamResult.stream) {
-      chunks.push(chunk.content);
+      const chunkContent = "content" in chunk ? (chunk.content as string) : "";
+      chunks.push(chunkContent);
       chunkCount++;
-      totalContentLength += chunk.content.length;
+      totalContentLength += chunkContent.length;
 
       const recentContent = chunks.slice(-3).join("").toLowerCase();
       const hasCompletionIndicator = completionIndicators.some((indicator) =>
@@ -3100,6 +3101,7 @@ async function testRealHttpMcpServers(): Promise<boolean | null> {
 
     const startTime = Date.now();
     let client: Client | null = null;
+    // eslint-disable-next-line no-useless-assignment
     let transport: StreamableHTTPClientTransport | null = null;
 
     try {
@@ -3182,6 +3184,7 @@ async function testRealHttpMcpServers(): Promise<boolean | null> {
 
   let toolInvocationPassed = false;
   let fetchClient: Client | null = null;
+  // eslint-disable-next-line no-useless-assignment
   let fetchTransport: StreamableHTTPClientTransport | null = null;
 
   try {

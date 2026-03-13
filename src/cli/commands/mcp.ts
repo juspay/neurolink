@@ -1542,9 +1542,8 @@ export class MCPCommandFactory {
 
       let tools: ToolWithServer[] = [];
 
-      const { inferAnnotations } = await import(
-        "../../lib/mcp/toolAnnotations.js"
-      );
+      const { inferAnnotations } =
+        await import("../../lib/mcp/toolAnnotations.js");
 
       for (const server of servers) {
         if (server.status !== "connected") {
@@ -1740,9 +1739,8 @@ export class MCPCommandFactory {
       const results: DiscoveryResult[] = [];
 
       for (const server of targetServers) {
-        const { inferAnnotations } = await import(
-          "../../lib/mcp/toolAnnotations.js"
-        );
+        const { inferAnnotations } =
+          await import("../../lib/mcp/toolAnnotations.js");
 
         const toolsWithAnnotations = (server.tools || []).map((tool) => {
           const existing = (tool as { annotations?: MCPToolAnnotations })
@@ -2565,9 +2563,8 @@ ${tools.length > 0 ? tools.map((t) => `- **${t}**: TODO: Add description`).join(
     argv: MCPCommandArgs,
   ): Promise<void> {
     try {
-      const { globalMCPRegistryClient } = await import(
-        "../../lib/mcp/mcpRegistryClient.js"
-      );
+      const { globalMCPRegistryClient } =
+        await import("../../lib/mcp/mcpRegistryClient.js");
 
       const spinner = argv.quiet ? null : ora("Searching registry...").start();
 
@@ -2638,9 +2635,8 @@ ${tools.length > 0 ? tools.map((t) => `- **${t}**: TODO: Add description`).join(
     argv: MCPCommandArgs,
   ): Promise<void> {
     try {
-      const { globalMCPRegistryClient } = await import(
-        "../../lib/mcp/mcpRegistryClient.js"
-      );
+      const { globalMCPRegistryClient } =
+        await import("../../lib/mcp/mcpRegistryClient.js");
 
       const spinner = argv.quiet ? null : ora("Loading registry...").start();
 
@@ -2705,9 +2701,8 @@ ${tools.length > 0 ? tools.map((t) => `- **${t}**: TODO: Add description`).join(
     argv: MCPCommandArgs,
   ): Promise<void> {
     try {
-      const { globalMCPRegistryClient } = await import(
-        "../../lib/mcp/mcpRegistryClient.js"
-      );
+      const { globalMCPRegistryClient } =
+        await import("../../lib/mcp/mcpRegistryClient.js");
 
       const serverId = argv.server as string;
       const entry = await withTimeout(
@@ -2809,9 +2804,8 @@ ${tools.length > 0 ? tools.map((t) => `- **${t}**: TODO: Add description`).join(
    */
   private static async executeRegistryCategories(): Promise<void> {
     try {
-      const { globalMCPRegistryClient } = await import(
-        "../../lib/mcp/mcpRegistryClient.js"
-      );
+      const { globalMCPRegistryClient } =
+        await import("../../lib/mcp/mcpRegistryClient.js");
 
       const categories = await withTimeout(
         globalMCPRegistryClient.getCategories(),
@@ -2848,9 +2842,8 @@ ${tools.length > 0 ? tools.map((t) => `- **${t}**: TODO: Add description`).join(
     argv: MCPCommandArgs,
   ): Promise<void> {
     try {
-      const { globalMCPRegistryClient } = await import(
-        "../../lib/mcp/mcpRegistryClient.js"
-      );
+      const { globalMCPRegistryClient } =
+        await import("../../lib/mcp/mcpRegistryClient.js");
 
       const spinner = argv.quiet
         ? null

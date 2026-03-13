@@ -1,9 +1,11 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import type { ZodType, ZodTypeDef } from "zod";
+import type { ZodType } from "zod";
 import {
+  NoOutputGeneratedError,
+  stepCountIs,
   streamText,
   type Schema,
-  type LanguageModelV1,
+  type LanguageModel,
   type Tool,
   type ToolSet,
   type ToolChoice,
@@ -42,7 +44,7 @@ const getDefaultHuggingFaceModel = (): string => {
  * Using AI SDK with HuggingFace's OpenAI-compatible endpoint
  */
 export class HuggingFaceProvider extends BaseProvider {
-  private model: LanguageModelV1;
+  private model: LanguageModel;
 
   constructor(modelName?: string) {
     super(modelName, "huggingface" as AIProviderName);
@@ -152,7 +154,7 @@ export class HuggingFaceProvider extends BaseProvider {
 
   protected async executeStream(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ZodType | Schema<unknown>,
   ): Promise<StreamResult> {
     this.validateStreamOptions(options);
 
@@ -186,8 +188,8 @@ export class HuggingFaceProvider extends BaseProvider {
         model: this.model,
         messages: messages,
         temperature: options.temperature,
-        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
-        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+        maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified
+        stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
         tools: (shouldUseTools
           ? streamOptions.tools || allTools
           : {}) as ToolSet,
@@ -222,8 +224,19 @@ export class HuggingFaceProvider extends BaseProvider {
 
       // Transform stream to match StreamResult interface with enhanced tool call parsing
       const transformedStream = async function* () {
-        for await (const chunk of result.textStream) {
-          yield { content: chunk };
+        try {
+          for await (const chunk of result.textStream) {
+            yield { content: chunk };
+          }
+        } catch (streamError) {
+          // AI SDK v6 throws NoOutputGeneratedError when the stream produced no output.
+          if (NoOutputGeneratedError.isInstance(streamError)) {
+            logger.warn(
+              "HuggingFace: Stream produced no output (NoOutputGeneratedError)",
+            );
+            return;
+          }
+          throw streamError;
         }
       };
 
@@ -244,7 +257,7 @@ export class HuggingFaceProvider extends BaseProvider {
    */
   private prepareStreamOptions(
     options: StreamOptions,
-    _analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    _analysisSchema?: ZodType | Schema<unknown>,
   ) {
     const modelSupportsTools = this.supportsTools();
 
@@ -419,7 +432,7 @@ Available tools will be provided in the function calling format. Use them when t
   /**
    * Returns the Vercel AI SDK model instance for HuggingFace
    */
-  public getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModel {
     return this.model;
   }
 }

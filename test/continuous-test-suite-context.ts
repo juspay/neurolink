@@ -320,10 +320,8 @@ async function testBudgetCheckerThresholdTrigger(
     const budgetSdk = new NeuroLink();
     const largePrompt = generateLargeText(2000);
     const totalTurns = 22;
-    let lastResult: {
-      content?: string;
-      usage?: { promptTokens?: number };
-    } | null = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let lastResult: any = null;
 
     for (let i = 0; i < totalTurns; i++) {
       try {
@@ -2037,8 +2035,7 @@ async function testConcurrentConversations(
       `concurrent-hist-${Date.now()}`,
     ];
     const sdkInstances = sessionIds.map(
-      (id) =>
-        new NeuroLink({ memory: { conversationId: id, store: "memory" } }),
+      (_id) => new NeuroLink({ conversationMemory: { enabled: true } }),
     );
 
     const conversationTopics = ["mathematics", "biology", "history"];

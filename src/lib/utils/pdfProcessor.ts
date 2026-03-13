@@ -452,7 +452,9 @@ export class PDFProcessor {
         conversionTimeMs,
       });
 
-      throw new Error(`PDF to image conversion failed: ${errorMessage}`);
+      throw new Error(`PDF to image conversion failed: ${errorMessage}`, {
+        cause: error,
+      });
     }
   }
 

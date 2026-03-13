@@ -76,7 +76,7 @@ export class RetryManager {
     feedback: string,
     attemptNumber: number,
   ): string {
-    let instruction = "";
+    let instruction: string;
     switch (attemptNumber) {
       case 2: // First retry
         instruction = `The previous response was not satisfactory. Please improve it based on the following feedback: "${feedback}".`;

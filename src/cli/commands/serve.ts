@@ -591,9 +591,8 @@ export class ServeCommandFactory {
     },
     spinner: ReturnType<typeof ora> | null,
   ): Promise<{ current: ServerInstance }> {
-    const { createServer, registerAllRoutes } = await import(
-      "../../lib/server/index.js"
-    );
+    const { createServer, registerAllRoutes } =
+      await import("../../lib/server/index.js");
 
     const neurolink = new NeuroLink();
 

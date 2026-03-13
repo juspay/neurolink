@@ -1230,9 +1230,8 @@ async function startStdio(server: McpServer): Promise<void> {
 /** Start HTTP transport (for remote hosted access) */
 async function startHttp(server: McpServer, port: number): Promise<void> {
   // Dynamic import to avoid loading HTTP deps when using stdio
-  const { StreamableHTTPServerTransport } = await import(
-    "@modelcontextprotocol/sdk/server/streamableHttp.js"
-  );
+  const { StreamableHTTPServerTransport } =
+    await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
   const http = await import("http");
 
   const transport = new StreamableHTTPServerTransport({
@@ -1374,9 +1373,8 @@ export class DocsCommandFactory {
   private static async executeDocs(argv: DocsCommandArgs): Promise<void> {
     try {
       // Dynamic import to avoid loading MCP deps at CLI startup
-      const { startDocsServer } = await import(
-        "../../../docs-site/mcp-server/index.js"
-      );
+      const { startDocsServer } =
+        await import("../../../docs-site/mcp-server/index.js");
 
       await startDocsServer({
         transport: argv.transport,

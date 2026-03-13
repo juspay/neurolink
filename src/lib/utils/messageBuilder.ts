@@ -5,10 +5,10 @@
  */
 
 import type {
-  CoreAssistantMessage,
-  CoreMessage,
-  CoreSystemMessage,
-  CoreUserMessage,
+  AssistantModelMessage,
+  ModelMessage,
+  SystemModelMessage,
+  UserModelMessage,
   FilePart,
   ImagePart,
   TextPart,
@@ -40,6 +40,7 @@ import type { GenerateOptions } from "../types/generateTypes.js";
 import type { TextGenerationOptions } from "../types/index.js";
 import type { Content, ImageWithAltText } from "../types/multimodal.js";
 import type { StreamOptions } from "../types/streamTypes.js";
+import { tracers, ATTR, withSpan } from "../telemetry/index.js";
 import { FileDetector } from "./fileDetector.js";
 import { getImageCache } from "./imageCache.js";
 import { logger } from "./logger.js";
@@ -323,8 +324,8 @@ function isValidContentItem(
   item: unknown,
 ): item is
   | { type: "text"; text: string }
-  | { type: "image"; image: string; mimeType?: string }
-  | { type: "file"; data: Buffer; mimeType: string } {
+  | { type: "image"; image: string; mediaType?: string }
+  | { type: "file"; data: Buffer; mediaType: string } {
   if (!item || typeof item !== "object") {
     return false;
   }
@@ -361,7 +362,7 @@ function convertContentItem(
 ):
   | TextPart
   | ImagePart
-  | { type: "file"; data: Buffer; mimeType: string }
+  | { type: "file"; data: Buffer; mediaType: string }
   | null {
   if (!isValidContentItem(item)) {
     return null;
@@ -383,7 +384,7 @@ function convertContentItem(
     return {
       type: "image",
       image: contentItem.image,
-      ...(contentItem.mimeType && { mimeType: contentItem.mimeType }),
+      ...(contentItem.mimeType && { mediaType: contentItem.mimeType }),
     } satisfies ImagePart;
   }
 
@@ -395,7 +396,7 @@ function convertContentItem(
     return {
       type: "file",
       data: contentItem.data,
-      mimeType: contentItem.mimeType,
+      mediaType: contentItem.mimeType,
     };
   }
 
@@ -403,14 +404,14 @@ function convertContentItem(
 }
 
 /**
- * Type-safe conversion from MultimodalChatMessage[] to CoreMessage[]
- * Filters out invalid content and ensures strict CoreMessage contract compliance
+ * Type-safe conversion from MultimodalChatMessage[] to ModelMessage[]
+ * Filters out invalid content and ensures strict ModelMessage contract compliance
  */
-export function convertToCoreMessages(
+export function convertToModelMessages(
   messages: MultimodalChatMessage[],
-): CoreMessage[] {
+): ModelMessage[] {
   return messages
-    .map((msg): CoreMessage | null => {
+    .map((msg): ModelMessage | null => {
       // Validate role
       if (!isValidRole(msg.role)) {
         logger.warn("Invalid message role found, skipping", { role: msg.role });
@@ -424,17 +425,17 @@ export function convertToCoreMessages(
           return {
             role: "system",
             content: msg.content,
-          } satisfies CoreSystemMessage;
+          } satisfies SystemModelMessage;
         } else if (msg.role === "user") {
           return {
             role: "user",
             content: msg.content,
-          } satisfies CoreUserMessage;
+          } satisfies UserModelMessage;
         } else if (msg.role === "assistant") {
           return {
             role: "assistant",
             content: msg.content,
-          } satisfies CoreAssistantMessage;
+          } satisfies AssistantModelMessage;
         }
       }
 
@@ -457,7 +458,7 @@ export function convertToCoreMessages(
           return {
             role: "user",
             content: validContent,
-          } satisfies CoreUserMessage;
+          } satisfies UserModelMessage;
         } else if (msg.role === "assistant") {
           // Assistant messages only support text content, filter out images
           const textOnlyContent = validContent.filter(
@@ -468,13 +469,13 @@ export function convertToCoreMessages(
             return {
               role: "assistant",
               content: "",
-            } satisfies CoreAssistantMessage;
+            } satisfies AssistantModelMessage;
           } else if (textOnlyContent.length === 1) {
             // Single text item, use string content
             return {
               role: "assistant",
               content: textOnlyContent[0].text,
-            } satisfies CoreAssistantMessage;
+            } satisfies AssistantModelMessage;
           } else {
             // Multiple text items, concatenate them
             const combinedText = textOnlyContent
@@ -483,7 +484,7 @@ export function convertToCoreMessages(
             return {
               role: "assistant",
               content: combinedText,
-            } satisfies CoreAssistantMessage;
+            } satisfies AssistantModelMessage;
           }
         } else {
           // System messages cannot have multimodal content, convert to text
@@ -492,7 +493,7 @@ export function convertToCoreMessages(
           return {
             role: "system",
             content: textContent,
-          } satisfies CoreSystemMessage;
+          } satisfies SystemModelMessage;
         }
       }
 
@@ -502,13 +503,13 @@ export function convertToCoreMessages(
       });
       return null;
     })
-    .filter((msg): msg is CoreMessage => msg !== null);
+    .filter((msg): msg is ModelMessage => msg !== null);
 }
 
 /**
- * Convert ChatMessage to CoreMessage for AI SDK compatibility
+ * Convert ChatMessage to ModelMessage for AI SDK compatibility
  */
-function toCoreMessage(message: ChatMessage): CoreMessage | null {
+function toModelMessage(message: ChatMessage): ModelMessage | null {
   // Only include messages with roles supported by AI SDK
   if (
     message.role === "user" ||
@@ -609,8 +610,8 @@ function logMessageComposition(
  */
 export async function buildMessagesArray(
   options: TextGenerationOptions | StreamOptions,
-): Promise<CoreMessage[]> {
-  const messages: CoreMessage[] = [];
+): Promise<ModelMessage[]> {
+  const messages: ModelMessage[] = [];
 
   // Check if conversation history exists
   const hasConversationHistory =
@@ -641,10 +642,10 @@ export async function buildMessagesArray(
   }
 
   // Add conversation history if available
-  // Convert ChatMessages to CoreMessages and filter out tool messages
+  // Convert ChatMessages to ModelMessages and filter out tool messages
   if (hasConversationHistory && options.conversationMessages) {
     for (const chatMessage of options.conversationMessages) {
-      const coreMessage = toCoreMessage(chatMessage);
+      const coreMessage = toModelMessage(chatMessage);
       if (coreMessage) {
         messages.push(coreMessage);
       }
@@ -972,84 +973,120 @@ async function processUnifiedFilesArray(
     return;
   }
 
-  logger.info(
-    `[FileDetector] Processing ${options.input.files.length} file(s) with auto-detection`,
-  );
+  const totalFiles = options.input.files.length;
 
-  options.input.text = options.input.text || "";
+  return withSpan(
+    {
+      name: "neurolink.file.process_all",
+      tracer: tracers.file,
+      attributes: {
+        [ATTR.FILE_TOTAL_COUNT]: totalFiles,
+        [ATTR.NL_PROVIDER]: provider,
+      },
+    },
+    async (span) => {
+      logger.info(
+        `[NEUROLINK] Processing ${totalFiles} file(s) with auto-detection`,
+      );
 
-  const fileRegistry = options.fileRegistry as
-    | FileReferenceRegistry
-    | undefined;
+      options.input.text = options.input.text || "";
+      let includedCount = 0;
 
-  for (let fileIdx = 0; fileIdx < options.input.files.length; fileIdx++) {
-    const file = options.input.files[fileIdx];
-    try {
-      // ─── Lazy file registration path ──────────────────────────────
-      const fileSize = fileRegistry ? getFileSize(file) : 0;
-      if (fileRegistry && fileSize > SIZE_TIER_THRESHOLDS.TINY_MAX) {
-        const registered = await tryRegisterFileReference(
-          file,
-          fileSize,
-          fileRegistry,
-          fileIdx,
-        );
-        if (registered) {
-          continue;
+      const fileRegistry = options.fileRegistry as
+        | FileReferenceRegistry
+        | undefined;
+
+      for (let fileIdx = 0; fileIdx < options.input.files!.length; fileIdx++) {
+        const file = options.input.files![fileIdx];
+        const filename = extractFilename(file, fileIdx);
+        try {
+          // ─── Lazy file registration path ──────────────────────────────
+          const fileSize = fileRegistry ? getFileSize(file) : 0;
+          if (fileRegistry && fileSize > SIZE_TIER_THRESHOLDS.TINY_MAX) {
+            const registered = await tryRegisterFileReference(
+              file,
+              fileSize,
+              fileRegistry,
+              fileIdx,
+            );
+            if (registered) {
+              logger.info(
+                `[NEUROLINK] File lazily registered: ${filename} (${fileSize} bytes) — deferred processing`,
+              );
+              includedCount++;
+              continue;
+            }
+          }
+
+          // ─── Full processing path (current behavior) ──────────────────
+          const genericFileMaxSize = Math.max(maxSize, 100 * 1024 * 1024);
+          const rawFileInput = isFileWithMetadata(file) ? file.buffer : file;
+          const result = await FileDetector.detectAndProcess(rawFileInput, {
+            maxSize: genericFileMaxSize,
+            allowedTypes: [
+              "csv",
+              "image",
+              "pdf",
+              "svg",
+              "video",
+              "audio",
+              "archive",
+              "xlsx",
+              "docx",
+              "pptx",
+              "text",
+              "unknown",
+            ],
+            csvOptions: options.csvOptions,
+            provider: provider,
+          });
+
+          appendDetectedFileResult(result, file, options);
+          includedCount++;
+
+          // Log what content type was added to the message
+          const contentType = result.type === "image" ? "image" : "text";
+          logger.info(
+            `[NEUROLINK] File added to message: ${filename} as ${contentType} (type: ${result.type})`,
+          );
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : String(error);
+          logger.error(
+            `[NEUROLINK] File skipped/failed: ${filename} — reason: ${errMsg}`,
+          );
         }
       }
 
-      // ─── Full processing path (current behavior) ──────────────────
-      const genericFileMaxSize = Math.max(maxSize, 100 * 1024 * 1024);
-      const rawFileInput = isFileWithMetadata(file) ? file.buffer : file;
-      const result = await FileDetector.detectAndProcess(rawFileInput, {
-        maxSize: genericFileMaxSize,
-        allowedTypes: [
-          "csv",
-          "image",
-          "pdf",
-          "svg",
-          "video",
-          "audio",
-          "archive",
-          "xlsx",
-          "docx",
-          "pptx",
-          "text",
-          "unknown",
-        ],
-        csvOptions: options.csvOptions,
-        provider: provider,
-      });
+      span.setAttribute(ATTR.FILE_INCLUDED_COUNT, includedCount);
 
-      appendDetectedFileResult(result, file, options);
-    } catch (error) {
-      logger.error(`[FileDetector] ❌ Failed to process file:`, error);
-    }
-  }
-
-  // After processing all files, inject previews for any lazily-registered files
-  if (fileRegistry && fileRegistry.size > 0) {
-    const previewText = await fileRegistry.generatePromptPreview();
-    if (previewText) {
-      options.input.text = (options.input.text || "") + previewText;
-      logger.info(
-        `[FileDetector] Injected previews for ${fileRegistry.size} lazily-registered file(s)`,
-      );
-    }
-    const registeredFiles = fileRegistry.list();
-    for (const ref of registeredFiles) {
-      if (ref.extractedImages && ref.extractedImages.length > 0) {
-        options.input.images = [
-          ...(options.input.images || []),
-          ...ref.extractedImages,
-        ];
-        logger.info(
-          `[FileDetector] Injected ${ref.extractedImages.length} extracted images from "${ref.filename}"`,
-        );
+      // After processing all files, inject previews for any lazily-registered files
+      if (fileRegistry && fileRegistry.size > 0) {
+        const previewText = await fileRegistry.generatePromptPreview();
+        if (previewText) {
+          options.input.text = (options.input.text || "") + previewText;
+          logger.info(
+            `[FileDetector] Injected previews for ${fileRegistry.size} lazily-registered file(s)`,
+          );
+        }
+        const registeredFiles = fileRegistry.list();
+        for (const ref of registeredFiles) {
+          if (ref.extractedImages && ref.extractedImages.length > 0) {
+            options.input.images = [
+              ...(options.input.images || []),
+              ...ref.extractedImages,
+            ];
+            logger.info(
+              `[FileDetector] Injected ${ref.extractedImages.length} extracted images from "${ref.filename}"`,
+            );
+          }
+        }
       }
-    }
-  }
+
+      logger.info(
+        `[NEUROLINK] File processing complete: ${includedCount}/${totalFiles} files included in message`,
+      );
+    },
+  );
 }
 
 /**
@@ -1531,6 +1568,7 @@ async function downloadImageFromUrl(url: string): Promise<string> {
     MultimodalLogger.logError("URL_DOWNLOAD_FAILED", error as Error, { url });
     throw new Error(
       `Failed to download image from ${url}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
     );
   }
 }
@@ -1615,18 +1653,23 @@ async function convertSimpleImagesToProviderFormat(
   // Process all images (including downloaded URLs) for Vercel AI SDK
   actualImages.forEach(({ data: image }, index) => {
     try {
-      // Vercel AI SDK expects { type: 'image', image: Buffer | string, mimeType?: string }
-      // For Vertex AI, we need to include mimeType
+      // Vercel AI SDK v6 expects { type: 'image', image: Buffer | string, mimeType?: string }
+      // IMPORTANT: The `image` field must be raw base64 or a Buffer — NOT a data: URI string.
+      // The AI SDK v6's download pipeline calls `new URL(image)` on string values. A data: URI
+      // is a valid URL, so the SDK tries to "download" it, which hits SSRF validation
+      // (validateDownloadUrl) and throws "URL scheme must be http or https, got data:".
+      // Passing raw base64 avoids this because `new URL(base64string)` throws and the SDK
+      // treats the string as inline base64 data instead.
       let imageData: string;
       let mimeType = "image/jpeg"; // Default mime type
 
       if (typeof image === "string") {
         if (image.startsWith("data:")) {
-          // Data URI (including downloaded URLs) - extract mime type and use directly
+          // Data URI (including downloaded URLs) - extract mime type and raw base64
           const match = image.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
             mimeType = match[1];
-            imageData = image; // Keep as data URI for Vercel AI SDK
+            imageData = match[2]; // Raw base64 only — NOT the full data: URI
           } else {
             imageData = image;
           }
@@ -1635,7 +1678,7 @@ async function convertSimpleImagesToProviderFormat(
           // But handle it gracefully just in case
           throw new Error(`Unprocessed URL found in actualImages: ${image}`);
         } else {
-          // File path string - convert to base64 data URI
+          // File path string - convert to base64
           try {
             if (existsSync(image)) {
               const buffer = readFileSync(image);
@@ -1665,7 +1708,7 @@ async function convertSimpleImagesToProviderFormat(
                   break;
               }
 
-              imageData = `data:${mimeType};base64,${base64}`;
+              imageData = base64; // Raw base64 only
             } else {
               throw new Error(`Image file not found: ${image}`);
             }
@@ -1676,19 +1719,19 @@ async function convertSimpleImagesToProviderFormat(
             });
             throw new Error(
               `Failed to convert file path to base64: ${image}. ${error}`,
+              { cause: error },
             );
           }
         }
       } else {
-        // Buffer - convert to base64 data URI
-        const base64 = image.toString("base64");
-        imageData = `data:${mimeType};base64,${base64}`;
+        // Buffer - convert to raw base64
+        imageData = image.toString("base64");
       }
 
       content.push({
         type: "image" as const,
         image: imageData,
-        mimeType: mimeType, // Add mimeType for Vertex AI compatibility
+        mimeType: mimeType,
       } as ImagePart);
     } catch (error) {
       MultimodalLogger.logError("ADD_IMAGE_TO_CONTENT", error as Error, {
@@ -1750,7 +1793,7 @@ async function convertMultimodalToProviderFormat(
         return {
           type: "file" as const,
           data: pdf.buffer,
-          mimeType: "application/pdf",
+          mediaType: "application/pdf",
         };
       }),
     );
@@ -1775,11 +1818,11 @@ async function convertMultimodalToProviderFormat(
           `[PDF→Image] ✅ Converted ${pdf.filename}: ${conversionResult.pageCount} page(s) → images`,
         );
 
-        // Add each page as an ImagePart
+        // Add each page as an ImagePart (raw base64, not data: URI — see SSRF note above)
         conversionResult.images.forEach((base64Image, pageIndex) => {
           content.push({
             type: "image" as const,
-            image: `data:image/png;base64,${base64Image}`,
+            image: base64Image,
             mimeType: "image/png",
           } as ImagePart);
 
@@ -1805,6 +1848,7 @@ async function convertMultimodalToProviderFormat(
         throw new Error(
           `PDF to image conversion failed for ${pdf.filename}: ${errorMessage}. ` +
             `Provider ${provider} doesn't support native PDFs and image conversion failed.`,
+          { cause: error },
         );
       }
     }

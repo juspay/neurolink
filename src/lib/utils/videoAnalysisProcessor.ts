@@ -6,7 +6,7 @@
  * @module utils/videoAnalysisProcessor
  */
 
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import { AIProviderName } from "../constants/enums.js";
 import { logger } from "./logger.js";
 
@@ -14,10 +14,10 @@ import { logger } from "./logger.js";
  * Check if messages contain video frames (images)
  * Only checks user messages to match buildContentParts behavior
  *
- * @param messages - Array of CoreMessage objects
+ * @param messages - Array of ModelMessage objects
  * @returns true if video frames are present in user messages
  */
-export function hasVideoFrames(messages: CoreMessage[]): boolean {
+export function hasVideoFrames(messages: ModelMessage[]): boolean {
   return messages.some((msg) => {
     // Only check user messages to match buildContentParts behavior
     if (msg.role !== "user") {
@@ -43,13 +43,13 @@ export function hasVideoFrames(messages: CoreMessage[]): boolean {
 /**
  * Execute video analysis on messages containing video frames
  *
- * @param messages - Array of CoreMessage objects with video frames
+ * @param messages - Array of ModelMessage objects with video frames
  * @param options - Video analysis options
  * @returns Video analysis text result
  * @throws Error if analysis fails
  */
 export async function executeVideoAnalysis(
-  messages: CoreMessage[],
+  messages: ModelMessage[],
   options: {
     provider?: AIProviderName | string;
     providerName?: AIProviderName;

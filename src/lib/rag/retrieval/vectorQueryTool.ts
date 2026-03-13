@@ -57,7 +57,7 @@ export function createVectorQueryTool(
       ...(enableFilter
         ? {
             filter: z
-              .record(z.unknown())
+              .record(z.string(), z.unknown())
               .optional()
               .describe("Metadata filters to narrow down results"),
           }

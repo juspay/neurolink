@@ -96,6 +96,7 @@ export class NeuroLinkConfigManager {
       }
       throw new Error(
         `Config update failed, restored from backup: ${(error as Error).message}`,
+        { cause: error },
       );
     }
   }
@@ -206,6 +207,7 @@ export default ${JSON.stringify(currentConfig, null, 2)};`;
     } catch (error) {
       throw new Error(
         `Failed to restore from backup ${backupFilename}: ${(error as Error).message}`,
+        { cause: error },
       );
     }
   }

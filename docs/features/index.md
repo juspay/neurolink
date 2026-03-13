@@ -531,7 +531,6 @@ Production-grade fault tolerance:
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | **[LiteLLM Integration](../litellm-integration.md)**           | Access 100+ models from all major providers via LiteLLM routing with unified interface. |
 | **[SageMaker Integration](../sagemaker-integration.md)**       | Deploy and call custom endpoints directly from NeuroLink CLI/SDK with full control.     |
-| **[Mem0 Integration](../mem0-integration.md)**                 | Persistent semantic memory with vector store support for long-term conversations.       |
 | **[Memory](memory.md)**                                        | Per-user condensed memory with S3/Redis/SQLite storage and LLM-powered condensation.    |
 | **[Enterprise Proxy](../enterprise-proxy-setup.md)**           | Configure outbound policies and compliance posture for corporate environments.          |
 | **[Configuration Management](../configuration-management.md)** | Manage environments, regions, and credentials safely across deployments.                |
@@ -540,19 +539,19 @@ Production-grade fault tolerance:
 
 ## Advanced Features
 
-| Feature                                                                | Description                                                                        |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **[Factory Pattern Architecture](../factory-pattern-architecture.md)** | Unified provider interface with automatic fallbacks and type-safe implementations. |
-| **[Conversation Memory](../conversation-memory.md)**                   | Deep dive into memory management, Redis integration, and Mem0 support.             |
-| **[Custom Middleware](../custom-middleware-guide.md)**                 | Build request/response hooks for logging, filtering, and custom processing.        |
-| **[Performance Optimization](../performance-optimization.md)**         | Caching, connection pooling, and latency optimization strategies.                  |
-| **[Telemetry & Observability](observability.md)**                      | OpenTelemetry integration for distributed tracing and monitoring.                  |
-| **[Testing Guide](../testing.md)**                                     | Provider-agnostic testing, mocking, and quality assurance strategies.              |
-| **[Analytics & Evaluation](../advanced/analytics.md)**                 | Usage tracking, cost monitoring, and quality scoring for AI responses.             |
-| **[Streaming](../advanced/streaming.md)**                              | Real-time token streaming with provider-specific optimizations.                    |
-| **[Thinking Configuration](thinking-configuration.md)**                | Configure extended thinking levels for supported models (Anthropic, Gemini 2.5+).  |
-| **[Structured Output](structured-output.md)**                          | JSON schema-based structured output with provider-specific formatting.             |
-| **[Text-to-Speech (TTS)](tts.md)**                                     | Basic TTS support via Google Cloud TTS (Neural2, Wavenet, Standard voices).        |
+| Feature                                                                                   | Description                                                                        |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| :material-factory: **[Factory Pattern Architecture](../factory-pattern-architecture.md)** | Unified provider interface with automatic fallbacks and type-safe implementations. |
+| :material-database-cog: **[Conversation Memory](../conversation-memory.md)**              | Deep dive into memory management and Redis integration.                            |
+| :material-middleware: **[Custom Middleware](../custom-middleware-guide.md)**              | Build request/response hooks for logging, filtering, and custom processing.        |
+| :material-speedometer: **[Performance Optimization](../performance-optimization.md)**     | Caching, connection pooling, and latency optimization strategies.                  |
+| :material-chart-timeline: **[Telemetry & Observability](observability.md)**               | OpenTelemetry integration for distributed tracing and monitoring.                  |
+| :material-test-tube: **[Testing Guide](../testing.md)**                                   | Provider-agnostic testing, mocking, and quality assurance strategies.              |
+| :material-chart-box: **[Analytics & Evaluation](../advanced/analytics.md)**               | Usage tracking, cost monitoring, and quality scoring for AI responses.             |
+| :material-flash: **[Streaming](../advanced/streaming.md)**                                | Real-time token streaming with provider-specific optimizations.                    |
+| :material-head-cog: **[Thinking Configuration](thinking-configuration.md)**               | Configure extended thinking levels for supported models (Anthropic, Gemini 2.5+).  |
+| :material-code-json: **[Structured Output](structured-output.md)**                        | JSON schema-based structured output with provider-specific formatting.             |
+| :material-text-to-speech: **[Text-to-Speech (TTS)](tts.md)**                              | Basic TTS support via Google Cloud TTS (Neural2, Wavenet, Standard voices).        |
 
 ---
 

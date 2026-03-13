@@ -341,7 +341,7 @@ function validateApiKey(input: string): boolean | string {
 async function promptForModel(): Promise<string> {
   const { modelChoice } = await inquirer.prompt([
     {
-      type: "list",
+      type: "select",
       name: "modelChoice",
       message: "Select a Google AI model:",
       choices: getTopModelChoices(AIProviderName.GOOGLE_AI, 5),

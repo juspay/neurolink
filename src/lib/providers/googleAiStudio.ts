@@ -2,8 +2,9 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import {
   embed,
   embedMany,
-  type LanguageModelV1,
+  type LanguageModel,
   type Schema,
+  stepCountIs,
   streamText,
   type Tool,
 } from "ai";
@@ -64,6 +65,7 @@ import {
   pushModelResponseToHistory,
   sanitizeToolsForGemini,
 } from "./googleNativeGemini3.js";
+import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
 
 // Google AI Live API types now imported from ../types/providerSpecific.js
 
@@ -154,7 +156,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
   /**
    * 🔧 PHASE 2: Return AI SDK model instance for tool calling
    */
-  public getAISDKModel(): LanguageModelV1 {
+  public getAISDKModel(): LanguageModel {
     const apiKey = this.getApiKey();
     const google = createGoogleGenerativeAI({ apiKey });
     return google(this.modelName);
@@ -648,10 +650,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
         model,
         messages: messages,
         temperature: options.temperature,
-        maxTokens: options.maxTokens, // No default limit - unlimited unless specified
+        maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools,
-        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-        toolChoice: shouldUseTools && tools ? "auto" : "none",
+        stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
+        toolChoice: shouldUseTools ? "auto" : "none",
         abortSignal: composeAbortSignals(
           options.abortSignal,
           timeoutController?.controller.signal,
@@ -694,8 +696,18 @@ export class GoogleAIStudioProvider extends BaseProvider {
         },
       });
 
-      // Defer timeout cleanup until the stream completes or errors
-      result.text.finally(() => timeoutController?.cleanup());
+      // Defer timeout cleanup until the stream completes or errors.
+      // Guard against NoOutputGeneratedError becoming an unhandled rejection.
+      Promise.resolve(result.text)
+        .catch((err: unknown) => {
+          logger.debug(
+            "Stream text promise rejected (expected for empty streams)",
+            {
+              error: err instanceof Error ? err.message : String(err),
+            },
+          );
+        })
+        .finally(() => timeoutController?.cleanup());
 
       // Transform string stream to content object stream using BaseProvider method
       const transformedStream = this.createTextStream(result);
@@ -704,7 +716,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
       const analyticsPromise = streamAnalyticsCollector.createAnalytics(
         this.providerName,
         this.modelName,
-        result,
+        toAnalyticsStreamResult(result),
         Date.now() - startTime,
         {
           requestId: `google-ai-stream-${Date.now()}`,

@@ -24,7 +24,7 @@ export type {
 } from "../types/middlewareTypes.js";
 
 // Export AI SDK middleware type
-export type { LanguageModelV1Middleware } from "ai";
+export type { LanguageModelMiddleware } from "ai";
 
 // Factory for creating and applying middleware chains
 export { MiddlewareFactory };

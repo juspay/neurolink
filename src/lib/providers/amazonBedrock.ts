@@ -49,6 +49,8 @@ import { buildMultimodalMessagesArray } from "../utils/messageBuilder.js";
 import { buildMultimodalOptions } from "../utils/multimodalOptionsBuilder.js";
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
 import { type Span, trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import type { ToolWithLegacyParams } from "./providerTypeUtils.js";
+import type { ToolParameterSchema } from "../types/tools.js";
 
 const bedrockTracer = trace.getTracer("neurolink.bedrock");
 
@@ -838,9 +840,14 @@ export class AmazonBedrockProvider extends BaseProvider {
 
     for (const [name, tool] of Object.entries(aiTools)) {
       if ("description" in tool && tool.description) {
+        // Extract schema from legacy `parameters` (AI SDK v3/v4) or current `inputSchema` (v6)
+        const legacyTool = tool as ToolWithLegacyParams;
+        const extractedParams: ToolParameterSchema | undefined =
+          (legacyTool.parameters as ToolParameterSchema | undefined) ??
+          (tool.inputSchema as ToolParameterSchema | undefined);
         result[name] = {
           description: tool.description,
-          parameters: "parameters" in tool ? tool.parameters : undefined,
+          parameters: extractedParams,
           execute: async (params: ToolArgs) => {
             if ("execute" in tool && tool.execute) {
               const result = await tool.execute(params as ToolArgs, {
@@ -1178,6 +1185,7 @@ export class AmazonBedrockProvider extends BaseProvider {
                 message: "Generate method returned null result",
               });
               streamSpan.end();
+              // eslint-disable-next-line preserve-caught-error
               throw new Error("Generate method returned null result");
             }
 
@@ -1974,7 +1982,9 @@ export class AmazonBedrockProvider extends BaseProvider {
       const errorObj = error as Record<string, unknown>;
 
       if (isAbortError(error)) {
-        throw new Error("Bedrock health check timed out after 10 seconds");
+        throw new Error("Bedrock health check timed out after 10 seconds", {
+          cause: error,
+        });
       }
 
       const errorMessage =
@@ -1985,18 +1995,21 @@ export class AmazonBedrockProvider extends BaseProvider {
       ) {
         throw new Error(
           "Bedrock access denied. Check your AWS credentials and IAM permissions for bedrock:ListFoundationModels",
+          { cause: error },
         );
       }
 
       if (errorObj.code === "ECONNREFUSED" || errorObj.code === "ENOTFOUND") {
         throw new Error(
           "Unable to connect to Bedrock service. Check your network connectivity and AWS region configuration",
+          { cause: error },
         );
       }
 
       logger.error("❌ [AmazonBedrockProvider] Health check failed:", error);
       throw new Error(
         `Bedrock health check failed: ${errorMessage || "Unknown error"}`,
+        { cause: error },
       );
     } finally {
       clearTimeout(timeoutId);
@@ -2049,9 +2062,8 @@ export class AmazonBedrockProvider extends BaseProvider {
     });
 
     try {
-      const { InvokeModelCommand } = await import(
-        "@aws-sdk/client-bedrock-runtime"
-      );
+      const { InvokeModelCommand } =
+        await import("@aws-sdk/client-bedrock-runtime");
 
       // Titan Embed models expect a specific input format
       const requestBody = JSON.stringify({

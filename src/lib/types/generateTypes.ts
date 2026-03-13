@@ -165,7 +165,7 @@ export type GenerateOptions = {
    *
    * Enables extended thinking capabilities for supported models.
    *
-   * **Gemini 3 Models** (gemini-3-pro-preview, gemini-3-flash-preview):
+   * **Gemini 3 Models** (gemini-3.1-pro-preview, gemini-3-flash-preview):
    * Use `thinkingLevel` to control reasoning depth:
    * - `minimal` - Near-zero thinking (Flash only)
    * - `low` - Fast reasoning for simple tasks
@@ -180,7 +180,7 @@ export type GenerateOptions = {
    * const result = await neurolink.generate({
    *   input: { text: "Solve this complex problem..." },
    *   provider: "google-ai",
-   *   model: "gemini-3-pro-preview",
+   *   model: "gemini-3.1-pro-preview",
    *   thinkingConfig: {
    *     thinkingLevel: "high"
    *   }
@@ -904,7 +904,7 @@ export type TextGenerationOptions = {
    * - Range: 5000-100000 tokens
    * - `thinkingLevel` is ignored for Anthropic
    *
-   * **Google Gemini 3 (gemini-3-pro-preview, gemini-3-flash-preview):**
+   * **Google Gemini 3 (gemini-3.1-pro-preview, gemini-3-flash-preview):**
    * - Use `thinkingConfig.thinkingLevel` or `thinkingLevel`
    * - Levels: minimal, low, medium, high
    * - `budgetTokens` is ignored for Gemini (uses level-based allocation)

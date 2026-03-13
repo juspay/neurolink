@@ -14,8 +14,14 @@
  */
 
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
-import type { CoreMessage, LanguageModelV1, Tool } from "ai";
-import { generateText, NoObjectGeneratedError, Output } from "ai";
+import type {
+  LanguageModel,
+  ModelMessage,
+  PrepareStepFunction,
+  Tool,
+} from "ai";
+import { generateText, NoObjectGeneratedError, Output, stepCountIs } from "ai";
+import { getModelId } from "../../providers/providerTypeUtils.js";
 import { tracers } from "../../telemetry/tracers.js";
 import type { UnknownRecord } from "../../types/common.js";
 import type {
@@ -26,7 +32,7 @@ import type {
   StandardRecord,
   TextGenerationOptions,
 } from "../../types/index.js";
-import type { ToolCallObject, ToolResult } from "../../types/tools.js";
+import type { ToolCallObject } from "../../types/tools.js";
 import { logger } from "../../utils/logger.js";
 import { calculateCost } from "../../utils/pricing.js";
 import { withProviderRetry } from "../../utils/providerRetry.js";
@@ -87,8 +93,8 @@ export class GenerationHandler {
    * @private
    */
   private async callGenerateText(
-    model: LanguageModelV1,
-    messages: CoreMessage[],
+    model: LanguageModel,
+    messages: ModelMessage[],
     tools: Record<string, Tool>,
     options: TextGenerationOptions,
     shouldUseTools: boolean,
@@ -150,14 +156,18 @@ export class GenerationHandler {
       messages,
       ...(shouldUseTools &&
         Object.keys(toolsWithCache).length > 0 && { tools: toolsWithCache }),
-      maxSteps: options.maxSteps ?? DEFAULT_MAX_STEPS,
+      stopWhen: stepCountIs(options.maxSteps ?? DEFAULT_MAX_STEPS),
       ...(shouldUseTools &&
         options.toolChoice && { toolChoice: options.toolChoice }),
       ...(options.prepareStep && {
-        experimental_prepareStep: options.prepareStep,
+        experimental_prepareStep: ((stepOptions) =>
+          options.prepareStep!({
+            ...stepOptions,
+            maxSteps: options.maxSteps ?? DEFAULT_MAX_STEPS,
+          })) satisfies PrepareStepFunction,
       }),
       temperature: options.temperature,
-      maxTokens: options.maxTokens,
+      maxOutputTokens: options.maxTokens,
       maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
       abortSignal: options.abortSignal,
       ...(useStructuredOutput &&
@@ -221,8 +231,8 @@ export class GenerationHandler {
    * Execute the generation with AI SDK
    */
   async executeGeneration(
-    model: LanguageModelV1,
-    messages: CoreMessage[],
+    model: LanguageModel,
+    messages: ModelMessage[],
     tools: Record<string, Tool>,
     options: TextGenerationOptions,
   ): Promise<Awaited<ReturnType<typeof generateText>>> {
@@ -244,7 +254,7 @@ export class GenerationHandler {
         span.setAttribute("neurolink.message_count", messages.length);
         span.setAttribute(
           "gen_ai.request.model",
-          model.modelId || this.modelName || "unknown",
+          getModelId(model, this.modelName || "unknown"),
         );
 
         const requestId =
@@ -254,7 +264,7 @@ export class GenerationHandler {
 
         logger.info("[GenerationHandler] Calling generateText", {
           requestId,
-          model: model.modelId || "unknown",
+          model: getModelId(model),
           messageCount: messages.length,
           toolCount,
           maxSteps: options.maxSteps,
@@ -265,7 +275,7 @@ export class GenerationHandler {
           try {
             logger.debug("[Observability] Full generateText parameters", {
               requestId,
-              model: model.modelId || "unknown",
+              model: getModelId(model),
               messageCount: messages.length,
               messages: messages.map((msg, i) => ({
                 index: i,
@@ -357,19 +367,19 @@ export class GenerationHandler {
           if (result.usage) {
             span.setAttribute(
               "gen_ai.usage.input_tokens",
-              result.usage.promptTokens || 0,
+              result.usage.inputTokens || 0,
             );
             span.setAttribute(
               "gen_ai.usage.output_tokens",
-              result.usage.completionTokens || 0,
+              result.usage.outputTokens || 0,
             );
             // Cost on span so users can query "what did this trace cost?"
             const cost = calculateCost(this.providerName, this.modelName, {
-              input: result.usage.promptTokens || 0,
-              output: result.usage.completionTokens || 0,
+              input: result.usage.inputTokens || 0,
+              output: result.usage.outputTokens || 0,
               total:
-                (result.usage.promptTokens || 0) +
-                (result.usage.completionTokens || 0),
+                (result.usage.inputTokens || 0) +
+                (result.usage.outputTokens || 0),
             });
             span.setAttribute("neurolink.cost", cost ?? 0);
           }
@@ -443,21 +453,21 @@ export class GenerationHandler {
             if (result.usage) {
               span.setAttribute(
                 "gen_ai.usage.input_tokens",
-                result.usage.promptTokens || 0,
+                result.usage.inputTokens || 0,
               );
               span.setAttribute(
                 "gen_ai.usage.output_tokens",
-                result.usage.completionTokens || 0,
+                result.usage.outputTokens || 0,
               );
               const fallbackCost = calculateCost(
                 this.providerName,
                 this.modelName,
                 {
-                  input: result.usage.promptTokens || 0,
-                  output: result.usage.completionTokens || 0,
+                  input: result.usage.inputTokens || 0,
+                  output: result.usage.outputTokens || 0,
                   total:
-                    (result.usage.promptTokens || 0) +
-                    (result.usage.completionTokens || 0),
+                    (result.usage.inputTokens || 0) +
+                    (result.usage.outputTokens || 0),
                 },
               );
               span.setAttribute("neurolink.cost", fallbackCost ?? 0);
@@ -488,7 +498,7 @@ export class GenerationHandler {
 
   /**
    * Extract cache metrics from provider metadata (e.g. Anthropic's providerMetadata.anthropic)
-   * The Vercel AI SDK's LanguageModelUsage only has promptTokens/completionTokens/totalTokens.
+   * The AI SDK's LanguageModelUsage only has inputTokens/outputTokens.
    * Cache metrics are surfaced via providerMetadata by provider-specific SDK adapters.
    */
   private extractCacheMetricsFromProviderMetadata(
@@ -497,12 +507,9 @@ export class GenerationHandler {
     cacheCreationTokens?: number;
     cacheReadTokens?: number;
   } {
-    const providerMeta =
-      ((generateResult as unknown as Record<string, unknown>)
-        .providerMetadata as Record<string, unknown> | undefined) ||
-      (generateResult.experimental_providerMetadata as
-        | Record<string, unknown>
-        | undefined);
+    const providerMeta = generateResult.providerMetadata as
+      | Record<string, unknown>
+      | undefined;
     if (!providerMeta) {
       return {};
     }
@@ -630,18 +637,13 @@ export class GenerationHandler {
             const toolId =
               (trRecord.toolCallId as string) || (trRecord.id as string);
 
-            let toolArgs: StandardRecord = {};
-            if (trRecord.args) {
-              toolArgs = trRecord.args as StandardRecord;
-            } else if (trRecord.arguments) {
-              toolArgs = trRecord.arguments as StandardRecord;
-            } else if (trRecord.parameters) {
-              toolArgs = trRecord.parameters as StandardRecord;
-            } else if (trRecord.input) {
-              toolArgs = trRecord.input as StandardRecord;
-            } else {
-              toolArgs = toolCallArgsMap.get(toolId || toolName) || {};
-            }
+            const toolArgs: StandardRecord =
+              (trRecord.args as StandardRecord | undefined) ??
+              (trRecord.arguments as StandardRecord | undefined) ??
+              (trRecord.parameters as StandardRecord | undefined) ??
+              (trRecord.input as StandardRecord | undefined) ??
+              toolCallArgsMap.get(toolId || toolName) ??
+              {};
 
             toolExecutions.push({
               name: toolName,
@@ -765,7 +767,7 @@ export class GenerationHandler {
             args: tc.args || {},
           }))
         : [],
-      toolResults: (generateResult.toolResults as ToolResult[]) || [],
+      toolResults: generateResult.toolResults ?? [],
       toolsUsed,
       toolExecutions,
       availableTools: Object.keys(tools).map((name) => {
@@ -773,7 +775,7 @@ export class GenerationHandler {
         return {
           name,
           description: tool.description || "No description available",
-          parameters: tool.parameters || {},
+          parameters: (tool.inputSchema as StandardRecord) || {},
           server: tool.serverId || "direct",
         };
       }),

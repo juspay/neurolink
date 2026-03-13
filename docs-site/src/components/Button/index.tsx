@@ -23,7 +23,8 @@ const buttonVariants = cva(styles.button, {
 });
 
 interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {}
 
 export function Button({ className, variant, size, ...props }: ButtonProps) {
@@ -38,7 +39,8 @@ export function Button({ className, variant, size, ...props }: ButtonProps) {
 
 // Link button variant
 interface ButtonLinkProps
-  extends React.AnchorHTMLAttributes<HTMLAnchorElement>,
+  extends
+    React.AnchorHTMLAttributes<HTMLAnchorElement>,
     VariantProps<typeof buttonVariants> {}
 
 export function ButtonLink({

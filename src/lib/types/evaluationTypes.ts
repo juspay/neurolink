@@ -1,4 +1,4 @@
-import type { LanguageModelV1CallOptions } from "ai";
+import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import type { TokenUsage } from "./analytics.js";
 import type { GenerateResult } from "./generateTypes.js";
 import type { ToolExecution } from "./tools.js";
@@ -135,7 +135,7 @@ export type EvaluationConfig = {
   provider?: string;
   /** A custom evaluator function to override the default behavior. */
   customEvaluator?: (
-    options: LanguageModelV1CallOptions,
+    options: LanguageModelV3CallOptions,
     result: GenerateResult,
   ) => Promise<{
     evaluationResult: EvaluationResult;

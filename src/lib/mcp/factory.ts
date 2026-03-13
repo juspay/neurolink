@@ -40,7 +40,7 @@ const ServerConfigSchema = z.object({
     ])
     .optional(),
   visibility: z.enum(["public", "private", "organization"]).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   dependencies: z.array(z.string()).optional(),
   capabilities: z.array(z.string()).optional(),
 });

@@ -34,6 +34,7 @@ export function backupEnvFile(envPath: string = ".env"): EnvBackupResult {
     } catch (error) {
       throw new Error(
         `Failed to create backup: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }
@@ -201,6 +202,7 @@ export function updateEnvFile(
   } catch (error) {
     throw new Error(
       `Failed to write .env file: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
     );
   }
 

@@ -12,16 +12,16 @@ import {
   embed,
   embedMany,
   type LanguageModel,
-  type LanguageModelV1,
   Output,
   type Schema,
+  stepCountIs,
   streamText,
   type Tool,
 } from "ai";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import type { ZodType, ZodTypeDef } from "zod";
+import type { ZodType } from "zod";
 import {
   type AIProviderName,
   ErrorCategory,
@@ -86,6 +86,7 @@ import {
   pushModelResponseToHistory,
   sanitizeToolsForGemini,
 } from "./googleNativeGemini3.js";
+import { getModelId } from "./providerTypeUtils.js";
 
 // Import proper types for multimodal message handling
 
@@ -288,7 +289,7 @@ const createVertexSettings = async (
       process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK;
 
     // Check if the credentials file exists
-    let fileExists = false;
+    let fileExists: boolean;
     try {
       fileExists = fs.existsSync(credentialsPath);
     } catch {
@@ -302,7 +303,7 @@ const createVertexSettings = async (
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
       const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
       // Check if the credentials file exists
-      let fileExists = false;
+      let fileExists: boolean;
       try {
         fileExists = fs.existsSync(credentialsPath);
       } catch {
@@ -459,8 +460,8 @@ export const VERTEX_MODEL_ALIASES: Record<string, string> = {
   "claude-3-sonnet": "claude-3-sonnet-20240229",
   "claude-3-haiku": "claude-3-haiku-20240307",
   // Gemini shorthand aliases
-  "gemini-3-pro": "gemini-3-pro-latest",
-  "gemini-3-flash": "gemini-3-flash-latest",
+  "gemini-3-pro": "gemini-3.1-pro-preview",
+  "gemini-3-flash": "gemini-3-flash-preview",
 };
 
 /**
@@ -635,7 +636,7 @@ export class GoogleVertexProvider extends BaseProvider {
     modelCreationId: string,
     modelCreationStartTime: number,
     modelCreationHrTimeStart: bigint,
-  ): Promise<LanguageModelV1 | null> {
+  ): Promise<LanguageModel | null> {
     const isAnthropic = isAnthropicModel(modelName);
 
     if (!isAnthropic) {
@@ -698,7 +699,7 @@ export class GoogleVertexProvider extends BaseProvider {
     modelCreationId: string,
     modelCreationStartTime: number,
     modelCreationHrTimeStart: bigint,
-  ): Promise<LanguageModelV1> {
+  ): Promise<LanguageModel> {
     logger.debug("Creating Google Vertex model", {
       modelName,
       project: this.projectId,
@@ -871,7 +872,7 @@ export class GoogleVertexProvider extends BaseProvider {
     modelCreationId: string,
     modelCreationStartTime: number,
     modelCreationHrTimeStart: bigint,
-  ): Promise<LanguageModelV1> {
+  ): Promise<LanguageModel> {
     const vertexInstanceStartTime = process.hrtime.bigint();
     logger.debug(
       `[GoogleVertexProvider] 🏗️ LOG_POINT_V010_VERTEX_INSTANCE_START`,
@@ -1015,7 +1016,7 @@ export class GoogleVertexProvider extends BaseProvider {
       },
     );
 
-    return model as LanguageModelV1;
+    return model as LanguageModel;
   }
 
   /**
@@ -1023,7 +1024,7 @@ export class GoogleVertexProvider extends BaseProvider {
    * Uses dual provider architecture for proper model routing
    * Creates fresh instances for each request to ensure proper authentication
    */
-  private async getModel(): Promise<LanguageModelV1> {
+  private async getModel(): Promise<LanguageModel> {
     // Initialize logging and setup (alias resolution happens inside)
     const {
       modelCreationId,
@@ -1064,7 +1065,7 @@ export class GoogleVertexProvider extends BaseProvider {
 
   protected async executeStream(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ZodType | Schema<unknown>,
   ): Promise<StreamResult> {
     // Check if this is a Gemini 3 model with tools - use native SDK for thought_signature
     const gemini3CheckModelName = this.resolveAlias(
@@ -1188,7 +1189,7 @@ export class GoogleVertexProvider extends BaseProvider {
           Object.keys(tools).length > 0 && {
             tools,
             toolChoice: "auto",
-            maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+            stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
           }),
         abortSignal: composeAbortSignals(
           options.abortSignal,
@@ -1269,7 +1270,7 @@ export class GoogleVertexProvider extends BaseProvider {
           if (!isAnthropic) {
             delete streamOptions.tools;
             delete streamOptions.toolChoice;
-            delete streamOptions.maxSteps;
+            delete streamOptions.stopWhen;
           }
           streamOptions = {
             ...streamOptions,
@@ -1291,8 +1292,10 @@ export class GoogleVertexProvider extends BaseProvider {
           kind: SpanKind.CLIENT,
           attributes: {
             "gen_ai.system": "vertex",
-            "gen_ai.request.model":
-              model.modelId || this.modelName || "unknown",
+            "gen_ai.request.model": getModelId(
+              model,
+              this.modelName || "unknown",
+            ),
           },
         },
       );
@@ -1314,25 +1317,23 @@ export class GoogleVertexProvider extends BaseProvider {
 
       // Collect token usage and finish reason asynchronously when the stream completes,
       // then end the span. This avoids blocking the stream consumer.
-      result.usage
+      Promise.resolve(result.usage)
         .then((usage) => {
           streamSpan.setAttribute(
             "gen_ai.usage.input_tokens",
-            usage.promptTokens || 0,
+            usage.inputTokens || 0,
           );
           streamSpan.setAttribute(
             "gen_ai.usage.output_tokens",
-            usage.completionTokens || 0,
+            usage.outputTokens || 0,
           );
           const effectiveModel =
             options.model ||
-            model.modelId ||
-            this.modelName ||
-            getDefaultVertexModel();
+            getModelId(model, this.modelName || getDefaultVertexModel());
           const cost = calculateCost(this.providerName, effectiveModel, {
-            input: usage.promptTokens || 0,
-            output: usage.completionTokens || 0,
-            total: (usage.promptTokens || 0) + (usage.completionTokens || 0),
+            input: usage.inputTokens || 0,
+            output: usage.outputTokens || 0,
+            total: (usage.inputTokens || 0) + (usage.outputTokens || 0),
           });
           if (cost && cost > 0) {
             streamSpan.setAttribute("neurolink.cost", cost);
@@ -1341,7 +1342,7 @@ export class GoogleVertexProvider extends BaseProvider {
         .catch(() => {
           // Usage may not be available if the stream is aborted
         });
-      result.finishReason
+      Promise.resolve(result.finishReason)
         .then((reason) => {
           streamSpan.setAttribute(
             "gen_ai.response.finish_reason",
@@ -1351,11 +1352,11 @@ export class GoogleVertexProvider extends BaseProvider {
         .catch(() => {
           // Finish reason may not be available if the stream is aborted
         });
-      result.text
+      Promise.resolve(result.text)
         .then(() => {
           streamSpan.end();
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           streamSpan.setStatus({
             code: SpanStatusCode.ERROR,
             message: err instanceof Error ? err.message : String(err),
@@ -1363,8 +1364,18 @@ export class GoogleVertexProvider extends BaseProvider {
           streamSpan.end();
         });
 
-      // Defer timeout cleanup until the stream completes or errors
-      result.text.finally(() => timeoutController?.cleanup());
+      // Defer timeout cleanup until the stream completes or errors.
+      // Guard against NoOutputGeneratedError becoming an unhandled rejection.
+      Promise.resolve(result.text)
+        .catch((err: unknown) => {
+          logger.debug(
+            "Stream text promise rejected (expected for empty streams)",
+            {
+              error: err instanceof Error ? err.message : String(err),
+            },
+          );
+        })
+        .finally(() => timeoutController?.cleanup());
 
       // Transform string stream to content object stream using BaseProvider method
       const transformedStream = this.createTextStream(result);
@@ -2528,7 +2539,7 @@ export class GoogleVertexProvider extends BaseProvider {
    * @example
    * ```typescript
    * provider.resolveModelAlias("claude-sonnet-4-5"); // "claude-sonnet-4-5@20250929"
-   * provider.resolveModelAlias("gemini-3-pro");      // "gemini-3-pro-latest"
+   * provider.resolveModelAlias("gemini-3-pro");      // "gemini-3.1-pro-preview"
    * provider.resolveModelAlias("gemini-2.5-flash");  // "gemini-2.5-flash" (unchanged)
    * ```
    */
@@ -2540,11 +2551,9 @@ export class GoogleVertexProvider extends BaseProvider {
    * Create an Anthropic model instance using vertexAnthropic provider
    * Uses fresh vertex settings for each request with comprehensive validation
    * @param modelName Anthropic model name (e.g., 'claude-3-sonnet@20240229')
-   * @returns LanguageModelV1 instance or null if not available
+   * @returns LanguageModel instance or null if not available
    */
-  async createAnthropicModel(
-    modelName: string,
-  ): Promise<LanguageModelV1 | null> {
+  async createAnthropicModel(modelName: string): Promise<LanguageModel | null> {
     const validationId = `anthropic-validation-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
     logger.debug(
@@ -2726,7 +2735,7 @@ export class GoogleVertexProvider extends BaseProvider {
         },
       );
 
-      return model as LanguageModelV1;
+      return model as LanguageModel;
     } catch (error) {
       // Enhanced error analysis and reporting
       const errorAnalysis = this.analyzeAnthropicCreationError(error, {
@@ -4015,9 +4024,9 @@ export class GoogleVertexProvider extends BaseProvider {
   private getModelSuggestions(requestedModel: string | undefined): string {
     const availableModels = {
       google: [
-        "gemini-3-pro-preview-11-2025",
-        "gemini-3-pro-latest",
-        "gemini-3-pro-preview",
+        "gemini-3.1-pro-preview",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-3-flash-preview",
         "gemini-2.5-pro",
         "gemini-2.5-flash",
         "gemini-2.5-flash-lite",

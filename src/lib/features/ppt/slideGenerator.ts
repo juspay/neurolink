@@ -13,7 +13,13 @@
  * @module presentation/slideGenerator
  */
 
-import PptxGenJS from "pptxgenjs";
+import PptxGenJSImport from "pptxgenjs";
+// ESM/CJS interop: pptxgenjs v4 may double-wrap the default export under tsx/esbuild
+const PptxGenJS =
+  typeof PptxGenJSImport === "function"
+    ? PptxGenJSImport
+    : (PptxGenJSImport as unknown as { default: typeof PptxGenJSImport })
+        .default;
 import pLimit from "p-limit";
 import * as fs from "fs";
 import type {

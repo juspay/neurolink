@@ -471,7 +471,6 @@ async function reviewSession(sessionId: string) {
 
 - [CLI Loop Sessions](./cli-loop-sessions.md) - Persistent conversation mode
 - [Conversation Memory](../conversation-memory.md) - Full memory system docs
-- [Mem0 Integration](../mem0-integration.md) - Semantic memory with vectors
 - [Analytics Integration](../advanced/analytics.md) - Track conversation metrics
 
 ## Migration Notes

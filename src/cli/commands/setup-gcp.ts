@@ -369,7 +369,7 @@ async function selectAuthMethod(status: AuthMethodStatus): Promise<AuthMethod> {
   // Present method selection
   const { method } = await inquirer.prompt([
     {
-      type: "list",
+      type: "select",
       name: "method",
       message: "Which authentication method would you like to use?",
       choices: [
@@ -427,9 +427,7 @@ async function promptForMissingValues(
         );
 
         if (fs.existsSync(adcPath)) {
-          logger.always(
-            chalk.green("✔ Found Application Default Credentials"),
-          );
+          logger.always(chalk.green("✔ Found Application Default Credentials"));
           logger.always(chalk.blue(`   Location: ${adcPath}`));
           config.credentialsPath = adcPath;
         } else {

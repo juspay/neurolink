@@ -178,13 +178,36 @@ const PRICING: Record<
   },
   // Google (Gemini) — updated March 2026
   google: {
-    // Gemini 3.x family
-    "gemini-3.1-pro": { input: 2.0 / 1_000_000, output: 12.0 / 1_000_000 },
-    "gemini-3-pro": { input: 2.0 / 1_000_000, output: 12.0 / 1_000_000 },
-    "gemini-3-flash": { input: 0.5 / 1_000_000, output: 3.0 / 1_000_000 },
-    "gemini-3.1-flash-lite": {
+    // Gemini 3.1 family (all require -preview suffix)
+    "gemini-3.1-pro-preview": {
+      input: 2.0 / 1_000_000,
+      output: 12.0 / 1_000_000,
+    },
+    "gemini-3.1-flash-lite-preview": {
       input: 0.25 / 1_000_000,
       output: 1.5 / 1_000_000,
+    },
+    "gemini-3.1-flash-image-preview": {
+      input: 0.5 / 1_000_000,
+      output: 3.0 / 1_000_000,
+    },
+    "gemini-3.1-pro-preview-customtools": {
+      input: 2.0 / 1_000_000,
+      output: 12.0 / 1_000_000,
+    },
+    // Gemini 3 family
+    "gemini-3-flash-preview": {
+      input: 0.5 / 1_000_000,
+      output: 3.0 / 1_000_000,
+    },
+    "gemini-3-pro-image-preview": {
+      input: 2.0 / 1_000_000,
+      output: 12.0 / 1_000_000,
+    },
+    /** @deprecated SHUT DOWN March 9, 2026. Migrate to gemini-3.1-pro-preview. */
+    "gemini-3-pro-preview": {
+      input: 2.0 / 1_000_000,
+      output: 12.0 / 1_000_000,
     },
     // Gemini 2.5 family
     "gemini-2.5-flash": { input: 0.3 / 1_000_000, output: 2.5 / 1_000_000 },

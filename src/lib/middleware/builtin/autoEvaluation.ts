@@ -3,17 +3,17 @@
  */
 
 import type {
+  LanguageModelV3CallOptions,
+  LanguageModelV3StreamPart,
+} from "@ai-sdk/provider";
+import type {
   NeuroLinkMiddleware,
   NeuroLinkMiddlewareMetadata,
   AutoEvaluationConfig,
 } from "../../types/middlewareTypes.js";
 import type { GenerateResult } from "../../types/generateTypes.js";
 import { Evaluator } from "../../evaluation/index.js";
-import type {
-  LanguageModelV1CallOptions,
-  LanguageModelV1Middleware,
-  LanguageModelV1StreamPart,
-} from "ai";
+import type { LanguageModelMiddleware } from "ai";
 import type { StandardRecord } from "../../types/typeAliases.js";
 import { logger } from "../../utils/logger.js";
 
@@ -37,41 +37,58 @@ export function createAutoEvaluationMiddleware(
     defaultEnabled: false, // Should be explicitly enabled
   };
   logger.debug("Auto-Evaluation Middleware Config:", config);
-  const middleware: LanguageModelV1Middleware = {
+  const middleware: LanguageModelMiddleware = {
+    specificationVersion: "v3" as const,
     wrapGenerate: async ({ doGenerate, params }) => {
-      const options: LanguageModelV1CallOptions = params;
+      const options: LanguageModelV3CallOptions = params;
 
       const rawResult = await doGenerate();
 
+      const textParts = rawResult.content
+        .filter((c): c is { type: "text"; text: string } => c.type === "text")
+        .map((c) => c.text);
+      const toolCallParts = rawResult.content.filter(
+        (
+          c,
+        ): c is {
+          type: "tool-call";
+          toolCallId: string;
+          toolName: string;
+          input: string;
+        } => c.type === "tool-call",
+      );
+
+      const inputTokens = rawResult.usage.inputTokens.total ?? 0;
+      const outputTokens = rawResult.usage.outputTokens.total ?? 0;
+
       const result: GenerateResult = {
-        ...rawResult,
-        content: rawResult.text ?? "",
+        content: textParts.join(""),
+        finishReason: rawResult.finishReason.unified,
         usage: {
-          input: rawResult.usage.promptTokens,
-          output: rawResult.usage.completionTokens,
-          total:
-            rawResult.usage.promptTokens + rawResult.usage.completionTokens,
+          input: inputTokens,
+          output: outputTokens,
+          total: inputTokens + outputTokens,
         },
-        toolCalls: rawResult.toolCalls?.map((tc) => {
-          let parsedArgs = tc.args;
-          if (typeof tc.args === "string") {
-            try {
-              parsedArgs = JSON.parse(tc.args);
-            } catch (e) {
-              logger.warn(
-                `Failed to parse tool call args for tool ${tc.toolName}:`,
-                e,
-              );
-              parsedArgs = tc.args; // Fallback to original string if parsing fails
-            }
-          }
-          return {
-            ...tc,
-            args: parsedArgs,
-          };
-        }) as
-          | { toolCallId: string; toolName: string; args: StandardRecord }[]
-          | undefined,
+        toolCalls:
+          toolCallParts.length > 0
+            ? toolCallParts.map((tc) => {
+                let parsedArgs: StandardRecord;
+                try {
+                  parsedArgs = JSON.parse(tc.input) as StandardRecord;
+                } catch (e) {
+                  logger.warn(
+                    `Failed to parse tool call args for tool ${tc.toolName}:`,
+                    e,
+                  );
+                  parsedArgs = { raw: tc.input };
+                }
+                return {
+                  toolCallId: tc.toolCallId,
+                  toolName: tc.toolName,
+                  args: parsedArgs,
+                };
+              })
+            : undefined,
       };
       const isBlocking = config.blocking !== false;
 
@@ -93,7 +110,7 @@ export function createAutoEvaluationMiddleware(
       }
     },
     wrapStream: async ({ doStream, params }) => {
-      const options: LanguageModelV1CallOptions = params;
+      const options: LanguageModelV3CallOptions = params;
       const rawResult = await doStream();
       const [streamForUser, streamForEvaluation] = rawResult.stream.tee();
 
@@ -125,7 +142,7 @@ export function createAutoEvaluationMiddleware(
  */
 async function performEvaluation(
   config: AutoEvaluationConfig,
-  options: LanguageModelV1CallOptions,
+  options: LanguageModelV3CallOptions,
   result: GenerateResult,
 ) {
   const isBlocking = config.blocking !== false;
@@ -166,8 +183,8 @@ async function performEvaluation(
  */
 async function consumeAndEvaluateStream(
   config: AutoEvaluationConfig,
-  options: LanguageModelV1CallOptions,
-  stream: ReadableStream<LanguageModelV1StreamPart>,
+  options: LanguageModelV3CallOptions,
+  stream: ReadableStream<LanguageModelV3StreamPart>,
 ) {
   let fullText = "";
   let usage: { input: number; output: number; total: number } | undefined;
@@ -187,13 +204,13 @@ async function consumeAndEvaluateStream(
 
       switch (value.type) {
         case "text-delta":
-          fullText += value.textDelta;
+          fullText += value.delta;
           break;
         case "tool-call":
           {
             let parsedArgs: StandardRecord;
             try {
-              parsedArgs = JSON.parse(value.args);
+              parsedArgs = JSON.parse(value.input) as StandardRecord;
             } catch (e) {
               logger.warn(
                 `Failed to parse tool call args for tool ${value.toolName}:`,
@@ -201,7 +218,7 @@ async function consumeAndEvaluateStream(
               );
               // In case of parsing failure, we can't assign a string.
               // Let's use an object with the raw string to maintain type safety.
-              parsedArgs = { raw: value.args };
+              parsedArgs = { raw: value.input };
             }
             toolCalls.push({
               toolCallId: value.toolCallId,
@@ -211,11 +228,15 @@ async function consumeAndEvaluateStream(
           }
           break;
         case "finish":
-          usage = {
-            input: value.usage.promptTokens,
-            output: value.usage.completionTokens,
-            total: value.usage.promptTokens + value.usage.completionTokens,
-          };
+          {
+            const finishInputTokens = value.usage.inputTokens.total ?? 0;
+            const finishOutputTokens = value.usage.outputTokens.total ?? 0;
+            usage = {
+              input: finishInputTokens,
+              output: finishOutputTokens,
+              total: finishInputTokens + finishOutputTokens,
+            };
+          }
           break;
       }
     }

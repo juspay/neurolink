@@ -1,5 +1,5 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import type { CoreMessage, LanguageModelV1, Tool } from "ai";
+import type { ModelMessage, LanguageModel, Tool } from "ai";
 import { generateText } from "ai";
 import { directAgentTools } from "../agent/directTools.js";
 import type { AIProviderName } from "../constants/enums.js";
@@ -530,7 +530,7 @@ export abstract class BaseProvider implements AIProvider {
     options: TextGenerationOptions,
   ): Promise<{
     tools: Record<string, Tool>;
-    model: LanguageModelV1;
+    model: LanguageModel;
   }> {
     const shouldUseTools = !options.disableTools && this.supportsTools();
     const baseTools = shouldUseTools ? await this.getAllTools() : {};
@@ -596,7 +596,7 @@ export abstract class BaseProvider implements AIProvider {
    */
   private async buildMessages(
     options: TextGenerationOptions,
-  ): Promise<CoreMessage[]> {
+  ): Promise<ModelMessage[]> {
     return this.messageBuilder.buildMessages(options);
   }
 
@@ -606,11 +606,11 @@ export abstract class BaseProvider implements AIProvider {
    * with automatic multimodal detection, eliminating code duplication
    *
    * @param options - Stream options or text generation options
-   * @returns Promise resolving to CoreMessage array ready for AI SDK
+   * @returns Promise resolving to ModelMessage array ready for AI SDK
    */
   protected async buildMessagesForStream(
     options: StreamOptions | TextGenerationOptions,
-  ): Promise<CoreMessage[]> {
+  ): Promise<ModelMessage[]> {
     return this.messageBuilder.buildMessagesForStream(options);
   }
 
@@ -618,8 +618,8 @@ export abstract class BaseProvider implements AIProvider {
    * Execute the generation with AI SDK - delegated to GenerationHandler
    */
   private async executeGeneration(
-    model: LanguageModelV1,
-    messages: CoreMessage[],
+    model: LanguageModel,
+    messages: ModelMessage[],
     tools: Record<string, Tool>,
     options: TextGenerationOptions,
   ): Promise<Awaited<ReturnType<typeof generateText>>> {
@@ -645,7 +645,7 @@ export abstract class BaseProvider implements AIProvider {
    */
   private async recordPerformanceMetrics(
     usage:
-      | { promptTokens: number; completionTokens: number; totalTokens: number }
+      | { inputTokens: number | undefined; outputTokens: number | undefined }
       | undefined,
     responseTime: number,
   ): Promise<void> {
@@ -872,7 +872,7 @@ export abstract class BaseProvider implements AIProvider {
                 messages: [
                   { role: "user" as const, content: formattingPrompt },
                 ],
-                maxTokens: options.maxTokens || 8192,
+                maxOutputTokens: options.maxTokens || 8192,
                 temperature: 0.3,
                 abortSignal: options.abortSignal,
                 experimental_telemetry:
@@ -884,11 +884,11 @@ export abstract class BaseProvider implements AIProvider {
 
               formattedContent = formattedResult.text;
               usage = {
-                input: formattedResult.usage?.promptTokens || 0,
-                output: formattedResult.usage?.completionTokens || 0,
+                input: formattedResult.usage?.inputTokens || 0,
+                output: formattedResult.usage?.outputTokens || 0,
                 total:
-                  (formattedResult.usage?.promptTokens || 0) +
-                  (formattedResult.usage?.completionTokens || 0),
+                  (formattedResult.usage?.inputTokens || 0) +
+                  (formattedResult.usage?.outputTokens || 0),
               };
 
               logger.debug("[VideoAnalysis] Claude formatting complete", {
@@ -1229,9 +1229,7 @@ export abstract class BaseProvider implements AIProvider {
    * REQUIRED: Every provider MUST implement this method
    * Returns the Vercel AI SDK model instance for this provider
    */
-  protected abstract getAISDKModel():
-    | LanguageModelV1
-    | Promise<LanguageModelV1>;
+  protected abstract getAISDKModel(): LanguageModel | Promise<LanguageModel>;
 
   /**
    * Get AI SDK model with middleware applied
@@ -1240,7 +1238,7 @@ export abstract class BaseProvider implements AIProvider {
    */
   protected async getAISDKModelWithMiddleware(
     options: TextGenerationOptions | StreamOptions = {},
-  ): Promise<LanguageModelV1> {
+  ): Promise<LanguageModel> {
     // Get the base model
     const baseModel = await this.getAISDKModel();
 
@@ -1358,9 +1356,8 @@ export abstract class BaseProvider implements AIProvider {
    * Calculate actual cost - delegated to TelemetryHandler
    */
   private async calculateActualCost(usage: {
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
+    inputTokens?: number | undefined;
+    outputTokens?: number | undefined;
   }): Promise<number> {
     return this.telemetryHandler.calculateActualCost(usage);
   }

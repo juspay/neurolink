@@ -410,7 +410,7 @@ export class OllamaCommandFactory {
       if (downloadModel) {
         const { selectedModel } = await inquirer.prompt([
           {
-            type: "list",
+            type: "select",
             name: "selectedModel",
             message: "Select a model to download:",
             choices: getTopModelChoices(AIProviderName.OLLAMA, 5).map(

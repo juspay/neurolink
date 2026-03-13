@@ -77,8 +77,8 @@ const FILE_MAPPINGS: Record<string, string> = {
   // Memory docs -> memory/
   "conversation-memory.md": "memory/conversation.md",
   "context-summarization.md": "memory/summarization.md",
-  "mem0-integration.md": "memory/mem0.md",
   "features/memory.md": "features/memory.md",
+  "advanced/memory-integration.md": "advanced/memory-integration.md",
 
   // Workflow docs -> workflows/
   "advanced-orchestration.md": "workflows/orchestration.md",
@@ -863,8 +863,6 @@ const LINK_MAPPINGS: Record<string, string> = {
   "conversation-memory.md": "/memory/conversation",
   "context-summarization": "/memory/summarization",
   "context-summarization.md": "/memory/summarization",
-  "mem0-integration": "/memory/mem0",
-  "mem0-integration.md": "/memory/mem0",
 
   // Workflow reorganization
   "advanced-orchestration": "/workflows/orchestration",

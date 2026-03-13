@@ -99,6 +99,7 @@ export type {
   OptionalValidationSchema,
   StandardRecord,
   ValidationSchema,
+  ZodToJsonSchemaInput,
   ZodUnknownSchema,
 } from "./typeAliases.js";
 

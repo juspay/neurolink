@@ -247,9 +247,8 @@ export function generateOutputPath(context: PPTGenerationContext): string {
 export async function ensureOutputDirectory(filePath: string): Promise<void> {
   const dir = path.dirname(filePath);
   try {
-    const { withTimeout, ErrorFactory } = await import(
-      "../../utils/errorHandling.js"
-    );
+    const { withTimeout, ErrorFactory } =
+      await import("../../utils/errorHandling.js");
     const { PPT_GENERATION_TIMEOUT_MS } = await import("./constants.js");
 
     await withTimeout(

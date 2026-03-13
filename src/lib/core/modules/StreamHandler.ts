@@ -31,6 +31,7 @@ import {
 import { STEP_LIMITS } from "../constants.js";
 import { createAnalytics } from "../analytics.js";
 import { nanoid } from "nanoid";
+import { NoOutputGeneratedError } from "ai";
 
 /**
  * StreamHandler class - Handles streaming operations for AI providers
@@ -125,22 +126,35 @@ export class StreamHandler {
       const streamStart = Date.now();
       let firstChunkTime: number | undefined;
 
-      for await (const chunk of result.textStream) {
-        chunkCount++;
-        totalBytes += chunk.length;
+      try {
+        for await (const chunk of result.textStream) {
+          chunkCount++;
+          totalBytes += chunk.length;
 
-        if (!firstChunkTime) {
-          firstChunkTime = Date.now();
-          const activeSpan = trace.getSpan(otelContext.active());
-          if (activeSpan) {
-            activeSpan.addEvent("stream.first_chunk", {
-              "stream.ttfc_ms": firstChunkTime - streamStart,
-              "stream.provider": providerName,
-            });
+          if (!firstChunkTime) {
+            firstChunkTime = Date.now();
+            const activeSpan = trace.getSpan(otelContext.active());
+            if (activeSpan) {
+              activeSpan.addEvent("stream.first_chunk", {
+                "stream.ttfc_ms": firstChunkTime - streamStart,
+                "stream.provider": providerName,
+              });
+            }
           }
-        }
 
-        yield { content: chunk };
+          yield { content: chunk };
+        }
+      } catch (error) {
+        // AI SDK v6 throws NoOutputGeneratedError when the stream produces no output
+        // (e.g. empty response, model refusal with no text). Treat as an empty stream
+        // rather than crashing the process with an unhandled rejection.
+        if (NoOutputGeneratedError.isInstance(error)) {
+          logger.warn(
+            `${providerName}: Stream produced no output (NoOutputGeneratedError), returning empty stream`,
+          );
+        } else {
+          throw error;
+        }
       }
 
       // Record completion metrics on the active span

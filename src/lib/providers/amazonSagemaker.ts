@@ -5,8 +5,8 @@
  * and integrates with the NeuroLink ecosystem using existing patterns.
  */
 
-import type { LanguageModelV1, Schema } from "ai";
-import type { ZodType, ZodTypeDef } from "zod";
+import type { LanguageModel, Schema } from "ai";
+import type { ZodType } from "zod";
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import type { NeuroLink } from "../neurolink.js";
@@ -25,13 +25,16 @@ import {
   getSageMakerModelConfig,
 } from "./sagemaker/config.js";
 import { handleSageMakerError, SageMakerError } from "./sagemaker/errors.js";
-import { SageMakerLanguageModel } from "./sagemaker/language-model.js";
+import {
+  SageMakerLanguageModel,
+  type SageMakerAsLanguageModel,
+} from "./sagemaker/language-model.js";
 
 /**
  * Amazon SageMaker Provider extending BaseProvider
  */
 export class AmazonSageMakerProvider extends BaseProvider {
-  private sagemakerModel: LanguageModelV1;
+  private sagemakerModel: LanguageModel;
   private sagemakerConfig: SageMakerConfig;
   private modelConfig: SageMakerModelConfig;
 
@@ -50,12 +53,16 @@ export class AmazonSageMakerProvider extends BaseProvider {
         endpointName || getDefaultSageMakerEndpoint(),
       );
 
-      // Create the proper LanguageModel (v2) implementation
-      this.sagemakerModel = new SageMakerLanguageModel(
+      // Create the SageMaker LanguageModel implementation.
+      // SageMakerLanguageModel implements SageMakerAsLanguageModel which is
+      // structurally compatible with LanguageModelV2 (specificationVersion "v2",
+      // modelId, provider, supportedUrls, doGenerate, doStream).
+      const smModel: SageMakerAsLanguageModel = new SageMakerLanguageModel(
         this.modelName,
         this.sagemakerConfig,
         this.modelConfig,
       );
+      this.sagemakerModel = smModel as LanguageModel;
 
       logger.debug("Amazon SageMaker Provider initialized", {
         modelName: this.modelName,
@@ -82,13 +89,13 @@ export class AmazonSageMakerProvider extends BaseProvider {
     return getSageMakerModel();
   }
 
-  protected getAISDKModel(): LanguageModelV1 {
+  protected getAISDKModel(): LanguageModel {
     return this.sagemakerModel;
   }
 
   protected async executeStream(
     _options: StreamOptions,
-    _analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    _analysisSchema?: ZodType | Schema<unknown>,
   ): Promise<StreamResult> {
     try {
       // For now, throw an error indicating this is not yet implemented
@@ -188,7 +195,7 @@ export class AmazonSageMakerProvider extends BaseProvider {
   /**
    * Public method to get the AI SDK model for CLI and external usage
    */
-  public async getModel(): Promise<LanguageModelV1> {
+  public async getModel(): Promise<LanguageModel> {
     return this.getAISDKModel();
   }
 

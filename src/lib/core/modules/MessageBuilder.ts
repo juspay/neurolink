@@ -8,12 +8,12 @@
  * - Building messages from text generation options
  * - Building messages from stream options
  * - Multimodal input detection
- * - Message format conversion (to CoreMessage[])
+ * - Message format conversion (to ModelMessage[])
  *
  * @module core/modules/MessageBuilder
  */
 
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import { tracers, ATTR, withSpan } from "../../telemetry/index.js";
 import type {
   AIProviderName,
@@ -33,7 +33,7 @@ import {
 /**
  * Compute total content length across all messages for span attributes.
  */
-function computeTotalContentLength(messages: CoreMessage[]): number {
+function computeTotalContentLength(messages: ModelMessage[]): number {
   let total = 0;
   for (const msg of messages) {
     if (typeof msg.content === "string") {
@@ -87,7 +87,7 @@ export class MessageBuilder {
    * Build messages array for generation
    * Detects multimodal input and routes to appropriate message builder
    */
-  async buildMessages(options: TextGenerationOptions): Promise<CoreMessage[]> {
+  async buildMessages(options: TextGenerationOptions): Promise<ModelMessage[]> {
     return withSpan(
       {
         name: "neurolink.message.build",
@@ -101,7 +101,7 @@ export class MessageBuilder {
         const { isMultimodal, hasImages, hasFiles } = detectMultimodal(options);
         span.setAttribute(ATTR.MSG_IS_MULTIMODAL, isMultimodal);
 
-        let messages: CoreMessage[] | MultimodalChatMessage[];
+        let messages: ModelMessage[] | MultimodalChatMessage[];
         if (isMultimodal) {
           if (process.env.NEUROLINK_DEBUG === "true") {
             logger.debug(
@@ -158,34 +158,37 @@ export class MessageBuilder {
               role: msg.role as "user" | "assistant" | "system",
               content: msg.content,
               ...(providerOptions && { providerOptions }),
-            } as CoreMessage;
+            } as ModelMessage;
           } else {
             return {
               role: msg.role as "user" | "assistant" | "system",
-              content: msg.content.map((item) => {
-                const itemProviderOptions = (item as Record<string, unknown>)
-                  .providerOptions as Record<string, unknown> | undefined;
-                if (item.type === "text") {
-                  return {
-                    type: "text",
-                    text: item.text || "",
-                    ...(itemProviderOptions && {
-                      providerOptions: itemProviderOptions,
-                    }),
-                  };
-                } else if (item.type === "image") {
-                  return {
-                    type: "image",
-                    image: item.image || "",
-                    ...(itemProviderOptions && {
-                      providerOptions: itemProviderOptions,
-                    }),
-                  };
-                }
-                return item;
-              }),
+              content: (msg.content as Array<Record<string, unknown>>).map(
+                (item) => {
+                  const itemProviderOptions = item.providerOptions as
+                    | Record<string, unknown>
+                    | undefined;
+                  if (item.type === "text") {
+                    return {
+                      type: "text" as const,
+                      text: (item.text as string) || "",
+                      ...(itemProviderOptions && {
+                        providerOptions: itemProviderOptions,
+                      }),
+                    };
+                  } else if (item.type === "image") {
+                    return {
+                      type: "image" as const,
+                      image: (item.image as string) || "",
+                      ...(itemProviderOptions && {
+                        providerOptions: itemProviderOptions,
+                      }),
+                    };
+                  }
+                  return item;
+                },
+              ),
               ...(providerOptions && { providerOptions }),
-            } as CoreMessage;
+            } as ModelMessage;
           }
         });
 
@@ -209,11 +212,11 @@ export class MessageBuilder {
    * with automatic multimodal detection, eliminating code duplication
    *
    * @param options - Stream options or text generation options
-   * @returns Promise resolving to CoreMessage array ready for AI SDK
+   * @returns Promise resolving to ModelMessage array ready for AI SDK
    */
   async buildMessagesForStream(
     options: StreamOptions | TextGenerationOptions,
-  ): Promise<CoreMessage[]> {
+  ): Promise<ModelMessage[]> {
     return withSpan(
       {
         name: "neurolink.message.build_for_stream",
@@ -227,7 +230,7 @@ export class MessageBuilder {
         const { isMultimodal, hasImages, hasFiles } = detectMultimodal(options);
         span.setAttribute(ATTR.MSG_IS_MULTIMODAL, isMultimodal);
 
-        let messages: CoreMessage[] | MultimodalChatMessage[];
+        let messages: ModelMessage[] | MultimodalChatMessage[];
         if (isMultimodal) {
           if (process.env.NEUROLINK_DEBUG === "true") {
             logger.debug(
@@ -288,34 +291,37 @@ export class MessageBuilder {
               role: msg.role as "user" | "assistant" | "system",
               content: msg.content,
               ...(providerOptions && { providerOptions }),
-            } as CoreMessage;
+            } as ModelMessage;
           } else {
             return {
               role: msg.role as "user" | "assistant" | "system",
-              content: msg.content.map((item) => {
-                const itemProviderOptions = (item as Record<string, unknown>)
-                  .providerOptions as Record<string, unknown> | undefined;
-                if (item.type === "text") {
-                  return {
-                    type: "text",
-                    text: item.text || "",
-                    ...(itemProviderOptions && {
-                      providerOptions: itemProviderOptions,
-                    }),
-                  };
-                } else if (item.type === "image") {
-                  return {
-                    type: "image",
-                    image: item.image || "",
-                    ...(itemProviderOptions && {
-                      providerOptions: itemProviderOptions,
-                    }),
-                  };
-                }
-                return item;
-              }),
+              content: (msg.content as Array<Record<string, unknown>>).map(
+                (item) => {
+                  const itemProviderOptions = item.providerOptions as
+                    | Record<string, unknown>
+                    | undefined;
+                  if (item.type === "text") {
+                    return {
+                      type: "text" as const,
+                      text: (item.text as string) || "",
+                      ...(itemProviderOptions && {
+                        providerOptions: itemProviderOptions,
+                      }),
+                    };
+                  } else if (item.type === "image") {
+                    return {
+                      type: "image" as const,
+                      image: (item.image as string) || "",
+                      ...(itemProviderOptions && {
+                        providerOptions: itemProviderOptions,
+                      }),
+                    };
+                  }
+                  return item;
+                },
+              ),
               ...(providerOptions && { providerOptions }),
-            } as CoreMessage;
+            } as ModelMessage;
           }
         });
 

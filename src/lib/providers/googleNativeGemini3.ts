@@ -11,6 +11,7 @@
 
 import { randomUUID } from "node:crypto";
 import {
+  type ToolExecuteFunction,
   jsonSchema as aiJsonSchema,
   tool as createAISDKTool,
   type Tool,
@@ -28,6 +29,7 @@ import {
 } from "../utils/schemaConversion.js";
 import type { ThinkingConfig } from "../utils/thinkingConfig.js";
 import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
+import type { ToolWithLegacyParams } from "./providerTypeUtils.js";
 
 // ── Types ──
 
@@ -197,7 +199,10 @@ export function sanitizeToolsForGemini(tools: Record<string, Tool>): {
 
   for (const [name, tool] of Object.entries(tools)) {
     try {
-      const params = (tool as Record<string, unknown>).parameters;
+      // Access the legacy `parameters` field that may exist on older AI SDK tools.
+      // AI SDK v6 uses `inputSchema`, but v3/v4 tools and third-party wrappers use `parameters`.
+      const legacyTool = tool as ToolWithLegacyParams;
+      const params = legacyTool.parameters;
       if (
         params &&
         typeof params === "object" &&
@@ -216,9 +221,8 @@ export function sanitizeToolsForGemini(tools: Record<string, Tool>): {
 
         sanitized[name] = createAISDKTool({
           description: tool.description || `Tool: ${name}`,
-          parameters: aiJsonSchema(sanitizedSchema),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          execute: tool.execute as any,
+          inputSchema: aiJsonSchema(sanitizedSchema),
+          execute: tool.execute as ToolExecuteFunction<unknown, unknown>,
         });
       } else if (
         params &&
@@ -234,9 +238,8 @@ export function sanitizeToolsForGemini(tools: Record<string, Tool>): {
 
         sanitized[name] = createAISDKTool({
           description: tool.description || `Tool: ${name}`,
-          parameters: aiJsonSchema(sanitizedSchema),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          execute: tool.execute as any,
+          inputSchema: aiJsonSchema(sanitizedSchema),
+          execute: tool.execute as ToolExecuteFunction<unknown, unknown>,
         });
       } else {
         sanitized[name] = tool;
@@ -273,15 +276,18 @@ export function buildNativeToolDeclarations(
         description: tool.description || `Tool: ${name}`,
       };
 
-      if (tool.parameters) {
+      // Access legacy `parameters` (AI SDK v3/v4) or current `inputSchema` (v6)
+      const legacyTool = tool as ToolWithLegacyParams;
+      if (legacyTool.parameters || tool.inputSchema) {
         let rawSchema: Record<string, unknown>;
+        const toolParams = legacyTool.parameters || tool.inputSchema;
 
-        if (isZodSchema(tool.parameters)) {
+        if (isZodSchema(toolParams)) {
           rawSchema = convertZodToJsonSchema(
-            tool.parameters as ZodUnknownSchema,
+            toolParams as ZodUnknownSchema,
           ) as Record<string, unknown>;
-        } else if (typeof tool.parameters === "object") {
-          rawSchema = tool.parameters as Record<string, unknown>;
+        } else if (typeof toolParams === "object") {
+          rawSchema = toolParams as Record<string, unknown>;
         } else {
           rawSchema = { type: "object", properties: {} };
         }

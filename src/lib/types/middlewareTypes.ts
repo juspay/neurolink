@@ -1,4 +1,4 @@
-import type { LanguageModelV1Middleware } from "ai";
+import type { LanguageModelMiddleware } from "ai";
 import type { JsonValue } from "../types/common.js";
 import type { EvaluationData } from "./evaluation.js";
 import type { GetPromptFunction } from "./evaluationTypes.js";
@@ -26,7 +26,7 @@ export type NeuroLinkMiddlewareMetadata = {
  * NeuroLink middleware with metadata
  * Combines standard AI SDK middleware with NeuroLink-specific metadata
  */
-export type NeuroLinkMiddleware = LanguageModelV1Middleware & {
+export type NeuroLinkMiddleware = LanguageModelMiddleware & {
   /** Middleware metadata */
   readonly metadata: NeuroLinkMiddlewareMetadata;
 };
@@ -220,7 +220,7 @@ export type MiddlewareRegistryEntry = {
  */
 export type MiddlewareFactory = (
   config: Record<string, unknown>,
-) => LanguageModelV1Middleware;
+) => LanguageModelMiddleware;
 
 /**
  * Middleware validation result

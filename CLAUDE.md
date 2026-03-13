@@ -4,98 +4,95 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-NeuroLink is an enterprise AI development platform that provides unified access to 12+ AI providers (OpenAI, Anthropic, Google AI Studio, AWS Bedrock, Azure, Vertex, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, and OpenAI-compatible endpoints) through a single consistent API. It ships as both a TypeScript SDK and a professional CLI.
+NeuroLink is an enterprise AI development platform that provides unified access to 12+ AI providers (OpenAI, Anthropic, Google AI Studio, AWS Bedrock, Azure, Vertex, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, and OpenAI-compatible endpoints) through a single consistent API. It ships as both a TypeScript SDK and a professional CLI (`@juspay/neurolink`).
 
-**Key characteristics:**
+Key characteristics: factory architecture with provider registry pattern, comprehensive multimodal support (50+ file types), full MCP integration with 58+ external servers (stdio, HTTP, SSE, WebSocket transports), production-ready enterprise features (Redis memory, failover, telemetry).
 
-- Extracted from production systems at Juspay
-- Battle-tested at enterprise scale
-- Opinionated factory architecture with provider registry pattern
-- Comprehensive multimodal support (text, images, PDFs, CSV, Excel, Word, RTF, JSON, YAML, XML, HTML, SVG, Markdown, video, audio, archives, 50+ code languages)
-- Full MCP (Model Context Protocol) integration with 58+ external servers
-- Multiple MCP transports: stdio (local), HTTP/Streamable HTTP (remote), SSE, WebSocket
-- Production-ready enterprise features (Redis memory, failover, telemetry)
+## Requirements
+
+- **Node.js** >=20.18.1, **pnpm** >=8.0.0
+- **ffmpeg** (optional) - required for media file processing (video/audio metadata extraction)
+- Run `svelte-kit sync` before first build (generates TypeScript configs)
 
 ## Essential Development Commands
 
-### Building
-
 ```bash
-# Full build (SDK + CLI)
-pnpm run build
+# Building
+pnpm run build              # Full build (SDK + CLI)
+pnpm run build:cli          # CLI only (rapid iteration)
+pnpm run build:complete     # Full pipeline with validation
 
-# CLI only (for rapid testing)
-pnpm run build:cli
+# Testing (Vitest)
+pnpm test                   # Run all tests
+pnpm run test:watch         # Watch mode
+pnpm run test:coverage      # Coverage report
+pnpm run test:providers     # Provider unit tests
+pnpm run test:cli           # CLI integration tests
+pnpm run test:sdk           # SDK unit tests
+pnpm run test:integration   # Integration tests
+pnpm run test:e2e           # End-to-end tests
+pnpm run test:ci            # CI mode (coverage + reporters)
+vitest run path/to/test.ts  # Run a single test file
 
-# Complete build pipeline with validation
-pnpm run build:complete
+# Linting and Formatting
+pnpm run lint               # Prettier check + ESLint
+pnpm run format             # Auto-format with Prettier
+pnpm run check              # TypeScript type checking (svelte-check + tsc --noEmit --strict)
+pnpm run check:all          # lint + format check + validate + commit validation
+
+# Validation (run before PR)
+pnpm run validate:all       # Build rules + env + security validation
+pnpm run validate:security  # Security checks only
+
+# Environment
+pnpm run env:validate       # Validate environment setup
+pnpm run setup:complete     # Full setup with project organization + validation
 ```
 
-### Testing
+## Code Quality Tooling
 
-```bash
-# Run all tests (once)
-pnpm test
+**Three tools** handle code quality with distinct roles:
 
-# Watch mode
-pnpm run test:watch
+| Tool         | Role                    | Config                        |
+| ------------ | ----------------------- | ----------------------------- |
+| **Biome**    | Formatter + linter      | `biome.json` (v2.1.4)         |
+| **ESLint**   | TypeScript linting (CI) | `eslint.config.js` (v9 flat)  |
+| **Prettier** | Formatting (CI check)   | `package.json` prettier field |
 
-# Coverage report
-pnpm run test:coverage
+**Biome settings:** 2-space indent, 120 line width, double quotes, semicolons always, trailing commas, organize imports on save.
 
-# Run specific test subsets
-pnpm run test:providers        # Provider unit tests
-pnpm run test:cli              # CLI integration tests
-pnpm run test:sdk              # SDK unit tests
-pnpm run test:integration      # Integration tests only
-pnpm run test:e2e              # End-to-end tests
+**ESLint enforced rules (src/):**
 
-# CI mode (coverage + reporters)
-pnpm run test:ci
+- `@typescript-eslint/no-explicit-any`: **error** (warn in test/)
+- `@typescript-eslint/no-unused-vars`: **error** (prefix `_` to ignore)
+- `max-depth`: 6, `max-params`: 6, `max-lines-per-function`: 300 (warn)
+- `no-eval`, `no-implied-eval`: **error**
+- `no-console`: error except `warn`, `error`, `info` (off in test/)
+- **CI max-warnings:** 300 for `src/`, 10 for `test/`
 
-# Debugging
-pnpm run test:debug            # Debug with inspector
-pnpm run test:ui               # Vitest UI
+**Pre-commit hooks** (Husky + lint-staged): formatting and linting run automatically on staged files.
+
+## Testing Configuration
+
+Vitest with Node.js environment. Setup file: `test/setup.ts` (global AI provider mocks).
+
+- **Timeout:** 30s per test, **max concurrency:** 10
+- **Mock strategy:** `clearMocks: true` (NOT `resetMocks` - resetMocks breaks `vi.mock()` implementations by returning undefined)
+- **Path aliases:** `@` → `./src`, `@test` → `./test`, `@mocks` → `./test/mocks`
+- **Coverage thresholds:** SDK (`src/lib/`) 90%, CLI (`src/cli/`) 85%, Global 85%
+
+**Test directory structure:**
+
 ```
-
-### Linting and Formatting
-
-```bash
-# Check formatting and lint
-pnpm run lint
-
-# Auto-format code
-pnpm run format
-
-# Check all quality metrics
-pnpm run check:all
-```
-
-### Development
-
-```bash
-# Start development server
-pnpm run dev
-
-# Build and run CLI locally
-pnpm run build:cli && pnpm run cli
-
-# Type checking
-pnpm run check
-pnpm run check:watch  # Watch mode
-```
-
-### Environment Validation
-
-```bash
-# Validate environment setup
-pnpm run env:validate
-
-# Setup environment
-pnpm run env:setup
-
-# Complete setup with validation
-pnpm run setup:complete
+test/
+├── setup.ts              # Global test setup with AI provider mocks
+├── suites/               # Feature-specific test suites
+├── integration/cli/      # CLI integration tests
+├── sdk/                  # SDK unit tests
+├── rag/                  # RAG tests
+├── adapters/             # Adapter tests
+├── server/               # Server tests
+└── fixtures/             # Test data
 ```
 
 ## High-Level Architecture
@@ -115,31 +112,39 @@ NeuroLink uses a **factory pattern with dynamic provider registration** to avoid
 ```
 src/
 ├── lib/                    # Core SDK implementation
-│   ├── neurolink.ts       # Main SDK entry point
+│   ├── neurolink.ts       # Main SDK entry point (very large file ~277KB)
 │   ├── providers/         # AI provider implementations (13 providers)
 │   ├── factories/         # Provider factory and registry
 │   ├── adapters/          # Provider-specific adapters (image, PDF, etc.)
 │   ├── utils/             # Utilities (messageBuilder, transformations, etc.)
 │   ├── types/             # TypeScript type definitions (28+ type files)
-│   ├── mcp/              # MCP tool registry and integration
+│   ├── mcp/              # MCP tool registry, ToolRouter, ToolCache, RequestBatcher
 │   ├── memory/           # Conversation memory (Redis, in-memory)
 │   ├── context/          # Context compaction, budget management, file summarization
 │   ├── middleware/       # Request/response middleware system
-│   ├── core/             # Core factory and constants
+│   ├── core/             # Core factory, constants, baseProvider
 │   │   └── infrastructure/ # Base factories, registries, errors
 │   ├── config/           # Configuration management
+│   ├── processors/       # I/O file processors (17+ types, ProcessorRegistry)
+│   ├── rag/              # RAG pipeline (chunkers, rerankers, hybrid search)
+│   ├── telemetry/        # Observability (Langfuse, OpenTelemetry)
+│   ├── workflow/         # Workflow engine (fluent API, checkpointing, HITL)
+│   ├── evaluation/       # RAGAS-based evaluation/scoring (0 test coverage)
+│   ├── tts/              # Text-to-speech (TTSProcessor, Google TTS handler)
+│   ├── agent/            # Agent implementations
+│   ├── image-gen/        # Image generation
+│   ├── proxy/            # Proxy support
+│   ├── server/           # Server adapters (Hono, Express, Fastify, Koa)
+│   ├── session/          # Session management
+│   ├── services/         # Service layer
 │   ├── hitl/             # Human-in-the-loop workflows
 │   └── models/           # Model definitions and utilities
 ├── cli/                   # CLI implementation
-│   ├── factories/        # Command factories
+│   ├── factories/        # Command factories (yargs modules)
 │   ├── commands/         # CLI command implementations
-│   ├── loop/             # Interactive loop session
+│   ├── loop/             # Interactive REPL session
 │   └── utils/            # CLI-specific utilities
 └── test/                  # Test suites
-
-feature docs and guides
-
-dist/                      # Build output (generated)
 ```
 
 ### Provider System Architecture
@@ -159,9 +164,8 @@ dist/                      # Build output (generated)
 ProviderFactory.registerProvider(
   AIProviderName.GOOGLE_AI,
   async (modelName?, _providerName?, sdk?) => {
-    const { GoogleAIStudioProvider } = await import(
-      "../providers/googleAiStudio.js"
-    );
+    const { GoogleAIStudioProvider } =
+      await import("../providers/googleAiStudio.js");
     return new GoogleAIStudioProvider(modelName, sdk as NeuroLink | undefined);
   },
   GoogleAIModels.GEMINI_2_5_FLASH,
@@ -296,7 +300,7 @@ NeuroLink includes 14 MCP enhancement modules that extend the core MCP infrastru
 | MCPServerBase         | `src/lib/mcp/mcpServerBase.ts`                  | Abstract base for custom servers           |
 | AgentExposure         | `src/lib/mcp/agentExposure.ts`                  | Expose agents as MCP tools                 |
 | ServerCapabilities    | `src/lib/mcp/serverCapabilities.ts`             | Resource/prompt management                 |
-| ToolConverter         | `src/lib/mcp/toolConverter.ts`                  | NeuroLink ↔ MCP format conversion         |
+| ToolConverter         | `src/lib/mcp/toolConverter.ts`                  | NeuroLink ↔ MCP format conversion          |
 | MCPRegistryClient     | `src/lib/mcp/mcpRegistryClient.ts`              | Registry search/discovery                  |
 | MultiServerManager    | `src/lib/mcp/multiServerManager.ts`             | Load balancing and failover                |
 | ElicitationManager    | `src/lib/mcp/elicitation/elicitationManager.ts` | Interactive user input                     |
@@ -361,33 +365,70 @@ NeuroLink has a comprehensive TypeScript type system with 28+ type definition fi
 
 **Dual Build Process:**
 
-1. **SDK Build** (via SvelteKit): Outputs to `dist/` for npm package
-2. **CLI Build** (via TypeScript): Compiles CLI to `dist/cli/` with executable
+1. **SDK Build** (Vite + SvelteKit): `vite build` → `svelte-kit sync` → `svelte-package` → `publint`
+2. **CLI Build** (TypeScript): `tsc --project tsconfig.cli.json` → `dist/cli/`
 
-**Build configuration:**
+Two tsconfig files: `tsconfig.json` (main, extends SvelteKit) and `tsconfig.cli.json` (NodeNext module resolution). Path aliases: `$lib`, `$lib/*`.
 
-- `vite.config.ts` - Vite configuration for SDK
-- `tsconfig.json` - Main TypeScript config
-- `tsconfig.cli.json` - CLI-specific TypeScript config
-- `svelte.config.js` - SvelteKit packaging config
+### Provider System Architecture
 
-**Build process:**
+Providers are registered in `ProviderRegistry.registerAllProviders()` with: provider name (from `AIProviderName` enum), async factory function (dynamic import), default model, and aliases. Example: `["googleAiStudio", "google", "gemini", "google-ai"]` all resolve to Google AI Studio.
 
-```bash
-# Full build executes:
-1. vite build         # Build SDK with Vite
-2. svelte-kit sync    # Sync SvelteKit types
-3. svelte-package     # Package for npm
-4. tsc --project tsconfig.cli.json  # Build CLI
-5. publint           # Validate package
-```
+**Provider files:** `src/lib/providers/` contains `openAI.ts`, `anthropic.ts`, `googleAiStudio.ts`, `googleVertex.ts`, `amazonBedrock.ts`, `azureOpenai.ts`, `mistral.ts`, `litellm.ts`, `amazonSagemaker.ts`, `ollama.ts`, `huggingFace.ts`.
+
+### Message Building and Multimodal Support
+
+**MessageBuilder** (`src/lib/utils/messageBuilder.ts`) is the central message construction component. Flow: user input → `FileDetector` detects types → `ProcessorRegistry` selects processor by MIME type → files processed (images→base64, PDFs→structured content, docs→extracted text) → `ProviderImageAdapter` formats for provider API → messages sent.
+
+**Key files:** `messageBuilder.ts`, `providerImageAdapter.ts`, `fileDetector.ts`, `pdfProcessor.ts`, `imageProcessor.ts`, `src/lib/processors/registry/`, `src/lib/processors/base/`.
+
+### File Processor System
+
+Processors organized by category in `src/lib/processors/`:
+
+- **document/** - Excel, Word, RTF, OpenDocument
+- **data/** - JSON, YAML, XML (auto-validates and formats)
+- **markup/** - HTML (OWASP-sanitized), SVG (sanitized text, not binary), Markdown, Text
+- **code/** - 50+ languages via SourceCodeProcessor, config files via ConfigProcessor
+- **media/** - Video/Audio metadata extraction via `music-metadata` (structured text, not binary)
+- **archive/** - ZIP/TAR contents listing with ZIP bomb detection and path traversal prevention
+
+To add a new processor: extend `BaseFileProcessor`, implement `canProcess()`/`process()`/`getInfo()`, register in `ProcessorRegistry` with priority, add MIME mappings in `src/lib/processors/config/mimeTypes.ts`.
+
+### Tool System (MCP Integration)
+
+**MCPToolRegistry** (`src/lib/mcp/toolRegistry.ts`) manages built-in tools, external MCP servers, and custom tools. Four transport protocols: stdio (local), HTTP (remote with retry/rate-limiting), SSE, WebSocket. HTTP transport supports auth headers, configurable timeout/retries, session management via `Mcp-Session-Id`.
+
+**Key files:** `toolRegistry.ts`, `mcpClientFactory.ts`, `externalServerManager.ts`, `httpRetryHandler.ts`, `httpRateLimiter.ts`.
+
+### Context Compaction System
+
+**ContextCompactor** (`src/lib/context/contextCompactor.ts`) manages context window size through 4 stages: tool output pruning → file read deduplication → LLM summarization → sliding window truncation. **BudgetChecker** triggers auto-compaction when usage exceeds 80% of model's context window.
+
+**Key files:** `contextWindows.ts` (per-provider window sizes), `budgetChecker.ts`, `contextCompactor.ts`, `errorDetection.ts`, `effectiveHistory.ts`, `fileTokenBudget.ts`, `fileSummarizer.ts`, `tokenEstimation.ts`.
+
+### RAG Processing
+
+Factory + Registry pattern: 10 chunking strategies via `ChunkerFactory` (character, recursive, sentence, token, markdown, html, json, latex, semantic, semantic-markdown), 5 reranker types via `RerankerFactory` (simple, llm, batch, cross-encoder, cohere), hybrid search combining BM25 + vector similarity with RRF or linear fusion.
+
+**Simplified API:** Pass `rag: { files: [...] }` to `generate()`/`stream()` for automatic pipeline. CLI: `--rag-files`, `--rag-strategy`, `--rag-chunk-size`, `--rag-top-k`. Advanced: use `createVectorQueryTool` directly.
+
+**Key files:** `src/lib/rag/` - `ChunkerFactory.ts`, `ChunkerRegistry.ts`, `reranker/RerankerFactory.ts`, `retrieval/hybridSearch.ts`, `ragIntegration.ts`, `pipeline/RAGPipeline.ts`.
+
+### Observability
+
+External OpenTelemetry integration via `useExternalTracerProvider`/`autoDetectExternalProvider`. Key exports: `getSpanProcessors()`, `setLangfuseContext()`, `getLangfuseContext()`, `getTracer()`. Context fields: `userId`, `sessionId`, `conversationId`, `requestId`, `traceName`, `metadata`. Operation name auto-detection from Vercel AI SDK spans. See `src/lib/telemetry/`.
+
+### CLI Architecture
+
+**CommandFactory** (`src/cli/factories/commandFactory.ts`) creates yargs command modules with common options (provider, model, temperature, etc.) and multimodal input flags (`--image`, `--pdf`, `--csv`, `--file`). **Loop Mode** (`src/cli/loop/session.ts`) provides interactive REPL with persistent memory and session-wide configuration.
 
 ## Working with Providers
 
 ### Adding a New Provider
 
 1. Create provider file in `src/lib/providers/yourProvider.ts`
-2. Implement provider interface (extend base provider if available)
+2. Implement provider interface (extend base provider)
 3. Register in `ProviderRegistry.registerAllProviders()` using dynamic import
 4. Add provider name to `AIProviderName` enum in `src/lib/types/index.ts`
 5. Add model definitions to appropriate model enum
@@ -396,8 +437,6 @@ NeuroLink has a comprehensive TypeScript type system with 28+ type definition fi
 8. Add tests in `test/suites/` and `test/integration/`
 
 ### Modifying Message Building
-
-When changing how messages are constructed:
 
 1. Modify `src/lib/utils/messageBuilder.ts` for core logic
 2. Update adapters in `src/lib/adapters/` for provider-specific formatting
@@ -537,499 +576,33 @@ vitest run test/integration/openai.test.ts
 
 ## Common Patterns
 
-### Error Handling
-
-- Use `ErrorFactory` for creating typed errors
-- Wrap async operations with `withTimeout` utility
-- Implement graceful degradation with provider fallback
-
-### Transformation Utilities
-
-- `transformToolExecutions()` - Convert tool results for providers
-- `transformAvailableTools()` - Format tools for AI models
-- `transformParamsForLogging()` - Safe parameter logging
-
-### Configuration Management
-
-- Environment variables loaded from `.env`
-- Configuration validated with `env:validate` script
-- Config manager in `src/cli/commands/config.ts`
-
-### Thinking Level Configuration
-
-The `thinkingLevel` option controls extended thinking for supported models (Anthropic Claude, Gemini 2.5+, Gemini 3):
-
-- `"minimal"` - Minimal thinking budget (fastest responses)
-- `"low"` - Low thinking budget
-- `"medium"` - Moderate thinking budget (default)
-- `"high"` - Maximum thinking budget (deep reasoning)
-
-**Usage in SDK:**
-
-```typescript
-const result = await neurolink.generate({
-  prompt: "Complex reasoning task",
-  thinkingLevel: "high",
-});
-```
-
-**Usage in CLI:**
-
-```bash
-neurolink generate "Complex task" --thinking-level high
-```
-
-Note: When `thinkingLevel` is enabled, some providers may have limitations (see Important Constraints).
-
-### External TracerProvider Support
-
-NeuroLink supports integration with applications that have existing OpenTelemetry instrumentation:
-
-**Configuration Options:**
-
-- `useExternalTracerProvider: true` - Skip TracerProvider creation/registration
-- `autoDetectExternalProvider: true` - Auto-detect existing provider
-
-**Exports for External Provider Integration:**
-
-- `getSpanProcessors()` - Returns [ContextEnricher, LangfuseSpanProcessor]
-- `createContextEnricher()` - Factory for ContextEnricher
-- `isUsingExternalTracerProvider()` - Check if in external mode
-
-**Context Management Exports:**
-
-- `setLangfuseContext<T>(context, callback?)` - Set context with extended fields, returns callback result
-- `getLangfuseContext()` - Read current context from AsyncLocalStorage
-- `getTracer(name?, version?)` - Get OpenTelemetry Tracer for custom spans
-
-**Extended Context Fields:**
-
-- `userId`, `sessionId` - User and session identification
-- `conversationId` - Group related traces by conversation/thread
-- `requestId` - Correlate with application logs
-- `traceName` - Custom trace names in Langfuse UI
-- `metadata` - Custom key-value metadata on spans
-
-**Type Exports:**
-
-- `LangfuseSpanAttributes` - GenAI semantic convention attributes from Vercel AI SDK
-
-**Use Case:** When your application already initializes OpenTelemetry (e.g., for HTTP/DB tracing to Jaeger), enable external mode to avoid "duplicate registration" errors.
-
-**Example - External Provider Mode:**
-
-```typescript
-import { NeuroLink, getSpanProcessors } from "@juspay/neurolink";
-import { NodeSDK } from "@opentelemetry/sdk-node";
-
-// Initialize NeuroLink with external provider mode
-const neurolink = new NeuroLink({
-  observability: {
-    langfuse: {
-      enabled: true,
-      publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-      secretKey: process.env.LANGFUSE_SECRET_KEY,
-      useExternalTracerProvider: true,
-    },
-  },
-});
-
-// Add NeuroLink's processors to your existing OTEL setup
-import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
-
-const sdk = new NodeSDK({
-  spanProcessors: [
-    new BatchSpanProcessor(yourExistingExporter),
-    ...getSpanProcessors(),
-  ],
-});
-```
-
-**Example - Enhanced Context with Callback:**
-
-```typescript
-import {
-  setLangfuseContext,
-  getLangfuseContext,
-  getTracer,
-} from "@juspay/neurolink";
-
-// Set context and get result from callback
-const result = await setLangfuseContext(
-  {
-    userId: "user-123",
-    sessionId: "session-456",
-    conversationId: "conv-789",
-    requestId: "req-abc",
-    traceName: "chat-completion",
-    metadata: { feature: "customer-support", tier: "premium" },
-  },
-  async () => {
-    return await neurolink.generate({ prompt: "Hello" });
-  },
-);
-
-// Read current context
-const context = getLangfuseContext();
-console.log(context?.userId, context?.conversationId);
-
-// Create custom spans
-const tracer = getTracer("my-app");
-const span = tracer.startSpan("custom-operation");
-try {
-  // ... do work
-} finally {
-  span.end();
-}
-```
-
-### Operation Name Support
-
-NeuroLink automatically detects and includes operation names in trace naming for better observability in Langfuse.
-
-**Auto-detection:**
-
-- Automatically detects operation names from Vercel AI SDK spans (`ai.streamText`, `ai.generateText`, etc.)
-- Falls back to `unknown` if no operation can be detected
-
-**Trace Name Format:**
-
-- Default format: `userId:operationName` (e.g., `user@email.com:ai.streamText`)
-- When userId is not set: uses just the operation name
-- Customizable via `traceNameFormat` function
-
-**Configuration Options:**
-
-- `autoDetectOperationName: boolean` (default: `true`) - Enable/disable automatic operation detection from spans
-- `traceNameFormat: TraceNameFormat` - Custom function to format trace names
-- `operationName` in context - Explicit operation name override (takes precedence over auto-detection)
-
-**Example - Custom Trace Name Format:**
-
-```typescript
-import { NeuroLink, setLangfuseContext } from "@juspay/neurolink";
-
-const neurolink = new NeuroLink({
-  observability: {
-    langfuse: {
-      enabled: true,
-      publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-      secretKey: process.env.LANGFUSE_SECRET_KEY,
-      autoDetectOperationName: true, // default
-      traceNameFormat: (context) => {
-        // Custom format: "op/streamText/user@email.com"
-        return `op/${context.operationName}/${context.userId || "anonymous"}`;
-      },
-    },
-  },
-});
-
-// Explicit operation name override in context
-await setLangfuseContext(
-  {
-    userId: "user@email.com",
-    operationName: "customer-support-chat", // overrides auto-detected operation
-  },
-  async () => {
-    return await neurolink.stream({ prompt: "Hello" });
-  },
-);
-```
-
-**Wrapper Span Support:**
-
-When host apps create wrapper spans before AI operations, auto-detection in `onStart()` fails because the AI span does not exist yet. NeuroLink handles this automatically by detecting operations from child spans and updating the trace name in `onEnd()` of the wrapper span. No code changes required.
-
-### Memory Management
-
-- Redis for distributed memory (production)
-- In-memory store for development
-- Conversation summarization for long contexts
-- Token-based context compaction via SummarizationEngine and BudgetChecker (replaces turn-based limits)
-
-### Context Compaction System
-
-**ContextCompactor** (`src/lib/context/contextCompactor.ts`) manages context window size through a multi-stage reduction pipeline:
-
-1. **Tool Output Pruning** - Replace old tool results with placeholders (protect recent 40K tokens)
-2. **File Read Deduplication** - Keep only latest read of each file
-3. **LLM Summarization** - Structured 9-section summary with iterative merging
-4. **Sliding Window Truncation** - Non-destructive tagging of oldest messages
-
-**BudgetChecker** (`src/lib/context/budgetChecker.ts`) validates context fits within model's window before every LLM call, triggering auto-compaction when usage exceeds 80%.
-
-**Key files:**
-
-- `src/lib/constants/contextWindows.ts` - Per-provider, per-model context window sizes
-- `src/lib/context/budgetChecker.ts` - Pre-generation budget validation
-- `src/lib/context/contextCompactor.ts` - Multi-stage compaction orchestrator
-- `src/lib/context/errorDetection.ts` - Cross-provider overflow detection
-- `src/lib/context/effectiveHistory.ts` - Non-destructive message filtering
-- `src/lib/context/fileTokenBudget.ts` - Aggregate file budget enforcement
-- `src/lib/context/fileSummarizer.ts` - File content budget planning
-- `src/lib/context/fileSummarizationService.ts` - LLM-based file summarization
-- `src/lib/utils/tokenEstimation.ts` - Token estimation with provider multipliers
-
-### RAG Document Processing
-
-NeuroLink provides a comprehensive RAG (Retrieval-Augmented Generation) processing system for document chunking, hybrid search, and result reranking. The system follows the Factory + Registry pattern used throughout NeuroLink, enabling extensible and pluggable components for building production RAG pipelines.
-
-**Chunking Strategies:**
-
-NeuroLink supports 10 chunking strategies via `ChunkerFactory` and `ChunkerRegistry`:
-
-| Strategy            | Description                                     | Use Case                    |
-| ------------------- | ----------------------------------------------- | --------------------------- |
-| `character`         | Fixed character-count chunks with overlap       | Simple text, logs           |
-| `recursive`         | Hierarchical splitting by separators            | General-purpose documents   |
-| `sentence`          | Sentence-boundary aware splitting               | Natural language text       |
-| `token`             | Token-count based chunks (model-aware)          | LLM context optimization    |
-| `markdown`          | Markdown structure-aware (headers, code blocks) | Documentation, READMEs      |
-| `html`              | HTML element-aware parsing                      | Web content, scraped pages  |
-| `json`              | JSON structure-preserving chunks                | API responses, config files |
-| `latex`             | LaTeX document structure (sections, equations)  | Academic papers, math docs  |
-| `semantic`          | Semantic similarity-based chunking              | Context-aware splitting     |
-| `semantic-markdown` | Semantic sections within markdown               | Technical documentation     |
-
-**Reranker Types:**
-
-NeuroLink provides 5 reranker types via `RerankerFactory` and `RerankerRegistry`:
-
-| Type            | LLM Required | Status      | Description                                 |
-| --------------- | ------------ | ----------- | ------------------------------------------- |
-| `simple`        | No           | Functional  | Keyword/TF-IDF based scoring, fast and free |
-| `llm`           | Yes          | Functional  | Single LLM call for relevance scoring       |
-| `batch`         | Yes          | Functional  | Batched LLM calls for large result sets     |
-| `cross-encoder` | No           | Placeholder | Cross-encoder model integration (future)    |
-| `cohere`        | No           | Placeholder | Cohere Rerank API integration (future)      |
-
-**Hybrid Search:**
-
-Combines BM25 lexical search with vector similarity for improved retrieval accuracy:
-
-- **BM25 Index:** In-memory BM25 implementation (`InMemoryBM25Index`) for keyword matching
-- **Vector Search:** Integrates with NeuroLink's vector store adapters
-- **Fusion Methods:**
-  - `reciprocalRankFusion` (RRF) - Rank-based combination, robust to score scale differences
-  - `linearCombination` - Weighted score combination with configurable alpha
-
-**Key Exports:**
-
-```typescript
-// Chunking
-import {
-  createChunker,
-  ChunkerRegistry,
-  getAvailableStrategies,
-} from "@juspay/neurolink";
-
-// Reranking
-import {
-  createReranker,
-  RerankerRegistry,
-  simpleRerank,
-} from "@juspay/neurolink";
-
-// Hybrid Search
-import {
-  createHybridSearch,
-  InMemoryBM25Index,
-  reciprocalRankFusion,
-} from "@juspay/neurolink";
-
-// Pipeline
-import { RAGPipeline, MDocument, loadDocument } from "@juspay/neurolink";
-```
-
-**Example - Complete RAG Workflow:**
-
-```typescript
-import {
-  createChunker,
-  createHybridSearch,
-  createReranker,
-  MDocument,
-  InMemoryBM25Index,
-} from "@juspay/neurolink";
-
-// 1. Chunk documents
-const chunker = createChunker("recursive", {
-  chunkSize: 512,
-  chunkOverlap: 50,
-});
-
-const doc = new MDocument({ content: documentText, type: "text" });
-const chunks = await chunker.chunk(doc);
-
-// 2. Build search indices
-const bm25Index = new InMemoryBM25Index();
-await bm25Index.addDocuments(chunks.map((c) => c.content));
-
-// 3. Hybrid search (BM25 + vector)
-const hybridSearch = createHybridSearch({
-  bm25Index,
-  vectorStore, // Your configured vector store
-  fusionMethod: "rrf",
-  bm25Weight: 0.3,
-  vectorWeight: 0.7,
-});
-
-const searchResults = await hybridSearch.search(query, { topK: 20 });
-
-// 4. Rerank results
-const reranker = createReranker("simple", {
-  weights: { keywordMatch: 0.4, positionBoost: 0.3, lengthPenalty: 0.3 },
-});
-
-const rerankedResults = await reranker.rerank(query, searchResults, {
-  topK: 5,
-});
-
-// 5. Use top results for generation
-const context = rerankedResults.map((r) => r.content).join("\n\n");
-const response = await neurolink.generate({
-  prompt: `Context:\n${context}\n\nQuestion: ${query}`,
-});
-```
-
-**Key Files:**
-
-| File                                           | Purpose                                 |
-| ---------------------------------------------- | --------------------------------------- |
-| `src/lib/rag/ChunkerFactory.ts`                | Factory for creating chunker instances  |
-| `src/lib/rag/ChunkerRegistry.ts`               | Registry for chunking strategies        |
-| `src/lib/rag/reranker/RerankerFactory.ts`      | Factory for creating reranker instances |
-| `src/lib/rag/reranker/RerankerRegistry.ts`     | Registry for reranker types             |
-| `src/lib/rag/retrieval/hybridSearch.ts`        | Hybrid search implementation            |
-| `src/lib/rag/retrieval/vectorQueryTool.ts`     | createVectorQueryTool factory           |
-| `src/lib/rag/retrieval/InMemoryVectorStore.ts` | In-memory vector store for testing      |
-| `src/lib/rag/pipeline/RAGPipeline.ts`          | End-to-end RAG pipeline orchestration   |
-
-**Configuration Options:**
-
-Chunkers and rerankers can be configured via options:
-
-```typescript
-// Chunker options
-const chunker = createChunker("token", {
-  chunkSize: 256, // Target chunk size
-  chunkOverlap: 32, // Overlap between chunks
-  tokenizer: "cl100k_base", // Tokenizer for token-based chunking
-});
-
-// Reranker options
-const reranker = createReranker("llm", {
-  model: "gpt-4o-mini", // LLM model for scoring
-  batchSize: 10, // Documents per batch
-  scoreThreshold: 0.5, // Minimum relevance score
-});
-
-// Hybrid search options
-const hybridSearch = createHybridSearch({
-  fusionMethod: "linear", // 'rrf' or 'linear'
-  rrf_k: 60, // RRF constant (default: 60)
-  alpha: 0.5, // Linear combination weight for vector scores
-});
-```
-
-### RAG Integration with generate()/stream()
-
-**Simplified API (Recommended):** Pass `rag: { files: [...] }` directly to `generate()` or `stream()`. NeuroLink handles file loading, chunking, embedding, vector storage, and tool creation automatically. The AI model receives a `search_knowledge_base` tool it can invoke to search the indexed documents.
-
-```typescript
-import { NeuroLink } from "@juspay/neurolink";
-
-const neurolink = new NeuroLink();
-
-// Generate with RAG - just pass files
-const result = await neurolink.generate({
-  prompt: "What are the key features described in the docs?",
-  rag: {
-    files: ["./docs/guide.md", "./docs/api.md"],
-    strategy: "markdown", // Optional: auto-detected from extension
-    chunkSize: 512, // Optional: default 1000
-    chunkOverlap: 50, // Optional: default 200
-    topK: 5, // Optional: default 5
-  },
-});
-
-// Stream with RAG - same API
-const stream = await neurolink.stream({
-  prompt: "Summarize the architecture",
-  rag: { files: ["./docs/architecture.md"] },
-});
-```
-
-**`RAGConfig` type:**
-
-```typescript
-type RAGConfig = {
-  files: string[]; // Required: file paths to load
-  strategy?: ChunkingStrategy; // Default: auto-detected from file extension
-  chunkSize?: number; // Default: 1000
-  chunkOverlap?: number; // Default: 200
-  topK?: number; // Default: 5
-  toolName?: string; // Default: "search_knowledge_base"
-  toolDescription?: string; // Custom tool description for the AI
-  embeddingProvider?: string; // Defaults to generation provider
-  embeddingModel?: string; // Defaults to provider's default
-};
-```
-
-**CLI Usage:**
-
-```bash
-neurolink generate "What is this about?" --rag-files ./docs/guide.md
-neurolink generate "Explain chunking" --rag-files ./docs/guide.md --rag-strategy markdown --rag-chunk-size 512
-neurolink stream "Summarize" --rag-files ./docs/a.md ./docs/b.md --rag-top-k 10
-```
-
-**Advanced API:** For full control over embeddings and vector stores, use `createVectorQueryTool` directly:
-
-```typescript
-const ragTool = createVectorQueryTool(config, vectorStore);
-
-const result = await neurolink.generate({
-  input: { text: "query" },
-  tools: { [ragTool.name]: ragTool },
-});
-```
-
-**Streaming Tool Architecture:**
-
-`BaseProvider.stream()` centrally pre-merges base tools (MCP/built-in) with user-provided tools (including RAG) into `options.tools` before calling provider-specific `executeStream()`. All 10 providers now support external tools in streaming via this central merge pattern. Individual providers use `options.tools || await this.getAllTools()` as a defensive fallback.
-
-**Key Files:**
-
-| File                                           | Purpose                                      |
-| ---------------------------------------------- | -------------------------------------------- |
-| `src/lib/rag/ragIntegration.ts`                | `prepareRAGTool()` - auto RAG pipeline setup |
-| `src/lib/rag/types.ts`                         | `RAGConfig` type definition                  |
-| `src/lib/rag/retrieval/vectorQueryTool.ts`     | `createVectorQueryTool` factory (Zod params) |
-| `src/lib/rag/retrieval/InMemoryVectorStore.ts` | In-memory vector store for testing           |
-| `src/lib/core/baseProvider.ts`                 | Central tool merge in `stream()`             |
-| `src/lib/neurolink.ts`                         | RAG auto-injection in generate/stream        |
-| `src/cli/factories/commandFactory.ts`          | CLI `--rag-files` flags                      |
+- **Error handling:** Use `ErrorFactory` for typed errors, `withTimeout` for async operations, graceful degradation with provider fallback
+- **Transformations:** `transformToolExecutions()`, `transformAvailableTools()`, `transformParamsForLogging()`
+- **Configuration:** Environment variables from `.env` (see `.env.example` for 200+ options), validated with `env:validate`, config manager in `src/cli/commands/config.ts`
+- **Thinking levels:** `thinkingLevel` option (`minimal`/`low`/`medium`/`high`) for Anthropic Claude, Gemini 2.5+. SDK: `thinkingLevel: "high"` in generate options. CLI: `--thinking-level high`
+- **Memory:** Redis (production), in-memory (development), token-based context compaction via SummarizationEngine and BudgetChecker
+- **Type organization:** Types organized by domain in `src/lib/types/` (providers, generation, streaming, MCP, conversation, tools, common) to avoid circular dependencies
 
 ## Important Constraints
 
 1. **No Circular Dependencies:** All providers use dynamic imports in registry
-2. **Type Safety:** Maintain strict TypeScript across all modules
-3. **Provider Consistency:** All providers must support same core interface
+2. **Type Safety:** Strict TypeScript (`--strict`), `no-explicit-any` is an error in `src/`
+3. **Provider Consistency:** All providers must support the same core interface
 4. **Backward Compatibility:** SDK changes must maintain existing API
-5. **File Size Limits:** Consider token limits for multimodal content
-6. **Environment Isolation:** CLI and SDK have separate concerns (CLI can use manual MCP, SDK cannot)
-7. **Gemini Tool + JSON Schema Limitation:** Google Gemini models (AI Studio and Vertex) cannot use tools and JSON schema output simultaneously. When `structuredOutput` with a JSON schema is specified, tools must be disabled. This is a limitation of the Gemini API. Design workflows to either use tools OR structured JSON output, not both together.
+5. **Environment Isolation:** CLI and SDK have separate concerns (CLI can use manual MCP, SDK cannot)
+6. **Gemini Tool + JSON Schema Limitation:** Gemini models cannot use tools and JSON schema output simultaneously. Design workflows for either tools OR structured JSON output, not both
+7. **ESLint Warning Budgets:** CI enforces max 300 warnings for `src/`, 10 for `test/`
 
-## Development Workflow
+## CI Pipeline
 
-1. Make changes in `src/`
-2. Run `pnpm run check` to validate types
-3. Run `pnpm run lint` and `pnpm run format` for code quality
-4. Run relevant tests with `pnpm test` or `pnpm run test:coverage`
-5. Build with `pnpm run build`
-6. Test CLI with `pnpm run build:cli && pnpm run cli <command>`
-7. Validate all changes with `pnpm run validate:all`
+GitHub Actions (`.github/workflows/ci.yml`) runs on PRs to `release` branch:
+
+1. Install dependencies + ffmpeg + SvelteKit sync
+2. Format check (`prettier --check`)
+3. ESLint with warning limits (300 src, 10 test)
+4. Security & environment validation (`validate:all`)
+5. Build SDK + CLI
+6. Quality gate: TypeScript strict check, commit message validation, security validation
 
 ## Key Files to Know
 

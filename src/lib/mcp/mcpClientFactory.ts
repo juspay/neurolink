@@ -40,6 +40,18 @@ import {
 import { getMetricsAggregator } from "../observability/index.js";
 
 /**
+ * Default timeout for MCP client creation in milliseconds.
+ * Configurable via MCP_CLIENT_TIMEOUT env var.
+ * Covers process spawn, transport setup, connection, and handshake.
+ * Set to 60s to accommodate stdio servers that may be slow to start,
+ * especially when multiple MCP servers are started concurrently.
+ */
+const DEFAULT_CLIENT_TIMEOUT = Math.max(
+  5000,
+  Number(process.env.MCP_CLIENT_TIMEOUT) || 60000,
+);
+
+/**
  * MCPClientFactory
  * Factory class for creating MCP clients with different transports
  */
@@ -62,7 +74,7 @@ export class MCPClientFactory {
    */
   static async createClient(
     config: MCPServerInfo,
-    timeout = 10000,
+    timeout = DEFAULT_CLIENT_TIMEOUT,
   ): Promise<MCPClientResult> {
     const startTime = Date.now();
     const obsSpan = SpanSerializer.createSpan(
@@ -411,6 +423,7 @@ export class MCPClientFactory {
     } catch (error) {
       throw new Error(
         `Invalid SSE URL: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }
@@ -440,6 +453,7 @@ export class MCPClientFactory {
     } catch (error) {
       throw new Error(
         `Invalid WebSocket URL: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }
@@ -517,6 +531,7 @@ export class MCPClientFactory {
     } catch (error) {
       throw new Error(
         `Invalid HTTP URL: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }

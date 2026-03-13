@@ -1,7 +1,7 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { jsonSchemaToZod } from "json-schema-to-zod";
 import { z } from "zod";
-import type { ZodUnknownSchema } from "../types/tools.js";
+import type { ZodUnknownSchema, ZodToJsonSchemaInput } from "../types/tools.js";
 import { logger } from "./logger.js";
 
 /**
@@ -167,7 +167,10 @@ export function convertZodToJsonSchema(zodSchema: ZodUnknownSchema): object {
 
   // Actual Zod schema — convert via zod-to-json-schema
   try {
-    const jsonSchema = zodToJsonSchema(zodSchema, {
+    // Zod 4→3 boundary: zodToJsonSchema types reference Zod 3's ZodSchema via zod/v3.
+    // Runtime compatible — cast through unknown at this third-party boundary only.
+    const zodV3Schema = zodSchema as unknown as ZodToJsonSchemaInput;
+    const jsonSchema = zodToJsonSchema(zodV3Schema, {
       name: "ToolParameters",
       target: "jsonSchema7",
       errorMessages: true,

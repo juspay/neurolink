@@ -1,4 +1,4 @@
-import type { LanguageModelV1Middleware } from "ai";
+import type { LanguageModelMiddleware } from "ai";
 import type {
   NeuroLinkMiddleware,
   MiddlewareConfig,
@@ -97,8 +97,8 @@ export class MiddlewareRegistry {
   buildChain(
     context: MiddlewareContext,
     config: Record<string, MiddlewareConfig> = {},
-  ): LanguageModelV1Middleware[] {
-    const chain: LanguageModelV1Middleware[] = [];
+  ): LanguageModelMiddleware[] {
+    const chain: LanguageModelMiddleware[] = [];
     const sortedIds = this.getSortedIds();
 
     logger.debug("Building middleware chain", { config, sortedIds });
@@ -206,7 +206,7 @@ export class MiddlewareRegistry {
     config: MiddlewareConfig | undefined,
     globalConfig: Record<string, unknown> | undefined,
     _context: MiddlewareContext,
-  ): LanguageModelV1Middleware {
+  ): LanguageModelMiddleware {
     // Merge configurations: global < middleware config < runtime config
     const _mergedConfig = {
       ...globalConfig,
@@ -215,6 +215,7 @@ export class MiddlewareRegistry {
 
     // Create wrapper that tracks execution
     const wrappedMiddleware: NeuroLinkMiddleware = {
+      specificationVersion: "v3" as const,
       metadata: middleware.metadata,
     };
 

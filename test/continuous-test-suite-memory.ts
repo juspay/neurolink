@@ -256,7 +256,7 @@ async function testConversationMemoryBasic(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     if (!result1?.content) {
@@ -274,7 +274,7 @@ async function testConversationMemoryBasic(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     await new Promise((r) => setTimeout(r, 2000));
@@ -286,7 +286,7 @@ async function testConversationMemoryBasic(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     const responseText = (result3?.content || "").toLowerCase();
@@ -309,7 +309,7 @@ async function testConversationMemoryBasic(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     const responseText4 = (result4?.content || "").toLowerCase();
@@ -506,7 +506,7 @@ async function testConversationMemorySequence(
       input: { text: "I will tell you three items in order. Item 1: Alpha." },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     await new Promise((r) => setTimeout(r, 1500));
@@ -515,7 +515,7 @@ async function testConversationMemorySequence(
       input: { text: "Item 2: Beta." },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     await new Promise((r) => setTimeout(r, 1500));
@@ -524,7 +524,7 @@ async function testConversationMemorySequence(
       input: { text: "Item 3: Gamma." },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     await new Promise((r) => setTimeout(r, 1500));
@@ -536,7 +536,7 @@ async function testConversationMemorySequence(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     const responseText = (result?.content || "").toLowerCase();
@@ -643,7 +643,7 @@ async function testTokenBasedSummarization(
           input: { text: topics[i] },
           maxTokens: Math.min(TEST_CONFIG.maxTokens || 2000, 2000),
           ...buildBaseSDKOptions(),
-          sessionId,
+          context: { sessionId },
         });
 
         // Brief delay between turns
@@ -667,7 +667,7 @@ async function testTokenBasedSummarization(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     const finalContent = (finalResult?.content || "").toLowerCase();
@@ -739,7 +739,7 @@ async function testSummarizationEnableDisable(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId: sessionIdDisabled,
+      context: { sessionId: sessionIdDisabled },
     });
 
     if (!result1?.content) {
@@ -760,7 +760,7 @@ async function testSummarizationEnableDisable(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId: sessionIdDisabled,
+      context: { sessionId: sessionIdDisabled },
     });
 
     await new Promise((r) => setTimeout(r, 2000));
@@ -770,7 +770,7 @@ async function testSummarizationEnableDisable(
       input: { text: "What is the exact code name of our secret project?" },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId: sessionIdDisabled,
+      context: { sessionId: sessionIdDisabled },
     });
 
     const disabledResponse = (result3?.content || "").toLowerCase();
@@ -901,7 +901,7 @@ async function testSummarizationEnableDisable(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId: sessionIdEnabled,
+      context: { sessionId: sessionIdEnabled },
     });
 
     await new Promise((r) => setTimeout(r, 3000));
@@ -926,7 +926,7 @@ async function testSummarizationEnableDisable(
           input: { text: query },
           maxTokens: Math.min(TEST_CONFIG.maxTokens || 2000, 2000),
           ...buildBaseSDKOptions(),
-          sessionId: sessionIdEnabled,
+          context: { sessionId: sessionIdEnabled },
         });
         await new Promise((r) => setTimeout(r, 4000)); // Extra delay for background summarization
       } catch (e) {
@@ -949,7 +949,7 @@ async function testSummarizationEnableDisable(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId: sessionIdEnabled,
+      context: { sessionId: sessionIdEnabled },
     });
 
     const enabledResponse = (recallResult?.content || "").toLowerCase();
@@ -1169,7 +1169,7 @@ async function testRedisConnectionPooling(
           },
           maxTokens: Math.min(TEST_CONFIG.maxTokens || 500, 500),
           ...buildBaseSDKOptions(),
-          sessionId,
+          context: { sessionId },
         });
       }),
     );
@@ -1305,7 +1305,7 @@ async function testMemoryRetrievalTool(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     await new Promise((r) => setTimeout(r, 2000));
@@ -1317,7 +1317,7 @@ async function testMemoryRetrievalTool(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     const responseText = (result?.content || "").toLowerCase();
@@ -1396,22 +1396,20 @@ async function testConversationTitleGeneration(
 
     memorySdk
       .getEventEmitter()
-      .on(
-        "conversationTitleGenerated",
-        (data: { sessionId: string; title: string }) => {
-          if (data.sessionId === sessionId) {
-            titleGenerated = true;
-            generatedTitle = data.title;
-          }
-        },
-      );
+      .on("conversationTitleGenerated", (...args: unknown[]) => {
+        const data = args[0] as { sessionId: string; title: string };
+        if (data.sessionId === sessionId) {
+          titleGenerated = true;
+          generatedTitle = data.title;
+        }
+      });
 
     // Generate 4 meaningful turns about a specific topic to give title generation every chance to fire
     await memorySdk.generate({
       input: { text: "Explain the differences between REST and GraphQL APIs." },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     await new Promise((r) => setTimeout(r, 2000));
@@ -1422,7 +1420,7 @@ async function testConversationTitleGeneration(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     await new Promise((r) => setTimeout(r, 2000));
@@ -1433,7 +1431,7 @@ async function testConversationTitleGeneration(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     await new Promise((r) => setTimeout(r, 2000));
@@ -1444,7 +1442,7 @@ async function testConversationTitleGeneration(
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     // Wait longer for potential background title generation (up to 10s)
@@ -1650,7 +1648,7 @@ async function testMemoryCleanup(sdk: NeuroLink): Promise<boolean | null> {
         },
         maxTokens: Math.min(TEST_CONFIG.maxTokens || 200, 200),
         ...buildBaseSDKOptions(),
-        sessionId,
+        context: { sessionId },
       });
       await new Promise((r) => setTimeout(r, 1000));
     }
@@ -1694,7 +1692,7 @@ async function testMemoryCleanup(sdk: NeuroLink): Promise<boolean | null> {
         },
         maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
         ...buildBaseSDKOptions(),
-        sessionId, // Same sessionId, but fresh in-memory SDK should have no history
+        context: { sessionId }, // Same sessionId, but fresh in-memory SDK should have no history
       });
 
       const responseText = (result?.content || "").toLowerCase();
@@ -1811,7 +1809,7 @@ async function testMemoryWithLargeContext(
           input: { text: `Tell me a key fact about ${topic} in one sentence.` },
           maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
           ...buildBaseSDKOptions(),
-          sessionId,
+          context: { sessionId },
         });
         successfulTurns++;
         await new Promise((r) => setTimeout(r, 1000));
@@ -2005,7 +2003,8 @@ async function testMemoryWithTools(sdk: NeuroLink): Promise<boolean | null> {
         },
         required: ["city"],
       },
-      execute: async (args: Record<string, unknown>) => {
+      execute: async (params: unknown) => {
+        const args = params as Record<string, unknown>;
         return {
           city: args.city,
           temperature: 22,
@@ -2020,7 +2019,7 @@ async function testMemoryWithTools(sdk: NeuroLink): Promise<boolean | null> {
       input: { text: "What is the weather in Tokyo?" },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     if (!result1?.content) {
@@ -2037,7 +2036,7 @@ async function testMemoryWithTools(sdk: NeuroLink): Promise<boolean | null> {
       },
       maxTokens: TEST_CONFIG.maxTokens,
       ...buildBaseSDKOptions(),
-      sessionId,
+      context: { sessionId },
     });
 
     const responseText = (result2?.content || "").toLowerCase();
@@ -2153,11 +2152,20 @@ async function runAllTests(): Promise<void> {
       fn: async () => {
         logTest("15. Observability Spans", "TESTING");
         try {
-          const { getMetricsAggregator, resetMetricsAggregator } = await import(
-            "../dist/index.js"
-          );
+          type SpanLikeEntry = {
+            type: string;
+            name: string;
+            traceId: string;
+            spanId: string;
+          };
+          const distModule = (await import("../dist/index.js")) as unknown as {
+            getMetricsAggregator?: () => { getSpans(): SpanLikeEntry[] };
+            resetMetricsAggregator?: () => void;
+          };
+          const getMetricsAggregator = distModule.getMetricsAggregator;
+          const resetMetricsAggregator = distModule.resetMetricsAggregator;
 
-          resetMetricsAggregator();
+          resetMetricsAggregator?.();
 
           const sessionId = generateTestSessionId("obs-spans");
 
@@ -2175,19 +2183,26 @@ async function runAllTests(): Promise<void> {
               input: { text: "Hello, this is an observability test. Turn 1." },
               maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
               ...buildBaseSDKOptions(),
-              sessionId,
+              context: { sessionId },
             });
 
             await memorySdk.generate({
               input: { text: "This is turn 2 of the observability test." },
               maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
               ...buildBaseSDKOptions(),
-              sessionId,
+              context: { sessionId },
             });
 
             // Check spans from both global aggregator and SDK instance
-            const globalSpans = getMetricsAggregator().getSpans();
-            const instanceSpans = memorySdk.getSpans();
+            type SpanLike = {
+              type: string;
+              name: string;
+              traceId: string;
+              spanId: string;
+            };
+            const globalSpans: SpanLike[] =
+              getMetricsAggregator?.()?.getSpans() ?? [];
+            const instanceSpans: SpanLike[] = memorySdk.getSpans() ?? [];
 
             const globalMemorySpans = globalSpans.filter(
               (s: { type: string; name: string }) =>

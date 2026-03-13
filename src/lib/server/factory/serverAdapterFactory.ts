@@ -64,25 +64,22 @@ export class ServerAdapterFactory {
     // Dynamically import the adapter based on framework
     switch (framework) {
       case "hono": {
-        const { HonoServerAdapter } = await import(
-          "../adapters/honoAdapter.js"
-        );
+        const { HonoServerAdapter } =
+          await import("../adapters/honoAdapter.js");
         ServerAdapterFactory.adapters.set("hono", HonoServerAdapter);
         return new HonoServerAdapter(neurolink, config);
       }
 
       case "express": {
-        const { ExpressServerAdapter } = await import(
-          "../adapters/expressAdapter.js"
-        );
+        const { ExpressServerAdapter } =
+          await import("../adapters/expressAdapter.js");
         ServerAdapterFactory.adapters.set("express", ExpressServerAdapter);
         return new ExpressServerAdapter(neurolink, config);
       }
 
       case "fastify": {
-        const { FastifyServerAdapter } = await import(
-          "../adapters/fastifyAdapter.js"
-        );
+        const { FastifyServerAdapter } =
+          await import("../adapters/fastifyAdapter.js");
         ServerAdapterFactory.adapters.set("fastify", FastifyServerAdapter);
         return new FastifyServerAdapter(neurolink, config);
       }

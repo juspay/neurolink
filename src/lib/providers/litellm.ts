@@ -1,13 +1,14 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import {
-  type LanguageModelV1,
+  type LanguageModel,
+  NoOutputGeneratedError,
   Output,
   type Schema,
   streamText,
   type Tool,
 } from "ai";
-import type { ZodType, ZodTypeDef } from "zod";
+import type { ZodType } from "zod";
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
@@ -22,7 +23,11 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/errors.js";
-import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import type {
+  StreamOptions,
+  StreamResult,
+  StreamTextResult,
+} from "../types/streamTypes.js";
 import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import { calculateCost } from "../utils/pricing.js";
@@ -32,6 +37,7 @@ import {
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
+import { getModelId } from "./providerTypeUtils.js";
 
 const streamTracer = trace.getTracer("neurolink.provider.litellm");
 
@@ -64,7 +70,7 @@ const getDefaultLiteLLMModel = (): string => {
  * Provides access to 100+ models via LiteLLM proxy server
  */
 export class LiteLLMProvider extends BaseProvider {
-  private model: LanguageModelV1;
+  private model: LanguageModel;
 
   // Cache for available models to avoid repeated API calls
   private static modelsCache: string[] = [];
@@ -88,9 +94,7 @@ export class LiteLLMProvider extends BaseProvider {
       fetch: createProxyFetch(),
     });
 
-    this.model = customOpenAI(this.modelName || getDefaultLiteLLMModel(), {
-      structuredOutputs: false,
-    });
+    this.model = customOpenAI(this.modelName || getDefaultLiteLLMModel());
 
     logger.debug("LiteLLM Provider initialized", {
       modelName: this.modelName,
@@ -110,7 +114,7 @@ export class LiteLLMProvider extends BaseProvider {
   /**
    * Returns the Vercel AI SDK model instance for LiteLLM
    */
-  protected getAISDKModel(): LanguageModelV1 {
+  protected getAISDKModel(): LanguageModel {
     return this.model;
   }
 
@@ -194,7 +198,7 @@ export class LiteLLMProvider extends BaseProvider {
    */
   protected async executeStream(
     options: StreamOptions,
-    analysisSchema?: ZodType<unknown, ZodTypeDef, unknown> | Schema<unknown>,
+    analysisSchema?: ZodType | Schema<unknown>,
   ): Promise<StreamResult> {
     this.validateStreamOptions(options);
 
@@ -328,8 +332,10 @@ export class LiteLLMProvider extends BaseProvider {
           kind: SpanKind.CLIENT,
           attributes: {
             "gen_ai.system": "litellm",
-            "gen_ai.request.model":
-              model.modelId || this.modelName || "unknown",
+            "gen_ai.request.model": getModelId(
+              model,
+              this.modelName || "unknown",
+            ),
           },
         },
       );
@@ -351,20 +357,20 @@ export class LiteLLMProvider extends BaseProvider {
 
       // Collect token usage, cost, and finish reason asynchronously when the stream completes,
       // then end the span. This avoids blocking the stream consumer.
-      result.usage
+      Promise.resolve(result.usage)
         .then((usage) => {
           streamSpan.setAttribute(
             "gen_ai.usage.input_tokens",
-            usage.promptTokens || 0,
+            usage.inputTokens || 0,
           );
           streamSpan.setAttribute(
             "gen_ai.usage.output_tokens",
-            usage.completionTokens || 0,
+            usage.outputTokens || 0,
           );
           const cost = calculateCost(this.providerName, this.modelName, {
-            input: usage.promptTokens || 0,
-            output: usage.completionTokens || 0,
-            total: (usage.promptTokens || 0) + (usage.completionTokens || 0),
+            input: usage.inputTokens || 0,
+            output: usage.outputTokens || 0,
+            total: (usage.inputTokens || 0) + (usage.outputTokens || 0),
           });
           if (cost && cost > 0) {
             streamSpan.setAttribute("neurolink.cost", cost);
@@ -373,7 +379,7 @@ export class LiteLLMProvider extends BaseProvider {
         .catch(() => {
           // Usage may not be available if the stream is aborted
         });
-      result.finishReason
+      Promise.resolve(result.finishReason)
         .then((reason) => {
           streamSpan.setAttribute(
             "gen_ai.response.finish_reason",
@@ -383,11 +389,11 @@ export class LiteLLMProvider extends BaseProvider {
         .catch(() => {
           // Finish reason may not be available if the stream is aborted
         });
-      result.text
+      Promise.resolve(result.text)
         .then(() => {
           streamSpan.end();
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           streamSpan.setStatus({
             code: SpanStatusCode.ERROR,
             message: err instanceof Error ? err.message : String(err),
@@ -400,49 +406,62 @@ export class LiteLLMProvider extends BaseProvider {
       // Transform stream to content object stream using fullStream (handles both text and tool calls)
       // Note: fullStream includes tool results, textStream only has text
       const transformedStream = (async function* () {
-        // Try fullStream first (handles both text and tool calls), fallback to textStream
-        const streamToUse = result.fullStream || result.textStream;
+        try {
+          // Try fullStream first (handles both text and tool calls), fallback to textStream
+          const streamToUse = result.fullStream || result.textStream;
 
-        for await (const chunk of streamToUse) {
-          // Handle different chunk types from fullStream
-          if (chunk && typeof chunk === "object") {
-            // Check for error chunks first (critical error handling)
-            if ("type" in chunk && chunk.type === "error") {
-              const errorChunk = chunk as {
-                type: "error";
-                error: Record<string, unknown>;
-              };
-              logger.error(`LiteLLM: Error chunk received:`, {
-                errorType: errorChunk.type,
-                errorDetails: errorChunk.error,
-              });
-              throw new Error(
-                `LiteLLM streaming error: ${(errorChunk.error as Record<string, unknown>)?.message || "Unknown error"}`,
-              );
-            }
-
-            if ("textDelta" in chunk) {
-              // Text delta from fullStream
-              const textDelta = (chunk as { textDelta: string }).textDelta;
-              if (textDelta) {
-                yield { content: textDelta };
+          for await (const chunk of streamToUse) {
+            // Handle different chunk types from fullStream
+            if (chunk && typeof chunk === "object") {
+              // Check for error chunks first (critical error handling)
+              if ("type" in chunk && chunk.type === "error") {
+                const errorChunk = chunk as {
+                  type: "error";
+                  error: Record<string, unknown>;
+                };
+                logger.error(`LiteLLM: Error chunk received:`, {
+                  errorType: errorChunk.type,
+                  errorDetails: errorChunk.error,
+                });
+                throw new Error(
+                  `LiteLLM streaming error: ${(errorChunk.error as Record<string, unknown>)?.message || "Unknown error"}`,
+                );
               }
-            } else if (chunk.type === "tool-call-streaming-start") {
-              // Tool call streaming start event - log for debugging
-              const toolCall = chunk as {
-                type: "tool-call-streaming-start";
-                toolCallId: string;
-                toolName: string;
-              };
-              logger.debug("LiteLLM: Tool call streaming start", {
-                toolCallId: toolCall.toolCallId,
-                toolName: toolCall.toolName,
-              });
+
+              if ("textDelta" in chunk) {
+                // Text delta from fullStream
+                const textDelta = (chunk as { textDelta: string }).textDelta;
+                if (textDelta) {
+                  yield { content: textDelta };
+                }
+              } else if (
+                "type" in chunk &&
+                chunk.type === "tool-call" &&
+                "toolCallId" in chunk
+              ) {
+                // Tool call event - log for debugging
+                const toolCallId = String(chunk.toolCallId);
+                const toolName =
+                  "toolName" in chunk ? String(chunk.toolName) : "unknown";
+                logger.debug("LiteLLM: Tool call", {
+                  toolCallId,
+                  toolName,
+                });
+              }
+            } else if (typeof chunk === "string") {
+              // Direct string chunk from textStream fallback
+              yield { content: chunk };
             }
-          } else if (typeof chunk === "string") {
-            // Direct string chunk from textStream fallback
-            yield { content: chunk };
           }
+        } catch (streamError) {
+          // AI SDK v6 throws NoOutputGeneratedError when the stream produced no output.
+          if (NoOutputGeneratedError.isInstance(streamError)) {
+            logger.warn(
+              "LiteLLM: Stream produced no output (NoOutputGeneratedError)",
+            );
+            return;
+          }
+          throw streamError;
         }
       })();
 
@@ -450,7 +469,7 @@ export class LiteLLMProvider extends BaseProvider {
       const analyticsPromise = streamAnalyticsCollector.createAnalytics(
         this.providerName,
         this.modelName,
-        result,
+        result as StreamTextResult,
         Date.now() - startTime,
         {
           requestId:

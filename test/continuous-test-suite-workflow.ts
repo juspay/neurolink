@@ -227,7 +227,7 @@ async function globalCleanup(): Promise<void> {
 
 // Dynamic imports from dist for workflow APIs
 async function loadWorkflowAPIs() {
-  const mod = await import("../dist/index.js");
+  const mod = (await import("../dist/index.js")) as any;
   return {
     runWorkflow: mod.runWorkflow,
     listWorkflows: mod.listWorkflows,
@@ -294,7 +294,7 @@ function makeVertexConsensusConfig(base: WorkflowConfig) {
       },
     ],
     judge: { ...base.judge, ...VERTEX_JUDGE },
-  };
+  } as WorkflowConfig;
 }
 
 function makeVertexConsensusFastConfig(base: WorkflowConfig) {
@@ -324,7 +324,7 @@ function makeVertexConsensusFastConfig(base: WorkflowConfig) {
       },
     ],
     judge: { ...base.judge, ...VERTEX_JUDGE },
-  };
+  } as WorkflowConfig;
 }
 
 function makeVertexMultiJudge3Config(base: WorkflowConfig) {
@@ -375,7 +375,7 @@ function makeVertexMultiJudge3Config(base: WorkflowConfig) {
         label: "Secondary Judge",
       },
     ],
-  };
+  } as WorkflowConfig;
 }
 
 function makeVertexMultiJudge5Config(base: WorkflowConfig) {
@@ -450,7 +450,7 @@ function makeVertexMultiJudge5Config(base: WorkflowConfig) {
         label: "Completeness Judge",
       },
     ],
-  };
+  } as WorkflowConfig;
 }
 
 function makeVertexFallbackConfig(base: WorkflowConfig) {
@@ -511,7 +511,7 @@ function makeVertexFallbackConfig(base: WorkflowConfig) {
       },
     ],
     judge: { ...base.judge, ...VERTEX_JUDGE },
-  };
+  } as WorkflowConfig;
 }
 
 function makeVertexAggressiveFallbackConfig(base: WorkflowConfig) {
@@ -562,7 +562,7 @@ function makeVertexAggressiveFallbackConfig(base: WorkflowConfig) {
       },
     ],
     judge: { ...base.judge, ...VERTEX_JUDGE },
-  };
+  } as WorkflowConfig;
 }
 
 function makeVertexSpeedFirstConfig(base: WorkflowConfig) {
@@ -621,7 +621,7 @@ function makeVertexSpeedFirstConfig(base: WorkflowConfig) {
       },
     ],
     judge: { ...base.judge, ...VERTEX_JUDGE },
-  };
+  } as WorkflowConfig;
 }
 
 function makeVertexBalancedAdaptiveConfig(base: WorkflowConfig) {
@@ -672,7 +672,7 @@ function makeVertexBalancedAdaptiveConfig(base: WorkflowConfig) {
       },
     ],
     judge: { ...base.judge, ...VERTEX_JUDGE },
-  };
+  } as WorkflowConfig;
 }
 
 function makeVertexQualityMaxConfig(base: WorkflowConfig) {
@@ -760,7 +760,7 @@ function makeVertexQualityMaxConfig(base: WorkflowConfig) {
       },
     ],
     judge: { ...base.judge, ...VERTEX_JUDGE },
-  };
+  } as WorkflowConfig;
 }
 
 // ============================================================
@@ -1870,7 +1870,7 @@ async function testObservabilitySpans(
 
     // Verify all spans have OK or ERROR status (not unset)
     const allHaveStatus = workflowSpans.every(
-      (s: { status: string }) =>
+      (s: { status: number }) =>
         s.status === SpanStatus.OK || s.status === SpanStatus.ERROR,
     );
     logTest(

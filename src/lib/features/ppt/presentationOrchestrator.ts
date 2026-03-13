@@ -12,9 +12,14 @@
  * @module presentation/presentationOrchestrator
  */
 
-// Import pptxgenjs using dynamic import for ESM compatibility
-import PptxGenJSModule from "pptxgenjs";
-const PptxGenJS = PptxGenJSModule as unknown as {
+// ESM/CJS interop: pptxgenjs v4 may double-wrap the default export under tsx/esbuild
+import PptxGenJSImport from "pptxgenjs";
+const PptxGenJSResolved =
+  typeof PptxGenJSImport === "function"
+    ? PptxGenJSImport
+    : (PptxGenJSImport as unknown as { default: typeof PptxGenJSImport })
+        .default;
+const PptxGenJS = PptxGenJSResolved as unknown as {
   new (): import("./types.js").PptxPresentation;
 };
 import * as fs from "fs/promises";

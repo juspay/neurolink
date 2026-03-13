@@ -1,4 +1,4 @@
-import type { LanguageModelV1 } from "ai";
+import type { LanguageModel } from "ai";
 
 /**
  * Result from precall evaluation of user input
@@ -104,7 +104,7 @@ export type BadWordsConfig = {
 
 export type ModelFilterConfig = {
   enabled?: boolean;
-  filterModel?: LanguageModelV1;
+  filterModel?: LanguageModel;
 };
 
 /**

@@ -1,4 +1,4 @@
-import type { LanguageModelV1Middleware } from "ai";
+import type { LanguageModelMiddleware } from "ai";
 import type {
   NeuroLinkMiddleware,
   NeuroLinkMiddlewareMetadata,
@@ -21,8 +21,10 @@ export function createAnalyticsMiddleware(): NeuroLinkMiddleware {
     defaultEnabled: true,
   };
 
-  const middleware: LanguageModelV1Middleware = {
-    wrapGenerate: async ({ doGenerate, params }) => {
+  const middleware: LanguageModelMiddleware = {
+    specificationVersion: "v3" as const,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    wrapGenerate: async ({ doGenerate, params }: any) => {
       const requestId = `analytics-${Date.now()}`;
       const startTime = Date.now();
 
@@ -79,7 +81,8 @@ export function createAnalyticsMiddleware(): NeuroLinkMiddleware {
       }
     },
 
-    wrapStream: async ({ doStream, params }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    wrapStream: async ({ doStream, params }: any) => {
       const requestId = `analytics-stream-${Date.now()}`;
       const startTime = Date.now();
 

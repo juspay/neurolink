@@ -21,7 +21,7 @@ import type { ValidationError } from "../utils/parameterValidation.js";
 /**
  * Commonly used Zod schema type aliases for cleaner type declarations
  */
-export type { ZodUnknownSchema } from "./typeAliases.js";
+export type { ZodUnknownSchema, ZodToJsonSchemaInput } from "./typeAliases.js";
 export type ZodAnySchema = z.ZodSchema<unknown>;
 export type ZodObjectSchema = z.ZodObject<z.ZodRawShape>;
 export type ZodStringSchema = z.ZodString;

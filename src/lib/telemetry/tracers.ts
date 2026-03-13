@@ -14,4 +14,5 @@ export const tracers = {
   context: trace.getTracer("neurolink.context"),
   middleware: trace.getTracer("neurolink.middleware"),
   processor: trace.getTracer("neurolink.processor"),
+  file: trace.getTracer("neurolink.file"),
 } as const;

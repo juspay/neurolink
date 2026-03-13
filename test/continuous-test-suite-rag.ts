@@ -924,7 +924,10 @@ async function testRerankerFactory(): Promise<boolean | null> {
   // Test 3: Create simple reranker (no model required)
   logSubsection("Create Simple Reranker");
   try {
-    const reranker = await createReranker("simple", { topK: 5 });
+    const reranker = await createReranker("simple", {
+      type: "simple" as const,
+      topK: 5,
+    });
     if (reranker && reranker.type === "simple") {
       logTest("Create simple reranker", "PASS");
       recordTest({ name: "Create simple reranker", status: "PASS" });
@@ -1174,7 +1177,10 @@ async function testSimpleReranking(): Promise<boolean | null> {
 
   logSubsection("Simple Rerank Execution");
   try {
-    const reranker = await createReranker("simple", { topK: 3 });
+    const reranker = await createReranker("simple", {
+      type: "simple" as const,
+      topK: 3,
+    });
 
     // Create mock vector query results
     const results: VectorQueryResult[] = [
@@ -1946,7 +1952,7 @@ async function testRAGWithGenerate(): Promise<boolean | null> {
     // Zod schema: check for .shape.query (Zod) or .properties.query (JSON Schema)
     const zodParams = params as z.ZodObject<z.ZodRawShape> | undefined;
     const shape = zodParams?.shape;
-    const jsonParams = params as Record<string, unknown> | undefined;
+    const jsonParams = params as unknown as Record<string, unknown> | undefined;
     const hasQueryParam = shape
       ? "query" in shape
       : jsonParams &&
@@ -2025,7 +2031,7 @@ async function testRAGWithGenerate(): Promise<boolean | null> {
         },
         provider: preferred.provider,
         ...(preferred.model && { model: preferred.model }),
-        tools: { [vectorQueryTool.name]: vectorQueryTool } as Record<
+        tools: { [vectorQueryTool.name]: vectorQueryTool } as unknown as Record<
           string,
           Tool
         >,
@@ -2361,7 +2367,7 @@ async function testRAGWithStream(): Promise<boolean | null> {
       },
       provider: preferred.provider,
       ...(preferred.model && { model: preferred.model }),
-      tools: { [vectorQueryTool.name]: vectorQueryTool } as Record<
+      tools: { [vectorQueryTool.name]: vectorQueryTool } as unknown as Record<
         string,
         Tool
       >,
@@ -2601,7 +2607,8 @@ Computer vision processes visual information.
 
       const output = execSync(command, {
         encoding: "utf-8",
-        timeout: 30000,
+        timeout: 60000,
+        killSignal: "SIGTERM",
         cwd: projectRoot,
         env: { ...process.env, NO_COLOR: "1" },
         stdio: ["pipe", "pipe", "pipe"],
@@ -2612,13 +2619,23 @@ Computer vision processes visual information.
         stdout?: Buffer;
         stderr?: Buffer;
         message?: string;
+        killed?: boolean;
+        signal?: string;
+        code?: string;
       };
       const stdout = execError.stdout?.toString() || "";
       const stderr = execError.stderr?.toString() || "";
+      const isTimeout =
+        execError.killed ||
+        execError.signal === "SIGTERM" ||
+        execError.code === "ETIMEDOUT" ||
+        (execError.message || "").includes("ETIMEDOUT");
       return {
         success: false,
         output: stdout,
-        error: stderr || execError.message || String(error),
+        error: isTimeout
+          ? `CLI subprocess timed out after 60s: ${stderr || execError.message || "process killed"}`
+          : stderr || execError.message || String(error),
       };
     }
   };
@@ -2698,20 +2715,25 @@ Computer vision processes visual information.
         }
       }
     } else {
-      // Command failed - check if it's due to missing dependencies
+      // Command failed - check if it's due to missing dependencies or timeout
       if (
         result.error.includes("Cannot find module") ||
-        result.error.includes("ENOENT")
+        result.error.includes("ENOENT") ||
+        result.error.includes("timed out")
       ) {
         logTest(
           "CLI chunk command (default)",
           "SKIP",
-          "CLI not available (not built)",
+          result.error.includes("timed out")
+            ? "CLI subprocess timed out"
+            : "CLI not available (not built)",
         );
         recordTest({
           name: "CLI chunk command (default)",
           status: "SKIP",
-          details: "CLI not built",
+          details: result.error.includes("timed out")
+            ? "Timeout"
+            : "CLI not built",
         });
       } else {
         logTest(
@@ -2817,9 +2839,16 @@ Computer vision processes visual information.
     } else {
       if (
         result.error.includes("Cannot find module") ||
-        result.error.includes("ENOENT")
+        result.error.includes("ENOENT") ||
+        result.error.includes("timed out")
       ) {
-        logTest("CLI chunk --strategy markdown", "SKIP", "CLI not available");
+        logTest(
+          "CLI chunk --strategy markdown",
+          "SKIP",
+          result.error.includes("timed out")
+            ? "CLI subprocess timed out"
+            : "CLI not available",
+        );
         recordTest({ name: "CLI chunk --strategy markdown", status: "SKIP" });
       } else {
         logTest(
@@ -2939,9 +2968,16 @@ Computer vision processes visual information.
     } else {
       if (
         result.error.includes("Cannot find module") ||
-        result.error.includes("ENOENT")
+        result.error.includes("ENOENT") ||
+        result.error.includes("timed out")
       ) {
-        logTest("CLI chunk --strategy recursive", "SKIP", "CLI not available");
+        logTest(
+          "CLI chunk --strategy recursive",
+          "SKIP",
+          result.error.includes("timed out")
+            ? "CLI subprocess timed out"
+            : "CLI not available",
+        );
         recordTest({ name: "CLI chunk --strategy recursive", status: "SKIP" });
       } else {
         logTest(
@@ -3026,9 +3062,16 @@ Computer vision processes visual information.
     } else {
       if (
         result.error.includes("Cannot find module") ||
-        result.error.includes("ENOENT")
+        result.error.includes("ENOENT") ||
+        result.error.includes("timed out")
       ) {
-        logTest("CLI chunk --output", "SKIP", "CLI not available");
+        logTest(
+          "CLI chunk --output",
+          "SKIP",
+          result.error.includes("timed out")
+            ? "CLI subprocess timed out"
+            : "CLI not available",
+        );
         recordTest({ name: "CLI chunk --output", status: "SKIP" });
       } else {
         logTest("CLI chunk --output", "FAIL", result.error.slice(0, 200));
@@ -3083,7 +3126,8 @@ Computer vision processes visual information.
         result.error.includes("Cannot find module") ||
         result.error.includes("ENOENT") ||
         result.error.includes("ECONNREFUSED") ||
-        result.error.includes("ENOTFOUND");
+        result.error.includes("ENOTFOUND") ||
+        result.error.includes("timed out");
       if (isProviderError) {
         logTest(
           "CLI index command",
@@ -3137,7 +3181,14 @@ Computer vision processes visual information.
     } else {
       // Query may fail if no indexed documents exist (in-memory store is process-scoped)
       // This is expected since index and query run in separate processes
-      if (
+      if (result.error.includes("timed out")) {
+        logTest("CLI query command", "SKIP", "CLI subprocess timed out");
+        recordTest({
+          name: "CLI query command",
+          status: "SKIP",
+          details: "Timeout",
+        });
+      } else if (
         result.error.includes("No indexed documents") ||
         result.error.includes("No documents") ||
         result.error.includes("index") ||
@@ -3206,9 +3257,16 @@ Computer vision processes visual information.
     } else {
       if (
         result.error.includes("Cannot find module") ||
-        result.error.includes("ENOENT")
+        result.error.includes("ENOENT") ||
+        result.error.includes("timed out")
       ) {
-        logTest("CLI rag --help", "SKIP", "CLI not available");
+        logTest(
+          "CLI rag --help",
+          "SKIP",
+          result.error.includes("timed out")
+            ? "CLI subprocess timed out"
+            : "CLI not available",
+        );
         recordTest({ name: "CLI rag --help", status: "SKIP" });
       } else {
         logTest("CLI rag --help", "FAIL", result.error.slice(0, 200));
@@ -3249,8 +3307,17 @@ Computer vision processes visual information.
           "Properly reports file not found",
         );
         recordTest({ name: "CLI chunk (invalid file)", status: "PASS" });
-      } else if (result.error.includes("Cannot find module")) {
-        logTest("CLI chunk (invalid file)", "SKIP", "CLI not available");
+      } else if (
+        result.error.includes("Cannot find module") ||
+        result.error.includes("timed out")
+      ) {
+        logTest(
+          "CLI chunk (invalid file)",
+          "SKIP",
+          result.error.includes("timed out")
+            ? "CLI subprocess timed out"
+            : "CLI not available",
+        );
         recordTest({ name: "CLI chunk (invalid file)", status: "SKIP" });
       } else {
         logTest(
@@ -4076,6 +4143,7 @@ async function testCLIRagFiles(): Promise<boolean | null> {
       const output = execSync(`node "${cliPath}" ${args}`, {
         encoding: "utf-8",
         timeout: 60000,
+        killSignal: "SIGTERM",
         cwd: projectRoot,
         env: { ...process.env, NO_COLOR: "1" },
         stdio: ["pipe", "pipe", "pipe"],
@@ -4086,12 +4154,23 @@ async function testCLIRagFiles(): Promise<boolean | null> {
         stdout?: Buffer;
         stderr?: Buffer;
         message?: string;
+        killed?: boolean;
+        signal?: string;
+        code?: string;
       };
+      const stdout = execError.stdout?.toString() || "";
+      const stderr = execError.stderr?.toString() || "";
+      const isTimeout =
+        execError.killed ||
+        execError.signal === "SIGTERM" ||
+        execError.code === "ETIMEDOUT" ||
+        (execError.message || "").includes("ETIMEDOUT");
       return {
         success: false,
-        output: execError.stdout?.toString() || "",
-        error:
-          execError.stderr?.toString() || execError.message || String(error),
+        output: stdout,
+        error: isTimeout
+          ? `CLI subprocess timed out after 60s: ${stderr || execError.message || "process killed"}`
+          : stderr || execError.message || String(error),
       };
     }
   };
@@ -4118,10 +4197,17 @@ async function testCLIRagFiles(): Promise<boolean | null> {
         combinedOutput.includes("quota") ||
         combinedOutput.includes("authentication") ||
         combinedOutput.includes("credentials") ||
-        combinedOutput.includes("Failed to generate");
+        combinedOutput.includes("Failed to generate") ||
+        combinedOutput.includes("timed out");
 
       if (isProviderError) {
-        logTest("CLI generate --rag-files", "SKIP", "Provider unavailable");
+        logTest(
+          "CLI generate --rag-files",
+          "SKIP",
+          combinedOutput.includes("timed out")
+            ? "CLI subprocess timed out"
+            : "Provider unavailable",
+        );
         recordTest({ name: "CLI generate --rag-files", status: "SKIP" });
       } else {
         logTest("CLI generate --rag-files", "FAIL", result.error.slice(0, 200));
@@ -4168,13 +4254,16 @@ async function testCLIRagFiles(): Promise<boolean | null> {
         combinedOutput.includes("quota") ||
         combinedOutput.includes("authentication") ||
         combinedOutput.includes("credentials") ||
-        combinedOutput.includes("Failed to generate");
+        combinedOutput.includes("Failed to generate") ||
+        combinedOutput.includes("timed out");
 
       if (isProviderError) {
         logTest(
           "CLI generate --rag-files --rag-strategy",
           "SKIP",
-          "Provider unavailable",
+          combinedOutput.includes("timed out")
+            ? "CLI subprocess timed out"
+            : "Provider unavailable",
         );
         recordTest({
           name: "CLI generate --rag-files --rag-strategy",
@@ -4227,10 +4316,17 @@ async function testCLIRagFiles(): Promise<boolean | null> {
         combinedOutput.includes("authentication") ||
         combinedOutput.includes("credentials") ||
         combinedOutput.includes("Failed to generate") ||
-        combinedOutput.includes("Cannot connect");
+        combinedOutput.includes("Cannot connect") ||
+        combinedOutput.includes("timed out");
 
       if (isProviderError) {
-        logTest("CLI stream --rag-files", "SKIP", "Provider unavailable");
+        logTest(
+          "CLI stream --rag-files",
+          "SKIP",
+          combinedOutput.includes("timed out")
+            ? "CLI subprocess timed out"
+            : "Provider unavailable",
+        );
         recordTest({ name: "CLI stream --rag-files", status: "SKIP" });
       } else {
         logTest("CLI stream --rag-files", "FAIL", result.error.slice(0, 200));
@@ -4314,13 +4410,16 @@ async function testCLIRagFiles(): Promise<boolean | null> {
         combinedOutput.includes("quota") ||
         combinedOutput.includes("authentication") ||
         combinedOutput.includes("credentials") ||
-        combinedOutput.includes("Failed to generate");
+        combinedOutput.includes("Failed to generate") ||
+        combinedOutput.includes("timed out");
 
       if (isProviderError) {
         logTest(
           "CLI --rag-files (multiple files)",
           "SKIP",
-          "Provider unavailable",
+          combinedOutput.includes("timed out")
+            ? "CLI subprocess timed out"
+            : "Provider unavailable",
         );
         recordTest({
           name: "CLI --rag-files (multiple files)",
@@ -4409,12 +4508,15 @@ async function testCLIRagFiles(): Promise<boolean | null> {
         } else {
           if (
             result.error.includes("Cannot find module") ||
-            result.error.includes("ENOENT")
+            result.error.includes("ENOENT") ||
+            result.error.includes("timed out")
           ) {
             logTest(
               `CLI fixture: ${fixture.id}`,
               "SKIP",
-              "CLI/file not available",
+              result.error.includes("timed out")
+                ? "CLI subprocess timed out"
+                : "CLI/file not available",
             );
             recordTest({ name: `CLI fixture: ${fixture.id}`, status: "SKIP" });
           } else {

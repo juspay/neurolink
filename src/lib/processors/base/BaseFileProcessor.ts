@@ -495,6 +495,7 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
         } catch (gzipError) {
           throw new Error(
             `Failed to decompress gzip response: ${gzipError instanceof Error ? gzipError.message : String(gzipError)}`,
+            { cause: gzipError },
           );
         }
       }

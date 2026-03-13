@@ -43,7 +43,6 @@ export enum OpenRouterModels {
   GPT_4_TURBO = "openai/gpt-4-turbo",
   // Google models
   GEMINI_3_1_PRO_PREVIEW = "google/gemini-3.1-pro-preview",
-  GEMINI_3_PRO_PREVIEW = "google/gemini-3-pro-preview",
   GEMINI_3_FLASH_PREVIEW = "google/gemini-3-flash-preview",
   GEMINI_2_5_FLASH = "google/gemini-2.5-flash",
   GEMINI_2_5_FLASH_LITE = "google/gemini-2.5-flash-lite",
@@ -419,21 +418,17 @@ export enum VertexModels {
   /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_HAIKU = "claude-3-haiku-20240307",
 
-  // Gemini 3.1 Series (Released March 2026)
-  GEMINI_3_1_PRO = "gemini-3.1-pro",
+  // Gemini 3.1 Series (Released March 2026 — all require -preview suffix)
   GEMINI_3_1_PRO_PREVIEW = "gemini-3.1-pro-preview",
-  GEMINI_3_1_FLASH = "gemini-3.1-flash",
-  GEMINI_3_1_FLASH_LITE = "gemini-3.1-flash-lite",
   GEMINI_3_1_FLASH_LITE_PREVIEW = "gemini-3.1-flash-lite-preview",
+  GEMINI_3_1_FLASH_IMAGE_PREVIEW = "gemini-3.1-flash-image-preview",
+  GEMINI_3_1_PRO_PREVIEW_CUSTOMTOOLS = "gemini-3.1-pro-preview-customtools",
 
   // Gemini 3 Series (Preview)
-  GEMINI_3_PRO = "gemini-3-pro",
-  GEMINI_3_PRO_PREVIEW_11_2025 = "gemini-3-pro-preview-11-2025",
-  GEMINI_3_PRO_LATEST = "gemini-3-pro-latest",
-  GEMINI_3_PRO_PREVIEW = "gemini-3-pro-preview",
-  GEMINI_3_FLASH = "gemini-3-flash",
   GEMINI_3_FLASH_PREVIEW = "gemini-3-flash-preview",
-  GEMINI_3_FLASH_LATEST = "gemini-3-flash-latest",
+  GEMINI_3_PRO_IMAGE_PREVIEW = "gemini-3-pro-image-preview",
+  /** @deprecated SHUT DOWN March 9, 2026. Migrate to GEMINI_3_1_PRO_PREVIEW. */
+  GEMINI_3_PRO_PREVIEW = "gemini-3-pro-preview",
 
   // Gemini 2.5 Series (GA)
   GEMINI_2_5_PRO = "gemini-2.5-pro",
@@ -457,18 +452,17 @@ export enum VertexModels {
  * Supported Models for Google AI Studio
  */
 export enum GoogleAIModels {
-  // Gemini 3.1 Series (Released March 2026)
-  GEMINI_3_1_PRO = "gemini-3.1-pro",
+  // Gemini 3.1 Series (Released March 2026 — all require -preview suffix)
   GEMINI_3_1_PRO_PREVIEW = "gemini-3.1-pro-preview",
-  GEMINI_3_1_FLASH = "gemini-3.1-flash",
-  GEMINI_3_1_FLASH_LITE = "gemini-3.1-flash-lite",
   GEMINI_3_1_FLASH_LITE_PREVIEW = "gemini-3.1-flash-lite-preview",
+  GEMINI_3_1_FLASH_IMAGE_PREVIEW = "gemini-3.1-flash-image-preview",
+  GEMINI_3_1_PRO_PREVIEW_CUSTOMTOOLS = "gemini-3.1-pro-preview-customtools",
 
   // Gemini 3 Series (Preview)
-  GEMINI_3_PRO_PREVIEW = "gemini-3-pro-preview",
-  GEMINI_3_PRO_IMAGE_PREVIEW = "gemini-3-pro-image-preview",
-  GEMINI_3_FLASH = "gemini-3-flash",
   GEMINI_3_FLASH_PREVIEW = "gemini-3-flash-preview",
+  GEMINI_3_PRO_IMAGE_PREVIEW = "gemini-3-pro-image-preview",
+  /** @deprecated SHUT DOWN March 9, 2026. Migrate to GEMINI_3_1_PRO_PREVIEW. */
+  GEMINI_3_PRO_PREVIEW = "gemini-3-pro-preview",
 
   // Gemini 2.5 Series (GA)
   GEMINI_2_5_PRO = "gemini-2.5-pro",

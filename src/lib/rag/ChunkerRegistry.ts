@@ -249,9 +249,8 @@ export class ChunkerRegistry extends BaseRegistry<Chunker, ChunkerMetadata> {
     this.registerChunker(
       "character",
       async () => {
-        const { CharacterChunker } = await import(
-          "./chunkers/CharacterChunker.js"
-        );
+        const { CharacterChunker } =
+          await import("./chunkers/CharacterChunker.js");
         return new CharacterChunker();
       },
       DEFAULT_CHUNKER_METADATA.character,
@@ -261,9 +260,8 @@ export class ChunkerRegistry extends BaseRegistry<Chunker, ChunkerMetadata> {
     this.registerChunker(
       "recursive",
       async () => {
-        const { RecursiveChunker } = await import(
-          "./chunkers/RecursiveChunker.js"
-        );
+        const { RecursiveChunker } =
+          await import("./chunkers/RecursiveChunker.js");
         return new RecursiveChunker();
       },
       DEFAULT_CHUNKER_METADATA.recursive,
@@ -273,9 +271,8 @@ export class ChunkerRegistry extends BaseRegistry<Chunker, ChunkerMetadata> {
     this.registerChunker(
       "sentence",
       async () => {
-        const { SentenceChunker } = await import(
-          "./chunkers/SentenceChunker.js"
-        );
+        const { SentenceChunker } =
+          await import("./chunkers/SentenceChunker.js");
         return new SentenceChunker();
       },
       DEFAULT_CHUNKER_METADATA.sentence,
@@ -295,9 +292,8 @@ export class ChunkerRegistry extends BaseRegistry<Chunker, ChunkerMetadata> {
     this.registerChunker(
       "markdown",
       async () => {
-        const { MarkdownChunker } = await import(
-          "./chunkers/MarkdownChunker.js"
-        );
+        const { MarkdownChunker } =
+          await import("./chunkers/MarkdownChunker.js");
         return new MarkdownChunker();
       },
       DEFAULT_CHUNKER_METADATA.markdown,
@@ -337,9 +333,8 @@ export class ChunkerRegistry extends BaseRegistry<Chunker, ChunkerMetadata> {
     this.registerChunker(
       "semantic",
       async () => {
-        const { SemanticChunker } = await import(
-          "./chunking/semanticChunker.js"
-        );
+        const { SemanticChunker } =
+          await import("./chunking/semanticChunker.js");
         return new SemanticChunker();
       },
       DEFAULT_CHUNKER_METADATA.semantic,
@@ -349,9 +344,8 @@ export class ChunkerRegistry extends BaseRegistry<Chunker, ChunkerMetadata> {
     this.registerChunker(
       "semantic-markdown",
       async () => {
-        const { SemanticMarkdownChunker } = await import(
-          "./chunkers/SemanticMarkdownChunker.js"
-        );
+        const { SemanticMarkdownChunker } =
+          await import("./chunkers/SemanticMarkdownChunker.js");
         return new SemanticMarkdownChunker();
       },
       DEFAULT_CHUNKER_METADATA["semantic-markdown"],

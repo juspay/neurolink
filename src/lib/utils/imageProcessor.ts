@@ -178,6 +178,7 @@ export class ImageProcessor {
       logger.error("Failed to process image for OpenAI:", error);
       throw new Error(
         `Image processing failed for OpenAI: ${error instanceof Error ? error.message : "Unknown error"}`,
+        { cause: error },
       );
     }
   }
@@ -218,6 +219,7 @@ export class ImageProcessor {
       logger.error("Failed to process image for Google AI:", error);
       throw new Error(
         `Image processing failed for Google AI: ${error instanceof Error ? error.message : "Unknown error"}`,
+        { cause: error },
       );
     }
   }
@@ -258,6 +260,7 @@ export class ImageProcessor {
       logger.error("Failed to process image for Anthropic:", error);
       throw new Error(
         `Image processing failed for Anthropic: ${error instanceof Error ? error.message : "Unknown error"}`,
+        { cause: error },
       );
     }
   }
@@ -285,6 +288,7 @@ export class ImageProcessor {
       logger.error("Failed to process image for Vertex AI:", error);
       throw new Error(
         `Image processing failed for Vertex AI: ${error instanceof Error ? error.message : "Unknown error"}`,
+        { cause: error },
       );
     }
   }
@@ -520,6 +524,7 @@ export class ImageProcessor {
       logger.error(`Failed to process image for ${provider}:`, error);
       throw new Error(
         `Image processing failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        { cause: error },
       );
     }
   }
@@ -629,6 +634,7 @@ export const imageUtils = {
     } catch (error) {
       throw new Error(
         `Failed to convert file to base64: ${error instanceof Error ? error.message : "Unknown error"}`,
+        { cause: error },
       );
     }
   },
@@ -749,6 +755,7 @@ export const imageUtils = {
     } catch (error) {
       throw new Error(
         `Failed to download and convert URL to base64: ${error instanceof Error ? error.message : "Unknown error"}`,
+        { cause: error },
       );
     }
   },

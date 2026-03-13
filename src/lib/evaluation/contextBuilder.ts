@@ -3,6 +3,10 @@
  */
 
 import type {
+  LanguageModelV3CallOptions,
+  LanguageModelV3Message,
+} from "@ai-sdk/provider";
+import type {
   EnhancedEvaluationContext,
   QueryIntentAnalysis,
   EnhancedConversationTurn,
@@ -11,7 +15,6 @@ import type {
 import type { GenerateResult } from "../types/generateTypes.js";
 import type { ToolExecution, ToolArgs, ToolResult } from "../types/tools.js";
 import type { JsonValue } from "../types/common.js";
-import type { LanguageModelV1CallOptions } from "ai";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -47,16 +50,20 @@ export class ContextBuilder {
    * @returns An `EnhancedEvaluationContext` object ready for evaluation.
    */
   public buildContext(
-    options: LanguageModelV1CallOptions,
+    options: LanguageModelV3CallOptions,
     result: GenerateResult,
   ): EnhancedEvaluationContext {
-    const userMessages = options.prompt.filter((p) => p.role === "user");
+    const userMessages = options.prompt.filter(
+      (p: LanguageModelV3Message) => p.role === "user",
+    );
     const lastUserMessage = userMessages[userMessages.length - 1];
     const userQuery = this.extractTextFromContent(
       lastUserMessage?.content ?? "",
     );
 
-    const systemPromptMessage = options.prompt.find((p) => p.role === "system");
+    const systemPromptMessage = options.prompt.find(
+      (p: LanguageModelV3Message) => p.role === "system",
+    );
     const systemPrompt = this.extractTextFromContent(
       systemPromptMessage?.content ?? "",
     );
@@ -72,13 +79,13 @@ export class ContextBuilder {
       model: result.model || "unknown",
       generationParams: {
         temperature: options.temperature,
-        maxTokens: options.maxTokens,
+        maxTokens: options.maxOutputTokens,
         systemPrompt: systemPrompt || undefined,
       },
       toolExecutions,
       conversationHistory: (options.prompt || [])
-        .filter((p) => p.role !== "system")
-        .map((turn) => ({
+        .filter((p: LanguageModelV3Message) => p.role !== "system")
+        .map((turn: LanguageModelV3Message) => ({
           role: turn.role as "user" | "assistant",
           content: this.extractTextFromContent(turn.content),
           timestamp: new Date().toISOString(),
@@ -121,7 +128,7 @@ export class ContextBuilder {
    */
   private analyzeQuery(query: string): QueryIntentAnalysis {
     const lowerCaseQuery = query.toLowerCase();
-    let type: QueryIntentAnalysis["type"] = "unknown";
+    let type: QueryIntentAnalysis["type"];
 
     if (
       lowerCaseQuery.startsWith("what") ||

@@ -52,9 +52,7 @@ const redisTracer = tracers.redis;
  * Uses the same interface but stores data in Redis
  */
 
-export class RedisConversationMemoryManager
-  implements IConversationMemoryManager
-{
+export class RedisConversationMemoryManager implements IConversationMemoryManager {
   public config: ConversationMemoryConfig;
   private isInitialized: boolean = false;
   private summarizationEngine: SummarizationEngine = new SummarizationEngine();
