@@ -7,6 +7,7 @@ import {
   useAlgoliaSearch,
   useRecentSearches,
 } from "../../hooks/useAlgoliaSearch";
+import { useLocalSearch } from "../../hooks/useLocalSearch";
 import { ArrowIcon, ReturnIcon } from "../icons";
 import { Kbd } from "../ui/Kbd";
 import { EmptySearch, NoResults, SearchError } from "./EmptySearch";
@@ -19,19 +20,42 @@ interface SearchModalProps {
   onClose: () => void;
 }
 
-const INDEX_NAME = "neurolink-docs";
+const INDEX_NAME = "neurolink_docs_v1";
 
-export function SearchModal({ isOpen, onClose }: SearchModalProps) {
+function useSearch() {
   const { siteConfig } = useDocusaurusContext();
-  const history = useHistory();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Get Algolia credentials from site config
   const algoliaAppId = (siteConfig.customFields?.algoliaAppId as string) || "";
   const algoliaSearchKey =
     (siteConfig.customFields?.algoliaSearchApiKey as string) || "";
+  const hasAlgolia = Boolean(algoliaAppId && algoliaSearchKey);
 
-  // Search hook
+  const algoliaSearch = useAlgoliaSearch({
+    appId: algoliaAppId,
+    searchApiKey: algoliaSearchKey,
+    indexName: INDEX_NAME,
+  });
+
+  const localSearch = useLocalSearch();
+
+  // Sync query to local search when Algolia errors out
+  useEffect(() => {
+    if (algoliaSearch.error && algoliaSearch.query) {
+      localSearch.setQuery(algoliaSearch.query);
+    }
+  }, [algoliaSearch.error, algoliaSearch.query, localSearch.setQuery]);
+
+  // Fall back to local search if Algolia is not configured or errors out
+  if (!hasAlgolia || algoliaSearch.error) {
+    return localSearch;
+  }
+  return algoliaSearch;
+}
+
+export function SearchModal({ isOpen, onClose }: SearchModalProps) {
+  const history = useHistory();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Search hook — Algolia when configured, local search otherwise
   const {
     query,
     setQuery,
@@ -41,11 +65,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     clearResults,
     selectedIndex,
     setSelectedIndex,
-  } = useAlgoliaSearch({
-    appId: algoliaAppId,
-    searchApiKey: algoliaSearchKey,
-    indexName: INDEX_NAME,
-  });
+  } = useSearch();
 
   // Recent searches hook
   const {
@@ -191,14 +211,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
               </span>
             </div>
             <div className={styles.footerPowered}>
-              <span>Search by</span>
-              <a
-                href="https://www.algolia.com"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Algolia
-              </a>
+              <span>NeuroLink Search</span>
             </div>
           </div>
         </Dialog.Content>

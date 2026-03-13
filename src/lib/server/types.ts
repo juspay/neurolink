@@ -615,6 +615,71 @@ export type AgentExecuteResponse = {
 };
 
 /**
+ * Embed request (single text)
+ */
+export type EmbedRequest = {
+  /** Text to embed */
+  text: string;
+
+  /** Provider to use (optional) */
+  provider?: string;
+
+  /** Embedding model to use (optional) */
+  model?: string;
+};
+
+/**
+ * Embed response (single text)
+ */
+export type EmbedResponse = {
+  /** The embedding vector */
+  embedding: number[];
+
+  /** Provider used */
+  provider: string;
+
+  /** Model used */
+  model: string;
+
+  /** Embedding dimension */
+  dimension: number;
+};
+
+/**
+ * Embed many request (batch texts)
+ */
+export type EmbedManyRequest = {
+  /** Texts to embed */
+  texts: string[];
+
+  /** Provider to use (optional) */
+  provider?: string;
+
+  /** Embedding model to use (optional) */
+  model?: string;
+};
+
+/**
+ * Embed many response (batch texts)
+ */
+export type EmbedManyResponse = {
+  /** The embedding vectors */
+  embeddings: number[][];
+
+  /** Provider used */
+  provider: string;
+
+  /** Model used */
+  model: string;
+
+  /** Number of embeddings */
+  count: number;
+
+  /** Embedding dimension */
+  dimension: number;
+};
+
+/**
  * Tool execution request
  */
 export type ToolExecuteRequest = {

@@ -1,5 +1,12 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { type LanguageModelV1, type Schema, streamText, type Tool } from "ai";
+import {
+  embed,
+  embedMany,
+  type LanguageModelV1,
+  type Schema,
+  streamText,
+  type Tool,
+} from "ai";
 import {
   type AIProviderName,
   ErrorCategory,
@@ -51,6 +58,7 @@ import {
   executeNativeToolCalls,
   handleMaxStepsTermination,
   pushModelResponseToHistory,
+  sanitizeToolsForGemini,
   type NativeToolsConfig,
 } from "./googleNativeGemini3.js";
 
@@ -510,15 +518,20 @@ export class GoogleAIStudioProvider extends BaseProvider {
   // executeGenerate removed - BaseProvider handles all generation with tools
   protected async executeStream(
     options: StreamOptions,
-    _analysisSchema?: ZodUnknownSchema | Schema<unknown>,
+    analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
     // Check if this is a Gemini 3 model with tools - use native SDK for thought_signature
     const gemini3CheckModelName = options.model || this.modelName;
 
+    // Structured output (analysisSchema, JSON format, or schema) is incompatible with tools on Gemini.
+    // Compute once and reuse in both the native Gemini 3 gate and the streamText fallback path.
+    const wantsStructuredOutput =
+      analysisSchema || options.output?.format === "json" || options.schema;
+
     // Check for tools from options AND from SDK (MCP tools)
     // Need to check early if we should route to native SDK
     const gemini3CheckShouldUseTools =
-      !options.disableTools && this.supportsTools();
+      !options.disableTools && this.supportsTools() && !wantsStructuredOutput;
     const optionTools = options.tools || {};
     const sdkTools = gemini3CheckShouldUseTools ? await this.getAllTools() : {};
     const combinedToolCount =
@@ -593,11 +606,36 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     try {
       // Get tools consistently with generate method (include user-provided RAG tools)
-      const shouldUseTools = !options.disableTools && this.supportsTools();
+      // wantsStructuredOutput already computed before the Gemini 3 native-routing gate
+      if (
+        wantsStructuredOutput &&
+        !options.disableTools &&
+        this.supportsTools()
+      ) {
+        logger.warn(
+          "[GoogleAIStudio] Structured output active — disabling tools (Gemini limitation).",
+        );
+      }
+      const shouldUseTools =
+        !options.disableTools && this.supportsTools() && !wantsStructuredOutput;
       const baseTools = shouldUseTools ? await this.getAllTools() : {};
-      const tools = shouldUseTools
+      const rawTools = shouldUseTools
         ? { ...baseTools, ...(options.tools || {}) }
         : {};
+      // Sanitize tool schemas for Gemini proto compatibility (converts anyOf/oneOf unions to string)
+      let tools: Record<string, Tool> | undefined;
+      if (Object.keys(rawTools).length > 0) {
+        const sanitized = sanitizeToolsForGemini(rawTools);
+        if (sanitized.dropped.length > 0) {
+          logger.warn(
+            `[GoogleAIStudio] Dropped ${sanitized.dropped.length} incompatible tool(s): ${sanitized.dropped.join(", ")}`,
+          );
+        }
+        tools =
+          Object.keys(sanitized.tools).length > 0 ? sanitized.tools : undefined;
+      } else {
+        tools = undefined;
+      }
 
       // Build message array from options with multimodal support
       // Using protected helper from BaseProvider to eliminate code duplication
@@ -610,7 +648,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
         maxTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools,
         maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-        toolChoice: shouldUseTools ? "auto" : "none",
+        toolChoice: shouldUseTools && tools ? "auto" : "none",
         abortSignal: composeAbortSignals(
           options.abortSignal,
           timeoutController?.controller.signal,
@@ -1416,6 +1454,105 @@ export class GoogleAIStudioProvider extends BaseProvider {
         streamId: `google-ai-audio-${Date.now()}`,
       },
     };
+  }
+
+  protected getDefaultEmbeddingModel(): string {
+    return (
+      process.env.GOOGLE_AI_EMBEDDING_MODEL ||
+      process.env.GOOGLE_EMBEDDING_MODEL ||
+      "gemini-embedding-001"
+    );
+  }
+
+  /**
+   * Generate embeddings for text using Google AI Studio embedding models
+   * @param text - The text to embed
+   * @param modelName - The embedding model to use (default: gemini-embedding-001)
+   * @returns Promise resolving to the embedding vector
+   */
+  async embed(text: string, modelName?: string): Promise<number[]> {
+    const embeddingModelName =
+      modelName || this.getDefaultEmbeddingModel() || "gemini-embedding-001";
+
+    logger.debug("Generating embedding", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      textLength: text.length,
+    });
+
+    try {
+      const apiKey = this.getApiKey();
+      const google = createGoogleGenerativeAI({ apiKey });
+
+      const embeddingModel = google.textEmbeddingModel(embeddingModelName);
+
+      const result = await embed({
+        model: embeddingModel,
+        value: text,
+      });
+
+      logger.debug("Embedding generated successfully", {
+        provider: this.providerName,
+        model: embeddingModelName,
+        embeddingDimension: result.embedding.length,
+      });
+
+      return result.embedding;
+    } catch (error) {
+      logger.error("Embedding generation failed", {
+        error: error instanceof Error ? error.message : String(error),
+        model: embeddingModelName,
+        textLength: text.length,
+      });
+
+      throw this.handleProviderError(error);
+    }
+  }
+
+  /**
+   * Generate embeddings for multiple texts in a single batch
+   * @param texts - The texts to embed
+   * @param modelName - The embedding model to use (default: gemini-embedding-001)
+   * @returns Promise resolving to an array of embedding vectors
+   */
+  async embedMany(texts: string[], modelName?: string): Promise<number[][]> {
+    const embeddingModelName =
+      modelName || this.getDefaultEmbeddingModel() || "gemini-embedding-001";
+
+    logger.debug("Generating batch embeddings", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      count: texts.length,
+    });
+
+    try {
+      const apiKey = this.getApiKey();
+      const google = createGoogleGenerativeAI({ apiKey });
+
+      const embeddingModel = google.textEmbeddingModel(embeddingModelName);
+
+      const result = await embedMany({
+        model: embeddingModel,
+        values: texts,
+      });
+
+      logger.debug("Batch embeddings generated successfully", {
+        provider: this.providerName,
+        model: embeddingModelName,
+        count: result.embeddings.length,
+        embeddingDimension: result.embeddings[0]?.length,
+      });
+
+      return result.embeddings;
+    } catch (error) {
+      logger.error("Batch embedding generation failed", {
+        error: error instanceof Error ? error.message : String(error),
+        model: embeddingModelName,
+        count: texts.length,
+      });
+
+      throw this.handleProviderError(error);
+    }
   }
 
   private getApiKey(): string {

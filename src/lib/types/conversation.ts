@@ -448,6 +448,43 @@ export type SessionMetadata = {
   title: string;
   createdAt: string;
   updatedAt: string;
+  /** Additional metadata including agentic loop reports */
+  metadata?: {
+    agenticLoopReports?: AgenticLoopReportMetadata[];
+  };
+};
+
+/**
+ * Report type for agentic loop reports
+ * Identifies the platform or category of the report
+ */
+export type AgenticLoopReportType =
+  | "META"
+  | "GOOGLEADS"
+  | "GOOGLEGA4"
+  | "OTHER";
+
+/**
+ * Status of an agentic loop report
+ */
+export type AgenticLoopReportStatus = "INPROGRESS" | "COMPLETED";
+
+/**
+ * Metadata for an individual agentic loop report
+ * A conversation session can have multiple reports tracked via this type
+ */
+export type AgenticLoopReportMetadata = {
+  /** Unique identifier for this report */
+  reportId: string;
+  /** Platform/category of the report */
+  reportType: AgenticLoopReportType;
+  /** Current status of the report */
+  reportStatus: AgenticLoopReportStatus;
+  /** Optional audit period date range for the report */
+  auditPeriod?: {
+    startDate: string;
+    endDate: string;
+  };
 };
 
 /**
@@ -495,6 +532,14 @@ export type ConversationBase = {
     totalTokens?: number;
     cacheReadTokens?: number;
     cacheWriteTokens?: number;
+  };
+
+  /** Additional metadata for extensible conversation-level data */
+  additionalMetadata?: {
+    /** Agentic loop reports associated with this conversation */
+    agenticLoopReports?: AgenticLoopReportMetadata[];
+    /** Allow future extensibility */
+    [key: string]: unknown;
   };
 };
 

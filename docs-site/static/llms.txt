@@ -2,7 +2,7 @@
 
 > Enterprise AI Development Platform - Unified provider access, MCP integration, professional CLI
 
-Generated: 2026-02-27T05:43:04.517Z
+Generated: 2026-03-07T19:36:32.955Z
 Full documentation: https://docs.neurolink.ink/llms-full.txt
 
 ---
@@ -75,13 +75,14 @@ NeuroLink is an enterprise AI development platform that provides:
 - Quick Start
 - Installation
 - Environment Variables Configuration Guide
+- Anthropic Provider Guide
 - AWS Bedrock Provider Guide
 - Azure OpenAI Provider Guide
-- Google AI Studio Provider Guide
 - ⚙️ Provider Configuration Guide
+- Google AI Studio Provider Guide
 - Google Vertex AI Provider Guide
-- Hugging Face Provider Guide
 - Redis Quick Start (5 Minutes)
+- Hugging Face Provider Guide
 - LiteLLM Provider Guide
 - Mistral AI Provider Guide
 - Ollama Setup Guide
@@ -100,6 +101,8 @@ NeuroLink is an enterprise AI development platform that provides:
 - Feature Guides
 - Audio Input & Transcription Guide
 - Auto Evaluation Engine
+- Claude Subscription Testing Guide
+- Claude Subscription Support
 - CLI Loop Sessions
 - Context Compaction
 - Redis Conversation History Export
@@ -194,20 +197,18 @@ Welcome to NeuroLink! This section will help you get up and running quickly with
 
 Complete setup guides for all supported AI providers.
 
-##  Enterprise Providers
+##  Direct AI Providers
 
-Production-grade providers for enterprise deployments:
+Access leading AI models directly from their creators:
 
-### [Azure OpenAI](/docs/getting-started/providers/azure-openai)
+### [Anthropic](/docs/getting-started/providers/anthropic)
 
-**Enterprise AI with Microsoft Azure**
+**Claude models with API key or OAuth authentication**
 
--  SOC2, HIPAA, ISO 27001 compliant
--  Multi-region deployment (30+ regions)
-- ️ Private endpoints with VNet
--  Enterprise SLAs
-
-[Setup Guide →](/docs/getting-started/providers/azure-openai)
+-  Claude 4.5 Opus/Sonnet/Haiku, Claude 4.0 Opus/Sonnet
+-  API key or OAuth (Pro/Max subscription)
+-  Extended thinking for deep reasoning
+-  200K context window, multimodal support
 
 
 
@@ -305,6 +306,32 @@ echo 'OPENAI_API_KEY="sk-your-key"' > .env
 
 ---
 
+## Anthropic Provider Guide
+
+<!-- Source: getting-started/providers/anthropic.md -->
+
+# Anthropic Provider Guide
+
+**Direct access to Claude models with flexible authentication options**
+
+-------- | -------------------------------------- | ------------------ |
+| **API Key** | Production, server-side apps           | Pay-per-token      |
+| **OAuth**   | Personal dev with Pro/Max subscription | Subscription quota |
+
+---
+
+## Quick Start
+
+### 1. Get Your API Key
+
+1. Visit [console.anthropic.com](https://console.anthropic.com)
+2. Sign in or create an account
+3.
+
+[Content truncated - see llms-full.txt for complete documentation]
+
+---
+
 ## AWS Bedrock Provider Guide
 
 <!-- Source: getting-started/providers/aws-bedrock.md -->
@@ -355,6 +382,26 @@ Or use [Azure Portal](https://portal.azure.com/#create/Microsoft.CognitiveServic
 
 ---
 
+## ⚙️ Provider Configuration Guide
+
+<!-- Source: getting-started/provider-setup.md -->
+
+# ⚙️ Provider Configuration Guide
+
+NeuroLink supports multiple AI providers with flexible authentication methods. This guide covers complete setup for all supported providers.
+
+## Supported Providers
+
+- **OpenAI** - GPT-4o, GPT-4o-mini, GPT-4-turbo
+- **Amazon Bedrock** - Claude 3.7 Sonnet, Claude 3.5 Sonnet, Claude 3 Haiku
+- **Amazon SageMaker** - Custom models deployed on SageMaker endpoints
+- **Google Vertex AI** - Gemini 3 Flash/Pro (preview), Gemini 2.5 Flash, Claude 4.0 Sonnet
+
+
+[Content truncated - see llms-full.txt for complete documentation]
+
+---
+
 ## Google AI Studio Provider Guide
 
 <!-- Source: getting-started/providers/google-ai.md -->
@@ -378,26 +425,6 @@ Or use [Azure Portal](https://portal.azure.com/#create/Microsoft.CognitiveServic
 Add to your `.env` file:
 
 ```bash
-
-
-[Content truncated - see llms-full.txt for complete documentation]
-
----
-
-## ⚙️ Provider Configuration Guide
-
-<!-- Source: getting-started/provider-setup.md -->
-
-# ⚙️ Provider Configuration Guide
-
-NeuroLink supports multiple AI providers with flexible authentication methods. This guide covers complete setup for all supported providers.
-
-## Supported Providers
-
-- **OpenAI** - GPT-4o, GPT-4o-mini, GPT-4-turbo
-- **Amazon Bedrock** - Claude 3.7 Sonnet, Claude 3.5 Sonnet, Claude 3 Haiku
-- **Amazon SageMaker** - Custom models deployed on SageMaker endpoints
-- **Google Vertex AI** - Gemini 3 Flash/Pro (preview), Gemini 2.5 Flash, Claude 4.0 Sonnet
 
 
 [Content truncated - see llms-full.txt for complete documentation]
@@ -439,34 +466,6 @@ gcloud services enable aiplatform.googleapis.com
 
 ---
 
-## Hugging Face Provider Guide
-
-<!-- Source: getting-started/providers/huggingface.md -->
-
-# Hugging Face Provider Guide
-
-**Access 100,000+ open-source AI models through Hugging Face's free inference API**
-
-## Quick Start
-
-### 1. Get Your API Token
-
-1. Visit [Hugging Face](https://huggingface.co/)
-2. Create a free account (no credit card required)
-3. Go to [Settings → Access Tokens](https://huggingface.co/settings/tokens)
-4. Click "New token"
-5. Give it a name (e.g., "NeuroLink")
-6. Select "Read" permissions
-7. Copy the token (starts with `hf_...`)
-
-### 2. Configure NeuroLink
-
-
-
-[Content truncated - see llms-full.txt for complete documentation]
-
----
-
 ## Redis Quick Start (5 Minutes)
 
 <!-- Source: getting-started/redis-quickstart.md -->
@@ -493,6 +492,34 @@ docker run -d \
   -p 6379:6379 \
   -v redis-data:/data \
   redis:7-alpine
+
+
+
+[Content truncated - see llms-full.txt for complete documentation]
+
+---
+
+## Hugging Face Provider Guide
+
+<!-- Source: getting-started/providers/huggingface.md -->
+
+# Hugging Face Provider Guide
+
+**Access 100,000+ open-source AI models through Hugging Face's free inference API**
+
+## Quick Start
+
+### 1. Get Your API Token
+
+1. Visit [Hugging Face](https://huggingface.co/)
+2. Create a free account (no credit card required)
+3. Go to [Settings → Access Tokens](https://huggingface.co/settings/tokens)
+4. Click "New token"
+5. Give it a name (e.g., "NeuroLink")
+6. Select "Read" permissions
+7. Copy the token (starts with `hf_...`)
+
+### 2. Configure NeuroLink
 
 
 
@@ -737,27 +764,32 @@ POST /api/stream
 GET /api/status
 ```
 
-## MCP Integration
+## Embeddings
 
-### List MCP Tools
-
-```http
-GET /api/mcp/tools
-```
-
-### Execute MCP Tool
+### Generate Embedding
 
 ```http
-POST /api/mcp/execute
+POST /api/agent/embed
 ```
 
-### MCP Server Status
+**Request body:**
 
-```http
-GET /api/mcp/status
+```json
+{
+  "text": "Hello world",
+  "provider": "googleAiStudio",
+  "model": "gemini-embedding-001"
+}
 ```
 
-For complete API documentation, see [API Reference](/docs/sdk/api-reference).
+**Response:**
+
+```json
+{
+  "embedding": [0.123, -0.456, ...],
+
+
+[Content truncated - see llms-full.txt for complete documentation]
 
 ---
 
@@ -842,6 +874,52 @@ NeuroLink 7.46.0 adds an automated quality gate that scores every response using
 ## What It Does
 
 - Generates a structured evaluation payload (`result.evaluation`) for every call with `enableEvaluation: true`.
+
+
+[Content truncated - see llms-full.txt for complete documentation]
+
+---
+
+## Claude Subscription Testing Guide
+
+<!-- Source: features/claude-subscription-testing.md -->
+
+# Claude Subscription Testing Guide
+
+This document provides comprehensive testing commands and examples for the Claude subscription feature in NeuroLink, covering API key authentication, OAuth authentication for Pro/Max subscribers, subscription tier validation, and beta features.
+
+## 1. Prerequisites
+
+### Environment Setup
+
+Before testing, ensure you have the required environment configured:
+
+```bash
+# Navigate to project directory
+cd /path/to/neurolink
+
+# Install dependencies
+pnpm install
+
+
+
+[Content truncated - see llms-full.txt for complete documentation]
+
+---
+
+## Claude Subscription Support
+
+<!-- Source: features/claude-subscription.md -->
+
+# Claude Subscription Support
+
+NeuroLink provides flexible access to Anthropic's Claude models through multiple subscription tiers and authentication methods. This guide covers setup, configuration, and best practices for each tier.
+
+## Overview
+
+Claude is available through different subscription tiers, each offering varying levels of access, rate limits, and model availability:
+
+| Tier     | Access Method     | Rate Limits      | Best For                                |
 
 
 [Content truncated - see llms-full.txt for complete documentation]

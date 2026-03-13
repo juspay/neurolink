@@ -1,3 +1,69 @@
+## [9.22.3](https://github.com/juspay/neurolink/compare/v9.22.2...v9.22.3) (2026-03-12)
+
+### Bug Fixes
+
+- **(landing):** improve mobile accessibility and touch targets ([98f3f53](https://github.com/juspay/neurolink/commit/98f3f53d9d815d84486194aae8ebd41879009e5d))
+
+## [9.22.2](https://github.com/juspay/neurolink/compare/v9.22.1...v9.22.2) (2026-03-12)
+
+### Bug Fixes
+
+- **(observability):** prevent duplicate Langfuse traces from streaming by restricting trace attributes to root spans ([ddac782](https://github.com/juspay/neurolink/commit/ddac78229f7ed42a1d332c23e0a5e6d80418dd6a))
+
+## [9.22.1](https://github.com/juspay/neurolink/compare/v9.22.0...v9.22.1) (2026-03-12)
+
+### Bug Fixes
+
+- **(vision):** allow unknown models for proxy providers in vision check ([b2c5b4e](https://github.com/juspay/neurolink/commit/b2c5b4edebd43545dee8ccb31cb5253302602936))
+
+## [9.22.0](https://github.com/juspay/neurolink/compare/v9.21.0...v9.22.0) (2026-03-12)
+
+### Features
+
+- **(landing):** comprehensive mobile redesign across all 13 landing page components ([405e3e5](https://github.com/juspay/neurolink/commit/405e3e5eb8672b50ee1fc319088fb8c2b4fb78a0))
+
+## [9.21.0](https://github.com/juspay/neurolink/compare/v9.20.0...v9.21.0) (2026-03-09)
+
+### Features
+
+- **(reports-conversation):** Add support for report metaData in getUserAllSessionsHistory ([2273af0](https://github.com/juspay/neurolink/commit/2273af00f2089dba4f691f771b8e16a6a71274b5))
+
+## [9.20.0](https://github.com/juspay/neurolink/compare/v9.19.1...v9.20.0) (2026-03-09)
+
+### Features
+
+- **(landing):** redesign nervous system visualization with performance and mobile fixes ([a4c7e91](https://github.com/juspay/neurolink/commit/a4c7e91a22622b41821db09e17885a54b26c66aa))
+
+## [9.19.1](https://github.com/juspay/neurolink/compare/v9.19.0...v9.19.1) (2026-03-07)
+
+### Bug Fixes
+
+- **(docs):** fix search results overlap by enabling dynamic row measurement ([8117541](https://github.com/juspay/neurolink/commit/81175416db780da9de7157f3f057c5b0c78dd7b5))
+
+## [9.19.0](https://github.com/juspay/neurolink/compare/v9.18.0...v9.19.0) (2026-03-07)
+
+### Features
+
+- **(landing):** nervous system visualization redesign with SEO and SDK fixes ([d410a49](https://github.com/juspay/neurolink/commit/d410a49546e9d55bce319f41d2b11f955350becc))
+
+## [9.18.0](https://github.com/juspay/neurolink/compare/v9.17.2...v9.18.0) (2026-03-07)
+
+### Features
+
+- **(sdk):** add embed() and embedMany() support across providers and server ([17243ad](https://github.com/juspay/neurolink/commit/17243ada417a192caa6e555f92df23938ddca6aa))
+
+## [9.17.2](https://github.com/juspay/neurolink/compare/v9.17.1...v9.17.2) (2026-03-07)
+
+### Bug Fixes
+
+- **(docs):** fall back to local search when Algolia index doesn't exist ([93f92b6](https://github.com/juspay/neurolink/commit/93f92b6a5c898b099e4684cadfd793a807752091))
+
+## [9.17.1](https://github.com/juspay/neurolink/compare/v9.17.0...v9.17.1) (2026-03-07)
+
+### Bug Fixes
+
+- **(docs):** wire up local search fallback and fix search index quality ([1b8406c](https://github.com/juspay/neurolink/commit/1b8406cd26ebf19d50a2136ef9d6314a42ef8b27))
+
 ## [9.17.0](https://github.com/juspay/neurolink/compare/v9.16.0...v9.17.0) (2026-03-06)
 
 ### Features

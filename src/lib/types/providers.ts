@@ -514,6 +514,10 @@ export type AIProvider = {
     analysisSchema?: ValidationSchema,
   ): Promise<EnhancedGenerateResult | null>;
 
+  embed(text: string, modelName?: string): Promise<number[]>;
+
+  embedMany(texts: string[], modelName?: string): Promise<number[][]>;
+
   // Tool execution setup - consolidated from NeuroLink SDK
   setupToolExecutor(
     sdk: {

@@ -8,6 +8,7 @@ import {
   useAlgoliaSearch,
   useRecentSearches,
 } from "../hooks/useAlgoliaSearch";
+import { useLocalSearch } from "../hooks/useLocalSearch";
 import { ArrowIcon, CloseIcon, SearchIcon } from "./icons";
 import { EmptySearch, NoResults, SearchError } from "./Search/EmptySearch";
 import styles from "./Search/Search.module.css";
@@ -18,23 +19,46 @@ interface SearchWrapperMobileProps {
   onClose: () => void;
 }
 
-const INDEX_NAME = "neurolink-docs";
+const INDEX_NAME = "neurolink_docs_v1";
+
+function useMobileSearch() {
+  const { siteConfig } = useDocusaurusContext();
+  const algoliaAppId = (siteConfig.customFields?.algoliaAppId as string) || "";
+  const algoliaSearchKey =
+    (siteConfig.customFields?.algoliaSearchApiKey as string) || "";
+  const hasAlgolia = Boolean(algoliaAppId && algoliaSearchKey);
+
+  const algoliaSearch = useAlgoliaSearch({
+    appId: algoliaAppId,
+    searchApiKey: algoliaSearchKey,
+    indexName: INDEX_NAME,
+  });
+
+  const localSearch = useLocalSearch();
+
+  // Sync query to local search when Algolia errors out
+  useEffect(() => {
+    if (algoliaSearch.error && algoliaSearch.query) {
+      localSearch.setQuery(algoliaSearch.query);
+    }
+  }, [algoliaSearch.error, algoliaSearch.query, localSearch.setQuery]);
+
+  // Fall back to local search if Algolia is not configured or errors out
+  if (!hasAlgolia || algoliaSearch.error) {
+    return localSearch;
+  }
+  return algoliaSearch;
+}
 
 export function SearchWrapperMobile({
   isOpen,
   onClose,
 }: SearchWrapperMobileProps) {
-  const { siteConfig } = useDocusaurusContext();
   const history = useHistory();
   const inputRef = useRef<HTMLInputElement>(null);
   const [localQuery, setLocalQuery] = useState("");
 
-  // Get Algolia credentials from site config
-  const algoliaAppId = (siteConfig.customFields?.algoliaAppId as string) || "";
-  const algoliaSearchKey =
-    (siteConfig.customFields?.algoliaSearchApiKey as string) || "";
-
-  // Search hook
+  // Search hook — Algolia when configured, local search otherwise
   const {
     query,
     setQuery,
@@ -44,11 +68,7 @@ export function SearchWrapperMobile({
     clearResults,
     selectedIndex,
     setSelectedIndex,
-  } = useAlgoliaSearch({
-    appId: algoliaAppId,
-    searchApiKey: algoliaSearchKey,
-    indexName: INDEX_NAME,
-  });
+  } = useMobileSearch();
 
   // Recent searches hook
   const {

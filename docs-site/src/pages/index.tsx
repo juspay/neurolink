@@ -142,8 +142,8 @@ const FAQ_JSONLD = {
 export default function Home(): React.JSX.Element {
   return (
     <Layout
-      title="NeuroLink - Enterprise AI Development Platform"
-      description="Universal AI provider support, MCP integration, and professional CLI"
+      title="NeuroLink - The Nervous System Pipe for AI Streams"
+      description="The pipe layer for the AI nervous system. Stream tokens, data, tools, and context from 13+ providers through pluggable connectors."
     >
       <Head>
         <script type="application/ld+json">{JSON.stringify(FAQ_JSONLD)}</script>
@@ -156,8 +156,9 @@ export default function Home(): React.JSX.Element {
               Find your path through the pipe.
             </h1>
             <p className={styles.heroSubtitle}>
-              NeuroLink is the pipe layer for the AI nervous system. Choose your
-              entry point.
+              NeuroLink is the pipe layer for the AI nervous system — connecting
+              live streams of tokens, data, tools, and context through pluggable
+              connectors. Choose your entry point.
             </p>
             <div className={styles.heroCtas}>
               <Link className={styles.ctaPrimary} to="/docs/getting-started">

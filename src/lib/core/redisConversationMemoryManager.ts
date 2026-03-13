@@ -21,9 +21,11 @@ import type {
   SessionMemory,
   SessionMetadata,
   StoreConversationTurnOptions,
+  AgenticLoopReportMetadata,
 } from "../types/conversation.js";
 import { ConversationMemoryError } from "../types/conversation.js";
 import type { IConversationMemoryManager } from "../types/conversationMemoryInterface.js";
+import { withTimeout } from "../utils/errorHandling.js";
 import type { PendingToolExecution } from "../types/tools.js";
 import {
   buildContextFromPointer,
@@ -1072,6 +1074,12 @@ export class RedisConversationMemoryManager
           title: conversation.title,
           createdAt: conversation.createdAt,
           updatedAt: conversation.updatedAt,
+          metadata: conversation.additionalMetadata?.agenticLoopReports
+            ? {
+                agenticLoopReports:
+                  conversation.additionalMetadata.agenticLoopReports,
+              }
+            : undefined,
         };
       }
 
@@ -1885,6 +1893,143 @@ User message: "${userMessage}"`;
     } finally {
       // Always clean up pending data, even on failure, to prevent infinite retry loops
       this.pendingToolExecutions.delete(pendingKey);
+    }
+  }
+
+  /**
+   * Update agentic loop report metadata for a conversation session.
+   * Upserts a report entry by reportId — updates existing or adds new.
+   * Follows the read → patch → write pattern (same as title generation).
+   *
+   * @param sessionId The session identifier
+   * @param userId The user identifier (optional)
+   * @param report The report metadata to upsert
+   */
+  public async updateAgenticLoopReport(
+    sessionId: string,
+    userId: string | undefined,
+    report: AgenticLoopReportMetadata,
+  ): Promise<void> {
+    logger.debug(
+      "[RedisConversationMemoryManager] Updating agentic loop report",
+      {
+        sessionId,
+        userId,
+        reportId: report.reportId,
+        reportType: report.reportType,
+        reportStatus: report.reportStatus,
+      },
+    );
+
+    await this.ensureInitialized();
+
+    if (!this.redisClient) {
+      logger.warn(
+        "[RedisConversationMemoryManager] Redis client not available for report update",
+        { sessionId, userId },
+      );
+      return;
+    }
+
+    try {
+      const redisKey = getSessionKey(
+        this.redisConfig,
+        sessionId,
+        userId || undefined,
+      );
+      const conversationData = await withTimeout(
+        this.redisClient.get(redisKey),
+        5000,
+      );
+
+      if (!conversationData) {
+        logger.warn(
+          "[RedisConversationMemoryManager] No conversation found for report update",
+          { sessionId, userId },
+        );
+        return;
+      }
+
+      const conversation = deserializeConversation(conversationData);
+      if (!conversation) {
+        logger.warn(
+          "[RedisConversationMemoryManager] Failed to deserialize conversation for report update",
+          { sessionId, userId },
+        );
+        return;
+      }
+
+      // Initialize additionalMetadata and agenticLoopReports if needed
+      if (!conversation.additionalMetadata) {
+        conversation.additionalMetadata = {};
+      }
+      if (!conversation.additionalMetadata.agenticLoopReports) {
+        conversation.additionalMetadata.agenticLoopReports = [];
+      }
+
+      // Upsert: find existing report by reportId and update, or push new entry
+      const existingIndex =
+        conversation.additionalMetadata.agenticLoopReports.findIndex(
+          (r) => r.reportId === report.reportId,
+        );
+
+      if (existingIndex >= 0) {
+        conversation.additionalMetadata.agenticLoopReports[existingIndex] =
+          report;
+        logger.debug(
+          "[RedisConversationMemoryManager] Updated existing agentic loop report",
+          { sessionId, reportId: report.reportId },
+        );
+      } else {
+        conversation.additionalMetadata.agenticLoopReports.push(report);
+        logger.debug(
+          "[RedisConversationMemoryManager] Added new agentic loop report",
+          { sessionId, reportId: report.reportId },
+        );
+      }
+
+      conversation.updatedAt = new Date().toISOString();
+
+      // Write back to Redis
+      const serializedData = serializeConversation(conversation);
+      await withTimeout(this.redisClient.set(redisKey, serializedData), 5000);
+
+      if (this.redisConfig.ttl > 0) {
+        await withTimeout(
+          this.redisClient.expire(redisKey, this.redisConfig.ttl),
+          5000,
+        );
+      }
+
+      logger.info(
+        "[RedisConversationMemoryManager] Successfully updated agentic loop report",
+        {
+          sessionId,
+          userId,
+          reportId: report.reportId,
+          reportStatus: report.reportStatus,
+        },
+      );
+    } catch (error) {
+      logger.error(
+        "[RedisConversationMemoryManager] Failed to update agentic loop report",
+        {
+          sessionId,
+          userId,
+          reportId: report.reportId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+      throw new ConversationMemoryError(
+        "Failed to update agentic loop report",
+        "STORAGE_ERROR",
+        {
+          sessionId,
+          userId,
+          reportId: report.reportId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
     }
   }
 }

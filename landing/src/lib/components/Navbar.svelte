@@ -5,7 +5,8 @@
   let visible = $state(true);
   let scrolled = $state(false);
   let lastScroll = 0;
-  let mobileToggleButton: HTMLButtonElement | null = null;
+  let mobileToggleButton: HTMLButtonElement;
+  let mobileNavPanel: HTMLElement;
 
   const navLinks = [
     { label: "Docs", href: "https://docs.neurolink.ink/docs/getting-started" },
@@ -22,25 +23,46 @@
     lastScroll = current;
   }
 
-  function toggleMobile() {
+  function getFocusableElements(): HTMLElement[] {
+    if (!mobileNavPanel) return [];
+    return Array.from(
+      mobileNavPanel.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+  }
+
+  function trapFocus(e: KeyboardEvent) {
+    if (!mobileOpen || e.key !== "Tab") return;
+    const focusable = getFocusableElements();
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+
+  async function toggleMobile() {
     mobileOpen = !mobileOpen;
     if (mobileOpen) {
-      tick().then(() => {
-        if (!mobileOpen) return;
-        const firstLink = document.querySelector("#mobile-nav-panel a");
-        if (firstLink instanceof HTMLElement) {
-          firstLink.focus();
-        }
-      });
+      await tick();
+      const firstLink = mobileNavPanel?.querySelector<HTMLAnchorElement>("a");
+      firstLink?.focus();
     }
   }
 
   function closeMobile() {
-    const wasOpen = mobileOpen;
     mobileOpen = false;
-    if (wasOpen) {
-      tick().then(() => mobileToggleButton?.focus());
-    }
+    mobileToggleButton?.focus();
   }
 
   $effect(() => {
@@ -51,12 +73,24 @@
       };
     }
   });
+
+  $effect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    if (mq.matches) mobileOpen = false;
+    const handleDesktopBreakpoint = (e: MediaQueryListEvent) => {
+      if (e.matches) mobileOpen = false;
+    };
+    mq.addEventListener("change", handleDesktopBreakpoint);
+    return () => mq.removeEventListener("change", handleDesktopBreakpoint);
+  });
 </script>
 
 <svelte:window
   onscroll={handleScroll}
   onkeydown={(e) => {
     if (e.key === "Escape" && mobileOpen) closeMobile();
+    trapFocus(e);
   }}
 />
 
@@ -156,7 +190,7 @@
   <button
     bind:this={mobileToggleButton}
     onclick={toggleMobile}
-    class="md:hidden flex items-center justify-center w-11 h-11 rounded-ds-md text-ds-text-tertiary hover:text-ds-text-primary hover:bg-ds-surface-3 transition-colors duration-200"
+    class="md:hidden flex items-center justify-center w-12 h-12 rounded-ds-md text-ds-text-tertiary hover:text-ds-text-primary hover:bg-ds-surface-3 transition-colors duration-200"
     aria-label="Toggle navigation menu"
     aria-expanded={mobileOpen}
     aria-controls="mobile-nav-panel"
@@ -207,26 +241,32 @@
 >
   <!-- Backdrop -->
   <button
-    class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+    class="absolute inset-0 bg-black/80 backdrop-blur-sm"
     onclick={closeMobile}
     aria-label="Close navigation menu"
     tabindex="-1"
   ></button>
 
   <!-- Panel -->
-  <div
+  <nav
+    bind:this={mobileNavPanel}
     id="mobile-nav-panel"
-    class="absolute top-16 left-0 right-0 bg-ds-surface-1 border-b border-ds-border p-4 flex flex-col gap-1 max-h-[calc(100dvh-4rem)] overflow-y-auto transition-all duration-200"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Mobile navigation"
+    class="absolute top-16 left-0 right-0 bg-[rgba(10,12,18,0.97)] border-b border-ds-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] flex flex-col gap-1 max-h-[calc(100dvh-4rem)] overflow-y-auto transition-all duration-200"
     class:translate-y-0={mobileOpen}
     class:-translate-y-2={!mobileOpen}
   >
-    {#each navLinks as link}
+    {#each navLinks as link, i}
       <a
         href={link.href}
         target="_blank"
         rel="noopener noreferrer"
         onclick={closeMobile}
-        class="px-4 py-3 text-sm text-ds-text-tertiary hover:text-ds-text-primary hover:bg-ds-surface-3 rounded-ds-md transition-colors duration-200"
+        class="px-4 py-3.5 text-base min-h-[48px] flex items-center text-ds-text-tertiary hover:text-ds-text-primary hover:bg-ds-surface-3 rounded-ds-md transition-colors duration-200"
+        class:border-b={i < navLinks.length - 1}
+        class:border-[rgba(255,255,255,0.03)]={i < navLinks.length - 1}
       >
         {link.label}
       </a>
@@ -238,7 +278,7 @@
         target="_blank"
         rel="noopener noreferrer"
         onclick={closeMobile}
-        class="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-white bg-nl-accent hover:bg-nl-accent-dark rounded-ds-full transition-colors duration-200"
+        class="flex items-center justify-center gap-2 w-full px-4 py-3 min-h-[48px] text-sm font-medium text-white bg-nl-accent hover:bg-nl-accent-dark rounded-ds-full transition-colors duration-200"
       >
         Get Started
         <svg
@@ -257,5 +297,5 @@
         </svg>
       </a>
     </div>
-  </div>
+  </nav>
 </div>

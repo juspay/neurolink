@@ -81,6 +81,13 @@ jobs:
           ALGOLIA_SEARCH_API_KEY: ${{ secrets.ALGOLIA_SEARCH_API_KEY }}
           GA_TRACKING_ID: ${{ secrets.GA_TRACKING_ID }}
 
+      - name: Push search index to Algolia
+        if: ${{ env.ALGOLIA_APP_ID != '' && env.ALGOLIA_ADMIN_API_KEY != '' }}
+        run: node scripts/push-algolia-index.js
+        env:
+          ALGOLIA_APP_ID: ${{ secrets.ALGOLIA_APP_ID }}
+          ALGOLIA_ADMIN_API_KEY: ${{ secrets.ALGOLIA_ADMIN_API_KEY }}
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

@@ -17,6 +17,7 @@ import {
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { AsyncLocalStorage } from "async_hooks";
 import { trace } from "@opentelemetry/api";
+import type { Context } from "@opentelemetry/api";
 import { logger } from "../../../../utils/logger.js";
 import type {
   LangfuseConfig,
@@ -171,7 +172,7 @@ class ContextEnricher implements SpanProcessor {
    */
   private detectedOperations = new Map<string, string>();
 
-  onStart(span: Span): void {
+  onStart(span: Span, parentContext: Context): void {
     const context = contextStorage.getStore();
     const userId = context?.userId ?? currentConfig?.userId ?? "guest";
     const sessionId = context?.sessionId ?? currentConfig?.sessionId;
@@ -248,10 +249,11 @@ class ContextEnricher implements SpanProcessor {
       span.setAttribute("request.id", context.requestId);
     }
 
-    // Set trace name for Langfuse (using proper Langfuse attribute)
-    if (traceName) {
+    const isRootSpan = !trace.getSpan(parentContext);
+
+    if (traceName && isRootSpan) {
       span.setAttribute("langfuse.trace.name", traceName);
-      span.setAttribute("trace.name", traceName); // Keep for compatibility
+      span.setAttribute("trace.name", traceName);
     }
 
     // Set operation name as separate attribute for filtering/analytics
@@ -270,7 +272,12 @@ class ContextEnricher implements SpanProcessor {
             typeof value === "number" ||
             typeof value === "boolean"
           ) {
-            span.setAttribute(`metadata.${key}`, value);
+            if (metadata && isRootSpan) {
+              span.setAttribute(
+                "langfuse.trace.metadata",
+                JSON.stringify(metadata),
+              );
+            }
           } else if (
             Array.isArray(value) &&
             value.every(
@@ -281,10 +288,7 @@ class ContextEnricher implements SpanProcessor {
             )
           ) {
             // OTEL supports homogeneous arrays of primitives
-            span.setAttribute(
-              `metadata.${key}`,
-              value as string[] | number[] | boolean[],
-            );
+            span.setAttribute(`metadata.${key}`, JSON.stringify(value));
           } else {
             // Fall back to JSON string for complex types
             span.setAttribute(`metadata.${key}`, JSON.stringify(value));

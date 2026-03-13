@@ -85,6 +85,7 @@ import type {
   ConversationMemoryConfig,
   ProviderDetails,
 } from "./types/conversation.js";
+import { ConversationMemoryError } from "./types/conversation.js";
 import type {
   ExternalMCPOperationResult,
   ExternalMCPServerInstance,
@@ -6361,6 +6362,58 @@ Current user's request: ${currentInput}`;
       logger.info(`Unregistered custom tool: ${name}`);
     }
     return removed;
+  }
+
+  /**
+   * Update agentic loop report metadata for a conversation session.
+   * Upserts a report entry by reportId — updates existing or adds new.
+   * Only supported when using Redis conversation memory.
+   *
+   * @param sessionId The session identifier
+   * @param report The agentic loop report metadata to upsert
+   * @param userId Optional user identifier
+   * @throws Error if conversation memory is not initialized or is not Redis-backed
+   *
+   * @example
+   * ```typescript
+   * await neurolink.updateAgenticLoopReport("session-123", {
+   *   reportId: "report-abc",
+   *   reportType: "META",
+   *   reportStatus: "INPROGRESS",
+   * });
+   * ```
+   */
+  async updateAgenticLoopReport(
+    sessionId: string,
+    report: import("./types/conversation.js").AgenticLoopReportMetadata,
+    userId?: string,
+  ): Promise<void> {
+    if (!this.conversationMemory) {
+      throw new ConversationMemoryError(
+        "Conversation memory is not initialized. Enable conversationMemory in NeuroLink options.",
+        "CONFIG_ERROR",
+      );
+    }
+
+    // Check if the memory manager is Redis-backed (has updateAgenticLoopReport method)
+    if (
+      !("updateAgenticLoopReport" in this.conversationMemory) ||
+      typeof (this.conversationMemory as unknown as Record<string, unknown>)
+        .updateAgenticLoopReport !== "function"
+    ) {
+      throw new ConversationMemoryError(
+        "updateAgenticLoopReport is only supported with Redis conversation memory.",
+        "CONFIG_ERROR",
+      );
+    }
+
+    await withTimeout(
+      (
+        this
+          .conversationMemory as import("./core/redisConversationMemoryManager.js").RedisConversationMemoryManager
+      ).updateAgenticLoopReport(sessionId, userId, report),
+      5000,
+    );
   }
 
   /**

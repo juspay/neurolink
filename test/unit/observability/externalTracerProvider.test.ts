@@ -19,7 +19,9 @@ vi.mock("../../../src/lib/utils/logger.js", () => ({
 vi.mock("@opentelemetry/api", () => ({
   trace: {
     getTracerProvider: vi.fn(),
+    getSpan: vi.fn().mockReturnValue(undefined),
   },
+  ROOT_CONTEXT: {},
 }));
 
 vi.mock("@opentelemetry/sdk-trace-node", () => ({
@@ -437,7 +439,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("ai.streamText");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["gen_ai.operation.name"]).toBe("ai.streamText");
@@ -469,7 +471,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("ai.generateText");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["gen_ai.operation.name"]).toBe("ai.generateText");
@@ -500,7 +502,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("ai.generateObject");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["gen_ai.operation.name"]).toBe("ai.generateObject");
@@ -531,7 +533,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("chat");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["gen_ai.operation.name"]).toBe("chat");
@@ -562,7 +564,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("embeddings");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["gen_ai.operation.name"]).toBe("embeddings");
@@ -593,7 +595,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("text_completion");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["gen_ai.operation.name"]).toBe("text_completion");
@@ -624,7 +626,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("http.request");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["gen_ai.operation.name"]).toBeUndefined();
@@ -665,7 +667,7 @@ describe("External TracerProvider Support", () => {
           { operationName: "custom-operation", userId: "user@email.com" },
           async () => {
             const mockSpan = createMockSpan("ai.streamText");
-            enricher.onStart(mockSpan as never);
+            enricher.onStart(mockSpan as never, {} as never);
 
             const attrs = mockSpan._getAttributes();
             expect(attrs["gen_ai.operation.name"]).toBe("custom-operation");
@@ -714,7 +716,7 @@ describe("External TracerProvider Support", () => {
           },
           async () => {
             const mockSpan = createMockSpan("ai.streamText");
-            enricher.onStart(mockSpan as never);
+            enricher.onStart(mockSpan as never, {} as never);
 
             const attrs = mockSpan._getAttributes();
             // traceName should win over everything
@@ -757,7 +759,7 @@ describe("External TracerProvider Support", () => {
           { traceName: "standalone-trace-name" },
           async () => {
             const mockSpan = createMockSpan("some-span");
-            enricher.onStart(mockSpan as never);
+            enricher.onStart(mockSpan as never, {} as never);
 
             const attrs = mockSpan._getAttributes();
             expect(attrs["langfuse.trace.name"]).toBe("standalone-trace-name");
@@ -793,7 +795,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("ai.streamText");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         // Should not auto-detect operation name
@@ -838,7 +840,7 @@ describe("External TracerProvider Support", () => {
           { autoDetectOperationName: false, userId: "user@test.com" },
           async () => {
             const mockSpan = createMockSpan("ai.streamText");
-            enricher.onStart(mockSpan as never);
+            enricher.onStart(mockSpan as never, {} as never);
 
             const attrs = mockSpan._getAttributes();
             // Should not auto-detect operation name
@@ -884,7 +886,7 @@ describe("External TracerProvider Support", () => {
           { autoDetectOperationName: true, userId: "user@test.com" },
           async () => {
             const mockSpan = createMockSpan("ai.streamText");
-            enricher.onStart(mockSpan as never);
+            enricher.onStart(mockSpan as never, {} as never);
 
             const attrs = mockSpan._getAttributes();
             // Should auto-detect operation name due to context override
@@ -925,7 +927,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("ai.streamText");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["langfuse.trace.name"]).toBe("[ai.streamText] guest");
@@ -958,7 +960,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("http.request");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["langfuse.trace.name"]).toBe("[unknown] guest");
@@ -997,7 +999,7 @@ describe("External TracerProvider Support", () => {
 
         await setLangfuseContext({ userId: "john@example.com" }, async () => {
           const mockSpan = createMockSpan("ai.generateText");
-          enricher.onStart(mockSpan as never);
+          enricher.onStart(mockSpan as never, {} as never);
 
           const attrs = mockSpan._getAttributes();
           expect(attrs["langfuse.trace.name"]).toBe(
@@ -1037,7 +1039,7 @@ describe("External TracerProvider Support", () => {
 
         await setLangfuseContext({ userId: "john@example.com" }, async () => {
           const mockSpan = createMockSpan("ai.generateText");
-          enricher.onStart(mockSpan as never);
+          enricher.onStart(mockSpan as never, {} as never);
 
           const attrs = mockSpan._getAttributes();
           expect(attrs["langfuse.trace.name"]).toBe(
@@ -1077,7 +1079,7 @@ describe("External TracerProvider Support", () => {
 
         await setLangfuseContext({ userId: "john@example.com" }, async () => {
           const mockSpan = createMockSpan("ai.generateText");
-          enricher.onStart(mockSpan as never);
+          enricher.onStart(mockSpan as never, {} as never);
 
           const attrs = mockSpan._getAttributes();
           expect(attrs["langfuse.trace.name"]).toBe("ai.generateText");
@@ -1115,7 +1117,7 @@ describe("External TracerProvider Support", () => {
 
         await setLangfuseContext({ userId: "john@example.com" }, async () => {
           const mockSpan = createMockSpan("ai.generateText");
-          enricher.onStart(mockSpan as never);
+          enricher.onStart(mockSpan as never, {} as never);
 
           const attrs = mockSpan._getAttributes();
           expect(attrs["langfuse.trace.name"]).toBe("john@example.com");
@@ -1154,7 +1156,7 @@ describe("External TracerProvider Support", () => {
 
         await setLangfuseContext({ userId: "user@test.com" }, async () => {
           const mockSpan = createMockSpan("some-random-span");
-          enricher.onStart(mockSpan as never);
+          enricher.onStart(mockSpan as never, {} as never);
 
           const attrs = mockSpan._getAttributes();
           // No operation detected, should fall back to userId
@@ -1194,7 +1196,7 @@ describe("External TracerProvider Support", () => {
 
         await setLangfuseContext({ userId: "user@test.com" }, async () => {
           const mockSpan = createMockSpan("http.request");
-          enricher.onStart(mockSpan as never);
+          enricher.onStart(mockSpan as never, {} as never);
 
           const attrs = mockSpan._getAttributes();
           // No operation detected with "operationName" format should fall back to userId
@@ -1227,7 +1229,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("http.request");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["langfuse.trace.name"]).toBe("guest");
@@ -1260,7 +1262,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("ai.embedText");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["gen_ai.operation.name"]).toBe("ai.embedText");
@@ -1296,7 +1298,7 @@ describe("External TracerProvider Support", () => {
 
         await setLangfuseContext({ userId: "admin@company.com" }, async () => {
           const mockSpan = createMockSpan("ai.streamObject");
-          enricher.onStart(mockSpan as never);
+          enricher.onStart(mockSpan as never, {} as never);
 
           const attrs = mockSpan._getAttributes();
           expect(attrs["langfuse.trace.name"]).toBe(
@@ -1331,7 +1333,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("ai.generateText");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["langfuse.trace.name"]).toBe("guest:ai.generateText");
@@ -1365,7 +1367,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan(undefined);
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["gen_ai.operation.name"]).toBeUndefined();
@@ -1397,7 +1399,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["gen_ai.operation.name"]).toBeUndefined();
@@ -1436,7 +1438,7 @@ describe("External TracerProvider Support", () => {
           { operationName: null, userId: "user@test.com" },
           async () => {
             const mockSpan = createMockSpan("ai.streamText");
-            enricher.onStart(mockSpan as never);
+            enricher.onStart(mockSpan as never, {} as never);
 
             const attrs = mockSpan._getAttributes();
             // null operationName should still allow auto-detection
@@ -1471,7 +1473,7 @@ describe("External TracerProvider Support", () => {
         const enricher = createContextEnricher();
         const mockSpan = createMockSpan("ai.streamText");
 
-        enricher.onStart(mockSpan as never);
+        enricher.onStart(mockSpan as never, {} as never);
 
         const attrs = mockSpan._getAttributes();
         expect(attrs["langfuse.trace.name"]).toBe(
@@ -1542,7 +1544,7 @@ describe("External TracerProvider Support", () => {
             { "user.id": "user@test.com" },
             traceId,
           );
-          enricher.onStart(wrapperSpan as never);
+          enricher.onStart(wrapperSpan as never, {} as never);
 
           // Wrapper span should have userId only at this point
           expect(wrapperSpan._getAttributes()["langfuse.trace.name"]).toBe(
@@ -1555,7 +1557,7 @@ describe("External TracerProvider Support", () => {
             {},
             traceId,
           );
-          enricher.onStart(aiSpan as never);
+          enricher.onStart(aiSpan as never, {} as never);
 
           // Step 3: AI SDK span ends
           enricher.onEnd(aiSpan as never);
@@ -1617,7 +1619,7 @@ describe("External TracerProvider Support", () => {
               },
               traceId,
             );
-            enricher.onStart(wrapperSpan as never);
+            enricher.onStart(wrapperSpan as never, {} as never);
 
             // AI SDK span
             const aiSpan = createMockSpanWithAttributes(
@@ -1625,7 +1627,7 @@ describe("External TracerProvider Support", () => {
               {},
               traceId,
             );
-            enricher.onStart(aiSpan as never);
+            enricher.onStart(aiSpan as never, {} as never);
             enricher.onEnd(aiSpan as never);
 
             // Wrapper span ends
@@ -1680,7 +1682,7 @@ describe("External TracerProvider Support", () => {
             { "user.id": "user@test.com" },
             traceId,
           );
-          enricher.onStart(wrapperSpan as never);
+          enricher.onStart(wrapperSpan as never, {} as never);
 
           // First AI operation
           const aiSpan1 = createMockSpanWithAttributes(
@@ -1688,7 +1690,7 @@ describe("External TracerProvider Support", () => {
             {},
             traceId,
           );
-          enricher.onStart(aiSpan1 as never);
+          enricher.onStart(aiSpan1 as never, {} as never);
 
           // Second AI operation (should not override first)
           const aiSpan2 = createMockSpanWithAttributes(
@@ -1696,7 +1698,7 @@ describe("External TracerProvider Support", () => {
             {},
             traceId,
           );
-          enricher.onStart(aiSpan2 as never);
+          enricher.onStart(aiSpan2 as never, {} as never);
 
           enricher.onEnd(aiSpan1 as never);
           enricher.onEnd(aiSpan2 as never);
@@ -1748,7 +1750,7 @@ describe("External TracerProvider Support", () => {
             { "user.id": "user@test.com" },
             traceId,
           );
-          enricher.onStart(regularSpan as never);
+          enricher.onStart(regularSpan as never, {} as never);
 
           // AI span
           const aiSpan = createMockSpanWithAttributes(
@@ -1756,7 +1758,7 @@ describe("External TracerProvider Support", () => {
             {},
             traceId,
           );
-          enricher.onStart(aiSpan as never);
+          enricher.onStart(aiSpan as never, {} as never);
           enricher.onEnd(aiSpan as never);
 
           // Regular span ends (no trace-root attribute)
@@ -1808,14 +1810,14 @@ describe("External TracerProvider Support", () => {
             { "user.id": "user@test.com" },
             traceId,
           );
-          enricher.onStart(wrapperSpan1 as never);
+          enricher.onStart(wrapperSpan1 as never, {} as never);
 
           const aiSpan1 = createMockSpanWithAttributes(
             "ai.streamText",
             {},
             traceId,
           );
-          enricher.onStart(aiSpan1 as never);
+          enricher.onStart(aiSpan1 as never, {} as never);
           enricher.onEnd(aiSpan1 as never);
 
           wrapperSpan1.attributes["langfuse.span.type"] = "trace-root";
@@ -1827,7 +1829,7 @@ describe("External TracerProvider Support", () => {
             { "user.id": "user@test.com" },
             traceId,
           );
-          enricher.onStart(wrapperSpan2 as never);
+          enricher.onStart(wrapperSpan2 as never, {} as never);
 
           // No AI span this time
           wrapperSpan2.attributes["langfuse.span.type"] = "trace-root";

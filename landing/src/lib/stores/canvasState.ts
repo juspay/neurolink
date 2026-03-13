@@ -1,7 +1,16 @@
 import { writable, derived } from "svelte/store";
 
+export type SectionId =
+  | "hero"
+  | "streams"
+  | "flow"
+  | "connectors"
+  | "observe"
+  | "ecosystem"
+  | "cta";
+
 // Which landing section is currently in view
-export const activeSection = writable<string>("hero");
+export const activeSection = writable<SectionId>("hero");
 export const scrollProgress = writable<number>(0); // 0–1
 export const scrollVelocity = writable<number>(0); // pixels/frame, smoothed
 
@@ -16,7 +25,7 @@ export interface SectionCanvasConfig {
   spinalActivity: number;
 }
 
-const SECTION_CONFIGS: Record<string, SectionCanvasConfig> = {
+const SECTION_CONFIGS: Record<SectionId, SectionCanvasConfig> = {
   hero: {
     intensity: 0.4,
     particleSpeed: 1,
@@ -35,16 +44,7 @@ const SECTION_CONFIGS: Record<string, SectionCanvasConfig> = {
     glowNodes: false,
     spinalActivity: 1.5,
   },
-  features: {
-    intensity: 0.6,
-    particleSpeed: 2,
-    branchGrowth: 4,
-    signalDensity: 20,
-    dominantColor: "#00f0ff",
-    glowNodes: false,
-    spinalActivity: 1.5,
-  },
-  pipe: {
+  flow: {
     intensity: 0.7,
     particleSpeed: 1.5,
     branchGrowth: 4,
@@ -62,7 +62,7 @@ const SECTION_CONFIGS: Record<string, SectionCanvasConfig> = {
     glowNodes: true,
     spinalActivity: 1.2,
   },
-  developer: {
+  observe: {
     intensity: 0.5,
     particleSpeed: 1.5,
     branchGrowth: 3,
@@ -70,6 +70,15 @@ const SECTION_CONFIGS: Record<string, SectionCanvasConfig> = {
     dominantColor: "#00f0ff",
     glowNodes: false,
     spinalActivity: 1.2,
+  },
+  ecosystem: {
+    intensity: 0.45,
+    particleSpeed: 1.2,
+    branchGrowth: 3,
+    signalDensity: 10,
+    dominantColor: "#00d2ff",
+    glowNodes: false,
+    spinalActivity: 1,
   },
   cta: {
     intensity: 0.3,

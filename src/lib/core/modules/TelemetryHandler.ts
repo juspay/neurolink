@@ -30,6 +30,7 @@ import { recordProviderPerformanceFromMetrics } from "../evaluationProviders.js"
 import { modelConfig } from "../modelConfiguration.js";
 import { TelemetryService } from "../../telemetry/telemetryService.js";
 import { calculateCost, hasPricing } from "../../utils/pricing.js";
+import { getLangfuseContext } from "../../services/server/ai/observability/instrumentation.js";
 
 /**
  * TelemetryHandler class - Handles analytics and telemetry for AI providers
@@ -207,8 +208,9 @@ export class TelemetryHandler {
     }
 
     const context = options.context as Context;
-    const traceName = context?.traceName;
-    const userId = context?.userId;
+    const langfuseContext = getLangfuseContext();
+    const traceName = context?.traceName ?? langfuseContext?.traceName;
+    const userId = context?.userId ?? langfuseContext?.userId;
     const functionId = traceName ? traceName : userId ? userId : "guest";
 
     const metadata: Record<string, string | number | boolean> = {
@@ -238,7 +240,7 @@ export class TelemetryHandler {
       functionId,
       metadata,
       recordInputs:
-        process.env.NEUROLINK_RECORD_INPUTS?.toLowerCase() === "true",
+        process.env.NEUROLINK_RECORD_INPUTS?.toLowerCase() !== "false",
       recordOutputs: true,
     };
   }

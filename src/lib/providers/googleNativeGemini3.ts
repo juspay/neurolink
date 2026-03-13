@@ -10,7 +10,11 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Tool } from "ai";
+import {
+  type Tool,
+  jsonSchema as aiJsonSchema,
+  tool as createAISDKTool,
+} from "ai";
 import {
   DEFAULT_MAX_STEPS,
   DEFAULT_TOOL_MAX_RETRIES,
@@ -67,6 +71,190 @@ export type CollectedChunkResult = {
 // ── Functions ──
 
 /**
+ * Sanitize a JSON Schema for Gemini's proto-based API.
+ *
+ * Gemini cannot handle `anyOf`/`oneOf` union types in function declarations
+ * because its proto format expects a single `type` field, not a list of types.
+ * This function recursively converts unions to `string` type (the most
+ * permissive primitive that can represent any value as text).
+ *
+ * Also removes `$schema`, `additionalProperties`, and `default` keys that
+ * Gemini's proto format doesn't support.
+ */
+export function sanitizeSchemaForGemini(
+  schema: Record<string, unknown>,
+): Record<string, unknown> {
+  // If this node has anyOf/oneOf, collapse to string type
+  if (Array.isArray(schema.anyOf) || Array.isArray(schema.oneOf)) {
+    const unionKey = schema.anyOf ? "anyOf" : "oneOf";
+    const variants = schema[unionKey] as Record<string, unknown>[];
+
+    // Check if it's a nullable union (e.g., anyOf: [{type: "string"}, {type: "null"}])
+    const nonNullVariants = variants.filter(
+      (v) => v.type !== "null" && v.type !== "undefined",
+    );
+
+    if (nonNullVariants.length === 1) {
+      // Simple nullable — use the non-null type with nullable flag
+      const base = sanitizeSchemaForGemini({ ...nonNullVariants[0] });
+      base.nullable = true;
+      if (schema.description) {
+        base.description = schema.description;
+      }
+      return base;
+    }
+
+    // Multi-type union — collapse to string with description noting the original types
+    const types = nonNullVariants.map((v) => v.type || "unknown").join(" | ");
+    const result: Record<string, unknown> = { type: "string" };
+    const desc = schema.description
+      ? `${schema.description} (accepts: ${types})`
+      : `Value as string (accepts: ${types})`;
+    result.description = desc;
+    if (variants.some((v) => v.type === "null")) {
+      result.nullable = true;
+    }
+    return result;
+  }
+
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(schema)) {
+    // Skip keys unsupported by Gemini proto format
+    if (
+      key === "$schema" ||
+      key === "additionalProperties" ||
+      key === "default"
+    ) {
+      continue;
+    }
+
+    if (key === "properties" && value && typeof value === "object") {
+      const properties: Record<string, unknown> = {};
+      for (const [propName, propSchema] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
+        if (propSchema && typeof propSchema === "object") {
+          properties[propName] = sanitizeSchemaForGemini(
+            propSchema as Record<string, unknown>,
+          );
+        } else {
+          properties[propName] = propSchema;
+        }
+      }
+      result[key] = properties;
+    } else if (key === "items" && value && typeof value === "object") {
+      if (Array.isArray(value)) {
+        result[key] = value.map((item) =>
+          item && typeof item === "object"
+            ? sanitizeSchemaForGemini(item as Record<string, unknown>)
+            : item,
+        );
+      } else {
+        result[key] = sanitizeSchemaForGemini(value as Record<string, unknown>);
+      }
+    } else {
+      result[key] = value;
+    }
+  }
+
+  // Recurse through composed schema branches
+  if (Array.isArray(result.allOf)) {
+    result.allOf = result.allOf.map((s: Record<string, unknown>) =>
+      sanitizeSchemaForGemini(s),
+    );
+  }
+  if (result.not && typeof result.not === "object") {
+    result.not = sanitizeSchemaForGemini(result.not as Record<string, unknown>);
+  }
+  for (const branch of ["if", "then", "else"] as const) {
+    if (result[branch] && typeof result[branch] === "object") {
+      result[branch] = sanitizeSchemaForGemini(
+        result[branch] as Record<string, unknown>,
+      );
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Sanitize Vercel AI SDK tools for Gemini compatibility.
+ *
+ * For the Vercel AI SDK path (non-native), tool parameters are Zod schemas that
+ * get converted to JSON Schema internally by @ai-sdk/google. This conversion
+ * doesn't sanitize union types (anyOf/oneOf), causing Gemini proto errors.
+ *
+ * This function pre-converts each tool's Zod parameters to sanitized JSON Schema
+ * and re-wraps with the Vercel AI SDK's jsonSchema() helper.
+ */
+export function sanitizeToolsForGemini(tools: Record<string, Tool>): {
+  tools: Record<string, Tool>;
+  dropped: string[];
+} {
+  const sanitized: Record<string, Tool> = {};
+  const dropped: string[] = [];
+
+  for (const [name, tool] of Object.entries(tools)) {
+    try {
+      const params = (tool as Record<string, unknown>).parameters;
+      if (
+        params &&
+        typeof params === "object" &&
+        "_def" in params &&
+        typeof (params as Record<string, unknown>).parse === "function"
+      ) {
+        const rawJsonSchema = convertZodToJsonSchema(
+          params as ZodUnknownSchema,
+        ) as Record<string, unknown>;
+        const inlined = inlineJsonSchema(rawJsonSchema);
+        // Gemini sanitization strips Zod-only features not supported by the Gemini API:
+        // union types (anyOf/oneOf) are collapsed to string, default values and
+        // additionalProperties are removed. The resulting schema is Gemini-compatible
+        // but loses some type constraints from the original Zod schema.
+        const sanitizedSchema = sanitizeSchemaForGemini(inlined);
+
+        sanitized[name] = createAISDKTool({
+          description: tool.description || `Tool: ${name}`,
+          parameters: aiJsonSchema(sanitizedSchema),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          execute: tool.execute as any,
+        });
+      } else if (
+        params &&
+        typeof params === "object" &&
+        "jsonSchema" in params
+      ) {
+        // Non-Zod JSON schema (e.g., from ai SDK jsonSchema() helper) — still needs sanitization
+        const rawSchema = (params as Record<string, unknown>)
+          .jsonSchema as Record<string, unknown>;
+        const sanitizedSchema = sanitizeSchemaForGemini(
+          inlineJsonSchema(rawSchema),
+        );
+
+        sanitized[name] = createAISDKTool({
+          description: tool.description || `Tool: ${name}`,
+          parameters: aiJsonSchema(sanitizedSchema),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          execute: tool.execute as any,
+        });
+      } else {
+        sanitized[name] = tool;
+      }
+    } catch (error) {
+      logger.warn(
+        `[Gemini] Failed to sanitize tool "${name}", skipping: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // Don't fall back to the original tool — an incompatible schema would fail the Gemini request
+      dropped.push(name);
+      continue;
+    }
+  }
+
+  return { tools: sanitized, dropped };
+}
+
+/**
  * Convert Vercel AI SDK tools to @google/genai FunctionDeclarations and an execute map.
  *
  * This handles both Zod schemas and plain JSON Schema objects for tool parameters.
@@ -96,10 +284,9 @@ export function buildNativeToolDeclarations(
         rawSchema = { type: "object", properties: {} };
       }
 
-      decl.parametersJsonSchema = inlineJsonSchema(rawSchema);
-      if (decl.parametersJsonSchema.$schema) {
-        delete decl.parametersJsonSchema.$schema;
-      }
+      decl.parametersJsonSchema = sanitizeSchemaForGemini(
+        inlineJsonSchema(rawSchema),
+      );
     }
 
     functionDeclarations.push(decl);

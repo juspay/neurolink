@@ -147,11 +147,13 @@ All server adapters expose the same REST API endpoints:
 
 ### Agent Operations
 
-| Endpoint               | Method | Description                            |
-| ---------------------- | ------ | -------------------------------------- |
-| `/api/agent/execute`   | POST   | Execute agent and return full response |
-| `/api/agent/stream`    | POST   | Stream agent response via SSE          |
-| `/api/agent/providers` | GET    | List available AI providers            |
+| Endpoint                | Method | Description                                  |
+| ----------------------- | ------ | -------------------------------------------- |
+| `/api/agent/execute`    | POST   | Execute agent and return full response       |
+| `/api/agent/stream`     | POST   | Stream agent response via SSE                |
+| `/api/agent/providers`  | GET    | List available AI providers                  |
+| `/api/agent/embed`      | POST   | Generate embedding for a single text         |
+| `/api/agent/embed-many` | POST   | Generate embeddings for multiple texts batch |
 
 ### Tool Operations
 
@@ -431,6 +433,59 @@ data: {"type":"text-delta","content":" a time...","timestamp":1706745600003}
 data: {"type":"text-end","timestamp":1706745600100}
 
 data: {"type":"finish","usage":{"inputTokens":5,"outputTokens":50,"totalTokens":55}}
+```
+
+### Generate Embedding
+
+**Request:**
+
+```json
+POST /api/agent/embed
+Content-Type: application/json
+
+{
+  "text": "What is the meaning of life?",
+  "provider": "openai",
+  "model": "text-embedding-3-small"
+}
+```
+
+**Response:**
+
+```json
+{
+  "embedding": [0.123, -0.456, 0.789, ...],
+  "provider": "openai",
+  "model": "text-embedding-3-small",
+  "dimension": 1536
+}
+```
+
+### Generate Batch Embeddings
+
+**Request:**
+
+```json
+POST /api/agent/embed-many
+Content-Type: application/json
+
+{
+  "texts": ["First document", "Second document"],
+  "provider": "googleAiStudio",
+  "model": "gemini-embedding-001"
+}
+```
+
+**Response:**
+
+```json
+{
+  "embeddings": [[0.123, -0.456, ...], [0.789, -0.012, ...]],
+  "provider": "googleAiStudio",
+  "model": "gemini-embedding-001",
+  "count": 2,
+  "dimension": 768
+}
 ```
 
 ---

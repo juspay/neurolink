@@ -66,11 +66,12 @@ export function SearchResults({
     estimateSize: useCallback(
       (index: number) => {
         const item = flatItems[index];
-        return item?.type === "header" ? 32 : 72;
+        return item?.type === "header" ? 32 : 120;
       },
       [flatItems],
     ),
     overscan: 5,
+    measureElement: (element) => element.getBoundingClientRect().height,
   });
 
   // Scroll selected item into view
@@ -122,12 +123,13 @@ export function SearchResults({
             return (
               <div
                 key={`header-${item.group}`}
+                ref={rowVirtualizer.measureElement}
+                data-index={virtualRow.index}
                 style={{
                   position: "absolute",
                   top: 0,
                   left: 0,
                   width: "100%",
-                  height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
@@ -142,14 +144,13 @@ export function SearchResults({
             return (
               <div
                 key={item.result.objectID}
-                role="option"
-                aria-selected={isSelected}
+                ref={rowVirtualizer.measureElement}
+                data-index={virtualRow.index}
                 style={{
                   position: "absolute",
                   top: 0,
                   left: 0,
                   width: "100%",
-                  height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
                 onMouseEnter={() => handleMouseEnter(item.flatIndex)}

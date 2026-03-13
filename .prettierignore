@@ -62,3 +62,6 @@ docs-site/docs/
 
 # Svelte files require prettier-plugin-svelte (handled by landing workspace)
 landing/**/*.svelte
+
+# Recovered/temporary documentation
+recovered-docs/

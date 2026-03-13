@@ -2099,4 +2099,43 @@ export class AmazonBedrockProvider extends BaseProvider {
       throw this.handleProviderError(error);
     }
   }
+
+  /**
+   * Generate embeddings for multiple texts in a single batch
+   * @param texts - The texts to embed
+   * @param modelName - The embedding model to use (default: amazon.titan-embed-text-v2:0)
+   * @returns Promise resolving to an array of embedding vectors
+   */
+  async embedMany(texts: string[], modelName?: string): Promise<number[][]> {
+    const embeddingModelName = modelName || "amazon.titan-embed-text-v2:0";
+
+    logger.debug("Generating batch embeddings", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      count: texts.length,
+    });
+
+    try {
+      const embeddings = await Promise.all(
+        texts.map((text) => this.embed(text, embeddingModelName)),
+      );
+
+      logger.debug("Batch embeddings generated successfully", {
+        provider: this.providerName,
+        model: embeddingModelName,
+        count: embeddings.length,
+        embeddingDimension: embeddings[0]?.length,
+      });
+
+      return embeddings;
+    } catch (error) {
+      logger.error("Batch embedding generation failed", {
+        error: error instanceof Error ? error.message : String(error),
+        model: embeddingModelName,
+        count: texts.length,
+      });
+
+      throw this.handleProviderError(error);
+    }
+  }
 }

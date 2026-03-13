@@ -9,6 +9,53 @@ interface SearchResultItemProps {
   onClick: () => void;
 }
 
+function ResultIcon({ isSelected }: { isSelected: boolean }) {
+  return (
+    <div className={styles.resultIcon} data-selected={isSelected}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M4.5 2h5.586a1 1 0 0 1 .707.293l2.414 2.414a1 1 0 0 1 .293.707V13a1 1 0 0 1-1 1h-8a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z"
+          stroke="currentColor"
+          strokeWidth="1.2"
+        />
+        <path
+          d="M6.5 7h3M6.5 9.5h3"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+      </svg>
+    </div>
+  );
+}
+
+function ChevronRight() {
+  return (
+    <svg
+      className={styles.resultChevron}
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M6 4l4 4-4 4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export const SearchResultItem = forwardRef<
   HTMLAnchorElement,
   SearchResultItemProps
@@ -70,40 +117,44 @@ export const SearchResultItem = forwardRef<
       role="option"
       aria-selected={isSelected}
     >
-      {breadcrumbParts.length > 0 && (
-        <div className={styles.resultBreadcrumb}>
-          {breadcrumbParts.map((part, index) => {
-            const key = `lvl${index}`;
-            return (
-              <React.Fragment key={key}>
-                {index > 0 && (
-                  <span className={styles.resultBreadcrumbSeparator}>
-                    &rsaquo;
-                  </span>
-                )}
-                <span
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(part, {
-                      ALLOWED_TAGS: ["mark"],
-                      ALLOWED_ATTR: [],
-                    }),
-                  }}
-                />
-              </React.Fragment>
-            );
-          })}
-        </div>
-      )}
-      <div
-        className={styles.resultTitle}
-        dangerouslySetInnerHTML={{ __html: sanitizedTitle }}
-      />
-      {content && (
+      <ResultIcon isSelected={isSelected} />
+      <div className={styles.resultBody}>
+        {breadcrumbParts.length > 0 && (
+          <div className={styles.resultBreadcrumb}>
+            {breadcrumbParts.map((part, index) => {
+              const key = `lvl${index}`;
+              return (
+                <React.Fragment key={key}>
+                  {index > 0 && (
+                    <span className={styles.resultBreadcrumbSeparator}>
+                      &rsaquo;
+                    </span>
+                  )}
+                  <span
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(part, {
+                        ALLOWED_TAGS: ["mark"],
+                        ALLOWED_ATTR: [],
+                      }),
+                    }}
+                  />
+                </React.Fragment>
+              );
+            })}
+          </div>
+        )}
         <div
-          className={styles.resultContent}
-          dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+          className={styles.resultTitle}
+          dangerouslySetInnerHTML={{ __html: sanitizedTitle }}
         />
-      )}
+        {content && (
+          <div
+            className={styles.resultContent}
+            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+          />
+        )}
+      </div>
+      <ChevronRight />
     </a>
   );
 });

@@ -30,23 +30,23 @@ const MODEL_CONFIGS = {
       provider: "vertex",
       model: "gemini-2.5-flash",
       capabilities: ["speed", "general", "code", "basic-reasoning"],
-      avgResponseTime: 800, // ms
+      avgResponseTime: 800,
       costPerToken: 0.0001,
       reasoning: "Optimized for speed and efficiency via Vertex AI",
     },
     fallback: {
       provider: "vertex",
-      model: "gemini-2.5-pro",
+      model: "claude-haiku-4-5@20251001",
       capabilities: ["speed", "general", "basic-reasoning"],
       avgResponseTime: 1200,
       costPerToken: 0.0002,
-      reasoning: "Vertex AI Gemini Pro fallback",
+      reasoning: "Vertex AI Claude Haiku fallback",
     },
   },
   reasoning: {
     primary: {
       provider: "vertex",
-      model: "claude-sonnet-4@20250514",
+      model: "claude-sonnet-4-5@20250929",
       capabilities: [
         "reasoning",
         "analysis",
@@ -54,14 +54,14 @@ const MODEL_CONFIGS = {
         "code",
         "creativity",
       ],
-      avgResponseTime: 3000, // ms
+      avgResponseTime: 3000,
       costPerToken: 0.003,
       reasoning:
-        "Advanced reasoning and analysis via Claude Sonnet 4 on Vertex AI",
+        "Advanced reasoning and analysis via Claude Sonnet 4-5 on Vertex AI",
     },
     fallback: {
       provider: "vertex",
-      model: "claude-opus-4@20250514",
+      model: "claude-opus-4-5@20251101",
       capabilities: [
         "reasoning",
         "analysis",
@@ -72,7 +72,7 @@ const MODEL_CONFIGS = {
       ],
       avgResponseTime: 4000,
       costPerToken: 0.005,
-      reasoning: "Claude Opus 4 fallback on Vertex AI for most complex tasks",
+      reasoning: "Claude Opus 4-5 fallback on Vertex AI for most complex tasks",
     },
   },
 } as const;

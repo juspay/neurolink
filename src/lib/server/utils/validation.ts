@@ -121,6 +121,27 @@ export const SessionMessagesQuerySchema = z.object({
     .optional(),
 });
 
+/**
+ * Embed request schema (single text)
+ */
+export const EmbedRequestSchema = z.object({
+  text: z.string().min(1, "Text is required"),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+});
+
+/**
+ * Embed many request schema (batch texts)
+ */
+export const EmbedManyRequestSchema = z.object({
+  texts: z
+    .array(z.string().min(1))
+    .min(1, "At least one text is required")
+    .max(2048, "Maximum 2048 texts per batch"),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+});
+
 // ============================================
 // Error Response Types
 // ============================================

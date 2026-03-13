@@ -86,8 +86,8 @@ describe("Agent Routes", () => {
       expect(routes.prefix).toBe(`${basePath}/agent`);
     });
 
-    it("should create three routes", () => {
-      expect(routes.routes.length).toBe(3);
+    it("should create five routes", () => {
+      expect(routes.routes.length).toBe(5);
     });
 
     it("should create execute route", () => {

@@ -369,6 +369,29 @@ When changing how messages are constructed:
 4. Add tests for new message types
 5. Update type definitions in `src/lib/types/conversation.ts`
 
+### Embeddings
+
+Providers expose `embed()` and `embedMany()` methods for generating vector embeddings. The `AIProvider` type interface includes both methods; unsupported providers throw descriptive errors.
+
+**Supported providers and defaults:**
+
+| Provider         | Default Model                  | Env Override                |
+| ---------------- | ------------------------------ | --------------------------- |
+| OpenAI           | `text-embedding-3-small`       | —                           |
+| Google AI Studio | `gemini-embedding-001`         | `GOOGLE_AI_EMBEDDING_MODEL` |
+| Google Vertex    | `text-embedding-004`           | `VERTEX_EMBEDDING_MODEL`    |
+| Amazon Bedrock   | `amazon.titan-embed-text-v2:0` | —                           |
+
+**Server routes:** `POST /api/agent/embed` (single) and `POST /api/agent/embed-many` (batch) in `src/lib/server/routes/agentRoutes.ts`.
+
+**Key files:**
+
+- `src/lib/core/baseProvider.ts` — Base `embed()` / `embedMany()` stubs
+- `src/lib/types/providers.ts` — `AIProvider` type with embedding methods
+- `src/lib/server/routes/agentRoutes.ts` — Server embedding endpoints
+- `src/lib/server/utils/validation.ts` — `EmbedRequestSchema` / `EmbedManyRequestSchema`
+- `src/lib/server/types.ts` — `EmbedRequest`, `EmbedResponse`, `EmbedManyRequest`, `EmbedManyResponse`
+
 ### Working with Multimodal Content
 
 **For images:**

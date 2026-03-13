@@ -284,6 +284,11 @@ const config: Config = {
           position: "left",
         },
         {
+          href: "https://blog.neurolink.ink",
+          label: "Blog",
+          position: "left",
+        },
+        {
           href: "https://www.npmjs.com/package/@juspay/neurolink",
           label: "NPM",
           position: "right",
@@ -322,6 +327,7 @@ const config: Config = {
         {
           title: "Community",
           items: [
+            { label: "Blog", href: "https://blog.neurolink.ink" },
             { label: "GitHub", href: "https://github.com/juspay/neurolink" },
             {
               label: "GitHub Discussions",
@@ -387,15 +393,8 @@ const config: Config = {
       },
     ],
 
-    // Search index for MCP docs server
-    [
-      "./plugins/docusaurus-plugin-search-index",
-      {
-        docsDir: "docs",
-        outputFile: "search-index.json",
-        debug: process.env.NODE_ENV === "development",
-      },
-    ],
+    // Local search index generation (fallback when Algolia is not configured)
+    "./plugins/docusaurus-plugin-search-index",
 
     // Fix server bundle: handle Node-only native modules
     // (protobufjs from posthog→opentelemetry, ws from jsdom, fsevents, etc.)

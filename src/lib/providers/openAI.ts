@@ -1,5 +1,11 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { type LanguageModelV1, streamText, type Tool } from "ai";
+import {
+  embed,
+  embedMany,
+  type LanguageModelV1,
+  streamText,
+  type Tool,
+} from "ai";
 import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -693,8 +699,6 @@ export class OpenAIProvider extends BaseProvider {
 
     try {
       // Create embedding model using the AI SDK
-      const { embed } = await import("ai");
-
       // Create the OpenAI provider
       const openai = createOpenAI({
         apiKey: getOpenAIApiKey(),
@@ -722,6 +726,53 @@ export class OpenAIProvider extends BaseProvider {
         error: error instanceof Error ? error.message : String(error),
         model: embeddingModelName,
         textLength: text.length,
+      });
+
+      throw this.handleProviderError(error);
+    }
+  }
+
+  /**
+   * Generate embeddings for multiple texts in a single batch
+   * @param texts - The texts to embed
+   * @param modelName - The embedding model to use (default: text-embedding-3-small)
+   * @returns Promise resolving to an array of embedding vectors
+   */
+  async embedMany(texts: string[], modelName?: string): Promise<number[][]> {
+    const embeddingModelName = modelName || "text-embedding-3-small";
+
+    logger.debug("Generating batch embeddings", {
+      provider: this.providerName,
+      model: embeddingModelName,
+      count: texts.length,
+    });
+
+    try {
+      const openai = createOpenAI({
+        apiKey: getOpenAIApiKey(),
+        fetch: createProxyFetch(),
+      });
+
+      const embeddingModel = openai.textEmbeddingModel(embeddingModelName);
+
+      const result = await embedMany({
+        model: embeddingModel,
+        values: texts,
+      });
+
+      logger.debug("Batch embeddings generated successfully", {
+        provider: this.providerName,
+        model: embeddingModelName,
+        count: result.embeddings.length,
+        embeddingDimension: result.embeddings[0]?.length,
+      });
+
+      return result.embeddings;
+    } catch (error) {
+      logger.error("Batch embedding generation failed", {
+        error: error instanceof Error ? error.message : String(error),
+        model: embeddingModelName,
+        count: texts.length,
       });
 
       throw this.handleProviderError(error);

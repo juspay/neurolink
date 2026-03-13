@@ -1082,6 +1082,33 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   /**
+   * Generate embeddings for multiple texts in a single batch
+   *
+   * This is a default implementation that throws an error.
+   * Providers that support embeddings should override this method.
+   * The AI SDK's embedMany automatically handles chunking for models with batch limits.
+   *
+   * @param texts - The texts to embed
+   * @param _modelName - Optional embedding model name (provider-specific)
+   * @returns Promise resolving to an array of embedding vectors
+   * @throws Error if the provider does not support embeddings
+   */
+  async embedMany(texts: string[], _modelName?: string): Promise<number[][]> {
+    logger.warn(
+      `embedMany() called on ${this.providerName} which does not have a native implementation`,
+      {
+        count: texts.length,
+      },
+    );
+    throw new Error(
+      `Batch embedding generation is not supported by the ${this.providerName} provider. ` +
+        `Supported providers: openai, googleAiStudio, vertex/google, bedrock. ` +
+        `Use an embedding model like text-embedding-3-small (OpenAI), gemini-embedding-001 (Google AI), ` +
+        `text-embedding-004 (Vertex), or amazon.titan-embed-text-v2:0 (Bedrock).`,
+    );
+  }
+
+  /**
    * Get the default embedding model for this provider
    *
    * Override in subclasses to provide provider-specific defaults.

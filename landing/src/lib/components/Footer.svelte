@@ -70,10 +70,10 @@
 </script>
 
 <footer
-  class="border-t border-ds-border-subtle pt-10 md:pt-12 pb-8 px-4 md:px-6"
+  class="footer border-t border-ds-border-subtle pt-8 md:pt-12 pb-6 md:pb-8 px-4 md:px-6"
 >
   <div
-    class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-8 md:gap-8 max-w-[1200px] mx-auto"
+    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-8 md:gap-8 max-w-[1200px] mx-auto"
     use:reveal={{ y: 30, stagger: 0.08 }}
   >
     {#each columns as col}
@@ -90,7 +90,8 @@
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="footer-link inline-block text-sm text-ds-text-muted hover:text-nl-accent transition-colors duration-150 overflow-hidden"
+                class="footer-link inline-flex items-center text-sm text-ds-text-muted hover:text-nl-accent transition-colors duration-150 overflow-hidden"
+                style="min-height: 48px;"
               >
                 {link.label}
               </a>
@@ -110,3 +111,19 @@
     </p>
   </div>
 </footer>
+
+<style>
+  @media (min-width: 1024px) {
+    .footer-link {
+      min-height: 0;
+    }
+  }
+
+  @media (max-width: 767px) {
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+      footer {
+        padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+      }
+    }
+  }
+</style>

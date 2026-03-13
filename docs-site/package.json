@@ -36,6 +36,7 @@
     "clsx": "^2.1.1",
     "isomorphic-dompurify": "^2.35.0",
     "lucide-react": "^0.400.0",
+    "minisearch": "^7.2.0",
     "posthog-js": "^1.335.4",
     "prism-react-renderer": "^2.4.1",
     "react": "^18.3.1",

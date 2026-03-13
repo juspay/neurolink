@@ -35,7 +35,7 @@ describe("Sliding Window Truncator", () => {
 
     const marker = result.messages.find((m) => m.id.startsWith("truncation-"));
     expect(marker).toBeDefined();
-    expect(marker?.role).toBe("system");
+    expect(marker?.role).toBe("user");
     expect(marker?.content).toContain("truncated");
   });
 

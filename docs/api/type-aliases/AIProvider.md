@@ -80,6 +80,50 @@ Defined in: [types/providers.ts:308](https://github.com/juspay/neurolink/blob/1b
 
 ---
 
+### embed()
+
+> **embed**(`text`, `modelName?`): `Promise`\<`number[]`\>
+
+Generate an embedding vector for a single text. Throws if the provider does not support embeddings.
+
+#### Parameters
+
+##### text
+
+`string`
+
+##### modelName?
+
+`string`
+
+#### Returns
+
+`Promise`\<`number[]`\>
+
+---
+
+### embedMany()
+
+> **embedMany**(`texts`, `modelName?`): `Promise`\<`number[][]`\>
+
+Generate embedding vectors for multiple texts in a single batch. The AI SDK automatically handles chunking for models with batch limits.
+
+#### Parameters
+
+##### texts
+
+`string[]`
+
+##### modelName?
+
+`string`
+
+#### Returns
+
+`Promise`\<`number[][]`\>
+
+---
+
 ### setupToolExecutor()
 
 > **setupToolExecutor**(`sdk`, `functionTag`): `void`

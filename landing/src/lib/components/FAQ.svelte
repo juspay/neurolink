@@ -15,7 +15,7 @@
     {
       question: "How does NeuroLink compare to LangChain or Vercel AI SDK?",
       answer:
-        "NeuroLink is a single TypeScript package that includes providers, RAG (9 chunking strategies, 22 vector stores), MCP integration with 58+ servers, multi-agent workflows, voice processing, and observability. LangChain requires multiple packages (LangChain + LangGraph + LangSmith) and is Python-first. Vercel AI SDK focuses on provider abstraction but lacks native RAG, agents, voice, and workflow support.",
+        "NeuroLink is a single TypeScript package that includes providers, RAG (10 chunking strategies, 22 vector stores), MCP integration with 58+ servers, multi-agent workflows, voice processing, and observability. LangChain requires multiple packages (LangChain + LangGraph + LangSmith) and is Python-first. Vercel AI SDK focuses on provider abstraction but lacks native RAG, agents, voice, and workflow support.",
     },
     {
       question: "What AI providers does NeuroLink support?",
@@ -40,7 +40,7 @@
     {
       question: "Does NeuroLink support RAG (Retrieval-Augmented Generation)?",
       answer:
-        "Yes. NeuroLink includes a complete RAG pipeline with 9 chunking strategies (character, recursive, sentence, token, markdown, HTML, JSON, LaTeX, semantic), 22 vector store adapters, hybrid search combining BM25 lexical search with vector similarity, and 5 reranker types. Pass files directly to generate() and NeuroLink handles chunking, embedding, and retrieval automatically.",
+        "Yes. NeuroLink includes a complete RAG workflow with 10 chunking strategies (character, recursive, sentence, token, markdown, HTML, JSON, LaTeX, semantic, semantic-markdown), 22 vector store adapters, hybrid search combining BM25 lexical search with vector similarity, and 5 reranker types. Pass files directly to generate() and NeuroLink handles chunking, embedding, and retrieval automatically.",
     },
     {
       question: "What file types can NeuroLink process?",
@@ -55,7 +55,7 @@
     {
       question: "Can NeuroLink build multi-agent systems?",
       answer:
-        "Yes. NeuroLink supports 3 agent topologies: hub-spoke (coordinator delegates to specialists), mesh (peer-to-peer collaboration), and pipeline (sequential processing). The AgentNetwork orchestrator manages agent lifecycle, message routing, and shared context. Agents can use MCP tools, RAG, and memory independently.",
+        "Yes. NeuroLink supports 3 agent topologies: hub-spoke (coordinator delegates to specialists), mesh (peer-to-peer collaboration), and sequential flow (sequential processing). The AgentNetwork orchestrator manages agent lifecycle, message routing, and shared context. Agents can use MCP tools, RAG, and memory independently.",
     },
     {
       question: "What observability and monitoring does NeuroLink provide?",
@@ -70,7 +70,7 @@
     {
       question: "How does NeuroLink handle context window limits?",
       answer:
-        "NeuroLink includes a 4-stage context compaction pipeline that runs automatically: (1) tool output pruning — replaces old tool results with placeholders, (2) file read deduplication — keeps only the latest read of each file, (3) LLM summarization — structured 9-section summaries with iterative merging, and (4) sliding window truncation. The BudgetChecker triggers auto-compaction when context usage exceeds 80%.",
+        "NeuroLink includes a 4-stage context compaction workflow that runs automatically: (1) tool output pruning — replaces old tool results with placeholders, (2) file read deduplication — keeps only the latest read of each file, (3) LLM summarization — structured 9-section summaries with iterative merging, and (4) sliding window truncation. The BudgetChecker triggers auto-compaction when context usage exceeds 80%.",
     },
     {
       question: "Is NeuroLink production-ready?",
@@ -86,56 +86,61 @@
   }
 </script>
 
-<section
-  class="max-w-[800px] mx-auto px-4 md:px-6 py-12 md:py-20 relative z-10"
->
-  <div use:reveal={{ y: 40 }} class="text-center mb-10 md:mb-16">
-    <p class="eyebrow text-[var(--color-nl-accent-lighter)] mb-4">FAQ</p>
-    <h2 class="section-headline font-display text-white drop-shadow-lg">
-      Frequently asked questions
-    </h2>
-  </div>
+<div class="section-ecosystem">
+  <section
+    data-topology-phase="ecosystem"
+    class="max-w-[800px] mx-auto px-4 md:px-6 py-24 md:py-32 relative z-10"
+  >
+    <div use:reveal={{ y: 40 }} class="text-center mb-10 md:mb-16">
+      <p class="eyebrow text-[var(--color-nl-accent-lighter)] mb-4">FAQ</p>
+      <h2 class="section-headline font-display text-white drop-shadow-lg">
+        Frequently asked questions
+      </h2>
+    </div>
 
-  <div class="space-y-4" use:reveal={{ y: 30, stagger: 0.06 }}>
-    {#each faqs as faq, i}
-      <div class="glass-panel overflow-hidden transition-all duration-300">
-        <button
-          onclick={() => toggle(i)}
-          class="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-[rgba(255,255,255,0.02)] transition-colors duration-150"
-          aria-expanded={openIndex === i}
-        >
-          <span class="text-[15px] font-medium text-white pr-4 leading-relaxed">
-            {faq.question}
-          </span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="shrink-0 text-[var(--color-nl-sky)] transition-transform duration-300 drop-shadow-[0_0_8px_rgba(0,240,255,0.4)]"
-            class:rotate-180={openIndex === i}
+    <div class="space-y-3 sm:space-y-4" use:reveal={{ y: 30, stagger: 0.06 }}>
+      {#each faqs as faq, i}
+        <div class="glass-panel overflow-hidden transition-all duration-300">
+          <button
+            onclick={() => toggle(i)}
+            class="w-full flex items-center justify-between px-4 py-4 sm:px-6 sm:py-5 text-left hover:bg-[rgba(255,255,255,0.02)] transition-colors duration-150"
+            aria-expanded={openIndex === i}
           >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
-
-        {#if openIndex === i}
-          <div
-            class="px-6 pb-6 pt-2 border-t border-[rgba(255,255,255,0.05)] bg-[rgba(0,0,0,0.2)]"
-          >
-            <p
-              class="text-[14.5px] text-[var(--color-text-body)] leading-relaxed mt-4"
+            <span
+              class="text-[14px] sm:text-[15px] font-medium text-white pr-4 leading-relaxed"
             >
-              {faq.answer}
-            </p>
-          </div>
-        {/if}
-      </div>
-    {/each}
-  </div>
-</section>
+              {faq.question}
+            </span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="shrink-0 text-[var(--color-nl-sky)] transition-transform duration-300 drop-shadow-[0_0_8px_rgba(0,240,255,0.4)]"
+              class:rotate-180={openIndex === i}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+
+          {#if openIndex === i}
+            <div
+              class="px-4 pb-4 pt-2 sm:px-6 sm:pb-6 border-t border-[rgba(255,255,255,0.05)] bg-[rgba(0,0,0,0.2)]"
+            >
+              <p
+                class="text-[13.5px] sm:text-[14.5px] text-[var(--color-text-body)] leading-relaxed mt-4"
+              >
+                {faq.answer}
+              </p>
+            </div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  </section>
+</div>

@@ -44,10 +44,10 @@
 </script>
 
 <svelte:head>
-  <title>NeuroLink — The Nervous System Pipe for AI Streams</title>
+  <title>NeuroLink — The Nervous System for AI Streams</title>
   <meta
     name="description"
-    content="NeuroLink is the pipe layer for the AI nervous system — connecting live streams of tokens, data, tools, and context through pluggable connectors. TypeScript SDK. 13+ providers. Open source."
+    content="NeuroLink is the signal layer for the AI nervous system — connecting live streams of tokens, data, tools, and context through pluggable connectors. TypeScript SDK. 13+ providers. Open source."
   />
   <link rel="canonical" href="https://neurolink.ink/" />
   <link rel="alternate" hreflang="en" href="https://neurolink.ink/" />
@@ -58,11 +58,11 @@
   <meta property="og:url" content="https://neurolink.ink/" />
   <meta
     property="og:title"
-    content="NeuroLink — The Nervous System Pipe for AI Streams"
+    content="NeuroLink — The Nervous System for AI Streams"
   />
   <meta
     property="og:description"
-    content="NeuroLink is the pipe layer for the AI nervous system — connecting live streams of tokens, data, tools, and context through pluggable connectors. TypeScript SDK. 13+ providers. Open source."
+    content="NeuroLink is the signal layer for the AI nervous system — connecting live streams of tokens, data, tools, and context through pluggable connectors. TypeScript SDK. 13+ providers. Open source."
   />
   <meta property="og:image" content="https://neurolink.ink/api/og?type=home" />
   <meta property="og:site_name" content="NeuroLink" />
@@ -71,11 +71,11 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta
     name="twitter:title"
-    content="NeuroLink — Real-time AI Streaming for Every Provider"
+    content="NeuroLink — The Nervous System for AI Streams"
   />
   <meta
     name="twitter:description"
-    content="Stream AI responses in real-time across 13+ providers. 4 streaming patterns, 24 event types, backpressure control, voice, RAG, and MCP — one unified API."
+    content="NeuroLink is the signal layer for the AI nervous system — connecting live streams of tokens, data, tools, and context through pluggable connectors. TypeScript SDK. 13+ providers. Open source."
   />
   <meta name="twitter:image" content="https://neurolink.ink/api/og?type=home" />
   <meta name="twitter:site" content="@jaborhey" />
@@ -121,7 +121,7 @@
             name: "What is NeuroLink?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "NeuroLink is the pipe layer for the AI nervous system. It connects live streams of tokens, data, tools, and context from 13+ AI providers (the neurons) to the applications and connectors (the organs) that need them. Built in TypeScript. Extracted from production systems at Juspay.",
+              text: "NeuroLink is the signal layer for the AI nervous system. It connects live streams of tokens, data, tools, and context from 13+ AI providers (the neurons) to the applications and connectors (the organs) that need them. Built in TypeScript. Extracted from production systems at Juspay.",
             },
           },
           {
@@ -137,7 +137,7 @@
             name: "How does NeuroLink compare to LangChain or Vercel AI SDK?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "NeuroLink is a single TypeScript package that includes providers, RAG (9 chunking strategies, 22 vector stores), MCP integration, multi-agent workflows, voice processing, and observability. LangChain requires multiple packages and is Python-first. Vercel AI SDK focuses on provider abstraction but lacks native RAG, agents, and voice support.",
+              text: "NeuroLink is a single TypeScript package that includes providers, RAG (10 chunking strategies, 22 vector stores), MCP integration, multi-agent workflows, voice processing, and observability. LangChain requires multiple packages and is Python-first. Vercel AI SDK focuses on provider abstraction but lacks native RAG, agents, and voice support.",
             },
           },
           {
@@ -177,7 +177,7 @@
             name: "Does NeuroLink support RAG (Retrieval-Augmented Generation)?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Yes. NeuroLink includes a complete RAG pipeline with 9 chunking strategies (character, recursive, sentence, token, markdown, HTML, JSON, LaTeX, semantic), 22 vector store adapters, hybrid search combining BM25 lexical search with vector similarity, and 5 reranker types. Pass files directly to generate() and NeuroLink handles chunking, embedding, and retrieval automatically.",
+              text: "Yes. NeuroLink includes a complete RAG workflow with 10 chunking strategies (character, recursive, sentence, token, markdown, HTML, JSON, LaTeX, semantic, semantic-markdown), 22 vector store adapters, hybrid search combining BM25 lexical search with vector similarity, and 5 reranker types. Pass files directly to generate() and NeuroLink handles chunking, embedding, and retrieval automatically.",
             },
           },
           {
@@ -201,7 +201,7 @@
             name: "Can NeuroLink build multi-agent systems?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Yes. NeuroLink supports 3 agent topologies: hub-spoke (coordinator delegates to specialists), mesh (peer-to-peer collaboration), and pipeline (sequential processing). The AgentNetwork orchestrator manages agent lifecycle, message routing, and shared context. Agents can use MCP tools, RAG, and memory independently.",
+              text: "Yes. NeuroLink supports 3 agent topologies: hub-spoke (coordinator delegates to specialists), mesh (peer-to-peer collaboration), and sequential flow (sequential processing). The AgentNetwork orchestrator manages agent lifecycle, message routing, and shared context. Agents can use MCP tools, RAG, and memory independently.",
             },
           },
           {
@@ -225,7 +225,7 @@
             name: "How does NeuroLink handle context window limits?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "NeuroLink includes a 4-stage context compaction pipeline that runs automatically: (1) tool output pruning — replaces old tool results with placeholders, (2) file read deduplication — keeps only the latest read of each file, (3) LLM summarization — structured 9-section summaries with iterative merging, and (4) sliding window truncation. The BudgetChecker triggers auto-compaction when context usage exceeds 80%.",
+              text: "NeuroLink includes a 4-stage context compaction workflow that runs automatically: (1) tool output pruning — replaces old tool results with placeholders, (2) file read deduplication — keeps only the latest read of each file, (3) LLM summarization — structured 9-section summaries with iterative merging, and (4) sliding window truncation. The BudgetChecker triggers auto-compaction when context usage exceeds 80%.",
             },
           },
           {

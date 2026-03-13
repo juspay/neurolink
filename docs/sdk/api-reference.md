@@ -454,6 +454,47 @@ const result = await neurolink.gen({
 
 ---
 
+### Embeddings
+
+Generate embeddings directly via the provider's `embed()` and `embedMany()` methods.
+
+#### `provider.embed(text, modelName?)`
+
+Generate an embedding vector for a single text.
+
+```typescript
+import { ProviderFactory } from "@juspay/neurolink";
+
+const provider = await ProviderFactory.createProvider("googleAiStudio");
+const embedding = await provider.embed("Hello world");
+// embedding: number[] (e.g., 768 dimensions)
+```
+
+#### `provider.embedMany(texts, modelName?)`
+
+Generate embedding vectors for multiple texts in a single batch. The AI SDK automatically handles chunking for models with batch limits.
+
+```typescript
+const provider = await ProviderFactory.createProvider("openai");
+const embeddings = await provider.embedMany([
+  "First document",
+  "Second document",
+  "Third document",
+]);
+// embeddings: number[][] (e.g., 3 × 1536 dimensions)
+```
+
+**Supported providers and default models:**
+
+| Provider         | Default Embedding Model        | Env Override                |
+| ---------------- | ------------------------------ | --------------------------- |
+| OpenAI           | `text-embedding-3-small`       | —                           |
+| Google AI Studio | `gemini-embedding-001`         | `GOOGLE_AI_EMBEDDING_MODEL` |
+| Google Vertex    | `text-embedding-004`           | `VERTEX_EMBEDDING_MODEL`    |
+| Amazon Bedrock   | `amazon.titan-embed-text-v2:0` | —                           |
+
+---
+
 ### RAG Integration
 
 Pass `rag: { files: [...] }` to `generate()` or `stream()` for automatic RAG pipeline setup:
