@@ -1,3 +1,9 @@
+## [9.23.0](https://github.com/juspay/neurolink/compare/v9.22.3...v9.23.0) (2026-03-14)
+
+### Features
+
+- **(video-generation):** Add support to generate longer videos by merging multiple scenes ([db9a94f](https://github.com/juspay/neurolink/commit/db9a94f6bbe8b9047831ef486f995c6c710372e8))
+
 ## [9.22.3](https://github.com/juspay/neurolink/compare/v9.22.2...v9.22.3) (2026-03-12)
 
 ### Bug Fixes
