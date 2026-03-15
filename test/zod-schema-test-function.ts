@@ -394,9 +394,12 @@ export async function testComplexZodSchemaMultiProvider(
   const providerName = providerOverride || "vertex";
   const modelName = modelOverride || undefined;
 
-  // Check if this is a Gemini MODEL - Gemini cannot use tools + JSON schema together
+  // Check if this is a Gemini MODEL - Gemini cannot use tools + JSON schema together.
   // This is a documented Gemini limitation, not a bug in the SDK.
-  // Note: provider name alone is not sufficient - Vertex can run Claude too.
+  // When an explicit model is provided, we check its name. When no model is given,
+  // google-ai, googleAiStudio, and vertex all default to a Gemini model, so we
+  // treat them as Gemini. If someone passes e.g. --provider=vertex --model=claude-*,
+  // the modelName check will NOT match "gemini" and the test will correctly run.
   const isGeminiModel =
     modelName?.toLowerCase().includes("gemini") ||
     (!modelName &&

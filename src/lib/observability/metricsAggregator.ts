@@ -179,8 +179,12 @@ export class MetricsAggregator {
   recordSpan(span: SpanData): void {
     // Enforce maximum spans limit
     if (this.spans.length >= this.config.maxSpansRetained) {
-      this.spans.shift(); // Remove oldest span
-      // Note: We keep aggregated metrics, only raw spans are trimmed
+      const evicted = this.spans.shift(); // Remove oldest span
+      // Only trim latencyValues when the evicted span had a duration recorded
+      if (evicted?.durationMs !== undefined) {
+        this.latencyValues.shift();
+      }
+      // Note: We keep aggregated metrics, only raw spans and latency values are trimmed
     }
 
     this.spans.push(span);

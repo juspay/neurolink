@@ -142,7 +142,9 @@ export class SpanSerializer {
       name: span.name,
       startTime: span.startTime,
       endTime: span.endTime,
-      metadata: { ...span.attributes },
+      // Only pick safe, non-PII attributes for metadata — intentionally excludes
+      // input, output, error.stack, and other user content for PII safety
+      metadata: filterSafeMetadata(span.attributes),
       level: span.status === SpanStatus.ERROR ? "ERROR" : "DEFAULT",
       statusMessage: span.statusMessage,
       input: span.attributes["input"],
@@ -389,3 +391,6 @@ export class SpanSerializer {
     });
   }
 }
+
+// Safe metadata filtering imported from shared module to avoid duplication
+import { filterSafeMetadata } from "./safeMetadata.js";

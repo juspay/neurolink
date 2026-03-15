@@ -102,6 +102,8 @@ export class RedactionProcessor implements SpanProcessor {
         "credentials",
         "private_key",
         "privateKey",
+        "stack",
+        "error.stack",
       ],
     );
     this.redactedValue = config?.redactedValue ?? "[REDACTED]";
@@ -308,11 +310,24 @@ export class BatchProcessor implements SpanProcessor {
     }, this.flushIntervalMs);
   }
 
+  // Note: flush() is intentionally synchronous. The onBatchReady callback is
+  // typed as `(spans: SpanData[]) => void` — callers must not pass async
+  // exporters. If async export is needed, the callback should handle its own
+  // error reporting (e.g. fire-and-forget with promise error handlers).
   private flush(): void {
     if (this.batch.length > 0 && this.onBatchReady) {
       const spans = [...this.batch];
-      this.batch = [];
-      this.onBatchReady(spans);
+      try {
+        this.onBatchReady(spans);
+        this.batch = [];
+      } catch (flushError: unknown) {
+        // Keep spans for next flush attempt, but cap backlog growth
+        void flushError; // acknowledged — error is expected during exporter outages
+        const maxBacklog = this.batchSize * 20;
+        if (this.batch.length > maxBacklog) {
+          this.batch = this.batch.slice(this.batch.length - maxBacklog);
+        }
+      }
     }
   }
 

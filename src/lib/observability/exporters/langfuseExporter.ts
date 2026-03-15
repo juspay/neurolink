@@ -154,7 +154,9 @@ export class LangfuseExporter extends BaseExporter {
       name: span.name,
       userId: span.attributes["user.id"] as string | undefined,
       sessionId: span.attributes["session.id"] as string | undefined,
-      metadata: span.attributes,
+      // Only pick safe, non-PII attributes for metadata — intentionally excludes
+      // input, output, error.stack, and other user content to match Braintrust exporter
+      metadata: filterSafeMetadata(span.attributes),
       release: this.release,
       tags: this.extractTags(span),
     };
@@ -249,3 +251,6 @@ export class LangfuseExporter extends BaseExporter {
     return tags;
   }
 }
+
+// Safe metadata filtering imported from shared module to avoid duplication
+import { filterSafeMetadata } from "../utils/safeMetadata.js";

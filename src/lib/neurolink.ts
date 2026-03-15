@@ -2394,7 +2394,16 @@ Current user's request: ${currentInput}`;
           span.spanId = traceCtx.parentSpanId;
           span.parentSpanId = undefined;
         }
-        span = SpanSerializer.endSpan(span, SpanStatus.OK);
+        // Mark failed generations with ERROR status so metrics count them correctly
+        const spanStatus =
+          data.success === false || data.error
+            ? SpanStatus.ERROR
+            : SpanStatus.OK;
+        span = SpanSerializer.endSpan(
+          span,
+          spanStatus,
+          data.error ? String(data.error) : undefined,
+        );
         span.durationMs = responseTime;
 
         if (usage) {
@@ -3199,6 +3208,28 @@ Current user's request: ${currentInput}`;
                 code: SpanStatusCode.ERROR,
                 message: error instanceof Error ? error.message : String(error),
               });
+              // Emit generation:end on error so metrics listeners still record the failure.
+              // Note: variables declared inside try blocks are not accessible in error
+              // handlers, so we extract what we can from the original input.
+              const errProvider =
+                typeof optionsOrPrompt === "object"
+                  ? (optionsOrPrompt as GenerateOptions).provider || "unknown"
+                  : "unknown";
+              const errModel =
+                typeof optionsOrPrompt === "object"
+                  ? (optionsOrPrompt as GenerateOptions).model || "unknown"
+                  : "unknown";
+              try {
+                this.emitter.emit("generation:end", {
+                  provider: errProvider,
+                  model: errModel,
+                  responseTime: 0,
+                  error: error instanceof Error ? error.message : String(error),
+                  success: false,
+                });
+              } catch (emitError: unknown) {
+                void emitError; // non-blocking — error event emission is best-effort
+              }
               throw error;
             } finally {
               generateSpan.end();

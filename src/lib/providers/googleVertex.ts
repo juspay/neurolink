@@ -1721,9 +1721,7 @@ export class GoogleVertexProvider extends BaseProvider {
             },
             {
               role: "model",
-              parts: [
-                { text: "Understood. I will follow these instructions." },
-              ],
+              parts: [{ text: "OK" }],
             },
             ...currentContents,
           ];
@@ -1999,9 +1997,7 @@ export class GoogleVertexProvider extends BaseProvider {
             },
             {
               role: "model",
-              parts: [
-                { text: "Understood. I will follow these instructions." },
-              ],
+              parts: [{ text: "OK" }],
             },
             ...currentContents,
           ];
