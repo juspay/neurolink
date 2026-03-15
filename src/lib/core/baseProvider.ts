@@ -7,7 +7,10 @@ import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
 import type { NeuroLink } from "../neurolink.js";
+import { SpanStatus, SpanType } from "../observability/types/spanTypes.js";
+import { SpanSerializer } from "../observability/utils/spanSerializer.js";
 import { ATTR, tracers } from "../telemetry/index.js";
+import { calculateCost } from "../utils/pricing.js";
 import type { JsonValue, UnknownRecord } from "../types/common.js";
 import type {
   AIProvider,
@@ -70,8 +73,13 @@ export abstract class BaseProvider implements AIProvider {
   protected userId?: string;
   protected neurolink?: NeuroLink; // Reference to actual NeuroLink instance for MCP tools
 
-  /** Trace context propagated from NeuroLink SDK for span hierarchy */
-  public _traceContext: { traceId: string; parentSpanId: string } | null = null;
+  /** @internal Trace context propagated from NeuroLink SDK for span hierarchy */
+  protected _traceContext: { traceId: string; parentSpanId: string } | null =
+    null;
+
+  setTraceContext(ctx: { traceId: string; parentSpanId: string } | null): void {
+    this._traceContext = ctx;
+  }
 
   // Composition modules - Single Responsibility Principle
   private readonly messageBuilder: MessageBuilder;
@@ -159,6 +167,21 @@ export abstract class BaseProvider implements AIProvider {
     analysisSchema?: ValidationSchema,
   ): Promise<StreamResult> {
     let options = this.normalizeStreamOptions(optionsOrPrompt);
+
+    // Observability: create metrics span for provider.stream
+    const metricsSpan = SpanSerializer.createSpan(
+      SpanType.MODEL_GENERATION,
+      "provider.stream",
+      {
+        "ai.provider": this.providerName || "unknown",
+        "ai.model": this.modelName || options.model || "unknown",
+        "ai.temperature": options.temperature,
+        "ai.max_tokens": options.maxTokens,
+      },
+      this._traceContext?.parentSpanId,
+      this._traceContext?.traceId,
+    );
+    let metricsSpanRecorded = false;
 
     // OTEL span for provider-level stream tracing
     const otelStreamSpan = tracers.provider.startSpan(
@@ -279,6 +302,16 @@ export abstract class BaseProvider implements AIProvider {
         }
       }
     } catch (error) {
+      // Observability: record failed stream span
+      metricsSpanRecorded = true;
+      const _endedStreamSpan = SpanSerializer.endSpan(
+        metricsSpan,
+        SpanStatus.ERROR,
+        error instanceof Error ? error.message : String(error),
+      );
+      // Note: Do NOT record to getMetricsAggregator() here — neurolink.ts
+      // stream:complete listener handles authoritative metrics to avoid double-counting.
+
       otelStreamSpan.setStatus({
         code: SpanStatusCode.ERROR,
         message: error instanceof Error ? error.message : String(error),
@@ -287,6 +320,15 @@ export abstract class BaseProvider implements AIProvider {
 
       throw error;
     } finally {
+      // Observability: record successful stream span (only if not already ended via error path)
+      if (!metricsSpanRecorded) {
+        const _endedStreamSpan = SpanSerializer.endSpan(
+          metricsSpan,
+          SpanStatus.OK,
+        );
+        // Note: Do NOT record to getMetricsAggregator() here — neurolink.ts
+        // stream:complete listener handles authoritative metrics to avoid double-counting.
+      }
       // End OTEL span on success (only if not already ended via error path)
       if (otelStreamSpan.isRecording()) {
         otelStreamSpan.setStatus({ code: SpanStatusCode.OK });
@@ -685,6 +727,20 @@ export abstract class BaseProvider implements AIProvider {
     this.validateOptions(options);
     const startTime = Date.now();
 
+    // Observability: create metrics span for provider.generate
+    const metricsSpan = SpanSerializer.createSpan(
+      SpanType.MODEL_GENERATION,
+      "provider.generate",
+      {
+        "ai.provider": this.providerName || "unknown",
+        "ai.model": this.modelName || options.model || "unknown",
+        "ai.temperature": options.temperature,
+        "ai.max_tokens": options.maxTokens,
+      },
+      this._traceContext?.parentSpanId,
+      this._traceContext?.traceId,
+    );
+
     // OTEL span for provider-level generate tracing
     // Use startActiveSpan pattern via context.with() so child spans become descendants
     const otelSpan = tracers.provider.startSpan("neurolink.provider.generate", {
@@ -948,8 +1004,51 @@ export abstract class BaseProvider implements AIProvider {
           }
         }
 
+        // Observability: record successful generate span with token/cost data
+        let enrichedGenerateSpan = { ...metricsSpan };
+        if (enhancedResult?.usage) {
+          enrichedGenerateSpan = SpanSerializer.enrichWithTokenUsage(
+            enrichedGenerateSpan,
+            {
+              promptTokens: enhancedResult.usage.input || 0,
+              completionTokens: enhancedResult.usage.output || 0,
+              totalTokens: enhancedResult.usage.total || 0,
+            },
+          );
+          const cost = calculateCost(this.providerName, this.modelName, {
+            input: enhancedResult.usage.input || 0,
+            output: enhancedResult.usage.output || 0,
+            total: enhancedResult.usage.total || 0,
+          });
+          if (cost && cost > 0) {
+            enrichedGenerateSpan = SpanSerializer.enrichWithCost(
+              enrichedGenerateSpan,
+              {
+                totalCost: cost,
+              },
+            );
+          }
+        }
+        const _endedGenerateSpan = SpanSerializer.endSpan(
+          enrichedGenerateSpan,
+          SpanStatus.OK,
+        );
+        // Note: Do NOT record to getMetricsAggregator() here — the neurolink.ts
+        // generation:end listener creates an authoritative span with richer context
+        // (provider name, model, input/output) and records to both aggregators.
+        // Recording here would double-count cost and token metrics.
+
         return await this.enhanceResult(enhancedResult, options, startTime);
       } catch (error) {
+        // Observability: record failed generate span
+        const _endedGenerateSpan = SpanSerializer.endSpan(
+          metricsSpan,
+          SpanStatus.ERROR,
+          error instanceof Error ? error.message : String(error),
+        );
+        // Note: Do NOT record to getMetricsAggregator() here — neurolink.ts
+        // handles authoritative metrics recording to avoid double-counting.
+
         otelSpan.setStatus({
           code: SpanStatusCode.ERROR,
           message: error instanceof Error ? error.message : String(error),

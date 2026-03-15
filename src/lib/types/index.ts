@@ -247,7 +247,7 @@ export * from "./ragTypes.js";
 export * from "./conversationMemoryInterface.js";
 
 // Custom storage config for Hippocampus memory (consumer-managed storage)
-export type { CustomStorageConfig } from "./conversation.js";
+export type { StorageConfig } from "./conversation.js";
 
 // Subscription types (Claude subscription tiers, authentication, usage tracking)
 export * from "./subscriptionTypes.js";

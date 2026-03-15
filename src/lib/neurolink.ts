@@ -4908,7 +4908,7 @@ Current user's request: ${currentInput}`;
       );
 
       // Propagate trace context for parent-child span hierarchy
-      provider._traceContext = this._metricsTraceContext;
+      provider.setTraceContext(this._metricsTraceContext);
 
       // ADD: Emit connection events for all providers (Bedrock-compatible)
       this.emitter.emit("connected");
@@ -5235,7 +5235,7 @@ Current user's request: ${currentInput}`;
         );
 
         // Propagate trace context for parent-child span hierarchy
-        provider._traceContext = this._metricsTraceContext;
+        provider.setTraceContext(this._metricsTraceContext);
 
         // ADD: Emit connection events for successful provider creation (Bedrock-compatible)
         this.emitter.emit("connected");
@@ -6556,7 +6556,7 @@ Current user's request: ${currentInput}`;
     );
 
     // Propagate trace context for parent-child span hierarchy
-    provider._traceContext = this._metricsTraceContext;
+    provider.setTraceContext(this._metricsTraceContext);
 
     // Enable tool execution for the provider using BaseProvider method
     provider.setupToolExecutor(

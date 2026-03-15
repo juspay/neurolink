@@ -527,8 +527,11 @@ export type AIProvider = {
     functionTag: string,
   ): void;
 
-  /** Trace context propagated from NeuroLink SDK for parent-child span hierarchy */
-  _traceContext?: { traceId: string; parentSpanId: string } | null;
+  /**
+   * Propagate trace context from NeuroLink SDK for parent-child span hierarchy.
+   * Use this method instead of accessing `_traceContext` directly.
+   */
+  setTraceContext(ctx: { traceId: string; parentSpanId: string } | null): void;
 };
 
 /**

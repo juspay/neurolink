@@ -69,7 +69,7 @@ export class ContextCompactor {
     memoryConfig?: Partial<ConversationMemoryConfig>,
     requestId?: string,
   ): Promise<CompactionResult> {
-    const span = SpanSerializer.createSpan(
+    let span = SpanSerializer.createSpan(
       SpanType.CONTEXT_COMPACTION,
       "context.compact",
       {
@@ -199,7 +199,7 @@ export class ContextCompactor {
           });
 
           // Record failure on the compaction span for trace visibility
-          SpanSerializer.updateAttributes(span, {
+          span = SpanSerializer.updateAttributes(span, {
             "compaction.stage3.error": err.message,
             "compaction.stage3.errorName": err.name,
             "compaction.stage3.tokensBefore": stageTokensBefore,

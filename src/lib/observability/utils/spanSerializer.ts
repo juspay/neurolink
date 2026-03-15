@@ -143,7 +143,9 @@ export class SpanSerializer {
       startTime: span.startTime,
       endTime: span.endTime,
       // Only pick safe, non-PII attributes for metadata — intentionally excludes
-      // input, output, error.stack, and other user content for PII safety
+      // error.stack and other internal fields. input/output are exported here for
+      // Langfuse tracing; use LangfuseExporterConfig.redactIO=true to suppress them
+      // in compliance-sensitive deployments.
       metadata: filterSafeMetadata(span.attributes),
       level: span.status === SpanStatus.ERROR ? "ERROR" : "DEFAULT",
       statusMessage: span.statusMessage,
