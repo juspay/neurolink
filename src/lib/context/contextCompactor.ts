@@ -16,6 +16,7 @@ import type {
 import type {
   CompactionResult,
   CompactionConfig,
+  CompactionStage,
 } from "../types/contextTypes.js";
 import { estimateMessagesTokens } from "../utils/tokenEstimation.js";
 import { logger } from "../utils/logger.js";
@@ -28,19 +29,14 @@ import {
 import { getMetricsAggregator } from "../observability/index.js";
 import { pruneToolOutputs } from "./stages/toolOutputPruner.js";
 import { deduplicateFileReads } from "./stages/fileReadDeduplicator.js";
-import { summarizeMessages } from "./stages/structuredSummarizer.js";
 import { truncateWithSlidingWindow } from "./stages/slidingWindowTruncator.js";
+import { summarizeMessages } from "./stages/structuredSummarizer.js";
 
 export type {
-  CompactionResult,
   CompactionConfig,
+  CompactionResult,
+  CompactionStage,
 } from "../types/contextTypes.js";
-
-export type CompactionStage =
-  | "prune"
-  | "deduplicate"
-  | "summarize"
-  | "truncate";
 
 const DEFAULT_CONFIG: Required<CompactionConfig> = {
   enablePrune: true,
@@ -170,6 +166,7 @@ export class ContextCompactor {
               model: this.config.summarizationModel,
               keepRecentRatio: this.config.keepRecentRatio,
               memoryConfig,
+              targetTokens,
             }),
             120_000,
             "LLM summarization timed out after 120s",
@@ -224,6 +221,11 @@ export class ContextCompactor {
         );
         const truncResult = truncateWithSlidingWindow(currentMessages, {
           fraction: this.config.truncationFraction,
+          currentTokens: stageTokensBefore,
+          targetTokens: targetTokens,
+          provider: provider,
+          adaptiveBuffer: 0.15,
+          maxIterations: 3,
         });
         if (truncResult.truncated) {
           currentMessages = truncResult.messages;

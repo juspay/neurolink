@@ -3,9 +3,9 @@
  * Handles provider-specific image formatting and vision capability validation
  */
 
-import { logger } from "../utils/logger.js";
-import { ImageProcessor } from "../utils/imageProcessor.js";
 import type { Content, ImageWithAltText } from "../types/multimodal.js";
+import { ImageProcessor } from "../utils/imageProcessor.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Simplified logger for essential error reporting only
@@ -444,220 +444,18 @@ const VISION_CAPABILITIES = {
  * Provider Image Adapter - Smart routing and formatting
  */
 export class ProviderImageAdapter {
-  /**
-   * Main adapter method - routes to provider-specific formatting
-   */
-  static async adaptForProvider(
-    text: string,
-    images: Array<Buffer | string>,
-    provider: string,
-    model: string,
-  ): Promise<unknown> {
-    try {
-      // Validate provider supports vision
-      this.validateVisionSupport(provider, model);
-
-      let adaptedPayload: unknown;
-
-      // Process images based on provider requirements
-      switch (provider.toLowerCase()) {
-        case "openai":
-          adaptedPayload = this.formatForOpenAI(text, images);
-          break;
-        case "azure":
-        case "azure-openai":
-          // Azure uses same format as OpenAI but validate with azure provider name
-          this.validateImageCount(images.length, "azure");
-          adaptedPayload = this.formatForOpenAI(text, images, true);
-          break;
-        case "google-ai":
-        case "google":
-          adaptedPayload = this.formatForGoogleAI(text, images);
-          break;
-        case "anthropic":
-          adaptedPayload = this.formatForAnthropic(text, images);
-          break;
-        case "vertex":
-          adaptedPayload = this.formatForVertex(text, images, model);
-          break;
-        case "ollama":
-          // Ollama uses same format as OpenAI but validate with ollama provider name
-          this.validateImageCount(images.length, "ollama");
-          adaptedPayload = this.formatForOpenAI(text, images, true);
-          break;
-        case "huggingface":
-          adaptedPayload = this.formatForOpenAI(text, images);
-          break;
-        case "sagemaker":
-          adaptedPayload = this.formatForOpenAI(text, images);
-          break;
-        case "litellm":
-          // LiteLLM uses same format as OpenAI but validate with litellm provider name
-          this.validateImageCount(images.length, "litellm");
-          adaptedPayload = this.formatForOpenAI(text, images, true);
-          break;
-        case "mistral":
-          // Mistral uses same format as OpenAI but validate with mistral provider name
-          this.validateImageCount(images.length, "mistral");
-          adaptedPayload = this.formatForOpenAI(text, images, true);
-          break;
-        case "bedrock":
-          // Bedrock uses same format as Anthropic but validate with bedrock provider name
-          this.validateImageCount(images.length, "bedrock");
-          adaptedPayload = this.formatForAnthropic(text, images, true);
-          break;
-        case "openrouter":
-          // OpenRouter routes to underlying providers, use OpenAI format
-          this.validateImageCount(images.length, "openrouter");
-          adaptedPayload = this.formatForOpenAI(text, images);
-          break;
-        default:
-          throw new Error(`Vision not supported for provider: ${provider}`);
-      }
-
-      return adaptedPayload;
-    } catch (error) {
-      MultimodalLogger.logError("ADAPTATION", error as Error, {
-        provider,
-        model,
-        imageCount: images.length,
-      });
-      throw error;
-    }
-  }
+  // NOTE: The legacy `adaptForProvider` method and its private helpers
+  // (formatForOpenAI, formatForGoogleAI, formatForAnthropic, formatForVertex,
+  // validateVisionSupport) were removed as dead code. The production image
+  // pipeline uses `convertSimpleImagesToProviderFormat` in messageBuilder.ts
+  // with Vercel AI SDK's native ImagePart format. Image count limits are
+  // enforced via the public `validateImageCount` method below.
 
   /**
-   * Format content for OpenAI (GPT-4o format)
+   * Validate image count against provider limits.
+   * Warns at 80% threshold, throws error if limit exceeded.
    */
-  private static formatForOpenAI(
-    text: string,
-    images: Array<Buffer | string>,
-    skipValidation = false,
-  ): unknown {
-    // Validate image count before processing (unless called from another formatter)
-    if (!skipValidation) {
-      this.validateImageCount(images.length, "openai");
-    }
-
-    const content: unknown[] = [{ type: "text", text }];
-
-    images.forEach((image, index) => {
-      try {
-        const imageUrl = ImageProcessor.processImageForOpenAI(image);
-        content.push({
-          type: "image_url",
-          image_url: { url: imageUrl },
-        });
-      } catch (error) {
-        MultimodalLogger.logError("PROCESS_IMAGE", error as Error, {
-          index,
-          provider: "openai",
-        });
-        throw error;
-      }
-    });
-
-    return { messages: [{ role: "user", content }] };
-  }
-
-  /**
-   * Format content for Google AI (Gemini format)
-   */
-  private static formatForGoogleAI(
-    text: string,
-    images: Array<Buffer | string>,
-    skipValidation = false,
-  ): unknown {
-    // Validate image count before processing (unless called from another formatter)
-    if (!skipValidation) {
-      this.validateImageCount(images.length, "google-ai");
-    }
-
-    const parts: unknown[] = [{ text }];
-
-    images.forEach((image, index) => {
-      try {
-        const { mimeType, data } = ImageProcessor.processImageForGoogle(image);
-        parts.push({
-          inlineData: { mimeType, data },
-        });
-      } catch (error) {
-        MultimodalLogger.logError("PROCESS_IMAGE", error as Error, {
-          index,
-          provider: "google-ai",
-        });
-        throw error;
-      }
-    });
-
-    return { contents: [{ parts }] };
-  }
-
-  /**
-   * Format content for Anthropic (Claude format)
-   */
-  private static formatForAnthropic(
-    text: string,
-    images: Array<Buffer | string>,
-    skipValidation = false,
-  ): unknown {
-    // Validate image count before processing (unless called from another formatter)
-    if (!skipValidation) {
-      this.validateImageCount(images.length, "anthropic");
-    }
-
-    const content: unknown[] = [{ type: "text", text }];
-
-    images.forEach((image, index) => {
-      try {
-        const { mediaType, data } =
-          ImageProcessor.processImageForAnthropic(image);
-        content.push({
-          type: "image",
-          source: {
-            type: "base64",
-            media_type: mediaType,
-            data,
-          },
-        });
-      } catch (error) {
-        MultimodalLogger.logError("PROCESS_IMAGE", error as Error, {
-          index,
-          provider: "anthropic",
-        });
-        throw error;
-      }
-    });
-
-    return { messages: [{ role: "user", content }] };
-  }
-
-  /**
-   * Format content for Vertex AI (model-specific routing)
-   */
-  private static formatForVertex(
-    text: string,
-    images: Array<Buffer | string>,
-    model: string,
-  ): unknown {
-    // Validate image count with model-specific limits before processing
-    this.validateImageCount(images.length, "vertex", model);
-
-    // Route based on model type, skip validation in delegated methods
-    if (model.includes("gemini")) {
-      return this.formatForGoogleAI(text, images, true);
-    } else if (model.includes("claude")) {
-      return this.formatForAnthropic(text, images, true);
-    } else {
-      return this.formatForGoogleAI(text, images, true);
-    }
-  }
-
-  /**
-   * Validate image count against provider limits
-   * Warns at 80% threshold, throws error if limit exceeded
-   */
-  private static validateImageCount(
+  static validateImageCount(
     imageCount: number,
     provider: string,
     model?: string,
@@ -709,41 +507,6 @@ export class ProviderImageAdapter {
       throw new Error(
         `Image count (${imageCount}) exceeds the maximum limit for ${provider}. ` +
           `Maximum allowed: ${limit}. Please reduce the number of images.`,
-      );
-    }
-  }
-
-  /**
-   * Validate that provider and model support vision
-   */
-  private static validateVisionSupport(provider: string, model: string): void {
-    const normalizedProvider = normalizeVisionProvider(provider);
-    const supportedModels =
-      VISION_CAPABILITIES[
-        normalizedProvider as keyof typeof VISION_CAPABILITIES
-      ];
-
-    if (!supportedModels) {
-      throw new Error(
-        `Provider ${provider} does not support vision processing. ` +
-          `Supported providers: ${Object.keys(VISION_CAPABILITIES).join(", ")}`,
-      );
-    }
-
-    const isSupported = supportedModels.some((supportedModel) =>
-      model.toLowerCase().includes(supportedModel.toLowerCase()),
-    );
-
-    // Proxy providers route to arbitrary underlying models — skip the allowlist
-    // check for unknown models and let the underlying provider error if needed.
-    if (!isSupported && PROXY_PROVIDERS.has(normalizedProvider)) {
-      return;
-    }
-
-    if (!isSupported) {
-      throw new Error(
-        `Provider ${provider} with model ${model} does not support vision processing. ` +
-          `Supported models for ${provider}: ${supportedModels.join(", ")}`,
       );
     }
   }

@@ -167,6 +167,8 @@ function getToolCategory(toolName: string): string {
       return "filesystem";
     case "websearchGrounding":
       return "search";
+    case "executeBashCommand":
+      return "system";
     default:
       return "utility";
   }

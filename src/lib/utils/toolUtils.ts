@@ -50,6 +50,23 @@ export function shouldEnableMCPTools(toolConfig?: ToolConfig): boolean {
 }
 
 /**
+ * Check if the bash command execution tool should be enabled.
+ * This is opt-in only (defaults to false) for security reasons.
+ *
+ * @param toolConfig - Optional tool configuration (if available from config)
+ * @returns true if the bash tool should be enabled
+ */
+export function shouldEnableBashTool(toolConfig?: ToolConfig): boolean {
+  // Priority: explicit config > environment variable > default (false)
+  if (toolConfig?.enableBashTool !== undefined) {
+    return toolConfig.enableBashTool;
+  }
+
+  // Single source of truth for environment variable access
+  return process.env.NEUROLINK_ENABLE_BASH_TOOL === "true";
+}
+
+/**
  * Get maximum tools per provider
  * @param toolConfig - Optional tool configuration
  * @returns maximum number of tools per provider

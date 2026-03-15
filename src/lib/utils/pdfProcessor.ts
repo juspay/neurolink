@@ -8,14 +8,14 @@
  * The conversion uses pdf-to-img package (MuPDF-based) for high-quality conversion.
  */
 
+import { PDF_LIMITS } from "../core/constants.js";
 import type {
   FileProcessingResult,
-  PDFProviderConfig,
   PDFProcessorOptions,
+  PDFProviderConfig,
 } from "../types/fileTypes.js";
-import { PDF_LIMITS } from "../core/constants.js";
-import { logger } from "./logger.js";
 import { ErrorFactory } from "./errorHandling.js";
+import { logger } from "./logger.js";
 
 /**
  * Provider configurations for PDF handling
@@ -105,7 +105,7 @@ const PDF_PROVIDER_CONFIGS: Record<string, PDFProviderConfig> = {
   "openai-compatible": {
     maxSizeMB: 10,
     maxPages: 100,
-    supportsNative: true,
+    supportsNative: false, // LiteLLM is a proxy — underlying model may not support native PDF; default to safe text extraction
     requiresCitations: false,
     apiType: "files-api",
   },
@@ -173,7 +173,7 @@ export class PDFProcessor {
     const provider = (options?.provider || "unknown").toLowerCase();
     const config = PDF_PROVIDER_CONFIGS[provider];
 
-    if (!this.isValidPDF(content)) {
+    if (!PDFProcessor.isValidPDF(content)) {
       throw new Error(
         "Invalid PDF file format. File must start with %PDF- header.",
       );
@@ -199,7 +199,7 @@ export class PDFProcessor {
       );
     }
 
-    const metadata = this.extractBasicMetadata(content);
+    const metadata = PDFProcessor.extractBasicMetadata(content);
 
     if (metadata.estimatedPages && metadata.estimatedPages > config.maxPages) {
       const enforceLimits = options?.enforceLimits !== false;
@@ -270,7 +270,7 @@ export class PDFProcessor {
     if (buffer.length < 5) {
       return false;
     }
-    return buffer.subarray(0, 5).equals(this.PDF_SIGNATURE);
+    return buffer.subarray(0, 5).equals(PDFProcessor.PDF_SIGNATURE);
   }
 
   private static extractBasicMetadata(buffer: Buffer) {
@@ -364,7 +364,7 @@ export class PDFProcessor {
     }
 
     // 2. Validate PDF magic bytes (%PDF-)
-    if (!this.isValidPDF(pdfBuffer)) {
+    if (!PDFProcessor.isValidPDF(pdfBuffer)) {
       throw new Error(
         "Invalid PDF: File must start with %PDF- header. " +
           "The provided buffer does not appear to be a valid PDF file.",
@@ -469,7 +469,7 @@ export class PDFProcessor {
   ): Promise<PDFImageConversionResult> {
     const fs = await import("fs/promises");
     const pdfBuffer = await fs.readFile(pdfPath);
-    return this.convertToImages(pdfBuffer, options);
+    return PDFProcessor.convertToImages(pdfBuffer, options);
   }
 
   /**

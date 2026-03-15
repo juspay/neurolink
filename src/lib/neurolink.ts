@@ -197,9 +197,68 @@ import {
   transformToolsToExpectedFormat,
 } from "./utils/transformationUtils.js";
 import { isNonNullObject } from "./utils/typeUtils.js";
+import { resolveModel } from "./utils/modelAliasResolver.js";
 import { getWorkflow } from "./workflow/core/workflowRegistry.js";
 import { runWorkflow } from "./workflow/core/workflowRunner.js";
 import type { WorkflowConfig } from "./workflow/types.js";
+
+/**
+ * NL-002: Classify MCP error messages into categories for AI disambiguation.
+ * Returns a human-readable error category based on error message content.
+ */
+function classifyMcpErrorMessage(
+  text: string,
+):
+  | "not_found"
+  | "permission_denied"
+  | "timeout"
+  | "rate_limited"
+  | "validation_error"
+  | "unknown" {
+  const lower = text.toLowerCase();
+  if (
+    lower.includes("not found") ||
+    lower.includes("404") ||
+    lower.includes("does not exist") ||
+    lower.includes("no such")
+  ) {
+    return "not_found";
+  }
+  if (
+    lower.includes("permission") ||
+    lower.includes("forbidden") ||
+    lower.includes("403") ||
+    lower.includes("unauthorized") ||
+    lower.includes("401") ||
+    lower.includes("access denied")
+  ) {
+    return "permission_denied";
+  }
+  if (
+    lower.includes("timeout") ||
+    lower.includes("timed out") ||
+    lower.includes("deadline exceeded")
+  ) {
+    return "timeout";
+  }
+  if (
+    lower.includes("rate limit") ||
+    lower.includes("429") ||
+    lower.includes("too many requests") ||
+    lower.includes("throttl")
+  ) {
+    return "rate_limited";
+  }
+  if (
+    lower.includes("invalid") ||
+    lower.includes("validation") ||
+    lower.includes("bad request") ||
+    lower.includes("400")
+  ) {
+    return "validation_error";
+  }
+  return "unknown";
+}
 
 /**
  * Check if an error is a non-retryable provider error that should immediately
@@ -359,6 +418,21 @@ export class NeuroLink {
     timestamp: number;
   } | null = null;
   private readonly toolCacheDuration: number;
+
+  // NL-004: Model alias/deprecation configuration
+  private modelAliasConfig?: import("./types/generateTypes.js").ModelAliasConfig;
+
+  // Compaction watermark: prevents re-triggering compaction on already-compacted messages
+  // Per-session map to avoid cross-session pollution in server mode
+  private lastCompactionMessageCount = new Map<string, number>();
+
+  /** Extract sessionId from options context for compaction watermark keying */
+  private getCompactionSessionId(options: { context?: unknown }): string {
+    return (
+      ((options.context as Record<string, unknown> | undefined)
+        ?.sessionId as string) || "__default__"
+    );
+  }
 
   // Enhanced error handling support
   private toolCircuitBreakers: Map<string, CircuitBreaker> = new Map();
@@ -670,6 +744,11 @@ export class NeuroLink {
 
     // Initialize orchestration setting
     this.enableOrchestration = config?.enableOrchestration ?? false;
+
+    // NL-004: Initialize model alias configuration
+    if (config?.modelAliasConfig) {
+      this.modelAliasConfig = config.modelAliasConfig;
+    }
 
     logger.setEventEmitter(this.emitter);
 
@@ -2798,10 +2877,17 @@ Current user's request: ${currentInput}`;
               const originalPrompt =
                 this._extractOriginalPrompt(optionsOrPrompt);
               // Convert string prompt to full options
+              // Shallow-copy caller's object to avoid mutating their original reference
               const options: GenerateOptions =
                 typeof optionsOrPrompt === "string"
                   ? { input: { text: optionsOrPrompt } }
-                  : optionsOrPrompt;
+                  : { ...optionsOrPrompt };
+
+              // NL-004: Resolve model aliases/deprecations before processing
+              options.model = resolveModel(
+                options.model,
+                this.modelAliasConfig,
+              );
 
               // Set span attributes for observability
               generateSpan.setAttribute(
@@ -2939,6 +3025,14 @@ Current user's request: ${currentInput}`;
 
                       // Use orchestrated options
                       Object.assign(options, orchestratedOptions);
+
+                      // Re-resolve model alias in case orchestration returned an alias
+                      if (orchestratedOptions.model) {
+                        options.model = resolveModel(
+                          options.model,
+                          this.modelAliasConfig,
+                        );
+                      }
                     } catch (error) {
                       logger.warn(
                         "Orchestration failed, continuing with original options",
@@ -3187,6 +3281,8 @@ Current user's request: ${currentInput}`;
                     audio: textResult.audio,
                     video: textResult.video,
                     ppt: textResult.ppt,
+                    // NL-007: Copy retry metadata from MCP generation path
+                    ...(textResult.retries && { retries: textResult.retries }),
                   };
 
                   // Accumulate session cost for budget tracking
@@ -3227,6 +3323,11 @@ Current user's request: ${currentInput}`;
                   generateSpan.setAttribute(
                     "neurolink.result_model",
                     generateResult.model || "unknown",
+                  );
+                  // NL-007: Expose retry count in OTel span
+                  generateSpan.setAttribute(
+                    "generate.retry_count",
+                    generateResult.retries?.count || 0,
                   );
 
                   generateSpan.setStatus({ code: SpanStatusCode.OK });
@@ -3683,6 +3784,9 @@ Current user's request: ${currentInput}`;
         "GenerateText options must include prompt as a non-empty string",
       );
     }
+
+    // NL-004: Resolve model aliases/deprecations before processing
+    options.model = resolveModel(options.model, this.modelAliasConfig);
 
     // Use internal generation method directly
     return await this.generateTextInternal(options);
@@ -4269,6 +4373,10 @@ Current user's request: ${currentInput}`;
   ): Promise<TextGenerationResult | null> {
     const maxMcpRetries = RETRY_ATTEMPTS.QUICK;
 
+    // NL-007: Track retry metadata for observability
+    const retryErrors: Array<{ code: string; message: string }> = [];
+    let retryCount = 0;
+
     const maxAttempts = maxMcpRetries + 1;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (options.abortSignal?.aborted) {
@@ -4295,8 +4403,13 @@ Current user's request: ${currentInput}`;
               contentLength: mcpResult.content?.length || 0,
               toolsUsed: mcpResult.toolsUsed?.length || 0,
               toolExecutions: mcpResult.toolExecutions?.length || 0,
+              retryCount,
             },
           );
+          // NL-007: Attach retry metadata to result
+          if (retryCount > 0) {
+            mcpResult.retries = { count: retryCount, errors: retryErrors };
+          }
           return mcpResult;
         } else {
           logger.debug(
@@ -4318,11 +4431,23 @@ Current user's request: ${currentInput}`;
           throw error;
         }
 
+        // NL-007: Record retry error for observability
+        retryCount++;
+        const errMsg = error instanceof Error ? error.message : String(error);
+        const errCode =
+          error instanceof NeuroLinkError
+            ? error.code
+            : error instanceof Error
+              ? error.name
+              : "UNKNOWN";
+        retryErrors.push({ code: errCode, message: errMsg.substring(0, 500) });
+
         logger.debug(
           `[${functionTag}] MCP generation failed on attempt ${attempt}/${maxAttempts}`,
           {
-            error: error instanceof Error ? error.message : String(error),
+            error: errMsg,
             willRetry: attempt < maxAttempts,
+            retryCount,
           },
         );
 
@@ -4436,6 +4561,17 @@ Current user's request: ${currentInput}`;
       // Get available tools
       let availableTools = await this.getAllAvailableTools();
 
+      // NL-001: Filter out tools with OPEN circuit breakers
+      const { tools: circuitBreakerFilteredTools, unavailableTools } =
+        this.toolRegistry.getAvailableTools(this.toolCircuitBreakers);
+      // Intersect: keep only tools that pass both getAllAvailableTools and circuit breaker filtering
+      const cbFilteredNames = new Set(
+        circuitBreakerFilteredTools.map((t) => t.name),
+      );
+      availableTools = availableTools.filter((t) =>
+        cbFilteredNames.has(t.name),
+      );
+
       // Apply per-call tool filtering for system prompt tool descriptions
       availableTools = this.applyToolInfoFiltering(availableTools, options);
 
@@ -4447,6 +4583,8 @@ Current user's request: ${currentInput}`;
       logger.debug("Available tools for AI prompt generation", {
         toolsCount: availableTools.length,
         toolNames: availableTools.map((t) => t.name),
+        unavailableToolsCount: unavailableTools.length,
+        unavailableTools: unavailableTools,
         hasTargetTool: !!targetTool,
         targetToolDetails: targetTool
           ? {
@@ -4457,13 +4595,19 @@ Current user's request: ${currentInput}`;
           : null,
       });
 
+      // NL-001: Inject system note about unavailable tools
+      let circuitBreakerNote = "";
+      if (unavailableTools.length > 0) {
+        circuitBreakerNote = `\n\nNOTE: The following tools are temporarily unavailable due to repeated failures: ${unavailableTools.join(", ")}. Do not attempt to call these tools.`;
+      }
+
       // Create tool-aware system prompt (skip if skipToolPromptInjection is true)
       const enhancedSystemPrompt = options.skipToolPromptInjection
-        ? options.systemPrompt || ""
+        ? (options.systemPrompt || "") + circuitBreakerNote
         : this.createToolAwareSystemPrompt(
             options.systemPrompt,
             availableTools,
-          );
+          ) + circuitBreakerNote;
       logger.debug("Tool-aware system prompt created", {
         requestId,
         originalPromptLength: options.systemPrompt?.length || 0,
@@ -4556,7 +4700,14 @@ Current user's request: ${currentInput}`;
         shouldCompact: budgetResult.shouldCompact,
       });
 
-      if (budgetResult.shouldCompact && this.conversationMemory) {
+      const messageCount = conversationMessages?.length || 0;
+      const compactionSessionId = this.getCompactionSessionId(options);
+      if (
+        budgetResult.shouldCompact &&
+        this.conversationMemory &&
+        messageCount >
+          (this.lastCompactionMessageCount.get(compactionSessionId) ?? 0)
+      ) {
         logger.info(
           "[NeuroLink] Context budget exceeded, triggering auto-compaction",
           {
@@ -4586,6 +4737,10 @@ Current user's request: ${currentInput}`;
         if (compactionResult.compacted) {
           const repairedResult = repairToolPairs(compactionResult.messages);
           conversationMessages = repairedResult.messages;
+          this.lastCompactionMessageCount.set(
+            compactionSessionId,
+            conversationMessages.length,
+          );
           logger.info("[NeuroLink] Context compacted successfully", {
             stagesUsed: compactionResult.stagesUsed,
             tokensSaved: compactionResult.tokensSaved,
@@ -4883,12 +5038,27 @@ Current user's request: ${currentInput}`;
             : undefined,
         });
 
-        if (budgetCheck.shouldCompact && this.conversationMemory) {
-          const compactor = new ContextCompactor({ provider: providerName });
+        const dpgMessageCount = conversationMessages?.length || 0;
+        const dpgCompactionSessionId = this.getCompactionSessionId(options);
+        if (
+          budgetCheck.shouldCompact &&
+          this.conversationMemory &&
+          dpgMessageCount >
+            (this.lastCompactionMessageCount.get(dpgCompactionSessionId) ?? 0)
+        ) {
+          const compactor = new ContextCompactor({
+            provider: providerName,
+            summarizationProvider:
+              this.conversationMemoryConfig?.conversationMemory
+                ?.summarizationProvider,
+            summarizationModel:
+              this.conversationMemoryConfig?.conversationMemory
+                ?.summarizationModel,
+          });
           const compactionResult = await compactor.compact(
             conversationMessages as import("./types/conversation.js").ChatMessage[],
             budgetCheck.availableInputTokens,
-            undefined,
+            this.conversationMemoryConfig?.conversationMemory,
             (options.context as Record<string, unknown>)?.requestId as
               | string
               | undefined,
@@ -4896,6 +5066,10 @@ Current user's request: ${currentInput}`;
           if (compactionResult.compacted) {
             const repairedResult = repairToolPairs(compactionResult.messages);
             conversationMessages = repairedResult.messages;
+            this.lastCompactionMessageCount.set(
+              dpgCompactionSessionId,
+              conversationMessages.length,
+            );
           }
 
           // POST-COMPACTION BUDGET RE-CHECK (BUG-003 fix)
@@ -5278,6 +5452,8 @@ Current user's request: ${currentInput}`;
    * @throws {Error} When conversation memory operations fail (if enabled)
    */
   async stream(options: StreamOptions): Promise<StreamResult> {
+    // Shallow-copy caller's object to avoid mutating their original reference
+    options = { ...options };
     // Set metrics trace context for parent-child span linking
     const metricsTraceId = crypto.randomUUID().replace(/-/g, "");
     const metricsParentSpanId = crypto
@@ -5307,6 +5483,9 @@ Current user's request: ${currentInput}`;
         const spanStartTime = Date.now();
 
         try {
+          // NL-004: Resolve model aliases/deprecations before processing
+          options.model = resolveModel(options.model, this.modelAliasConfig);
+
           const startTime = Date.now();
           const hrTimeStart = process.hrtime.bigint();
           const streamId = `neurolink-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -5735,6 +5914,11 @@ Current user's request: ${currentInput}`;
 
         // Use orchestrated options
         Object.assign(options, orchestratedOptions);
+
+        // Re-resolve model alias in case orchestration returned an alias
+        if (orchestratedOptions.model) {
+          options.model = resolveModel(options.model, this.modelAliasConfig);
+        }
       } catch (error) {
         logger.warn(
           "Stream orchestration failed, continuing with original options",
@@ -6320,12 +6504,26 @@ Current user's request: ${currentInput}`;
       toolDefinitions: availableTools,
     });
 
-    if (streamBudget.shouldCompact && this.conversationMemory) {
-      const compactor = new ContextCompactor({ provider: providerName });
+    const streamMessageCount = conversationMessages?.length || 0;
+    const streamCompactionSessionId = this.getCompactionSessionId(options);
+    if (
+      streamBudget.shouldCompact &&
+      this.conversationMemory &&
+      streamMessageCount >
+        (this.lastCompactionMessageCount.get(streamCompactionSessionId) ?? 0)
+    ) {
+      const compactor = new ContextCompactor({
+        provider: providerName,
+        summarizationProvider:
+          this.conversationMemoryConfig?.conversationMemory
+            ?.summarizationProvider,
+        summarizationModel:
+          this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
+      });
       const compactionResult = await compactor.compact(
         conversationMessages as import("./types/conversation.js").ChatMessage[],
         streamBudget.availableInputTokens,
-        undefined,
+        this.conversationMemoryConfig?.conversationMemory,
         (options.context as Record<string, unknown> | undefined)?.requestId as
           | string
           | undefined,
@@ -6333,6 +6531,71 @@ Current user's request: ${currentInput}`;
       if (compactionResult.compacted) {
         const repairedResult = repairToolPairs(compactionResult.messages);
         conversationMessages = repairedResult.messages;
+        this.lastCompactionMessageCount.set(
+          streamCompactionSessionId,
+          conversationMessages.length,
+        );
+      }
+
+      // POST-COMPACTION BUDGET RE-CHECK (mirrors tryMCPGeneration / directProviderGeneration)
+      const postCompactBudget = checkContextBudget({
+        provider: providerName,
+        model: options.model,
+        maxTokens: options.maxTokens,
+        systemPrompt: enhancedSystemPrompt,
+        conversationMessages: conversationMessages as Array<{
+          role: string;
+          content: string;
+        }>,
+        currentPrompt: options.input.text,
+        toolDefinitions: availableTools,
+      });
+
+      if (!postCompactBudget.withinBudget) {
+        logger.warn(
+          "[NeuroLink] Stream: post-compaction still over budget, emergency truncation",
+          {
+            estimatedTokens: postCompactBudget.estimatedInputTokens,
+            availableTokens: postCompactBudget.availableInputTokens,
+            overagePercent: Math.round(
+              (postCompactBudget.usageRatio - 1.0) * 100,
+            ),
+          },
+        );
+
+        conversationMessages = emergencyContentTruncation(
+          conversationMessages as import("./types/conversation.js").ChatMessage[],
+          postCompactBudget.availableInputTokens,
+          postCompactBudget.breakdown,
+          providerName,
+        );
+
+        const finalBudget = checkContextBudget({
+          provider: providerName,
+          model: options.model,
+          maxTokens: options.maxTokens,
+          systemPrompt: enhancedSystemPrompt,
+          conversationMessages: conversationMessages as Array<{
+            role: string;
+            content: string;
+          }>,
+          currentPrompt: options.input.text,
+          toolDefinitions: availableTools,
+        });
+
+        if (!finalBudget.withinBudget) {
+          throw new ContextBudgetExceededError(
+            `Stream context exceeds model budget after all compaction stages. ` +
+              `Estimated: ${finalBudget.estimatedInputTokens} tokens, ` +
+              `Budget: ${finalBudget.availableInputTokens} tokens.`,
+            {
+              estimatedTokens: finalBudget.estimatedInputTokens,
+              availableTokens: finalBudget.availableInputTokens,
+              stagesUsed: compactionResult.stagesUsed,
+              breakdown: finalBudget.breakdown,
+            },
+          );
+        }
       }
     }
 
@@ -7500,17 +7763,23 @@ Current user's request: ${currentInput}`;
           const { MemoryManager } = await import("./utils/performance.js");
           const startMemory = MemoryManager.getMemoryUsageMB();
 
+          // NL-004: Use composite key (serverId.toolName) to avoid cross-server collisions
+          const toolInfo = this.toolRegistry.getToolInfo(toolName);
+          const breakerServerId =
+            externalTool?.serverId || toolInfo?.tool?.serverId || "unknown";
+          const breakerKey = `${breakerServerId}.${toolName}`;
+
           // Get or create circuit breaker for this tool
-          if (!this.toolCircuitBreakers.has(toolName)) {
+          if (!this.toolCircuitBreakers.has(breakerKey)) {
             this.toolCircuitBreakers.set(
-              toolName,
+              breakerKey,
               new CircuitBreaker(
                 CIRCUIT_BREAKER.FAILURE_THRESHOLD,
                 CIRCUIT_BREAKER_RESET_MS,
               ),
             );
           }
-          const circuitBreaker = this.toolCircuitBreakers.get(toolName);
+          const circuitBreaker = this.toolCircuitBreakers.get(breakerKey);
 
           // Initialize metrics for this tool if not exists
           if (!this.toolExecutionMetrics.has(toolName)) {
@@ -7612,6 +7881,74 @@ Current user's request: ${currentInput}`;
               typeof result === "object" &&
               "isError" in result &&
               (result as Record<string, unknown>).isError === true;
+
+            // NL-001: Count isError:true results as circuit breaker failures
+            // This ensures tools that return error results (not just thrown errors) are tracked
+            // TODO(NL-009): This records a failure AFTER the circuit breaker already recorded
+            // success inside `circuitBreaker.execute()`. The correct fix is to check `isToolError`
+            // inside the execute callback and throw before returning, so the breaker never sees
+            // success. Deferred because moving the check inside the callback requires restructuring
+            // the retry/timeout wrapper chain and is high-risk for a hot-path change.
+            if (isToolError && circuitBreaker) {
+              // Record a failure by executing a rejected promise through the breaker
+              try {
+                await circuitBreaker.execute(async () => {
+                  throw new Error(`Tool ${toolName} returned isError:true`);
+                });
+              } catch {
+                // Expected — we intentionally triggered the failure recording
+              }
+              mcpLogger.debug(
+                `[${functionTag}] Circuit breaker failure recorded for isError result`,
+                {
+                  toolName,
+                  circuitBreakerState: circuitBreaker.getState(),
+                  circuitBreakerFailures: circuitBreaker.getFailureCount(),
+                },
+              );
+            }
+
+            // NL-002 + NL-003: Format and capture MCP error results
+            if (isToolError) {
+              const resultObj = result as Record<string, unknown>;
+              const contentArr = resultObj.content as
+                | Array<{ type?: string; text?: string }>
+                | undefined;
+              const errorText =
+                contentArr
+                  ?.filter((c) => c.type === "text" && c.text)
+                  .map((c) => c.text)
+                  .join(" ") ||
+                (typeof resultObj.error === "string"
+                  ? resultObj.error
+                  : "Unknown error");
+              const errorCategory = classifyMcpErrorMessage(errorText);
+              const prefix = `[TOOL_ERROR: ${toolName} failed (${errorCategory})] `;
+
+              // NL-002: Clone content array to avoid mutating shared objects, then prefix error
+              if (contentArr && Array.isArray(contentArr)) {
+                const clonedContent = contentArr.map((c) => ({ ...c }));
+                for (const content of clonedContent) {
+                  if (content.type === "text" && content.text) {
+                    content.text = prefix + content.text;
+                    break; // Only prefix the first text content
+                  }
+                }
+                resultObj.content = clonedContent;
+              }
+
+              // NL-003: Capture error details in span attributes for telemetry
+              toolSpan.setAttribute(
+                "tool.error.message",
+                errorText.substring(0, 500),
+              );
+              toolSpan.setAttribute("tool.error.category", errorCategory);
+              toolSpan.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: `MCP tool returned isError: ${errorText.substring(0, 200)}`,
+              });
+            }
+
             toolSpan.setAttribute(
               "tool.result.status",
               isToolError ? "error" : "success",
@@ -8619,6 +8956,20 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * NL-004: Set model alias/deprecation configuration.
+   * Models in the alias map will be warned, redirected, or blocked based on their action.
+   * @param config - Model alias configuration with aliases map
+   */
+  setModelAliasConfig(
+    config: import("./types/generateTypes.js").ModelAliasConfig,
+  ): void {
+    this.modelAliasConfig = config;
+    logger.info(
+      `[ModelAlias] Configured ${Object.keys(config.aliases).length} model aliases`,
+    );
+  }
+
+  /**
    * Get circuit breaker status for all tools
    * @returns Object with circuit breaker status for each tool
    */
@@ -8731,10 +9082,18 @@ Current user's request: ${currentInput}`;
     // Get all tool names from toolRegistry
     const allTools = await this.toolRegistry.listTools();
     const allToolNames = new Set(allTools.map((tool) => tool.name));
+    // Build a lookup from tool name to serverId for composite breaker keys
+    const toolServerIdMap = new Map<string, string>();
+    for (const tool of allTools) {
+      if (!toolServerIdMap.has(tool.name)) {
+        toolServerIdMap.set(tool.name, tool.serverId || "unknown");
+      }
+    }
 
     for (const toolName of allToolNames) {
       const metrics = this.toolExecutionMetrics.get(toolName);
-      const circuitBreaker = this.toolCircuitBreakers.get(toolName);
+      const breakerKey = `${toolServerIdMap.get(toolName) || "unknown"}.${toolName}`;
+      const circuitBreaker = this.toolCircuitBreakers.get(breakerKey);
 
       const successRate = metrics
         ? metrics.totalExecutions > 0
@@ -8925,6 +9284,7 @@ Current user's request: ${currentInput}`;
       });
     }
 
+    this.lastCompactionMessageCount.delete(sessionId);
     return await this.conversationMemory.clearSession(sessionId);
   }
 
@@ -8950,6 +9310,7 @@ Current user's request: ${currentInput}`;
       });
     }
 
+    this.lastCompactionMessageCount.clear();
     await this.conversationMemory.clearAllSessions();
   }
   /**
@@ -9593,6 +9954,9 @@ Current user's request: ${currentInput}`;
   async dispose(): Promise<void> {
     logger.debug("[NeuroLink] Starting disposal of resources...");
 
+    // Clear per-session compaction watermarks
+    this.lastCompactionMessageCount.clear();
+
     const cleanupErrors: Error[] = [];
 
     try {
@@ -9767,8 +10131,26 @@ Current user's request: ${currentInput}`;
       return null;
     }
 
-    const compactor = new ContextCompactor(config);
-    const targetTokens = Math.floor(messages.length * 100); // Rough target
+    const compactor = new ContextCompactor({
+      ...config,
+      summarizationProvider:
+        config?.summarizationProvider ??
+        this.conversationMemoryConfig?.conversationMemory
+          ?.summarizationProvider,
+      summarizationModel:
+        config?.summarizationModel ??
+        this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
+    });
+    // Use actual context window to determine target, not arbitrary heuristic
+    const budgetInfo = checkContextBudget({
+      provider: config?.provider || "openai",
+      conversationMessages: messages as Array<{
+        role: string;
+        content: string;
+      }>,
+    });
+    // Target 60% of available input tokens — leave room for new messages
+    const targetTokens = Math.floor(budgetInfo.availableInputTokens * 0.6);
     const result = await compactor.compact(
       messages,
       targetTokens,

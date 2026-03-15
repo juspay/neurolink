@@ -1,7 +1,7 @@
 /**
  * Summarization Prompt Builder
  *
- * Builds prompts for summarizing conversation context into a 9-section structure.
+ * Builds prompts for summarizing conversation context into a 10-section structure.
  * Supports both initial summarization and incremental merging with existing summaries.
  */
 
@@ -9,7 +9,7 @@ import type { SummarizationPromptOptions } from "../../types/contextTypes.js";
 
 export type { SummarizationPromptOptions } from "../../types/contextTypes.js";
 
-const NINE_SECTIONS = [
+const SUMMARY_SECTIONS = [
   "Primary Request and Intent",
   "Key Technical Concepts",
   "Files and Code Sections",
@@ -19,6 +19,7 @@ const NINE_SECTIONS = [
   "Current Work",
   "Next Step",
   "Required Files",
+  "Constraints and Established Rules",
 ];
 
 function buildFileContextSection(
@@ -58,7 +59,7 @@ function buildInitialPrompt(options: SummarizationPromptOptions): string {
     options.filesModified,
   );
 
-  return `You are a context summarization assistant. Your task is to analyze the conversation and create a structured summary following a 9-section format.
+  return `You are a context summarization assistant. Your task is to analyze the conversation and create a structured summary following a 10-section format.
 
 Create a summary with the following sections:
 
@@ -87,7 +88,12 @@ What is being actively worked on right now?
 What is the immediate next action to take?
 
 ### 9. Required Files
-What files will need to be accessed or modified to continue?${fileContext}
+What files will need to be accessed or modified to continue?
+
+### 10. Constraints and Established Rules
+What user-imposed constraints, behavioral directives, coding standards, agreed-upon decisions, or established rules must persist across the conversation? Include any "always do X", "never do Y", naming conventions, architectural patterns, or preferences the user has stated.${fileContext}
+
+IMPORTANT: Section 10 (Constraints and Established Rules) must ALWAYS be preserved in full. User constraints and established agreements are never "no longer relevant" — they remain in effect for the entire session unless the user explicitly revokes them.
 
 Analyze the conversation thoroughly and fill in each section with relevant information. If a section is not applicable, write "N/A" for that section.`;
 }
@@ -105,18 +111,19 @@ Existing Summary:
 ${options.previousSummary}
 ---
 
-Update sections with new information while preserving important context from the existing summary. Maintain the same 9-section structure.
+Update sections with new information while preserving important context from the existing summary. Maintain the same 10-section structure.
 
 Instructions:
 1. Review the existing summary above
 2. Analyze the new conversation content
 3. MERGE the new information into the appropriate sections
 4. Update sections with relevant new information
-5. Remove information that is no longer relevant
+5. Remove information that is no longer relevant EXCEPT for Section 10 (Constraints and Established Rules) — user constraints and established agreements must ALWAYS be preserved unless the user explicitly revoked them
 6. Keep the summary concise but comprehensive
-7. Maintain the 9-section format${fileContext}
+7. Maintain the 10-section format
+8. Always carry forward ALL entries from Section 10 of the existing summary, adding any new constraints found in the new content${fileContext}
 
-Output the updated summary following the same 9-section structure.`;
+Output the updated summary following the same 10-section structure.`;
 }
 
 /**
@@ -137,4 +144,4 @@ export function buildSummarizationPrompt(
   return buildInitialPrompt(options);
 }
 
-export { NINE_SECTIONS };
+export { SUMMARY_SECTIONS };

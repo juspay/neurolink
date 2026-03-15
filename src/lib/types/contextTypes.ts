@@ -3,10 +3,9 @@
  * Provides type-safe context integration for AI generation
  */
 
-import type { JsonValue, JsonObject } from "./common.js";
 import type { ExecutionContext } from "../types/tools.js";
+import type { JsonObject, JsonValue } from "./common.js";
 import type { ChatMessage, ConversationMemoryConfig } from "./conversation.js";
-import type { CompactionStage } from "../context/contextCompactor.js";
 
 /**
  * Base context type for all AI operations
@@ -272,14 +271,17 @@ export class ContextFactory {
     config: Partial<ContextConfig> = {},
   ): ProcessedContext {
     const startTime = Date.now();
-    const finalConfig = { ...this.DEFAULT_CONFIG, ...config };
+    const finalConfig = { ...ContextFactory.DEFAULT_CONFIG, ...config };
 
     let processedContext: string | null = null;
     const template = "default";
     let truncated = false;
 
     if (finalConfig.includeInPrompt && finalConfig.mode !== "metadata_only") {
-      processedContext = this.formatContextForPrompt(context, finalConfig);
+      processedContext = ContextFactory.formatContextForPrompt(
+        context,
+        finalConfig,
+      );
 
       // Truncate if necessary
       if (
@@ -316,16 +318,16 @@ export class ContextFactory {
   ): string {
     switch (config.mode) {
       case "prompt_prefix":
-        return this.formatAsPrefix(context);
+        return ContextFactory.formatAsPrefix(context);
 
       case "prompt_suffix":
-        return this.formatAsSuffix(context);
+        return ContextFactory.formatAsSuffix(context);
 
       case "system_prompt":
-        return this.formatForSystemPrompt(context);
+        return ContextFactory.formatForSystemPrompt(context);
 
       case "structured_prompt":
-        return this.formatStructured(context);
+        return ContextFactory.formatStructured(context);
 
       case "metadata_only":
       case "none":
@@ -484,7 +486,7 @@ export class ContextConverter {
             legacyContext.authToken ||
             legacyContext.accessToken,
           endpoint: legacyContext.apiEndpoint || legacyContext.serviceUrl,
-          provider: this.inferProvider(legacyContext),
+          provider: ContextConverter.inferProvider(legacyContext),
         },
         platformConfig: {
           type: legacyContext.platformType || "generic",
@@ -509,7 +511,7 @@ export class ContextConverter {
               }
             : {}),
           // Include all additional custom data
-          ...this.extractCustomData(legacyContext),
+          ...ContextConverter.extractCustomData(legacyContext),
         },
       },
       metadata: includeMetadata
@@ -599,6 +601,13 @@ export class ContextConverter {
 // ---------------------------------------------------------------------------
 // Context Compaction Types
 // ---------------------------------------------------------------------------
+
+/** Stages available in the compaction pipeline. */
+export type CompactionStage =
+  | "prune"
+  | "deduplicate"
+  | "summarize"
+  | "truncate";
 
 /** Result of multi-stage context compaction. */
 export type CompactionResult = {
@@ -894,6 +903,8 @@ export type SummarizeConfig = {
   model?: string;
   keepRecentRatio?: number;
   memoryConfig?: Partial<ConversationMemoryConfig>;
+  /** Target token budget — when set, split uses token counting instead of message count */
+  targetTokens?: number;
 };
 
 /** Result of structured LLM summarization (Stage 3). */

@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildSummarizationPrompt } from "../../../../src/lib/context/prompts/summarizationPrompt.js";
 
 describe("Summarization Prompt Builder", () => {
   describe("buildSummarizationPrompt - Initial", () => {
-    it("should build initial prompt with 9 sections", () => {
+    it("should build initial prompt with 10 sections", () => {
       const prompt = buildSummarizationPrompt({
         isIncremental: false,
       });
@@ -17,6 +17,14 @@ describe("Summarization Prompt Builder", () => {
       expect(prompt).toContain("Current Work");
       expect(prompt).toContain("Next Step");
       expect(prompt).toContain("Required Files");
+      expect(prompt).toContain("Constraints and Established Rules");
+    });
+
+    it("should instruct to always preserve constraints section", () => {
+      const prompt = buildSummarizationPrompt({
+        isIncremental: false,
+      });
+      expect(prompt).toContain("must ALWAYS be preserved");
     });
 
     it("should include file context when provided", () => {
@@ -74,7 +82,16 @@ describe("Summarization Prompt Builder", () => {
       });
 
       expect(prompt).toContain("Update sections");
-      expect(prompt).toContain("9-section");
+      expect(prompt).toContain("10-section");
+    });
+
+    it("should instruct to always carry forward constraints in incremental mode", () => {
+      const prompt = buildSummarizationPrompt({
+        isIncremental: true,
+        previousSummary: "Previous content",
+      });
+      expect(prompt).toContain("carry forward ALL entries from Section 10");
+      expect(prompt).toContain("Constraints and Established Rules");
     });
   });
 });

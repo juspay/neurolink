@@ -1548,6 +1548,9 @@ async function convertSimpleImagesToProviderFormat(
   provider: string,
   _model: string,
 ): Promise<Array<TextPart | ImagePart>> {
+  // Validate image count against provider-specific limits before processing
+  ProviderImageAdapter.validateImageCount(images.length, provider, _model);
+
   // For Vercel AI SDK, we need to return the content in the standard format
   // The Vercel AI SDK will handle provider-specific formatting internally
 

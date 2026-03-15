@@ -30,6 +30,7 @@ export type NeurolinkConstructorConfig = {
   hitl?: HITLConfig;
   toolRegistry?: MCPToolRegistry;
   observability?: ObservabilityConfig;
+  modelAliasConfig?: import("./generateTypes.js").ModelAliasConfig;
 };
 
 /**
@@ -127,6 +128,8 @@ export type ToolConfig = {
   maxToolsPerProvider?: number;
   /** Whether MCP tools should be enabled */
   enableMCPTools?: boolean;
+  /** Whether the bash command execution tool should be enabled (opt-in, defaults to false) */
+  enableBashTool?: boolean;
 };
 
 /**

@@ -779,6 +779,33 @@ export class MCPToolRegistry extends MCPRegistry {
   }
 
   /**
+   * NL-001: Get available tools, filtering out those with OPEN circuit breakers.
+   * Returns both the filtered tools and the list of unavailable tool names.
+   */
+  getAvailableTools(
+    circuitBreakers: Map<
+      string,
+      import("../utils/errorHandling.js").CircuitBreaker
+    >,
+  ): { tools: ToolInfo[]; unavailableTools: string[] } {
+    const allTools = Array.from(this.tools.values());
+    const unavailableTools: string[] = [];
+    const tools: ToolInfo[] = [];
+
+    for (const tool of allTools) {
+      const breakerKey = `${tool.serverId || "unknown"}.${tool.name}`;
+      const breaker = circuitBreakers.get(breakerKey);
+      if (breaker && breaker.getState() === "open") {
+        unavailableTools.push(tool.name);
+      } else {
+        tools.push(tool);
+      }
+    }
+
+    return { tools, unavailableTools };
+  }
+
+  /**
    * Check if tool exists
    */
   hasTool(toolName: string): boolean {

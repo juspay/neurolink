@@ -607,6 +607,12 @@ export type GenerateResult = {
     workflowId: string;
     workflowName: string;
   };
+
+  // NL-007: Retry metadata for observability
+  retries?: {
+    count: number;
+    errors: Array<{ code: string; message: string }>;
+  };
 };
 
 /**
@@ -992,6 +998,11 @@ export type TextGenerationResult = {
   ppt?: PPTGenerationResult;
   /** Image generation output */
   imageOutput?: { base64: string } | null;
+  // NL-007: Retry metadata for observability
+  retries?: {
+    count: number;
+    errors: Array<{ code: string; message: string }>;
+  };
 };
 
 /**
@@ -1000,4 +1011,19 @@ export type TextGenerationResult = {
 export type EnhancedGenerateResult = GenerateResult & {
   analytics?: AnalyticsData;
   evaluation?: EvaluationData;
+};
+
+/**
+ * NL-004: Model alias/deprecation configuration.
+ * Allows mapping deprecated model names to their replacements.
+ */
+export type ModelAliasConfig = {
+  aliases: Record<
+    string,
+    {
+      target: string;
+      action: "warn" | "redirect" | "block";
+      reason?: string;
+    }
+  >;
 };

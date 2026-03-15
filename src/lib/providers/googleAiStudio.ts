@@ -13,11 +13,11 @@ import {
   ErrorSeverity,
   GoogleAIModels,
 } from "../constants/enums.js";
-import { estimateTokens } from "../utils/tokenEstimation.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import type { NeuroLink } from "../neurolink.js";
+import { ATTR, tracers, withClientSpan } from "../telemetry/index.js";
 import type { UnknownRecord } from "../types/common.js";
 import {
   AuthenticationError,
@@ -43,23 +43,23 @@ import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import { ERROR_CODES, NeuroLinkError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import { isGemini3Model } from "../utils/modelDetection.js";
-import { tracers, ATTR, withClientSpan } from "../telemetry/index.js";
 import {
   composeAbortSignals,
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
+import { estimateTokens } from "../utils/tokenEstimation.js";
 import {
-  buildNativeToolDeclarations,
   buildNativeConfig,
-  computeMaxSteps,
+  buildNativeToolDeclarations,
   collectStreamChunks,
-  extractTextFromParts,
+  computeMaxSteps,
   executeNativeToolCalls,
+  extractTextFromParts,
   handleMaxStepsTermination,
+  type NativeToolsConfig,
   pushModelResponseToHistory,
   sanitizeToolsForGemini,
-  type NativeToolsConfig,
 } from "./googleNativeGemini3.js";
 
 // Google AI Live API types now imported from ../types/providerSpecific.js
@@ -880,9 +880,12 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 { abortSignal: composedSignal },
               );
 
-              // Add function responses to history
+              // Add function responses to history — the @google/genai SDK
+              // only accepts "user" and "model" as valid roles in contents.
+              // Function/tool responses must use role: "user" (matching the
+              // SDK's own automaticFunctionCalling implementation).
               currentContents.push({
-                role: "function",
+                role: "user",
                 parts: functionResponses as unknown[],
               });
             } catch (error) {
@@ -1118,9 +1121,12 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 { toolExecutions, abortSignal: composedSignal },
               );
 
-              // Add function responses to history
+              // Add function responses to history — the @google/genai SDK
+              // only accepts "user" and "model" as valid roles in contents.
+              // Function/tool responses must use role: "user" (matching the
+              // SDK's own automaticFunctionCalling implementation).
               currentContents.push({
-                role: "function",
+                role: "user",
                 parts: functionResponses,
               });
             } catch (error) {
