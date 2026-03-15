@@ -1,3 +1,9 @@
+## [9.25.2](https://github.com/juspay/neurolink/compare/v9.25.1...v9.25.2) (2026-03-15)
+
+### Bug Fixes
+
+- **(core):** remove hardcoded Ollama model and unsafe type assertions (BZ-463) ([f12e03b](https://github.com/juspay/neurolink/commit/f12e03bfef007464d27c36b44694c5c4c799c6ea))
+
 ## [9.25.1](https://github.com/juspay/neurolink/compare/v9.25.0...v9.25.1) (2026-03-15)
 
 ### Bug Fixes
