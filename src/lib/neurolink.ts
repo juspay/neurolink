@@ -1872,20 +1872,40 @@ Current user's request: ${currentInput}`;
               m && typeof m === "object" && typeof m.name === "string",
           );
 
-          const targetModel = route.model || "llama3.2:latest";
-          const modelIsAvailable = validModels.some(
-            (m) => m.name === targetModel,
-          );
-
-          if (!modelIsAvailable) {
+          const targetModel = route.model;
+          if (targetModel) {
+            // Check if the specific routed model is available
+            const modelIsAvailable = validModels.some(
+              (m) => m.name === targetModel,
+            );
+            if (!modelIsAvailable) {
+              logger.debug("Orchestration provider validation failed", {
+                taskType: classification.type,
+                routedProvider: route.provider,
+                routedModel: route.model,
+                reason: `Ollama model '${targetModel}' not found`,
+                orchestrationTime: `${Date.now() - startTime}ms`,
+              });
+              // Fall back to first available model instead of abandoning orchestration
+              if (validModels.length > 0) {
+                route.model = validModels[0].name;
+              } else {
+                return {}; // No models at all — preserve existing fallback behavior
+              }
+            }
+          } else if (validModels.length === 0) {
+            // No model specified and none available
             logger.debug("Orchestration provider validation failed", {
               taskType: classification.type,
               routedProvider: route.provider,
               routedModel: route.model,
-              reason: `Ollama model '${route.model || "llama3.2:latest"}' not found`,
+              reason: "No Ollama models available",
               orchestrationTime: `${Date.now() - startTime}ms`,
             });
             return {}; // Return empty object to preserve existing fallback behavior
+          } else {
+            // No model specified but models are available — use the first one
+            route.model = validModels[0].name;
           }
         } catch (error) {
           logger.debug("Orchestration provider validation failed", {
@@ -2007,20 +2027,40 @@ Current user's request: ${currentInput}`;
               m && typeof m === "object" && typeof m.name === "string",
           );
 
-          const targetModel = route.model || "llama3.2:latest";
-          const modelIsAvailable = validModels.some(
-            (m) => m.name === targetModel,
-          );
-
-          if (!modelIsAvailable) {
+          const targetModel = route.model;
+          if (targetModel) {
+            // Check if the specific routed model is available
+            const modelIsAvailable = validModels.some(
+              (m) => m.name === targetModel,
+            );
+            if (!modelIsAvailable) {
+              logger.debug("Stream orchestration provider validation failed", {
+                taskType: classification.type,
+                routedProvider: route.provider,
+                routedModel: route.model,
+                reason: `Ollama model '${targetModel}' not found`,
+                orchestrationTime: `${Date.now() - startTime}ms`,
+              });
+              // Fall back to first available model instead of abandoning orchestration
+              if (validModels.length > 0) {
+                route.model = validModels[0].name;
+              } else {
+                return {}; // No models at all — preserve existing fallback behavior
+              }
+            }
+          } else if (validModels.length === 0) {
+            // No model specified and none available
             logger.debug("Stream orchestration provider validation failed", {
               taskType: classification.type,
               routedProvider: route.provider,
               routedModel: route.model,
-              reason: `Ollama model '${route.model || "llama3.2:latest"}' not found`,
+              reason: "No Ollama models available",
               orchestrationTime: `${Date.now() - startTime}ms`,
             });
             return {}; // Return empty object to preserve existing fallback behavior
+          } else {
+            // No model specified but models are available — use the first one
+            route.model = validModels[0].name;
           }
         } catch (error) {
           logger.debug("Stream orchestration provider validation failed", {
@@ -3127,29 +3167,19 @@ Current user's request: ${currentInput}`;
                     evaluation: textResult.evaluation
                       ? {
                           ...textResult.evaluation,
-                          isOffTopic:
-                            ((textResult.evaluation as unknown as UnknownRecord)
-                              .isOffTopic as boolean) ?? false,
+                          isOffTopic: textResult.evaluation.isOffTopic ?? false,
                           alertSeverity:
-                            ((textResult.evaluation as unknown as UnknownRecord)
-                              .alertSeverity as
-                              | "low"
-                              | "medium"
-                              | "high"
-                              | "none") ?? ("none" as const),
+                            textResult.evaluation.alertSeverity ??
+                            ("none" as const),
                           reasoning:
-                            ((textResult.evaluation as unknown as UnknownRecord)
-                              .reasoning as string) ?? "No evaluation provided",
+                            textResult.evaluation.reasoning ??
+                            "No evaluation provided",
                           evaluationModel:
-                            ((textResult.evaluation as unknown as UnknownRecord)
-                              .evaluationModel as string) ?? "unknown",
+                            textResult.evaluation.evaluationModel ?? "unknown",
                           evaluationTime:
-                            ((textResult.evaluation as unknown as UnknownRecord)
-                              .evaluationTime as number) ?? Date.now(),
-                          // Include evaluationDomain from original options
+                            textResult.evaluation.evaluationTime ?? Date.now(),
                           evaluationDomain:
-                            ((textResult.evaluation as unknown as UnknownRecord)
-                              .evaluationDomain as string) ??
+                            textResult.evaluation.evaluationDomain ??
                             textOptions.evaluationDomain ??
                             factoryResult.domainType,
                         }
@@ -6188,9 +6218,9 @@ Current user's request: ${currentInput}`;
     const hasAudio = !!(
       options?.input?.audio &&
       options.input.audio.frames &&
-      typeof (options.input.audio.frames as unknown as Record<string, unknown>)[
-        Symbol.asyncIterator as unknown as string
-      ] !== "undefined"
+      typeof (options.input.audio.frames as AsyncIterable<Buffer>)[
+        Symbol.asyncIterator
+      ] === "function"
     );
 
     if (!hasText && !hasAudio) {
@@ -7117,8 +7147,7 @@ Current user's request: ${currentInput}`;
     // Check if the memory manager is Redis-backed (has updateAgenticLoopReport method)
     if (
       !("updateAgenticLoopReport" in this.conversationMemory) ||
-      typeof (this.conversationMemory as unknown as Record<string, unknown>)
-        .updateAgenticLoopReport !== "function"
+      typeof this.conversationMemory.updateAgenticLoopReport !== "function"
     ) {
       throw new ConversationMemoryError(
         "updateAgenticLoopReport is only supported with Redis conversation memory.",
@@ -7938,20 +7967,17 @@ Current user's request: ${currentInput}`;
       const externalMCPToolsRaw = this.externalServerManager.getAllTools();
       for (const tool of externalMCPToolsRaw) {
         if (!allTools.has(tool.name)) {
-          const optimizedTool = optimizeToolForCollection(
-            tool as unknown as ToolInfo,
-            {
-              category: detectCategory({
-                existingCategory:
-                  typeof tool.metadata?.category === "string"
-                    ? tool.metadata.category
-                    : undefined,
-                isExternal: true,
-                serverId: tool.serverId,
-              }),
-              inputSchema: {},
-            },
-          );
+          const optimizedTool = optimizeToolForCollection(tool as ToolInfo, {
+            category: detectCategory({
+              existingCategory:
+                typeof tool.metadata?.category === "string"
+                  ? tool.metadata.category
+                  : undefined,
+              isExternal: true,
+              serverId: tool.serverId,
+            }),
+            inputSchema: {},
+          });
           allTools.set(tool.name, optimizedTool);
         }
       }
@@ -8079,7 +8105,6 @@ Current user's request: ${currentInput}`;
 
               const responseData = await response.json();
               const models = responseData?.models;
-              const defaultOllamaModel = "llama3.2:latest";
 
               // Runtime-safe guard: ensure models is an array with valid objects
               if (!Array.isArray(models)) {
@@ -8099,18 +8124,14 @@ Current user's request: ${currentInput}`;
                   m && typeof m === "object" && typeof m.name === "string",
               );
 
-              const modelIsAvailable = validModels.some(
-                (m) => m.name === defaultOllamaModel,
-              );
-
-              if (modelIsAvailable) {
+              if (validModels.length > 0) {
                 return {
                   provider: providerName,
                   status: "working" as const,
                   configured: true,
                   authenticated: true,
                   responseTime: Date.now() - startTime,
-                  model: defaultOllamaModel,
+                  model: validModels[0].name,
                 };
               } else {
                 return {
@@ -8118,7 +8139,7 @@ Current user's request: ${currentInput}`;
                   status: "failed" as const,
                   configured: true,
                   authenticated: false,
-                  error: `Ollama service running but model '${defaultOllamaModel}' not found`,
+                  error: "Ollama service running but no models installed",
                   responseTime: Date.now() - startTime,
                 };
               }
