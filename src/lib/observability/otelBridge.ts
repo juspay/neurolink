@@ -49,7 +49,7 @@ export class OtelBridge {
       type,
       name,
       {},
-      undefined,
+      spanContext.spanId,
       spanContext.traceId,
     );
   }

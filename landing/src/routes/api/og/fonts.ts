@@ -32,8 +32,19 @@ export async function loadFonts(): Promise<
 
   const buffers = await Promise.all(
     INTER_FONTS.map(async (font) => {
-      const res = await fetch(font.url);
-      return res.arrayBuffer();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      try {
+        const res = await fetch(font.url, { signal: controller.signal });
+        if (!res.ok) {
+          throw new Error(
+            `Failed to fetch font ${font.url}: ${res.status} ${res.statusText}`,
+          );
+        }
+        return res.arrayBuffer();
+      } finally {
+        clearTimeout(timeoutId);
+      }
     }),
   );
 

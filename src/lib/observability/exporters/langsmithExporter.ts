@@ -4,6 +4,21 @@
  */
 
 import { logger } from "../../utils/logger.js";
+
+/**
+ * Build a LangSmith dotted_order value: "{datetime}.{id}"
+ * Format: YYYYMMDDTHHmmssSSSSSSZ.<id> (datetime in UTC with microseconds)
+ */
+function buildDottedOrder(isoTime: string, id: string): string {
+  const d = new Date(isoTime);
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const microseconds = String(d.getUTCMilliseconds() * 1000).padStart(6, "0");
+  const dt =
+    `${d.getUTCFullYear()}${pad2(d.getUTCMonth() + 1)}${pad2(d.getUTCDate())}T` +
+    `${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}${pad2(d.getUTCSeconds())}` +
+    `${microseconds}Z`;
+  return `${dt}.${id}`;
+}
 import type {
   ExporterHealthStatus,
   ExportResult,
@@ -94,10 +109,20 @@ export class LangSmithExporter extends BaseExporter {
     const startTime = Date.now();
 
     try {
-      const runs = spans.map((s) => ({
-        ...SpanSerializer.toLangSmithFormat(s),
-        session_name: this.projectName,
-      }));
+      const post = spans.map((s) => {
+        const run = SpanSerializer.toLangSmithFormat(s);
+        // LangSmith /api/v1/runs/batch requires dotted_order and trace_id on each run
+        const dotted_order = buildDottedOrder(
+          run.start_time ?? s.startTime,
+          run.id,
+        );
+        return {
+          ...run,
+          trace_id: run.trace_id ?? run.id,
+          dotted_order,
+          session_name: this.projectName,
+        };
+      });
 
       const response = await fetch(`${this.endpoint}/api/v1/runs/batch`, {
         method: "POST",
@@ -105,7 +130,7 @@ export class LangSmithExporter extends BaseExporter {
           "Content-Type": "application/json",
           "x-api-key": this.apiKey,
         },
-        body: JSON.stringify({ runs }),
+        body: JSON.stringify({ post }),
       });
 
       if (!response.ok) {

@@ -22,6 +22,7 @@ export class LangfuseExporter extends BaseExporter {
   private readonly secretKey: string;
   private readonly baseUrl: string;
   private readonly release?: string;
+  private readonly redactIO: boolean;
 
   constructor(config: LangfuseExporterConfig) {
     super("langfuse", config);
@@ -29,6 +30,7 @@ export class LangfuseExporter extends BaseExporter {
     this.secretKey = config.secretKey;
     this.baseUrl = config.baseUrl ?? "https://cloud.langfuse.com";
     this.release = config.release;
+    this.redactIO = config.redactIO ?? false;
   }
 
   async initialize(): Promise<void> {
@@ -170,10 +172,15 @@ export class LangfuseExporter extends BaseExporter {
   private async createSpan(span: SpanData): Promise<void> {
     const langfuseSpan = SpanSerializer.toLangfuseFormat(span);
 
-    const body = {
+    const body: Record<string, unknown> = {
       ...langfuseSpan,
       traceId: span.traceId,
     };
+
+    if (this.redactIO) {
+      delete body["input"];
+      delete body["output"];
+    }
 
     await this.apiCall("/api/public/spans", body);
   }
@@ -184,7 +191,7 @@ export class LangfuseExporter extends BaseExporter {
   private async createGeneration(span: SpanData): Promise<void> {
     const langfuseSpan = SpanSerializer.toLangfuseFormat(span);
 
-    const body = {
+    const body: Record<string, unknown> = {
       traceId: span.traceId,
       id: langfuseSpan.id,
       parentObservationId: langfuseSpan.parentObservationId,
@@ -197,8 +204,8 @@ export class LangfuseExporter extends BaseExporter {
         maxTokens: span.attributes["ai.max_tokens"],
         topP: span.attributes["ai.top_p"],
       },
-      input: langfuseSpan.input,
-      output: langfuseSpan.output,
+      input: this.redactIO ? undefined : langfuseSpan.input,
+      output: this.redactIO ? undefined : langfuseSpan.output,
       usage: langfuseSpan.usage,
       metadata: langfuseSpan.metadata,
       level: langfuseSpan.level,
