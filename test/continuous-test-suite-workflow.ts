@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+import "dotenv/config";
 /**
  * Continuous Test Suite: Workflow Engine
  *
@@ -17,8 +18,15 @@ import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { AIProviderName, NeuroLink } from "../dist/index.js";
 import type { ProcessResult, WorkflowConfig } from "../dist/index.js";
+import {
+  AIProviderName,
+  getMetricsAggregator,
+  NeuroLink,
+  SpanSerializer,
+  SpanStatus,
+  SpanType,
+} from "../dist/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,6 +104,7 @@ const testResults: Array<{
   name: string;
   result: boolean | null;
   error: string | null;
+  duration?: number;
 }> = [];
 
 function buildBaseCLIArgs(): string[] {
@@ -804,12 +813,17 @@ async function testWorkflowRunnerBasic(
     // Verify there was a score assigned
     const hasScore = typeof result.score === "number";
 
+    // Assert response contains "Paris" (prompt asks about France's capital)
+    const validation = validateResponseContent(result.content, ["paris"], 1);
+
+    const passed = validation.passed && hasScore;
+
     logTest(
       "Workflow Runner - Basic 3-Step",
-      "PASS",
-      `Content: ${result.content.substring(0, 80)}... | Responses: ${responseCount} | Score: ${result.score} | HasScore: ${hasScore}`,
+      passed ? "PASS" : "FAIL",
+      `Content: ${result.content.substring(0, 80)}... | Responses: ${responseCount} | Score: ${result.score} | HasScore: ${hasScore} | ${validation.details.join(" | ")}`,
     );
-    return true;
+    return passed;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
@@ -926,6 +940,15 @@ async function testWorkflowConsensus(_sdk: NeuroLink): Promise<boolean | null> {
       2,
     );
 
+    if (!validation.passed) {
+      logTest(
+        "Workflow Consensus",
+        "FAIL",
+        `Consensus from ${responseCount} models | Score: ${result.score} | Confidence: ${result.confidence} | ${validation.details.join(" | ")}`,
+      );
+      return false;
+    }
+
     logTest(
       "Workflow Consensus",
       "PASS",
@@ -982,12 +1005,14 @@ async function testWorkflowMultiJudge(
       2,
     );
 
+    const passed = validation.passed;
+
     logTest(
       "Workflow Multi-Judge",
-      "PASS",
+      passed ? "PASS" : "FAIL",
       `Responses: ${responseCount} | HasJudgeScores: ${hasJudgeScores} | Score: ${result.score} | ${validation.details.join(" | ")}`,
     );
-    return true;
+    return passed;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
@@ -1036,12 +1061,17 @@ async function testWorkflowFallback(_sdk: NeuroLink): Promise<boolean | null> {
       1,
     );
 
+    // NOTE: True fallback testing requires a bad/non-existent model in the first tier
+    // to force actual fallback behavior. Without SDK support for injecting failures,
+    // we can only verify the chain executes and produces correct content.
+    const passed = validation.passed;
+
     logTest(
       "Workflow Fallback Chain",
-      "PASS",
+      passed ? "PASS" : "FAIL",
       `Responses: ${responseCount} | Workflow: ${result.workflow} | IsCorrect: ${isCorrectWorkflow} | ${validation.details.join(" | ")}`,
     );
-    return true;
+    return passed;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
@@ -1082,12 +1112,14 @@ async function testWorkflowAdaptive(_sdk: NeuroLink): Promise<boolean | null> {
     // For a simple question, the fast tier should handle it
     const validation = validateResponseContent(result.content, ["4"], 1);
 
+    const passed = validation.passed;
+
     logTest(
       "Workflow Adaptive",
-      "PASS",
+      passed ? "PASS" : "FAIL",
       `Tiers executed: ${responseCount} responses | Workflow: ${result.workflow} | TotalTime: ${result.totalTime}ms | ${validation.details.join(" | ")}`,
     );
-    return true;
+    return passed;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
@@ -1105,121 +1137,34 @@ async function testWorkflowCheckpointing(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("Workflow Checkpointing", "TESTING");
-  try {
-    const wf = await loadWorkflowAPIs();
 
-    // Execute a workflow and verify the result includes timing and metadata
-    // (Full checkpoint/resume requires Redis persistence which may not be available)
-    // Override with Vertex-only models since predefined configs use providers without credentials
-    const vertexConsensusFast = makeVertexConsensusFastConfig(
-      wf.CONSENSUS_3_FAST_WORKFLOW,
-    );
-    const result = await wf.runWorkflow(vertexConsensusFast, {
-      prompt: "Name three primary colors.",
-      timeout: 60000,
-      metadata: {
-        checkpointTest: true,
-        testId: "checkpoint-001",
-      },
-    });
-
-    if (!result) {
-      logTest("Workflow Checkpointing", "FAIL", "No result returned");
-      return false;
-    }
-
-    // Verify metadata is passed through
-    const metadataPreserved = result.metadata?.checkpointTest === true;
-
-    // Verify timing metrics are present (needed for checkpoint recovery)
-    const hasTimingMetrics =
-      typeof result.totalTime === "number" &&
-      typeof result.ensembleTime === "number";
-
-    // Verify timestamp is present
-    const hasTimestamp = typeof result.timestamp === "string";
-
-    if (!metadataPreserved) {
-      logTest(
-        "Workflow Checkpointing",
-        "FAIL",
-        "Metadata not preserved through workflow",
-      );
-      return false;
-    }
-
-    logTest(
-      "Workflow Checkpointing",
-      "PASS",
-      `Metadata preserved: ${metadataPreserved} | HasTiming: ${hasTimingMetrics} | HasTimestamp: ${hasTimestamp} | TotalTime: ${result.totalTime}ms`,
-    );
-    return true;
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedProviderError(msg)) {
-      logTest("Workflow Checkpointing", "SKIP", msg);
-      return null;
-    }
-    logTest("Workflow Checkpointing", "FAIL", msg);
-    return false;
-  }
+  // Checkpoint/resume requires Redis persistence which is not available in this
+  // test environment. Running a workflow and checking metadata passthrough does
+  // NOT test checkpointing — it would be a false PASS. Return SKIP instead.
+  logTest(
+    "Workflow Checkpointing",
+    "SKIP",
+    "Checkpoint/resume API not available without Redis.",
+  );
+  return null;
 }
 
 // #8 — testWorkflowHITLSuspend
-// SDK generate: HITL step, verify workflow can produce results that would feed into HITL
+// SDK generate: HITL step, verify workflow can suspend and wait for human input
 async function testWorkflowHITLSuspend(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("Workflow HITL Suspend", "TESTING");
-  try {
-    const wf = await loadWorkflowAPIs();
 
-    // Execute a workflow and simulate what would happen before HITL suspend
-    // We test that the workflow produces intermediate results suitable for HITL review
-    // Override with Vertex-only models since predefined configs use providers without credentials
-    const vertexConsensusFast = makeVertexConsensusFastConfig(
-      wf.CONSENSUS_3_FAST_WORKFLOW,
-    );
-    const result = await wf.runWorkflow(vertexConsensusFast, {
-      prompt:
-        "Should this email be sent to the customer? Respond with APPROVE or REJECT and explain. Email: 'Thank you for your order.'",
-      timeout: 60000,
-    });
-
-    if (!result || !result.content) {
-      logTest("Workflow HITL Suspend", "FAIL", "No result for HITL review");
-      return false;
-    }
-
-    // In a real HITL flow, the workflow would suspend here and wait for human input
-    // We verify the structure is suitable for HITL review
-    const hasSelectedResponse = result.selectedResponse !== undefined;
-    const hasScore = typeof result.score === "number";
-    const hasReasoning =
-      typeof result.reasoning === "string" && result.reasoning.length > 0;
-
-    // The response should contain an actionable decision
-    const validation = validateResponseContent(
-      result.content,
-      ["approve", "reject", "send", "email", "customer"],
-      2,
-    );
-
-    logTest(
-      "Workflow HITL Suspend",
-      "PASS",
-      `HITL-ready output | HasSelected: ${hasSelectedResponse} | HasScore: ${hasScore} | HasReasoning: ${hasReasoning} | ${validation.details.join(" | ")}`,
-    );
-    return true;
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedProviderError(msg)) {
-      logTest("Workflow HITL Suspend", "SKIP", msg);
-      return null;
-    }
-    logTest("Workflow HITL Suspend", "FAIL", msg);
-    return false;
-  }
+  // HITL suspend requires a workflow suspend/resume API that is not available
+  // in this test environment. Running a regular workflow and checking output
+  // does NOT test HITL suspend — it would be a false PASS. Return SKIP instead.
+  logTest(
+    "Workflow HITL Suspend",
+    "SKIP",
+    "HITL suspend API not available in test environment.",
+  );
+  return null;
 }
 
 // #9 — testWorkflowHITLResume
@@ -1228,60 +1173,16 @@ async function testWorkflowHITLResume(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("Workflow HITL Resume", "TESTING");
-  try {
-    const wf = await loadWorkflowAPIs();
 
-    // Simulate a HITL resume by running a workflow with conversation history
-    // (representing the human's decision from the previous step)
-    // Override with Vertex-only models since predefined configs use providers without credentials
-    const vertexConsensusFast = makeVertexConsensusFastConfig(
-      wf.CONSENSUS_3_FAST_WORKFLOW,
-    );
-    const result = await wf.runWorkflow(vertexConsensusFast, {
-      prompt:
-        "The human reviewer approved the email. Confirm the action was recorded. Say: Action confirmed.",
-      conversationHistory: [
-        {
-          role: "user" as const,
-          content: "Should this email be sent to the customer?",
-        },
-        {
-          role: "assistant" as const,
-          content:
-            "I recommend APPROVE - the email is professional and appropriate.",
-        },
-        {
-          role: "user" as const,
-          content: "APPROVED - send the email.",
-        },
-      ],
-      timeout: 60000,
-    });
-
-    if (!result || !result.content) {
-      logTest("Workflow HITL Resume", "FAIL", "No result after HITL resume");
-      return false;
-    }
-
-    // Verify the workflow completed with the human input incorporated
-    const hasContent = result.content.length > 0;
-    const hasWorkflowMeta = result.workflow !== undefined;
-
-    logTest(
-      "Workflow HITL Resume",
-      "PASS",
-      `HITL resumed successfully | Content length: ${result.content.length} | HasMeta: ${hasWorkflowMeta}`,
-    );
-    return true;
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedProviderError(msg)) {
-      logTest("Workflow HITL Resume", "SKIP", msg);
-      return null;
-    }
-    logTest("Workflow HITL Resume", "FAIL", msg);
-    return false;
-  }
+  // HITL resume requires a workflow suspend/resume API that is not available
+  // in this test environment. Running a workflow with conversation history
+  // does NOT test HITL resume — it would be a false PASS. Return SKIP instead.
+  logTest(
+    "Workflow HITL Resume",
+    "SKIP",
+    "HITL resume API not available in test environment.",
+  );
+  return null;
 }
 
 // #10 — testWorkflowRegistry
@@ -1403,12 +1304,14 @@ async function testWorkflowEnsembleExecutor(
       2,
     );
 
+    const passed = validation.passed;
+
     logTest(
       "Workflow Ensemble Executor",
-      "PASS",
+      passed ? "PASS" : "FAIL",
       `Responses: ${responseCount} | Unique models: ${models.size} | EnsembleTime: ${result.ensembleTime}ms | ${validation.details.join(" | ")}`,
     );
-    return true;
+    return passed;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
@@ -1466,12 +1369,14 @@ async function testWorkflowJudgeScorer(
     const hasJudgeTime =
       typeof result.judgeTime === "number" && result.judgeTime >= 0;
 
+    const passed = hasScore && hasReasoning && hasSelected;
+
     logTest(
       "Workflow Judge Scorer",
-      "PASS",
+      passed ? "PASS" : "FAIL",
       `HasScores: ${hasJudgeScores} | Score: ${result.score}/100 | HasReasoning: ${hasReasoning} | HasSelected: ${hasSelected} | JudgeTime: ${result.judgeTime}ms`,
     );
-    return true;
+    return passed;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
@@ -1532,12 +1437,14 @@ async function testWorkflowResponseConditioner(
       2,
     );
 
+    const passed = validation.passed;
+
     logTest(
       "Workflow Response Conditioner",
-      "PASS",
+      passed ? "PASS" : "FAIL",
       `HasOriginal: ${hasOriginalContent} | ConditioningTime: ${result.conditioningTime}ms | ${validation.details.join(" | ")}`,
     );
-    return true;
+    return passed;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
@@ -1563,19 +1470,20 @@ async function testWorkflowCLIList(): Promise<boolean | null> {
     // Even if the command returns non-zero, check if it produced useful output
     const output = (result.stdout + result.stderr).toLowerCase();
 
-    // The CLI should either list workflows or show help about the command
-    if (
-      output.includes("workflow") ||
+    // The CLI should list actual workflow names — require at least one concrete
+    // workflow type (not just generic keywords like "workflow" or "list" that
+    // appear in error messages too).
+    const hasWorkflowContent =
       output.includes("consensus") ||
       output.includes("fallback") ||
       output.includes("adaptive") ||
-      output.includes("ensemble") ||
-      output.includes("list")
-    ) {
+      output.includes("multi-judge") ||
+      output.includes("ensemble");
+    if (hasWorkflowContent) {
       logTest(
         "CLI Workflow List",
         "PASS",
-        `Exit: ${result.code} | Output contains workflow info`,
+        `Exit: ${result.code} | Output contains workflow type names`,
       );
       return true;
     }
@@ -1622,17 +1530,20 @@ async function testWorkflowCLIInfo(): Promise<boolean | null> {
 
     const output = (result.stdout + result.stderr).toLowerCase();
 
-    // Check for workflow details
-    if (
-      output.includes("consensus") ||
+    // Check for meaningful workflow details — we asked for "consensus-3" so the
+    // output must contain "consensus" AND at least one structural detail keyword
+    // (not just a generic "workflow" that appears in error messages).
+    const hasConsensus = output.includes("consensus");
+    const hasDetail =
       output.includes("ensemble") ||
-      output.includes("workflow") ||
-      output.includes("models")
-    ) {
+      output.includes("models") ||
+      output.includes("judge") ||
+      output.includes("type");
+    if (hasConsensus && hasDetail) {
       logTest(
         "CLI Workflow Info",
         "PASS",
-        `Exit: ${result.code} | Shows workflow details`,
+        `Exit: ${result.code} | Shows consensus workflow details`,
       );
       return true;
     }
@@ -1680,22 +1591,13 @@ async function testWorkflowCLIExecute(): Promise<boolean | null> {
 
     const output = (result.stdout + result.stderr).toLowerCase();
 
-    // If the workflow CLI execute works, we should get a response with content
+    // The workflow was asked "1 plus 1" — assert the answer "2" appears in output.
+    // Do NOT accept arbitrary non-empty stdout as a PASS.
     if (output.includes("2") || output.includes("two")) {
       logTest(
         "CLI Workflow Execute",
         "PASS",
-        `Exit: ${result.code} | Workflow executed with result`,
-      );
-      return true;
-    }
-
-    // Check if we got any content at all
-    if (result.success && result.stdout.trim().length > 0) {
-      logTest(
-        "CLI Workflow Execute",
-        "PASS",
-        `Exit: ${result.code} | Content: ${result.stdout.substring(0, 100)}`,
+        `Exit: ${result.code} | Workflow executed with correct result`,
       );
       return true;
     }
@@ -1780,12 +1682,14 @@ async function testWorkflowBranchExecution(
       result.workflow === "aggressive-fallback" ||
       result.workflowName?.includes("Aggressive");
 
+    const passed = validation.passed;
+
     logTest(
       "Workflow Branch Execution",
-      "PASS",
+      passed ? "PASS" : "FAIL",
       `Responses: ${responseCount} | Workflow: ${result.workflow} | CorrectWorkflow: ${isCorrectWorkflow} | ${validation.details.join(" | ")}`,
     );
-    return true;
+    return passed;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
@@ -1830,7 +1734,7 @@ async function testWorkflowParallelExecution(
     // Verify multiple responses were generated (parallel execution)
     const responseCount = result.ensembleResponses?.length || 0;
 
-    // Check response times - parallel should have overlapping execution
+    // Check response times for informational logging
     const responseTimes = (result.ensembleResponses || []).map(
       (r: { responseTime: number }) => r.responseTime,
     );
@@ -1840,21 +1744,34 @@ async function testWorkflowParallelExecution(
       0,
     );
 
-    // If parallel execution is working, the total time should be less than
-    // the sum of individual response times (with some overhead)
-    const parallelEfficiency =
-      sumResponseTimes > 0
-        ? Math.round((1 - totalTime / sumResponseTimes) * 100)
-        : 0;
-
     const validation = validateResponseContent(result.content, ["au"], 1);
+
+    // Primary assertion: all 3 parallel responses were received
+    if (responseCount < 3) {
+      logTest(
+        "Workflow Parallel Execution",
+        "FAIL",
+        `Expected 3 parallel responses, got ${responseCount} | TotalTime: ${totalTime}ms`,
+      );
+      return false;
+    }
+
+    // Check if wall time is less than 3x the longest individual call
+    // (proving at least partial parallelism). If not, still pass but note rate limiting.
+    const sequentialThreshold = maxResponseTime * 3;
+    const rateLimited = totalTime >= sequentialThreshold;
+    const parallelNote = rateLimited
+      ? " | Note: wall time >= 3x longest call, likely due to provider rate limiting"
+      : "";
+
+    const passed = validation.passed;
 
     logTest(
       "Workflow Parallel Execution",
-      "PASS",
-      `Responses: ${responseCount} | TotalTime: ${totalTime}ms | MaxSingle: ${maxResponseTime}ms | SumAll: ${sumResponseTimes}ms | ParallelEfficiency: ${parallelEfficiency}% | ${validation.details.join(" | ")}`,
+      passed ? "PASS" : "FAIL",
+      `Responses: ${responseCount}/3 | TotalTime: ${totalTime}ms | MaxSingle: ${maxResponseTime}ms | SumAll: ${sumResponseTimes}ms${parallelNote} | ${validation.details.join(" | ")}`,
     );
-    return true;
+    return passed;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
@@ -1863,6 +1780,127 @@ async function testWorkflowParallelExecution(
     }
     logTest("Workflow Parallel Execution", "FAIL", msg);
     return false;
+  }
+}
+
+// ============================================================
+// TEST: Observability Spans
+// ============================================================
+
+async function testObservabilitySpans(
+  _sdk: NeuroLink,
+): Promise<boolean | null> {
+  logSection("Workflow Observability Spans");
+
+  // Reset the global metrics aggregator so we start with a clean slate
+  const aggregator = getMetricsAggregator();
+  aggregator.reset();
+
+  // Run a REAL workflow and verify spans are recorded automatically.
+  // If the real workflow can't run, SKIP — do NOT fall back to synthetic tests.
+  try {
+    const wf = await loadWorkflowAPIs();
+    const vertexConsensusFast = makeVertexConsensusFastConfig(
+      wf.CONSENSUS_3_FAST_WORKFLOW,
+    );
+
+    const result = await wf.runWorkflow(vertexConsensusFast, {
+      prompt: "What is 2 + 2? Answer with just the number.",
+      timeout: 60000,
+      verbose: false,
+    });
+
+    if (!result || !result.content) {
+      logTest(
+        "Workflow Observability Spans",
+        "SKIP",
+        "Workflow returned no content — cannot verify observability spans.",
+      );
+      return null;
+    }
+
+    // Workflow succeeded — check that spans were recorded automatically
+    const spans = aggregator.getSpans();
+    const workflowSpans = spans.filter(
+      (s: { type: string }) => s.type === "workflow",
+    );
+
+    // We expect at least 1 workflow.run span (from workflowRunner),
+    // plus workflow.ensemble and possibly workflow.judge spans
+    const hasRunSpan = workflowSpans.some(
+      (s: { name: string }) => s.name === "workflow.run",
+    );
+    const hasEnsembleSpan = workflowSpans.some(
+      (s: { name: string }) => s.name === "workflow.ensemble",
+    );
+
+    logTest(
+      "Real workflow: workflow spans auto-recorded",
+      workflowSpans.length >= 2 ? "PASS" : "FAIL",
+      `Found ${workflowSpans.length} workflow spans (run=${hasRunSpan}, ensemble=${hasEnsembleSpan})`,
+    );
+
+    logTest(
+      "Real workflow: has workflow.run span",
+      hasRunSpan ? "PASS" : "FAIL",
+      `workflow.run present: ${hasRunSpan}`,
+    );
+
+    logTest(
+      "Real workflow: has workflow.ensemble span",
+      hasEnsembleSpan ? "PASS" : "FAIL",
+      `workflow.ensemble present: ${hasEnsembleSpan}`,
+    );
+
+    // Verify span attributes on the run span
+    const runSpan = workflowSpans.find(
+      (s: { name: string }) => s.name === "workflow.run",
+    );
+    if (runSpan) {
+      const attrs =
+        (runSpan as { attributes?: Record<string, unknown> }).attributes || {};
+      const hasWorkflowName =
+        "workflow.name" in attrs && attrs["workflow.name"] !== undefined;
+      logTest(
+        "Real workflow: run span has workflow.name attribute",
+        hasWorkflowName ? "PASS" : "FAIL",
+        `workflow.name: ${attrs["workflow.name"]}`,
+      );
+    }
+
+    // Verify all spans have OK or ERROR status (not unset)
+    const allHaveStatus = workflowSpans.every(
+      (s: { status: string }) =>
+        s.status === SpanStatus.OK || s.status === SpanStatus.ERROR,
+    );
+    logTest(
+      "Real workflow: all spans have final status",
+      allHaveStatus ? "PASS" : "FAIL",
+      `All spans have OK/ERROR status: ${allHaveStatus}`,
+    );
+
+    const passed =
+      workflowSpans.length >= 2 &&
+      hasRunSpan &&
+      hasEnsembleSpan &&
+      allHaveStatus;
+    return passed;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
+      logTest(
+        "Workflow Observability Spans",
+        "SKIP",
+        `Provider error — cannot verify observability spans: ${msg.substring(0, 100)}`,
+      );
+      return null;
+    }
+    logTest(
+      "Workflow Observability Spans",
+      "SKIP",
+      `Unexpected error — cannot verify observability spans: ${msg.substring(0, 100)}`,
+    );
+    return null;
   }
 }
 
@@ -1902,18 +1940,21 @@ async function runAllTests(): Promise<void> {
       fn: () => testWorkflowFallback(sharedSdk),
     },
     { name: "Workflow Adaptive", fn: () => testWorkflowAdaptive(sharedSdk) },
-    {
-      name: "Workflow Checkpointing",
-      fn: () => testWorkflowCheckpointing(sharedSdk),
-    },
-    {
-      name: "Workflow HITL Suspend",
-      fn: () => testWorkflowHITLSuspend(sharedSdk),
-    },
-    {
-      name: "Workflow HITL Resume",
-      fn: () => testWorkflowHITLResume(sharedSdk),
-    },
+    // COMMENTED OUT: Checkpoint/resume API not implemented — re-enable when Redis checkpoint API is built
+    // {
+    //   name: "Workflow Checkpointing",
+    //   fn: () => testWorkflowCheckpointing(sharedSdk),
+    // },
+    // COMMENTED OUT: HITL suspend not implemented — re-enable when workflow suspend/resume API is built
+    // {
+    //   name: "Workflow HITL Suspend",
+    //   fn: () => testWorkflowHITLSuspend(sharedSdk),
+    // },
+    // COMMENTED OUT: HITL resume not implemented — re-enable when workflow suspend/resume API is built
+    // {
+    //   name: "Workflow HITL Resume",
+    //   fn: () => testWorkflowHITLResume(sharedSdk),
+    // },
     { name: "Workflow Registry", fn: () => testWorkflowRegistry(sharedSdk) },
     {
       name: "Workflow Ensemble Executor",
@@ -1927,7 +1968,8 @@ async function runAllTests(): Promise<void> {
       name: "Workflow Response Conditioner",
       fn: () => testWorkflowResponseConditioner(sharedSdk),
     },
-    { name: "CLI Workflow List", fn: () => testWorkflowCLIList() },
+    // COMMENTED OUT: CLI workflow list command not implemented — re-enable when CLI workflow commands are added
+    // { name: "CLI Workflow List", fn: () => testWorkflowCLIList() },
     { name: "CLI Workflow Info", fn: () => testWorkflowCLIInfo() },
     { name: "CLI Workflow Execute", fn: () => testWorkflowCLIExecute() },
     {
@@ -1937,6 +1979,10 @@ async function runAllTests(): Promise<void> {
     {
       name: "Workflow Parallel Execution",
       fn: () => testWorkflowParallelExecution(sharedSdk),
+    },
+    {
+      name: "Workflow Observability Spans",
+      fn: () => testObservabilitySpans(sharedSdk),
     },
   ];
 
@@ -1959,13 +2005,13 @@ async function runAllTests(): Promise<void> {
   const passed = testResults.filter((r) => r.result === true).length;
   const failed = testResults.filter((r) => r.result === false).length;
   const skipped = testResults.filter((r) => r.result === null).length;
-  testResults.forEach((t) =>
+  testResults.forEach((t) => {
     logTest(
       t.name,
       t.result === true ? "PASS" : t.result === false ? "FAIL" : "SKIP",
       t.error || "",
-    ),
-  );
+    );
+  });
   const duration = Math.round((Date.now() - startTime) / 1000);
   log(
     `

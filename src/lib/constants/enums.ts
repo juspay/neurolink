@@ -395,8 +395,11 @@ export enum VertexModels {
   CLAUDE_3_OPUS = "claude-3-opus-20240229",
   CLAUDE_3_HAIKU = "claude-3-haiku-20240307",
 
-  // Gemini 3.1 Series (Released February 2026)
+  // Gemini 3.1 Series (Released March 2026)
+  GEMINI_3_1_PRO = "gemini-3.1-pro",
   GEMINI_3_1_PRO_PREVIEW = "gemini-3.1-pro-preview",
+  GEMINI_3_1_FLASH = "gemini-3.1-flash",
+  GEMINI_3_1_FLASH_LITE = "gemini-3.1-flash-lite",
 
   // Gemini 3 Series (Preview)
   GEMINI_3_PRO = "gemini-3-pro",
@@ -429,8 +432,11 @@ export enum VertexModels {
  * Supported Models for Google AI Studio
  */
 export enum GoogleAIModels {
-  // Gemini 3.1 Series (Released February 2026)
+  // Gemini 3.1 Series (Released March 2026)
+  GEMINI_3_1_PRO = "gemini-3.1-pro",
   GEMINI_3_1_PRO_PREVIEW = "gemini-3.1-pro-preview",
+  GEMINI_3_1_FLASH = "gemini-3.1-flash",
+  GEMINI_3_1_FLASH_LITE = "gemini-3.1-flash-lite",
 
   // Gemini 3 Series (Preview)
   GEMINI_3_PRO_PREVIEW = "gemini-3-pro-preview",

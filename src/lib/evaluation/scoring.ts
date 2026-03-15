@@ -7,6 +7,12 @@ import type {
   EvaluationResult,
 } from "../types/evaluationTypes.js";
 import type { EvaluationData } from "../types/evaluation.js";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+} from "../observability/index.js";
+import { getMetricsAggregator } from "../observability/index.js";
 
 /**
  * Maps a raw `EvaluationResult` to the structured `EvaluationData` format.
@@ -25,24 +31,53 @@ export function mapToEvaluationData(
   offTopicThreshold: number = 5,
   highSeverityThreshold: number = 4,
 ): EvaluationData {
-  const isPassing = result.finalScore >= threshold;
-  return {
-    relevance: result.relevanceScore,
-    accuracy: result.accuracyScore,
-    completeness: result.completenessScore,
-    overall: result.finalScore,
-    isOffTopic: result.finalScore < offTopicThreshold,
-    alertSeverity: isPassing
-      ? "none"
-      : result.finalScore < highSeverityThreshold
-        ? "high"
-        : "medium",
-    reasoning: result.reasoning,
-    suggestedImprovements: result.suggestedImprovements,
-    evaluationModel: result.evaluationModel,
-    evaluationTime: result.evaluationTime,
-    evaluationAttempt: result.attemptNumber,
-    responseContent: evalContext.aiResponse,
-    queryContent: evalContext.userQuery,
-  };
+  const span = SpanSerializer.createSpan(
+    SpanType.EVALUATION,
+    "evaluation.score",
+    {
+      "evaluation.dimension": "relevance|accuracy|completeness|overall",
+      scores: {
+        relevance: result.relevanceScore,
+        accuracy: result.accuracyScore,
+        completeness: result.completenessScore,
+        overall: result.finalScore,
+      },
+    },
+  );
+  const startTime = Date.now();
+  try {
+    const isPassing = result.finalScore >= threshold;
+    const evaluationData: EvaluationData = {
+      relevance: result.relevanceScore,
+      accuracy: result.accuracyScore,
+      completeness: result.completenessScore,
+      overall: result.finalScore,
+      isOffTopic: result.finalScore < offTopicThreshold,
+      alertSeverity: isPassing
+        ? "none"
+        : result.finalScore < highSeverityThreshold
+          ? "high"
+          : "medium",
+      reasoning: result.reasoning,
+      suggestedImprovements: result.suggestedImprovements,
+      evaluationModel: result.evaluationModel,
+      evaluationTime: result.evaluationTime,
+      evaluationAttempt: result.attemptNumber,
+      responseContent: evalContext.aiResponse,
+      queryContent: evalContext.userQuery,
+    };
+
+    span.durationMs = Date.now() - startTime;
+    const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+    getMetricsAggregator().recordSpan(endedSpan);
+
+    return evaluationData;
+  } catch (error) {
+    span.durationMs = Date.now() - startTime;
+    const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+    endedSpan.statusMessage =
+      error instanceof Error ? error.message : String(error);
+    getMetricsAggregator().recordSpan(endedSpan);
+    throw error;
+  }
 }

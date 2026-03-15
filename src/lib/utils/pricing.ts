@@ -74,6 +74,12 @@ const PRICING: Record<
   },
   // Google (Gemini)
   google: {
+    "gemini-2.5-flash": { input: 0.15 / 1_000_000, output: 0.6 / 1_000_000 },
+    "gemini-2.5-pro": { input: 1.25 / 1_000_000, output: 10.0 / 1_000_000 },
+    "gemini-2.5-flash-lite": {
+      input: 0.075 / 1_000_000,
+      output: 0.3 / 1_000_000,
+    },
     "gemini-2.0-flash": { input: 0.1 / 1_000_000, output: 0.4 / 1_000_000 },
     "gemini-2.0-pro": { input: 1.25 / 1_000_000, output: 10.0 / 1_000_000 },
     "gemini-1.5-pro": { input: 1.25 / 1_000_000, output: 5.0 / 1_000_000 },
@@ -131,7 +137,29 @@ function findRates(
     (a, b) => b.length - a.length,
   );
   const key = sortedKeys.find((k) => model.startsWith(k));
-  return key ? providerPricing[key] : undefined;
+  if (key) {
+    return providerPricing[key];
+  }
+
+  // Fallback: Vertex hosts both Claude and Gemini models.
+  // If no match found under "vertex", try "google" pricing for Gemini models.
+  if (normalizedProvider === "vertex" && model.startsWith("gemini")) {
+    const googlePricing = PRICING["google"];
+    if (googlePricing) {
+      if (googlePricing[model]) {
+        return googlePricing[model];
+      }
+      const googleKeys = Object.keys(googlePricing).sort(
+        (a, b) => b.length - a.length,
+      );
+      const googleKey = googleKeys.find((k) => model.startsWith(k));
+      if (googleKey) {
+        return googlePricing[googleKey];
+      }
+    }
+  }
+
+  return undefined;
 }
 
 /**

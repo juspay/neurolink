@@ -13,29 +13,29 @@
  * @module core/modules/GenerationHandler
  */
 
-import type { LanguageModelV1, CoreMessage, Tool } from "ai";
-import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import type { CoreMessage, LanguageModelV1, Tool } from "ai";
+import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { tracers } from "../../telemetry/tracers.js";
+import type { UnknownRecord } from "../../types/common.js";
 import type {
-  TextGenerationOptions,
-  EnhancedGenerateResult,
   AIProviderName,
-  StandardRecord,
-  ExtendedTool,
   AISDKGenerateResult,
+  EnhancedGenerateResult,
+  ExtendedTool,
+  StandardRecord,
+  TextGenerationOptions,
 } from "../../types/index.js";
 import type { ToolCallObject, ToolResult } from "../../types/tools.js";
-import type { UnknownRecord } from "../../types/common.js";
 import { logger } from "../../utils/logger.js";
+import { calculateCost } from "../../utils/pricing.js";
+import { withProviderRetry } from "../../utils/providerRetry.js";
 import {
-  extractTokenUsage,
+  calculateCacheSavingsPercent,
   extractCacheCreationTokens,
   extractCacheReadTokens,
-  calculateCacheSavingsPercent,
+  extractTokenUsage,
 } from "../../utils/tokenUtils.js";
-import { withProviderRetry } from "../../utils/providerRetry.js";
-import { calculateCost } from "../../utils/pricing.js";
 import { DEFAULT_MAX_STEPS } from "../constants.js";
 
 const genTracer = tracers.generation;
@@ -108,8 +108,8 @@ export class GenerationHandler {
     // When both are requested on a Google provider, disable structured output (tools take priority).
     const wantsStructuredOutput =
       includeStructuredOutput &&
-      !!options.schema &&
-      (options.output?.format === "json" ||
+      (!!options.schema ||
+        options.output?.format === "json" ||
         options.output?.format === "structured");
     const useStructuredOutput =
       wantsStructuredOutput &&
@@ -234,9 +234,9 @@ export class GenerationHandler {
         const toolCount = Object.keys(tools || {}).length;
 
         const useStructuredOutput =
-          !!options.schema &&
-          (options.output?.format === "json" ||
-            options.output?.format === "structured");
+          !!options.schema ||
+          options.output?.format === "json" ||
+          options.output?.format === "structured";
 
         span.setAttribute("gen_ai.system", this.providerName || "unknown");
         span.setAttribute("neurolink.structured_output", useStructuredOutput);
@@ -493,7 +493,10 @@ export class GenerationHandler {
    */
   private extractCacheMetricsFromProviderMetadata(
     generateResult: Awaited<ReturnType<typeof generateText>>,
-  ): { cacheCreationTokens?: number; cacheReadTokens?: number } {
+  ): {
+    cacheCreationTokens?: number;
+    cacheReadTokens?: number;
+  } {
     const providerMeta =
       ((generateResult as unknown as Record<string, unknown>)
         .providerMetadata as Record<string, unknown> | undefined) ||
@@ -667,11 +670,11 @@ export class GenerationHandler {
     }>,
     options: TextGenerationOptions,
   ): EnhancedGenerateResult {
-    // Structured output check
+    // Structured output check — schema alone is sufficient to activate
     const useStructuredOutput =
-      !!options.schema &&
-      (options.output?.format === "json" ||
-        options.output?.format === "structured");
+      !!options.schema ||
+      options.output?.format === "json" ||
+      options.output?.format === "structured";
 
     let content: string;
     if (useStructuredOutput) {

@@ -13,6 +13,12 @@
  */
 
 import { logger } from "../../utils/logger.js";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+  getMetricsAggregator,
+} from "../../observability/index.js";
 import type { JsonValue } from "../../types/common.js";
 import {
   getModelGroups,
@@ -126,10 +132,23 @@ export async function runWorkflow(
   options: RunWorkflowOptions,
 ): Promise<WorkflowResult> {
   const startTime = Date.now();
+  const span = SpanSerializer.createSpan(SpanType.WORKFLOW, "workflow.run", {
+    "workflow.operation": "run",
+    "workflow.name": config.name,
+    "workflow.type": config.type,
+    "workflow.id": config.id,
+  });
 
   // Validate configuration
   const validation = validateWorkflow(config);
   if (!validation.valid) {
+    span.durationMs = Date.now() - startTime;
+    const endedSpan = SpanSerializer.endSpan(
+      span,
+      SpanStatus.ERROR,
+      `Invalid workflow configuration: ${validation.errors.map((err) => err.message).join(", ")}`,
+    );
+    getMetricsAggregator().recordSpan(endedSpan);
     throw new Error(
       `Invalid workflow configuration: ${validation.errors.map((err) => err.message).join(", ")}`,
     );
@@ -281,6 +300,10 @@ export async function runWorkflow(
       );
     }
 
+    span.durationMs = executionTime;
+    const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+    getMetricsAggregator().recordSpan(endedSpan);
+
     return result;
   } catch (error) {
     const executionTime = Date.now() - startTime;
@@ -289,6 +312,14 @@ export async function runWorkflow(
     if (options.verbose) {
       logger.error(`[WorkflowRunner] Workflow failed:`, errorMessage);
     }
+
+    span.durationMs = executionTime;
+    const endedSpan = SpanSerializer.endSpan(
+      span,
+      SpanStatus.ERROR,
+      errorMessage,
+    );
+    getMetricsAggregator().recordSpan(endedSpan);
 
     // Return error result with dummy data
     const dummyResponse: EnsembleResponse = {
@@ -662,10 +693,27 @@ export async function* runWorkflowWithStreaming(
   options: RunWorkflowOptions,
 ): AsyncGenerator<WorkflowStreamChunk, void, undefined> {
   const startTime = Date.now();
+  const span = SpanSerializer.createSpan(
+    SpanType.WORKFLOW,
+    "workflow.run.streaming",
+    {
+      "workflow.operation": "run.streaming",
+      "workflow.name": config.name,
+      "workflow.type": config.type,
+      "workflow.id": config.id,
+    },
+  );
 
   // Validate configuration
   const validation = validateWorkflow(config);
   if (!validation.valid) {
+    span.durationMs = Date.now() - startTime;
+    const endedSpan = SpanSerializer.endSpan(
+      span,
+      SpanStatus.ERROR,
+      `Invalid workflow configuration: ${validation.errors.map((err) => err.message).join(", ")}`,
+    );
+    getMetricsAggregator().recordSpan(endedSpan);
     throw new Error(
       `Invalid workflow configuration: ${validation.errors.map((err) => err.message).join(", ")}`,
     );
@@ -803,9 +851,24 @@ export async function* runWorkflowWithStreaming(
         timestamp: new Date().toISOString(),
       },
     };
+
+    span.durationMs = executionTime;
+    const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+    getMetricsAggregator().recordSpan(endedSpan);
   } catch (error) {
+    const executionTime = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    span.durationMs = executionTime;
+    const endedSpan = SpanSerializer.endSpan(
+      span,
+      SpanStatus.ERROR,
+      errorMessage,
+    );
+    getMetricsAggregator().recordSpan(endedSpan);
+
     logger.error(`[WorkflowRunner] Streaming workflow failed`, {
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage,
     });
     throw error;
   }

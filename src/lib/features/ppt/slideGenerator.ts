@@ -41,6 +41,12 @@ import {
   ErrorFactory,
   NeuroLinkError,
 } from "../../utils/errorHandling.js";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+} from "../../observability/index.js";
+import { getMetricsAggregator } from "../../observability/index.js";
 import { NeuroLink } from "../../neurolink.js";
 import {
   LAYOUT_POSITIONS,
@@ -142,6 +148,15 @@ export class SlideGenerator {
    * Generate a single complete slide
    */
   async generateSlide(slideSchema: SlideSchema): Promise<CompleteSlide> {
+    const span = SpanSerializer.createSpan(
+      SpanType.PPT_GENERATION,
+      "ppt.generateSlide",
+      {
+        "ppt.operation": "generateSlide",
+        "ppt.slideIndex": slideSchema.slideNumber,
+        "ppt.theme": this.theme.name,
+      },
+    );
     const startTime = Date.now();
 
     try {
@@ -201,6 +216,9 @@ export class SlideGenerator {
         },
       );
 
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+      getMetricsAggregator().recordSpan(endedSpan);
+
       return {
         slideNumber: slideSchema.slideNumber,
         schema: slideSchema,
@@ -209,6 +227,11 @@ export class SlideGenerator {
         generationTime,
       };
     } catch (error) {
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+      endedSpan.statusMessage =
+        error instanceof Error ? error.message : String(error);
+      getMetricsAggregator().recordSpan(endedSpan);
+
       const err =
         error instanceof NeuroLinkError
           ? error

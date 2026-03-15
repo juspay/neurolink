@@ -93,7 +93,10 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   },
   "google-ai": {
     _default: 1_048_576,
+    "gemini-3.1-pro": 1_048_576,
     "gemini-3.1-pro-preview": 1_048_576,
+    "gemini-3.1-flash": 1_048_576,
+    "gemini-3.1-flash-lite": 1_048_576,
     "gemini-3-pro-preview": 1_048_576,
     "gemini-3-pro-image-preview": 65_536,
     "gemini-3-flash-preview": 1_048_576,
@@ -119,7 +122,10 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "claude-opus-4-20250514": 200_000,
     "claude-opus-4": 200_000,
     // Gemini on Vertex
+    "gemini-3.1-pro": 1_048_576,
     "gemini-3.1-pro-preview": 1_048_576,
+    "gemini-3.1-flash": 1_048_576,
+    "gemini-3.1-flash-lite": 1_048_576,
     "gemini-3-pro-preview": 1_048_576,
     "gemini-3-pro-latest": 1_048_576,
     "gemini-3-flash-preview": 1_048_576,

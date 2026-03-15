@@ -8,6 +8,12 @@ import { EventEmitter } from "events";
 import type { ExternalServerManager } from "../../mcp/externalServerManager.js";
 import type { MCPToolRegistry } from "../../mcp/toolRegistry.js";
 import type { NeuroLink } from "../../neurolink.js";
+import { getMetricsAggregator } from "../../observability/index.js";
+import {
+  SpanSerializer,
+  SpanStatus,
+  SpanType,
+} from "../../observability/index.js";
 import { withTimeout } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
 import {
@@ -207,6 +213,17 @@ export abstract class BaseServerAdapter extends EventEmitter {
       basePath: this.config.basePath,
     });
 
+    const span = SpanSerializer.createSpan(
+      SpanType.SERVER_REQUEST,
+      "server.initialize",
+      {
+        "server.operation": "initialize",
+        "server.port": this.config.port,
+        "server.host": this.config.host,
+      },
+    );
+    const startTime = Date.now();
+
     try {
       // Initialize framework-specific setup
       this.initializeFramework();
@@ -229,8 +246,17 @@ export abstract class BaseServerAdapter extends EventEmitter {
         routes: this.routes.size,
         middlewares: this.middlewares.length,
       });
+
+      span.durationMs = Date.now() - startTime;
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+      getMetricsAggregator().recordSpan(endedSpan);
     } catch (error) {
       this.lifecycleState = "error";
+      span.durationMs = Date.now() - startTime;
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+      endedSpan.statusMessage =
+        error instanceof Error ? error.message : String(error);
+      getMetricsAggregator().recordSpan(endedSpan);
       throw error;
     }
   }
@@ -555,41 +581,50 @@ export abstract class BaseServerAdapter extends EventEmitter {
       drainTimeoutMs,
     });
 
-    // Set draining state
-    this.lifecycleState = "draining";
-
-    // Stop accepting new connections
-    await this.stopAcceptingConnections();
-
-    logger.info("[ServerAdapter] Stopped accepting new connections");
-
-    // Create drain promise that resolves when all connections are closed
-    const drainPromise = this.drainConnections();
+    const shutdownSpan = SpanSerializer.createSpan(
+      SpanType.SERVER_REQUEST,
+      "server.shutdown",
+      {
+        "server.operation": "gracefulShutdown",
+        "server.activeConnections": this.activeConnections.size,
+      },
+    );
+    const shutdownStartTime = Date.now();
 
     // Timer references for cleanup
     let shutdownTimer: NodeJS.Timeout | undefined;
     let drainTimer: NodeJS.Timeout | undefined;
 
-    // Create timeout promise for overall shutdown
-    const shutdownTimeoutPromise = new Promise<never>((_, reject) => {
-      shutdownTimer = setTimeout(() => {
-        reject(
-          new ShutdownTimeoutError(
-            gracefulShutdownTimeoutMs,
-            this.activeConnections.size,
-          ),
-        );
-      }, gracefulShutdownTimeoutMs);
-    });
-
-    // Create timeout promise for drain phase
-    const drainTimeoutPromise = new Promise<"drain_timeout">((resolve) => {
-      drainTimer = setTimeout(() => {
-        resolve("drain_timeout");
-      }, drainTimeoutMs);
-    });
-
     try {
+      // Set draining state
+      this.lifecycleState = "draining";
+
+      // Stop accepting new connections (covered by shutdown span)
+      await this.stopAcceptingConnections();
+
+      logger.info("[ServerAdapter] Stopped accepting new connections");
+
+      // Create drain promise that resolves when all connections are closed
+      const drainPromise = this.drainConnections();
+
+      // Create timeout promise for overall shutdown
+      const shutdownTimeoutPromise = new Promise<never>((_, reject) => {
+        shutdownTimer = setTimeout(() => {
+          reject(
+            new ShutdownTimeoutError(
+              gracefulShutdownTimeoutMs,
+              this.activeConnections.size,
+            ),
+          );
+        }, gracefulShutdownTimeoutMs);
+      });
+
+      // Create timeout promise for drain phase
+      const drainTimeoutPromise = new Promise<"drain_timeout">((resolve) => {
+        drainTimer = setTimeout(() => {
+          resolve("drain_timeout");
+        }, drainTimeoutMs);
+      });
       // Race drain against drain timeout
       const drainResult = await Promise.race([
         drainPromise,
@@ -619,6 +654,13 @@ export abstract class BaseServerAdapter extends EventEmitter {
       await Promise.race([this.closeServer(), shutdownTimeoutPromise]);
 
       logger.info("[ServerAdapter] Server closed successfully");
+
+      shutdownSpan.durationMs = Date.now() - shutdownStartTime;
+      const endedShutdownSpan = SpanSerializer.endSpan(
+        shutdownSpan,
+        SpanStatus.OK,
+      );
+      getMetricsAggregator().recordSpan(endedShutdownSpan);
     } catch (error) {
       // If force close is enabled and we hit a timeout, try to force close
       if (
@@ -631,8 +673,22 @@ export abstract class BaseServerAdapter extends EventEmitter {
         });
         await this.forceCloseConnections();
         await this.closeServer();
+        shutdownSpan.durationMs = Date.now() - shutdownStartTime;
+        const endedShutdownSpan = SpanSerializer.endSpan(
+          shutdownSpan,
+          SpanStatus.OK,
+        );
+        getMetricsAggregator().recordSpan(endedShutdownSpan);
       } else {
         this.lifecycleState = "error";
+        shutdownSpan.durationMs = Date.now() - shutdownStartTime;
+        const endedShutdownSpan = SpanSerializer.endSpan(
+          shutdownSpan,
+          SpanStatus.ERROR,
+        );
+        endedShutdownSpan.statusMessage =
+          error instanceof Error ? error.message : String(error);
+        getMetricsAggregator().recordSpan(endedShutdownSpan);
         throw error;
       }
     } finally {

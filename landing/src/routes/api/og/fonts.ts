@@ -1,20 +1,18 @@
 let fontCache: ArrayBuffer[] | null = null;
 
-const FONT_FETCH_TIMEOUT_MS = 5000;
-
 const INTER_FONTS = [
   {
-    url: "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf",
+    url: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hiA.woff2",
     weight: 400 as const,
     style: "normal" as const,
   },
   {
-    url: "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf",
+    url: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fAZ9hiA.woff2",
     weight: 600 as const,
     style: "normal" as const,
   },
   {
-    url: "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf",
+    url: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYAZ9hiA.woff2",
     weight: 700 as const,
     style: "normal" as const,
   },
@@ -34,22 +32,7 @@ export async function loadFonts(): Promise<
 
   const buffers = await Promise.all(
     INTER_FONTS.map(async (font) => {
-      const controller = new AbortController();
-      const timeout = setTimeout(
-        () => controller.abort(),
-        FONT_FETCH_TIMEOUT_MS,
-      );
-      let res: Response;
-      try {
-        res = await fetch(font.url, { signal: controller.signal });
-      } finally {
-        clearTimeout(timeout);
-      }
-      if (!res.ok) {
-        throw new Error(
-          `Font fetch failed: ${res.status} ${res.statusText} for ${font.url}`,
-        );
-      }
+      const res = await fetch(font.url);
       return res.arrayBuffer();
     }),
   );

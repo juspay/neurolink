@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+import "dotenv/config";
 
 /**
  * Continuous Test Suite for NeuroLink RAG Processing

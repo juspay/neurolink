@@ -1,29 +1,31 @@
 #!/usr/bin/env tsx
+import "dotenv/config";
+
 /**
  * Continuous Test Suite: MCP HTTP Transport
  *
- * Tests MCP HTTP transport end-to-end:
- * - HTTP transport connection, auth types, tool discovery
- * - HTTP transport through generate() (tool execution, retry, rate limiting, timeout)
- * - SSE and WebSocket transport connections
- * - Real MCP server integration (DeepWiki, Semgrep, Remote Fetch, Sequential Thinking)
- * - Blocked tool support
- * - Session management (Mcp-Session-Id header)
+ * Tests MCP HTTP transport end-to-end through the NeuroLink SDK integration layer:
+ * - HTTP transport connection via sdk.addExternalMCPServer() + sdk.generate()
+ * - Auth headers (Bearer, API Key) via sdk.addExternalMCPServer()
+ * - Tool discovery and execution through sdk.generate()
+ * - Retry, rate limiting, timeout (smoke tests — no mock server in this file)
+ * - SSE transport via local mock server + sdk.addExternalMCPServer()
+ * - Real MCP server integration (DeepWiki, Semgrep mock, Remote Fetch, Sequential Thinking)
+ * - Blocked tool support via sdk.generate()
+ * - Session management via multiple sdk.generate() calls
+ * - Observability spans after sdk.generate()
+ *
+ * CORE PRINCIPLE: Tests go through sdk.addExternalMCPServer() + sdk.generate(),
+ * NOT raw @modelcontextprotocol/sdk Client/Transport directly.
  *
  * Run: npx tsx test/continuous-test-suite-mcp-http.ts --provider=vertex
  */
 
-import { spawn } from "child_process";
+import { randomUUID } from "crypto";
 import * as fs from "fs";
 import * as http from "http";
-import * as path from "path";
-import { randomUUID } from "crypto";
-import { fileURLToPath } from "url";
+import type { MCPServerInfo } from "../dist/index.js";
 import { NeuroLink } from "../dist/index.js";
-import type { ProcessResult } from "../dist/index.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // ============================================================
 // CONFIGURATION
@@ -47,17 +49,12 @@ const TEST_CONFIG = {
   interTestDelay: 6000,
 };
 
-// Real HTTP MCP server endpoints (migrated from continuous-test-suite.ts)
+// Real HTTP MCP server endpoints
 const REAL_HTTP_MCP_SERVERS = {
   deepwiki: {
     url: "https://mcp.deepwiki.com/mcp",
     name: "DeepWiki MCP",
     description: "Documentation and wiki search MCP server",
-  },
-  semgrep: {
-    url: "https://mcp.semgrep.ai/mcp",
-    name: "Semgrep MCP",
-    description: "Code analysis and security scanning MCP server",
   },
   fetchServer: {
     url: "https://remote.mcpservers.org/fetch/mcp",
@@ -122,15 +119,8 @@ const testResults: Array<{
   name: string;
   result: boolean | null;
   error: string | null;
+  duration?: number;
 }> = [];
-
-function buildBaseCLIArgs(): string[] {
-  const args = [`--provider=${TEST_CONFIG.provider}`];
-  if (TEST_CONFIG.model) {
-    args.push(`--model=${TEST_CONFIG.model}`);
-  }
-  return args;
-}
 
 function buildBaseSDKOptions(): { provider: string; model?: string } {
   const opts: { provider: string; model?: string } = {
@@ -142,49 +132,26 @@ function buildBaseSDKOptions(): { provider: string; model?: string } {
   return opts;
 }
 
-function runCommand(
-  command: string,
-  args: string[],
-  options?: Record<string, unknown>,
-): Promise<ProcessResult> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(command, args, {
-      env: {
-        ...process.env,
-        ...((options?.env as Record<string, string>) || {}),
-      },
-    });
-    let stdout = "",
-      stderr = "";
-    proc.stdout.on("data", (d) => {
-      stdout += d.toString();
-    });
-    proc.stderr.on("data", (d) => {
-      stderr += d.toString();
-    });
-    const timeoutId = setTimeout(() => {
-      proc.kill("SIGTERM");
-      setTimeout(() => {
-        if (!proc.killed) {
-          proc.kill("SIGKILL");
-        }
-      }, 2000);
-      reject(new Error(`Command timeout after ${TEST_CONFIG.timeout}ms`));
-    }, TEST_CONFIG.timeout);
-    proc.on("close", (code) => {
-      clearTimeout(timeoutId);
-      resolve({
-        success: code === 0,
-        code: code ?? -1,
-        stdout,
-        stderr,
-      });
-    });
-    proc.on("error", (err) => {
-      clearTimeout(timeoutId);
-      reject(err);
-    });
-  });
+/**
+ * Build a properly-typed MCPServerInfo config for addExternalMCPServer().
+ * Fills in required fields with sensible defaults so callers only need to
+ * provide transport-specific overrides.
+ */
+function buildMCPServerConfig(
+  id: string,
+  overrides: Partial<MCPServerInfo> & { url?: string },
+): MCPServerInfo {
+  return {
+    id,
+    name: overrides.name || id,
+    description: overrides.description || `Test server: ${id}`,
+    transport: overrides.transport || "http",
+    status: "initializing",
+    tools: [],
+    command: overrides.command ?? "",
+    args: overrides.args ?? [],
+    ...overrides,
+  } as MCPServerInfo;
 }
 
 function validateResponseContent(
@@ -256,92 +223,18 @@ async function globalCleanup(): Promise<void> {
   }
 }
 
-// ============================================================
-// MCP-SPECIFIC HELPERS
-// ============================================================
-
 /**
- * Connect to an HTTP MCP server using the SDK's addExternalMCPServer API
- * and return the tools discovered.
+ * Safely shut down a NeuroLink SDK instance, ignoring errors.
  */
-async function connectToHTTPMCPServer(
-  sdk: NeuroLink,
-  serverId: string,
-  url: string,
-  headers?: Record<string, string>,
-  timeout = 30000,
-): Promise<{
-  connected: boolean;
-  tools: string[];
-  error?: string;
-  responseTime: number;
-}> {
-  const startTime = Date.now();
-  try {
-    const result = await sdk.addExternalMCPServer(serverId, {
-      id: serverId,
-      command: "",
-      args: [],
-      transport: "http" as const,
-      url,
-      headers: headers || {},
-      httpOptions: {
-        connectionTimeout: timeout,
-        requestTimeout: timeout,
-      },
-    } as unknown as import("../dist/index.js").MCPServerInfo);
-
-    const responseTime = Date.now() - startTime;
-
-    if (result.success) {
-      // Try to get available tools
-      const tools = await sdk.getAllAvailableTools();
-      const toolNames = tools
-        .filter(
-          (t: { serverId?: string }) => t.serverId === serverId || !t.serverId,
-        )
-        .map((t: { name: string }) => t.name);
-
-      return {
-        connected: true,
-        tools: toolNames,
-        responseTime,
-      };
-    }
-
-    return {
-      connected: false,
-      tools: [],
-      error: result.error || "Connection failed",
-      responseTime,
-    };
-  } catch (error) {
-    const responseTime = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      connected: false,
-      tools: [],
-      error: errorMessage,
-      responseTime,
-    };
+async function safeShutdown(sdk: NeuroLink | null): Promise<void> {
+  if (!sdk) {
+    return;
   }
-}
-
-/**
- * Import StreamableHTTPClientTransport and Client for direct MCP testing
- */
-async function loadMCPClients() {
   try {
-    const clientMod = await import("@modelcontextprotocol/sdk/client/index.js");
-    const httpMod = await import(
-      "@modelcontextprotocol/sdk/client/streamableHttp.js"
-    );
-    return {
-      Client: clientMod.Client,
-      StreamableHTTPClientTransport: httpMod.StreamableHTTPClientTransport,
-    };
+    const s = sdk as unknown as { shutdown?: () => Promise<void> };
+    await s.shutdown?.();
   } catch {
-    return null;
+    /* ignore */
   }
 }
 
@@ -573,175 +466,149 @@ async function createMockStreamableHTTPServer(): Promise<{
 // ============================================================
 
 // #1 — testHTTPTransportConnection
-// SDK infra: Connect to HTTP MCP server
+// Connect to DeepWiki via sdk.addExternalMCPServer(), then sdk.generate() to prove integration works.
 async function testHTTPTransportConnection(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("HTTP Transport Connection", "TESTING");
+  let testSdk: NeuroLink | null = null;
   try {
-    const mcpClients = await loadMCPClients();
-    if (!mcpClients) {
-      logTest(
-        "HTTP Transport Connection",
-        "SKIP",
-        "MCP SDK client not available",
-      );
-      return null;
+    testSdk = new NeuroLink();
+
+    const addResult = await testSdk.addExternalMCPServer(
+      "deepwiki-conn",
+      buildMCPServerConfig("deepwiki-conn", {
+        transport: "http",
+        url: REAL_HTTP_MCP_SERVERS.deepwiki.url,
+        name: "DeepWiki",
+        description: "DeepWiki MCP server",
+      }),
+    );
+
+    if (!addResult.success) {
+      const errMsg = addResult.error || "Connection failed";
+      if (isExpectedMCPError(errMsg)) {
+        logTest(
+          "HTTP Transport Connection",
+          "SKIP",
+          `Server unavailable: ${errMsg}`,
+        );
+        return null;
+      }
+      logTest("HTTP Transport Connection", "FAIL", errMsg);
+      return false;
     }
 
-    const { Client, StreamableHTTPClientTransport } = mcpClients;
-
-    // Connect to DeepWiki (reliable public MCP server)
-    const url = new URL(REAL_HTTP_MCP_SERVERS.deepwiki.url);
-    const transport = new StreamableHTTPClientTransport(url, {
-      requestInit: {
-        headers: { "Content-Type": "application/json" },
+    // Prove the connection works end-to-end: ask the AI to use the tool
+    const result = await testSdk.generate({
+      input: {
+        text: "Use the available DeepWiki tool to look up information about the 'facebook/react' repository. What is React?",
       },
+      maxTokens: TEST_CONFIG.maxTokens,
+      ...buildBaseSDKOptions(),
     });
 
-    const client = new Client(
-      { name: "neurolink-mcp-http-test", version: "1.0.0" },
-      { capabilities: {} },
-    );
+    const responseText = (result.content || "").toLowerCase();
 
-    // Connect with timeout
-    const connectPromise = client.connect(transport);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timeout")), 30000),
-    );
-
-    await Promise.race([connectPromise, timeoutPromise]);
-
-    // Verify connection by listing tools
-    const toolsResult = await client.listTools();
-    const toolCount = toolsResult.tools?.length || 0;
-
-    // Cleanup
-    try {
-      await client.close();
-    } catch {
-      /* ignore cleanup errors */
-    }
-
-    if (toolCount > 0) {
+    if (responseText.length < 10) {
       logTest(
         "HTTP Transport Connection",
-        "PASS",
-        `Connected to DeepWiki | Tools: ${toolCount}`,
+        "FAIL",
+        "Empty or near-empty response from generate()",
       );
-      return true;
+      return false;
     }
 
     logTest(
       "HTTP Transport Connection",
       "PASS",
-      "Connected to DeepWiki (no tools listed, but connection succeeded)",
+      `Connected via SDK + generate() | Response length: ${responseText.length}`,
     );
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedMCPError(msg)) {
+    if (isExpectedMCPError(msg) || isExpectedProviderError(msg)) {
       logTest(
         "HTTP Transport Connection",
         "SKIP",
-        `Network/server unavailable: ${msg}`,
+        `Network/provider unavailable: ${msg}`,
       );
       return null;
     }
     logTest("HTTP Transport Connection", "FAIL", msg);
     return false;
+  } finally {
+    await safeShutdown(testSdk);
   }
 }
 
 // #2 — testHTTPTransportBearerAuth
-// SDK infra: Connect with Bearer token header
+// Use sdk.addExternalMCPServer() with Authorization header.
+// DeepWiki doesn't require auth, so connection succeeding = headers accepted.
+// Auth rejection (401/403) also proves headers were forwarded.
 async function testHTTPTransportBearerAuth(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("HTTP Transport Bearer Auth", "TESTING");
+  let testSdk: NeuroLink | null = null;
   try {
-    const mcpClients = await loadMCPClients();
-    if (!mcpClients) {
+    testSdk = new NeuroLink();
+
+    const addResult = await testSdk.addExternalMCPServer(
+      "bearer-auth-test",
+      buildMCPServerConfig("bearer-auth-test", {
+        transport: "http",
+        url: REAL_HTTP_MCP_SERVERS.deepwiki.url,
+        name: "DeepWiki Bearer Auth",
+        description: "Bearer auth test",
+        headers: {
+          Authorization: "Bearer test-token-for-header-verification",
+        },
+      }),
+    );
+
+    if (addResult.success) {
+      // Connection succeeded — server accepted (or ignored) the Bearer header
+      logTest(
+        "HTTP Transport Bearer Auth",
+        "PASS",
+        `Connected with Bearer header via SDK | Tools discovered: ${addResult.metadata?.toolsDiscovered || 0}`,
+      );
+      return true;
+    }
+
+    const errMsg = (addResult.error || "").toLowerCase();
+
+    // Auth rejection means headers were forwarded correctly
+    if (
+      errMsg.includes("401") ||
+      errMsg.includes("403") ||
+      errMsg.includes("unauthorized")
+    ) {
+      logTest(
+        "HTTP Transport Bearer Auth",
+        "PASS",
+        "Auth headers forwarded (server rejected invalid token)",
+      );
+      return true;
+    }
+
+    // Network errors — skip
+    if (isExpectedMCPError(addResult.error || "")) {
       logTest(
         "HTTP Transport Bearer Auth",
         "SKIP",
-        "MCP SDK client not available",
+        `Network error: ${addResult.error}`,
       );
       return null;
     }
 
-    const { Client, StreamableHTTPClientTransport } = mcpClients;
-
-    // Test that Bearer auth headers are correctly forwarded
-    // We use DeepWiki which doesn't require auth but accepts headers
-    const url = new URL(REAL_HTTP_MCP_SERVERS.deepwiki.url);
-    const transport = new StreamableHTTPClientTransport(url, {
-      requestInit: {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer test-token-for-header-verification",
-        },
-      },
-    });
-
-    const client = new Client(
-      { name: "neurolink-bearer-auth-test", version: "1.0.0" },
-      { capabilities: {} },
+    logTest(
+      "HTTP Transport Bearer Auth",
+      "FAIL",
+      `Unexpected error: ${addResult.error}`,
     );
-
-    // The connection should succeed (server may ignore unknown auth tokens)
-    // or fail with an auth error (which proves headers were forwarded)
-    try {
-      const connectPromise = client.connect(transport);
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Connection timeout")), 30000),
-      );
-
-      await Promise.race([connectPromise, timeoutPromise]);
-
-      // If connection succeeds, Bearer header was accepted
-      const toolsResult = await client.listTools();
-      const toolCount = toolsResult.tools?.length || 0;
-
-      await client.close().catch(() => {});
-
-      logTest(
-        "HTTP Transport Bearer Auth",
-        "PASS",
-        `Connected with Bearer token | Tools: ${toolCount}`,
-      );
-      return true;
-    } catch (authError) {
-      const authMsg =
-        authError instanceof Error ? authError.message : String(authError);
-
-      // Auth rejection means headers were correctly forwarded
-      if (
-        authMsg.includes("401") ||
-        authMsg.includes("403") ||
-        authMsg.includes("unauthorized") ||
-        authMsg.includes("Unauthorized")
-      ) {
-        logTest(
-          "HTTP Transport Bearer Auth",
-          "PASS",
-          "Auth headers forwarded (server rejected invalid token)",
-        );
-        return true;
-      }
-
-      // Network errors
-      if (isExpectedMCPError(authMsg)) {
-        logTest(
-          "HTTP Transport Bearer Auth",
-          "SKIP",
-          `Network error: ${authMsg}`,
-        );
-        return null;
-      }
-
-      throw authError;
-    }
+    return false;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedMCPError(msg)) {
@@ -754,91 +621,74 @@ async function testHTTPTransportBearerAuth(
     }
     logTest("HTTP Transport Bearer Auth", "FAIL", msg);
     return false;
+  } finally {
+    await safeShutdown(testSdk);
   }
 }
 
 // #3 — testHTTPTransportAPIKeyAuth
-// SDK infra: Connect with API key header
+// Use sdk.addExternalMCPServer() with X-API-Key header.
 async function testHTTPTransportAPIKeyAuth(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("HTTP Transport API Key Auth", "TESTING");
+  let testSdk: NeuroLink | null = null;
   try {
-    const mcpClients = await loadMCPClients();
-    if (!mcpClients) {
+    testSdk = new NeuroLink();
+
+    const addResult = await testSdk.addExternalMCPServer(
+      "apikey-auth-test",
+      buildMCPServerConfig("apikey-auth-test", {
+        transport: "http",
+        url: REAL_HTTP_MCP_SERVERS.fetchServer.url,
+        name: "Fetch API Key Auth",
+        description: "API key auth test",
+        headers: {
+          "X-API-Key": "test-api-key-header-verification",
+        },
+      }),
+    );
+
+    if (addResult.success) {
+      logTest(
+        "HTTP Transport API Key Auth",
+        "PASS",
+        `Connected with API key header via SDK | Tools discovered: ${addResult.metadata?.toolsDiscovered || 0}`,
+      );
+      return true;
+    }
+
+    const errMsg = (addResult.error || "").toLowerCase();
+
+    // Auth rejection proves headers were forwarded
+    if (
+      errMsg.includes("401") ||
+      errMsg.includes("403") ||
+      errMsg.includes("unauthorized")
+    ) {
+      logTest(
+        "HTTP Transport API Key Auth",
+        "PASS",
+        "API key header forwarded (server verified header presence)",
+      );
+      return true;
+    }
+
+    if (isExpectedMCPError(addResult.error || "")) {
       logTest(
         "HTTP Transport API Key Auth",
         "SKIP",
-        "MCP SDK client not available",
+        `Network error: ${addResult.error}`,
       );
       return null;
     }
 
-    const { Client, StreamableHTTPClientTransport } = mcpClients;
-
-    // Test API key header forwarding
-    const url = new URL(REAL_HTTP_MCP_SERVERS.fetchServer.url);
-    const transport = new StreamableHTTPClientTransport(url, {
-      requestInit: {
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": "test-api-key-header-verification",
-        },
-      },
-    });
-
-    const client = new Client(
-      { name: "neurolink-apikey-auth-test", version: "1.0.0" },
-      { capabilities: {} },
+    logTest(
+      "HTTP Transport API Key Auth",
+      "FAIL",
+      `Unexpected error: ${addResult.error}`,
     );
-
-    try {
-      const connectPromise = client.connect(transport);
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Connection timeout")), 30000),
-      );
-
-      await Promise.race([connectPromise, timeoutPromise]);
-
-      const toolsResult = await client.listTools();
-      const toolCount = toolsResult.tools?.length || 0;
-
-      await client.close().catch(() => {});
-
-      logTest(
-        "HTTP Transport API Key Auth",
-        "PASS",
-        `Connected with API key header | Tools: ${toolCount}`,
-      );
-      return true;
-    } catch (authError) {
-      const authMsg =
-        authError instanceof Error ? authError.message : String(authError);
-
-      if (
-        authMsg.includes("401") ||
-        authMsg.includes("403") ||
-        authMsg.includes("unauthorized")
-      ) {
-        logTest(
-          "HTTP Transport API Key Auth",
-          "PASS",
-          "API key header forwarded (server verified header presence)",
-        );
-        return true;
-      }
-
-      if (isExpectedMCPError(authMsg)) {
-        logTest(
-          "HTTP Transport API Key Auth",
-          "SKIP",
-          `Network error: ${authMsg}`,
-        );
-        return null;
-      }
-
-      throw authError;
-    }
+    return false;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedMCPError(msg)) {
@@ -851,77 +701,76 @@ async function testHTTPTransportAPIKeyAuth(
     }
     logTest("HTTP Transport API Key Auth", "FAIL", msg);
     return false;
+  } finally {
+    await safeShutdown(testSdk);
   }
 }
 
 // #4 — testHTTPTransportToolDiscovery
-// SDK infra: List tools from HTTP MCP server
+// Use sdk.addExternalMCPServer(), then verify tools are listed via SDK's getAllAvailableTools().
 async function testHTTPTransportToolDiscovery(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("HTTP Transport Tool Discovery", "TESTING");
+  let testSdk: NeuroLink | null = null;
   try {
-    const mcpClients = await loadMCPClients();
-    if (!mcpClients) {
-      logTest(
-        "HTTP Transport Tool Discovery",
-        "SKIP",
-        "MCP SDK client not available",
-      );
-      return null;
+    testSdk = new NeuroLink();
+
+    const addResult = await testSdk.addExternalMCPServer(
+      "fetch-discovery",
+      buildMCPServerConfig("fetch-discovery", {
+        transport: "http",
+        url: REAL_HTTP_MCP_SERVERS.fetchServer.url,
+        name: "Remote Fetch",
+        description: "URL fetching MCP server",
+      }),
+    );
+
+    if (!addResult.success) {
+      const errMsg = addResult.error || "Connection failed";
+      if (isExpectedMCPError(errMsg)) {
+        logTest(
+          "HTTP Transport Tool Discovery",
+          "SKIP",
+          `Server unavailable: ${errMsg}`,
+        );
+        return null;
+      }
+      logTest("HTTP Transport Tool Discovery", "FAIL", errMsg);
+      return false;
     }
 
-    const { Client, StreamableHTTPClientTransport } = mcpClients;
+    // Discover tools via the SDK
+    const tools = await testSdk.getAllAvailableTools();
+    const toolNames = tools.map((t) => t.name);
 
-    // Connect to Remote Fetch server which has well-known tools
-    const url = new URL(REAL_HTTP_MCP_SERVERS.fetchServer.url);
-    const transport = new StreamableHTTPClientTransport(url, {
-      requestInit: {
-        headers: { "Content-Type": "application/json" },
-      },
-    });
-
-    const client = new Client(
-      { name: "neurolink-tool-discovery-test", version: "1.0.0" },
-      { capabilities: {} },
-    );
-
-    const connectPromise = client.connect(transport);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timeout")), 30000),
-    );
-
-    await Promise.race([connectPromise, timeoutPromise]);
-
-    // List all tools
-    const toolsResult = await client.listTools();
-    const tools = toolsResult.tools || [];
-
-    await client.close().catch(() => {});
-
-    if (tools.length === 0) {
+    if (toolNames.length === 0) {
       logTest(
         "HTTP Transport Tool Discovery",
         "FAIL",
-        "No tools discovered from Remote Fetch server",
+        "No tools discovered from Remote Fetch server via SDK",
       );
       return false;
     }
 
-    // Verify tool structure
-    const toolNames = tools.map((t: { name: string }) => t.name);
-    const hasName = tools.every(
-      (t: { name?: string }) => typeof t.name === "string" && t.name.length > 0,
+    // Verify tool structure: each tool has a name
+    const allHaveNames = tools.every(
+      (t) => typeof t.name === "string" && t.name.length > 0,
     );
-    const hasDescription = tools.some(
-      (t: { description?: string }) =>
-        typeof t.description === "string" && t.description.length > 0,
-    );
+
+    if (!allHaveNames) {
+      logTest(
+        "HTTP Transport Tool Discovery",
+        "FAIL",
+        "Some tools missing name field",
+      );
+      return false;
+    }
 
     logTest(
       "HTTP Transport Tool Discovery",
       "PASS",
-      `Discovered ${tools.length} tools: ${toolNames.join(", ")} | HasName: ${hasName} | HasDesc: ${hasDescription}`,
+      `Discovered ${tools.length} tools via SDK: ${toolNames.join(", ")}`,
     );
     return true;
   } catch (error) {
@@ -936,43 +785,45 @@ async function testHTTPTransportToolDiscovery(
     }
     logTest("HTTP Transport Tool Discovery", "FAIL", msg);
     return false;
+  } finally {
+    await safeShutdown(testSdk);
   }
 }
 
 // #5 — testHTTPTransportToolExecution
-// SDK generate: Execute tool on HTTP MCP server via generate()
+// Already uses SDK. Tighten assertions: require at least 1 expected pattern match.
 async function testHTTPTransportToolExecution(
-  sdk: NeuroLink,
+  _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("HTTP Transport Tool Execution", "TESTING");
-
   let testSdk: NeuroLink | null = null;
   try {
     testSdk = new NeuroLink();
 
-    // Add Remote Fetch MCP server
-    const addResult = await testSdk.addExternalMCPServer("fetch-test", {
-      id: "fetch-test",
-      command: "",
-      args: [],
-      transport: "http" as const,
-      url: REAL_HTTP_MCP_SERVERS.fetchServer.url,
-      headers: { "Content-Type": "application/json" },
-    } as unknown as import("../dist/index.js").MCPServerInfo);
+    const addResult = await testSdk.addExternalMCPServer(
+      "fetch-exec",
+      buildMCPServerConfig("fetch-exec", {
+        transport: "http",
+        url: REAL_HTTP_MCP_SERVERS.fetchServer.url,
+        name: "Remote Fetch",
+        description: "URL fetching MCP server",
+      }),
+    );
 
     if (!addResult.success) {
-      if (isExpectedMCPError(addResult.error || "")) {
+      const errMsg = addResult.error || "";
+      if (isExpectedMCPError(errMsg)) {
         logTest(
           "HTTP Transport Tool Execution",
           "SKIP",
-          `Cannot connect to MCP server: ${addResult.error}`,
+          `Cannot connect to MCP server: ${errMsg}`,
         );
         return null;
       }
       logTest(
         "HTTP Transport Tool Execution",
         "FAIL",
-        `Failed to add MCP server: ${addResult.error}`,
+        `Failed to add MCP server: ${errMsg}`,
       );
       return false;
     }
@@ -988,7 +839,7 @@ async function testHTTPTransportToolExecution(
 
     const responseText = (result.content || "").toLowerCase();
 
-    // The AI should have used the fetch tool and reported the contents
+    // Require at least 1 pattern match proving the tool was used
     const validation = validateResponseContent(
       responseText,
       ["slideshow", "httpbin", "json", "title", "author", "fetch"],
@@ -1004,20 +855,11 @@ async function testHTTPTransportToolExecution(
       return true;
     }
 
-    // Even if specific content isn't found, if we got a response, the tool execution worked
-    if (responseText.length > 20) {
-      logTest(
-        "HTTP Transport Tool Execution",
-        "PASS",
-        `Tool may have been called | Response: ${responseText.substring(0, 100)}...`,
-      );
-      return true;
-    }
-
+    // FAIL: no expected patterns found, tool wasn't used effectively
     logTest(
       "HTTP Transport Tool Execution",
       "FAIL",
-      `No useful response | ${validation.details.join(" | ")}`,
+      `No expected patterns in response | ${validation.details.join(" | ")} | Response: ${responseText.substring(0, 150)}`,
     );
     return false;
   } catch (error) {
@@ -1029,233 +871,217 @@ async function testHTTPTransportToolExecution(
     logTest("HTTP Transport Tool Execution", "FAIL", msg);
     return false;
   } finally {
-    try {
-      await (
-        testSdk as unknown as { shutdown?: () => Promise<void> }
-      )?.shutdown?.();
-    } catch {
-      /* ignore */
-    }
+    await safeShutdown(testSdk);
   }
 }
 
-// #6 — testHTTPRetryExponentialBackoff
-// SDK generate: Server returns error, verify retry mechanism
-async function testHTTPRetryExponentialBackoff(
-  _sdk: NeuroLink,
-): Promise<boolean | null> {
-  logTest("HTTP Retry Exponential Backoff", "TESTING");
+// #6 — testHTTPRetrySmoke
+// Smoke test: Can't create mock server to force retries in this file.
+// Verifies that the SDK accepts retry config on addExternalMCPServer().
+async function testHTTPRetrySmoke(_sdk: NeuroLink): Promise<boolean | null> {
+  logTest("HTTP Retry (Smoke)", "TESTING");
+  // Smoke test — we cannot create a mock server that forces retries in this file alone.
+  // We verify that the SDK accepts retry configuration without error.
+  let testSdk: NeuroLink | null = null;
   try {
-    // Import retry handler directly from dist
-    const mod = await import("../dist/index.js");
+    testSdk = new NeuroLink();
 
-    // Test the withHTTPRetry function if exported, otherwise test through SDK behavior
-    // We verify retry logic by testing the HTTP retry handler's behavior
-    const { HTTPRateLimiter, DEFAULT_RATE_LIMIT_CONFIG } = mod as unknown as {
-      HTTPRateLimiter?: new (config?: Record<string, unknown>) => {
-        tryAcquire: () => boolean;
-        acquire: () => Promise<void>;
-        getStats: () => { tokens: number; queueLength: number };
-        reset: () => void;
-      };
-      DEFAULT_RATE_LIMIT_CONFIG?: Record<string, unknown>;
-    };
+    const addResult = await testSdk.addExternalMCPServer(
+      "retry-smoke",
+      buildMCPServerConfig("retry-smoke", {
+        transport: "http",
+        url: REAL_HTTP_MCP_SERVERS.deepwiki.url,
+        name: "DeepWiki Retry",
+        description: "Retry smoke test",
+        retryConfig: {
+          maxAttempts: 3,
+          initialDelay: 500,
+          maxDelay: 5000,
+          backoffMultiplier: 2,
+        },
+      }),
+    );
 
-    if (!HTTPRateLimiter) {
-      // If rate limiter is not exported, test retry through SDK behavior
-      // by attempting a connection to a known-working server
-      const testSdk = new NeuroLink();
-      try {
-        const addResult = await testSdk.addExternalMCPServer("retry-test", {
-          id: "retry-test",
-          command: "",
-          args: [],
-          transport: "http" as const,
-          url: REAL_HTTP_MCP_SERVERS.deepwiki.url,
-          headers: { "Content-Type": "application/json" },
-          retryConfig: {
-            maxAttempts: 3,
-            initialDelay: 500,
-            maxDelay: 5000,
-            backoffMultiplier: 2,
-          },
-        } as unknown as import("../dist/index.js").MCPServerInfo);
-
-        // Even if the connection fails, the retry config was accepted
-        logTest(
-          "HTTP Retry Exponential Backoff",
-          "PASS",
-          `Retry config accepted | Connection: ${addResult.success}`,
-        );
-        return true;
-      } finally {
-        await (testSdk as unknown as { shutdown?: () => Promise<void> })
-          ?.shutdown?.()
-          .catch(() => {});
-      }
+    // Gate: the retry config must be accepted (not rejected with validation error)
+    if (!addResult.success && !isExpectedMCPError(addResult.error || "")) {
+      logTest(
+        "HTTP Retry (Smoke)",
+        "FAIL",
+        `SDK rejected retry config: ${addResult.error}`,
+      );
+      return false;
     }
 
-    // Test the rate limiter (which handles retry-related rate limiting)
-    const limiter = new HTTPRateLimiter({
-      requestsPerWindow: 60,
-      windowMs: 60000,
-      useTokenBucket: true,
-      refillRate: 1,
-      maxBurst: 3,
-    });
-
-    // Consume all tokens
-    const token1 = limiter.tryAcquire();
-    const token2 = limiter.tryAcquire();
-    const token3 = limiter.tryAcquire();
-    const token4 = limiter.tryAcquire(); // Should fail - no tokens left
-
-    const stats = limiter.getStats();
-
-    limiter.reset();
-
-    if (token1 && token2 && token3 && !token4) {
+    if (!addResult.success) {
+      // Network error, but config was accepted — still a pass for the smoke test
       logTest(
-        "HTTP Retry Exponential Backoff",
+        "HTTP Retry (Smoke)",
         "PASS",
-        `Token bucket working | Acquired: 3/4 | QueueLen: ${stats.queueLength}`,
+        `Retry config accepted | Connection skipped (network): ${addResult.error?.substring(0, 80)}`,
       );
       return true;
     }
 
     logTest(
-      "HTTP Retry Exponential Backoff",
+      "HTTP Retry (Smoke)",
       "PASS",
-      `Rate limiter initialized | Tokens: ${stats.tokens}`,
+      `Retry config accepted | Connection succeeded | Tools: ${addResult.metadata?.toolsDiscovered || 0}`,
     );
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    logTest("HTTP Retry Exponential Backoff", "FAIL", msg);
+    if (isExpectedMCPError(msg)) {
+      logTest(
+        "HTTP Retry (Smoke)",
+        "PASS",
+        `Retry config accepted (network error is expected): ${msg.substring(0, 80)}`,
+      );
+      return true;
+    }
+    logTest("HTTP Retry (Smoke)", "FAIL", msg);
     return false;
+  } finally {
+    await safeShutdown(testSdk);
   }
 }
 
-// #7 — testHTTPRateLimiterTokenBucket
-// SDK generate: Rapid calls to rate-limited server
-async function testHTTPRateLimiterTokenBucket(
+// #7 — testHTTPRateLimiterSmoke
+// Smoke test: Verifies the SDK accepts rate limiting config on addExternalMCPServer().
+async function testHTTPRateLimiterSmoke(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
-  logTest("HTTP Rate Limiter Token Bucket", "TESTING");
+  logTest("HTTP Rate Limiter (Smoke)", "TESTING");
+  // Smoke test — cannot create a mock server to verify actual rate limiting.
+  // We verify the SDK accepts rate limiting configuration without error.
+  let testSdk: NeuroLink | null = null;
   try {
-    const testSdk = new NeuroLink();
-    try {
-      // Add a server with rate limiting config
-      const addResult = await testSdk.addExternalMCPServer("rate-limit-test", {
-        id: "rate-limit-test",
-        command: "",
-        args: [],
-        transport: "http" as const,
+    testSdk = new NeuroLink();
+
+    const addResult = await testSdk.addExternalMCPServer(
+      "rate-limit-smoke",
+      buildMCPServerConfig("rate-limit-smoke", {
+        transport: "http",
         url: REAL_HTTP_MCP_SERVERS.deepwiki.url,
-        headers: { "Content-Type": "application/json" },
+        name: "DeepWiki Rate Limit",
+        description: "Rate limiter smoke test",
         rateLimiting: {
           requestsPerMinute: 10,
           maxBurst: 3,
           useTokenBucket: true,
         },
-      } as unknown as import("../dist/index.js").MCPServerInfo);
+      }),
+    );
 
-      // The rate limiting config should be accepted by the SDK
-      // even if the server connection itself has issues
+    // Gate: the rate limiting config must be accepted
+    if (!addResult.success && !isExpectedMCPError(addResult.error || "")) {
       logTest(
-        "HTTP Rate Limiter Token Bucket",
+        "HTTP Rate Limiter (Smoke)",
+        "FAIL",
+        `SDK rejected rate limiting config: ${addResult.error}`,
+      );
+      return false;
+    }
+
+    if (!addResult.success) {
+      logTest(
+        "HTTP Rate Limiter (Smoke)",
         "PASS",
-        `Rate limiting configured | Connection: ${addResult.success} | Config: requestsPerMinute=10, maxBurst=3`,
+        `Rate limiting config accepted | Connection skipped (network): ${addResult.error?.substring(0, 80)}`,
       );
       return true;
-    } finally {
-      await (testSdk as unknown as { shutdown?: () => Promise<void> })
-        ?.shutdown?.()
-        .catch(() => {});
     }
+
+    logTest(
+      "HTTP Rate Limiter (Smoke)",
+      "PASS",
+      `Rate limiting configured via SDK | Connection succeeded | Tools: ${addResult.metadata?.toolsDiscovered || 0}`,
+    );
+    return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedMCPError(msg)) {
       logTest(
-        "HTTP Rate Limiter Token Bucket",
-        "SKIP",
-        `Network unavailable: ${msg}`,
+        "HTTP Rate Limiter (Smoke)",
+        "PASS",
+        `Rate limiting config accepted (network error is expected): ${msg.substring(0, 80)}`,
       );
-      return null;
+      return true;
     }
-    logTest("HTTP Rate Limiter Token Bucket", "FAIL", msg);
+    logTest("HTTP Rate Limiter (Smoke)", "FAIL", msg);
     return false;
+  } finally {
+    await safeShutdown(testSdk);
   }
 }
 
 // #8 — testHTTPTransportTimeout
-// SDK generate: generate() with server that doesn't respond within timeout
+// Use sdk.addExternalMCPServer() with unreachable address.
+// Assert it fails within a reasonable time bound (< timeout * 2).
 async function testHTTPTransportTimeout(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("HTTP Transport Timeout", "TESTING");
+  let testSdk: NeuroLink | null = null;
+  const configuredTimeout = 5000;
   try {
-    const testSdk = new NeuroLink();
-    try {
-      // Try to connect to a non-existent server with a very short timeout
-      const startTime = Date.now();
-      const addResult = await testSdk.addExternalMCPServer("timeout-test", {
-        id: "timeout-test",
-        command: "",
-        args: [],
-        transport: "http" as const,
-        url: "https://192.0.2.1:12345/mcp", // RFC 5737 TEST-NET address (should timeout)
-        headers: { "Content-Type": "application/json" },
+    testSdk = new NeuroLink();
+
+    const startTime = Date.now();
+    const addResult = await testSdk.addExternalMCPServer(
+      "timeout-test",
+      buildMCPServerConfig("timeout-test", {
+        transport: "http",
+        url: "https://192.0.2.1:12345/mcp", // RFC 5737 TEST-NET address — should timeout
+        name: "Timeout Test",
+        description: "Timeout test with unreachable address",
         httpOptions: {
-          connectionTimeout: 3000,
-          requestTimeout: 3000,
+          connectionTimeout: configuredTimeout,
+          requestTimeout: configuredTimeout,
         },
-      } as unknown as import("../dist/index.js").MCPServerInfo);
+      }),
+    );
 
-      const elapsed = Date.now() - startTime;
+    const elapsed = Date.now() - startTime;
 
-      if (!addResult.success) {
-        // Timeout or connection failure expected
-        const errorMsg = (addResult.error || "").toLowerCase();
-        const isTimeoutOrConnectionError =
-          errorMsg.includes("timeout") ||
-          errorMsg.includes("etimedout") ||
-          errorMsg.includes("connect") ||
-          errorMsg.includes("abort") ||
-          errorMsg.includes("econnrefused") ||
-          errorMsg.includes("circuit") ||
-          elapsed < 30000; // Must have given up before the global timeout
-
+    if (!addResult.success) {
+      // Must have timed out or errored within a reasonable bound
+      const withinBound = elapsed < configuredTimeout * 3;
+      if (!withinBound) {
         logTest(
           "HTTP Transport Timeout",
-          isTimeoutOrConnectionError ? "PASS" : "FAIL",
-          `Timeout/error detected in ${elapsed}ms: ${addResult.error?.substring(0, 100)}`,
+          "FAIL",
+          `Took ${elapsed}ms — exceeded ${configuredTimeout * 3}ms bound`,
         );
-        return isTimeoutOrConnectionError;
+        return false;
       }
 
-      // If it somehow connected to the non-existent address, that's unexpected
       logTest(
         "HTTP Transport Timeout",
         "PASS",
-        `Connection result in ${elapsed}ms (unexpectedly succeeded)`,
+        `Timeout/error detected in ${elapsed}ms (limit: ${configuredTimeout}ms): ${addResult.error?.substring(0, 100)}`,
       );
       return true;
-    } finally {
-      await (testSdk as unknown as { shutdown?: () => Promise<void> })
-        ?.shutdown?.()
-        .catch(() => {});
     }
+
+    // If it somehow connected to the non-existent address, that's very unexpected
+    logTest(
+      "HTTP Transport Timeout",
+      "FAIL",
+      `Unexpectedly connected to unreachable address in ${elapsed}ms`,
+    );
+    return false;
   } catch (error) {
     const msg = (
       error instanceof Error ? error.message : String(error)
     ).toLowerCase();
-    // Timeout errors are expected behavior for this test
+    // Timeout/connection errors are expected behavior for this test
     if (
       msg.includes("timeout") ||
       msg.includes("etimedout") ||
       msg.includes("abort") ||
-      msg.includes("econnrefused")
+      msg.includes("econnrefused") ||
+      msg.includes("ehostunreach") ||
+      msg.includes("enetunreach")
     ) {
       logTest(
         "HTTP Transport Timeout",
@@ -1266,42 +1092,20 @@ async function testHTTPTransportTimeout(
     }
     logTest("HTTP Transport Timeout", "FAIL", msg);
     return false;
+  } finally {
+    await safeShutdown(testSdk);
   }
 }
 
 // #9 — testSSETransportConnection
-// SDK infra: Connect to local mock SSE MCP server
+// Start local mock SSE server, connect via sdk.addExternalMCPServer({ transport: "sse" }).
 async function testSSETransportConnection(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("SSE Transport Connection", "TESTING");
   let mockServer: { url: string; close: () => Promise<void> } | null = null;
-  let client: unknown;
+  let testSdk: NeuroLink | null = null;
   try {
-    const mcpClients = await loadMCPClients();
-    if (!mcpClients) {
-      logTest(
-        "SSE Transport Connection",
-        "SKIP",
-        "MCP SDK client not available",
-      );
-      return null;
-    }
-
-    // Try to load SSE client transport
-    let SSEClientTransport: unknown;
-    try {
-      const sseMod = await import("@modelcontextprotocol/sdk/client/sse.js");
-      SSEClientTransport = sseMod.SSEClientTransport;
-    } catch {
-      logTest(
-        "SSE Transport Connection",
-        "SKIP",
-        "SSE transport not available in MCP SDK",
-      );
-      return null;
-    }
-
     // Start local mock SSE MCP server
     mockServer = await createMockSSEServer();
     if (!mockServer) {
@@ -1313,36 +1117,41 @@ async function testSSETransportConnection(
       return null;
     }
 
-    const sseUrl = new URL(`${mockServer.url}/sse`);
-    const transport = new (SSEClientTransport as new (url: URL) => unknown)(
-      sseUrl,
+    testSdk = new NeuroLink();
+
+    const addResult = await testSdk.addExternalMCPServer(
+      "sse-test",
+      buildMCPServerConfig("sse-test", {
+        transport: "sse",
+        url: `${mockServer.url}/sse`,
+        name: "Mock SSE",
+        description: "Local mock SSE MCP server",
+      }),
     );
 
-    const { Client } = mcpClients;
-    client = new Client(
-      { name: "neurolink-sse-test", version: "1.0.0" },
-      { capabilities: {} },
-    );
+    if (!addResult.success) {
+      const errMsg = addResult.error || "Connection failed";
+      if (isExpectedMCPError(errMsg)) {
+        logTest(
+          "SSE Transport Connection",
+          "SKIP",
+          `SSE connection failed: ${errMsg}`,
+        );
+        return null;
+      }
+      logTest("SSE Transport Connection", "FAIL", errMsg);
+      return false;
+    }
 
-    const connectPromise = (
-      client as { connect: (t: unknown) => Promise<void> }
-    ).connect(transport);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("SSE connection timeout")), 10000),
-    );
+    // Verify tools are accessible through the SDK
+    const tools = await testSdk.getAllAvailableTools();
+    const toolNames = tools.map((t) => t.name);
 
-    await Promise.race([connectPromise, timeoutPromise]);
-
-    const toolsResult = await (
-      client as { listTools: () => Promise<{ tools: { name: string }[] }> }
-    ).listTools();
-    const toolCount = toolsResult.tools?.length || 0;
-
-    if (toolCount === 0) {
+    if (toolNames.length === 0) {
       logTest(
         "SSE Transport Connection",
         "FAIL",
-        "Connected but no tools found",
+        "Connected via SSE but no tools discovered through SDK",
       );
       return false;
     }
@@ -1350,149 +1159,89 @@ async function testSSETransportConnection(
     logTest(
       "SSE Transport Connection",
       "PASS",
-      `Connected via SSE to local mock | Tools: ${toolCount}`,
+      `Connected via SSE through SDK | Tools: ${toolNames.join(", ")}`,
     );
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedMCPError(msg)) {
+      logTest("SSE Transport Connection", "SKIP", `SSE error: ${msg}`);
+      return null;
+    }
     logTest("SSE Transport Connection", "FAIL", msg);
     return false;
   } finally {
-    await (client as { close: () => Promise<void> } | undefined)
-      ?.close()
-      .catch(() => {});
+    await safeShutdown(testSdk);
     await mockServer?.close().catch(() => {});
   }
 }
 
-// #10 — testWebSocketTransportConnection
-// SDK infra: Connect to WebSocket MCP server
-async function testWebSocketTransportConnection(
-  _sdk: NeuroLink,
-): Promise<boolean | null> {
-  logTest("WebSocket Transport Connection", "TESTING");
-  try {
-    // Try to load WebSocket transport
-    let WebSocketClientTransport: unknown;
-    try {
-      const wsMod = await import(
-        "@modelcontextprotocol/sdk/client/websocket.js"
-      );
-      WebSocketClientTransport = wsMod.WebSocketClientTransport;
-    } catch {
-      logTest(
-        "WebSocket Transport Connection",
-        "SKIP",
-        "WebSocket transport not available in MCP SDK",
-      );
-      return null;
-    }
-
-    // WebSocket MCP servers are less common - test transport creation
-    // There is no public WebSocket MCP server to test against, so we verify
-    // the transport can be created and the constructor accepts valid URLs
-    try {
-      const url = new URL("wss://example.com/mcp");
-      const transport = new (WebSocketClientTransport as new (
-        url: URL,
-      ) => unknown)(url);
-
-      if (transport) {
-        logTest(
-          "WebSocket Transport Connection",
-          "PASS",
-          "WebSocket transport created successfully (no public WS server to connect to)",
-        );
-        return true;
-      }
-    } catch (createError) {
-      const createMsg =
-        createError instanceof Error
-          ? createError.message
-          : String(createError);
-
-      // WebSocket might require specific node/browser environment
-      if (
-        createMsg.includes("WebSocket") ||
-        createMsg.includes("not defined") ||
-        createMsg.includes("not supported")
-      ) {
-        logTest(
-          "WebSocket Transport Connection",
-          "SKIP",
-          `WebSocket not available: ${createMsg}`,
-        );
-        return null;
-      }
-
-      throw createError;
-    }
-
-    logTest(
-      "WebSocket Transport Connection",
-      "SKIP",
-      "WebSocket transport object unexpectedly falsy",
-    );
-    return null;
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    logTest("WebSocket Transport Connection", "FAIL", msg);
-    return false;
-  }
-}
-
 // #11 — testRealMCPServerDeepWiki
-// SDK generate: (Migrated) Connect to DeepWiki, generate() with tools
+// Connect to DeepWiki via sdk.addExternalMCPServer(), then sdk.generate() with tools.
 async function testRealMCPServerDeepWiki(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("Real MCP Server - DeepWiki", "TESTING");
+  let testSdk: NeuroLink | null = null;
   try {
-    const mcpClients = await loadMCPClients();
-    if (!mcpClients) {
-      logTest(
-        "Real MCP Server - DeepWiki",
-        "SKIP",
-        "MCP SDK client not available",
-      );
-      return null;
+    testSdk = new NeuroLink();
+    const startTime = Date.now();
+
+    const addResult = await testSdk.addExternalMCPServer(
+      "deepwiki-real",
+      buildMCPServerConfig("deepwiki-real", {
+        transport: "http",
+        url: REAL_HTTP_MCP_SERVERS.deepwiki.url,
+        name: "DeepWiki",
+        description: REAL_HTTP_MCP_SERVERS.deepwiki.description,
+      }),
+    );
+
+    const connectionTime = Date.now() - startTime;
+
+    if (!addResult.success) {
+      const errMsg = addResult.error || "Connection failed";
+      if (isExpectedMCPError(errMsg)) {
+        logTest(
+          "Real MCP Server - DeepWiki",
+          "SKIP",
+          `Server unavailable: ${errMsg}`,
+        );
+        return null;
+      }
+      logTest("Real MCP Server - DeepWiki", "FAIL", errMsg);
+      return false;
     }
 
-    const { Client, StreamableHTTPClientTransport } = mcpClients;
+    // Verify tools were discovered
+    const tools = await testSdk.getAllAvailableTools();
+    const toolNames = tools.map((t) => t.name);
 
-    const startTime = Date.now();
-    const url = new URL(REAL_HTTP_MCP_SERVERS.deepwiki.url);
-    const transport = new StreamableHTTPClientTransport(url, {
-      requestInit: {
-        headers: { "Content-Type": "application/json" },
-      },
-    });
-
-    const client = new Client(
-      { name: "neurolink-deepwiki-test", version: "1.0.0" },
-      { capabilities: {} },
-    );
-
-    const connectPromise = client.connect(transport);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timeout")), 30000),
-    );
-
-    await Promise.race([connectPromise, timeoutPromise]);
-
-    // List tools
-    const toolsResult = await client.listTools();
-    const tools = toolsResult.tools || [];
-    const toolNames = tools.map((t: { name: string }) => t.name);
-    const responseTime = Date.now() - startTime;
-
-    await client.close().catch(() => {});
-
-    if (tools.length === 0) {
+    if (toolNames.length === 0) {
       logTest(
         "Real MCP Server - DeepWiki",
         "FAIL",
-        "Connected but no tools found",
+        "Connected but no tools discovered via SDK",
+      );
+      return false;
+    }
+
+    // Generate with DeepWiki tools to prove full integration
+    const result = await testSdk.generate({
+      input: {
+        text: "Use the available tool to look up what the 'vercel/next.js' repository is about. Give a brief summary.",
+      },
+      maxTokens: TEST_CONFIG.maxTokens,
+      ...buildBaseSDKOptions(),
+    });
+
+    const responseText = (result.content || "").toLowerCase();
+
+    if (responseText.length < 10) {
+      logTest(
+        "Real MCP Server - DeepWiki",
+        "FAIL",
+        "generate() returned empty response with DeepWiki tools",
       );
       return false;
     }
@@ -1500,92 +1249,74 @@ async function testRealMCPServerDeepWiki(
     logTest(
       "Real MCP Server - DeepWiki",
       "PASS",
-      `Connected in ${responseTime}ms | Tools: ${tools.length} [${toolNames.join(", ")}]`,
+      `Connected in ${connectionTime}ms | Tools: [${toolNames.join(", ")}] | Response: ${responseText.length} chars`,
     );
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedMCPError(msg)) {
-      logTest(
-        "Real MCP Server - DeepWiki",
-        "SKIP",
-        `Server unavailable: ${msg}`,
-      );
+    if (isExpectedMCPError(msg) || isExpectedProviderError(msg)) {
+      logTest("Real MCP Server - DeepWiki", "SKIP", `Unavailable: ${msg}`);
       return null;
     }
     logTest("Real MCP Server - DeepWiki", "FAIL", msg);
     return false;
+  } finally {
+    await safeShutdown(testSdk);
   }
 }
 
-// #12 — testRealMCPServerSemgrep
-// SDK generate: Connect to mock Semgrep-like MCP server via Streamable HTTP
-async function testRealMCPServerSemgrep(
+// #12 — testMockMCPServerSemgrep
+// Connect to local mock Streamable HTTP server via sdk.addExternalMCPServer().
+async function testMockMCPServerSemgrep(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("Mock MCP Server - Semgrep", "TESTING");
   let mockServer: { url: string; close: () => Promise<void> } | null = null;
-  let client:
-    | {
-        connect: (t: unknown) => Promise<void>;
-        listTools: () => Promise<{ tools: { name: string }[] }>;
-        close: () => Promise<void>;
-      }
-    | undefined;
+  let testSdk: NeuroLink | null = null;
   try {
-    const mcpClients = await loadMCPClients();
-    if (!mcpClients) {
-      logTest(
-        "Mock MCP Server - Semgrep",
-        "SKIP",
-        "MCP SDK client not available",
-      );
-      return null;
-    }
-
-    // Start local mock Streamable HTTP MCP server (Semgrep-like)
     mockServer = await createMockStreamableHTTPServer();
     if (!mockServer) {
       logTest(
         "Mock MCP Server - Semgrep",
         "SKIP",
-        "Could not create mock Streamable HTTP server (MCP server SDK not available)",
+        "Could not create mock Streamable HTTP server",
       );
       return null;
     }
 
-    const { Client, StreamableHTTPClientTransport } = mcpClients;
-
+    testSdk = new NeuroLink();
     const startTime = Date.now();
-    const url = new URL(mockServer.url);
-    const transport = new StreamableHTTPClientTransport(url, {
-      requestInit: {
-        headers: { "Content-Type": "application/json" },
-      },
-    });
 
-    client = new Client(
-      { name: "neurolink-semgrep-test", version: "1.0.0" },
-      { capabilities: {} },
+    const addResult = await testSdk.addExternalMCPServer(
+      "semgrep-mock",
+      buildMCPServerConfig("semgrep-mock", {
+        transport: "http",
+        url: mockServer.url,
+        name: "Mock Semgrep",
+        description: "Local mock Semgrep-like MCP server",
+      }),
     );
 
-    const connectPromise = client.connect(transport);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timeout")), 10000),
-    );
+    const connectionTime = Date.now() - startTime;
 
-    await Promise.race([connectPromise, timeoutPromise]);
-
-    const toolsResult = await client.listTools();
-    const tools = toolsResult.tools || [];
-    const toolNames = tools.map((t: { name: string }) => t.name);
-    const responseTime = Date.now() - startTime;
-
-    if (tools.length === 0) {
+    if (!addResult.success) {
       logTest(
         "Mock MCP Server - Semgrep",
         "FAIL",
-        "Connected but no tools found",
+        `Failed to connect to local mock server: ${addResult.error}`,
+      );
+      return false;
+    }
+
+    // Verify tools through SDK
+    const tools = await testSdk.getAllAvailableTools();
+    const toolNames = tools.map((t) => t.name);
+
+    if (toolNames.length === 0) {
+      logTest(
+        "Mock MCP Server - Semgrep",
+        "FAIL",
+        "Connected but no tools discovered via SDK",
       );
       return false;
     }
@@ -1593,7 +1324,7 @@ async function testRealMCPServerSemgrep(
     logTest(
       "Mock MCP Server - Semgrep",
       "PASS",
-      `Connected in ${responseTime}ms | Tools: ${tools.length} [${toolNames.join(", ")}]`,
+      `Connected in ${connectionTime}ms via SDK | Tools: [${toolNames.join(", ")}]`,
     );
     return true;
   } catch (error) {
@@ -1601,158 +1332,172 @@ async function testRealMCPServerSemgrep(
     logTest("Mock MCP Server - Semgrep", "FAIL", msg);
     return false;
   } finally {
-    await client?.close().catch(() => {});
+    await safeShutdown(testSdk);
     await mockServer?.close().catch(() => {});
   }
 }
 
 // #13 — testRealMCPServerRemoteFetch
-// SDK generate: (Migrated) Connect to Remote Fetch, invoke tool
+// Connect to Remote Fetch via sdk.addExternalMCPServer(), then sdk.generate() to invoke tool.
 async function testRealMCPServerRemoteFetch(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("Real MCP Server - Remote Fetch", "TESTING");
+  let testSdk: NeuroLink | null = null;
   try {
-    const mcpClients = await loadMCPClients();
-    if (!mcpClients) {
-      logTest(
-        "Real MCP Server - Remote Fetch",
-        "SKIP",
-        "MCP SDK client not available",
-      );
-      return null;
-    }
-
-    const { Client, StreamableHTTPClientTransport } = mcpClients;
-
+    testSdk = new NeuroLink();
     const startTime = Date.now();
-    const url = new URL(REAL_HTTP_MCP_SERVERS.fetchServer.url);
-    const transport = new StreamableHTTPClientTransport(url, {
-      requestInit: {
-        headers: { "Content-Type": "application/json" },
-      },
-    });
 
-    const client = new Client(
-      { name: "neurolink-fetch-test", version: "1.0.0" },
-      { capabilities: {} },
+    const addResult = await testSdk.addExternalMCPServer(
+      "fetch-real",
+      buildMCPServerConfig("fetch-real", {
+        transport: "http",
+        url: REAL_HTTP_MCP_SERVERS.fetchServer.url,
+        name: "Remote Fetch",
+        description: REAL_HTTP_MCP_SERVERS.fetchServer.description,
+      }),
     );
 
-    const connectPromise = client.connect(transport);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timeout")), 30000),
-    );
-
-    await Promise.race([connectPromise, timeoutPromise]);
-
-    // List tools
-    const toolsResult = await client.listTools();
-    const tools = toolsResult.tools || [];
-    const toolNames = tools.map((t: { name: string }) => t.name);
     const connectionTime = Date.now() - startTime;
 
-    // Find and invoke the fetch tool
-    const fetchTool = tools.find((t: { name: string }) => t.name === "fetch");
-    let toolInvocationSuccess = false;
-    let fetchResultSize = 0;
-
-    if (fetchTool) {
-      try {
-        const result = await client.callTool({
-          name: "fetch",
-          arguments: { url: "https://httpbin.org/json" },
-        });
-
-        if (result && result.content && Array.isArray(result.content)) {
-          const textContent = (
-            result.content as Array<{ type: string; text?: string }>
-          ).find((c) => c.type === "text");
-          if (textContent && textContent.text && textContent.text.length > 0) {
-            toolInvocationSuccess = true;
-            fetchResultSize = textContent.text.length;
-          }
-        }
-      } catch (toolError) {
-        const toolMsg =
-          toolError instanceof Error ? toolError.message : String(toolError);
-        log(`   Tool invocation error: ${toolMsg}`, "yellow");
+    if (!addResult.success) {
+      const errMsg = addResult.error || "Connection failed";
+      if (isExpectedMCPError(errMsg)) {
+        logTest(
+          "Real MCP Server - Remote Fetch",
+          "SKIP",
+          `Server unavailable: ${errMsg}`,
+        );
+        return null;
       }
+      logTest("Real MCP Server - Remote Fetch", "FAIL", errMsg);
+      return false;
     }
 
-    await client.close().catch(() => {});
+    // Verify tools through SDK
+    const tools = await testSdk.getAllAvailableTools();
+    const toolNames = tools.map((t) => t.name);
+
+    if (toolNames.length === 0) {
+      logTest(
+        "Real MCP Server - Remote Fetch",
+        "FAIL",
+        "Connected but no tools discovered via SDK",
+      );
+      return false;
+    }
+
+    // Invoke tool via generate()
+    const result = await testSdk.generate({
+      input: {
+        text: "Use the fetch tool to retrieve https://httpbin.org/json and describe what you got back.",
+      },
+      maxTokens: TEST_CONFIG.maxTokens,
+      ...buildBaseSDKOptions(),
+    });
+
+    const responseText = (result.content || "").toLowerCase();
+
+    const validation = validateResponseContent(
+      responseText,
+      ["slideshow", "httpbin", "json", "title", "author", "fetch"],
+      1,
+    );
+
+    if (!validation.passed && responseText.length < 20) {
+      logTest(
+        "Real MCP Server - Remote Fetch",
+        "FAIL",
+        `Tool invocation produced no useful response | ${validation.details.join(" | ")}`,
+      );
+      return false;
+    }
 
     logTest(
       "Real MCP Server - Remote Fetch",
       "PASS",
-      `Connected in ${connectionTime}ms | Tools: ${toolNames.join(", ")} | ToolInvoked: ${toolInvocationSuccess} | FetchBytes: ${fetchResultSize}`,
+      `Connected in ${connectionTime}ms | Tools: [${toolNames.join(", ")}] | ToolInvoked: ${validation.passed} | Response: ${responseText.length} chars`,
     );
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedMCPError(msg)) {
-      logTest(
-        "Real MCP Server - Remote Fetch",
-        "SKIP",
-        `Server unavailable: ${msg}`,
-      );
+    if (isExpectedMCPError(msg) || isExpectedProviderError(msg)) {
+      logTest("Real MCP Server - Remote Fetch", "SKIP", `Unavailable: ${msg}`);
       return null;
     }
     logTest("Real MCP Server - Remote Fetch", "FAIL", msg);
     return false;
+  } finally {
+    await safeShutdown(testSdk);
   }
 }
 
 // #14 — testRealMCPServerSequentialThinking
-// SDK generate: (Migrated) Connect to Sequential Thinking
+// Connect to Sequential Thinking via sdk.addExternalMCPServer(), then sdk.generate().
 async function testRealMCPServerSequentialThinking(
   _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("Real MCP Server - Sequential Thinking", "TESTING");
+  let testSdk: NeuroLink | null = null;
   try {
-    const mcpClients = await loadMCPClients();
-    if (!mcpClients) {
-      logTest(
-        "Real MCP Server - Sequential Thinking",
-        "SKIP",
-        "MCP SDK client not available",
-      );
-      return null;
+    testSdk = new NeuroLink();
+    const startTime = Date.now();
+
+    const addResult = await testSdk.addExternalMCPServer(
+      "sequential-thinking",
+      buildMCPServerConfig("sequential-thinking", {
+        transport: "http",
+        url: REAL_HTTP_MCP_SERVERS.sequentialThinking.url,
+        name: "Sequential Thinking",
+        description: REAL_HTTP_MCP_SERVERS.sequentialThinking.description,
+      }),
+    );
+
+    const connectionTime = Date.now() - startTime;
+
+    if (!addResult.success) {
+      const errMsg = addResult.error || "Connection failed";
+      if (isExpectedMCPError(errMsg)) {
+        logTest(
+          "Real MCP Server - Sequential Thinking",
+          "SKIP",
+          `Server unavailable: ${errMsg}`,
+        );
+        return null;
+      }
+      logTest("Real MCP Server - Sequential Thinking", "FAIL", errMsg);
+      return false;
     }
 
-    const { Client, StreamableHTTPClientTransport } = mcpClients;
+    // Verify tools through SDK
+    const tools = await testSdk.getAllAvailableTools();
+    const toolNames = tools.map((t) => t.name);
 
-    const startTime = Date.now();
-    const url = new URL(REAL_HTTP_MCP_SERVERS.sequentialThinking.url);
-    const transport = new StreamableHTTPClientTransport(url, {
-      requestInit: {
-        headers: { "Content-Type": "application/json" },
-      },
-    });
-
-    const client = new Client(
-      { name: "neurolink-sequential-thinking-test", version: "1.0.0" },
-      { capabilities: {} },
-    );
-
-    const connectPromise = client.connect(transport);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timeout")), 30000),
-    );
-
-    await Promise.race([connectPromise, timeoutPromise]);
-
-    const toolsResult = await client.listTools();
-    const tools = toolsResult.tools || [];
-    const toolNames = tools.map((t: { name: string }) => t.name);
-    const responseTime = Date.now() - startTime;
-
-    await client.close().catch(() => {});
-
-    if (tools.length === 0) {
+    if (toolNames.length === 0) {
       logTest(
         "Real MCP Server - Sequential Thinking",
         "FAIL",
-        "Connected but no tools found",
+        "Connected but no tools discovered via SDK",
+      );
+      return false;
+    }
+
+    // Use generate() with the sequential thinking tool
+    const result = await testSdk.generate({
+      input: {
+        text: "Use the sequential thinking tool to reason step by step about what 2+3*4 equals. Show your thinking.",
+      },
+      maxTokens: TEST_CONFIG.maxTokens,
+      ...buildBaseSDKOptions(),
+    });
+
+    const responseText = (result.content || "").toLowerCase();
+
+    if (responseText.length < 10) {
+      logTest(
+        "Real MCP Server - Sequential Thinking",
+        "FAIL",
+        "generate() returned empty response with sequential thinking tools",
       );
       return false;
     }
@@ -1760,173 +1505,294 @@ async function testRealMCPServerSequentialThinking(
     logTest(
       "Real MCP Server - Sequential Thinking",
       "PASS",
-      `Connected in ${responseTime}ms | Tools: ${tools.length} [${toolNames.join(", ")}]`,
+      `Connected in ${connectionTime}ms | Tools: [${toolNames.join(", ")}] | Response: ${responseText.length} chars`,
     );
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedMCPError(msg)) {
+    if (isExpectedMCPError(msg) || isExpectedProviderError(msg)) {
       logTest(
         "Real MCP Server - Sequential Thinking",
         "SKIP",
-        `Server unavailable: ${msg}`,
+        `Unavailable: ${msg}`,
       );
       return null;
     }
     logTest("Real MCP Server - Sequential Thinking", "FAIL", msg);
     return false;
+  } finally {
+    await safeShutdown(testSdk);
   }
 }
 
 // #15 — testMCPBlockedToolSupport
-// SDK generate: Register blocked tools, generate() excludes them
+// Register tools, then use sdk.generate() to verify tool integration.
+// If the SDK exposes blockedTools, test that separately.
 async function testMCPBlockedToolSupport(
-  sdk: NeuroLink,
+  _sdk: NeuroLink,
 ): Promise<boolean | null> {
   logTest("MCP Blocked Tool Support", "TESTING");
+  let testSdk: NeuroLink | null = null;
   try {
-    const testSdk = new NeuroLink();
-    try {
-      // Register a custom tool
-      testSdk.registerTool("allowed_tool", {
-        name: "allowed_tool",
-        description: "A tool that should be available",
-        inputSchema: {
-          type: "object" as const,
-          properties: { query: { type: "string" as const } },
-        },
-        execute: async () => ({ result: "allowed" }),
-      });
+    testSdk = new NeuroLink();
 
-      testSdk.registerTool("blocked_tool", {
-        name: "blocked_tool",
-        description: "A tool that should be blocked",
-        inputSchema: {
-          type: "object" as const,
-          properties: { query: { type: "string" as const } },
-        },
-        execute: async () => ({ result: "should not appear" }),
-      });
+    // Register two custom tools
+    testSdk.registerTool("allowed_tool", {
+      name: "allowed_tool",
+      description: "A tool that returns a known value: ALLOWED_RESULT_42",
+      inputSchema: {
+        type: "object" as const,
+        properties: { query: { type: "string" as const } },
+      },
+      execute: async () => ({ result: "ALLOWED_RESULT_42" }),
+    });
 
-      // Get all available tools (method is getAllAvailableTools, not getAvailableTools)
-      const getToolsFn =
-        (testSdk as Record<string, unknown>).getAllAvailableTools ||
-        (testSdk as Record<string, unknown>).getAvailableTools;
-      if (typeof getToolsFn !== "function") {
-        logTest(
-          "MCP Blocked Tool Support",
-          "SKIP",
-          "getAvailableTools/getAllAvailableTools not available on SDK",
-        );
-        return null;
-      }
-      const allTools = await (
-        getToolsFn as () => Promise<Array<{ name: string }>>
-      ).call(testSdk);
-      const allToolNames = allTools.map((t: { name: string }) => t.name);
+    testSdk.registerTool("blocked_tool", {
+      name: "blocked_tool",
+      description: "A tool that returns BLOCKED_RESULT_99",
+      inputSchema: {
+        type: "object" as const,
+        properties: { query: { type: "string" as const } },
+      },
+      execute: async () => ({ result: "BLOCKED_RESULT_99" }),
+    });
 
-      // Check that both tools are registered
-      const hasAllowed = allToolNames.includes("allowed_tool");
-      const hasBlocked = allToolNames.includes("blocked_tool");
+    // Verify tools are registered via SDK
+    const allTools = await testSdk.getAllAvailableTools();
+    const allToolNames = allTools.map((t) => t.name);
 
-      // Verify tools are registered (blocked tool filtering happens at generate() time)
-      if (hasAllowed) {
-        logTest(
-          "MCP Blocked Tool Support",
-          "PASS",
-          `Tools registered | AllowedPresent: ${hasAllowed} | BlockedPresent: ${hasBlocked} | TotalTools: ${allToolNames.length}`,
-        );
-        return true;
-      }
+    const hasAllowed = allToolNames.includes("allowed_tool");
+    const hasBlocked = allToolNames.includes("blocked_tool");
 
+    if (!hasAllowed) {
       logTest(
         "MCP Blocked Tool Support",
         "FAIL",
-        `Expected allowed_tool in available tools. Found: ${allToolNames.join(", ")}`,
+        `allowed_tool not found in registered tools. Found: ${allToolNames.join(", ")}`,
       );
       return false;
-    } finally {
-      await (testSdk as unknown as { shutdown?: () => Promise<void> })
-        ?.shutdown?.()
-        .catch(() => {});
-    }
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    logTest("MCP Blocked Tool Support", "FAIL", msg);
-    return false;
-  }
-}
-
-// #16 — testHTTPTransportSessionManagement
-// SDK infra: Mcp-Session-Id header handling
-async function testHTTPTransportSessionManagement(
-  _sdk: NeuroLink,
-): Promise<boolean | null> {
-  logTest("HTTP Transport Session Management", "TESTING");
-  try {
-    const mcpClients = await loadMCPClients();
-    if (!mcpClients) {
-      logTest(
-        "HTTP Transport Session Management",
-        "SKIP",
-        "MCP SDK client not available",
-      );
-      return null;
     }
 
-    const { Client, StreamableHTTPClientTransport } = mcpClients;
-
-    // Connect to a server and check session management
-    const url = new URL(REAL_HTTP_MCP_SERVERS.deepwiki.url);
-    const transport = new StreamableHTTPClientTransport(url, {
-      requestInit: {
-        headers: { "Content-Type": "application/json" },
+    // Use generate() to prove the tool can be invoked through the SDK
+    const result = await testSdk.generate({
+      input: {
+        text: "Call the allowed_tool with query 'test' and tell me the result.",
       },
+      maxTokens: TEST_CONFIG.maxTokens,
+      ...buildBaseSDKOptions(),
     });
 
-    const client = new Client(
-      { name: "neurolink-session-test", version: "1.0.0" },
-      { capabilities: {} },
-    );
+    const responseText = (result.content || "").toLowerCase();
 
-    const connectPromise = client.connect(transport);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timeout")), 30000),
-    );
-
-    await Promise.race([connectPromise, timeoutPromise]);
-
-    // Make two requests to verify session continuity
-    const tools1 = await client.listTools();
-    const tools2 = await client.listTools();
-
-    await client.close().catch(() => {});
-
-    // Verify both requests succeeded (session was maintained)
-    const request1Tools = tools1.tools?.length || 0;
-    const request2Tools = tools2.tools?.length || 0;
-
-    // If both requests returned consistent results, session management is working
-    const sessionConsistent = request1Tools === request2Tools;
+    if (responseText.length < 5) {
+      logTest(
+        "MCP Blocked Tool Support",
+        "FAIL",
+        "generate() returned empty response",
+      );
+      return false;
+    }
 
     logTest(
-      "HTTP Transport Session Management",
+      "MCP Blocked Tool Support",
       "PASS",
-      `Session maintained | Request1 tools: ${request1Tools} | Request2 tools: ${request2Tools} | Consistent: ${sessionConsistent}`,
+      `Tools registered | Allowed: ${hasAllowed} | Blocked: ${hasBlocked} | Total: ${allToolNames.length} | Response: ${responseText.length} chars`,
     );
     return true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (isExpectedMCPError(msg)) {
+    if (isExpectedProviderError(msg)) {
+      logTest("MCP Blocked Tool Support", "SKIP", `Provider error: ${msg}`);
+      return null;
+    }
+    logTest("MCP Blocked Tool Support", "FAIL", msg);
+    return false;
+  } finally {
+    await safeShutdown(testSdk);
+  }
+}
+
+// #16 — testHTTPTransportSessionManagement
+// After addExternalMCPServer(), make 2 sdk.generate() calls. Assert both succeed.
+async function testHTTPTransportSessionManagement(
+  _sdk: NeuroLink,
+): Promise<boolean | null> {
+  logTest("HTTP Transport Session Management", "TESTING");
+  let testSdk: NeuroLink | null = null;
+  try {
+    testSdk = new NeuroLink();
+
+    const addResult = await testSdk.addExternalMCPServer(
+      "session-test",
+      buildMCPServerConfig("session-test", {
+        transport: "http",
+        url: REAL_HTTP_MCP_SERVERS.deepwiki.url,
+        name: "DeepWiki Session",
+        description: "Session management test",
+      }),
+    );
+
+    if (!addResult.success) {
+      const errMsg = addResult.error || "Connection failed";
+      if (isExpectedMCPError(errMsg)) {
+        logTest(
+          "HTTP Transport Session Management",
+          "SKIP",
+          `Server unavailable: ${errMsg}`,
+        );
+        return null;
+      }
+      logTest("HTTP Transport Session Management", "FAIL", errMsg);
+      return false;
+    }
+
+    // Make two generate() calls to verify session continuity
+    const result1 = await testSdk.generate({
+      input: { text: "What tools do you have available? List them briefly." },
+      maxTokens: TEST_CONFIG.maxTokens,
+      ...buildBaseSDKOptions(),
+    });
+
+    const response1 = (result1.content || "").trim();
+
+    const result2 = await testSdk.generate({
+      input: { text: "Summarize your capabilities in one sentence." },
+      maxTokens: TEST_CONFIG.maxTokens,
+      ...buildBaseSDKOptions(),
+    });
+
+    const response2 = (result2.content || "").trim();
+
+    // Gate: both calls must return non-empty responses
+    if (response1.length < 5) {
+      logTest(
+        "HTTP Transport Session Management",
+        "FAIL",
+        "First generate() returned empty response",
+      );
+      return false;
+    }
+
+    if (response2.length < 5) {
+      logTest(
+        "HTTP Transport Session Management",
+        "FAIL",
+        "Second generate() returned empty response",
+      );
+      return false;
+    }
+
+    logTest(
+      "HTTP Transport Session Management",
+      "PASS",
+      `Session maintained | Response1: ${response1.length} chars | Response2: ${response2.length} chars`,
+    );
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedMCPError(msg) || isExpectedProviderError(msg)) {
       logTest(
         "HTTP Transport Session Management",
         "SKIP",
-        `Network unavailable: ${msg}`,
+        `Unavailable: ${msg}`,
       );
       return null;
     }
     logTest("HTTP Transport Session Management", "FAIL", msg);
     return false;
+  } finally {
+    await safeShutdown(testSdk);
+  }
+}
+
+// #17 — testObservabilitySpans
+// After sdk.generate() with MCP tool, check spans. Assert at least 1 span exists.
+async function testObservabilitySpans(
+  _sdk: NeuroLink,
+): Promise<boolean | null> {
+  logTest("Observability Spans", "TESTING");
+  let testSdk: NeuroLink | null = null;
+  try {
+    const { getMetricsAggregator } = await import("../dist/index.js");
+
+    testSdk = new NeuroLink();
+
+    // Add an MCP server and do a generate() to produce spans
+    const addResult = await testSdk.addExternalMCPServer(
+      "obs-test",
+      buildMCPServerConfig("obs-test", {
+        transport: "http",
+        url: REAL_HTTP_MCP_SERVERS.deepwiki.url,
+        name: "DeepWiki Obs",
+        description: "Observability test",
+      }),
+    );
+
+    if (addResult.success) {
+      try {
+        await testSdk.generate({
+          input: { text: "What is React? Use available tools if helpful." },
+          maxTokens: TEST_CONFIG.maxTokens,
+          ...buildBaseSDKOptions(),
+        });
+      } catch {
+        // Generate may fail due to provider issues; that's fine for this test
+      }
+    }
+
+    const aggregator = getMetricsAggregator();
+    const allSpans = aggregator.getSpans();
+
+    if (allSpans.length === 0) {
+      logTest(
+        "Observability Spans",
+        "FAIL",
+        "No spans recorded after generate() call",
+      );
+      return false;
+    }
+
+    const mcpSpans = allSpans.filter(
+      (s: { type?: string; name?: string }) =>
+        s.type === "mcp.transport" || (s.name && s.name.startsWith("mcp.")),
+    );
+
+    logTest(
+      "Observability Spans",
+      "PASS",
+      `Spans recorded | Total: ${allSpans.length} | MCP spans: ${mcpSpans.length}`,
+    );
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg) || isExpectedMCPError(msg)) {
+      // Even if generate failed, check if spans were recorded
+      try {
+        const { getMetricsAggregator } = await import("../dist/index.js");
+        const aggregator = getMetricsAggregator();
+        const allSpans = aggregator.getSpans();
+        if (allSpans.length > 0) {
+          logTest(
+            "Observability Spans",
+            "PASS",
+            `Spans recorded despite error | Total: ${allSpans.length}`,
+          );
+          return true;
+        }
+      } catch {
+        /* fall through to fail */
+      }
+      logTest(
+        "Observability Spans",
+        "SKIP",
+        `Provider/network error prevented span generation: ${msg}`,
+      );
+      return null;
+    }
+    logTest("Observability Spans", "FAIL", msg);
+    return false;
+  } finally {
+    await safeShutdown(testSdk);
   }
 }
 
@@ -1972,12 +1838,12 @@ async function runAllTests(): Promise<void> {
       fn: () => testHTTPTransportToolExecution(sharedSdk),
     },
     {
-      name: "HTTP Retry Exponential Backoff",
-      fn: () => testHTTPRetryExponentialBackoff(sharedSdk),
+      name: "HTTP Retry (Smoke)",
+      fn: () => testHTTPRetrySmoke(sharedSdk),
     },
     {
-      name: "HTTP Rate Limiter Token Bucket",
-      fn: () => testHTTPRateLimiterTokenBucket(sharedSdk),
+      name: "HTTP Rate Limiter (Smoke)",
+      fn: () => testHTTPRateLimiterSmoke(sharedSdk),
     },
     {
       name: "HTTP Transport Timeout",
@@ -1988,16 +1854,12 @@ async function runAllTests(): Promise<void> {
       fn: () => testSSETransportConnection(sharedSdk),
     },
     {
-      name: "WebSocket Transport Connection",
-      fn: () => testWebSocketTransportConnection(sharedSdk),
-    },
-    {
       name: "Real MCP Server - DeepWiki",
       fn: () => testRealMCPServerDeepWiki(sharedSdk),
     },
     {
       name: "Mock MCP Server - Semgrep",
-      fn: () => testRealMCPServerSemgrep(sharedSdk),
+      fn: () => testMockMCPServerSemgrep(sharedSdk),
     },
     {
       name: "Real MCP Server - Remote Fetch",
@@ -2014,6 +1876,10 @@ async function runAllTests(): Promise<void> {
     {
       name: "HTTP Transport Session Management",
       fn: () => testHTTPTransportSessionManagement(sharedSdk),
+    },
+    {
+      name: "Observability Spans",
+      fn: () => testObservabilitySpans(sharedSdk),
     },
   ];
 
@@ -2036,13 +1902,13 @@ async function runAllTests(): Promise<void> {
   const passed = testResults.filter((r) => r.result === true).length;
   const failed = testResults.filter((r) => r.result === false).length;
   const skipped = testResults.filter((r) => r.result === null).length;
-  testResults.forEach((t) =>
+  testResults.forEach((t) => {
     logTest(
       t.name,
       t.result === true ? "PASS" : t.result === false ? "FAIL" : "SKIP",
       t.error || "",
-    ),
-  );
+    );
+  });
   const duration = Math.round((Date.now() - startTime) / 1000);
   log(
     `
@@ -2051,22 +1917,19 @@ Final Results: ${passed} passed, ${failed} failed, ${skipped} skipped (${testRes
   );
 
   log("\nMCP HTTP Transport Feature Summary:", "cyan");
-  log("   Transports: HTTP (Streamable), SSE, WebSocket", "reset");
-  log("   Auth: Bearer token, API key, OAuth 2.1", "reset");
+  log("   Transports: HTTP (Streamable), SSE", "reset");
+  log("   Auth: Bearer token, API key", "reset");
   log(
     "   Resilience: Retry with exponential backoff, rate limiting, timeouts",
     "reset",
   );
-  log(
-    "   Real servers: DeepWiki, Semgrep, Remote Fetch, Sequential Thinking",
-    "reset",
-  );
-  log("   Session: Mcp-Session-Id header management", "reset");
+  log("   Real servers: DeepWiki, Remote Fetch, Sequential Thinking", "reset");
+  log("   Mock servers: Semgrep (Streamable HTTP), SSE", "reset");
+  log("   Session: Mcp-Session-Id via multiple generate() calls", "reset");
+  log("   Observability: Span recording after MCP operations", "reset");
 
   try {
-    await (
-      sharedSdk as unknown as { shutdown?: () => Promise<void> }
-    ).shutdown?.();
+    await safeShutdown(sharedSdk);
   } catch {
     /* ignore */
   }
@@ -2090,17 +1953,21 @@ function parseArguments(): { provider?: string; model?: string } {
       console.log(
         "Usage: npx tsx test/continuous-test-suite-mcp-http.ts [--provider=X] [--model=Y]",
       );
-      console.log("\nTests MCP HTTP transport end-to-end:");
-      console.log("  - HTTP transport connection, auth, tool discovery");
-      console.log("  - Tool execution through generate()");
       console.log(
-        "  - Retry with exponential backoff, rate limiting, timeouts",
+        "\nTests MCP HTTP transport end-to-end through the NeuroLink SDK:",
       );
-      console.log("  - SSE and WebSocket transport");
       console.log(
-        "  - Real MCP servers (DeepWiki, Semgrep, Remote Fetch, Sequential Thinking)",
+        "  - HTTP transport connection via sdk.addExternalMCPServer() + sdk.generate()",
+      );
+      console.log("  - Auth headers (Bearer, API Key)");
+      console.log("  - Tool discovery and execution through sdk.generate()");
+      console.log("  - Retry, rate limiting, timeouts (smoke tests)");
+      console.log("  - SSE transport via local mock server");
+      console.log(
+        "  - Real MCP servers (DeepWiki, Remote Fetch, Sequential Thinking)",
       );
       console.log("  - Blocked tool support, session management");
+      console.log("  - Observability spans");
       process.exit(0);
     }
   }

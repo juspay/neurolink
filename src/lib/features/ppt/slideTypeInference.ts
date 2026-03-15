@@ -11,10 +11,10 @@
  */
 
 import type {
-  SlideType,
-  BulletStyle,
   BulletPoint,
+  BulletStyle,
   SlideContent,
+  SlideType,
 } from "./types.js";
 
 // ============================================================================
@@ -33,13 +33,13 @@ const TITLE_KEYWORD_PATTERNS: Array<{
   // Agenda / Table of Contents - numbered list
   {
     patterns: [
-      /^agenda$/i,
-      /^table\s+of\s+contents$/i,
-      /^outline$/i,
-      /^overview$/i,
-      /^what\s+we('ll)?\s+cover$/i,
-      /^today('s)?\s+topics?$/i,
-      /^session\s+outline$/i,
+      /\bagenda\b/i,
+      /\btable\s+of\s+contents\b/i,
+      /\boutline\b/i,
+      /\boverview\b/i,
+      /\bwhat\s+we('ll)?\s+cover\b/i,
+      /\btoday('s)?\s+topics?\b/i,
+      /\bsession\s+outline\b/i,
     ],
     slideType: "agenda",
     bulletStyle: "number",
@@ -48,18 +48,18 @@ const TITLE_KEYWORD_PATTERNS: Array<{
   // Conclusion / Summary - checkmark
   {
     patterns: [
-      /^conclusion$/i,
-      /^summary$/i,
-      /^key\s+takeaways?$/i,
-      /^takeaways?$/i,
-      /^recap$/i,
-      /^in\s+summary$/i,
-      /^what\s+we('ve)?\s+learned$/i,
-      /^main\s+points?$/i,
-      /^key\s+points?$/i,
-      /^highlights?$/i,
-      /^achievements?$/i,
-      /^accomplishments?$/i,
+      /\bconclusion\b/i,
+      /\bsummary\b/i,
+      /\bkey\s+takeaways?\b/i,
+      /\btakeaways?\b/i,
+      /\brecap\b/i,
+      /\bin\s+summary\b/i,
+      /\bwhat\s+we('ve)?\s+learned\b/i,
+      /\bmain\s+points?\b/i,
+      /\bkey\s+points?\b/i,
+      /\bhighlights?\b/i,
+      /\bachievements?\b/i,
+      /\baccomplishments?\b/i,
     ],
     slideType: "conclusion",
     bulletStyle: "checkmark",
@@ -68,15 +68,15 @@ const TITLE_KEYWORD_PATTERNS: Array<{
   // Closing / Thank You - checkmark
   {
     patterns: [
-      /^thank\s+you$/i,
-      /^thanks?$/i,
-      /^questions?\??$/i,
-      /^q\s*&\s*a$/i,
-      /^contact(\s+us)?$/i,
-      /^next\s+steps?$/i,
-      /^action\s+items?$/i,
-      /^let('s)?\s+connect$/i,
-      /^get\s+(in\s+)?touch$/i,
+      /\bthank\s+you\b/i,
+      /\bthanks?\b/i,
+      /\bquestions?\b\??/i,
+      /\bq\s*&\s*a\b/i,
+      /\bcontact(\s+us)?\b/i,
+      /\bnext\s+steps?\b/i,
+      /\baction\s+items?\b/i,
+      /\blet('s)?\s+connect\b/i,
+      /\bget\s+(in\s+)?touch\b/i,
     ],
     slideType: "closing",
     bulletStyle: "checkmark",
@@ -85,14 +85,15 @@ const TITLE_KEYWORD_PATTERNS: Array<{
   // Comparison - arrow bullets
   {
     patterns: [
-      /^comparison$/i,
-      /^vs\.?$/i,
-      /^versus$/i,
-      /^before\s+(and|&|vs\.?)\s+after$/i,
-      /^pros?\s+(and|&|vs\.?)\s+cons?$/i,
-      /^advantages?\s+(and|&|vs\.?)\s+disadvantages?$/i,
-      /^benefits?\s+(and|&|vs\.?)\s+risks?$/i,
-      /^old\s+vs\.?\s+new$/i,
+      /\bcomparison\b/i,
+      /\bcompare\b/i,
+      /\bvs\.?\b/i,
+      /\bversus\b/i,
+      /\bbefore\s+(and|&|vs\.?)\s+after\b/i,
+      /\bpros?\s+(and|&|vs\.?)\s+cons?\b/i,
+      /\badvantages?\s+(and|&|vs\.?)\s+disadvantages?\b/i,
+      /\bbenefits?\s+(and|&|vs\.?)\s+risks?\b/i,
+      /\bold\s+vs\.?\s+new\b/i,
     ],
     slideType: "comparison",
     bulletStyle: "arrow",
@@ -101,15 +102,16 @@ const TITLE_KEYWORD_PATTERNS: Array<{
   // Process / Steps - numbered
   {
     patterns: [
-      /^process$/i,
-      /^steps?$/i,
-      /^how\s+to\b/i,
-      /^workflow$/i,
-      /^procedure$/i,
-      /^methodology$/i,
-      /^\d+\s+steps?\s+to\b/i,
-      /^implementation\s+steps?$/i,
-      /^getting\s+started$/i,
+      /\bprocess\b/i,
+      /\bsteps?\b/i,
+      /\bstep[\s-]+by[\s-]+step\b/i,
+      /\bhow\s+to\b/i,
+      /\bworkflow\b/i,
+      /\bprocedure\b/i,
+      /\bmethodology\b/i,
+      /\d+\s+steps?\s+to\b/i,
+      /\bimplementation\s+steps?\b/i,
+      /\bgetting\s+started\b/i,
     ],
     slideType: "numbered-list",
     bulletStyle: "number",
@@ -118,10 +120,10 @@ const TITLE_KEYWORD_PATTERNS: Array<{
   // Features / Benefits - disc (but could be checkmark for benefits)
   {
     patterns: [
-      /^features?$/i,
-      /^capabilities?$/i,
-      /^what\s+(we|it)\s+offers?$/i,
-      /^our\s+offerings?$/i,
+      /\bfeatures?\b/i,
+      /\bcapabilities?\b/i,
+      /\bwhat\s+(we|it)\s+offers?\b/i,
+      /\bour\s+offerings?\b/i,
     ],
     slideType: "features",
     bulletStyle: "disc",
@@ -129,11 +131,11 @@ const TITLE_KEYWORD_PATTERNS: Array<{
 
   {
     patterns: [
-      /^benefits?$/i,
-      /^advantages?$/i,
-      /^why\s+choose\b/i,
-      /^reasons?\s+to\b/i,
-      /^value\s+proposition$/i,
+      /\bbenefits?\b/i,
+      /\badvantages?\b/i,
+      /\bwhy\s+choose\b/i,
+      /\breasons?\s+to\b/i,
+      /\bvalue\s+proposition\b/i,
     ],
     slideType: "content",
     bulletStyle: "checkmark",
@@ -142,12 +144,12 @@ const TITLE_KEYWORD_PATTERNS: Array<{
   // Goals / Objectives - checkmark
   {
     patterns: [
-      /^goals?$/i,
-      /^objectives?$/i,
-      /^targets?$/i,
-      /^aims?$/i,
-      /^our\s+mission$/i,
-      /^what\s+we\s+aim\s+for$/i,
+      /\bgoals?\b/i,
+      /\bobjectives?\b/i,
+      /\btargets?\b/i,
+      /\baims?\b/i,
+      /\bour\s+mission\b/i,
+      /\bwhat\s+we\s+aim\s+for\b/i,
     ],
     slideType: "content",
     bulletStyle: "checkmark",
@@ -156,13 +158,13 @@ const TITLE_KEYWORD_PATTERNS: Array<{
   // Challenges / Risks - arrow
   {
     patterns: [
-      /^challenges?$/i,
-      /^risks?$/i,
-      /^obstacles?$/i,
-      /^barriers?$/i,
-      /^concerns?$/i,
-      /^issues?$/i,
-      /^problems?$/i,
+      /\bchallenges?\b/i,
+      /\brisks?\b/i,
+      /\bobstacles?\b/i,
+      /\bbarriers?\b/i,
+      /\bconcerns?\b/i,
+      /\bissues?\b/i,
+      /\bproblems?\b/i,
     ],
     slideType: "content",
     bulletStyle: "arrow",
@@ -171,12 +173,12 @@ const TITLE_KEYWORD_PATTERNS: Array<{
   // Requirements / Checklist - checkmark
   {
     patterns: [
-      /^requirements?$/i,
-      /^checklist$/i,
-      /^prerequisites?$/i,
-      /^what\s+you\s+need$/i,
-      /^must\s+haves?$/i,
-      /^essentials?$/i,
+      /\brequirements?\b/i,
+      /\bchecklist\b/i,
+      /\bprerequisites?\b/i,
+      /\bwhat\s+you\s+need\b/i,
+      /\bmust\s+haves?\b/i,
+      /\bessentials?\b/i,
     ],
     slideType: "content",
     bulletStyle: "checkmark",

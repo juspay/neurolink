@@ -17,6 +17,12 @@ import type {
   BudgetCheckResult,
   BudgetCheckParams,
 } from "../types/contextTypes.js";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+} from "../observability/index.js";
+import { getMetricsAggregator } from "../observability/index.js";
 
 export type {
   BudgetCheckResult,
@@ -39,83 +45,117 @@ const TOKENS_PER_TOOL_DEFINITION = 200;
 export function checkContextBudget(
   params: BudgetCheckParams,
 ): BudgetCheckResult {
-  const {
-    provider,
-    model,
-    maxTokens,
-    systemPrompt,
-    conversationMessages,
-    currentPrompt,
-    toolDefinitions,
-    fileAttachments,
-    compactionThreshold = DEFAULT_COMPACTION_THRESHOLD,
-  } = params;
-
-  const availableInputTokens = getAvailableInputTokens(
-    provider,
-    model,
-    maxTokens,
-  );
-
-  // Estimate each category
-  const systemPromptTokens = systemPrompt
-    ? estimateTokens(systemPrompt, provider) + TOKENS_PER_MESSAGE
-    : 0;
-
-  const conversationHistoryTokens = conversationMessages?.length
-    ? estimateMessagesTokens(
-        conversationMessages as Array<{ role: string; content: string }>,
-        provider,
-      )
-    : 0;
-
-  const currentPromptTokens = currentPrompt
-    ? estimateTokens(currentPrompt, provider) + TOKENS_PER_MESSAGE
-    : 0;
-
-  const toolDefinitionTokens = toolDefinitions?.length
-    ? toolDefinitions.reduce((sum: number, tool: unknown) => {
-        try {
-          const serialized = JSON.stringify(tool);
-          return sum + estimateTokens(serialized, provider);
-        } catch {
-          return sum + TOKENS_PER_TOOL_DEFINITION;
-        }
-      }, 0)
-    : 0;
-
-  const fileAttachmentTokens = fileAttachments?.length
-    ? fileAttachments.reduce(
-        (sum, file) => sum + estimateTokens(file.content, provider),
-        0,
-      )
-    : 0;
-
-  const estimatedInputTokens =
-    systemPromptTokens +
-    conversationHistoryTokens +
-    currentPromptTokens +
-    toolDefinitionTokens +
-    fileAttachmentTokens;
-
-  const usageRatio =
-    availableInputTokens > 0 ? estimatedInputTokens / availableInputTokens : 1;
-
-  const withinBudget = estimatedInputTokens <= availableInputTokens;
-  const shouldCompact = usageRatio >= compactionThreshold;
-
-  return {
-    withinBudget,
-    estimatedInputTokens,
-    availableInputTokens,
-    usageRatio,
-    shouldCompact,
-    breakdown: {
-      systemPrompt: systemPromptTokens,
-      conversationHistory: conversationHistoryTokens,
-      currentPrompt: currentPromptTokens,
-      toolDefinitions: toolDefinitionTokens,
-      fileAttachments: fileAttachmentTokens,
+  const span = SpanSerializer.createSpan(
+    SpanType.CONTEXT_COMPACTION,
+    "context.budgetCheck",
+    {
+      "context.operation": "budgetCheck",
     },
-  };
+  );
+  const startTime = Date.now();
+
+  try {
+    const {
+      provider,
+      model,
+      maxTokens,
+      systemPrompt,
+      conversationMessages,
+      currentPrompt,
+      toolDefinitions,
+      fileAttachments,
+      compactionThreshold = DEFAULT_COMPACTION_THRESHOLD,
+    } = params;
+
+    const availableInputTokens = getAvailableInputTokens(
+      provider,
+      model,
+      maxTokens,
+    );
+
+    // Estimate each category
+    const systemPromptTokens = systemPrompt
+      ? estimateTokens(systemPrompt, provider) + TOKENS_PER_MESSAGE
+      : 0;
+
+    const conversationHistoryTokens = conversationMessages?.length
+      ? estimateMessagesTokens(
+          conversationMessages as Array<{ role: string; content: string }>,
+          provider,
+        )
+      : 0;
+
+    const currentPromptTokens = currentPrompt
+      ? estimateTokens(currentPrompt, provider) + TOKENS_PER_MESSAGE
+      : 0;
+
+    const toolDefinitionTokens = toolDefinitions?.length
+      ? toolDefinitions.reduce((sum: number, tool: unknown) => {
+          try {
+            const serialized = JSON.stringify(tool);
+            return sum + estimateTokens(serialized, provider);
+          } catch {
+            return sum + TOKENS_PER_TOOL_DEFINITION;
+          }
+        }, 0)
+      : 0;
+
+    const fileAttachmentTokens = fileAttachments?.length
+      ? fileAttachments.reduce(
+          (sum, file) => sum + estimateTokens(file.content, provider),
+          0,
+        )
+      : 0;
+
+    const estimatedInputTokens =
+      systemPromptTokens +
+      conversationHistoryTokens +
+      currentPromptTokens +
+      toolDefinitionTokens +
+      fileAttachmentTokens;
+
+    const usageRatio =
+      availableInputTokens > 0
+        ? estimatedInputTokens / availableInputTokens
+        : 1;
+
+    const withinBudget = estimatedInputTokens <= availableInputTokens;
+    const shouldCompact = usageRatio >= compactionThreshold;
+
+    const result: BudgetCheckResult = {
+      withinBudget,
+      estimatedInputTokens,
+      availableInputTokens,
+      usageRatio,
+      shouldCompact,
+      breakdown: {
+        systemPrompt: systemPromptTokens,
+        conversationHistory: conversationHistoryTokens,
+        currentPrompt: currentPromptTokens,
+        toolDefinitions: toolDefinitionTokens,
+        fileAttachments: fileAttachmentTokens,
+      },
+    };
+
+    span.durationMs = Date.now() - startTime;
+    const endedSpan = SpanSerializer.endSpan(
+      SpanSerializer.updateAttributes(span, {
+        "context.budgetUsage": usageRatio,
+        "context.triggered": shouldCompact,
+        "context.estimatedTokens": estimatedInputTokens,
+        "context.availableTokens": availableInputTokens,
+      }),
+      SpanStatus.OK,
+    );
+    getMetricsAggregator().recordSpan(endedSpan);
+
+    return result;
+  } catch (error) {
+    span.durationMs = Date.now() - startTime;
+    const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+    endedSpan.statusMessage =
+      error instanceof Error ? error.message : String(error);
+    getMetricsAggregator().recordSpan(endedSpan);
+    throw error;
+  }
 }

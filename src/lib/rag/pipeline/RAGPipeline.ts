@@ -43,7 +43,14 @@ import { GraphRAG } from "../graphRag/graphRAG.js";
 import { rerank } from "../reranker/reranker.js";
 import { ProviderFactory } from "../../factories/providerFactory.js";
 import type { AIProvider } from "../../types/providers.js";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+  getMetricsAggregator,
+} from "../../observability/index.js";
 import { logger } from "../../utils/logger.js";
+import { withTimeout } from "../../utils/async/withTimeout.js";
 import type {
   RAGPipelineConfig,
   IngestOptions,
@@ -65,6 +72,9 @@ export type { PipelineStats } from "../../types/ragTypes.js";
  *
  * Complete end-to-end pipeline for Retrieval-Augmented Generation.
  */
+/** Default timeout for external provider calls (30 seconds) */
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 export class RAGPipeline {
   private id: string;
   private config: RAGPipelineConfig;
@@ -269,114 +279,145 @@ export class RAGPipeline {
    * @returns RAG response with retrieved context and optional generated answer
    */
   async query(query: string, options?: QueryOptions): Promise<RAGResponse> {
-    await this.ensureInitialized();
-
-    const startTime = Date.now();
-    const topK = options?.topK || this.config.defaultTopK || 5;
-    const useHybrid = options?.hybrid ?? this.config.enableHybridSearch;
-    const useGraph = options?.graph ?? this.config.enableGraphRAG;
-    const useRerank = options?.rerank ?? this.config.enableReranking;
-
-    let results: VectorQueryResult[];
-    let retrievalMethod = "vector";
-
-    // Generate query embedding
-    const queryEmbedding = await this.generateEmbedding(query);
-
-    if (useGraph && this.config.enableGraphRAG) {
-      // Graph RAG search
-      retrievalMethod = "graph";
-      const graphResults = this.graphRAG.query({
-        query: queryEmbedding,
-        topK: topK * 2, // Get more for potential reranking
-      });
-      results = graphResults.map((r) => ({
-        id: r.id,
-        text: r.content,
-        score: r.score,
-        metadata: r.metadata,
-      }));
-    } else if (useHybrid && this.hybridSearch) {
-      // Hybrid search
-      retrievalMethod = "hybrid";
-      const hybridResults = await this.hybridSearch(query, { topK: topK * 2 });
-      results = hybridResults.map((r) => ({
-        id: r.id,
-        text: r.text,
-        score: r.score,
-        metadata: r.metadata,
-      }));
-    } else {
-      // Vector search
-      results = await this.vectorStore.query({
-        indexName: this.config.indexName ?? "default",
-        queryVector: queryEmbedding,
-        topK: topK * 2,
-        filter: options?.filter,
-      });
-    }
-
-    // Apply reranking if enabled
-    let reranked = false;
-    if (useRerank && this.config.rerankingModel && results.length > 0) {
-      const rerankModel = await ProviderFactory.createProvider(
-        this.config.rerankingModel.provider,
-        this.config.rerankingModel.modelName,
-      );
-      const rerankedResults = await rerank(results, query, rerankModel, {
-        topK,
-        queryEmbedding,
-      });
-      results = rerankedResults.map((r) => r.result);
-      reranked = true;
-    }
-
-    // Take top K results
-    results = results.slice(0, topK);
-
-    // Assemble context
-    const context = this.assembleContext(results);
-
-    // Format sources
-    const sources = results.map((r) => ({
-      id: r.id,
-      text: r.text || (r.metadata?.text as string) || "",
-      score: r.score || 0,
-      metadata: r.metadata,
-    }));
-
-    // Generate answer if requested
-    let answer: string | undefined;
-    if (options?.generate !== false && this.generationProvider) {
-      answer = await this.generateAnswer(
-        query,
-        context,
-        options?.systemPrompt,
-        options?.temperature,
-      );
-    }
-
-    const queryTime = Date.now() - startTime;
-
-    logger.info("[RAGPipeline] Query completed", {
-      query: query.slice(0, 50),
-      retrievalMethod,
-      resultsCount: results.length,
-      reranked,
-      queryTime,
+    const span = SpanSerializer.createSpan(SpanType.RAG, "rag.pipeline", {
+      "rag.operation": "pipeline",
+      "rag.query": query.slice(0, 200),
+      "rag.topK": options?.topK ?? this.config.defaultTopK ?? 5,
+      "rag.hybrid": options?.hybrid ?? this.config.enableHybridSearch ?? false,
+      "rag.graph": options?.graph ?? this.config.enableGraphRAG ?? false,
+      "rag.rerank": options?.rerank ?? this.config.enableReranking ?? false,
     });
+    const spanStartTime = Date.now();
+    try {
+      await this.ensureInitialized();
 
-    return {
-      answer,
-      context,
-      sources,
-      metadata: {
-        queryTime,
+      const startTime = Date.now();
+      const topK = options?.topK || this.config.defaultTopK || 5;
+      const useHybrid = options?.hybrid ?? this.config.enableHybridSearch;
+      const useGraph = options?.graph ?? this.config.enableGraphRAG;
+      const useRerank = options?.rerank ?? this.config.enableReranking;
+
+      let results: VectorQueryResult[];
+      let retrievalMethod = "vector";
+
+      // Generate query embedding
+      const queryEmbedding = await this.generateEmbedding(query);
+
+      if (useGraph && this.config.enableGraphRAG) {
+        // Graph RAG search
+        retrievalMethod = "graph";
+        const graphResults = this.graphRAG.query({
+          query: queryEmbedding,
+          topK: topK * 2, // Get more for potential reranking
+        });
+        results = graphResults.map((r) => ({
+          id: r.id,
+          text: r.content,
+          score: r.score,
+          metadata: r.metadata,
+        }));
+      } else if (useHybrid && this.hybridSearch) {
+        // Hybrid search
+        retrievalMethod = "hybrid";
+        const hybridResults = await this.hybridSearch(query, {
+          topK: topK * 2,
+        });
+        results = hybridResults.map((r) => ({
+          id: r.id,
+          text: r.text,
+          score: r.score,
+          metadata: r.metadata,
+        }));
+      } else {
+        // Vector search
+        results = await this.vectorStore.query({
+          indexName: this.config.indexName ?? "default",
+          queryVector: queryEmbedding,
+          topK: topK * 2,
+          filter: options?.filter,
+        });
+      }
+
+      // Apply reranking if enabled
+      let reranked = false;
+      if (useRerank && this.config.rerankingModel && results.length > 0) {
+        const rerankModel = await ProviderFactory.createProvider(
+          this.config.rerankingModel.provider,
+          this.config.rerankingModel.modelName,
+        );
+        const rerankedResults = await rerank(results, query, rerankModel, {
+          topK,
+          queryEmbedding,
+        });
+        results = rerankedResults.map((r) => r.result);
+        reranked = true;
+      }
+
+      // Take top K results
+      results = results.slice(0, topK);
+
+      // Assemble context
+      const context = this.assembleContext(results);
+
+      // Format sources
+      const sources = results.map((r) => ({
+        id: r.id,
+        text: r.text || (r.metadata?.text as string) || "",
+        score: r.score || 0,
+        metadata: r.metadata,
+      }));
+
+      // Generate answer if requested
+      let answer: string | undefined;
+      if (options?.generate !== false && this.generationProvider) {
+        answer = await this.generateAnswer(
+          query,
+          context,
+          options?.systemPrompt,
+          options?.temperature,
+        );
+      }
+
+      const queryTime = Date.now() - startTime;
+
+      logger.info("[RAGPipeline] Query completed", {
+        query: query.slice(0, 50),
         retrievalMethod,
-        chunksRetrieved: results.length,
+        resultsCount: results.length,
         reranked,
-      },
-    };
+        queryTime,
+      });
+
+      const response: RAGResponse = {
+        answer,
+        context,
+        sources,
+        metadata: {
+          queryTime,
+          retrievalMethod,
+          chunksRetrieved: results.length,
+          reranked,
+        },
+      };
+
+      span.durationMs = Date.now() - spanStartTime;
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+      endedSpan.attributes = {
+        ...endedSpan.attributes,
+        "rag.retrieval_method": retrievalMethod,
+        "rag.results_count": results.length,
+        "rag.reranked": reranked,
+      };
+      getMetricsAggregator().recordSpan(endedSpan);
+      return response;
+    } catch (error) {
+      span.durationMs = Date.now() - spanStartTime;
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+      endedSpan.statusMessage =
+        error instanceof Error ? error.message : String(error);
+      getMetricsAggregator().recordSpan(endedSpan);
+      throw error;
+    }
   }
 
   /**
@@ -446,11 +487,15 @@ export class RAGPipeline {
       );
     }
 
-    return await (
-      this.embeddingProvider as unknown as {
-        embed: (s: string) => Promise<number[]>;
-      }
-    ).embed(text);
+    return await withTimeout(
+      (
+        this.embeddingProvider as unknown as {
+          embed: (s: string) => Promise<number[]>;
+        }
+      ).embed(text),
+      DEFAULT_TIMEOUT_MS,
+      "Embedding generation timed out",
+    );
   }
 
   /**
@@ -488,13 +533,17 @@ Cite sources when possible using [Source N] format.`;
 
     const prompt = `Context:\n${context}\n\nQuestion: ${query}\n\nAnswer:`;
 
-    const result = await this.generationProvider.generate({
-      prompt,
-      systemPrompt,
-      temperature:
-        temperature ?? this.config.generationModel?.temperature ?? 0.7,
-      maxTokens: this.config.generationModel?.maxTokens ?? 1000,
-    });
+    const result = await withTimeout(
+      this.generationProvider.generate({
+        prompt,
+        systemPrompt,
+        temperature:
+          temperature ?? this.config.generationModel?.temperature ?? 0.7,
+        maxTokens: this.config.generationModel?.maxTokens ?? 1000,
+      }),
+      DEFAULT_TIMEOUT_MS * 2,
+      "Answer generation timed out",
+    );
 
     return result?.content || "";
   }

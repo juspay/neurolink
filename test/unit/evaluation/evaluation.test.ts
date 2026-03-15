@@ -5,9 +5,13 @@ import { RetryManager } from "../../../src/lib/evaluation/retryManager.js";
 import { PromptBuilder } from "../../../src/lib/evaluation/prompts.js";
 import type {
   EnhancedEvaluationContext,
+  EvaluationConfig,
   EvaluationResult,
 } from "../../../src/lib/types/evaluationTypes.js";
-import type { GenerateResult } from "../../../src/lib/types/generateTypes.js";
+import type {
+  GenerateResult,
+  TextGenerationOptions,
+} from "../../../src/lib/types/generateTypes.js";
 import type { LanguageModelV1CallOptions } from "ai";
 
 // ---------------------------------------------------------------------------
@@ -567,28 +571,28 @@ describe("RetryManager", () => {
 
     it("preserves original options except prompt and input", () => {
       const manager = new RetryManager();
-      const originalOptions = {
+      const originalOptions: TextGenerationOptions = {
         prompt: "Tell me about AI",
         temperature: 0.7,
         maxTokens: 1000,
       };
       const evaluation = makeEvalResult({ attemptNumber: 1 });
       const retryOptions = manager.prepareRetryOptions(
-        originalOptions as any,
+        originalOptions,
         evaluation,
       );
-      expect((retryOptions as any).temperature).toBe(0.7);
-      expect((retryOptions as any).maxTokens).toBe(1000);
+      expect(retryOptions.temperature).toBe(0.7);
+      expect(retryOptions.maxTokens).toBe(1000);
     });
 
     it("stores original prompt in originalPrompt field", () => {
       const manager = new RetryManager();
-      const originalOptions = {
+      const originalOptions: TextGenerationOptions = {
         prompt: "Original question",
       };
       const evaluation = makeEvalResult({ attemptNumber: 1 });
       const retryOptions = manager.prepareRetryOptions(
-        originalOptions as any,
+        originalOptions,
         evaluation,
       );
       expect(retryOptions.originalPrompt).toBe("Original question");
@@ -596,13 +600,13 @@ describe("RetryManager", () => {
 
     it("does not overwrite existing originalPrompt on subsequent retries", () => {
       const manager = new RetryManager();
-      const firstRetryOptions = {
+      const firstRetryOptions: TextGenerationOptions = {
         prompt: "Modified prompt from retry 1",
         originalPrompt: "Very first question",
       };
       const evaluation = makeEvalResult({ attemptNumber: 2 });
       const retryOptions = manager.prepareRetryOptions(
-        firstRetryOptions as any,
+        firstRetryOptions,
         evaluation,
       );
       expect(retryOptions.originalPrompt).toBe("Very first question");
@@ -610,34 +614,34 @@ describe("RetryManager", () => {
 
     it("uses progressively more urgent language for retry attempt 2 (first retry)", () => {
       const manager = new RetryManager();
-      const options = { prompt: "Question" };
+      const options: TextGenerationOptions = { prompt: "Question" };
       const eval1 = makeEvalResult({
         attemptNumber: 1,
         suggestedImprovements: "fix it",
       });
-      const retry = manager.prepareRetryOptions(options as any, eval1);
+      const retry = manager.prepareRetryOptions(options, eval1);
       expect(retry.prompt).toContain("was not satisfactory");
     });
 
     it("uses MUST language for retry attempt 3 (second retry)", () => {
       const manager = new RetryManager();
-      const options = { prompt: "Question" };
+      const options: TextGenerationOptions = { prompt: "Question" };
       const eval2 = makeEvalResult({
         attemptNumber: 2,
         suggestedImprovements: "fix it",
       });
-      const retry = manager.prepareRetryOptions(options as any, eval2);
+      const retry = manager.prepareRetryOptions(options, eval2);
       expect(retry.prompt).toContain("MUST address");
     });
 
     it("uses final attempt language for attempts beyond 3", () => {
       const manager = new RetryManager(5);
-      const options = { prompt: "Question" };
+      const options: TextGenerationOptions = { prompt: "Question" };
       const eval4 = makeEvalResult({
         attemptNumber: 4,
         suggestedImprovements: "fix it",
       });
-      const retry = manager.prepareRetryOptions(options as any, eval4);
+      const retry = manager.prepareRetryOptions(options, eval4);
       expect(retry.prompt).toContain("final attempt");
     });
   });
@@ -1000,7 +1004,8 @@ describe("Evaluator", () => {
 
   it("throws for unsupported evaluation strategy", async () => {
     const evaluator = new Evaluator({
-      evaluationStrategy: "unsupported" as any,
+      evaluationStrategy:
+        "unsupported" as unknown as EvaluationConfig["evaluationStrategy"],
     });
 
     await expect(

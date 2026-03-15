@@ -6,31 +6,15 @@ import { loadFonts } from "./fonts";
 import { getTemplate, type OGType } from "./templates";
 
 let wasmInitialized = false;
-let wasmInitPromise: Promise<void> | null = null;
 
 async function ensureWasm() {
   if (wasmInitialized) return;
-  if (wasmInitPromise) return wasmInitPromise;
-
-  wasmInitPromise = (async () => {
-    const response = await fetch(
-      "https://unpkg.com/@resvg/resvg-wasm/index_bg.wasm",
-      { signal: AbortSignal.timeout(5000) },
-    );
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch resvg wasm: ${response.status} ${response.statusText}`,
-      );
-    }
-    await initWasm(response);
-    wasmInitialized = true;
-  })();
-
   try {
-    await wasmInitPromise;
-  } finally {
-    wasmInitPromise = null;
+    await initWasm(fetch("https://unpkg.com/@resvg/resvg-wasm/index_bg.wasm"));
+  } catch {
+    // Already initialized (e.g. warm function)
   }
+  wasmInitialized = true;
 }
 
 const VALID_TYPES = new Set<OGType>(["home", "docs", "sdk", "examples"]);
@@ -59,7 +43,7 @@ export const GET: RequestHandler = async ({ url }) => {
   const svg = await satori(vdom, {
     width: 1200,
     height: 630,
-    fonts: fonts as any,
+    fonts,
   });
 
   const resvg = new Resvg(svg, {
@@ -68,7 +52,7 @@ export const GET: RequestHandler = async ({ url }) => {
   const pngData = resvg.render();
   const pngBuffer = pngData.asPng();
 
-  return new Response(pngBuffer as any, {
+  return new Response(pngBuffer, {
     headers: {
       "Content-Type": "image/png",
       "Cache-Control": "public, max-age=86400, s-maxage=31536000, immutable",

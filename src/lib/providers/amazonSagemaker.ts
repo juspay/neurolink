@@ -5,27 +5,27 @@
  * and integrates with the NeuroLink ecosystem using existing patterns.
  */
 
+import type { LanguageModelV1, Schema } from "ai";
 import type { ZodType, ZodTypeDef } from "zod";
-import type { Schema, LanguageModelV1 } from "ai";
-import { AIProviderName } from "../constants/enums.js";
-import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
-import type { ConnectivityResult } from "../types/typeAliases.js";
+import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
-import { logger } from "../utils/logger.js";
-
-// SageMaker-specific imports
-import {
-  getSageMakerConfig,
-  getSageMakerModelConfig,
-  getDefaultSageMakerEndpoint,
-  getSageMakerModel,
-} from "./sagemaker/config.js";
-import { handleSageMakerError, SageMakerError } from "./sagemaker/errors.js";
-import { SageMakerLanguageModel } from "./sagemaker/language-model.js";
+import type { NeuroLink } from "../neurolink.js";
 import type {
   SageMakerConfig,
   SageMakerModelConfig,
 } from "../types/providers.js";
+import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import type { ConnectivityResult } from "../types/typeAliases.js";
+import { logger } from "../utils/logger.js";
+// SageMaker-specific imports
+import {
+  getDefaultSageMakerEndpoint,
+  getSageMakerConfig,
+  getSageMakerModel,
+  getSageMakerModelConfig,
+} from "./sagemaker/config.js";
+import { handleSageMakerError, SageMakerError } from "./sagemaker/errors.js";
+import { SageMakerLanguageModel } from "./sagemaker/language-model.js";
 
 /**
  * Amazon SageMaker Provider extending BaseProvider
@@ -35,8 +35,13 @@ export class AmazonSageMakerProvider extends BaseProvider {
   private sagemakerConfig: SageMakerConfig;
   private modelConfig: SageMakerModelConfig;
 
-  constructor(modelName?: string, endpointName?: string, region?: string) {
-    super(modelName, "sagemaker" as AIProviderName);
+  constructor(
+    modelName?: string,
+    endpointName?: string,
+    region?: string,
+    neurolink?: NeuroLink,
+  ) {
+    super(modelName, "sagemaker" as AIProviderName, neurolink);
 
     try {
       // Load and validate configuration

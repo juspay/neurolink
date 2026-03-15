@@ -26,9 +26,9 @@ import type {
 } from "../../lib/types/conversation.js";
 import type { AnalyticsData, TokenUsage } from "../../lib/types/index.js";
 import type {
-  ClaudeSubscriptionTier,
-  AnthropicAuthMethod,
   AnthropicAuthConfig,
+  AnthropicAuthMethod,
+  ClaudeSubscriptionTier,
 } from "../../lib/types/subscriptionTypes.js";
 
 import { checkRedisAvailability } from "../../lib/utils/conversationMemory.js";
@@ -2382,12 +2382,12 @@ export class CLICommandFactory {
     }
 
     if (!isVideoMode && !isPPTMode) {
-      this.handleOutput(genResult, options);
+      CLICommandFactory.handleOutput(genResult, options);
     }
 
-    await this.handleTTSOutput(genResult, options);
-    await this.handleVideoOutput(genResult, options);
-    await this.handlePPTOutput(genResult, options);
+    await CLICommandFactory.handleTTSOutput(genResult, options);
+    await CLICommandFactory.handleVideoOutput(genResult, options);
+    await CLICommandFactory.handlePPTOutput(genResult, options);
 
     if (options.debug) {
       logger.debug("\n" + chalk.yellow("Debug Information:"));
@@ -2408,7 +2408,7 @@ export class CLICommandFactory {
     }
 
     if (!globalSession.getCurrentSessionId()) {
-      await this.flushLangfuseTraces();
+      await CLICommandFactory.flushLangfuseTraces();
       process.exit(0);
     }
   }
@@ -2418,14 +2418,14 @@ export class CLICommandFactory {
    */
   private static async executeGenerate(argv: GenerateCommandArgs) {
     // Handle stdin input
-    const rawInput = await this.handleGenerateStdinInput(argv);
+    const rawInput = await CLICommandFactory.handleGenerateStdinInput(argv);
     argv.input = rawInput;
 
-    const options = this.processOptions(argv);
+    const options = CLICommandFactory.processOptions(argv);
 
     // Detect output mode
     const { isVideoMode, isPPTMode, spinnerMessage } =
-      this.detectGenerateOutputMode(argv, options);
+      CLICommandFactory.detectGenerateOutputMode(argv, options);
 
     const spinner = argv.quiet ? null : ora(spinnerMessage).start();
 
@@ -2436,10 +2436,8 @@ export class CLICommandFactory {
       }
 
       // Process context
-      const { inputText, contextMetadata } = this.processGenerateContext(
-        rawInput,
-        options,
-      );
+      const { inputText, contextMetadata } =
+        CLICommandFactory.processGenerateContext(rawInput, options);
 
       // Handle dry-run mode for testing
       if (options.dryRun) {
@@ -2475,7 +2473,7 @@ export class CLICommandFactory {
         if (spinner) {
           spinner.succeed(chalk.green("✅ Dry-run completed successfully!"));
         }
-        this.handleOutput(mockResult, options);
+        CLICommandFactory.handleOutput(mockResult, options);
         if (options.debug) {
           logger.debug("\n" + chalk.yellow("Debug Information (Dry-run):"));
           logger.debug("Provider:", mockResult.provider);
@@ -2510,12 +2508,15 @@ export class CLICommandFactory {
         CLICommandFactory.configureVideoMode(enhancedOptions, argv, options);
       }
       if (isPPTMode) {
-        this.configurePPTMode(enhancedOptions, argv, options);
+        CLICommandFactory.configurePPTMode(enhancedOptions, argv, options);
       }
 
       // Build multimodal input and output configuration
-      const generateInput = this.buildGenerateMultimodalInput(inputText, argv);
-      const outputConfig = this.buildGenerateOutputConfig(
+      const generateInput = CLICommandFactory.buildGenerateMultimodalInput(
+        inputText,
+        argv,
+      );
+      const outputConfig = CLICommandFactory.buildGenerateOutputConfig(
         isVideoMode,
         isPPTMode,
         enhancedOptions,
@@ -2580,10 +2581,28 @@ export class CLICommandFactory {
               topK: argv.ragTopK as number | undefined,
             }
           : undefined,
+        // TTS configuration
+        tts: enhancedOptions.tts
+          ? {
+              enabled: true,
+              useAiResponse: true,
+              voice: enhancedOptions.ttsVoice as string | undefined,
+              format:
+                (enhancedOptions.ttsFormat as "mp3" | "wav" | "ogg" | "opus") ||
+                undefined,
+              speed: enhancedOptions.ttsSpeed as number | undefined,
+              quality: enhancedOptions.ttsQuality as
+                | "standard"
+                | "hd"
+                | undefined,
+              output: enhancedOptions.ttsOutput as string | undefined,
+              play: enhancedOptions.ttsPlay as boolean | undefined,
+            }
+          : undefined,
       });
 
       // Handle successful result
-      await this.handleGenerateSuccess(
+      await CLICommandFactory.handleGenerateSuccess(
         result,
         options,
         isVideoMode,
@@ -3175,7 +3194,7 @@ export class CLICommandFactory {
     const options = CLICommandFactory.processOptions(argv);
 
     // Validate Anthropic subscription options if using Anthropic provider
-    this.validateAnthropicSubscriptionOptions(
+    CLICommandFactory.validateAnthropicSubscriptionOptions(
       options as Record<string, unknown>,
     );
 

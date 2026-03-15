@@ -6,6 +6,12 @@
  */
 
 import { ProviderFactory } from "../../factories/providerFactory.js";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+  getMetricsAggregator,
+} from "../../observability/index.js";
 import { logger } from "../../utils/logger.js";
 import { rerank } from "../reranker/reranker.js";
 import type {
@@ -251,6 +257,14 @@ export function createHybridSearch(options: HybridSearchOptions) {
       reranker: rerankerConfig = defaultConfig.reranker,
     } = config || {};
 
+    const span = SpanSerializer.createSpan(SpanType.RAG, "rag.search", {
+      "rag.operation": "search",
+      "rag.topK": topK,
+      "rag.fusionMethod": fusionMethod,
+      "rag.query": query.slice(0, 200),
+    });
+    const spanStartTime = Date.now();
+
     try {
       // Generate query embedding
       const embeddingProvider = await ProviderFactory.createProvider(
@@ -440,8 +454,24 @@ export function createHybridSearch(options: HybridSearchOptions) {
         queryTime,
       });
 
+      span.durationMs = Date.now() - spanStartTime;
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+      endedSpan.attributes = {
+        ...endedSpan.attributes,
+        "rag.results_count": fusedResults.length,
+        "rag.vector_results": vectorResults.length,
+        "rag.bm25_results": bm25Results.length,
+      };
+      getMetricsAggregator().recordSpan(endedSpan);
+
       return fusedResults;
     } catch (error) {
+      span.durationMs = Date.now() - spanStartTime;
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+      endedSpan.statusMessage =
+        error instanceof Error ? error.message : String(error);
+      getMetricsAggregator().recordSpan(endedSpan);
+
       logger.error("[HybridSearch] Search failed", {
         query: query.slice(0, 50),
         error: error instanceof Error ? error.message : String(error),

@@ -4,15 +4,15 @@
  */
 
 import type { ConversationMemoryConfig } from "../types/conversation.js";
-import type { ConversationMemoryManager } from "./conversationMemoryManager.js";
-import type { RedisConversationMemoryManager } from "./redisConversationMemoryManager.js";
-import {
-  createConversationMemoryManager,
-  getStorageType,
-  getRedisConfigFromEnv,
-} from "./conversationMemoryFactory.js";
 import { applyConversationMemoryDefaults } from "../utils/conversationMemory.js";
 import { logger } from "../utils/logger.js";
+import {
+  createConversationMemoryManager,
+  getRedisConfigFromEnv,
+  getStorageType,
+} from "./conversationMemoryFactory.js";
+import type { ConversationMemoryManager } from "./conversationMemoryManager.js";
+import type { RedisConversationMemoryManager } from "./redisConversationMemoryManager.js";
 
 /**
  * Initialize conversation memory for NeuroLink
@@ -56,11 +56,14 @@ export async function initializeConversationMemory(config?: {
       },
     );
 
-    // Determine storage type from environment
-    const storageType = getStorageType();
+    // Determine storage type: if redisConfig is passed in the SDK config, use Redis
+    // regardless of STORAGE_TYPE env var. This lets consumers configure Redis via the API.
+    const hasRedisConfig = !!config.conversationMemory?.redisConfig;
+    const storageType = hasRedisConfig ? "redis" : getStorageType();
     logger.debug("[conversationMemoryInitializer] Storage type determined", {
       storageType,
-      fromEnv: !!process.env.STORAGE_TYPE,
+      fromConfig: hasRedisConfig,
+      fromEnv: !hasRedisConfig && !!process.env.STORAGE_TYPE,
     });
 
     if (storageType === "redis") {

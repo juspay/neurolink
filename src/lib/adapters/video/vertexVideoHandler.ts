@@ -98,8 +98,15 @@ const DEFAULT_LOCATION = "us-central1";
  * ```
  */
 export function isVertexVideoConfigured(): boolean {
+  // Same credential detection as googleVertex.ts hasGoogleCredentials().
+  // GoogleAuth (used by getAccessToken) also supports ADC from
+  // `gcloud auth application-default login` automatically, so we only
+  // gate on the explicit env vars here — if none are set, we still
+  // allow the call through and let GoogleAuth resolve ADC at runtime.
+  // This avoids duplicating GoogleAuth's discovery logic.
   return !!(
     process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK ||
     process.env.GOOGLE_SERVICE_ACCOUNT_KEY ||
     (process.env.GOOGLE_AUTH_CLIENT_EMAIL &&
       process.env.GOOGLE_AUTH_PRIVATE_KEY)
@@ -351,23 +358,10 @@ export async function generateVideoWithVertex(
   options: VideoOutputOptions = {},
   region?: string,
 ): Promise<VideoGenerationResult> {
-  // Validate configuration
-  if (!isVertexVideoConfigured()) {
-    throw new VideoError({
-      code: VIDEO_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
-      message:
-        "Vertex AI credentials not configured. Set GOOGLE_APPLICATION_CREDENTIALS environment variable",
-      category: ErrorCategory.CONFIGURATION,
-      severity: ErrorSeverity.HIGH,
-      retriable: false,
-      context: {
-        provider: "vertex",
-        feature: "video-generation",
-        suggestion:
-          "Set GOOGLE_APPLICATION_CREDENTIALS to the path of your service account JSON file",
-      },
-    });
-  }
+  // Credential validation is deferred to getAccessToken() which uses
+  // GoogleAuth — it handles env vars, service accounts, AND ADC from
+  // `gcloud auth application-default login` automatically.
+  // Same pattern as googleVertex.ts — no synchronous pre-check needed.
 
   const config = await getVertexConfig();
   const project = config.project;
@@ -402,7 +396,13 @@ export async function generateVideoWithVertex(
     const accessToken = await getAccessToken();
 
     // Construct API request - predictLongRunning endpoint
-    const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${VEO_MODEL}:predictLongRunning`;
+    // Global endpoint uses aiplatform.googleapis.com (no region prefix),
+    // same pattern as googleVertex.ts createVertexSettings
+    const apiHost =
+      location === "global"
+        ? "aiplatform.googleapis.com"
+        : `${location}-aiplatform.googleapis.com`;
+    const endpoint = `https://${apiHost}/v1/projects/${project}/locations/${location}/publishers/google/models/${VEO_MODEL}:predictLongRunning`;
 
     // Request body structure (verified working from video.js reference)
     const requestBody = {
@@ -932,7 +932,13 @@ async function pollOperation(
 ): Promise<Buffer> {
   const startTime = Date.now();
 
-  const pollEndpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${modelOrEndpoint}:fetchPredictOperation`;
+  // Global endpoint uses aiplatform.googleapis.com (no region prefix),
+  // same pattern as the predictLongRunning endpoint at line 374
+  const pollHost =
+    location === "global"
+      ? "aiplatform.googleapis.com"
+      : `${location}-aiplatform.googleapis.com`;
+  const pollEndpoint = `https://${pollHost}/v1/projects/${project}/locations/${location}/publishers/google/models/${modelOrEndpoint}:fetchPredictOperation`;
 
   while (Date.now() - startTime < timeoutMs) {
     const result = await makePollRequest(

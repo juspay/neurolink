@@ -36,6 +36,7 @@
 import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
 
+export { GoogleTTSHandler } from "./adapters/tts/googleTTSHandler.js";
 // Config Manager export
 export { NeuroLinkConfigManager as ConfigManager } from "./config/configManager.js";
 export {
@@ -51,19 +52,18 @@ export { validateTool } from "./sdk/toolRegistration.js";
 // Export ALL types from the centralized type barrel
 export * from "./types/index.js";
 export type { DynamicModelConfig, ModelRegistry } from "./types/modelTypes.js";
+// Error utilities
+export { isAbortError } from "./utils/errorHandling.js";
+// Pricing utilities
+export { calculateCost, hasPricing } from "./utils/pricing.js";
 // Utility exports
 export {
   getAvailableProviders,
   getBestProvider,
   isValidProvider,
 } from "./utils/providerUtils.js";
-// Pricing utilities
-export { calculateCost, hasPricing } from "./utils/pricing.js";
-// Error utilities
-export { isAbortError } from "./utils/errorHandling.js";
 // TTS utilities
 export { TTSProcessor } from "./utils/ttsProcessor.js";
-export { GoogleTTSHandler } from "./adapters/tts/googleTTSHandler.js";
 
 // Main NeuroLink wrapper class and diagnostic types
 import { NeuroLink } from "./neurolink.js";
@@ -99,7 +99,9 @@ import {
   setLangfuseContext,
   shutdownOpenTelemetry,
 } from "./services/server/ai/observability/instrumentation.js";
+
 export type { LangfuseContext } from "./services/server/ai/observability/instrumentation.js";
+
 import {
   getTelemetryStatus as getStatus,
   initializeTelemetry as init,
@@ -132,6 +134,37 @@ export {
   getAnalyticsMetrics,
 } from "./middleware/builtin/analytics.js";
 export { MiddlewareFactory } from "./middleware/factory.js";
+export { ExporterRegistry } from "./observability/exporterRegistry.js";
+export { NoOpExporter } from "./observability/exporters/baseExporter.js";
+export type {
+  LatencyStats,
+  MetricsSummary,
+  ModelCostStats,
+  ProviderCostStats,
+  TraceView,
+} from "./observability/metricsAggregator.js";
+// Observability modules and types
+export {
+  getMetricsAggregator,
+  MetricsAggregator,
+  resetMetricsAggregator,
+} from "./observability/metricsAggregator.js";
+export {
+  AlwaysSampler,
+  NeverSampler,
+} from "./observability/sampling/samplers.js";
+export { TokenTracker } from "./observability/tokenTracker.js";
+export type {
+  SpanAttributes,
+  SpanData,
+  SpanEvent,
+} from "./observability/types/spanTypes.js";
+export {
+  GENAI_ATTRIBUTES,
+  SpanStatus,
+  SpanType,
+} from "./observability/types/spanTypes.js";
+export { SpanSerializer } from "./observability/utils/spanSerializer.js";
 // Middleware exports
 export type {
   MiddlewareConfig,
@@ -491,75 +524,67 @@ export async function generateText(
  * ```
  */
 
-// Core workflow types
-export type {
-  WorkflowConfig,
-  WorkflowResult,
-  ModelConfig,
-  JudgeConfig,
-  ModelGroup,
-  EnsembleResponse,
-  JudgeScores,
-  MultiJudgeScores,
-  WorkflowType,
-  ExecutionStrategy,
-  WorkflowValidationResult,
-} from "./workflow/types.js";
-
-// Workflow execution
-export { runWorkflow } from "./workflow/core/workflowRunner.js";
-export type { RunWorkflowOptions } from "./workflow/core/workflowRunner.js";
-
 // Workflow registry
 export {
-  registerWorkflow,
+  clearRegistry as clearWorkflowRegistry,
   getWorkflow,
   listWorkflows,
-  clearRegistry as clearWorkflowRegistry,
+  registerWorkflow,
 } from "./workflow/core/workflowRegistry.js";
-
-// Pre-built workflows - Consensus
+export type { RunWorkflowOptions } from "./workflow/core/workflowRunner.js";
+// Workflow execution
+export { runWorkflow } from "./workflow/core/workflowRunner.js";
+// Workflow constants
 export {
-  CONSENSUS_3_WORKFLOW,
-  CONSENSUS_3_FAST_WORKFLOW,
-  createConsensus3WithPrompt,
-} from "./workflow/workflows/consensusWorkflow.js";
-
-// Pre-built workflows - Fallback
-export {
-  FAST_FALLBACK_WORKFLOW,
-  AGGRESSIVE_FALLBACK_WORKFLOW,
-} from "./workflow/workflows/fallbackWorkflow.js";
-
-// Pre-built workflows - Multi-judge
-export {
-  MULTI_JUDGE_5_WORKFLOW,
-  MULTI_JUDGE_3_WORKFLOW,
-  createMultiJudgeWorkflow,
-} from "./workflow/workflows/multiJudgeWorkflow.js";
-
-// Pre-built workflows - Adaptive
-export {
-  QUALITY_MAX_WORKFLOW,
-  SPEED_FIRST_WORKFLOW,
-  BALANCED_ADAPTIVE_WORKFLOW,
-  createAdaptiveWorkflow,
-} from "./workflow/workflows/adaptiveWorkflow.js";
-
-// Validation and metrics
-export { validateWorkflow } from "./workflow/utils/workflowValidation.js";
-
+  DEFAULT_SCORE_SCALE,
+  WORKFLOW_ENGINE_VERSION,
+} from "./workflow/index.js";
+// Core workflow types
+export type {
+  EnsembleResponse,
+  ExecutionStrategy,
+  JudgeConfig,
+  JudgeScores,
+  ModelConfig,
+  ModelGroup,
+  MultiJudgeScores,
+  WorkflowConfig,
+  WorkflowResult,
+  WorkflowType,
+  WorkflowValidationResult,
+} from "./workflow/types.js";
 export {
   calculateModelMetrics,
   compareWorkflows,
   generateSummaryStats,
 } from "./workflow/utils/workflowMetrics.js";
+// Validation and metrics
+export { validateWorkflow } from "./workflow/utils/workflowValidation.js";
 
-// Workflow constants
+// Pre-built workflows - Adaptive
 export {
-  WORKFLOW_ENGINE_VERSION,
-  DEFAULT_SCORE_SCALE,
-} from "./workflow/index.js";
+  BALANCED_ADAPTIVE_WORKFLOW,
+  createAdaptiveWorkflow,
+  QUALITY_MAX_WORKFLOW,
+  SPEED_FIRST_WORKFLOW,
+} from "./workflow/workflows/adaptiveWorkflow.js";
+// Pre-built workflows - Consensus
+export {
+  CONSENSUS_3_FAST_WORKFLOW,
+  CONSENSUS_3_WORKFLOW,
+  createConsensus3WithPrompt,
+} from "./workflow/workflows/consensusWorkflow.js";
+// Pre-built workflows - Fallback
+export {
+  AGGRESSIVE_FALLBACK_WORKFLOW,
+  FAST_FALLBACK_WORKFLOW,
+} from "./workflow/workflows/fallbackWorkflow.js";
+// Pre-built workflows - Multi-judge
+export {
+  createMultiJudgeWorkflow,
+  MULTI_JUDGE_3_WORKFLOW,
+  MULTI_JUDGE_5_WORKFLOW,
+} from "./workflow/workflows/multiJudgeWorkflow.js";
 
 // ============================================================================
 // SERVER ADAPTERS - HTTP API Framework Integration
@@ -918,3 +943,43 @@ export {
   TokenChunker,
   WebLoader,
 } from "./rag/index.js";
+
+// ============================================================================
+// EVALUATION / SCORING - RAGAS-style Response Quality Evaluation
+// ============================================================================
+
+export { ContextBuilder } from "./evaluation/contextBuilder.js";
+/**
+ * Evaluation system for AI response quality assessment.
+ *
+ * Uses RAGAS-style model-based evaluation with a "judge" LLM to score
+ * responses on relevance, accuracy, completeness, and overall quality.
+ * Supports retry logic with progressive prompt improvement.
+ *
+ * @example
+ * ```typescript
+ * import { Evaluator, RAGASEvaluator, ContextBuilder, RetryManager } from '@juspay/neurolink';
+ *
+ * const evaluator = new Evaluator({
+ *   evaluationModel: 'gemini-1.5-flash',
+ *   provider: 'vertex',
+ *   threshold: 7,
+ * });
+ * ```
+ */
+export { Evaluator } from "./evaluation/index.js";
+export { PromptBuilder } from "./evaluation/prompts.js";
+export { RAGASEvaluator } from "./evaluation/ragasEvaluator.js";
+export { RetryManager } from "./evaluation/retryManager.js";
+export { mapToEvaluationData } from "./evaluation/scoring.js";
+
+// Evaluation types (re-exported from types/index.js via `export *`, but explicit for discoverability)
+export type {
+  EnhancedConversationTurn,
+  EnhancedEvaluationContext,
+  EvaluationConfig,
+  EvaluationResult,
+  GetPromptFunction,
+  QualityErrorDetails,
+  QueryIntentAnalysis,
+} from "./types/evaluationTypes.js";

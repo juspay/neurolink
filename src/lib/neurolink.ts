@@ -15,6 +15,9 @@ try {
   // Environment variables should be set externally in production
 }
 
+import type { Hippocampus } from "@juspay/hippocampus";
+import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { AsyncLocalStorage } from "async_hooks";
 import { EventEmitter } from "events";
 import type { MemoryClient } from "mem0ai";
 import pLimit from "p-limit";
@@ -37,13 +40,13 @@ import {
   type CompactionResult,
   ContextCompactor,
 } from "./context/contextCompactor.js";
+import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
 import {
-  isContextOverflowError,
   getContextOverflowProvider,
+  isContextOverflowError,
   parseProviderOverflowDetails,
 } from "./context/errorDetection.js";
 import { ContextBudgetExceededError } from "./context/errors.js";
-import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
 import { repairToolPairs } from "./context/toolPairRepair.js";
 import { SYSTEM_LIMITS } from "./core/constants.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
@@ -57,13 +60,23 @@ import { ExternalServerManager } from "./mcp/externalServerManager.js";
 // Import direct tools server for automatic registration
 import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
 import { MCPToolRegistry } from "./mcp/toolRegistry.js";
+import {
+  type HippocampusConfig,
+  initializeHippocampus,
+} from "./memory/hippocampusInitializer.js";
 import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
 import { createMemoryRetrievalTools } from "./memory/memoryRetrievalTools.js";
+import type {
+  MetricsSummary,
+  TraceView,
+} from "./observability/metricsAggregator.js";
 import {
-  initializeHippocampus,
-  type HippocampusConfig,
-} from "./memory/hippocampusInitializer.js";
-import type { Hippocampus } from "@juspay/hippocampus";
+  getMetricsAggregator,
+  MetricsAggregator,
+} from "./observability/metricsAggregator.js";
+import type { SpanData } from "./observability/types/spanTypes.js";
+import { SpanStatus, SpanType } from "./observability/types/spanTypes.js";
+import { SpanSerializer } from "./observability/utils/spanSerializer.js";
 import {
   flushOpenTelemetry,
   getLangfuseHealthStatus,
@@ -72,6 +85,8 @@ import {
   setLangfuseContext,
   shutdownOpenTelemetry,
 } from "./services/server/ai/observability/instrumentation.js";
+import { ATTR } from "./telemetry/attributes.js";
+import { tracers } from "./telemetry/tracers.js";
 import type {
   JsonObject,
   JsonValue,
@@ -86,6 +101,11 @@ import type {
   ProviderDetails,
 } from "./types/conversation.js";
 import { ConversationMemoryError } from "./types/conversation.js";
+import {
+  AuthenticationError,
+  AuthorizationError,
+  InvalidModelError,
+} from "./types/errors.js";
 import type {
   ExternalMCPOperationResult,
   ExternalMCPServerInstance,
@@ -160,6 +180,7 @@ import {
 // Import orchestration components
 import { ModelRouter } from "./utils/modelRouter.js";
 import { getBestProvider } from "./utils/providerUtils.js";
+import { NON_RETRYABLE_HTTP_STATUS_CODES } from "./utils/retryability.js";
 import { isZodSchema } from "./utils/schemaConversion.js";
 import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
 // Tool detection and execution imports
@@ -175,16 +196,7 @@ import {
   transformToolsToDescriptions,
   transformToolsToExpectedFormat,
 } from "./utils/transformationUtils.js";
-import {
-  InvalidModelError,
-  AuthenticationError,
-  AuthorizationError,
-} from "./types/errors.js";
 import { isNonNullObject } from "./utils/typeUtils.js";
-import { NON_RETRYABLE_HTTP_STATUS_CODES } from "./utils/retryability.js";
-import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
-import { tracers } from "./telemetry/tracers.js";
-import { ATTR } from "./telemetry/attributes.js";
 import { getWorkflow } from "./workflow/core/workflowRegistry.js";
 import { runWorkflow } from "./workflow/core/workflowRunner.js";
 import type { WorkflowConfig } from "./workflow/types.js";
@@ -315,6 +327,19 @@ function isNonRetryableProviderError(error: unknown): boolean {
  * @see {@link NeurolinkConstructorConfig} for configuration options
  * @since 1.0.0
  */
+
+/** Per-request metrics trace context stored in AsyncLocalStorage to avoid races. */
+type MetricsTraceContext = {
+  traceId: string;
+  parentSpanId: string;
+};
+
+/**
+ * Module-level AsyncLocalStorage for per-request metrics trace context.
+ * Eliminates the race condition where overlapping generate/stream calls on the
+ * same NeuroLink instance would clobber each other's trace context.
+ */
+const metricsTraceContextStorage = new AsyncLocalStorage<MetricsTraceContext>();
 
 export class NeuroLink {
   private mcpInitialized = false;
@@ -628,6 +653,15 @@ export class NeuroLink {
    * @throws {Error} When HITL configuration is invalid (if enabled)
    */
   private observabilityConfig?: ObservabilityConfig;
+  private metricsAggregator: MetricsAggregator = new MetricsAggregator();
+  /**
+   * Per-request metrics trace context backed by AsyncLocalStorage.
+   * Safe for concurrent requests on the same SDK instance.
+   * Context is set via metricsTraceContextStorage.run() in generate/stream.
+   */
+  private get _metricsTraceContext(): MetricsTraceContext | null {
+    return metricsTraceContextStorage.getStore() ?? null;
+  }
 
   constructor(config?: NeurolinkConstructorConfig) {
     this.toolRegistry = config?.toolRegistry || new MCPToolRegistry();
@@ -678,6 +712,7 @@ export class NeuroLink {
       constructorStartTime,
       constructorHrTimeStart,
     );
+    this.initializeMetricsListeners();
     this.logConstructorComplete(
       constructorId,
       constructorStartTime,
@@ -981,10 +1016,6 @@ export class NeuroLink {
       return;
     }
 
-    // Defer registration until conversation memory is actually initialized
-    // We register a placeholder that will use the lazy-initialized memory manager
-    const self = this;
-
     const tools = {
       retrieve_context: {
         description:
@@ -993,7 +1024,7 @@ export class NeuroLink {
           "or search through conversation history.",
         execute: async (params: unknown) => {
           // Lazy access: conversationMemory is initialized on first generate() call
-          const memoryManager = self.conversationMemory;
+          const memoryManager = this.conversationMemory;
           if (!memoryManager || !("getSessionRaw" in memoryManager)) {
             return {
               success: false,
@@ -2136,6 +2167,128 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Get comprehensive telemetry status including Langfuse, OTel, and exporter health
+   */
+  getTelemetryStatus(): {
+    enabled: boolean;
+    langfuse?: {
+      enabled: boolean;
+      baseUrl?: string;
+      environment?: string;
+    };
+    openTelemetry?: {
+      enabled: boolean;
+      endpoint?: string;
+      serviceName?: string;
+    };
+    exporters?: Array<{
+      name: string;
+      enabled: boolean;
+      healthy: boolean;
+      pendingSpans: number;
+      lastExportTime?: string;
+      latencyMs?: number;
+      errors?: string[];
+    }>;
+  } {
+    const langfuseConfig = this.observabilityConfig?.langfuse;
+    const otelConfig = this.observabilityConfig?.openTelemetry;
+
+    return {
+      enabled: this.isTelemetryEnabled(),
+      langfuse: langfuseConfig
+        ? {
+            enabled: langfuseConfig.enabled ?? false,
+            baseUrl: langfuseConfig.baseUrl,
+            environment: langfuseConfig.environment,
+          }
+        : undefined,
+      openTelemetry: otelConfig
+        ? {
+            enabled: otelConfig.enabled ?? false,
+            endpoint: otelConfig.endpoint,
+            serviceName: otelConfig.serviceName,
+          }
+        : isOpenTelemetryInitialized() ||
+            process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+          ? {
+              enabled: isOpenTelemetryInitialized(),
+              endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+              serviceName: process.env.OTEL_SERVICE_NAME,
+            }
+          : undefined,
+      exporters: [],
+    };
+  }
+
+  /**
+   * Get aggregated observability metrics (latency, tokens, cost, success rate)
+   */
+  getMetrics(): MetricsSummary {
+    return this.metricsAggregator.getMetrics();
+  }
+
+  /**
+   * Get all recorded spans
+   */
+  getSpans(): SpanData[] {
+    return this.metricsAggregator.getSpans();
+  }
+
+  /**
+   * Get traces (spans grouped by traceId with parent-child hierarchy)
+   */
+  getTraces(): TraceView[] {
+    return this.metricsAggregator.getTraces();
+  }
+
+  /**
+   * Reset all collected metrics and spans
+   */
+  resetMetrics(): void {
+    this.metricsAggregator.reset();
+  }
+
+  /**
+   * Record a span for metrics tracking
+   */
+  recordMetricsSpan(span: SpanData): void {
+    this.metricsAggregator.recordSpan(span);
+  }
+
+  /**
+   * Record a memory operation span to both instance and global metrics aggregators.
+   * This ensures memory spans are visible via sdk.getSpans() and getMetricsAggregator().getSpans().
+   */
+  private recordMemorySpan(
+    operationName: string,
+    attributes: Record<string, string | number>,
+    durationMs: number,
+    status: SpanStatus,
+    statusMessage?: string,
+  ): void {
+    const traceCtx = this._metricsTraceContext;
+    const span = SpanSerializer.createSpan(
+      SpanType.MEMORY,
+      operationName,
+      attributes,
+      traceCtx?.parentSpanId,
+      traceCtx?.traceId,
+    );
+    span.durationMs = durationMs;
+    const endedSpan = SpanSerializer.endSpan(span, status);
+    if (statusMessage) {
+      endedSpan.statusMessage = statusMessage;
+    }
+    this.metricsAggregator.recordSpan(endedSpan);
+    try {
+      getMetricsAggregator().recordSpan(endedSpan);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /**
    * Public method to initialize Langfuse observability
    * This method can be called externally to ensure Langfuse is properly initialized
    */
@@ -2186,11 +2339,290 @@ Current user's request: ${currentInput}`;
         }
       }
 
+      // Close conversation memory manager (release Redis connections, etc.)
+      if (this.conversationMemory?.close) {
+        try {
+          await this.conversationMemory.close();
+          logger.debug("[NeuroLink] Conversation memory shutdown completed");
+        } catch (error) {
+          logger.warn(
+            "[NeuroLink] Conversation memory shutdown failed:",
+            error,
+          );
+        }
+      }
+
       logger.debug("[NeuroLink] Graceful shutdown completed");
     } catch (error) {
       logger.error("[NeuroLink] Shutdown failed:", error);
       throw error;
     }
+  }
+
+  /**
+   * Initialize event listeners that feed span data to MetricsAggregator.
+   * Listens to generation:end, stream:complete, and tool:end events.
+   */
+  private initializeMetricsListeners(): void {
+    this.emitter.on("generation:end", ((...args: unknown[]) => {
+      const data = args[0] as Record<string, unknown>;
+      try {
+        const result = data.result as Record<string, unknown> | undefined;
+        const usage = result?.usage as
+          | { input?: number; output?: number; total?: number }
+          | undefined;
+        const analytics = result?.analytics as { cost?: number } | undefined;
+        const provider =
+          (data.provider as string) ||
+          (result?.provider as string) ||
+          "unknown";
+        const model = (result?.model as string) || "unknown";
+        const responseTime = (data.responseTime as number) || 0;
+        const traceCtx = this._metricsTraceContext;
+
+        let span = SpanSerializer.createGenerationSpan({
+          provider,
+          model,
+          name: `gen_ai.${provider}.chat`,
+          traceId: traceCtx?.traceId,
+          input: data.prompt,
+          temperature: data.temperature as number | undefined,
+          maxTokens: data.maxTokens as number | undefined,
+        });
+        // Make this the root span by using the pre-generated rootSpanId
+        if (traceCtx) {
+          span.spanId = traceCtx.parentSpanId;
+          span.parentSpanId = undefined;
+        }
+        span = SpanSerializer.endSpan(span, SpanStatus.OK);
+        span.durationMs = responseTime;
+
+        if (usage) {
+          span = SpanSerializer.enrichWithTokenUsage(span, {
+            promptTokens: usage.input || 0,
+            completionTokens: usage.output || 0,
+            totalTokens:
+              usage.total || (usage.input || 0) + (usage.output || 0),
+          });
+        }
+
+        if (analytics?.cost && analytics.cost > 0) {
+          span = SpanSerializer.enrichWithCost(span, {
+            totalCost: analytics.cost,
+          });
+        } else if (usage && model !== "unknown") {
+          // Fallback: compute cost from token usage + built-in pricing
+          const tokenTracker = this.metricsAggregator.getTokenTracker();
+          const pricing = tokenTracker.getModelPricing(model);
+          if (pricing) {
+            const inputCost =
+              ((usage.input || 0) / 1_000_000) * pricing.inputPricePerMillion;
+            const outputCost =
+              ((usage.output || 0) / 1_000_000) * pricing.outputPricePerMillion;
+            const totalCost = inputCost + outputCost;
+            if (totalCost > 0) {
+              span = SpanSerializer.enrichWithCost(span, {
+                inputCost,
+                outputCost,
+                totalCost,
+              });
+            }
+          }
+        }
+
+        // Record output (truncated for safety)
+        const content = (result?.content as string) || (result?.text as string);
+        if (content) {
+          span = SpanSerializer.updateAttributes(span, {
+            output:
+              content.length > 5000
+                ? content.substring(0, 5000) + "...[truncated]"
+                : content,
+          });
+        }
+
+        this.metricsAggregator.recordSpan(span);
+        getMetricsAggregator().recordSpan(span);
+      } catch {
+        // Non-blocking
+      }
+    }) as (...args: unknown[]) => void);
+
+    this.emitter.on("stream:complete", ((...args: unknown[]) => {
+      const data = args[0] as Record<string, unknown>;
+      try {
+        const metadata = data.metadata as Record<string, unknown> | undefined;
+        const durationMs = (metadata?.durationMs as number) || 0;
+        const chunkCount = (metadata?.chunkCount as number) || 0;
+        const totalLength = (metadata?.totalLength as number) || 0;
+        const provider = (data.provider as string) || "unknown";
+        const model = (data.model as string) || "unknown";
+        const traceCtx = this._metricsTraceContext;
+
+        let span = SpanSerializer.createGenerationSpan({
+          provider,
+          model,
+          name: `gen_ai.${provider}.stream`,
+          traceId: traceCtx?.traceId,
+        });
+        // Make this the root span by using the pre-generated rootSpanId
+        if (traceCtx) {
+          span.spanId = traceCtx.parentSpanId;
+          span.parentSpanId = undefined;
+        }
+        span = SpanSerializer.endSpan(span, SpanStatus.OK);
+        span.durationMs = durationMs;
+        span.attributes["stream.chunk_count"] = chunkCount;
+        span.attributes["stream.content_length"] = totalLength;
+
+        // Record stream input prompt
+        if (data.prompt) {
+          const promptStr = String(data.prompt);
+          span = SpanSerializer.updateAttributes(span, {
+            input:
+              promptStr.length > 5000
+                ? promptStr.substring(0, 5000) + "...[truncated]"
+                : promptStr,
+          });
+        }
+
+        // Record streamed output (truncated for safety)
+        const streamContent = data.content as string;
+        if (streamContent) {
+          span = SpanSerializer.updateAttributes(span, {
+            output:
+              streamContent.length > 5000
+                ? streamContent.substring(0, 5000) + "...[truncated]"
+                : streamContent,
+          });
+        }
+
+        // Enrich stream span with token usage if available
+        const usage = metadata?.usage as
+          | { input?: number; output?: number; total?: number }
+          | undefined;
+        if (usage) {
+          span = SpanSerializer.enrichWithTokenUsage(span, {
+            promptTokens: usage.input || 0,
+            completionTokens: usage.output || 0,
+            totalTokens:
+              usage.total || (usage.input || 0) + (usage.output || 0),
+          });
+
+          // Compute cost from token usage
+          if (model !== "unknown") {
+            const tokenTracker = this.metricsAggregator.getTokenTracker();
+            const pricing = tokenTracker.getModelPricing(model);
+            if (pricing) {
+              const inputCost =
+                ((usage.input || 0) / 1_000_000) * pricing.inputPricePerMillion;
+              const outputCost =
+                ((usage.output || 0) / 1_000_000) *
+                pricing.outputPricePerMillion;
+              const totalCost = inputCost + outputCost;
+              if (totalCost > 0) {
+                span = SpanSerializer.enrichWithCost(span, {
+                  inputCost,
+                  outputCost,
+                  totalCost,
+                });
+              }
+            }
+          }
+        }
+
+        this.metricsAggregator.recordSpan(span);
+        getMetricsAggregator().recordSpan(span);
+      } catch {
+        // Non-blocking
+      }
+    }) as (...args: unknown[]) => void);
+
+    this.emitter.on("tool:end", ((...args: unknown[]) => {
+      const data = args[0] as Record<string, unknown>;
+      try {
+        // Handle both event formats: {toolName} (from emitToolEnd) and {tool} (from executeToolInternal)
+        const toolName =
+          (data.toolName as string) || (data.tool as string) || "unknown";
+        const responseTime =
+          (data.responseTime as number) || (data.duration as number) || 0;
+        // success is explicit in one format; infer from error presence in the other
+        const success =
+          data.success !== undefined ? (data.success as boolean) : !data.error;
+        const traceCtx = this._metricsTraceContext;
+
+        let span = SpanSerializer.createSpan(
+          SpanType.TOOL_CALL,
+          `tool.${toolName}`,
+          {
+            "tool.name": toolName,
+            "tool.success": success,
+          },
+          traceCtx?.parentSpanId,
+          traceCtx?.traceId,
+        );
+        span = SpanSerializer.endSpan(
+          span,
+          success ? SpanStatus.OK : SpanStatus.ERROR,
+        );
+        span.durationMs = responseTime;
+
+        if (!success && data.error) {
+          span.statusMessage =
+            (data.error as Error).message || String(data.error);
+        }
+
+        if (data.result) {
+          try {
+            span.attributes["tool.result"] = JSON.stringify(
+              data.result,
+            ).substring(0, 500);
+          } catch {
+            // Non-blocking
+          }
+        }
+
+        this.metricsAggregator.recordSpan(span);
+        getMetricsAggregator().recordSpan(span);
+      } catch {
+        // Non-blocking
+      }
+    }) as (...args: unknown[]) => void);
+
+    this.emitter.on("stream:error", ((...args: unknown[]) => {
+      const data = args[0] as Record<string, unknown>;
+      try {
+        const metadata = data.metadata as Record<string, unknown> | undefined;
+        const durationMs = (metadata?.durationMs as number) || 0;
+        const chunkCount = (metadata?.chunkCount as number) || 0;
+        const errorName = (metadata?.errorName as string) || "UnknownError";
+        const errorMessage = (data.content as string) || "Stream error";
+        const provider = (data.provider as string) || "unknown";
+        const model = (data.model as string) || "unknown";
+        const traceCtx = this._metricsTraceContext;
+
+        let span = SpanSerializer.createGenerationSpan({
+          provider,
+          model,
+          name: `gen_ai.${provider}.stream.error`,
+          traceId: traceCtx?.traceId,
+        });
+        // Make this the root span
+        if (traceCtx) {
+          span.spanId = traceCtx.parentSpanId;
+          span.parentSpanId = undefined;
+        }
+        span = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+        span.durationMs = durationMs;
+        span.statusMessage = `${errorName}: ${errorMessage}`;
+        span.attributes["stream.chunk_count"] = chunkCount;
+
+        this.metricsAggregator.recordSpan(span);
+        getMetricsAggregator().recordSpan(span);
+      } catch {
+        // Non-blocking
+      }
+    }) as (...args: unknown[]) => void);
   }
 
   /**
@@ -2300,453 +2732,479 @@ Current user's request: ${currentInput}`;
       "neurolink.generate",
       { kind: SpanKind.INTERNAL },
       async (generateSpan) => {
-        try {
-          const originalPrompt = this._extractOriginalPrompt(optionsOrPrompt);
-          // Convert string prompt to full options
-          const options: GenerateOptions =
-            typeof optionsOrPrompt === "string"
-              ? { input: { text: optionsOrPrompt } }
-              : optionsOrPrompt;
+        // Set metrics trace context for parent-child span linking.
+        // The generation span will be the root (no parentSpanId).
+        // Tool spans will be children of the root span via rootSpanId.
+        const metricsTraceId = crypto.randomUUID().replace(/-/g, "");
+        const metricsRootSpanId = crypto
+          .randomUUID()
+          .replace(/-/g, "")
+          .substring(0, 16);
+        // Scope trace context to this request via AsyncLocalStorage
+        // so concurrent generate/stream calls don't race.
+        return metricsTraceContextStorage.run(
+          { traceId: metricsTraceId, parentSpanId: metricsRootSpanId },
+          async () => {
+            try {
+              const originalPrompt =
+                this._extractOriginalPrompt(optionsOrPrompt);
+              // Convert string prompt to full options
+              const options: GenerateOptions =
+                typeof optionsOrPrompt === "string"
+                  ? { input: { text: optionsOrPrompt } }
+                  : optionsOrPrompt;
 
-          // Set span attributes for observability
-          generateSpan.setAttribute(
-            "neurolink.provider",
-            (options.provider as string) || "default",
-          );
-          generateSpan.setAttribute(
-            "neurolink.model",
-            options.model || "default",
-          );
-          generateSpan.setAttribute(
-            "neurolink.input_length",
-            typeof optionsOrPrompt === "string"
-              ? optionsOrPrompt.length
-              : options.input?.text?.length || 0,
-          );
-          generateSpan.setAttribute(
-            "neurolink.has_tools",
-            !!(options.tools && Object.keys(options.tools).length > 0),
-          );
-
-          // Validate prompt
-          if (!options.input?.text || typeof options.input.text !== "string") {
-            throw new Error(
-              "Input text is required and must be a non-empty string",
-            );
-          }
-
-          // Check budget limit before making API call
-          if (
-            options.maxBudgetUsd !== undefined &&
-            options.maxBudgetUsd > 0 &&
-            this._sessionCostUsd >= options.maxBudgetUsd
-          ) {
-            throw new NeuroLinkError({
-              code: "SESSION_BUDGET_EXCEEDED",
-              message: `Session budget exceeded: spent $${this._sessionCostUsd.toFixed(4)} of $${options.maxBudgetUsd.toFixed(4)} limit`,
-              category: ErrorCategory.VALIDATION,
-              severity: ErrorSeverity.HIGH,
-              retriable: false,
-              context: {
-                spent: this._sessionCostUsd,
-                limit: options.maxBudgetUsd,
-              },
-            });
-          }
-
-          // Check if workflow is requested
-          if (options.workflow || options.workflowConfig) {
-            return await this.generateWithWorkflow(options);
-          }
-
-          // Check if PPT output mode is requested
-          if (options.output?.mode === "ppt") {
-            const pptResult = await this.generateWithPPT(options);
-            generateSpan.setAttribute(
-              "neurolink.output_length",
-              pptResult.content?.length ?? 0,
-            );
-            if (pptResult.analytics) {
+              // Set span attributes for observability
               generateSpan.setAttribute(
-                "neurolink.tokens.input",
-                pptResult.analytics.tokenUsage?.input ?? 0,
+                "neurolink.provider",
+                (options.provider as string) || "default",
               );
               generateSpan.setAttribute(
-                "neurolink.tokens.output",
-                pptResult.analytics.tokenUsage?.output ?? 0,
+                "neurolink.model",
+                options.model || "default",
               );
               generateSpan.setAttribute(
-                "neurolink.cost",
-                pptResult.analytics.cost ?? 0,
+                "neurolink.input_length",
+                typeof optionsOrPrompt === "string"
+                  ? optionsOrPrompt.length
+                  : options.input?.text?.length || 0,
               );
-            }
-            generateSpan.setStatus({ code: SpanStatusCode.OK });
-            return pptResult;
-          }
+              generateSpan.setAttribute(
+                "neurolink.has_tools",
+                !!(options.tools && Object.keys(options.tools).length > 0),
+              );
 
-          // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
-          return await this.setLangfuseContextFromOptions(options, async () => {
-            if (
-              this.conversationMemoryConfig?.conversationMemory?.mem0Enabled &&
-              options.context?.userId
-            ) {
-              try {
-                const mem0 = await this.ensureMem0Ready();
-                if (!mem0) {
-                  logger.debug(
-                    "Mem0 not available, continuing without memory retrieval",
+              // Validate prompt
+              if (
+                !options.input?.text ||
+                typeof options.input.text !== "string"
+              ) {
+                throw new Error(
+                  "Input text is required and must be a non-empty string",
+                );
+              }
+
+              // Check budget limit before making API call
+              if (
+                options.maxBudgetUsd !== undefined &&
+                options.maxBudgetUsd > 0 &&
+                this._sessionCostUsd >= options.maxBudgetUsd
+              ) {
+                throw new NeuroLinkError({
+                  code: "SESSION_BUDGET_EXCEEDED",
+                  message: `Session budget exceeded: spent $${this._sessionCostUsd.toFixed(4)} of $${options.maxBudgetUsd.toFixed(4)} limit`,
+                  category: ErrorCategory.VALIDATION,
+                  severity: ErrorSeverity.HIGH,
+                  retriable: false,
+                  context: {
+                    spent: this._sessionCostUsd,
+                    limit: options.maxBudgetUsd,
+                  },
+                });
+              }
+
+              // Check if workflow is requested
+              if (options.workflow || options.workflowConfig) {
+                return await this.generateWithWorkflow(options);
+              }
+
+              // Check if PPT output mode is requested
+              if (options.output?.mode === "ppt") {
+                const pptResult = await this.generateWithPPT(options);
+                generateSpan.setAttribute(
+                  "neurolink.output_length",
+                  pptResult.content?.length ?? 0,
+                );
+                if (pptResult.analytics) {
+                  generateSpan.setAttribute(
+                    "neurolink.tokens.input",
+                    pptResult.analytics.tokenUsage?.input ?? 0,
                   );
-                } else {
-                  const memories = await mem0.search(options.input.text, {
-                    user_id: options.context.userId as string,
-                    limit: 5,
+                  generateSpan.setAttribute(
+                    "neurolink.tokens.output",
+                    pptResult.analytics.tokenUsage?.output ?? 0,
+                  );
+                  generateSpan.setAttribute(
+                    "neurolink.cost",
+                    pptResult.analytics.cost ?? 0,
+                  );
+                }
+                generateSpan.setStatus({ code: SpanStatusCode.OK });
+                return pptResult;
+              }
+
+              // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
+              return await this.setLangfuseContextFromOptions(
+                options,
+                async () => {
+                  if (
+                    this.conversationMemoryConfig?.conversationMemory
+                      ?.mem0Enabled &&
+                    options.context?.userId
+                  ) {
+                    try {
+                      const mem0 = await this.ensureMem0Ready();
+                      if (!mem0) {
+                        logger.debug(
+                          "Mem0 not available, continuing without memory retrieval",
+                        );
+                      } else {
+                        const memories = await mem0.search(options.input.text, {
+                          user_id: options.context.userId as string,
+                          limit: 5,
+                        });
+
+                        if (memories && memories.length > 0) {
+                          // Enhance the input with memory context
+                          const memoryContext =
+                            this.extractMemoryContext(memories);
+
+                          options.input.text = this.formatMemoryContext(
+                            memoryContext,
+                            options.input.text,
+                          );
+                        }
+                      }
+                    } catch (error) {
+                      logger.warn("Mem0 memory retrieval failed:", error);
+                    }
+                  }
+
+                  const startTime = Date.now();
+
+                  // Apply orchestration if enabled and no specific provider/model requested
+                  if (
+                    this.enableOrchestration &&
+                    !options.provider &&
+                    !options.model
+                  ) {
+                    try {
+                      const orchestratedOptions =
+                        await this.applyOrchestration(options);
+                      logger.debug("Orchestration applied", {
+                        originalProvider: options.provider || "auto",
+                        orchestratedProvider: orchestratedOptions.provider,
+                        orchestratedModel: orchestratedOptions.model,
+                        prompt: options.input.text.substring(0, 100),
+                      });
+
+                      // Use orchestrated options
+                      Object.assign(options, orchestratedOptions);
+                    } catch (error) {
+                      logger.warn(
+                        "Orchestration failed, continuing with original options",
+                        {
+                          error:
+                            error instanceof Error
+                              ? error.message
+                              : String(error),
+                          originalProvider: options.provider || "auto",
+                        },
+                      );
+                      // Continue with original options if orchestration fails
+                    }
+                  }
+
+                  // Emit generation start event (NeuroLink format - keep existing)
+                  this.emitter.emit("generation:start", {
+                    provider: options.provider || "auto",
+                    timestamp: startTime,
                   });
 
-                  if (memories && memories.length > 0) {
-                    // Enhance the input with memory context
-                    const memoryContext = this.extractMemoryContext(memories);
+                  // ADD: Bedrock-compatible response:start event
+                  this.emitter.emit("response:start");
 
-                    options.input.text = this.formatMemoryContext(
-                      memoryContext,
-                      options.input.text,
+                  // ADD: Bedrock-compatible message event
+                  this.emitter.emit(
+                    "message",
+                    `Starting ${options.provider || "auto"} text generation...`,
+                  );
+
+                  // Process factory configuration
+                  const factoryResult = processFactoryOptions(options);
+
+                  // Validate factory configuration if present
+                  if (factoryResult.hasFactoryConfig && options.factoryConfig) {
+                    const validation = validateFactoryConfig(
+                      options.factoryConfig,
                     );
+                    if (!validation.isValid) {
+                      logger.warn("Invalid factory configuration detected", {
+                        errors: validation.errors,
+                      });
+                      // Continue with warning rather than throwing - graceful degradation
+                    }
                   }
-                }
-              } catch (error) {
-                logger.warn("Mem0 memory retrieval failed:", error);
-              }
-            }
 
-            // Memory retrieval
-            if (
-              this.conversationMemoryConfig?.conversationMemory?.memory
-                ?.enabled &&
-              options.context?.userId
-            ) {
-              try {
-                options.input.text = await this.retrieveMemory(
-                  options.input.text,
-                  options.context.userId as string,
-                );
-                logger.debug("Memory retrieval successful");
-              } catch (error) {
-                logger.warn("Memory retrieval failed:", error);
-              }
-            }
+                  // RAG Integration: If rag config is provided, prepare the RAG search tool
+                  if (options.rag?.files?.length) {
+                    try {
+                      const { prepareRAGTool } = await import(
+                        "./rag/ragIntegration.js"
+                      );
+                      const ragResult = await prepareRAGTool(
+                        options.rag,
+                        options.provider as string | undefined,
+                      );
 
-            const startTime = Date.now();
+                      // Inject the RAG tool into the tools record
+                      if (!options.tools) {
+                        options.tools = {};
+                      }
+                      (options.tools as Record<string, unknown>)[
+                        ragResult.toolName
+                      ] = ragResult.tool;
 
-            // Apply orchestration if enabled and no specific provider/model requested
-            if (
-              this.enableOrchestration &&
-              !options.provider &&
-              !options.model
-            ) {
-              try {
-                const orchestratedOptions =
-                  await this.applyOrchestration(options);
-                logger.debug("Orchestration applied", {
-                  originalProvider: options.provider || "auto",
-                  orchestratedProvider: orchestratedOptions.provider,
-                  orchestratedModel: orchestratedOptions.model,
-                  prompt: options.input.text.substring(0, 100),
-                });
+                      // Inject RAG-aware system prompt so the AI uses the RAG tool first
+                      const ragSystemInstruction = [
+                        `\n\nIMPORTANT: You have a tool called "${ragResult.toolName}" that searches through`,
+                        `${ragResult.filesLoaded} loaded document(s) containing ${ragResult.chunksIndexed} indexed chunks.`,
+                        `ALWAYS use the "${ragResult.toolName}" tool FIRST to answer the user's question before using any other tools.`,
+                        `This tool searches your local knowledge base of pre-loaded documents and is the primary source of truth.`,
+                        `Do NOT use websearchGrounding or any web search tools when the answer can be found in the loaded documents.`,
+                      ].join(" ");
+                      options.systemPrompt =
+                        (options.systemPrompt || "") + ragSystemInstruction;
 
-                // Use orchestrated options
-                Object.assign(options, orchestratedOptions);
-              } catch (error) {
-                logger.warn(
-                  "Orchestration failed, continuing with original options",
-                  {
-                    error:
-                      error instanceof Error ? error.message : String(error),
-                    originalProvider: options.provider || "auto",
-                  },
-                );
-                // Continue with original options if orchestration fails
-              }
-            }
-
-            // Emit generation start event (NeuroLink format - keep existing)
-            this.emitter.emit("generation:start", {
-              provider: options.provider || "auto",
-              timestamp: startTime,
-            });
-
-            // ADD: Bedrock-compatible response:start event
-            this.emitter.emit("response:start");
-
-            // ADD: Bedrock-compatible message event
-            this.emitter.emit(
-              "message",
-              `Starting ${options.provider || "auto"} text generation...`,
-            );
-
-            // Process factory configuration
-            const factoryResult = processFactoryOptions(options);
-
-            // Validate factory configuration if present
-            if (factoryResult.hasFactoryConfig && options.factoryConfig) {
-              const validation = validateFactoryConfig(options.factoryConfig);
-              if (!validation.isValid) {
-                logger.warn("Invalid factory configuration detected", {
-                  errors: validation.errors,
-                });
-                // Continue with warning rather than throwing - graceful degradation
-              }
-            }
-
-            // RAG Integration: If rag config is provided, prepare the RAG search tool
-            if (options.rag?.files?.length) {
-              try {
-                const { prepareRAGTool } = await import(
-                  "./rag/ragIntegration.js"
-                );
-                const ragResult = await prepareRAGTool(
-                  options.rag,
-                  options.provider as string | undefined,
-                );
-
-                // Inject the RAG tool into the tools record
-                if (!options.tools) {
-                  options.tools = {};
-                }
-                (options.tools as Record<string, unknown>)[ragResult.toolName] =
-                  ragResult.tool;
-
-                // Inject RAG-aware system prompt so the AI uses the RAG tool first
-                const ragSystemInstruction = [
-                  `\n\nIMPORTANT: You have a tool called "${ragResult.toolName}" that searches through`,
-                  `${ragResult.filesLoaded} loaded document(s) containing ${ragResult.chunksIndexed} indexed chunks.`,
-                  `ALWAYS use the "${ragResult.toolName}" tool FIRST to answer the user's question before using any other tools.`,
-                  `This tool searches your local knowledge base of pre-loaded documents and is the primary source of truth.`,
-                  `Do NOT use websearchGrounding or any web search tools when the answer can be found in the loaded documents.`,
-                ].join(" ");
-                options.systemPrompt =
-                  (options.systemPrompt || "") + ragSystemInstruction;
-
-                logger.info("[RAG] Tool injected into generate()", {
-                  toolName: ragResult.toolName,
-                  filesLoaded: ragResult.filesLoaded,
-                  chunksIndexed: ragResult.chunksIndexed,
-                });
-              } catch (error) {
-                logger.warn(
-                  "[RAG] Failed to prepare RAG tool, continuing without RAG",
-                  {
-                    error:
-                      error instanceof Error ? error.message : String(error),
-                  },
-                );
-              }
-            }
-
-            // 🔧 CRITICAL FIX: Convert to TextGenerationOptions while preserving the input object for multimodal support
-            const baseOptions: TextGenerationOptions = {
-              prompt: options.input.text,
-              provider: options.provider as AIProviderName,
-              model: options.model,
-              temperature: options.temperature,
-              maxTokens: options.maxTokens,
-              systemPrompt: options.systemPrompt,
-              schema: options.schema,
-              output: options.output,
-              tools: options.tools, // Includes RAG tools if rag config was provided
-              disableTools: options.disableTools,
-              toolFilter: options.toolFilter,
-              excludeTools: options.excludeTools,
-              maxSteps: options.maxSteps,
-              toolChoice: options.toolChoice,
-              prepareStep: options.prepareStep,
-              enableAnalytics: options.enableAnalytics,
-              enableEvaluation: options.enableEvaluation,
-              context: options.context as Record<string, JsonValue> | undefined,
-              evaluationDomain: options.evaluationDomain,
-              toolUsageContext: options.toolUsageContext,
-              input: options.input, // This includes text, images, and content arrays
-              region: options.region,
-              tts: options.tts,
-              fileRegistry: this.fileRegistry,
-              abortSignal: options.abortSignal,
-              skipToolPromptInjection: options.skipToolPromptInjection,
-            };
-
-            // Auto-map top-level sessionId/userId to context for convenience
-            // Tests and users may pass sessionId/userId as top-level options
-            const extraContext = options as Record<string, unknown>;
-            if (extraContext.sessionId || extraContext.userId) {
-              baseOptions.context = {
-                ...baseOptions.context,
-                ...(extraContext.sessionId && !baseOptions.context?.sessionId
-                  ? { sessionId: extraContext.sessionId as JsonValue }
-                  : {}),
-                ...(extraContext.userId && !baseOptions.context?.userId
-                  ? { userId: extraContext.userId as JsonValue }
-                  : {}),
-              };
-            }
-
-            // Apply factory enhancement using centralized utilities
-            const textOptions = enhanceTextGenerationOptions(
-              baseOptions,
-              factoryResult,
-            );
-
-            // Pass conversation memory config if available
-            if (this.conversationMemory) {
-              textOptions.conversationMemoryConfig =
-                this.conversationMemory.config;
-              // Include original prompt for context summarization
-              textOptions.originalPrompt = originalPrompt;
-            }
-
-            // Detect and execute domain-specific tools
-            const { toolResults, enhancedPrompt } =
-              await this.detectAndExecuteTools(
-                textOptions.prompt || options.input.text,
-                factoryResult.domainType,
-              );
-
-            // Update prompt with tool results if available
-            if (enhancedPrompt !== textOptions.prompt) {
-              textOptions.prompt = enhancedPrompt;
-              logger.debug("Enhanced prompt with tool results", {
-                originalLength: options.input.text.length,
-                enhancedLength: enhancedPrompt.length,
-                toolResults: toolResults.length,
-              });
-            }
-
-            // Use redesigned generation logic
-            const textResult = await this.generateTextInternal(textOptions);
-
-            // Emit generation completion event (NeuroLink format - enhanced with content)
-            this.emitter.emit("generation:end", {
-              provider: textResult.provider,
-              responseTime: Date.now() - startTime,
-              toolsUsed: textResult.toolsUsed,
-              timestamp: Date.now(),
-              result: textResult, // Enhanced: include full result
-            });
-
-            // ADD: Bedrock-compatible response:end event with content
-            this.emitter.emit("response:end", textResult.content || "");
-
-            // ADD: Bedrock-compatible message event
-            this.emitter.emit(
-              "message",
-              `Generation completed in ${Date.now() - startTime}ms`,
-            );
-
-            // Convert back to GenerateResult
-            const generateResult: GenerateResult = {
-              content: textResult.content,
-              finishReason: textResult.finishReason,
-              provider: textResult.provider,
-              model: textResult.model,
-              usage: textResult.usage
-                ? {
-                    input: textResult.usage.input || 0,
-                    output: textResult.usage.output || 0,
-                    total: textResult.usage.total || 0,
+                      logger.info("[RAG] Tool injected into generate()", {
+                        toolName: ragResult.toolName,
+                        filesLoaded: ragResult.filesLoaded,
+                        chunksIndexed: ragResult.chunksIndexed,
+                      });
+                    } catch (error) {
+                      logger.warn(
+                        "[RAG] Failed to prepare RAG tool, continuing without RAG",
+                        {
+                          error:
+                            error instanceof Error
+                              ? error.message
+                              : String(error),
+                        },
+                      );
+                    }
                   }
-                : undefined,
-              responseTime: textResult.responseTime,
-              toolsUsed: textResult.toolsUsed,
-              toolExecutions: transformToolExecutions(
-                textResult.toolExecutions,
-              ),
-              enhancedWithTools: textResult.enhancedWithTools,
-              availableTools: transformAvailableTools(
-                textResult.availableTools,
-              ),
-              analytics: textResult.analytics,
-              // CRITICAL FIX: Include imageOutput for image generation models
-              imageOutput: textResult.imageOutput,
-              evaluation: textResult.evaluation
-                ? {
-                    ...textResult.evaluation,
-                    isOffTopic:
-                      ((textResult.evaluation as unknown as UnknownRecord)
-                        .isOffTopic as boolean) ?? false,
-                    alertSeverity:
-                      ((textResult.evaluation as unknown as UnknownRecord)
-                        .alertSeverity as "low" | "medium" | "high" | "none") ??
-                      ("none" as const),
-                    reasoning:
-                      ((textResult.evaluation as unknown as UnknownRecord)
-                        .reasoning as string) ?? "No evaluation provided",
-                    evaluationModel:
-                      ((textResult.evaluation as unknown as UnknownRecord)
-                        .evaluationModel as string) ?? "unknown",
-                    evaluationTime:
-                      ((textResult.evaluation as unknown as UnknownRecord)
-                        .evaluationTime as number) ?? Date.now(),
-                    // Include evaluationDomain from original options
-                    evaluationDomain:
-                      ((textResult.evaluation as unknown as UnknownRecord)
-                        .evaluationDomain as string) ??
-                      textOptions.evaluationDomain ??
+
+                  // 🔧 CRITICAL FIX: Convert to TextGenerationOptions while preserving the input object for multimodal support
+                  const baseOptions: TextGenerationOptions = {
+                    prompt: options.input.text,
+                    provider: options.provider as AIProviderName,
+                    model: options.model,
+                    temperature: options.temperature,
+                    maxTokens: options.maxTokens,
+                    systemPrompt: options.systemPrompt,
+                    schema: options.schema,
+                    output: options.output,
+                    tools: options.tools, // Includes RAG tools if rag config was provided
+                    disableTools: options.disableTools,
+                    toolFilter: options.toolFilter,
+                    excludeTools: options.excludeTools,
+                    maxSteps: options.maxSteps,
+                    toolChoice: options.toolChoice,
+                    prepareStep: options.prepareStep,
+                    enableAnalytics: options.enableAnalytics,
+                    enableEvaluation: options.enableEvaluation,
+                    context: options.context as
+                      | Record<string, JsonValue>
+                      | undefined,
+                    evaluationDomain: options.evaluationDomain,
+                    toolUsageContext: options.toolUsageContext,
+                    input: options.input, // This includes text, images, and content arrays
+                    region: options.region,
+                    tts: options.tts,
+                    fileRegistry: this.fileRegistry,
+                    abortSignal: options.abortSignal,
+                    skipToolPromptInjection: options.skipToolPromptInjection,
+                  };
+
+                  // Auto-map top-level sessionId/userId to context for convenience
+                  // Tests and users may pass sessionId/userId as top-level options
+                  const extraContext = options as Record<string, unknown>;
+                  if (extraContext.sessionId || extraContext.userId) {
+                    baseOptions.context = {
+                      ...baseOptions.context,
+                      ...(extraContext.sessionId &&
+                      !baseOptions.context?.sessionId
+                        ? { sessionId: extraContext.sessionId as JsonValue }
+                        : {}),
+                      ...(extraContext.userId && !baseOptions.context?.userId
+                        ? { userId: extraContext.userId as JsonValue }
+                        : {}),
+                    };
+                  }
+
+                  // Apply factory enhancement using centralized utilities
+                  const textOptions = enhanceTextGenerationOptions(
+                    baseOptions,
+                    factoryResult,
+                  );
+
+                  // Pass conversation memory config if available
+                  if (this.conversationMemory) {
+                    textOptions.conversationMemoryConfig =
+                      this.conversationMemory.config;
+                    // Include original prompt for context summarization
+                    textOptions.originalPrompt = originalPrompt;
+                  }
+
+                  // Detect and execute domain-specific tools
+                  const { toolResults, enhancedPrompt } =
+                    await this.detectAndExecuteTools(
+                      textOptions.prompt || options.input.text,
                       factoryResult.domainType,
+                    );
+
+                  // Update prompt with tool results if available
+                  if (enhancedPrompt !== textOptions.prompt) {
+                    textOptions.prompt = enhancedPrompt;
+                    logger.debug("Enhanced prompt with tool results", {
+                      originalLength: options.input.text.length,
+                      enhancedLength: enhancedPrompt.length,
+                      toolResults: toolResults.length,
+                    });
                   }
-                : undefined,
-              audio: textResult.audio,
-              video: textResult.video,
-              ppt: textResult.ppt,
-            };
 
-            // Accumulate session cost for budget tracking
-            if (
-              generateResult.analytics?.cost &&
-              generateResult.analytics.cost > 0
-            ) {
-              this._sessionCostUsd += generateResult.analytics.cost;
+                  // Use redesigned generation logic
+                  const textResult =
+                    await this.generateTextInternal(textOptions);
+
+                  // Emit generation completion event (NeuroLink format - enhanced with content)
+                  this.emitter.emit("generation:end", {
+                    provider: textResult.provider,
+                    responseTime: Date.now() - startTime,
+                    toolsUsed: textResult.toolsUsed,
+                    timestamp: Date.now(),
+                    result: textResult, // Enhanced: include full result
+                    prompt:
+                      options.input?.text ||
+                      (options as Record<string, unknown>).prompt,
+                    temperature: textOptions.temperature,
+                    maxTokens: textOptions.maxTokens,
+                  });
+
+                  // ADD: Bedrock-compatible response:end event with content
+                  this.emitter.emit("response:end", textResult.content || "");
+
+                  // ADD: Bedrock-compatible message event
+                  this.emitter.emit(
+                    "message",
+                    `Generation completed in ${Date.now() - startTime}ms`,
+                  );
+
+                  // Convert back to GenerateResult
+                  const generateResult: GenerateResult = {
+                    content: textResult.content,
+                    finishReason: textResult.finishReason,
+                    provider: textResult.provider,
+                    model: textResult.model,
+                    usage: textResult.usage
+                      ? {
+                          input: textResult.usage.input || 0,
+                          output: textResult.usage.output || 0,
+                          total: textResult.usage.total || 0,
+                        }
+                      : undefined,
+                    responseTime: textResult.responseTime,
+                    toolsUsed: textResult.toolsUsed,
+                    toolExecutions: transformToolExecutions(
+                      textResult.toolExecutions,
+                    ),
+                    enhancedWithTools: textResult.enhancedWithTools,
+                    availableTools: transformAvailableTools(
+                      textResult.availableTools,
+                    ),
+                    analytics: textResult.analytics,
+                    // CRITICAL FIX: Include imageOutput for image generation models
+                    imageOutput: textResult.imageOutput,
+                    evaluation: textResult.evaluation
+                      ? {
+                          ...textResult.evaluation,
+                          isOffTopic:
+                            ((textResult.evaluation as unknown as UnknownRecord)
+                              .isOffTopic as boolean) ?? false,
+                          alertSeverity:
+                            ((textResult.evaluation as unknown as UnknownRecord)
+                              .alertSeverity as
+                              | "low"
+                              | "medium"
+                              | "high"
+                              | "none") ?? ("none" as const),
+                          reasoning:
+                            ((textResult.evaluation as unknown as UnknownRecord)
+                              .reasoning as string) ?? "No evaluation provided",
+                          evaluationModel:
+                            ((textResult.evaluation as unknown as UnknownRecord)
+                              .evaluationModel as string) ?? "unknown",
+                          evaluationTime:
+                            ((textResult.evaluation as unknown as UnknownRecord)
+                              .evaluationTime as number) ?? Date.now(),
+                          // Include evaluationDomain from original options
+                          evaluationDomain:
+                            ((textResult.evaluation as unknown as UnknownRecord)
+                              .evaluationDomain as string) ??
+                            textOptions.evaluationDomain ??
+                            factoryResult.domainType,
+                        }
+                      : undefined,
+                    audio: textResult.audio,
+                    video: textResult.video,
+                    ppt: textResult.ppt,
+                  };
+
+                  // Accumulate session cost for budget tracking
+                  if (
+                    generateResult.analytics?.cost &&
+                    generateResult.analytics.cost > 0
+                  ) {
+                    this._sessionCostUsd += generateResult.analytics.cost;
+                  }
+
+                  this.scheduleGenerateMem0Storage(
+                    options,
+                    originalPrompt,
+                    generateResult,
+                  );
+
+                  // Set completion span attributes
+                  generateSpan.setAttribute(
+                    "neurolink.output_length",
+                    generateResult.content?.length || 0,
+                  );
+                  generateSpan.setAttribute(
+                    "neurolink.tokens.input",
+                    generateResult.usage?.input || 0,
+                  );
+                  generateSpan.setAttribute(
+                    "neurolink.tokens.output",
+                    generateResult.usage?.output || 0,
+                  );
+                  generateSpan.setAttribute(
+                    "neurolink.finish_reason",
+                    generateResult.finishReason || "unknown",
+                  );
+                  generateSpan.setAttribute(
+                    "neurolink.result_provider",
+                    generateResult.provider || "unknown",
+                  );
+                  generateSpan.setAttribute(
+                    "neurolink.result_model",
+                    generateResult.model || "unknown",
+                  );
+
+                  generateSpan.setStatus({ code: SpanStatusCode.OK });
+                  return generateResult;
+                },
+              );
+            } catch (error) {
+              generateSpan.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: error instanceof Error ? error.message : String(error),
+              });
+              throw error;
+            } finally {
+              generateSpan.end();
             }
-
-            this.scheduleGenerateMem0Storage(
-              options,
-              originalPrompt,
-              generateResult,
-            );
-
-            // Set completion span attributes
-            generateSpan.setAttribute(
-              "neurolink.output_length",
-              generateResult.content?.length || 0,
-            );
-            generateSpan.setAttribute(
-              "neurolink.tokens.input",
-              generateResult.usage?.input || 0,
-            );
-            generateSpan.setAttribute(
-              "neurolink.tokens.output",
-              generateResult.usage?.output || 0,
-            );
-            generateSpan.setAttribute(
-              "neurolink.finish_reason",
-              generateResult.finishReason || "unknown",
-            );
-            generateSpan.setAttribute(
-              "neurolink.result_provider",
-              generateResult.provider || "unknown",
-            );
-            generateSpan.setAttribute(
-              "neurolink.result_model",
-              generateResult.model || "unknown",
-            );
-
-            generateSpan.setStatus({ code: SpanStatusCode.OK });
-            return generateResult;
-          });
-        } catch (error) {
-          generateSpan.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: error instanceof Error ? error.message : String(error),
-          });
-          throw error;
-        } finally {
-          generateSpan.end();
-        }
+          },
+        ); // end metricsTraceContextStorage.run
       },
     );
   }
@@ -3258,13 +3716,32 @@ Current user's request: ${currentInput}`;
                   }),
                 },
               );
-              await storeConversationTurn(
-                this.conversationMemory,
-                options,
-                mcpResult,
-                new Date(generateInternalStartTime),
-                requestId,
-              );
+              {
+                const memStoreStart = Date.now();
+                try {
+                  await storeConversationTurn(
+                    this.conversationMemory,
+                    options,
+                    mcpResult,
+                    new Date(generateInternalStartTime),
+                    requestId,
+                  );
+                  this.recordMemorySpan(
+                    "memory.store",
+                    { "memory.operation": "store", "memory.path": "mcp" },
+                    Date.now() - memStoreStart,
+                    SpanStatus.OK,
+                  );
+                } catch (memErr) {
+                  this.recordMemorySpan(
+                    "memory.store",
+                    { "memory.operation": "store", "memory.path": "mcp" },
+                    Date.now() - memStoreStart,
+                    SpanStatus.ERROR,
+                    memErr instanceof Error ? memErr.message : String(memErr),
+                  );
+                }
+              }
               this.emitter.emit("response:end", mcpResult.content || "");
               internalSpan.setAttribute("neurolink.path", "mcp");
               internalSpan.setAttribute(
@@ -3326,13 +3803,32 @@ Current user's request: ${currentInput}`;
               },
             );
 
-            await storeConversationTurn(
-              this.conversationMemory,
-              options,
-              directResult,
-              new Date(generateInternalStartTime),
-              requestId,
-            );
+            {
+              const memStoreStart = Date.now();
+              try {
+                await storeConversationTurn(
+                  this.conversationMemory,
+                  options,
+                  directResult,
+                  new Date(generateInternalStartTime),
+                  requestId,
+                );
+                this.recordMemorySpan(
+                  "memory.store",
+                  { "memory.operation": "store", "memory.path": "direct" },
+                  Date.now() - memStoreStart,
+                  SpanStatus.OK,
+                );
+              } catch (memErr) {
+                this.recordMemorySpan(
+                  "memory.store",
+                  { "memory.operation": "store", "memory.path": "direct" },
+                  Date.now() - memStoreStart,
+                  SpanStatus.ERROR,
+                  memErr instanceof Error ? memErr.message : String(memErr),
+                );
+              }
+            }
             this.emitter.emit("response:end", directResult.content || "");
             this.emitter.emit(
               "message",
@@ -4110,6 +4606,9 @@ Current user's request: ${currentInput}`;
         options.region, // Pass region parameter
       );
 
+      // Propagate trace context for parent-child span hierarchy
+      provider._traceContext = this._metricsTraceContext;
+
       // ADD: Emit connection events for all providers (Bedrock-compatible)
       this.emitter.emit("connected");
       this.emitter.emit(
@@ -4198,6 +4697,7 @@ Current user's request: ${currentInput}`;
         audio: result.audio,
         video: result.video,
         ppt: result.ppt,
+        imageOutput: result.imageOutput,
         // Include analytics and evaluation from BaseProvider
         analytics: result.analytics,
         evaluation: result.evaluation,
@@ -4410,6 +4910,9 @@ Current user's request: ${currentInput}`;
           this as unknown as UnknownRecord, // Pass SDK instance
           options.region, // Pass region parameter
         );
+
+        // Propagate trace context for parent-child span hierarchy
+        provider._traceContext = this._metricsTraceContext;
 
         // ADD: Emit connection events for successful provider creation (Bedrock-compatible)
         this.emitter.emit("connected");
@@ -4714,271 +5217,371 @@ Current user's request: ${currentInput}`;
    * @throws {Error} When conversation memory operations fail (if enabled)
    */
   async stream(options: StreamOptions): Promise<StreamResult> {
-    // Manual span lifecycle: the span must stay open until the stream is fully consumed,
-    // NOT when the StreamResult object is returned. withSpan would end the span too early
-    // because streaming results resolve lazily via the async generator.
-    const streamSpan = tracers.sdk.startSpan("neurolink.stream", {
-      kind: SpanKind.INTERNAL,
-      attributes: {
-        [ATTR.NL_PROVIDER]: (options.provider as string) || "default",
-        [ATTR.GEN_AI_MODEL]: options.model || "default",
-        [ATTR.NL_INPUT_LENGTH]: options.input?.text?.length || 0,
-        [ATTR.NL_HAS_TOOLS]: !!(
-          options.tools && Object.keys(options.tools).length > 0
-        ),
-        [ATTR.NL_STREAM_MODE]: true,
-      },
-    });
-    const spanStartTime = Date.now();
-
-    try {
-      const startTime = Date.now();
-      const hrTimeStart = process.hrtime.bigint();
-      const streamId = `neurolink-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const originalPrompt = options.input.text; // Store the original prompt for memory storage
-
-      // Inject file registry for lazy on-demand file processing
-      options.fileRegistry = this.fileRegistry;
-
-      await this.validateStreamInput(options);
-
-      // Check budget limit before making API call
-      if (
-        options.maxBudgetUsd !== undefined &&
-        options.maxBudgetUsd > 0 &&
-        this._sessionCostUsd >= options.maxBudgetUsd
-      ) {
-        throw new NeuroLinkError({
-          code: "SESSION_BUDGET_EXCEEDED",
-          message: `Session budget exceeded: spent $${this._sessionCostUsd.toFixed(4)} of $${options.maxBudgetUsd.toFixed(4)} limit`,
-          category: ErrorCategory.VALIDATION,
-          severity: ErrorSeverity.HIGH,
-          retriable: false,
-          context: {
-            spent: this._sessionCostUsd,
-            limit: options.maxBudgetUsd,
+    // Set metrics trace context for parent-child span linking
+    const metricsTraceId = crypto.randomUUID().replace(/-/g, "");
+    const metricsParentSpanId = crypto
+      .randomUUID()
+      .replace(/-/g, "")
+      .substring(0, 16);
+    // Scope trace context to this request via AsyncLocalStorage
+    // so concurrent generate/stream calls don't race.
+    return metricsTraceContextStorage.run(
+      { traceId: metricsTraceId, parentSpanId: metricsParentSpanId },
+      async () => {
+        // Manual span lifecycle: the span must stay open until the stream is fully consumed,
+        // NOT when the StreamResult object is returned. withSpan would end the span too early
+        // because streaming results resolve lazily via the async generator.
+        const streamSpan = tracers.sdk.startSpan("neurolink.stream", {
+          kind: SpanKind.INTERNAL,
+          attributes: {
+            [ATTR.NL_PROVIDER]: (options.provider as string) || "default",
+            [ATTR.GEN_AI_MODEL]: options.model || "default",
+            [ATTR.NL_INPUT_LENGTH]: options.input?.text?.length || 0,
+            [ATTR.NL_HAS_TOOLS]: !!(
+              options.tools && Object.keys(options.tools).length > 0
+            ),
+            [ATTR.NL_STREAM_MODE]: true,
           },
         });
-      }
+        const spanStartTime = Date.now();
 
-      this.emitStreamStartEvents(options, startTime);
-
-      // Check if workflow is requested
-      if (options.workflow || options.workflowConfig) {
-        const result = await this.streamWithWorkflow(options, startTime);
-        streamSpan.setAttribute(
-          "neurolink.response_time_ms",
-          Date.now() - spanStartTime,
-        );
-        streamSpan.setStatus({ code: SpanStatusCode.OK });
-        streamSpan.end();
-        return result;
-      }
-
-      // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
-      return await this.setLangfuseContextFromOptions(options, async () => {
         try {
-          // Prepare options: init memory, MCP, Mem0, orchestration, Ollama auto-disable, tool detection
-          const { enhancedOptions, factoryResult } =
-            await this.prepareStreamOptions(
-              options,
-              streamId,
-              startTime,
-              hrTimeStart,
-            );
+          const startTime = Date.now();
+          const hrTimeStart = process.hrtime.bigint();
+          const streamId = `neurolink-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const originalPrompt = options.input.text; // Store the original prompt for memory storage
 
-          const { stream: mcpStream, provider: providerName } =
-            await this.createMCPStream(enhancedOptions);
+          // Inject file registry for lazy on-demand file processing
+          options.fileRegistry = this.fileRegistry;
 
-          // Update span with resolved provider name
-          streamSpan.setAttribute(ATTR.NL_PROVIDER, providerName || "unknown");
+          await this.validateStreamInput(options);
 
-          let accumulatedContent = "";
-          let chunkCount = 0;
+          // Check budget limit before making API call
+          if (
+            options.maxBudgetUsd !== undefined &&
+            options.maxBudgetUsd > 0 &&
+            this._sessionCostUsd >= options.maxBudgetUsd
+          ) {
+            throw new NeuroLinkError({
+              code: "SESSION_BUDGET_EXCEEDED",
+              message: `Session budget exceeded: spent $${this._sessionCostUsd.toFixed(4)} of $${options.maxBudgetUsd.toFixed(4)} limit`,
+              category: ErrorCategory.VALIDATION,
+              severity: ErrorSeverity.HIGH,
+              retriable: false,
+              context: {
+                spent: this._sessionCostUsd,
+                limit: options.maxBudgetUsd,
+              },
+            });
+          }
 
-          // Set up event capture listeners
-          const { eventSequence, cleanup: cleanupListeners } =
-            this.setupStreamEventListeners();
+          this.emitStreamStartEvents(options, startTime);
 
-          const metadata = {
-            fallbackAttempted: false,
-            guardrailsBlocked: false,
-            error: undefined as string | undefined,
-          };
+          // Check if workflow is requested
+          if (options.workflow || options.workflowConfig) {
+            const result = await this.streamWithWorkflow(options, startTime);
 
-          const self = this;
-          const streamStartTime = Date.now();
-          const sessionId = (enhancedOptions.context as Record<string, unknown>)
-            ?.sessionId as string | undefined;
-          const processedStream = (async function* () {
-            let streamError: unknown = undefined;
-            try {
-              for await (const chunk of mcpStream) {
-                chunkCount++;
-                if (
-                  chunk &&
-                  "content" in chunk &&
-                  typeof chunk.content === "string"
-                ) {
-                  accumulatedContent += chunk.content;
-                  self.emitter.emit("response:chunk", chunk.content);
-
-                  // Emit stream:chunk event (Observability Solution 8)
-                  self.emitter.emit("stream:chunk", {
-                    type: "stream:chunk",
-                    content: chunk.content,
-                    metadata: {
-                      chunkIndex: chunkCount,
-                      totalLength: accumulatedContent.length,
-                    },
-                    timestamp: Date.now(),
-                  });
+            // Wrap the workflow stream so the span stays open until fully consumed
+            const originalWorkflowStream = result.stream;
+            result.stream = (async function* () {
+              try {
+                for await (const chunk of originalWorkflowStream) {
+                  yield chunk;
                 }
-                yield chunk;
-              }
-
-              if (chunkCount === 0 && !metadata.fallbackAttempted) {
-                yield* self.handleStreamFallback(
-                  metadata,
-                  originalPrompt,
-                  enhancedOptions,
-                  providerName,
-                  accumulatedContent,
-                  (content: string) => {
-                    accumulatedContent += content;
-                  },
-                );
-              }
-
-              // Emit stream:complete event (Observability Solution 8)
-              self.emitter.emit("stream:complete", {
-                type: "stream:complete",
-                content: accumulatedContent,
-                metadata: {
-                  chunkCount,
-                  totalLength: accumulatedContent.length,
-                  durationMs: Date.now() - streamStartTime,
-                  sessionId,
-                },
-                timestamp: Date.now(),
-              });
-            } catch (error) {
-              streamError = error;
-
-              // Emit stream:error event (Observability Solution 8)
-              self.emitter.emit("stream:error", {
-                type: "stream:error",
-                content: error instanceof Error ? error.message : String(error),
-                metadata: {
-                  chunkCount,
-                  totalLength: accumulatedContent.length,
-                  durationMs: Date.now() - streamStartTime,
-                  errorName:
-                    error instanceof Error ? error.name : "UnknownError",
-                  sessionId,
-                },
-                timestamp: Date.now(),
-              });
-
-              throw error;
-            } finally {
-              cleanupListeners();
-
-              // Finalize span now that the stream is fully consumed
-              streamSpan.setAttribute(
-                "neurolink.response_time_ms",
-                Date.now() - spanStartTime,
-              );
-              streamSpan.setAttribute(
-                ATTR.NL_OUTPUT_LENGTH,
-                accumulatedContent.length,
-              );
-              streamSpan.setAttribute(
-                ATTR.GEN_AI_FINISH_REASON,
-                metadata.error || streamError ? "error" : "stop",
-              );
-              if (metadata.error || streamError) {
+                streamSpan.setStatus({ code: SpanStatusCode.OK });
+              } catch (error) {
                 streamSpan.setStatus({
                   code: SpanStatusCode.ERROR,
                   message:
-                    metadata.error ||
-                    (streamError instanceof Error
-                      ? streamError.message
-                      : String(streamError)),
+                    error instanceof Error ? error.message : String(error),
                 });
-              } else {
-                streamSpan.setStatus({ code: SpanStatusCode.OK });
+                throw error;
+              } finally {
+                streamSpan.setAttribute(
+                  "neurolink.response_time_ms",
+                  Date.now() - spanStartTime,
+                );
+                streamSpan.end();
               }
-              streamSpan.end();
+            })();
 
-              if (accumulatedContent.trim()) {
-                logger.info(`[NeuroLink.stream] stream() - COMPLETE SUCCESS`, {
-                  provider: providerName,
-                  model: enhancedOptions.model,
-                  responseTimeMs: Date.now() - startTime,
-                  contentLength: accumulatedContent.length,
-                  fallback: metadata.fallbackAttempted,
-                });
-              }
-
-              await self.storeStreamConversationMemory({
-                enhancedOptions,
-                providerName,
-                originalPrompt,
-                accumulatedContent,
-                startTime,
-                eventSequence,
-              });
-            }
-          })();
-          const streamResult = await this.processStreamResult(
-            processedStream,
-            enhancedOptions,
-            factoryResult,
-          );
-          const responseTime = Date.now() - startTime;
-
-          // Accumulate session cost for budget tracking
-          if (streamResult.analytics?.cost && streamResult.analytics.cost > 0) {
-            this._sessionCostUsd += streamResult.analytics.cost;
+            return result;
           }
 
-          this.emitStreamEndEvents(streamResult);
+          // Set session and user IDs from context for Langfuse spans and execute with proper async scoping
+          return await this.setLangfuseContextFromOptions(options, async () => {
+            try {
+              // Prepare options: init memory, MCP, Mem0, orchestration, Ollama auto-disable, tool detection
+              const { enhancedOptions, factoryResult } =
+                await this.prepareStreamOptions(
+                  options,
+                  streamId,
+                  startTime,
+                  hrTimeStart,
+                );
 
-          return this.createStreamResponse(streamResult, processedStream, {
-            providerName,
-            options,
-            startTime,
-            responseTime,
-            streamId,
-            fallback: metadata.fallbackAttempted,
-            guardrailsBlocked: metadata.guardrailsBlocked,
-            error: metadata.error,
-            events: eventSequence,
+              const {
+                stream: mcpStream,
+                provider: providerName,
+                usage: streamUsage,
+                model: streamModel,
+                analytics: streamAnalytics,
+              } = await this.createMCPStream(enhancedOptions);
+
+              // Update span with resolved provider name
+              streamSpan.setAttribute(
+                ATTR.NL_PROVIDER,
+                providerName || "unknown",
+              );
+
+              let accumulatedContent = "";
+              let chunkCount = 0;
+
+              // Set up event capture listeners
+              const { eventSequence, cleanup: cleanupListeners } =
+                this.setupStreamEventListeners();
+
+              const metadata = {
+                fallbackAttempted: false,
+                guardrailsBlocked: false,
+                error: undefined as string | undefined,
+                fallbackProvider: undefined as string | undefined,
+                fallbackModel: undefined as string | undefined,
+              };
+
+              const self = this;
+              const streamStartTime = Date.now();
+              const sessionId = (
+                enhancedOptions.context as Record<string, unknown>
+              )?.sessionId as string | undefined;
+              const processedStream = (async function* () {
+                let streamError: unknown;
+                try {
+                  for await (const chunk of mcpStream) {
+                    chunkCount++;
+                    if (
+                      chunk &&
+                      "content" in chunk &&
+                      typeof chunk.content === "string"
+                    ) {
+                      accumulatedContent += chunk.content;
+                      self.emitter.emit("response:chunk", chunk.content);
+
+                      // Emit stream:chunk event (Observability Solution 8)
+                      self.emitter.emit("stream:chunk", {
+                        type: "stream:chunk",
+                        content: chunk.content,
+                        metadata: {
+                          chunkIndex: chunkCount,
+                          totalLength: accumulatedContent.length,
+                        },
+                        timestamp: Date.now(),
+                      });
+                    }
+                    yield chunk;
+                  }
+
+                  if (chunkCount === 0 && !metadata.fallbackAttempted) {
+                    yield* self.handleStreamFallback(
+                      metadata,
+                      originalPrompt,
+                      enhancedOptions,
+                      providerName,
+                      accumulatedContent,
+                      (content: string) => {
+                        accumulatedContent += content;
+                      },
+                    );
+                  }
+
+                  // Emit stream:complete event (Observability Solution 8)
+                  // When fallback took over, attribute the completion to the
+                  // fallback provider so downstream telemetry reflects reality.
+                  const effectiveProvider =
+                    metadata.fallbackProvider ?? providerName;
+                  const effectiveModel =
+                    metadata.fallbackModel ??
+                    streamModel ??
+                    enhancedOptions.model;
+
+                  // Resolve analytics promise to get final token usage
+                  let resolvedUsage = streamUsage;
+                  if (!resolvedUsage && streamAnalytics) {
+                    try {
+                      const resolved = await Promise.resolve(streamAnalytics);
+                      if (resolved?.tokenUsage) {
+                        resolvedUsage = resolved.tokenUsage;
+                      }
+                    } catch {
+                      /* non-blocking */
+                    }
+                  }
+
+                  self.emitter.emit("stream:complete", {
+                    type: "stream:complete",
+                    content: accumulatedContent,
+                    provider: effectiveProvider,
+                    model: effectiveModel,
+                    prompt:
+                      enhancedOptions.input?.text ||
+                      (enhancedOptions as Record<string, unknown>).prompt,
+                    metadata: {
+                      chunkCount,
+                      totalLength: accumulatedContent.length,
+                      durationMs: Date.now() - streamStartTime,
+                      sessionId,
+                      usage: resolvedUsage,
+                      ...(metadata.fallbackAttempted && {
+                        primaryProvider: providerName,
+                        primaryModel: enhancedOptions.model,
+                        fallback: true,
+                      }),
+                    },
+                    timestamp: Date.now(),
+                  });
+                } catch (error) {
+                  streamError = error;
+
+                  // Emit stream:error event (Observability Solution 8)
+                  self.emitter.emit("stream:error", {
+                    type: "stream:error",
+                    content:
+                      error instanceof Error ? error.message : String(error),
+                    provider: providerName,
+                    model: enhancedOptions.model,
+                    metadata: {
+                      chunkCount,
+                      totalLength: accumulatedContent.length,
+                      durationMs: Date.now() - streamStartTime,
+                      errorName:
+                        error instanceof Error ? error.name : "UnknownError",
+                      sessionId,
+                    },
+                    timestamp: Date.now(),
+                  });
+
+                  throw error;
+                } finally {
+                  cleanupListeners();
+
+                  // Finalize span now that the stream is fully consumed
+                  streamSpan.setAttribute(
+                    "neurolink.response_time_ms",
+                    Date.now() - spanStartTime,
+                  );
+                  streamSpan.setAttribute(
+                    ATTR.NL_OUTPUT_LENGTH,
+                    accumulatedContent.length,
+                  );
+                  // When fallback took over, the primary provider's span must
+                  // reflect that it failed — never mark it as successful.
+                  const primaryFailed = !!(metadata.error || streamError);
+                  streamSpan.setAttribute(
+                    ATTR.GEN_AI_FINISH_REASON,
+                    primaryFailed ? "error" : "stop",
+                  );
+                  if (metadata.fallbackAttempted) {
+                    streamSpan.setAttribute(
+                      "neurolink.fallback_triggered",
+                      true,
+                    );
+                    if (metadata.fallbackProvider) {
+                      streamSpan.setAttribute(
+                        "neurolink.fallback_provider",
+                        metadata.fallbackProvider,
+                      );
+                    }
+                  }
+                  if (primaryFailed) {
+                    streamSpan.setStatus({
+                      code: SpanStatusCode.ERROR,
+                      message:
+                        metadata.error ||
+                        (streamError instanceof Error
+                          ? streamError.message
+                          : String(streamError)),
+                    });
+                  } else {
+                    streamSpan.setStatus({ code: SpanStatusCode.OK });
+                  }
+                  streamSpan.end();
+
+                  if (accumulatedContent.trim()) {
+                    logger.info(
+                      `[NeuroLink.stream] stream() - COMPLETE SUCCESS`,
+                      {
+                        provider: providerName,
+                        model: enhancedOptions.model,
+                        responseTimeMs: Date.now() - startTime,
+                        contentLength: accumulatedContent.length,
+                        fallback: metadata.fallbackAttempted,
+                      },
+                    );
+                  }
+
+                  await self.storeStreamConversationMemory({
+                    enhancedOptions,
+                    providerName,
+                    originalPrompt,
+                    accumulatedContent,
+                    startTime,
+                    eventSequence,
+                  });
+                }
+              })();
+              const streamResult = await this.processStreamResult(
+                processedStream,
+                enhancedOptions,
+                factoryResult,
+              );
+              const responseTime = Date.now() - startTime;
+
+              // Accumulate session cost for budget tracking
+              if (
+                streamResult.analytics?.cost &&
+                streamResult.analytics.cost > 0
+              ) {
+                this._sessionCostUsd += streamResult.analytics.cost;
+              }
+
+              this.emitStreamEndEvents(streamResult);
+
+              return this.createStreamResponse(streamResult, processedStream, {
+                providerName,
+                options,
+                startTime,
+                responseTime,
+                streamId,
+                fallback: metadata.fallbackAttempted,
+                guardrailsBlocked: metadata.guardrailsBlocked,
+                error: metadata.error,
+                events: eventSequence,
+              });
+            } catch (error) {
+              return this.handleStreamError(
+                error,
+                options,
+                startTime,
+                streamId,
+                undefined,
+                undefined,
+              );
+            }
           });
         } catch (error) {
-          return this.handleStreamError(
-            error,
-            options,
-            startTime,
-            streamId,
-            undefined,
-            undefined,
-          );
+          // End span on error before re-throwing
+          streamSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          if (error instanceof Error) {
+            streamSpan.recordException(error);
+          }
+          streamSpan.end();
+          throw error;
         }
-      });
-    } catch (error) {
-      // End span on error before re-throwing
-      streamSpan.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: error instanceof Error ? error.message : String(error),
-      });
-      if (error instanceof Error) {
-        streamSpan.recordException(error);
-      }
-      streamSpan.end();
-      throw error;
-    }
+      },
+    ); // end metricsTraceContextStorage.run
   }
 
   /**
@@ -5276,6 +5879,8 @@ Current user's request: ${currentInput}`;
       fallbackAttempted: boolean;
       guardrailsBlocked: boolean;
       error: string | undefined;
+      fallbackProvider: string | undefined;
+      fallbackModel: string | undefined;
     },
     originalPrompt: string | undefined,
     enhancedOptions: StreamOptions,
@@ -5291,6 +5896,25 @@ Current user's request: ${currentInput}`;
     const errorMsg =
       "Stream completed with 0 chunks (possible guardrails block)";
     metadata.error = errorMsg;
+
+    // Record a failed-provider span for the primary provider that returned 0 chunks
+    try {
+      const traceCtx = this._metricsTraceContext;
+      let failedSpan = SpanSerializer.createGenerationSpan({
+        provider: providerName,
+        model: enhancedOptions.model || "unknown",
+        name: `gen_ai.${providerName}.stream.failed`,
+        traceId: traceCtx?.traceId,
+        parentSpanId: traceCtx?.parentSpanId,
+      });
+      failedSpan = SpanSerializer.endSpan(failedSpan, SpanStatus.ERROR);
+      failedSpan.statusMessage = errorMsg;
+      failedSpan.durationMs = 0;
+      this.metricsAggregator.recordSpan(failedSpan);
+      getMetricsAggregator().recordSpan(failedSpan);
+    } catch {
+      /* non-blocking */
+    }
 
     const fallbackRoute = ModelRouter.getFallbackRoute(
       originalPrompt || enhancedOptions.input.text || "",
@@ -5360,6 +5984,8 @@ Current user's request: ${currentInput}`;
       }
 
       // Fallback succeeded - likely guardrails blocked primary
+      metadata.fallbackProvider = fallbackRoute.provider;
+      metadata.fallbackModel = fallbackRoute.model;
       metadata.guardrailsBlocked = true;
     } catch (fallbackError) {
       const fallbackErrorMsg =
@@ -5430,6 +6056,7 @@ Current user's request: ${currentInput}`;
         };
       }
 
+      const memStoreStart = Date.now();
       try {
         await this.conversationMemory.storeConversationTurn({
           sessionId,
@@ -5444,6 +6071,13 @@ Current user's request: ${currentInput}`;
             ?.requestId as string | undefined,
         });
 
+        this.recordMemorySpan(
+          "memory.store",
+          { "memory.operation": "store", "memory.path": "stream" },
+          Date.now() - memStoreStart,
+          SpanStatus.OK,
+        );
+
         logger.debug(
           "[NeuroLink.stream] Stored conversation turn with events",
           {
@@ -5453,6 +6087,13 @@ Current user's request: ${currentInput}`;
           },
         );
       } catch (error) {
+        this.recordMemorySpan(
+          "memory.store",
+          { "memory.operation": "store", "memory.path": "stream" },
+          Date.now() - memStoreStart,
+          SpanStatus.ERROR,
+          error instanceof Error ? error.message : String(error),
+        );
         logger.warn("Failed to store stream conversation turn", {
           error: error instanceof Error ? error.message : String(error),
         });
@@ -5556,6 +6197,9 @@ Current user's request: ${currentInput}`;
       | { type: "image"; imageOutput: { base64: string } }
     >;
     provider: string;
+    usage?: { input: number; output: number; total: number };
+    model?: string;
+    analytics?: AnalyticsData | Promise<AnalyticsData>;
   }> {
     // Simplified placeholder - in the actual implementation this would contain the complex MCP stream logic
     const providerName = await getBestProvider(options.provider);
@@ -5566,6 +6210,9 @@ Current user's request: ${currentInput}`;
       this as unknown as UnknownRecord, // Pass SDK instance
       options.region, // Pass region parameter
     );
+
+    // Propagate trace context for parent-child span hierarchy
+    provider._traceContext = this._metricsTraceContext;
 
     // Enable tool execution for the provider using BaseProvider method
     provider.setupToolExecutor(
@@ -5641,7 +6288,13 @@ Current user's request: ${currentInput}`;
       systemPromptPassedLength: enhancedSystemPrompt.length,
     });
 
-    return { stream: streamResult.stream, provider: providerName };
+    return {
+      stream: streamResult.stream,
+      provider: providerName,
+      usage: streamResult.usage,
+      model: streamResult.model || options.model,
+      analytics: streamResult.analytics,
+    };
   }
 
   /**
@@ -5760,6 +6413,27 @@ Current user's request: ${currentInput}`;
       error: error instanceof Error ? error.message : String(error),
     });
 
+    // Record a failed-provider span for the primary provider that threw
+    try {
+      const failedProvider = options.provider || "unknown";
+      const traceCtx = this._metricsTraceContext;
+      let failedSpan = SpanSerializer.createGenerationSpan({
+        provider: failedProvider,
+        model: options.model || "unknown",
+        name: `gen_ai.${failedProvider}.stream.failed`,
+        traceId: traceCtx?.traceId,
+        parentSpanId: traceCtx?.parentSpanId,
+      });
+      failedSpan = SpanSerializer.endSpan(failedSpan, SpanStatus.ERROR);
+      failedSpan.statusMessage =
+        error instanceof Error ? error.message : String(error);
+      failedSpan.durationMs = Date.now() - startTime;
+      this.metricsAggregator.recordSpan(failedSpan);
+      getMetricsAggregator().recordSpan(failedSpan);
+    } catch {
+      /* non-blocking */
+    }
+
     const originalPrompt = options.input.text;
     const responseTime = Date.now() - startTime;
     const providerName = await getBestProvider(options.provider);
@@ -5824,6 +6498,7 @@ Current user's request: ${currentInput}`;
             };
           }
 
+          const memStoreStart = Date.now();
           try {
             await self.conversationMemory.storeConversationTurn({
               sessionId: sessionId || (options.context?.sessionId as string),
@@ -5842,7 +6517,20 @@ Current user's request: ${currentInput}`;
                 ((options.context as Record<string, unknown> | undefined)
                   ?.requestId as string | undefined),
             });
+            self.recordMemorySpan(
+              "memory.store",
+              { "memory.operation": "store", "memory.path": "fallback-stream" },
+              Date.now() - memStoreStart,
+              SpanStatus.OK,
+            );
           } catch (error) {
+            self.recordMemorySpan(
+              "memory.store",
+              { "memory.operation": "store", "memory.path": "fallback-stream" },
+              Date.now() - memStoreStart,
+              SpanStatus.ERROR,
+              error instanceof Error ? error.message : String(error),
+            );
             logger.warn("Failed to store fallback stream conversation turn", {
               error: error instanceof Error ? error.message : String(error),
             });

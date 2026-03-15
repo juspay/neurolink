@@ -6,6 +6,12 @@
 
 import { mcpLogger } from "../utils/logger.js";
 import type { RateLimitConfig, RateLimiterStats } from "../types/mcpTypes.js";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+} from "../observability/index.js";
+import { getMetricsAggregator } from "../observability/index.js";
 
 /**
  * Default rate limit configuration
@@ -87,23 +93,53 @@ export class HTTPRateLimiter {
    * @throws Error if the wait queue is too long
    */
   async acquire(): Promise<void> {
-    // First, try to acquire without waiting
-    if (this.tryAcquire()) {
-      return;
-    }
+    const span = SpanSerializer.createSpan(
+      SpanType.MCP_TRANSPORT,
+      "mcp.rateLimit",
+      {
+        "mcp.transport": "http",
+        "mcp.operation": "rateLimit",
+        "mcp.rateLimit.tokensAvailable": this.tokens,
+        "mcp.rateLimit.maxBurst": this.config.maxBurst,
+      },
+    );
+    const startTime = Date.now();
 
-    // Add to wait queue
-    return new Promise<void>((resolve, reject) => {
-      this.waitQueue.push({ resolve, reject });
-      mcpLogger.debug(
-        `[HTTPRateLimiter] Request queued, queue length: ${this.waitQueue.length}`,
-      );
-
-      // Start processing the queue if not already processing
-      if (!this.processingQueue) {
-        this.processQueue();
+    try {
+      // First, try to acquire without waiting
+      if (this.tryAcquire()) {
+        span.durationMs = Date.now() - startTime;
+        span.attributes["mcp.rateLimit.waited"] = false;
+        const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+        getMetricsAggregator().recordSpan(endedSpan);
+        return;
       }
-    });
+
+      // Add to wait queue
+      await new Promise<void>((resolve, reject) => {
+        this.waitQueue.push({ resolve, reject });
+        mcpLogger.debug(
+          `[HTTPRateLimiter] Request queued, queue length: ${this.waitQueue.length}`,
+        );
+
+        // Start processing the queue if not already processing
+        if (!this.processingQueue) {
+          this.processQueue();
+        }
+      });
+
+      span.durationMs = Date.now() - startTime;
+      span.attributes["mcp.rateLimit.waited"] = true;
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+      getMetricsAggregator().recordSpan(endedSpan);
+    } catch (error) {
+      span.durationMs = Date.now() - startTime;
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+      endedSpan.statusMessage =
+        error instanceof Error ? error.message : String(error);
+      getMetricsAggregator().recordSpan(endedSpan);
+      throw error;
+    }
   }
 
   /**

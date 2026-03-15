@@ -1543,6 +1543,39 @@ export class GoogleVertexProvider extends BaseProvider {
     ];
   }
 
+  /**
+   * Convert conversationMessages from NeuroLink's ChatMessage format into
+   * the @google/genai contents format and prepend them before the current
+   * user message. This gives the native Gemini 3 path multi-turn context
+   * that was previously dropped (only the current prompt was sent).
+   */
+  private prependConversationHistory(
+    currentContents: Array<{ role: string; parts: unknown[] }>,
+    conversationMessages?: Array<{ role: string; content: string }>,
+  ): Array<{ role: string; parts: unknown[] }> {
+    if (!conversationMessages || conversationMessages.length === 0) {
+      return currentContents;
+    }
+
+    const history: Array<{ role: string; parts: unknown[] }> = [];
+    for (const msg of conversationMessages) {
+      // @google/genai only accepts "user" and "model" roles in contents.
+      // Skip system messages (handled via config.systemInstruction).
+      // Map "assistant" → "model" (Gemini convention).
+      const role = msg.role === "assistant" ? "model" : msg.role;
+      if (role !== "user" && role !== "model") {
+        continue;
+      }
+      if (!msg.content || msg.content.trim().length === 0) {
+        continue;
+      }
+      history.push({ role, parts: [{ text: msg.content }] });
+    }
+
+    // Prepend history before current user message
+    return [...history, ...currentContents];
+  }
+
   // ── Shared Gemini 3 helpers are now in ./googleNativeGemini3.ts ──
 
   /**
@@ -1627,6 +1660,14 @@ export class GoogleVertexProvider extends BaseProvider {
         // Build config
         const config = buildNativeConfig(options, toolsConfig);
 
+        // Global endpoint rejects systemInstruction for Gemini 3.x —
+        // move it into a prefixed user message (same fix as generate path)
+        let streamSystemPreamble: string | undefined;
+        if (effectiveLocation === "global" && config.systemInstruction) {
+          streamSystemPreamble = config.systemInstruction as string;
+          delete config.systemInstruction;
+        }
+
         // Add JSON output format support for native SDK stream
         if (streamOptions.output?.format === "json" || streamOptions.schema) {
           config.responseMimeType = "application/json";
@@ -1662,10 +1703,31 @@ export class GoogleVertexProvider extends BaseProvider {
           timeoutController?.controller.signal,
         );
         const maxSteps = computeMaxStepsShared(options.maxSteps);
-        const currentContents = [...contents] as Array<{
-          role: string;
-          parts: unknown[];
-        }>;
+        // Inject conversation history so the native path has multi-turn context
+        let currentContents = this.prependConversationHistory(
+          [...contents] as Array<{ role: string; parts: unknown[] }>,
+          (options as TextGenerationOptions).conversationMessages as
+            | Array<{ role: string; content: string }>
+            | undefined,
+        );
+        // Prepend system prompt as a user message for the global endpoint.
+        // Gemini requires alternating user/model turns, so a minimal model
+        // acknowledgement is included to avoid consecutive-user-turn errors.
+        if (streamSystemPreamble) {
+          currentContents = [
+            {
+              role: "user",
+              parts: [
+                { text: `[System Instructions]\n${streamSystemPreamble}` },
+              ],
+            },
+            {
+              role: "model",
+              parts: [{ text: "OK" }],
+            },
+            ...currentContents,
+          ];
+        }
         let finalText = "";
         let lastStepText = "";
         let totalInputTokens = 0;
@@ -1896,6 +1958,15 @@ export class GoogleVertexProvider extends BaseProvider {
         // Build config
         const config = buildNativeConfig(options, toolsConfig);
 
+        // Global endpoint rejects systemInstruction for Gemini 3.x, returning
+        // "Please use a valid role: user, model." Move it into a prefixed
+        // user message so the model still receives the system context.
+        let systemPreamble: string | undefined;
+        if (effectiveLocation === "global" && config.systemInstruction) {
+          systemPreamble = config.systemInstruction as string;
+          delete config.systemInstruction;
+        }
+
         // Note: Schema/JSON output for Gemini 3 native SDK is complex due to $ref resolution issues
         // For now, schemas are handled via the AI SDK fallback path, not native SDK
         // TODO: Implement proper $ref resolution for complex nested schemas
@@ -1912,10 +1983,29 @@ export class GoogleVertexProvider extends BaseProvider {
           timeoutController?.controller.signal,
         );
         const maxSteps = computeMaxStepsShared(options.maxSteps);
-        const currentContents = [...contents] as Array<{
-          role: string;
-          parts: unknown[];
-        }>;
+        // Inject conversation history so the native path has multi-turn context
+        let currentContents = this.prependConversationHistory(
+          [...contents] as Array<{ role: string; parts: unknown[] }>,
+          options.conversationMessages as
+            | Array<{ role: string; content: string }>
+            | undefined,
+        );
+        // Prepend system prompt as a user message for the global endpoint.
+        // Gemini requires alternating user/model turns, so a minimal model
+        // acknowledgement is included to avoid consecutive-user-turn errors.
+        if (systemPreamble) {
+          currentContents = [
+            {
+              role: "user",
+              parts: [{ text: `[System Instructions]\n${systemPreamble}` }],
+            },
+            {
+              role: "model",
+              parts: [{ text: "OK" }],
+            },
+            ...currentContents,
+          ];
+        }
         let finalText = "";
         let lastStepText = "";
         let totalInputTokens = 0;

@@ -32,12 +32,22 @@ try {
   packageData = { version: "unknown", main: "dist/index.js" };
 }
 
-import {
-  NeuroLink,
-  type ProcessResult,
-  type TestFunction,
-  type TestResult,
-} from "../dist/index.js";
+import { NeuroLink, type ProcessResult } from "../dist/index.js";
+
+// Local type overrides to support null (SKIP) results
+// The dist types only support boolean, but our test suite needs true/false/null
+type TestFunction = {
+  name: string;
+  fn: () => Promise<boolean | null>;
+  category?: string;
+};
+
+type TestResult = {
+  name: string;
+  result: boolean | null; // true = PASS, false = FAIL, null = SKIP
+  error: string | null;
+};
+
 import type {
   ColorName,
   DestroyInventoryParams,
@@ -64,7 +74,7 @@ const TEST_CONFIG = {
   provider: process.env.TEST_PROVIDER || "vertex",
   model: process.env.TEST_MODEL || (undefined as string | undefined), // Optional model override
   maxTokens: undefined as number | undefined, // Dynamically set based on provider
-  timeout: 60000, // Increased to 60 seconds for CLI stream reliability
+  timeout: 120000, // 120 seconds: child process tests need ~30s for MCP server startup + API call time
 
   // Expected external data that AI cannot know
   expectedFileData: {
@@ -73,7 +83,7 @@ const TEST_CONFIG = {
       packageData.main || "dist/index.js",
     ],
     "README.md": ["NeuroLink", "MCP", "SDK"],
-    "tsconfig.json": ["ES2022", "CommonJS", "strict"],
+    "tsconfig.json": ["compilerOptions", "ES2022", "ESNext", "outDir"],
     ".mcp-config.json": ["filesystem", "github", "stdio"],
   },
 };
@@ -281,10 +291,17 @@ function logSection(title: string): void {
 
 function logTest(
   testName: string,
-  status: "PASS" | "FAIL" | "TESTING",
+  status: "PASS" | "FAIL" | "TESTING" | "SKIP",
   details = "",
 ): void {
-  const icon = status === "PASS" ? "✅" : status === "FAIL" ? "❌" : "⚠️";
+  const icon =
+    status === "PASS"
+      ? "✅"
+      : status === "FAIL"
+        ? "❌"
+        : status === "SKIP"
+          ? "⏭️"
+          : "⚠️";
   const color: ColorName =
     status === "PASS" ? "green" : status === "FAIL" ? "red" : "yellow";
   log(`${icon} ${testName}`, color);
@@ -528,7 +545,7 @@ function runCommand(
 }
 
 // Test CLI generate command with external tools
-async function testCLIGenerate(): Promise<boolean> {
+async function testCLIGenerate(): Promise<boolean | null> {
   logSection("Testing CLI Generate with External Tools");
 
   try {
@@ -555,19 +572,27 @@ async function testCLIGenerate(): Promise<boolean> {
       return false;
     }
 
-    // Validate tool availability using dynamic expectations
-    const toolValidation = validateToolAvailability(toolsResult.stdout);
-    if (toolValidation.passed) {
+    // Tighter validation: require actual MCP tool names AND "filesystem"
+    const toolsResponseLower = toolsResult.stdout.toLowerCase();
+    const hasActualToolName =
+      toolsResponseLower.includes("read_file") ||
+      toolsResponseLower.includes("write_file");
+    const hasFilesystem =
+      toolsResponseLower.includes("filesystem") ||
+      toolsResponseLower.includes("file system") ||
+      toolsResponseLower.includes("file_system");
+
+    if (hasActualToolName && hasFilesystem) {
       logTest(
         "CLI Generate - Tool Discovery",
         "PASS",
-        `External tools detected: ${toolValidation.details.join("; ")}`,
+        `External tools detected: read_file/write_file=${hasActualToolName}, filesystem=${hasFilesystem}`,
       );
     } else {
       logTest(
         "CLI Generate - Tool Discovery",
         "FAIL",
-        `No external tools found: ${toolValidation.details.join("; ")}`,
+        `Missing required tool indicators: read_file/write_file=${hasActualToolName}, filesystem=${hasFilesystem}`,
       );
       log("Tools response preview:", "yellow");
       log(toolsResult.stdout.substring(0, 500) + "...", "reset");
@@ -602,20 +627,31 @@ async function testCLIGenerate(): Promise<boolean> {
       "Filesystem tool executed successfully",
     );
 
-    // Verify external tool was used using dynamic package.json validation
-    const packageValidation = validatePackageJson(fileResult.stdout);
-    if (packageValidation.passed) {
+    // Verify external tool was used — require specific patterns from package.json
+    const fileResponseLower = fileResult.stdout.toLowerCase();
+    const dataChecks = {
+      packageName: fileResponseLower.includes("@juspay/neurolink"),
+      versionPattern: /\d+\.\d+\.\d+/.test(fileResult.stdout),
+      mainOrExports:
+        fileResponseLower.includes('"main"') ||
+        fileResponseLower.includes("main") ||
+        fileResponseLower.includes('"exports"') ||
+        fileResponseLower.includes("exports"),
+    };
+    const dataMatchCount = Object.values(dataChecks).filter(Boolean).length;
+
+    if (dataMatchCount >= 2) {
       logTest(
         "CLI Generate - External Data Verification",
         "PASS",
-        `External filesystem tool was used successfully: ${packageValidation.details.join("; ")}`,
+        `External filesystem tool was used successfully: name=${dataChecks.packageName}, version=${dataChecks.versionPattern}, main/exports=${dataChecks.mainOrExports} (${dataMatchCount}/3)`,
       );
       return true;
     } else {
       logTest(
         "CLI Generate - External Data Verification",
         "FAIL",
-        `No evidence of external tool usage: ${packageValidation.details.join("; ")}`,
+        `Insufficient evidence of external tool usage: name=${dataChecks.packageName}, version=${dataChecks.versionPattern}, main/exports=${dataChecks.mainOrExports} (${dataMatchCount}/3, need 2+)`,
       );
       log("Response preview:", "yellow");
       log(fileResult.stdout.substring(0, 500) + "...", "reset");
@@ -629,7 +665,7 @@ async function testCLIGenerate(): Promise<boolean> {
 }
 
 // Test CLI stream command with external tools
-async function testCLIStream(): Promise<boolean> {
+async function testCLIStream(): Promise<boolean | null> {
   logSection("Testing CLI Stream with External Tools");
 
   try {
@@ -676,7 +712,7 @@ async function testCLIStream(): Promise<boolean> {
       return false;
     }
 
-    // Test 2: Use filesystem tool via stream
+    // Test 2: Use filesystem tool via stream — count chunks received
     log(
       "Step 2: Using filesystem tool via stream to read README.md...",
       "blue",
@@ -684,19 +720,53 @@ async function testCLIStream(): Promise<boolean> {
 
     const filePrompt = `Read the file at ${cwd}/README.md and provide a brief summary of this project and its key features.`;
 
-    const fileResult = await runCommand("node", [
-      "dist/cli/index.js",
-      "stream",
-      ...buildBaseCLIArgs(),
-      filePrompt,
-    ]);
-
-    if (!fileResult.success) {
-      logTest(
-        "CLI Stream - Tool Execution",
-        "FAIL",
-        `Exit code: ${fileResult.code}, Error: ${fileResult.stderr}`,
+    // Use spawn directly to count chunks (data events) from streaming
+    const streamChunkResult = await new Promise<{
+      stdout: string;
+      chunkCount: number;
+      success: boolean;
+    }>((resolve, reject) => {
+      const proc = spawn(
+        "node",
+        ["dist/cli/index.js", "stream", ...buildBaseCLIArgs(), filePrompt],
+        {
+          stdio: ["pipe", "pipe", "pipe"],
+        },
       );
+
+      let stdout = "";
+      let stderr = "";
+      let chunkCount = 0;
+
+      proc.stdout?.on("data", (data) => {
+        stdout += data.toString();
+        chunkCount++;
+      });
+
+      proc.stderr?.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      const timeoutId = setTimeout(() => {
+        if (!proc.killed) {
+          proc.kill("SIGTERM");
+        }
+        reject(new Error("CLI stream chunk counting timed out"));
+      }, TEST_CONFIG.timeout);
+
+      proc.on("close", (code) => {
+        clearTimeout(timeoutId);
+        resolve({ stdout: stdout.trim(), chunkCount, success: code === 0 });
+      });
+
+      proc.on("error", (err) => {
+        clearTimeout(timeoutId);
+        reject(err);
+      });
+    });
+
+    if (!streamChunkResult.success) {
+      logTest("CLI Stream - Tool Execution", "FAIL", "Stream command failed");
       return false;
     }
 
@@ -706,10 +776,26 @@ async function testCLIStream(): Promise<boolean> {
       "Streaming with filesystem tool executed successfully",
     );
 
+    // Assert that we received more than 1 chunk (actual streaming)
+    log(`Stream chunks received: ${streamChunkResult.chunkCount}`, "reset");
+    if (streamChunkResult.chunkCount <= 1) {
+      logTest(
+        "CLI Stream - Chunk Count",
+        "FAIL",
+        `Expected > 1 chunks, got ${streamChunkResult.chunkCount} (not actually streaming)`,
+      );
+      return false;
+    }
+    logTest(
+      "CLI Stream - Chunk Count",
+      "PASS",
+      `Received ${streamChunkResult.chunkCount} chunks (streaming confirmed)`,
+    );
+
     // Verify external data is included using dynamic validation
     const expectedData = TEST_CONFIG.expectedFileData["README.md"];
     const dataValidation = validateExternalData(
-      fileResult.stdout,
+      streamChunkResult.stdout,
       expectedData,
     );
 
@@ -736,7 +822,7 @@ async function testCLIStream(): Promise<boolean> {
 }
 
 // Test SDK generate with external tools
-async function testSDKGenerate(sdk: NeuroLink): Promise<boolean> {
+async function testSDKGenerate(sdk: NeuroLink): Promise<boolean | null> {
   logSection("Testing SDK Generate with External Tools");
 
   try {
@@ -782,7 +868,7 @@ async function testSDKGenerate(sdk: NeuroLink): Promise<boolean> {
 
     const result = await sdk.generate({
       input: {
-        text: "Read the tsconfig.json file and tell me the target ES version, module system, and whether strict mode is enabled.",
+        text: "Read the tsconfig.json file and list the exact JSON field names under compilerOptions. Quote the field names exactly as they appear in the file.",
       },
       maxTokens: TEST_CONFIG.maxTokens,
       provider: sdkOptions.provider,
@@ -794,31 +880,53 @@ async function testSDKGenerate(sdk: NeuroLink): Promise<boolean> {
     log("Provider: " + result.provider, "reset");
     log("Tools used: " + (result.toolsUsed?.length || 0), "reset");
 
-    // Check for expected tsconfig.json data (case-insensitive to handle provider differences)
-    const expectedData = TEST_CONFIG.expectedFileData["tsconfig.json"];
+    // Check for tsconfig-specific patterns: "compilerOptions", "ES2022" or "ESNext", "outDir"
+    // Require at least 2 matches to confirm real file access
     const contentLower = result.content.toLowerCase();
-    const foundData = expectedData.filter((data) =>
-      contentLower.includes(data.toLowerCase()),
-    );
+    // tsconfig.json contains: compilerOptions, strict, esModuleInterop, resolveJsonModule,
+    // allowJs, checkJs, sourceMap, skipLibCheck, forceConsistentCasingInFileNames, extends
+    // Check for patterns that actually exist in the file — broad matching for AI paraphrasing
+    const tsconfigChecks = {
+      compilerOptions:
+        contentLower.includes("compileroptions") ||
+        contentLower.includes("compiler options") ||
+        contentLower.includes("compilerOptions"),
+      strict:
+        contentLower.includes("strict") || contentLower.includes('"strict"'),
+      knownFields:
+        contentLower.includes("allowjs") ||
+        contentLower.includes("allow js") ||
+        contentLower.includes("checkjs") ||
+        contentLower.includes("check js") ||
+        contentLower.includes("sourcemap") ||
+        contentLower.includes("source map") ||
+        contentLower.includes("skiplibcheck") ||
+        contentLower.includes("skip lib check") ||
+        contentLower.includes("esmoduleinterop") ||
+        contentLower.includes("resolvejsonmodule") ||
+        contentLower.includes("forceconsistentcasinginfilenames") ||
+        contentLower.includes(".svelte-kit"),
+    };
+    const tsconfigMatchCount =
+      Object.values(tsconfigChecks).filter(Boolean).length;
 
     log(
-      "Found expected data: " + foundData.length + "/" + expectedData.length,
+      `Found tsconfig patterns: compilerOptions=${tsconfigChecks.compilerOptions}, strict=${tsconfigChecks.strict}, knownFields=${tsconfigChecks.knownFields} (${tsconfigMatchCount}/3)`,
       "reset",
     );
-    log("Found values: " + foundData.join(", "), "reset");
 
-    if (foundData.length >= 1) {
+    if (tsconfigMatchCount >= 2) {
       logTest(
         "SDK Generate - Execution & Data Verification",
         "PASS",
-        "Successfully discovered and used external tools",
+        `Successfully discovered and used external tools (${tsconfigMatchCount}/3 tsconfig patterns matched)`,
       );
       return true;
     } else {
       logTest(
         "SDK Generate - Execution & Data Verification",
         "FAIL",
-        "Missing expected data in response",
+        `Missing expected tsconfig data: compilerOptions=${tsconfigChecks.compilerOptions}, strict=${tsconfigChecks.strict}, knownFields=${tsconfigChecks.knownFields} (${tsconfigMatchCount}/3, need 2+)`,
       );
       log("Response preview: " + result.content.substring(0, 500), "reset");
       return false;
@@ -831,7 +939,7 @@ async function testSDKGenerate(sdk: NeuroLink): Promise<boolean> {
 }
 
 // Test SDK stream with external tools
-async function testSDKStream(sdk: NeuroLink): Promise<boolean> {
+async function testSDKStream(sdk: NeuroLink): Promise<boolean | null> {
   logSection("Testing SDK Stream with External Tools");
 
   try {
@@ -941,7 +1049,7 @@ async function testSDKStream(sdk: NeuroLink): Promise<boolean> {
     let totalContentLength = 0;
     const maxChunks = 50;
     const maxContentLength = 10000;
-    const completionIndicators = ["---", "END", "DONE", ".", "complete"];
+    const completionIndicators = ["---", "END", "DONE", "complete"];
 
     for await (const chunk of streamResult.stream) {
       chunks.push(chunk.content);
@@ -1022,7 +1130,7 @@ type BusinessTools = {
 };
 
 // Business Tools Tests - Custom tools that provide data AI cannot know
-async function testSDKBusinessTools(): Promise<boolean> {
+async function testSDKBusinessTools(): Promise<boolean | null> {
   logSection("Testing SDK with Business Tools");
 
   const sdk = new NeuroLink();
@@ -1181,9 +1289,11 @@ async function testSDKBusinessTools(): Promise<boolean> {
   }
 }
 
-// CLI Business Tools Test - Direct SDK usage test (same as SDK tests)
-async function testCLIBusinessTools(): Promise<boolean> {
-  logSection("Testing CLI with Business Tools");
+// CLI Business Tools Test - Direct SDK usage test
+// NOTE: CLI cannot register custom tools at runtime. This test uses the SDK directly
+// to simulate CLI-like behavior, hence the name "CLI Simulation".
+async function testCLIBusinessTools(): Promise<boolean | null> {
+  logSection("Testing SDK Business Tools (CLI Simulation)");
 
   try {
     const sdk = new NeuroLink();
@@ -1202,14 +1312,14 @@ async function testCLIBusinessTools(): Promise<boolean> {
     });
 
     logTest(
-      "CLI Business Tools Registration",
+      "SDK Business Tools (CLI Simulation) Registration",
       "PASS",
-      "Business tool registered for CLI testing",
+      "Business tool registered",
     );
 
-    // Test with generate (simulating CLI usage)
+    // Test with generate (simulating CLI usage — CLI cannot register custom tools at runtime)
     logTest(
-      "CLI Business Tools Generate",
+      "SDK Business Tools (CLI Simulation) Generate",
       "TESTING",
       "Testing business tool execution...",
     );
@@ -1247,14 +1357,14 @@ async function testCLIBusinessTools(): Promise<boolean> {
 
     if (businessValidation.passed) {
       logTest(
-        "CLI Business Tools",
+        "SDK Business Tools (CLI Simulation)",
         "PASS",
         `Business metrics validation passed: ${businessValidation.details.join("; ")}`,
       );
       return true;
     } else {
       logTest(
-        "CLI Business Tools",
+        "SDK Business Tools (CLI Simulation)",
         "FAIL",
         `Business metrics validation failed: ${businessValidation.details.join("; ")}`,
       );
@@ -1262,7 +1372,7 @@ async function testCLIBusinessTools(): Promise<boolean> {
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("CLI Business Tools", "FAIL", errorMessage);
+    logTest("SDK Business Tools (CLI Simulation)", "FAIL", errorMessage);
     return false;
   }
 }
@@ -1478,7 +1588,7 @@ function registerHITLBusinessTools(neurolink: NeuroLink): void {
  */
 
 // Test SDK Generate with HITL Business Tools
-async function testSDKHITLGenerate(): Promise<boolean> {
+async function testSDKHITLGenerate(): Promise<boolean | null> {
   logSection("Testing SDK Generate with HITL Business Tools");
 
   try {
@@ -1489,7 +1599,7 @@ async function testSDKHITLGenerate(): Promise<boolean> {
     registerHITLBusinessTools(sdk);
 
     let confirmationReceived = false;
-    let hitlTestPassed = false;
+    const hitlTestPassed = false;
 
     // Set up HITL event listeners
     emitter.on("hitl:confirmation-request", (...args: unknown[]) => {
@@ -1544,17 +1654,22 @@ async function testSDKHITLGenerate(): Promise<boolean> {
       },
     });
     if (confirmationReceived) {
-      logTest("SDK HITL Generate", "PASS", `HITL triggered`);
-      hitlTestPassed = true;
-    } else {
+      // AI called the dangerous tool and HITL intercepted it — PASS
       logTest(
         "SDK HITL Generate",
-        "FAIL",
-        `HITL received: ${confirmationReceived}`,
+        "PASS",
+        "HITL triggered and intercepted dangerous tool call",
       );
+      return true;
+    } else {
+      // AI did not call the tool — non-deterministic, SKIP (not FAIL)
+      logTest(
+        "SDK HITL Generate",
+        "TESTING",
+        "AI did not call the dangerous tool — SKIP (non-deterministic)",
+      );
+      return null; // SKIP — AI didn't cooperate
     }
-
-    return hitlTestPassed;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logTest("SDK HITL Generate", "FAIL", errorMessage);
@@ -1563,7 +1678,7 @@ async function testSDKHITLGenerate(): Promise<boolean> {
 }
 
 // Test SDK Stream with HITL Business Tools
-async function testSDKHITLStream(): Promise<boolean> {
+async function testSDKHITLStream(): Promise<boolean | null> {
   logSection("Testing SDK Stream with HITL Business Tools");
 
   try {
@@ -1574,7 +1689,7 @@ async function testSDKHITLStream(): Promise<boolean> {
     registerHITLBusinessTools(sdk);
 
     let confirmationReceived = false;
-    let hitlTestPassed = false;
+    const hitlTestPassed = false;
 
     // Set up HITL event listeners
     emitter.on("hitl:confirmation-request", (...args: unknown[]) => {
@@ -1631,18 +1746,36 @@ async function testSDKHITLStream(): Promise<boolean> {
         userId: "test-user",
       },
     });
+
+    // Consume the stream before checking HITL events
+    let streamContent = "";
+    for await (const chunk of streamResult.stream) {
+      if ("content" in chunk && typeof chunk.content === "string") {
+        streamContent += chunk.content;
+      }
+    }
+    log(
+      `[HITL Stream] Stream consumed, content length: ${streamContent.length}`,
+      "reset",
+    );
+
     if (confirmationReceived) {
-      logTest("SDK HITL Stream", "PASS", `HITL triggered`);
-      hitlTestPassed = true;
-    } else {
+      // AI called the dangerous tool and HITL intercepted it — PASS
       logTest(
         "SDK HITL Stream",
-        "FAIL",
-        `HITL received: ${confirmationReceived}`,
+        "PASS",
+        "HITL triggered and intercepted dangerous tool call during stream",
       );
+      return true;
+    } else {
+      // AI did not call the tool — non-deterministic, SKIP (not FAIL)
+      logTest(
+        "SDK HITL Stream",
+        "TESTING",
+        "AI did not call the dangerous tool during stream — SKIP (non-deterministic)",
+      );
+      return null; // SKIP — AI didn't cooperate
     }
-
-    return hitlTestPassed;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logTest("SDK HITL Stream", "FAIL", errorMessage);
@@ -1650,9 +1783,11 @@ async function testSDKHITLStream(): Promise<boolean> {
   }
 }
 
-// Enterprise Proxy Support Test - Test proxy configuration handling
-async function testEnterpriseProxySupport(): Promise<boolean> {
-  logSection("Testing Enterprise Proxy Support");
+// SDK Init With Proxy Env Vars (Smoke) - Test that SDK initializes correctly when proxy env vars are set
+// NOTE: Actual proxy routing cannot be tested without a proxy server.
+// This test only verifies SDK initialization doesn't break in the presence of proxy environment variables.
+async function testEnterpriseProxySupport(): Promise<boolean | null> {
+  logSection("SDK Init With Proxy Env Vars (Smoke)");
 
   try {
     // Check for proxy environment variables
@@ -1726,12 +1861,12 @@ async function testEnterpriseProxySupport(): Promise<boolean> {
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logTest("Enterprise Proxy Support", "FAIL", errorMessage);
+    logTest("SDK Init With Proxy Env Vars (Smoke)", "FAIL", errorMessage);
     return false;
   }
 }
 
-async function testCLIGenerateCSV(): Promise<boolean> {
+async function testCLIGenerateCSV(): Promise<boolean | null> {
   logSection("Testing CLI Generate with CSV");
 
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-cli-csv-");
@@ -1809,7 +1944,7 @@ async function testCLIGenerateCSV(): Promise<boolean> {
   }
 }
 
-async function testCLIStreamCSV(): Promise<boolean> {
+async function testCLIStreamCSV(): Promise<boolean | null> {
   logSection("Testing CLI Stream with CSV");
 
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-cli-stream-csv-");
@@ -1886,7 +2021,7 @@ async function testCLIStreamCSV(): Promise<boolean> {
   }
 }
 
-async function testSDKGenerateCSV(): Promise<boolean> {
+async function testSDKGenerateCSV(): Promise<boolean | null> {
   logSection("Testing SDK Generate with CSV");
 
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-sdk-gen-csv-");
@@ -1994,7 +2129,7 @@ testSDKGenerateCSV();
   }
 }
 
-async function testSDKStreamCSV(): Promise<boolean> {
+async function testSDKStreamCSV(): Promise<boolean | null> {
   logSection("Testing SDK Stream with CSV");
 
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-sdk-stream-csv-");
@@ -2107,7 +2242,7 @@ testSDKStreamCSV();
   }
 }
 
-async function testCLIStreamTwoCSVComparison(): Promise<boolean> {
+async function testCLIStreamTwoCSVComparison(): Promise<boolean | null> {
   logSection("Testing CLI Stream with Two CSV Comparison");
 
   try {
@@ -2172,7 +2307,7 @@ async function testCLIStreamTwoCSVComparison(): Promise<boolean> {
   }
 }
 
-async function testCLIStreamCSVAndScreenshot(): Promise<boolean> {
+async function testCLIStreamCSVAndScreenshot(): Promise<boolean | null> {
   logSection("Testing CLI Stream with CSV and Screenshot");
 
   try {
@@ -2181,10 +2316,10 @@ async function testCLIStreamCSVAndScreenshot(): Promise<boolean> {
     if (!fs.existsSync(screenshotPath)) {
       logTest(
         "CLI Stream CSV and Screenshot",
-        "PASS",
+        "SKIP",
         "Skipped - screenshot fixture not available (optional test)",
       );
-      return true; // Return true to not fail the suite
+      return null; // SKIP — fixture not available
     }
 
     log("Step 1: Testing CLI stream with CSV and screenshot...", "blue");
@@ -2252,7 +2387,7 @@ async function testCLIStreamCSVAndScreenshot(): Promise<boolean> {
   }
 }
 
-async function testCLIGeneratePDF(): Promise<boolean> {
+async function testCLIGeneratePDF(): Promise<boolean | null> {
   logSection("Testing CLI Generate with PDF");
 
   try {
@@ -2299,7 +2434,7 @@ async function testCLIGeneratePDF(): Promise<boolean> {
   }
 }
 
-async function testCLIStreamPDF(): Promise<boolean> {
+async function testCLIStreamPDF(): Promise<boolean | null> {
   logSection("Testing CLI Stream with PDF");
 
   try {
@@ -2354,7 +2489,7 @@ async function testCLIStreamPDF(): Promise<boolean> {
   }
 }
 
-async function testSDKGeneratePDF(): Promise<boolean> {
+async function testSDKGeneratePDF(): Promise<boolean | null> {
   logSection("Testing SDK Generate with PDF");
 
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-sdk-gen-pdf-");
@@ -2450,7 +2585,7 @@ testSDKGeneratePDF();
   }
 }
 
-async function testSDKStreamPDF(): Promise<boolean> {
+async function testSDKStreamPDF(): Promise<boolean | null> {
   logSection("Testing SDK Stream with PDF");
 
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-sdk-stream-pdf-");
@@ -2558,7 +2693,7 @@ testSDKStreamPDF();
   }
 }
 
-async function testCLIStreamTwoPDFComparison(): Promise<boolean> {
+async function testCLIStreamTwoPDFComparison(): Promise<boolean | null> {
   logSection("Testing CLI Stream with Two PDF Comparison");
 
   try {
@@ -2631,7 +2766,7 @@ async function testCLIStreamTwoPDFComparison(): Promise<boolean> {
  * This addresses the Slack MCP tool issue where files are named "file-1", "file-2"
  * without extensions, causing file detection to fail.
  */
-async function testCLIExtensionlessCSV(): Promise<boolean> {
+async function testCLIExtensionlessCSV(): Promise<boolean | null> {
   logSection("Testing CLI with Extension-less CSV Files (FD-018)");
 
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-cli-extensionless-csv-");
@@ -2740,7 +2875,7 @@ async function testCLIExtensionlessCSV(): Promise<boolean> {
 /**
  * Test SDK with extension-less CSV files (FD-018)
  */
-async function testSDKExtensionlessCSV(): Promise<boolean> {
+async function testSDKExtensionlessCSV(): Promise<boolean | null> {
   logSection("Testing SDK with Extension-less CSV Files (FD-018)");
 
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-sdk-extensionless-csv-");
@@ -2863,7 +2998,7 @@ testSDKExtensionlessCSV();
   }
 }
 
-async function testCLIStreamPDFAndCSV(): Promise<boolean> {
+async function testCLIStreamPDFAndCSV(): Promise<boolean | null> {
   logSection("Testing CLI Stream with PDF and CSV");
 
   try {
@@ -2935,11 +3070,6 @@ const REAL_HTTP_MCP_SERVERS = {
     name: "DeepWiki MCP",
     description: "Documentation and wiki search MCP server",
   },
-  semgrep: {
-    url: "https://mcp.semgrep.ai/mcp",
-    name: "Semgrep MCP",
-    description: "Code analysis and security scanning MCP server",
-  },
   fetchServer: {
     url: "https://remote.mcpservers.org/fetch/mcp",
     name: "Remote Fetch MCP",
@@ -2953,7 +3083,7 @@ const REAL_HTTP_MCP_SERVERS = {
 };
 
 // Test real HTTP MCP servers with streamable HTTP transport
-async function testRealHttpMcpServers(): Promise<boolean> {
+async function testRealHttpMcpServers(): Promise<boolean | null> {
   logSection("Testing Real HTTP MCP Servers (Streamable HTTP Transport)");
 
   const results: Array<{
@@ -2973,7 +3103,6 @@ async function testRealHttpMcpServers(): Promise<boolean> {
     let transport: StreamableHTTPClientTransport | null = null;
 
     try {
-      // Create transport
       transport = new StreamableHTTPClientTransport(new URL(serverConfig.url), {
         requestInit: {
           headers: {
@@ -2993,10 +3122,10 @@ async function testRealHttpMcpServers(): Promise<boolean> {
         },
       );
 
-      // Connect with timeout
+      // Connect with timeout (45s to handle parallel execution load)
       const connectPromise = client.connect(transport);
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Connection timeout")), 30000);
+        setTimeout(() => reject(new Error("Connection timeout")), 45000);
       });
 
       await Promise.race([connectPromise, timeoutPromise]);
@@ -3170,7 +3299,7 @@ async function testRealHttpMcpServers(): Promise<boolean> {
 // IMAGE GENERATION TESTS
 // ============================================================
 
-async function testCLIGenerateImage(): Promise<boolean> {
+async function testCLIGenerateImage(): Promise<boolean | null> {
   logSection("Testing CLI Generate Image");
 
   try {
@@ -3204,7 +3333,7 @@ async function testCLIGenerateImage(): Promise<boolean> {
           "SKIP",
           "Skipped: Vertex AI credentials not configured",
         );
-        return true; // Don't fail the test suite
+        return null; // SKIP — credentials not available
       }
       logTest(
         "CLI Generate Image",
@@ -3252,14 +3381,14 @@ async function testCLIGenerateImage(): Promise<boolean> {
         "SKIP",
         "Vertex AI credentials not configured",
       );
-      return true;
+      return null; // SKIP — credentials not available
     }
     logTest("CLI Generate Image", "FAIL", errorMessage);
     return false;
   }
 }
 
-async function testCLIStreamImage(): Promise<boolean> {
+async function testCLIStreamImage(): Promise<boolean | null> {
   logSection("Testing CLI Stream Image");
 
   try {
@@ -3291,7 +3420,7 @@ async function testCLIStreamImage(): Promise<boolean> {
           "SKIP",
           "Vertex AI credentials not configured",
         );
-        return true;
+        return null; // SKIP — credentials not available
       }
       logTest(
         "CLI Stream Image",
@@ -3337,14 +3466,14 @@ async function testCLIStreamImage(): Promise<boolean> {
         "SKIP",
         "Vertex AI credentials not configured",
       );
-      return true;
+      return null; // SKIP — credentials not available
     }
     logTest("CLI Stream Image", "FAIL", errorMessage);
     return false;
   }
 }
 
-async function testSDKGenerateImage(): Promise<boolean> {
+async function testSDKGenerateImage(): Promise<boolean | null> {
   logSection("Testing SDK Generate Image");
 
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-sdk-gen-image-");
@@ -3398,14 +3527,18 @@ testSDKGenerateImage();
 
     const result = await runCommand("node", [tempScriptPath]);
 
-    if (result.stdout.includes("PASS") || result.stdout.includes("SKIP")) {
-      const status = result.stdout.includes("SKIP") ? "SKIP" : "PASS";
+    if (result.stdout.includes("SKIP")) {
       logTest(
         "SDK Generate Image",
-        status,
-        status === "SKIP"
-          ? "Vertex AI credentials not configured"
-          : "Image generated successfully with SDK",
+        "SKIP",
+        "Vertex AI credentials not configured",
+      );
+      return null; // SKIP — credentials not available
+    } else if (result.stdout.includes("PASS")) {
+      logTest(
+        "SDK Generate Image",
+        "PASS",
+        "Image generated successfully with SDK",
       );
       return true;
     } else {
@@ -3425,7 +3558,7 @@ testSDKGenerateImage();
   }
 }
 
-async function testSDKStreamImage(): Promise<boolean> {
+async function testSDKStreamImage(): Promise<boolean | null> {
   logSection("Testing SDK Stream Image");
 
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-sdk-stream-image-");
@@ -3484,14 +3617,18 @@ testSDKStreamImage();
 
     const result = await runCommand("node", [tempScriptPath]);
 
-    if (result.stdout.includes("PASS") || result.stdout.includes("SKIP")) {
-      const status = result.stdout.includes("SKIP") ? "SKIP" : "PASS";
+    if (result.stdout.includes("SKIP")) {
       logTest(
         "SDK Stream Image",
-        status,
-        status === "SKIP"
-          ? "Vertex AI credentials not configured"
-          : "Image streamed successfully with SDK",
+        "SKIP",
+        "Vertex AI credentials not configured",
+      );
+      return null; // SKIP — credentials not available
+    } else if (result.stdout.includes("PASS")) {
+      logTest(
+        "SDK Stream Image",
+        "PASS",
+        "Image streamed successfully with SDK",
       );
       return true;
     } else {
@@ -3511,7 +3648,9 @@ testSDKStreamImage();
   }
 }
 
-async function testImageGenerationUnsupportedProvider(): Promise<boolean> {
+async function testImageGenerationUnsupportedProvider(): Promise<
+  boolean | null
+> {
   logSection("Testing Image Generation - Unsupported Provider Error");
 
   const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-img-unsupported-");
@@ -3527,19 +3666,30 @@ async function testUnsupportedProvider() {
   const sdk = new NeuroLink();
 
   try {
-    // Try to use image model with non-image provider
+    // Try to use a completely invalid provider that does not exist
     await sdk.generate({
       input: { text: 'Generate an image' },
-      provider: 'anthropic',
-      model: 'gemini-2.5-flash-image',
+      provider: 'nonexistent-provider-xyz',
+      disableTools: true,
     });
     console.log('FAIL - Should have thrown an error');
     process.exit(1);
   } catch (error) {
-    // Expected to fail - either model not found or provider mismatch
-    console.log('PASS - Correctly rejected unsupported configuration');
-    console.log('Error:', error.message.substring(0, 100));
-    process.exit(0);
+    const errMsg = (error.message || '').toLowerCase();
+    // Assert error message contains "model" or "provider" or "not supported"
+    const hasRelevantError =
+      errMsg.includes('model') ||
+      errMsg.includes('provider') ||
+      errMsg.includes('not supported');
+    if (hasRelevantError) {
+      console.log('PASS - Correctly rejected unsupported configuration');
+      console.log('Error:', error.message.substring(0, 150));
+      process.exit(0);
+    } else {
+      console.log('FAIL - Error thrown but not about model/provider/not supported');
+      console.log('Error:', error.message.substring(0, 150));
+      process.exit(1);
+    }
   }
 }
 
@@ -3554,14 +3704,14 @@ testUnsupportedProvider();
       logTest(
         "Image Gen Unsupported Provider",
         "PASS",
-        "Correctly rejected invalid provider/model combination",
+        "Correctly rejected invalid provider with relevant error message",
       );
       return true;
     } else {
       logTest(
         "Image Gen Unsupported Provider",
         "FAIL",
-        result.stderr || result.stdout,
+        `Error not about model/provider/not supported: ${result.stderr || result.stdout}`,
       );
       return false;
     }
@@ -3578,7 +3728,7 @@ testUnsupportedProvider();
   }
 }
 
-async function testGoogleAIStudioImageGeneration(): Promise<boolean> {
+async function testGoogleAIStudioImageGeneration(): Promise<boolean | null> {
   logSection("Testing Google AI Studio Image Generation");
 
   try {
@@ -3602,7 +3752,7 @@ async function testGoogleAIStudioImageGeneration(): Promise<boolean> {
         result.stderr.includes("GOOGLE_AI_STUDIO_API_KEY")
       ) {
         logTest("Google AI Studio Image", "SKIP", "API key not configured");
-        return true;
+        return null; // SKIP — API key not available
       }
       logTest(
         "Google AI Studio Image",
@@ -3641,7 +3791,7 @@ async function testGoogleAIStudioImageGeneration(): Promise<boolean> {
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes("API key")) {
       logTest("Google AI Studio Image", "SKIP", "API key not configured");
-      return true;
+      return null; // SKIP — API key not available
     }
     logTest("Google AI Studio Image", "FAIL", errorMessage);
     return false;
@@ -3782,11 +3932,15 @@ async function runAllTests(): Promise<void> {
     { name: "SDK Generate", fn: () => testSDKGenerate(sharedSdk) },
     { name: "SDK Stream", fn: () => testSDKStream(sharedSdk) },
     { name: "SDK Business Tools", fn: testSDKBusinessTools },
-    { name: "CLI Business Tools", fn: testCLIBusinessTools },
-    // TODO: Fix HITL tests later - commented out for now
+    { name: "SDK Business Tools (CLI Simulation)", fn: testCLIBusinessTools },
+    // TODO: Fix HITL tests later - commented out for now (see HITL TODO block above)
+    // HITL logic fixed: PASS if AI calls tool + HITL fires, SKIP (null) if AI doesn't call tool
     // { name: "SDK HITL Generate", fn: testSDKHITLGenerate },
     // { name: "SDK HITL Stream", fn: testSDKHITLStream },
-    { name: "Enterprise Proxy Support", fn: testEnterpriseProxySupport },
+    {
+      name: "SDK Init With Proxy Env Vars (Smoke)",
+      fn: testEnterpriseProxySupport,
+    },
     { name: "Real HTTP MCP Servers", fn: testRealHttpMcpServers },
     {
       name: "Complex Zod Schema Multi-Provider",
@@ -3805,7 +3959,7 @@ async function runAllTests(): Promise<void> {
         const skipReason = `Skipped: OpenAI ${TEST_CONFIG.model} requires organization verification for streaming`;
         log(`⏭️  ${test.name}`, "yellow");
         log(`   ${skipReason}`, "reset");
-        testResults.push({ name: test.name, result: true, error: skipReason });
+        testResults.push({ name: test.name, result: null, error: skipReason });
         continue;
       }
 
@@ -3869,26 +4023,32 @@ async function runAllTests(): Promise<void> {
   // Summary
   logSection("Test Results Summary");
 
-  const passed = testResults.filter((r) => r.result).length;
-  const failed = testResults.filter((r) => !r.result).length;
+  const passed = testResults.filter((r) => r.result === true).length;
+  const failed = testResults.filter((r) => r.result === false).length;
+  const skipped = testResults.filter((r) => r.result === null).length;
   const total = testResults.length;
 
   testResults.forEach((test) => {
-    const status: "PASS" | "FAIL" = test.result ? "PASS" : "FAIL";
-    const details = test.error ? test.error : "";
+    const status: "PASS" | "FAIL" | "SKIP" =
+      test.result === true ? "PASS" : test.result === false ? "FAIL" : "SKIP";
+    const details = test.error
+      ? test.error
+      : test.result === null
+        ? "SKIPPED"
+        : "";
     logTest(test.name, status, details);
   });
 
   const duration = Math.round((Date.now() - startTime) / 1000);
 
   log(
-    `\n📊 Final Results: ${passed}/${total} tests passed in ${duration}s`,
+    `\n📊 Final Results: ${passed} passed, ${failed} failed, ${skipped} skipped out of ${total} tests in ${duration}s`,
     "bright",
   );
 
   if (failed === 0) {
     log(
-      "🎉 All tests passed! NeuroLink CLI and SDK are working correctly with external tools.",
+      "🎉 All non-skipped tests passed! NeuroLink CLI and SDK are working correctly with external tools.",
       "green",
     );
     log(

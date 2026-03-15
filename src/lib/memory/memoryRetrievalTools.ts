@@ -11,6 +11,12 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { RedisConversationMemoryManager } from "../core/redisConversationMemoryManager.js";
 import { logger } from "../utils/logger.js";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+} from "../observability/index.js";
+import { getMetricsAggregator } from "../observability/index.js";
 
 /** Maximum characters returned per retrieval request */
 const DEFAULT_RETRIEVAL_LIMIT = 50_000;
@@ -75,11 +81,25 @@ export function createMemoryRetrievalTools(
           ),
       }),
       execute: async (args) => {
+        const span = SpanSerializer.createSpan(
+          SpanType.MEMORY,
+          "memory.retrieve",
+          {
+            "memory.operation": "retrieve",
+            "memory.store": "redis",
+            "memory.query":
+              args.search || args.messageId || `lastN:${args.lastN ?? "all"}`,
+          },
+        );
+        const startTime = Date.now();
         try {
           const conversation = await memoryManager.getSessionRaw(
             args.sessionId,
           );
           if (!conversation) {
+            span.durationMs = Date.now() - startTime;
+            const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+            getMetricsAggregator().recordSpan(endedSpan);
             return { error: "Session not found", sessionId: args.sessionId };
           }
 
@@ -89,6 +109,9 @@ export function createMemoryRetrievalTools(
           if (args.messageId) {
             const msg = messages.find((m) => m.id === args.messageId);
             if (!msg) {
+              span.durationMs = Date.now() - startTime;
+              const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+              getMetricsAggregator().recordSpan(endedSpan);
               return { error: "Message not found", messageId: args.messageId };
             }
             messages = [msg];
@@ -157,8 +180,18 @@ export function createMemoryRetrievalTools(
             };
           });
 
+          span.durationMs = Date.now() - startTime;
+          const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+          getMetricsAggregator().recordSpan(endedSpan);
+
           return { messages: results, totalMessages: results.length };
         } catch (error) {
+          span.durationMs = Date.now() - startTime;
+          const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+          endedSpan.statusMessage =
+            error instanceof Error ? error.message : String(error);
+          getMetricsAggregator().recordSpan(endedSpan);
+
           logger.error("[MemoryRetrievalTools] Error retrieving context", {
             error: error instanceof Error ? error.message : String(error),
           });

@@ -60,4 +60,7 @@ export type IConversationMemoryManager = {
     messages: ChatMessage[],
     userId?: string,
   ): Promise<void>;
+
+  /** Close/shutdown the memory manager and release resources (e.g., Redis connections) */
+  close?(): Promise<void>;
 };

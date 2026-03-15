@@ -1,12 +1,3 @@
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 export type OGType = "home" | "docs" | "sdk" | "examples";
 
 interface OGParams {
@@ -62,9 +53,9 @@ function docsTemplate(title: string, section: string): string {
     ${logoBar()}
     <div style="display:flex;flex-direction:column;flex:1;justify-content:center;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-        <div style="display:flex;font-size:18px;color:${COLORS.blue};font-weight:600;text-transform:uppercase;letter-spacing:2px;">${escapeHtml(section)}</div>
+        <div style="display:flex;font-size:18px;color:${COLORS.blue};font-weight:600;text-transform:uppercase;letter-spacing:2px;">${section}</div>
       </div>
-      <div style="display:flex;font-size:52px;font-weight:700;color:${COLORS.text};line-height:1.15;">${escapeHtml(title)}</div>
+      <div style="display:flex;font-size:52px;font-weight:700;color:${COLORS.text};line-height:1.15;">${title}</div>
     </div>
     ${footerBar()}
   `);
@@ -76,9 +67,9 @@ function sdkTemplate(method: string, subtitle: string): string {
     <div style="display:flex;flex-direction:column;flex:1;justify-content:center;">
       <div style="display:flex;font-size:18px;color:${COLORS.blue};font-weight:600;text-transform:uppercase;letter-spacing:2px;margin-bottom:16px;">SDK Reference</div>
       <div style="display:flex;padding:24px 32px;background:#141414;border:1px solid ${COLORS.border};border-radius:12px;margin-bottom:20px;">
-        <div style="display:flex;font-size:40px;font-weight:600;color:${COLORS.orange};font-family:monospace;">${escapeHtml(method)}</div>
+        <div style="display:flex;font-size:40px;font-weight:600;color:${COLORS.orange};font-family:monospace;">${method}</div>
       </div>
-      <div style="display:flex;font-size:22px;color:${COLORS.muted};line-height:1.4;">${escapeHtml(subtitle)}</div>
+      <div style="display:flex;font-size:22px;color:${COLORS.muted};line-height:1.4;">${subtitle}</div>
     </div>
     ${footerBar()}
   `);
@@ -94,8 +85,8 @@ function examplesTemplate(title: string, subtitle: string): string {
         </div>
         <div style="display:flex;font-size:18px;color:${COLORS.orange};font-weight:600;text-transform:uppercase;letter-spacing:2px;">Example</div>
       </div>
-      <div style="display:flex;font-size:48px;font-weight:700;color:${COLORS.text};line-height:1.15;margin-bottom:16px;">${escapeHtml(title)}</div>
-      <div style="display:flex;font-size:22px;color:${COLORS.muted};line-height:1.4;">${escapeHtml(subtitle)}</div>
+      <div style="display:flex;font-size:48px;font-weight:700;color:${COLORS.text};line-height:1.15;margin-bottom:16px;">${title}</div>
+      <div style="display:flex;font-size:22px;color:${COLORS.muted};line-height:1.4;">${subtitle}</div>
     </div>
     ${footerBar()}
   `);

@@ -7,22 +7,22 @@
  * Flow: Vercel AI SDK → OpenTelemetry Spans → LangfuseSpanProcessor → Langfuse Platform
  */
 
-import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
+import type { Context } from "@opentelemetry/api";
+import { trace } from "@opentelemetry/api";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import type { Span, SpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
 } from "@opentelemetry/semantic-conventions";
-import { resourceFromAttributes } from "@opentelemetry/resources";
 import { AsyncLocalStorage } from "async_hooks";
-import { trace } from "@opentelemetry/api";
-import type { Context } from "@opentelemetry/api";
-import { logger } from "../../../../utils/logger.js";
 import type {
   LangfuseConfig,
   LangfuseSpanAttributes,
 } from "../../../../types/observability.js";
+import { logger } from "../../../../utils/logger.js";
 
 const LOG_PREFIX = "[OpenTelemetry]";
 
@@ -513,11 +513,16 @@ class ContextEnricher implements SpanProcessor {
  * @param config - Langfuse configuration passed from parent application
  */
 export function initializeOpenTelemetry(config: LangfuseConfig): void {
-  // Guard against multiple initializations
+  // Guard against multiple initializations — but always update config
+  // so that later NeuroLink instances can change traceNameFormat,
+  // autoDetectOperationName, and other configuration preferences
+  // without re-initializing the OTEL infrastructure.
   if (isInitialized) {
-    logger.debug(`${LOG_PREFIX} Already initialized`, {
+    currentConfig = config;
+    logger.debug(`${LOG_PREFIX} Already initialized, config updated`, {
       usingExternalProvider,
       hasLangfuseProcessor: !!langfuseProcessor,
+      hasTraceNameFormat: typeof config.traceNameFormat === "function",
     });
     return;
   }

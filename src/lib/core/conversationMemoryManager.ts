@@ -11,6 +11,8 @@ import {
 } from "../config/conversationMemory.js";
 import { TokenUtils } from "../constants/tokens.js";
 import { SummarizationEngine } from "../context/summarizationEngine.js";
+import { runWithCurrentLangfuseContext } from "../services/server/ai/observability/instrumentation.js";
+import { tracers, withSpan } from "../telemetry/index.js";
 import type {
   ChatMessage,
   ConversationMemoryConfig,
@@ -24,9 +26,7 @@ import {
   buildContextFromPointer,
   getEffectiveTokenThreshold,
 } from "../utils/conversationMemory.js";
-import { runWithCurrentLangfuseContext } from "../services/server/ai/observability/instrumentation.js";
 import { logger } from "../utils/logger.js";
-import { tracers, withSpan } from "../telemetry/index.js";
 
 export class ConversationMemoryManager implements IConversationMemoryManager {
   private sessions: Map<string, SessionMemory> = new Map();
@@ -478,5 +478,10 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
     session.lastTokenCount = undefined;
     session.lastCountedAt = undefined;
     session.lastActivity = Date.now();
+  }
+
+  /** Close/shutdown — no-op for in-memory manager (no external connections to release) */
+  async close(): Promise<void> {
+    // In-memory manager has nothing to close
   }
 }

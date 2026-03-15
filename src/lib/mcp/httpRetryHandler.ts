@@ -9,6 +9,12 @@ import { isAbortError } from "../utils/errorHandling.js";
 import { calculateBackoffDelay } from "../utils/retryHandler.js";
 import { logger } from "../utils/logger.js";
 import type { HTTPRetryConfig } from "../types/mcpTypes.js";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+} from "../observability/index.js";
+import { getMetricsAggregator } from "../observability/index.js";
 
 /**
  * Default HTTP retry configuration
@@ -166,11 +172,25 @@ export async function withHTTPRetry<T>(
     ...config,
   };
 
+  const span = SpanSerializer.createSpan(SpanType.MCP_TRANSPORT, "mcp.retry", {
+    "mcp.transport": "http",
+    "mcp.operation": "retry",
+    "mcp.maxAttempts": mergedConfig.maxAttempts,
+  });
+  const startTime = Date.now();
+
   let lastError: unknown;
+  let actualAttempts = 0;
 
   for (let attempt = 1; attempt <= mergedConfig.maxAttempts; attempt++) {
+    actualAttempts = attempt;
     try {
-      return await operation();
+      const result = await operation();
+      span.durationMs = Date.now() - startTime;
+      span.attributes["mcp.retryAttempt"] = attempt;
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+      getMetricsAggregator().recordSpan(endedSpan);
+      return result;
     } catch (error) {
       lastError = error;
 
@@ -209,6 +229,13 @@ export async function withHTTPRetry<T>(
       await sleep(delay);
     }
   }
+
+  span.durationMs = Date.now() - startTime;
+  span.attributes["mcp.retryAttempt"] = actualAttempts;
+  const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+  endedSpan.statusMessage =
+    lastError instanceof Error ? lastError.message : String(lastError);
+  getMetricsAggregator().recordSpan(endedSpan);
 
   throw lastError;
 }

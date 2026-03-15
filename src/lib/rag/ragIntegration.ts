@@ -11,6 +11,12 @@ import type { Tool } from "ai";
 import { existsSync, readFileSync } from "fs";
 import { extname, resolve } from "path";
 import { z } from "zod";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+  getMetricsAggregator,
+} from "../observability/index.js";
 import { logger } from "../utils/logger.js";
 import { createChunker } from "./ChunkerFactory.js";
 import {
@@ -193,6 +199,38 @@ export type RAGPreparedTool = {
  * @returns Prepared RAG tool to inject into the tools record
  */
 export async function prepareRAGTool(
+  ragConfig: RAGConfig,
+  fallbackProvider?: string,
+): Promise<RAGPreparedTool> {
+  const span = SpanSerializer.createSpan(SpanType.RAG, "rag.prepare", {
+    "rag.operation": "prepare",
+    "rag.files_count": ragConfig.files?.length ?? 0,
+    "rag.strategy": ragConfig.strategy ?? "auto",
+    "rag.chunk_size": ragConfig.chunkSize ?? 1000,
+  });
+  const startTime = Date.now();
+  try {
+    const result = await _prepareRAGToolInner(ragConfig, fallbackProvider);
+    span.durationMs = Date.now() - startTime;
+    const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+    endedSpan.attributes = {
+      ...endedSpan.attributes,
+      "rag.chunks_indexed": result.chunksIndexed,
+      "rag.files_loaded": result.filesLoaded,
+    };
+    getMetricsAggregator().recordSpan(endedSpan);
+    return result;
+  } catch (error) {
+    span.durationMs = Date.now() - startTime;
+    const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+    endedSpan.statusMessage =
+      error instanceof Error ? error.message : String(error);
+    getMetricsAggregator().recordSpan(endedSpan);
+    throw error;
+  }
+}
+
+async function _prepareRAGToolInner(
   ragConfig: RAGConfig,
   fallbackProvider?: string,
 ): Promise<RAGPreparedTool> {

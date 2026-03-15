@@ -32,8 +32,12 @@ import type {
   TransportWithProcessResult,
   NetworkTransportResult,
 } from "../types/typeAliases.js";
-import { tracers } from "../telemetry/tracers.js";
-import { SpanStatusCode } from "@opentelemetry/api";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+} from "../observability/index.js";
+import { getMetricsAggregator } from "../observability/index.js";
 
 /**
  * MCPClientFactory
@@ -61,14 +65,15 @@ export class MCPClientFactory {
     timeout = 10000,
   ): Promise<MCPClientResult> {
     const startTime = Date.now();
-
-    const span = tracers.mcp.startSpan("neurolink.mcp.client.create", {
-      attributes: {
-        "mcp.server_id": config.id,
+    const obsSpan = SpanSerializer.createSpan(
+      SpanType.MCP_TRANSPORT,
+      "mcp.connect",
+      {
         "mcp.transport": config.transport,
-        "mcp.timeout_ms": timeout,
+        "mcp.operation": "connect",
+        "mcp.server_id": config.id,
       },
-    });
+    );
 
     try {
       mcpLogger.info(`[MCPClientFactory] Creating client for ${config.id}`, {
@@ -158,7 +163,9 @@ export class MCPClientFactory {
         },
       );
 
-      span.setStatus({ code: SpanStatusCode.OK });
+      obsSpan.durationMs = Date.now() - startTime;
+      const endedObsSpan = SpanSerializer.endSpan(obsSpan, SpanStatus.OK);
+      getMetricsAggregator().recordSpan(endedObsSpan);
 
       return {
         ...result,
@@ -174,19 +181,16 @@ export class MCPClientFactory {
         error,
       );
 
-      // NLK-GAP-004 fix: Record both exception AND error status on span
-      span.recordException(
-        error instanceof Error ? error : new Error(errorMessage),
-      );
-      span.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
+      obsSpan.durationMs = Date.now() - startTime;
+      const endedObsSpan = SpanSerializer.endSpan(obsSpan, SpanStatus.ERROR);
+      endedObsSpan.statusMessage = errorMessage;
+      getMetricsAggregator().recordSpan(endedObsSpan);
 
       return {
         success: false,
         error: errorMessage,
         duration: Date.now() - startTime,
       };
-    } finally {
-      span.end();
     }
   }
 

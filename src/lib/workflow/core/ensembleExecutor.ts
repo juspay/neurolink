@@ -7,6 +7,12 @@ import pLimit from "p-limit";
 import { AIProviderFactory } from "../../core/factory.js";
 import type { AIProvider } from "../../types/providers.js";
 import { logger } from "../../utils/logger.js";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+  getMetricsAggregator,
+} from "../../observability/index.js";
 import type {
   EnsembleResponse,
   ExecutionConfig,
@@ -39,6 +45,15 @@ export async function executeEnsemble(
   const startTime = Date.now();
   const { prompt, models, executionConfig, systemPrompt, workflowDefaults } =
     options;
+  const span = SpanSerializer.createSpan(
+    SpanType.WORKFLOW,
+    "workflow.ensemble",
+    {
+      "workflow.operation": "ensemble",
+      "workflow.model_count": models.length,
+      "workflow.parallelism": executionConfig?.parallelism || 10,
+    },
+  );
 
   logger.info(`[${functionTag}] Starting ensemble execution`, {
     modelCount: models.length,
@@ -104,6 +119,15 @@ export async function executeEnsemble(
     failureCount,
     totalResponses: responses.length,
   });
+
+  span.durationMs = totalTime;
+  const spanStatus = successCount > 0 ? SpanStatus.OK : SpanStatus.ERROR;
+  const endedSpan = SpanSerializer.endSpan(
+    span,
+    spanStatus,
+    successCount === 0 ? "No successful model responses" : undefined,
+  );
+  getMetricsAggregator().recordSpan(endedSpan);
 
   return {
     responses,

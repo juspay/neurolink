@@ -4,6 +4,12 @@
  */
 
 import type { MiddlewareDefinition, ServerContext } from "../types.js";
+import { getMetricsAggregator } from "../../observability/index.js";
+import {
+  SpanSerializer,
+  SpanStatus,
+  SpanType,
+} from "../../observability/index.js";
 import { logger } from "../../utils/logger.js";
 
 /**
@@ -26,20 +32,42 @@ export function createTimingMiddleware(): MiddlewareDefinition {
       // Store start time in metadata
       ctx.metadata.requestStartTime = startTime;
 
-      const result = await next();
+      const span = SpanSerializer.createSpan(
+        SpanType.SERVER_REQUEST,
+        "server.middleware.timing",
+        {
+          "server.operation": "middleware",
+          "server.middleware": "timing",
+        },
+      );
 
-      // Calculate duration
-      const endHrTime = process.hrtime.bigint();
-      const durationNs = Number(endHrTime - startHrTime);
-      const durationMs = durationNs / 1_000_000;
+      try {
+        const result = await next();
 
-      // Add timing headers to responseHeaders (adapters read from here)
-      ctx.responseHeaders = ctx.responseHeaders || {};
-      ctx.responseHeaders["X-Response-Time"] = `${durationMs.toFixed(2)}ms`;
-      ctx.responseHeaders["Server-Timing"] =
-        `total;dur=${durationMs.toFixed(2)}`;
+        // Calculate duration
+        const endHrTime = process.hrtime.bigint();
+        const durationNs = Number(endHrTime - startHrTime);
+        const durationMs = durationNs / 1_000_000;
 
-      return result;
+        // Add timing headers to responseHeaders (adapters read from here)
+        ctx.responseHeaders = ctx.responseHeaders || {};
+        ctx.responseHeaders["X-Response-Time"] = `${durationMs.toFixed(2)}ms`;
+        ctx.responseHeaders["Server-Timing"] =
+          `total;dur=${durationMs.toFixed(2)}`;
+
+        span.durationMs = Date.now() - startTime;
+        const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+        getMetricsAggregator().recordSpan(endedSpan);
+
+        return result;
+      } catch (error) {
+        span.durationMs = Date.now() - startTime;
+        const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+        endedSpan.statusMessage =
+          error instanceof Error ? error.message : String(error);
+        getMetricsAggregator().recordSpan(endedSpan);
+        throw error;
+      }
     },
   };
 }
@@ -110,8 +138,22 @@ export function createErrorHandlingMiddleware(options?: {
     name: "error-handling",
     order: 1, // Run very early to catch all errors
     handler: async (ctx, next) => {
+      const span = SpanSerializer.createSpan(
+        SpanType.SERVER_REQUEST,
+        "server.middleware.errorHandling",
+        {
+          "server.operation": "middleware",
+          "server.middleware": "error-handling",
+        },
+      );
+      const middlewareStartTime = Date.now();
+
       try {
-        return await next();
+        const result = await next();
+        span.durationMs = Date.now() - middlewareStartTime;
+        const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+        getMetricsAggregator().recordSpan(endedSpan);
+        return result;
       } catch (error) {
         const err = error as Error & {
           statusCode?: number;
@@ -126,6 +168,11 @@ export function createErrorHandlingMiddleware(options?: {
             stack: err.stack,
           });
         }
+
+        span.durationMs = Date.now() - middlewareStartTime;
+        const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+        endedSpan.statusMessage = err.message;
+        getMetricsAggregator().recordSpan(endedSpan);
 
         // Use custom handler if provided
         if (onError) {

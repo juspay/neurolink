@@ -5,6 +5,12 @@
 
 import { AIProviderFactory } from "../../core/factory.js";
 import { logger } from "../../utils/logger.js";
+import {
+  SpanSerializer,
+  SpanType,
+  SpanStatus,
+  getMetricsAggregator,
+} from "../../observability/index.js";
 import { MAX_REASONING_LENGTH } from "../config.js";
 import type {
   EnsembleResponse,
@@ -42,6 +48,12 @@ export async function scoreEnsemble(
     timeout,
     workflowDefaults,
   } = options;
+  const span = SpanSerializer.createSpan(SpanType.WORKFLOW, "workflow.judge", {
+    "workflow.operation": "judge",
+    "workflow.judge_count": judges.length,
+    "workflow.response_count": responses.length,
+    "workflow.pattern": judges.length > 1 ? "multi-judge" : "single-judge",
+  });
 
   logger.info(`[${functionTag}] Starting judge scoring`, {
     judgeCount: judges.length,
@@ -74,9 +86,14 @@ export async function scoreEnsemble(
         workflowDefaults?.judgePrompt,
       );
 
+      const judgeTime = Date.now() - startTime;
+      span.durationMs = judgeTime;
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+      getMetricsAggregator().recordSpan(endedSpan);
+
       return {
         scores: judgeResult,
-        judgeTime: Date.now() - startTime,
+        judgeTime,
       };
     } else {
       // Multi-judge voting
@@ -89,9 +106,14 @@ export async function scoreEnsemble(
         workflowDefaults?.judgePrompt,
       );
 
+      const judgeTime = Date.now() - startTime;
+      span.durationMs = judgeTime;
+      const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+      getMetricsAggregator().recordSpan(endedSpan);
+
       return {
         scores: multiJudgeResult,
-        judgeTime: Date.now() - startTime,
+        judgeTime,
       };
     }
   } catch (error) {
@@ -99,6 +121,14 @@ export async function scoreEnsemble(
     logger.error(`[${functionTag}] Judge scoring failed`, {
       error: err.message,
     });
+
+    span.durationMs = Date.now() - startTime;
+    const endedSpan = SpanSerializer.endSpan(
+      span,
+      SpanStatus.ERROR,
+      err.message,
+    );
+    getMetricsAggregator().recordSpan(endedSpan);
 
     const workflowError =
       error instanceof WorkflowError

@@ -7,39 +7,39 @@
  * @module presentation/slideRenderers
  */
 
+import { logger } from "../../utils/logger.js";
+import { getBulletOptions, getSlideTypeFormatting } from "./constants.js";
 import type {
+  BackgroundColors,
+  BackgroundStyle,
+  BulletPoint,
+  BulletStyle,
+  ChartSeries,
+  ColumnData,
+  ComparisonColumn,
+  FeatureItem,
+  GridPosition,
+  PptxChartName,
+  PptxRichTextProps,
+  PptxSlide,
+  PptxTableRow,
+  PresentationTheme,
+  ProcessStep,
+  RenderContentSlideOptions,
   SlideContent,
   SlideLayout,
   SlideType,
-  PresentationTheme,
-  BulletPoint,
   Statistic,
-  TimelineItem,
-  ProcessStep,
-  ChartSeries,
   TableRow,
-  FeatureItem,
-  ComparisonColumn,
-  PptxRichTextProps,
-  PptxTableRow,
-  PptxChartName,
-  PptxSlide,
-  BulletStyle,
-  BackgroundStyle,
-  RenderContentSlideOptions,
-  ColumnData,
-  GridPosition,
-  BackgroundColors,
+  TimelineItem,
 } from "./types.js";
-import { getSlideTypeFormatting, getBulletOptions } from "./constants.js";
-import { logger } from "../../utils/logger.js";
 import {
-  validateImageBuffer,
   bufferToDataUrl,
-  parseMarkdownText,
-  hasMarkdownFormatting,
-  createFormattedTextProps,
   calculateFontSize,
+  createFormattedTextProps,
+  hasMarkdownFormatting,
+  parseMarkdownText,
+  validateImageBuffer,
 } from "./utils.js";
 
 // ============================================================================
@@ -1194,9 +1194,16 @@ export function renderThankYouSlide(
       });
     }
 
-    if (content.contactInfo.social && content.contactInfo.social.length > 0) {
+    if (
+      content.contactInfo.social &&
+      Array.isArray(content.contactInfo.social) &&
+      content.contactInfo.social.length > 0
+    ) {
       const socialText = content.contactInfo.social
-        .map((s) => `${s.platform}: ${s.handle}`)
+        .map(
+          (s: { platform?: string; handle?: string }) =>
+            `${s.platform || ""}: ${s.handle || ""}`,
+        )
         .join("   •   ");
       slide.addText(socialText, {
         x: 0.5,
