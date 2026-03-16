@@ -1,3 +1,9 @@
+## [9.26.0](https://github.com/juspay/neurolink/compare/v9.25.2...v9.26.0) (2026-03-16)
+
+### Features
+
+- **(core):** production reliability fixes, bash tool, and LiteLLM vision tests (NL-001–NL-007) ([9a915e6](https://github.com/juspay/neurolink/commit/9a915e6f00e1e54e31967e47893f3b24e40eaad9))
+
 ## [9.25.2](https://github.com/juspay/neurolink/compare/v9.25.1...v9.25.2) (2026-03-15)
 
 ### Bug Fixes
