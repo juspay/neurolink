@@ -1,3 +1,9 @@
+## [9.26.1](https://github.com/juspay/neurolink/compare/v9.26.0...v9.26.1) (2026-03-16)
+
+### Bug Fixes
+
+- **(tests):** remove redundant vitest test cases, keep only continuous test suites ([625ecd6](https://github.com/juspay/neurolink/commit/625ecd684ec47919d3b79a8c1e907f8cb114a991))
+
 ## [9.26.0](https://github.com/juspay/neurolink/compare/v9.25.2...v9.26.0) (2026-03-16)
 
 ### Features
