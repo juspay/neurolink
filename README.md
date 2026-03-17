@@ -1,6 +1,6 @@
 # NeuroLink
 
-**The pipe layer for the AI nervous system.**
+**🚀 The pipe layer for the AI nervous system.**
 
 AI intelligence flows as streams — tokens, tool calls, memory, voice, documents.
 NeuroLink is the vascular layer that carries these streams from where they are
