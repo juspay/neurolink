@@ -473,6 +473,8 @@ export type StreamOptions = {
    * @internal Set by NeuroLink SDK — not typically used directly by consumers.
    */
   fileRegistry?: unknown;
+  fallbackProvider?: string;
+  fallbackModel?: string;
 };
 
 /**
