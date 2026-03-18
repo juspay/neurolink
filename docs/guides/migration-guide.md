@@ -1,6 +1,6 @@
-# Migration Guide (v7.40 → v7.47)
+# Migration Guide
 
-Use this guide when upgrading existing NeuroLink deployments to the 7.47 release train. The focus is on new capabilities (multimodal chat, auto evaluation, loop mode, orchestration) and the configuration changes required to adopt them safely.
+Use this guide when upgrading existing NeuroLink deployments to the latest release. The focus is on new capabilities (multimodal chat, auto evaluation, loop mode, orchestration) and the configuration changes required to adopt them safely.
 
 ## Compatibility Summary
 
@@ -16,15 +16,15 @@ Use this guide when upgrading existing NeuroLink deployments to the 7.47 release
 1. **Update dependencies**
 
    ```bash
-   npm install @juspay/neurolink@^7.47.0
+   npm install @juspay/neurolink@latest
    # or
-   pnpm add @juspay/neurolink@^7.47.0
+   pnpm add @juspay/neurolink@latest
    ```
 
 2. **Refresh CLI binaries**
 
    ```bash
-   npm install -g @juspay/neurolink@^7.47.0
+   npm install -g @juspay/neurolink@latest
    neurolink --version
    ```
 

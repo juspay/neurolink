@@ -109,8 +109,9 @@ Restart Windsurf after saving.
 </TabItem>
 </Tabs>
 
-!!! tip "Same command everywhere"
+:::tip[Same command everywhere]
 All clients use the same `npx -y @juspay/neurolink docs` command. The only difference is the config file location and JSON key format (`mcpServers` vs `servers`).
+:::
 
 ## Available Tools
 
@@ -341,8 +342,9 @@ Configure your MCP client to connect via HTTP:
 }
 ```
 
-!!! info "Hosted version"
-The hosted version is available at `https://docs.neurolink.ink/mcp` — no local installation required.
+:::info[Hosted version]
+The hosted version is available at `https://docs.neurolink.ink/mcp` -- no local installation required.
+:::
 
 ## Programmatic Usage
 

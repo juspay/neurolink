@@ -1,19 +1,5 @@
 # 🔧 MCP (Model Context Protocol) Integration Guide
 
-## ✅ IMPLEMENTATION STATUS: COMPLETE (2025-01-07)
-
-**Generate Function Migration completed - MCP integration enhanced with factory patterns**
-
-- ✅ MCP tools work seamlessly with modern `generate()` method
-- ✅ Factory pattern provides better MCP tool management
-- ✅ Enhanced error handling for MCP server connections
-- ✅ All existing MCP configurations continue working
-
-> **Migration Note**: MCP integration enhanced but remains transparent.
-> Use `generate()` for future-ready MCP workflows.
-
----
-
 **NeuroLink Universal AI Platform with External Server Connectivity**
 
 ---
@@ -90,7 +76,7 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink();
 
 // Add external servers dynamically
-await neurolink.addMCPServer("bitbucket", {
+await neurolink.addExternalMCPServer("bitbucket", {
   command: "npx",
   args: ["-y", "@nexus2520/bitbucket-mcp-server"],
   env: {
@@ -100,7 +86,7 @@ await neurolink.addMCPServer("bitbucket", {
 });
 
 // Add database integration
-await neurolink.addMCPServer("database", {
+await neurolink.addExternalMCPServer("database", {
   command: "node",
   args: ["./custom-db-server.js"],
   env: { DB_CONNECTION: "postgresql://..." },
@@ -111,10 +97,12 @@ const status = await neurolink.getMCPStatus();
 console.log("Active servers:", status.totalServers);
 ```
 
-### **4. Execute Tools (Coming Soon)**
+### **4. Execute Tools (Planned)**
 
-```bash
-# Execute tools from connected servers
+> This feature is planned for a future release.
+
+```text
+# Execute tools from connected servers (planned — not yet implemented)
 npx neurolink mcp exec filesystem read_file --params '{"path": "README.md"}'
 npx neurolink mcp exec github create_issue --params '{"title": "New feature", "body": "Description"}'
 ```
@@ -236,9 +224,9 @@ neurolink mcp remove <server>
 
 ## ⚙️ **Configuration**
 
-### **External Server Configuration** [Coming Soon]
+### **External Server Configuration**
 
-External MCP servers will be configured in `.mcp-config.json`:
+External MCP servers are configured in `.mcp-config.json`:
 
 ```json
 {
@@ -584,7 +572,7 @@ neurolink workflow "
 
 - [MCP Testing Guide](mcp-testing-guide.md)
 - [CLI Command Reference](../cli/commands.md#mcp)
-- [API Integration](api-reference.md#mcp-integration)
+- [API Integration](../sdk/api-reference.md)
 
 ### **Community Servers**
 
@@ -594,14 +582,6 @@ neurolink workflow "
 ---
 
 ## 🚀 **What's Next?**
-
-### **Coming Soon**
-
-- ✅ **Tool Execution** - Direct tool invocation from CLI
-- ✅ **Workflow Orchestration** - Multi-step tool workflows
-- ✅ **AI Integration** - Tools accessible during AI generation
-- ✅ **Performance Optimization** - Parallel tool execution
-- ✅ **Advanced Security** - Fine-grained permissions
 
 ### **Get Involved**
 

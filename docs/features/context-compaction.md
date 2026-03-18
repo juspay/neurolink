@@ -1,3 +1,17 @@
+---
+title: "Context Compaction"
+description: Automatic context window management that prevents overflow errors and maintains conversation quality as sessions grow longer
+keywords:
+  [
+    context-compaction,
+    context-window,
+    token-management,
+    summarization,
+    budget-checker,
+    conversation-memory,
+  ]
+---
+
 # Context Compaction
 
 ## Overview

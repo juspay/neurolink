@@ -8,12 +8,13 @@ keywords: hitl, human in the loop, enterprise, compliance, approval workflow, au
 
 > **Since**: v7.39.0 | **Status**: Production Ready | **Availability**: SDK & CLI
 
-!!! note "Feature Status - Enterprise HITL"
+:::note[Feature Status - Enterprise HITL]
 This document describes enterprise HITL features. Some advanced features (marked as "Planned")
 are not yet implemented and represent the target API design for future releases.
 
-    **Currently Available:** Basic HITL with `dangerousActions`, `timeout`, `autoApproveOnTimeout`,
-    `allowArgumentModification`, and `auditLogging`. See [Basic HITL Guide](./hitl.md).
+**Currently Available:** Basic HITL with `dangerousActions`, `timeout`, `autoApproveOnTimeout`,
+`allowArgumentModification`, and `auditLogging`. See [Basic HITL Guide](./hitl.md).
+:::
 
 ---
 

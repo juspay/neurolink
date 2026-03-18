@@ -82,14 +82,19 @@ export enum BedrockModels {
   CLAUDE_4_SONNET = "anthropic.claude-sonnet-4-20250514-v1:0",
 
   // Claude 3.7 Series
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_7_SONNET = "anthropic.claude-3-7-sonnet-20250219-v1:0",
 
   // Claude 3.5 Series
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_5_SONNET = "anthropic.claude-3-5-sonnet-20241022-v1:0",
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_5_HAIKU = "anthropic.claude-3-5-haiku-20241022-v1:0",
 
   // Claude 3 Series (Legacy support)
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_SONNET = "anthropic.claude-3-sonnet-20240229-v1:0",
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0",
 
   // ============================================================================
@@ -259,6 +264,12 @@ export enum OpenAIModels {
   // GPT-5.3 Series (Released February 2026) - Latest coding models
   GPT_5_3_CODEX = "gpt-5.3-codex",
 
+  // GPT-5.4 Series (Released March 2026) - Latest flagship models
+  GPT_5_4 = "gpt-5.4",
+  GPT_5_4_MINI = "gpt-5.4-mini",
+  GPT_5_4_NANO = "gpt-5.4-nano",
+  GPT_5_4_PRO = "gpt-5.4-pro",
+
   // GPT-5.2 Series (Released December 11, 2025) - Flagship models
   GPT_5_2 = "gpt-5.2",
   GPT_5_2_CHAT_LATEST = "gpt-5.2-chat-latest",
@@ -299,7 +310,9 @@ export enum OpenAIModels {
   O3_PRO = "o3-pro",
   O4_MINI = "o4-mini",
   O1 = "o1",
+  /** @deprecated Turned off Jul 14, 2025. Use GPT_4_1 or O3. */
   O1_PREVIEW = "o1-preview",
+  /** @deprecated Replaced by o3-mini. */
   O1_MINI = "o1-mini",
 
   // GPT-4 Series (Legacy)
@@ -320,6 +333,11 @@ export enum AzureOpenAIModels {
   GPT_5_2_CHAT = "gpt-5.2-chat",
   GPT_5_2_PRO = "gpt-5.2-pro",
   GPT_5_2_CODEX = "gpt-5.2-codex",
+
+  // GPT-5.4 Series (March 2026)
+  GPT_5_4 = "gpt-5.4",
+  GPT_5_4_MINI = "gpt-5.4-mini",
+  GPT_5_4_NANO = "gpt-5.4-nano",
 
   // GPT-5.1 Series (October 2025)
   GPT_5_1 = "gpt-5.1",
@@ -384,15 +402,21 @@ export enum VertexModels {
   CLAUDE_4_0_OPUS = "claude-opus-4@20250514",
 
   // Claude 3.7 Series (February 2025)
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_7_SONNET = "claude-3-7-sonnet@20250219",
 
   // Claude 3.5 Series (Still supported)
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_5_SONNET = "claude-3-5-sonnet-20241022",
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_5_HAIKU = "claude-3-5-haiku-20241022",
 
   // Claude 3 Series (Legacy support)
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_SONNET = "claude-3-sonnet-20240229",
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_OPUS = "claude-3-opus-20240229",
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_4_6_SONNET instead. */
   CLAUDE_3_HAIKU = "claude-3-haiku-20240307",
 
   // Gemini 3.1 Series (Released March 2026)
@@ -423,9 +447,9 @@ export enum VertexModels {
   GEMINI_2_0_FLASH_LITE = "gemini-2.0-flash-lite",
 
   // Gemini 1.5 Series (Retired - returns 404)
-  /** @deprecated Retired Sep 2025. Use Gemini 2.5+ */
+  /** @deprecated SHUT DOWN. Returns 404. Use GEMINI_2_5_FLASH or newer. */
   GEMINI_1_5_PRO = "gemini-1.5-pro-002",
-  /** @deprecated Retired Sep 2025. Use Gemini 2.5+ */
+  /** @deprecated SHUT DOWN. Returns 404. Use GEMINI_2_5_FLASH or newer. */
   GEMINI_1_5_FLASH = "gemini-1.5-flash-002",
 }
 
@@ -455,20 +479,22 @@ export enum GoogleAIModels {
   GEMINI_2_5_PRO_PREVIEW_TTS = "gemini-2.5-pro-preview-tts",
 
   // Gemini 2.0 Series (Deprecated - retiring Jun 2026)
+  /** @deprecated Retiring June 1, 2026. Use GEMINI_2_5_FLASH instead. */
   GEMINI_2_0_FLASH = "gemini-2.0-flash",
   GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001",
   GEMINI_2_0_FLASH_LITE = "gemini-2.0-flash-lite",
   GEMINI_2_0_FLASH_IMAGE = "gemini-2.0-flash-preview-image-generation",
 
   // Gemini 1.5 Series (Retired - returns 404)
-  /** @deprecated Retired Sep 2025. Use Gemini 2.5+ */
+  /** @deprecated SHUT DOWN. Returns 404. Use GEMINI_2_5_FLASH or newer. */
   GEMINI_1_5_PRO = "gemini-1.5-pro",
-  /** @deprecated Retired Sep 2025. Use Gemini 2.5+ */
+  /** @deprecated SHUT DOWN. Returns 404. Use GEMINI_2_5_FLASH or newer. */
   GEMINI_1_5_FLASH = "gemini-1.5-flash",
 
   // Embedding Models
   GEMINI_EMBEDDING = "gemini-embedding-001",
-  /** @deprecated Shutdown Jan 2026. Use gemini-embedding-001 */
+  GEMINI_EMBEDDING_2_PREVIEW = "gemini-embedding-2-preview",
+  /** @deprecated SHUT DOWN Jan 14, 2026. Use GEMINI_EMBEDDING instead. */
   TEXT_EMBEDDING_004 = "text-embedding-004",
 }
 
@@ -493,15 +519,21 @@ export enum AnthropicModels {
   CLAUDE_SONNET_4_0 = "claude-sonnet-4-20250514",
 
   // Claude 3.7 Series (Legacy)
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_SONNET_4_6 instead. */
   CLAUDE_SONNET_3_7 = "claude-3-7-sonnet-20250219",
 
   // Claude 3.5 Series (Legacy)
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_SONNET_4_6 instead. */
   CLAUDE_3_5_SONNET = "claude-3-5-sonnet-20241022",
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_SONNET_4_6 instead. */
   CLAUDE_3_5_HAIKU = "claude-3-5-haiku-20241022",
 
   // Claude 3 Series (Legacy - Deprecated)
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_SONNET_4_6 instead. */
   CLAUDE_3_SONNET = "claude-3-sonnet-20240229",
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_SONNET_4_6 instead. */
   CLAUDE_3_OPUS = "claude-3-opus-20240229",
+  /** @deprecated Retired from Anthropic API. Use CLAUDE_SONNET_4_6 instead. */
   CLAUDE_3_HAIKU = "claude-3-haiku-20240307",
 }
 
@@ -566,6 +598,10 @@ export enum MistralModels {
   MISTRAL_NEMO = "mistral-nemo",
   MISTRAL_EMBED = "mistral-embed",
   MISTRAL_MODERATION_LATEST = "mistral-moderation-latest",
+
+  // Mistral Small 4 Series (June 2026)
+  MISTRAL_SMALL_4 = "mistral-small-2603",
+  MISTRAL_SMALL_CREATIVE = "mistral-small-creative",
 }
 
 /**

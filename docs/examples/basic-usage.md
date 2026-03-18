@@ -671,20 +671,20 @@ import { NeuroLink } from "@juspay/neurolink";
 
 // Development configuration
 const devNeuroLink = new NeuroLink({
-  defaultProvider: "google-ai", // Free tier available
-  timeout: 30000,
-  retryAttempts: 1,
-  analytics: { enabled: false },
+  conversationMemory: { enabled: false },
+  enableOrchestration: false,
 });
 
 // Production configuration
 const prodNeuroLink = new NeuroLink({
-  defaultProvider: "auto", // Auto-select best provider
-  timeout: 15000,
-  retryAttempts: 3,
-  analytics: {
-    enabled: true,
-    endpoint: process.env.ANALYTICS_ENDPOINT,
+  conversationMemory: { enabled: true, enableSummarization: true },
+  enableOrchestration: true,
+  observability: {
+    langfuse: {
+      enabled: true,
+      publicKey: process.env.LANGFUSE_PUBLIC_KEY!,
+      secretKey: process.env.LANGFUSE_SECRET_KEY!,
+    },
   },
 });
 

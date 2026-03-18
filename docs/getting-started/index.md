@@ -4,33 +4,10 @@ Welcome to NeuroLink! This section will help you get up and running quickly with
 
 ## 🚀 What You'll Learn
 
-<div class="grid cards" markdown>
-
-- :material-clock-fast: **[Quick Start](quick-start.md)**
-
-  ***
-
-  Get NeuroLink working in under 2 minutes with basic examples for both CLI and SDK usage.
-
-- :material-download: **[Installation](installation.md)**
-
-  ***
-
-  Detailed installation instructions for different environments and package managers.
-
-- :material-key: **[Provider Setup](provider-setup.md)**
-
-  ***
-
-  Configure API keys and credentials for all 9 supported AI providers with step-by-step guides.
-
-- :material-cog: **[Environment Variables](environment-variables.md)**
-
-  ***
-
-  Complete reference for all environment variables and configuration options.
-
-</div>
+- **[Quick Start](quick-start.md)** — Get NeuroLink working in under 2 minutes with basic examples for both CLI and SDK usage.
+- **[Installation](installation.md)** — Detailed installation instructions for different environments and package managers.
+- **[Provider Setup](provider-setup.md)** — Configure API keys and credentials for all 13 supported AI providers with step-by-step guides.
+- **[Environment Variables](environment-variables.md)** — Complete reference for all environment variables and configuration options.
 
 ## 🎯 Choose Your Path
 
@@ -56,9 +33,9 @@ Welcome to NeuroLink! This section will help you get up and running quickly with
 - **npm/pnpm/yarn** (package manager)
 - **API keys** for at least one AI provider
 
-!!! tip "Free Options Available"
-
-    You can start with free providers like Google AI Studio, Hugging Face, or local Ollama to test NeuroLink without costs.
+:::tip[Free Options Available]
+You can start with free providers like Google AI Studio, Hugging Face, or local Ollama to test NeuroLink without costs.
+:::
 
 ## 🚦 Next Steps
 

@@ -14,17 +14,17 @@ keywords: anthropic, claude, api key, oauth, subscription, pro, max, sonnet, opu
 
 Anthropic provides direct API access to Claude, one of the most capable AI model families available. NeuroLink supports both API key authentication for production deployments and OAuth authentication for Claude Pro/Max subscription users.
 
-!!! tip "Claude Subscription Users"
+:::tip[Claude Subscription Users]
 If you have a Claude Pro or Max subscription, you can use OAuth authentication to leverage your subscription quota directly. See [OAuth Setup](#oauth-setup-claude-promax) below.
+:::
 
 ### Key Benefits
 
-- **Claude Sonnet 4**: Latest balanced model with extended thinking support
-- **Claude Opus 4**: Latest flagship model for advanced reasoning
-- **Claude 3.5 Sonnet**: Proven balanced performance for most tasks
-- **Extended Thinking**: Deep reasoning mode on Sonnet 4 and Opus 4
-- **200K Context**: All models support 200,000-token context windows
-- **Multimodal**: Vision capabilities for image analysis
+- **Claude Sonnet 4.6**: Latest balanced model — fast, capable, and cost-effective
+- **Claude Opus 4.6**: Latest flagship model for advanced reasoning
+- **1M Context Window**: Claude 4.6 models support 1,000,000-token context windows GA (no beta header needed)
+- **Extended Thinking**: Deep reasoning mode on Claude 3.7+ models (Sonnet 4, Opus 4)
+- **Multimodal**: Vision capabilities for image analysis across all models
 - **Tool Use**: Function calling for agent workflows
 
 ### Authentication Options
@@ -54,8 +54,8 @@ Add to your `.env` file:
 # Required: Your Anthropic API key
 ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
 
-# Optional: Override default model (defaults to claude-3-5-sonnet-20241022)
-ANTHROPIC_MODEL=claude-sonnet-4-20250514
+# Optional: Override default model (defaults to claude-sonnet-4-6)
+ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
 ### 3. Test the Setup
@@ -70,7 +70,7 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
     const result = await ai.generate({
       input: { text: "Explain quantum computing in simple terms" },
       provider: "anthropic",
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-sonnet-4-6",
     });
 
     console.log(result.content);
@@ -86,12 +86,12 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
     # Use specific model
     pnpm run cli -- generate "Write a haiku about AI" \
       --provider anthropic \
-      --model "claude-sonnet-4-20250514"
+      --model "claude-sonnet-4-6"
 
     # Interactive loop mode
     pnpm run cli -- loop \
       --provider anthropic \
-      --model "claude-3-5-sonnet-20241022"
+      --model "claude-sonnet-4-6"
     ```
 
 ---
@@ -102,24 +102,30 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
 
 | Enum Key            | Model ID                     | Family | Context | Max Output | Vision | Extended Thinking | Deprecated |
 | ------------------- | ---------------------------- | ------ | ------- | ---------- | ------ | ----------------- | ---------- |
-| `CLAUDE_OPUS_4_5`   | `claude-opus-4-5-20251101`   | Opus   | -       | -          | -      | -                 | No         |
-| `CLAUDE_SONNET_4_5` | `claude-sonnet-4-5-20250929` | Sonnet | -       | -          | -      | -                 | No         |
-| `CLAUDE_4_5_HAIKU`  | `claude-haiku-4-5-20251001`  | Haiku  | -       | -          | -      | -                 | No         |
-| `CLAUDE_OPUS_4_1`   | `claude-opus-4-1-20250805`   | Opus   | -       | -          | -      | -                 | No         |
+| `CLAUDE_OPUS_4_6`   | `claude-opus-4-6`            | Opus   | 1M      | 128,000    | Yes    | Yes               | No         |
+| `CLAUDE_SONNET_4_6` | `claude-sonnet-4-6`          | Sonnet | 1M      | 64,000     | Yes    | Yes               | No         |
+| `CLAUDE_OPUS_4_5`   | `claude-opus-4-5-20251101`   | Opus   | 200K    | 64,000     | Yes    | Yes               | No         |
+| `CLAUDE_SONNET_4_5` | `claude-sonnet-4-5-20250929` | Sonnet | 200K    | 64,000     | Yes    | Yes               | No         |
+| `CLAUDE_4_5_HAIKU`  | `claude-haiku-4-5-20251001`  | Haiku  | 200K    | 64,000     | Yes    | Yes               | No         |
+| `CLAUDE_OPUS_4_1`   | `claude-opus-4-1-20250805`   | Opus   | 200K    | 32,000     | Yes    | Yes               | No         |
 | `CLAUDE_OPUS_4_0`   | `claude-opus-4-20250514`     | Opus   | 200K    | 64,000     | Yes    | Yes               | No         |
 | `CLAUDE_SONNET_4_0` | `claude-sonnet-4-20250514`   | Sonnet | 200K    | 64,000     | Yes    | Yes               | No         |
-| `CLAUDE_SONNET_3_7` | `claude-3-7-sonnet-20250219` | Sonnet | -       | -          | -      | -                 | No         |
-| `CLAUDE_3_5_SONNET` | `claude-3-5-sonnet-20241022` | Sonnet | 200K    | 8,192      | Yes    | No                | No         |
-| `CLAUDE_3_5_HAIKU`  | `claude-3-5-haiku-20241022`  | Haiku  | 200K    | 8,192      | No     | No                | No         |
-| `CLAUDE_3_SONNET`   | `claude-3-sonnet-20240229`   | Sonnet | -       | -          | -      | -                 | Yes        |
-| `CLAUDE_3_OPUS`     | `claude-3-opus-20240229`     | Opus   | 200K    | 4,096      | Yes    | No                | Yes        |
-| `CLAUDE_3_HAIKU`    | `claude-3-haiku-20240307`    | Haiku  | 200K    | 4,096      | Yes    | No                | Yes        |
+| `CLAUDE_SONNET_3_7` | `claude-3-7-sonnet-20250219` | Sonnet | 200K    | 8,192      | Yes    | Yes               | **Yes**    |
+| `CLAUDE_3_5_SONNET` | `claude-3-5-sonnet-20241022` | Sonnet | 200K    | 8,192      | Yes    | No                | **Yes**    |
+| `CLAUDE_3_5_HAIKU`  | `claude-3-5-haiku-20241022`  | Haiku  | 200K    | 8,192      | No     | No                | **Yes**    |
+| `CLAUDE_3_SONNET`   | `claude-3-sonnet-20240229`   | Sonnet | 200K    | 4,096      | Yes    | No                | **Yes**    |
+| `CLAUDE_3_OPUS`     | `claude-3-opus-20240229`     | Opus   | 200K    | 4,096      | Yes    | No                | **Yes**    |
+| `CLAUDE_3_HAIKU`    | `claude-3-haiku-20240307`    | Haiku  | 200K    | 4,096      | Yes    | No                | **Yes**    |
 
-The detailed capabilities (context window, max output, vision, etc.) are defined in `MODEL_METADATA` within `src/lib/models/anthropicModels.ts` for the models that have entries there: Claude 3 Haiku, Claude 3.5 Haiku, Claude 3.5 Sonnet, Claude 3.5 Sonnet V2, Claude Sonnet 4, Claude 3 Opus, and Claude Opus 4.
+:::note[1M Context Window]
+Claude 4.6 models (`claude-opus-4-6` and `claude-sonnet-4-6`) support a 1,000,000-token context window at general availability — no beta header is required.
+:::
+
+The detailed capabilities (context window, max output, vision, etc.) are defined in `MODEL_METADATA` within `src/lib/models/anthropicModels.ts`.
 
 ### Default Model
 
-The default model when no model is specified is `claude-3-5-sonnet-20241022` (set via `AnthropicModels.CLAUDE_3_5_SONNET`). This can be overridden with the `ANTHROPIC_MODEL` environment variable.
+The default model when no model is specified is `claude-sonnet-4-6` (set via `AnthropicModels.CLAUDE_SONNET_4_6`). This can be overridden with the `ANTHROPIC_MODEL` environment variable.
 
 ### Model Selection by Use Case
 
@@ -132,29 +138,29 @@ const ai = new NeuroLink();
 const quickResult = await ai.generate({
   input: { text: "Summarize this text..." },
   provider: "anthropic",
-  model: "claude-3-5-haiku-20241022",
+  model: "claude-haiku-4-5-20251001",
 });
 
 // Balanced performance (recommended default)
 const balancedResult = await ai.generate({
   input: { text: "Analyze this code..." },
   provider: "anthropic",
-  model: "claude-3-5-sonnet-20241022",
+  model: "claude-sonnet-4-6",
 });
 
 // Latest Sonnet with extended thinking
-const sonnet4Result = await ai.generate({
+const sonnet46Result = await ai.generate({
   input: { text: "Design a distributed caching system" },
   provider: "anthropic",
-  model: "claude-sonnet-4-20250514",
+  model: "claude-sonnet-4-6",
   thinkingLevel: "high",
 });
 
-// Latest flagship for advanced reasoning
+// Latest flagship for advanced reasoning (1M context)
 const opusResult = await ai.generate({
   input: { text: "Solve this complex problem..." },
   provider: "anthropic",
-  model: "claude-opus-4-20250514",
+  model: "claude-opus-4-6",
 });
 ```
 
@@ -182,8 +188,10 @@ Anthropic offers different access tiers, each with varying rate limits and model
 | `claude-3-5-sonnet-20241022`    | No   | Yes | Yes                    | Yes |
 | `claude-3-5-sonnet-v2-20241022` | No   | Yes | Yes                    | Yes |
 | `claude-sonnet-4-20250514`      | No   | Yes | Yes                    | Yes |
+| `claude-sonnet-4-6`             | No   | Yes | Yes                    | Yes |
 | `claude-3-opus-20240229`        | No   | No  | Yes                    | Yes |
 | `claude-opus-4-20250514`        | No   | No  | Yes                    | Yes |
+| `claude-opus-4-6`               | No   | No  | Yes                    | Yes |
 
 ### Default Models by Tier (`DEFAULT_MODELS_BY_TIER`)
 
@@ -196,7 +204,7 @@ Anthropic offers different access tiers, each with varying rate limits and model
 | Max 20x | `claude-opus-4-20250514`    |
 | API     | `claude-sonnet-4-20250514`  |
 
-**Note:** The global provider default (when no subscription tier is active) is `claude-3-5-sonnet-20241022`. The tier defaults above only apply when a subscription tier is configured. When a requested model is not available for the user's subscription tier, the provider automatically falls back to the recommended default model for that tier and logs a warning.
+**Note:** The global provider default (when no subscription tier is active) is `claude-sonnet-4-6`. The tier defaults above only apply when a subscription tier is configured. When a requested model is not available for the user's subscription tier, the provider automatically falls back to the recommended default model for that tier and logs a warning.
 
 ---
 
@@ -218,7 +226,7 @@ The standard method using Anthropic API keys. Best for:
 ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
 
 # Optional: Override default model
-ANTHROPIC_MODEL=claude-sonnet-4-20250514
+ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
 The provider reads the API key via `ANTHROPIC_API_KEY`. The key format is validated against the pattern `sk-ant-*`.
@@ -233,7 +241,7 @@ const ai = new NeuroLink();
 const result = await ai.generate({
   input: { text: "Analyze this code for bugs" },
   provider: "anthropic",
-  model: "claude-3-5-sonnet-20241022",
+  model: "claude-sonnet-4-6",
   temperature: 0.7,
   maxTokens: 2000,
 });
@@ -249,7 +257,7 @@ The `AnthropicProvider` constructor accepts an optional `AnthropicProviderConfig
 import { AnthropicProvider } from "../src/lib/providers/anthropic.js";
 
 const provider = new AnthropicProvider(
-  "claude-sonnet-4-20250514", // modelName
+  "claude-sonnet-4-6", // modelName
   undefined, // sdk instance
   {
     authMethod: "api_key",
@@ -263,8 +271,9 @@ const provider = new AnthropicProvider(
 
 OAuth authentication allows you to use your Claude Pro or Max subscription through NeuroLink, leveraging your subscription quota instead of API billing.
 
-!!! warning "OAuth Limitations"
+:::warning[OAuth Limitations]
 OAuth authentication is designed for personal/development use. For production deployments, use API key authentication for better reliability and SLA guarantees.
+:::
 
 #### CLI Authentication
 
@@ -375,7 +384,7 @@ ANTHROPIC_SUBSCRIPTION_TIER=pro
 // Use relative imports within the codebase or access via the NeuroLink SDK.
 import { AnthropicProvider } from "../src/lib/providers/anthropic.js";
 
-const provider = new AnthropicProvider("claude-sonnet-4-20250514", undefined, {
+const provider = new AnthropicProvider("claude-sonnet-4-6", undefined, {
   authMethod: "oauth",
   oauthToken: {
     accessToken: "your-access-token",
@@ -392,7 +401,7 @@ const provider = new AnthropicProvider("claude-sonnet-4-20250514", undefined, {
 
 ## Extended Thinking
 
-Claude Sonnet 4 and Claude Opus 4 support extended thinking, allowing the model to reason more deeply before responding.
+All active Claude models (4.0 and above) support extended thinking, allowing the model to reason more deeply before responding. This includes Claude 4.6, 4.5, 4.1, and 4.0 variants.
 
 ### Thinking Levels
 
@@ -410,7 +419,7 @@ Claude Sonnet 4 and Claude Opus 4 support extended thinking, allowing the model 
 const result = await ai.generate({
   input: { text: "Design a distributed caching system" },
   provider: "anthropic",
-  model: "claude-sonnet-4-20250514",
+  model: "claude-sonnet-4-6",
   thinkingLevel: "high",
 });
 ```
@@ -420,7 +429,7 @@ const result = await ai.generate({
 ```bash
 pnpm run cli -- generate "Solve this logic puzzle..." \
   --provider anthropic \
-  --model "claude-sonnet-4-20250514" \
+  --model "claude-sonnet-4-6" \
   --thinking-level high
 ```
 
@@ -461,7 +470,7 @@ const result = await ai.generate({
     images: ["data:image/jpeg;base64,..."],
   },
   provider: "anthropic",
-  model: "claude-3-5-sonnet-20241022",
+  model: "claude-sonnet-4-6",
 });
 ```
 
@@ -481,7 +490,7 @@ const result = await ai.generate({
     pdfs: ["./document.pdf"],
   },
   provider: "anthropic",
-  model: "claude-3-5-sonnet-20241022",
+  model: "claude-sonnet-4-6",
 });
 ```
 
@@ -509,15 +518,16 @@ const tools = [
 const result = await ai.generate({
   input: { text: "What's the weather in Tokyo?" },
   provider: "anthropic",
-  model: "claude-3-5-sonnet-20241022",
+  model: "claude-sonnet-4-6",
   tools,
 });
 
 console.log(result.toolCalls);
 ```
 
-!!! note "OAuth Tool Name Prefixing"
+:::note[OAuth Tool Name Prefixing]
 When using OAuth authentication, tool names are automatically prefixed with `mcp_` in API requests and the prefix is stripped from responses. This is handled transparently by the OAuth fetch wrapper.
+:::
 
 ---
 
@@ -527,7 +537,7 @@ When using OAuth authentication, tool names are automatically prefixed with `mcp
 const stream = await ai.stream({
   input: { text: "Write a detailed article about AI" },
   provider: "anthropic",
-  model: "claude-3-5-sonnet-20241022",
+  model: "claude-sonnet-4-6",
 });
 ```
 
@@ -575,13 +585,13 @@ Warnings are logged automatically when:
 
 ### Environment Variables
 
-| Variable                      | Description                                                                                                   | Default                      | Required |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------- | -------- |
-| `ANTHROPIC_API_KEY`           | API key for authentication                                                                                    | -                            | Yes\*    |
-| `ANTHROPIC_MODEL`             | Default model to use                                                                                          | `claude-3-5-sonnet-20241022` | No       |
-| `ANTHROPIC_SUBSCRIPTION_TIER` | Subscription tier: `free`, `pro`, `max`, `max_5`, `max_20`, `api`                                             | Auto-detected                | No       |
-| `ANTHROPIC_OAUTH_TOKEN`       | OAuth token (plain access token string, or JSON `{"accessToken":"...","refreshToken":"...","expiresAt":...}`) | -                            | No\*\*   |
-| `CLAUDE_OAUTH_TOKEN`          | Alternative OAuth token env var (same format as above)                                                        | -                            | No\*\*   |
+| Variable                      | Description                                                                                                   | Default             | Required |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------- | -------- |
+| `ANTHROPIC_API_KEY`           | API key for authentication                                                                                    | -                   | Yes\*    |
+| `ANTHROPIC_MODEL`             | Default model to use                                                                                          | `claude-sonnet-4-6` | No       |
+| `ANTHROPIC_SUBSCRIPTION_TIER` | Subscription tier: `free`, `pro`, `max`, `max_5`, `max_20`, `api`                                             | Auto-detected       | No       |
+| `ANTHROPIC_OAUTH_TOKEN`       | OAuth token (plain access token string, or JSON `{"accessToken":"...","refreshToken":"...","expiresAt":...}`) | -                   | No\*\*   |
+| `CLAUDE_OAUTH_TOKEN`          | Alternative OAuth token env var (same format as above)                                                        | -                   | No\*\*   |
 
 \*Required for API key authentication. Not required when using OAuth.
 \*\*Used when `authMethod` is `oauth` and no stored credentials file exists. The `expiresAt` field uses Unix milliseconds (`Date.now()` scale).

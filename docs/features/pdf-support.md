@@ -1,3 +1,17 @@
+---
+title: "PDF File Support"
+description: Attach PDF documents directly to AI prompts for document analysis, information extraction, and content processing
+keywords:
+  [
+    pdf,
+    file-support,
+    multimodal,
+    document-analysis,
+    native-pdf,
+    document-processing,
+  ]
+---
+
 # PDF File Support
 
 NeuroLink provides seamless PDF file support as a **multimodal input type** - attach PDF documents directly to your AI prompts for document analysis, information extraction, and content processing.
@@ -51,7 +65,7 @@ const multimodal = await neurolink.generate({
 });
 
 // Streaming with PDF
-const stream = await neurolink.stream({
+const result = await neurolink.stream({
   input: {
     text: "Provide a detailed summary of this contract, highlighting key terms and obligations",
     pdfFiles: ["contract.pdf"],
@@ -59,8 +73,10 @@ const stream = await neurolink.stream({
   provider: "anthropic",
 });
 
-for await (const chunk of stream) {
-  process.stdout.write(chunk.content);
+for await (const chunk of result.stream) {
+  if ("content" in chunk) {
+    process.stdout.write(chunk.content);
+  }
 }
 ```
 
@@ -172,7 +188,7 @@ Current provider: azure-openai
 Options:
 1. Switch to a supported provider (--provider vertex or --provider openai)
 2. Convert your PDF to text manually
-3. Wait for future update (Azure OpenAI conversion coming soon)
+3. Wait for future update (Azure OpenAI conversion is planned)
 ```
 
 ### Provider-Specific Features
@@ -199,7 +215,7 @@ await neurolink.generate({
     pdfFiles: ["invoice.pdf"],
   },
   provider: "anthropic",
-  model: "claude-3-5-sonnet-20241022", // Latest model
+  model: "claude-sonnet-4-6", // Latest model
 });
 ```
 
@@ -410,7 +426,7 @@ try {
 
 ```typescript
 // For long documents, use streaming to get results faster
-const stream = await neurolink.stream({
+const result = await neurolink.stream({
   input: {
     text: "Provide a detailed analysis of this 50-page report",
     pdfFiles: ["long-report.pdf"],
@@ -419,8 +435,10 @@ const stream = await neurolink.stream({
   maxTokens: 8000,
 });
 
-for await (const chunk of stream) {
-  process.stdout.write(chunk.content);
+for await (const chunk of result.stream) {
+  if ("content" in chunk) {
+    process.stdout.write(chunk.content);
+  }
 }
 ```
 

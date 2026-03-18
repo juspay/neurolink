@@ -9,11 +9,14 @@ generated (LLM providers: the neurons) to where they are needed (connectors: the
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 
-const pipe = new NeuroLink({ defaultProvider: "anthropic" });
+const pipe = new NeuroLink();
 
 // Everything is a stream
-for await (const token of pipe.stream({ prompt: "Hello" })) {
-  process.stdout.write(token);
+const result = await pipe.stream({ input: { text: "Hello" } });
+for await (const chunk of result.stream) {
+  if ("content" in chunk) {
+    process.stdout.write(chunk.content);
+  }
 }
 ```
 
@@ -79,11 +82,12 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ```typescript
 // Image Generation with Gemini (v8.31.0)
-const image = await neurolink.generateImage({
-  prompt: "A futuristic cityscape",
+const image = await neurolink.generate({
+  input: { text: "A futuristic cityscape" },
   provider: "google-ai",
   model: "imagen-3.0-generate-002",
 });
+console.log(image.imageOutput?.base64); // Base64-encoded image
 
 // HTTP Transport for Remote MCP (v8.29.0)
 await neurolink.addExternalMCPServer("remote-tools", {
@@ -398,27 +402,25 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink({
   conversationMemory: {
     enabled: true,
-    store: "redis", // Automatically uses REDIS_URL
-    ttl: 86400, // 24-hour session expiration
+    enableSummarization: true,
   },
 });
 
-// Or explicit configuration
+// Or explicit Redis configuration
 const neurolinkExplicit = new NeuroLink({
   conversationMemory: {
     enabled: true,
-    store: "redis",
-    redis: {
+    redisConfig: {
       host: "redis.example.com",
       port: 6379,
       password: process.env.REDIS_PASSWORD,
-      tls: true, // Enable for production
+      ttl: 86400, // 24-hour session expiration (seconds)
     },
   },
 });
 
-// Export conversation for analytics
-const history = await neurolink.exportConversation({ format: "json" });
+// Retrieve conversation history for analytics
+const history = await neurolink.getConversationHistory("session-id");
 await saveToDataWarehouse(history);
 ```
 
@@ -605,7 +607,6 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink({
   conversationMemory: {
     enabled: true,
-    store: "redis",
   },
   enableOrchestration: true,
 });
@@ -633,7 +634,7 @@ console.log(result.evaluation?.overallScore);
 
 // RAG: Ask questions about your documents
 const answer = await neurolink.generate({
-  prompt: "What are the main architectural decisions?",
+  input: { text: "What are the main architectural decisions?" },
   rag: {
     files: ["./docs/architecture.md", "./docs/decisions.md"],
     strategy: "markdown",
@@ -657,7 +658,9 @@ const result = await neurolink.generate({
   },
   provider: "vertex",
   model: "gemini-3-flash-preview",
-  thinkingLevel: "medium", // Options: "minimal", "low", "medium", "high"
+  thinkingConfig: {
+    thinkingLevel: "medium", // Options: "minimal", "low", "medium", "high"
+  },
 });
 
 console.log(result.content);

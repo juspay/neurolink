@@ -413,7 +413,7 @@ All screenshot assets must follow this standardized naming convention for consis
 #### **Good Examples**
 
 ```
-cli-help-overview.png                    # CLI help command overview
+cli-help-demo.png                        # CLI help command overview
 cli-generate-flow-step1.png             # First step of generation workflow
 web-dashboard-analytics-dark.png        # Analytics dashboard in dark mode
 ui-button-hover-mobile.png              # Button hover state on mobile
@@ -466,7 +466,7 @@ docs/
 Every screenshot must include descriptive alt text:
 
 ```markdown
-<!-- ![CLI Help Command](../assets/images/cli-help-overview.png) -->
+<!-- ![CLI Help Command](../assets/images/cli-help-demo.png) -->
 
 _Complete CLI help output showing all available commands, options, and usage examples with color-coded syntax highlighting_
 ```
@@ -506,7 +506,7 @@ Use consistent caption formatting:
 
 ```bash
 # Use consistent screenshot naming in automation
-screenshot_cli_help="cli-help-overview.png"
+screenshot_cli_help="cli-help-demo.png"
 screenshot_web_dashboard="web-dashboard-analytics-light.png"
 
 # Automated screenshot capture with proper naming

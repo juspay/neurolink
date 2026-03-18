@@ -98,7 +98,7 @@ const response2 = await ai.generate({ input: "Compare to last week" });
 **Continuous Streaming (NeuroLink's Vision):**
 
 ```typescript
-// Future API (coming soon)
+// Future API (planned)
 const stream = await neurolink.connectStream({
   mode: "continuous", // Stream stays alive
   providers: ["ollama-local", "google"], // Local first, fallback to cloud
@@ -139,7 +139,7 @@ await stream.send("Compare to last week");
 
 **What We Built:**
 
-- ✅ 12 AI providers unified under one API
+- ✅ 13 AI providers unified under one API
 - ✅ Enterprise features (proxy, Redis, failover, telemetry)
 - ✅ SDK + CLI for any workflow
 - ✅ Real-time streaming with tool support
@@ -311,5 +311,5 @@ NeuroLink started as a production tool at Juspay to solve today's AI integration
 ---
 
 **Document maintained by**: NeuroLink Core Team
-**Last updated**: October 2025
-**Next review**: Q1 2026 (after Phase 2 completion)
+**Last updated**: March 2026
+**Next review**: Q3 2026 (after Phase 3 planning)

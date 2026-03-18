@@ -24,8 +24,9 @@ keywords: guardrails, content filtering, PII detection, safety, middleware, bad 
 
 ## Quick Start
 
-!!! success "Zero Configuration"
+:::tip[Zero Configuration]
 Guardrails work out of the box with the `security` preset. No custom configuration required for basic content filtering.
+:::
 
 ### SDK Example with Security Preset
 
@@ -174,8 +175,9 @@ Simple regex-based replacement:
 
 ### Model-Based Filtering
 
-!!! danger "PII Detection Accuracy"
+:::danger[PII Detection Accuracy]
 While guardrails filter common PII patterns, always review critical outputs manually. False negatives can occur with obfuscated data or uncommon PII formats. For high-stakes compliance, combine with dedicated PII detection services.
+:::
 
 AI-powered safety check:
 

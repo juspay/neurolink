@@ -121,7 +121,7 @@ const ragTool = createVectorQueryTool(
 const neurolink = new NeuroLink();
 const result = await neurolink.generate({
   input: { text: "What are the key features of our product?" },
-  tools: [ragTool],
+  tools: { [ragTool.name]: ragTool },
   provider: "vertex",
   model: "gemini-2.5-flash",
 });
@@ -134,18 +134,16 @@ console.log(result.toolExecutions); // See RAG tool results
 
 ```typescript
 // Same setup as above, then:
-const stream = await neurolink.stream({
+const result = await neurolink.stream({
   input: { text: "Explain our pricing model in detail" },
-  tools: [ragTool],
+  tools: { [ragTool.name]: ragTool },
   provider: "vertex",
   model: "gemini-2.5-flash",
 });
 
-for await (const chunk of stream) {
-  if (chunk.type === "text") {
+for await (const chunk of result.stream) {
+  if ("content" in chunk) {
     process.stdout.write(chunk.content);
-  } else if (chunk.type === "tool_call") {
-    console.log("RAG tool called:", chunk.toolName);
   }
 }
 ```
@@ -242,10 +240,10 @@ const ragTool = createVectorQueryTool(
 // Step 6: Use with generate()
 const response = await neurolink.generate({
   input: { text: "How do I configure the billing settings?" },
-  tools: [ragTool],
+  tools: { [ragTool.name]: ragTool },
   provider: "vertex",
   model: "gemini-2.5-flash",
-  systemPrompt: `You are a helpful product assistant. Use the knowledge-search tool 
+  systemPrompt: `You are a helpful product assistant. Use the product-search tool
     to find relevant information before answering questions. Always cite your sources.`,
 });
 
@@ -317,7 +315,7 @@ neurolink.on("generation:end", (event) => {
 // Execute RAG query with event monitoring
 const result = await neurolink.generate({
   input: { text: "What are the system requirements?" },
-  tools: [ragTool],
+  tools: { [ragTool.name]: ragTool },
   provider: "vertex",
   model: "gemini-2.5-flash",
 });
@@ -346,7 +344,7 @@ const ragTool = createVectorQueryTool(
 // The context is passed from generate options
 const result = await neurolink.generate({
   input: { text: "Search query" },
-  tools: [ragTool],
+  tools: { [ragTool.name]: ragTool },
   context: { tenantId: "tenant-123", userId: "user-456" },
 });
 ```
@@ -686,12 +684,12 @@ console.log(results[0]);
 
 ### Environment Variables
 
-| Variable            | Description                | Required |
-| ------------------- | -------------------------- | -------- |
-| `GOOGLE_API_KEY`    | For Vertex AI (default)    | Yes      |
-| `OPENAI_API_KEY`    | For OpenAI provider        | Optional |
-| `COHERE_API_KEY`    | For Cohere reranker        | Optional |
-| `ANTHROPIC_API_KEY` | For Claude-based reranking | Optional |
+| Variable                         | Description                               | Required |
+| -------------------------------- | ----------------------------------------- | -------- |
+| `GOOGLE_APPLICATION_CREDENTIALS` | For Vertex AI (service account JSON path) | Yes      |
+| `OPENAI_API_KEY`                 | For OpenAI provider                       | Optional |
+| `COHERE_API_KEY`                 | For Cohere reranker                       | Optional |
+| `ANTHROPIC_API_KEY`              | For Claude-based reranking                | Optional |
 
 ## Advanced Usage
 
@@ -919,7 +917,7 @@ const neurolink = new NeuroLink();
 
 // Generate with RAG - just pass files
 const result = await neurolink.generate({
-  prompt: "What are the key features described in the docs?",
+  input: { text: "What are the key features described in the docs?" },
   rag: {
     files: ["./docs/guide.md", "./docs/api.md"],
     strategy: "markdown", // Optional: auto-detected from file extension
@@ -930,13 +928,15 @@ const result = await neurolink.generate({
 });
 
 // Stream with RAG - identical API
-const stream = await neurolink.stream({
-  prompt: "Summarize the architecture",
+const streamResult = await neurolink.stream({
+  input: { text: "Summarize the architecture" },
   rag: { files: ["./docs/architecture.md"] },
 });
 
-for await (const chunk of stream.stream) {
-  process.stdout.write(chunk);
+for await (const chunk of streamResult.stream) {
+  if ("content" in chunk) {
+    process.stdout.write(chunk.content);
+  }
 }
 ```
 

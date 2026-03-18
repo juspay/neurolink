@@ -1,3 +1,18 @@
+---
+title: "Observability Guide"
+description: Enterprise-grade observability for AI operations with Langfuse and OpenTelemetry integration
+keywords:
+  [
+    observability,
+    langfuse,
+    opentelemetry,
+    tracing,
+    monitoring,
+    telemetry,
+    distributed-tracing,
+  ]
+---
+
 # Observability Guide
 
 Enterprise-grade observability for AI operations with Langfuse and OpenTelemetry integration.
@@ -69,7 +84,7 @@ const result = await setLangfuseContext(
     },
   },
   async () => {
-    return await neurolink.generate({ prompt: "Hello" });
+    return await neurolink.generate("Hello");
   },
 );
 
@@ -201,7 +216,7 @@ await setLangfuseContext(
     operationName: "custom-rag-pipeline",
   },
   async () => {
-    return await neurolink.generate({ prompt: "Hello" });
+    return await neurolink.generate("Hello");
   },
 );
 // Trace name: "user-123:custom-rag-pipeline"
@@ -213,7 +228,7 @@ await setLangfuseContext(
     autoDetectOperationName: false, // Override global setting
   },
   async () => {
-    return await neurolink.generate({ prompt: "Hello" });
+    return await neurolink.generate("Hello");
   },
 );
 // Trace name: "user-123" (legacy behavior)
@@ -225,7 +240,7 @@ await setLangfuseContext(
     autoDetectOperationName: true, // Enable for this context
   },
   async () => {
-    return await neurolink.generate({ prompt: "Hello" });
+    return await neurolink.generate("Hello");
   },
 );
 // Trace name: "user-123:ai.generateText"
@@ -245,7 +260,7 @@ Operation name support is fully backward compatible:
        operationName: "ignored-operation",
      },
      async () => {
-       return await neurolink.generate({ prompt: "Hello" });
+       return await neurolink.generate("Hello");
      },
    );
    // Trace name: "my-custom-trace"
@@ -278,7 +293,7 @@ Operation name support is fully backward compatible:
        traceName: "customer-support-chat",
      },
      async () => {
-       return await neurolink.generate({ prompt: "Hello" });
+       return await neurolink.generate("Hello");
      },
    );
    // Trace name: "customer-support-chat"
@@ -302,7 +317,7 @@ When host applications create wrapper spans (trace-root spans) before AI operati
 ```typescript
 // Host app creates wrapper span first
 const span = tracer.startSpan("my-operation"); // onStart() runs here - no AI span yet
-await neurolink.generate({ prompt: "Hello" }); // AI SDK creates "ai.generateText" span later
+await neurolink.generate("Hello"); // AI SDK creates "ai.generateText" span later
 span.end();
 ```
 
@@ -334,7 +349,7 @@ await setLangfuseContext({ userId: "user-123" }, async () => {
     span.setAttribute("request.type", "chat");
     span.setAttribute("model", "gpt-4");
 
-    const result = await neurolink.generate({ prompt: "Hello" });
+    const result = await neurolink.generate("Hello");
 
     span.setAttribute("tokens.total", result.usage?.totalTokens ?? 0);
     return result;
@@ -541,7 +556,7 @@ try {
 ```typescript
 const span = tracer.startSpan("ai-generation");
 try {
-  return await neurolink.generate({ prompt });
+  return await neurolink.generate({ input: { text: prompt } });
 } catch (error) {
   span.recordException(error as Error);
   span.setStatus({ code: 2, message: (error as Error).message });
@@ -580,11 +595,11 @@ const processors = getSpanProcessors(); // Returns [ContextEnricher, LangfuseSpa
 // Wrong - context set outside the request handler
 await setLangfuseContext({ userId: "user-123" });
 // ... later in different async context
-await neurolink.generate({ prompt: "Hello" }); // Context lost!
+await neurolink.generate("Hello"); // Context lost!
 
 // Correct - use callback to scope context
 await setLangfuseContext({ userId: "user-123" }, async () => {
-  await neurolink.generate({ prompt: "Hello" }); // Context attached!
+  await neurolink.generate("Hello"); // Context attached!
 });
 ```
 

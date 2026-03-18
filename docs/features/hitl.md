@@ -14,8 +14,9 @@ keywords: hitl, human in the loop, tool confirmation, safety, approval workflow,
 
 **Why use it**: Prevent costly mistakes and give users control over potentially dangerous AI actions. Think of it as an "Are you sure?" dialog for AI assistant operations.
 
-!!! warning "Security Best Practice"
+:::warning[Security Best Practice]
 Only use HITL for truly risky operations. Overusing confirmation prompts degrades user experience and can lead to "confirmation fatigue" where users approve actions without reading them.
+:::
 
 **Common use cases**:
 
@@ -283,8 +284,9 @@ const result = await neurolink.generate({
 
 ## Best Practices
 
-!!! tip "Production Recommendation"
+:::tip[Production Recommendation]
 Store user confirmation preferences to avoid repeated prompts for the same action type. For example, if a user approves "delete temporary files" once, cache that preference for similar low-risk deletions in the same session.
+:::
 
 ### For Developers
 

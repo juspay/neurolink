@@ -79,7 +79,7 @@ const tracer = getTracer("my-app");
 await setLangfuseContext({ userId: "user-123" }, async () => {
   const span = tracer.startSpan("process-request");
   try {
-    const result = await neurolink.generate({ prompt: "Hello" });
+    const result = await neurolink.generate("Hello");
     span.setAttribute("tokens.total", result.usage?.totalTokens);
     return result;
   } finally {

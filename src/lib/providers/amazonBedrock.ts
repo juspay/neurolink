@@ -158,9 +158,7 @@ export class AmazonBedrockProvider extends BaseProvider {
   }
 
   public getDefaultModel(): string {
-    return (
-      process.env.BEDROCK_MODEL || "anthropic.claude-3-sonnet-20240229-v1:0"
-    );
+    return process.env.BEDROCK_MODEL || "anthropic.claude-sonnet-4-6";
   }
 
   /**

@@ -24,8 +24,9 @@ keywords: redis, conversation export, session history, analytics, debugging, aud
 
 ## Quick Start
 
-!!! warning "Redis Required"
+:::warning[Redis Required]
 Conversation history export **only works with Redis storage**. In-memory storage does not support export functionality. Configure Redis before enabling conversation memory.
+:::
 
 ### SDK Example
 
@@ -225,8 +226,9 @@ await fs.writeFile(
 
 ### Integration with Analytics Pipeline
 
-!!! tip "Analytics Integration"
+:::tip[Analytics Integration]
 Pipe exported conversation data directly to your analytics dashboards for user behavior insights, quality metrics, and model performance tracking. Combine with [Auto Evaluation](auto-evaluation.md) for comprehensive quality monitoring.
+:::
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";

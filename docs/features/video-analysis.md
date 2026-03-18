@@ -1,3 +1,10 @@
+---
+title: "Video Analysis"
+description: Comprehensive video analysis powered by Gemini 2.0 Flash with deep logical auditing of video sequences
+keywords:
+  [video-analysis, video, multimodal, gemini, media-processing, visual-analysis]
+---
+
 # Video Analysis
 
 Comprehensive video analysis for NeuroLink, powered by Gemini 2.0 Flash. This feature goes beyond basic visual description—it provides a deep logical audit of video sequences to understand "why" and "how" events occur.
@@ -8,6 +15,24 @@ Comprehensive video analysis for NeuroLink, powered by Gemini 2.0 Flash. This fe
 - **Action-Reaction Chain**: A step-by-step audit of user or system actions and their immediate visual results.
 - **Evidence-Based Reporting**: Detailed reasoning backed by structured visual indicators (colors, labels, text) in JSON format.
 - **Strategic Verdicts**: High-level assessments of whether a workflow succeeded or failed logically.
+
+---
+
+## Quick Start
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Describe this video", videoFiles: ["./clip.mp4"] },
+  provider: "vertex",
+  model: "gemini-2.0-flash",
+});
+
+console.log(result.content);
+```
 
 ---
 

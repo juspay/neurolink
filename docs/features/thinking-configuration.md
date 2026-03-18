@@ -1,3 +1,18 @@
+---
+title: "Extended Thinking Configuration"
+description: Enable extended thinking and reasoning modes for AI models that support deeper reasoning capabilities
+keywords:
+  [
+    thinking,
+    extended-thinking,
+    reasoning,
+    thinking-level,
+    gemini,
+    claude,
+    deep-reasoning,
+  ]
+---
+
 # Extended Thinking Configuration
 
 Enable extended thinking/reasoning modes for AI models that support deeper reasoning capabilities. This feature allows models to "think through" complex problems before providing a response.
@@ -10,7 +25,7 @@ NeuroLink supports extended thinking/reasoning configuration for models that pro
 
 ### Gemini 3 Models (Google Vertex AI / AI Studio)
 
-- `gemini-3-pro-preview` - Full thinking support with high token budgets (up to 100,000)
+- `gemini-3.1-pro` - Full thinking support with high token budgets (up to 100,000)
 - `gemini-3-flash-preview` - Fast thinking with support for "minimal" level (up to 50,000)
 
 ### Gemini 2.5 Models (Google Vertex AI / AI Studio)
@@ -20,24 +35,29 @@ NeuroLink supports extended thinking/reasoning configuration for models that pro
 
 ### Claude Models (Anthropic)
 
-- `claude-3-7-sonnet-20250219` - Extended thinking via budget tokens
-- Other Claude 3.x models with thinking capability
+All Claude 4.0+ models support extended thinking via budget tokens:
 
-## Quick Example
+- `claude-sonnet-4-20250514` (Claude Sonnet 4)
+- `claude-opus-4-20250514` (Claude Opus 4)
+- `claude-opus-4-1-20250805` (Claude Opus 4.1)
+- `claude-sonnet-4-5-20250929` (Claude Sonnet 4.5)
+- `claude-opus-4-5-20251101` (Claude Opus 4.5)
+- `claude-haiku-4-5-20251001` (Claude Haiku 4.5)
+- `claude-sonnet-4-6` (Claude Sonnet 4.6)
+- `claude-opus-4-6` (Claude Opus 4.6)
+
+## Quick Start
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink();
 
-// Gemini 3 with thinking level
 const result = await neurolink.generate({
-  input: { text: "Solve this complex problem..." },
-  provider: "vertex",
-  model: "gemini-3-pro-preview",
-  thinkingConfig: {
-    thinkingLevel: "high",
-  },
+  input: { text: "Prove that the square root of 2 is irrational" },
+  provider: "google-ai",
+  model: "gemini-2.5-flash",
+  thinkingConfig: { thinkingLevel: "high" },
 });
 
 console.log(result.content);
@@ -69,11 +89,19 @@ const response = await neurolink.generate({
 
 ### Maximum Token Budgets by Model
 
-| Model              | Max Thinking Budget |
-| ------------------ | ------------------- |
-| `gemini-3-pro-*`   | 100,000 tokens      |
-| `gemini-3-flash-*` | 50,000 tokens       |
-| `gemini-2.5-*`     | 32,000 tokens       |
+| Model                 | Max Thinking Budget |
+| --------------------- | ------------------- |
+| `gemini-3-pro-*`      | 100,000 tokens      |
+| `gemini-3-flash-*`    | 50,000 tokens       |
+| `gemini-2.5-*`        | 32,000 tokens       |
+| `claude-opus-4-6`     | 100,000 tokens      |
+| `claude-sonnet-4-6`   | 100,000 tokens      |
+| `claude-opus-4-5-*`   | 100,000 tokens      |
+| `claude-sonnet-4-5-*` | 100,000 tokens      |
+| `claude-haiku-4-5-*`  | 100,000 tokens      |
+| `claude-opus-4-1-*`   | 100,000 tokens      |
+| `claude-opus-4-*`     | 100,000 tokens      |
+| `claude-sonnet-4-*`   | 100,000 tokens      |
 
 ## Anthropic Claude Thinking Configuration
 
@@ -83,7 +111,7 @@ For Claude models, use `budgetTokens` to set the thinking token budget:
 const response = await neurolink.generate({
   input: { text: "Solve this complex math problem step by step..." },
   provider: "anthropic",
-  model: "claude-3-7-sonnet-20250219",
+  model: "claude-sonnet-4-6",
   thinkingConfig: {
     enabled: true,
     budgetTokens: 10000, // Range: 5000-100000

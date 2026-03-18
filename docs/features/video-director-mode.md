@@ -4,7 +4,7 @@ description: Generate multi-segment videos with seamless AI-powered transitions 
 keywords: director mode, video generation, multi-clip, transitions, veo 3.1, frame interpolation, video merging, vertex ai, video stitching, per-transition duration
 ---
 
-## Video Director Mode
+# Video Director Mode
 
 Director Mode extends NeuroLink's [video generation](./video-generation.md) capability to produce **multi-segment videos with seamless AI-generated transitions**. Instead of a single clip, you define an array of **segments** — each with its own prompt and image — and NeuroLink orchestrates the full pipeline: generating each clip, extracting boundary frames, producing transition videos (with individually configurable durations) using Veo 3.1's first-and-last-frame interpolation, and merging everything into one continuous video.
 

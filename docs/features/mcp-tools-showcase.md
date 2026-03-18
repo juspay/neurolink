@@ -56,6 +56,28 @@ const result = await neurolink.generate({
 - **Performance Optimized**: 0-11ms tool execution (target: <100ms)
 - **Enterprise Grade**: Comprehensive error handling, audit logging, security
 
+## Quick Start
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// Add the GitHub MCP server
+await neurolink.addExternalMCPServer("github", {
+  command: "npx",
+  args: ["-y", "@modelcontextprotocol/server-github"],
+  env: { GITHUB_PERSONAL_ACCESS_TOKEN: process.env.GITHUB_TOKEN! },
+});
+
+// The AI can now use GitHub tools automatically
+const result = await neurolink.generate({
+  input: { text: "List open issues in my-org/my-repo" },
+});
+
+console.log(result.content);
+```
+
 ---
 
 ## Built-in Core Tools (6)
@@ -346,7 +368,7 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink();
 
 // Add external MCP servers dynamically
-await neurolink.addMCPServer("github", {
+await neurolink.addExternalMCPServer("github", {
   command: "npx",
   args: ["-y", "@modelcontextprotocol/server-github"],
   env: {
@@ -354,7 +376,7 @@ await neurolink.addMCPServer("github", {
   },
 });
 
-await neurolink.addMCPServer("postgres", {
+await neurolink.addExternalMCPServer("postgres", {
   command: "npx",
   args: ["-y", "@modelcontextprotocol/server-postgres"],
   env: {
@@ -409,7 +431,7 @@ const result = await neurolink.generate({
 **Example**:
 
 ```typescript
-await neurolink.addMCPServer("github", {
+await neurolink.addExternalMCPServer("github", {
   command: "npx",
   args: ["-y", "@modelcontextprotocol/server-github"],
   env: {
@@ -591,7 +613,7 @@ const result = await neurolink.generate({
 **Configuration**:
 
 ```typescript
-await neurolink.addMCPServer("postgres", {
+await neurolink.addExternalMCPServer("postgres", {
   command: "npx",
   args: ["-y", "@modelcontextprotocol/server-postgres"],
   env: {
@@ -1072,7 +1094,7 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink();
 
 // Add official MCP server
-await neurolink.addMCPServer("github", {
+await neurolink.addExternalMCPServer("github", {
   command: "npx",
   args: ["-y", "@modelcontextprotocol/server-github"],
   env: {
@@ -1081,7 +1103,7 @@ await neurolink.addMCPServer("github", {
 });
 
 // Add custom MCP server
-await neurolink.addMCPServer("custom-analytics", {
+await neurolink.addExternalMCPServer("custom-analytics", {
   command: "node",
   args: ["./analytics-mcp-server.js"],
   env: {
@@ -1092,7 +1114,7 @@ await neurolink.addMCPServer("custom-analytics", {
 });
 
 // Add remote MCP server (SSE transport)
-await neurolink.addMCPServer("remote-tools", {
+await neurolink.addExternalMCPServer("remote-tools", {
   command: "http://mcp.company.com/tools",
   transport: "sse",
   url: "http://mcp.company.com/tools/mcp",
@@ -1319,7 +1341,7 @@ await server.connect(transport);
 **Using custom server**:
 
 ```typescript
-await neurolink.addMCPServer("crm", {
+await neurolink.addExternalMCPServer("crm", {
   command: "node",
   args: ["./custom-crm-server.js"],
   env: {
@@ -1335,7 +1357,7 @@ await neurolink.addMCPServer("crm", {
 
 ```typescript
 // Restrict filesystem access
-await neurolink.addMCPServer("filesystem", {
+await neurolink.addExternalMCPServer("filesystem", {
   command: "npx",
   args: [
     "-y",
@@ -1410,7 +1432,7 @@ const neurolink = new NeuroLink({
 
 ```typescript
 // Reuse database connections
-await neurolink.addMCPServer("postgres", {
+await neurolink.addExternalMCPServer("postgres", {
   command: "npx",
   args: ["-y", "@modelcontextprotocol/server-postgres"],
   env: {
@@ -1447,7 +1469,7 @@ const result2 = await neurolink.generate({
 #### 3. Timeout Handling
 
 ```typescript
-await neurolink.addMCPServer("slow-api", {
+await neurolink.addExternalMCPServer("slow-api", {
   command: "npx",
   args: ["-y", "slow-mcp-server"],
   timeout: 30000, // 30 second timeout

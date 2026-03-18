@@ -57,10 +57,10 @@ const neurolink = new NeuroLink();
 
 // For highest quality output
 const result = await neurolink.generate({
+  input: { text: "Complex analysis requiring nuanced reasoning" },
   provider: "anthropic",
   model: "claude-opus-4-5-20250929",
-  prompt: "Complex analysis requiring nuanced reasoning",
-  thinkingLevel: "high", // Enable extended thinking for complex tasks
+  thinkingConfig: { thinkingLevel: "high" }, // Enable extended thinking for complex tasks
   temperature: 0.3, // Lower temperature for more consistent output
 });
 ```
@@ -96,7 +96,7 @@ async function generateWithCostOptimization(
   };
 
   return neurolink.generate({
-    prompt,
+    input: { text: prompt },
     ...configs[complexity],
   });
 }
@@ -131,14 +131,14 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink();
 
 // For real-time user-facing applications
-const stream = await neurolink.stream({
+const result = await neurolink.stream({
+  input: { text: "Generate response quickly" },
   provider: "google-ai", // Fast TTFT
   model: "gemini-2.5-flash", // Optimized for speed
-  prompt: "Generate response quickly",
   maxTokens: 500, // Limit for faster completion
 });
 
-for await (const chunk of stream) {
+for await (const chunk of result.stream) {
   process.stdout.write(chunk.content);
 }
 ```
@@ -166,32 +166,32 @@ const neurolink = new NeuroLink();
 
 // PDF processing - use Anthropic or Google
 const pdfResult = await neurolink.generate({
+  input: {
+    text: "Analyze this contract",
+    files: ["./contract.pdf"],
+  },
   provider: "anthropic",
   model: "claude-sonnet-4-5-20250929",
-  prompt: "Analyze this contract",
-  files: [{ path: "./contract.pdf", type: "pdf" }],
 });
 
 // Extended thinking for complex reasoning
 const reasoningResult = await neurolink.generate({
+  input: { text: "Solve this multi-step problem with detailed reasoning" },
   provider: "anthropic",
   model: "claude-sonnet-4-5-20250929",
-  prompt: "Solve this multi-step problem with detailed reasoning",
-  thinkingLevel: "high",
+  thinkingConfig: { thinkingLevel: "high" },
 });
 
 // Structured output with Google (tools disabled)
 const structuredResult = await neurolink.generate({
+  input: { text: "Extract user data" },
   provider: "google-ai",
   model: "gemini-2.5-pro",
-  prompt: "Extract user data",
-  structuredOutput: {
-    schema: {
-      type: "object",
-      properties: {
-        name: { type: "string" },
-        email: { type: "string" },
-      },
+  schema: {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      email: { type: "string" },
     },
   },
   disableTools: true, // Required for Google providers with schema
@@ -219,17 +219,17 @@ const neurolink = new NeuroLink();
 
 // For sensitive data - use local Ollama
 const privateResult = await neurolink.generate({
+  input: { text: "Process this sensitive customer data" },
   provider: "ollama",
   model: "llama3.1:70b",
-  prompt: "Process this sensitive customer data",
   // Data never leaves your infrastructure
 });
 
 // For GDPR compliance - use Mistral
 const gdprResult = await neurolink.generate({
+  input: { text: "Process EU customer request" },
   provider: "mistral",
   model: "mistral-large-latest",
-  prompt: "Process EU customer request",
   // Data stays in European data centers
 });
 ```
@@ -263,8 +263,8 @@ const prodConfig = {
 const config = process.env.NODE_ENV === "production" ? prodConfig : devConfig;
 
 const result = await neurolink.generate({
+  input: { text: "Your application prompt" },
   ...config,
-  prompt: "Your application prompt",
 });
 ```
 
@@ -297,15 +297,15 @@ const fallbackConfig = {
 async function generateWithFallback(prompt: string) {
   try {
     return await neurolink.generate({
+      input: { text: prompt },
       ...primaryConfig,
-      prompt,
       timeout: 30000,
     });
   } catch (error) {
     console.warn("Primary provider failed, using fallback");
     return await neurolink.generate({
+      input: { text: prompt },
       ...fallbackConfig,
-      prompt,
     });
   }
 }
@@ -330,28 +330,28 @@ const neurolink = new NeuroLink();
 
 // Use extended thinking for deep analysis
 const analysisResult = await neurolink.generate({
-  provider: "anthropic",
-  model: "claude-opus-4-5-20250929",
-  prompt: `Analyze the following research paper and provide:
+  input: {
+    text: `Analyze the following research paper and provide:
     1. Key findings and methodology
     2. Potential limitations
     3. Implications for the field
     4. Suggested follow-up research`,
-  files: [{ path: "./research-paper.pdf", type: "pdf" }],
-  thinkingLevel: "high",
+    files: ["./research-paper.pdf"],
+  },
+  provider: "anthropic",
+  model: "claude-opus-4-5-20250929",
+  thinkingConfig: { thinkingLevel: "high" },
   maxTokens: 8000,
 });
 
 // For document-heavy workflows
 const documentResult = await neurolink.generate({
+  input: {
+    text: "Compare these three documents",
+    files: ["./doc1.pdf", "./doc2.pdf", "./doc3.pdf"],
+  },
   provider: "google-ai",
   model: "gemini-2.5-pro",
-  prompt: "Compare these three documents",
-  files: [
-    { path: "./doc1.pdf", type: "pdf" },
-    { path: "./doc2.pdf", type: "pdf" },
-    { path: "./doc3.pdf", type: "pdf" },
-  ],
 });
 ```
 
@@ -366,23 +366,23 @@ const neurolink = new NeuroLink();
 
 // Tier 1: Completely local (maximum privacy)
 const localResult = await neurolink.generate({
+  input: { text: "Process sensitive patient data" },
   provider: "ollama",
   model: "llama3.1:70b",
-  prompt: "Process sensitive patient data",
 });
 
 // Tier 2: EU-only processing (GDPR compliant)
 const euResult = await neurolink.generate({
+  input: { text: "Process EU customer request" },
   provider: "mistral",
   model: "mistral-large-latest",
-  prompt: "Process EU customer request",
 });
 
 // Tier 3: Enterprise cloud with compliance (when cloud is acceptable)
 const enterpriseResult = await neurolink.generate({
+  input: { text: "Process data with enterprise security" },
   provider: "azure",
   model: "gpt-4o",
-  prompt: "Process data with enterprise security",
 });
 ```
 
@@ -452,10 +452,12 @@ async function intelligentGenerate(context: RequestContext) {
   const { provider, model } = selectProvider(context);
 
   return neurolink.generate({
+    input: { text: context.prompt },
     provider: provider as any,
     model,
-    prompt: context.prompt,
-    thinkingLevel: context.requiresReasoning ? "high" : undefined,
+    thinkingConfig: context.requiresReasoning
+      ? { thinkingLevel: "high" }
+      : undefined,
   });
 }
 
@@ -506,9 +508,9 @@ async function generateWithFailover(
 
     try {
       const result = await neurolink.generate({
+        input: { text: prompt },
         provider: config.provider as any,
         model: config.model,
-        prompt,
         timeout: 30000,
       });
 
@@ -607,9 +609,9 @@ class CostAwareLoadBalancer {
 
     try {
       return await neurolink.generate({
+        input: { text: prompt },
         provider: provider.provider as any,
         model: provider.model,
-        prompt,
       });
     } finally {
       provider.currentLoad--;
@@ -647,24 +649,24 @@ const neurolink = new NeuroLink();
 
 // Same OpenAI model, but now portable
 const result = await neurolink.generate({
+  input: { text: "Hello" },
   provider: "openai", // Can easily switch to any provider
   model: "gpt-4o",
-  prompt: "Hello",
 });
 
 // Switch to Anthropic for extended thinking
 const resultWithThinking = await neurolink.generate({
+  input: { text: "Complex reasoning task" },
   provider: "anthropic",
   model: "claude-sonnet-4-5-20250929",
-  prompt: "Complex reasoning task",
-  thinkingLevel: "high",
+  thinkingConfig: { thinkingLevel: "high" },
 });
 
 // Use free tier for development
 const devResult = await neurolink.generate({
+  input: { text: "Development testing" },
   provider: "google-ai",
   model: "gemini-2.5-flash",
-  prompt: "Development testing",
 });
 ```
 
@@ -689,9 +691,9 @@ async function checkProviderHealth(config: {
 }) {
   try {
     await neurolink.generate({
+      input: { text: "Health check" },
       provider: config.provider as any,
       model: config.model,
-      prompt: "Health check",
       maxTokens: 10,
     });
     return true;
@@ -706,9 +708,9 @@ async function generateWithRedundancy(prompt: string) {
     if (await checkProviderHealth(config)) {
       console.log(`Using ${tier} provider: ${config.provider}`);
       return neurolink.generate({
+        input: { text: prompt },
         provider: config.provider as any,
         model: config.model,
-        prompt,
       });
     }
   }

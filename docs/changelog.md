@@ -129,16 +129,16 @@ Migrating between major versions? Check out our comprehensive upgrade guides:
 
 ### Major Version Upgrades
 
-- **v7 to v8 Migration Guide** (Coming Soon)
-  - Breaking changes overview
-  - API migration patterns
-  - New features and improvements
-  - Step-by-step upgrade instructions
+- **v8 to v9 Migration Guide**
 
-- **v6 to v7 Migration Guide** (Coming Soon)
-  - Factory pattern introduction
-  - Provider registration changes
-  - MCP integration updates
+  > This guide is planned for a future release.
+
+- **v7 to v8 Migration Guide**
+
+  > This guide is planned for a future release.
+
+- **v6 to v7 Migration Guide**
+  > This guide is planned for a future release.
 
 ### Migrating from Other SDKs
 
@@ -244,7 +244,7 @@ For a complete history of all releases including detailed commit information, se
 - **[Installation Guide](getting-started/installation.md)** - Install the latest version
 - **[Quick Start](getting-started/quick-start.md)** - Get up and running quickly
 - **[Migration Guides](guides/migration-guide.md)** - Upgrade from older versions
-- **Breaking Changes** (Coming Soon) - Detailed breaking changes documentation
+- **Breaking Changes** - Detailed breaking changes documentation is planned for a future release
 
 ---
 

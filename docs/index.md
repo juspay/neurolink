@@ -13,7 +13,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![GitHub Stars](https://img.shields.io/github/stars/juspay/neurolink)](https://github.com/juspay/neurolink/stargazers)
-[![Discord](https://img.shields.io/discord/DISCORD_SERVER_ID?label=Discord&logo=discord)](https://discord.gg/neurolink)
+
+<!-- TODO: Replace DISCORD_SERVER_ID with actual server ID once Discord server is created -->
+<!-- [![Discord](https://img.shields.io/discord/DISCORD_SERVER_ID?label=Discord&logo=discord)](https://discord.gg/neurolink) -->
 
 </div>
 

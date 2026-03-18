@@ -75,7 +75,7 @@ See also: [MCP Tools Showcase](../features/mcp-tools-showcase.md) for detailed t
 
 ---
 
-## 🖥️ Server Adapters :material-new-box:{ .new-feature title="New in v8.42" }
+## Server Adapters
 
 Deploy NeuroLink as production-ready HTTP APIs.
 

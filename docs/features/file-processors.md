@@ -1,3 +1,18 @@
+---
+title: "File Processors Guide"
+description: Comprehensive file processing system supporting 20+ file types with intelligent content extraction, security sanitization, and provider-agnostic formatting
+keywords:
+  [
+    file-processors,
+    multimodal,
+    content-extraction,
+    file-types,
+    processor-registry,
+    document-processing,
+    security-sanitization,
+  ]
+---
+
 # File Processors Guide
 
 NeuroLink includes a comprehensive file processing system that supports 20+ file types with intelligent content extraction, security sanitization, and provider-agnostic formatting. This system enables seamless multimodal AI interactions across all 13 supported providers.
@@ -20,6 +35,23 @@ src/lib/processors/
 ├── data/           # JSON, YAML, XML processors
 ├── integration/    # FileProcessorIntegration for registry usage
 └── cli/            # CLI helpers for file processing
+```
+
+## Quick Start
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: {
+    text: "Summarize this document",
+    files: ["./report.pdf"],
+  },
+});
+
+console.log(result.content);
 ```
 
 ## Supported File Types
@@ -181,15 +213,17 @@ neurolink generate "Explain this codebase" \
 
 ```typescript
 // Streaming with file processing
-const stream = await neurolink.stream({
+const result = await neurolink.stream({
   input: {
     text: "Walk me through this code step by step",
     files: ["./src/algorithm.py"],
   },
 });
 
-for await (const chunk of stream.textStream) {
-  process.stdout.write(chunk);
+for await (const chunk of result.stream) {
+  if ("content" in chunk) {
+    process.stdout.write(chunk.content);
+  }
 }
 ```
 

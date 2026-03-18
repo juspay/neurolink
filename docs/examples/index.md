@@ -6,33 +6,10 @@ Learn NeuroLink through practical examples and step-by-step tutorials for real-w
 
 This section contains practical implementations, use cases, and tutorials to help you integrate NeuroLink into your projects effectively.
 
-<div class="grid cards" markdown>
-
-- :material-rocket: **[Basic Usage](basic-usage.md)**
-
-  ***
-
-  Fundamental examples for both CLI and SDK usage, covering core functionality and common patterns.
-
-- :material-star: **[Advanced Examples](advanced.md)**
-
-  ***
-
-  Complex implementations showcasing advanced features like custom tools, analytics, and streaming.
-
-- :material-lightbulb: **[Use Cases](use-cases.md)**
-
-  ***
-
-  Real-world scenarios and applications across different industries and project types.
-
-- :material-briefcase: **[Business Applications](business.md)**
-
-  ***
-
-  Enterprise-focused examples for production deployments and business automation.
-
-</div>
+- **[Basic Usage](basic-usage.md)** — Fundamental examples for both CLI and SDK usage, covering core functionality and common patterns.
+- **[Advanced Examples](advanced.md)** — Complex implementations showcasing advanced features like custom tools, analytics, and streaming.
+- **[Use Cases](use-cases.md)** — Real-world scenarios and applications across different industries and project types.
+- **[Business Applications](business.md)** — Enterprise-focused examples for production deployments and business automation.
 
 ## 🚀 Quick Examples
 

@@ -219,13 +219,13 @@ class RobustNeuroLink {
     const provider = options.provider || "openai";
 
     try {
-      const stream = await this.neurolink.stream({
+      const result = await this.neurolink.stream({
         input: { text: prompt },
         provider,
       });
 
       // Wrap stream to handle errors
-      return this.wrapStreamWithRecovery(stream, prompt, provider);
+      return this.wrapStreamWithRecovery(result.stream, prompt, provider);
     } catch (error: any) {
       console.error("❌ Stream failed:", error.message);
 
@@ -247,9 +247,7 @@ class RobustNeuroLink {
   ): AsyncIterable<string> {
     try {
       for await (const chunk of stream) {
-        if (chunk.type === "content-delta") {
-          yield chunk.delta;
-        }
+        if ("content" in chunk) yield chunk.content;
       }
     } catch (error: any) {
       console.error("❌ Stream interrupted:", error.message);

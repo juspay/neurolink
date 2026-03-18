@@ -307,7 +307,7 @@ const getAnthropicApiKey = (): string => {
 };
 
 const getDefaultAnthropicModel = (): string => {
-  return getProviderModel("ANTHROPIC_MODEL", AnthropicModels.CLAUDE_3_5_SONNET);
+  return getProviderModel("ANTHROPIC_MODEL", AnthropicModels.CLAUDE_SONNET_4_6);
 };
 
 const streamTracer = trace.getTracer("neurolink.provider.anthropic");

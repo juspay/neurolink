@@ -272,13 +272,13 @@ This document provides a comprehensive comparison between what NeuroLink documen
 
 ### CLI Commands Claims
 
-| Claim           | Documentation Quote                    | Reality               | Status         | Evidence              |
-| --------------- | -------------------------------------- | --------------------- | -------------- | --------------------- |
-| **mcp install** | "`neurolink mcp install <server>`"     | Command doesn't exist | 🚫 **MISSING** | Unknown command error |
-| **mcp add**     | "`neurolink mcp add <name> <command>`" | Command doesn't exist | 🚫 **MISSING** | Not implemented       |
-| **mcp list**    | "`neurolink mcp list [--status]`"      | Command doesn't exist | 🚫 **MISSING** | Not implemented       |
-| **mcp test**    | "`neurolink mcp test <server>`"        | Command doesn't exist | 🚫 **MISSING** | Not implemented       |
-| **mcp exec**    | "`neurolink mcp exec <server> <tool>`" | Command doesn't exist | 🚫 **MISSING** | Coming Soon status    |
+| Claim           | Documentation Quote                    | Reality               | Status         | Evidence                   |
+| --------------- | -------------------------------------- | --------------------- | -------------- | -------------------------- |
+| **mcp install** | "`neurolink mcp install <server>`"     | Command doesn't exist | 🚫 **MISSING** | Unknown command error      |
+| **mcp add**     | "`neurolink mcp add <name> <command>`" | Command doesn't exist | 🚫 **MISSING** | Not implemented            |
+| **mcp list**    | "`neurolink mcp list [--status]`"      | Command doesn't exist | 🚫 **MISSING** | Not implemented            |
+| **mcp test**    | "`neurolink mcp test <server>`"        | Command doesn't exist | 🚫 **MISSING** | Not implemented            |
+| **mcp exec**    | "`neurolink mcp exec <server> <tool>`" | Command doesn't exist | 🚫 **MISSING** | Planned for future release |
 
 ### Available MCP Servers Claims
 
