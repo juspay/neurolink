@@ -1,8 +1,11 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # SDK Reference
 
 The NeuroLink SDK provides a TypeScript-first programmatic interface for integrating AI capabilities into your applications.
 
-## 🎯 Overview
+## Overview
 
 The SDK is designed for:
 
@@ -11,77 +14,65 @@ The SDK is designed for:
 - **Serverless functions** (Vercel, Netlify, AWS Lambda)
 - **Desktop applications** (Electron, Tauri)
 
-## 🚀 Quick Start
+## Quick Start
 
-=== "Basic Usage"
+<Tabs>
+<TabItem value="basic-usage" label="Basic Usage">
 
-    ```typescript
-    import { NeuroLink } from "@juspay/neurolink";
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
 
-    const neurolink = new NeuroLink();
+const neurolink = new NeuroLink();
 
-    // Generate text
-    const result = await neurolink.generate({
-      input: { text: "Write a haiku about programming" },
-      provider: "google-ai",
-    });
+// Generate text
+const result = await neurolink.generate({
+  input: { text: "Write a haiku about programming" },
+  provider: "google-ai",
+});
 
-    console.log(result.content);
-    ```
+console.log(result.content);
+```
 
-=== "With Provider Factory"
+</TabItem>
+<TabItem value="with-provider-factory" label="With Provider Factory">
 
-    ```typescript
-    import { createBestAIProvider } from "@juspay/neurolink";
+```typescript
+import { createBestAIProvider } from "@juspay/neurolink";
 
-    // Auto-selects best available provider
-    const provider = createBestAIProvider();
+// Auto-selects best available provider
+const provider = createBestAIProvider();
 
-    const result = await provider.generate({
-      input: { text: "Explain quantum computing" },
-      maxTokens: 500,
-      temperature: 0.7,
-    });
-    ```
+const result = await provider.generate({
+  input: { text: "Explain quantum computing" },
+  maxTokens: 500,
+  temperature: 0.7,
+});
+```
 
-=== "Streaming"
+</TabItem>
+<TabItem value="streaming" label="Streaming">
 
-    ```typescript
-    const stream = await neurolink.stream({
-      input: { text: "Tell me a long story" },
-      provider: "anthropic",
-    });
+```typescript
+const stream = await neurolink.stream({
+  input: { text: "Tell me a long story" },
+  provider: "anthropic",
+});
 
-    for await (const chunk of stream.stream) {
-      process.stdout.write(chunk.content);
-    }
-    ```
+for await (const chunk of stream.stream) {
+  process.stdout.write(chunk.content);
+}
+```
 
-## 📚 Documentation Sections
+</TabItem>
+</Tabs>
 
-<div class="grid cards" markdown>
+## Documentation Sections
 
-- :material-api: **[API Reference](api-reference.md)**
+- **[API Reference](api-reference.md)** — Complete TypeScript API documentation with interfaces, types, and method signatures.
+- **[Framework Integration](framework-integration.md)** — Integration guides for Next.js, SvelteKit, React, Vue, and other popular frameworks.
+- **[Custom Tools](custom-tools.md)** — How to create and register custom tools for enhanced AI capabilities.
 
-  ***
-
-  Complete TypeScript API documentation with interfaces, types, and method signatures.
-
-- :material-web: **[Framework Integration](framework-integration.md)**
-
-  ***
-
-  Integration guides for Next.js, SvelteKit, React, Vue, and other popular frameworks.
-
-- :material-tools: **[Custom Tools](custom-tools.md)**
-
-  ***
-
-  How to create and register custom tools for enhanced AI capabilities.
-
-</div>
-
-## 🏗️ Core Architecture
+## Core Architecture
 
 The SDK uses a **Factory Pattern** architecture that provides:
 
@@ -98,7 +89,7 @@ type AIProvider = {
 };
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 The SDK automatically detects configuration from:
 
@@ -111,13 +102,13 @@ process.env.ANTHROPIC_API_KEY;
 
 // Programmatic configuration
 const neurolink = new NeuroLink({
-  defaultProvider: "openai",
-  timeout: 30000,
-  enableAnalytics: true,
+  conversationMemory: { enabled: true },
+  enableOrchestration: true,
+  observability: { langfuse: { enabled: true } },
 });
 ```
 
-## 🔧 Advanced Features
+## Advanced Features
 
 ### Auto Provider Selection {#auto-selection}
 
@@ -149,10 +140,11 @@ const result = await provider.generate({
 import { AIProviderFactory } from "@juspay/neurolink";
 
 // Create with fallback
-const { primary, fallback } = AIProviderFactory.createProviderWithFallback(
-  "bedrock", // Prefer Bedrock
-  "openai", // Fall back to OpenAI
-);
+const { primary, fallback } =
+  await AIProviderFactory.createProviderWithFallback(
+    "bedrock", // Prefer Bedrock
+    "openai", // Fall back to OpenAI
+  );
 ```
 
 **Learn more:** [Provider Orchestration Guide](../features/provider-orchestration.md)
@@ -165,21 +157,20 @@ Automatic context management for multi-turn conversations:
 
 ```typescript
 const neurolink = new NeuroLink({
-  memory: {
-    type: "redis", // or "in-memory"
-    url: process.env.REDIS_URL,
+  conversationMemory: {
+    enabled: true,
+    enableSummarization: true,
   },
 });
 
-// Session-based conversations
+// Multi-turn conversations
 const result1 = await neurolink.generate({
   input: { text: "My name is Alice" },
-  sessionId: "user-123",
 });
 
 const result2 = await neurolink.generate({
   input: { text: "What's my name?" },
-  sessionId: "user-123", // Remembers previous context
+  // Remembers previous context via conversation memory
 });
 // AI responds: "Your name is Alice"
 ```
@@ -284,88 +275,94 @@ const result = await neurolink.generate({
 });
 ```
 
-## 🌐 Framework Examples
+## Framework Examples
 
-=== "Next.js API Route"
+<Tabs>
+<TabItem value="nextjs-api-route" label="Next.js API Route">
 
-    ```typescript
-    // app/api/ai/route.ts
-    import { NeuroLink } from "@juspay/neurolink";
+```typescript
+// app/api/ai/route.ts
+import { NeuroLink } from "@juspay/neurolink";
 
-    export async function POST(request: Request) {
-      const { prompt } = await request.json();
-      const neurolink = new NeuroLink();
+export async function POST(request: Request) {
+  const { prompt } = await request.json();
+  const neurolink = new NeuroLink();
 
-      const result = await neurolink.generate({
-        input: { text: prompt },
-        timeout: "2m",
-      });
+  const result = await neurolink.generate({
+    input: { text: prompt },
+    timeout: "2m",
+  });
 
-      return Response.json({ text: result.content });
-    }
-    ```
+  return Response.json({ text: result.content });
+}
+```
 
-=== "SvelteKit Endpoint"
+</TabItem>
+<TabItem value="sveltekit-endpoint" label="SvelteKit Endpoint">
 
-    ```typescript
-    // src/routes/api/ai/+server.ts
-    import { createBestAIProvider } from "@juspay/neurolink";
-    import type { RequestHandler } from "./$types";
+```typescript
+// src/routes/api/ai/+server.ts
+import { createBestAIProvider } from "@juspay/neurolink";
+import type { RequestHandler } from "./$types";
 
-    export const POST: RequestHandler = async ({ request }) => {
-      const { message } = await request.json();
-      const provider = createBestAIProvider();
+export const POST: RequestHandler = async ({ request }) => {
+  const { message } = await request.json();
+  const provider = createBestAIProvider();
 
-      const result = await provider.stream({
-        input: { text: message },
-        timeout: "2m",
-      });
+  const result = await provider.stream({
+    input: { text: message },
+    timeout: "2m",
+  });
 
-      // Manually create ReadableStream from AsyncIterable
-      const readable = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of result.stream) {
-              if (chunk && typeof chunk === "object" && "content" in chunk) {
-                controller.enqueue(new TextEncoder().encode(chunk.content));
-              }
-            }
-            controller.close();
-          } catch (error) {
-            controller.error(error);
+  // Manually create ReadableStream from AsyncIterable
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of result.stream) {
+          if (chunk && typeof chunk === "object" && "content" in chunk) {
+            controller.enqueue(new TextEncoder().encode(chunk.content));
           }
-        },
-      });
+        }
+        controller.close();
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+  });
 
-      return new Response(readable, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-      });
-    };
-    ```
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+};
+```
 
-=== "Express.js Server"
+</TabItem>
+<TabItem value="expressjs-server" label="Express.js Server">
 
-    ```typescript
-    import express from 'express';
-    import { NeuroLink } from "@juspay/neurolink";
+```typescript
+import express from "express";
+import { NeuroLink } from "@juspay/neurolink";
 
-    const app = express();
-    const neurolink = new NeuroLink();
+const app = express();
+const neurolink = new NeuroLink();
 
-    app.post('/api/generate', async (req, res) => {
-      const result = await neurolink.generate({
-        input: { text: req.body.prompt },
-      });
+app.post("/api/generate", async (req, res) => {
+  const result = await neurolink.generate({
+    input: { text: req.body.prompt },
+  });
 
-      res.json({ content: result.content });
-    });
-    ```
+  res.json({ content: result.content });
+});
+```
 
-## 🔗 Related Resources
+</TabItem>
+</Tabs>
+
+## Related Resources
 
 - **[Examples & Tutorials](../examples/index.md)** - Practical implementation examples
 - **[Advanced Features](../advanced/index.md)** - MCP integration, analytics, streaming

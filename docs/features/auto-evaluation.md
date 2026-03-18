@@ -4,9 +4,12 @@ description: Automated quality scoring and metrics export for AI response valida
 keywords: auto evaluation, quality scoring, llm as judge, ragas, metrics, quality gate
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Auto Evaluation Engine
 
-NeuroLink 7.46.0 adds an automated quality gate that scores every response using an LLM-as-judge pipeline. Scores, rationales, and severity flags are surfaced in both CLI and SDK workflows so you can monitor drift and enforce minimum quality thresholds.
+NeuroLink provides an automated quality gate that scores every response using an LLM-as-judge pipeline. Scores, rationales, and severity flags are surfaced in both CLI and SDK workflows so you can monitor drift and enforce minimum quality thresholds.
 
 ## What It Does
 
@@ -15,67 +18,86 @@ NeuroLink 7.46.0 adds an automated quality gate that scores every response using
 - Supports retry loops: re-ask the provider when the score falls below your threshold.
 - Emits analytics-friendly JSON so you can pipe results into dashboards.
 
-!!! warning "LLM Costs"
+## Quick Start
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Explain quantum computing" },
+  enableEvaluation: true,
+  evaluationDomain: "science",
+});
+
+console.log(result.evaluation);
+// { relevance: 9.0, accuracy: 8.5, completeness: 8.0, overall: 8.5, isPassing: true, ... }
+```
+
+:::warning[LLM Costs]
 Evaluation uses additional AI calls to the judge model (default: `gemini-2.5-flash`). Each evaluated response incurs extra API costs. For high-volume production workloads, consider sampling (e.g., evaluate 10% of requests) or disabling evaluation after quality stabilizes.
+:::
 
 ## Usage Examples
 
-=== "SDK"
+<Tabs>
+<TabItem value="sdk" label="SDK">
 
-    ```typescript
-    import { NeuroLink } from "@juspay/neurolink";
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
 
-    const neurolink = new NeuroLink({ enableOrchestration: true });  // (1)!
+// Enable orchestration for automatic provider/model selection
+const neurolink = new NeuroLink({ enableOrchestration: true });
 
-    const result = await neurolink.generate({
-      input: { text: "Create quarterly performance summary" },  // (2)!
-      enableEvaluation: true,  // (3)!
-      evaluationDomain: "Enterprise Finance",  // (4)!
-      factoryConfig: {
-        enhancementType: "domain-configuration",  // (5)!
-        domainType: "finance",
-      },
-    });
+const result = await neurolink.generate({
+  // Task classifier analyzes prompt to determine best provider
+  input: { text: "Create quarterly performance summary" },
+  enableEvaluation: true, // Enable LLM-as-judge quality scoring
+  evaluationDomain: "Enterprise Finance", // Provide domain context to shape evaluation rubric
+  factoryConfig: {
+    enhancementType: "domain-configuration", // Apply domain-specific prompt enhancements
+    domainType: "finance",
+  },
+});
 
-    if (result.evaluation && !result.evaluation.isPassing) {  // (6)!
-      console.warn("Quality gate failed", result.evaluation.details?.message);
-    }
-    ```
+// Check if response passes the configured quality threshold
+if (result.evaluation && !result.evaluation.isPassing) {
+  console.warn("Quality gate failed", result.evaluation.details?.message);
+}
+```
 
-    1. Enable orchestration for automatic provider/model selection
-    2. Task classifier analyzes prompt to determine best provider
-    3. Enable LLM-as-judge quality scoring
-    4. Provide domain context to shape evaluation rubric
-    5. Apply domain-specific prompt enhancements
-    6. Check if response passes the configured quality threshold
+</TabItem>
+<TabItem value="cli" label="CLI">
 
-=== "CLI"
+```bash
+# Baseline quality check
+npx @juspay/neurolink generate "Draft onboarding email" --enableEvaluation
 
-    ```bash
-    # Baseline quality check
-    npx @juspay/neurolink generate "Draft onboarding email" --enableEvaluation
+# Combine with analytics for observability dashboards
+npx @juspay/neurolink generate "Summarise release notes" \
+  --enableEvaluation --enableAnalytics --format json
 
-    # Combine with analytics for observability dashboards
-    npx @juspay/neurolink generate "Summarise release notes" \
-      --enableEvaluation --enableAnalytics --format json
+# Domain-aware evaluations shape the rubric
+npx @juspay/neurolink generate "Refactor this API" \
+  --enableEvaluation --evaluationDomain "Principal Engineer"
 
-    # Domain-aware evaluations shape the rubric
-    npx @juspay/neurolink generate "Refactor this API" \
-      --enableEvaluation --evaluationDomain "Principal Engineer"
+# Fail the command if the score dips below 7 (set env variable first)
+NEUROLINK_EVALUATION_THRESHOLD=7 npx @juspay/neurolink generate "Write compliance summary" \
+  --enableEvaluation
+```
 
-    # Fail the command if the score dips below 7 (set env variable first)
-    NEUROLINK_EVALUATION_THRESHOLD=7 npx @juspay/neurolink generate "Write compliance summary" \
-      --enableEvaluation
-    ```
+**CLI output (text mode):**
 
-    **CLI output (text mode):**
+```
+Evaluation Summary
+- Overall: 8.6/10 (Passing threshold: 7)
+- Relevance: 9.0  - Accuracy: 8.5  - Completeness: 8.0
+- Reasoning: Response covers all requested sections with correct policy references.
+```
 
-    ```
-    📊 Evaluation Summary
-    • Overall: 8.6/10 (Passing threshold: 7)
-    • Relevance: 9.0  • Accuracy: 8.5  • Completeness: 8.0
-    • Reasoning: Response covers all requested sections with correct policy references.
-    ```
+</TabItem>
+</Tabs>
 
 ## Streaming with Evaluation
 
@@ -128,8 +150,9 @@ NEUROLINK_EVALUATION_TIMEOUT=15000
 
 ## Best Practices
 
-!!! tip "Cost Optimization"
+:::tip[Cost Optimization]
 Only enable evaluation when needed: during prompt engineering, quality regression testing, or high-stakes production calls. For routine operations, disable evaluation and rely on [Analytics](../advanced/analytics.md) for zero-cost observability.
+:::
 
 - Pair evaluation with analytics to track cost vs. quality trends.
 - Lower the threshold during experimentation, then tighten once prompts stabilise.

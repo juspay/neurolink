@@ -1,8 +1,15 @@
+---
+title: "Structured Output with Zod Schemas"
+description: Generate type-safe, validated JSON responses using Zod schemas with the generate() function
+keywords:
+  [structured-output, zod, json-schema, type-safe, validation, json-response]
+---
+
 # Structured Output with Zod Schemas
 
 Generate type-safe, validated JSON responses using Zod schemas. Available in `generate()` function only (not `stream()`).
 
-## Quick Example
+## Quick Start
 
 ```typescript
 import { z } from "zod";
@@ -10,28 +17,20 @@ import { NeuroLink } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink();
 
-// Define your schema
 const UserSchema = z.object({
   name: z.string(),
   age: z.number(),
   email: z.string(),
-  occupation: z.string(),
 });
 
-// Generate with schema
 const result = await neurolink.generate({
-  input: {
-    text: "Create a user profile for John Doe, 30 years old, software engineer",
-  },
+  input: { text: "Create a profile for John Doe, 30, software engineer" },
   schema: UserSchema,
-  output: { format: "json" }, // Required: must be "json" or "structured"
-  provider: "vertex",
-  model: "gemini-2.0-flash-exp",
+  output: { format: "json" },
 });
 
-// result.content is validated JSON string
 const user = JSON.parse(result.content);
-console.log(user); // { name: "John Doe", age: 30, email: "...", occupation: "software engineer" }
+console.log(user); // { name: "John Doe", age: 30, email: "john.doe@example.com" }
 ```
 
 ## Requirements

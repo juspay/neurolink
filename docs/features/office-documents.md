@@ -1,3 +1,20 @@
+---
+title: "Office Documents Support"
+description: Attach DOCX, PPTX, and XLSX documents directly to AI prompts for document analysis, data extraction, and content processing
+keywords:
+  [
+    office-documents,
+    docx,
+    pptx,
+    xlsx,
+    word,
+    powerpoint,
+    excel,
+    multimodal,
+    document-processing,
+  ]
+---
+
 # Office Documents Support
 
 NeuroLink provides seamless Office document support as a **multimodal input type** - attach DOCX, PPTX, and XLSX documents directly to your AI prompts for document analysis, data extraction, and content processing.

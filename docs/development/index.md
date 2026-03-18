@@ -6,45 +6,12 @@ Contributing to NeuroLink and extending its capabilities for your specific needs
 
 This section covers everything needed for contributing to NeuroLink, understanding its architecture, and extending its functionality.
 
-<div class="grid cards" markdown>
-
-- :material-heart: **[Contributing](contributing.md)**
-
-  ***
-
-  How to contribute to NeuroLink, including setup, coding standards, and submission guidelines.
-
-- :material-test-tube: **[Testing](testing.md)**
-
-  ***
-
-  Comprehensive testing strategies, test suite organization, and validation procedures.
-
-- :material-sitemap: **[Architecture](architecture.md)**
-
-  ***
-
-  Deep dive into NeuroLink's architecture, design patterns, and system organization.
-
-- :material-factory: **[Factory Pattern Migration](factory-migration.md)**
-
-  ***
-
-  Guide for upgrading from older architectures to the new unified factory pattern system.
-
-- :material-tag-multiple: **[Documentation Versioning](versioning.md)**
-
-  ***
-
-  Managing documentation versions across releases using mike for version control and deployment.
-
-- :material-link-variant: **[Automated Link Checking](link-checking.md)**
-
-  ***
-
-  Automated validation of documentation links with CI/CD integration to prevent broken references.
-
-</div>
+- **[Contributing](contributing.md)** — How to contribute to NeuroLink, including setup, coding standards, and submission guidelines.
+- **[Testing](testing.md)** — Comprehensive testing strategies, test suite organization, and validation procedures.
+- **[Architecture](architecture.md)** — Deep dive into NeuroLink's architecture, design patterns, and system organization.
+- **[Factory Pattern Migration](factory-migration.md)** — Guide for upgrading from older architectures to the new unified factory pattern system.
+- **[Documentation Versioning](versioning.md)** — Managing documentation versions across releases using mike for version control and deployment.
+- **[Automated Link Checking](link-checking.md)** — Automated validation of documentation links with CI/CD integration to prevent broken references.
 
 ## 🚀 Quick Development Setup
 

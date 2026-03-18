@@ -25,14 +25,16 @@ import { NeuroLink } from "@juspay/neurolink";
 const neurolink = new NeuroLink();
 
 // Basic streaming
-const stream = await neurolink.stream({
+const result = await neurolink.stream({
   input: { text: "Tell me a story about AI" },
   provider: "openai",
 });
 
-for await (const chunk of stream) {
-  console.log(chunk.content); // Incremental content
-  process.stdout.write(chunk.content);
+for await (const chunk of result.stream) {
+  if ("content" in chunk) {
+    console.log(chunk.content); // Incremental content
+    process.stdout.write(chunk.content);
+  }
 }
 ```
 
@@ -48,7 +50,7 @@ const result = await neurolink.stream({
   input: { text: "Generate a business analysis" },
 });
 
-for await (const chunk of result) {
+for await (const chunk of result.stream) {
   process.stdout.write(chunk.content || "");
 }
 ```
@@ -65,11 +67,9 @@ const result = await neurolink.stream({
   input: { text: "What's the current time and weather in New York?" },
 });
 
-for await (const chunk of result) {
-  if (chunk.type === "text") {
+for await (const chunk of result.stream) {
+  if ("content" in chunk) {
     process.stdout.write(chunk.content);
-  } else if (chunk.type === "tool_use") {
-    console.log(`\n🔧 Using tool: ${chunk.tool}`);
   }
 }
 ```
@@ -89,7 +89,7 @@ const result = await neurolink.stream({
   temperature: 0.7,
 });
 
-for await (const chunk of result) {
+for await (const chunk of result.stream) {
   process.stdout.write(chunk.content || "");
 }
 ```
@@ -155,9 +155,9 @@ class StreamingWithRetry {
 
 // Usage
 const service = new StreamingWithRetry();
-const stream = await service.streamWithRetry("Explain quantum computing");
+const result = await service.streamWithRetry("Explain quantum computing");
 
-for await (const chunk of stream) {
+for await (const chunk of result.stream) {
   process.stdout.write(chunk.content || "");
 }
 ```
@@ -195,7 +195,7 @@ async function collectFullResponse(prompt: string) {
   });
 
   const chunks: string[] = [];
-  for await (const chunk of result) {
+  for await (const chunk of result.stream) {
     if (chunk.content) {
       chunks.push(chunk.content);
     }
@@ -233,9 +233,9 @@ async function smartStreaming(prompt: string) {
 }
 
 // Usage - NeuroLink handles all provider logic internally
-const stream = await smartStreaming("Explain machine learning");
+const result = await smartStreaming("Explain machine learning");
 
-for await (const chunk of stream) {
+for await (const chunk of result.stream) {
   process.stdout.write(chunk.content || "");
 }
 ```
@@ -262,12 +262,12 @@ async function streamWithPreference(
 }
 
 // Usage
-const stream = await streamWithPreference(
+const result = await streamWithPreference(
   "Explain quantum computing",
   "google-ai",
 );
 
-for await (const chunk of stream) {
+for await (const chunk of result.stream) {
   process.stdout.write(chunk.content || "");
 }
 ```
@@ -305,7 +305,7 @@ class ThrottledStreaming {
 const throttled = new ThrottledStreaming();
 const result = await throttled.throttledStream("Explain quantum computing");
 
-for await (const chunk of result) {
+for await (const chunk of result.stream) {
   process.stdout.write(chunk.content || "");
 }
 ```
@@ -393,9 +393,10 @@ class SimpleCache {
 
     // Collect response while streaming for caching
     const chunks: string[] = [];
+    const cache = this.cache;
     const responseStream = {
       async *stream() {
-        for await (const chunk of result) {
+        for await (const chunk of result.stream) {
           if (chunk.content) {
             chunks.push(chunk.content);
             yield chunk;
@@ -404,7 +405,7 @@ class SimpleCache {
 
         // Cache after streaming completes
         const fullResponse = chunks.join("");
-        this.cache.set(prompt, {
+        cache.set(prompt, {
           response: fullResponse,
           timestamp: Date.now(),
         });
@@ -712,14 +713,17 @@ const stream = await neurolink.stream({
   },
 });
 
-for await (const chunk of stream) {
-  console.log(chunk.content);
-
-  // Access real-time analytics
-  if (chunk.analytics) {
-    console.log(`Tokens so far: ${chunk.analytics.tokensUsed}`);
-    console.log(`Cost so far: $${chunk.analytics.estimatedCost}`);
+for await (const chunk of stream.stream) {
+  if ("content" in chunk) {
+    console.log(chunk.content);
   }
+}
+
+// Access analytics after streaming completes
+const analytics = stream.analytics;
+if (analytics) {
+  console.log(`Tokens used: ${analytics.tokensUsed}`);
+  console.log(`Cost: $${analytics.estimatedCost}`);
 }
 ```
 
@@ -757,16 +761,20 @@ function ChatComponent() {
     setMessages(prev => [...prev, { role: "user", content: userMessage }]);
     setCurrentResponse("");
 
-    const stream = await neurolink.stream({
+    const result = await neurolink.stream({
       input: { text: userMessage },
       provider: "google-ai"
     });
 
-    for await (const chunk of stream) {
-      setCurrentResponse(prev => prev + chunk.content);
+    let fullResponse = "";
+    for await (const chunk of result.stream) {
+      if ("content" in chunk) {
+        fullResponse += chunk.content;
+        setCurrentResponse(prev => prev + chunk.content);
+      }
     }
 
-    setMessages(prev => [...prev, { role: "assistant", content: currentResponse }]);
+    setMessages(prev => [...prev, { role: "assistant", content: fullResponse }]);
     setCurrentResponse("");
   };
 
@@ -793,28 +801,29 @@ function ChatComponent() {
 ```typescript
 // Real-time blog post generation
 async function generateBlogPost(topic: string) {
-  const stream = await neurolink.stream({
+  const result = await neurolink.stream({
     input: {
       text: `Write a comprehensive blog post about ${topic}. Include introduction, main points, and conclusion.`,
     },
     provider: "anthropic",
     maxTokens: 3000,
-    analytics: { enabled: true },
   });
 
   const sections = [];
   let currentSection = "";
 
-  for await (const chunk of stream) {
-    currentSection += chunk.content;
+  for await (const chunk of result.stream) {
+    if ("content" in chunk) {
+      currentSection += chunk.content;
 
-    // Update UI in real-time
-    updateBlogPostPreview(currentSection);
+      // Update UI in real-time
+      updateBlogPostPreview(currentSection);
 
-    // Detect section breaks
-    if (chunk.content.includes("\n\n## ")) {
-      sections.push(currentSection);
-      currentSection = "";
+      // Detect section breaks
+      if (chunk.content.includes("\n\n## ")) {
+        sections.push(currentSection);
+        currentSection = "";
+      }
     }
   }
 
@@ -1014,10 +1023,9 @@ class AIStreamingService {
   }
 
   async streamResponse(prompt: string, options: any = {}) {
-    const result = await this.neurolink.generate({
+    const result = await this.neurolink.stream({
       input: { text: prompt },
       provider: "sagemaker",
-      stream: true,
       maxTokens: options.maxTokens || 500,
       temperature: options.temperature || 0.7,
     });
@@ -1374,8 +1382,8 @@ class PerformanceMonitor {
         );
       }
 
-      if (chunk.type === "text-delta") {
-        this.metrics.tokenCount += this.estimateTokens(chunk.textDelta);
+      if ("content" in chunk) {
+        this.metrics.tokenCount += this.estimateTokens(chunk.content);
         this.metrics.chunkCount++;
         chunkTimes.push(chunkTime - lastChunkTime);
 
@@ -1391,55 +1399,40 @@ class PerformanceMonitor {
             `📊 Tokens: ${this.metrics.tokenCount}, Throughput: ${this.metrics.throughput.toFixed(2)} t/s`,
           );
         }
-      } else if (chunk.type === "error") {
-        this.metrics.errorCount++;
-        console.error(
-          `❌ Stream error at chunk ${this.metrics.chunkCount}: ${chunk.error}`,
-        );
-      } else if (chunk.type === "finish") {
-        this.metrics.responseTime = chunkTime - this.startTime;
-
-        // Calculate latency statistics
-        this.metrics.latencyDistribution = chunkTimes;
-        const avgChunkLatency =
-          chunkTimes.reduce((a, b) => a + b, 0) / chunkTimes.length;
-        const p95ChunkLatency = this.percentile(chunkTimes, 95);
-        const p99ChunkLatency = this.percentile(chunkTimes, 99);
-
-        // Final metrics
-        console.log(`\n📈 Performance Summary:`);
-        console.log(`   Total Response Time: ${this.metrics.responseTime}ms`);
-        console.log(
-          `   Time to First Chunk: ${firstChunkTime! - this.startTime}ms`,
-        );
-        console.log(`   Total Tokens: ${this.metrics.tokenCount}`);
-        console.log(`   Total Chunks: ${this.metrics.chunkCount}`);
-        console.log(
-          `   Average Throughput: ${this.metrics.throughput.toFixed(2)} tokens/sec`,
-        );
-        console.log(
-          `   Average Chunk Latency: ${avgChunkLatency.toFixed(2)}ms`,
-        );
-        console.log(`   P95 Chunk Latency: ${p95ChunkLatency.toFixed(2)}ms`);
-        console.log(`   P99 Chunk Latency: ${p99ChunkLatency.toFixed(2)}ms`);
-        console.log(`   Error Count: ${this.metrics.errorCount}`);
-        console.log(
-          `   Success Rate: ${(((this.metrics.chunkCount - this.metrics.errorCount) / this.metrics.chunkCount) * 100).toFixed(2)}%`,
-        );
-
-        // Complete tracking
-        this.analytics.completeRequestTracking(
-          requestId,
-          chunk.usage || {
-            promptTokens: 0,
-            completionTokens: this.metrics.tokenCount,
-            totalTokens: this.metrics.tokenCount,
-          },
-          this.metrics.errorCount === 0,
-        );
       }
 
       lastChunkTime = chunkTime;
+    }
+
+    // After stream completes, calculate final metrics
+    if (this.metrics.chunkCount > 0 && chunkTimes.length > 0) {
+      this.metrics.responseTime = Date.now() - this.startTime;
+
+      // Calculate latency statistics
+      this.metrics.latencyDistribution = chunkTimes;
+      const avgChunkLatency =
+        chunkTimes.reduce((a, b) => a + b, 0) / chunkTimes.length;
+      const p95ChunkLatency = this.percentile(chunkTimes, 95);
+      const p99ChunkLatency = this.percentile(chunkTimes, 99);
+
+      // Final metrics
+      console.log(`\n📈 Performance Summary:`);
+      console.log(`   Total Response Time: ${this.metrics.responseTime}ms`);
+      console.log(
+        `   Time to First Chunk: ${firstChunkTime! - this.startTime}ms`,
+      );
+      console.log(`   Total Tokens: ${this.metrics.tokenCount}`);
+      console.log(`   Total Chunks: ${this.metrics.chunkCount}`);
+      console.log(
+        `   Average Throughput: ${this.metrics.throughput.toFixed(2)} tokens/sec`,
+      );
+      console.log(`   Average Chunk Latency: ${avgChunkLatency.toFixed(2)}ms`);
+      console.log(`   P95 Chunk Latency: ${p95ChunkLatency.toFixed(2)}ms`);
+      console.log(`   P99 Chunk Latency: ${p99ChunkLatency.toFixed(2)}ms`);
+      console.log(`   Error Count: ${this.metrics.errorCount}`);
+      console.log(
+        `   Success Rate: ${(((this.metrics.chunkCount - this.metrics.errorCount) / this.metrics.chunkCount) * 100).toFixed(2)}%`,
+      );
     }
 
     return this.metrics;
@@ -1509,19 +1502,19 @@ class PerformanceMonitor {
 }
 
 // Usage
+const neurolink = new NeuroLink();
 const performanceMonitor = new PerformanceMonitor();
 const requestId = "perf-test-" + Date.now();
 
-const stream = await neurolink.stream({
+const result = await neurolink.stream({
   input: { text: "Performance test with comprehensive monitoring" },
   provider: "sagemaker",
-  analytics: {
-    enabled: true,
-    metrics: ["latency", "throughput", "token_rate", "error_rate"],
-  },
 });
 
-const metrics = await performanceMonitor.monitorStream(stream, requestId);
+const metrics = await performanceMonitor.monitorStream(
+  result.stream,
+  requestId,
+);
 const report = await performanceMonitor.generatePerformanceReport();
 
 console.log("\n📊 Full Performance Report:", JSON.stringify(report, null, 2));
@@ -1543,13 +1536,15 @@ app.post("/api/stream", async (req, res) => {
   res.setHeader("Transfer-Encoding", "chunked");
 
   try {
-    const stream = await neurolink.stream({
+    const result = await neurolink.stream({
       input: { text: req.body.prompt },
       provider: "google-ai",
     });
 
-    for await (const chunk of stream) {
-      res.write(chunk.content);
+    for await (const chunk of result.stream) {
+      if ("content" in chunk) {
+        res.write(chunk.content);
+      }
     }
 
     res.end();
@@ -1573,19 +1568,19 @@ wss.on("connection", (ws) => {
     const { prompt } = JSON.parse(message.toString());
 
     try {
-      const stream = await neurolink.stream({
+      const result = await neurolink.stream({
         input: { text: prompt },
-        analytics: { enabled: true },
       });
 
-      for await (const chunk of stream) {
-        ws.send(
-          JSON.stringify({
-            type: "chunk",
-            content: chunk.content,
-            analytics: chunk.analytics,
-          }),
-        );
+      for await (const chunk of result.stream) {
+        if ("content" in chunk) {
+          ws.send(
+            JSON.stringify({
+              type: "chunk",
+              content: chunk.content,
+            }),
+          );
+        }
       }
 
       ws.send(JSON.stringify({ type: "complete" }));
@@ -1604,17 +1599,18 @@ app.get("/api/stream-sse", async (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  const stream = await neurolink.stream({
+  const result = await neurolink.stream({
     input: { text: req.query.prompt as string },
   });
 
-  for await (const chunk of stream) {
-    res.write(
-      `data: ${JSON.stringify({
-        content: chunk.content,
-        finished: chunk.finished,
-      })}\n\n`,
-    );
+  for await (const chunk of result.stream) {
+    if ("content" in chunk) {
+      res.write(
+        `data: ${JSON.stringify({
+          content: chunk.content,
+        })}\n\n`,
+      );
+    }
   }
 
   res.end();
@@ -1632,17 +1628,15 @@ async function robustStreaming(prompt: string) {
 
   while (attempts < maxRetries) {
     try {
-      const stream = await neurolink.stream({
+      const result = await neurolink.stream({
         input: { text: prompt },
         provider: "auto", // Auto-fallback to working provider
       });
 
-      for await (const chunk of stream) {
-        if (chunk.error) {
-          throw new Error(chunk.error);
+      for await (const chunk of result.stream) {
+        if ("content" in chunk) {
+          console.log(chunk.content);
         }
-
-        console.log(chunk.content);
       }
 
       return; // Success
@@ -1678,15 +1672,11 @@ async function analyzeMarketData(marketData: string, userId: string) {
     },
     maxTokens: 1000,
     temperature: 0.2, // Low temperature for precise financial analysis
-    tools: [
-      { name: "risk_calculator", enabled: true },
-      { name: "compliance_checker", enabled: true },
-    ],
   });
 
   // Audit trail for compliance
   console.log(`Financial analysis requested by user: ${userId}`);
-  console.log(`Model selected: ${result.selectedModel.modelId}`);
+  console.log(`Provider: ${result.provider}`);
 
   return result;
 }
@@ -1720,29 +1710,25 @@ async function processMedicalQuery(
 
   // Audit logging for HIPAA compliance
   console.log(
-    `Medical query requested by provider: ${providerId} for patient: ${patientId}`,
+    `Medical query requested by provider: ${providerId} for patient: ${patientId.slice(0, 3)}***`,
   );
 
-  const stream = await neurolink.stream({
+  const result = await neurolink.stream({
     ...healthcareConfig,
     input: { text: query },
-    tools: [
-      { name: "medical_knowledge", enabled: true },
-      { name: "drug_interaction_check", enabled: true },
-    ],
   });
 
   const sanitizedChunks = [];
-  for await (const chunk of stream) {
+  for await (const chunk of result.stream) {
     // Basic content filtering for sensitive data
-    if (chunk.type === "text-delta") {
+    if ("content" in chunk) {
       // Apply basic PII filtering here if needed
-      sanitizedChunks.push(chunk);
-    } else if (chunk.type === "finish") {
-      console.log(`Medical query completed for patient: ${patientId}`);
       sanitizedChunks.push(chunk);
     }
   }
+  console.log(
+    `Medical query completed for patient: ${patientId.slice(0, 3)}***`,
+  );
 
   return sanitizedChunks;
 }
@@ -1762,32 +1748,22 @@ async function generatePersonalizedRecommendations(
   preferences: any,
 ) {
   const result = await neurolink.stream({
-    prompt: `Generate personalized product recommendations for user with browsing history: ${JSON.stringify(browsingHistory)} and preferences: ${JSON.stringify(preferences)}`,
-    tools: [
-      { name: "product_search", enabled: true },
-      { name: "price_comparison", enabled: true },
-      { name: "inventory_check", enabled: true },
-    ],
-    modelSelection: {
-      requiredCapabilities: ["product_recommendations"],
-      requestType: "completion",
+    input: {
+      text: `Generate personalized product recommendations for user with browsing history: ${JSON.stringify(browsingHistory)} and preferences: ${JSON.stringify(preferences)}`,
     },
   });
 
-  const recommendations = [];
+  const chunks: string[] = [];
   for await (const chunk of result.stream) {
-    if (
-      chunk.type === "tool-result" &&
-      chunk.toolResult.name === "product_search"
-    ) {
-      recommendations.push(JSON.parse(chunk.toolResult.content));
+    if ("content" in chunk) {
+      chunks.push(chunk.content);
     }
   }
 
   return {
-    recommendations,
-    model: result.selectedModel.modelId,
-    performance: result.performance,
+    content: chunks.join(""),
+    provider: result.provider,
+    model: result.model,
   };
 }
 ```

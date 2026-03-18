@@ -70,11 +70,13 @@ Future CLI releases will surface a `--enable-orchestration` flag; until then kee
 
 ## Best Practices
 
-!!! tip "Routing Strategy"
+:::tip[Routing Strategy]
 Enable orchestration in development to understand routing patterns, then pin `provider` or `model` in production for predictable behavior. Orchestration is ideal for exploratory workflows; explicit selection ensures consistency in critical paths.
+:::
 
-!!! tip "Ollama Local-First"
+:::tip[Ollama Local-First]
 The router prioritizes local Ollama models when available, reducing costs and latency for development workflows. Ensure Ollama is running (`http://localhost:11434`) to take advantage of local-first routing.
+:::
 
 - Pair orchestration with evaluation to verify the routed provider meets quality expectations.
 - Maintain provider credentials for all potential routes; orchestration skips providers missing keys.

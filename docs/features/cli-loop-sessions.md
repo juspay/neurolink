@@ -8,6 +8,18 @@ keywords: cli loop, interactive mode, session state, conversation memory, prompt
 
 `neurolink loop` delivers a persistent CLI workspace so you can explore prompts, tweak parameters, and inspect state without restarting the CLI. Session variables, Redis-backed history, and built-in help turn the CLI into a playground for prompt engineering and operator runbooks.
 
+## Quick Start
+
+```bash
+# Enter interactive loop mode with Anthropic as the default provider
+npx @juspay/neurolink loop --provider anthropic
+
+# Inside the loop, just type prompts:
+#   ⎔ neurolink » explain quantum entanglement
+#   ⎔ neurolink » now simplify that for a 10-year-old
+#   ⎔ neurolink » exit
+```
+
 ## Why Loop Mode
 
 - **Stateful sessions** – keep provider/model/temperature context between commands.
@@ -15,8 +27,9 @@ keywords: cli loop, interactive mode, session state, conversation memory, prompt
 - **Fast iteration** – reuse the entire command surface (`generate`, `stream`, `memory`, etc.) without leaving the loop.
 - **Guided UX** – ASCII banner, inline help, and validation for every session variable.
 
-!!! tip "Keyboard Shortcuts"
+:::tip[Keyboard Shortcuts]
 Loop mode supports **tab completion** for commands and session variables, **arrow key history** for navigating previous commands, and **Ctrl+C** to cancel the current operation without exiting the loop.
+:::
 
 ## Starting a Session
 
@@ -123,19 +136,21 @@ To use other CLI commands explicitly, prefix them with a forward slash `/`:
 ⎔ neurolink » /models list --capability vision
 ```
 
-!!! tip "Quick Reference"
+:::tip[Quick Reference]
 
 - **No prefix**: Streams a response to your prompt
 - **`/` prefix**: Executes CLI commands or session commands (e.g., `/help`, `/set`, `/generate`, `/batch`)
 - **`//` prefix**: Escape to stream prompts starting with `/` (e.g., `//what is /usr/bin?`)
 - **Exit commands**: `exit`, `quit`, or `:q` work without prefix to leave loop mode
+  :::
 
 Errors are handled gracefully; parsing issues surface inline without closing the loop.
 
 ## Conversation Memory & Redis Auto-Detect
 
-!!! success "Redis Persistence"
+:::tip[Redis Persistence]
 When Redis is detected, loop sessions survive restarts. Exit the loop, close your terminal, and resume later with the same session ID to continue where you left off. Perfect for long-running prompt engineering workflows.
+:::
 
 - By default the loop enables conversation memory (`--enable-conversation-memory=true`).
 - `--auto-redis` probes for a reachable Redis instance using existing environment variables (`REDIS_URL`, etc.).
@@ -169,7 +184,7 @@ npx @juspay/neurolink memory clear NL_r1bd2
 | `A loop session is already active` | Use `exit` in the existing session or close the terminal tab before starting a new one. |
 | Redis warning but memory disabled  | Ensure Redis credentials are valid or run with `--no-auto-redis`.                       |
 | Session variable rejected          | Run `/set help` to check allowed values; booleans must be `true`/`false`.               |
-| Commands exit unexpectedly         | Upgrade to CLI `>=7.47.0` so the session-aware error handler is included.               |
+| Commands exit unexpectedly         | Update to the latest CLI so the session-aware error handler is included.                |
 
 ## Related Features
 

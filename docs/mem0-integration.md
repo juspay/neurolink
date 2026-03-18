@@ -218,11 +218,9 @@ const stream = await neurolink.stream({
 
 // Process streaming chunks
 let fullResponse = "";
-for await (const chunk of stream) {
-  if (chunk.type === "content") {
-    fullResponse += chunk.content;
-    process.stdout.write(chunk.content);
-  }
+for await (const chunk of stream.stream) {
+  fullResponse += chunk.content;
+  process.stdout.write(chunk.content);
 }
 
 // The story will be personalized based on Alice's
@@ -382,10 +380,8 @@ async function testMemoryIntegration() {
     streaming: { enabled: true },
   });
 
-  for await (const chunk of stream) {
-    if (chunk.type === "content") {
-      process.stdout.write(chunk.content);
-    }
+  for await (const chunk of stream.stream) {
+    process.stdout.write(chunk.content);
   }
   // Should provide Python/PyTorch specific tips
 }

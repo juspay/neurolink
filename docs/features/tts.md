@@ -100,7 +100,7 @@ TTS is currently available through Google Cloud Text-to-Speech API:
 | **google-ai** | API Key (`GOOGLE_AI_API_KEY`)                      | 50+ voices | Simplest setup, good for development |
 | **vertex**    | Service Account (`GOOGLE_APPLICATION_CREDENTIALS`) | 50+ voices | Recommended for production           |
 
-**Coming Soon:**
+**Planned for future releases:**
 
 - OpenAI TTS (GPT-4 voices: alloy, echo, fable, onyx, nova, shimmer)
 - Azure Speech Services

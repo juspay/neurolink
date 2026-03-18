@@ -34,11 +34,11 @@ import { NeuroLink } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink();
 const result = await neurolink.generate({
-  prompt: "Hello! Tell me about NeuroLink.",
+  input: { text: "Hello! Tell me about NeuroLink." },
   provider: "openai",
 });
 
-console.log(result.text);
+console.log(result.content);
 ```
 
 ### Streaming Responses
@@ -52,13 +52,13 @@ Learn how to implement real-time streaming responses.
 **Preview:**
 
 ```typescript
-const stream = await neurolink.stream({
-  prompt: "Write a story about AI",
+const result = await neurolink.stream({
+  input: { text: "Write a story about AI" },
   provider: "anthropic",
 });
 
-for await (const chunk of stream) {
-  process.stdout.write(chunk.text);
+for await (const chunk of result.stream) {
+  process.stdout.write(chunk.content);
 }
 ```
 
@@ -80,7 +80,7 @@ await registry.addBuiltinTools(["readFile", "writeFile"]);
 
 const neurolink = new NeuroLink({ toolRegistry: registry });
 const result = await neurolink.generate({
-  prompt: "Read the README.md file",
+  input: { text: "Read the README.md file" },
   provider: "anthropic",
 });
 ```
@@ -97,7 +97,7 @@ Implement enterprise-grade multi-provider failover patterns.
 
 ```typescript
 const result = await neurolink.generate({
-  prompt: "Analyze this data",
+  input: { text: "Analyze this data" },
   provider: "openai",
   fallbackProviders: ["anthropic", "google-ai"],
 });

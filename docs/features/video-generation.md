@@ -4,7 +4,7 @@ description: Generate professional video content with audio using Google's Veo 3
 keywords: video generation, veo 3.1, google ai, multimodal, video synthesis, ai video, vertex ai
 ---
 
-## Video Generation with Veo 3.1
+# Video Generation with Veo 3.1
 
 NeuroLink integrates Google's Veo 3.1 model to enable AI-powered video generation with audio from image and text prompt inputs. Transform static images into dynamic, professional-quality video content with synchronized audio.
 

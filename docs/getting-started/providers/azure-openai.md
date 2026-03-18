@@ -14,8 +14,9 @@ keywords: azure openai, microsoft azure, enterprise AI, compliance, SOC2, HIPAA
 
 Azure OpenAI Service provides REST API access to OpenAI's models including GPT-4, GPT-3.5, and embeddings through Microsoft's global Azure infrastructure. Perfect for enterprise deployments requiring compliance, data residency, and SLA guarantees.
 
-!!! warning "Enterprise-Only Access"
+:::warning[Enterprise-Only Access]
 Azure OpenAI requires application approval and Azure subscription. Approval can take 1-2 weeks. Use Google AI Studio or Hugging Face for instant access during development.
+:::
 
 ### Key Benefits
 
@@ -207,16 +208,31 @@ const ai = new NeuroLink({
 
 ### Available Models
 
-| Model                      | Description          | Context | Best For          | TPM Quota |
-| -------------------------- | -------------------- | ------- | ----------------- | --------- |
-| **gpt-4o**                 | Latest flagship      | 128K    | Complex reasoning | 10K - 1M  |
-| **gpt-4o-mini**            | Fast, cost-effective | 128K    | General tasks     | 10K - 10M |
-| **gpt-4-turbo**            | Previous flagship    | 128K    | Advanced tasks    | 10K - 1M  |
-| **gpt-4**                  | Stable version       | 8K      | Production        | 10K - 1M  |
-| **gpt-35-turbo**           | Fast, affordable     | 16K     | High-volume       | 10K - 10M |
-| **text-embedding-ada-002** | Embeddings           | 8K      | Vector search     | 10K - 10M |
-| **text-embedding-3-small** | Small embeddings     | 8K      | Efficient search  | 10K - 10M |
-| **text-embedding-3-large** | Large embeddings     | 8K      | Accuracy          | 10K - 10M |
+| Model                      | Deployment Name        | Context | Vision | Best For                    | TPM Quota |
+| -------------------------- | ---------------------- | ------- | ------ | --------------------------- | --------- |
+| **GPT-5.4**                | gpt-5.4                | 1,050K  | Yes    | Latest flagship             | 10K - 1M  |
+| **GPT-5.4 Mini**           | gpt-5.4-mini           | 400K    | Yes    | Fast, cost-effective        | 10K - 10M |
+| **GPT-5.4 Nano**           | gpt-5.4-nano           | 400K    | Yes    | Ultra-lightweight           | 10K - 10M |
+| **GPT-5**                  | gpt-5                  | 400K    | Yes    | Advanced reasoning          | 10K - 1M  |
+| **GPT-5 Mini**             | gpt-5-mini             | 400K    | Yes    | Balanced cost/perf          | 10K - 10M |
+| **GPT-4.1**                | gpt-4.1                | 1,047K  | Yes    | Long-context tasks          | 10K - 1M  |
+| **GPT-4.1 Mini**           | gpt-4.1-mini           | 1,047K  | Yes    | Long-context, affordable    | 10K - 10M |
+| **GPT-4.1 Nano**           | gpt-4.1-nano           | 1,047K  | Yes    | Long-context, lightweight   | 10K - 10M |
+| **o3**                     | o3                     | 200K    | Yes    | Deep reasoning              | 10K - 1M  |
+| **o3-mini**                | o3-mini                | 200K    | No     | Reasoning, cost-effective   | 10K - 10M |
+| **o4-mini**                | o4-mini                | 200K    | Yes    | Latest reasoning, efficient | 10K - 10M |
+| **GPT-4o**                 | gpt-4o                 | 128K    | Yes    | Complex reasoning           | 10K - 1M  |
+| **GPT-4o-mini**            | gpt-4o-mini            | 128K    | Yes    | General tasks               | 10K - 10M |
+| **GPT-4-turbo**            | gpt-4-turbo            | 128K    | Yes    | Advanced tasks              | 10K - 1M  |
+| **GPT-4**                  | gpt-4                  | 8K      | No     | Production (legacy)         | 10K - 1M  |
+| **GPT-3.5-turbo**          | gpt-35-turbo           | 16K     | No     | High-volume                 | 10K - 10M |
+| **text-embedding-ada-002** | text-embedding-ada-002 | 8K      | —      | Vector search               | 10K - 10M |
+| **text-embedding-3-small** | text-embedding-3-small | 8K      | —      | Efficient search            | 10K - 10M |
+| **text-embedding-3-large** | text-embedding-3-large | 8K      | —      | Accuracy                    | 10K - 10M |
+
+:::warning[GPT-4o-mini Retirement]
+GPT-4o-mini is retiring on Azure: **Standard deployments retire March 31, 2026**; **Provisioned and Global deployments retire October 1, 2026**. Migrate to `gpt-4.1-mini` or `gpt-5-mini` as a replacement.
+:::
 
 ### Deployment Quotas (TPM)
 

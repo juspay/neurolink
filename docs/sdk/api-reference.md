@@ -156,6 +156,15 @@ type GenerateOptions = {
   maxSteps?: number; // Max tool execution steps (default: 5)
   toolChoice?: ToolChoice; // 'auto' | 'none' | 'required' | { type: 'tool', toolName: string }
   prepareStep?: PrepareStepCallback; // Per-step tool choice — see SDK Custom Tools Guide
+  abortSignal?: AbortSignal; // External cancellation support
+  toolFilter?: string[]; // Whitelist of tools to include (only matching tools are available)
+  excludeTools?: string[]; // Blacklist of tools to exclude (applied after toolFilter)
+  skipToolPromptInjection?: boolean; // Skip injecting tool schemas into system prompt (~30K token savings)
+  tts?: TTSOptions; // Text-to-Speech configuration
+  maxBudgetUsd?: number; // Per-session USD budget cap — exceeding throws SESSION_BUDGET_EXCEEDED
+  workflow?: string; // Use predefined workflow by ID
+  workflowConfig?: WorkflowConfig; // Inline workflow configuration
+  requestId?: string; // Request ID for observability and log correlation
   enableAnalytics?: boolean;
   enableEvaluation?: boolean;
   evaluationDomain?: string;
@@ -163,6 +172,13 @@ type GenerateOptions = {
   context?: Record<string, JsonValue>;
   conversationHistory?: Array<{ role: string; content: string }>;
   thinkingLevel?: "minimal" | "low" | "medium" | "high"; // Gemini 3 models only
+  thinkingConfig?: {
+    // Full thinking/reasoning configuration (takes precedence over thinkingLevel)
+    enabled?: boolean;
+    type?: "enabled" | "disabled";
+    budgetTokens?: number; // Anthropic: 5000-100000 tokens
+    thinkingLevel?: "minimal" | "low" | "medium" | "high"; // Gemini 3 models
+  };
 
   // Output configuration
   output?: {
@@ -427,13 +443,57 @@ type StreamOptions = {
 
 ```typescript
 type StreamResult = {
-  stream: AsyncIterable<{ content: string }>;
+  stream: AsyncIterable<
+    | { content: string }
+    | { type: "audio"; audio: AudioChunk }
+    | { type: "image"; imageOutput: { base64: string } }
+  >;
   provider?: string;
   model?: string;
+
+  // Usage and completion info
+  usage?: TokenUsage; // Token usage statistics (prompt, completion, total)
+  finishReason?: string; // Why generation stopped (e.g., "stop", "length", "tool-calls")
+
+  // Tool integration
+  toolCalls?: ToolCall[]; // Tool calls made during generation
+  toolResults?: ToolResult[]; // Results from tool executions
+  toolEvents?: AsyncIterable<ToolExecutionEvent>; // Real-time tool event stream
+  toolExecutions?: ToolExecutionSummary[]; // Final summary of all tool executions
+  toolsUsed?: string[]; // Names of tools used during generation
+
+  // Stream metadata
   metadata?: {
     streamId?: string;
     startTime?: number;
     totalChunks?: number;
+    estimatedDuration?: number;
+    responseTime?: number;
+    preliminaryTime?: number; // Time to first (preliminary) response
+    fallback?: boolean;
+    totalToolExecutions?: number;
+    toolExecutionTime?: number;
+    hasToolErrors?: boolean;
+  };
+
+  // Analytics and evaluation (available after stream completion)
+  analytics?: AnalyticsData | Promise<AnalyticsData>;
+  evaluation?: EvaluationData | Promise<EvaluationData>;
+
+  // Workflow engine integration data
+  workflow?: {
+    originalResponse: string;
+    processedResponse: string;
+    ensembleResponses: Array<{
+      provider: string;
+      model: string;
+      content: string;
+      responseTime: number;
+      status: "success" | "failure" | "timeout" | "partial";
+    }>;
+    selectedModel: string;
+    workflowId: string;
+    workflowName: string;
   };
 };
 ```
@@ -1578,6 +1638,282 @@ const resultNoTools = await neurolink.generate({
 | Vertex AI    | Partial      | Tools available but may not execute                  |
 | Ollama       | Limited      | Requires specific models like gemma3n                |
 | Bedrock      | Full\*       | Requires valid AWS credentials                       |
+
+---
+
+## Context Compaction
+
+Methods for managing conversation context size within model token limits. Requires conversation memory to be enabled.
+
+### `compactSession(sessionId, config?)`
+
+Manually trigger the full 4-stage context compaction pipeline for a session. The pipeline stages are: (1) Tool output pruning, (2) File read deduplication, (3) LLM summarization, (4) Sliding window truncation.
+
+```typescript
+async compactSession(
+  sessionId: string,
+  config?: CompactionConfig
+): Promise<CompactionResult | null>
+```
+
+**Parameters:**
+
+| Parameter   | Type                | Description                                                        |
+| ----------- | ------------------- | ------------------------------------------------------------------ |
+| `sessionId` | `string`            | The session ID to compact                                          |
+| `config`    | `CompactionConfig?` | Optional overrides for summarization provider, model, and behavior |
+
+**Returns:** `CompactionResult | null` — `null` if no conversation memory is configured or the session is empty.
+
+```typescript
+type CompactionResult = {
+  compacted: boolean; // Whether compaction was performed
+  messages: ChatMessage[]; // The compacted messages
+  originalTokens?: number; // Token count before compaction
+  compactedTokens?: number; // Token count after compaction
+};
+```
+
+**Example:**
+
+```typescript
+const neurolink = new NeuroLink({
+  conversationMemory: { enabled: true },
+});
+
+const result = await neurolink.compactSession("session-123", {
+  provider: "openai",
+  summarizationProvider: "openai",
+  summarizationModel: "gpt-4o-mini",
+});
+
+if (result?.compacted) {
+  console.log(
+    `Compacted from ${result.originalTokens} to ${result.compactedTokens} tokens`,
+  );
+}
+```
+
+---
+
+### `getContextStats(sessionId, provider?, model?)`
+
+Get context usage statistics for a session, including token counts and whether compaction is needed.
+
+```typescript
+async getContextStats(
+  sessionId: string,
+  provider?: string,
+  model?: string
+): Promise<{
+  estimatedInputTokens: number;
+  availableInputTokens: number;
+  usageRatio: number;
+  shouldCompact: boolean;
+  messageCount: number;
+} | null>
+```
+
+**Parameters:**
+
+| Parameter   | Type      | Description                                                   |
+| ----------- | --------- | ------------------------------------------------------------- |
+| `sessionId` | `string`  | The session ID to inspect                                     |
+| `provider`  | `string?` | Provider name for context window lookup (default: `"openai"`) |
+| `model`     | `string?` | Model name for context window lookup                          |
+
+**Returns:** Stats object or `null` if conversation memory is not configured or the session is empty.
+
+**Example:**
+
+```typescript
+const stats = await neurolink.getContextStats(
+  "session-123",
+  "openai",
+  "gpt-4o",
+);
+
+if (stats) {
+  console.log(
+    `Token usage: ${stats.estimatedInputTokens}/${stats.availableInputTokens}`,
+  );
+  console.log(`Usage ratio: ${(stats.usageRatio * 100).toFixed(1)}%`);
+  console.log(`Messages: ${stats.messageCount}`);
+  if (stats.shouldCompact) {
+    console.log("Context is approaching limit — compaction recommended");
+  }
+}
+```
+
+---
+
+### `needsCompaction(sessionId, provider?, model?)`
+
+Synchronously check if a session's context exceeds the compaction threshold (80% of the model's context window by default).
+
+```typescript
+needsCompaction(
+  sessionId: string,
+  provider?: string,
+  model?: string
+): boolean
+```
+
+**Parameters:**
+
+| Parameter   | Type      | Description                                                   |
+| ----------- | --------- | ------------------------------------------------------------- |
+| `sessionId` | `string`  | The session ID to check                                       |
+| `provider`  | `string?` | Provider name for context window lookup (default: `"openai"`) |
+| `model`     | `string?` | Model name for context window lookup                          |
+
+**Returns:** `boolean` — `true` if the session should be compacted, `false` otherwise (also returns `false` if memory is not configured or session does not exist).
+
+**Example:**
+
+```typescript
+if (
+  neurolink.needsCompaction("session-123", "anthropic", "claude-3-5-sonnet")
+) {
+  await neurolink.compactSession("session-123", { provider: "anthropic" });
+}
+```
+
+---
+
+## Lifecycle
+
+Methods for gracefully releasing resources held by a NeuroLink instance.
+
+### `shutdown()`
+
+Gracefully shut down all NeuroLink resources. Flushes and shuts down OpenTelemetry, closes external MCP server connections, and releases conversation memory resources (e.g., Redis connections).
+
+```typescript
+async shutdown(): Promise<void>
+```
+
+**Example:**
+
+```typescript
+const neurolink = new NeuroLink();
+
+// ... use neurolink ...
+
+// Graceful shutdown before process exit
+await neurolink.shutdown();
+```
+
+---
+
+### `dispose()`
+
+Full resource disposal. Performs everything `shutdown()` does, plus removes all event listeners, clears circuit breakers, purges internal caches and maps, and resets initialization state. Use this when you are completely done with the instance, especially in test environments where multiple NeuroLink instances are created.
+
+```typescript
+async dispose(): Promise<void>
+```
+
+**Example:**
+
+```typescript
+const neurolink = new NeuroLink();
+
+try {
+  const result = await neurolink.generate({
+    input: { text: "Hello" },
+    provider: "openai",
+  });
+} finally {
+  // Full cleanup — prevents resource leaks in tests
+  await neurolink.dispose();
+}
+```
+
+---
+
+## Event System
+
+`NeuroLink` is a `TypedEventEmitter` that emits events throughout the generation and streaming lifecycle. Subscribe to events with `on()`, unsubscribe with `off()`.
+
+```typescript
+const neurolink = new NeuroLink();
+
+neurolink.on("generation:start", (data) => {
+  console.log("Generation started");
+});
+
+neurolink.on("tool:end", (data) => {
+  console.log("Tool execution finished");
+});
+
+neurolink.on("stream:chunk", (data) => {
+  // Received a streaming chunk
+});
+```
+
+### Core Events
+
+| Event              | Emitted When                         |
+| ------------------ | ------------------------------------ |
+| `generation:start` | A `generate()` call begins           |
+| `generation:end`   | A `generate()` call completes        |
+| `stream:start`     | A `stream()` call begins             |
+| `stream:chunk`     | A new chunk arrives during streaming |
+| `stream:end`       | Streaming completes normally         |
+| `stream:complete`  | Stream fully consumed                |
+| `stream:error`     | An error occurs during streaming     |
+| `tool:start`       | A tool execution begins              |
+| `tool:end`         | A tool execution completes           |
+| `response:start`   | A provider response begins           |
+| `response:end`     | A provider response completes        |
+
+### MCP Server Events
+
+| Event                            | Emitted When                              |
+| -------------------------------- | ----------------------------------------- |
+| `externalMCP:serverConnected`    | An external MCP server connects           |
+| `externalMCP:serverDisconnected` | An external MCP server disconnects        |
+| `externalMCP:serverFailed`       | An external MCP server connection fails   |
+| `externalMCP:toolDiscovered`     | A new tool is discovered on an MCP server |
+| `externalMCP:toolRemoved`        | A tool is removed from an MCP server      |
+| `externalMCP:serverAdded`        | A new MCP server registration is added    |
+| `externalMCP:serverRemoved`      | An MCP server registration is removed     |
+
+### Other Events
+
+| Event                  | Emitted When                        |
+| ---------------------- | ----------------------------------- |
+| `tools-register:start` | Tool registration process begins    |
+| `tools-register:end`   | Tool registration process completes |
+| `connected`            | Connection established              |
+| `message`              | General message event               |
+| `error`                | An error occurs                     |
+| `log`                  | A log message is emitted            |
+| `log-event`            | A structured log event is emitted   |
+
+**TypedEventEmitter Interface:**
+
+```typescript
+type TypedEventEmitter<TEvents> = {
+  on<K extends keyof TEvents>(
+    event: K,
+    listener: (...args: unknown[]) => void,
+  ): TypedEventEmitter<TEvents>;
+  off<K extends keyof TEvents>(
+    event: K,
+    listener: (...args: unknown[]) => void,
+  ): TypedEventEmitter<TEvents>;
+  emit<K extends keyof TEvents>(event: K, ...args: unknown[]): boolean;
+  removeAllListeners<K extends keyof TEvents>(
+    event?: K,
+  ): TypedEventEmitter<TEvents>;
+  listenerCount<K extends keyof TEvents>(event: K): number;
+  listeners<K extends keyof TEvents>(
+    event: K,
+  ): Array<(...args: unknown[]) => void>;
+};
+```
 
 ---
 

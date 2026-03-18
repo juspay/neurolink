@@ -35,7 +35,7 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 
 ---
 
-## 2025 Pricing Comparison
+## Pricing Comparison
 
 ### Pay-per-Token Providers
 
@@ -48,7 +48,7 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 | **Amazon Bedrock**   | $3.00 - $15.00        | $15.00 - $75.00        | $3.00 - $15.00 | Claude Haiku: $0.25/$1.25     |
 | **Azure OpenAI**     | $2.50 - $60.00        | $10.00 - $180.00       | $5.00 - $60.00 | GPT-4o-mini: $0.15/$0.60      |
 | **Mistral**          | $0.25 - $8.00         | $0.75 - $24.00         | $0.25 - $8.00  | Mistral Small: $0.20/$0.60    |
-| **HuggingFace**      | FREE - $1.00          | FREE - $1.00           | N/A            | DialoGPT: FREE                |
+| **HuggingFace**      | FREE - $1.00          | FREE - $1.00           | N/A            | Qwen 2.5 72B: FREE            |
 | **OpenRouter**       | $0.00 - $60.00        | $0.00 - $180.00        | Varies         | Many free models              |
 
 ^2^ Anthropic also offers subscription-based pricing as an alternative to per-token API pricing: Free tier (limited), Pro ($20/mo), Max ($100+/mo with 5x-20x usage). NeuroLink supports both API key and OAuth (subscription) authentication. See [Anthropic Deep Dive](#2-anthropic).
@@ -257,11 +257,12 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 
 **Native Extended Thinking:**
 
-- ✓ **Anthropic** - Claude 4.5 Sonnet, Claude 4.0 Opus (best)
+- ✓ **Anthropic** - All Claude 4.0+ models (best)
+  - Claude Sonnet 4, Opus 4, Opus 4.1, Sonnet 4.5, Opus 4.5, Haiku 4.5, Sonnet 4.6, Opus 4.6
   - Thinking levels: minimal, low, medium, high
   - Transparent reasoning process
   - Available on Pro and Max subscription tiers (not Free)
-- ✓ **Google AI Studio** - Gemini 2.5+, Gemini 3
+- ✓ **Google AI Studio** - Gemini 2.5 Pro, Gemini 2.5 Flash, Gemini 3 Flash, Gemini 3.1 Pro
   - Thinking levels: minimal, low, medium, high
   - Configurable thinking budget
 - ✓ **Google Vertex** - Same as AI Studio (Gemini only, not Claude)
@@ -316,7 +317,7 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 ### 1. OpenAI
 
 **Provider ID:** `openai`
-**Default Model:** `gpt-4o`
+**Default Model:** `gpt-4o-mini`
 
 **Strengths:**
 
@@ -340,7 +341,7 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 - Complex reasoning tasks
 - When budget allows premium pricing
 
-**2025 Pricing:**
+**Pricing:**
 
 - GPT-4o: $2.50/$10.00 per 1M tokens
 - GPT-4o-mini: $0.15/$0.60 per 1M tokens
@@ -351,7 +352,7 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 ### 2. Anthropic
 
 **Provider ID:** `anthropic`
-**Default Model:** `claude-sonnet-4-5-20250929`
+**Default Model:** `claude-sonnet-4-6`
 **Auth Methods:** API Key, OAuth 2.0 (unique among providers)
 
 **Strengths:**
@@ -421,7 +422,7 @@ _Subscription Pricing (via OAuth):_
 - Budget-conscious production apps
 - When extended thinking + PDF support needed
 
-**2025 Pricing:**
+**Pricing:**
 
 - Gemini 2.5 Flash: **FREE** (up to 1M tokens/day)
 - Gemini 2.5 Pro: $1.25/$5.00 per 1M tokens
@@ -433,7 +434,7 @@ _Subscription Pricing (via OAuth):_
 ### 4. Google Vertex AI
 
 **Provider ID:** `vertex`
-**Default Model:** `gemini-2.5-flash`
+**Default Model:** `claude-sonnet-4-6`
 
 **Strengths:**
 
@@ -457,7 +458,7 @@ _Subscription Pricing (via OAuth):_
 - Production deployments requiring SLAs
 - Regulated industries
 
-**2025 Pricing:**
+**Pricing:**
 
 - Gemini 2.5 Flash: $0.35/$1.05 per 1M tokens
 - Gemini 3 Pro: $7.00/$21.00 per 1M tokens
@@ -468,7 +469,7 @@ _Subscription Pricing (via OAuth):_
 ### 5. Amazon Bedrock
 
 **Provider ID:** `bedrock`
-**Default Model:** `anthropic.claude-3-sonnet-20240229-v1:0`
+**Default Model:** env-based (`BEDROCK_MODEL`); recommend `anthropic.claude-sonnet-4-6`
 
 **Strengths:**
 
@@ -491,7 +492,7 @@ _Subscription Pricing (via OAuth):_
 - Compliance-heavy industries (HIPAA, SOC2)
 - When you need Claude + Llama + others
 
-**2025 Pricing:**
+**Pricing:**
 
 - Claude Haiku: $0.25/$1.25 per 1M tokens
 - Claude Sonnet: $3.00/$15.00 per 1M tokens
@@ -503,7 +504,7 @@ _Subscription Pricing (via OAuth):_
 ### 6. Amazon SageMaker
 
 **Provider ID:** `sagemaker`
-**Default Model:** Custom endpoint
+**Default Model:** env-based (`SAGEMAKER_MODEL`)
 
 **Strengths:**
 
@@ -526,7 +527,7 @@ _Subscription Pricing (via OAuth):_
 - When you need full model control
 - Specialized domain models
 
-**2025 Pricing:**
+**Pricing:**
 
 - Instance-based: ml.g5.xlarge ~$1.41/hour
 - ml.g5.2xlarge ~$2.03/hour
@@ -537,7 +538,7 @@ _Subscription Pricing (via OAuth):_
 ### 7. Azure OpenAI
 
 **Provider ID:** `azure`
-**Default Model:** `gpt-4o`
+**Default Model:** `gpt-4o-mini`
 
 **Strengths:**
 
@@ -560,7 +561,7 @@ _Subscription Pricing (via OAuth):_
 - Azure-based infrastructure
 - Regulated industries
 
-**2025 Pricing:**
+**Pricing:**
 
 - Same as OpenAI pricing
 - Billed through Azure subscription
@@ -572,7 +573,7 @@ _Subscription Pricing (via OAuth):_
 ### 8. Mistral
 
 **Provider ID:** `mistral`
-**Default Model:** `mistral-small-2506`
+**Default Model:** `mistral-large-latest`
 
 **Strengths:**
 
@@ -595,7 +596,7 @@ _Subscription Pricing (via OAuth):_
 - When you prefer European hosting
 - Open-source friendly organizations
 
-**2025 Pricing:**
+**Pricing:**
 
 - Mistral Small: $0.20/$0.60 per 1M tokens
 - Mistral Medium: $2.50/$7.50 per 1M tokens
@@ -606,7 +607,7 @@ _Subscription Pricing (via OAuth):_
 ### 9. HuggingFace
 
 **Provider ID:** `huggingface`
-**Default Model:** `microsoft/DialoGPT-medium`
+**Default Model:** `Qwen/Qwen2.5-72B-Instruct`
 
 **Strengths:**
 
@@ -629,7 +630,7 @@ _Subscription Pricing (via OAuth):_
 - Testing cutting-edge models
 - Budget-constrained projects
 
-**2025 Pricing:**
+**Pricing:**
 
 - Free tier: 1,000 requests/month
 - Inference API: From FREE to ~$1.00 per 1M tokens
@@ -663,7 +664,7 @@ _Subscription Pricing (via OAuth):_
 - Load balancing across providers
 - A/B testing different models
 
-**2025 Pricing:**
+**Pricing:**
 
 - No additional cost (uses backend provider pricing)
 - Self-hosted proxy is FREE
@@ -674,7 +675,7 @@ _Subscription Pricing (via OAuth):_
 ### 11. Ollama
 
 **Provider ID:** `ollama`
-**Default Model:** `llama3.1:8b`
+**Default Model:** `llama3.2:latest`
 
 **Strengths:**
 
@@ -698,7 +699,7 @@ _Subscription Pricing (via OAuth):_
 - Cost-sensitive projects
 - Development and testing
 
-**2025 Pricing:**
+**Pricing:**
 
 - **FREE** (hardware costs only)
 - Requires local GPU for best performance
@@ -732,7 +733,7 @@ _Subscription Pricing (via OAuth):_
 - Private cloud deployments
 - When you control the backend
 
-**2025 Pricing:**
+**Pricing:**
 
 - Depends entirely on backend provider
 - Self-hosted: Infrastructure costs only
@@ -767,7 +768,7 @@ _Subscription Pricing (via OAuth):_
 - Rapid prototyping
 - When you want provider flexibility
 
-**2025 Pricing:**
+**Pricing:**
 
 - **Free models available:**
   - Google Gemini 2.0 Flash: FREE
@@ -1062,7 +1063,7 @@ const result = await neurolink.generate({
 // After (API key auth - same as before)
 const result = await neurolink.generate({
   provider: "anthropic",
-  model: "claude-sonnet-4-5-20250929",
+  model: "claude-sonnet-4-6",
   prompt: "Analyze this document",
   thinkingLevel: "high", // New capability
 });
@@ -1071,7 +1072,7 @@ const result = await neurolink.generate({
 // Run `neurolink auth login --provider anthropic` first to authenticate
 const result = await neurolink.generate({
   provider: "anthropic",
-  model: "claude-sonnet-4-5-20250929",
+  model: "claude-sonnet-4-6",
   prompt: "Analyze this document",
   thinkingLevel: "high",
 });

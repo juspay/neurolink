@@ -10,17 +10,21 @@ Common questions and answers about NeuroLink usage, configuration, and troublesh
 
 ### Q: Which AI providers does NeuroLink support?
 
-**A:** NeuroLink supports 9+ AI providers:
+**A:** NeuroLink supports 13 AI providers:
 
-- **OpenAI** (GPT-4, GPT-4o, GPT-3.5-turbo)
-- **Google AI Studio** (Gemini models)
+- **OpenAI** (GPT-4o, GPT-4.1, o3, o4-mini)
+- **Google AI Studio** (Gemini 2.5 Pro/Flash, Gemini 3)
 - **Google Vertex AI** (Gemini, Claude via Vertex)
-- **Anthropic** (Claude 3.5 Sonnet, Haiku, Opus)
-- **AWS Bedrock** (Claude, Titan models)
+- **Anthropic** (Claude Opus 4, Sonnet 4, 3.5 Sonnet)
+- **AWS Bedrock** (Claude, Titan, Nova models)
 - **Azure OpenAI** (GPT models)
 - **Hugging Face** (Open source models)
 - **Ollama** (Local AI models)
 - **Mistral AI** (Mistral models)
+- **LiteLLM** (100+ models via proxy)
+- **AWS SageMaker** (Custom endpoints)
+- **OpenAI-compatible** (Any OpenAI-API-compatible endpoint)
+- **Gateway** (69+ providers via gateway)
 
 ### Q: Do I need to install anything?
 
@@ -257,11 +261,11 @@ npx @juspay/neurolink gen "What time is it?" --debug
 npx @juspay/neurolink stream "Tell me a story"
 
 # SDK streaming
-const stream = await neurolink.stream({
+const result = await neurolink.stream({
   input: { text: "Tell me a story" }
 });
 
-for await (const chunk of stream) {
+for await (const chunk of result.stream) {
   console.log(chunk.content);
 }
 ```

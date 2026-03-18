@@ -14,8 +14,9 @@ keywords: mistral ai, GDPR, EU compliance, european AI, privacy
 
 Mistral AI is a European AI company offering powerful open-source and proprietary models with built-in GDPR compliance, European data residency, and competitive pricing. Perfect for EU-based companies and privacy-conscious applications.
 
-!!! success "GDPR Compliance Built-In"
+:::tip[GDPR Compliance Built-In]
 Mistral AI is EU-based with European data residency by default. Ideal for GDPR-compliant applications without additional configuration required.
+:::
 
 ### Key Benefits
 
@@ -83,13 +84,22 @@ const { NeuroLink } = require('@juspay/neurolink');
 
 ### Available Models
 
-| Model                     | Description                       | Context | Best For                  | Pricing        |
-| ------------------------- | --------------------------------- | ------- | ------------------------- | -------------- |
-| **mistral-large-latest**  | Flagship model, GPT-4 competitive | 128K    | Complex reasoning, coding | €8/1M tokens   |
-| **mistral-small-latest**  | Balanced performance/cost         | 128K    | General tasks, production | €2/1M tokens   |
-| **mistral-medium-latest** | Mid-tier (deprecated, use large)  | 32K     | Legacy apps               | €2.7/1M tokens |
-| **codestral-latest**      | Code specialist                   | 32K     | Code generation, review   | €1/1M tokens   |
-| **mistral-embed**         | Embeddings model                  | -       | RAG, semantic search      | €0.1/1M tokens |
+| Model                  | Model ID                  | Context | Vision | Use Case                                                 |
+| ---------------------- | ------------------------- | ------- | ------ | -------------------------------------------------------- |
+| **Mistral Large 3**    | `mistral-large-latest`    | 256K    | Yes    | Flagship, agentic — native vision replaces Pixtral Large |
+| **Mistral Medium 3.1** | `mistral-medium-latest`   | 128K    | Yes    | Balanced performance/cost                                |
+| **Mistral Small 4**    | `mistral-small-latest`    | 128K    | Yes    | MoE architecture, strong reasoning at low cost           |
+| **Magistral Medium**   | `magistral-medium-latest` | 128K    | Yes    | Reasoning-focused                                        |
+| **Magistral Small**    | `magistral-small-latest`  | 128K    | Yes    | Reasoning (Apache 2.0 license)                           |
+| **Codestral**          | `codestral-latest`        | 256K    | No     | Code generation and review                               |
+| **Devstral 2**         | `devstral-2512`           | 256K    | No     | Agentic coding workflows                                 |
+| **Pixtral Large**      | `pixtral-large`           | 128K    | Yes    | Vision (deprecated — use Mistral Large 3)                |
+| **Mistral Embed**      | `mistral-embed`           | —       | —      | Embeddings (1024 dimensions)                             |
+| **Codestral Embed**    | `codestral-embed`         | —       | —      | Code embeddings                                          |
+
+:::info[Pixtral Large Superseded]
+Pixtral Large has been superseded by **Mistral Large 3**, which includes native vision capabilities alongside its flagship text performance. New projects should use `mistral-large-latest` for both text and vision tasks. The `pixtral-large` model ID remains available but is considered deprecated.
+:::
 
 ### Free Tier Details
 
@@ -155,17 +165,14 @@ const embeddings = await ai.generateEmbeddings({
 ### Data Residency Configuration
 
 ```typescript
-// Ensure EU data residency
-const ai = new NeuroLink({
-  providers: [
-    {
-      name: "mistral",
-      config: {
-        apiKey: process.env.MISTRAL_API_KEY,
-        region: "eu", // Explicitly use EU endpoints
-      },
-    },
-  ],
+// Ensure EU data residency via environment variables
+// Set MISTRAL_API_KEY in your .env file
+// Set MISTRAL_REGION=eu to explicitly use EU endpoints
+const ai = new NeuroLink();
+
+const result = await ai.generate({
+  input: { text: "Your prompt" },
+  provider: "mistral",
 });
 ```
 
@@ -173,22 +180,10 @@ const ai = new NeuroLink({
 
 ```typescript
 // ✅ GDPR-compliant setup
-const gdprAI = new NeuroLink({
-  providers: [
-    {
-      name: "mistral",
-      config: {
-        apiKey: process.env.MISTRAL_API_KEY,
-        // Data stays in EU
-        region: "eu",
-        // Enable audit logging
-        enableAudit: true,
-        // Data retention policy
-        dataRetention: "30-days",
-      },
-    },
-  ],
-});
+// Configure via environment variables:
+//   MISTRAL_API_KEY=your-key
+//   MISTRAL_REGION=eu
+const gdprAI = new NeuroLink();
 
 // Document data processing
 const result = await gdprAI.generate({
@@ -297,9 +292,9 @@ const result = await ai.generate({
 });
 
 // Calculate cost (mistral-small: €2/1M tokens)
-const cost = (result.usage.totalTokens / 1_000_000) * 2;
+const cost = (result.usage.total / 1_000_000) * 2;
 console.log(`Cost: €${cost.toFixed(4)}`);
-console.log(`Tokens used: ${result.usage.totalTokens}`);
+console.log(`Tokens used: ${result.usage.total}`);
 ```
 
 ---
@@ -376,19 +371,16 @@ MISTRAL_REGION=eu  # Enforce EU endpoints
 ### Programmatic Configuration
 
 ```typescript
-const ai = new NeuroLink({
-  providers: [
-    {
-      name: "mistral",
-      config: {
-        apiKey: process.env.MISTRAL_API_KEY,
-        defaultModel: "mistral-small-latest",
-        region: "eu",
-        timeout: 60000,
-        retryAttempts: 3,
-      },
-    },
-  ],
+// Configure via environment variables:
+//   MISTRAL_API_KEY=your-key
+//   MISTRAL_DEFAULT_MODEL=mistral-small-latest
+//   MISTRAL_REGION=eu
+//   MISTRAL_TIMEOUT=60000
+const ai = new NeuroLink();
+
+const result = await ai.generate({
+  input: { text: "Your prompt" },
+  provider: "mistral",
 });
 ```
 
@@ -399,36 +391,18 @@ const ai = new NeuroLink({
 ### Production Setup
 
 ```typescript
-// Enterprise-grade Mistral configuration
+// Enterprise-grade Mistral configuration via environment variables:
+//   MISTRAL_API_KEY=your-key
+//   MISTRAL_REGION=eu
+//   MISTRAL_TIMEOUT=120000
 const enterpriseAI = new NeuroLink({
-  providers: [
-    {
-      name: "mistral",
-      priority: 1,
-      config: {
-        apiKey: process.env.MISTRAL_API_KEY,
-        region: "eu",
-        enableAudit: true,
+  enableOrchestration: true, // Enable provider orchestration/failover
+});
 
-        // Rate limiting
-        rateLimit: {
-          requestsPerMinute: 100,
-          tokensPerMinute: 1_000_000,
-        },
-
-        // Retry logic
-        retryAttempts: 3,
-        retryDelay: 1000,
-
-        // Timeouts
-        timeout: 120000,
-      },
-    },
-    {
-      name: "anthropic", // Fallback for critical workloads
-      priority: 2,
-    },
-  ],
+// Use Mistral as primary, with Anthropic as fallback
+const result = await enterpriseAI.generate({
+  input: { text: "Enterprise query" },
+  provider: "mistral",
 });
 ```
 
@@ -436,21 +410,17 @@ const enterpriseAI = new NeuroLink({
 
 ```typescript
 // Serve EU and global users
-const multiRegionAI = new NeuroLink({
-  providers: [
-    {
-      name: "mistral",
-      region: "eu",
-      priority: 1,
-      condition: (req) => req.userRegion === "EU",
-    },
-    {
-      name: "openai",
-      priority: 1,
-      condition: (req) => req.userRegion !== "EU",
-    },
-  ],
-});
+// Configure MISTRAL_REGION=eu in your environment
+const multiRegionAI = new NeuroLink();
+
+// Route EU users to Mistral (EU data residency)
+async function handleRequest(userRegion: string, prompt: string) {
+  const provider = userRegion === "EU" ? "mistral" : "openai";
+  return multiRegionAI.generate({
+    input: { text: prompt },
+    provider,
+  });
+}
 ```
 
 ### Cost Optimization
@@ -555,8 +525,8 @@ const result = await ai.generate({
   enableAnalytics: true,
 });
 
-console.log(`Tokens used: ${result.usage.totalTokens}`);
-console.log(`Estimated cost: €${(result.usage.totalTokens / 1_000_000) * 2}`);
+console.log(`Tokens used: ${result.usage.total}`);
+console.log(`Estimated cost: €${(result.usage.total / 1_000_000) * 2}`);
 ```
 
 #### 4. Slow Response Times

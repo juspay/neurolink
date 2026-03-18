@@ -436,7 +436,7 @@ console.log("Active servers:", status.totalServers);
 - `neurolink mcp list [--status]` - List configured servers
 - `neurolink mcp test <server>` - Test connectivity
 - `neurolink mcp remove <server>` - Remove servers
-- `neurolink mcp exec <server> <tool>` - Execute tools (Coming Soon)
+- `neurolink mcp exec <server> <tool>` - Execute tools (planned for a future release)
 
 #### Available MCP Servers Claims:
 

@@ -1,24 +1,5 @@
 # ⚙️ NeuroLink Configuration Guide
 
-## ✅ IMPLEMENTATION STATUS: COMPLETE (2025-01-07)
-
-**Generate Function Migration completed - Configuration examples updated**
-
-- ✅ All code examples now show `generate()` as primary method
-- ✅ Legacy `generate()` examples preserved for reference
-- ✅ Factory pattern configuration benefits documented
-- ✅ Zero configuration changes required for migration
-
-> **Migration Note**: Configuration remains identical for both `generate()` and `generate()`.
-> All existing configurations continue working unchanged.
-
----
-
-**Version**: v7.47.0
-**Last Updated**: September 26, 2025
-
-> Looking for the full configuration story? Start with [`docs/configuration.md`](../configuration.md) for detailed environment variable explanations, evaluation toggles, and regional routing notes. This reference focuses on quick lookup tables.
-
 ---
 
 ## 📖 **Overview**
@@ -239,11 +220,11 @@ const efficientResult = await neurolink.generate({
 
 ---
 
-## 🛠️ **MCP Configuration (v1.7.1)**
+## 🛠️ **MCP Configuration**
 
 ### **Built-in Tools Configuration**
 
-Built-in tools are automatically available in v1.7.1:
+Built-in tools are automatically available:
 
 ```json
 {
@@ -828,7 +809,7 @@ export NEUROLINK_MOCK_PROVIDERS=true
 # Validate configuration
 npx neurolink status --verbose
 
-# Test built-in tools (v1.7.1)
+# Test built-in tools
 npx neurolink generate "What time is it?" --debug
 
 # Test external discovery

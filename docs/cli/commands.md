@@ -17,26 +17,31 @@ npm install @juspay/neurolink
 
 ## Command Map
 
-| Command               | Description                                                 | Example                                                                     |
-| --------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `generate` / `gen`    | One-shot content generation with optional multimodal input. | `npx @juspay/neurolink generate "Draft release notes" --image ./before.png` |
-| `stream`              | Real-time streaming output with tool support.               | `npx @juspay/neurolink stream "Narrate sprint demo" --enableAnalytics`      |
-| `batch`               | Process multiple prompts from a file.                       | `npx @juspay/neurolink batch prompts.txt --format json`                     |
-| `loop`                | Interactive session with persistent variables & memory.     | `npx @juspay/neurolink loop --auto-redis`                                   |
-| `auth <subcommand>`   | Manage provider authentication (API key or OAuth).          | `npx @juspay/neurolink auth login anthropic --method oauth`                 |
-| `setup` / `s`         | Guided provider onboarding and validation.                  | `npx @juspay/neurolink setup --provider openai`                             |
-| `status`              | Health check for configured providers.                      | `npx @juspay/neurolink status --verbose`                                    |
-| `get-best-provider`   | Show the best available AI provider.                        | `npx @juspay/neurolink get-best-provider --format json`                     |
-| `models list`         | Inspect available models and capabilities.                  | `npx @juspay/neurolink models list --capability vision`                     |
-| `config <subcommand>` | Initialise, validate, export, or reset configuration.       | `npx @juspay/neurolink config validate`                                     |
-| `memory <subcommand>` | View, export, or clear conversation history.                | `npx @juspay/neurolink memory history NL_x3yr --format json`                |
-| `mcp <subcommand>`    | Manage Model Context Protocol servers/tools.                | `npx @juspay/neurolink mcp list`                                            |
-| `ollama <subcommand>` | Manage Ollama local AI models.                              | `npx @juspay/neurolink ollama list-models`                                  |
-| `sagemaker <command>` | Manage Amazon SageMaker endpoints and models.               | `npx @juspay/neurolink sagemaker status`                                    |
-| `server <subcommand>` | Manage NeuroLink HTTP server                                |                                                                             |
-| `serve`               | Start server in foreground mode                             |                                                                             |
-| `validate`            | Alias for `config validate`.                                | `npx @juspay/neurolink validate`                                            |
-| `completion`          | Generate shell completion script.                           | `npx @juspay/neurolink completion > ~/.neurolink-completion.sh`             |
+| Command               | Description                                                      | Example                                                                     |
+| --------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `generate` / `gen`    | One-shot content generation with optional multimodal input.      | `npx @juspay/neurolink generate "Draft release notes" --image ./before.png` |
+| `stream`              | Real-time streaming output with tool support.                    | `npx @juspay/neurolink stream "Narrate sprint demo" --enableAnalytics`      |
+| `batch`               | Process multiple prompts from a file.                            | `npx @juspay/neurolink batch prompts.txt --format json`                     |
+| `loop`                | Interactive session with persistent variables & memory.          | `npx @juspay/neurolink loop --auto-redis`                                   |
+| `auth <subcommand>`   | Manage provider authentication (API key or OAuth).               | `npx @juspay/neurolink auth login anthropic --method oauth`                 |
+| `setup` / `s`         | Guided provider onboarding and validation.                       | `npx @juspay/neurolink setup --provider openai`                             |
+| `status`              | Health check for configured providers.                           | `npx @juspay/neurolink status --verbose`                                    |
+| `get-best-provider`   | Show the best available AI provider.                             | `npx @juspay/neurolink get-best-provider --format json`                     |
+| `models list`         | Inspect available models and capabilities.                       | `npx @juspay/neurolink models list --capability vision`                     |
+| `config <subcommand>` | Initialise, validate, export, or reset configuration.            | `npx @juspay/neurolink config validate`                                     |
+| `memory <subcommand>` | View, export, or clear conversation history.                     | `npx @juspay/neurolink memory history NL_x3yr --format json`                |
+| `mcp <subcommand>`    | Manage Model Context Protocol servers/tools.                     | `npx @juspay/neurolink mcp list`                                            |
+| `ollama <subcommand>` | Manage Ollama local AI models.                                   | `npx @juspay/neurolink ollama list-models`                                  |
+| `sagemaker <command>` | Manage Amazon SageMaker endpoints and models.                    | `npx @juspay/neurolink sagemaker status`                                    |
+| `server <subcommand>` | Manage NeuroLink HTTP server                                     | `npx @juspay/neurolink server start --port 3000`                            |
+| `serve`               | Start server in foreground mode                                  | `npx @juspay/neurolink serve --port 3000`                                   |
+| `rag <subcommand>`    | RAG document processing (chunk, index, query).                   | `npx @juspay/neurolink rag chunk ./docs/guide.md`                           |
+| `workflow <sub>`      | Manage and execute AI workflows.                                 | `npx @juspay/neurolink workflow list`                                       |
+| `observability`       | Observability and telemetry management (aliases: `obs`, `otel`). | `npx @juspay/neurolink observability status`                                |
+| `telemetry`           | Telemetry and exporter management (alias: `tel`).                | `npx @juspay/neurolink telemetry status`                                    |
+| `docs`                | Start the NeuroLink documentation MCP server.                    | `npx @juspay/neurolink docs --transport http --port 3001`                   |
+| `validate`            | Alias for `config validate`.                                     | `npx @juspay/neurolink validate`                                            |
+| `completion`          | Generate shell completion script.                                | `npx @juspay/neurolink completion > ~/.neurolink-completion.sh`             |
 
 ## Primary Commands
 
@@ -100,13 +105,13 @@ Key flags:
 
 - `--thinking`, `--think` – enable extended thinking/reasoning capability (default `false`).
 - `--thinkingBudget` – token budget for extended thinking (5000–100000, default `10000`). Supported by Anthropic Claude and Gemini 2.5+ models.
-- `--thinkingLevel` – thinking level for Gemini 3 models: `minimal`, `low`, `medium`, `high`.
+- `--thinkingLevel` – thinking level for extended reasoning (Anthropic Claude, Gemini 2.5+, Gemini 3): `minimal`, `low`, `medium`, `high`.
 
 **Anthropic Subscription Options:**
 
 - `--auth-method` – authentication method: `api-key` or `oauth`. Overrides auto-detection.
 - `--subscription-tier` – subscription tier: `free`, `pro`, `max`, `max_5`, `max_20`, or `api`. Overrides auto-detection from token/env.
-- `--enable-beta` – enable Anthropic beta features (OAuth beta headers, extended thinking). Default `true` for OAuth, `false` for API key.
+- `--enable-beta` – enable Anthropic beta features (experimental capabilities, computer use, etc.). Default `false`.
 
 ```bash
 # Generate with explicit subscription tier
@@ -151,6 +156,31 @@ See [File Processors Guide](../features/file-processors.md) for all 17+ supporte
 - `--videoAudio` – include synchronized audio (default `true`).
 
 **Note:** Video generation requires Vertex AI provider (`vertex`) and Veo 3.1 model (`veo-3.1`). The provider auto-switches to Vertex when `--outputMode video` is specified. Supported image formats: PNG, JPEG, WebP (max 20MB).
+
+**Presentation Generation (PPT):**
+
+- `--outputMode ppt` – switch to presentation generation mode. Alternatively, any `--ppt*` flag automatically activates PPT mode.
+- `--pptPages`, `--pages` – number of slides to generate (5-50, default `10` when PPT mode is enabled).
+- `--pptTheme` – presentation theme/style: `modern`, `corporate`, `creative`, `minimal`, `dark` (default: AI selects based on topic).
+- `--pptAudience` – target audience: `business`, `students`, `technical`, `general` (default: AI selects based on topic).
+- `--pptTone` – presentation tone: `professional`, `casual`, `educational`, `persuasive` (default: AI selects based on topic).
+- `--pptOutput`, `--po` – path to save generated PPTX file (e.g., `./output.pptx`).
+- `--pptAspectRatio` – slide aspect ratio: `16:9` or `4:3` (default: `16:9` when PPT mode is enabled).
+- `--pptNoImages` – disable AI image generation for slides (default `false`).
+
+```bash
+# Generate a presentation
+npx @juspay/neurolink generate "Quarterly business review for Q4 2025" \
+  --outputMode ppt --pptPages 15 --pptTheme corporate --pptOutput ./q4-review.pptx
+
+# Generate with audience and tone
+npx @juspay/neurolink generate "Introduction to machine learning" \
+  --pptPages 20 --pptAudience students --pptTone educational --pptOutput ./ml-intro.pptx
+
+# Minimal presentation without AI images
+npx @juspay/neurolink generate "Project status update" \
+  --outputMode ppt --pptNoImages --pptOutput ./status.pptx
+```
 
 `gen` is a short alias with the same options.
 
@@ -316,7 +346,7 @@ npx @juspay/neurolink loop --no-auto-redis
 | `enableSummarization` | boolean | Enable automatic conversation summarization.               |                                                                        |
 | `thinking`            | boolean | Enable extended thinking/reasoning capability.             |                                                                        |
 | `thinkingBudget`      | number  | Token budget for thinking (Anthropic models: 5000–100000). |                                                                        |
-| `thinkingLevel`       | string  | Thinking level for Gemini 3 models.                        | `minimal`, `low`, `medium`, `high`                                     |
+| `thinkingLevel`       | string  | Thinking level (Anthropic Claude, Gemini 2.5+, Gemini 3).  | `minimal`, `low`, `medium`, `high`                                     |
 
 **Context Budget Warnings:**
 
@@ -473,12 +503,154 @@ Displays provider availability, authentication status, recent error summaries, a
 
 ### `models`
 
+Manage and discover AI models across all providers.
+
 ```bash
 # List all models for a provider
 npx @juspay/neurolink models list --provider google-ai
 
 # Filter by capability
 npx @juspay/neurolink models list --capability vision --format table
+```
+
+**Subcommands:**
+
+| Subcommand           | Description                                          |
+| -------------------- | ---------------------------------------------------- |
+| `list`               | List available models with filtering options         |
+| `search [query]`     | Search models by capabilities, use case, or features |
+| `best`               | Get the best model recommendation for your use case  |
+| `resolve <model>`    | Resolve model aliases and find exact model names     |
+| `compare <models..>` | Compare multiple models side by side                 |
+| `stats`              | Show model registry statistics and insights          |
+
+**Global models options:**
+
+| Option     | Type    | Default | Description                               |
+| ---------- | ------- | ------- | ----------------------------------------- |
+| `--format` | string  | `table` | Output format: `table`, `json`, `compact` |
+| `--output` | string  |         | Save output to file                       |
+| `--quiet`  | boolean | `false` | Suppress non-essential output             |
+| `--debug`  | boolean | `false` | Enable debug output                       |
+
+#### `models list`
+
+```bash
+npx @juspay/neurolink models list [options]
+```
+
+| Option         | Type    | Default | Description                                                                                                                        |
+| -------------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `--provider`   | string  |         | Filter by AI provider                                                                                                              |
+| `--category`   | string  |         | Filter by model category: `general`, `coding`, `creative`, `vision`, `reasoning`                                                   |
+| `--capability` | array   |         | Filter by required capabilities: `vision`, `functionCalling`, `codeGeneration`, `reasoning`, `multimodal`, `streaming`, `jsonMode` |
+| `--deprecated` | boolean | `false` | Include deprecated models                                                                                                          |
+
+```bash
+npx @juspay/neurolink models list --provider openai
+npx @juspay/neurolink models list --capability vision
+npx @juspay/neurolink models list --category coding
+```
+
+#### `models search [query]`
+
+Search models by capabilities, use case, or features.
+
+```bash
+npx @juspay/neurolink models search [query] [options]
+```
+
+| Option          | Type   | Default | Description                                                                                                               |
+| --------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `--use-case`    | string |         | Filter by primary use case: `coding`, `creative`, `analysis`, `conversation`, `reasoning`, `translation`, `summarization` |
+| `--max-cost`    | number |         | Maximum cost per 1K tokens (USD)                                                                                          |
+| `--min-context` | number |         | Minimum context window size (tokens)                                                                                      |
+| `--max-context` | number |         | Maximum context window size (tokens)                                                                                      |
+| `--performance` | string |         | Required performance level: `fast`, `medium`, `slow`, `high`, `low`                                                       |
+
+```bash
+npx @juspay/neurolink models search vision
+npx @juspay/neurolink models search --use-case coding --max-cost 0.01
+npx @juspay/neurolink models search --min-context 100000
+```
+
+#### `models best`
+
+Get the best model recommendation for your use case.
+
+```bash
+npx @juspay/neurolink models best [options]
+```
+
+| Option                       | Type    | Description                                  |
+| ---------------------------- | ------- | -------------------------------------------- |
+| `--coding`                   | boolean | Optimize for code generation and programming |
+| `--creative`                 | boolean | Optimize for creative writing and content    |
+| `--analysis`                 | boolean | Optimize for data analysis and research      |
+| `--conversation`             | boolean | Optimize for conversational interactions     |
+| `--reasoning`                | boolean | Optimize for logical reasoning tasks         |
+| `--translation`              | boolean | Optimize for language translation            |
+| `--summarization`            | boolean | Optimize for text summarization              |
+| `--cost-effective`           | boolean | Prioritize cost-effectiveness                |
+| `--high-quality`             | boolean | Prioritize output quality over cost          |
+| `--fast`                     | boolean | Prioritize response speed                    |
+| `--require-vision`           | boolean | Require vision/image processing capability   |
+| `--require-function-calling` | boolean | Require function calling capability          |
+| `--exclude-providers`        | array   | Exclude specific providers                   |
+| `--prefer-local`             | boolean | Prefer local/offline models                  |
+
+```bash
+npx @juspay/neurolink models best --coding
+npx @juspay/neurolink models best --cost-effective --require-vision
+npx @juspay/neurolink models best --fast --exclude-providers ollama
+```
+
+#### `models resolve <model>`
+
+Resolve model aliases and find exact model names.
+
+```bash
+npx @juspay/neurolink models resolve <model> [options]
+```
+
+| Option    | Type    | Default | Description                             |
+| --------- | ------- | ------- | --------------------------------------- |
+| `--fuzzy` | boolean | `true`  | Enable fuzzy matching for partial names |
+
+```bash
+npx @juspay/neurolink models resolve claude-latest
+npx @juspay/neurolink models resolve gpt4
+npx @juspay/neurolink models resolve fastest
+```
+
+#### `models compare <models..>`
+
+Compare multiple models side by side.
+
+```bash
+npx @juspay/neurolink models compare <models..>
+```
+
+```bash
+npx @juspay/neurolink models compare gpt-4o claude-3.5-sonnet gemini-2.5-pro
+npx @juspay/neurolink models compare fastest cheapest best-coding
+```
+
+#### `models stats`
+
+Show model registry statistics and insights.
+
+```bash
+npx @juspay/neurolink models stats [options]
+```
+
+| Option       | Type    | Default | Description                              |
+| ------------ | ------- | ------- | ---------------------------------------- |
+| `--detailed` | boolean | `false` | Show detailed statistics with breakdowns |
+
+```bash
+npx @juspay/neurolink models stats
+npx @juspay/neurolink models stats --detailed
 ```
 
 ### `config`
@@ -544,13 +716,7 @@ npx @juspay/neurolink mcp install github
 
 # Add custom servers with different transports
 npx @juspay/neurolink mcp add myserver "python server.py" --transport stdio
-npx @juspay/neurolink mcp add webserver "http://localhost:8080" --transport sse --url "http://localhost:8080/sse"
-
-# Add HTTP remote server with authentication
-npx @juspay/neurolink mcp add remote-api "https://api.example.com/mcp" \
-  --transport http \
-  --url "https://api.example.com/mcp" \
-  --headers '{"Authorization": "Bearer YOUR_TOKEN"}'
+npx @juspay/neurolink mcp add webserver "node server.js" --transport sse
 
 # Test server connectivity
 npx @juspay/neurolink mcp test myserver
@@ -559,16 +725,13 @@ npx @juspay/neurolink mcp test myserver
 npx @juspay/neurolink mcp remove myserver
 ```
 
-**MCP Command Options:**
+**MCP Command Options (`mcp add`):**
 
 | Option        | Description                                         |
 | ------------- | --------------------------------------------------- |
-| `--transport` | Transport type: `stdio`, `sse`, `websocket`, `http` |
-| `--url`       | URL for SSE/WebSocket/HTTP transport                |
-| `--headers`   | JSON string with HTTP headers for authentication    |
-| `--args`      | Command arguments (comma-separated)                 |
+| `--transport` | Transport type: `stdio`, `http`, `sse`, `websocket` |
+| `--args`      | Command arguments (array)                           |
 | `--env`       | Environment variables (JSON string)                 |
-| `--cwd`       | Working directory for the server                    |
 
 **HTTP Transport Features:**
 
@@ -979,13 +1142,17 @@ Chunk a document file into smaller pieces for RAG processing.
 neurolink rag chunk <file> [options]
 ```
 
-| Option            | Alias | Type   | Default     | Description                |
-| ----------------- | ----- | ------ | ----------- | -------------------------- |
-| `--strategy`      | `-s`  | string | `recursive` | Chunking strategy          |
-| `--chunk-size`    |       | number | `1000`      | Maximum chunk size         |
-| `--chunk-overlap` |       | number | `200`       | Overlap between chunks     |
-| `--output`        | `-o`  | string | stdout      | Output file path           |
-| `--format`        | `-f`  | string | `text`      | Output format (text, json) |
+| Option       | Alias | Type    | Default     | Description                                         |
+| ------------ | ----- | ------- | ----------- | --------------------------------------------------- |
+| `--strategy` | `-s`  | string  | `recursive` | Chunking strategy                                   |
+| `--maxSize`  | `-m`  | number  | `1000`      | Maximum chunk size                                  |
+| `--overlap`  | `-o`  | number  | `200`       | Overlap between chunks                              |
+| `--format`   | `-f`  | string  | `text`      | Output format: `text`, `json`, `table`              |
+| `--output`   |       | string  | stdout      | Output file path                                    |
+| `--extract`  | `-e`  | boolean | `false`     | Extract metadata (title, summary, keywords) via LLM |
+| `--provider` | `-p`  | string  |             | Provider for semantic chunking/metadata extraction  |
+| `--model`    |       | string  |             | Model for semantic chunking/metadata extraction     |
+| `--verbose`  | `-v`  | boolean | `false`     | Enable verbose output                               |
 
 **Chunking Strategies:** `character`, `recursive`, `sentence`, `token`, `markdown`, `html`, `json`, `latex`, `semantic`, `semantic-markdown`
 
@@ -999,7 +1166,77 @@ neurolink rag chunk ./docs/guide.md
 neurolink rag chunk ./docs/guide.md --strategy markdown --format json
 
 # Custom size and overlap
-neurolink rag chunk ./docs/guide.md --chunk-size 512 --chunk-overlap 50 --output chunks.json
+neurolink rag chunk ./docs/guide.md --maxSize 512 --overlap 50 --output chunks.json
+
+# Extract metadata with LLM
+neurolink rag chunk ./docs/guide.md --extract --provider openai --verbose
+```
+
+### rag index
+
+Index a document for semantic search with vector embeddings.
+
+```bash
+neurolink rag index <file> [options]
+```
+
+| Option        | Alias | Type    | Default     | Description             |
+| ------------- | ----- | ------- | ----------- | ----------------------- |
+| `--indexName` | `-n`  | string  | filename    | Name for the index      |
+| `--strategy`  | `-s`  | string  | auto-detect | Chunking strategy       |
+| `--maxSize`   | `-m`  | number  | `1000`      | Maximum chunk size      |
+| `--overlap`   | `-o`  | number  | `200`       | Overlap between chunks  |
+| `--provider`  | `-p`  | string  | auto        | Provider for embeddings |
+| `--model`     |       | string  |             | Model for embeddings    |
+| `--graph`     | `-g`  | boolean | `false`     | Build Graph RAG index   |
+| `--verbose`   | `-v`  | boolean | `false`     | Enable verbose output   |
+
+**Examples:**
+
+```bash
+# Index a document with default settings
+neurolink rag index ./docs/guide.md
+
+# Index with a custom name and Graph RAG
+neurolink rag index ./docs/guide.md --indexName my-docs --graph
+
+# Index with specific provider and verbose output
+neurolink rag index ./docs/api.md --provider openai --verbose
+```
+
+### rag query
+
+Query indexed documents using vector, hybrid, or Graph RAG search.
+
+```bash
+neurolink rag query <query> [options]
+```
+
+| Option        | Alias | Type    | Default | Description                            |
+| ------------- | ----- | ------- | ------- | -------------------------------------- |
+| `--indexName` | `-n`  | string  |         | Name of the index to query             |
+| `--topK`      | `-k`  | number  | `5`     | Number of results to return            |
+| `--hybrid`    | `-h`  | boolean | `false` | Use hybrid search (vector + BM25)      |
+| `--graph`     | `-g`  | boolean | `false` | Use Graph RAG search                   |
+| `--provider`  | `-p`  | string  | auto    | Provider for embeddings                |
+| `--model`     |       | string  |         | Model for embeddings                   |
+| `--format`    | `-f`  | string  | `text`  | Output format: `text`, `json`, `table` |
+| `--verbose`   | `-v`  | boolean | `false` | Enable verbose output                  |
+
+**Examples:**
+
+```bash
+# Basic vector search
+neurolink rag query "How does authentication work?"
+
+# Hybrid search with more results
+neurolink rag query "API endpoints" --hybrid --topK 10
+
+# Graph RAG search with JSON output
+neurolink rag query "architecture overview" --graph --format json
+
+# Query a specific index
+neurolink rag query "chunking strategies" --indexName my-docs --verbose
 ```
 
 ### RAG Flags on generate/stream
@@ -1018,6 +1255,184 @@ neurolink stream "Summarize" --rag-files ./docs/a.md ./docs/b.md --rag-top-k 10
 | `--rag-chunk-size`    | number   | 1000          | Maximum chunk size in characters    |
 | `--rag-chunk-overlap` | number   | 200           | Overlap between adjacent chunks     |
 | `--rag-top-k`         | number   | 5             | Number of top results to retrieve   |
+
+---
+
+## workflow \<subcommand\>
+
+Manage and execute AI workflows (consensus, fallback, adaptive, multi-judge).
+
+```bash
+# List available predefined workflows
+npx @juspay/neurolink workflow list
+
+# Show details of a specific workflow
+npx @juspay/neurolink workflow info consensus-3
+
+# Execute a workflow with a prompt
+npx @juspay/neurolink workflow execute consensus-3 "Compare approaches to caching"
+```
+
+**Subcommands:**
+
+| Subcommand                | Description                         |
+| ------------------------- | ----------------------------------- |
+| `list`                    | List available predefined workflows |
+| `info <name>`             | Show details of a workflow          |
+| `execute <name> <prompt>` | Execute a workflow with a prompt    |
+
+**`workflow execute` flags:**
+
+| Option       | Type    | Default | Description                       |
+| ------------ | ------- | ------- | --------------------------------- |
+| `--provider` | string  |         | Override AI provider              |
+| `--model`    | string  |         | Override model name               |
+| `--timeout`  | number  |         | Execution timeout in milliseconds |
+| `--verbose`  | boolean | `false` | Enable verbose output             |
+
+**Examples:**
+
+```bash
+# Execute with provider override
+npx @juspay/neurolink workflow execute adaptive-quality "Deep analysis of microservices" \
+  --provider openai --model gpt-4o --verbose
+
+# Execute with timeout
+npx @juspay/neurolink workflow execute fallback-fast "Translate to Spanish" --timeout 30000
+```
+
+---
+
+## observability \<subcommand\>
+
+Observability and telemetry management. Aliases: `obs`, `otel`.
+
+```bash
+# Show telemetry and observability status
+npx @juspay/neurolink observability status
+
+# Show metrics summary
+npx @juspay/neurolink obs metrics --detailed
+
+# List configured exporters
+npx @juspay/neurolink otel exporters
+
+# Show cost breakdown
+npx @juspay/neurolink observability costs --by-model
+```
+
+**Subcommands:**
+
+| Subcommand  | Alias  | Description                             |
+| ----------- | ------ | --------------------------------------- |
+| `status`    |        | Show telemetry and observability status |
+| `metrics`   |        | Show metrics summary                    |
+| `exporters` | `exp`  | List configured exporters               |
+| `costs`     | `cost` | Show cost breakdown                     |
+
+**Shared flags (all subcommands):**
+
+| Option     | Alias | Type    | Default | Description                            |
+| ---------- | ----- | ------- | ------- | -------------------------------------- |
+| `--format` | `-f`  | string  | `text`  | Output format: `text`, `json`, `table` |
+| `--quiet`  | `-q`  | boolean | `false` | Minimal output                         |
+
+**`metrics` flags:**
+
+| Option       | Alias | Type    | Default | Description                                 |
+| ------------ | ----- | ------- | ------- | ------------------------------------------- |
+| `--detailed` | `-d`  | boolean | `false` | Show detailed metrics including percentiles |
+
+**`costs` flags:**
+
+| Option          | Alias | Type    | Default | Description                     |
+| --------------- | ----- | ------- | ------- | ------------------------------- |
+| `--by-model`    | `-m`  | boolean | `true`  | Show cost breakdown by model    |
+| `--by-provider` | `-p`  | boolean | `true`  | Show cost breakdown by provider |
+
+---
+
+## telemetry \<subcommand\>
+
+Telemetry and exporter management. Alias: `tel`.
+
+```bash
+# Show exporter status and health
+npx @juspay/neurolink telemetry status
+
+# Configure an exporter
+npx @juspay/neurolink tel configure --exporter langfuse --config '{"publicKey":"pk-...","secretKey":"sk-..."}'
+
+# List all available and configured exporters
+npx @juspay/neurolink telemetry list-exporters
+
+# Flush pending spans to exporters
+npx @juspay/neurolink telemetry flush
+
+# Show token usage and cost statistics
+npx @juspay/neurolink telemetry stats --detailed
+```
+
+**Subcommands:**
+
+| Subcommand       | Aliases      | Description                                 |
+| ---------------- | ------------ | ------------------------------------------- |
+| `status`         |              | Show exporter status and health             |
+| `configure`      |              | Configure an exporter with JSON settings    |
+| `list-exporters` | `list`, `ls` | List all available and configured exporters |
+| `flush`          |              | Flush all pending spans to exporters        |
+| `stats`          |              | Show token usage and cost statistics        |
+
+**Shared flags (all subcommands):**
+
+| Option     | Alias | Type    | Default | Description                            |
+| ---------- | ----- | ------- | ------- | -------------------------------------- |
+| `--format` | `-f`  | string  | `text`  | Output format: `text`, `json`, `table` |
+| `--quiet`  | `-q`  | boolean | `false` | Minimal output                         |
+
+**`configure` flags:**
+
+| Option       | Alias | Type   | Required | Description                                                                                                      |
+| ------------ | ----- | ------ | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| `--exporter` | `-e`  | string | yes      | Exporter name: `langfuse`, `langsmith`, `otel`, `datadog`, `sentry`, `braintrust`, `arize`, `posthog`, `laminar` |
+| `--config`   | `-c`  | string | yes      | JSON configuration string                                                                                        |
+
+**`flush` flags:**
+
+| Option      | Alias | Type   | Default | Description             |
+| ----------- | ----- | ------ | ------- | ----------------------- |
+| `--timeout` | `-t`  | number | `30000` | Timeout in milliseconds |
+
+**`stats` flags:**
+
+| Option          | Alias | Type    | Default | Description                |
+| --------------- | ----- | ------- | ------- | -------------------------- |
+| `--detailed`    | `-d`  | boolean | `false` | Show detailed statistics   |
+| `--by-model`    | `-m`  | boolean | `true`  | Show breakdown by model    |
+| `--by-provider` | `-p`  | boolean | `true`  | Show breakdown by provider |
+
+---
+
+## docs
+
+Start the NeuroLink documentation MCP server.
+
+```bash
+# Start docs server with stdio transport (default)
+npx @juspay/neurolink docs
+
+# Start docs server with HTTP transport on custom port
+npx @juspay/neurolink docs --transport http --port 3001
+```
+
+| Option        | Alias | Type   | Default | Description                                            |
+| ------------- | ----- | ------ | ------- | ------------------------------------------------------ |
+| `--transport` | `-t`  | string | `stdio` | Transport protocol: `stdio` (local) or `http` (remote) |
+| `--port`      | `-p`  | number | `3001`  | Port for HTTP transport (ignored for stdio)            |
+
+**Note:** Requires the docs site to be built first (`cd docs-site && pnpm build`). The server exposes documentation search and retrieval tools via MCP.
+
+---
 
 ## Troubleshooting
 

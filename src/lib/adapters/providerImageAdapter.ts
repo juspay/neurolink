@@ -69,7 +69,12 @@ function normalizeVisionProvider(provider: string): string {
  */
 const VISION_CAPABILITIES = {
   openai: [
-    // GPT-5.2 family (released Dec 11, 2025) - Latest flagship models
+    // GPT-5.4 family (released Mar 2026) - Latest flagship models
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.4-nano",
+    "gpt-5.4-pro",
+    // GPT-5.2 family (released Dec 11, 2025)
     "gpt-5.2",
     "gpt-5.2-chat-latest",
     "gpt-5.2-pro",
@@ -125,6 +130,9 @@ const VISION_CAPABILITIES = {
     "gemini-pro-vision",
   ],
   anthropic: [
+    // Claude 4.6 Series (February 2026)
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
     // Claude 4.5 Series (September-November 2025)
     "claude-sonnet-4-5",
     "claude-sonnet-4-5-20250929",

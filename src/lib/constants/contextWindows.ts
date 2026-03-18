@@ -30,9 +30,9 @@ export const DEFAULT_OUTPUT_RESERVE_RATIO = 0.35;
 export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   anthropic: {
     _default: 200_000,
-    // Claude 4.6 (Feb 2026) — 200K standard, 1M with beta header
-    "claude-opus-4-6": 200_000,
-    "claude-sonnet-4-6": 200_000,
+    // Claude 4.6 (Feb 2026) — 1M context window
+    "claude-opus-4-6": 1_000_000,
+    "claude-sonnet-4-6": 1_000_000,
     // Claude 4.5
     "claude-opus-4-5-20251101": 200_000,
     "claude-sonnet-4-5-20250929": 200_000,
@@ -51,6 +51,11 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   },
   openai: {
     _default: 128_000,
+    // GPT-5.4 family — 1.05M context
+    "gpt-5.4": 1_050_000,
+    "gpt-5.4-mini": 400_000,
+    "gpt-5.4-nano": 400_000,
+    "gpt-5.4-pro": 1_050_000,
     // GPT-5.x family — 400K context
     "gpt-5.3-codex": 400_000,
     "gpt-5.2": 400_000,
@@ -113,8 +118,8 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   vertex: {
     _default: 1_048_576,
     // Claude on Vertex
-    "claude-opus-4-6": 200_000,
-    "claude-sonnet-4-6": 200_000,
+    "claude-opus-4-6": 1_000_000,
+    "claude-sonnet-4-6": 1_000_000,
     "claude-sonnet-4-5": 200_000,
     "claude-opus-4-5": 200_000,
     "claude-haiku-4-5": 200_000,
@@ -141,8 +146,8 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   bedrock: {
     _default: 200_000,
     // Claude 4.6
-    "anthropic.claude-opus-4-6-v1:0": 200_000,
-    "anthropic.claude-sonnet-4-6": 200_000,
+    "anthropic.claude-opus-4-6-v1:0": 1_000_000,
+    "anthropic.claude-sonnet-4-6": 1_000_000,
     // Claude 4.5
     "anthropic.claude-opus-4-5-20251124-v1:0": 200_000,
     "anthropic.claude-sonnet-4-5-20250929-v1:0": 200_000,
@@ -165,6 +170,11 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   },
   azure: {
     _default: 128_000,
+    // GPT-5.4
+    "gpt-5.4": 1_050_000,
+    "gpt-5.4-mini": 400_000,
+    "gpt-5.4-nano": 400_000,
+    "gpt-5.4-pro": 1_050_000,
     // GPT-5.x
     "gpt-5.2": 400_000,
     "gpt-5.2-pro": 400_000,
@@ -197,6 +207,7 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "devstral-2512": 256_000,
     "devstral-small-2512": 256_000,
     "magistral-medium-latest": 128_000,
+    "mistral-small-2603": 256_000,
   },
   ollama: {
     _default: 128_000,

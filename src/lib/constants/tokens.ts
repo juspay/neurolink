@@ -92,6 +92,10 @@ export const PROVIDER_TOKEN_LIMITS = {
 
   /** OpenAI model limits */
   OPENAI: {
+    "gpt-5.4": 128_000,
+    "gpt-5.4-mini": 128_000,
+    "gpt-5.4-nano": 128_000,
+    "gpt-5.4-pro": 128_000,
     "gpt-4o": 16384,
     "gpt-4o-mini": 16384,
     "gpt-3.5-turbo": 4096,

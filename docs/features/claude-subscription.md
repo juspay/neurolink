@@ -58,6 +58,26 @@ The `ClaudeSubscriptionTier` type (defined in `src/lib/types/subscriptionTypes.t
 - Full model selection (all models)
 - Production-ready SLAs
 
+## Quick Start
+
+```bash
+# 1. Set your Anthropic API key
+export ANTHROPIC_API_KEY="sk-ant-api03-your-key-here"
+
+# 2. Run a prompt with the Anthropic provider
+npx @juspay/neurolink generate "Hello, Claude" --provider anthropic
+```
+
+For Claude Pro/Max subscribers who want to use their subscription quota instead of API billing:
+
+```bash
+# Authenticate via OAuth (opens browser)
+npx @juspay/neurolink auth login anthropic --method oauth
+
+# Verify authentication
+npx @juspay/neurolink auth status anthropic
+```
+
 ## Authentication Methods
 
 NeuroLink supports two authentication methods for Claude access, defined by the `AnthropicAuthMethod` type:

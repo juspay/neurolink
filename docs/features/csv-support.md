@@ -1,3 +1,10 @@
+---
+title: "CSV File Support"
+description: Attach CSV files directly to AI prompts for data analysis, insights, and processing as a multimodal input type
+keywords:
+  [csv, file-support, multimodal, data-analysis, file-processing, tabular-data]
+---
+
 # CSV File Support
 
 NeuroLink provides seamless CSV file support as a **multimodal input type** - attach CSV files directly to your AI prompts for data analysis, insights, and processing.

@@ -44,7 +44,7 @@ Please read and follow our [Code of Conduct](../code-of-conduct.md). We are comm
 
 ### Prerequisites
 
-- Node.js 18+ and npm 9+
+- Node.js 18+ and pnpm 9+
 - Git
 - At least one AI provider API key (OpenAI, Google AI, etc.)
 
@@ -56,23 +56,23 @@ git clone https://github.com/YOUR_USERNAME/neurolink.git
 cd neurolink
 
 # Install dependencies
-npm install
+pnpm install
 
 # Set up environment variables
 cp .env.example .env
 # Edit .env with your API keys
 
 # Build the project
-npm run build
+pnpm run build
 
 # Run tests
-npm test
+pnpm test
 
 # Run linting
-npm run lint
+pnpm run lint
 
 # Run type checking
-npm run type-check
+pnpm run check
 ```
 
 ### Running Examples
@@ -82,11 +82,11 @@ npm run type-check
 npx tsx src/cli/index.ts generate "Hello world"
 
 # Run example scripts
-npm run example:basic
-npm run example:streaming
+pnpm run example:basic
+pnpm run example:streaming
 
 # Start demo server
-cd neurolink-demo && npm start
+cd neurolink-demo && pnpm start
 ```
 
 ## Project Structure
@@ -202,16 +202,16 @@ describe("OpenAIProvider", () => {
 
 ```bash
 # Run all tests
-npm test
+pnpm test
 
 # Run tests in watch mode
-npm run test:watch
+pnpm run test:watch
 
 # Run with coverage
-npm run test:coverage
+pnpm run test:coverage
 
 # Run specific test file
-npm test src/providers/openai.test.ts
+pnpm test:providers
 ```
 
 ## Pull Request Process
@@ -220,7 +220,7 @@ npm test src/providers/openai.test.ts
 
 1. **Update documentation** - Keep docs in sync with code changes
 2. **Add tests** - New features need tests
-3. **Run checks** - `npm run lint && npm run type-check && npm test`
+3. **Run checks** - `pnpm run lint && pnpm run check && pnpm test`
 4. **Update CHANGELOG** - Add your changes under "Unreleased"
 
 ### PR Template
@@ -310,7 +310,7 @@ Known gotchas and solutions.
 
 - **GitHub Discussions** - Ask questions and share ideas
 - **Issues** - Report bugs and request features
-- **Discord** - Join our community chat (coming soon)
+- **Discord** - Community chat is planned for the future
 
 ### Ways to Contribute
 

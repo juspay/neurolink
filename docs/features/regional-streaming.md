@@ -6,7 +6,26 @@ keywords: regional routing, compliance, latency, data residency, aws region, mul
 
 # Regional Streaming Controls
 
-Latency, compliance, and model availability often depend on which region you call. NeuroLink 7.45.0 threads the `region` parameter through the generate/stream stack so you can target specific data centres when working with providers that expose regional endpoints.
+Latency, compliance, and model availability often depend on which region you call. NeuroLink threads the `region` parameter through the generate/stream stack so you can target specific data centres when working with providers that expose regional endpoints.
+
+## Quick Start
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.stream({
+  input: { text: "Summarise EMEA incident reports" },
+  provider: "bedrock",
+  model: "anthropic.claude-sonnet-4-6",
+  region: "eu-central-1",
+});
+
+for await (const chunk of result.stream) {
+  process.stdout.write(chunk);
+}
+```
 
 ## Supported Providers
 
@@ -61,18 +80,20 @@ Streaming obeys the same option:
 const stream = await neurolink.stream({
   input: { text: "Narrate service availability" },
   provider: "bedrock",
-  model: "anthropic.claude-3-sonnet",
+  model: "anthropic.claude-sonnet-4-6",
   region: "eu-central-1",
 });
 ```
 
 ## Operational Tips
 
-!!! tip "Compliance & Data Residency"
+:::tip[Compliance & Data Residency]
 Use regional routing to comply with data sovereignty requirements (GDPR, HIPAA, etc.). Pin the `region` parameter to ensure AI processing stays within approved geographical boundaries for sensitive workloads.
+:::
 
-!!! tip "Latency Optimization"
+:::tip[Latency Optimization]
 Co-locate your NeuroLink deployment with your application servers. For example, if your API runs in `eu-west-1`, set `region: "eu-west-1"` for Bedrock/Vertex calls to minimize cross-region latency penalties.
+:::
 
 - **Compliance** – ensure the requested region is enabled for the model (e.g., Anthropic via Vertex only supports `us` regions).
 - **Latency** – co-locate with your application servers to avoid cross-region penalties.

@@ -19,7 +19,7 @@ NeuroLink supports the following audio capabilities today:
 - **WebSocket-based voice streaming** for web applications
 - **Bidirectional audio** - speak and hear AI responses in real-time
 
-### Coming Soon
+### Planned
 
 The following features are planned for future releases:
 
@@ -33,14 +33,14 @@ The following features are planned for future releases:
 
 ## Provider Support Matrix
 
-| Provider             | Real-time Voice | TTS Output  | Audio Transcription | Status           |
-| -------------------- | --------------- | ----------- | ------------------- | ---------------- |
-| **Google AI Studio** | Yes             | Yes         | Coming Soon         | Production Ready |
-| **Google Vertex AI** | Planned         | Yes         | Coming Soon         | TTS Available    |
-| **OpenAI**           | Coming Soon     | Coming Soon | Coming Soon         | Planned          |
-| **Anthropic**        | Coming Soon     | Coming Soon | Coming Soon         | Planned          |
-| **Azure OpenAI**     | Coming Soon     | Coming Soon | Coming Soon         | Planned          |
-| **AWS Bedrock**      | Coming Soon     | Coming Soon | Coming Soon         | Planned          |
+| Provider             | Real-time Voice | TTS Output | Audio Transcription | Status           |
+| -------------------- | --------------- | ---------- | ------------------- | ---------------- |
+| **Google AI Studio** | Yes             | Yes        | Planned             | Production Ready |
+| **Google Vertex AI** | Planned         | Yes        | Planned             | TTS Available    |
+| **OpenAI**           | Planned         | Planned    | Planned             | Planned          |
+| **Anthropic**        | Planned         | Planned    | Planned             | Planned          |
+| **Azure OpenAI**     | Planned         | Planned    | Planned             | Planned          |
+| **AWS Bedrock**      | Planned         | Planned    | Planned             | Planned          |
 
 **Supported Model for Real-time Voice:**
 
@@ -563,7 +563,7 @@ type AudioContent = {
 - Voice demo example application
 - TTS output integration
 
-### Phase 2 (Coming Soon)
+### Phase 2 (Planned)
 
 - **CLI Voice Commands**
 
@@ -728,7 +728,7 @@ NeuroLink's audio input capabilities provide:
 - Voice demo example application
 - PCM16LE audio format support
 
-**Coming Soon:**
+**Planned:**
 
 - CLI voice commands (`voice chat`, `audio transcribe`)
 - OpenAI Whisper transcription

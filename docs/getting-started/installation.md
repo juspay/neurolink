@@ -1,53 +1,62 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Installation
 
 Complete installation guide for NeuroLink CLI and SDK across different environments.
 
-## 🎯 Choose Your Installation Method
+## Choose Your Installation Method
 
-=== "CLI Only"
+<Tabs>
+<TabItem value="cli-only" label="CLI Only">
 
-    **No installation required!** NeuroLink CLI works directly with `npx`:
+**No installation required!** NeuroLink CLI works directly with `npx`:
 
-    ```bash
-    # Direct usage (recommended)
-    npx @juspay/neurolink generate "Hello, AI"
+```bash
+# Direct usage (recommended)
+npx @juspay/neurolink generate "Hello, AI"
 
-    # Global installation (optional)
-    npm install -g @juspay/neurolink
-    neurolink generate "Hello, AI"
-    ```
+# Global installation (optional)
+npm install -g @juspay/neurolink
+neurolink generate "Hello, AI"
+```
 
-=== "SDK for Projects"
+</TabItem>
+<TabItem value="sdk-for-projects" label="SDK for Projects">
 
-    Install NeuroLink as a dependency in your project:
+Install NeuroLink as a dependency in your project:
 
-    ```bash
-    # npm
-    npm install @juspay/neurolink
+```bash
+# npm
+npm install @juspay/neurolink
 
-    # pnpm
-    pnpm add @juspay/neurolink
+# pnpm
+pnpm add @juspay/neurolink
 
-    # yarn
-    yarn add @juspay/neurolink
-    ```
+# yarn
+yarn add @juspay/neurolink
+```
 
-=== "Development Setup"
+</TabItem>
+<TabItem value="development-setup" label="Development Setup">
 
-    For contributing or advanced usage:
+For contributing or advanced usage:
 
-    ```bash
-    git clone https://github.com/juspay/neurolink
-    cd neurolink
-    pnpm install
-    npx husky install       # Setup git hooks for build rule enforcement
-    pnpm setup:complete     # Complete automated setup
-    pnpm run validate:all   # Validate build rules and quality
-    ```
+```bash
+git clone https://github.com/juspay/neurolink
+cd neurolink
+pnpm install
+npx husky install       # Setup git hooks for build rule enforcement
+pnpm setup:complete     # Complete automated setup
+pnpm run validate:all   # Validate build rules and quality
+```
 
-    **Build Rule Enforcement:** All commits automatically validated with pre-commit hooks. See [Contributing Guidelines](../development/contributing.md) for requirements.
+**Build Rule Enforcement:** All commits automatically validated with pre-commit hooks. See [Contributing Guidelines](../development/contributing.md) for requirements.
 
-## 📋 System Requirements
+</TabItem>
+</Tabs>
+
+## System Requirements
 
 ### Minimum Requirements
 
@@ -74,7 +83,7 @@ npm --version   # Should be 8.0.0+
 npx tsc --version
 ```
 
-## 🔧 Environment Setup
+## Environment Setup
 
 ### 1. API Keys Configuration
 
@@ -129,7 +138,7 @@ const neurolink = new NeuroLink();
 // Full TypeScript IntelliSense available
 ```
 
-## 🌐 Framework-Specific Setup
+## Framework-Specific Setup
 
 ### Next.js
 
@@ -200,7 +209,7 @@ app.post("/api/generate", async (req, res) => {
 app.listen(3000);
 ```
 
-## 🐳 Docker Setup
+## Docker Setup
 
 ```dockerfile
 # Dockerfile
@@ -232,7 +241,7 @@ services:
       - .env:/app/.env
 ```
 
-## 🔒 Security Considerations
+## Security Considerations
 
 ### Environment Variables
 
@@ -259,7 +268,7 @@ export GOOGLE_AI_API_KEY="$(cat /secrets/google-ai-key)"
 export OPENAI_API_KEY="$(cat /secrets/openai-key)"
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -303,7 +312,7 @@ echo '"type": "module"' >> package.json
    - Error message
    - Steps to reproduce
 
-## ✅ Verification Checklist
+## Verification Checklist
 
 - [ ] Node.js 18+ installed
 - [ ] NeuroLink package installed or accessible via npx
@@ -313,7 +322,7 @@ echo '"type": "module"' >> package.json
 - [ ] TypeScript support (if needed)
 - [ ] Framework integration (if applicable)
 
-## 🚀 Next Steps
+## Next Steps
 
 1. **[Quick Start](quick-start.md)** - Test your installation
 2. **[Provider Setup](provider-setup.md)** - Configure AI providers
