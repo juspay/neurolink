@@ -1,7 +1,11 @@
-import { Hippocampus, type HippocampusConfig } from "@juspay/hippocampus";
+import {
+  Hippocampus,
+  type HippocampusConfig,
+  type CustomStorageConfig,
+} from "@juspay/hippocampus";
 import { logger } from "../utils/logger.js";
 
-export type { HippocampusConfig };
+export type { HippocampusConfig, CustomStorageConfig };
 
 export type Memory = HippocampusConfig & { enabled?: boolean };
 

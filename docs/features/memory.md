@@ -11,6 +11,7 @@ keywords:
     s3,
     redis,
     sqlite,
+    custom-storage,
   ]
 ---
 
@@ -26,7 +27,7 @@ Key characteristics:
 
 - **Per-user**: Each user gets an independent memory store keyed by `userId`
 - **Condensed**: Memory is kept to a configurable word limit (default 50 words) via LLM-powered condensation
-- **Persistent**: Stored in S3, Redis, or SQLite — survives server restarts
+- **Persistent**: Stored in S3, Redis, SQLite, or a custom backend — survives server restarts
 - **Non-blocking**: Memory storage happens in the background after each generate/stream call
 - **Crash-safe**: Every SDK method is wrapped in try-catch — errors are logged, never thrown
 
@@ -106,23 +107,27 @@ type Memory = HippocampusConfig & { enabled?: boolean };
 
 ### Required Fields
 
-| Field                | Type    | Description                                       |
-| -------------------- | ------- | ------------------------------------------------- |
-| `enabled`            | boolean | Set `true` to activate memory                     |
-| `storage.type`       | string  | Storage backend: `"s3"`, `"redis"`, or `"sqlite"` |
-| `neurolink.provider` | string  | AI provider for condensation LLM calls            |
-| `neurolink.model`    | string  | Model for condensation LLM calls                  |
+| Field                | Type    | Description                                                   |
+| -------------------- | ------- | ------------------------------------------------------------- |
+| `enabled`            | boolean | Set `true` to activate memory                                 |
+| `storage.type`       | string  | Storage backend: `"s3"`, `"redis"`, `"sqlite"`, or `"custom"` |
+| `neurolink.provider` | string  | AI provider for condensation LLM calls                        |
+| `neurolink.model`    | string  | Model for condensation LLM calls                              |
 
 ### Optional Fields
 
-| Field            | Type   | Default  | Description                                                                                             |
-| ---------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------- |
-| `maxWords`       | number | 50       | Maximum words in the condensed memory                                                                   |
-| `prompt`         | string | built-in | Custom condensation prompt (supports `{{OLD_MEMORY}}`, `{{NEW_CONTENT}}`, `{{MAX_WORDS}}` placeholders) |
-| `storage.bucket` | string | —        | S3 bucket name (required for S3 storage)                                                                |
-| `storage.prefix` | string | —        | S3 key prefix for memory objects                                                                        |
-| `storage.url`    | string | —        | Redis connection URL (required for Redis storage)                                                       |
-| `storage.path`   | string | —        | SQLite file path (required for SQLite storage)                                                          |
+| Field              | Type     | Default  | Description                                                                                             |
+| ------------------ | -------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| `maxWords`         | number   | 50       | Maximum words in the condensed memory                                                                   |
+| `prompt`           | string   | built-in | Custom condensation prompt (supports `{{OLD_MEMORY}}`, `{{NEW_CONTENT}}`, `{{MAX_WORDS}}` placeholders) |
+| `storage.bucket`   | string   | —        | S3 bucket name (required for S3 storage)                                                                |
+| `storage.prefix`   | string   | —        | S3 key prefix for memory objects                                                                        |
+| `storage.url`      | string   | —        | Redis connection URL (required for Redis storage)                                                       |
+| `storage.path`     | string   | —        | SQLite file path (required for SQLite storage)                                                          |
+| `storage.onGet`    | function | —        | Callback to retrieve memory (required for custom storage)                                               |
+| `storage.onSet`    | function | —        | Callback to persist memory (required for custom storage)                                                |
+| `storage.onDelete` | function | —        | Callback to delete memory (required for custom storage)                                                 |
+| `storage.onClose`  | function | —        | Callback for cleanup on close (optional for custom storage)                                             |
 
 ### Storage Backends
 
@@ -169,6 +174,65 @@ memory: {
 ```
 
 > **Note**: SQLite requires the `better-sqlite3` optional peer dependency. Install it manually: `pnpm add better-sqlite3`
+
+#### Custom (Consumer-Managed)
+
+Delegates storage to your application via callbacks. Use this when you want to manage persistence yourself — call your own API, write to your own database, or integrate with any external system.
+
+```typescript
+memory: {
+  enabled: true,
+  storage: {
+    type: "custom",
+    onGet: async (ownerId) => {
+      // Retrieve memory from your own storage
+      return await myDB.getMemory(ownerId);
+    },
+    onSet: async (ownerId, memory) => {
+      // Persist the condensed memory
+      await myDB.saveMemory(ownerId, memory);
+    },
+    onDelete: async (ownerId) => {
+      // Delete memory
+      await myDB.deleteMemory(ownerId);
+    },
+  },
+  neurolink: { provider: "google-ai", model: "gemini-2.5-flash" },
+}
+```
+
+The three callbacks (`onGet`, `onSet`, `onDelete`) are required. An optional `onClose` callback can be provided for cleanup when the SDK shuts down.
+
+**Example — file-based storage:**
+
+```typescript
+import { readFile, writeFile, unlink, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+
+const memoryDir = "./data/memory";
+
+memory: {
+  enabled: true,
+  storage: {
+    type: "custom",
+    onGet: async (ownerId) => {
+      try {
+        return await readFile(join(memoryDir, `${ownerId}.txt`), "utf-8");
+      } catch {
+        return null;
+      }
+    },
+    onSet: async (ownerId, memory) => {
+      await mkdir(memoryDir, { recursive: true });
+      await writeFile(join(memoryDir, `${ownerId}.txt`), memory, "utf-8");
+    },
+    onDelete: async (ownerId) => {
+      try { await unlink(join(memoryDir, `${ownerId}.txt`)); } catch { /* ignore */ }
+    },
+  },
+  neurolink: { provider: "google-ai", model: "gemini-2.5-flash" },
+}
+```
 
 ## Custom Condensation Prompt
 
@@ -221,14 +285,14 @@ For memory to activate on a call, all three conditions must be met:
 
 NeuroLink supports two complementary memory systems:
 
-| Feature          | Memory                             | Mem0                                |
-| ---------------- | ---------------------------------- | ----------------------------------- |
-| **Architecture** | In-process SDK                     | Cloud API (`mem0ai`)                |
-| **Storage**      | S3, Redis, or SQLite (you control) | Mem0 cloud                          |
-| **Memory model** | Single condensed summary per user  | Structured memories with categories |
-| **LLM calls**    | Uses your configured provider      | Uses Mem0's infrastructure          |
-| **Latency**      | Lower (in-process storage)         | Higher (cloud API calls)            |
-| **Cost**         | Your LLM costs only                | Mem0 API pricing                    |
+| Feature          | Memory                                     | Mem0                                |
+| ---------------- | ------------------------------------------ | ----------------------------------- |
+| **Architecture** | In-process SDK                             | Cloud API (`mem0ai`)                |
+| **Storage**      | S3, Redis, SQLite, or custom (you control) | Mem0 cloud                          |
+| **Memory model** | Single condensed summary per user          | Structured memories with categories |
+| **LLM calls**    | Uses your configured provider              | Uses Mem0's infrastructure          |
+| **Latency**      | Lower (in-process storage)                 | Higher (cloud API calls)            |
+| **Cost**         | Your LLM costs only                        | Mem0 API pricing                    |
 
 Both can be enabled simultaneously — they operate independently.
 
@@ -256,9 +320,10 @@ The memory SDK is designed to **never crash the host application**:
 NeuroLink re-exports the memory types for use in host applications:
 
 ```typescript
-import type { Memory } from "@juspay/neurolink";
+import type { Memory, CustomStorageConfig } from "@juspay/neurolink";
 
 // Memory = HippocampusConfig & { enabled?: boolean }
+// CustomStorageConfig = { type: 'custom', onGet, onSet, onDelete, onClose? }
 ```
 
 ## See Also

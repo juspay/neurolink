@@ -34,8 +34,11 @@
  */
 
 import type { Mem0Config } from "../memory/mem0Initializer.js";
-import type { Memory } from "../memory/hippocampusInitializer.js";
-export type { Memory };
+import type {
+  Memory,
+  CustomStorageConfig,
+} from "../memory/hippocampusInitializer.js";
+export type { Memory, CustomStorageConfig };
 
 /**
  * Configuration for conversation memory feature
