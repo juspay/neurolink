@@ -1,3 +1,9 @@
+## [9.29.1](https://github.com/juspay/neurolink/compare/v9.29.0...v9.29.1) (2026-03-20)
+
+### Bug Fixes
+
+- **(tool):** fix tool response data as undefined bug ([049336d](https://github.com/juspay/neurolink/commit/049336d9a9c91af89041da97ca2029e0050a8c38))
+
 ## [9.29.0](https://github.com/juspay/neurolink/compare/v9.28.1...v9.29.0) (2026-03-19)
 
 ### Features
