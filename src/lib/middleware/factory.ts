@@ -14,6 +14,7 @@ import { MiddlewareRegistry } from "./registry.js";
 import { createAnalyticsMiddleware } from "./builtin/analytics.js";
 import { createGuardrailsMiddleware } from "./builtin/guardrails.js";
 import { createAutoEvaluationMiddleware } from "./builtin/autoEvaluation.js";
+import { createLifecycleMiddleware } from "./builtin/lifecycle.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -43,6 +44,7 @@ export class MiddlewareFactory {
       analytics: createAnalyticsMiddleware,
       guardrails: createGuardrailsMiddleware,
       autoEvaluation: createAutoEvaluationMiddleware,
+      lifecycle: createLifecycleMiddleware,
     };
 
     // Register built-in presets
@@ -192,6 +194,7 @@ export class MiddlewareFactory {
       analytics: createAnalyticsMiddleware,
       guardrails: createGuardrailsMiddleware,
       autoEvaluation: createAutoEvaluationMiddleware,
+      lifecycle: createLifecycleMiddleware,
     };
     logger.debug("Getting creator for middleware ID:", id);
     return builtInMiddlewareCreators[id];

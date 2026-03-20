@@ -3022,6 +3022,26 @@ Current user's request: ${currentInput}`;
                 });
               }
 
+              // Auto-inject lifecycle middleware when callbacks are provided
+              // (must happen before workflow/PPT early returns so those paths get middleware too)
+              if (options.onFinish || options.onError) {
+                options.middleware = {
+                  ...options.middleware,
+                  middlewareConfig: {
+                    ...options.middleware?.middlewareConfig,
+                    lifecycle: {
+                      ...options.middleware?.middlewareConfig?.lifecycle,
+                      enabled: true,
+                      config: {
+                        ...options.middleware?.middlewareConfig?.lifecycle?.config,
+                        onFinish: options.onFinish,
+                        onError: options.onError,
+                      },
+                    },
+                  },
+                };
+              }
+
               // Check if workflow is requested
               if (options.workflow || options.workflowConfig) {
                 return await this.generateWithWorkflow(options);
@@ -3241,6 +3261,7 @@ Current user's request: ${currentInput}`;
                     fileRegistry: this.fileRegistry,
                     abortSignal: options.abortSignal,
                     skipToolPromptInjection: options.skipToolPromptInjection,
+                    middleware: options.middleware,
                   };
 
                   // Auto-map top-level sessionId/userId to context for convenience
@@ -3290,7 +3311,6 @@ Current user's request: ${currentInput}`;
                     });
                   }
 
-                  // Use redesigned generation logic
                   const textResult =
                     await this.generateTextInternal(textOptions);
 
@@ -3415,6 +3435,7 @@ Current user's request: ${currentInput}`;
                   );
 
                   generateSpan.setStatus({ code: SpanStatusCode.OK });
+
                   return generateResult;
                 },
               );
@@ -5609,6 +5630,27 @@ Current user's request: ${currentInput}`;
           }
 
           this.emitStreamStartEvents(options, startTime);
+
+          // Auto-inject lifecycle middleware when callbacks are provided
+          // (must happen before workflow early return so that path gets middleware too)
+          if (options.onFinish || options.onError || options.onChunk) {
+            options.middleware = {
+              ...options.middleware,
+              middlewareConfig: {
+                ...options.middleware?.middlewareConfig,
+                lifecycle: {
+                  ...options.middleware?.middlewareConfig?.lifecycle,
+                  enabled: true,
+                  config: {
+                    ...options.middleware?.middlewareConfig?.lifecycle?.config,
+                    onFinish: options.onFinish,
+                    onError: options.onError,
+                    onChunk: options.onChunk,
+                  },
+                },
+              },
+            };
+          }
 
           // Check if workflow is requested
           if (options.workflow || options.workflowConfig) {
