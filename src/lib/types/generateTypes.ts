@@ -6,7 +6,11 @@ import type { JsonValue } from "./common.js";
 import type { Content, ImageWithAltText } from "./content.js";
 import type { ChatMessage, ConversationMemoryConfig } from "./conversation.js";
 import type { EvaluationData } from "./evaluation.js";
-import type { MiddlewareFactoryOptions } from "./middlewareTypes.js";
+import type {
+  MiddlewareFactoryOptions,
+  OnFinishCallback,
+  OnErrorCallback,
+} from "./middlewareTypes.js";
 import type {
   DirectorModeOptions,
   DirectorSegment,
@@ -444,6 +448,15 @@ export type GenerateOptions = {
    * @internal Set by NeuroLink SDK — not typically used directly by consumers.
    */
   fileRegistry?: unknown;
+
+  /** Per-call middleware configuration. */
+  middleware?: import("./middlewareTypes.js").MiddlewareFactoryOptions;
+
+  /** Callback invoked when generation completes successfully. */
+  onFinish?: OnFinishCallback;
+
+  /** Callback invoked when generation encounters an error. */
+  onError?: OnErrorCallback;
 };
 
 /**

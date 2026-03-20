@@ -1009,6 +1009,57 @@ export function isRetriableError(error: Error): boolean {
 }
 
 /**
+ * Determines if an error is likely recoverable (rate limit, timeout, network issues).
+ * Useful for deciding whether to retry or fail fast.
+ */
+export function isRecoverableError(error: Error): boolean {
+  // Check NeuroLinkError.retriable first
+  const errorWithRetriable = error as Error & { retriable?: boolean };
+  if (
+    "retriable" in error &&
+    typeof errorWithRetriable.retriable === "boolean"
+  ) {
+    return errorWithRetriable.retriable;
+  }
+
+  const message = error.message?.toLowerCase() || "";
+
+  // Rate limit errors
+  if (message.includes("rate limit") || message.includes("too many requests")) {
+    return true;
+  }
+  if (/\b429\b/.test(message)) {
+    return true;
+  }
+
+  // Timeout errors
+  if (
+    message.includes("timeout") ||
+    message.includes("etimedout") ||
+    message.includes("timed out")
+  ) {
+    return true;
+  }
+
+  // Network errors
+  if (
+    message.includes("econnreset") ||
+    message.includes("econnrefused") ||
+    message.includes("network") ||
+    message.includes("socket")
+  ) {
+    return true;
+  }
+
+  // Server errors (use word boundaries to avoid false matches)
+  if (/\b50[0234]\b/.test(message)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Enhanced error logger that provides structured logging
  */
 export function logStructuredError(

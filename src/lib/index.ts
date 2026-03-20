@@ -133,6 +133,7 @@ export {
   createAnalyticsMiddleware,
   getAnalyticsMetrics,
 } from "./middleware/builtin/analytics.js";
+export { createLifecycleMiddleware } from "./middleware/builtin/lifecycle.js";
 export { MiddlewareFactory } from "./middleware/factory.js";
 export { ExporterRegistry } from "./observability/exporterRegistry.js";
 export { NoOpExporter } from "./observability/exporters/baseExporter.js";

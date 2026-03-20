@@ -127,7 +127,8 @@ export type BuiltInMiddlewareType =
   | "rateLimit"
   | "retry"
   | "timeout"
-  | "autoEvaluation";
+  | "autoEvaluation"
+  | "lifecycle";
 
 /**
  * Middleware preset configurations
@@ -263,4 +264,71 @@ export type MiddlewareChainConfig = {
   errorHandling: "continue" | "stop" | "rollback";
   timeout?: number;
   retries?: number;
+};
+
+// ============================================
+// LIFECYCLE MIDDLEWARE TYPES
+// ============================================
+
+/**
+ * Payload delivered to onFinish callbacks after generation or streaming completes.
+ */
+export type LifecycleFinishPayload = {
+  /** The generated text content */
+  text: string;
+  /** Token usage from the provider */
+  usage?: { promptTokens: number; completionTokens: number };
+  /** Wall-clock duration in milliseconds */
+  duration: number;
+  /** Why generation stopped */
+  finishReason?: string;
+};
+
+/**
+ * Payload delivered to onError callbacks when generation or streaming fails.
+ */
+export type LifecycleErrorPayload = {
+  /** The error that occurred */
+  error: Error;
+  /** Wall-clock duration until failure in milliseconds */
+  duration: number;
+  /** Whether the error is likely recoverable (rate limit, timeout, network) */
+  recoverable: boolean;
+};
+
+/**
+ * Payload delivered to onChunk callbacks for each streaming chunk.
+ */
+export type LifecycleChunkPayload = {
+  /** Chunk type from the AI SDK stream */
+  type: string;
+  /** Text content for text-delta chunks */
+  textDelta?: string;
+  /** Zero-based chunk sequence number */
+  sequenceNumber: number;
+};
+
+/** Callback invoked when generation or streaming finishes successfully. */
+export type OnFinishCallback = (
+  payload: LifecycleFinishPayload,
+) => void | Promise<void>;
+
+/** Callback invoked when generation or streaming encounters an error. */
+export type OnErrorCallback = (
+  payload: LifecycleErrorPayload,
+) => void | Promise<void>;
+
+/** Callback invoked for each chunk during streaming. */
+export type OnChunkCallback = (
+  payload: LifecycleChunkPayload,
+) => void | Promise<void>;
+
+/**
+ * Configuration for the lifecycle middleware.
+ * Pass callbacks to observe generation/streaming lifecycle events.
+ */
+export type LifecycleMiddlewareConfig = {
+  onFinish?: OnFinishCallback;
+  onError?: OnErrorCallback;
+  onChunk?: OnChunkCallback;
 };

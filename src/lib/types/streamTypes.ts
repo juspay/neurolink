@@ -7,7 +7,12 @@ import type {
   ToolExecutionEvent,
   ToolExecutionSummary,
 } from "../types/index.js";
-import type { MiddlewareFactoryOptions } from "../types/middlewareTypes.js";
+import type {
+  MiddlewareFactoryOptions,
+  OnFinishCallback,
+  OnErrorCallback,
+  OnChunkCallback,
+} from "../types/middlewareTypes.js";
 import type { TokenUsage } from "./analytics.js";
 import type { JsonValue, UnknownRecord } from "./common.js";
 import type { Content, ImageWithAltText } from "./content.js";
@@ -476,6 +481,15 @@ export type StreamOptions = {
    * @internal Set by NeuroLink SDK — not typically used directly by consumers.
    */
   fileRegistry?: unknown;
+
+  /** Callback invoked when streaming completes successfully. */
+  onFinish?: OnFinishCallback;
+
+  /** Callback invoked when streaming encounters an error. */
+  onError?: OnErrorCallback;
+
+  /** Callback invoked for each streaming chunk. */
+  onChunk?: OnChunkCallback;
 };
 
 /**
