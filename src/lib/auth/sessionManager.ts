@@ -129,9 +129,9 @@ export class MemorySessionStorage implements SessionStorage {
  * Redis session storage
  *
  * Distributed session storage using Redis. Suitable for multi-instance
- * deployments. Requires ioredis or similar Redis client.
+ * deployments. Uses the `redis` package (node-redis v4+).
  *
- * Note: Redis client must be provided or configured via environment.
+ * Note: Redis must be reachable at the configured URL.
  */
 export class RedisSessionStorage implements SessionStorage {
   private prefix: string;
@@ -147,13 +147,14 @@ export class RedisSessionStorage implements SessionStorage {
 
   private async getClient(): Promise<RedisClient> {
     if (!this.client) {
-      // Dynamically import Redis client
       try {
-        const { Redis } = await import("ioredis");
-        this.client = new Redis(this.redisUrl) as unknown as RedisClient;
+        const { createClient } = await import("redis");
+        const client = createClient({ url: this.redisUrl });
+        await client.connect();
+        this.client = client as unknown as RedisClient;
       } catch {
         logger.error(
-          "Redis client (ioredis) not available. Install ioredis package and ensure Redis is reachable when using storage: \"redis\".",
+          'Redis client not available. Ensure the redis package is installed and Redis is reachable when using storage: "redis".',
         );
         throw new Error("Redis client not available");
       }
@@ -208,14 +209,14 @@ export class RedisSessionStorage implements SessionStorage {
       );
 
       // Store session
-      await client.setex(
+      await client.setEx(
         this.sessionKey(session.id),
         ttlSeconds,
         JSON.stringify(session),
       );
 
       // Track user's sessions
-      await client.sadd(this.userSessionsKey(session.user.id), session.id);
+      await client.sAdd(this.userSessionsKey(session.user.id), session.id);
       await client.expire(this.userSessionsKey(session.user.id), this.ttl);
     } catch (error) {
       logger.error("Redis session set error:", error);
@@ -229,7 +230,7 @@ export class RedisSessionStorage implements SessionStorage {
       const session = await this.get(sessionId);
 
       if (session) {
-        await client.srem(this.userSessionsKey(session.user.id), sessionId);
+        await client.sRem(this.userSessionsKey(session.user.id), sessionId);
       }
 
       await client.del(this.sessionKey(sessionId));
@@ -241,7 +242,7 @@ export class RedisSessionStorage implements SessionStorage {
   async getUserSessions(userId: string): Promise<AuthSession[]> {
     try {
       const client = await this.getClient();
-      const sessionIds = await client.smembers(this.userSessionsKey(userId));
+      const sessionIds = await client.sMembers(this.userSessionsKey(userId));
 
       const sessions: AuthSession[] = [];
       for (const sessionId of sessionIds) {
@@ -261,7 +262,7 @@ export class RedisSessionStorage implements SessionStorage {
   async deleteUserSessions(userId: string): Promise<void> {
     try {
       const client = await this.getClient();
-      const sessionIds = await client.smembers(this.userSessionsKey(userId));
+      const sessionIds = await client.sMembers(this.userSessionsKey(userId));
 
       for (const sessionId of sessionIds) {
         await client.del(this.sessionKey(sessionId));
@@ -279,7 +280,7 @@ export class RedisSessionStorage implements SessionStorage {
       const keys = await client.keys(`${this.prefix}*`);
 
       if (keys.length > 0) {
-        await client.del(...keys);
+        await client.del(keys);
       }
     } catch (error) {
       logger.error("Redis clear error:", error);
@@ -305,16 +306,16 @@ export class RedisSessionStorage implements SessionStorage {
 }
 
 /**
- * Minimal Redis client interface
+ * Minimal Redis client interface (node-redis v4 API)
  */
 interface RedisClient {
   get(key: string): Promise<string | null>;
-  setex(key: string, ttl: number, value: string): Promise<string>;
-  del(...keys: string[]): Promise<number>;
-  sadd(key: string, ...members: string[]): Promise<number>;
-  srem(key: string, ...members: string[]): Promise<number>;
-  smembers(key: string): Promise<string[]>;
-  expire(key: string, ttl: number): Promise<number>;
+  setEx(key: string, ttl: number, value: string): Promise<string>;
+  del(keys: string | string[]): Promise<number>;
+  sAdd(key: string, members: string | string[]): Promise<number>;
+  sRem(key: string, members: string | string[]): Promise<number>;
+  sMembers(key: string): Promise<string[]>;
+  expire(key: string, ttl: number): Promise<boolean>;
   keys(pattern: string): Promise<string[]>;
   ping(): Promise<string>;
   quit(): Promise<string>;

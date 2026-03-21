@@ -3004,9 +3004,8 @@ Current user's request: ${currentInput}`;
                   options.auth.token,
                 );
                 if (!authResult.valid) {
-                  const { InvalidTokenError } = await import(
-                    "./auth/authErrors.js"
-                  );
+                  const { InvalidTokenError } =
+                    await import("./auth/authErrors.js");
                   throw new InvalidTokenError(
                     authResult.error || "Token validation failed",
                     this.authProvider.type,
@@ -5584,9 +5583,8 @@ Current user's request: ${currentInput}`;
               options.auth.token,
             );
             if (!authResult.valid) {
-              const { InvalidTokenError } = await import(
-                "./auth/authErrors.js"
-              );
+              const { InvalidTokenError } =
+                await import("./auth/authErrors.js");
               throw new InvalidTokenError(
                 authResult.error || "Token validation failed",
                 this.authProvider.type,
@@ -10944,9 +10942,8 @@ Current user's request: ${currentInput}`;
       this.authProvider = (config as { provider: MastraAuthProvider }).provider;
       logger.info(`Auth provider set: ${this.authProvider.type}`);
     } else {
-      const { AuthProviderFactory } = await import(
-        "./auth/AuthProviderFactory.js"
-      );
+      const { AuthProviderFactory } =
+        await import("./auth/AuthProviderFactory.js");
       const factory = AuthProviderFactory.getInstance();
       this.authProvider = await factory.create(
         config.type as AuthProviderType,

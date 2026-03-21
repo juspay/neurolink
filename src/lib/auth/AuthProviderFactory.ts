@@ -181,9 +181,8 @@ export class AuthProviderFactory extends BaseFactory<
     this.registerProvider(
       "firebase",
       async (config) => {
-        const { FirebaseAuthProvider } = await import(
-          "./providers/firebase.js"
-        );
+        const { FirebaseAuthProvider } =
+          await import("./providers/firebase.js");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return new FirebaseAuthProvider(config as any) as MastraAuthProvider;
       },
@@ -199,9 +198,8 @@ export class AuthProviderFactory extends BaseFactory<
     this.registerProvider(
       "supabase",
       async (config) => {
-        const { SupabaseAuthProvider } = await import(
-          "./providers/supabase.js"
-        );
+        const { SupabaseAuthProvider } =
+          await import("./providers/supabase.js");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return new SupabaseAuthProvider(config as any) as MastraAuthProvider;
       },
@@ -217,9 +215,8 @@ export class AuthProviderFactory extends BaseFactory<
     this.registerProvider(
       "cognito",
       async (config) => {
-        const { CognitoProvider } = await import(
-          "./providers/CognitoProvider.js"
-        );
+        const { CognitoProvider } =
+          await import("./providers/CognitoProvider.js");
 
         return new CognitoProvider(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -238,9 +235,8 @@ export class AuthProviderFactory extends BaseFactory<
     this.registerProvider(
       "keycloak",
       async (config) => {
-        const { KeycloakProvider } = await import(
-          "./providers/KeycloakProvider.js"
-        );
+        const { KeycloakProvider } =
+          await import("./providers/KeycloakProvider.js");
 
         return new KeycloakProvider(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -259,9 +255,8 @@ export class AuthProviderFactory extends BaseFactory<
     this.registerProvider(
       "better-auth",
       async (config) => {
-        const { BetterAuthProvider } = await import(
-          "./providers/betterAuth.js"
-        );
+        const { BetterAuthProvider } =
+          await import("./providers/betterAuth.js");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return new BetterAuthProvider(config as any) as MastraAuthProvider;
       },

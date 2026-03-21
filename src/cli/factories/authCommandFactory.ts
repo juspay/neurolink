@@ -96,9 +96,8 @@ export class AuthCommandFactory {
                 alias: "f",
               }),
             async (argv) => {
-              const { handleProvidersCommand } = await import(
-                "../commands/authProviders.js"
-              );
+              const { handleProvidersCommand } =
+                await import("../commands/authProviders.js");
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               await handleProvidersCommand(argv as any);
             },
@@ -108,9 +107,8 @@ export class AuthCommandFactory {
             "Validate an authentication token",
             (yargs) => this.buildValidateOptions(yargs),
             async (argv) => {
-              const { handleValidateCommand } = await import(
-                "../commands/authProviders.js"
-              );
+              const { handleValidateCommand } =
+                await import("../commands/authProviders.js");
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               await handleValidateCommand(argv as any);
             },
@@ -120,9 +118,8 @@ export class AuthCommandFactory {
             "Check authentication provider health",
             (yargs) => this.buildHealthOptions(yargs),
             async (argv) => {
-              const { handleHealthCommand } = await import(
-                "../commands/authProviders.js"
-              );
+              const { handleHealthCommand } =
+                await import("../commands/authProviders.js");
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               await handleHealthCommand(argv as any);
             },
