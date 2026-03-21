@@ -3025,6 +3025,8 @@ Current user's request: ${currentInput}`;
               // Auto-inject lifecycle middleware when callbacks are provided
               // (must happen before workflow/PPT early returns so those paths get middleware too)
               if (options.onFinish || options.onError) {
+                const existingLifecycleConfig =
+                  options.middleware?.middlewareConfig?.lifecycle?.config ?? {};
                 options.middleware = {
                   ...options.middleware,
                   middlewareConfig: {
@@ -3033,9 +3035,13 @@ Current user's request: ${currentInput}`;
                       ...options.middleware?.middlewareConfig?.lifecycle,
                       enabled: true,
                       config: {
-                        ...options.middleware?.middlewareConfig?.lifecycle?.config,
-                        onFinish: options.onFinish,
-                        onError: options.onError,
+                        ...existingLifecycleConfig,
+                        ...(options.onFinish !== undefined
+                          ? { onFinish: options.onFinish }
+                          : {}),
+                        ...(options.onError !== undefined
+                          ? { onError: options.onError }
+                          : {}),
                       },
                     },
                   },
@@ -5634,6 +5640,8 @@ Current user's request: ${currentInput}`;
           // Auto-inject lifecycle middleware when callbacks are provided
           // (must happen before workflow early return so that path gets middleware too)
           if (options.onFinish || options.onError || options.onChunk) {
+            const existingLifecycleConfig =
+              options.middleware?.middlewareConfig?.lifecycle?.config ?? {};
             options.middleware = {
               ...options.middleware,
               middlewareConfig: {
@@ -5642,10 +5650,16 @@ Current user's request: ${currentInput}`;
                   ...options.middleware?.middlewareConfig?.lifecycle,
                   enabled: true,
                   config: {
-                    ...options.middleware?.middlewareConfig?.lifecycle?.config,
-                    onFinish: options.onFinish,
-                    onError: options.onError,
-                    onChunk: options.onChunk,
+                    ...existingLifecycleConfig,
+                    ...(options.onFinish !== undefined
+                      ? { onFinish: options.onFinish }
+                      : {}),
+                    ...(options.onError !== undefined
+                      ? { onError: options.onError }
+                      : {}),
+                    ...(options.onChunk !== undefined
+                      ? { onChunk: options.onChunk }
+                      : {}),
                   },
                 },
               },
