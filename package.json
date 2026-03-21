@@ -233,7 +233,7 @@
     "@opentelemetry/sdk-trace-node": "^2.0.0"
   },
   "optionalDependencies": {
-    "@hono/node-server": "^1.19.9",
+    "@hono/node-server": "^1.19.10",
     "canvas": "^3.2.1",
     "express-rate-limit": "^8.2.1",
     "ffmpeg-static": "^5.3.0",
