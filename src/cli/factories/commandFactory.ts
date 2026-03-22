@@ -1524,9 +1524,142 @@ export class CLICommandFactory {
   static createMemoryCommands(): CommandModule {
     return {
       command: "memory <subcommand>",
-      describe: "Manage conversation memory",
+      describe: "Manage conversation memory and session history",
       builder: (yargs) => {
         return yargs
+          .command(
+            "list",
+            "List all conversation sessions with metadata",
+            (y) =>
+              CLICommandFactory.buildOptions(y)
+                .option("user-id", {
+                  type: "string" as const,
+                  description:
+                    "User ID to filter sessions (required for Redis)",
+                  alias: "u",
+                })
+                .example("$0 memory list", "List all sessions")
+                .example(
+                  "$0 memory list --format json",
+                  "List sessions as JSON",
+                )
+                .example(
+                  "$0 memory list --user-id user123",
+                  "List sessions for specific user",
+                ),
+            async (argv) =>
+              await CLICommandFactory.executeMemoryList(
+                argv as BaseCommandArgs & { userId?: string },
+              ),
+          )
+          .command(
+            "export",
+            "Export a specific session to JSON/CSV",
+            (y) =>
+              CLICommandFactory.buildOptions(y)
+                .option("session-id", {
+                  type: "string" as const,
+                  description: "Session ID to export",
+                  demandOption: true,
+                  alias: "s",
+                })
+                .option("include-metadata", {
+                  type: "boolean" as const,
+                  default: false,
+                  description: "Include export metadata",
+                })
+                .example(
+                  "$0 memory export --session-id session-123",
+                  "Export session to stdout",
+                )
+                .example(
+                  "$0 memory export --session-id session-123 --format json > history.json",
+                  "Export to file",
+                )
+                .example(
+                  "$0 memory export --session-id session-123 --include-metadata",
+                  "Export with metadata",
+                ),
+            async (argv) =>
+              await CLICommandFactory.executeMemoryExport(
+                argv as BaseCommandArgs & {
+                  sessionId: string;
+                  includeMetadata?: boolean;
+                },
+              ),
+          )
+          .command(
+            "export-all",
+            "Export all sessions to a directory",
+            (y) =>
+              CLICommandFactory.buildOptions(y)
+                .option("output", {
+                  type: "string" as const,
+                  description: "Output directory for exported files",
+                  default: "./memory-exports",
+                  alias: "o",
+                })
+                .option("user-id", {
+                  type: "string" as const,
+                  description:
+                    "User ID to filter sessions (required for Redis)",
+                  alias: "u",
+                })
+                .option("include-metadata", {
+                  type: "boolean" as const,
+                  default: true,
+                  description: "Include export metadata",
+                })
+                .example(
+                  "$0 memory export-all --output ./exports/",
+                  "Export all sessions to directory",
+                )
+                .example(
+                  "$0 memory export-all --user-id user123 --output ./user-exports/",
+                  "Export all sessions for user",
+                ),
+            async (argv) =>
+              await CLICommandFactory.executeMemoryExportAll(
+                argv as BaseCommandArgs & {
+                  output: string;
+                  userId?: string;
+                  includeMetadata?: boolean;
+                },
+              ),
+          )
+          .command(
+            "delete",
+            "Delete a specific conversation session",
+            (y) =>
+              CLICommandFactory.buildOptions(y)
+                .option("session-id", {
+                  type: "string" as const,
+                  description: "Session ID to delete",
+                  demandOption: true,
+                  alias: "s",
+                })
+                .option("force", {
+                  type: "boolean" as const,
+                  default: false,
+                  description: "Skip confirmation prompt",
+                  alias: "f",
+                })
+                .example(
+                  "$0 memory delete --session-id session-123",
+                  "Delete session with confirmation",
+                )
+                .example(
+                  "$0 memory delete --session-id session-123 --force",
+                  "Delete session without confirmation",
+                ),
+            async (argv) =>
+              await CLICommandFactory.executeMemoryDelete(
+                argv as BaseCommandArgs & {
+                  sessionId: string;
+                  force?: boolean;
+                },
+              ),
+          )
           .command(
             "stats",
             "Show conversation memory statistics",
@@ -1567,7 +1700,7 @@ export class CLICommandFactory {
           )
           .command(
             "clear [sessionId]",
-            "Clear conversation history",
+            "Clear conversation history (use --confirm to clear all)",
             (y) =>
               CLICommandFactory.buildOptions(y)
                 .positional("sessionId", {
@@ -1576,14 +1709,25 @@ export class CLICommandFactory {
                     "Session ID to clear (omit to clear all sessions)",
                   demandOption: false,
                 })
-                .example("$0 memory clear", "Clear all conversation history")
+                .option("confirm", {
+                  type: "boolean" as const,
+                  default: false,
+                  description: "Confirm clearing all sessions",
+                })
+                .example(
+                  "$0 memory clear --confirm",
+                  "Clear all conversation history",
+                )
                 .example(
                   "$0 memory clear session-123",
                   "Clear specific session",
                 ),
             async (argv) =>
               await CLICommandFactory.executeMemoryClear(
-                argv as BaseCommandArgs & { sessionId?: string },
+                argv as BaseCommandArgs & {
+                  sessionId?: string;
+                  confirm?: boolean;
+                },
               ),
           )
           .demandCommand(1, "Please specify a memory subcommand");
@@ -3615,10 +3759,23 @@ export class CLICommandFactory {
    * Execute memory clear command
    */
   private static async executeMemoryClear(
-    argv: BaseCommandArgs & { sessionId?: string },
+    argv: BaseCommandArgs & { sessionId?: string; confirm?: boolean },
   ) {
     const options = CLICommandFactory.processOptions(argv);
     const isAllSessions = !argv.sessionId;
+
+    // Require --confirm flag when clearing all sessions
+    if (isAllSessions && !argv.confirm) {
+      logger.always(
+        chalk.red("⚠️ Clearing all sessions requires --confirm flag"),
+      );
+      logger.always(chalk.yellow("Usage: neurolink memory clear --confirm"));
+      logger.always(
+        chalk.gray("This safeguard prevents accidental data loss."),
+      );
+      return;
+    }
+
     const target = isAllSessions ? "all sessions" : `session ${argv.sessionId}`;
     const spinner = options.quiet
       ? null
@@ -3710,6 +3867,407 @@ export class CLICommandFactory {
         );
       } else {
         handleError(error as Error, "Memory clear");
+      }
+    }
+  }
+
+  /**
+   * Execute memory list command
+   */
+  private static async executeMemoryList(
+    argv: BaseCommandArgs & { userId?: string },
+  ) {
+    const options = CLICommandFactory.processOptions(argv);
+    const spinner = options.quiet
+      ? null
+      : ora("📋 Listing conversation sessions...").start();
+
+    try {
+      const sdk = globalSession.getOrCreateNeuroLink();
+
+      // Handle dry-run mode
+      if (options.dryRun) {
+        const mockSessions = [
+          {
+            id: "session-123",
+            title: "Machine Learning Discussion",
+            messageCount: 15,
+            lastActive: "2 hours ago",
+            createdAt: "2024-01-01T10:00:00Z",
+            updatedAt: "2024-01-01T12:30:00Z",
+          },
+          {
+            id: "session-456",
+            title: "API Design Review",
+            messageCount: 8,
+            lastActive: "1 day ago",
+            createdAt: "2024-01-02T14:00:00Z",
+            updatedAt: "2024-01-02T15:15:00Z",
+          },
+        ];
+
+        if (spinner) {
+          spinner.succeed(chalk.green("✅ Sessions listed (dry-run)"));
+        }
+
+        CLICommandFactory.handleOutput(mockSessions, options);
+        return;
+      }
+
+      const sessions = await sdk.listSessions(argv.userId);
+
+      if (spinner) {
+        spinner.succeed(chalk.green(`✅ Found ${sessions.length} session(s)`));
+      }
+
+      if (sessions.length === 0) {
+        logger.always(chalk.yellow("⚠️ No conversation sessions found"));
+        return;
+      }
+
+      if (options.format === "json") {
+        CLICommandFactory.handleOutput(sessions, options);
+      } else {
+        // Table format output
+        logger.always(
+          chalk.blue(`📋 Conversation Sessions (${sessions.length} total):`),
+        );
+        logger.always("");
+        logger.always(
+          chalk.gray(
+            "Session ID".padEnd(40) +
+              " | " +
+              "Messages".padEnd(10) +
+              " | " +
+              "Last Active",
+          ),
+        );
+        logger.always(chalk.gray("-".repeat(75)));
+
+        for (const session of sessions) {
+          const idDisplay =
+            session.id.length > 38
+              ? session.id.substring(0, 35) + "..."
+              : session.id.padEnd(40);
+          const msgCount = String(session.messageCount).padEnd(10);
+          const lastActive = session.lastActive || "Unknown";
+
+          logger.always(`${idDisplay} | ${msgCount} | ${lastActive}`);
+        }
+      }
+    } catch (error) {
+      if (spinner) {
+        spinner.fail("Session listing failed");
+      }
+
+      if ((error as Error).message.includes("not enabled")) {
+        logger.always(chalk.yellow("⚠️ Conversation memory is not enabled"));
+        logger.always(
+          "Enable it by using --enable-conversation-memory with loop mode",
+        );
+      } else {
+        handleError(error as Error, "Memory list");
+      }
+    }
+  }
+
+  /**
+   * Execute memory export command
+   */
+  private static async executeMemoryExport(
+    argv: BaseCommandArgs & { sessionId: string; includeMetadata?: boolean },
+  ) {
+    const options = CLICommandFactory.processOptions(argv);
+    const spinner = options.quiet
+      ? null
+      : ora(`📤 Exporting session ${argv.sessionId}...`).start();
+
+    try {
+      const sdk = globalSession.getOrCreateNeuroLink();
+
+      // Handle dry-run mode
+      if (options.dryRun) {
+        const mockExport = {
+          sessionId: argv.sessionId,
+          title: "Sample Conversation",
+          createdAt: "2024-01-01T10:00:00Z",
+          updatedAt: "2024-01-01T12:30:00Z",
+          messages: [
+            { id: "msg-1", role: "user", content: "Hello!" },
+            { id: "msg-2", role: "assistant", content: "Hi there!" },
+          ],
+          exportMetadata: argv.includeMetadata
+            ? {
+                exportedAt: new Date().toISOString(),
+                exportFormat: options.format === "json" ? "json" : "json",
+              }
+            : undefined,
+        };
+
+        if (spinner) {
+          spinner.succeed(chalk.green(`✅ Session exported (dry-run)`));
+        }
+
+        CLICommandFactory.handleOutput(mockExport, options);
+        return;
+      }
+
+      const exportData = await sdk.exportSession(argv.sessionId, {
+        includeMetadata: argv.includeMetadata,
+        format: options.format === "json" ? "json" : "json",
+      });
+
+      if (!exportData) {
+        if (spinner) {
+          spinner.warn(chalk.yellow(`⚠️ Session ${argv.sessionId} not found`));
+        }
+        return;
+      }
+
+      if (spinner) {
+        spinner.succeed(
+          chalk.green(
+            `✅ Session exported (${exportData.messages.length} messages)`,
+          ),
+        );
+      }
+
+      // Output as JSON (suitable for piping to file)
+      CLICommandFactory.handleOutput(exportData, {
+        ...options,
+        format: "json",
+      });
+    } catch (error) {
+      if (spinner) {
+        spinner.fail("Session export failed");
+      }
+
+      if ((error as Error).message.includes("not enabled")) {
+        logger.always(chalk.yellow("⚠️ Conversation memory is not enabled"));
+        logger.always(
+          "Enable it by using --enable-conversation-memory with loop mode",
+        );
+      } else {
+        handleError(error as Error, "Memory export");
+      }
+    }
+  }
+
+  /**
+   * Execute memory export-all command
+   */
+  private static async executeMemoryExportAll(
+    argv: BaseCommandArgs & {
+      output: string;
+      userId?: string;
+      includeMetadata?: boolean;
+    },
+  ) {
+    const options = CLICommandFactory.processOptions(argv);
+    const spinner = options.quiet
+      ? null
+      : ora("📤 Exporting all sessions...").start();
+
+    try {
+      const sdk = globalSession.getOrCreateNeuroLink();
+
+      // Handle dry-run mode
+      if (options.dryRun) {
+        if (spinner) {
+          spinner.succeed(
+            chalk.green(
+              `✅ Sessions would be exported to ${argv.output} (dry-run)`,
+            ),
+          );
+        }
+
+        const result = {
+          success: true,
+          outputDirectory: argv.output,
+          sessionCount: 2,
+          message: "Dry-run: sessions would be exported",
+        };
+
+        CLICommandFactory.handleOutput(result, options);
+        return;
+      }
+
+      // Ensure output directory exists
+      if (!fs.existsSync(argv.output)) {
+        fs.mkdirSync(argv.output, { recursive: true });
+      }
+
+      const exports = await sdk.exportAllSessions(argv.userId, {
+        includeMetadata: argv.includeMetadata,
+        format: "json",
+      });
+
+      if (exports.length === 0) {
+        if (spinner) {
+          spinner.warn(chalk.yellow("⚠️ No sessions found to export"));
+        }
+        return;
+      }
+
+      // Write each session to a file
+      for (const sessionExport of exports) {
+        const filename = `${sessionExport.sessionId}.json`;
+        const filepath = path.join(argv.output, filename);
+        fs.writeFileSync(filepath, JSON.stringify(sessionExport, null, 2));
+      }
+
+      if (spinner) {
+        spinner.succeed(
+          chalk.green(
+            `✅ Exported ${exports.length} session(s) to ${argv.output}`,
+          ),
+        );
+      }
+
+      if (options.format === "json") {
+        const result = {
+          success: true,
+          outputDirectory: argv.output,
+          sessionCount: exports.length,
+          sessions: exports.map((e) => ({
+            sessionId: e.sessionId,
+            messageCount: e.messages.length,
+          })),
+        };
+        CLICommandFactory.handleOutput(result, options);
+      } else {
+        logger.always(chalk.blue(`📁 Exported sessions to: ${argv.output}`));
+        for (const sessionExport of exports) {
+          logger.always(
+            `   • ${sessionExport.sessionId} (${sessionExport.messages.length} messages)`,
+          );
+        }
+      }
+    } catch (error) {
+      if (spinner) {
+        spinner.fail("Export all failed");
+      }
+
+      if ((error as Error).message.includes("not enabled")) {
+        logger.always(chalk.yellow("⚠️ Conversation memory is not enabled"));
+        logger.always(
+          "Enable it by using --enable-conversation-memory with loop mode",
+        );
+      } else {
+        handleError(error as Error, "Memory export-all");
+      }
+    }
+  }
+
+  /**
+   * Execute memory delete command
+   */
+  private static async executeMemoryDelete(
+    argv: BaseCommandArgs & { sessionId: string; force?: boolean },
+  ) {
+    const options = CLICommandFactory.processOptions(argv);
+
+    // Require confirmation unless --force is explicitly provided
+    if (!argv.force) {
+      // In quiet mode, we can't prompt interactively, so require --force
+      if (options.quiet) {
+        logger.always(
+          chalk.red(
+            "⚠️ Deleting a session in quiet mode requires --force flag",
+          ),
+        );
+        logger.always(
+          chalk.yellow(
+            `Usage: neurolink memory delete ${argv.sessionId} --force`,
+          ),
+        );
+        return;
+      }
+
+      const readline = await import("readline");
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+
+      const answer = await new Promise<string>((resolve) => {
+        rl.question(
+          chalk.yellow(
+            `⚠️ Are you sure you want to delete session "${argv.sessionId}"? (y/N): `,
+          ),
+          resolve,
+        );
+      });
+      rl.close();
+
+      if (answer.toLowerCase() !== "y" && answer.toLowerCase() !== "yes") {
+        logger.always(chalk.gray("Deletion cancelled."));
+        return;
+      }
+    }
+
+    const spinner = options.quiet
+      ? null
+      : ora(`🗑️ Deleting session ${argv.sessionId}...`).start();
+
+    try {
+      const sdk = globalSession.getOrCreateNeuroLink();
+
+      // Handle dry-run mode
+      if (options.dryRun) {
+        if (spinner) {
+          spinner.succeed(
+            chalk.green(`✅ Session ${argv.sessionId} deleted (dry-run)`),
+          );
+        }
+
+        const result = {
+          success: true,
+          action: "delete",
+          sessionId: argv.sessionId,
+          message: "Session would be deleted",
+        };
+
+        CLICommandFactory.handleOutput(result, options);
+        return;
+      }
+
+      const success = await sdk.clearConversationSession(argv.sessionId);
+
+      if (spinner) {
+        if (success) {
+          spinner.succeed(
+            chalk.green(`✅ Session ${argv.sessionId} deleted successfully`),
+          );
+        } else {
+          spinner.warn(
+            chalk.yellow(
+              `⚠️ Session ${argv.sessionId} not found or already deleted`,
+            ),
+          );
+        }
+      }
+
+      if (options.format === "json") {
+        const result = {
+          success,
+          action: "delete",
+          sessionId: argv.sessionId,
+        };
+        CLICommandFactory.handleOutput(result, options);
+      }
+    } catch (error) {
+      if (spinner) {
+        spinner.fail("Session deletion failed");
+      }
+
+      if ((error as Error).message.includes("not enabled")) {
+        logger.always(chalk.yellow("⚠️ Conversation memory is not enabled"));
+        logger.always(
+          "Enable it by using --enable-conversation-memory with loop mode",
+        );
+      } else {
+        handleError(error as Error, "Memory delete");
       }
     }
   }

@@ -67,24 +67,44 @@ await neurolink.clearAllConversations();
 
 ### CLI Example
 
-> **Planned Feature**
->
-> The `neurolink memory` CLI subcommand is planned for a future release.
-> The commands shown below represent the intended interface once implemented.
-
 ```bash
 # Enable Redis-backed conversation memory
+
 npx @juspay/neurolink loop --enable-conversation-memory --store redis
 
 # Have a conversation (session ID auto-generated)
+
 > Tell me about AI
 [AI response...]
 
-# Export conversation history
-npx @juspay/neurolink memory export --session-id <SESSION_ID> --format json > conversation.json
+# List all conversation sessions
 
-# Or export all sessions
+npx @juspay/neurolink memory list
+npx @juspay/neurolink memory list --format json
+npx @juspay/neurolink memory list --user-id user123
+
+# Export conversation history
+
+npx @juspay/neurolink memory export --session-id <SESSION_ID>
+npx @juspay/neurolink memory export --session-id <SESSION_ID> --include-metadata > conversation.json
+
+# Export all sessions to a directory
+
 npx @juspay/neurolink memory export-all --output ./exports/
+npx @juspay/neurolink memory export-all --user-id user123 --output ./user-exports/
+
+# Delete a specific session
+
+npx @juspay/neurolink memory delete --session-id <SESSION_ID>
+npx @juspay/neurolink memory delete --session-id <SESSION_ID> --force
+
+# Clear all sessions
+
+npx @juspay/neurolink memory clear --confirm
+
+# Get memory statistics
+
+npx @juspay/neurolink memory stats
 ```
 
 ## Configuration
@@ -259,9 +279,25 @@ async function processSession(sessionId: string) {
 ### SDK Methods
 
 ```typescript
+// List all conversation sessions
+const sessions = await neurolink.listSessions(userId);
+// Returns: Promise<SessionListItem[]>
+
 // Get conversation history for a session
 const history = await neurolink.getConversationHistory(sessionId);
 // Returns: Promise<ChatMessage[]>
+
+// Export a single session with full history
+const exportData = await neurolink.exportSession(sessionId, {
+  includeMetadata: true,
+});
+// Returns: Promise<SessionExport | null>
+
+// Export all sessions
+const exports = await neurolink.exportAllSessions(userId, {
+  includeMetadata: true,
+});
+// Returns: Promise<SessionExport[]>
 
 // Clear a specific session
 const cleared = await neurolink.clearConversationSession(sessionId);
@@ -274,15 +310,18 @@ await neurolink.clearAllConversations();
 
 ### CLI Commands
 
-> **Planned Feature**
->
-> The `neurolink memory` CLI subcommand is planned for a future release.
-> The commands shown below represent the intended interface once implemented.
-
-- `neurolink memory export --session-id <ID>` → Export single session (planned)
-- `neurolink memory export-all` → Export all sessions (planned)
-- `neurolink memory list` → List active sessions (planned)
-- `neurolink memory delete --session-id <ID>` → Delete session (planned)
+| Command                                                        | Description                                  |
+| -------------------------------------------------------------- | -------------------------------------------- |
+| `neurolink memory list`                                        | List all conversation sessions with metadata |
+| `neurolink memory list --user-id <ID>`                         | List sessions for specific user              |
+| `neurolink memory export --session-id <ID>`                    | Export single session to JSON                |
+| `neurolink memory export --session-id <ID> --include-metadata` | Export with metadata                         |
+| `neurolink memory export-all --output <dir>`                   | Export all sessions to directory             |
+| `neurolink memory delete --session-id <ID>`                    | Delete a specific session                    |
+| `neurolink memory delete --session-id <ID> --force`            | Delete without confirmation                  |
+| `neurolink memory clear --confirm`                             | Clear all sessions                           |
+| `neurolink memory stats`                                       | Show memory statistics                       |
+| `neurolink memory history <sessionId>`                         | Show conversation history                    |
 
 See [conversation-memory.md](../conversation-memory.md) for complete memory system documentation.
 
@@ -330,30 +369,35 @@ redis-cli -h localhost -p 6379 ping
 **Cause**: `getConversationHistory` returns only message array
 **Solution**:
 
+Use `exportSession` with `includeMetadata` option:
+
 ```typescript
-// Add your own metadata when archiving
-const history = await neurolink.getConversationHistory("session-123");
-const enrichedHistory = {
-  sessionId: "session-123",
-  messages: history,
-  exportedAt: new Date().toISOString(),
-  messageCount: history.length,
-};
+// Export with full metadata
+const exportData = await neurolink.exportSession("session-123", {
+  includeMetadata: true,
+});
+// Returns: { sessionId, title, createdAt, updatedAt, messages, exportMetadata }
+
+// Or use CLI
+// neurolink memory export --session-id session-123 --include-metadata
 ```
 
-### Problem: Memory command not found in CLI
+### Problem: Memory commands require Redis for listing
 
-**Cause**: The `neurolink memory` subcommand is a planned feature
+**Cause**: In-memory storage doesn't persist session IDs across CLI calls
 **Solution**:
 
-The CLI memory subcommand is planned for a future release. In the meantime, use the SDK methods directly:
+Configure Redis for persistent session management:
 
-```typescript
-// Use SDK methods for conversation history management
-const history = await neurolink.getConversationHistory(sessionId);
-await neurolink.clearConversationSession(sessionId);
-await neurolink.clearAllConversations();
+```bash
+# Set up Redis connection
+export REDIS_URL="redis://localhost:6379"
+
+# Enable Redis in loop mode
+neurolink loop --enable-conversation-memory --store redis
 ```
+
+````
 
 ## Best Practices
 
@@ -369,7 +413,7 @@ config: {
     },
   },
 }
-```
+````
 
 2. **Archive regularly** - Export to long-term storage
 

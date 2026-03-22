@@ -110,6 +110,8 @@ import type {
   ChatMessage,
   ConversationMemoryConfig,
   ProviderDetails,
+  SessionExport,
+  SessionListItem,
 } from "./types/conversation.js";
 import { ConversationMemoryError } from "./types/conversation.js";
 import {
@@ -9495,6 +9497,201 @@ Current user's request: ${currentInput}`;
 
     this.lastCompactionMessageCount.clear();
     await this.conversationMemory.clearAllSessions();
+  }
+
+  /**
+   * List all conversation sessions with metadata (public API)
+   * @param userId - Optional user ID to filter sessions (required for Redis storage)
+   * @returns Array of session list items with metadata
+   */
+  async listSessions(userId?: string): Promise<SessionListItem[]> {
+    // First ensure memory is initialized
+    const initId = `list-sessions-init-${Date.now()}`;
+    await this.initializeConversationMemoryForGeneration(
+      initId,
+      Date.now(),
+      process.hrtime.bigint(),
+    );
+
+    if (!this.conversationMemory) {
+      throw new Error("Conversation memory is not enabled");
+    }
+
+    // Check if listSessions is available on the memory manager
+    if (!this.conversationMemory.listSessions) {
+      logger.warn("listSessions not available on current memory manager");
+      return [];
+    }
+
+    const MEMORY_OPERATION_TIMEOUT = 30000; // 30 seconds
+
+    try {
+      const sessions = await withTimeout(
+        this.conversationMemory.listSessions(userId),
+        MEMORY_OPERATION_TIMEOUT,
+        new Error("listSessions operation timed out after 30s"),
+      );
+
+      logger.debug("Listed conversation sessions", {
+        userId,
+        sessionCount: sessions.length,
+      });
+
+      return sessions;
+    } catch (error) {
+      logger.error("Failed to list conversation sessions", {
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+
+  /**
+   * Export a single session with full history and metadata (public API)
+   * @param sessionId - The session ID to export
+   * @param options - Export options
+   * @returns Session export object with full history
+   */
+  async exportSession(
+    sessionId: string,
+    options: { includeMetadata?: boolean; format?: "json" | "csv" } = {},
+  ): Promise<SessionExport | null> {
+    // First ensure memory is initialized
+    const initId = `export-session-init-${Date.now()}`;
+    await this.initializeConversationMemoryForGeneration(
+      initId,
+      Date.now(),
+      process.hrtime.bigint(),
+    );
+
+    if (!this.conversationMemory) {
+      throw new Error("Conversation memory is not enabled");
+    }
+
+    if (!sessionId || typeof sessionId !== "string") {
+      throw new Error("Session ID must be a non-empty string");
+    }
+
+    const MEMORY_OPERATION_TIMEOUT = 30000; // 30 seconds
+
+    try {
+      const messages = await withTimeout(
+        this.conversationMemory.buildContextMessages(sessionId),
+        MEMORY_OPERATION_TIMEOUT,
+        new Error("buildContextMessages operation timed out after 30s"),
+      );
+
+      if (messages.length === 0) {
+        logger.debug("No messages found for session export", { sessionId });
+        return null;
+      }
+
+      const sessionResult = this.conversationMemory.getSession(sessionId);
+      const session = await withTimeout(
+        sessionResult instanceof Promise
+          ? sessionResult
+          : Promise.resolve(sessionResult),
+        MEMORY_OPERATION_TIMEOUT,
+        new Error("getSession operation timed out after 30s"),
+      );
+      const now = new Date().toISOString();
+
+      const exportData: SessionExport = {
+        sessionId,
+        title: sessionId, // Use sessionId as title if not available
+        userId: session?.userId,
+        createdAt: session?.createdAt
+          ? new Date(session.createdAt).toISOString()
+          : now,
+        updatedAt: session?.lastActivity
+          ? new Date(session.lastActivity).toISOString()
+          : now,
+        messages,
+      };
+
+      if (options.includeMetadata) {
+        exportData.exportMetadata = {
+          exportedAt: now,
+          exportFormat: options.format || "json",
+        };
+      }
+
+      logger.debug("Exported conversation session", {
+        sessionId,
+        messageCount: messages.length,
+      });
+
+      return exportData;
+    } catch (error) {
+      logger.error("Failed to export conversation session", {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Export all sessions for a user (public API)
+   * @param userId - Optional user ID (required for Redis storage)
+   * @param options - Export options
+   * @returns Array of session exports
+   */
+  async exportAllSessions(
+    userId?: string,
+    options: { includeMetadata?: boolean; format?: "json" | "csv" } = {},
+  ): Promise<SessionExport[]> {
+    // First ensure memory is initialized
+    const initId = `export-all-init-${Date.now()}`;
+    await this.initializeConversationMemoryForGeneration(
+      initId,
+      Date.now(),
+      process.hrtime.bigint(),
+    );
+
+    if (!this.conversationMemory) {
+      throw new Error("Conversation memory is not enabled");
+    }
+
+    const MEMORY_OPERATION_TIMEOUT = 30000; // 30 seconds
+    const EXPORT_SESSION_TIMEOUT = 60000; // 60 seconds for full export
+
+    try {
+      // Get all session IDs
+      const sessions = await withTimeout(
+        this.listSessions(userId),
+        MEMORY_OPERATION_TIMEOUT,
+        new Error("listSessions operation timed out after 30s"),
+      );
+      const exports: SessionExport[] = [];
+
+      for (const session of sessions) {
+        const exportData = await withTimeout(
+          this.exportSession(session.id, options),
+          EXPORT_SESSION_TIMEOUT,
+          new Error(
+            `exportSession operation timed out after 60s for session ${session.id}`,
+          ),
+        );
+        if (exportData) {
+          exports.push(exportData);
+        }
+      }
+
+      logger.debug("Exported all conversation sessions", {
+        userId,
+        sessionCount: exports.length,
+      });
+
+      return exports;
+    } catch (error) {
+      logger.error("Failed to export all conversation sessions", {
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
   /**
    * Store tool executions in conversation memory if enabled and Redis is configured

@@ -18,6 +18,7 @@ import type {
   ConversationMemoryStats,
   RedisConversationObject,
   RedisStorageConfig,
+  SessionListItem,
   SessionMemory,
   SessionMetadata,
   StoreConversationTurnOptions,
@@ -1728,6 +1729,101 @@ User message: "${userMessage}"`;
       );
       return results;
     }
+  }
+
+  /**
+   * List all sessions with metadata for CLI/API usage
+   * Implements IConversationMemoryManager.listSessions
+   * @param userId - Optional user identifier to filter sessions
+   * @returns Array of session list items with metadata
+   */
+  public async listSessions(userId?: string): Promise<SessionListItem[]> {
+    await this.ensureInitialized();
+    if (!this.redisClient) {
+      return [];
+    }
+
+    const now = Date.now();
+    const list: SessionListItem[] = [];
+
+    if (userId) {
+      // List sessions for a specific user
+      const sessionIds = await this.getUserSessions(userId);
+      for (const sessionId of sessionIds) {
+        const session = await this.getUserSessionObject(userId, sessionId);
+        if (!session) {
+          continue;
+        }
+        list.push({
+          id: session.sessionId,
+          title: session.title || session.sessionId,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+          userId: session.userId,
+          messageCount: session.messages.length,
+          lastActive: this.formatTimeAgo(
+            now - new Date(session.updatedAt).getTime(),
+          ),
+        });
+      }
+    } else {
+      // List all sessions across all users by scanning Redis keys
+      const keys = await scanKeys(
+        this.redisClient,
+        `${this.redisConfig.keyPrefix}*`,
+      );
+      for (const key of keys) {
+        // Skip user session index keys (they end with :sessions)
+        if (key.endsWith(":sessions")) {
+          continue;
+        }
+        const raw = await this.redisClient.get(key);
+        if (!raw) {
+          continue;
+        }
+        const session = deserializeConversation(raw);
+        if (!session) {
+          continue;
+        }
+        list.push({
+          id: session.sessionId,
+          title: session.title || session.sessionId,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+          userId: session.userId,
+          messageCount: session.messages.length,
+          lastActive: this.formatTimeAgo(
+            now - new Date(session.updatedAt).getTime(),
+          ),
+        });
+      }
+    }
+
+    return list.sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }
+
+  /**
+   * Format milliseconds into human-readable time ago string
+   */
+  private formatTimeAgo(ms: number): string {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return `${days} day${days > 1 ? "s" : ""} ago`;
+    }
+    if (hours > 0) {
+      return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+    }
+    if (minutes > 0) {
+      return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+    }
+    return "just now";
   }
 
   /**

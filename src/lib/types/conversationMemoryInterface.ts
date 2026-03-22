@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   ConversationMemoryConfig,
   ConversationMemoryStats,
+  SessionListItem,
   SessionMemory,
   StoreConversationTurnOptions,
 } from "./conversation.js";
@@ -48,6 +49,11 @@ export type IConversationMemoryManager = {
   /** Get memory statistics */
   getStats(): Promise<ConversationMemoryStats> | ConversationMemoryStats;
 
+  /** List all sessions with metadata (optional - for session management) */
+  listSessions?(userId?: string): Promise<SessionListItem[]>;
+
+  /** List all sessions with metadata (optional - for session management) */
+  listSessions?(userId?: string): Promise<SessionListItem[]>;
   /** Get raw messages array for a session (no context filtering or summarization) */
   getSessionMessages(
     sessionId: string,

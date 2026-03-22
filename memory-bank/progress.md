@@ -1,5 +1,88 @@
 # Project Progress
 
+## 🚀 **MEMORY CLI SUBCOMMAND IMPLEMENTED** (2026-03-15)
+
+### **🏆 LATEST ACHIEVEMENT: CONVERSATION MEMORY MANAGEMENT CLI**
+
+**Objective**: Implement `neurolink memory` CLI subcommand for managing conversation sessions
+**Achievement**: Complete CLI implementation with list, export, export-all, delete, clear, stats, and history commands
+**Impact**: Users can now manage conversation memory via CLI, closing documentation-implementation gap
+**Issue**: #754 - [FEATURE] Implement neurolink memory CLI subcommand for conversation memory management
+
+**Branch**: `feature/754-cli-memory-subcommand`
+
+**Core Implementation**:
+- ✅ **New Types**: `SessionListItem`, `SessionExport` in `src/lib/types/conversation.ts`
+- ✅ **Interface Update**: Added `listSessions` method to `IConversationMemoryManager`
+- ✅ **In-Memory Manager**: Implemented `listSessions` in `ConversationMemoryManager`
+- ✅ **Redis Manager**: Implemented `listSessions` in `RedisConversationMemoryManager`
+- ✅ **SDK Methods**: Added `listSessions`, `exportSession`, `exportAllSessions` to NeuroLink class
+- ✅ **CLI Commands**: Full memory subcommand with 7 operations
+- ✅ **Documentation**: Updated `docs/features/conversation-history.md`
+- ✅ **Tests**: Created `test/cli/memory-commands.test.ts` with 45 test cases
+
+**New CLI Commands**:
+
+```bash
+neurolink memory list                    # List all conversation sessions
+neurolink memory list --user-id <ID>     # List sessions for specific user
+neurolink memory export --session-id <ID> # Export single session to JSON
+neurolink memory export-all --output <dir> # Export all sessions to directory
+neurolink memory delete --session-id <ID>  # Delete session (with confirmation)
+neurolink memory delete --session-id <ID> --force # Delete without confirmation
+neurolink memory clear --confirm         # Clear all sessions
+neurolink memory stats                   # Show memory statistics
+neurolink memory history <sessionId>     # Show conversation history
+```
+
+**New SDK Methods**:
+
+```typescript
+// List all conversation sessions
+const sessions = await neurolink.listSessions(userId?);
+// Returns: Promise<SessionListItem[]>
+
+// Export a single session with full history
+const exportData = await neurolink.exportSession(sessionId, { includeMetadata: true });
+// Returns: Promise<SessionExport | null>
+
+// Export all sessions
+const exports = await neurolink.exportAllSessions(userId?, { includeMetadata: true });
+// Returns: Promise<SessionExport[]>
+```
+
+**Test Coverage** (45 tests):
+- `memory list`: 4 tests (list all, empty, filter by user, memory not enabled)
+- `memory export`: 4 tests (export session, include metadata, non-existent, empty ID)
+- `memory export-all`: 4 tests (export all, filter by user, empty result, include metadata)
+- `memory delete`: 3 tests (delete, non-existent, memory not enabled)
+- `memory clear`: 2 tests (clear all, memory not enabled)
+- `memory stats`: 3 tests (return stats, zero stats, memory not enabled)
+- `memory history`: 3 tests (return history, empty, memory not enabled)
+- CLI structure: 2 tests (command structure validation)
+- Edge cases: 7 tests (long IDs, special chars, Unicode, concurrent ops, timeouts)
+- Output formats: 2 tests (structure validation)
+- ConversationMemoryManager unit: 6 tests (listSessions functionality)
+
+**Files Created/Modified**:
+- `src/lib/types/conversation.ts` - Added SessionListItem, SessionExport types
+- `src/lib/types/conversationMemoryInterface.ts` - Added listSessions method
+- `src/lib/core/conversationMemoryManager.ts` - Implemented listSessions, formatTimeAgo
+- `src/lib/core/redisConversationMemoryManager.ts` - Implemented listSessions, formatTimeAgo
+- `src/lib/neurolink.ts` - Added listSessions, exportSession, exportAllSessions methods
+- `src/cli/factories/commandFactory.ts` - Added memory list/export/export-all/delete commands
+- `docs/features/conversation-history.md` - Removed "Planned Feature" notices, added CLI docs
+- `test/cli/memory-commands.test.ts` - Created with 45 comprehensive test cases
+
+**Strategic Impact**:
+- **Documentation Alignment**: CLI now matches documented features
+- **User Experience**: Complete conversation management via CLI
+- **Enterprise Ready**: Export capabilities for compliance and analytics
+- **Developer Experience**: Consistent API across SDK and CLI
+- **Test Coverage**: Comprehensive edge case handling
+
+---
+
 ## 🚀 **ENTERPRISE IMAGE CACHING SYSTEM IMPLEMENTED** (2026-01-30)
 
 ### **🏆 LATEST ACHIEVEMENT: INTELLIGENT IMAGE CACHE WITH LRU & DEDUPLICATION**

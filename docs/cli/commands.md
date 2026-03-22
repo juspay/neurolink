@@ -669,24 +669,31 @@ npx @juspay/neurolink config export --format json > neurolink-config.json
 
 ```bash
 # List all active sessions
+
 npx @juspay/neurolink memory list
 
 # View session statistics
+
 npx @juspay/neurolink memory stats
 
 # View conversation history (text format)
+
 npx @juspay/neurolink memory history <SESSION_ID>
 
 # Export session as JSON (Q4 2025 - for analytics)
+
 npx @juspay/neurolink memory export --session-id <SESSION_ID> --format json > session.json
 
 # Export all sessions
+
 npx @juspay/neurolink memory export-all --output ./exports/
 
 # Delete a single session
+
 npx @juspay/neurolink memory clear <SESSION_ID>
 
 # Delete all sessions
+
 npx @juspay/neurolink memory clear-all
 ```
 

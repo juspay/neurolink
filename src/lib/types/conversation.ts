@@ -484,6 +484,44 @@ export type AgenticLoopReportMetadata = {
 };
 
 /**
+ * Session list item for CLI/API listing
+ * Extends SessionMetadata with additional display information
+ */
+export type SessionListItem = SessionMetadata & {
+  /** User identifier associated with this session */
+  userId?: string;
+  /** Total number of messages in this session */
+  messageCount: number;
+  /** Human-readable time since last activity (e.g., "2 hours ago") */
+  lastActive?: string;
+};
+
+/**
+ * Complete session export format for backup/analytics
+ * Contains full session data including all messages
+ */
+export type SessionExport = {
+  /** Session identifier */
+  sessionId: string;
+  /** Session title/description */
+  title?: string;
+  /** User identifier */
+  userId?: string;
+  /** When session was created (ISO 8601) */
+  createdAt: string;
+  /** When session was last updated (ISO 8601) */
+  updatedAt: string;
+  /** Complete message history */
+  messages: ChatMessage[];
+  /** Export metadata */
+  exportMetadata?: {
+    exportedAt: string;
+    exportFormat: "json" | "csv";
+    neuroLinkVersion?: string;
+  };
+};
+
+/**
  * Base conversation metadata (shared fields across all conversation types)
  * Contains essential conversation information without heavy data arrays
  */

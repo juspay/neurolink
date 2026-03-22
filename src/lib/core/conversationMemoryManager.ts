@@ -17,6 +17,7 @@ import type {
   ChatMessage,
   ConversationMemoryConfig,
   ConversationMemoryStats,
+  SessionListItem,
   SessionMemory,
   StoreConversationTurnOptions,
 } from "../types/conversation.js";
@@ -408,6 +409,58 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
       totalSessions: sessions.length,
       totalTurns,
     };
+  }
+
+  /**
+   * List all sessions with metadata
+   * @param userId - Optional user ID to filter sessions
+   * @returns Array of session list items with metadata
+   */
+  public async listSessions(userId?: string): Promise<SessionListItem[]> {
+    await this.ensureInitialized();
+
+    const sessions = Array.from(this.sessions.values());
+    const now = Date.now();
+
+    return sessions
+      .filter((session) => !userId || session.userId === userId)
+      .map((session) => {
+        const lastActive = this.formatTimeAgo(now - session.lastActivity);
+        return {
+          id: session.sessionId,
+          title: session.sessionId, // In-memory doesn't store title, use sessionId
+          createdAt: new Date(session.createdAt).toISOString(),
+          updatedAt: new Date(session.lastActivity).toISOString(),
+          userId: session.userId,
+          messageCount: session.messages.length,
+          lastActive,
+        };
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+  }
+
+  /**
+   * Format milliseconds into human-readable time ago string
+   */
+  private formatTimeAgo(ms: number): string {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return `${days} day${days > 1 ? "s" : ""} ago`;
+    }
+    if (hours > 0) {
+      return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+    }
+    if (minutes > 0) {
+      return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+    }
+    return "just now";
   }
 
   public async clearSession(sessionId: string): Promise<boolean> {
