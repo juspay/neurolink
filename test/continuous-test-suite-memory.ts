@@ -2605,6 +2605,637 @@ async function testNativePathStoresToolRowsInRedis(): Promise<boolean | null> {
 }
 
 // ============================================================
+// TEST #23: CLI Memory Commands - listSessions
+// ============================================================
+
+async function testCLIMemoryListSessions(): Promise<boolean | null> {
+  logTest("23. CLI Memory Commands - listSessions", "TESTING");
+  const memorySdk = new NeuroLink({
+    conversationMemory: {
+      enabled: true,
+      maxSessions: 10,
+      enableSummarization: false,
+    },
+  });
+  try {
+    const sessionId1 = generateTestSessionId("cli-list-1");
+    const sessionId2 = generateTestSessionId("cli-list-2");
+    const userId = `cli-test-user-${Date.now()}`;
+
+    // Create two sessions with conversation turns
+    await memorySdk.generate({
+      input: { text: "Hello, this is session 1 for CLI list test." },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId: sessionId1, userId },
+    });
+
+    await new Promise((r) => setTimeout(r, 1000));
+
+    await memorySdk.generate({
+      input: { text: "Hello, this is session 2 for CLI list test." },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId: sessionId2, userId },
+    });
+
+    // List sessions
+    const sessions = await memorySdk.listSessions(userId);
+
+    if (!Array.isArray(sessions)) {
+      logTest(
+        "23. CLI Memory Commands - listSessions",
+        "FAIL",
+        "listSessions did not return an array",
+      );
+      return false;
+    }
+
+    // Verify both sessions are listed
+    const hasSession1 = sessions.some((s) => s.id === sessionId1);
+    const hasSession2 = sessions.some((s) => s.id === sessionId2);
+
+    if (hasSession1 && hasSession2) {
+      // Verify session structure has required fields
+      const session = sessions[0];
+      if (
+        session.id &&
+        typeof session.messageCount === "number" &&
+        session.createdAt
+      ) {
+        logTest(
+          "23. CLI Memory Commands - listSessions",
+          "PASS",
+          `Listed ${sessions.length} sessions with correct structure`,
+        );
+        return true;
+      }
+    }
+
+    logTest(
+      "23. CLI Memory Commands - listSessions",
+      "FAIL",
+      `Expected both sessions in list. Found: ${sessions.map((s) => s.id).join(", ")}`,
+    );
+    return false;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
+      logTest("23. CLI Memory Commands - listSessions", "SKIP", msg);
+      return null;
+    }
+    logTest("23. CLI Memory Commands - listSessions", "FAIL", msg);
+    return false;
+  } finally {
+    try {
+      await memorySdk.shutdown?.();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ============================================================
+// TEST #24: CLI Memory Commands - exportSession
+// ============================================================
+
+async function testCLIMemoryExportSession(): Promise<boolean | null> {
+  logTest("24. CLI Memory Commands - exportSession", "TESTING");
+  const memorySdk = new NeuroLink({
+    conversationMemory: {
+      enabled: true,
+      maxSessions: 10,
+      enableSummarization: false,
+    },
+  });
+  try {
+    const sessionId = generateTestSessionId("cli-export");
+    const userId = `cli-test-user-${Date.now()}`;
+
+    // Create a session with a conversation
+    await memorySdk.generate({
+      input: { text: "What is the capital of France? Answer briefly." },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId, userId },
+    });
+
+    await new Promise((r) => setTimeout(r, 1000));
+
+    await memorySdk.generate({
+      input: { text: "And what about Germany?" },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId, userId },
+    });
+
+    // Export the session
+    const exportedSession = await memorySdk.exportSession(sessionId);
+
+    if (!exportedSession) {
+      logTest(
+        "24. CLI Memory Commands - exportSession",
+        "FAIL",
+        "exportSession returned null",
+      );
+      return false;
+    }
+
+    // Verify export structure
+    if (
+      exportedSession.sessionId === sessionId &&
+      Array.isArray(exportedSession.messages) &&
+      exportedSession.messages.length >= 4 // 2 user + 2 assistant messages
+    ) {
+      // Verify messages have correct structure
+      const hasUserMessage = exportedSession.messages.some(
+        (m) => m.role === "user",
+      );
+      const hasAssistantMessage = exportedSession.messages.some(
+        (m) => m.role === "assistant",
+      );
+
+      if (hasUserMessage && hasAssistantMessage) {
+        logTest(
+          "24. CLI Memory Commands - exportSession",
+          "PASS",
+          `Exported session with ${exportedSession.messages.length} messages`,
+        );
+        return true;
+      }
+    }
+
+    logTest(
+      "24. CLI Memory Commands - exportSession",
+      "FAIL",
+      `Export structure invalid. SessionId: ${exportedSession.sessionId}, Messages: ${exportedSession.messages?.length || 0}`,
+    );
+    return false;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
+      logTest("24. CLI Memory Commands - exportSession", "SKIP", msg);
+      return null;
+    }
+    logTest("24. CLI Memory Commands - exportSession", "FAIL", msg);
+    return false;
+  } finally {
+    try {
+      await memorySdk.shutdown?.();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ============================================================
+// TEST #25: CLI Memory Commands - exportAllSessions
+// ============================================================
+
+async function testCLIMemoryExportAllSessions(): Promise<boolean | null> {
+  logTest("25. CLI Memory Commands - exportAllSessions", "TESTING");
+  const memorySdk = new NeuroLink({
+    conversationMemory: {
+      enabled: true,
+      maxSessions: 10,
+      enableSummarization: false,
+    },
+  });
+  try {
+    const sessionId1 = generateTestSessionId("cli-export-all-1");
+    const sessionId2 = generateTestSessionId("cli-export-all-2");
+    const userId = `cli-export-all-user-${Date.now()}`;
+
+    // Create two sessions
+    await memorySdk.generate({
+      input: { text: "Session 1: Hello world!" },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId: sessionId1, userId },
+    });
+
+    await new Promise((r) => setTimeout(r, 1000));
+
+    await memorySdk.generate({
+      input: { text: "Session 2: Goodbye world!" },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId: sessionId2, userId },
+    });
+
+    // Export all sessions for the user
+    const exports = await memorySdk.exportAllSessions(userId);
+
+    if (!Array.isArray(exports)) {
+      logTest(
+        "25. CLI Memory Commands - exportAllSessions",
+        "FAIL",
+        "exportAllSessions did not return an array",
+      );
+      return false;
+    }
+
+    // Verify both sessions are exported
+    const hasSession1 = exports.some((e) => e.sessionId === sessionId1);
+    const hasSession2 = exports.some((e) => e.sessionId === sessionId2);
+
+    if (hasSession1 && hasSession2 && exports.length >= 2) {
+      logTest(
+        "25. CLI Memory Commands - exportAllSessions",
+        "PASS",
+        `Exported ${exports.length} sessions`,
+      );
+      return true;
+    }
+
+    logTest(
+      "25. CLI Memory Commands - exportAllSessions",
+      "FAIL",
+      `Expected both sessions. Found: ${exports.map((e) => e.sessionId).join(", ")}`,
+    );
+    return false;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
+      logTest("25. CLI Memory Commands - exportAllSessions", "SKIP", msg);
+      return null;
+    }
+    logTest("25. CLI Memory Commands - exportAllSessions", "FAIL", msg);
+    return false;
+  } finally {
+    try {
+      await memorySdk.shutdown?.();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ============================================================
+// TEST #26: CLI Memory Commands - getConversationHistory
+// ============================================================
+
+async function testCLIMemoryGetHistory(): Promise<boolean | null> {
+  logTest("26. CLI Memory Commands - getConversationHistory", "TESTING");
+  const memorySdk = new NeuroLink({
+    conversationMemory: {
+      enabled: true,
+      maxSessions: 10,
+      enableSummarization: false,
+    },
+  });
+  try {
+    const sessionId = generateTestSessionId("cli-history");
+    const userId = `cli-history-user-${Date.now()}`;
+
+    // Create a session with multiple turns
+    await memorySdk.generate({
+      input: { text: "Turn 1: What is 2 + 2?" },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId, userId },
+    });
+
+    await new Promise((r) => setTimeout(r, 1000));
+
+    await memorySdk.generate({
+      input: { text: "Turn 2: What is 3 + 3?" },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId, userId },
+    });
+
+    await new Promise((r) => setTimeout(r, 1000));
+
+    await memorySdk.generate({
+      input: { text: "Turn 3: What is 4 + 4?" },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId, userId },
+    });
+
+    // Get conversation history
+    const history = await memorySdk.getConversationHistory(sessionId);
+
+    if (!Array.isArray(history)) {
+      logTest(
+        "26. CLI Memory Commands - getConversationHistory",
+        "FAIL",
+        "getConversationHistory did not return an array",
+      );
+      return false;
+    }
+
+    // Should have 6 messages (3 user + 3 assistant)
+    if (history.length >= 6) {
+      const userMessages = history.filter((m) => m.role === "user");
+      const assistantMessages = history.filter((m) => m.role === "assistant");
+
+      if (userMessages.length >= 3 && assistantMessages.length >= 3) {
+        logTest(
+          "26. CLI Memory Commands - getConversationHistory",
+          "PASS",
+          `Retrieved history with ${history.length} messages (${userMessages.length} user, ${assistantMessages.length} assistant)`,
+        );
+        return true;
+      }
+    }
+
+    logTest(
+      "26. CLI Memory Commands - getConversationHistory",
+      "FAIL",
+      `Expected 6+ messages, got ${history.length}`,
+    );
+    return false;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
+      logTest("26. CLI Memory Commands - getConversationHistory", "SKIP", msg);
+      return null;
+    }
+    logTest("26. CLI Memory Commands - getConversationHistory", "FAIL", msg);
+    return false;
+  } finally {
+    try {
+      await memorySdk.shutdown?.();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ============================================================
+// TEST #27: CLI Memory Commands - getConversationStats
+// ============================================================
+
+async function testCLIMemoryGetStats(): Promise<boolean | null> {
+  logTest("27. CLI Memory Commands - getConversationStats", "TESTING");
+  const memorySdk = new NeuroLink({
+    conversationMemory: {
+      enabled: true,
+      maxSessions: 10,
+      enableSummarization: false,
+    },
+  });
+  try {
+    const sessionId1 = generateTestSessionId("cli-stats-1");
+    const sessionId2 = generateTestSessionId("cli-stats-2");
+    const userId = `cli-stats-user-${Date.now()}`;
+
+    // Create two sessions with different turn counts
+    await memorySdk.generate({
+      input: { text: "Stats test session 1, turn 1" },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId: sessionId1, userId },
+    });
+
+    await new Promise((r) => setTimeout(r, 1000));
+
+    await memorySdk.generate({
+      input: { text: "Stats test session 2, turn 1" },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId: sessionId2, userId },
+    });
+
+    await new Promise((r) => setTimeout(r, 1000));
+
+    await memorySdk.generate({
+      input: { text: "Stats test session 2, turn 2" },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId: sessionId2, userId },
+    });
+
+    // Get conversation stats (note: getConversationStats doesn't take userId parameter)
+    const stats = await memorySdk.getConversationStats();
+
+    if (!stats || typeof stats !== "object") {
+      logTest(
+        "27. CLI Memory Commands - getConversationStats",
+        "FAIL",
+        "getConversationStats did not return an object",
+      );
+      return false;
+    }
+
+    // Verify stats structure
+    if (
+      typeof stats.totalSessions === "number" &&
+      typeof stats.totalTurns === "number"
+    ) {
+      if (stats.totalSessions >= 2 && stats.totalTurns >= 3) {
+        logTest(
+          "27. CLI Memory Commands - getConversationStats",
+          "PASS",
+          `Stats: ${stats.totalSessions} sessions, ${stats.totalTurns} turns`,
+        );
+        return true;
+      }
+    }
+
+    logTest(
+      "27. CLI Memory Commands - getConversationStats",
+      "FAIL",
+      `Unexpected stats: ${JSON.stringify(stats)}`,
+    );
+    return false;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
+      logTest("27. CLI Memory Commands - getConversationStats", "SKIP", msg);
+      return null;
+    }
+    logTest("27. CLI Memory Commands - getConversationStats", "FAIL", msg);
+    return false;
+  } finally {
+    try {
+      await memorySdk.shutdown?.();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ============================================================
+// TEST #28: CLI Memory Commands - clearConversationSession
+// ============================================================
+
+async function testCLIMemoryClearSession(): Promise<boolean | null> {
+  logTest("28. CLI Memory Commands - clearConversationSession", "TESTING");
+  const memorySdk = new NeuroLink({
+    conversationMemory: {
+      enabled: true,
+      maxSessions: 10,
+      enableSummarization: false,
+    },
+  });
+  try {
+    const sessionId = generateTestSessionId("cli-clear");
+    const userId = `cli-clear-user-${Date.now()}`;
+
+    // Create a session
+    await memorySdk.generate({
+      input: { text: "This session will be cleared." },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId, userId },
+    });
+
+    // Verify session exists
+    const sessionsBefore = await memorySdk.listSessions(userId);
+    const existsBefore = sessionsBefore.some((s) => s.id === sessionId);
+
+    if (!existsBefore) {
+      logTest(
+        "28. CLI Memory Commands - clearConversationSession",
+        "FAIL",
+        "Session was not created",
+      );
+      return false;
+    }
+
+    // Clear the session
+    const cleared = await memorySdk.clearConversationSession(sessionId);
+
+    if (cleared !== true) {
+      logTest(
+        "28. CLI Memory Commands - clearConversationSession",
+        "FAIL",
+        `clearConversationSession returned ${cleared}`,
+      );
+      return false;
+    }
+
+    // Verify session is cleared
+    const sessionsAfter = await memorySdk.listSessions(userId);
+    const existsAfter = sessionsAfter.some((s) => s.id === sessionId);
+
+    if (!existsAfter) {
+      logTest(
+        "28. CLI Memory Commands - clearConversationSession",
+        "PASS",
+        "Session cleared successfully",
+      );
+      return true;
+    }
+
+    logTest(
+      "28. CLI Memory Commands - clearConversationSession",
+      "FAIL",
+      "Session still exists after clearing",
+    );
+    return false;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
+      logTest(
+        "28. CLI Memory Commands - clearConversationSession",
+        "SKIP",
+        msg,
+      );
+      return null;
+    }
+    logTest("28. CLI Memory Commands - clearConversationSession", "FAIL", msg);
+    return false;
+  } finally {
+    try {
+      await memorySdk.shutdown?.();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ============================================================
+// TEST #29: CLI Memory Commands - clearAllConversations
+// ============================================================
+
+async function testCLIMemoryClearAll(): Promise<boolean | null> {
+  logTest("29. CLI Memory Commands - clearAllConversations", "TESTING");
+  // Use a separate SDK instance to avoid affecting other tests
+  const memorySdk = new NeuroLink({
+    conversationMemory: {
+      enabled: true,
+      maxSessions: 10,
+      enableSummarization: false,
+    },
+  });
+  try {
+    const sessionId1 = generateTestSessionId("cli-clear-all-1");
+    const sessionId2 = generateTestSessionId("cli-clear-all-2");
+    // Use a unique userId to track our test sessions
+    const userId = `cli-clear-all-user-${Date.now()}`;
+
+    // Create two sessions
+    await memorySdk.generate({
+      input: { text: "Clear all test session 1" },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId: sessionId1, userId },
+    });
+
+    await new Promise((r) => setTimeout(r, 1000));
+
+    await memorySdk.generate({
+      input: { text: "Clear all test session 2" },
+      maxTokens: Math.min(TEST_CONFIG.maxTokens || 300, 300),
+      ...buildBaseSDKOptions(),
+      context: { sessionId: sessionId2, userId },
+    });
+
+    // Verify sessions exist
+    const sessionsBefore = await memorySdk.listSessions(userId);
+    if (sessionsBefore.length < 2) {
+      logTest(
+        "29. CLI Memory Commands - clearAllConversations",
+        "FAIL",
+        `Expected 2 sessions before clear, got ${sessionsBefore.length}`,
+      );
+      return false;
+    }
+
+    // Clear all conversations (note: clearAllConversations doesn't take userId parameter,
+    // it clears ALL sessions in the memory manager)
+    await memorySdk.clearAllConversations();
+
+    // Verify sessions are cleared - listSessions with userId should return empty
+    const sessionsAfter = await memorySdk.listSessions(userId);
+
+    if (sessionsAfter.length === 0) {
+      logTest(
+        "29. CLI Memory Commands - clearAllConversations",
+        "PASS",
+        "All sessions cleared successfully",
+      );
+      return true;
+    }
+
+    logTest(
+      "29. CLI Memory Commands - clearAllConversations",
+      "FAIL",
+      `${sessionsAfter.length} sessions still exist after clearAll`,
+    );
+    return false;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (isExpectedProviderError(msg)) {
+      logTest("29. CLI Memory Commands - clearAllConversations", "SKIP", msg);
+      return null;
+    }
+    logTest("29. CLI Memory Commands - clearAllConversations", "FAIL", msg);
+    return false;
+  } finally {
+    try {
+      await memorySdk.shutdown?.();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ============================================================
 // MAIN RUNNER
 // ============================================================
 
@@ -3480,6 +4111,34 @@ async function runAllTests(): Promise<void> {
     {
       name: "22. Native Vertex path stores tool_call / tool_result rows in Redis",
       fn: testNativePathStoresToolRowsInRedis,
+    },
+    {
+      name: "23. CLI Memory Commands - listSessions",
+      fn: testCLIMemoryListSessions,
+    },
+    {
+      name: "24. CLI Memory Commands - exportSession",
+      fn: testCLIMemoryExportSession,
+    },
+    {
+      name: "25. CLI Memory Commands - exportAllSessions",
+      fn: testCLIMemoryExportAllSessions,
+    },
+    {
+      name: "26. CLI Memory Commands - getConversationHistory",
+      fn: testCLIMemoryGetHistory,
+    },
+    {
+      name: "27. CLI Memory Commands - getConversationStats",
+      fn: testCLIMemoryGetStats,
+    },
+    {
+      name: "28. CLI Memory Commands - clearConversationSession",
+      fn: testCLIMemoryClearSession,
+    },
+    {
+      name: "29. CLI Memory Commands - clearAllConversations",
+      fn: testCLIMemoryClearAll,
     },
   ];
 
