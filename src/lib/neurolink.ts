@@ -176,6 +176,7 @@ import {
   withRetry,
   withTimeout,
 } from "./utils/errorHandling.js";
+import { CircuitBreakerOpenError } from "./types/circuitBreakerErrors.js";
 // Factory processing imports
 import {
   createCleanStreamOptions,
@@ -8169,6 +8170,77 @@ Current user's request: ${currentInput}`;
               metrics.failedExecutions++;
             }
             const executionTime = Date.now() - executionStartTime;
+
+            // Circuit breaker open: return a structured non-retryable isError result
+            // so the AI model understands the tool is temporarily unavailable.
+            // Log at warn (not error) since this is expected circuit breaker behavior.
+            if (error instanceof CircuitBreakerOpenError) {
+              mcpLogger.warn(
+                `[${functionTag}] Tool blocked by circuit breaker: ${toolName}`,
+                {
+                  toolName,
+                  breakerState: error.breakerState,
+                  retryAfter: error.retryAfter,
+                  retryAfterMs: error.retryAfterMs,
+                  failureCount: error.failureCount,
+                  executionTime,
+                },
+              );
+
+              if (metrics) {
+                const category = ErrorCategory.EXECUTION;
+                metrics.errorCategories[category] =
+                  (metrics.errorCategories[category] || 0) + 1;
+              }
+
+              // Emit tool end event for circuit breaker open
+              this.emitToolEndEvent(
+                toolName,
+                executionStartTime,
+                false,
+                undefined,
+              );
+
+              toolSpan.setAttribute(
+                "tool.result.status",
+                "circuit_breaker_open",
+              );
+              toolSpan.setAttribute("tool.duration_ms", executionTime);
+              toolSpan.setAttribute(
+                "tool.circuit_breaker.state",
+                error.breakerState,
+              );
+              toolSpan.setAttribute(
+                "tool.circuit_breaker.retry_after_ms",
+                error.retryAfterMs,
+              );
+              toolSpan.setAttribute(
+                "tool.circuit_breaker.failure_count",
+                error.failureCount,
+              );
+              toolSpan.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: `Circuit breaker open for ${toolName}: ${error.message}`,
+              });
+
+              // Return an isError tool result so the AI can inform the user
+              // instead of throwing, which would cause a generic retry
+              return {
+                isError: true,
+                content: [
+                  {
+                    type: "text" as const,
+                    text:
+                      `TOOL TEMPORARILY UNAVAILABLE: "${toolName}" has been disabled after ` +
+                      `${error.failureCount} failures. ` +
+                      `This is a circuit breaker protection — do NOT retry this tool. ` +
+                      `It will become available again after ${Math.ceil(error.retryAfterMs / 1000)} seconds ` +
+                      `(at ${error.retryAfter}). ` +
+                      `Instead, inform the user that the operation failed and suggest trying again later.`,
+                  },
+                ],
+              } as T;
+            }
 
             // Create structured error
             let structuredError: NeuroLinkError;

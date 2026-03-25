@@ -7,7 +7,8 @@
  *
  * - Part 1: MCP Infrastructure (ToolRouter, ToolCache, RequestBatcher, core exports)
  * - Part 1b: Extended Modules (Annotations, Elicitation, Discovery, MultiServer,
- *   ServerBase, AgentExposure, Capabilities, Registry, Converter, Integration)
+ *   ServerBase, AgentExposure, Capabilities, Registry, Converter, Integration,
+ *   CircuitBreakerBlocking)
  * - Part 1c: SDK Wiring (cache/middleware/annotations via executeTool)
  * - Part 2: SDK generate()/stream() with custom MCP tools (real API)
  * - Part 3: MCP Enhancements via generate()/stream() — caching, destructive skip,
@@ -56,6 +57,7 @@ import {
   HTTPRateLimiter,
   // Tool Annotations
   inferAnnotations,
+  CircuitBreakerOpenError,
   MCPCircuitBreaker,
   MCPClientFactory,
   // MCP Registry Client
@@ -359,6 +361,150 @@ async function testCoreMCPExports(): Promise<void> {
 // ============================================================
 // Part 1b: Extended MCP Infrastructure Tests (no API calls)
 // ============================================================
+
+async function testCircuitBreakerBlocking(): Promise<void> {
+  logSection("Circuit Breaker Blocking Tests");
+
+  try {
+    // 1. CircuitBreakerOpenError is exported and constructable
+    const err = new CircuitBreakerOpenError({
+      breakerName: "test-breaker",
+      retryAfter: new Date(Date.now() + 30000),
+      retryAfterMs: 30000,
+      breakerState: "open",
+      failureCount: 5,
+    });
+    recordTest(
+      "CircuitBreakerOpenError is constructable",
+      err instanceof CircuitBreakerOpenError && err instanceof Error,
+    );
+    recordTest(
+      "CircuitBreakerOpenError.name is 'CircuitBreakerOpenError'",
+      err.name === "CircuitBreakerOpenError",
+    );
+    recordTest(
+      "CircuitBreakerOpenError.breakerName is set",
+      err.breakerName === "test-breaker",
+    );
+    recordTest(
+      "CircuitBreakerOpenError.breakerState is 'open'",
+      err.breakerState === "open",
+    );
+    recordTest(
+      "CircuitBreakerOpenError.retryAfterMs is set",
+      err.retryAfterMs === 30000,
+    );
+    recordTest(
+      "CircuitBreakerOpenError.failureCount is set",
+      err.failureCount === 5,
+    );
+    recordTest(
+      "CircuitBreakerOpenError.retryAfter is ISO string",
+      typeof err.retryAfter === "string" && err.retryAfter.endsWith("Z"),
+    );
+    recordTest(
+      "CircuitBreakerOpenError.message contains breaker name",
+      err.message.includes("test-breaker"),
+    );
+    recordTest(
+      "CircuitBreakerOpenError.message contains failure count",
+      err.message.includes("5"),
+    );
+
+    // 2. Open circuit breaker throws CircuitBreakerOpenError
+    const breaker = new MCPCircuitBreaker("blocking-test", {
+      failureThreshold: 3,
+      resetTimeout: 60000,
+    });
+    breaker.forceOpen("test — force open");
+
+    let caughtError: unknown;
+    try {
+      await breaker.execute(async () => "should not reach");
+    } catch (e) {
+      caughtError = e;
+    }
+
+    recordTest(
+      "Open circuit breaker throws CircuitBreakerOpenError",
+      caughtError instanceof CircuitBreakerOpenError,
+    );
+
+    if (caughtError instanceof CircuitBreakerOpenError) {
+      recordTest(
+        "Thrown error breakerName matches circuit breaker name",
+        caughtError.breakerName === "blocking-test",
+      );
+      recordTest(
+        "Thrown error breakerState is 'open'",
+        caughtError.breakerState === "open",
+      );
+      recordTest(
+        "Thrown error retryAfterMs is positive",
+        caughtError.retryAfterMs > 0,
+      );
+      recordTest(
+        "Thrown error retryAfter is a valid ISO date in the future",
+        typeof caughtError.retryAfter === "string" &&
+          new Date(caughtError.retryAfter) > new Date(),
+      );
+      recordTest(
+        "Thrown error message says 'failures' (not 'consecutive failures')",
+        caughtError.message.includes("failures") &&
+          !caughtError.message.includes("consecutive"),
+      );
+    }
+
+    // 3. After reset, circuit breaker executes normally
+    breaker.reset();
+    let resetResult: string | undefined;
+    try {
+      resetResult = await breaker.execute(async () => "success-after-reset");
+    } catch {
+      // intentionally empty
+    }
+    recordTest(
+      "After reset, circuit breaker executes successfully",
+      resetResult === "success-after-reset",
+    );
+
+    // 4. Half-open call limit throws CircuitBreakerOpenError
+    const halfOpenBreaker = new MCPCircuitBreaker("half-open-test", {
+      failureThreshold: 3,
+      resetTimeout: 1, // 1ms so it transitions to half-open immediately
+      halfOpenMaxCalls: 1,
+    });
+    halfOpenBreaker.forceOpen("test — force open for half-open check");
+
+    // Wait for reset timeout to expire, transitioning to half-open
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Exhaust the half-open call limit (1 call allowed)
+    try {
+      await halfOpenBreaker.execute(async () => "half-open-call");
+    } catch {
+      // The first call might succeed or fail depending on timing; ignore result
+    }
+
+    // Next call after exhausting half-open calls should throw CircuitBreakerOpenError
+    let halfOpenError: unknown;
+    try {
+      await halfOpenBreaker.execute(async () => "should be blocked");
+    } catch (e) {
+      halfOpenError = e;
+    }
+    recordTest(
+      "Half-open call limit exceeded throws CircuitBreakerOpenError",
+      halfOpenError instanceof CircuitBreakerOpenError,
+    );
+
+    breaker.destroy();
+    halfOpenBreaker.destroy();
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("Circuit breaker blocking tests", false, false, msg);
+  }
+}
 
 async function testToolAnnotations(): Promise<void> {
   logSection("Tool Annotations Tests");
@@ -5354,6 +5500,7 @@ async function main(): Promise<void> {
 
   // Part 1b: Extended MCP Infrastructure Tests
   logSection("Part 1b: Extended MCP Infrastructure Tests");
+  await testCircuitBreakerBlocking();
   await testToolAnnotations();
   await testElicitationManager();
   await testEnhancedToolDiscovery();

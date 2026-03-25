@@ -15,6 +15,11 @@ import type {
   CircuitBreakerEvents,
 } from "../types/mcpTypes.js";
 
+import { CircuitBreakerOpenError } from "../types/circuitBreakerErrors.js";
+
+// Re-export CircuitBreakerOpenError from shared types to preserve public API
+export { CircuitBreakerOpenError } from "../types/circuitBreakerErrors.js";
+
 /**
  * Default operation timeout for circuit breaker protected operations.
  * Configurable via MCP_OPERATION_TIMEOUT env var (in milliseconds).
@@ -69,10 +74,18 @@ export class MCPCircuitBreaker extends EventEmitter {
     try {
       // Check if circuit is open
       if (this.state === "open") {
-        if (Date.now() - this.lastFailureTime < this.config.resetTimeout) {
-          throw new Error(
-            `Circuit breaker '${this.name}' is open. Next retry at ${new Date(this.lastFailureTime + this.config.resetTimeout)}`,
-          );
+        const retryAfterMs =
+          this.config.resetTimeout - (Date.now() - this.lastFailureTime);
+        if (retryAfterMs > 0) {
+          throw new CircuitBreakerOpenError({
+            breakerName: this.name,
+            retryAfter: new Date(
+              this.lastFailureTime + this.config.resetTimeout,
+            ),
+            retryAfterMs,
+            breakerState: "open",
+            failureCount: this.getStats().failedCalls,
+          });
         }
 
         // Transition to half-open
@@ -84,9 +97,20 @@ export class MCPCircuitBreaker extends EventEmitter {
         this.state === "half-open" &&
         this.halfOpenCalls >= this.config.halfOpenMaxCalls
       ) {
-        throw new Error(
-          `Circuit breaker '${this.name}' is half-open but call limit reached`,
+        // Half-open call limit exceeded — revert to open with fresh cooldown
+        this.lastFailureTime = Date.now();
+        this.changeState(
+          "open",
+          "Half-open call limit reached, reverting to open",
         );
+
+        throw new CircuitBreakerOpenError({
+          breakerName: this.name,
+          retryAfter: new Date(this.lastFailureTime + this.config.resetTimeout),
+          retryAfterMs: this.config.resetTimeout,
+          breakerState: "open",
+          failureCount: this.getStats().failedCalls,
+        });
       }
 
       // NLK-GAP-009: Record half-open test event when executing in half-open state

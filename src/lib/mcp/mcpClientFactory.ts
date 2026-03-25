@@ -18,6 +18,7 @@ import type {
 import { spawn, type ChildProcess } from "child_process";
 import { mcpLogger } from "../utils/logger.js";
 import { globalCircuitBreakerManager } from "./mcpCircuitBreaker.js";
+import { CircuitBreakerOpenError } from "../types/circuitBreakerErrors.js";
 import {
   withHTTPRetry,
   DEFAULT_HTTP_RETRY_CONFIG,
@@ -187,6 +188,32 @@ export class MCPClientFactory {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+
+      // Circuit breaker open: log at warn (not error) since this is expected
+      // protection behavior, and preserve the structured metadata.
+      if (error instanceof CircuitBreakerOpenError) {
+        mcpLogger.warn(
+          `[MCPClientFactory] Client creation blocked by circuit breaker for ${config.id}`,
+          {
+            serverId: config.id,
+            breakerState: error.breakerState,
+            retryAfter: error.retryAfter,
+            retryAfterMs: error.retryAfterMs,
+            failureCount: error.failureCount,
+          },
+        );
+
+        obsSpan.durationMs = Date.now() - startTime;
+        const endedObsSpan = SpanSerializer.endSpan(obsSpan, SpanStatus.ERROR);
+        endedObsSpan.statusMessage = `Circuit breaker open: ${errorMessage}`;
+        getMetricsAggregator().recordSpan(endedObsSpan);
+
+        return {
+          success: false,
+          error: errorMessage,
+          duration: Date.now() - startTime,
+        };
+      }
 
       mcpLogger.error(
         `[MCPClientFactory] Failed to create client for ${config.id}:`,

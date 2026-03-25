@@ -5,6 +5,7 @@
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import type { StructuredError } from "../types/utilities.js";
 import { logger } from "./logger.js";
+import { CircuitBreakerOpenError } from "../types/circuitBreakerErrors.js";
 
 // Error codes for different scenarios
 export const ERROR_CODES = {
@@ -909,19 +910,30 @@ export class CircuitBreaker {
   private failures = 0;
   private lastFailureTime = 0;
   private state: "closed" | "open" | "half-open" = "closed";
+  private name: string;
 
   constructor(
     private readonly failureThreshold: number = 5,
     private readonly resetTimeoutMs: number = 60000,
-  ) {}
+    name: string = "tool-execution",
+  ) {
+    this.name = name;
+  }
 
   async execute<T>(operation: () => Promise<T>): Promise<T> {
     if (this.state === "open") {
-      if (Date.now() - this.lastFailureTime > this.resetTimeoutMs) {
-        this.state = "half-open";
-      } else {
-        throw new Error("Circuit breaker is open - operation not executed");
+      const retryAfterMs =
+        this.resetTimeoutMs - (Date.now() - this.lastFailureTime);
+      if (retryAfterMs > 0) {
+        throw new CircuitBreakerOpenError({
+          breakerName: this.name,
+          retryAfter: new Date(this.lastFailureTime + this.resetTimeoutMs),
+          retryAfterMs,
+          breakerState: "open",
+          failureCount: this.failures,
+        });
       }
+      this.state = "half-open";
     }
 
     try {

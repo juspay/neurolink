@@ -8,7 +8,10 @@ import { EventEmitter } from "events";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { mcpLogger } from "../utils/logger.js";
-import { globalCircuitBreakerManager } from "./mcpCircuitBreaker.js";
+import {
+  globalCircuitBreakerManager,
+  CircuitBreakerOpenError,
+} from "./mcpCircuitBreaker.js";
 import type {
   ExternalMCPToolInfo,
   ExternalMCPToolResult,
@@ -565,6 +568,53 @@ export class ToolDiscoveryService extends EventEmitter {
       // Update tool statistics
       const toolKey = this.createToolKey(serverId, toolName);
       this.updateToolStats(toolKey, false, duration);
+
+      // Circuit breaker open errors: return a structured isError result with
+      // actionable details so AI models understand the tool is temporarily
+      // unavailable and should NOT retry until the cooldown expires.
+      if (error instanceof CircuitBreakerOpenError) {
+        mcpLogger.warn(
+          `[ToolDiscoveryService] Tool blocked by circuit breaker: ${toolName} on ${serverId}`,
+          {
+            breakerState: error.breakerState,
+            retryAfter: error.retryAfter,
+            retryAfterMs: error.retryAfterMs,
+            failureCount: error.failureCount,
+          },
+        );
+
+        return {
+          success: false,
+          error: error.message,
+          data: {
+            isError: true,
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  `TOOL TEMPORARILY UNAVAILABLE: "${toolName}" has been disabled after ` +
+                  `${error.failureCount} failures. ` +
+                  `This is a circuit breaker protection — do NOT retry this tool. ` +
+                  `It will become available again after ${Math.ceil(error.retryAfterMs / 1000)} seconds ` +
+                  `(at ${error.retryAfter}). ` +
+                  `Instead, inform the user that the operation failed and suggest trying again later.`,
+              },
+            ],
+          },
+          duration,
+          metadata: {
+            toolName,
+            serverId,
+            timestamp: Date.now(),
+            circuitBreaker: {
+              state: error.breakerState,
+              retryAfter: error.retryAfter,
+              retryAfterMs: error.retryAfterMs,
+              failureCount: error.failureCount,
+            },
+          },
+        };
+      }
 
       mcpLogger.error(
         `[ToolDiscoveryService] Tool execution failed: ${toolName}`,

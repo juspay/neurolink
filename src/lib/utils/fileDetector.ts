@@ -212,7 +212,7 @@ type DetectionStrategy = {
  * ```typescript
  * // Auto-detect and process any file
  * const result = await FileDetector.detectAndProcess("data.csv");
- * console.log(result.type); // 'csv'
+ * logger.info(result.type); // 'csv'
  * ```
  */
 export class FileDetector {

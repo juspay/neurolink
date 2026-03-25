@@ -61,6 +61,7 @@ export {
   CircuitBreakerManager,
   globalCircuitBreakerManager,
   MCPCircuitBreaker,
+  CircuitBreakerOpenError,
 } from "./mcpCircuitBreaker.js";
 // Core MCP Components
 export { MCPToolRegistry } from "./toolRegistry.js";

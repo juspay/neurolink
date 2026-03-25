@@ -516,6 +516,7 @@ export {
   isTokenExpired,
   listMCPs,
   // Circuit Breaker
+  CircuitBreakerOpenError,
   MCPCircuitBreaker,
   mcpLogger,
   NeuroLinkOAuthProvider,
