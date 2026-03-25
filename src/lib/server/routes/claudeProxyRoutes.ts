@@ -364,12 +364,11 @@ export function createClaudeProxyRoutes(
                 }
 
                 // Detect whether this is an API key or an OAuth token.
-                // API keys start with "sk-ant-" and must use x-api-key header.
-                const accountType: "oauth" | "api_key" = accessToken.startsWith(
-                  "sk-ant-",
-                )
-                  ? "api_key"
-                  : "oauth";
+                // Use the stored tokenType (set at auth time) rather than a
+                // prefix heuristic — both API keys (sk-ant-api03-…) and OAuth
+                // access tokens (sk-ant-oat01-…) share the "sk-ant-" prefix.
+                const accountType: "oauth" | "api_key" =
+                  tokens.tokenType === "Bearer" ? "oauth" : "api_key";
 
                 accounts.push({
                   key,
