@@ -1,3 +1,9 @@
+## [9.31.1](https://github.com/juspay/neurolink/compare/v9.31.0...v9.31.1) (2026-03-25)
+
+### Bug Fixes
+
+- **(proxy):** use stored tokenType instead of prefix heuristic for OAuth detection ([49b8db2](https://github.com/juspay/neurolink/commit/49b8db276e774dde30711603ac2d8632f1a3a0c7))
+
 ## [9.31.0](https://github.com/juspay/neurolink/compare/v9.30.0...v9.31.0) (2026-03-25)
 
 ### Features
