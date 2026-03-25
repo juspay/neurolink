@@ -925,6 +925,14 @@ const LINK_MAPPINGS: Record<string, string> = {
   "context-compaction.md": "/features/context-compaction",
   "thinking-configuration": "/features/thinking-configuration",
   "thinking-configuration.md": "/features/thinking-configuration",
+  "claude-proxy": "/features/claude-proxy",
+  "claude-proxy.md": "/features/claude-proxy",
+  "claude-proxy-architecture": "/features/claude-proxy-architecture",
+  "claude-proxy-architecture.md": "/features/claude-proxy-architecture",
+  "claude-proxy-config-reference": "/features/claude-proxy-config-reference",
+  "claude-proxy-config-reference.md": "/features/claude-proxy-config-reference",
+  "claude-proxy-troubleshooting": "/features/claude-proxy-troubleshooting",
+  "claude-proxy-troubleshooting.md": "/features/claude-proxy-troubleshooting",
 
   // Provider guides -> getting-started/providers
   "ollama-setup": "/getting-started/providers/ollama",

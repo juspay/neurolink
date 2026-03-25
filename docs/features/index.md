@@ -26,6 +26,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 | **[Memory](memory.md)**                                                | Per-user condensed memory that persists across conversations. LLM-powered condensation with S3, Redis, or SQLite storage backends.          |
 | **[Claude Subscription Support](claude-subscription.md)**              | Multiple authentication methods for Claude (API key, OAuth) with support for Free, Pro, Max, and API tiers.                                 |
 | **[Client SDK](client-sdk.md)**                                        | Type-safe HTTP, SSE, and WebSocket clients with React hooks and Vercel AI SDK adapter.                                                      |
+| **[Claude Proxy](claude-proxy.md)**                                    | Multi-account Claude proxy with OAuth pooling, rate-limit failover, token refresh, and launchd daemon for crash recovery.                   |
 
 **Q1 2026 Highlights:**
 

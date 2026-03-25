@@ -51,6 +51,10 @@ function clearProxyState(): void {
 
 const CLAUDE_SETTINGS_PATH = join(homedir(), ".claude", "settings.json");
 
+const PLIST_LABEL = "com.neurolink.proxy";
+const PLIST_DIR = join(homedir(), "Library", "LaunchAgents");
+const PLIST_PATH = join(PLIST_DIR, `${PLIST_LABEL}.plist`);
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -69,6 +73,73 @@ function getProcessStatus(pid: number): "running" | "not_running" | "unknown" {
     }
     return "not_running";
   }
+}
+
+/**
+ * Check if the launchd service is loaded and actively managing the proxy.
+ * Returns true if launchctl reports the service as running.
+ */
+async function isLaunchdManaging(): Promise<boolean> {
+  if (process.platform !== "darwin") {
+    return false;
+  }
+  try {
+    const { execFileSync } = await import("node:child_process");
+    const uid = process.getuid?.() ?? 501;
+    const output = execFileSync(
+      "launchctl",
+      ["print", `gui/${uid}/${PLIST_LABEL}`],
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
+    );
+    return /state\s*=\s*running/.test(output);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Attempt to restart the proxy via launchd kickstart.
+ * Returns true if the proxy comes back healthy within timeoutMs.
+ */
+async function tryLaunchdRestart(
+  host: string,
+  port: number,
+  timeoutMs: number = 15_000,
+): Promise<boolean> {
+  if (process.platform !== "darwin") {
+    return false;
+  }
+
+  try {
+    const { existsSync } = await import("fs");
+    if (!existsSync(PLIST_PATH)) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  try {
+    const { execFileSync } = await import("node:child_process");
+    const uid = process.getuid?.() ?? 501;
+    execFileSync(
+      "launchctl",
+      ["kickstart", "-k", `gui/${uid}/${PLIST_LABEL}`],
+      { stdio: "ignore", timeout: 5_000 },
+    );
+  } catch {
+    return false;
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await sleep(1_000);
+    if (await isProxyHealthy(host, port, 2_000)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /** Keys we manage in Claude Code's settings.env */
@@ -342,6 +413,24 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
         logger.always(
           chalk.yellow(
             "Stop it first or use 'neurolink proxy status' to inspect",
+          ),
+        );
+        process.exit(1);
+      }
+
+      // Guard: launchd is managing the service — don't start manually
+      if (await isLaunchdManaging()) {
+        if (spinner) {
+          spinner.fail(
+            chalk.red(
+              "Proxy is managed by launchd. Manual start would cause port conflicts.",
+            ),
+          );
+        }
+        logger.always(
+          chalk.yellow(
+            "Use 'neurolink proxy uninstall' to remove the service first, " +
+              "or 'launchctl kickstart gui/$(id -u)/com.neurolink.proxy' to restart.",
           ),
         );
         process.exit(1);
@@ -671,6 +760,7 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
         startTime: new Date().toISOString(),
         fallbackChain,
         guardPid,
+        managedBy: "manual",
       };
       saveProxyState(state);
 
@@ -779,17 +869,21 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
       // 7. Graceful shutdown
       // -----------------------------------------------------------------
 
-      const shutdown = async () => {
+      const shutdown = async (signal: string) => {
         clearInterval(refreshInterval);
         clearInterval(logCleanupInterval);
-        logger.always("\nShutting down proxy...");
+        logger.always(`\nShutting down proxy (${signal})...`);
 
-        // Remove proxy config from Claude Code settings
-        try {
-          const shutdownHost = host === "0.0.0.0" ? "localhost" : host;
-          await clearClaudeProxySettings(`http://${shutdownHost}:${port}`);
-        } catch {
-          /* non-fatal */
+        // Only clear Claude settings on user-initiated stop (SIGINT).
+        // On SIGTERM (launchd restart cycle), leave settings intact so
+        // the restarted proxy picks up seamlessly.
+        if (signal === "SIGINT") {
+          try {
+            const shutdownHost = host === "0.0.0.0" ? "localhost" : host;
+            await clearClaudeProxySettings(`http://${shutdownHost}:${port}`);
+          } catch {
+            /* non-fatal */
+          }
         }
 
         try {
@@ -803,11 +897,14 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
           // Best-effort close
         }
         clearProxyState();
-        process.exit(0);
+
+        // SIGINT = user pressed Ctrl+C → exit 0 (launchd won't restart)
+        // SIGTERM = launchd/system stop → exit 1 (launchd WILL restart)
+        process.exit(signal === "SIGINT" ? 0 : 1);
       };
 
-      process.on("SIGTERM", shutdown);
-      process.on("SIGINT", shutdown);
+      process.on("SIGTERM", () => shutdown("SIGTERM"));
+      process.on("SIGINT", () => shutdown("SIGINT"));
     } catch (error) {
       if (spinner) {
         spinner.fail(chalk.red("Failed to start proxy"));
@@ -1124,6 +1221,17 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
 
     const guardHost = host === "0.0.0.0" ? "localhost" : host;
     const expectedBaseUrl = `http://${guardHost}:${port}`;
+
+    // Attempt restart via launchd before falling back to cleanup
+    const restarted = await tryLaunchdRestart(guardHost, port);
+    if (restarted) {
+      if (!argv.quiet) {
+        logger.always(`[proxy] fail-open guard restarted proxy via launchd`);
+      }
+      return;
+    }
+
+    // Restart failed or launchd not installed — clean up Claude settings
     const cleared = await clearClaudeProxySettings(expectedBaseUrl);
 
     const state = loadProxyState();
@@ -1150,7 +1258,8 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
 
 export const proxySetupCommand: CommandModule = {
   command: "setup",
-  describe: "One-command setup: login + start proxy + configure Claude Code",
+  describe:
+    "One-command setup: login + install proxy as persistent service + configure Claude Code",
   builder: (yargs: Argv) => {
     return yargs
       .option("port", {
@@ -1165,11 +1274,24 @@ export const proxySetupCommand: CommandModule = {
         choices: ["oauth", "api-key"],
         description: "Auth method",
       })
+      .option("no-service", {
+        type: "boolean",
+        default: false,
+        description:
+          "Skip service installation and start proxy in foreground instead",
+      })
       .example("neurolink proxy setup", "Full setup with defaults")
-      .example("neurolink proxy setup -p 9000", "Setup on custom port") as Argv;
+      .example("neurolink proxy setup -p 9000", "Setup on custom port")
+      .example(
+        "neurolink proxy setup --no-service",
+        "Setup without installing as service",
+      ) as Argv;
   },
   handler: async (argv) => {
     console.info("\n" + chalk.bold("NeuroLink Proxy Setup\n"));
+
+    const port = (argv.port as number) ?? 55669;
+    const noService = argv["no-service"] as boolean;
 
     // Step 1: Check existing accounts
     console.info(chalk.blue("Step 1:") + " Checking accounts...");
@@ -1178,7 +1300,7 @@ export const proxySetupCommand: CommandModule = {
     const anthropicKeys = allKeys.filter(
       (k) => k.startsWith("anthropic:") || k === "anthropic",
     );
-    const validKeys = [];
+    const validKeys: string[] = [];
     for (const key of anthropicKeys) {
       const tokens = await tokenStore.loadTokens(key);
       if (tokens && (!tokens.expiresAt || tokens.expiresAt > Date.now())) {
@@ -1221,25 +1343,76 @@ export const proxySetupCommand: CommandModule = {
       console.info(chalk.green("  ✓ Authentication complete"));
     }
 
-    // Step 3: Start proxy
-    console.info(
-      chalk.blue(`\nStep ${validKeys.length > 0 ? 2 : 3}:`) +
-        " Starting proxy...",
-    );
-    // Delegate to proxy start handler
-    const { proxyStartCommand } = await import("./proxy.js");
-    // Call the handler directly with merged args
-    await (proxyStartCommand.handler as Function)({ ...argv, quiet: false });
+    // Step 3: Install as persistent service (macOS) or start foreground
+    const stepNum = validKeys.length > 0 ? 2 : 3;
+
+    if (!noService && process.platform === "darwin") {
+      console.info(
+        chalk.blue(`\nStep ${stepNum}:`) +
+          " Installing proxy as persistent service...",
+      );
+      await (proxyInstallCommand.handler as Function)({
+        ...argv,
+        port,
+        host: "127.0.0.1",
+      });
+
+      // Step 4: Configure Claude Code settings
+      const nextStep = stepNum + 1;
+      console.info(
+        chalk.blue(`\nStep ${nextStep}:`) + " Configuring Claude Code...",
+      );
+      const url = `http://127.0.0.1:${port}`;
+      try {
+        await setClaudeProxySettings(url);
+        console.info(chalk.green("  ✓ Claude Code configured"));
+      } catch (e) {
+        console.info(
+          chalk.yellow(
+            `  ⚠ Could not auto-configure: ${e instanceof Error ? e.message : String(e)}`,
+          ),
+        );
+        console.info(chalk.yellow(`  Set manually: ANTHROPIC_BASE_URL=${url}`));
+      }
+
+      // Done!
+      console.info("");
+      console.info(chalk.bold.green("Setup complete!"));
+      console.info(`  Proxy running as daemon on ${chalk.cyan(url)}`);
+      console.info(`  Auto-restarts on crash (5s throttle) and on login`);
+      console.info("");
+      console.info(chalk.gray("  Status:    neurolink proxy status"));
+      console.info(
+        chalk.gray("  Logs:      ~/.neurolink/logs/proxy-launchd-*.log"),
+      );
+      console.info(chalk.gray("  Uninstall: neurolink proxy uninstall"));
+      console.info("");
+    } else {
+      // Foreground mode (--no-service or non-macOS)
+      if (noService) {
+        console.info(
+          chalk.blue(`\nStep ${stepNum}:`) + " Starting proxy in foreground...",
+        );
+      } else {
+        console.info(chalk.blue(`\nStep ${stepNum}:`) + " Starting proxy...");
+        console.info(
+          chalk.yellow(
+            "  Note: No daemon support on this platform. Proxy runs in foreground.",
+          ),
+        );
+      }
+      // Delegate to proxy start handler — blocks until Ctrl+C
+      await (proxyStartCommand.handler as Function)({
+        ...argv,
+        quiet: false,
+      });
+    }
   },
 };
 
 // =============================================================================
 // PROXY INSTALL / UNINSTALL — launchd service (macOS)
 // =============================================================================
-
-const PLIST_LABEL = "com.neurolink.proxy";
-const PLIST_DIR = join(homedir(), "Library", "LaunchAgents");
-const PLIST_PATH = join(PLIST_DIR, `${PLIST_LABEL}.plist`);
 
 function buildPlist(port: number, host: string): string {
   const nodeExec = process.execPath;
@@ -1363,6 +1536,31 @@ export const proxyInstallCommand: CommandModule = {
     } catch (e) {
       console.info(chalk.red(`Failed to load service: ${e}`));
       process.exit(1);
+    }
+
+    // Wait briefly for launchd to start the process, then persist state
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    try {
+      const { execFileSync } = await import("node:child_process");
+      const uid = process.getuid?.() ?? 501;
+      const output = execFileSync(
+        "launchctl",
+        ["print", `gui/${uid}/${PLIST_LABEL}`],
+        { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
+      );
+      const pidMatch = output.match(/pid\s*=\s*(\d+)/);
+      if (pidMatch) {
+        saveProxyState({
+          pid: Number(pidMatch[1]),
+          port,
+          host,
+          strategy: "round-robin",
+          startTime: new Date().toISOString(),
+          managedBy: "launchd",
+        });
+      }
+    } catch {
+      /* non-fatal — state will be written by the proxy process itself */
     }
 
     console.info("");

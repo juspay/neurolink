@@ -133,6 +133,17 @@ const sidebars: SidebarsConfig = {
           items: [
             "features/claude-subscription",
             "features/claude-subscription-testing",
+            {
+              type: "category",
+              label: "Claude Proxy",
+              collapsed: true,
+              items: [
+                "features/claude-proxy",
+                "features/claude-proxy-architecture",
+                "features/claude-proxy-config-reference",
+                "features/claude-proxy-troubleshooting",
+              ],
+            },
             "features/real-time-services",
             "features/speech-agents",
           ],
