@@ -21,6 +21,7 @@ import {
   proxyInstallCommand,
   proxyUninstallCommand,
 } from "./commands/proxy.js";
+import { EvaluateCommandFactory } from "./commands/evaluate.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -253,5 +254,8 @@ export function initializeCliParser() {
             ),
         handler: () => {},
       })
+
+      // Evaluate Command Group - Using EvaluateCommandFactory
+      .command(EvaluateCommandFactory.createEvaluateCommand())
   ); // Close the main return statement
 }

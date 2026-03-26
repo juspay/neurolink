@@ -207,6 +207,8 @@ export * from "./hitlTypes.js";
 export * from "./middlewareTypes.js";
 // Model types - NEW
 export * from "./modelTypes.js";
+// Scorer types for evaluation system
+export * from "./scorerTypes.js";
 // SDK Types - Core types for external developers
 // Note: sdkTypes.ts uses selective re-exports internally, so we use wildcard here
 // The conflicts were from generateTypes and analytics which are now handled above
@@ -232,8 +234,53 @@ export * from "./ttsTypes.js";
 // Utilities Types - Utility module types (selective export to avoid conflicts)
 export * from "./utilities.js";
 
-// Workflow types
-export * from "./workflowTypes.js";
+// Workflow types (ScoreResult aliased to avoid collision with scorerTypes.ts ScoreResult)
+export type {
+  AggregatedUsage,
+  ConditioningConfig,
+  ConditionOptions,
+  ConditionResult,
+  EnsembleExecutionResult,
+  EnsembleResponse,
+  ExecuteEnsembleOptions,
+  ExecuteLayerOptions,
+  ExecuteModelOptions,
+  ExecutionConfig,
+  ExecutionStrategy,
+  JudgeConfig,
+  JudgeOutputFormat,
+  JudgeScores,
+  LayerExecutionResult,
+  ListOptions,
+  ModelGroup,
+  MultiJudgeScores,
+  ParsedJudgeResponse,
+  RegisterOptions,
+  RegisterResult,
+  RegistryEntry,
+  RegistryStats,
+  ScoreOptions,
+  ScoreResult as WorkflowScoreResult,
+  SummaryStats,
+  ToneAdjustment,
+  ValidationIssues,
+  WorkflowAnalytics,
+  WorkflowComparison,
+  WorkflowConfig,
+  WorkflowErrorDetails,
+  WorkflowEvaluationData,
+  WorkflowExecutionMetrics,
+  WorkflowGenerateOptions,
+  WorkflowInput,
+  WorkflowMetadata,
+  WorkflowModelConfig,
+  WorkflowResult,
+  WorkflowType,
+  WorkflowValidationError,
+  WorkflowValidationResult,
+  WorkflowValidationWarning,
+} from "./workflowTypes.js";
+export { WorkflowError } from "./workflowTypes.js";
 
 // Context compaction types
 export * from "./contextTypes.js";

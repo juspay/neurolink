@@ -40,6 +40,23 @@ export { GoogleTTSHandler } from "./adapters/tts/googleTTSHandler.js";
 // Config Manager export
 export { NeuroLinkConfigManager as ConfigManager } from "./config/configManager.js";
 
+// Core Infrastructure exports (Mastra-inspired patterns)
+export {
+  BaseFactory,
+  BaseRegistry,
+  NeuroLinkFeatureError,
+  createErrorFactory,
+  withRetry,
+  TypedEventEmitter,
+} from "./core/infrastructure/index.js";
+export type {
+  ErrorCode,
+  FactoryFunction,
+  FactoryRegistration,
+  RegistryEntry as CoreRegistryEntry,
+  RetryOptions,
+} from "./core/infrastructure/index.js";
+
 // ============================================================================
 // CLIENT SDK EXPORTS - Type-safe API access for browser and Node.js
 // Note: React hooks are NOT re-exported here. Import from '@juspay/neurolink/client'.
@@ -667,6 +684,7 @@ export type {
   ResourceSubscriptionCallback,
   // Registry Client types
   RegistryEntry,
+  RegistryEntry as MCPRegistryEntry,
   RegistrySearchOptions,
   RegistrySearchResult,
   RegistrySourceType,
@@ -768,6 +786,216 @@ export async function getTelemetryStatus(): Promise<{
 }> {
   return getStatus();
 }
+
+// ============================================================================
+// EVALUATION SYSTEM - Comprehensive Response Evaluation & Scoring
+// ============================================================================
+
+/**
+ * Evaluation System Exports
+ *
+ * A comprehensive evaluation framework for assessing AI response quality,
+ * with support for RAGAS-style metrics, custom scorers, and pipeline-based evaluation.
+ *
+ * @example
+ * ```typescript
+ * import {
+ *   Evaluator,
+ *   ScorerRegistry,
+ *   EvaluationPipeline,
+ *   createFaithfulnessScorer,
+ *   createAnswerRelevancyScorer,
+ * } from '@juspay/neurolink';
+ *
+ * // Create a pipeline with multiple scorers
+ * const pipeline = new EvaluationPipeline({
+ *   scorers: [
+ *     createFaithfulnessScorer({ model: 'gpt-4' }),
+ *     createAnswerRelevancyScorer({ model: 'gpt-4' }),
+ *   ],
+ * });
+ *
+ * // Run evaluation
+ * const result = await pipeline.evaluate({
+ *   question: 'What is quantum computing?',
+ *   answer: 'Quantum computing uses quantum mechanics...',
+ *   context: ['Quantum computing is a type of computation...'],
+ * });
+ * ```
+ */
+export {
+  // Main Evaluator
+  Evaluator,
+  // Factory and Registry (Mastra-inspired patterns)
+  BatchEvaluator,
+  EvaluationAggregator,
+  EvaluatorFactory,
+  getEvaluatorFactory,
+  EvaluatorRegistry,
+  getEvaluatorRegistry,
+  // Error utilities
+  EvaluationErrorCodes,
+  evaluationErrors,
+  isRetryableEvaluationError,
+  isEvaluationError,
+  createEvaluationFailedError,
+  createParseError,
+  createStrategyNotFoundError,
+  createProviderError,
+  createMaxRetriesExceededError,
+  createBatchEvaluationError,
+  createConfigurationError,
+  contextToErrorContext,
+  // Hooks
+  createLangfuseAdapter,
+  createMockLangfuseClient,
+  LangfuseAdapter,
+  startLangfuseAdapter,
+  createConsoleLoggerHook,
+  createMetricsCollectorHook,
+  ObservabilityHooks,
+  observabilityHooks,
+  pipelineToSpanAttributes,
+  scorerToSpanAttributes,
+  // Pipeline
+  createAndInitializePipeline,
+  createPipeline,
+  EvaluationPipeline,
+  PipelineBuilder,
+  Pipelines,
+  CODE_GENERATION_PIPELINE,
+  COMPREHENSIVE_PIPELINE,
+  CUSTOMER_SUPPORT_PIPELINE,
+  getPreset,
+  getPresetNames,
+  MINIMAL_PIPELINE,
+  PipelinePresets,
+  QUALITY_PIPELINE,
+  RAG_PIPELINE,
+  SAFETY_PIPELINE,
+  SUMMARIZATION_PIPELINE,
+  // Strategies
+  BatchStrategy,
+  createBatchStrategy,
+  evaluateBatch,
+  streamBatchEvaluation,
+  createSamplingStrategy,
+  DEFAULT_SAMPLING_CONFIG,
+  SamplingStrategies,
+  SamplingStrategy,
+  // Reporting
+  createMetricsCollector,
+  globalMetricsCollector,
+  MetricsCollector,
+  createReportGenerator,
+  ReportGenerator,
+  Reports,
+  // Scorers - Base
+  BaseScorer,
+  DEFAULT_SCORE_SCALE as EVAL_DEFAULT_SCORE_SCALE,
+  // Scorers - Custom utilities
+  composeScorers,
+  createConditionalScorer,
+  createFunctionScorer,
+  createInvertedScorer,
+  createKeywordScorer,
+  createRegexScorer,
+  createScorerMetadata,
+  createSimpleLengthScorer,
+  // Scorers - LLM-based
+  AnswerRelevancyScorer,
+  createAnswerRelevancyScorer,
+  BaseLLMScorer,
+  DEFAULT_LLM_SCORER_CONFIG,
+  BiasDetectionScorer,
+  createBiasDetectionScorer,
+  ContextPrecisionScorer,
+  createContextPrecisionScorer,
+  ContextRelevancyScorer,
+  createContextRelevancyScorer,
+  createFaithfulnessScorer,
+  FaithfulnessScorer,
+  createHallucinationScorer,
+  HallucinationScorer,
+  createPromptAlignmentScorer,
+  PromptAlignmentScorer,
+  createSummarizationScorer,
+  SummarizationScorer,
+  createToneConsistencyScorer,
+  ToneConsistencyScorer,
+  createToxicityScorer,
+  ToxicityScorer,
+  // Scorers - Rule-based
+  BaseRuleScorer,
+  DEFAULT_RULE_SCORER_CONFIG,
+  ContentSimilarityScorer,
+  createContentSimilarityScorer,
+  createFormatScorer,
+  FormatScorer,
+  FormatScorerPresets,
+  createKeywordCoverageScorer,
+  KeywordCoverageScorer,
+  createLengthScorer,
+  LengthScorer,
+  LengthScorerPresets,
+  // Scorers - Builder & Registry
+  ScorerBuilder,
+  Scorers,
+  ScorerRegistry,
+} from "./evaluation/index.js";
+
+export type {
+  // Hooks types
+  LangfuseAdapterConfig,
+  LangfuseClient,
+  EvaluationEvents,
+  EventHandler,
+  SpanAttributes as EvalSpanAttributes,
+  // Pipeline types
+  PipelineExecutionOptions,
+  PipelineResult,
+  // Reporting types
+  AggregatedMetrics,
+  PipelineMetrics,
+  ScorerMetrics,
+  GeneratedReport,
+  ReportData,
+  // Strategies types
+  BatchConfig as EvalBatchConfig,
+  BatchItemResult,
+  BatchProgress as PipelineBatchProgress,
+  BatchResult as EvalBatchResult,
+  // Scorers types
+  ScorerFunction,
+  ContentSimilarityConfig,
+  SimilarityMetric,
+  CodeLanguage,
+  FormatScorerConfig,
+  FormatType,
+  KeywordCoverageConfig,
+  LengthConstraintType,
+  LengthScorerConfig,
+  LengthUnit,
+  // Factory and Registry types (Mastra-inspired patterns)
+  BatchEvaluationConfig,
+  BatchProgress,
+  BatchEvaluationItem,
+  BatchEvaluationItemResult,
+  BatchEvaluationResult,
+  ScoreStatistics,
+  ScoreDistribution,
+  TrendAnalysis,
+  DimensionAnalysis,
+  AlertSummary,
+  AggregationResult,
+  EvaluatorPreset,
+  EvaluationStrategyFunction,
+  EvaluationStrategyConfig,
+  EvaluationStrategyMetadata,
+  // Error types
+  EvaluationErrorCode,
+  EvaluationErrorContext,
+} from "./evaluation/index.js";
 
 // ============================================================================
 // BACKWARD COMPATIBILITY: Legacy generateText Function Exports
@@ -1281,45 +1509,10 @@ export {
   WebLoader,
 } from "./rag/index.js";
 
-// ============================================================================
-// EVALUATION / SCORING - RAGAS-style Response Quality Evaluation
-// ============================================================================
-
+// Legacy RAGAS evaluation classes are now exported from the unified
+// evaluation block above (via ./evaluation/index.js barrel).
+// ContextBuilder is the only class not covered by the barrel export.
 export { ContextBuilder } from "./evaluation/contextBuilder.js";
-/**
- * Evaluation system for AI response quality assessment.
- *
- * Uses RAGAS-style model-based evaluation with a "judge" LLM to score
- * responses on relevance, accuracy, completeness, and overall quality.
- * Supports retry logic with progressive prompt improvement.
- *
- * @example
- * ```typescript
- * import { Evaluator, RAGASEvaluator, ContextBuilder, RetryManager } from '@juspay/neurolink';
- *
- * const evaluator = new Evaluator({
- *   evaluationModel: 'gemini-1.5-flash',
- *   provider: 'vertex',
- *   threshold: 7,
- * });
- * ```
- */
-export { Evaluator } from "./evaluation/index.js";
-export { PromptBuilder } from "./evaluation/prompts.js";
-export { RAGASEvaluator } from "./evaluation/ragasEvaluator.js";
-export { RetryManager } from "./evaluation/retryManager.js";
-export { mapToEvaluationData } from "./evaluation/scoring.js";
-
-// Evaluation types (re-exported from types/index.js via `export *`, but explicit for discoverability)
-export type {
-  EnhancedConversationTurn,
-  EnhancedEvaluationContext,
-  EvaluationConfig,
-  EvaluationResult,
-  GetPromptFunction,
-  QualityErrorDetails,
-  QueryIntentAnalysis,
-} from "./types/evaluationTypes.js";
 
 // ============================================================================
 // AUTHENTICATION PROVIDERS - Multi-provider Auth Integration

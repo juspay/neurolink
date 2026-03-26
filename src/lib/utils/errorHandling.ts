@@ -58,6 +58,12 @@ export const ERROR_CODES = {
   RATE_LIMITER_QUEUE_TIMEOUT: "RATE_LIMITER_QUEUE_TIMEOUT",
   RATE_LIMITER_RESET: "RATE_LIMITER_RESET",
 
+  // Evaluation errors
+  SCORER_NOT_FOUND: "SCORER_NOT_FOUND",
+  EVALUATION_VALIDATION_FAILED: "EVALUATION_VALIDATION_FAILED",
+  EVALUATION_TIMEOUT: "EVALUATION_TIMEOUT",
+  EVALUATION_EXECUTION_FAILED: "EVALUATION_EXECUTION_FAILED",
+
   // PPT validation errors
   MISSING_PPT_PROPERTIES: "MISSING_PPT_PROPERTIES",
   INVALID_PPT_PAGES: "INVALID_PPT_PAGES",
@@ -838,6 +844,78 @@ export class ErrorFactory {
           "Use 'bedrock' for AWS Bedrock (Claude, Llama, Nova, etc.)",
         ],
       },
+    });
+  }
+
+  // ============================================================================
+  // EVALUATION ERRORS
+  // ============================================================================
+
+  /**
+   * Create a scorer not found error
+   */
+  static scorerNotFound(
+    scorerId: string,
+    availableScorers?: string[],
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.SCORER_NOT_FOUND,
+      message: `Scorer '${scorerId}' not found. Use neurolink.getAvailableScorers() to see available scorers.`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: { scorerId, availableScorers },
+    });
+  }
+
+  /**
+   * Create an evaluation validation error
+   */
+  static evaluationValidationFailed(
+    scorerId: string,
+    errors: string[],
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.EVALUATION_VALIDATION_FAILED,
+      message: `Invalid input for scorer '${scorerId}': ${errors.join(", ")}`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: { scorerId, validationErrors: errors },
+    });
+  }
+
+  /**
+   * Create an evaluation timeout error
+   */
+  static evaluationTimeout(
+    operation: string,
+    timeoutMs: number,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.EVALUATION_TIMEOUT,
+      message: `Evaluation ${operation} timed out after ${timeoutMs}ms`,
+      category: ErrorCategory.TIMEOUT,
+      severity: ErrorSeverity.HIGH,
+      retriable: true,
+      context: { operation, timeoutMs },
+    });
+  }
+
+  /**
+   * Create an evaluation execution failed error
+   */
+  static evaluationExecutionFailed(
+    operation: string,
+    originalError: Error,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.EVALUATION_EXECUTION_FAILED,
+      message: `Evaluation ${operation} failed: ${originalError.message}`,
+      category: ErrorCategory.EXECUTION,
+      severity: ErrorSeverity.HIGH,
+      retriable: false,
+      originalError,
     });
   }
 }

@@ -11054,6 +11054,449 @@ Current user's request: ${currentInput}`;
     }
   }
 
+  // ========================================
+  // Evaluation & Scoring API
+  // ========================================
+
+  /**
+   * Create an evaluation pipeline with the specified configuration or preset.
+   * Pipelines orchestrate multiple scorers to evaluate AI responses comprehensively.
+   *
+   * @param configOrPreset - Pipeline configuration object or preset name
+   * @returns Initialized evaluation pipeline
+   *
+   * @example Using a preset
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   * const pipeline = await neurolink.createEvaluationPipeline('rag');
+   * const result = await pipeline.execute({
+   *   query: 'What is the capital of France?',
+   *   response: 'Paris is the capital of France.',
+   *   context: ['France is a country in Europe. Paris is its capital.']
+   * });
+   * console.log(result.overallScore, result.passed);
+   * ```
+   *
+   * @example Using custom configuration
+   * ```typescript
+   * const pipeline = await neurolink.createEvaluationPipeline({
+   *   name: 'custom-quality',
+   *   scorers: [
+   *     { id: 'toxicity', config: { threshold: 0.9 } },
+   *     { id: 'hallucination', config: { weight: 1.5 } },
+   *     { id: 'answer-relevancy' }
+   *   ],
+   *   aggregation: { method: 'weighted' },
+   *   passThreshold: 0.8
+   * });
+   * ```
+   */
+  async createEvaluationPipeline(
+    configOrPreset:
+      | import("./types/scorerTypes.js").PipelineConfig
+      | "safety"
+      | "rag"
+      | "quality"
+      | "comprehensive"
+      | "minimal"
+      | "summarization"
+      | "customerSupport"
+      | "codeGeneration",
+  ): Promise<
+    import("./evaluation/pipeline/evaluationPipeline.js").EvaluationPipeline
+  > {
+    const { EvaluationPipeline, getPreset } = await withTimeout(
+      import("./evaluation/pipeline/index.js"),
+      10000,
+      ErrorFactory.evaluationTimeout("evaluation module load", 10000),
+    );
+
+    let config: import("./types/scorerTypes.js").PipelineConfig;
+
+    if (typeof configOrPreset === "string") {
+      // It's a preset name
+      config = getPreset(configOrPreset);
+    } else {
+      // It's a custom configuration
+      config = configOrPreset;
+    }
+
+    const pipeline = new EvaluationPipeline(config);
+    // Note: withTimeout races the promise but does not abort in-flight LLM calls.
+    // Full AbortController propagation into pipeline/scorer internals is planned.
+    await withTimeout(
+      pipeline.initialize(),
+      30000,
+      ErrorFactory.evaluationTimeout("pipeline initialization", 30000),
+    );
+
+    logger.debug(
+      `[NeuroLink] Created evaluation pipeline: ${config.name ?? "custom"}`,
+    );
+
+    return pipeline;
+  }
+
+  /**
+   * Evaluate an AI response using the specified pipeline or scorers.
+   * This is a convenience method that creates a pipeline and executes it in one call.
+   *
+   * @param input - Scorer input containing query, response, and optional context
+   * @param options - Evaluation options including pipeline preset or custom scorers
+   * @returns Evaluation pipeline result with scores and pass/fail status
+   *
+   * @example Using a preset
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   * const result = await neurolink.evaluate(
+   *   {
+   *     query: 'Explain quantum computing',
+   *     response: 'Quantum computing uses qubits...'
+   *   },
+   *   { pipeline: 'quality' }
+   * );
+   * console.log(`Score: ${result.overallScore}, Passed: ${result.passed}`);
+   * ```
+   *
+   * @example Using specific scorers
+   * ```typescript
+   * const result = await neurolink.evaluate(
+   *   {
+   *     query: 'What causes rain?',
+   *     response: 'Rain is caused by water vapor...',
+   *     context: ['The water cycle involves evaporation...']
+   *   },
+   *   { scorers: ['hallucination', 'faithfulness', 'answer-relevancy'] }
+   * );
+   * ```
+   *
+   * @example Full RAG evaluation
+   * ```typescript
+   * const result = await neurolink.evaluate(
+   *   {
+   *     query: 'Who wrote Hamlet?',
+   *     response: 'Shakespeare wrote Hamlet in 1600.',
+   *     context: ['William Shakespeare wrote Hamlet around 1600-1601.'],
+   *     groundTruth: 'William Shakespeare'
+   *   },
+   *   { pipeline: 'rag' }
+   * );
+   * ```
+   */
+  async evaluate(
+    input: import("./types/scorerTypes.js").ScorerInput,
+    options?: {
+      /** Pipeline preset to use */
+      pipeline?:
+        | "safety"
+        | "rag"
+        | "quality"
+        | "comprehensive"
+        | "minimal"
+        | "summarization"
+        | "customerSupport"
+        | "codeGeneration";
+      /** Specific scorers to use (alternative to pipeline) */
+      scorers?: string[];
+      /** Pass threshold override (0-1) */
+      passThreshold?: number;
+      /** Execution mode */
+      executionMode?: "parallel" | "sequential";
+      /** Correlation ID for tracing */
+      correlationId?: string;
+      /** Overall evaluation timeout in milliseconds */
+      timeoutMs?: number;
+    },
+  ): Promise<
+    import("./evaluation/pipeline/evaluationPipeline.js").PipelineResult
+  > {
+    const { EvaluationPipeline, getPreset } = await withTimeout(
+      import("./evaluation/pipeline/index.js"),
+      10000,
+      ErrorFactory.evaluationTimeout("evaluation module load", 10000),
+    );
+
+    let config: import("./types/scorerTypes.js").PipelineConfig;
+
+    // Fail fast on conflicting or empty evaluator selection
+    if (options?.pipeline && options?.scorers) {
+      throw new Error(
+        "Cannot specify both 'pipeline' and 'scorers' options. Use one or the other.",
+      );
+    }
+    if (options?.scorers && options.scorers.length === 0) {
+      throw new Error(
+        "The 'scorers' array must not be empty. Provide at least one scorer ID or omit the option to use the default 'quality' preset.",
+      );
+    }
+
+    if (options?.pipeline) {
+      // Use preset
+      config = { ...getPreset(options.pipeline) };
+    } else if (options?.scorers && options.scorers.length > 0) {
+      // Use custom scorers
+      config = {
+        name: "SDK Evaluation",
+        description: "Evaluation from NeuroLink SDK",
+        scorers: options.scorers.map((id) => ({ id })),
+        executionMode: options.executionMode ?? "parallel",
+        passThreshold: options.passThreshold ?? 0.7,
+      };
+    } else {
+      // Default to quality preset
+      config = getPreset("quality");
+    }
+
+    // Apply overrides
+    if (options?.passThreshold !== undefined) {
+      config.passThreshold = options.passThreshold;
+    }
+    if (options?.executionMode !== undefined) {
+      config.executionMode = options.executionMode;
+    }
+
+    const pipeline = new EvaluationPipeline(config);
+    await withTimeout(
+      pipeline.initialize(),
+      30000,
+      ErrorFactory.evaluationTimeout("pipeline initialization", 30000),
+    );
+
+    const executionTimeoutMs = options?.timeoutMs ?? 60000;
+    const result = await withTimeout(
+      pipeline.execute(input, {
+        correlationId: options?.correlationId,
+      }),
+      executionTimeoutMs,
+      ErrorFactory.evaluationTimeout("pipeline execution", executionTimeoutMs),
+    );
+
+    logger.debug(`[NeuroLink] Evaluation completed`, {
+      pipeline: config.name,
+      overallScore: result.overallScore,
+      passed: result.passed,
+      scorerCount: result.scores.length,
+    });
+
+    return result;
+  }
+
+  /**
+   * Score a response using a single scorer.
+   * Useful for quick, targeted evaluations without the overhead of a full pipeline.
+   *
+   * @param scorerId - The ID of the scorer to use (e.g., 'toxicity', 'hallucination')
+   * @param input - Scorer input containing query, response, and optional context
+   * @param config - Optional scorer configuration overrides
+   * @returns Score result with value, reasoning, and pass/fail status
+   *
+   * @example Basic scoring
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   * const result = await neurolink.score('toxicity', {
+   *   query: '',
+   *   response: 'This is a helpful response about cooking recipes.'
+   * });
+   * console.log(`Toxicity Score: ${result.score}/10, Passed: ${result.passed}`);
+   * ```
+   *
+   * @example Hallucination detection
+   * ```typescript
+   * const result = await neurolink.score('hallucination', {
+   *   query: 'What year was the Eiffel Tower built?',
+   *   response: 'The Eiffel Tower was built in 1889.',
+   *   context: ['The Eiffel Tower was constructed from 1887-1889.']
+   * });
+   * console.log(`Score: ${result.score}, Reasoning: ${result.reasoning}`);
+   * ```
+   *
+   * @example With custom threshold
+   * ```typescript
+   * const result = await neurolink.score(
+   *   'faithfulness',
+   *   {
+   *     query: 'Summarize the article',
+   *     response: 'The article discusses...',
+   *     context: ['Article content here...']
+   *   },
+   *   { threshold: 0.85, weight: 1.5 }
+   * );
+   * ```
+   */
+  async score(
+    scorerId: string,
+    input: import("./types/scorerTypes.js").ScorerInput,
+    config?: import("./types/scorerTypes.js").ScorerConfig,
+  ): Promise<import("./types/scorerTypes.js").ScoreResult> {
+    const { ScorerRegistry } = await withTimeout(
+      import("./evaluation/scorers/index.js"),
+      10000,
+      ErrorFactory.evaluationTimeout("scorer module load", 10000),
+    );
+
+    // Ensure built-in scorers are registered
+    await withTimeout(
+      ScorerRegistry.registerBuiltInScorers(),
+      30000,
+      ErrorFactory.evaluationTimeout("scorer bootstrap", 30000),
+    );
+
+    // Get the scorer
+    const scorer = await withTimeout(
+      ScorerRegistry.getScorer(scorerId, config),
+      30000,
+      ErrorFactory.evaluationTimeout(`scorer load: ${scorerId}`, 30000),
+    );
+
+    if (!scorer) {
+      throw ErrorFactory.scorerNotFound(scorerId);
+    }
+
+    // Validate input
+    const validation = scorer.validateInput(input);
+    if (!validation.valid) {
+      throw ErrorFactory.evaluationValidationFailed(
+        scorerId,
+        validation.errors,
+      );
+    }
+
+    // Execute scoring
+    const result = await withTimeout(
+      scorer.score(input),
+      60000,
+      ErrorFactory.evaluationTimeout("scorer execution", 60000),
+    );
+
+    logger.debug(`[NeuroLink] Scoring completed`, {
+      scorerId,
+      score: result.score,
+      passed: result.passed,
+      computeTime: result.computeTime,
+    });
+
+    return result;
+  }
+
+  /**
+   * Get a list of all available scorers and their metadata.
+   * Useful for discovering what evaluation capabilities are available.
+   *
+   * @param options - Filter options
+   * @returns Array of scorer metadata
+   *
+   * @example List all scorers
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   * const scorers = await neurolink.getAvailableScorers();
+   * for (const scorer of scorers) {
+   *   console.log(`${scorer.id}: ${scorer.description} (${scorer.type})`);
+   * }
+   * ```
+   *
+   * @example Filter by category
+   * ```typescript
+   * const safetyScorers = await neurolink.getAvailableScorers({
+   *   category: 'safety'
+   * });
+   * console.log('Safety scorers:', safetyScorers.map(s => s.id));
+   * ```
+   *
+   * @example Filter by type
+   * ```typescript
+   * const ruleBasedScorers = await neurolink.getAvailableScorers({
+   *   type: 'rule'
+   * });
+   * ```
+   */
+  async getAvailableScorers(options?: {
+    /** Filter by category */
+    category?: import("./types/scorerTypes.js").ScorerCategory;
+    /** Filter by type */
+    type?: import("./types/scorerTypes.js").ScorerType;
+  }): Promise<import("./types/scorerTypes.js").ScorerMetadata[]> {
+    const { ScorerRegistry } = await withTimeout(
+      import("./evaluation/scorers/index.js"),
+      10000,
+      ErrorFactory.evaluationTimeout("scorer module load", 10000),
+    );
+
+    // Ensure built-in scorers are registered
+    await withTimeout(
+      ScorerRegistry.registerBuiltInScorers(),
+      30000,
+      ErrorFactory.evaluationTimeout("scorer bootstrap", 30000),
+    );
+
+    let scorers = ScorerRegistry.list();
+
+    // Apply filters
+    if (options?.category) {
+      scorers = scorers.filter((s) => s.category === options.category);
+    }
+    if (options?.type) {
+      scorers = scorers.filter((s) => s.type === options.type);
+    }
+
+    return scorers;
+  }
+
+  /**
+   * Get a list of available evaluation pipeline presets.
+   * Presets are pre-configured pipelines for common evaluation scenarios.
+   *
+   * @returns Array of preset names
+   *
+   * @example
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   * const presets = await neurolink.getEvaluationPresets();
+   * console.log('Available presets:', presets);
+   * // Output: ['safety', 'rag', 'quality', 'comprehensive', 'minimal', ...]
+   * ```
+   */
+  async getEvaluationPresets(): Promise<string[]> {
+    const { getPresetNames } = await withTimeout(
+      import("./evaluation/pipeline/index.js"),
+      10000,
+      ErrorFactory.evaluationTimeout("evaluation module load", 10000),
+    );
+    return getPresetNames();
+  }
+
+  /**
+   * Get details of a specific evaluation preset.
+   *
+   * @param presetName - Name of the preset
+   * @returns Pipeline configuration for the preset
+   *
+   * @example
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   * const ragPreset = await neurolink.getEvaluationPreset('rag');
+   * console.log('RAG preset scorers:', ragPreset.scorers.map(s => s.id));
+   * console.log('Pass threshold:', ragPreset.passThreshold);
+   * ```
+   */
+  async getEvaluationPreset(
+    presetName:
+      | "safety"
+      | "rag"
+      | "quality"
+      | "comprehensive"
+      | "minimal"
+      | "summarization"
+      | "customerSupport"
+      | "codeGeneration",
+  ): Promise<import("./types/scorerTypes.js").PipelineConfig> {
+    const { getPreset } = await withTimeout(
+      import("./evaluation/pipeline/index.js"),
+      10000,
+      ErrorFactory.evaluationTimeout("evaluation module load", 10000),
+    );
+    return getPreset(presetName);
+  }
+
   /**
    * Dispose of all resources and cleanup connections
    * Call this method when done using the NeuroLink instance to prevent resource leaks

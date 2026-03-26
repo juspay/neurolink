@@ -3,17 +3,63 @@
  */
 
 import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
-import type { GenerateResult } from "../types/generateTypes.js";
+import type { EvaluationData } from "../types/evaluation.js";
 import type {
-  EvaluationResult,
-  EvaluationConfig,
   EnhancedEvaluationContext,
+  EvaluationConfig,
+  EvaluationResult,
 } from "../types/evaluationTypes.js";
+import type { GenerateResult } from "../types/generateTypes.js";
+import type { AutoEvaluationConfig } from "../types/middlewareTypes.js";
 import { ContextBuilder } from "./contextBuilder.js";
 import { RAGASEvaluator } from "./ragasEvaluator.js";
 import { mapToEvaluationData } from "./scoring.js";
-import type { AutoEvaluationConfig } from "../types/middlewareTypes.js";
-import type { EvaluationData } from "../types/evaluation.js";
+
+// Re-export errors
+export * from "./errors/index.js";
+
+// Re-export hooks
+export * from "./hooks/index.js";
+
+// Re-export pipeline
+export * from "./pipeline/index.js";
+// Re-export reporting
+export * from "./reporting/index.js";
+// Re-export scorers
+export * from "./scorers/index.js";
+
+// Re-export Factory and Registry (Mastra-inspired patterns)
+export {
+  BatchEvaluator,
+  type BatchEvaluationConfig,
+  type BatchEvaluationItem,
+  type BatchEvaluationItemResult,
+  type BatchEvaluationResult,
+} from "./BatchEvaluator.js";
+
+export {
+  EvaluationAggregator,
+  type ScoreStatistics,
+  type ScoreDistribution,
+  type TrendAnalysis,
+  type DimensionAnalysis,
+  type AlertSummary,
+  type AggregationResult,
+} from "./EvaluationAggregator.js";
+
+export {
+  EvaluatorFactory,
+  getEvaluatorFactory,
+  type EvaluatorPreset,
+} from "./EvaluatorFactory.js";
+
+export {
+  EvaluatorRegistry,
+  getEvaluatorRegistry,
+  type EvaluationStrategyFunction,
+  type EvaluationStrategyConfig,
+  type EvaluationStrategyMetadata,
+} from "./EvaluatorRegistry.js";
 
 /**
  * A centralized class for performing response evaluations. It supports different
