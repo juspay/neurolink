@@ -87,6 +87,8 @@ function redactSensitiveHeaders(
 /** Fill-first: index of the current primary account. Only advances when
  *  the current account hits a 429 or auth failure that puts it on cooldown. */
 let primaryAccountIndex = 0;
+/** Track account count so we can reset primaryAccountIndex when it changes. */
+let lastKnownAccountCount = 0;
 
 const MAX_AUTH_RETRIES = 5;
 const MAX_CONSECUTIVE_REFRESH_FAILURES = 15;
@@ -95,9 +97,10 @@ const MAX_CONSECUTIVE_REFRESH_FAILURES = 15;
 const AUTH_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes for 401
 const RATE_LIMIT_BACKOFF_BASE_MS = 1000; // 1 second base for 429
 const RATE_LIMIT_BACKOFF_CAP_MS = 10 * 60 * 1000; // 10 minute cap for 429
-/** Timeout for upstream requests to Anthropic. Generous to allow long-running
- *  streaming responses to start, but prevents infinite hangs. */
-const UPSTREAM_FETCH_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+/** Timeout for upstream requests to Anthropic. Must be generous enough
+ *  to cover the full lifecycle of streaming responses, including extended
+ *  thinking from Opus models (which can exceed 5 minutes for large contexts). */
+const UPSTREAM_FETCH_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 const accountRuntimeState = new Map<string, RuntimeAccountState>();
 
@@ -461,6 +464,17 @@ export function createClaudeProxyRoutes(
               // - round-robin: rotate the starting index on every request
               //   so traffic is spread evenly across accounts.
               const orderedAccounts = [...enabledAccounts];
+              // Reset round-robin index when account list size changes
+              // (e.g. a new account was authenticated while the proxy was running).
+              // Only applies to round-robin; fill-first uses primaryAccountIndex
+              // as a sticky primary and should not be disrupted.
+              if (
+                accountStrategy === "round-robin" &&
+                orderedAccounts.length !== lastKnownAccountCount
+              ) {
+                primaryAccountIndex = 0;
+                lastKnownAccountCount = orderedAccounts.length;
+              }
               if (orderedAccounts.length > 1) {
                 if (accountStrategy === "round-robin") {
                   // Advance the index on every request for even distribution
@@ -760,12 +774,20 @@ export function createClaudeProxyRoutes(
                         // eslint-disable-next-line max-depth
                         if (body.stream && retryResp.body) {
                           const retryReader = retryResp.body.getReader();
+                          let retryStreamClosed = false;
                           const retryStream = new ReadableStream({
                             async pull(controller) {
+                              if (retryStreamClosed) {
+                                return;
+                              }
                               try {
                                 const { done, value } =
                                   await retryReader.read();
+                                if (retryStreamClosed) {
+                                  return;
+                                }
                                 if (done) {
+                                  retryStreamClosed = true;
                                   controller.close();
                                   return;
                                 }
@@ -786,14 +808,18 @@ export function createClaudeProxyRoutes(
                                   errorMessage: errMsg,
                                   durationMs: Date.now() - fetchStartMs,
                                 });
-                                const errorEvent = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message: `Upstream stream interrupted: ${errMsg}` } })}\n\n`;
-                                controller.enqueue(
-                                  new TextEncoder().encode(errorEvent),
-                                );
-                                controller.close();
+                                if (!retryStreamClosed) {
+                                  retryStreamClosed = true;
+                                  const errorEvent = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message: `Upstream stream interrupted: ${errMsg}` } })}\n\n`;
+                                  controller.enqueue(
+                                    new TextEncoder().encode(errorEvent),
+                                  );
+                                  controller.close();
+                                }
                               }
                             },
                             cancel() {
+                              retryStreamClosed = true;
                               retryReader.cancel();
                             },
                           });
@@ -1177,14 +1203,22 @@ export function createClaudeProxyRoutes(
                     }
 
                     // Stream is valid — create a new ReadableStream with first chunk prepended.
+                    let mainStreamClosed = false;
                     const remainingStream = new ReadableStream({
                       start(controller) {
                         controller.enqueue(firstChunk.value);
                       },
                       async pull(controller) {
+                        if (mainStreamClosed) {
+                          return;
+                        }
                         try {
                           const { done, value } = await reader.read();
+                          if (mainStreamClosed) {
+                            return;
+                          }
                           if (done) {
+                            mainStreamClosed = true;
                             controller.close();
                             return;
                           }
@@ -1207,14 +1241,18 @@ export function createClaudeProxyRoutes(
                           });
                           // Send SSE error event so the client gets a meaningful error
                           // instead of a raw connection drop
-                          const errorEvent = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message: `Upstream stream interrupted: ${errMsg}` } })}\n\n`;
-                          controller.enqueue(
-                            new TextEncoder().encode(errorEvent),
-                          );
-                          controller.close();
+                          if (!mainStreamClosed) {
+                            mainStreamClosed = true;
+                            const errorEvent = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message: `Upstream stream interrupted: ${errMsg}` } })}\n\n`;
+                            controller.enqueue(
+                              new TextEncoder().encode(errorEvent),
+                            );
+                            controller.close();
+                          }
                         }
                       },
                       cancel() {
+                        mainStreamClosed = true;
                         reader.cancel();
                       },
                     });

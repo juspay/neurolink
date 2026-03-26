@@ -402,20 +402,29 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
     try {
       // Guard: proxy already running
       const existingState = loadProxyState();
-      if (existingState && isProcessRunning(existingState.pid)) {
-        if (spinner) {
-          spinner.fail(
-            chalk.red(
-              `Proxy already running on port ${existingState.port} (PID: ${existingState.pid})`,
+      if (existingState) {
+        if (isProcessRunning(existingState.pid)) {
+          if (spinner) {
+            spinner.fail(
+              chalk.red(
+                `Proxy already running on port ${existingState.port} (PID: ${existingState.pid})`,
+              ),
+            );
+          }
+          logger.always(
+            chalk.yellow(
+              "Stop it first or use 'neurolink proxy status' to inspect",
             ),
           );
+          // Exit cleanly when managed by launchd so it doesn't treat this
+          // as a crash and spam-restart every ThrottleInterval seconds.
+          // For manual invocations, use non-zero so scripts/CI detect failure.
+          process.exit(process.ppid === 1 ? 0 : 1);
+        } else {
+          // Stale state file from a previous process that is no longer running.
+          // Clear it so subsequent startup logic doesn't get confused.
+          clearProxyState();
         }
-        logger.always(
-          chalk.yellow(
-            "Stop it first or use 'neurolink proxy status' to inspect",
-          ),
-        );
-        process.exit(1);
       }
 
       // Guard: launchd is managing the service — don't start manually.
@@ -435,6 +444,9 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
               "or 'launchctl kickstart gui/$(id -u)/com.neurolink.proxy' to restart.",
           ),
         );
+        // This guard only runs for manual invocations (ppid !== 1),
+        // so launchd KeepAlive is unaffected. Use non-zero exit code
+        // so scripts/CI can detect that the proxy was not started.
         process.exit(1);
       }
 

@@ -35,7 +35,7 @@
     "preview": "vite preview",
     "prepare": "git rev-parse --git-dir > /dev/null 2>&1 && husky install || echo 'Skipping husky in non-git environment'",
     "prepack": "svelte-kit sync && svelte-package && pnpm run build:react-hooks && pnpm run build:cli && publint",
-    "build:react-hooks": "npx tsc --jsx react-jsx --module nodenext --moduleResolution nodenext --target esnext --esModuleInterop --skipLibCheck --outDir dist/client --declaration false src/lib/client/reactHooks.tsx",
+    "build:react-hooks": "npx tsc --jsx react-jsx --module nodenext --moduleResolution nodenext --target esnext --esModuleInterop --skipLibCheck --outDir dist --declaration false src/lib/client/reactHooks.tsx",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit --strict",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "modelServer": "tsx scripts/modelServer.ts",
