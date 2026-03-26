@@ -12,6 +12,8 @@ import { logger } from "../utils/logger.js";
 import { VertexAI } from "@google-cloud/vertexai";
 import { CSVProcessor } from "../utils/csvProcessor.js";
 import { shouldEnableBashTool } from "../utils/toolUtils.js";
+import { createSchedulerTools } from "../scheduler/schedulerTools.js";
+import type { TaskScheduler } from "../scheduler/taskScheduler.js";
 
 const MAX_OUTPUT_BYTES = 102400; // 100KB
 
@@ -1038,4 +1040,25 @@ export function validateToolStructure(): boolean {
     logger.error("❌ Tool validation failed:", error);
     return false;
   }
+}
+
+// --- Scheduler Tools Integration ---
+
+/** Singleton reference to the TaskScheduler, set by NeuroLink during initialization */
+let taskSchedulerRef: TaskScheduler | undefined;
+
+/**
+ * Set the TaskScheduler reference for scheduler tools.
+ * Called by NeuroLink constructor after TaskScheduler initialization.
+ */
+export function setTaskSchedulerRef(scheduler: TaskScheduler): void {
+  taskSchedulerRef = scheduler;
+}
+
+/**
+ * Get scheduler tools for task management.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getSchedulerTools(): Record<string, any> {
+  return createSchedulerTools(() => taskSchedulerRef);
 }

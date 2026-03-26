@@ -51,7 +51,7 @@ export class ToolsManager {
 
   constructor(
     private readonly providerName: AIProviderName,
-    private readonly directTools: Record<string, unknown>,
+    private readonly directToolsGetter: () => Record<string, unknown>,
     private readonly neurolink?: NeuroLink,
     private readonly utilities?: ToolUtilities,
   ) {
@@ -139,7 +139,7 @@ export class ToolsManager {
         logger.debug(
           `[ToolsManager] getAllTools called for ${this.providerName}`,
           {
-            directToolsCount: getKeyCount(this.directTools),
+            directToolsCount: getKeyCount(this.directToolsGetter()),
           },
         );
 
@@ -189,8 +189,8 @@ export class ToolsManager {
   /**
    * Get direct tools (built-in agent tools)
    */
-  getDirectTools(): Record<string, unknown> {
-    return this.directTools;
+  getDirectToolsList(): Record<string, unknown> {
+    return this.directToolsGetter();
   }
 
   /**
@@ -211,15 +211,20 @@ export class ToolsManager {
    * Process direct tools with event emission wrapping
    */
   private async processDirectTools(tools: Record<string, Tool>): Promise<void> {
-    if (!this.directTools || Object.keys(this.directTools).length === 0) {
+    if (
+      !this.directToolsGetter() ||
+      Object.keys(this.directToolsGetter()).length === 0
+    ) {
       return;
     }
 
     logger.debug(
-      `[ToolsManager] Loading ${Object.keys(this.directTools).length} direct tools`,
+      `[ToolsManager] Loading ${Object.keys(this.directToolsGetter()).length} direct tools`,
     );
 
-    for (const [toolName, directTool] of Object.entries(this.directTools)) {
+    for (const [toolName, directTool] of Object.entries(
+      this.directToolsGetter(),
+    )) {
       // Wrap the direct tool's execute function with event emission
       if (
         directTool &&

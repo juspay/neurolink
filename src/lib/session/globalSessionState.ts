@@ -134,7 +134,10 @@ export class GlobalSessionManager {
     }
   }
 
-  getOrCreateNeuroLink(): NeuroLink {
+  getOrCreateNeuroLink(options?: {
+    defaultProvider?: string;
+    defaultModel?: string;
+  }): NeuroLink {
     const session = this.getLoopSession();
     if (session) {
       return session.neurolinkInstance;
@@ -142,9 +145,18 @@ export class GlobalSessionManager {
 
     // Create new NeuroLink with observability config from environment (CLI usage)
     const observabilityConfig = buildObservabilityConfigFromEnv();
-    return new NeuroLink(
-      observabilityConfig ? { observability: observabilityConfig } : undefined,
-    );
+
+    // Default to litellm for scheduler if no provider specified
+    const schedulerProvider = options?.defaultProvider || "litellm";
+    const schedulerModel = options?.defaultModel || "kimi-latest";
+
+    return new NeuroLink({
+      ...(observabilityConfig ? { observability: observabilityConfig } : {}),
+      scheduler: {
+        defaultProvider: schedulerProvider,
+        defaultModel: schedulerModel,
+      },
+    });
   }
 
   getCurrentSessionId(): string | undefined {

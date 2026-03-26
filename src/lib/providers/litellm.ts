@@ -94,7 +94,9 @@ export class LiteLLMProvider extends BaseProvider {
       fetch: createProxyFetch(),
     });
 
-    this.model = customOpenAI(this.modelName || getDefaultLiteLLMModel());
+    // Use .chat() to force chat completions API instead of responses API
+    // AI SDK v6 defaults to Responses API, but LiteLLM only supports Chat Completions API
+    this.model = customOpenAI.chat(this.modelName || getDefaultLiteLLMModel());
 
     logger.debug("LiteLLM Provider initialized", {
       modelName: this.modelName,

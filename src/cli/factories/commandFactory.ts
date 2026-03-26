@@ -6,6 +6,7 @@ import type { Argv, CommandModule } from "yargs";
 import { ModelResolver } from "../../lib/models/modelResolver.js";
 import type { ChunkingStrategy } from "../../lib/rag/types.js";
 import { globalSession } from "../../lib/session/globalSessionState.js";
+import type { NeuroLink } from "../../lib/neurolink.js";
 import type {
   BaseCommandArgs,
   BatchCommandArgs,
@@ -2137,7 +2138,36 @@ export class CLICommandFactory {
       } catch (shutdownError) {
         logger.error("Error during SDK shutdown:", shutdownError);
       }
-      if (!globalSession.getCurrentSessionId()) {
+    }
+
+    // Check for active scheduled tasks before exiting (outside finally block)
+    if (!globalSession.getCurrentSessionId()) {
+      const hasActiveScheduledTasks = await sdk.hasActiveScheduledTasks();
+      if (hasActiveScheduledTasks) {
+        logger.info(
+          " Active scheduled tasks running. Press Ctrl+C to force exit.",
+        );
+        // Set up signal handlers for graceful shutdown
+        const gracefulShutdown = async () => {
+          logger.info("\n Shutting down gracefully...");
+          try {
+            await sdk.shutdown();
+            logger.info(" Shutdown complete");
+          } catch (error) {
+            logger.error(" Error during shutdown:", error);
+          }
+          process.exit(0);
+        };
+        process.on("SIGINT", gracefulShutdown);
+        process.on("SIGTERM", gracefulShutdown);
+        // Keep process alive with a heartbeat interval
+        const keepAlive = setInterval(() => {
+          // Heartbeat to keep Node.js event loop alive
+        }, 1000);
+        // Prevent keepAlive from keeping process alive after shutdown
+        process.on("exit", () => clearInterval(keepAlive));
+        // Don't exit - let the process stay alive
+      } else {
         process.exit();
       }
     }
@@ -2406,10 +2436,8 @@ export class CLICommandFactory {
       }
     }
 
-    if (!globalSession.getCurrentSessionId()) {
-      await CLICommandFactory.flushLangfuseTraces();
-      process.exit(0);
-    }
+    // Don't exit here - let the caller handle process lifecycle
+    // This allows scheduled task checks to happen after handleGenerateSuccess returns
   }
 
   /**
@@ -2608,6 +2636,32 @@ export class CLICommandFactory {
         isPPTMode,
         spinner,
       );
+
+      if (!globalSession.getCurrentSessionId()) {
+        await CLICommandFactory.flushLangfuseTraces();
+        const hasActiveScheduledTasks = await sdk.hasActiveScheduledTasks();
+        if (hasActiveScheduledTasks) {
+          logger.info(
+            " Active scheduled tasks running. Press Ctrl+C to force exit.",
+          );
+          const gracefulShutdown = async () => {
+            logger.info("\n Shutting down gracefully...");
+            try {
+              await sdk.shutdown();
+              logger.info(" Shutdown complete");
+            } catch (error) {
+              logger.error(" Error during shutdown:", error);
+            }
+            process.exit(0);
+          };
+          process.on("SIGINT", gracefulShutdown);
+          process.on("SIGTERM", gracefulShutdown);
+          const keepAlive = setInterval(() => {}, 1000);
+          process.on("exit", () => clearInterval(keepAlive));
+          return;
+        }
+        process.exit(0);
+      }
     } catch (error) {
       if (spinner) {
         spinner.fail();
@@ -2756,12 +2810,12 @@ export class CLICommandFactory {
    * Execute real streaming with timeout handling
    */
   private static async executeRealStream(
+    sdk: NeuroLink,
     argv: StreamCommandArgs,
     options: BaseCommandArgs & Record<string, unknown>,
     inputText: string,
     contextMetadata: Partial<BaseContext> | undefined,
   ): Promise<string> {
-    const sdk = globalSession.getOrCreateNeuroLink();
     const sessionVariables = globalSession.getSessionVariables();
     const enhancedOptions = { ...options, ...sessionVariables };
     const sessionId = globalSession.getCurrentSessionId();
@@ -3216,7 +3270,11 @@ export class CLICommandFactory {
         return;
       }
 
+      // Create SDK instance once and reuse for streaming and scheduled task check
+      const sdk = globalSession.getOrCreateNeuroLink();
+
       const fullContent = await CLICommandFactory.executeRealStream(
+        sdk,
         argv,
         options,
         inputText,
@@ -3227,6 +3285,31 @@ export class CLICommandFactory {
 
       if (!globalSession.getCurrentSessionId()) {
         await CLICommandFactory.flushLangfuseTraces();
+
+        // Check for active scheduled tasks before exiting
+        // Use the same sdk instance from executeRealStream
+        const hasActiveScheduledTasks = await sdk.hasActiveScheduledTasks();
+        if (hasActiveScheduledTasks) {
+          logger.info(
+            " Active scheduled tasks running. Press Ctrl+C to force exit.",
+          );
+          const gracefulShutdown = async () => {
+            logger.info("\n Shutting down gracefully...");
+            try {
+              await sdk.shutdown();
+              logger.info(" Shutdown complete");
+            } catch (error) {
+              logger.error(" Error during shutdown:", error);
+            }
+            process.exit(0);
+          };
+          process.on("SIGINT", gracefulShutdown);
+          process.on("SIGTERM", gracefulShutdown);
+          const keepAlive = setInterval(() => {}, 1000);
+          process.on("exit", () => clearInterval(keepAlive));
+          return;
+        }
+
         process.exit(0);
       }
     } catch (error) {
@@ -3393,6 +3476,30 @@ export class CLICommandFactory {
 
       if (!globalSession.getCurrentSessionId()) {
         await CLICommandFactory.flushLangfuseTraces();
+
+        // Check for active scheduled tasks before exiting (use same sdk instance from loop)
+        const hasActiveScheduledTasks = await sdk.hasActiveScheduledTasks();
+        if (hasActiveScheduledTasks) {
+          logger.info(
+            " Active scheduled tasks running. Press Ctrl+C to force exit.",
+          );
+          const gracefulShutdown = async () => {
+            logger.info("\n Shutting down gracefully...");
+            try {
+              await sdk.shutdown();
+              logger.info(" Shutdown complete");
+            } catch (error) {
+              logger.error(" Error during shutdown:", error);
+            }
+            process.exit(0);
+          };
+          process.on("SIGINT", gracefulShutdown);
+          process.on("SIGTERM", gracefulShutdown);
+          const keepAlive = setInterval(() => {}, 1000);
+          process.on("exit", () => clearInterval(keepAlive));
+          return;
+        }
+
         process.exit(0);
       }
     } catch (error) {

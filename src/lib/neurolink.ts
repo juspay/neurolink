@@ -221,6 +221,12 @@ import { resolveModel } from "./utils/modelAliasResolver.js";
 import { getWorkflow } from "./workflow/core/workflowRegistry.js";
 import { runWorkflow } from "./workflow/core/workflowRunner.js";
 import type { WorkflowConfig } from "./workflow/types.js";
+import {
+  createAndConfigureScheduler,
+  TaskScheduler,
+  type GenerateFunction,
+} from "./scheduler/taskScheduler.js";
+import type { TaskSchedulerConfig } from "./scheduler/types.js";
 
 /**
  * NL-002: Classify MCP error messages into categories for AI disambiguation.
@@ -745,6 +751,7 @@ export class NeuroLink {
    * @throws {Error} When HITL configuration is invalid (if enabled)
    */
   private observabilityConfig?: ObservabilityConfig;
+  private taskScheduler?: TaskScheduler;
   private metricsAggregator: MetricsAggregator = new MetricsAggregator();
   /**
    * Per-request metrics trace context backed by AsyncLocalStorage.
@@ -805,6 +812,7 @@ export class NeuroLink {
     this.initializeMCPEnhancements(config);
     this.registerFileTools();
     this.registerMemoryRetrievalTools();
+    this.initializeTaskScheduler(config?.scheduler);
     this.initializeLangfuse(
       constructorId,
       constructorStartTime,
@@ -1510,6 +1518,26 @@ Current user's request: ${currentInput}`;
       this.emitter.emit("externalMCP:toolRemoved", event);
       this.unregisterExternalMCPToolFromRegistry(event.toolName);
     });
+  }
+
+  /**
+   * Initialize the TaskScheduler for scheduled task execution.
+   * Wires up the task executor to call this.generate() with the task's prompt.
+   */
+  private initializeTaskScheduler(schedulerConfig?: TaskSchedulerConfig): void {
+    // Create the generate function wrapper
+    const generateFn: GenerateFunction = (options) =>
+      this.generate(options as GenerateOptions);
+
+    // Use the factory function to create and configure the scheduler
+    void createAndConfigureScheduler(generateFn, schedulerConfig).then(
+      (scheduler) => {
+        this.taskScheduler = scheduler;
+        if (scheduler) {
+          logger.debug("[NeuroLink] TaskScheduler initialized");
+        }
+      },
+    );
   }
 
   /**
@@ -2532,6 +2560,15 @@ Current user's request: ${currentInput}`;
         logger.warn("[NeuroLink] OpenTelemetry shutdown failed:", error);
       }
 
+      if (this.taskScheduler) {
+        try {
+          await this.taskScheduler.shutdown();
+          logger.debug("[NeuroLink] TaskScheduler shutdown completed");
+        } catch (error) {
+          logger.warn("[NeuroLink] TaskScheduler shutdown failed:", error);
+        }
+      }
+
       if (this.externalServerManager) {
         try {
           await this.externalServerManager.shutdown();
@@ -2559,6 +2596,18 @@ Current user's request: ${currentInput}`;
       logger.error("[NeuroLink] Shutdown failed:", error);
       throw error;
     }
+  }
+
+  /**
+   * Check if there are active scheduled tasks.
+   * Used by CLI to determine if process should stay alive.
+   */
+  async hasActiveScheduledTasks(): Promise<boolean> {
+    if (!this.taskScheduler) {
+      return false;
+    }
+    const tasks = await this.taskScheduler.listTasks();
+    return tasks.some((t: { status: string }) => t.status === "active");
   }
 
   /**

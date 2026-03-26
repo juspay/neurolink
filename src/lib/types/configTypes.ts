@@ -6,6 +6,7 @@
 import { MCPToolRegistry } from "../mcp/toolRegistry.js";
 import type { HITLConfig } from "../types/hitlTypes.js";
 import type { ConversationMemoryConfig } from "./conversation.js";
+import type { TaskSchedulerConfig } from "../scheduler/types.js";
 import type { ObservabilityConfig } from "./observability.js";
 import type { RoutingStrategy } from "../mcp/routing/index.js";
 import type { CacheStrategy } from "../mcp/caching/index.js";
@@ -47,6 +48,7 @@ export type NeurolinkConstructorConfig = {
   conversationMemory?: Partial<ConversationMemoryConfig>;
   enableOrchestration?: boolean;
   hitl?: HITLConfig;
+  scheduler?: TaskSchedulerConfig;
   toolRegistry?: MCPToolRegistry;
   observability?: ObservabilityConfig;
   modelAliasConfig?: import("./generateTypes.js").ModelAliasConfig;

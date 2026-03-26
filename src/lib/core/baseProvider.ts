@@ -1,7 +1,7 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { ModelMessage, LanguageModel, Tool } from "ai";
 import { generateText } from "ai";
-import { directAgentTools } from "../agent/directTools.js";
+import { directAgentTools, getSchedulerTools } from "../agent/directTools.js";
 import type { AIProviderName } from "../constants/enums.js";
 import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
 import type { EvaluationData } from "../index.js";
@@ -60,9 +60,12 @@ export abstract class BaseProvider implements AIProvider {
   protected middlewareOptions?: MiddlewareFactoryOptions; // TODO: Implement global level middlewares that can be used
 
   // Tools are conditionally included based on centralized configuration
-  protected readonly directTools = shouldDisableBuiltinTools()
-    ? {}
-    : directAgentTools;
+  // Use getter to ensure cron tools are available after NeuroLink initializes
+  protected get directTools() {
+    return shouldDisableBuiltinTools()
+      ? {}
+      : { ...directAgentTools, ...getSchedulerTools() };
+  }
   protected mcpTools?: Record<string, Tool>; // MCP tools loaded dynamically when available
   protected customTools?: Map<string, unknown>; // Custom tools from registerTool()
   protected toolExecutor?: (
@@ -133,7 +136,7 @@ export abstract class BaseProvider implements AIProvider {
     );
     this.toolsManager = new ToolsManager(
       this.providerName,
-      this.directTools,
+      () => this.directTools,
       this.neurolink,
       {
         isZodSchema: (schema) => this.isZodSchema(schema),

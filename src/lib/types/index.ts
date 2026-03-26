@@ -23,6 +23,18 @@ export type {
   RetryConfig,
   ToolConfig,
 } from "./configTypes.js";
+// Scheduler types
+export type {
+  TaskSchedulerConfig,
+  CreateTaskOptions,
+  ScheduledTask,
+  Schedule,
+  ScheduleType,
+  SessionMode,
+  TaskExecutor,
+  TaskStatus,
+  TaskRun,
+} from "../scheduler/types.js";
 // External MCP types
 export type {
   ExternalMCPConfigValidation,
