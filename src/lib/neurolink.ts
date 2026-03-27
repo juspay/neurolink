@@ -1293,6 +1293,56 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Determine whether memory should be read (retrieved) for this call.
+   * Respects both the global memory SDK config and per-call overrides.
+   */
+  private shouldReadMemory(
+    perCallMemory: { enabled?: boolean; read?: boolean } | undefined,
+    userId: unknown,
+  ): boolean {
+    if (
+      !this.conversationMemoryConfig?.conversationMemory?.memory?.enabled ||
+      !userId
+    ) {
+      return false;
+    }
+    if (perCallMemory?.enabled === false) {
+      return false;
+    }
+    if (perCallMemory?.read === false) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Determine whether memory should be written (stored) for this call.
+   * Respects both the global memory SDK config and per-call overrides.
+   */
+  private shouldWriteMemory(
+    perCallMemory: { enabled?: boolean; write?: boolean } | undefined,
+    userId: unknown,
+    content: string | undefined | null,
+  ): boolean {
+    if (
+      !this.conversationMemoryConfig?.conversationMemory?.memory?.enabled ||
+      !userId
+    ) {
+      return false;
+    }
+    if (!content?.trim()) {
+      return false;
+    }
+    if (perCallMemory?.enabled === false) {
+      return false;
+    }
+    if (perCallMemory?.write === false) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Retrieve condensed memory for a user.
    * Returns the input text enhanced with memory context, or unchanged if no memory.
    */
@@ -3546,9 +3596,12 @@ Current user's request: ${currentInput}`;
   ): void {
     // Memory storage
     if (
-      this.conversationMemoryConfig?.conversationMemory?.memory?.enabled &&
-      options.context?.userId &&
-      generateResult.content?.trim()
+      this.shouldWriteMemory(
+        options.memory,
+        options.context?.userId,
+        generateResult.content,
+      ) &&
+      options.context?.userId
     ) {
       this.storeMemoryInBackground(
         originalPrompt ?? "",
@@ -6110,7 +6163,7 @@ Current user's request: ${currentInput}`;
 
     // Memory retrieval
     if (
-      this.conversationMemoryConfig?.conversationMemory?.memory?.enabled &&
+      this.shouldReadMemory(options.memory, options.context?.userId) &&
       options.context?.userId
     ) {
       try {
@@ -6575,9 +6628,11 @@ Current user's request: ${currentInput}`;
     }
 
     if (
-      this.conversationMemoryConfig?.conversationMemory?.memory?.enabled &&
-      enhancedOptions.context?.userId &&
-      accumulatedContent?.trim()
+      this.shouldWriteMemory(
+        enhancedOptions.memory,
+        enhancedOptions.context?.userId,
+        accumulatedContent,
+      )
     ) {
       this.storeMemoryInBackground(
         originalPrompt ?? "",

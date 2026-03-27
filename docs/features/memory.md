@@ -279,7 +279,77 @@ For memory to activate on a call, all three conditions must be met:
 
 1. `memory.enabled` is `true` in the config
 2. `options.context.userId` is provided in the generate/stream call
-3. The response has non-empty content (for storage)
+3. The response has non-empty content (for write)
+
+### Per-Call Memory Control
+
+When memory is globally enabled, it is active for every `generate()` and `stream()` call by default. You can override this behavior on a **per-call basis** using the `memory` option without changing the global config.
+
+**Available flags:**
+
+| Flag      | Type    | Default | Description                                                        |
+| --------- | ------- | ------- | ------------------------------------------------------------------ |
+| `enabled` | boolean | `true`  | Master toggle — when `false`, both read and write are skipped      |
+| `read`    | boolean | `true`  | Whether to read past memory and prepend it to the prompt           |
+| `write`   | boolean | `true`  | Whether to write this conversation turn into memory after the call |
+
+> **Note:** These flags only take effect when the global memory SDK is enabled. If global memory is disabled, per-call flags have no effect.
+
+**Precedence:**
+
+1. **Global config** — Is memory enabled globally? If not, per-call flags are ignored.
+2. **`enabled`** — Master per-call toggle. If `false`, both read and write are skipped regardless of individual flags.
+3. **`read` / `write`** — Fine-grained control over individual operations.
+
+#### Read memory but don't write
+
+Use when you want past context but don't want this call stored — e.g., code review where you'll store a curated summary later.
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "Review this pull request for security issues" },
+  memory: { read: true, write: false },
+  context: { userId: "user-123" },
+});
+```
+
+#### Write memory but don't read
+
+Use for onboarding or seeding memory without injecting past context into the prompt.
+
+```typescript
+const result = await neurolink.generate({
+  input: {
+    text: "My name is Alice. I work on the payments team and use Python.",
+  },
+  memory: { read: false, write: true },
+  context: { userId: "user-123" },
+});
+```
+
+#### Skip memory entirely
+
+Use for operational or utility calls where memory adds noise.
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "Fetch the latest PR comments from GitHub" },
+  memory: { enabled: false },
+  context: { userId: "user-123" },
+});
+```
+
+#### Per-call control with stream()
+
+The same `memory` option works identically in `stream()`.
+
+```typescript
+const stream = await neurolink.stream({
+  input: { text: "Summarize today's standup notes" },
+  memory: { read: true, write: false },
+  context: { userId: "user-123" },
+});
+```
 
 ## Environment Variables
 

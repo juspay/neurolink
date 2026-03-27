@@ -463,6 +463,23 @@ export type GenerateOptions = {
 
   /** Raw auth token — validated by configured auth provider */
   auth?: { token: string };
+
+  /**
+   * Per-call memory control.
+   *
+   * Override the global memory SDK behavior for this specific call.
+   * All flags default to `true` when the global memory SDK is enabled.
+   * If the global memory SDK is disabled, these flags have no effect.
+   *
+   */
+  memory?: {
+    /** Master toggle for this call. When false, both read and write are skipped. Defaults to true. */
+    enabled?: boolean;
+    /** Whether to read condensed memory and prepend to prompt. Defaults to true. */
+    read?: boolean;
+    /** Whether to write (add/condense) the conversation into memory after completion. Defaults to true. */
+    write?: boolean;
+  };
 };
 
 /**
