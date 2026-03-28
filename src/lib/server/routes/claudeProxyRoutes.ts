@@ -41,6 +41,11 @@ import {
   refreshToken,
   persistTokens,
 } from "../../proxy/tokenRefresh.js";
+import {
+  saveHeaderSnapshot,
+  polyfillHeaders,
+} from "../../proxy/headerSnapshot.js";
+import { saveBodySnapshot, polyfillBody } from "../../proxy/bodySnapshot.js";
 import type {
   RuntimeAccountState,
   ProxyPassthroughAccount,
@@ -57,6 +62,8 @@ const SENSITIVE_HEADERS = new Set(["authorization", "x-api-key"]);
 const BLOCKED_UPSTREAM_HEADERS = new Set([
   "cookie",
   "proxy-authorization",
+  "authorization",
+  "x-api-key",
   "host",
   "connection",
   "content-length",
@@ -612,6 +619,36 @@ export function createClaudeProxyRoutes(
                     `${existingBetas},oauth-2025-04-20`;
                 }
 
+                // Decision 11: Polyfill missing headers from stored snapshots.
+                // If a non-Claude-Code client is missing fingerprint headers
+                // (x-stainless-*, x-app, etc.), inject them from a previously
+                // recorded snapshot for this account.
+                const polyfilled = await polyfillHeaders(account.key, headers);
+                if (polyfilled > 0) {
+                  logger.always(
+                    `[proxy] header-replay: polyfilled ${polyfilled} missing header(s) for account=${account.label}`,
+                  );
+                }
+
+                // Decision 11c: Polyfill body-level transforms from stored snapshots.
+                // OAuth accounts require billing header, agent block, and metadata.user_id
+                // in the body for sonnet/opus models. Record these from real Claude Code
+                // requests and replay on bare requests.
+                const bodyPolyfilled = await polyfillBody(
+                  account.key,
+                  body,
+                  account.token,
+                );
+                // Re-stringify if body was modified
+                const finalBodyStr = bodyPolyfilled
+                  ? JSON.stringify(body)
+                  : bodyStr;
+                if (bodyPolyfilled) {
+                  logger.always(
+                    `[proxy] body-replay: injected billing header + metadata for account=${account.label}`,
+                  );
+                }
+
                 logger.always(
                   `[proxy] → account=${account.label} (${account.type})`,
                 );
@@ -625,7 +662,7 @@ export function createClaudeProxyRoutes(
                   response = await fetch(url, {
                     method: "POST",
                     headers,
-                    body: bodyStr,
+                    body: finalBodyStr,
                     signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
                   });
                 } catch (fetchErr) {
@@ -1175,6 +1212,13 @@ export function createClaudeProxyRoutes(
                   responseHeaders: respHeaders,
                   durationMs: Date.now() - fetchStartMs,
                 });
+
+                // Decision 11b: Record headers and body transforms on successful
+                // response for future replay / polyfill.
+                if (response.status >= 200 && response.status < 300) {
+                  saveHeaderSnapshot(account.key, headers);
+                  saveBodySnapshot(account.key, body);
+                }
 
                 if (body.stream) {
                   // Bootstrap retry: read first chunk to verify stream is valid.

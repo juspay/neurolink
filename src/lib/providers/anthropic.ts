@@ -82,8 +82,33 @@ const ANTHROPIC_BETA_HEADERS = {
 // Re-export for backward compatibility
 export type { AnthropicProviderConfig } from "../types/providers.js";
 
+/**
+ * Check if ANTHROPIC_BASE_URL points to a local proxy.
+ * When routing through a proxy, the proxy handles auth — skip OAuth.
+ */
+const isProxyMode = (): boolean => {
+  const baseUrl = process.env.ANTHROPIC_BASE_URL;
+  if (!baseUrl) {
+    return false;
+  }
+  try {
+    const url = new URL(baseUrl);
+    return (
+      url.hostname === "127.0.0.1" ||
+      url.hostname === "localhost" ||
+      url.hostname === "0.0.0.0"
+    );
+  } catch {
+    return false;
+  }
+};
+
 // Configuration helpers - now using consolidated utility
 const getAnthropicApiKey = (): string => {
+  // In proxy mode, the proxy handles auth — no API key needed from the user.
+  if (isProxyMode()) {
+    return process.env.ANTHROPIC_API_KEY || "proxy-managed";
+  }
   return validateApiKey(createAnthropicConfig());
 };
 
@@ -215,6 +240,12 @@ const detectSubscriptionTier = (
 const detectAuthMethod = (
   oauthToken: OAuthToken | null,
 ): AnthropicAuthMethod => {
+  // When routing through a local proxy, use api_key mode —
+  // the proxy handles OAuth auth, header polyfill, and body polyfill.
+  if (isProxyMode()) {
+    logger.debug("[detectAuthMethod] Proxy mode detected, using api_key auth");
+    return "api_key";
+  }
   // OAuth takes precedence if available
   const method: AnthropicAuthMethod = oauthToken ? "oauth" : "api_key";
   logger.debug("[detectAuthMethod] Auth method resolved", {
