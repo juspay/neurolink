@@ -1,3 +1,9 @@
+## [9.35.0](https://github.com/juspay/neurolink/compare/v9.34.0...v9.35.0) (2026-03-28)
+
+### Features
+
+- **(proxy):** add auto-update with traffic-aware graceful restart ([e0ea718](https://github.com/juspay/neurolink/commit/e0ea71891f51cf3d0f1f4fbc0044efc839359eaf))
+
 ## [9.34.0](https://github.com/juspay/neurolink/compare/v9.33.0...v9.34.0) (2026-03-27)
 
 ### Features
