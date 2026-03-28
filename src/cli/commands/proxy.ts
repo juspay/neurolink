@@ -359,9 +359,9 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
       .option("strategy", {
         type: "string",
         alias: "s",
-        choices: ["round-robin", "fill-first"],
+        choices: ["fill-first", "round-robin"],
         description:
-          "Account selection strategy for routing requests (default: round-robin)",
+          "Account selection strategy for routing requests (default: fill-first)",
       })
       .option("health-interval", {
         type: "number",
@@ -389,11 +389,11 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
       })
       .example(
         "neurolink proxy start",
-        "Start proxy on default port 55669 with round-robin strategy",
+        "Start proxy on default port 55669 with fill-first strategy",
       )
       .example(
-        "neurolink proxy start -p 8080 -s round-robin",
-        "Start proxy on port 8080 with round-robin",
+        "neurolink proxy start -p 8080 -s fill-first",
+        "Start proxy on port 8080 with fill-first",
       )
       .example(
         "neurolink proxy start --health-interval 60",
@@ -515,7 +515,7 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
       // -----------------------------------------------------------------
 
       const strategy =
-        argv.strategy ?? proxyConfig?.routing?.strategy ?? "round-robin";
+        argv.strategy ?? proxyConfig?.routing?.strategy ?? "fill-first";
       let modelRouter: ModelRouter | undefined;
 
       if (proxyConfig?.routing) {
@@ -1768,7 +1768,7 @@ export const proxyInstallCommand: CommandModule = {
           pid: Number(pidMatch[1]),
           port,
           host,
-          strategy: "round-robin",
+          strategy: "fill-first",
           startTime: new Date().toISOString(),
           managedBy: "launchd",
         });
