@@ -30,6 +30,12 @@ import type {
   ProxyState,
 } from "../../lib/types/index.js";
 import type { ModelRouter } from "../../lib/proxy/modelRouter.js";
+import { createRequire } from "node:module";
+
+const _require = createRequire(import.meta.url);
+const { version: PROXY_VERSION } = _require("../../../package.json") as {
+  version: string;
+};
 
 // =============================================================================
 // STATE MANAGEMENT
@@ -253,25 +259,23 @@ function spawnFailOpenGuard(
   }
 
   try {
-    const child = spawn(
-      process.execPath,
-      [
-        entryScript,
-        "proxy",
-        "guard",
-        "--host",
-        host,
-        "--port",
-        String(port),
-        "--parent-pid",
-        String(parentPid),
-        "--quiet",
-      ],
-      {
-        detached: true,
-        stdio: "ignore",
-      },
-    );
+    const args = [
+      entryScript,
+      "proxy",
+      "guard",
+      "--host",
+      host,
+      "--port",
+      String(port),
+      "--parent-pid",
+      String(parentPid),
+      "--quiet",
+    ];
+
+    const child = spawn(process.execPath, args, {
+      detached: true,
+      stdio: "ignore",
+    });
     child.unref();
     return child.pid;
   } catch (error) {
@@ -703,6 +707,7 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
           status: "ok",
           strategy,
           uptime: process.uptime(),
+          version: PROXY_VERSION,
         }),
       );
 
@@ -717,6 +722,7 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
           host,
           strategy,
           uptime: process.uptime(),
+          version: PROXY_VERSION,
           stats: {
             totalRequests: stats.totalRequests,
             totalSuccess: stats.totalSuccess,
@@ -1198,6 +1204,190 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
       return;
     }
 
+    // ---------------------------------------------------------------
+    // Auto-update loop (runs concurrently with the health monitor)
+    // Always on — no flags needed. Hardcoded sensible defaults.
+    // ---------------------------------------------------------------
+    const UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const QUIET_THRESHOLD_MS = 120 * 1000; // 2 minutes of silence
+    const UPDATE_TIMEOUT_MS = 30 * 1000; // 30 seconds to come healthy
+
+    // Get running version from /health endpoint
+    let runningVersion = PROXY_VERSION; // fallback
+    try {
+      const healthResp = await fetch(`http://${host}:${port}/health`);
+      const healthData = (await healthResp.json()) as { version?: string };
+      runningVersion = healthData.version ?? PROXY_VERSION;
+    } catch {
+      /* use fallback */
+    }
+
+    let updateInProgress = false;
+    let updateRestartInProgress = false;
+    const runUpdateCheck = async () => {
+      if (updateInProgress) {
+        return;
+      }
+      updateInProgress = true;
+      try {
+        // Lazy-load update modules so they're only imported at check time
+        const { checkForUpdate } =
+          await import("../../lib/proxy/updateChecker.js");
+        const { checkTrafficQuiet } =
+          await import("../../lib/proxy/quietDetector.js");
+        const {
+          recordCheck,
+          isVersionSuppressed,
+          suppressVersion,
+          recordSuccessfulUpdate,
+        } = await import("../../lib/proxy/updateState.js");
+
+        // 1. Check for update
+        const result = await checkForUpdate(runningVersion);
+        recordCheck(result.latestVersion);
+
+        if (!result.updateAvailable) {
+          return;
+        }
+        if (isVersionSuppressed(result.latestVersion)) {
+          logger.debug(
+            `[guard] version ${result.latestVersion} is suppressed, skipping`,
+          );
+          return;
+        }
+
+        logger.always(
+          `[guard] update available: ${runningVersion} → ${result.latestVersion}`,
+        );
+
+        // 2. Wait for quiet traffic
+        const maxQuietWaitMs = 60 * 60 * 1000; // 1 hour max wait
+        const quietPollMs = 10_000; // check every 10s
+        const quietStart = Date.now();
+
+        while (Date.now() - quietStart < maxQuietWaitMs) {
+          // Bail out if parent proxy died during the wait
+          if (getProcessStatus(parentPid) === "not_running") {
+            logger.always(
+              `[guard] parent process died during quiet-wait, aborting update`,
+            );
+            return;
+          }
+          const quietStatus = checkTrafficQuiet(QUIET_THRESHOLD_MS);
+          if (quietStatus.isQuiet) {
+            break;
+          }
+          logger.debug(
+            `[guard] traffic active (last activity ${Math.round(quietStatus.silenceDurationMs / 1000)}s ago), waiting...`,
+          );
+          await new Promise((r) => setTimeout(r, quietPollMs));
+        }
+
+        const finalQuiet = checkTrafficQuiet(QUIET_THRESHOLD_MS);
+        if (!finalQuiet.isQuiet) {
+          logger.always(
+            `[guard] traffic didn't quiet down within 1 hour, skipping update cycle`,
+          );
+          return;
+        }
+
+        // 3. Install update (validate version string before passing to shell)
+        if (!/^\d+\.\d+\.\d+$/.test(result.latestVersion)) {
+          logger.always(
+            `[guard] WARNING: invalid version format "${result.latestVersion}", skipping`,
+          );
+          return;
+        }
+        logger.always(
+          `[guard] traffic quiet, installing @juspay/neurolink@${result.latestVersion}...`,
+        );
+        const { execFileSync } = await import("node:child_process");
+        try {
+          execFileSync(
+            "pnpm",
+            ["add", "-g", `@juspay/neurolink@${result.latestVersion}`],
+            {
+              timeout: 120_000,
+              stdio: "pipe",
+            },
+          );
+        } catch (installErr) {
+          logger.always(
+            `[guard] WARNING: pnpm install failed: ${installErr instanceof Error ? installErr.message : String(installErr)}`,
+          );
+          suppressVersion(result.latestVersion, "install_failed");
+          return;
+        }
+
+        // 4. Restart via launchctl
+        // Signal the health loop to not exit when it detects
+        // the parent PID is gone — we're intentionally restarting.
+        updateRestartInProgress = true;
+        logger.always(`[guard] restarting proxy via launchctl...`);
+        const uid = process.getuid?.() ?? 501;
+        try {
+          execFileSync(
+            "launchctl",
+            ["kickstart", "-k", `gui/${uid}/com.neurolink.proxy`],
+            {
+              timeout: 10_000,
+              stdio: "pipe",
+            },
+          );
+        } catch {
+          logger.always(`[guard] WARNING: launchctl kickstart failed`);
+          suppressVersion(result.latestVersion, "restart_failed");
+          return;
+        }
+
+        // 5. Wait for healthy restart
+        let healthy = false;
+        const restartStart = Date.now();
+        while (Date.now() - restartStart < UPDATE_TIMEOUT_MS) {
+          await new Promise((r) => setTimeout(r, 2000));
+          try {
+            const resp = await fetch(`http://${host}:${port}/health`, {
+              signal: AbortSignal.timeout(3000),
+            });
+            if (resp.ok) {
+              const data = (await resp.json()) as { version?: string };
+              if (data.version === result.latestVersion) {
+                healthy = true;
+                break;
+              }
+            }
+          } catch {
+            /* retry */
+          }
+        }
+
+        if (healthy) {
+          logger.always(
+            `[guard] update successful: now running ${result.latestVersion}`,
+          );
+          recordSuccessfulUpdate(result.latestVersion);
+          // The new proxy will spawn its own guard. Exit this one.
+          process.exit(0);
+        } else {
+          logger.always(
+            `[guard] WARNING: proxy unhealthy after update to ${result.latestVersion}`,
+          );
+          suppressVersion(result.latestVersion, "unhealthy_after_restart");
+          updateRestartInProgress = false;
+        }
+      } catch (err) {
+        logger.always(
+          `[guard] update check error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      } finally {
+        updateInProgress = false;
+      }
+    };
+
+    // Run first check after a short delay, then on interval
+    setTimeout(runUpdateCheck, 30_000);
+    setInterval(runUpdateCheck, UPDATE_CHECK_INTERVAL_MS);
+
     const startedAt = Date.now();
     let parentStatus = getProcessStatus(parentPid);
     let consecutiveUnhealthy = 0;
@@ -1212,8 +1402,9 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         consecutiveUnhealthy += 1;
       }
 
-      if (parentStatus === "not_running") {
-        // Parent is gone. If endpoint is still healthy, another proxy took over.
+      if (parentStatus === "not_running" && !updateRestartInProgress) {
+        // Parent is gone (and we're not mid-update-restart).
+        // If endpoint is still healthy, another proxy took over.
         if (healthy) {
           return;
         }
