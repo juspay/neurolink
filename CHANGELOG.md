@@ -1,3 +1,9 @@
+## [9.37.0](https://github.com/juspay/neurolink/compare/v9.36.1...v9.37.0) (2026-03-28)
+
+### Features
+
+- **(eval):** add modular evaluation scoring system with 14 scorers, pipelines, and CLI ([b2a863a](https://github.com/juspay/neurolink/commit/b2a863ad9164bf402614dda1746556625a3e620c))
+
 ## [9.36.1](https://github.com/juspay/neurolink/compare/v9.36.0...v9.36.1) (2026-03-28)
 
 ### Bug Fixes
