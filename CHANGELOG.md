@@ -1,3 +1,9 @@
+## [9.38.0](https://github.com/juspay/neurolink/compare/v9.37.0...v9.38.0) (2026-03-28)
+
+### Features
+
+- **(deps):** reduce dependency size — CLI bundle, mediabunny, slim OTEL ([3e41b4b](https://github.com/juspay/neurolink/commit/3e41b4b453d84e724bc38846745e8c8c91a94c4c))
+
 ## [9.37.0](https://github.com/juspay/neurolink/compare/v9.36.1...v9.37.0) (2026-03-28)
 
 ### Features
