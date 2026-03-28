@@ -31,7 +31,7 @@ const npmStubs = [
 const otelPkgs = [
   '@opentelemetry/api','@opentelemetry/resources','@opentelemetry/sdk-trace-node',
   '@opentelemetry/sdk-trace-base','@opentelemetry/sdk-node','@opentelemetry/core',
-  '@opentelemetry/exporter-trace-otlp-http','@opentelemetry/semantic-conventions',
+  '@opentelemetry/exporter-trace-otlp-http','@opentelemetry/semantic-conventions','@opentelemetry/context-async-hooks',
   '@opentelemetry/instrumentation','@opentelemetry/auto-instrumentations-node',
   '@opentelemetry/instrumentation-amqplib','@opentelemetry/instrumentation-aws-lambda',
   '@opentelemetry/instrumentation-aws-sdk','@opentelemetry/instrumentation-http',
@@ -264,6 +264,7 @@ export const isValidSpanId=()=>false;
 export const INVALID_SPAN_CONTEXT={traceId:'0',spanId:'0',traceFlags:0};
 export const baggageEntryMetadataFromString=()=>({});
 export const NodeSDK=class{start(){}shutdown(){return Promise.resolve()}};
+export const BasicTracerProvider=class{constructor(){}register(){}addSpanProcessor(){}getTracer(){return NOOP_TRACER}shutdown(){return Promise.resolve()}};
 export const NodeTracerProvider=class{register(){}addSpanProcessor(){}getTracer(){return NOOP_TRACER}shutdown(){return Promise.resolve()}};
 export const SimpleSpanProcessor=class{onStart(){}onEnd(){}shutdown(){return Promise.resolve()}forceFlush(){return Promise.resolve()}};
 export const BatchSpanProcessor=class{onStart(){}onEnd(){}shutdown(){return Promise.resolve()}forceFlush(){return Promise.resolve()}};
@@ -272,6 +273,7 @@ export const getNodeAutoInstrumentations=()=>[];
 export const registerInstrumentations=()=>{};
 export const resourceFromAttributes=(a)=>({attributes:a||{},merge(){return this}});
 export const LangfuseSpanProcessor=class{onStart(){}onEnd(){}shutdown(){return Promise.resolve()}forceFlush(){return Promise.resolve()}};
+export const AsyncLocalStorageContextManager=class{enable(){return this}disable(){return this}};
 export const ATTR_SERVICE_NAME='service.name';
 export const ATTR_SERVICE_VERSION='service.version';
 export const SEMRESATTRS_SERVICE_NAME='service.name';

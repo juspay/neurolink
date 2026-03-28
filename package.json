@@ -31,6 +31,8 @@
     "build:browser": "node scripts/build-browser.mjs",
     "build:browser:dev": "node scripts/build-browser.mjs --dev",
     "build:cli": "echo 'Building CLI...' && svelte-kit sync && tsc --project tsconfig.cli.json",
+    "build:cli:bundle": "node scripts/bundle-cli.mjs",
+    "build:cli:bundle:minify": "node scripts/bundle-cli.mjs --minify",
     "build:action": "ncc build src/action/index.ts -o action-dist --source-map",
     "build:cli:link": "pnpm run build:cli && pnpm link --global",
     "cli": "node dist/cli/index.js",
@@ -202,11 +204,11 @@
     "@langfuse/otel": "^5.0.1",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@openrouter/ai-sdk-provider": "^2.2.3",
-    "@opentelemetry/auto-instrumentations-node": "^0.71.0",
+    "@opentelemetry/context-async-hooks": "^2.6.1",
     "@opentelemetry/core": "^2.6.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.213.0",
     "@opentelemetry/resources": "^2.6.0",
-    "@opentelemetry/sdk-node": "^0.213.0",
+    "@opentelemetry/sdk-trace-base": "^2.6.0",
     "@opentelemetry/semantic-conventions": "^1.40.0",
     "adm-zip": "^0.5.16",
     "ai": "^6.0.134",
@@ -222,6 +224,7 @@
     "json-schema-to-zod": "^2.7.0",
     "mammoth": "^1.11.0",
     "mathjs": "^15.1.1",
+    "mediabunny": "^1.40.1",
     "minisearch": "^7.2.0",
     "music-metadata": "^11.11.2",
     "nanoid": "^5.1.5",
@@ -244,7 +247,6 @@
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/sdk-trace-base": "^2.0.0",
     "@opentelemetry/sdk-trace-node": "^2.0.0",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
@@ -269,7 +271,6 @@
     "express-rate-limit": "^8.2.1",
     "fastify": "^5.7.2",
     "ffmpeg-static": "^5.3.0",
-    "ffprobe-static": "^3.1.0",
     "koa": "^3.1.1",
     "koa-bodyparser": "^4.4.1",
     "sharp": "^0.34.5"
@@ -385,8 +386,7 @@
       "sqlite3",
       "canvas",
       "ffmpeg-static",
-      "sharp",
-      "ffprobe-static"
+      "sharp"
     ],
     "overrides": {
       "esbuild@<=0.24.2": ">=0.25.0",

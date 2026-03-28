@@ -10,8 +10,9 @@
  * The extracted content is formatted as text + images that can be sent to any
  * AI provider for analysis.
  *
- * Uses fluent-ffmpeg for video processing and sharp for frame resizing.
- * Requires ffmpeg/ffprobe to be available (via ffmpeg-static or system PATH).
+ * Uses mediabunny (pure TypeScript) for metadata extraction, with fluent-ffmpeg
+ * as a fallback for unsupported formats. Requires ffmpeg for keyframe/subtitle
+ * extraction (via ffmpeg-static or system PATH).
  *
  * Key features:
  * - Adaptive keyframe extraction intervals based on video duration
@@ -43,12 +44,11 @@
  * ```
  */
 
-/// <reference path="./ffprobe-static.d.ts" />
-
 import { randomUUID } from "crypto";
 import type { FfprobeData, FfprobeStream } from "fluent-ffmpeg";
 import ffmpegCommand from "fluent-ffmpeg";
 import { createWriteStream, existsSync, promises as fs } from "fs";
+import { Input, FilePathSource, ALL_FORMATS } from "mediabunny";
 import { tmpdir } from "os";
 import { join } from "path";
 import { Readable } from "stream";
@@ -77,8 +77,12 @@ import { logger } from "../../utils/logger.js";
 let ffmpegPathInitialized = false;
 
 /**
- * Initialize ffmpeg and ffprobe binary paths.
- * Tries ffmpeg-static/ffprobe-static first, falls back to system binaries in PATH.
+ * Initialize ffmpeg binary paths.
+ * Tries ffmpeg-static first, falls back to system binary in PATH.
+ *
+ * Note: ffprobe-static has been removed. Metadata probing now uses mediabunny
+ * (pure TypeScript) as the primary method, with ffprobe as a fallback only when
+ * mediabunny cannot handle the format (e.g., AVI, FLV).
  *
  * This is called lazily on the first processFile() invocation so that the module
  * can be imported without side effects.
@@ -103,33 +107,6 @@ async function initFfmpegPaths(): Promise<void> {
     }
   } catch {
     // Use system ffmpeg (already in PATH)
-  }
-
-  // Try ffprobe-static first, fall back to system ffprobe
-  try {
-    const ffprobeStatic: Record<string, unknown> =
-      (await import("ffprobe-static")) as Record<string, unknown>;
-    // Direct path property (CommonJS default)
-    if (
-      typeof ffprobeStatic["path"] === "string" &&
-      existsSync(ffprobeStatic["path"] as string)
-    ) {
-      ffmpegCommand.setFfprobePath(ffprobeStatic["path"] as string);
-    } else if (
-      ffprobeStatic["default"] &&
-      typeof ffprobeStatic["default"] === "object" &&
-      typeof (ffprobeStatic["default"] as Record<string, unknown>)["path"] ===
-        "string"
-    ) {
-      const probePath = (ffprobeStatic["default"] as Record<string, string>)[
-        "path"
-      ];
-      if (existsSync(probePath)) {
-        ffmpegCommand.setFfprobePath(probePath);
-      }
-    }
-  } catch {
-    // Use system ffprobe (already in PATH)
   }
 }
 
@@ -486,27 +463,34 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
           const tempVideoPath = join(tempDir, `input${extension}`);
           await this.writeBufferToFile(buffer, tempVideoPath);
 
-          // Step 4: Extract metadata via ffprobe
-          const probeResult = await this.probeVideo(tempVideoPath);
-          if (!probeResult.success) {
-            const errMsg = probeResult.error || "ffprobe failed";
-            span.setAttribute(ATTR.FILE_SUCCESS, false);
-            span.setAttribute(ATTR.FILE_ERROR, errMsg);
-            logger.warn(
-              `[NEUROLINK] Video skipped/failed: ${filename} — reason: ${errMsg}`,
-            );
-            return {
-              success: false,
-              error: this.createError(FileErrorCode.PROCESSING_FAILED, {
-                fileType: "video",
-                reason: probeResult.error,
-              }),
+          // Step 4: Extract metadata — try mediabunny first (pure TS, no binary),
+          // fall back to ffprobe for formats mediabunny doesn't support (AVI, FLV, WMV).
+          let metadata: ProcessedVideo["metadata"] | undefined;
+          const mediabunnyResult =
+            await this.probeVideoWithMediabunny(tempVideoPath);
+          if (mediabunnyResult.success && mediabunnyResult.data) {
+            metadata = { ...mediabunnyResult.data, fileSize: buffer.length };
+          } else {
+            // Fall back to ffprobe (requires system ffprobe to be available)
+            const probeResult = await this.probeVideo(tempVideoPath);
+            if (probeResult.success && probeResult.data) {
+              metadata = this.buildMetadata(probeResult.data, buffer.length);
+            }
+          }
+
+          if (!metadata) {
+            metadata = {
+              duration: 0,
+              durationFormatted: "unknown",
+              width: 0,
+              height: 0,
+              codec: "unknown",
+              fps: 0,
+              bitrate: 0,
+              subtitleTracks: 0,
+              fileSize: buffer.length,
             };
           }
-          const probeData = probeResult.data as NonNullable<
-            typeof probeResult.data
-          >;
-          const metadata = this.buildMetadata(probeData, buffer.length);
 
           // Record video-specific metadata on span
           span.setAttribute(ATTR.VIDEO_DURATION_SEC, metadata.duration);
@@ -645,6 +629,68 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         }
       });
     });
+  }
+
+  /**
+   * Probe a video file using mediabunny (pure TypeScript, no native binary).
+   * Falls back to ffprobe if mediabunny fails or doesn't support the format.
+   */
+  private async probeVideoWithMediabunny(filePath: string): Promise<{
+    success: boolean;
+    data?: ProcessedVideo["metadata"];
+    error?: string;
+  }> {
+    let input: Input | undefined;
+    try {
+      input = new Input({
+        source: new FilePathSource(filePath),
+        formats: [...ALL_FORMATS],
+      });
+
+      const duration = await input.computeDuration();
+      const videoTrack = await input.getPrimaryVideoTrack();
+      const audioTrack = await input.getPrimaryAudioTrack();
+      const allTracks = await input.getTracks();
+      const subtitleTracks = allTracks.filter(
+        (t) => !t.isVideoTrack() && !t.isAudioTrack(),
+      );
+
+      // Get FPS from video track packet stats (sample a small number of packets)
+      let fps = 0;
+      if (videoTrack) {
+        try {
+          const stats = await videoTrack.computePacketStats(120);
+          fps = Math.round(stats.averagePacketRate * 100) / 100;
+        } catch {
+          // FPS unavailable — non-fatal
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          duration: duration ?? 0,
+          durationFormatted: this.formatDuration(duration ?? 0),
+          width: videoTrack?.displayWidth ?? 0,
+          height: videoTrack?.displayHeight ?? 0,
+          codec: videoTrack?.codec ?? "unknown",
+          fps,
+          bitrate: 0,
+          audioCodec: audioTrack?.codec ?? undefined,
+          audioChannels: audioTrack?.numberOfChannels,
+          audioSampleRate: audioTrack?.sampleRate,
+          subtitleTracks: subtitleTracks.length,
+          fileSize: 0,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `mediabunny failed: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    } finally {
+      input?.dispose();
+    }
   }
 
   /**

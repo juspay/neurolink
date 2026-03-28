@@ -1,5 +1,5 @@
-import { NodeSDK } from "@opentelemetry/sdk-node";
 import {
+  context,
   metrics,
   trace,
   type Meter,
@@ -7,7 +7,11 @@ import {
   type Counter,
   type Histogram,
 } from "@opentelemetry/api";
-import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import {
+  BasicTracerProvider,
+  BatchSpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   ATTR_SERVICE_NAME,
@@ -26,7 +30,7 @@ export type HealthMetrics = {
 
 export class TelemetryService {
   private static instance: TelemetryService;
-  private sdk?: NodeSDK;
+  private tracerProvider?: BasicTracerProvider;
   private enabled: boolean = false;
   private initialized: boolean = false;
   private meter?: Meter;
@@ -83,11 +87,17 @@ export class TelemetryService {
         [ATTR_SERVICE_VERSION]: process.env.OTEL_SERVICE_VERSION || "3.0.1",
       });
 
-      this.sdk = new NodeSDK({
-        resource,
-        // Note: Metric reader configured separately
-        instrumentations: [getNodeAutoInstrumentations()],
+      const exporter = new OTLPTraceExporter({
+        url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+          ? `${process.env.OTEL_EXPORTER_OTLP_ENDPOINT}/v1/traces`
+          : undefined,
       });
+
+      this.tracerProvider = new BasicTracerProvider({
+        resource,
+        spanProcessors: [new BatchSpanProcessor(exporter)],
+      });
+      trace.setGlobalTracerProvider(this.tracerProvider);
 
       this.meter = metrics.getMeter("neurolink-ai");
       this.tracer = trace.getTracer("neurolink-ai");
@@ -157,11 +167,23 @@ export class TelemetryService {
     }
 
     try {
-      await this.sdk?.start();
+      // Register AsyncLocalStorage context manager for proper parent-child
+      // span relationships across async boundaries (required for startActiveSpan)
+      try {
+        const { AsyncLocalStorageContextManager } =
+          await import("@opentelemetry/context-async-hooks");
+        context.setGlobalContextManager(
+          new AsyncLocalStorageContextManager().enable(),
+        );
+      } catch {
+        // context-async-hooks not installed — context propagation
+        // will use the default (noop) manager
+      }
+
       this.initialized = true;
-      logger.debug("[Telemetry] SDK started successfully");
+      logger.debug("[Telemetry] Tracer provider started successfully");
     } catch (error) {
-      logger.error("[Telemetry] Failed to start SDK:", error);
+      logger.error("[Telemetry] Failed to start:", error);
       this.enabled = false;
       this.initialized = false;
     }
@@ -414,11 +436,11 @@ export class TelemetryService {
 
   // Cleanup
   async shutdown(): Promise<void> {
-    if (this.enabled && this.sdk) {
+    if (this.enabled && this.tracerProvider) {
       try {
-        await this.sdk.shutdown();
+        await this.tracerProvider.shutdown();
         this.initialized = false;
-        logger.debug("[Telemetry] SDK shutdown completed");
+        logger.debug("[Telemetry] Tracer provider shutdown completed");
       } catch (error) {
         logger.error("[Telemetry] Error during shutdown:", error);
       }
