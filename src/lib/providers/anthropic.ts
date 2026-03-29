@@ -215,7 +215,32 @@ const detectSubscriptionTier = (
 const detectAuthMethod = (
   oauthToken: OAuthToken | null,
 ): AnthropicAuthMethod => {
-  // OAuth takes precedence if available
+  // Explicit env var takes highest precedence — allows forcing api_key mode
+  // even when OAuth credentials exist (e.g., when using a proxy that handles auth)
+  const explicit = process.env.ANTHROPIC_AUTH_METHOD?.toLowerCase();
+  if (explicit === "api_key" || explicit === "apikey") {
+    logger.debug(
+      "[detectAuthMethod] Forced to api_key by ANTHROPIC_AUTH_METHOD env var",
+    );
+    return "api_key";
+  }
+  if (explicit === "oauth") {
+    if (oauthToken) {
+      logger.debug(
+        "[detectAuthMethod] Forced to oauth by ANTHROPIC_AUTH_METHOD env var",
+      );
+      return "oauth";
+    }
+    logger.warn(
+      "[detectAuthMethod] ANTHROPIC_AUTH_METHOD=oauth but no OAuth token found; falling through to auto-detection",
+    );
+  } else if (explicit) {
+    logger.warn(
+      "[detectAuthMethod] Unrecognized ANTHROPIC_AUTH_METHOD value; falling through to auto-detection",
+      { value: explicit },
+    );
+  }
+  // Auto-detect: OAuth takes precedence if available
   const method: AnthropicAuthMethod = oauthToken ? "oauth" : "api_key";
   logger.debug("[detectAuthMethod] Auth method resolved", {
     method,
@@ -290,13 +315,24 @@ export class AnthropicProvider extends BaseProvider {
   ) {
     // Pre-compute effective model with tier validation before calling super
     const oauthToken = config?.oauthToken ?? getOAuthToken();
+    // Resolve auth method FIRST so that tier detection uses the chosen method.
+    // If ANTHROPIC_AUTH_METHOD=api_key wins over an existing OAuth token, the
+    // tier must reflect api_key mode (full model access) rather than the OAuth
+    // token's subscription level.
+    const authMethod = config?.authMethod ?? detectAuthMethod(oauthToken);
     const subscriptionTier =
-      config?.subscriptionTier ?? detectSubscriptionTier(oauthToken);
+      config?.subscriptionTier ??
+      (authMethod === "oauth" ? detectSubscriptionTier(oauthToken) : "api");
     const targetModel = modelName || getDefaultAnthropicModel();
 
-    // Determine effective model based on tier access
+    // Determine effective model based on tier access.
+    // Skip tier validation when a proxy is in use (ANTHROPIC_BASE_URL is set)
+    // — the proxy handles model access and auth, so the SDK should pass
+    // the requested model through without downgrading.
     let effectiveModel = targetModel;
+    const usingProxy = !!process.env.ANTHROPIC_BASE_URL;
     if (
+      !usingProxy &&
       subscriptionTier !== "api" &&
       !isModelAvailableForTier(targetModel, subscriptionTier)
     ) {
@@ -324,8 +360,8 @@ export class AnthropicProvider extends BaseProvider {
     this.oauthToken = oauthToken;
     this.subscriptionTier = subscriptionTier;
 
-    // Determine auth method - config takes precedence, then auto-detect
-    this.authMethod = config?.authMethod ?? detectAuthMethod(this.oauthToken);
+    // Use the auth method already resolved above (before tier computation)
+    this.authMethod = authMethod;
 
     // Build headers based on auth method and subscription tier
     const headers: Record<string, string> = this.getAuthHeaders();
@@ -474,6 +510,11 @@ export class AnthropicProvider extends BaseProvider {
    * ```
    */
   public validateModelAccess(model: string): boolean {
+    // Proxy mode: bypass tier validation entirely — the proxy handles model access
+    if (process.env.ANTHROPIC_BASE_URL) {
+      return true;
+    }
+
     // API tier has access to all models
     if (this.subscriptionTier === "api") {
       return true;

@@ -10,6 +10,9 @@
  * Without a router, models are passed through to the Anthropic provider.
  */
 
+import { readFile, access } from "node:fs/promises";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import type { RouteGroup, ServerContext } from "../types.js";
 import type { ModelRouter } from "../../proxy/modelRouter.js";
 import {
@@ -127,6 +130,163 @@ function advancePrimaryIfCurrent(
 }
 
 // ---------------------------------------------------------------------------
+// OAuth polyfill helpers (extracted to reduce block nesting)
+// ---------------------------------------------------------------------------
+
+const snapshotCache = new Map<
+  string,
+  { headers: Record<string, string>; loadedAt: number }
+>();
+const SNAPSHOT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Load a header snapshot captured from a real Claude Code session and apply
+ * any headers the client didn't send.  This makes non-Claude-Code requests
+ * (e.g. from Curator, custom apps) appear identical to Claude Code.
+ */
+async function applyHeaderSnapshot(
+  headers: Record<string, string>,
+  accountLabel: string,
+): Promise<void> {
+  try {
+    // Sanitize accountLabel to prevent directory traversal
+    const safeLabel = accountLabel.replace(/[^a-zA-Z0-9._@-]/g, "_");
+
+    // Check cache first
+    const cached = snapshotCache.get(safeLabel);
+    if (cached && Date.now() - cached.loadedAt < SNAPSHOT_CACHE_TTL_MS) {
+      for (const [sk, sv] of Object.entries(cached.headers)) {
+        const lower = sk.toLowerCase();
+        if (
+          typeof sv === "string" &&
+          !headers[lower] &&
+          !BLOCKED_UPSTREAM_HEADERS.has(lower) &&
+          lower !== "authorization" &&
+          lower !== "x-api-key"
+        ) {
+          headers[lower] = sv;
+        }
+      }
+      return;
+    }
+
+    const snapshotPath = join(
+      homedir(),
+      ".neurolink",
+      "header-snapshots",
+      `anthropic_${safeLabel}.json`,
+    );
+
+    try {
+      await access(snapshotPath);
+    } catch {
+      return;
+    }
+
+    const snapshot = JSON.parse(await readFile(snapshotPath, "utf8")) as {
+      headers?: Record<string, string>;
+    };
+    if (!snapshot.headers) {
+      return;
+    }
+
+    // Store in cache
+    snapshotCache.set(safeLabel, {
+      headers: snapshot.headers,
+      loadedAt: Date.now(),
+    });
+
+    for (const [sk, sv] of Object.entries(snapshot.headers)) {
+      const lower = sk.toLowerCase();
+      if (
+        typeof sv === "string" &&
+        !headers[lower] &&
+        !BLOCKED_UPSTREAM_HEADERS.has(lower) &&
+        lower !== "authorization" &&
+        lower !== "x-api-key"
+      ) {
+        headers[lower] = sv;
+      }
+    }
+  } catch {
+    // Snapshot missing or corrupt — continue without it
+  }
+}
+
+/**
+ * Polyfill the request body for OAuth accounts.
+ * Claude Code injects a billing header, agent block, and metadata.user_id
+ * into the body.  Non-CC clients (Curator, custom apps) don't send these —
+ * Anthropic rejects without them.
+ */
+function polyfillOAuthBody(bodyStr: string, accountToken: string): string {
+  try {
+    const parsed = JSON.parse(bodyStr);
+
+    // Billing header block (required by Anthropic for OAuth)
+    const randomHex = Math.random().toString(16).substring(2, 5);
+    const billingBlock = {
+      type: "text",
+      text: `x-anthropic-billing-header: cc_version=2.1.86.${randomHex}; cc_entrypoint=cli; cch=proxy;`,
+    };
+    const agentBlock = {
+      type: "text",
+      text: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+    };
+
+    // Normalise system to array and prepend billing + agent
+    if (parsed.system) {
+      if (typeof parsed.system === "string") {
+        parsed.system = [{ type: "text", text: parsed.system }];
+      }
+      if (Array.isArray(parsed.system)) {
+        const hasBilling = parsed.system.some(
+          (b: { text?: string }) =>
+            typeof b.text === "string" &&
+            b.text.includes("x-anthropic-billing-header"),
+        );
+        const hasAgent = parsed.system.some(
+          (b: { text?: string }) =>
+            typeof b.text === "string" && b.text.includes("Claude Agent SDK"),
+        );
+        const toInsert = [];
+        if (!hasBilling) {
+          toInsert.push(billingBlock);
+        }
+        if (!hasAgent) {
+          toInsert.push(agentBlock);
+        }
+        if (toInsert.length > 0) {
+          parsed.system = [...toInsert, ...parsed.system];
+        }
+      }
+    } else {
+      parsed.system = [billingBlock, agentBlock];
+    }
+
+    // Inject metadata.user_id (required for OAuth)
+    if (!parsed.metadata?.user_id) {
+      const tokenPrefix = accountToken.substring(
+        0,
+        Math.min(20, accountToken.length),
+      );
+      const hash = Array.from(new TextEncoder().encode(tokenPrefix))
+        .reduce((a, b) => ((a << 5) - a + b) | 0, 0)
+        .toString(16)
+        .replace("-", "");
+      parsed.metadata = {
+        ...parsed.metadata,
+        user_id: `proxy-${hash}`,
+      };
+    }
+
+    return JSON.stringify(parsed);
+  } catch {
+    return bodyStr; // JSON parse failed — use original body
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Legacy credential refresh helper (extracted to reduce block nesting)
 // ---------------------------------------------------------------------------
 
@@ -229,7 +389,10 @@ export function createClaudeProxyRoutes(
           const body = ctx.body as ClaudeRequest | undefined;
 
           // 1. Validate
-          if (!body?.model || !body?.messages) {
+          if (
+            typeof body?.model !== "string" ||
+            !Array.isArray(body?.messages)
+          ) {
             return buildClaudeError(
               400,
               "Missing required fields: model, messages",
@@ -237,6 +400,17 @@ export function createClaudeProxyRoutes(
           }
 
           // 2. Resolve model via router (or pass through to anthropic)
+          // Guard: without a model router, only Claude models are allowed.
+          const modelLower = body.model.toLowerCase();
+          if (!modelRouter && !modelLower.startsWith("claude-")) {
+            return buildClaudeError(
+              404,
+              `Model '${body.model}' is not an Anthropic model. ` +
+                `The proxy only supports Claude models. ` +
+                `Use a model router to route non-Claude models to other providers.`,
+            );
+          }
+
           const route = modelRouter?.resolve(body.model) ?? {
             provider: "anthropic",
             model: body.model,
@@ -244,8 +418,14 @@ export function createClaudeProxyRoutes(
 
           try {
             // 3. Route based on target provider
-            const isClaudeTarget =
-              route.provider === "anthropic" || route.provider === null;
+            if (route.provider === null) {
+              return buildClaudeError(
+                404,
+                `Model '${body.model}' is not a Claude model. ` +
+                  `Use a model router to route it to another provider.`,
+              );
+            }
+            const isClaudeTarget = route.provider === "anthropic";
 
             if (isClaudeTarget) {
               // ─── PASSTHROUGH MODE (Claude → Claude) ───────────────
@@ -590,27 +770,58 @@ export function createClaudeProxyRoutes(
                 headers["content-type"] = "application/json";
                 if (isOAuth) {
                   headers["authorization"] = `Bearer ${account.token}`;
+                  delete headers["x-api-key"];
                 } else {
                   headers["x-api-key"] = account.token;
                   delete headers["authorization"];
                 }
 
-                // Defaults: only set when client didn't send them
+                // Apply header snapshot defaults for OAuth accounts
+                if (isOAuth) {
+                  await applyHeaderSnapshot(headers, account.label);
+                }
+
+                // Hard defaults for anything still missing
                 if (!headers["user-agent"]) {
-                  headers["user-agent"] = "claude-cli/2.1.80 (external, cli)";
+                  headers["user-agent"] = "claude-cli/2.1.86 (external, cli)";
                 }
                 if (!headers["anthropic-version"]) {
                   headers["anthropic-version"] = "2023-06-01";
                 }
-
-                // Ensure oauth beta is always present in the beta list
-                const existingBetas = headers["anthropic-beta"] ?? "";
-                if (!existingBetas) {
-                  headers["anthropic-beta"] = "oauth-2025-04-20";
-                } else if (!existingBetas.includes("oauth")) {
-                  headers["anthropic-beta"] =
-                    `${existingBetas},oauth-2025-04-20`;
+                if (!headers["anthropic-dangerous-direct-browser-access"]) {
+                  headers["anthropic-dangerous-direct-browser-access"] = "true";
                 }
+
+                // Manage anthropic-beta header based on auth type.
+                // OAuth requires specific betas; API-key must NOT carry them.
+                if (isOAuth) {
+                  const existing = new Set(
+                    (headers["anthropic-beta"] ?? "")
+                      .split(",")
+                      .map((s: string) => s.trim())
+                      .filter(Boolean),
+                  );
+                  existing.add("oauth-2025-04-20");
+                  existing.add("claude-code-20250219");
+                  headers["anthropic-beta"] = [...existing].join(",");
+                } else {
+                  // Strip OAuth-specific betas that may have leaked from client
+                  const cleaned = (headers["anthropic-beta"] ?? "")
+                    .split(",")
+                    .map((s: string) => s.trim())
+                    .filter((s: string) => s && s !== "oauth-2025-04-20")
+                    .join(",");
+                  if (cleaned) {
+                    headers["anthropic-beta"] = cleaned;
+                  } else {
+                    delete headers["anthropic-beta"];
+                  }
+                }
+
+                // Polyfill request body for OAuth accounts
+                const buildUpstreamBody = () =>
+                  isOAuth ? polyfillOAuthBody(bodyStr, account.token) : bodyStr;
+                const finalBodyStr = buildUpstreamBody();
 
                 logger.always(
                   `[proxy] → account=${account.label} (${account.type})`,
@@ -625,7 +836,7 @@ export function createClaudeProxyRoutes(
                   response = await fetch(url, {
                     method: "POST",
                     headers,
-                    body: bodyStr,
+                    body: finalBodyStr,
                     signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
                   });
                 } catch (fetchErr) {
@@ -659,6 +870,7 @@ export function createClaudeProxyRoutes(
                       cooldownMs = seconds * 1000;
                     } else {
                       const date = new Date(retryAfter);
+                      // eslint-disable-next-line max-depth
                       if (!Number.isNaN(date.getTime())) {
                         cooldownMs = Math.max(
                           date.getTime() - Date.now(),
@@ -722,6 +934,7 @@ export function createClaudeProxyRoutes(
                       logger.always(
                         `[proxy] ⚠ account=${account.label} refresh failed on attempt ${authRetry + 1}`,
                       );
+                      // eslint-disable-next-line max-depth
                       if (
                         accountState.consecutiveRefreshFailures >=
                         MAX_CONSECUTIVE_REFRESH_FAILURES
@@ -730,6 +943,7 @@ export function createClaudeProxyRoutes(
                         authFailureMessage = formatReauthMessage(account.label);
                         break;
                       }
+                      // eslint-disable-next-line max-depth
                       if (authRetry < MAX_AUTH_RETRIES - 1) {
                         await sleep(2000);
                       }
@@ -745,9 +959,10 @@ export function createClaudeProxyRoutes(
                       const retryResp = await fetch(url, {
                         method: "POST",
                         headers,
-                        body: bodyStr,
+                        body: buildUpstreamBody(),
                         signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
                       });
+                      // eslint-disable-next-line max-depth
                       if (retryResp.ok) {
                         authRetrySucceeded = true;
                         accountState.consecutiveRefreshFailures = 0;
@@ -859,6 +1074,7 @@ export function createClaudeProxyRoutes(
                       );
                       recordError(account.label, account.type, retryStatus);
 
+                      // eslint-disable-next-line max-depth
                       if (retryStatus === 429) {
                         sawRateLimit = true;
                         const retryAfter = retryResp.headers.get("retry-after");
@@ -881,6 +1097,7 @@ export function createClaudeProxyRoutes(
                         break;
                       }
 
+                      // eslint-disable-next-line max-depth
                       if (
                         retryStatus === 401 ||
                         retryStatus === 402 ||
@@ -893,6 +1110,7 @@ export function createClaudeProxyRoutes(
                         continue;
                       }
 
+                      // eslint-disable-next-line max-depth
                       if (isTransientHttpFailure(retryStatus, retryBody)) {
                         // Decision 8: No cooldown for transient errors — rotate immediately
                         sawTransientFailure = true;
@@ -904,6 +1122,7 @@ export function createClaudeProxyRoutes(
                         "api_error",
                         summarizeErrorMessage(retryBody),
                       );
+                      // eslint-disable-next-line max-depth
                       try {
                         return JSON.parse(retryBody);
                       } catch {
@@ -925,7 +1144,9 @@ export function createClaudeProxyRoutes(
                   }
 
                   if (!authRetrySucceeded) {
+                    // eslint-disable-next-line max-depth
                     if (!accountState.permanentlyDisabled) {
+                      // eslint-disable-next-line max-depth
                       if (
                         !accountState.coolingUntil ||
                         accountState.coolingUntil <= Date.now()
@@ -1271,6 +1492,7 @@ export function createClaudeProxyRoutes(
                       "anthropic-ratelimit-tokens-limit",
                     ]) {
                       const val = response.headers.get(h);
+                      // eslint-disable-next-line max-depth
                       if (val) {
                         responseHeaders[h] = val;
                       }

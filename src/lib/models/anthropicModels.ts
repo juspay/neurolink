@@ -41,11 +41,17 @@ export enum AnthropicModel {
   // Claude Sonnet 4 (Latest Sonnet)
   CLAUDE_SONNET_4 = "claude-sonnet-4-20250514",
 
+  // Claude Sonnet 4.6
+  CLAUDE_SONNET_4_6 = "claude-sonnet-4-6",
+
   // Claude 3 Opus (Legacy flagship)
   CLAUDE_3_OPUS = "claude-3-opus-20240229",
 
   // Claude Opus 4 (Latest flagship)
   CLAUDE_OPUS_4 = "claude-opus-4-20250514",
+
+  // Claude Opus 4.6
+  CLAUDE_OPUS_4_6 = "claude-opus-4-6",
 }
 
 // ============================================================================
@@ -74,6 +80,7 @@ export const MODEL_TIER_ACCESS: Record<ClaudeSubscriptionTier, string[]> = {
     AnthropicModel.CLAUDE_3_5_SONNET,
     AnthropicModel.CLAUDE_3_5_SONNET_V2,
     AnthropicModel.CLAUDE_SONNET_4,
+    AnthropicModel.CLAUDE_SONNET_4_6,
   ],
 
   // Max tier: All models including Opus
@@ -196,6 +203,34 @@ export const MODEL_METADATA: Record<string, AnthropicModelMetadata> = {
     deprecated: false,
     family: "opus",
     description: "Latest flagship model with advanced reasoning",
+  },
+
+  // Claude Sonnet 4.6
+  [AnthropicModel.CLAUDE_SONNET_4_6]: {
+    displayName: "Claude Sonnet 4.6",
+    contextWindow: 1000000,
+    maxOutputTokens: 64000,
+    supportsVision: true,
+    supportsExtendedThinking: true,
+    supportsToolUse: true,
+    supportsStreaming: true,
+    deprecated: false,
+    family: "sonnet",
+    description: "Claude 4.6 Sonnet with 1M context window",
+  },
+
+  // Claude Opus 4.6
+  [AnthropicModel.CLAUDE_OPUS_4_6]: {
+    displayName: "Claude Opus 4.6",
+    contextWindow: 1000000,
+    maxOutputTokens: 64000,
+    supportsVision: true,
+    supportsExtendedThinking: true,
+    supportsToolUse: true,
+    supportsStreaming: true,
+    deprecated: false,
+    family: "opus",
+    description: "Claude 4.6 Opus flagship with 1M context window",
   },
 };
 
@@ -492,11 +527,16 @@ export function getLatestModelsByFamily(): Record<
   const familyPriority: Record<AnthropicModelMetadata["family"], string[]> = {
     haiku: [AnthropicModel.CLAUDE_3_5_HAIKU, AnthropicModel.CLAUDE_3_HAIKU],
     sonnet: [
+      AnthropicModel.CLAUDE_SONNET_4_6,
       AnthropicModel.CLAUDE_SONNET_4,
       AnthropicModel.CLAUDE_3_5_SONNET_V2,
       AnthropicModel.CLAUDE_3_5_SONNET,
     ],
-    opus: [AnthropicModel.CLAUDE_OPUS_4, AnthropicModel.CLAUDE_3_OPUS],
+    opus: [
+      AnthropicModel.CLAUDE_OPUS_4_6,
+      AnthropicModel.CLAUDE_OPUS_4,
+      AnthropicModel.CLAUDE_3_OPUS,
+    ],
   };
 
   for (const family of Object.keys(familyPriority) as Array<
