@@ -749,3 +749,8 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 ---
 
 NeuroLink is built with ❤️ by Juspay. Contributions, questions, and production feedback are always welcome.
+
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/juspay-neurolink).
+
