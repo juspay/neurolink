@@ -352,7 +352,21 @@ export type GenerateOptions = {
   // Domain-aware evaluation
   evaluationDomain?: string;
   toolUsageContext?: string;
+  /**
+   * @deprecated Use `conversationMessages` instead. This field uses a simple `{role, content}` shape
+   * that is not consumed by `buildMessagesArray()` — messages passed here will NOT reach the AI model
+   * as proper conversation turns. `conversationMessages` uses the full `ChatMessage` type and is
+   * correctly wired through the entire generate pipeline.
+   */
   conversationHistory?: Array<{ role: string; content: string }>;
+
+  /**
+   * Previous conversation as a ChatMessage array.
+   * Messages are injected as proper multi-turn conversation history before the current prompt,
+   * so the AI model sees them as real prior exchanges (not text dumped into the prompt).
+   * Used by task continuation mode and available to external callers.
+   */
+  conversationMessages?: ChatMessage[];
 
   // Factory configuration support
   factoryConfig?: {

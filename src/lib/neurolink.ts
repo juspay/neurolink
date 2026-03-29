@@ -225,6 +225,9 @@ import { resolveModel } from "./utils/modelAliasResolver.js";
 import { getWorkflow } from "./workflow/core/workflowRegistry.js";
 import { runWorkflow } from "./workflow/core/workflowRunner.js";
 import type { WorkflowConfig } from "./workflow/types.js";
+import { TaskManager } from "./tasks/taskManager.js";
+import { createTaskTools } from "./tasks/tools/taskTools.js";
+import type { TaskManagerConfig } from "./types/taskTypes.js";
 
 /**
  * NL-002: Classify MCP error messages into categories for AI disambiguation.
@@ -449,6 +452,10 @@ export class NeuroLink {
   private mcpInitPromise: Promise<void> | null = null;
   private emitter =
     new EventEmitter() as unknown as TypedEventEmitter<NeuroLinkEvents>;
+
+  // TaskManager — lazy-initialized on first access via `this.tasks`
+  private _taskManager?: TaskManager;
+  private _taskManagerConfig?: TaskManagerConfig;
 
   private toolRegistry: MCPToolRegistry;
 
@@ -825,6 +832,39 @@ export class NeuroLink {
     if (config?.auth) {
       this.pendingAuthConfig = config.auth;
     }
+
+    // Store task config for lazy initialization
+    this._taskManagerConfig = config?.tasks;
+
+    // Eagerly create TaskManager and register tools if config is provided
+    if (this._taskManagerConfig) {
+      this._taskManager = new TaskManager(this, this._taskManagerConfig);
+      this._taskManager.setEmitter(
+        this.emitter as unknown as {
+          emit(event: string, ...args: unknown[]): boolean;
+        },
+      );
+      this.registerTaskTools(this._taskManager);
+    }
+  }
+
+  /**
+   * TaskManager — scheduled and self-running tasks.
+   * Lazy-initialized on first access. Configurable via constructor `tasks` option.
+   * The actual async initialization (Redis connect, backend start) happens
+   * lazily inside TaskManager on first operation.
+   */
+  get tasks(): TaskManager {
+    if (!this._taskManager) {
+      this._taskManager = new TaskManager(this, this._taskManagerConfig);
+      this._taskManager.setEmitter(
+        this.emitter as unknown as {
+          emit(event: string, ...args: unknown[]): boolean;
+        },
+      );
+      this.registerTaskTools(this._taskManager);
+    }
+    return this._taskManager;
   }
 
   /**
@@ -1161,6 +1201,62 @@ export class NeuroLink {
         `[NeuroLink] Registered ${Object.keys(fileTools).length} file reference tools`,
       );
     });
+  }
+
+  /**
+   * Register task management tools bound to a TaskManager instance.
+   * Follows the same factory + registry pattern as registerFileTools().
+   * Called when TaskManager is created (eagerly or lazily via the `tasks` getter).
+   */
+  private registerTaskTools(manager: TaskManager): void {
+    const taskTools = createTaskTools(manager);
+
+    for (const [toolName, toolDef] of Object.entries(taskTools)) {
+      const toolId = `direct.${toolName}`;
+      const toolInfo: ToolInfo = {
+        name: toolName,
+        description: toolDef.description || `Task tool: ${toolName}`,
+        inputSchema: {},
+        serverId: "direct",
+        category: "built-in" as MCPServerCategory,
+      };
+
+      // registerTool is async but its core logic is synchronous (Map.set).
+      // We fire-and-forget here but tools are available immediately after
+      // the synchronous validation + map insertion completes.
+      void this.toolRegistry.registerTool(toolId, toolInfo, {
+        execute: async (params: unknown) => {
+          try {
+            const result = await (
+              toolDef.execute as (
+                params: unknown,
+                ctx: unknown,
+              ) => Promise<unknown>
+            )(params, {
+              toolCallId: "task-tool",
+              messages: [],
+            });
+            return {
+              success: true,
+              data: result,
+              metadata: { toolName, serverId: "direct", executionTime: 0 },
+            };
+          } catch (error) {
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+              metadata: { toolName, serverId: "direct", executionTime: 0 },
+            };
+          }
+        },
+        description: toolDef.description,
+        inputSchema: {},
+      });
+    }
+
+    logger.debug(
+      `[NeuroLink] Registered ${Object.keys(taskTools).length} task tools`,
+    );
   }
 
   /**
@@ -2669,6 +2765,21 @@ Current user's request: ${currentInput}`;
         }
       }
 
+      // Shutdown TaskManager
+      if (this._taskManager) {
+        try {
+          await withTimeout(
+            this._taskManager.shutdown(),
+            5000,
+            new Error("TaskManager shutdown timed out"),
+          );
+        } catch (error) {
+          logger.warn("[NeuroLink] TaskManager shutdown error:", error);
+        } finally {
+          this._taskManager = undefined;
+        }
+      }
+
       // Close conversation memory manager (release Redis connections, etc.)
       if (this.conversationMemory?.close) {
         try {
@@ -3469,6 +3580,8 @@ Current user's request: ${currentInput}`;
                     abortSignal: options.abortSignal,
                     skipToolPromptInjection: options.skipToolPromptInjection,
                     middleware: options.middleware,
+                    // Pass through conversation messages for task continuation and external callers
+                    conversationMessages: options.conversationMessages,
                   };
 
                   // Auto-map top-level sessionId/userId to context for convenience
@@ -3801,9 +3914,19 @@ Current user's request: ${currentInput}`;
     // Execute workflow
     const workflowResult = await runWorkflow(workflowConfig, {
       prompt: options.input.text,
-      conversationHistory: options.conversationHistory as
-        | Array<{ role: "user" | "assistant"; content: string }>
-        | undefined,
+      conversationHistory:
+        options.conversationMessages
+          ?.filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({
+            role: m.role as "user" | "assistant",
+            content:
+              typeof m.content === "string"
+                ? m.content
+                : JSON.stringify(m.content),
+          })) ??
+        (options.conversationHistory as
+          | Array<{ role: "user" | "assistant"; content: string }>
+          | undefined),
       timeout: options.timeout as number | undefined,
       verbose: false,
       metadata: options.context as Record<string, JsonValue> | undefined,
@@ -3911,9 +4034,19 @@ Current user's request: ${currentInput}`;
     // Execute workflow with progressive streaming
     const workflowStream = runWorkflowWithStreaming(workflowConfig, {
       prompt: options.input.text,
-      conversationHistory: options.conversationHistory as
-        | Array<{ role: "user" | "assistant"; content: string }>
-        | undefined,
+      conversationHistory:
+        options.conversationMessages
+          ?.filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({
+            role: m.role as "user" | "assistant",
+            content:
+              typeof m.content === "string"
+                ? m.content
+                : JSON.stringify(m.content),
+          })) ??
+        (options.conversationHistory as
+          | Array<{ role: "user" | "assistant"; content: string }>
+          | undefined),
       timeout: options.timeout as number | undefined,
       verbose: false,
       metadata: options.context as Record<string, JsonValue> | undefined,
@@ -7149,6 +7282,7 @@ Current user's request: ${currentInput}`;
       model: options.model,
       temperature: options.temperature,
       maxTokens: options.maxTokens,
+      conversationMessages: options.conversationMessages,
     });
 
     // Create a wrapper around the fallback stream that accumulates content
@@ -11727,6 +11861,22 @@ Current user's request: ${currentInput}`;
             : new Error(`Cache cleanup error: ${String(error)}`);
         cleanupErrors.push(err);
         logger.warn("[NeuroLink] Error clearing caches:", error);
+      }
+
+      // 5b. Shutdown TaskManager
+      if (this._taskManager) {
+        try {
+          logger.debug("[NeuroLink] Shutting down TaskManager...");
+          await withTimeout(
+            this._taskManager.shutdown(),
+            5000,
+            new Error("TaskManager shutdown timed out"),
+          );
+        } catch (error) {
+          logger.warn("[NeuroLink] TaskManager shutdown error:", error);
+        } finally {
+          this._taskManager = undefined;
+        }
       }
 
       // 6. Reset initialization flags

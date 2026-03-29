@@ -22,6 +22,7 @@ import {
   proxyUninstallCommand,
 } from "./commands/proxy.js";
 import { EvaluateCommandFactory } from "./commands/evaluate.js";
+import { TaskCommandFactory } from "./commands/task.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -257,5 +258,8 @@ export function initializeCliParser() {
 
       // Evaluate Command Group - Using EvaluateCommandFactory
       .command(EvaluateCommandFactory.createEvaluateCommand())
+
+      // Task Command Group - Scheduled and self-running tasks
+      .command(TaskCommandFactory.createTaskCommands())
   ); // Close the main return statement
 }

@@ -24,7 +24,7 @@ const npmStubs = [
   'ajv','ajv-formats','debug','iconv-lite','inherits','ip-address','pkce-challenge','qs',
   'which','pdf-to-img','express-rate-limit','@hono/node-server','powershell-utils',
   'wsl-utils','default-browser','default-browser-id','run-applescript','open',
-  '@langfuse/langfuse','undici',
+  '@langfuse/langfuse','undici','bullmq','croner','ioredis',
 ];
 
 // OTel packages
@@ -107,6 +107,7 @@ export const stat = noopAsync;
 export const readdir = noopAsync;
 export const unlink = noopAsync;
 export const access = noopAsync;
+export const rename = noopAsync;
 export const rm = noopAsync;
 export const spawn = () => ({on:noop,stdout:{on:noop},stderr:{on:noop},kill:noop});
 export const exec = (c,cb) => cb?.(null,'','');
@@ -221,6 +222,8 @@ export const {SageMakerRuntimeClient,InvokeEndpointCommand,InvokeEndpointWithRes
 export const {GoogleAuth,VertexAI,TextToSpeechClient}=mod;
 export const {Hippocampus,HippocampusConfig}=mod;
 export const {createClient}=mod;
+export const {Queue,Worker,Job,QueueScheduler,FlowProducer}=mod;
+export const {Cron}=mod;
 export const {parseBuffer,selectCover}=mod;
 export const {Hono}=mod;
 export const {cors,HTTPException,logger,secureHeaders,streamSSE,timeout}=mod;

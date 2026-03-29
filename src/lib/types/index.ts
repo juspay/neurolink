@@ -473,3 +473,24 @@ export type {
   AuthUserManager,
   AuthLifecycle,
 } from "./authTypes.js";
+
+// Task Manager types
+export type {
+  Task,
+  TaskDefinition,
+  TaskSchedule,
+  TaskScheduleType,
+  CronSchedule,
+  IntervalSchedule,
+  OnceSchedule,
+  TaskExecutionMode,
+  TaskStatus,
+  TaskRunResult,
+  TaskRunError,
+  TaskStore,
+  TaskBackend,
+  TaskBackendName,
+  TaskManagerConfig,
+  TaskRetentionConfig,
+  ConversationEntry as TaskConversationEntry,
+} from "./taskTypes.js";

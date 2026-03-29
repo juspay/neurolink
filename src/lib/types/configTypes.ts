@@ -4,6 +4,7 @@
  */
 
 import { MCPToolRegistry } from "../mcp/toolRegistry.js";
+import type { TaskManagerConfig } from "./taskTypes.js";
 import type { HITLConfig } from "../types/hitlTypes.js";
 import type { ConversationMemoryConfig } from "./conversation.js";
 import type { ObservabilityConfig } from "./observability.js";
@@ -54,6 +55,8 @@ export type NeurolinkConstructorConfig = {
   mcp?: MCPEnhancementsConfig;
   /** Authentication provider configuration */
   auth?: NeuroLinkAuthConfig;
+  /** TaskManager configuration (scheduled and self-running tasks) */
+  tasks?: TaskManagerConfig;
 };
 
 /**
