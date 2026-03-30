@@ -1,3 +1,9 @@
+## [9.40.0](https://github.com/juspay/neurolink/compare/v9.39.0...v9.40.0) (2026-03-30)
+
+### Features
+
+- **(memory):** implement multi-user memory retrieval and storage with customizable prompts ([b1f2723](https://github.com/juspay/neurolink/commit/b1f2723f3efe0c99a63cddfff1885e01d5c82575))
+
 ## [9.39.0](https://github.com/juspay/neurolink/compare/v9.38.0...v9.39.0) (2026-03-29)
 
 ### Features
