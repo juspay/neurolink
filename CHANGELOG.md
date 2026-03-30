@@ -1,3 +1,9 @@
+## [9.41.0](https://github.com/juspay/neurolink/compare/v9.40.0...v9.41.0) (2026-03-30)
+
+### Features
+
+- **(tasks):** add TaskManager — scheduled and self-running AI tasks ([773a090](https://github.com/juspay/neurolink/commit/773a090bcabb5c5a3dc132afa079494a121c933e))
+
 ## [9.40.0](https://github.com/juspay/neurolink/compare/v9.39.0...v9.40.0) (2026-03-30)
 
 ### Features
